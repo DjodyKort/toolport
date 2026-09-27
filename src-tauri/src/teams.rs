@@ -445,7 +445,7 @@ pub struct SharePreviewField {
 fn preview_endpoint(value: &str) -> String {
     let safe = crate::redact_url_userinfo(value);
     let Ok(mut url) = url::Url::parse(&safe) else {
-        return safe;
+        return "Invalid endpoint (hidden)".to_string();
     };
     if !url
         .query_pairs()
@@ -5167,6 +5167,32 @@ mod tests {
             push_body(&exported, 7),
             json!({"config": exported, "base_version": 7})
         );
+    }
+
+    #[test]
+    fn share_preview_hides_unparseable_endpoints() {
+        for endpoint in [
+            "https://example.test:notaport/mcp?token=SYNTHETIC_QUERY_SECRET",
+            "https://[invalid/mcp?password=SYNTHETIC_QUERY_SECRET",
+        ] {
+            let preview = build_push_preview(
+                7,
+                &json!([]),
+                &json!([{
+                    "id": "remote", "name": "Remote", "transport": "http", "url": endpoint
+                }]),
+            )
+            .unwrap();
+            let field = preview.definitions[0]
+                .fields
+                .iter()
+                .find(|f| f.label == "Endpoint")
+                .unwrap();
+            assert_eq!(field.value, "Invalid endpoint (hidden)");
+            assert!(!serde_json::to_string(&preview)
+                .unwrap()
+                .contains("SYNTHETIC_QUERY_SECRET"));
+        }
     }
 
     #[test]
