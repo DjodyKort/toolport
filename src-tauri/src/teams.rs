@@ -569,6 +569,43 @@ fn stringify(e: ureq::Error) -> String {
     }
 }
 
+/// Deep links contain only an origin and team identifier, never executable config or tokens.
+pub fn parse_pair_link(raw: &str) -> Option<(String, String)> {
+    let url = url::Url::parse(raw).ok()?;
+    if url.scheme() != "toolport" || url.host_str() != Some("teams") || url.path() != "/connect" || url.fragment().is_some() { return None; }
+    let query = url.query_pairs().collect::<Vec<_>>();
+    if query.len()!=2 { return None; }
+    let origin=query.iter().find(|(k,_)| k=="origin")?.1.to_string();
+    let team=query.iter().find(|(k,_)| k=="team")?.1.to_string();
+    let u=url::Url::parse(&origin).ok()?;
+    if u.path() != "/" || u.query().is_some() || u.fragment().is_some() || !u.username().is_empty() || u.password().is_some() || require_secure_team_url(&origin).is_err() || team.is_empty() || team.len()>128 || !team.bytes().all(|b| b.is_ascii_alphanumeric() || b==b'-' || b==b'_') { return None; }
+    Some((u.origin().ascii_serialization(), team))
+}
+static PAIRING_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+/// Runs only after the native UI confirms the origin. The verifier never leaves this
+/// process except in a POST to the same origin; browser URLs carry an opaque transaction.
+pub fn pair_device(origin: &str, team: &str, show_challenge: impl Fn(&str, &str)) -> Result<Registry, String> {
+    let _pair=PAIRING_LOCK.try_lock().map_err(|_| "A Toolport connection is already waiting for browser approval.")?;
+    require_secure_team_url(origin)?;
+    let verifier=format!("{}{}",crate::team_activity::new_device_id()?,crate::team_activity::new_device_id()?);
+    let challenge=crate::registry::sha256_hex(&verifier);
+    let response=agent(origin).post(&format!("{}/pairing/start",base(origin))).send_json(json!({"teamId":team,"challenge":challenge})).map_err(stringify)?;
+    let data:Value=require_no_redirect(response)?.into_json().map_err(|e|e.to_string())?;
+    let transaction=data["transaction"].as_str().filter(|id|id.len()==64 && id.bytes().all(|b|b.is_ascii_hexdigit())).ok_or("Invalid pairing transaction")?;
+    let browser=format!("{}/#pair={transaction}",base(origin));
+    show_challenge(&browser,&challenge[..8]);
+    let deadline=std::time::Instant::now()+std::time::Duration::from_secs(300);
+    while std::time::Instant::now()<deadline {
+        let response=agent(origin).post(&format!("{}/pairing/{transaction}/poll",base(origin))).send_json(json!({"verifier":verifier})).map_err(stringify)?;
+        let data:Value=require_no_redirect(response)?.into_json().map_err(|e|e.to_string())?;
+        if let Some(code)=data["connectCode"].as_str() {
+            match connect(origin,code,None)? { ConnectOutcome::Connected(_) => { let _=sync_now(); return crate::registry::load(); }, _=>return Err("Unexpected approval state".into()) }
+        }
+        std::thread::sleep(std::time::Duration::from_secs(2));
+    }
+    Err("Connection request expired. Choose Connect Toolport again.".into())
+}
+
 // --- orchestration (HTTP + merge + persist) ---
 
 /// Outcome of a connect attempt: either fully joined, or held pending admin approval.
@@ -1752,9 +1789,14 @@ pub fn use_managed_server(managed_id: &str) -> Result<Registry, String> {
         }
         let profile = reg.active_profile_id();
         if !reg.profiles.iter().any(|p| p.id == profile) { return Err("active profile unavailable".into()); }
-        for env in &personal.env {
+        for env in &managed.env {
             if crate::secrets::get_secret_result(managed_id, &env.key)?.is_none() {
-                let value = if env.secret { crate::secrets::get_secret_result(&personal.id, &env.key)? } else { env.value.clone() };
+                // Preserve an already configured managed value before offering
+                // the matching personal credential. Never overwrite local setup.
+                let value = if !env.secret && env.value.is_some() { env.value.clone() }
+                    else if let Some(original) = personal.env.iter().find(|v| v.key == env.key) {
+                        if original.secret { crate::secrets::get_secret_result(&personal.id, &env.key)? } else { original.value.clone() }
+                    } else { None };
                 if let Some(value) = value { crate::secrets::set_secret(managed_id, &env.key, &value)?; }
             }
         }
@@ -2486,6 +2528,19 @@ pub fn remove_team(reg: &mut Registry, team_id: &str) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn pairing_links_accept_only_team_and_secure_origin() {
+        assert_eq!(super::parse_pair_link("toolport://teams/connect?origin=https%3A%2F%2Fteams.example.test&team=Acme-1"), Some(("https://teams.example.test".into(), "Acme-1".into())));
+        for link in [
+            "toolport://teams/connect?origin=https://evil.test/path&team=a",
+            "toolport://teams/connect?origin=https://user:pass@evil.test&team=a",
+            "toolport://teams/connect?origin=http://public.example.test&team=a",
+            "toolport://teams/connect?origin=https://teams.example.test&team=a&token=secret",
+            "toolport://teams/connect?origin=https://teams.example.test&origin=https://other.test",
+            "toolport://teams/connect?origin=https://teams.example.test&team=a#config",
+            "toolport://teams/connect?origin=https://teams.example.test&team=../a",
+        ] { assert!(super::parse_pair_link(link).is_none(), "{link}"); }
+    }
     #[test]
     fn selected_share_preserves_remote_and_local_and_requires_reviewed_inputs() {
         let mut reg = base_registry();

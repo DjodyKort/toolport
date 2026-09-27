@@ -5,6 +5,29 @@ use serde_json::{json, Value};
 use std::process::Command;
 
 #[test]
+#[ignore = "requires private Omabox HOME/keyring"]
+fn managed_switch_preserves_existing_local_value() {
+    assert_eq!(std::env::var("HOME").unwrap(), "/home/sbx");
+    let _lock = registry::data_dir_test_lock();
+    let dir = std::path::PathBuf::from("/home/sbx/managed-value-test");
+    std::fs::create_dir_all(&dir).unwrap();
+    let _override = registry::DataDirOverride::set(dir);
+    registry::update(|r| {
+        r.team = Some(serde_json::from_value(json!({"serverUrl":"http://127.0.0.1:18788","teamId":"synthetic","role":"admin","lastVersion":1,"managedServerIds":{"team_original":"original"}})).unwrap());
+        r.servers = vec![
+            serde_json::from_value(json!({"id":"original","name":"Original","transport":"stdio","command":"echo","args":[],"env":[{"key":"LOCAL_VALUE","secret":false,"value":"personal-value"}]})).unwrap(),
+            serde_json::from_value(json!({"id":"team_original","name":"Managed","transport":"stdio","command":"echo","args":[],"source":"team:synthetic","env":[{"key":"LOCAL_VALUE","secret":false,"value":"managed-value"}]})).unwrap(),
+        ];
+        Ok(())
+    }).unwrap();
+    conduit_lib::secrets::delete_secret("team_original", "LOCAL_VALUE").unwrap();
+    teams::use_managed_server("team_original").unwrap();
+    assert_eq!(conduit_lib::secrets::get_secret_result("team_original", "LOCAL_VALUE").unwrap().as_deref(), Some("managed-value"));
+    assert_eq!(registry::load().unwrap().servers[0].env[0].value.as_deref(), Some("personal-value"));
+    conduit_lib::secrets::delete_secret("team_original", "LOCAL_VALUE").unwrap();
+}
+
+#[test]
 #[ignore = "requires private Omabox HOME/keyring and synthetic Teams on 18788"]
 fn managed_call_reaches_teams_with_raw_identity() {
     assert_eq!(
@@ -17,12 +40,15 @@ fn managed_call_reaches_teams_with_raw_identity() {
     std::fs::create_dir_all(&dir).unwrap();
     let _override = registry::DataDirOverride::set(&dir);
     let api = "http://127.0.0.1:18788";
-    let created: Value = ureq::post(&format!("{api}/teams"))
+    // A separately authenticated synthetic seat avoids the self-host global seat
+    // limit when reusing this fixture for one real AI-client validation.
+    let supplied: Option<Value> = std::env::var("ACTIVATION_SEAT_FILE").ok().map(|p| serde_json::from_str(&std::fs::read_to_string(p).unwrap()).unwrap());
+    let created: Value = if let Some(value) = supplied.as_ref() { value.clone() } else { ureq::post(&format!("{api}/teams"))
         .set("authorization", "Bearer activation-synthetic-bootstrap")
         .send_json(json!({"name":"A0 synthetic identity"}))
         .unwrap()
         .into_json()
-        .unwrap();
+        .unwrap() };
     let team = created["team_id"].as_str().unwrap();
     let auth = format!("Bearer {}", created["admin_token"].as_str().unwrap());
     let fixture = "/home/sbx/activation-mcp.py";
@@ -38,18 +64,19 @@ for line in sys.stdin:
 "#).unwrap();
     ureq::put(&format!("{api}/teams/{team}/config")).set("authorization", &auth)
         .send_json(json!({"base_version":0,"config":{"servers":[{"id":"audit-echo", "name":"Synthetic echo", "transport":"stdio", "command":"python3", "args":[fixture]}]}})).unwrap();
-    let invite: Value = ureq::post(&format!("{api}/teams/{team}/invites"))
+    let invite: Value = if let Some(value) = supplied.as_ref() { json!({"invite_code":value["connectCode"]}) } else { ureq::post(&format!("{api}/teams/{team}/invites"))
         .set("authorization", &auth)
         .send_json(json!({"role":"member"}))
         .unwrap()
         .into_json()
-        .unwrap();
+        .unwrap() };
     teams::connect(
         api,
         invite["invite_code"].as_str().unwrap(),
         Some("Synthetic member"),
     )
     .unwrap();
+    let auth = if supplied.is_some() { format!("Bearer {}", teams::load_token().unwrap().unwrap()) } else { auth };
     registry::update(|r| {
         let id = r
             .servers

@@ -539,6 +539,7 @@ impl TeamsPage {
         actions.append(&leave);
         summary.append(&actions);
         self.content.append(&summary);
+        self.content.append(&gtk::Label::builder().label("Next: finish local review/auth below, then open Clients to connect your AI client. Choose a read-only managed tool call there; successful calls are reported automatically.").wrap(true).xalign(0.0).build());
 
         let review = registry
             .servers
@@ -1083,7 +1084,9 @@ fn review_server_row(server: crate::registry::ServerEntry, page: TeamsPage) -> g
         });
         row.append(&use_managed);
     }
-    let enable = gtk::Button::with_label("Review and enable");
+    let already_enabled = crate::registry::load().is_ok_and(|r| r.is_enabled(&r.active_profile_id(), &server.id));
+    let enable = gtk::Button::with_label(if already_enabled { "Enabled in this profile" } else { "Review and enable" });
+    enable.set_sensitive(!already_enabled);
     enable.add_css_class("toolport-secondary-action");
     let server_name = server.name.clone();
     let server_id = server.id.clone();

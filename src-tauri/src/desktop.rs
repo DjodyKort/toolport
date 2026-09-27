@@ -3872,6 +3872,25 @@ fn nudge_wayland_input_region(_w: &tauri::WebviewWindow) {}
 
 /// Bring the main window back to the foreground (from the tray, a re-launch, or an
 /// approval). Un-hides, un-minimizes, and focuses so it works from every hidden state.
+fn deliver_team_pair(app: &AppHandle, origin: String, team: String) {
+    show_main_window(app);
+    let handle=app.clone();
+    app.dialog().message(format!("Control plane: {origin}\nOnly continue if you trust this origin. Your browser will show the named team and account before approval. Connecting replaces this installation's current team connection."))
+        .title("Connect Toolport to Teams?").buttons(MessageDialogButtons::OkCancel).show(move |approved| {
+            if !approved { return; }
+            std::thread::spawn(move || {
+                let result=teams::pair_device(&origin,&team,|url,check| {
+                    handle.dialog().message(format!("Device check: {check}\nApprove in your browser only if the same check, intended team and account are shown. Expires in five minutes.")).title("Approve this device").show(|_| {});
+                    let _=crate::oauth::open_web_url(url);
+                });
+                match result {
+                    Ok(reg) => { let _=handle.emit("team-sync-registry",&reg); handle.dialog().message("Toolport connected. Open Teams to share or finish local setup.").title("Connected").show(|_| {}); }
+                    Err(e) => handle.dialog().message(e).title("Connection not completed").show(|_| {}),
+                }
+            });
+        });
+}
+
 fn show_main_window(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         // A visible window means the app should own a Dock icon again (macOS).
@@ -4608,7 +4627,8 @@ pub fn run() {
                 // Cold start: the URL(s) the app was launched with.
                 if let Ok(Some(urls)) = app.deep_link().get_current() {
                     for url in urls {
-                        if let Some(id) = parse_share_url(url.as_str()) {
+                        if let Some((origin,team)) = teams::parse_pair_link(url.as_str()) { deliver_team_pair(app.handle(), origin, team); }
+                        else if let Some(id) = parse_share_url(url.as_str()) {
                             deliver_shared_import(app.handle(), id);
                         }
                     }
@@ -4618,7 +4638,8 @@ pub fn run() {
                 let handle = app.handle().clone();
                 app.deep_link().on_open_url(move |event| {
                     for url in event.urls() {
-                        if let Some(id) = parse_share_url(url.as_str()) {
+                        if let Some((origin,team)) = teams::parse_pair_link(url.as_str()) { deliver_team_pair(&handle, origin, team); }
+                        else if let Some(id) = parse_share_url(url.as_str()) {
                             deliver_shared_import(&handle, id);
                         }
                     }
