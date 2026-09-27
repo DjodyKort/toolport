@@ -23,7 +23,7 @@ conflicts=('toolport-bin' 'toolport-native-preview')
 replaces=('toolport-native-preview')
 options=('!lto')
 source=("toolport-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('eb14457148284f95ccb7a72506d87a15c3feb1555e35588f8495786032ba70b9')
 
 build() {
   cd "toolport-$pkgver/src-tauri"
