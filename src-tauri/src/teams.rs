@@ -863,14 +863,45 @@ fn report_activation(conn: &TeamConnection, token: &str) -> Result<(), String> {
     let enabled = reg.enabled_servers_for(&reg.active_profile_id());
     let pending = reg.servers.iter().filter(|s| s.source.as_deref() == Some(tag_for(&conn.team_id).as_str())
         && s.needs_team_enable_review() && !enabled.iter().any(|e| e.id == s.id)).count();
+    let clients = crate::clients::detect_clients();
+    let mut states = serde_json::Map::new();
+    let mut missing_total = Some(0usize);
+    for server in reg.servers.iter().filter(|s| s.source.as_deref() == Some(tag_for(&conn.team_id).as_str())) {
+        let Some(raw) = current.managed_server_ids.get(&server.id) else { continue; };
+        let enabled_here = reg.is_enabled(&reg.active_profile_id(), &server.id);
+        let mut missing = 0usize;
+        let mut known = true;
+        for env in &server.env {
+            if env.value.as_deref().is_some_and(|v| !v.is_empty()) { continue; }
+            match crate::secrets::get_secret_result(&server.id, &env.key) {
+                Ok(Some(value)) if !value.is_empty() => {}, Ok(_) => missing += 1, Err(_) => known = false,
+            }
+        }
+        if server.client_credentials.is_some() {
+            match crate::secrets::get_secret_result(&server.id, crate::secrets::CLIENT_SECRET_KEY) {
+                Ok(Some(value)) if !value.is_empty() => {}, Ok(_) => missing += 1, Err(_) => known = false,
+            }
+        }
+        // An HTTP definition doesn't prove whether upstream OAuth is required or valid.
+        // The successful call remains authoritative; never probe/invoke a tool implicitly.
+        if server.transport != "stdio" && server.client_credentials.is_none() && missing == 0 { known = false; }
+        let missing = known.then_some(missing);
+        missing_total = missing_total.zip(missing).map(|(a,b)| a+b);
+        let routed = clients.iter().filter(|c| c.gateway_installed && c.error.is_none()).any(|c| {
+            let scope = reg.client_scopes.get(&c.id).filter(|s| !s.is_empty()).cloned().unwrap_or_else(|| reg.active_profile_id());
+            reg.enabled_servers_for(&scope).iter().any(|s| s.id == server.id)
+        });
+        states.insert(raw.clone(), json!({ "enabled": enabled_here, "reviewRequired": server.needs_team_enable_review() && !enabled_here, "missingCredentials": missing, "routeConfigured": routed }));
+    }
     let body = json!({
         "deviceId": current.reporting_device_id,
         "revision": journal.revision,
         "counters": journal.counters,
         "appliedVersion": current.last_version,
         "pendingReview": pending,
-        "missingCredentials": null,
-        "routeConfigured": crate::clients::detect_clients().iter().any(|c| c.gateway_installed),
+        "missingCredentials": missing_total,
+        "routeConfigured": states.values().any(|s| s["routeConfigured"] == true),
+        "servers": states,
     });
     require_secure_team_url(&conn.server_url)?;
     let response = agent(&conn.server_url)
