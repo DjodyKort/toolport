@@ -1220,6 +1220,12 @@ pub struct TeamConnection {
     /// the report window (today + yesterday) on every successful report.
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub usage_reported: HashMap<String, HashMap<String, [u64; 2]>>,
+    /// Local registry ID -> original server ID in the control-plane configuration.
+    /// Tool prefixes are display/routing aliases, never reporting identities.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub managed_server_ids: HashMap<String, String>,
+    #[serde(default)]
+    pub reporting_device_id: String,
     /// The org instructions content last applied to disk (see [`crate::instructions`]). Persisted
     /// so a steady-state sync (a 304, with no config in hand) can still recompute each client's
     /// coverage for the apply-status receipt, and so the writer skips the client-file writes when

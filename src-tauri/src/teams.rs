@@ -625,6 +625,8 @@ fn finish_connect(
         last_version: 0,
         last_etag: None,
         usage_reported: HashMap::new(),
+        managed_server_ids: HashMap::new(),
+        reporting_device_id: crate::team_activity::new_device_id()?,
         team_instructions_content: None,
         team_instructions_version: 0,
         team_instructions_targets: Vec::new(),
@@ -706,6 +708,17 @@ pub fn sync_wait(wait_secs: u64) -> Result<SyncResult, String> {
 }
 
 fn sync_inner(wait_secs: u64) -> Result<SyncResult, String> {
+    // One-time migration for clients connected before operational receipts existed.
+    crate::registry::update(|reg| {
+        if let Some(team) = &mut reg.team {
+            if team.reporting_device_id.is_empty() {
+                team.reporting_device_id = crate::team_activity::new_device_id()?;
+                // Re-fetch once to establish the raw shared-server mapping.
+                team.last_etag = Some("\"identity-migration\"".into());
+            }
+        }
+        Ok(())
+    })?;
     // Snapshot only what the network calls need; do NOT hold this copy to save later.
     let conn = {
         let reg = crate::registry::load()?;
@@ -800,6 +813,9 @@ fn sync_inner(wait_secs: u64) -> Result<SyncResult, String> {
     // Best-effort showback after the config work: report today's/yesterday's per-server
     // usage rollup to the team server. Any failure here must never affect the sync
     // result — the member's config is already applied and saved.
+    if let Err(error) = report_activation(&conn, &token) {
+        eprintln!("Toolport: Teams activation reporting pending: {error}");
+    }
     report_usage(&conn, &token);
     // Report each installed client's instructions coverage (spec W5), every cycle, deduped so an
     // unchanged receipt isn't re-sent. Independent of the config change above, so a client
@@ -815,6 +831,38 @@ fn sync_inner(wait_secs: u64) -> Result<SyncResult, String> {
         role_changed,
         applied,
     })
+}
+
+/// Required coarse receipts have their own durable journal; audit retention and
+/// the optional per-call export setting cannot erase successful activation.
+fn report_activation(conn: &TeamConnection, token: &str) -> Result<(), String> {
+    let reg = crate::registry::load()?;
+    let Some(current) = reg.team.as_ref().filter(|t| t.team_id == conn.team_id
+        && t.reporting_device_id == conn.reporting_device_id) else { return Ok(()) };
+    let journal = crate::team_activity::snapshot(&current.reporting_device_id)?;
+    let enabled = reg.enabled_servers_for(&reg.active_profile_id());
+    let pending = reg.servers.iter().filter(|s| s.source.as_deref() == Some(tag_for(&conn.team_id).as_str())
+        && s.needs_team_enable_review() && !enabled.iter().any(|e| e.id == s.id)).count();
+    let body = json!({
+        "deviceId": current.reporting_device_id,
+        "revision": journal.revision,
+        "counters": journal.counters,
+        "appliedVersion": current.last_version,
+        "pendingReview": pending,
+        "missingCredentials": null,
+        "routeConfigured": crate::clients::detect_clients().iter().any(|c| c.gateway_installed),
+    });
+    require_secure_team_url(&conn.server_url)?;
+    let response = agent(&conn.server_url)
+        .post(&format!("{}/teams/{}/activation", base(&conn.server_url), conn.team_id))
+        .set("authorization", &format!("Bearer {token}"))
+        .send_json(body).map_err(stringify)?;
+    let response = require_no_redirect(response)?;
+    let ack: Value = response.into_json().map_err(|e| e.to_string())?;
+    let revision = ack.get("acknowledgedRevision").and_then(Value::as_u64)
+        .ok_or("Teams did not acknowledge activity revision")?;
+    if revision < journal.revision { return Err("Teams acknowledged an older activity revision".into()); }
+    crate::team_activity::acknowledge(&current.reporting_device_id, journal.revision)
 }
 
 /// Merge a fresh local rollup with what was already reported for that day, taking the
@@ -835,6 +883,29 @@ fn merge_reported(
     merged
 }
 
+/// New records carry raw identity and team provenance. Older records are attributed only
+/// only for local display. Without team provenance, historical records cannot safely
+/// establish which organization owned a reused local ID; already acknowledged totals remain.
+fn canonical_team_audit(lines: &[Value], ids: &[String], team_id: &str) -> Vec<Value> {
+    lines
+        .iter()
+        .filter_map(|line| {
+            if line
+                .get("teamId")
+                .and_then(Value::as_str)
+                != Some(team_id)
+            {
+                return None;
+            }
+            let id = crate::audit::resolve_server_id(line, ids)?;
+            let mut canonical = line.clone();
+            canonical["server"] = json!(id);
+            canonical["serverId"] = json!(id);
+            Some(canonical)
+        })
+        .collect()
+}
+
 /// Best-effort usage showback: roll up today + yesterday (UTC) for THIS team's servers
 /// only (`source = "team:<id>"` — a member's personal servers are never reported) and
 /// POST the rollups. Counts and token/dollar estimates only; tool names stay local
@@ -842,7 +913,7 @@ fn merge_reported(
 /// old for the endpoint, or the network is down — never fails the sync it rides on.
 fn report_usage(conn: &TeamConnection, token: &str) {
     let tag = tag_for(&conn.team_id);
-    let (team_servers, reported) = {
+    let (team_servers, reported, all_ids) = {
         let Ok(reg) = crate::registry::load() else {
             return;
         };
@@ -862,7 +933,11 @@ fn report_usage(conn: &TeamConnection, token: &str) {
             .as_ref()
             .map(|t| t.usage_reported.clone())
             .unwrap_or_default();
-        (ids, reported)
+        (
+            ids,
+            reported,
+            reg.servers.iter().map(|s| s.id.clone()).collect::<Vec<_>>(),
+        )
     };
     if team_servers.is_empty() {
         return;
@@ -872,6 +947,7 @@ fn report_usage(conn: &TeamConnection, token: &str) {
     let Ok(audit_lines) = crate::audit::read_recent(usize::MAX) else {
         return;
     };
+    let audit_lines = canonical_team_audit(&audit_lines, &all_ids, &conn.team_id);
     let Ok(savings_lines) = crate::savings::try_entries() else {
         return;
     };
@@ -1386,7 +1462,7 @@ fn build_policy_receipt(reg: &crate::registry::Registry) -> Value {
 /// Fields: ts, server, tool, ok, durationMs, argsHash, client — never args/results.
 fn report_call_events(conn: &TeamConnection, token: &str) {
     let tag = tag_for(&conn.team_id);
-    let (enabled, cursor, team_servers) = {
+    let (enabled, cursor, team_servers, all_ids) = {
         let Ok(reg) = crate::registry::load() else {
             return;
         };
@@ -1408,7 +1484,12 @@ fn report_call_events(conn: &TeamConnection, token: &str) {
             .as_ref()
             .and_then(|t| t.call_audit_export_cursor)
             .unwrap_or(0);
-        (true, cursor, team_servers)
+        (
+            true,
+            cursor,
+            team_servers,
+            reg.servers.iter().map(|s| s.id.clone()).collect::<Vec<_>>(),
+        )
     };
     if !enabled {
         return;
@@ -1418,6 +1499,7 @@ fn report_call_events(conn: &TeamConnection, token: &str) {
     let Ok(lines) = crate::audit::read_recent(usize::MAX) else {
         return;
     };
+    let lines = canonical_team_audit(&lines, &all_ids, &conn.team_id);
     let mut batch: Vec<Value> = Vec::new();
     let mut max_ts = cursor;
     for line in &lines {
@@ -1737,6 +1819,10 @@ enum TeamClass {
 
 pub fn apply_team_config(reg: &mut Registry, team_id: &str, team_cfg: &Value) -> MergeOutcome {
     let tag = tag_for(team_id);
+    let prior_ids: HashMap<String, String> = reg.team.as_ref()
+        .filter(|t| t.team_id == team_id)
+        .map(|t| t.managed_server_ids.iter().map(|(local, shared)| (shared.clone(), local.clone())).collect())
+        .unwrap_or_default();
 
     // 1. Capture the prior generation of this team's servers, and which of them the
     //    member had ENABLED IN EACH PROFILE. That enablement is their standing consent for
@@ -1794,25 +1880,47 @@ pub fn apply_team_config(reg: &mut Registry, team_id: &str, team_cfg: &Value) ->
     let mut review_ids: Vec<String> = Vec::new();
     let mut review_fingerprints: HashMap<String, String> = HashMap::new();
     let mut used_ids: Vec<String> = reg.servers.iter().map(|s| s.id.clone()).collect();
+    used_ids.extend(prior_ids.values().cloned());
     // Final member-local server id -> optional allow-list (None = unrestricted). Built from
     // the post-unique_id ids so a collision rename (team_github-2) never loses its org scope.
     let mut tool_allows: HashMap<String, Option<Vec<String>>> = HashMap::new();
     let mut outcome = MergeOutcome::default();
+    let mut managed_server_ids: HashMap<String, String> = prior_ids.iter().map(|(shared, local)| (local.clone(), shared.clone())).collect();
     if let Some(arr) = team_cfg.get("servers").and_then(Value::as_array) {
         for s in arr {
+            let shared_id = s
+                .get("id")
+                .or_else(|| s.get("name"))
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
             let allowed = parse_allowed_tools(s);
             match classify_team_server(s, &tag) {
                 TeamClass::Ready(mut entry) => {
-                    entry.id = crate::registry::unique_id(&entry.id, &used_ids);
+                    // Preserve local credential/profile identity even when colliding raw IDs
+                    // change order in the remote configuration.
+                    let preferred = prior_ids.get(&shared_id).unwrap_or(&entry.id);
+                    if prior_ids.contains_key(&shared_id) && !reg.servers.iter().any(|s| &s.id == preferred) {
+                        used_ids.retain(|id| id != preferred);
+                    }
+                    entry.id = crate::registry::unique_id(preferred, &used_ids);
                     used_ids.push(entry.id.clone());
+                    managed_server_ids.insert(entry.id.clone(), shared_id.clone());
                     tool_allows.insert(entry.id.clone(), allowed);
                     auto_enable.push(entry.id.clone());
                     reg.servers.push(entry);
                     outcome.applied += 1;
                 }
                 TeamClass::Review(mut entry) => {
-                    entry.id = crate::registry::unique_id(&entry.id, &used_ids);
+                    // Preserve local credential/profile identity even when colliding raw IDs
+                    // change order in the remote configuration.
+                    let preferred = prior_ids.get(&shared_id).unwrap_or(&entry.id);
+                    if prior_ids.contains_key(&shared_id) && !reg.servers.iter().any(|s| &s.id == preferred) {
+                        used_ids.retain(|id| id != preferred);
+                    }
+                    entry.id = crate::registry::unique_id(preferred, &used_ids);
                     used_ids.push(entry.id.clone());
+                    managed_server_ids.insert(entry.id.clone(), shared_id.clone());
                     tool_allows.insert(entry.id.clone(), allowed);
                     review_ids.push(entry.id.clone());
                     review_fingerprints.insert(entry.id.clone(), consent_fingerprint(&entry));
@@ -1822,6 +1930,10 @@ pub fn apply_team_config(reg: &mut Registry, team_id: &str, team_cfg: &Value) ->
                 TeamClass::Skip => {}
             }
         }
+    }
+
+    if let Some(conn) = reg.team.as_mut().filter(|c| c.team_id == team_id) {
+        conn.managed_server_ids = managed_server_ids;
     }
 
     // 3. Enable per profile. Ready (public remote) servers auto-enable in the ACTIVE profile
@@ -2166,10 +2278,9 @@ fn classify_team_server(s: &Value, tag: &str) -> TeamClass {
         .get("initializeTimeoutMs")
         .filter(|value| !value.is_null())
     {
-        Some(value) => match value
-            .as_u64()
-            .and_then(|milliseconds| crate::registry::validate_initialize_timeout_ms(milliseconds).ok())
-        {
+        Some(value) => match value.as_u64().and_then(|milliseconds| {
+            crate::registry::validate_initialize_timeout_ms(milliseconds).ok()
+        }) {
             Some(milliseconds) => Some(milliseconds),
             None => return TeamClass::Blocked,
         },
@@ -2902,6 +3013,32 @@ mod tests {
             .unwrap()
             .enabled_server_ids
             .clone()
+    }
+
+    #[test]
+    fn managed_identity_preserves_raw_ids_and_local_bindings_when_reordered() {
+        let mut r = base_registry();
+        r.team = Some(serde_json::from_value(json!({
+            "serverUrl": "http://localhost:8787", "teamId": "t1", "role": "admin",
+            "memberName": "A", "lastVersion": 1
+        })).unwrap());
+        let servers = vec![
+            json!({"id":"Audit Echo", "transport":"stdio", "command":"python3"}),
+            json!({"id":"audit-echo", "transport":"stdio", "command":"node"}),
+            json!({"id":"audit_echo", "transport":"stdio", "command":"ruby"}),
+        ];
+        apply_team_config(&mut r, "t1", &json!({"servers":servers}));
+        let before = r.team.as_ref().unwrap().managed_server_ids.clone();
+        assert_eq!(before.len(), 3);
+        let commands: HashMap<_,_> = r.servers.iter().map(|s| (s.id.clone(), s.command.clone())).collect();
+        let reversed: Vec<_> = servers.into_iter().rev().collect();
+        apply_team_config(&mut r, "t1", &json!({"servers":reversed}));
+        assert_eq!(r.team.as_ref().unwrap().managed_server_ids, before);
+        for server in &r.servers { assert_eq!(commands[&server.id], server.command); }
+        let records = vec![json!({"serverId":"team_audit-echo", "teamId":"t1", "ok":true}),
+            json!({"serverId":"team_audit-echo", "teamId":"other", "ok":true}),
+            json!({"server":"team_audit_echo", "ok":true})];
+        assert_eq!(canonical_team_audit(&records, &["team_audit-echo".into()], "t1").len(), 1);
     }
 
     #[test]
@@ -3826,7 +3963,10 @@ mod tests {
         for (request_timeout_ms, should_block) in [
             (Value::from(0), true),
             (Value::from("not-a-number"), true),
-            (Value::from(crate::registry::MAX_REQUEST_TIMEOUT_MS + 1), true),
+            (
+                Value::from(crate::registry::MAX_REQUEST_TIMEOUT_MS + 1),
+                true,
+            ),
             (Value::from(90_000), false),
         ] {
             let server = serde_json::json!({

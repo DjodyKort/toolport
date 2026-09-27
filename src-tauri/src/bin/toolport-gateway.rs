@@ -4240,7 +4240,7 @@ fn execute_call(
                     conduit_lib::rate_limits::check_and_count(&team.rate_limits, server_id, tool)
                 {
                     // Count as a failed call with a clear reason so Activity / export show the block.
-                    audit::record_timed(srv, tool, false, None, Some("rate_limit"), client);
+                    audit::record_routed_call(reg, server_id, tool, false, None, Some("rate_limit"), client, client_name, None, None);
                     return json!({
                         "content": [{ "type": "text", "text": msg }],
                         "isError": true
@@ -4703,8 +4703,9 @@ fn execute_call(
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
             let err = if ok { None } else { Some(content_text(&out)) };
-            audit::record_timed_with_pii(
-                srv,
+            audit::record_routed_call(
+                reg,
+                server_id,
                 tool,
                 ok,
                 Some(ms),
@@ -4750,8 +4751,9 @@ fn execute_call(
                 shape,
             );
             let defended_err = audited_error_text(&e, &out);
-            audit::record_timed_with_pii(
-                srv,
+            audit::record_routed_call(
+                reg,
+                server_id,
                 tool,
                 false,
                 Some(ms),
@@ -18260,6 +18262,8 @@ mod tests {
             last_version: 42,
             last_etag: Some("\"v42\"".into()),
             usage_reported: usage,
+            managed_server_ids: Default::default(),
+            reporting_device_id: String::new(),
             team_instructions_content: None,
             team_instructions_version: 0,
             team_instructions_targets: Vec::new(),
