@@ -268,6 +268,19 @@ fn selected_share_is_additive_conflict_safe_and_locally_usable() {
     let preview = teams::preview_push_selected(&ids).unwrap();
     assert!(preview.removed.is_empty());
     assert_eq!(preview.added, vec!["Selected one"]);
+    let definition = &preview.definitions[0];
+    assert_eq!(definition.name, "Selected one");
+    assert!(definition
+        .fields
+        .iter()
+        .any(|field| field.label == "Command" && field.value == "python3"));
+    assert!(definition
+        .fields
+        .iter()
+        .any(|field| field.value == "SYNTHETIC_KEY"));
+    assert!(!serde_json::to_string(&preview)
+        .unwrap()
+        .contains("synthetic-only-secret"));
     teams::push_selected(&ids, preview.base_version, &preview.local_fingerprint).unwrap();
     assert!(
         teams::push_selected(&ids, preview.base_version, &preview.local_fingerprint)
@@ -288,13 +301,24 @@ fn selected_share_is_additive_conflict_safe_and_locally_usable() {
     assert_eq!(config["config"]["denyDestructive"], true);
     assert!(!config.to_string().contains("synthetic-only-secret"));
     teams::sync_now().unwrap();
-    let r = teams::use_managed_server("team_selected-one").unwrap();
-    assert!(r.is_enabled(&r.active_profile_id(), "team_selected-one"));
+    // Released managed identities can include a collision-safe suffix. Use the
+    // recorded binding rather than assuming the old unsuffixed local id.
+    let managed_id = registry::load()
+        .unwrap()
+        .team
+        .unwrap()
+        .managed_server_ids
+        .into_iter()
+        .find(|(_, raw)| raw == "selected-one")
+        .unwrap()
+        .0;
+    let r = teams::use_managed_server(&managed_id).unwrap();
+    assert!(r.is_enabled(&r.active_profile_id(), &managed_id));
     assert!(!r.is_enabled(&r.active_profile_id(), "selected-one"));
     assert!(r.is_enabled(&r.active_profile_id(), "keep-personal"));
     assert!(r.servers.iter().any(|s| s.id == "selected-one"));
     assert_eq!(
-        conduit_lib::secrets::get_secret_result("team_selected-one", "SYNTHETIC_KEY")
+        conduit_lib::secrets::get_secret_result(&managed_id, "SYNTHETIC_KEY")
             .unwrap()
             .as_deref(),
         Some("synthetic-only-secret")
@@ -302,12 +326,12 @@ fn selected_share_is_additive_conflict_safe_and_locally_usable() {
     registry::update(|r| {
         r.servers
             .iter_mut()
-            .find(|s| s.id == "team_selected-one")
+            .find(|s| s.id == managed_id)
             .unwrap()
             .args
             .push("--changed-target".into());
         Ok(())
     })
     .unwrap();
-    assert!(teams::use_managed_server("team_selected-one").is_err());
+    assert!(teams::use_managed_server(&managed_id).is_err());
 }

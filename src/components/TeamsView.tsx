@@ -1,3 +1,4 @@
+import { TeamSharePreview } from "./TeamSharePreview";
 import { useEffect, useState } from "react";
 import {
   RefreshCw,
@@ -703,44 +704,8 @@ export function TeamsView({
                     if (!open) setPushPreview(null);
                   }}
                   title="Share selected servers with your team?"
-                  description={
-                    pushPreview && (
-                      <div className="grid gap-3 text-left">
-                        <p>
-                          Selected definitions are added or updated. Other team servers,
-                          instructions and policies stay unchanged. Local credential
-                          values are never sent.
-                        </p>
-                        {(
-                          [
-                            ["Added", pushPreview.added],
-                            ["Changed", pushPreview.changed],
-                            ["Removed", pushPreview.removed],
-                          ] as const
-                        ).map(([label, names]) => (
-                          <div key={label}>
-                            <div className="font-medium text-foreground">
-                              {label} ({names.length})
-                            </div>
-                            {names.length > 0 ? (
-                              <ul className="mt-1 max-h-24 list-disc overflow-y-auto pl-5">
-                                {names.map((name, index) => (
-                                  <li key={`${label}-${name}-${index}`}>{name}</li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <div className="mt-1">None</div>
-                            )}
-                          </div>
-                        ))}
-                        <p>
-                          If the team or your local servers change before saving, Toolport
-                          will stop and ask you to review again instead of overwriting
-                          anything.
-                        </p>
-                      </div>
-                    )
-                  }
+                  contentClassName="sm:max-w-lg"
+                  description={pushPreview && <TeamSharePreview preview={pushPreview} />}
                   confirmLabel="Share selected"
                   onConfirm={onPush}
                 />

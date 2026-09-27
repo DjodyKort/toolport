@@ -672,12 +672,21 @@ export function rulesImportFile(
   });
 }
 
+export interface ShareDefinitionPreview {
+  id: string;
+  name: string;
+  change: "Added" | "Changed";
+  transport: string;
+  fields: { label: string; value: string }[];
+}
+
 export interface TeamPushPreview {
   baseVersion: number;
   localFingerprint: string;
   added: string[];
   changed: string[];
   removed: string[];
+  definitions: ShareDefinitionPreview[];
 }
 
 /** Admin: compare the local server export with the team's current shared server list. */
