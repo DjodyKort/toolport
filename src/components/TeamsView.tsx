@@ -22,10 +22,12 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   teamConnect,
+  teamAccountLink,
   teamJoinPoll,
   teamSync,
   teamDisconnect,
   teamPushPreview,
+  teamUseManaged,
   teamPush,
   teamInstructionsStatus,
   setServerEnabled,
@@ -70,6 +72,12 @@ export function TeamsView({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [skipNote, setSkipNote] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const personalServers = (registry?.servers ?? []).filter(
+    (s) =>
+      !s.source?.startsWith("team:") &&
+      !["toolport-gateway", "conduit-gateway"].includes(s.id),
+  );
   const [pushPreview, setPushPreview] = useState<TeamPushPreview | null>(null);
   // The member-facing Team Instructions status on this machine (spec W4): what the org pushed
   // and how each installed AI client currently holds it. Refetched on connect and whenever a sync
@@ -228,15 +236,18 @@ export function TeamsView({
 
   const onPreviewPush = () =>
     run("preview-push", async () => {
-      setPushPreview(await teamPushPreview());
+      setPushPreview(await teamPushPreview(selectedIds));
     });
 
   const onPush = () =>
     run("push", async () => {
       if (!pushPreview) throw new Error("Review the shared-server update before saving.");
-      const v = await teamPush(pushPreview);
+      const v = await teamPush(pushPreview, selectedIds);
       setPushPreview(null);
-      setNotice(`Updated the team's shared servers (now version ${v}).`);
+      setNotice(
+        `Shared selected servers (version ${v}). Review the managed copies below, then use them in your AI client.`,
+      );
+      onRegistryChange(await teamSync());
     });
 
   // Member consent: enable a review server (local command / LAN URL) into the active
@@ -254,9 +265,12 @@ export function TeamsView({
   // One row in the Shared-servers list. Extracted so the review and active groups
   // below can each render it.
   const renderTeamServer = (s: (typeof teamServers)[number]) => {
+    const personal = personalServers.find((p) => p.id === team?.managedServerIds?.[s.id]);
     const on = registry ? isEnabled(registry, s.id) : false;
     const isLocal = s.transport === "stdio" || !!s.command;
-    const detail = s.command ? [s.command, ...(s.args ?? [])].join(" ") : (s.url ?? "");
+    const detail = s.command
+      ? `Command: ${s.command}\nArguments: ${JSON.stringify(s.args ?? [])}\nWorking directory: ${s.cwd ?? "Inherit from client"}\nCredentials required: ${s.env.map((e) => e.key).join(", ") || "None declared"}`
+      : `URL: ${s.url ?? ""}\nCredentials required: ${s.env.map((e) => e.key).join(", ") || "None declared"}`;
     return (
       <li
         key={s.id}
@@ -264,7 +278,9 @@ export function TeamsView({
       >
         <div className="flex items-center gap-2">
           <Server className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate font-medium">{s.name}</span>
+          <span className="truncate font-medium">
+            {team?.teamName ?? "Team"}-managed {s.name}
+          </span>
           <TransportPill transport={s.transport} />
           {on ? (
             <Badge variant="success" className="ml-auto shrink-0">
@@ -276,6 +292,29 @@ export function TeamsView({
             </Badge>
           )}
         </div>
+        {personal && registry && isEnabled(registry, personal.id) && (
+          <ConfirmDialog
+            trigger={
+              <Button size="sm" variant="outline" disabled={busy !== null}>
+                Use team-managed version for this profile
+              </Button>
+            }
+            title={`Use team-managed ${s.name}?`}
+            description={
+              <div className="whitespace-pre-wrap">
+                {detail}
+                {"\n\n"}This enables the managed copy and disables Personal{" "}
+                {personal.name} in this profile. The personal definition stays saved.
+                Declared environment credentials are copied locally only when the
+                execution target matches exactly. HTTP/OAuth sign-in remains separate.
+              </div>
+            }
+            confirmLabel="Use managed version"
+            onConfirm={() =>
+              run("managed", async () => onRegistryChange(await teamUseManaged(s.id)))
+            }
+          />
+        )}
         {!on && (
           <div className="mt-2 flex items-end justify-between gap-3">
             <div className="min-w-0">
@@ -284,7 +323,7 @@ export function TeamsView({
                   ? "Runs this local command on your machine:"
                   : "Connects to this address:"}
               </p>
-              <code className="block truncate font-mono text-xs text-foreground">
+              <code className="block whitespace-pre-wrap break-all font-mono text-xs text-foreground">
                 {detail}
               </code>
             </div>
@@ -566,12 +605,26 @@ export function TeamsView({
                   {team.serverUrl}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Team {team.teamId} · config v{team.lastVersion ?? 0} ·{" "}
-                  {teamServers.length} shared{" "}
+                  {team.teamName || `Team ${team.teamId}`} · config v
+                  {team.lastVersion ?? 0} · {teamServers.length} shared{" "}
                   {teamServers.length === 1 ? "server" : "servers"}
                 </p>
               </div>
               <div className="flex shrink-0 gap-2">
+                {team.accountLinked !== true && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy !== null}
+                    onClick={() =>
+                      run("account-link", async () => {
+                        await openExternal(await teamAccountLink());
+                      })
+                    }
+                  >
+                    Link portal account
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -604,27 +657,59 @@ export function TeamsView({
                     <ShieldCheck className="size-3.5 text-success" /> Admin
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Replace the team's shared servers with your current server set. Team
-                    instructions and security policies are preserved; secrets are never
-                    sent.
+                    Select one working personal server to begin. Unrelated team servers
+                    and your personal originals stay in place. Each member supplies
+                    credentials locally.
                   </p>
                 </div>
-                <Button size="sm" onClick={onPreviewPush} disabled={busy !== null}>
+                <div className="grid gap-2">
+                  {personalServers.map((server) => (
+                    <label key={server.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(server.id)}
+                        disabled={busy !== null || pushPreview !== null}
+                        onChange={(e) =>
+                          setSelectedIds((ids) =>
+                            e.target.checked
+                              ? [...ids, server.id]
+                              : ids.filter((id) => id !== server.id),
+                          )
+                        }
+                      />
+                      {server.name}{" "}
+                      <span className="text-xs text-muted-foreground">
+                        {server.env.length
+                          ? `Local credentials: ${server.env.map((e) => e.key).join(", ")}`
+                          : "No environment credentials declared"}
+                      </span>
+                    </label>
+                  ))}
+                  {!personalServers.length && (
+                    <p>Add a working personal server in Servers first.</p>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  onClick={onPreviewPush}
+                  disabled={busy !== null || selectedIds.length === 0}
+                >
                   <Upload className="size-3.5" />
-                  {busy === "preview-push" ? "Comparing…" : "Update shared servers"}
+                  {busy === "preview-push" ? "Comparing…" : "Share selected servers"}
                 </Button>
                 <ConfirmDialog
                   open={pushPreview !== null}
                   onOpenChange={(open) => {
                     if (!open) setPushPreview(null);
                   }}
-                  title="Replace the team's shared servers?"
+                  title="Share selected servers with your team?"
                   description={
                     pushPreview && (
                       <div className="grid gap-3 text-left">
                         <p>
-                          Only the shared server list changes. Team instructions, security
-                          policies, and other settings stay unchanged.
+                          Selected definitions are added or updated. Other team servers,
+                          instructions and policies stay unchanged. Local credential
+                          values are never sent.
                         </p>
                         {(
                           [
@@ -656,7 +741,7 @@ export function TeamsView({
                       </div>
                     )
                   }
-                  confirmLabel="Replace shared servers"
+                  confirmLabel="Share selected"
                   onConfirm={onPush}
                 />
               </div>

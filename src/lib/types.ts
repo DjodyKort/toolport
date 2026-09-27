@@ -600,8 +600,11 @@ export interface HttpClient {
 
 /** A joined Toolport Teams server (the shared config-sync layer). */
 export interface TeamConnection {
+  managedServerIds?: Record<string, string>;
   serverUrl: string;
   teamId: string;
+  teamName?: string | null;
+  accountLinked?: boolean | null;
   /** "admin" | "member" */
   role: string;
   memberName?: string | null;

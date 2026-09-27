@@ -133,6 +133,71 @@ pub fn record_timed_with_pii(
     ));
 }
 
+/// Record the actual routed identity independently from the normalized tool prefix.
+/// Existing Activity consumers keep `server`; Teams uses the authoritative `serverId`.
+#[allow(clippy::too_many_arguments)]
+pub fn record_routed_call(
+    reg: &crate::registry::Registry,
+    server_id: &str,
+    tool: &str,
+    ok: bool,
+    duration_ms: Option<u64>,
+    error: Option<&str>,
+    client: Option<&str>,
+    client_name: Option<&str>,
+    args_hash: Option<&str>,
+    pii: Option<PiiPass>,
+) {
+    let mut entry = timed_entry(
+        &crate::router::sanitize_segment(server_id),
+        tool,
+        ok,
+        duration_ms,
+        error,
+        client,
+        client_name,
+        args_hash,
+        pii,
+    );
+    if let Err(error) = crate::team_activity::record(reg, server_id, ok) {
+        eprintln!("Toolport: Teams activity could not be persisted: {error}");
+    }
+    entry["serverId"] = json!(server_id);
+    if let Some(team) = &reg.team {
+        let source = format!("team:{}", team.team_id);
+        if reg
+            .servers
+            .iter()
+            .any(|s| s.id == server_id && s.source.as_deref() == Some(&source))
+        {
+            entry["teamId"] = json!(team.team_id);
+            entry["configVersion"] = json!(team.last_version);
+            if let Some(id) = team.managed_server_ids.get(server_id) {
+                entry["teamServerId"] = json!(id);
+            }
+        }
+    }
+    write_line(&entry);
+}
+
+/// Resolve older display-prefix records only when all local principals agree on one ID.
+/// An explicit raw ID is authoritative; it must never fall back to another principal.
+pub fn resolve_server_id<'a>(entry: &Value, ids: &'a [String]) -> Option<&'a str> {
+    if let Some(raw) = entry.get("serverId").and_then(Value::as_str) {
+        return ids.iter().find(|id| id.as_str() == raw).map(String::as_str);
+    }
+    let legacy = entry.get("server")?.as_str()?;
+    let mut matches = ids
+        .iter()
+        .filter(|id| id.as_str() == legacy || crate::router::sanitize_segment(id) == legacy);
+    let first = matches.next()?;
+    if matches.next().is_some() {
+        None
+    } else {
+        Some(first.as_str())
+    }
+}
+
 /// Build the tool-call audit entry. Pure (no I/O) so the record's shape is unit-testable,
 /// like [`decision_entry`] on the approval path.
 #[allow(clippy::too_many_arguments)]
@@ -1729,5 +1794,60 @@ mod tests {
         let err = read_recent(10).expect_err("unreadable existing path must be Err");
         assert_ne!(err.kind(), std::io::ErrorKind::NotFound);
         let _ = std::fs::remove_dir_all(root);
+    }
+}
+
+#[cfg(test)]
+mod identity_tests {
+    use super::*;
+    #[test]
+    fn raw_identity_never_uses_display_alias() {
+        let ids = vec![
+            "team_audit-echo".into(),
+            "team_audit_echo".into(),
+            "Team Audit.v2".into(),
+        ];
+        for id in &ids {
+            assert_eq!(
+                resolve_server_id(&json!({"serverId":id,"server":"wrong"}), &ids),
+                Some(id.as_str())
+            );
+        }
+        assert_eq!(
+            resolve_server_id(
+                &json!({"serverId":"missing","server":"team_audit_echo"}),
+                &ids
+            ),
+            None
+        );
+        assert_eq!(
+            resolve_server_id(&json!({"server":"team_audit_echo"}), &ids),
+            None
+        );
+        assert_eq!(
+            resolve_server_id(&json!({"server":"Team_Audit_v2"}), &ids),
+            Some("Team Audit.v2")
+        );
+        assert_eq!(
+            resolve_server_id(&json!({"server":"team_audit_v2"}), &ids),
+            None
+        );
+    }
+    #[test]
+    fn legacy_unique_prefix_and_raw_success_failure_roll_up() {
+        let ids = vec!["personal-echo".into(), "team_audit-echo".into()];
+        assert_eq!(
+            resolve_server_id(&json!({"server":"team_audit_echo"}), &ids),
+            Some("team_audit-echo")
+        );
+        let rows = vec![
+            json!({"ts":0,"server":"team_audit_echo","serverId":"team_audit-echo","ok":true}),
+            json!({"ts":0,"server":"team_audit_echo","serverId":"team_audit-echo","ok":false}),
+            json!({"ts":0,"server":"team_audit_echo","serverId":"personal-echo","ok":true}),
+        ];
+        let managed = ["team_audit-echo".to_string()].into_iter().collect();
+        let totals = crate::usage_report::rollup("1970-01-01", &rows, &[], &managed);
+        assert_eq!(totals["team_audit-echo"].calls, 2);
+        assert_eq!(totals.len(), 1);
     }
 }

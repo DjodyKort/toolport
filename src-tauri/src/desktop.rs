@@ -2114,7 +2114,7 @@ async fn team_sync(
 /// Long-polling sync for the member's background loop: the config pull parks on the server
 /// for up to `wait_secs` (clamped) and returns the instant the team config view changes, so
 /// a dashboard policy edit enforces in ~1s instead of at the next interval. Otherwise
-/// identical to [`team_sync`]; the frontend re-invokes it in a loop. See [`team_sync`] for
+/// identical to [`team_sync`]; retained for explicit callers. The native lifecycle owns background polling. See [`team_sync`] for
 /// why the blocking pull must run off the main thread.
 #[tauri::command]
 async fn team_sync_wait(
@@ -2128,6 +2128,50 @@ async fn team_sync_wait(
         .await
         .map_err(|e| format!("sync task join failed: {e}"))??;
     finish_sync(&app, state.inner(), result)
+}
+
+/// Owns required Teams work for the application's lifetime, including hidden/tray
+/// and straight-to-tray launches. No webview timers or visibility signal participates.
+struct TeamLifecycleStop(std::sync::Arc<std::sync::atomic::AtomicBool>);
+fn start_team_lifecycle(app: &tauri::AppHandle) {
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    app.manage(TeamLifecycleStop(stop.clone()));
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        let mut failures = 0u32;
+        while !stop.load(std::sync::atomic::Ordering::Acquire) {
+            let connected = registry::load().map(|r| r.team.is_some());
+            let delay = match connected {
+                Ok(false) => { failures = 0; 3 }
+                Ok(true) => match teams::sync_wait(25) {
+                    Ok(result) => {
+                        failures = 0;
+                        if stop.load(std::sync::atomic::Ordering::Acquire) { break; }
+                        let state = handle.state::<RegistryState>();
+                        match finish_sync(&handle, state.inner(), result) {
+                            Ok(fresh) => { let _ = handle.emit("team-sync-registry", &fresh); }
+                            Err(error) => eprintln!("Toolport: Teams registry refresh failed: {error}"),
+                        }
+                        teams::retry_delay_seconds(0)
+                    }
+                    Err(error) => {
+                        failures = failures.saturating_add(1);
+                        eprintln!("Toolport: Teams sync pending: {error}");
+                        teams::retry_delay_seconds(failures)
+                    }
+                },
+                Err(error) => {
+                    failures = failures.saturating_add(1);
+                    eprintln!("Toolport: Teams registry unavailable: {error}");
+                    teams::retry_delay_seconds(failures)
+                }
+            };
+            for _ in 0..delay {
+                if stop.load(std::sync::atomic::Ordering::Acquire) { break; }
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
+        }
+    });
 }
 
 /// Apply a sync result to the shared registry state and tell the UI what happened. Shared by
@@ -2457,6 +2501,11 @@ async fn hooks_recent(limit: usize) -> Result<Vec<serde_json::Value>, String> {
 
 /// Leave the team: remove its merged servers, clear the connection and the token.
 #[tauri::command]
+async fn team_account_link() -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(teams::account_link).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 fn team_disconnect(state: State<RegistryState>) -> Result<Registry, String> {
     refresh_from_disk(state.inner())?;
     teams::disconnect()?;
@@ -2465,13 +2514,21 @@ fn team_disconnect(state: State<RegistryState>) -> Result<Registry, String> {
     Ok(fresh)
 }
 
+#[tauri::command]
+async fn team_use_managed(app: tauri::AppHandle, state: State<'_, RegistryState>, server_id: String) -> Result<Registry, String> {
+    tauri::async_runtime::spawn_blocking(move || teams::use_managed_server(&server_id)).await.map_err(|e| e.to_string())??;
+    let fresh = reload_into_state(state.inner())?;
+    let _ = app.emit("team-sync-registry", &fresh);
+    Ok(fresh)
+}
+
 /// Admin: replace only the team's shared server list with the current local set (own servers
 /// only, secret values never sent). Remote instructions and policy fields are preserved, and
 /// an optimistic-concurrency conflict is returned rather than overwriting another admin.
 #[tauri::command]
-async fn team_push_preview(state: State<'_, RegistryState>) -> Result<teams::PushPreview, String> {
+async fn team_push_preview(state: State<'_, RegistryState>, selected_ids: Option<Vec<String>>) -> Result<teams::PushPreview, String> {
     refresh_from_disk(state.inner())?;
-    tauri::async_runtime::spawn_blocking(teams::preview_push_current)
+    tauri::async_runtime::spawn_blocking(move || match selected_ids { Some(ids) => teams::preview_push_selected(&ids), None => teams::preview_push_current() })
         .await
         .map_err(|e| format!("push preview task join failed: {e}"))?
 }
@@ -2481,11 +2538,12 @@ async fn team_push(
     state: State<'_, RegistryState>,
     base_version: i64,
     local_fingerprint: String,
+    selected_ids: Option<Vec<String>>,
 ) -> Result<i64, String> {
     refresh_from_disk(state.inner())?;
     // push_current does a blocking GET + PUT to the team server; keep it off the main thread.
     tauri::async_runtime::spawn_blocking(move || {
-        teams::push_current(base_version, &local_fingerprint)
+        match selected_ids { Some(ids) => teams::push_selected(&ids, base_version, &local_fingerprint), None => teams::push_current(base_version, &local_fingerprint) }
     })
     .await
     .map_err(|e| format!("push task join failed: {e}"))?
@@ -3845,6 +3903,25 @@ fn nudge_wayland_input_region(_w: &tauri::WebviewWindow) {}
 
 /// Bring the main window back to the foreground (from the tray, a re-launch, or an
 /// approval). Un-hides, un-minimizes, and focuses so it works from every hidden state.
+fn deliver_team_pair(app: &AppHandle, origin: String, team: String) {
+    show_main_window(app);
+    let handle=app.clone();
+    app.dialog().message(format!("Control plane: {origin}\nOnly continue if you trust this origin. Your browser will show the named team and account before approval. Connecting replaces this installation's current team connection."))
+        .title("Connect Toolport to Teams?").buttons(MessageDialogButtons::OkCancel).show(move |approved| {
+            if !approved { return; }
+            std::thread::spawn(move || {
+                let result=teams::pair_device(&origin,&team,|url,check| {
+                    handle.dialog().message(format!("Device check: {check}\nApprove in your browser only if the same check, intended team and account are shown. Expires in five minutes.")).title("Approve this device").show(|_| {});
+                    let _=crate::oauth::open_web_url(url);
+                });
+                match result {
+                    Ok(reg) => { let _=handle.emit("team-sync-registry",&reg); handle.dialog().message("Toolport connected. Open Teams to share or finish local setup.").title("Connected").show(|_| {}); }
+                    Err(e) => handle.dialog().message(e).title("Connection not completed").show(|_| {}),
+                }
+            });
+        });
+}
+
 fn show_main_window(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         // A visible window means the app should own a Dock icon again (macOS).
@@ -3853,18 +3930,18 @@ fn show_main_window(app: &AppHandle) {
         let _ = w.unminimize();
         let _ = w.set_focus();
         nudge_wayland_input_region(&w);
-        // Tell the frontend the window is visible again so the team-sync loop resumes and does
-        // an immediate catch-up poll. The webview's Page Visibility API doesn't report Tauri
+        // Tell visibility-aware UI observers that the window is visible again.
+        // Required Teams synchronization continues independently in Rust. The webview's Page Visibility API doesn't report Tauri
         // tray show/hide on Windows, so this event is the authoritative signal (see the
-        // team-sync effect in App.tsx and `main_window_visible`).
+        // visibility observers and `main_window_visible`).
         let _ = app.emit("team-window-visible", true);
     }
 }
 
 /// Whether the main window is currently shown (vs hidden to the tray). Seeds the frontend
-/// team-sync loop's visibility gate on mount - live changes come via the `team-window-visible`
+/// UI visibility observers on mount - live changes come via the `team-window-visible`
 /// event emitted from show/hide. Defaults to visible if the window is missing or the platform
-/// query fails, so sync never wedges off on an unexpected error.
+/// query fails. This does not control Teams synchronization.
 #[tauri::command]
 fn main_window_visible(app: AppHandle) -> bool {
     app.get_webview_window("main")
@@ -4278,6 +4355,8 @@ pub fn run() {
             hooks_recent,
             team_disconnect,
             team_push_preview,
+            team_use_managed,
+            team_account_link,
             team_push,
             set_auth_token,
             clear_auth_token,
@@ -4321,9 +4400,8 @@ pub fn run() {
                     let _ = window.hide();
                     // Hidden to the tray => menu-bar only, so drop the Dock icon (macOS).
                     set_dock_icon_visible(window.app_handle(), false);
-                    // Tell the frontend the window is hidden so the team-sync loop parks and
-                    // stops polling the team server (each poll would otherwise keep a
-                    // scale-to-zero Postgres awake). Resumes via show_main_window's emit.
+                    // Notify visibility-aware UI observers; the native Teams worker
+                    // continues config delivery and reporting while the window is hidden.
                     let _ = window.app_handle().emit("team-window-visible", false);
                     maybe_show_tray_hint(window.app_handle());
                 }
@@ -4568,6 +4646,7 @@ pub fn run() {
             // or denies them here. Always managed so the approve/deny commands have state.
             let broker = approval_broker::start(app.handle().clone());
             app.manage(broker);
+            start_team_lifecycle(app.handle());
 
             // toolport://import?s=<id> (and legacy conduit://) deep links open the
             // shared-stack import. The installer registers the schemes; we also
@@ -4591,7 +4670,8 @@ pub fn run() {
                 // Cold start: the URL(s) the app was launched with.
                 if let Ok(Some(urls)) = app.deep_link().get_current() {
                     for url in urls {
-                        if let Some(id) = parse_share_url(url.as_str()) {
+                        if let Some((origin,team)) = teams::parse_pair_link(url.as_str()) { deliver_team_pair(app.handle(), origin, team); }
+                        else if let Some(id) = parse_share_url(url.as_str()) {
                             deliver_shared_import(app.handle(), id);
                         }
                     }
@@ -4601,7 +4681,8 @@ pub fn run() {
                 let handle = app.handle().clone();
                 app.deep_link().on_open_url(move |event| {
                     for url in event.urls() {
-                        if let Some(id) = parse_share_url(url.as_str()) {
+                        if let Some((origin,team)) = teams::parse_pair_link(url.as_str()) { deliver_team_pair(&handle, origin, team); }
+                        else if let Some(id) = parse_share_url(url.as_str()) {
                             deliver_shared_import(&handle, id);
                         }
                     }
@@ -4629,6 +4710,9 @@ pub fn run() {
             // endpoint descriptor so a gateway dialing after we're gone reads no broker
             // (a clean Unreachable) rather than connecting to the dead port we left behind.
             if matches!(event, tauri::RunEvent::Exit) {
+                if let Some(stop) = app_handle.try_state::<TeamLifecycleStop>() {
+                    stop.0.store(true, std::sync::atomic::Ordering::Release);
+                }
                 if let Some(broker) = app_handle.try_state::<approval_broker::ApprovalBroker>() {
                     broker.clear_endpoint();
                 }
