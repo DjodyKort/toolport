@@ -6,6 +6,13 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-09-27
+
+### Added
+
+- Teams activation: additive sharing of selected personal servers, explicit managed use, named account association and secure desktop pairing.
+- Teams configuration and required success reporting continue while the desktop is hidden, with durable versioned receipts and stable raw server attribution.
+
 ### Fixed
 
 - **Modern MCP clients work through the shared gateway.** The stdio adapter now

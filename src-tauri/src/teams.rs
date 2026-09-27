@@ -309,7 +309,11 @@ pub fn pull_config(
 /// Result of the `/me` membership heartbeat.
 pub enum MembershipCheck {
     /// Still a member; carries the current (possibly changed) role.
-    Active { role: String },
+    Active {
+        role: String,
+        team_name: Option<String>,
+        account_linked: Option<bool>,
+    },
     /// The server explicitly rejected the token (401/403): the member was removed or
     /// their token revoked. Distinct from a transport error so a mere network blip
     /// never tears down the local team.
@@ -339,7 +343,11 @@ pub fn fetch_me(server_url: &str, team_id: &str, token: &str) -> Result<Membersh
                 .as_str()
                 .ok_or("membership response had no role")?
                 .to_string();
-            Ok(MembershipCheck::Active { role })
+            Ok(MembershipCheck::Active {
+                role,
+                team_name: v["teamName"].as_str().map(str::to_string),
+                account_linked: v["accountLinked"].as_bool(),
+            })
         }
         Err(ureq::Error::Status(401 | 403, _)) => Ok(MembershipCheck::Removed),
         Err(ureq::Error::Status(404, _)) => Ok(MembershipCheck::Unsupported),
@@ -569,6 +577,93 @@ fn stringify(e: ureq::Error) -> String {
     }
 }
 
+/// Deep links contain only an origin and team identifier, never executable config or tokens.
+pub fn parse_pair_link(raw: &str) -> Option<(String, String)> {
+    let url = url::Url::parse(raw).ok()?;
+    if url.scheme() != "toolport"
+        || url.host_str() != Some("teams")
+        || url.path() != "/connect"
+        || url.fragment().is_some()
+    {
+        return None;
+    }
+    let query = url.query_pairs().collect::<Vec<_>>();
+    if query.len() != 2 {
+        return None;
+    }
+    let origin = query.iter().find(|(k, _)| k == "origin")?.1.to_string();
+    let team = query.iter().find(|(k, _)| k == "team")?.1.to_string();
+    let u = url::Url::parse(&origin).ok()?;
+    if u.path() != "/"
+        || u.query().is_some()
+        || u.fragment().is_some()
+        || !u.username().is_empty()
+        || u.password().is_some()
+        || require_secure_team_url(&origin).is_err()
+        || team.is_empty()
+        || team.len() > 128
+        || !team
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+    {
+        return None;
+    }
+    Some((u.origin().ascii_serialization(), team))
+}
+static PAIRING_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+/// Runs only after the native UI confirms the origin. The verifier never leaves this
+/// process except in a POST to the same origin; browser URLs carry an opaque transaction.
+pub fn pair_device(
+    origin: &str,
+    team: &str,
+    show_challenge: impl Fn(&str, &str),
+) -> Result<Registry, String> {
+    let _pair = PAIRING_LOCK
+        .try_lock()
+        .map_err(|_| "A Toolport connection is already waiting for browser approval.")?;
+    require_secure_team_url(origin)?;
+    let verifier = format!(
+        "{}{}",
+        crate::team_activity::new_device_id()?,
+        crate::team_activity::new_device_id()?
+    );
+    let challenge = crate::registry::sha256_hex(&verifier);
+    let response = agent(origin)
+        .post(&format!("{}/pairing/start", base(origin)))
+        .send_json(json!({"teamId":team,"challenge":challenge}))
+        .map_err(stringify)?;
+    let data: Value = require_no_redirect(response)?
+        .into_json()
+        .map_err(|e| e.to_string())?;
+    let transaction = data["transaction"]
+        .as_str()
+        .filter(|id| id.len() == 64 && id.bytes().all(|b| b.is_ascii_hexdigit()))
+        .ok_or("Invalid pairing transaction")?;
+    let browser = format!("{}/#pair={transaction}", base(origin));
+    show_challenge(&browser, &challenge[..8]);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(300);
+    while std::time::Instant::now() < deadline {
+        let response = agent(origin)
+            .post(&format!("{}/pairing/{transaction}/poll", base(origin)))
+            .send_json(json!({"verifier":verifier}))
+            .map_err(stringify)?;
+        let data: Value = require_no_redirect(response)?
+            .into_json()
+            .map_err(|e| e.to_string())?;
+        if let Some(code) = data["connectCode"].as_str() {
+            match connect(origin, code, None)? {
+                ConnectOutcome::Connected(_) => {
+                    let _ = sync_now();
+                    return crate::registry::load();
+                }
+                _ => return Err("Unexpected approval state".into()),
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_secs(2));
+    }
+    Err("Connection request expired. Choose Connect Toolport again.".into())
+}
+
 // --- orchestration (HTTP + merge + persist) ---
 
 /// Outcome of a connect attempt: either fully joined, or held pending admin approval.
@@ -617,7 +712,7 @@ fn finish_connect(
     member_name: Option<&str>,
     joined: Joined,
 ) -> Result<(TeamConnection, MergeOutcome), String> {
-    let conn = TeamConnection {
+    let mut conn = TeamConnection {
         server_url: base(server_url),
         team_id: joined.team_id.clone(),
         role: joined.role.clone(),
@@ -625,6 +720,10 @@ fn finish_connect(
         last_version: 0,
         last_etag: None,
         usage_reported: HashMap::new(),
+        managed_server_ids: HashMap::new(),
+        reporting_device_id: crate::team_activity::new_device_id()?,
+        team_name: None,
+        account_linked: None,
         team_instructions_content: None,
         team_instructions_version: 0,
         team_instructions_targets: Vec::new(),
@@ -648,6 +747,15 @@ fn finish_connect(
         None,
         0,
     )?;
+    if let Ok(MembershipCheck::Active {
+        team_name,
+        account_linked,
+        ..
+    }) = fetch_me(server_url, &joined.team_id, &joined.member_token)
+    {
+        conn.team_name = team_name;
+        conn.account_linked = account_linked;
+    }
     // Capture the org instructions before the closure consumes `pulled`; applied to disk after
     // the save (outside the lock).
     let desired_instr = pulled
@@ -705,7 +813,32 @@ pub fn sync_wait(wait_secs: u64) -> Result<SyncResult, String> {
     sync_inner(wait_secs)
 }
 
+/// Bounded retry pacing for native lifecycle owners; independent of window visibility.
+pub fn retry_delay_seconds(failures: u32) -> u64 {
+    if failures == 0 {
+        3
+    } else {
+        15 * (1u64 << failures.saturating_sub(1).min(2))
+    }
+}
+
+static SYNC_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 fn sync_inner(wait_secs: u64) -> Result<SyncResult, String> {
+    let _sync = SYNC_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    // One-time migration for clients connected before operational receipts existed.
+    crate::registry::update(|reg| {
+        if let Some(team) = &mut reg.team {
+            if team.reporting_device_id.is_empty() {
+                team.reporting_device_id = crate::team_activity::new_device_id()?;
+                // Re-fetch once to establish the raw shared-server mapping.
+                team.last_etag = Some("\"identity-migration\"".into());
+            }
+        }
+        Ok(())
+    })?;
     // Snapshot only what the network calls need; do NOT hold this copy to save later.
     let conn = {
         let reg = crate::registry::load()?;
@@ -717,16 +850,25 @@ fn sync_inner(wait_secs: u64) -> Result<SyncResult, String> {
     // (a config pull would just error on the now-invalid token, indistinguishable from a
     // network failure) and a role change (a role change doesn't bump the config version,
     // so the pull returns 304 and the client would keep showing stale admin controls).
-    let role = match fetch_me(&conn.server_url, &conn.team_id, &token)? {
+    let (role, team_name, account_linked) = match fetch_me(&conn.server_url, &conn.team_id, &token)?
+    {
         MembershipCheck::Removed => {
             // Authoritatively removed: tear down the local team so we stop running its
             // servers and stop showing it. `disconnect` reloads + saves the registry.
             disconnect()?;
             return Ok(SyncResult::Removed);
         }
-        MembershipCheck::Active { role } => role,
+        MembershipCheck::Active {
+            role,
+            team_name,
+            account_linked,
+        } => (role, team_name, account_linked),
         // Old server without /me: keep the last-known role and fall through to the pull.
-        MembershipCheck::Unsupported => conn.role.clone(),
+        MembershipCheck::Unsupported => (
+            conn.role.clone(),
+            conn.team_name.clone(),
+            conn.account_linked,
+        ),
     };
     let role_changed = role != conn.role;
 
@@ -754,7 +896,12 @@ fn sync_inner(wait_secs: u64) -> Result<SyncResult, String> {
     let (_, result) = crate::registry::update(|reg| {
         match reg.team.as_ref() {
             None => return Ok(None),
-            Some(t) if t.team_id != conn.team_id => return Ok(None),
+            Some(t)
+                if t.team_id != conn.team_id
+                    || t.reporting_device_id != conn.reporting_device_id =>
+            {
+                return Ok(None)
+            }
             _ => {}
         }
         let applied = match pulled {
@@ -772,6 +919,8 @@ fn sync_inner(wait_secs: u64) -> Result<SyncResult, String> {
         // the member's real, current role on every sync.
         if let Some(t) = reg.team.as_mut() {
             t.role = role.clone();
+            t.team_name = team_name.clone();
+            t.account_linked = account_linked;
         }
         Ok(Some(applied))
     })?;
@@ -800,6 +949,9 @@ fn sync_inner(wait_secs: u64) -> Result<SyncResult, String> {
     // Best-effort showback after the config work: report today's/yesterday's per-server
     // usage rollup to the team server. Any failure here must never affect the sync
     // result — the member's config is already applied and saved.
+    if let Err(error) = report_activation(&conn, &token) {
+        eprintln!("Toolport: Teams activation reporting pending: {error}");
+    }
     report_usage(&conn, &token);
     // Report each installed client's instructions coverage (spec W5), every cycle, deduped so an
     // unchanged receipt isn't re-sent. Independent of the config change above, so a client
@@ -815,6 +967,141 @@ fn sync_inner(wait_secs: u64) -> Result<SyncResult, String> {
         role_changed,
         applied,
     })
+}
+
+/// Required coarse receipts have their own durable journal; audit retention and
+/// the optional per-call export setting cannot erase successful activation.
+fn report_activation(conn: &TeamConnection, token: &str) -> Result<(), String> {
+    let reg = crate::registry::load()?;
+    let Some(current) = reg
+        .team
+        .as_ref()
+        .filter(|t| t.team_id == conn.team_id && t.reporting_device_id == conn.reporting_device_id)
+    else {
+        return Ok(());
+    };
+    let journal = crate::team_activity::snapshot(&current.reporting_device_id)?;
+    let enabled = reg.enabled_servers_for(&reg.active_profile_id());
+    let pending = reg
+        .servers
+        .iter()
+        .filter(|s| {
+            s.source.as_deref() == Some(tag_for(&conn.team_id).as_str())
+                && s.needs_team_enable_review()
+                && !enabled.iter().any(|e| e.id == s.id)
+        })
+        .count();
+    let clients = crate::clients::detect_clients();
+    let mut states = serde_json::Map::new();
+    let mut missing_total = Some(0usize);
+    for server in reg
+        .servers
+        .iter()
+        .filter(|s| s.source.as_deref() == Some(tag_for(&conn.team_id).as_str()))
+    {
+        let Some(raw) = current.managed_server_ids.get(&server.id) else {
+            continue;
+        };
+        let enabled_here = reg.is_enabled(&reg.active_profile_id(), &server.id);
+        let mut missing = 0usize;
+        let mut known = true;
+        for env in &server.env {
+            // Curated launch templates distinguish optional provider defaults.
+            if server
+                .launch
+                .as_ref()
+                .is_some_and(|launch| !launch.required_env.contains(&env.key))
+            {
+                continue;
+            }
+            if env.value.as_deref().is_some_and(|v| !v.is_empty()) {
+                continue;
+            }
+            match crate::secrets::get_secret_result(&server.id, &env.key) {
+                Ok(Some(value)) if !value.is_empty() => {}
+                Ok(_) => missing += 1,
+                Err(_) => known = false,
+            }
+        }
+        if let Some(launch) = &server.launch {
+            for input in launch.inputs.iter().filter(|input| input.required) {
+                if !input.secret {
+                    if !input
+                        .value
+                        .as_deref()
+                        .is_some_and(|value| !value.trim().is_empty())
+                    {
+                        missing += 1;
+                    }
+                } else {
+                    match crate::secrets::get_vault_secret_result(&server.id, &input.key) {
+                        Ok(Some(value)) if !value.trim().is_empty() => {}
+                        Ok(_) => missing += 1,
+                        Err(_) => known = false,
+                    }
+                }
+            }
+        }
+        if server.client_credentials.is_some() {
+            match crate::secrets::get_secret_result(&server.id, crate::secrets::CLIENT_SECRET_KEY) {
+                Ok(Some(value)) if !value.is_empty() => {}
+                Ok(_) => missing += 1,
+                Err(_) => known = false,
+            }
+        }
+        // An HTTP definition doesn't prove whether upstream OAuth is required or valid.
+        // The successful call remains authoritative; never probe/invoke a tool implicitly.
+        if server.transport != "stdio" && server.client_credentials.is_none() && missing == 0 {
+            known = false;
+        }
+        let missing = known.then_some(missing);
+        missing_total = missing_total.zip(missing).map(|(a, b)| a + b);
+        let routed = clients
+            .iter()
+            .filter(|c| c.gateway_installed && c.error.is_none())
+            .any(|c| {
+                let scope = reg
+                    .client_scopes
+                    .get(&c.id)
+                    .filter(|s| !s.is_empty())
+                    .cloned()
+                    .unwrap_or_else(|| reg.active_profile_id());
+                reg.enabled_servers_for(&scope)
+                    .iter()
+                    .any(|s| s.id == server.id)
+            });
+        states.insert(raw.clone(), json!({ "enabled": enabled_here, "reviewRequired": server.needs_team_enable_review() && !enabled_here, "missingCredentials": missing, "routeConfigured": routed }));
+    }
+    let body = json!({
+        "deviceId": current.reporting_device_id,
+        "revision": journal.revision,
+        "counters": journal.counters,
+        "appliedVersion": current.last_version,
+        "pendingReview": pending,
+        "missingCredentials": missing_total,
+        "routeConfigured": states.values().any(|s| s["routeConfigured"] == true),
+        "servers": states,
+    });
+    require_secure_team_url(&conn.server_url)?;
+    let response = agent(&conn.server_url)
+        .post(&format!(
+            "{}/teams/{}/activation",
+            base(&conn.server_url),
+            conn.team_id
+        ))
+        .set("authorization", &format!("Bearer {token}"))
+        .send_json(body)
+        .map_err(stringify)?;
+    let response = require_no_redirect(response)?;
+    let ack: Value = response.into_json().map_err(|e| e.to_string())?;
+    let revision = ack
+        .get("acknowledgedRevision")
+        .and_then(Value::as_u64)
+        .ok_or("Teams did not acknowledge activity revision")?;
+    if revision < journal.revision {
+        return Err("Teams acknowledged an older activity revision".into());
+    }
+    crate::team_activity::acknowledge(&current.reporting_device_id, journal.revision)
 }
 
 /// Merge a fresh local rollup with what was already reported for that day, taking the
@@ -835,6 +1122,25 @@ fn merge_reported(
     merged
 }
 
+/// New records carry raw identity and team provenance. Older records are attributed only
+/// only for local display. Without team provenance, historical records cannot safely
+/// establish which organization owned a reused local ID; already acknowledged totals remain.
+fn canonical_team_audit(lines: &[Value], ids: &[String], team_id: &str) -> Vec<Value> {
+    lines
+        .iter()
+        .filter_map(|line| {
+            if line.get("teamId").and_then(Value::as_str) != Some(team_id) {
+                return None;
+            }
+            let id = crate::audit::resolve_server_id(line, ids)?;
+            let mut canonical = line.clone();
+            canonical["server"] = json!(id);
+            canonical["serverId"] = json!(id);
+            Some(canonical)
+        })
+        .collect()
+}
+
 /// Best-effort usage showback: roll up today + yesterday (UTC) for THIS team's servers
 /// only (`source = "team:<id>"` — a member's personal servers are never reported) and
 /// POST the rollups. Counts and token/dollar estimates only; tool names stay local
@@ -842,7 +1148,7 @@ fn merge_reported(
 /// old for the endpoint, or the network is down — never fails the sync it rides on.
 fn report_usage(conn: &TeamConnection, token: &str) {
     let tag = tag_for(&conn.team_id);
-    let (team_servers, reported) = {
+    let (team_servers, reported, all_ids) = {
         let Ok(reg) = crate::registry::load() else {
             return;
         };
@@ -862,7 +1168,11 @@ fn report_usage(conn: &TeamConnection, token: &str) {
             .as_ref()
             .map(|t| t.usage_reported.clone())
             .unwrap_or_default();
-        (ids, reported)
+        (
+            ids,
+            reported,
+            reg.servers.iter().map(|s| s.id.clone()).collect::<Vec<_>>(),
+        )
     };
     if team_servers.is_empty() {
         return;
@@ -872,6 +1182,7 @@ fn report_usage(conn: &TeamConnection, token: &str) {
     let Ok(audit_lines) = crate::audit::read_recent(usize::MAX) else {
         return;
     };
+    let audit_lines = canonical_team_audit(&audit_lines, &all_ids, &conn.team_id);
     let Ok(savings_lines) = crate::savings::try_entries() else {
         return;
     };
@@ -1386,7 +1697,7 @@ fn build_policy_receipt(reg: &crate::registry::Registry) -> Value {
 /// Fields: ts, server, tool, ok, durationMs, argsHash, client — never args/results.
 fn report_call_events(conn: &TeamConnection, token: &str) {
     let tag = tag_for(&conn.team_id);
-    let (enabled, cursor, team_servers) = {
+    let (enabled, cursor, team_servers, all_ids) = {
         let Ok(reg) = crate::registry::load() else {
             return;
         };
@@ -1408,7 +1719,12 @@ fn report_call_events(conn: &TeamConnection, token: &str) {
             .as_ref()
             .and_then(|t| t.call_audit_export_cursor)
             .unwrap_or(0);
-        (true, cursor, team_servers)
+        (
+            true,
+            cursor,
+            team_servers,
+            reg.servers.iter().map(|s| s.id.clone()).collect::<Vec<_>>(),
+        )
     };
     if !enabled {
         return;
@@ -1418,6 +1734,7 @@ fn report_call_events(conn: &TeamConnection, token: &str) {
     let Ok(lines) = crate::audit::read_recent(usize::MAX) else {
         return;
     };
+    let lines = canonical_team_audit(&lines, &all_ids, &conn.team_id);
     let mut batch: Vec<Value> = Vec::new();
     let mut max_ts = cursor;
     for line in &lines {
@@ -1551,6 +1868,39 @@ fn report_policy_status(conn: &TeamConnection, token: &str) {
 }
 
 /// Leave the team: remove its merged servers, clear the connection and the token.
+/// Prove possession of an existing accountless seat without disclosing its bearer.
+/// Browser authentication and explicit confirmation complete the association.
+pub fn account_link() -> Result<String, String> {
+    let conn = crate::registry::load()?
+        .team
+        .ok_or("not connected to a team")?;
+    require_secure_team_url(&conn.server_url)?;
+    let token = load_token()?.ok_or("team token is missing from the keychain")?;
+    let response = agent(&conn.server_url)
+        .post(&format!(
+            "{}/teams/{}/account-link",
+            base(&conn.server_url),
+            conn.team_id
+        ))
+        .set("authorization", &format!("Bearer {token}"))
+        .send_json(json!({}))
+        .map_err(stringify)?;
+    let body: Value = require_no_redirect(response)?
+        .into_json()
+        .map_err(|e| e.to_string())?;
+    let url = body
+        .get("url")
+        .and_then(Value::as_str)
+        .ok_or("invalid account-link response")?;
+    // A control plane may not redirect a bearer-derived grant to an unrelated origin.
+    let expected = url::Url::parse(&conn.server_url).map_err(|e| e.to_string())?;
+    let actual = url::Url::parse(url).map_err(|e| e.to_string())?;
+    if expected.origin() != actual.origin() {
+        return Err("account link origin does not match your Teams server".into());
+    }
+    Ok(url.to_string())
+}
+
 pub fn disconnect() -> Result<(), String> {
     // Capture the recorded instructions files before clearing the connection, so we can delete
     // them AFTER the registry lock releases (FS side-effects on external client files don't
@@ -1583,6 +1933,149 @@ pub fn disconnect() -> Result<(), String> {
     }
     let _ = clear_token();
     Ok(())
+}
+
+/// Explicit profile switch after reviewing the managed definition. Keep the personal
+/// definition and its credentials. Copy only declared environment values to the exact
+/// same execution target; OAuth and HTTP sessions must be authenticated separately.
+pub fn use_managed_server(managed_id: &str) -> Result<Registry, String> {
+    let (reg, ()) = crate::registry::update(|reg| {
+        let team = reg.team.as_ref().ok_or("not connected to a team")?;
+        let personal_id = team
+            .managed_server_ids
+            .get(managed_id)
+            .ok_or("managed identity unavailable")?
+            .clone();
+        let managed = reg
+            .servers
+            .iter()
+            .find(|s| {
+                s.id == managed_id && s.source.as_deref() == Some(&format!("team:{}", team.team_id))
+            })
+            .ok_or("managed server unavailable")?
+            .clone();
+        let personal = reg
+            .servers
+            .iter()
+            .find(|s| {
+                s.id == personal_id && !s.source.as_deref().unwrap_or("").starts_with("team:")
+            })
+            .ok_or("personal original unavailable")?
+            .clone();
+        if consent_fingerprint(&managed) != consent_fingerprint(&personal)
+            || serde_json::to_value(&managed.client_credentials).ok()
+                != serde_json::to_value(&personal.client_credentials).ok()
+        {
+            return Err("The managed definition differs from your personal server. Complete its setup separately before switching profiles.".into());
+        }
+        let profile = reg.active_profile_id();
+        if !reg.profiles.iter().any(|p| p.id == profile) {
+            return Err("active profile unavailable".into());
+        }
+        for env in &managed.env {
+            if crate::secrets::get_secret_result(managed_id, &env.key)?.is_none() {
+                // Preserve an already configured managed value before offering
+                // the matching personal credential. Never overwrite local setup.
+                let value = if !env.secret && env.value.is_some() {
+                    env.value.clone()
+                } else if let Some(original) = personal.env.iter().find(|v| v.key == env.key) {
+                    if original.secret {
+                        crate::secrets::get_secret_result(&personal.id, &env.key)?
+                    } else {
+                        original.value.clone()
+                    }
+                } else {
+                    None
+                };
+                if let Some(value) = value {
+                    crate::secrets::set_secret(managed_id, &env.key, &value)?;
+                }
+            }
+        }
+        if let Some(server) = reg.servers.iter_mut().find(|s| s.id == managed_id) {
+            for env in &mut server.env {
+                env.secret = true;
+                env.value = None;
+            }
+        }
+        crate::registry_controller::apply_server_enabled(reg, &profile, managed_id, true, true)?;
+        reg.set_server_enabled(&profile, &personal.id, false)?;
+        reg.secrets_generation = reg.secrets_generation.wrapping_add(1);
+        Ok(())
+    })?;
+    Ok(reg)
+}
+
+/// Merge only explicitly selected personal definitions. Never remove unrelated remote entries.
+fn selected_export(reg: &Registry, ids: &[String]) -> Result<Value, String> {
+    if ids.is_empty() {
+        return Err("Select at least one personal server to share.".into());
+    }
+    let exported = team_server_export(reg);
+    let index = server_index(&exported)?;
+    let mut selected = BTreeMap::new();
+    for id in ids {
+        let server = index
+            .get(id)
+            .ok_or("A selected personal server is no longer available. Review again.")?;
+        selected.insert(id.clone(), (*server).clone());
+    }
+    Ok(Value::Array(selected.into_values().collect()))
+}
+fn additive_server_set(remote: &Value, selected: &Value) -> Result<Value, String> {
+    let mut merged: BTreeMap<String, Value> = server_index(remote)?
+        .into_iter()
+        .map(|(id, s)| (id, s.clone()))
+        .collect();
+    for (id, server) in server_index(selected)? {
+        merged.insert(id, server.clone());
+    }
+    Ok(Value::Array(merged.into_values().collect()))
+}
+pub fn preview_push_selected(ids: &[String]) -> Result<PushPreview, String> {
+    let reg = crate::registry::load()?;
+    let conn = reg.team.as_ref().ok_or("not connected to a team")?;
+    if conn.role != "admin" {
+        return Err("only a team admin can share servers".into());
+    }
+    let selected = selected_export(&reg, ids)?;
+    let token = load_token()?.ok_or("team token is missing from the keychain")?;
+    let (version, config) = fetch_config_for_update(&conn.server_url, &conn.team_id, &token)?;
+    let remote = config
+        .get("servers")
+        .ok_or("team config has no server list")?;
+    let merged = additive_server_set(remote, &selected)?;
+    let mut preview = build_push_preview(version, remote, &merged)?;
+    preview.local_fingerprint = crate::audit::args_hash(&selected);
+    Ok(preview)
+}
+pub fn push_selected(
+    ids: &[String],
+    expected_version: i64,
+    fingerprint: &str,
+) -> Result<i64, String> {
+    let reg = crate::registry::load()?;
+    let conn = reg.team.as_ref().ok_or("not connected to a team")?;
+    if conn.role != "admin" {
+        return Err("only a team admin can share servers".into());
+    }
+    let selected = selected_export(&reg, ids)?;
+    if crate::audit::args_hash(&selected) != fingerprint {
+        return Err("Selected servers changed. Review the share again.".into());
+    }
+    let token = load_token()?.ok_or("team token is missing from the keychain")?;
+    let (version, config) = fetch_config_for_update(&conn.server_url, &conn.team_id, &token)?;
+    if version != expected_version {
+        return Err(STALE_PUSH_MESSAGE.into());
+    }
+    let servers = additive_server_set(
+        config
+            .get("servers")
+            .ok_or("team config has no server list")?,
+        &selected,
+    )?;
+    let config = replace_server_set(config, servers)?;
+    push_config(&conn.server_url, &conn.team_id, &token, &config, version)
 }
 
 /// Admin: preview replacing the remote config's server list with the current local server set.
@@ -1675,6 +2168,7 @@ fn team_server_export(reg: &Registry) -> Value {
                 "command": s.command,
                 "args": args,
                 "launch": s.launch.as_ref().map(|launch| launch.without_values()),
+                "cwd": s.cwd,
                 "url": url,
                 "env": s.env.iter().map(|e| serde_json::json!({ "key": e.key, "secret": e.secret })).collect::<Vec<_>>(),
                 "disabledTools": s.disabled_tools,
@@ -1839,6 +2333,30 @@ pub fn apply_team_config(reg: &mut Registry, team_id: &str, team_cfg: &Value) ->
         .cloned()
         .collect();
 
+    // Activation pilot builds persisted the raw binding on the connection before
+    // main introduced per-entry original IDs. Carry only unique explicit bindings
+    // into main's identity allocator; never infer them from normalized prefixes.
+    let mut previous = previous;
+    if let Some(conn) = reg.team.as_ref().filter(|conn| conn.team_id == team_id) {
+        for server in &mut previous {
+            if saved_team_original_id(server).is_none() {
+                if let Some(raw) = conn.managed_server_ids.get(&server.id) {
+                    if conn
+                        .managed_server_ids
+                        .values()
+                        .filter(|value| *value == raw)
+                        .count()
+                        == 1
+                    {
+                        server
+                            .unknown_fields
+                            .insert(TEAM_ORIGINAL_ID_FIELD.into(), json!(raw));
+                    }
+                }
+            }
+        }
+    }
+
     // 1. Capture the prior generation of this team's servers, and which of them the
     //    member had ENABLED IN EACH PROFILE. That enablement is their standing consent for
     //    the review-required ones, so we re-apply it per profile after the replace instead
@@ -1915,6 +2433,12 @@ pub fn apply_team_config(reg: &mut Registry, team_id: &str, team_cfg: &Value) ->
     // the post-unique_id ids so a collision rename (team_github-2) never loses its org scope.
     let mut tool_allows: HashMap<String, Option<Vec<String>>> = HashMap::new();
     let mut outcome = MergeOutcome::default();
+    let mut managed_server_ids = reg
+        .team
+        .as_ref()
+        .filter(|conn| conn.team_id == team_id)
+        .map(|conn| conn.managed_server_ids.clone())
+        .unwrap_or_default();
     if let Some(arr) = team_cfg.get("servers").and_then(Value::as_array) {
         let mut original_counts: HashMap<&str, usize> = HashMap::new();
         let mut slug_counts: HashMap<String, usize> = HashMap::new();
@@ -1933,6 +2457,7 @@ pub fn apply_team_config(reg: &mut Registry, team_id: &str, team_cfg: &Value) ->
                 outcome.blocked += 1;
                 continue;
             }
+            let shared_id = team_entry_original_id(s).unwrap_or_default().to_string();
             let allowed = parse_allowed_tools(s);
             match classify_team_server(s, &tag) {
                 TeamClass::Ready(mut entry) => {
@@ -1944,6 +2469,7 @@ pub fn apply_team_config(reg: &mut Registry, team_id: &str, team_cfg: &Value) ->
                         &legacy_launch_values_by_id,
                     );
                     used_ids.push(entry.id.clone());
+                    managed_server_ids.insert(entry.id.clone(), shared_id.clone());
                     tool_allows.insert(entry.id.clone(), allowed);
                     if prev_consent.contains_key(&entry.id) {
                         // Existing public remotes may own bearer tokens. A new
@@ -1974,6 +2500,7 @@ pub fn apply_team_config(reg: &mut Registry, team_id: &str, team_cfg: &Value) ->
                         &legacy_launch_values_by_id,
                     );
                     used_ids.push(entry.id.clone());
+                    managed_server_ids.insert(entry.id.clone(), shared_id.clone());
                     tool_allows.insert(entry.id.clone(), allowed);
                     review_ids.push(entry.id.clone());
                     review_fingerprints.insert(entry.id.clone(), consent_fingerprint(&entry));
@@ -1983,6 +2510,10 @@ pub fn apply_team_config(reg: &mut Registry, team_id: &str, team_cfg: &Value) ->
                 TeamClass::Skip => {}
             }
         }
+    }
+
+    if let Some(conn) = reg.team.as_mut().filter(|c| c.team_id == team_id) {
+        conn.managed_server_ids = managed_server_ids;
     }
 
     // 3. Enable per profile. New public remotes auto-enable in the ACTIVE profile
@@ -2321,7 +2852,7 @@ fn classify_team_server(s: &Value, tag: &str) -> TeamClass {
         url: None,
         source: Some(tag.to_string()),
         disabled_tools: str_array("disabledTools"),
-        cwd: None,
+        cwd: str_field("cwd").map(String::from),
         // Carried through so a shared headless server stays headless. Dropping it
         // silently downgraded the member to interactive OAuth, which is exactly
         // what this flow exists to avoid; the secret is still theirs to add.
@@ -2460,6 +2991,65 @@ pub fn remove_team(reg: &mut Registry, team_id: &str) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn pairing_links_accept_only_team_and_secure_origin() {
+        assert_eq!(
+            super::parse_pair_link(
+                "toolport://teams/connect?origin=https%3A%2F%2Fteams.example.test&team=Acme-1"
+            ),
+            Some(("https://teams.example.test".into(), "Acme-1".into()))
+        );
+        for link in [
+            "toolport://teams/connect?origin=https://evil.test/path&team=a",
+            "toolport://teams/connect?origin=https://user:pass@evil.test&team=a",
+            "toolport://teams/connect?origin=http://public.example.test&team=a",
+            "toolport://teams/connect?origin=https://teams.example.test&team=a&token=secret",
+            "toolport://teams/connect?origin=https://teams.example.test&origin=https://other.test",
+            "toolport://teams/connect?origin=https://teams.example.test&team=a#config",
+            "toolport://teams/connect?origin=https://teams.example.test&team=../a",
+        ] {
+            assert!(super::parse_pair_link(link).is_none(), "{link}");
+        }
+    }
+    #[test]
+    fn selected_share_preserves_remote_and_local_and_requires_reviewed_inputs() {
+        let mut reg = base_registry();
+        let personal = reg.servers.iter_mut().find(|s| s.id == "mine").unwrap();
+        personal.cwd = Some("/workspace/project".into());
+        let before = serde_json::to_value(&reg).unwrap();
+        let remote = json!([{"id":"unrelated","name":"Remote","transport":"http","url":"https://remote.example/mcp"}]);
+        let selected = selected_export(&reg, &["mine".into()]).unwrap();
+        let merged = additive_server_set(&remote, &selected).unwrap();
+        assert_eq!(merged.as_array().unwrap().len(), 2);
+        assert!(merged.as_array().unwrap().contains(&remote[0]));
+        let preview = build_push_preview(4, &remote, &merged).unwrap();
+        assert!(preview.removed.is_empty());
+        assert_eq!(preview.added.len(), 1);
+        assert_eq!(serde_json::to_value(&reg).unwrap(), before);
+        assert!(selected_export(&reg, &[]).is_err());
+        assert!(selected_export(&reg, &["unknown".into()]).is_err());
+        match classify_team_server(&selected[0], "team:test") {
+            TeamClass::Review(s) | TeamClass::Ready(s) => {
+                assert_eq!(s.cwd.as_deref(), Some("/workspace/project"))
+            }
+            _ => panic!("selected server should import"),
+        }
+        let updated = json!([{"id":"unrelated","name":"Updated"}, {"id":"second","name":"Second"}]);
+        let merged = additive_server_set(&remote, &updated).unwrap();
+        assert_eq!(merged.as_array().unwrap().len(), 2);
+        assert!(merged.as_array().unwrap().contains(&updated[0]));
+    }
+
+    #[test]
+    fn native_retry_is_bounded_and_recovers_after_success() {
+        assert_eq!(
+            (0..5).map(super::retry_delay_seconds).collect::<Vec<_>>(),
+            vec![3, 15, 30, 60, 60]
+        );
+        assert_eq!(super::retry_delay_seconds(u32::MAX), 60);
+        assert_eq!(super::retry_delay_seconds(0), 3);
+    }
+
     use super::*;
     use serde_json::json;
 
@@ -3145,6 +3735,108 @@ mod tests {
             .unwrap_or_else(|| panic!("missing team entry {original}"))
             .id
             .clone()
+    }
+
+    #[test]
+    fn activation_pilot_binding_survives_main_identity_migration() {
+        let mut r = base_registry();
+        r.team = Some(
+            serde_json::from_value(json!({
+                "serverUrl":"http://localhost:8787", "teamId":"t1", "role":"admin",
+                "lastVersion":2, "managedServerIds":{"team_audit-echo":"Audit Echo"}
+            }))
+            .unwrap(),
+        );
+        r.servers.push(
+            serde_json::from_value(json!({
+                "id":"team_audit-echo", "name":"Echo", "transport":"stdio",
+                "command":"python3", "source":"team:t1"
+            }))
+            .unwrap(),
+        );
+        consent_to(&mut r, "team_audit-echo");
+        let config = json!({"servers":[{"id":"Audit Echo", "name":"Echo", "transport":"stdio", "command":"python3"}]});
+        apply_team_config(&mut r, "t1", &config);
+        assert_eq!(member_id(&r, "Audit Echo"), "team_audit-echo");
+        assert!(active_enabled(&r).contains(&"team_audit-echo".to_string()));
+        assert_eq!(
+            r.team.as_ref().unwrap().managed_server_ids["team_audit-echo"],
+            "Audit Echo"
+        );
+        // A new execution definition still loses standing consent.
+        let changed = json!({"servers":[{"id":"Audit Echo", "name":"Echo", "transport":"stdio", "command":"node"}]});
+        apply_team_config(&mut r, "t1", &changed);
+        assert!(!active_enabled(&r).contains(&"team_audit-echo".to_string()));
+    }
+
+    #[test]
+    fn legacy_1212_binding_gains_reporting_identity_without_renaming() {
+        let mut r = base_registry();
+        r.team = Some(
+            serde_json::from_value(json!({
+                "serverUrl":"http://localhost:8787", "teamId":"t1", "role":"member", "lastVersion":1
+            }))
+            .unwrap(),
+        );
+        r.servers.push(
+            serde_json::from_value(json!({
+                "id":"team_audit-echo", "name":"Echo", "transport":"stdio",
+                "command":"python3", "args":["echo.py"], "source":"team:t1"
+            }))
+            .unwrap(),
+        );
+        consent_to(&mut r, "team_audit-echo");
+        let config = json!({"servers":[{"id":"audit-echo", "name":"Echo", "transport":"stdio", "command":"python3", "args":["echo.py"]}]});
+        apply_team_config(&mut r, "t1", &config);
+        assert_eq!(member_id(&r, "audit-echo"), "team_audit-echo");
+        assert_eq!(
+            r.team.as_ref().unwrap().managed_server_ids["team_audit-echo"],
+            "audit-echo"
+        );
+        assert!(active_enabled(&r).contains(&"team_audit-echo".to_string()));
+        let before = serde_json::to_value(&r).unwrap();
+        apply_team_config(&mut r, "t1", &config);
+        assert_eq!(serde_json::to_value(&r).unwrap(), before);
+    }
+
+    #[test]
+    fn managed_identity_preserves_raw_ids_and_local_bindings_when_reordered() {
+        let mut r = base_registry();
+        r.team = Some(
+            serde_json::from_value(json!({
+                "serverUrl": "http://localhost:8787", "teamId": "t1", "role": "admin",
+                "memberName": "A", "lastVersion": 1
+            }))
+            .unwrap(),
+        );
+        let servers = vec![
+            json!({"id":"Audit Echo", "transport":"stdio", "command":"python3"}),
+            json!({"id":"audit-echo", "transport":"stdio", "command":"node"}),
+            json!({"id":"audit_echo", "transport":"stdio", "command":"ruby"}),
+        ];
+        apply_team_config(&mut r, "t1", &json!({"servers":servers}));
+        let before = r.team.as_ref().unwrap().managed_server_ids.clone();
+        assert_eq!(before.len(), 3);
+        let commands: HashMap<_, _> = r
+            .servers
+            .iter()
+            .map(|s| (s.id.clone(), s.command.clone()))
+            .collect();
+        let reversed: Vec<_> = servers.into_iter().rev().collect();
+        apply_team_config(&mut r, "t1", &json!({"servers":reversed}));
+        assert_eq!(r.team.as_ref().unwrap().managed_server_ids, before);
+        for server in &r.servers {
+            assert_eq!(commands[&server.id], server.command);
+        }
+        let records = vec![
+            json!({"serverId":"team_audit-echo", "teamId":"t1", "ok":true}),
+            json!({"serverId":"team_audit-echo", "teamId":"other", "ok":true}),
+            json!({"server":"team_audit_echo", "ok":true}),
+        ];
+        assert_eq!(
+            canonical_team_audit(&records, &["team_audit-echo".into()], "t1").len(),
+            1
+        );
     }
 
     #[test]

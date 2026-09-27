@@ -90,7 +90,11 @@ pub fn rollup(
         if crate::audit::tool_call_ok(e).is_none() {
             continue;
         }
-        let Some(server) = e.get("server").and_then(Value::as_str) else {
+        let Some(server) = e
+            .get("serverId")
+            .or_else(|| e.get("server"))
+            .and_then(Value::as_str)
+        else {
             continue;
         };
         if !team_servers.contains(server) {

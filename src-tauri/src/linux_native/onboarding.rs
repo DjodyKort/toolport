@@ -87,7 +87,7 @@ fn onboarding_complete_at(path: &Path) -> Result<bool, String> {
     }
 }
 
-fn mark_complete() -> Result<(), String> {
+pub(super) fn mark_complete() -> Result<(), String> {
     if onboarding_complete()? {
         return Ok(());
     }
