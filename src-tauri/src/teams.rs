@@ -713,7 +713,19 @@ pub fn sync_wait(wait_secs: u64) -> Result<SyncResult, String> {
     sync_inner(wait_secs)
 }
 
+/// Bounded retry pacing for native lifecycle owners; independent of window visibility.
+pub fn retry_delay_seconds(failures: u32) -> u64 {
+    if failures == 0 {
+        3
+    } else {
+        15 * (1u64 << failures.saturating_sub(1).min(2))
+    }
+}
+
+static SYNC_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 fn sync_inner(wait_secs: u64) -> Result<SyncResult, String> {
+    let _sync = SYNC_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     // One-time migration for clients connected before operational receipts existed.
     crate::registry::update(|reg| {
         if let Some(team) = &mut reg.team {
@@ -773,7 +785,7 @@ fn sync_inner(wait_secs: u64) -> Result<SyncResult, String> {
     let (_, result) = crate::registry::update(|reg| {
         match reg.team.as_ref() {
             None => return Ok(None),
-            Some(t) if t.team_id != conn.team_id => return Ok(None),
+            Some(t) if t.team_id != conn.team_id || t.reporting_device_id != conn.reporting_device_id => return Ok(None),
             _ => {}
         }
         let applied = match pulled {
@@ -2366,6 +2378,13 @@ pub fn remove_team(reg: &mut Registry, team_id: &str) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn native_retry_is_bounded_and_recovers_after_success() {
+        assert_eq!((0..5).map(super::retry_delay_seconds).collect::<Vec<_>>(), vec![3, 15, 30, 60, 60]);
+        assert_eq!(super::retry_delay_seconds(u32::MAX), 60);
+        assert_eq!(super::retry_delay_seconds(0), 3);
+    }
+
     use super::*;
     use serde_json::json;
 

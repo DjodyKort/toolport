@@ -128,12 +128,11 @@ impl TeamsPage {
         let running = Rc::new(Cell::new(false));
         let next_allowed = Rc::new(RefCell::new(std::time::Instant::now()));
         let page = self.clone();
-        let window_for_timer = window.clone();
+        let failures = Rc::new(Cell::new(0u32));
         let running_for_timer = running.clone();
         let next_for_timer = next_allowed.clone();
         let source = gtk::glib::timeout_add_local(std::time::Duration::from_secs(1), move || {
-            if !window_for_timer.is_visible()
-                || running_for_timer.get()
+            if running_for_timer.get()
                 || std::time::Instant::now() < *next_for_timer.borrow()
             {
                 return gtk::glib::ControlFlow::Continue;
@@ -142,6 +141,7 @@ impl TeamsPage {
             let page = page.clone();
             let running = running_for_timer.clone();
             let next_allowed = next_for_timer.clone();
+            let failures = failures.clone();
             gtk::glib::spawn_future_local(async move {
                 let result = gtk::gio::spawn_blocking(|| {
                     if crate::registry::load()?.team.is_none() {
@@ -153,17 +153,20 @@ impl TeamsPage {
                 running.set(false);
                 match result {
                     Ok(Ok(Some(outcome))) => {
+                        failures.set(0);
                         *next_allowed.borrow_mut() =
                             std::time::Instant::now() + std::time::Duration::from_secs(3);
                         page.absorb_sync_result(outcome);
                     }
                     Ok(Ok(None)) => {
+                        failures.set(0);
                         *next_allowed.borrow_mut() =
                             std::time::Instant::now() + std::time::Duration::from_secs(10);
                     }
                     Ok(Err(error)) => {
-                        *next_allowed.borrow_mut() =
-                            std::time::Instant::now() + std::time::Duration::from_secs(15);
+                        failures.set(failures.get().saturating_add(1));
+                        *next_allowed.borrow_mut() = std::time::Instant::now()
+                            + std::time::Duration::from_secs(crate::teams::retry_delay_seconds(failures.get()));
                         if page.root.is_mapped() {
                             page.show_error(&format!(
                                 "team sync failed; retrying automatically: {error}"
@@ -171,8 +174,9 @@ impl TeamsPage {
                         }
                     }
                     Err(_) => {
-                        *next_allowed.borrow_mut() =
-                            std::time::Instant::now() + std::time::Duration::from_secs(15);
+                        failures.set(failures.get().saturating_add(1));
+                        *next_allowed.borrow_mut() = std::time::Instant::now()
+                            + std::time::Duration::from_secs(crate::teams::retry_delay_seconds(failures.get()));
                         if page.root.is_mapped() {
                             page.show_error(
                                 "team sync stopped unexpectedly; retrying automatically",
