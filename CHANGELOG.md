@@ -6,6 +6,15 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ## [Unreleased]
 
+## [1.23.1] - 2026-09-27
+
+### Fixed
+
+- Teams share previews now show the command, arguments, working directory,
+  endpoint and declared credential names before publication in both desktop shells.
+  Credential values stay hidden, personal originals remain saved, and unrelated
+  Team servers stay unchanged.
+
 ## [1.23.0] - 2026-09-27
 
 ### Added
