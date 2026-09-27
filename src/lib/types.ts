@@ -578,6 +578,8 @@ export interface HttpClient {
 export interface TeamConnection {
   serverUrl: string;
   teamId: string;
+  teamName?: string | null;
+  accountLinked?: boolean | null;
   /** "admin" | "member" */
   role: string;
   memberName?: string | null;

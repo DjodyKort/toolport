@@ -492,6 +492,10 @@ export interface TeamConnectResult {
 }
 
 /** Join a Toolport Teams server with an invite or join-link code; merges the team's servers in. */
+export function teamAccountLink(): Promise<string> {
+  return invoke<string>("team_account_link");
+}
+
 export function teamConnect(
   serverUrl: string,
   inviteCode: string,

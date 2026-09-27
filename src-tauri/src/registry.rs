@@ -1226,6 +1226,10 @@ pub struct TeamConnection {
     pub managed_server_ids: HashMap<String, String>,
     #[serde(default)]
     pub reporting_device_id: String,
+    #[serde(default)]
+    pub team_name: Option<String>,
+    #[serde(default)]
+    pub account_linked: Option<bool>,
     /// The org instructions content last applied to disk (see [`crate::instructions`]). Persisted
     /// so a steady-state sync (a 304, with no config in hand) can still recompute each client's
     /// coverage for the apply-status receipt, and so the writer skips the client-file writes when

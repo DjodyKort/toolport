@@ -309,7 +309,7 @@ pub fn pull_config(
 /// Result of the `/me` membership heartbeat.
 pub enum MembershipCheck {
     /// Still a member; carries the current (possibly changed) role.
-    Active { role: String },
+    Active { role: String, team_name: Option<String>, account_linked: Option<bool> },
     /// The server explicitly rejected the token (401/403): the member was removed or
     /// their token revoked. Distinct from a transport error so a mere network blip
     /// never tears down the local team.
@@ -339,7 +339,7 @@ pub fn fetch_me(server_url: &str, team_id: &str, token: &str) -> Result<Membersh
                 .as_str()
                 .ok_or("membership response had no role")?
                 .to_string();
-            Ok(MembershipCheck::Active { role })
+            Ok(MembershipCheck::Active { role, team_name: v["teamName"].as_str().map(str::to_string), account_linked: v["accountLinked"].as_bool() })
         }
         Err(ureq::Error::Status(401 | 403, _)) => Ok(MembershipCheck::Removed),
         Err(ureq::Error::Status(404, _)) => Ok(MembershipCheck::Unsupported),
@@ -617,7 +617,7 @@ fn finish_connect(
     member_name: Option<&str>,
     joined: Joined,
 ) -> Result<(TeamConnection, MergeOutcome), String> {
-    let conn = TeamConnection {
+    let mut conn = TeamConnection {
         server_url: base(server_url),
         team_id: joined.team_id.clone(),
         role: joined.role.clone(),
@@ -627,6 +627,8 @@ fn finish_connect(
         usage_reported: HashMap::new(),
         managed_server_ids: HashMap::new(),
         reporting_device_id: crate::team_activity::new_device_id()?,
+        team_name: None,
+        account_linked: None,
         team_instructions_content: None,
         team_instructions_version: 0,
         team_instructions_targets: Vec::new(),
@@ -650,6 +652,10 @@ fn finish_connect(
         None,
         0,
     )?;
+    if let Ok(MembershipCheck::Active { team_name, account_linked, .. }) = fetch_me(server_url, &joined.team_id, &joined.member_token) {
+        conn.team_name = team_name;
+        conn.account_linked = account_linked;
+    }
     // Capture the org instructions before the closure consumes `pulled`; applied to disk after
     // the save (outside the lock).
     let desired_instr = pulled
@@ -730,16 +736,16 @@ fn sync_inner(wait_secs: u64) -> Result<SyncResult, String> {
     // (a config pull would just error on the now-invalid token, indistinguishable from a
     // network failure) and a role change (a role change doesn't bump the config version,
     // so the pull returns 304 and the client would keep showing stale admin controls).
-    let role = match fetch_me(&conn.server_url, &conn.team_id, &token)? {
+    let (role, team_name, account_linked) = match fetch_me(&conn.server_url, &conn.team_id, &token)? {
         MembershipCheck::Removed => {
             // Authoritatively removed: tear down the local team so we stop running its
             // servers and stop showing it. `disconnect` reloads + saves the registry.
             disconnect()?;
             return Ok(SyncResult::Removed);
         }
-        MembershipCheck::Active { role } => role,
+        MembershipCheck::Active { role, team_name, account_linked } => (role, team_name, account_linked),
         // Old server without /me: keep the last-known role and fall through to the pull.
-        MembershipCheck::Unsupported => conn.role.clone(),
+        MembershipCheck::Unsupported => (conn.role.clone(), conn.team_name.clone(), conn.account_linked),
     };
     let role_changed = role != conn.role;
 
@@ -785,6 +791,8 @@ fn sync_inner(wait_secs: u64) -> Result<SyncResult, String> {
         // the member's real, current role on every sync.
         if let Some(t) = reg.team.as_mut() {
             t.role = role.clone();
+            t.team_name = team_name.clone();
+            t.account_linked = account_linked;
         }
         Ok(Some(applied))
     })?;
@@ -1633,6 +1641,25 @@ fn report_policy_status(conn: &TeamConnection, token: &str) {
 }
 
 /// Leave the team: remove its merged servers, clear the connection and the token.
+/// Prove possession of an existing accountless seat without disclosing its bearer.
+/// Browser authentication and explicit confirmation complete the association.
+pub fn account_link() -> Result<String, String> {
+    let conn = crate::registry::load()?.team.ok_or("not connected to a team")?;
+    require_secure_team_url(&conn.server_url)?;
+    let token = load_token()?.ok_or("team token is missing from the keychain")?;
+    let response = agent(&conn.server_url)
+        .post(&format!("{}/teams/{}/account-link", base(&conn.server_url), conn.team_id))
+        .set("authorization", &format!("Bearer {token}"))
+        .send_json(json!({})).map_err(stringify)?;
+    let body: Value = require_no_redirect(response)?.into_json().map_err(|e| e.to_string())?;
+    let url = body.get("url").and_then(Value::as_str).ok_or("invalid account-link response")?;
+    // A control plane may not redirect a bearer-derived grant to an unrelated origin.
+    let expected = url::Url::parse(&conn.server_url).map_err(|e| e.to_string())?;
+    let actual = url::Url::parse(url).map_err(|e| e.to_string())?;
+    if expected.origin() != actual.origin() { return Err("account link origin does not match your Teams server".into()); }
+    Ok(url.to_string())
+}
+
 pub fn disconnect() -> Result<(), String> {
     // Capture the recorded instructions files before clearing the connection, so we can delete
     // them AFTER the registry lock releases (FS side-effects on external client files don't

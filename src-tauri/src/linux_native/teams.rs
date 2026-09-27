@@ -482,7 +482,7 @@ impl TeamsPage {
         summary.add_css_class("toolport-card");
         summary.append(
             &gtk::Label::builder()
-                .label(format!("Team {}", team.team_id))
+                .label(team.team_name.clone().unwrap_or_else(|| format!("Team {}", team.team_id)))
                 .halign(gtk::Align::Start)
                 .css_classes(["heading"])
                 .build(),
@@ -512,6 +512,22 @@ impl TeamsPage {
             push.connect_clicked(move |button| page_for_push.preview_push(button.clone()));
             actions.append(&push);
         }
+        let account_link = gtk::Button::with_label("Link portal account");
+        let page_for_link = self.clone();
+        account_link.connect_clicked(move |button| {
+            let page = page_for_link.clone(); let button = button.clone();
+            button.set_sensitive(false);
+            gtk::glib::spawn_future_local(async move {
+                let result = gtk::gio::spawn_blocking(crate::teams::account_link).await;
+                match result {
+                    Ok(Ok(url)) => { let _ = crate::oauth::open_web_url(&url); }
+                    Ok(Err(error)) => page.feedback.set_text(&error),
+                    Err(_) => page.feedback.set_text("Could not prepare account link. Please try again."),
+                }
+                button.set_sensitive(true);
+            });
+        });
+        if team.account_linked != Some(true) { actions.append(&account_link); }
         let leave = gtk::Button::with_label("Leave team");
         leave.add_css_class("destructive-action");
         let page_for_leave = self.clone();

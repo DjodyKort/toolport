@@ -18264,6 +18264,8 @@ mod tests {
             usage_reported: usage,
             managed_server_ids: Default::default(),
             reporting_device_id: String::new(),
+            team_name: None,
+            account_linked: None,
             team_instructions_content: None,
             team_instructions_version: 0,
             team_instructions_targets: Vec::new(),

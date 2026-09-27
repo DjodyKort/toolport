@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   teamConnect,
+  teamAccountLink,
   teamJoinPoll,
   teamSync,
   teamDisconnect,
@@ -566,12 +567,16 @@ export function TeamsView({
                   {team.serverUrl}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Team {team.teamId} · config v{team.lastVersion ?? 0} ·{" "}
+                  {team.teamName || `Team ${team.teamId}`} · config v{team.lastVersion ?? 0} ·{" "}
                   {teamServers.length} shared{" "}
                   {teamServers.length === 1 ? "server" : "servers"}
                 </p>
               </div>
               <div className="flex shrink-0 gap-2">
+                {team.accountLinked !== true && <Button variant="outline" size="sm" disabled={busy !== null}
+                  onClick={() => run("account-link", async () => { await openExternal(await teamAccountLink()); })}>
+                  Link portal account
+                </Button>}
                 <Button
                   variant="outline"
                   size="sm"

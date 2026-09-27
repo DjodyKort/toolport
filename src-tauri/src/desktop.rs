@@ -2414,6 +2414,11 @@ async fn hooks_recent(limit: usize) -> Result<Vec<serde_json::Value>, String> {
 
 /// Leave the team: remove its merged servers, clear the connection and the token.
 #[tauri::command]
+async fn team_account_link() -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(teams::account_link).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 fn team_disconnect(state: State<RegistryState>) -> Result<Registry, String> {
     refresh_from_disk(state.inner())?;
     teams::disconnect()?;
@@ -4245,6 +4250,7 @@ pub fn run() {
             hooks_recent,
             team_disconnect,
             team_push_preview,
+            team_account_link,
             team_push,
             set_auth_token,
             clear_auth_token,

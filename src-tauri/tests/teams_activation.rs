@@ -125,3 +125,25 @@ finally:p.terminate();p.wait(timeout=10)
     )
     .unwrap();
 }
+
+#[test]
+#[ignore = "requires synthetic authenticated portal fixture in private Omabox"]
+fn portal_member_connect_keeps_the_authenticated_seat() {
+    assert_eq!(std::env::var("HOME").unwrap(), "/home/sbx");
+    let _lock = registry::data_dir_test_lock();
+    let fixture: Value = serde_json::from_str(&std::fs::read_to_string("/home/sbx/portal-connect.json").unwrap()).unwrap();
+    let dir = std::path::PathBuf::from("/home/sbx/activation-member");
+    std::fs::create_dir_all(&dir).unwrap();
+    let _override = registry::DataDirOverride::set(dir);
+    teams::connect("http://127.0.0.1:18788", fixture["connectCode"].as_str().unwrap(), None).unwrap();
+    teams::sync_now().unwrap();
+    let connection = registry::load().unwrap().team.unwrap();
+    assert_eq!(connection.team_id, fixture["teamId"].as_str().unwrap());
+    assert_eq!(connection.role, "member");
+    assert_eq!(connection.account_linked, Some(true));
+    assert_eq!(connection.team_name.as_deref(), Some("Activation Acme"));
+    let token = teams::load_token().unwrap().unwrap();
+    let me: Value = ureq::get(&format!("http://127.0.0.1:18788/teams/{}/me", connection.team_id))
+        .set("authorization", &format!("Bearer {token}")).call().unwrap().into_json().unwrap();
+    assert_eq!(me["member_id"], fixture["memberId"]);
+}
