@@ -56,7 +56,7 @@ function expectNoPitch() {
 
 const registry: Registry = {
   version: 1,
-  servers: [{ id: "github", name: "Personal GitHub", transport: "stdio", command: "python3", args: [], env: [] }],
+  servers: [{ id: "github", name: "Personal GitHub", transport: "stdio", command: "python3", args: [], env: [], url: null, source: null }],
   profiles: [{ id: "default", name: "Default", enabledServerIds: [] }],
   activeProfileId: "default",
   team: {
