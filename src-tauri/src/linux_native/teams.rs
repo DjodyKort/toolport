@@ -510,10 +510,10 @@ impl TeamsPage {
         sync.connect_clicked(move |button| page_for_sync.sync(button.clone()));
         actions.append(&sync);
         if team.role == "admin" {
-            let push = gtk::Button::with_label("Update shared servers");
+            let push = gtk::Button::with_label("Share selected servers");
             push.add_css_class("toolport-secondary-action");
             let page_for_push = self.clone();
-            push.connect_clicked(move |button| page_for_push.preview_push(button.clone()));
+            push.connect_clicked(move |button| page_for_push.select_servers(button.clone()));
             actions.append(&push);
         }
         let account_link = gtk::Button::with_label("Link portal account");
@@ -540,20 +540,18 @@ impl TeamsPage {
         summary.append(&actions);
         self.content.append(&summary);
 
-        let active_profile = registry.active_profile_id();
         let review = registry
             .servers
             .iter()
             .filter(|server| {
-                server.needs_team_enable_review()
-                    && !registry.is_enabled(&active_profile, &server.id)
+                server.source.as_deref() == Some(&format!("team:{}", team.team_id))
             })
             .cloned()
             .collect::<Vec<_>>();
         if !review.is_empty() {
             self.content.append(
                 &gtk::Label::builder()
-                    .label("Member review required")
+                    .label("Team-managed servers · review and local setup")
                     .halign(gtk::Align::Start)
                     .css_classes(["heading"])
                     .build(),
@@ -743,37 +741,64 @@ impl TeamsPage {
         self.refresh();
     }
 
-    fn preview_push(&self, button: gtk::Button) {
+    fn select_servers(&self, button: gtk::Button) {
+        let Some(parent) = self.app.active_window() else { return; };
+        let reg = match crate::registry::load() { Ok(r) => r, Err(e) => { self.show_error(&e); return; } };
+        #[allow(deprecated)]
+        let dialog = adw::MessageDialog::new(Some(&parent), Some("Share with your team"), Some("Choose one working server to begin. Other team servers and your personal originals stay in place. Each member supplies credentials locally."));
+        dialog.add_response("cancel", "Cancel");
+        dialog.add_response("select", "Preview selected");
+        dialog.set_response_enabled("select", false);
+        dialog.set_close_response("cancel");
+        let list = gtk::Box::new(gtk::Orientation::Vertical, 8);
+        let choices = Rc::new(RefCell::new(Vec::<String>::new()));
+        for server in reg.servers.iter().filter(|s| !s.source.as_deref().unwrap_or("").starts_with("team:") && !crate::clients::is_gateway_server(s)) {
+            let keys = server.env.iter().map(|e| e.key.as_str()).collect::<Vec<_>>().join(", ");
+            let label = if keys.is_empty() { server.name.clone() } else { format!("{} — local credentials: {keys}", server.name) };
+            let check = gtk::CheckButton::with_label(&label);
+            let ids = choices.clone(); let id = server.id.clone(); let d = dialog.clone();
+            check.connect_toggled(move |c| { let mut ids = ids.borrow_mut(); ids.retain(|x| x != &id); if c.is_active() { ids.push(id.clone()); } d.set_response_enabled("select", !ids.is_empty()); });
+            list.append(&check);
+        }
+        if list.first_child().is_none() { list.append(&gtk::Label::new(Some("Add a working personal server in Servers first."))); }
+        dialog.set_extra_child(Some(&list));
+        let page = self.clone();
+        dialog.connect_response(None, move |d, response| { if response == "select" { page.preview_push(button.clone(), choices.borrow().clone()); } d.close(); });
+        dialog.present();
+    }
+
+    fn preview_push(&self, button: gtk::Button, selected: Vec<String>) {
         button.set_sensitive(false);
         self.feedback
             .set_label("Comparing local and shared team servers…");
         let page = self.clone();
         gtk::glib::spawn_future_local(async move {
-            let result = gtk::gio::spawn_blocking(crate::teams::preview_push_current).await;
+            let ids = selected.clone();
+            let result = gtk::gio::spawn_blocking(move || crate::teams::preview_push_selected(&ids)).await;
             button.set_sensitive(true);
             match result {
-                Ok(Ok(preview)) => page.show_push_review(preview),
+                Ok(Ok(preview)) => page.show_push_review(preview, selected),
                 Ok(Err(error)) => page.show_error(&error),
                 Err(_) => page.show_error("the team comparison stopped unexpectedly"),
             }
         });
     }
 
-    fn show_push_review(&self, preview: crate::teams::PushPreview) {
+    fn show_push_review(&self, preview: crate::teams::PushPreview, selected: Vec<String>) {
         let Some(parent) = self.app.active_window() else {
             return;
         };
         #[allow(deprecated)]
         let dialog = adw::MessageDialog::new(
             Some(&parent),
-            Some("Replace the team’s shared servers?"),
-            Some("Only the shared server list changes. Team instructions, security policies, and other settings stay unchanged. Secrets are never sent."),
+            Some("Share selected servers?"),
+            Some("Selected definitions are added or updated. Other shared servers and team policies stay unchanged. Local credential values are never sent."),
         );
         dialog.add_response("cancel", "Cancel");
-        dialog.add_response("push", "Replace shared servers");
+        dialog.add_response("push", "Share selected");
         dialog.set_close_response("cancel");
         dialog.set_default_response(Some("cancel"));
-        dialog.set_response_appearance("push", adw::ResponseAppearance::Destructive);
+        dialog.set_response_appearance("push", adw::ResponseAppearance::Suggested);
         let changes = gtk::Box::new(gtk::Orientation::Vertical, 8);
         changes.add_css_class("toolport-settings-group");
         for (label, names) in [
@@ -811,11 +836,12 @@ impl TeamsPage {
             if response == "push" {
                 let base_version = preview.base_version;
                 let fingerprint = preview.local_fingerprint.clone();
+                let selected = selected.clone();
                 page.feedback.set_label("Updating shared team servers…");
                 let page = page.clone();
                 gtk::glib::spawn_future_local(async move {
                     let result = gtk::gio::spawn_blocking(move || {
-                        crate::teams::push_current(base_version, &fingerprint)
+                        crate::teams::push_selected(&selected, base_version, &fingerprint)
                     })
                     .await;
                     match result {
@@ -1019,14 +1045,13 @@ fn review_server_row(server: crate::registry::ServerEntry, page: TeamsPage) -> g
             .css_classes(["heading"])
             .build(),
     );
-    let target = server
-        .command
-        .as_deref()
-        .or(server.url.as_deref())
-        .unwrap_or("Unknown target");
+    let credentials = server.env.iter().map(|e| e.key.as_str()).collect::<Vec<_>>().join(", ");
+    let target = if let Some(command) = &server.command {
+        format!("Command: {command}\nArguments: {}\nWorking directory: {}\nCredentials required: {}", serde_json::to_string(&server.args).unwrap_or_default(), server.cwd.as_deref().unwrap_or("Inherit from client"), if credentials.is_empty() { "None declared" } else { &credentials })
+    } else { format!("URL: {}\nCredentials required: {}", server.url.as_deref().unwrap_or("Unknown target"), if credentials.is_empty() { "None declared" } else { &credentials }) };
     copy.append(
         &gtk::Label::builder()
-            .label(target)
+            .label(&target)
             .halign(gtk::Align::Fill)
             .xalign(0.0)
             .wrap(true)
@@ -1034,6 +1059,30 @@ fn review_server_row(server: crate::registry::ServerEntry, page: TeamsPage) -> g
             .build(),
     );
     row.append(&copy);
+    let original = crate::registry::load().ok().and_then(|r| {
+        let id = r.team.as_ref()?.managed_server_ids.get(&server.id)?;
+        r.servers.iter().find(|s| &s.id == id && !s.source.as_deref().unwrap_or("").starts_with("team:") && r.is_enabled(&r.active_profile_id(), id)).map(|s| s.name.clone())
+    });
+    if let Some(original) = original {
+        let use_managed = gtk::Button::with_label("Use managed version for this profile");
+        let page = page.clone(); let id = server.id.clone(); let detail = target.clone();
+        use_managed.connect_clicked(move |_| {
+            let Some(parent) = page.app.active_window() else { return; };
+            #[allow(deprecated)]
+            let d = adw::MessageDialog::new(Some(&parent), Some("Use team-managed version?"), Some(&format!("{detail}\n\nEnable this managed copy and disable Personal {original} in this profile. The original stays saved. Environment credentials copy locally only if the execution target matches exactly. HTTP/OAuth sign-in remains separate.")));
+            d.add_response("cancel", "Cancel"); d.add_response("use", "Use managed version"); d.set_close_response("cancel");
+            let page = page.clone(); let id = id.clone();
+            d.connect_response(None, move |d, response| {
+                if response == "use" { let page = page.clone(); let id = id.clone(); gtk::glib::spawn_future_local(async move {
+                    match gtk::gio::spawn_blocking(move || crate::teams::use_managed_server(&id)).await {
+                        Ok(Ok(_)) => page.refresh(), Ok(Err(e)) => page.show_error(&e), Err(_) => page.show_error("Could not switch to managed server"),
+                    }
+                }); }
+                d.close();
+            }); d.present();
+        });
+        row.append(&use_managed);
+    }
     let enable = gtk::Button::with_label("Review and enable");
     enable.add_css_class("toolport-secondary-action");
     let server_name = server.name.clone();
@@ -1046,7 +1095,7 @@ fn review_server_row(server: crate::registry::ServerEntry, page: TeamsPage) -> g
         let dialog = adw::MessageDialog::new(
             Some(&parent),
             Some(&format!("Enable {server_name}?")),
-            Some("This team server runs a local command or connects to a private address. Enable it only after verifying the target above."),
+            Some(&format!("{target}\n\nEnable only after verifying this definition. Credentials remain local.")),
         );
         dialog.add_response("cancel", "Keep disabled");
         dialog.add_response("enable", "Enable");

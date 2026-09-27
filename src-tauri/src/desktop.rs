@@ -2471,13 +2471,21 @@ fn team_disconnect(state: State<RegistryState>) -> Result<Registry, String> {
     Ok(fresh)
 }
 
+#[tauri::command]
+async fn team_use_managed(app: tauri::AppHandle, state: State<'_, RegistryState>, server_id: String) -> Result<Registry, String> {
+    tauri::async_runtime::spawn_blocking(move || teams::use_managed_server(&server_id)).await.map_err(|e| e.to_string())??;
+    let fresh = reload_into_state(state.inner())?;
+    let _ = app.emit("team-sync-registry", &fresh);
+    Ok(fresh)
+}
+
 /// Admin: replace only the team's shared server list with the current local set (own servers
 /// only, secret values never sent). Remote instructions and policy fields are preserved, and
 /// an optimistic-concurrency conflict is returned rather than overwriting another admin.
 #[tauri::command]
-async fn team_push_preview(state: State<'_, RegistryState>) -> Result<teams::PushPreview, String> {
+async fn team_push_preview(state: State<'_, RegistryState>, selected_ids: Option<Vec<String>>) -> Result<teams::PushPreview, String> {
     refresh_from_disk(state.inner())?;
-    tauri::async_runtime::spawn_blocking(teams::preview_push_current)
+    tauri::async_runtime::spawn_blocking(move || match selected_ids { Some(ids) => teams::preview_push_selected(&ids), None => teams::preview_push_current() })
         .await
         .map_err(|e| format!("push preview task join failed: {e}"))?
 }
@@ -2487,11 +2495,12 @@ async fn team_push(
     state: State<'_, RegistryState>,
     base_version: i64,
     local_fingerprint: String,
+    selected_ids: Option<Vec<String>>,
 ) -> Result<i64, String> {
     refresh_from_disk(state.inner())?;
     // push_current does a blocking GET + PUT to the team server; keep it off the main thread.
     tauri::async_runtime::spawn_blocking(move || {
-        teams::push_current(base_version, &local_fingerprint)
+        match selected_ids { Some(ids) => teams::push_selected(&ids, base_version, &local_fingerprint), None => teams::push_current(base_version, &local_fingerprint) }
     })
     .await
     .map_err(|e| format!("push task join failed: {e}"))?
@@ -4294,6 +4303,7 @@ pub fn run() {
             hooks_recent,
             team_disconnect,
             team_push_preview,
+            team_use_managed,
             team_account_link,
             team_push,
             set_auth_token,

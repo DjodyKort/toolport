@@ -681,15 +681,16 @@ export interface TeamPushPreview {
 }
 
 /** Admin: compare the local server export with the team's current shared server list. */
-export function teamPushPreview(): Promise<TeamPushPreview> {
-  return invoke<TeamPushPreview>("team_push_preview");
+export function teamPushPreview(selectedIds?: string[]): Promise<TeamPushPreview> {
+  return invoke<TeamPushPreview>("team_push_preview", { selectedIds });
 }
 
 /** Admin: apply an explicitly previewed shared-server replacement; returns version. */
-export function teamPush(preview: TeamPushPreview): Promise<number> {
+export function teamPush(preview: TeamPushPreview, selectedIds?: string[]): Promise<number> {
   return invoke<number>("team_push", {
     baseVersion: preview.baseVersion,
     localFingerprint: preview.localFingerprint,
+    selectedIds,
   });
 }
 
@@ -1081,3 +1082,6 @@ export function hooksPreview(): Promise<HooksPreview[]> {
 export function hooksRecent(limit: number): Promise<HookEvent[]> {
   return invoke<HookEvent[]>("hooks_recent", { limit });
 }
+
+/** Explicitly use an identical managed definition in the active profile. */
+export function teamUseManaged(serverId: string): Promise<Registry> { return invoke<Registry>("team_use_managed", { serverId }); }

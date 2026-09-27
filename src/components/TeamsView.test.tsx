@@ -5,6 +5,8 @@ import type { InstructionsStatusView, Registry } from "@/lib/types";
 
 const api = vi.hoisted(() => ({
   teamConnect: vi.fn(),
+  teamUseManaged: vi.fn(),
+  teamAccountLink: vi.fn(),
   teamJoinPoll: vi.fn(),
   teamSync: vi.fn(),
   teamDisconnect: vi.fn(),
@@ -54,7 +56,7 @@ function expectNoPitch() {
 
 const registry: Registry = {
   version: 1,
-  servers: [],
+  servers: [{ id: "github", name: "Personal GitHub", transport: "stdio", command: "python3", args: [], env: [] }],
   profiles: [{ id: "default", name: "Default", enabledServerIds: [] }],
   activeProfileId: "default",
   team: {
@@ -85,7 +87,8 @@ describe("TeamsView shared-server update", () => {
     api.teamPush.mockResolvedValue(8);
 
     render(<TeamsView registry={registry} onRegistryChange={vi.fn()} />);
-    await userEvent.click(screen.getByRole("button", { name: "Update shared servers" }));
+    if (!(screen.getByRole("checkbox") as HTMLInputElement).checked) await userEvent.click(screen.getByRole("checkbox"));
+    await userEvent.click(screen.getByRole("button", { name: "Share selected servers" }));
 
     expect(await screen.findByText("Added (2)")).toBeInTheDocument();
     expect(screen.getByText("Changed (1)")).toBeInTheDocument();
@@ -95,9 +98,9 @@ describe("TeamsView shared-server update", () => {
     }
     expect(api.teamPush).not.toHaveBeenCalled();
 
-    await userEvent.click(screen.getByRole("button", { name: "Replace shared servers" }));
-    await waitFor(() => expect(api.teamPush).toHaveBeenCalledWith(preview));
-    expect(await screen.findByText(/now version 8/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Share selected" }));
+    await waitFor(() => expect(api.teamPush).toHaveBeenCalledWith(preview, ["github"]));
+    expect(await screen.findByText(/version 8/i)).toBeInTheDocument();
   });
 
   it("passes reviewed=true when the member confirms enabling a review server", async () => {
@@ -155,19 +158,21 @@ describe("TeamsView shared-server update", () => {
     );
 
     render(<TeamsView registry={registry} onRegistryChange={vi.fn()} />);
-    await userEvent.click(screen.getByRole("button", { name: "Update shared servers" }));
+    if (!(screen.getByRole("checkbox") as HTMLInputElement).checked) await userEvent.click(screen.getByRole("checkbox"));
+    await userEvent.click(screen.getByRole("button", { name: "Share selected servers" }));
     await userEvent.click(
-      await screen.findByRole("button", { name: "Replace shared servers" }),
+      await screen.findByRole("button", { name: "Share selected" }),
     );
 
     expect(
       await screen.findByText(/team config changed; nothing was overwritten/i),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Replace shared servers" }),
+      screen.queryByRole("button", { name: "Share selected" }),
     ).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Update shared servers" }));
+    if (!(screen.getByRole("checkbox") as HTMLInputElement).checked) await userEvent.click(screen.getByRole("checkbox"));
+    await userEvent.click(screen.getByRole("button", { name: "Share selected servers" }));
     await waitFor(() => expect(api.teamPushPreview).toHaveBeenCalledTimes(2));
   });
 });

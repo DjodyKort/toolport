@@ -1706,6 +1706,82 @@ pub fn disconnect() -> Result<(), String> {
     Ok(())
 }
 
+/// Explicit profile switch after reviewing the managed definition. Keep the personal
+/// definition and its credentials. Copy only declared environment values to the exact
+/// same execution target; OAuth and HTTP sessions must be authenticated separately.
+pub fn use_managed_server(managed_id: &str) -> Result<Registry, String> {
+    let (reg, ()) = crate::registry::update(|reg| {
+        let team = reg.team.as_ref().ok_or("not connected to a team")?;
+        let personal_id = team.managed_server_ids.get(managed_id).ok_or("managed identity unavailable")?.clone();
+        let managed = reg.servers.iter().find(|s| s.id == managed_id && s.source.as_deref() == Some(&format!("team:{}", team.team_id))).ok_or("managed server unavailable")?.clone();
+        let personal = reg.servers.iter().find(|s| s.id == personal_id && !s.source.as_deref().unwrap_or("").starts_with("team:")).ok_or("personal original unavailable")?.clone();
+        if consent_fingerprint(&managed) != consent_fingerprint(&personal)
+            || serde_json::to_value(&managed.client_credentials).ok() != serde_json::to_value(&personal.client_credentials).ok() {
+            return Err("The managed definition differs from your personal server. Complete its setup separately before switching profiles.".into());
+        }
+        let profile = reg.active_profile_id();
+        if !reg.profiles.iter().any(|p| p.id == profile) { return Err("active profile unavailable".into()); }
+        for env in &personal.env {
+            if crate::secrets::get_secret_result(managed_id, &env.key)?.is_none() {
+                let value = if env.secret { crate::secrets::get_secret_result(&personal.id, &env.key)? } else { env.value.clone() };
+                if let Some(value) = value { crate::secrets::set_secret(managed_id, &env.key, &value)?; }
+            }
+        }
+        if let Some(server) = reg.servers.iter_mut().find(|s| s.id == managed_id) {
+            for env in &mut server.env { env.secret = true; env.value = None; }
+        }
+        crate::registry_controller::apply_server_enabled(reg, &profile, managed_id, true, true)?;
+        reg.set_server_enabled(&profile, &personal.id, false)?;
+        reg.secrets_generation = reg.secrets_generation.wrapping_add(1);
+        Ok(())
+    })?;
+    Ok(reg)
+}
+
+/// Merge only explicitly selected personal definitions. Never remove unrelated remote entries.
+fn selected_export(reg: &Registry, ids: &[String]) -> Result<Value, String> {
+    if ids.is_empty() { return Err("Select at least one personal server to share.".into()); }
+    let exported = team_server_export(reg);
+    let index = server_index(&exported)?;
+    let mut selected = BTreeMap::new();
+    for id in ids {
+        let server = index.get(id).ok_or("A selected personal server is no longer available. Review again.")?;
+        selected.insert(id.clone(), (*server).clone());
+    }
+    Ok(Value::Array(selected.into_values().collect()))
+}
+fn additive_server_set(remote: &Value, selected: &Value) -> Result<Value, String> {
+    let mut merged: BTreeMap<String, Value> = server_index(remote)?.into_iter().map(|(id, s)| (id, s.clone())).collect();
+    for (id, server) in server_index(selected)? { merged.insert(id, server.clone()); }
+    Ok(Value::Array(merged.into_values().collect()))
+}
+pub fn preview_push_selected(ids: &[String]) -> Result<PushPreview, String> {
+    let reg = crate::registry::load()?;
+    let conn = reg.team.as_ref().ok_or("not connected to a team")?;
+    if conn.role != "admin" { return Err("only a team admin can share servers".into()); }
+    let selected = selected_export(&reg, ids)?;
+    let token = load_token()?.ok_or("team token is missing from the keychain")?;
+    let (version, config) = fetch_config_for_update(&conn.server_url, &conn.team_id, &token)?;
+    let remote = config.get("servers").ok_or("team config has no server list")?;
+    let merged = additive_server_set(remote, &selected)?;
+    let mut preview = build_push_preview(version, remote, &merged)?;
+    preview.local_fingerprint = crate::audit::args_hash(&selected);
+    Ok(preview)
+}
+pub fn push_selected(ids: &[String], expected_version: i64, fingerprint: &str) -> Result<i64, String> {
+    let reg = crate::registry::load()?;
+    let conn = reg.team.as_ref().ok_or("not connected to a team")?;
+    if conn.role != "admin" { return Err("only a team admin can share servers".into()); }
+    let selected = selected_export(&reg, ids)?;
+    if crate::audit::args_hash(&selected) != fingerprint { return Err("Selected servers changed. Review the share again.".into()); }
+    let token = load_token()?.ok_or("team token is missing from the keychain")?;
+    let (version, config) = fetch_config_for_update(&conn.server_url, &conn.team_id, &token)?;
+    if version != expected_version { return Err(STALE_PUSH_MESSAGE.into()); }
+    let servers = additive_server_set(config.get("servers").ok_or("team config has no server list")?, &selected)?;
+    let config = replace_server_set(config, servers)?;
+    push_config(&conn.server_url, &conn.team_id, &token, &config, version)
+}
+
 /// Admin: preview replacing the remote config's server list with the current local server set.
 /// The returned version and fingerprint bind the later confirmation to exactly what was shown.
 pub fn preview_push_current() -> Result<PushPreview, String> {
@@ -1795,6 +1871,7 @@ fn team_server_export(reg: &Registry) -> Value {
                 "transport": s.transport,
                 "command": s.command,
                 "args": args,
+                "cwd": s.cwd,
                 "url": url,
                 "env": s.env.iter().map(|e| serde_json::json!({ "key": e.key, "secret": e.secret })).collect::<Vec<_>>(),
                 "disabledTools": s.disabled_tools,
@@ -2248,7 +2325,7 @@ fn classify_team_server(s: &Value, tag: &str) -> TeamClass {
         url: None,
         source: Some(tag.to_string()),
         disabled_tools: str_array("disabledTools"),
-        cwd: None,
+        cwd: str_field("cwd").map(String::from),
         // Carried through so a shared headless server stays headless. Dropping it
         // silently downgraded the member to interactive OAuth, which is exactly
         // what this flow exists to avoid; the secret is still theirs to add.
@@ -2378,6 +2455,33 @@ pub fn remove_team(reg: &mut Registry, team_id: &str) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn selected_share_preserves_remote_and_local_and_requires_reviewed_inputs() {
+        let mut reg = base_registry();
+        let personal = reg.servers.iter_mut().find(|s| s.id == "mine").unwrap();
+        personal.cwd = Some("/workspace/project".into());
+        let before = serde_json::to_value(&reg).unwrap();
+        let remote = json!([{"id":"unrelated","name":"Remote","transport":"http","url":"https://remote.example/mcp"}]);
+        let selected = selected_export(&reg, &["mine".into()]).unwrap();
+        let merged = additive_server_set(&remote, &selected).unwrap();
+        assert_eq!(merged.as_array().unwrap().len(), 2);
+        assert!(merged.as_array().unwrap().contains(&remote[0]));
+        let preview = build_push_preview(4, &remote, &merged).unwrap();
+        assert!(preview.removed.is_empty());
+        assert_eq!(preview.added.len(), 1);
+        assert_eq!(serde_json::to_value(&reg).unwrap(), before);
+        assert!(selected_export(&reg, &[]).is_err());
+        assert!(selected_export(&reg, &["unknown".into()]).is_err());
+        match classify_team_server(&selected[0], "team:test") {
+            TeamClass::Review(s) | TeamClass::Ready(s) => assert_eq!(s.cwd.as_deref(), Some("/workspace/project")),
+            _ => panic!("selected server should import"),
+        }
+        let updated = json!([{"id":"unrelated","name":"Updated"}, {"id":"second","name":"Second"}]);
+        let merged = additive_server_set(&remote, &updated).unwrap();
+        assert_eq!(merged.as_array().unwrap().len(), 2);
+        assert!(merged.as_array().unwrap().contains(&updated[0]));
+    }
+
     #[test]
     fn native_retry_is_bounded_and_recovers_after_success() {
         assert_eq!((0..5).map(super::retry_delay_seconds).collect::<Vec<_>>(), vec![3, 15, 30, 60, 60]);

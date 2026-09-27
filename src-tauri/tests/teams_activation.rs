@@ -147,3 +147,48 @@ fn portal_member_connect_keeps_the_authenticated_seat() {
         .set("authorization", &format!("Bearer {token}")).call().unwrap().into_json().unwrap();
     assert_eq!(me["member_id"], fixture["memberId"]);
 }
+
+#[test]
+#[ignore = "requires private Omabox HOME/keyring and synthetic Teams on 18788"]
+fn selected_share_is_additive_conflict_safe_and_locally_usable() {
+    assert_eq!(std::env::var("HOME").unwrap(), "/home/sbx");
+    let _lock = registry::data_dir_test_lock();
+    let dir = std::path::PathBuf::from("/home/sbx/activation-a3");
+    std::fs::create_dir_all(&dir).unwrap();
+    let _override = registry::DataDirOverride::set(&dir);
+    let api = "http://127.0.0.1:18788";
+    let created: Value = ureq::post(&format!("{api}/teams")).set("authorization", "Bearer activation-synthetic-bootstrap").send_json(json!({"name":"A3 selected share"})).unwrap().into_json().unwrap();
+    let team = created["team_id"].as_str().unwrap();
+    let auth = format!("Bearer {}", created["admin_token"].as_str().unwrap());
+    let remote = json!({"id":"unrelated", "name":"Other team server", "transport":"http", "url":"https://example.test/mcp"});
+    ureq::put(&format!("{api}/teams/{team}/config")).set("authorization", &auth).send_json(json!({"base_version":0,"config":{"servers":[remote],"denyDestructive":true}})).unwrap();
+    let invite: Value = ureq::post(&format!("{api}/teams/{team}/invites")).set("authorization", &auth).send_json(json!({"role":"admin"})).unwrap().into_json().unwrap();
+    registry::update(|r| {
+        r.servers.push(serde_json::from_value(json!({"id":"selected-one","name":"Selected one","transport":"stdio","command":"python3","args":["/home/sbx/activation-mcp.py"],"cwd":"/home/sbx","env":[{"key":"SYNTHETIC_KEY","secret":true}]})).unwrap());
+        r.servers.push(serde_json::from_value(json!({"id":"keep-personal","name":"Keep personal","transport":"stdio","command":"python3","args":[],"env":[]})).unwrap());
+        r.profiles[0].enabled_server_ids.extend(["selected-one".into(),"keep-personal".into()]);
+        Ok(())
+    }).unwrap();
+    conduit_lib::secrets::set_secret("selected-one", "SYNTHETIC_KEY", "synthetic-only-secret").unwrap();
+    teams::connect(api, invite["invite_code"].as_str().unwrap(), Some("A3 admin")).unwrap();
+    let ids = vec!["selected-one".into()];
+    let preview = teams::preview_push_selected(&ids).unwrap();
+    assert!(preview.removed.is_empty());
+    assert_eq!(preview.added, vec!["Selected one"]);
+    teams::push_selected(&ids, preview.base_version, &preview.local_fingerprint).unwrap();
+    assert!(teams::push_selected(&ids, preview.base_version, &preview.local_fingerprint).unwrap_err().contains("changed"));
+    let config: Value = ureq::get(&format!("{api}/teams/{team}/config")).set("authorization", &auth).call().unwrap().into_json().unwrap();
+    assert!(config["config"]["servers"].as_array().unwrap().contains(&remote));
+    assert_eq!(config["config"]["servers"].as_array().unwrap().len(), 2);
+    assert_eq!(config["config"]["denyDestructive"], true);
+    assert!(!config.to_string().contains("synthetic-only-secret"));
+    teams::sync_now().unwrap();
+    let r = teams::use_managed_server("team_selected-one").unwrap();
+    assert!(r.is_enabled(&r.active_profile_id(), "team_selected-one"));
+    assert!(!r.is_enabled(&r.active_profile_id(), "selected-one"));
+    assert!(r.is_enabled(&r.active_profile_id(), "keep-personal"));
+    assert!(r.servers.iter().any(|s| s.id == "selected-one"));
+    assert_eq!(conduit_lib::secrets::get_secret_result("team_selected-one", "SYNTHETIC_KEY").unwrap().as_deref(), Some("synthetic-only-secret"));
+    registry::update(|r| { r.servers.iter_mut().find(|s| s.id == "team_selected-one").unwrap().args.push("--changed-target".into()); Ok(()) }).unwrap();
+    assert!(teams::use_managed_server("team_selected-one").is_err());
+}
