@@ -277,7 +277,7 @@ fn selected_share_is_additive_conflict_safe_and_locally_usable() {
         .unwrap()
         .contains("synthetic-only-secret"));
     let published = teams::push_selected(&ids, preview.base_version, &preview.local_fingerprint).unwrap();
-    assert!(published.local_setup_error.is_none(), "{:?}", published.local_setup_error);
+    assert!(published.local_setup_error.is_none(), "local setup must complete");
     assert!(
         teams::push_selected(&ids, preview.base_version, &preview.local_fingerprint)
             .unwrap_err()
@@ -314,11 +314,11 @@ fn selected_share_is_additive_conflict_safe_and_locally_usable() {
     assert!(!r.is_enabled(&r.active_profile_id(), "selected-one"));
     assert!(r.is_enabled(&r.active_profile_id(), "keep-personal"));
     assert!(r.servers.iter().any(|s| s.id == "selected-one"));
-    assert_eq!(
+    assert!(
         conduit_lib::secrets::get_secret_result(&managed_id, "SYNTHETIC_KEY")
             .unwrap()
-            .as_deref(),
-        Some("synthetic-only-secret")
+            .as_deref() == Some("synthetic-only-secret"),
+        "managed identity must retain the synthetic credential"
     );
     std::fs::write("/home/sbx/activation-mcp.py", r#"import sys,json,os
 assert os.environ.get('SYNTHETIC_KEY') == 'synthetic-only-secret'
@@ -379,6 +379,6 @@ finally:p.terminate();p.wait(timeout=10)
     let disconnected = registry::load().unwrap();
     assert!(disconnected.team.is_none());
     assert!(disconnected.is_enabled(&disconnected.active_profile_id(), "selected-one"));
-    assert_eq!(conduit_lib::secrets::get_secret("selected-one", "SYNTHETIC_KEY").as_deref(), Some("synthetic-only-secret"));
+    assert!(conduit_lib::secrets::get_secret("selected-one", "SYNTHETIC_KEY").as_deref() == Some("synthetic-only-secret"), "personal credential must survive disconnect");
     assert!(teams::load_token().unwrap().is_none());
 }
