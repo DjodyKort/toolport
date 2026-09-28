@@ -6430,7 +6430,7 @@ mod tests {
     /// write failure must surface the partial state — the token is gone from the keychain
     /// but the running gateway was never told to reload (#737, #743).
     #[test]
-    fn clear_auth_token_propagates_reload_failure_after_keychain_removal() {
+    fn clear_auth_token_checks_ownership_and_propagates_reload_failure() {
         let _serial = GEN_TEST_LOCK
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -6440,9 +6440,6 @@ mod tests {
         let _data = registry::data_dir_test_lock();
         let dir = unique_update_test_dir("clear-auth-reload-fail");
         std::fs::create_dir_all(&dir).unwrap();
-        // The registry "file" is an existing directory, so the atomic temp+rename
-        // save fails fast and `bump_secrets_generation` must propagate the failure.
-        std::fs::create_dir_all(dir.join("registry.json")).unwrap();
         let _override = registry::DataDirOverride::set(&dir);
 
         let previous_key = std::env::var_os("TOOLPORT_SECRET_KEY");
@@ -6478,9 +6475,24 @@ mod tests {
             Some("tok-123".to_string())
         );
 
+        // An unreadable registry cannot establish which vault owns this token.
+        // Refuse deletion, then prove the token survives once access is restored.
+        std::fs::create_dir_all(dir.join("registry.json")).unwrap();
         let state: RegistryState = Mutex::new(Registry::default());
         let err = clear_auth_token_inner("srv-clear-auth", &state)
-            .expect_err("a failed bump must propagate on the clear path");
+            .expect_err("unverifiable ownership must prevent deletion");
+        assert!(err.contains("Cannot verify local authentication ownership"));
+        std::fs::remove_dir(dir.join("registry.json")).unwrap();
+        assert_eq!(
+            secrets::get_secret_result("srv-clear-auth", secrets::HTTP_AUTH_KEY).unwrap(),
+            Some("tok-123".to_string())
+        );
+
+        // Inject the later reload failure after ownership has been verified.
+        let err = crate::registry_controller::clear_auth_token_with("srv-clear-auth", || {
+            Err("the registry could not be saved".into())
+        })
+        .expect_err("a failed bump must propagate on the clear path");
         assert!(
             err.contains("removed from the keychain"),
             "unexpected error: {err}"
