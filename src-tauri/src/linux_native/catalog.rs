@@ -601,6 +601,7 @@ fn suggestion_row(
 /// server flips the row to Added.
 fn configure_self_hosted(entry: &crate::catalog::CatalogEntry, hint: &str, page: &CatalogPage) {
     let view = super::state::ServerView {
+        origin_label: "Personal".into(),
         id: String::new(),
         name: entry.name.clone(),
         transport: super::state::transport_label(&entry.transport).to_string(),

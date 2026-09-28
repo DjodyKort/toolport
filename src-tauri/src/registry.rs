@@ -1967,6 +1967,9 @@ impl Registry {
     }
 
     pub fn remove_server(&mut self, id: &str) -> Result<(), String> {
+        if crate::local_auth::supplies_authentication(self, id)? {
+            return Err("This personal original supplies local credentials to its team version. Leave the team before removing the original.".into());
+        }
         let before = self.servers.len();
         self.servers.retain(|s| s.id != id);
         if self.servers.len() == before {

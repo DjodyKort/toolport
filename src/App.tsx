@@ -264,6 +264,13 @@ function App() {
     [reprobeAfterMutation],
   );
 
+  useEffect(() => {
+    const unlisten = listen("show-teams", () => setView("teams"));
+    return () => {
+      void unlisten.then((dispose) => dispose());
+    };
+  }, []);
+
   // Refresh statuses when the user returns to the window, so a server that came
   // up (or went down) while they were away reflects reality without a manual
   // refresh. Guarded so rapid alt-tabbing doesn't re-spawn every server.

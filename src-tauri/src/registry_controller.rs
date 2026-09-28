@@ -137,7 +137,12 @@ fn try_acquire_auth_lock(path: &Path) -> Result<Option<AuthMutationLock>, String
 }
 
 pub(crate) fn acquire_auth_lock(server_id: &str) -> Result<AuthMutationLock, String> {
-    let path = auth_lock_path(server_id)?;
+    acquire_auth_owner_lock(&crate::local_auth::owner(server_id)?)
+}
+
+/// Handoffs lock both raw namespaces before changing ownership, outside the registry lock.
+pub(crate) fn acquire_auth_owner_lock(owner: &str) -> Result<AuthMutationLock, String> {
+    let path = auth_lock_path(owner)?;
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(AUTH_LOCK_WAIT_SECS);
     loop {
         if let Some(lock) = try_acquire_auth_lock(&path)? {
@@ -1510,6 +1515,7 @@ pub fn set_client_credentials(
     scope: Option<&str>,
 ) -> Result<Registry, String> {
     let _mutation = acquire_auth_lock(server_id)?;
+    if crate::local_auth::owner(server_id)? != server_id { return Err("Edit the personal original to change the shared local sign-in configuration.".into()); }
     let client_id = client_id.trim().to_string();
     if client_id.is_empty() {
         return Err("a client id is required for client-credentials auth".into());
@@ -1567,6 +1573,7 @@ pub fn set_client_credentials(
 
 pub fn clear_client_credentials(server_id: &str) -> Result<Registry, String> {
     let _mutation = acquire_auth_lock(server_id)?;
+    if crate::local_auth::owner(server_id)? != server_id { return Err("Edit the personal original to change the shared local sign-in configuration.".into()); }
     crate::remote::reset_client_credentials(server_id)?;
     let (registry, ()) = registry::update(|registry| {
         let Some(server) = registry
@@ -1862,6 +1869,7 @@ pub fn apply_server_enabled(
     enabled: bool,
     reviewed: bool,
 ) -> Result<(), String> {
+    if reviewed { crate::local_auth::detach_changed(registry, server_id)?; }
     if enabled {
         if let Some(server) = registry
             .servers

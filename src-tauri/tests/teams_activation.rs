@@ -21,13 +21,8 @@ fn managed_switch_preserves_existing_local_value() {
         Ok(())
     }).unwrap();
     conduit_lib::secrets::delete_secret("team_original", "LOCAL_VALUE").unwrap();
-    teams::use_managed_server("team_original").unwrap();
-    assert_eq!(
-        conduit_lib::secrets::get_secret_result("team_original", "LOCAL_VALUE")
-            .unwrap()
-            .as_deref(),
-        Some("managed-value")
-    );
+    assert!(teams::use_managed_server("team_original").is_err());
+    assert_eq!(registry::load().unwrap().servers[1].env[0].value.as_deref(), Some("managed-value"));
     assert_eq!(
         registry::load().unwrap().servers[0].env[0].value.as_deref(),
         Some("personal-value")
@@ -227,7 +222,7 @@ fn portal_member_connect_keeps_the_authenticated_seat() {
 fn selected_share_is_additive_conflict_safe_and_locally_usable() {
     assert_eq!(std::env::var("HOME").unwrap(), "/home/sbx");
     let _lock = registry::data_dir_test_lock();
-    let dir = std::path::PathBuf::from("/home/sbx/activation-a3");
+    let dir = std::path::PathBuf::from(format!("/home/sbx/activation-a3-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
     std::fs::create_dir_all(&dir).unwrap();
     let _override = registry::DataDirOverride::set(&dir);
     let api = "http://127.0.0.1:18788";
@@ -281,7 +276,8 @@ fn selected_share_is_additive_conflict_safe_and_locally_usable() {
     assert!(!serde_json::to_string(&preview)
         .unwrap()
         .contains("synthetic-only-secret"));
-    teams::push_selected(&ids, preview.base_version, &preview.local_fingerprint).unwrap();
+    let published = teams::push_selected(&ids, preview.base_version, &preview.local_fingerprint).unwrap();
+    assert!(published.local_setup_error.is_none(), "{:?}", published.local_setup_error);
     assert!(
         teams::push_selected(&ids, preview.base_version, &preview.local_fingerprint)
             .unwrap_err()
@@ -312,7 +308,8 @@ fn selected_share_is_additive_conflict_safe_and_locally_usable() {
         .find(|(_, raw)| raw == "selected-one")
         .unwrap()
         .0;
-    let r = teams::use_managed_server(&managed_id).unwrap();
+    // Publishing is the complete owner handoff, with no second enable/switch action.
+    let r = registry::load().unwrap();
     assert!(r.is_enabled(&r.active_profile_id(), &managed_id));
     assert!(!r.is_enabled(&r.active_profile_id(), "selected-one"));
     assert!(r.is_enabled(&r.active_profile_id(), "keep-personal"));
@@ -323,6 +320,50 @@ fn selected_share_is_additive_conflict_safe_and_locally_usable() {
             .as_deref(),
         Some("synthetic-only-secret")
     );
+    std::fs::write("/home/sbx/activation-mcp.py", r#"import sys,json,os
+assert os.environ.get('SYNTHETIC_KEY') == 'synthetic-only-secret'
+for line in sys.stdin:
+ r=json.loads(line);m=r.get('method');i=r.get('id')
+ if i is None:continue
+ if m=='initialize':v={'protocolVersion':'2024-11-05','capabilities':{'tools':{}},'serverInfo':{'name':'publisher-test','version':'1'}}
+ elif m=='tools/list':v={'tools':[{'name':'echo','description':'Synthetic read-only greeting','inputSchema':{'type':'object'}}]}
+ elif m=='tools/call':v={'content':[{'type':'text','text':'Synthetic success'}]}
+ else:v={}
+ print(json.dumps({'jsonrpc':'2.0','id':i,'result':v}),flush=True)
+"#).unwrap();
+    let managed = r.servers.iter().find(|s| s.id == managed_id).unwrap();
+    let mut downstream = conduit_lib::server_runtime::connect_server(managed).unwrap();
+    assert!(downstream.call("echo", json!({})).unwrap().to_string().contains("Synthetic success"));
+    let client = r#"import subprocess,json,select,time,sys,re
+p=subprocess.Popen([sys.argv[1]],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=open('/home/sbx/publisher-gateway.log','w'),text=True,bufsize=1)
+def rpc(i,m,params):
+ p.stdin.write(json.dumps({'jsonrpc':'2.0','id':i,'method':m,'params':params})+'\n');p.stdin.flush();deadline=time.time()+40
+ while time.time()<deadline:
+  if select.select([p.stdout],[],[],1)[0]:
+   line=p.stdout.readline()
+   if not line:break
+   r=json.loads(line)
+   if r.get('id')==i:return r
+ raise RuntimeError('timeout '+m)
+try:
+ rpc(1,'initialize',{'protocolVersion':'2024-11-05','capabilities':{},'clientInfo':{'name':'publisher-regression','version':'1'}})
+ p.stdin.write(json.dumps({'jsonrpc':'2.0','method':'notifications/initialized'})+'\n');p.stdin.flush()
+ found=rpc(2,'tools/call',{'name':'toolport_search_tools','arguments':{'query':'echo'}})
+ name=re.search(r'team_selected_one_[a-z0-9_]+__echo',json.dumps(found)).group(0)
+ result=rpc(3,'tools/call',{'name':'toolport_call_tool','arguments':{'name':name,'arguments':{}}})
+ assert 'Synthetic success' in json.dumps(result),result
+finally:p.terminate();p.wait(timeout=10)
+"#;
+    let output = Command::new("python3").args(["-c", client, &std::env::var("ACTIVATION_GATEWAY").expect("set the candidate gateway path")])
+        .env("TOOLPORT_DATA_DIR", &dir).output().unwrap();
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    teams::sync_now().unwrap();
+    let activation: Value = ureq::get(&format!("{api}/teams/{team}/activation"))
+        .set("authorization", &auth).call().unwrap().into_json().unwrap();
+    assert!(activation["devices"].as_array().unwrap().iter().any(|device|
+        device["firstSuccessAt"].is_i64()
+        && device["receipt"]["counters"]["selected-one"]["successes"].as_u64().unwrap_or(0) > 0), "the managed success must reach Teams");
+    std::fs::write("/home/sbx/publisher-ready.json", serde_json::to_vec_pretty(&r).unwrap()).unwrap();
     registry::update(|r| {
         r.servers
             .iter_mut()
@@ -334,4 +375,10 @@ fn selected_share_is_additive_conflict_safe_and_locally_usable() {
     })
     .unwrap();
     assert!(teams::use_managed_server(&managed_id).is_err());
+    teams::disconnect().unwrap();
+    let disconnected = registry::load().unwrap();
+    assert!(disconnected.team.is_none());
+    assert!(disconnected.is_enabled(&disconnected.active_profile_id(), "selected-one"));
+    assert_eq!(conduit_lib::secrets::get_secret("selected-one", "SYNTHETIC_KEY").as_deref(), Some("synthetic-only-secret"));
+    assert!(teams::load_token().unwrap().is_none());
 }

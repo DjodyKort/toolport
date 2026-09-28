@@ -713,6 +713,13 @@ fn stringify(e: ureq::Error) -> String {
 }
 
 /// Deep links contain only an origin and team identifier, never executable config or tokens.
+/// A portal link for this installation's existing Team opens it without replacing
+/// the connection or resetting local review/authentication. This is not a health check.
+pub fn pair_target_is_current(reg: &Registry, origin: &str, team: &str) -> bool {
+    reg.team.as_ref().is_some_and(|current| current.team_id == team
+        && current.server_url.trim_end_matches('/') == origin.trim_end_matches('/'))
+}
+
 pub fn parse_pair_link(raw: &str) -> Option<(String, String)> {
     let url = url::Url::parse(raw).ok()?;
     if url.scheme() != "toolport"
@@ -899,6 +906,7 @@ fn finish_connect(
     // Load-modify-save the fresh registry under the cross-process lock, so a concurrent write
     // during the join window's pull isn't reverted (SOU-23).
     let (reg, outcome) = crate::registry::update(|reg| {
+        if let Some(previous) = reg.team.as_ref().map(|t| t.team_id.clone()) { remove_team(reg, &previous); }
         reg.team = Some(conn);
         let mut outcome = MergeOutcome::default();
         if let Some((version, cfg, etag)) = pulled {
@@ -2070,75 +2078,195 @@ pub fn disconnect() -> Result<(), String> {
     Ok(())
 }
 
-/// Explicit profile switch after reviewing the managed definition. Keep the personal
-/// definition and its credentials. Copy only declared environment values to the exact
-/// same execution target; OAuth and HTTP sessions must be authenticated separately.
+/// Lock both namespaces before acquiring the registry lock or changing vault ownership.
+fn lock_handoff_authentication(
+    reg: &Registry,
+    personal: &[String],
+) -> Result<Vec<crate::registry_controller::AuthMutationLock>, String> {
+    let team = reg.team.as_ref().ok_or("Not connected to a team")?;
+    let mut ids = personal.to_vec();
+    ids.extend(
+        team.managed_server_ids
+            .iter()
+            .filter(|(_, original)| personal.contains(original))
+            .map(|(managed, _)| managed.clone()),
+    );
+    ids.sort();
+    ids.dedup();
+    ids.iter()
+        .map(|id| crate::registry_controller::acquire_auth_owner_lock(id))
+        .collect()
+}
+
+/// Explicit, profile-local handoff to an identical definition. Originals stay saved.
 pub fn use_managed_server(managed_id: &str) -> Result<Registry, String> {
+    let before = crate::registry::load()?;
+    let personal = before
+        .team
+        .as_ref()
+        .and_then(|t| t.managed_server_ids.get(managed_id))
+        .ok_or("Managed identity unavailable")?
+        .clone();
+    let selected = vec![personal.clone()];
+    let fingerprint = publisher_fingerprint(&before, &selected)?;
+    let _authentication = lock_handoff_authentication(&before, &selected)?;
     let (reg, ()) = crate::registry::update(|reg| {
-        let team = reg.team.as_ref().ok_or("not connected to a team")?;
-        let personal_id = team
-            .managed_server_ids
-            .get(managed_id)
-            .ok_or("managed identity unavailable")?
-            .clone();
-        let managed = reg
-            .servers
-            .iter()
-            .find(|s| {
-                s.id == managed_id && s.source.as_deref() == Some(&format!("team:{}", team.team_id))
-            })
-            .ok_or("managed server unavailable")?
-            .clone();
-        let personal = reg
-            .servers
-            .iter()
-            .find(|s| {
-                s.id == personal_id && !s.source.as_deref().unwrap_or("").starts_with("team:")
-            })
-            .ok_or("personal original unavailable")?
-            .clone();
-        if consent_fingerprint(&managed) != consent_fingerprint(&personal)
-            || serde_json::to_value(&managed.client_credentials).ok()
-                != serde_json::to_value(&personal.client_credentials).ok()
+        if publisher_fingerprint(reg, &selected)? != fingerprint
+            || reg
+                .team
+                .as_ref()
+                .and_then(|t| t.managed_server_ids.get(managed_id))
+                != Some(&personal)
         {
-            return Err("The managed definition differs from your personal server. Complete its setup separately before switching profiles.".into());
+            return Err(
+                "Your team, profile or personal server changed. Review the switch again.".into(),
+            );
         }
         let profile = reg.active_profile_id();
-        if !reg.profiles.iter().any(|p| p.id == profile) {
-            return Err("active profile unavailable".into());
-        }
-        for env in &managed.env {
-            if crate::secrets::get_secret_result(managed_id, &env.key)?.is_none() {
-                // Preserve an already configured managed value before offering
-                // the matching personal credential. Never overwrite local setup.
-                let value = if !env.secret && env.value.is_some() {
-                    env.value.clone()
-                } else if let Some(original) = personal.env.iter().find(|v| v.key == env.key) {
-                    if original.secret {
-                        crate::secrets::get_secret_result(&personal.id, &env.key)?
-                    } else {
-                        original.value.clone()
-                    }
-                } else {
-                    None
-                };
-                if let Some(value) = value {
-                    crate::secrets::set_secret(managed_id, &env.key, &value)?;
-                }
-            }
-        }
-        if let Some(server) = reg.servers.iter_mut().find(|s| s.id == managed_id) {
-            for env in &mut server.env {
-                env.secret = true;
-                env.value = None;
-            }
-        }
-        crate::registry_controller::apply_server_enabled(reg, &profile, managed_id, true, true)?;
-        reg.set_server_enabled(&profile, &personal.id, false)?;
-        reg.secrets_generation = reg.secrets_generation.wrapping_add(1);
-        Ok(())
+        apply_use_managed(reg, managed_id, &profile)
     })?;
     Ok(reg)
+}
+
+fn apply_use_managed(reg: &mut Registry, managed_id: &str, profile: &str) -> Result<(), String> {
+    let team = reg.team.as_ref().ok_or("not connected to a team")?;
+    let personal_id = team
+        .managed_server_ids
+        .get(managed_id)
+        .ok_or("managed identity unavailable")?
+        .clone();
+    let managed = reg
+        .servers
+        .iter()
+        .find(|s| {
+            s.id == managed_id && s.source.as_deref() == Some(&format!("team:{}", team.team_id))
+        })
+        .ok_or("managed server unavailable")?
+        .clone();
+    let personal = reg
+        .servers
+        .iter()
+        .find(|s| s.id == personal_id && !s.source.as_deref().unwrap_or("").starts_with("team:"))
+        .ok_or("personal original unavailable")?
+        .clone();
+    if consent_fingerprint(&managed) != consent_fingerprint(&personal)
+        || serde_json::to_value(&managed.client_credentials).ok()
+            != serde_json::to_value(&personal.client_credentials).ok()
+    {
+        return Err("The managed definition differs from your personal server. Complete its setup separately before switching profiles.".into());
+    }
+    if !reg.profiles.iter().any(|p| p.id == profile) {
+        return Err("active profile unavailable".into());
+    }
+    crate::local_auth::ensure_unconfigured(reg, &managed)?;
+    // One local vault owner also shares OAuth refresh state and its lock.
+    // Inline non-secret launch/env values remain local on the managed entry.
+    let already_bound = crate::local_auth::owner_in(reg, managed_id)? != managed_id;
+    if !already_bound {
+        if let Some(server) = reg.servers.iter_mut().find(|s| s.id == managed_id) {
+            for env in &mut server.env {
+                if let Some(original) = personal.env.iter().find(|v| v.key == env.key) {
+                    env.secret = original.secret;
+                    env.value = original.value.clone();
+                }
+            }
+            server.launch = personal.launch.clone();
+        }
+    }
+    crate::local_auth::bind(reg, &managed, &personal)?;
+    let personal_scope = reg
+        .profiles
+        .iter()
+        .find(|p| p.id == profile)
+        .and_then(|p| p.tool_scope.get(&personal.id))
+        .cloned();
+    if let Some(scope) = personal_scope {
+        if let Some(p) = reg.profiles.iter_mut().find(|p| p.id == profile) {
+            let scope = match p.tool_scope.get(managed_id) {
+                Some(team_scope) => scope
+                    .into_iter()
+                    .filter(|tool| team_scope.contains(tool))
+                    .collect(),
+                None => scope,
+            };
+            p.tool_scope.insert(managed_id.into(), scope);
+        }
+    }
+    // Validate against the existing local vault owner before saving the new binding.
+    if personal.launch.is_some() {
+        crate::launch_inputs::resolve_args(if already_bound { &managed } else { &personal })?;
+    }
+    let p = reg
+        .profiles
+        .iter_mut()
+        .find(|p| p.id == profile)
+        .ok_or("Profile unavailable")?;
+    if !p.enabled_server_ids.iter().any(|id| id == managed_id) {
+        p.enabled_server_ids.push(managed_id.into());
+    }
+    reg.set_server_enabled(profile, &personal.id, false)?;
+    reg.secrets_generation = reg.secrets_generation.wrapping_add(1);
+    Ok(())
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublishResult {
+    pub version: i64,
+    pub local_setup_error: Option<String>,
+}
+
+fn publisher_fingerprint(reg: &Registry, ids: &[String]) -> Result<String, String> {
+    let team = reg.team.as_ref().ok_or("Not connected to a team")?;
+    let profile = reg
+        .profiles
+        .iter()
+        .find(|p| p.id == reg.active_profile_id())
+        .ok_or("Profile unavailable")?;
+    let selected = selected_export(reg, ids)?;
+    let mut selected_ids = ids.to_vec();
+    selected_ids.sort();
+    let local: Vec<_> = selected_ids.iter().map(|id| json!({
+        "id": id, "enabled": profile.enabled_server_ids.contains(id), "scope": profile.tool_scope.get(id),
+    })).collect();
+    Ok(crate::audit::args_hash(
+        &json!({"selected":selected, "team":team.team_id,
+        "origin":team.server_url, "device":team.reporting_device_id, "role":team.role,
+        "profile":profile.id, "local":local}),
+    ))
+}
+
+fn finish_publisher_share(
+    reg: &mut Registry,
+    before: &Registry,
+    ids: &[String],
+    version: i64,
+) -> Result<(), String> {
+    if publisher_fingerprint(reg, ids)? != publisher_fingerprint(before, ids)?
+        || reg.team.as_ref().map(|t| t.last_version) != Some(version)
+    {
+        return Err("Your team, profile or selected definitions changed. Review local setup below; the shared update is already saved.".into());
+    }
+    let profile = before.active_profile_id();
+    // Stage every handoff together. A failed match leaves the working personal routes intact.
+    let mut candidate = reg.clone();
+    for id in ids {
+        if !before.is_enabled(&profile, id) {
+            continue;
+        }
+        let managed = candidate
+            .team
+            .as_ref()
+            .unwrap()
+            .managed_server_ids
+            .iter()
+            .find(|(_, original)| *original == id)
+            .map(|(managed, _)| managed.clone())
+            .ok_or("A shared definition is not available locally yet. Retry local setup.")?;
+        apply_use_managed(&mut candidate, &managed, &profile)?;
+    }
+    *reg = candidate;
+    Ok(())
 }
 
 /// Merge only explicitly selected personal definitions. Never remove unrelated remote entries.
@@ -2181,21 +2309,21 @@ pub fn preview_push_selected(ids: &[String]) -> Result<PushPreview, String> {
         .ok_or("team config has no server list")?;
     let merged = additive_server_set(remote, &selected)?;
     let mut preview = build_push_preview(version, remote, &merged)?;
-    preview.local_fingerprint = crate::audit::args_hash(&selected);
+    preview.local_fingerprint = publisher_fingerprint(&reg, ids)?;
     Ok(preview)
 }
 pub fn push_selected(
     ids: &[String],
     expected_version: i64,
     fingerprint: &str,
-) -> Result<i64, String> {
+) -> Result<PublishResult, String> {
     let reg = crate::registry::load()?;
     let conn = reg.team.as_ref().ok_or("not connected to a team")?;
     if conn.role != "admin" {
         return Err("only a team admin can share servers".into());
     }
     let selected = selected_export(&reg, ids)?;
-    if crate::audit::args_hash(&selected) != fingerprint {
+    if publisher_fingerprint(&reg, ids)? != fingerprint {
         return Err("Selected servers changed. Review the share again.".into());
     }
     let token = load_token()?.ok_or("team token is missing from the keychain")?;
@@ -2210,7 +2338,20 @@ pub fn push_selected(
         &selected,
     )?;
     let config = replace_server_set(config, servers)?;
-    push_config(&conn.server_url, &conn.team_id, &token, &config, version)
+    let version = push_config(&conn.server_url, &conn.team_id, &token, &config, version)?;
+    let local_setup_error = (|| {
+        sync_now()?;
+        let applied = crate::registry::load()?;
+        let _authentication = lock_handoff_authentication(&applied, ids)?;
+        crate::registry::update(|current| {
+            if current.team.as_ref().map(|t| &t.managed_server_ids) != applied.team.as_ref().map(|t| &t.managed_server_ids) {
+                return Err("Team server identities changed. Review local setup again.".into());
+            }
+            finish_publisher_share(current, &reg, ids, version)
+        })?;
+        Ok::<_, String>(())
+    })().err();
+    Ok(PublishResult { version, local_setup_error })
 }
 
 /// Admin: preview replacing the remote config's server list with the current local server set.
@@ -2621,7 +2762,9 @@ pub fn apply_team_config(reg: &mut Registry, team_id: &str, team_cfg: &Value) ->
                         review_ids.push(entry.id.clone());
                         review_fingerprints.insert(entry.id.clone(), fingerprint);
                     } else {
-                        auto_enable.push(entry.id.clone());
+                        if !reg.servers.iter().any(|s| s.id == shared_id && !s.source.as_deref().unwrap_or("").starts_with("team:")) {
+                            auto_enable.push(entry.id.clone());
+                        }
                     }
                     reg.servers.push(entry);
                     outcome.applied += 1;
@@ -2740,6 +2883,7 @@ pub fn apply_team_config(reg: &mut Registry, team_id: &str, team_cfg: &Value) ->
     // `disabledTools` is already applied on the ServerEntry itself (deny-list). Both layers
     // compose: a tool must be allow-listed (if a list is set) AND not disabled.
     apply_team_tool_scope(reg, &tool_allows, &tag);
+    crate::local_auth::reconcile(reg, &previous);
 
     outcome
 }
@@ -2841,7 +2985,7 @@ fn plain_launch_values(entry: &ServerEntry) -> HashMap<String, String> {
         .unwrap_or_default()
 }
 
-fn consent_fingerprint(entry: &ServerEntry) -> String {
+pub(crate) fn consent_fingerprint(entry: &ServerEntry) -> String {
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     let mut field = |tag: &str, value: &str| {
@@ -3097,6 +3241,7 @@ fn slugify_id(s: &str) -> String {
 /// Remove all of a team's merged servers (and their profile entries) on disconnect.
 /// The member's own servers and profiles are left intact.
 pub fn remove_team(reg: &mut Registry, team_id: &str) {
+    crate::local_auth::restore_personal_routes(reg, team_id);
     let tag = tag_for(team_id);
     let ids: Vec<String> = reg
         .servers
@@ -3850,6 +3995,205 @@ mod tests {
             .enabled_server_ids
             .push("mine".into());
         r
+    }
+
+    #[test]
+    fn pair_target_matching_never_reuses_another_team_or_origin() {
+        let mut reg = publisher_registry();
+        assert!(pair_target_is_current(&reg, "https://teams.example.test", "publisher-test"));
+        assert!(!pair_target_is_current(&reg, "https://other.example.test", "publisher-test"));
+        assert!(!pair_target_is_current(&reg, "https://teams.example.test", "other"));
+        reg.team = None;
+        assert!(!pair_target_is_current(&reg, "https://teams.example.test", "publisher-test"));
+    }
+
+    fn publisher_registry() -> Registry {
+        let mut r = base_registry();
+        r.team = Some(serde_json::from_value(json!({"serverUrl":"https://teams.example.test",
+            "teamId":"publisher-test", "role":"admin", "lastVersion":1, "reportingDeviceId":"publisher-device"})).unwrap());
+        r
+    }
+
+    fn sync_publisher(before: &Registry) -> Registry {
+        let mut r = before.clone();
+        apply_team_config(
+            &mut r,
+            "publisher-test",
+            &json!({"servers":team_server_export(before)}),
+        );
+        r.team.as_mut().unwrap().last_version = 2;
+        r
+    }
+
+    #[test]
+    fn publisher_handoff_is_profile_local_preserves_original_and_restores_on_leave() {
+        crate::secrets::tests::with_isolated_vault(|| {
+            let before = publisher_registry();
+            let mut r = sync_publisher(&before);
+            let profile = r.active_profile_id();
+            let mut other = before.profiles[0].clone();
+            other.id = "other".into();
+            r.profiles.push(other);
+            let id = member_id(&r, "mine");
+            assert!(!r.is_enabled(&profile, &id));
+            finish_publisher_share(&mut r, &before, &["mine".into()], 2).unwrap();
+            assert!(r.is_enabled(&profile, &id));
+            assert!(!r.is_enabled(&profile, "mine"));
+            assert!(r.is_enabled("other", "mine"));
+            assert!(!r.is_enabled("other", &id));
+            assert_eq!(crate::local_auth::owner_in(&r, &id).unwrap(), "mine");
+            assert!(r.servers.iter().any(|s| s.id == "mine"));
+            assert!(
+                r.remove_server("mine").is_err(),
+                "the saved authentication owner cannot be deleted while in use"
+            );
+            remove_team(&mut r, "publisher-test");
+            assert!(r.is_enabled(&profile, "mine"));
+            assert!(r.is_enabled("other", "mine"));
+        });
+    }
+
+    #[test]
+    fn publisher_disabled_selection_stays_off_and_remote_does_not_duplicate_original() {
+        crate::secrets::tests::with_isolated_vault(|| {
+            let mut before = publisher_registry();
+            before.servers[0].transport = "http".into();
+            before.servers[0].command = None;
+            before.servers[0].url = Some("https://example.com/mcp".into());
+            let profile = before.active_profile_id();
+            let mut r = sync_publisher(&before);
+            let id = member_id(&r, "mine");
+            assert!(!r.is_enabled(&profile, &id));
+            before.set_server_enabled(&profile, "mine", false).unwrap();
+            r = sync_publisher(&before);
+            finish_publisher_share(&mut r, &before, &["mine".into()], 2).unwrap();
+            assert!(!r.is_enabled(&profile, &id));
+            assert!(!r.is_enabled(&profile, "mine"));
+        });
+    }
+
+    #[test]
+    fn publisher_changed_scope_or_target_fails_without_partial_handoff() {
+        crate::secrets::tests::with_isolated_vault(|| {
+            let before = publisher_registry();
+            for field in ["team", "origin", "device", "role", "profile", "target", "version"] {
+                let mut r = sync_publisher(&before);
+                let id = member_id(&r, "mine");
+                match field {
+                    "team" => r.team.as_mut().unwrap().team_id = "other".into(),
+                    "origin" => r.team.as_mut().unwrap().server_url = "https://other.example.test".into(),
+                    "device" => r.team.as_mut().unwrap().reporting_device_id = "other".into(),
+                    "role" => r.team.as_mut().unwrap().role = "member".into(),
+                    "profile" => { let mut other = r.profiles[0].clone(); other.id = "other".into(); r.profiles.push(other); r.active_profile_id = Some("other".into()); },
+                    "version" => r.team.as_mut().unwrap().last_version = 3,
+                    _ => {
+                        r.servers.iter_mut().find(|s| s.id == id).unwrap().command =
+                            Some("different".into())
+                    }
+                }
+                let snapshot = serde_json::to_value(&r).unwrap();
+                assert!(
+                    finish_publisher_share(&mut r, &before, &["mine".into()], 2).is_err(),
+                    "{field}"
+                );
+                assert_eq!(serde_json::to_value(&r).unwrap(), snapshot);
+            }
+        });
+    }
+
+    #[test]
+    fn publisher_local_auth_rejects_changed_destination_and_detaches_only_on_review() {
+        crate::secrets::tests::with_isolated_vault(|| {
+            let before = publisher_registry();
+            let mut r = sync_publisher(&before);
+            let id = member_id(&r, "mine");
+            finish_publisher_share(&mut r, &before, &["mine".into()], 2).unwrap();
+            r.servers.iter_mut().find(|s| s.id == id).unwrap().command = Some("different".into());
+            assert!(crate::local_auth::owner_in(&r, &id).is_err());
+            crate::local_auth::detach_changed(&mut r, &id).unwrap();
+            assert_eq!(crate::local_auth::owner_in(&r, &id).unwrap(), id);
+            assert_eq!(
+                r.servers
+                    .iter()
+                    .find(|s| s.id == "mine")
+                    .unwrap()
+                    .command
+                    .as_deref(),
+                Some("x")
+            );
+        });
+    }
+
+    #[test]
+    fn publisher_scope_restriction_survives_sync_and_values_never_export() {
+        crate::secrets::tests::with_isolated_vault(|| {
+            let mut before = publisher_registry();
+            before.servers[0].env = vec![serde_json::from_value(
+                json!({"key":"LOCAL_INPUT","value":"LOCAL_SENTINEL","secret":false}),
+            )
+            .unwrap()];
+            before.profiles[0]
+                .tool_scope
+                .insert("mine".into(), vec!["read".into()]);
+            let mut r = sync_publisher(&before);
+            let id = member_id(&r, "mine");
+            finish_publisher_share(&mut r, &before, &["mine".into()], 2).unwrap();
+            let cfg = json!({"servers":team_server_export(&before)});
+            assert!(!cfg.to_string().contains("LOCAL_SENTINEL"));
+            apply_team_config(&mut r, "publisher-test", &cfg);
+            assert_eq!(
+                r.profiles[0].tool_scope.get(&id),
+                Some(&vec!["read".into()])
+            );
+            assert_eq!(
+                r.servers.iter().find(|s| s.id == id).unwrap().env[0]
+                    .value
+                    .as_deref(),
+                Some("LOCAL_SENTINEL")
+            );
+        });
+    }
+
+    #[test]
+    fn publisher_auth_uses_one_vault_owner_and_refuses_existing_managed_credentials() {
+        crate::secrets::tests::with_isolated_vault(|| {
+            let before = publisher_registry();
+            let mut r = sync_publisher(&before);
+            let id = member_id(&r, "mine");
+            crate::registry::save(&r).unwrap();
+            crate::secrets::set_secret(&id, crate::secrets::HTTP_AUTH_KEY, "independent-synthetic")
+                .unwrap();
+            assert!(finish_publisher_share(&mut r, &before, &["mine".into()], 2).is_err());
+            assert!(r.is_enabled(&r.active_profile_id(), "mine"));
+            crate::secrets::delete_secret(&id, crate::secrets::HTTP_AUTH_KEY).unwrap();
+            crate::secrets::set_secret("mine", crate::secrets::HTTP_AUTH_KEY, "personal-synthetic")
+                .unwrap();
+            finish_publisher_share(&mut r, &before, &["mine".into()], 2).unwrap();
+            crate::registry::save(&r).unwrap();
+            assert_eq!(
+                crate::secrets::get_secret(&id, crate::secrets::HTTP_AUTH_KEY).as_deref(),
+                Some("personal-synthetic")
+            );
+            crate::secrets::set_secret(&id, "__oauth_state__", "rotated-synthetic").unwrap();
+            assert_eq!(
+                crate::secrets::get_secret("mine", "__oauth_state__").as_deref(),
+                Some("rotated-synthetic")
+            );
+            assert_eq!(
+                crate::local_auth::owner(&id).unwrap(),
+                crate::local_auth::owner("mine").unwrap()
+            );
+            r.servers.iter_mut().find(|s| s.id == id).unwrap().command = Some("untrusted".into());
+            crate::registry::save(&r).unwrap();
+            assert!(crate::secrets::get_secret_result(&id, crate::secrets::HTTP_AUTH_KEY).is_err());
+            crate::local_auth::detach_changed(&mut r, &id).unwrap();
+            crate::registry::save(&r).unwrap();
+            assert!(crate::secrets::get_secret(&id, crate::secrets::HTTP_AUTH_KEY).is_none());
+            assert_eq!(
+                crate::secrets::get_secret("mine", crate::secrets::HTTP_AUTH_KEY).as_deref(),
+                Some("personal-synthetic")
+            );
+        });
     }
 
     fn active_enabled(r: &Registry) -> Vec<String> {

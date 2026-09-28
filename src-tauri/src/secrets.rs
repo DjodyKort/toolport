@@ -1186,7 +1186,7 @@ pub fn set_secret(server_id: &str, key: &str, value: &str) -> Result<(), String>
     if server_id == INTERNAL_SERVER_ID {
         return Err("reserved Toolport secret namespace".to_string());
     }
-    set_secret_raw(server_id, key, value)
+    set_secret_raw(&crate::local_auth::owner(server_id)?, key, value)
 }
 
 pub fn get_secret(server_id: &str, key: &str) -> Option<String> {
@@ -1265,11 +1265,24 @@ fn get_secret_result_raw(server_id: &str, key: &str) -> Result<Option<String>, S
     platform::get_secret_result(server_id, key)
 }
 
+/// Inspect only the managed identity's vault, never environment overrides or aliases.
+pub(crate) fn has_own_credentials(server: &crate::registry::ServerEntry) -> Result<bool, String> {
+    let mut keys: Vec<&str> = server.env.iter().map(|e| e.key.as_str()).collect();
+    if let Some(launch) = &server.launch { keys.extend(launch.inputs.iter().filter(|i| i.secret).map(|i| i.key.as_str())); }
+    keys.extend([HTTP_AUTH_KEY, CLIENT_SECRET_KEY, "__oauth_state__", "__oauth_cc_state__"]);
+    for key in keys {
+        let value = if file::active() { file::get_secret_result(&server.id, key) }
+            else { platform::get_secret_result(&server.id, key) }?;
+        if value.is_some() { return Ok(true); }
+    }
+    Ok(false)
+}
+
 pub fn get_secret_result(server_id: &str, key: &str) -> Result<Option<String>, String> {
     if server_id == INTERNAL_SERVER_ID {
         return Err("reserved Toolport secret namespace".to_string());
     }
-    get_secret_result_raw(server_id, key)
+    get_secret_result_raw(&crate::local_auth::owner(server_id)?, key)
 }
 
 /// Launch argument bindings read only Toolport's vault. Environment overrides
@@ -1278,6 +1291,8 @@ pub fn get_vault_secret_result(server_id: &str, key: &str) -> Result<Option<Stri
     if server_id == INTERNAL_SERVER_ID {
         return Err("reserved Toolport secret namespace".to_string());
     }
+    let owner = crate::local_auth::owner(server_id)?;
+    let server_id = owner.as_str();
     if file::active() {
         return file::get_secret_result(server_id, key);
     }
@@ -1324,7 +1339,7 @@ pub fn delete_secret(server_id: &str, key: &str) -> Result<(), String> {
     if server_id == INTERNAL_SERVER_ID {
         return Err("reserved Toolport secret namespace".to_string());
     }
-    delete_secret_raw(server_id, key)
+    delete_secret_raw(&crate::local_auth::owner(server_id)?, key)
 }
 
 // ── Legacy keychain migration (macOS) ──────────────────────────────────────
@@ -1507,7 +1522,7 @@ fn create_dpk_migration_marker() -> bool {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::sync::Mutex;
 
@@ -1516,6 +1531,24 @@ mod tests {
     /// races with a sibling that assumes the keychain path, causing spurious
     /// failures under the default multi-threaded test runner.
     static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    pub(crate) fn with_isolated_vault(test: impl FnOnce()) {
+        let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _data = crate::registry::data_dir_test_lock();
+        let dir = std::env::temp_dir().join(format!("toolport-publisher-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let _override = crate::registry::DataDirOverride::set(&dir);
+        struct Cleanup(std::path::PathBuf, Option<std::ffi::OsString>);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                match &self.1 { Some(value) => std::env::set_var("TOOLPORT_SECRET_KEY", value), None => std::env::remove_var("TOOLPORT_SECRET_KEY") }
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let _cleanup = Cleanup(dir, std::env::var_os("TOOLPORT_SECRET_KEY"));
+        std::env::set_var("TOOLPORT_SECRET_KEY", "publisher-synthetic-vault");
+        test();
+    }
 
     /// Deletes a real keychain credential even when a test assertion unwinds.
     ///

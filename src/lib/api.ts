@@ -694,12 +694,17 @@ export function teamPushPreview(selectedIds?: string[]): Promise<TeamPushPreview
   return invoke<TeamPushPreview>("team_push_preview", { selectedIds });
 }
 
-/** Admin: apply an explicitly previewed shared-server replacement; returns version. */
+export interface TeamPublishResult {
+  version: number;
+  localSetupError: string | null;
+}
+
+/** Publish, then finish the confirmed publisher handoff locally. */
 export function teamPush(
   preview: TeamPushPreview,
   selectedIds?: string[],
-): Promise<number> {
-  return invoke<number>("team_push", {
+): Promise<TeamPublishResult> {
+  return invoke<TeamPublishResult>("team_push", {
     baseVersion: preview.baseVersion,
     localFingerprint: preview.localFingerprint,
     selectedIds,
