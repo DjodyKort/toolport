@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { InstructionsStatusView, Registry } from "@/lib/types";
 
@@ -93,6 +93,17 @@ describe("TeamsView shared-server update", () => {
       added: ["Alpha", "beta"],
       changed: ["GitHub"],
       removed: ["Legacy"],
+      definitions: [
+        { id: "alpha", name: "Alpha", change: "Added", transport: "stdio", fields: [] },
+        { id: "beta", name: "beta", change: "Added", transport: "http", fields: [] },
+        {
+          id: "github",
+          name: "GitHub",
+          change: "Changed",
+          transport: "stdio",
+          fields: [],
+        },
+      ],
     };
     api.teamPushPreview.mockResolvedValue(preview);
     api.teamPush.mockResolvedValue(8);
@@ -106,7 +117,9 @@ describe("TeamsView shared-server update", () => {
     expect(screen.getByText("Changed (1)")).toBeInTheDocument();
     expect(screen.getByText("Removed (1)")).toBeInTheDocument();
     for (const name of ["Alpha", "beta", "GitHub", "Legacy"]) {
-      expect(screen.getByText(name)).toBeInTheDocument();
+      expect(
+        within(screen.getByRole("dialog")).getByText(name, { exact: false }),
+      ).toBeInTheDocument();
     }
     expect(api.teamPush).not.toHaveBeenCalled();
 
@@ -182,6 +195,7 @@ describe("TeamsView shared-server update", () => {
       added: [],
       changed: ["GitHub"],
       removed: [],
+      definitions: [],
     };
     api.teamPushPreview.mockResolvedValue(preview);
     api.teamPush.mockRejectedValue(

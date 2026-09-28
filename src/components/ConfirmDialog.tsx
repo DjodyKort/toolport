@@ -15,6 +15,8 @@ interface Props {
    * Optional when the dialog is driven in controlled mode via `open`. */
   trigger?: ReactNode;
   title: string;
+  /** Optional width for previews with structured details. */
+  contentClassName?: string;
   description?: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
@@ -33,6 +35,7 @@ interface Props {
 export function ConfirmDialog({
   trigger,
   title,
+  contentClassName = "sm:max-w-sm",
   description,
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
@@ -76,7 +79,7 @@ export function ConfirmDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent
-        className="sm:max-w-sm"
+        className={contentClassName}
         onClick={(e) => e.stopPropagation()}
         aria-describedby={richDescription ? descriptionId : undefined}
       >

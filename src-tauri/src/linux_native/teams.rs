@@ -839,49 +839,7 @@ impl TeamsPage {
         let Some(parent) = self.app.active_window() else {
             return;
         };
-        #[allow(deprecated)]
-        let dialog = adw::MessageDialog::new(
-            Some(&parent),
-            Some("Share selected servers?"),
-            Some("Selected definitions are added or updated. Other shared servers and team policies stay unchanged. Local credential values are never sent."),
-        );
-        dialog.add_response("cancel", "Cancel");
-        dialog.add_response("push", "Share selected");
-        dialog.set_close_response("cancel");
-        dialog.set_default_response(Some("cancel"));
-        dialog.set_response_appearance("push", adw::ResponseAppearance::Suggested);
-        let changes = gtk::Box::new(gtk::Orientation::Vertical, 8);
-        changes.add_css_class("toolport-settings-group");
-        for (label, names) in [
-            ("Added", &preview.added),
-            ("Changed", &preview.changed),
-            ("Removed", &preview.removed),
-        ] {
-            let names = if names.is_empty() {
-                "None".to_string()
-            } else {
-                names.join(", ")
-            };
-            changes.append(
-                &gtk::Label::builder()
-                    .label(format!("{label}: {names}"))
-                    .halign(gtk::Align::Fill)
-                    .xalign(0.0)
-                    .wrap(true)
-                    .css_classes(["toolport-muted"])
-                    .build(),
-            );
-        }
-        changes.append(
-            &gtk::Label::builder()
-                .label("If either side changes after this preview, Toolport stops instead of overwriting it.")
-                .halign(gtk::Align::Fill)
-                .xalign(0.0)
-                .wrap(true)
-                .css_classes(["toolport-muted"])
-                .build(),
-        );
-        dialog.set_extra_child(Some(&changes));
+        let dialog = share_preview_dialog(&parent, &preview);
         let page = self.clone();
         dialog.connect_response(None, move |dialog, response| {
             if response == "push" {
@@ -1226,9 +1184,159 @@ fn review_server_row(server: crate::registry::ServerEntry, page: TeamsPage) -> g
     row
 }
 
+#[allow(deprecated)]
+fn share_preview_dialog(
+    parent: &gtk::Window,
+    preview: &crate::teams::PushPreview,
+) -> adw::MessageDialog {
+    let dialog = adw::MessageDialog::new(
+        Some(parent), Some("Share selected servers?"),
+        Some("Selected definitions are added or updated. Other team servers, instructions and policies stay unchanged. Your personal servers remain saved. Credential values are never uploaded. Each member uses their own credentials locally."),
+    );
+    dialog.set_size_request(520, -1);
+    dialog.add_response("cancel", "Cancel");
+    dialog.add_response("push", "Share selected");
+    dialog.set_close_response("cancel");
+    dialog.set_default_response(Some("cancel"));
+    dialog.set_response_appearance("push", adw::ResponseAppearance::Suggested);
+    dialog.set_extra_child(Some(&share_preview_content(preview)));
+    dialog
+}
+
+/// Bounded, expandable review of the exact display-only preview also used by Tauri.
+fn share_preview_content(preview: &crate::teams::PushPreview) -> gtk::ScrolledWindow {
+    let changes = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    changes.add_css_class("toolport-settings-group");
+    let label = |text: &str| {
+        gtk::Label::builder()
+            .label(text)
+            .xalign(0.0)
+            .wrap(true)
+            .wrap_mode(gtk::pango::WrapMode::WordChar)
+            .max_width_chars(52)
+            .selectable(true)
+            .build()
+    };
+    for (kind, names) in [
+        ("Added", &preview.added),
+        ("Changed", &preview.changed),
+        ("Removed", &preview.removed),
+    ] {
+        let heading = label(&format!("{kind} ({})", names.len()));
+        heading.add_css_class("heading");
+        changes.append(&heading);
+        if names.is_empty() {
+            changes.append(&label("None"));
+        }
+        if kind == "Removed" {
+            for name in names {
+                changes.append(&label(name));
+            }
+            continue;
+        }
+        for definition in preview.definitions.iter().filter(|d| d.change == kind) {
+            let expander = gtk::Expander::builder()
+                .expanded(preview.definitions.len() == 1)
+                .build();
+            let summary = label(&format!("{} · {}", definition.name, definition.transport));
+            summary.set_selectable(false);
+            expander.set_label_widget(Some(&summary));
+            let fields = gtk::Box::new(gtk::Orientation::Vertical, 6);
+            fields.set_margin_start(16);
+            for field in &definition.fields {
+                let title = label(&field.label);
+                title.add_css_class("toolport-muted");
+                fields.append(&title);
+                let value = label(&field.value);
+                value.add_css_class("monospace");
+                fields.append(&value);
+            }
+            expander.set_child(Some(&fields));
+            changes.append(&expander);
+        }
+    }
+    changes.append(&label("If the team or your local servers change before saving, Toolport stops and asks you to review again."));
+    gtk::ScrolledWindow::builder()
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .min_content_width(440)
+        .max_content_height(360)
+        .propagate_natural_height(true)
+        .child(&changes)
+        .build()
+}
+
 #[cfg(test)]
 mod tests {
+    use super::share_preview_dialog;
     use super::team_review_line;
+    use adw::prelude::*;
+
+    #[test]
+    #[ignore = "requires an isolated GTK desktop; run in omabox"]
+    fn share_preview_widgets_show_allowlisted_definitions() {
+        adw::init().unwrap();
+        let preview = crate::teams::build_push_preview(3, &serde_json::json!([
+            {"id":"http", "name":"Internal knowledge", "url":"https://old.test"},
+            {"id":"removed", "name":"Retired tools"}
+        ]), &serde_json::json!([
+            {"id":"stdio", "name":"Project tools", "transport":"stdio", "command":"python3",
+             "args":["/home/test/projects/a-long-workspace-name/services/tool-server/server.py", "--workspace", "/home/test/projects/team workspace", "--verbose"],
+             "cwd":"/home/test/projects/a-long-workspace-name/services/tool-server",
+             "env":[{"key":"GITHUB_TOKEN","value":"SYNTHETIC_ENV_SECRET"},{"key":"WORKSPACE_KEY"},{"key":"SERVICE_ACCOUNT_TOKEN"}]},
+            {"id":"http", "name":"Internal knowledge", "transport":"http", "url":"https://example.internal/platform/knowledge/mcp?workspace=engineering&region=us-east",
+             "env":[{"key":"API_TOKEN","value":"SYNTHETIC_HTTP_SECRET"}], "oauthToken":"SYNTHETIC_OAUTH_SECRET"}
+        ])).unwrap();
+        let parent = gtk::Window::builder()
+            .title("Phase 4 controlled GTK preview")
+            .default_width(1000)
+            .default_height(760)
+            .build();
+        parent.present();
+        let dialog = share_preview_dialog(&parent, &preview);
+        fn collect(widget: &gtk::Widget, text: &mut String) {
+            if let Some(expander) = widget.downcast_ref::<gtk::Expander>() {
+                if let Some(child) = expander.child() {
+                    collect(&child, text);
+                }
+            }
+            if let Some(label) = widget.downcast_ref::<gtk::Label>() {
+                text.push_str(&label.text());
+                text.push('\n');
+            }
+            let mut child = widget.first_child();
+            while let Some(w) = child {
+                collect(&w, text);
+                child = w.next_sibling();
+            }
+        }
+        let mut text = String::new();
+        collect(dialog.upcast_ref(), &mut text);
+        for expected in [
+            "python3",
+            "--workspace",
+            "Working directory",
+            "Endpoint",
+            "API_TOKEN",
+            "GITHUB_TOKEN",
+            "Added (1)",
+            "Changed (1)",
+            "Removed (1)",
+            "personal servers remain saved",
+            "Other team servers",
+        ] {
+            assert!(text.contains(expected), "missing {expected}");
+        }
+        assert!(!text.contains("SYNTHETIC_"));
+        dialog.present();
+        if std::env::var_os("TOOLPORT_SHARE_PREVIEW_CAPTURE").is_some() {
+            let main_loop = gtk::glib::MainLoop::new(None, false);
+            let stop = main_loop.clone();
+            gtk::glib::timeout_add_seconds_local_once(180, move || stop.quit());
+            main_loop.run();
+        }
+        dialog.close();
+        parent.close();
+    }
 
     #[test]
     fn merge_notices_explain_held_and_blocked_servers() {

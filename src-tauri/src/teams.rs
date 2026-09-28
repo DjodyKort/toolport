@@ -422,6 +422,131 @@ pub struct PushPreview {
     pub added: Vec<String>,
     pub changed: Vec<String>,
     pub removed: Vec<String>,
+    pub definitions: Vec<ShareDefinitionPreview>,
+}
+
+/// Display-only allowlist from the export being compared, never the live registry or keychain.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShareDefinitionPreview {
+    pub id: String,
+    pub name: String,
+    pub change: String,
+    pub transport: String,
+    pub fields: Vec<SharePreviewField>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SharePreviewField {
+    pub label: String,
+    pub value: String,
+}
+
+fn preview_endpoint(value: &str) -> String {
+    let safe = crate::redact_url_userinfo(value);
+    let Ok(mut url) = url::Url::parse(&safe) else {
+        return "Invalid endpoint (hidden)".to_string();
+    };
+    if !url
+        .query_pairs()
+        .any(|(key, value)| crate::registry::arg_looks_secret(&format!("{key}={value}")))
+    {
+        return safe;
+    }
+    let pairs: Vec<_> = url
+        .query_pairs()
+        .map(|(key, value)| {
+            let value = if crate::registry::arg_looks_secret(&format!("{key}={value}")) {
+                "<redacted>".to_string()
+            } else {
+                value.into_owned()
+            };
+            (key.into_owned(), value)
+        })
+        .collect();
+    if !pairs.is_empty() {
+        url.query_pairs_mut().clear().extend_pairs(pairs);
+    }
+    url.to_string()
+}
+
+fn share_definition_preview(id: &str, server: &Value, change: &str) -> ShareDefinitionPreview {
+    let mut fields = Vec::new();
+    let text = |key: &str| server.get(key).and_then(Value::as_str).unwrap_or("");
+    let mut add = |label: &str, value: String| {
+        if !value.is_empty() {
+            fields.push(SharePreviewField {
+                label: label.into(),
+                value,
+            });
+        }
+    };
+    if !text("command").is_empty() {
+        add("Command", text("command").to_string());
+        let args: Vec<String> = server
+            .get("args")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .map(str::to_string)
+            .collect();
+        let args: Vec<String> = args
+            .iter()
+            .zip(crate::registry::secret_arg_mask(&args))
+            .map(|(arg, secret)| {
+                if secret {
+                    "<redacted>".into()
+                } else {
+                    arg.clone()
+                }
+            })
+            .collect();
+        // One quoted argument per line preserves boundaries without implying shell evaluation.
+        add(
+            "Arguments",
+            args.iter()
+                .map(|arg| serde_json::to_string(arg).unwrap())
+                .collect::<Vec<_>>()
+                .join("\n"),
+        );
+        add("Working directory", text("cwd").to_string());
+    }
+    if !text("url").is_empty() {
+        add("Endpoint", preview_endpoint(text("url")));
+    }
+    let keys: Vec<_> = server
+        .get("env")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|env| env.get("key").and_then(Value::as_str))
+        .collect();
+    add("Environment / credential keys", keys.join(", "));
+    let inputs: Vec<_> = server
+        .pointer("/launch/inputs")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|input| input.get("key").and_then(Value::as_str))
+        .collect();
+    add("Local setup inputs", inputs.join(", "));
+    if server
+        .get("clientCredentials")
+        .is_some_and(|v| !v.is_null())
+    {
+        add(
+            "Authentication",
+            "Each member supplies their own OAuth client secret locally".into(),
+        );
+    }
+    ShareDefinitionPreview {
+        id: id.into(),
+        name: preview_name(server, id),
+        change: change.into(),
+        transport: text("transport").to_string(),
+        fields,
+    }
 }
 
 fn server_index(servers: &Value) -> Result<BTreeMap<String, &Value>, String> {
@@ -460,7 +585,7 @@ fn sort_preview_names(names: &mut [String]) {
     });
 }
 
-fn build_push_preview(
+pub(crate) fn build_push_preview(
     base_version: i64,
     remote_servers: &Value,
     local_servers: &Value,
@@ -470,11 +595,18 @@ fn build_push_preview(
     let mut added = Vec::new();
     let mut changed = Vec::new();
     let mut removed = Vec::new();
+    let mut definitions = Vec::new();
 
     for (id, server) in &local {
         match remote.get(id) {
-            None => added.push(preview_name(server, id)),
-            Some(previous) if *previous != *server => changed.push(preview_name(server, id)),
+            None => {
+                added.push(preview_name(server, id));
+                definitions.push(share_definition_preview(id, server, "Added"));
+            }
+            Some(previous) if *previous != *server => {
+                changed.push(preview_name(server, id));
+                definitions.push(share_definition_preview(id, server, "Changed"));
+            }
             Some(_) => {}
         }
     }
@@ -487,12 +619,15 @@ fn build_push_preview(
     sort_preview_names(&mut changed);
     sort_preview_names(&mut removed);
 
+    definitions
+        .sort_by_key(|definition| (definition.name.to_ascii_lowercase(), definition.id.clone()));
     Ok(PushPreview {
         base_version,
         local_fingerprint: crate::audit::args_hash(local_servers),
         added,
         changed,
         removed,
+        definitions,
     })
 }
 
@@ -4984,6 +5119,104 @@ mod tests {
             })
             .expect("the server must be exported");
         assert_eq!(entry.get("requestTimeoutMs"), Some(&Value::from(90_000)));
+    }
+
+    #[test]
+    fn share_preview_uses_export_and_never_includes_credential_values() {
+        let mut reg = base_registry();
+        let server = reg.servers.iter_mut().find(|s| s.id == "mine").unwrap();
+        server.command = Some("python3".into());
+        server.args = vec![
+            "/home/test/project/server.py".into(),
+            "--flag".into(),
+            "two words".into(),
+            "--token".into(),
+            "SYNTHETIC_ARG_SECRET".into(),
+        ];
+        server.cwd = Some("/home/test/project".into());
+        server.env = vec![crate::registry::EnvVar {
+            key: "GITHUB_TOKEN".into(),
+            secret: true,
+            value: Some("SYNTHETIC_ENV_SECRET".into()),
+        }];
+        let exported = team_server_export(&reg);
+        let before = exported.clone();
+        let preview = build_push_preview(7, &json!([]), &exported).unwrap();
+        let serialized = serde_json::to_string(&preview).unwrap();
+        assert!(!serialized.contains("SYNTHETIC_"));
+        let definition = preview.definitions.iter().find(|d| d.id == "mine").unwrap();
+        assert_eq!(definition.change, "Added");
+        assert!(definition
+            .fields
+            .iter()
+            .any(|f| f.label == "Command" && f.value == "python3"));
+        assert!(definition.fields.iter().any(|f| f.label == "Arguments"
+            && f.value.contains("two words")
+            && f.value.contains("<redacted>")));
+        assert!(definition
+            .fields
+            .iter()
+            .any(|f| f.label == "Working directory" && f.value == "/home/test/project"));
+        assert!(definition.fields.iter().any(|f| f.value == "GITHUB_TOKEN"));
+        assert_eq!(exported, before);
+        assert_eq!(
+            preview.local_fingerprint,
+            crate::audit::args_hash(&exported)
+        );
+        assert_eq!(
+            push_body(&exported, 7),
+            json!({"config": exported, "base_version": 7})
+        );
+    }
+
+    #[test]
+    fn share_preview_hides_unparseable_endpoints() {
+        for endpoint in [
+            "https://example.test:notaport/mcp?token=SYNTHETIC_QUERY_SECRET",
+            "https://[invalid/mcp?password=SYNTHETIC_QUERY_SECRET",
+        ] {
+            let preview = build_push_preview(
+                7,
+                &json!([]),
+                &json!([{
+                    "id": "remote", "name": "Remote", "transport": "http", "url": endpoint
+                }]),
+            )
+            .unwrap();
+            let field = preview.definitions[0]
+                .fields
+                .iter()
+                .find(|f| f.label == "Endpoint")
+                .unwrap();
+            assert_eq!(field.value, "Invalid endpoint (hidden)");
+            assert!(!serde_json::to_string(&preview)
+                .unwrap()
+                .contains("SYNTHETIC_QUERY_SECRET"));
+        }
+    }
+
+    #[test]
+    fn share_preview_changed_http_and_removal_are_distinct_and_allowlisted() {
+        let remote = json!([{"id":"remote","name":"Remote","url":"https://old.test"}, {"id":"gone","name":"Removed"}]);
+        let local = json!([{"id":"remote","name":"Remote","transport":"http","url":"https://user:SYNTHETIC_URL_SECRET@example.test/mcp?token=SYNTHETIC_QUERY_SECRET&mode=tools", "env":[{"key":"API_TOKEN","value":"SYNTHETIC_ENV_SECRET"}], "oauthToken":"SYNTHETIC_OAUTH_SECRET", "launch":{"inputs":[{"key":"INPUT_TOKEN","value":"SYNTHETIC_INPUT_SECRET"}]}}]);
+        let preview = build_push_preview(7, &remote, &local).unwrap();
+        assert_eq!(preview.changed, vec!["Remote"]);
+        assert_eq!(preview.removed, vec!["Removed"]);
+        assert_eq!(preview.definitions.len(), 1);
+        let definition = &preview.definitions[0];
+        assert_eq!(definition.change, "Changed");
+        assert!(!definition
+            .fields
+            .iter()
+            .any(|f| f.label == "Command" || f.label == "Working directory"));
+        assert!(definition.fields.iter().any(|f| f.label == "Endpoint"
+            && f.value.contains("example.test/mcp")
+            && f.value.contains("mode=tools")));
+        assert!(definition.fields.iter().any(|f| f.value == "API_TOKEN"));
+        assert!(definition.fields.iter().any(|f| f.value == "INPUT_TOKEN"));
+        assert!(!serde_json::to_string(&preview)
+            .unwrap()
+            .contains("SYNTHETIC_"));
     }
 
     #[test]
