@@ -26,6 +26,7 @@ pub mod instructions;
 pub mod integrity;
 pub mod launch_inputs;
 pub mod launcher;
+pub(crate) mod local_auth;
 #[cfg(all(target_os = "linux", feature = "gtk-desktop"))]
 pub mod linux_native;
 pub mod metrics;

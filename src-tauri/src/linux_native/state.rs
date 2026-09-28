@@ -427,6 +427,7 @@ pub(super) fn detect_client_views() -> Result<ClientSnapshot, String> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ServerView {
+    pub(super) origin_label: String,
     pub(super) id: String,
     pub(super) name: String,
     pub(super) transport: String,
@@ -494,6 +495,9 @@ impl RegistrySnapshot {
             .map(|server| {
                 let enabled = registry.is_enabled(&active_profile_id, &server.id);
                 ServerView {
+                    origin_label: if server.source.as_deref().unwrap_or("").starts_with("team:") {
+                        format!("Team · {}", registry.team.as_ref().and_then(|t| t.team_name.as_deref()).unwrap_or("Shared"))
+                    } else { "Personal".into() },
                     id: server.id.clone(),
                     name: server.name.clone(),
                     transport: transport_label(&server.transport).to_string(),
@@ -760,6 +764,7 @@ mod tests {
             snapshot.servers,
             vec![
                 ServerView {
+                    origin_label: "Personal".into(),
                     id: "local".into(),
                     name: "Files".into(),
                     transport: "Local stdio".into(),
@@ -775,6 +780,7 @@ mod tests {
                     requires_review: false,
                 },
                 ServerView {
+                    origin_label: "Personal".into(),
                     id: "remote".into(),
                     name: "GitHub".into(),
                     transport: "Remote HTTP".into(),

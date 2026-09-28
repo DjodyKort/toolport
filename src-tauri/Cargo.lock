@@ -839,7 +839,7 @@ dependencies = [
 
 [[package]]
 name = "conduit"
-version = "1.23.1"
+version = "1.23.2"
 dependencies = [
  "base64 0.22.1",
  "boa_engine",

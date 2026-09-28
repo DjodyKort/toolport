@@ -463,7 +463,7 @@ fn lock_oauth_refresh_for(
     };
     let leaf = format!(
         "oauth-refresh-{}.lock",
-        crate::router::sanitize_segment(server_id)
+        crate::router::sanitize_segment(&crate::local_auth::owner(server_id)?)
     );
     crate::registry::lock_at_for(&dir.join(leaf), timeout).map(Some)
 }

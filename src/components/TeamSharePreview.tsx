@@ -9,6 +9,10 @@ export function TeamSharePreview({ preview }: { preview: TeamPushPreview }) {
         policies stay unchanged. Your personal servers remain saved.
       </p>
       <p>
+        Your enabled selections switch to the team versions in this profile, using your
+        existing local credentials. Other profiles stay unchanged.
+      </p>
+      <p>
         Credential values are never uploaded. Each member uses their own credentials
         locally.
       </p>

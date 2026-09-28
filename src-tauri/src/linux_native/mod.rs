@@ -34,10 +34,28 @@ const APP_ID: &str = "com.tsout.Toolport";
 const LEGACY_PREVIEW_APP_ID: &str = "com.tsout.Toolport.NativePreview";
 
 pub fn run() {
+    let launch_hidden = std::env::args_os().any(|arg| arg == "--hidden");
+    let args = std::env::args()
+        .filter(|arg| arg != "--hidden")
+        .collect::<Vec<_>>();
+    let app = adw::Application::builder()
+        .application_id(APP_ID)
+        .flags(gtk::gio::ApplicationFlags::HANDLES_OPEN)
+        .build();
+    // Register before starting the tray, broker, bridge or startup maintenance.
+    // Secondary launches only forward activation/URLs to the primary process.
+    if let Err(error) = app.register(gtk::gio::Cancellable::NONE) {
+        eprintln!("toolport: could not register the desktop application: {error}");
+        return;
+    }
+    if app.is_remote() {
+        app.run_with_args(&args);
+        return;
+    }
     let registry = match crate::registry::load() {
         Ok(registry) => registry,
         Err(error) => {
-            run_registry_startup_failure(error);
+            run_registry_startup_failure(&app, &args, error);
             return;
         }
     };
@@ -50,14 +68,6 @@ pub fn run() {
     if !cfg!(debug_assertions) {
         std::thread::spawn(run_startup_maintenance);
     }
-    let launch_hidden = std::env::args_os().any(|arg| arg == "--hidden");
-    let args = std::env::args()
-        .filter(|arg| arg != "--hidden")
-        .collect::<Vec<_>>();
-    let app = adw::Application::builder()
-        .application_id(APP_ID)
-        .flags(gtk::gio::ApplicationFlags::HANDLES_OPEN)
-        .build();
     let _hold = app.hold();
     let broker = crate::approval_broker::start_native();
     let bridge = http_bridge::BridgeController::default();
@@ -586,11 +596,9 @@ fn run_startup_maintenance() {
     crate::agent_guard::apply_on_startup();
 }
 
-fn run_registry_startup_failure(error: String) {
-    let app = adw::Application::builder()
-        .application_id("com.tsout.Toolport.Recovery")
-        .build();
+fn run_registry_startup_failure(app: &adw::Application, args: &[String], error: String) {
     app.connect_activate(move |app| {
+        if let Some(window) = app.active_window() { window.present(); return; }
         let path = crate::registry::resolved_path()
             .map(|path| path.display().to_string())
             .unwrap_or_else(|| "the Toolport data directory".to_string());
@@ -642,7 +650,8 @@ fn run_registry_startup_failure(error: String) {
         window.set_content(Some(&page));
         window.present();
     });
-    app.run();
+    app.connect_open(|app, _, _| app.activate());
+    app.run_with_args(args);
 }
 
 fn build_sidebar(
@@ -7690,12 +7699,26 @@ fn build_content(
     (server_page.0, server_page.1, approval_page)
 }
 
+thread_local! {
+    static TEAM_PAIR_PENDING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 fn open_shared_setup(url: &str, page: ServerPage) {
     if let Some((origin, team)) = crate::teams::parse_pair_link(url) {
+        if crate::registry::load().is_ok_and(|reg| crate::teams::pair_target_is_current(&reg, &origin, &team)) {
+            if let Some(action) = page.app.lookup_action("show-teams") { action.activate(None); }
+            if let Some(window) = page.app.active_window() { window.present(); }
+            return;
+        }
+        if TEAM_PAIR_PENDING.with(|pending| pending.replace(true)) {
+            page.show_feedback("A team connection is already pending. Complete or cancel that request first.", false);
+            return;
+        }
         for window in page.app.windows() { if window.title().as_deref() == Some("Toolport setup") { window.close(); } }
-        let Some(parent) = page.app.active_window() else { return; };
+        let Some(parent) = page.app.active_window() else { TEAM_PAIR_PENDING.with(|p| p.set(false)); return; };
         #[allow(deprecated)]
         let dialog = adw::MessageDialog::new(Some(&parent), Some("Connect Toolport to Teams?"), Some(&format!("Control plane: {origin}\n\nOnly continue if you trust this origin. Your browser will show the named team and signed-in account before approval. Connecting replaces this installation's current team connection.")));
+        dialog.set_size_request(520, -1);
         dialog.add_response("cancel", "Cancel"); dialog.add_response("connect", "Continue to browser"); dialog.set_close_response("cancel");
         dialog.connect_response(None, move |dialog, response| {
             if response == "connect" {
@@ -7717,12 +7740,12 @@ fn open_shared_setup(url: &str, page: ServerPage) {
                             }
                             let _=crate::oauth::open_web_url(&url);
                         }
-                        Ok(_) => { page.show_feedback("Toolport connected. Open Teams to share or finish local setup.",false); return gtk::glib::ControlFlow::Break; }
-                        Err(e) => { page.show_feedback(&e,true); return gtk::glib::ControlFlow::Break; }
+                        Ok(_) => { TEAM_PAIR_PENDING.with(|p| p.set(false)); page.show_feedback("Toolport connected. Open Teams to share or finish local setup.",false); return gtk::glib::ControlFlow::Break; }
+                        Err(e) => { TEAM_PAIR_PENDING.with(|p| p.set(false)); page.show_feedback(&e,true); return gtk::glib::ControlFlow::Break; }
                     }}
                     gtk::glib::ControlFlow::Continue
                 });
-            }
+            } else { TEAM_PAIR_PENDING.with(|p| p.set(false)); }
             dialog.close();
         });dialog.present(); return;
     }
@@ -8689,6 +8712,8 @@ fn server_card(
             .css_classes(["heading"])
             .build(),
     );
+    text.append(&gtk::Label::builder().label(&server.origin_label)
+        .halign(gtk::Align::Start).css_classes(["toolport-muted"]).build());
     // Transport and health share one line: a card per server is already the
     // densest thing on the page, and a third stacked line made each row read as
     // a paragraph.
@@ -11792,6 +11817,7 @@ mod tests {
 
     fn server(name: &str, transport: &str) -> state::ServerView {
         state::ServerView {
+            origin_label: "Personal".into(),
             id: "server".into(),
             name: name.into(),
             transport: transport.into(),

@@ -155,11 +155,14 @@ export function RegistryServerRow({
             <Users className="size-3" aria-hidden="true" />
             Team
           </span>
-        ) : server.source ? (
+        ) : (
           <span className="hidden max-w-40 shrink-0 truncate rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground md:inline">
-            {server.source.replace("imported:", "from ")}
+            Personal
+            {server.source?.startsWith("imported:")
+              ? ` · ${server.source.replace("imported:", "from ")}`
+              : ""}
           </span>
-        ) : null}
+        )}
 
         <span className="ml-auto flex shrink-0 items-center gap-2.5">
           <span

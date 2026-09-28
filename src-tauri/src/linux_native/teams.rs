@@ -22,7 +22,7 @@ pub(super) struct TeamsPage {
     poll_timer: Rc<RefCell<Option<gtk::glib::SourceId>>>,
     /// A removal or review/blocked notice from the last sync, applied by the
     /// next render so the async refresh cannot overwrite it.
-    sync_notice: Rc<RefCell<Option<String>>>,
+    sync_notice: Rc<RefCell<Option<(String, bool)>>>,
     rendered_state: Rc<RefCell<Option<(String, bool)>>>,
 }
 
@@ -220,8 +220,9 @@ impl TeamsPage {
         while let Some(child) = self.content.first_child() {
             self.content.remove(&child);
         }
-        if let Some(notice) = notice {
-            self.set_status(&notice, true);
+        if let Some((notice, is_error)) = notice {
+            self.set_status(&notice, is_error);
+            if !is_error { self.feedback.add_css_class("success"); }
             if let Some(team) = registry.team.clone() {
                 self.render_connected(registry, team);
             } else {
@@ -545,14 +546,14 @@ impl TeamsPage {
         if team.account_linked != Some(true) {
             actions.append(&account_link);
         }
-        let leave = gtk::Button::with_label("Leave team");
+        let leave = gtk::Button::with_label("Disconnect app");
         leave.add_css_class("destructive-action");
         let page_for_leave = self.clone();
         leave.connect_clicked(move |button| page_for_leave.confirm_leave(button.clone()));
         actions.append(&leave);
         summary.append(&actions);
         self.content.append(&summary);
-        self.content.append(&gtk::Label::builder().label("Next: finish local review/auth below, then open Clients to connect your AI client. Choose a read-only managed tool call there; successful calls are reported automatically.").wrap(true).xalign(0.0).build());
+        self.content.append(&gtk::Label::builder().label("Open Clients to use your enabled team servers from an AI client. Review any remaining servers below before enabling them. Successful managed calls are reported automatically.").wrap(true).xalign(0.0).build());
 
         let review = registry
             .servers
@@ -739,7 +740,7 @@ impl TeamsPage {
             crate::teams::SyncResult::Removed => {
                 let message = "You were removed from the team. Its shared servers \
                                and this machine's team token have been cleared.";
-                *self.sync_notice.borrow_mut() = Some(message.to_string());
+                *self.sync_notice.borrow_mut() = Some((message.to_string(), true));
                 let notification = gtk::gio::Notification::new("Removed from team");
                 notification.set_body(Some(message));
                 self.app
@@ -747,7 +748,7 @@ impl TeamsPage {
             }
             crate::teams::SyncResult::Ok { applied, .. } => {
                 let outcome = applied.map(|(_, outcome)| outcome).unwrap_or_default();
-                *self.sync_notice.borrow_mut() = team_review_line(outcome.review, outcome.blocked);
+                *self.sync_notice.borrow_mut() = team_review_line(outcome.review, outcome.blocked).map(|message| (message, true));
             }
         }
         self.refresh();
@@ -854,12 +855,11 @@ impl TeamsPage {
                     })
                     .await;
                     match result {
-                        Ok(Ok(version)) => {
-                            page.feedback.set_label(&format!(
-                                "Shared team servers updated to version {version}."
-                            ));
-                            page.feedback.remove_css_class("error");
-                            page.feedback.add_css_class("success");
+                        Ok(Ok(result)) => {
+                            *page.sync_notice.borrow_mut() = Some(match result.local_setup_error {
+                                Some(error) => (format!("Shared with your team (version {}). Local setup needs attention: {error}", result.version), true),
+                                None => (format!("Shared with your team (version {}). Your enabled selections are now in use in this profile.", result.version), false),
+                            });
                             page.refresh();
                         }
                         Ok(Err(error)) => page.show_error(&error),
@@ -879,11 +879,11 @@ impl TeamsPage {
         #[allow(deprecated)]
         let dialog = adw::MessageDialog::new(
             Some(&parent),
-            Some("Leave this Toolport team?"),
-            Some("Team-provided servers, instructions, and enforced policy are removed. Your own servers and settings stay intact."),
+            Some("Disconnect this app from the team?"),
+            Some("Team servers, instructions and policy are removed from this app. Your personal servers stay saved. Your Team membership and shared setup remain. Reconnect from the Teams website."),
         );
         dialog.add_response("cancel", "Cancel");
-        dialog.add_response("leave", "Leave team");
+        dialog.add_response("leave", "Disconnect app");
         dialog.set_close_response("cancel");
         dialog.set_default_response(Some("cancel"));
         dialog.set_response_appearance("leave", adw::ResponseAppearance::Destructive);
@@ -1103,14 +1103,16 @@ fn review_server_row(server: crate::registry::ServerEntry, page: TeamsPage) -> g
             .map(|s| s.name.clone())
     });
     if let Some(original) = original {
-        let use_managed = gtk::Button::with_label("Use managed version for this profile");
+        let use_managed = gtk::Button::with_label("Use in this profile");
+        use_managed.set_valign(gtk::Align::Center);
         let page = page.clone();
         let id = server.id.clone();
         let detail = target.clone();
         use_managed.connect_clicked(move |_| {
             let Some(parent) = page.app.active_window() else { return; };
             #[allow(deprecated)]
-            let d = adw::MessageDialog::new(Some(&parent), Some("Use team-managed version?"), Some(&format!("{detail}\n\nEnable this managed copy and disable Personal {original} in this profile. The original stays saved. Environment credentials copy locally only if the execution target matches exactly. HTTP/OAuth sign-in remains separate.")));
+            let d = adw::MessageDialog::new(Some(&parent), Some("Use team-managed version?"), Some(&format!("{detail}\n\nEnable this managed copy and disable Personal {original} in this profile. The original stays saved. Existing local credentials and sign-in are reused only when the definitions match exactly. Nothing is uploaded. Signing out affects both copies.")));
+            d.set_size_request(520, -1);
             d.add_response("cancel", "Cancel"); d.add_response("use", "Use managed version"); d.set_close_response("cancel");
             let page = page.clone(); let id = id.clone();
             d.connect_response(None, move |d, response| {
@@ -1131,6 +1133,7 @@ fn review_server_row(server: crate::registry::ServerEntry, page: TeamsPage) -> g
     } else {
         "Review and enable"
     });
+    enable.set_valign(gtk::Align::Center);
     enable.set_sensitive(!already_enabled);
     enable.add_css_class("toolport-secondary-action");
     let server_name = server.name.clone();
@@ -1191,7 +1194,7 @@ fn share_preview_dialog(
 ) -> adw::MessageDialog {
     let dialog = adw::MessageDialog::new(
         Some(parent), Some("Share selected servers?"),
-        Some("Selected definitions are added or updated. Other team servers, instructions and policies stay unchanged. Your personal servers remain saved. Credential values are never uploaded. Each member uses their own credentials locally."),
+        Some("Selected definitions are added or updated. Other team servers, instructions and policies stay unchanged. Your enabled selections switch to the team versions in this profile, using your existing local credentials. Your personal servers remain saved; other profiles stay unchanged. Credential values are never uploaded. Each member uses their own credentials locally."),
     );
     dialog.set_size_request(520, -1);
     dialog.add_response("cancel", "Cancel");

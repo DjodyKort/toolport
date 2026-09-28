@@ -12,6 +12,7 @@ const api = vi.hoisted(() => ({
   teamDisconnect: vi.fn(),
   teamPushPreview: vi.fn(),
   teamPush: vi.fn(),
+  getRegistry: vi.fn(),
   teamInstructionsStatus: vi.fn().mockResolvedValue(null),
   setServerEnabled: vi.fn(),
 }));
@@ -84,49 +85,69 @@ const noTeam: Registry = { ...registry, team: null };
 describe("TeamsView shared-server update", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    api.getRegistry.mockResolvedValue(registry);
   });
 
-  it("shows a deterministic diff and does not push until the admin confirms", async () => {
-    const preview = {
-      baseVersion: 7,
-      localFingerprint: "preview-fingerprint",
-      added: ["Alpha", "beta"],
-      changed: ["GitHub"],
-      removed: ["Legacy"],
-      definitions: [
-        { id: "alpha", name: "Alpha", change: "Added", transport: "stdio", fields: [] },
-        { id: "beta", name: "beta", change: "Added", transport: "http", fields: [] },
-        {
-          id: "github",
-          name: "GitHub",
-          change: "Changed",
-          transport: "stdio",
-          fields: [],
-        },
-      ],
-    };
-    api.teamPushPreview.mockResolvedValue(preview);
-    api.teamPush.mockResolvedValue(8);
-
+  it("explains that disconnecting the app does not remove Team membership", async () => {
     render(<TeamsView registry={registry} onRegistryChange={vi.fn()} />);
-    if (!(screen.getByRole("checkbox") as HTMLInputElement).checked)
-      await userEvent.click(screen.getByRole("checkbox"));
-    await userEvent.click(screen.getByRole("button", { name: "Share selected servers" }));
-
-    expect(await screen.findByText("Added (2)")).toBeInTheDocument();
-    expect(screen.getByText("Changed (1)")).toBeInTheDocument();
-    expect(screen.getByText("Removed (1)")).toBeInTheDocument();
-    for (const name of ["Alpha", "beta", "GitHub", "Legacy"]) {
-      expect(
-        within(screen.getByRole("dialog")).getByText(name, { exact: false }),
-      ).toBeInTheDocument();
-    }
-    expect(api.teamPush).not.toHaveBeenCalled();
-
-    await userEvent.click(screen.getByRole("button", { name: "Share selected" }));
-    await waitFor(() => expect(api.teamPush).toHaveBeenCalledWith(preview, ["github"]));
-    expect(await screen.findByText(/version 8/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Disconnect app" }));
+    expect(
+      screen.getByText(/Your Team membership and shared setup remain/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Reconnect from the Teams website/)).toBeInTheDocument();
+    expect(api.teamDisconnect).not.toHaveBeenCalled();
   });
+
+  it.each([null, "Unable to refresh local setup"])(
+    "publishes only after confirmation and distinguishes local outcome: %s",
+    async (localSetupError) => {
+      const preview = {
+        baseVersion: 7,
+        localFingerprint: "preview-fingerprint",
+        added: ["Alpha", "beta"],
+        changed: ["GitHub"],
+        removed: ["Legacy"],
+        definitions: [
+          { id: "alpha", name: "Alpha", change: "Added", transport: "stdio", fields: [] },
+          { id: "beta", name: "beta", change: "Added", transport: "http", fields: [] },
+          {
+            id: "github",
+            name: "GitHub",
+            change: "Changed",
+            transport: "stdio",
+            fields: [],
+          },
+        ],
+      };
+      api.teamPushPreview.mockResolvedValue(preview);
+      api.teamPush.mockResolvedValue({ version: 8, localSetupError });
+
+      render(<TeamsView registry={registry} onRegistryChange={vi.fn()} />);
+      if (!(screen.getByRole("checkbox") as HTMLInputElement).checked)
+        await userEvent.click(screen.getByRole("checkbox"));
+      await userEvent.click(
+        screen.getByRole("button", { name: "Share selected servers" }),
+      );
+
+      expect(await screen.findByText("Added (2)")).toBeInTheDocument();
+      expect(screen.getByText("Changed (1)")).toBeInTheDocument();
+      expect(screen.getByText("Removed (1)")).toBeInTheDocument();
+      for (const name of ["Alpha", "beta", "GitHub", "Legacy"]) {
+        expect(
+          within(screen.getByRole("dialog")).getByText(name, { exact: false }),
+        ).toBeInTheDocument();
+      }
+      expect(api.teamPush).not.toHaveBeenCalled();
+
+      await userEvent.click(screen.getByRole("button", { name: "Share selected" }));
+      await waitFor(() => expect(api.teamPush).toHaveBeenCalledWith(preview, ["github"]));
+      expect(await screen.findByText(/version 8/i)).toBeInTheDocument();
+      expect(api.teamSync).not.toHaveBeenCalled();
+      expect(api.getRegistry).toHaveBeenCalled();
+      if (localSetupError)
+        expect(screen.getByText(/Local setup needs attention/)).toBeInTheDocument();
+    },
+  );
 
   it.each([
     {
@@ -231,6 +252,7 @@ describe("TeamsView instructions status", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    api.getRegistry.mockResolvedValue(registry);
   });
 
   it("keeps the last status after a failed refresh and retries", async () => {
@@ -342,6 +364,7 @@ describe("TeamsView instructions status", () => {
 describe("TeamsView disconnected pitch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    api.getRegistry.mockResolvedValue(registry);
     openExternal.mockClear();
   });
 

@@ -6,7 +6,16 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ## [Unreleased]
 
+## [1.23.2] - 2026-09-28
+
 ### Fixed
+
+- Sharing an enabled personal server now completes its local Team setup while
+  keeping the personal original and credentials on your device.
+- Repeated GTK launches and Team links reuse the open app. Links for the current
+  Team keep the existing connection.
+- Server rows distinguish personal and Team entries, and Team actions use compact
+  buttons. Disconnecting the app restores the personal routes it replaced.
 
 - **Updating a .deb install no longer drops every MCP connection.** The update
   feed only carries an AppImage for Linux, so the in-app updater stopped every

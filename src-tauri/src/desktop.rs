@@ -2539,11 +2539,11 @@ async fn team_push(
     base_version: i64,
     local_fingerprint: String,
     selected_ids: Option<Vec<String>>,
-) -> Result<i64, String> {
+) -> Result<teams::PublishResult, String> {
     refresh_from_disk(state.inner())?;
     // push_current does a blocking GET + PUT to the team server; keep it off the main thread.
     tauri::async_runtime::spawn_blocking(move || {
-        match selected_ids { Some(ids) => teams::push_selected(&ids, base_version, &local_fingerprint), None => teams::push_current(base_version, &local_fingerprint) }
+        match selected_ids { Some(ids) => teams::push_selected(&ids, base_version, &local_fingerprint), None => teams::push_current(base_version, &local_fingerprint).map(|version| teams::PublishResult { version, local_setup_error: None }) }
     })
     .await
     .map_err(|e| format!("push task join failed: {e}"))?
@@ -3903,13 +3903,26 @@ fn nudge_wayland_input_region(_w: &tauri::WebviewWindow) {}
 
 /// Bring the main window back to the foreground (from the tray, a re-launch, or an
 /// approval). Un-hides, un-minimizes, and focuses so it works from every hidden state.
+static TEAM_PAIR_PENDING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+struct TeamPairGuard;
+impl Drop for TeamPairGuard {
+    fn drop(&mut self) { TEAM_PAIR_PENDING.store(false, std::sync::atomic::Ordering::Release); }
+}
+
 fn deliver_team_pair(app: &AppHandle, origin: String, team: String) {
     show_main_window(app);
+    if registry::load().is_ok_and(|reg| teams::pair_target_is_current(&reg, &origin, &team)) {
+        let _ = app.emit("show-teams", ());
+        return;
+    }
+    if TEAM_PAIR_PENDING.swap(true, std::sync::atomic::Ordering::AcqRel) { return; }
+    let pending = TeamPairGuard;
     let handle=app.clone();
     app.dialog().message(format!("Control plane: {origin}\nOnly continue if you trust this origin. Your browser will show the named team and account before approval. Connecting replaces this installation's current team connection."))
         .title("Connect Toolport to Teams?").buttons(MessageDialogButtons::OkCancel).show(move |approved| {
-            if !approved { return; }
+            if !approved { drop(pending); return; }
             std::thread::spawn(move || {
+                let _pending = pending;
                 let result=teams::pair_device(&origin,&team,|url,check| {
                     handle.dialog().message(format!("Device check: {check}\nApprove in your browser only if the same check, intended team and account are shown. Expires in five minutes.")).title("Approve this device").show(|_| {});
                     let _=crate::oauth::open_web_url(url);
@@ -6417,7 +6430,7 @@ mod tests {
     /// write failure must surface the partial state — the token is gone from the keychain
     /// but the running gateway was never told to reload (#737, #743).
     #[test]
-    fn clear_auth_token_propagates_reload_failure_after_keychain_removal() {
+    fn clear_auth_token_checks_ownership_and_propagates_reload_failure() {
         let _serial = GEN_TEST_LOCK
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -6427,9 +6440,6 @@ mod tests {
         let _data = registry::data_dir_test_lock();
         let dir = unique_update_test_dir("clear-auth-reload-fail");
         std::fs::create_dir_all(&dir).unwrap();
-        // The registry "file" is an existing directory, so the atomic temp+rename
-        // save fails fast and `bump_secrets_generation` must propagate the failure.
-        std::fs::create_dir_all(dir.join("registry.json")).unwrap();
         let _override = registry::DataDirOverride::set(&dir);
 
         let previous_key = std::env::var_os("TOOLPORT_SECRET_KEY");
@@ -6465,9 +6475,24 @@ mod tests {
             Some("tok-123".to_string())
         );
 
+        // An unreadable registry cannot establish which vault owns this token.
+        // Refuse deletion, then prove the token survives once access is restored.
+        std::fs::create_dir_all(dir.join("registry.json")).unwrap();
         let state: RegistryState = Mutex::new(Registry::default());
         let err = clear_auth_token_inner("srv-clear-auth", &state)
-            .expect_err("a failed bump must propagate on the clear path");
+            .expect_err("unverifiable ownership must prevent deletion");
+        assert!(err.contains("Cannot verify local authentication ownership"));
+        std::fs::remove_dir(dir.join("registry.json")).unwrap();
+        assert_eq!(
+            secrets::get_secret_result("srv-clear-auth", secrets::HTTP_AUTH_KEY).unwrap(),
+            Some("tok-123".to_string())
+        );
+
+        // Inject the later reload failure after ownership has been verified.
+        let err = crate::registry_controller::clear_auth_token_with("srv-clear-auth", || {
+            Err("the registry could not be saved".into())
+        })
+        .expect_err("a failed bump must propagate on the clear path");
         assert!(
             err.contains("removed from the keychain"),
             "unexpected error: {err}"

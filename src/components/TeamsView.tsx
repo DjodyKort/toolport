@@ -28,6 +28,7 @@ import {
   teamSync,
   teamDisconnect,
   teamPushPreview,
+  getRegistry,
   teamUseManaged,
   teamPush,
   teamInstructionsStatus,
@@ -246,9 +247,11 @@ export function TeamsView({
       const v = await teamPush(pushPreview, selectedIds);
       setPushPreview(null);
       setNotice(
-        `Shared selected servers (version ${v}). Review the managed copies below, then use them in your AI client.`,
+        v.localSetupError
+          ? `Shared with your team (version ${v.version}). Local setup needs attention: ${v.localSetupError}`
+          : `Shared with your team (version ${v.version}). Your enabled selections are now in use in this profile.`,
       );
-      onRegistryChange(await teamSync());
+      onRegistryChange(await getRegistry());
     });
 
   // Member consent: enable a review server (local command / LAN URL) into the active
@@ -306,8 +309,8 @@ export function TeamsView({
                 {detail}
                 {"\n\n"}This enables the managed copy and disables Personal{" "}
                 {personal.name} in this profile. The personal definition stays saved.
-                Declared environment credentials are copied locally only when the
-                execution target matches exactly. HTTP/OAuth sign-in remains separate.
+                Existing credentials and sign-in are reused locally only when the
+                definitions match exactly. Signing out affects both copies.
               </div>
             }
             confirmLabel="Use managed version"
@@ -639,12 +642,12 @@ export function TeamsView({
                   trigger={
                     <Button variant="outline" size="sm" disabled={busy !== null}>
                       <LogOut className="size-3.5" />
-                      Leave
+                      Disconnect app
                     </Button>
                   }
-                  title="Leave this team?"
-                  description="This removes the team's shared servers from Toolport. Your own servers are untouched."
-                  confirmLabel="Leave"
+                  title="Disconnect this app from the team?"
+                  description="Team servers, instructions and policy are removed from this app. Your personal servers stay saved. Your Team membership and shared setup remain. Reconnect from the Teams website."
+                  confirmLabel="Disconnect app"
                   destructive
                   onConfirm={onDisconnect}
                 />
