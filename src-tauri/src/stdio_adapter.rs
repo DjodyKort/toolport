@@ -9,7 +9,10 @@
 //! The explicit `--stdio-adapter` role never falls back to an in-process gateway.
 //! A registry-selected adapter can fall back before it opens a daemon session;
 //! transport failures after that point become errors to the client so requests
-//! cannot be replayed against another router.
+//! cannot be replayed against another router. The one request the adapter sends
+//! twice is a legacy request the daemon refused for its session, which happens
+//! before dispatch (a profile, enabled-set or tool-scope change rebinds the
+//! session): it reopens the session and sends that request once more.
 //!
 //! Requests run on bounded worker threads, so a client that pipelines a slow call
 //! and a fast one is answered in completion order rather than arrival order. The
@@ -24,7 +27,7 @@
 use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
@@ -187,15 +190,45 @@ fn spawn_daemon() -> Result<(), String> {
         .map_err(|error| format!("could not start the host daemon: {error}"))
 }
 
+/// The exact body the daemon sends when it refuses a session id. Missing,
+/// expired, rescoped and foreign sessions all get it, before any dispatch.
+const SESSION_REFUSED_ERROR: &str = "unknown or expired Mcp-Session-Id; re-initialize";
+
+/// How much of the daemon connection the next exchange must rebuild. Ordered,
+/// so the more thorough recovery wins when both are needed.
+const HEALTHY: u8 = 0;
+/// The daemon answered but refused the session: replay the handshake.
+const SESSION_REFUSED: u8 = 1;
+/// The daemon could not be reached: re-rendezvous, then replay the handshake.
+const DAEMON_LOST: u8 = 2;
+
+/// Why an exchange produced no answer for the client.
+#[derive(Debug)]
+enum ExchangeError {
+    /// The daemon refused the session id before dispatching the request, so the
+    /// request did not run.
+    SessionRefused(String),
+    Failed(String),
+}
+
+impl ExchangeError {
+    fn into_message(self) -> String {
+        match self {
+            Self::SessionRefused(detail) | Self::Failed(detail) => detail,
+        }
+    }
+}
+
 /// Shared adapter state: the rendezvous used to (re)find the daemon, the daemon it
 /// currently talks to, the negotiated session id, the client handshake to replay if
 /// the daemon is replaced, and the one stdout every path writes to.
 struct Session {
     rendezvous: Rendezvous,
     descriptor: Mutex<DaemonDescriptor>,
-    /// Set when a daemon call failed at the transport level. The next request
-    /// re-rendezvouses instead of replaying the call that failed.
-    stale: AtomicBool,
+    /// What the next request must rebuild first (`HEALTHY`, `SESSION_REFUSED` or
+    /// `DAEMON_LOST`). A failed call is never itself replayed at the transport
+    /// level; only a request the daemon refused before dispatch is sent again.
+    stale: AtomicU8,
     /// Shared by healthy exchanges; taken exclusively while one caller recovers, so
     /// no request runs against the old descriptor or ahead of the replayed handshake.
     gate: RwLock<()>,
@@ -204,7 +237,8 @@ struct Session {
     /// replacement daemon can be given an equivalent session.
     handshake_initialize: Mutex<Option<String>>,
     handshake_initialized: Mutex<Option<String>>,
-    stdout: Mutex<std::io::Stdout>,
+    stdout: Mutex<Box<dyn Write + Send>>,
+    request_timeout: Duration,
     client_id: String,
     env_profile: Option<String>,
     cwd: Option<String>,
@@ -264,12 +298,13 @@ impl Session {
         Self {
             rendezvous,
             descriptor: Mutex::new(descriptor),
-            stale: AtomicBool::new(false),
+            stale: AtomicU8::new(HEALTHY),
             gate: RwLock::new(()),
             session_id: Mutex::new(None),
             handshake_initialize: Mutex::new(None),
             handshake_initialized: Mutex::new(None),
-            stdout: Mutex::new(std::io::stdout()),
+            stdout: Mutex::new(Box::new(std::io::stdout())),
+            request_timeout: REQUEST_TIMEOUT,
             client_id,
             env_profile,
             cwd,
@@ -462,9 +497,9 @@ impl Session {
 
     /// POST one message to `/mcp`. `forward` writes the daemon's JSON-RPC messages
     /// to stdout as they arrive; a replayed handshake does not, because the client
-    /// already has its answer. A transport failure marks the daemon stale and is
-    /// returned as-is.
-    fn post(&self, body: &str, forward: bool) -> Result<(), String> {
+    /// already has its answer, but an error in its reply fails the replay. A
+    /// transport failure marks the daemon lost and is returned as-is.
+    fn post(&self, body: &str, forward: bool) -> Result<(), ExchangeError> {
         let message = serde_json::from_str::<serde_json::Value>(body).unwrap_or_default();
         let id = message.get("id").filter(|id| !id.is_null());
         let expects_reply = id.is_some() && message.get("method").is_some();
@@ -479,7 +514,7 @@ impl Session {
                 .timeout_read(SUBSCRIPTION_READ_TIMEOUT)
                 .build()
                 .post(&url),
-            None => ureq::post(&url).timeout(REQUEST_TIMEOUT),
+            None => ureq::post(&url).timeout(self.request_timeout),
         };
         let mut request = self.with_identity(
             request
@@ -490,13 +525,14 @@ impl Session {
         for (name, value) in modern_headers(&message) {
             request = request.set(&name, &value);
         }
-        if let Some(session) = self.session_id() {
-            request = request.set("Mcp-Session-Id", &session);
+        let sent_session = self.session_id();
+        if let Some(session) = &sent_session {
+            request = request.set("Mcp-Session-Id", session);
         }
         let response = match request.send_string(body) {
             Ok(response) => response,
             // The daemon answered, just not with 2xx. It is alive, so this is not a
-            // recovery trigger; the body is the error the caller should see.
+            // reason to re-rendezvous; the body is the error the caller should see.
             Err(ureq::Error::Status(code, response)) => {
                 let body = response.into_string().unwrap_or_default();
                 // A modern protocol error comes with a 4xx status and a JSON-RPC
@@ -505,27 +541,32 @@ impl Session {
                 if is_json_rpc_reply(&body) {
                     return if forward {
                         self.write_message(body.trim())
+                            .map_err(ExchangeError::Failed)
                     } else {
-                        Ok(())
+                        reply_error(body.trim(), id).map_or(Ok(()), |error| {
+                            Err(ExchangeError::Failed(format!(
+                                "the host daemon refused the replayed handshake: {error}"
+                            )))
+                        })
                     };
                 }
-                // A live profile switch changes the session's bound scope. The
-                // daemon then rejects its old id exactly like an expired
-                // session. Fail this call once, and replay the handshake on the
-                // next request; never replay a call that may have executed.
-                if code == 404 && body.contains("unknown or expired Mcp-Session-Id") {
-                    self.stale.store(true, Ordering::SeqCst);
+                let detail = format!("the host daemon answered HTTP {code}: {}", body.trim());
+                // A live profile, enabled-set or tool-scope change rebinds the
+                // session's scope, and the daemon then refuses the old id exactly
+                // like an expired one. It does so before dispatching anything, so
+                // the next exchange reopens the session with the replayed
+                // handshake, and `exchange` may send this request once more.
+                if code == 404 && sent_session.is_some() && is_session_refusal(&body) {
+                    self.stale.fetch_max(SESSION_REFUSED, Ordering::SeqCst);
+                    return Err(ExchangeError::SessionRefused(detail));
                 }
-                return Err(format!(
-                    "the host daemon answered HTTP {code}: {}",
-                    body.trim()
-                ));
+                return Err(ExchangeError::Failed(detail));
             }
             Err(error) => {
                 // The daemon is gone or unreachable. The next request re-rendezvouses;
-                // the call that hit this is never retried.
-                self.stale.store(true, Ordering::SeqCst);
-                return Err(error.to_string());
+                // the call that hit this may have run, so it is never retried.
+                self.stale.fetch_max(DAEMON_LOST, Ordering::SeqCst);
+                return Err(ExchangeError::Failed(error.to_string()));
             }
         };
         if let Some(session) = response.header("Mcp-Session-Id") {
@@ -539,6 +580,7 @@ impl Session {
             .to_ascii_lowercase()
             .contains("text/event-stream");
         let mut replied = false;
+        let mut replay_error = None;
         relay_frames(
             BufReader::new(response.into_reader()),
             is_sse,
@@ -552,41 +594,64 @@ impl Session {
                 if forward {
                     self.write_message(frame)
                 } else {
+                    replay_error = replay_error.take().or_else(|| reply_error(frame, id));
                     Ok(())
                 }
             },
-        )?;
+        )
+        .map_err(ExchangeError::Failed)?;
+        if let Some(error) = replay_error {
+            return Err(ExchangeError::Failed(format!(
+                "the host daemon refused the replayed handshake: {error}"
+            )));
+        }
         if expects_reply && !replied {
-            return match &subscription {
-                Some(subscription) if subscription.cancelled() => Ok(()),
-                Some(_) => Err("the host daemon ended the subscription stream".to_string()),
-                None => Err("the host daemon closed the reply without an answer".to_string()),
+            let detail = match &subscription {
+                Some(subscription) if subscription.cancelled() => return Ok(()),
+                Some(_) => "the host daemon ended the subscription stream",
+                None => "the host daemon closed the reply without an answer",
             };
+            return Err(ExchangeError::Failed(detail.to_string()));
         }
         Ok(())
     }
 
-    /// Re-rendezvous after a daemon failure, then replay the client's handshake so
-    /// the new session is equivalent. The caller holds the write gate.
-    fn recover(&self) -> Result<(), String> {
-        let descriptor = self
-            .rendezvous
-            .ensure(spawn_daemon)
-            .map_err(|error| format!("the host daemon could not be reached again: {error}"))?;
-        if let Ok(mut guard) = self.descriptor.lock() {
-            *guard = descriptor;
+    /// Open a replacement session by replaying the client's handshake. After a
+    /// daemon failure, re-rendezvous first; after a refused session the daemon is
+    /// alive and keeps its descriptor. The caller holds the write gate.
+    fn recover(&self, stale: u8) -> Result<(), String> {
+        if stale >= DAEMON_LOST {
+            let descriptor = self
+                .rendezvous
+                .ensure(spawn_daemon)
+                .map_err(|error| format!("the host daemon could not be reached again: {error}"))?;
+            if let Ok(mut guard) = self.descriptor.lock() {
+                *guard = descriptor;
+            }
         }
-        // The session belonged to the daemon that went away.
+        // The old session is gone either way, and `initialize` must not send it.
         if let Ok(mut guard) = self.session_id.lock() {
             *guard = None;
         }
+        let reopen = |error: ExchangeError| {
+            format!(
+                "the host daemon session could not be reopened: {}",
+                error.into_message()
+            )
+        };
         let initialize = self
             .handshake_initialize
             .lock()
             .ok()
             .and_then(|value| value.clone());
         if let Some(body) = initialize {
-            self.post(&body, false)?;
+            self.post(&body, false).map_err(reopen)?;
+            if self.session_id().is_none() {
+                return Err(
+                    "the host daemon session could not be reopened: no session id was issued"
+                        .to_string(),
+                );
+            }
         }
         let initialized = self
             .handshake_initialized
@@ -594,22 +659,40 @@ impl Session {
             .ok()
             .and_then(|value| value.clone());
         if let Some(body) = initialized {
-            self.post(&body, false)?;
+            self.post(&body, false).map_err(reopen)?;
         }
         Ok(())
     }
 
-    /// POST one client message. Healthy calls share the read gate and run
-    /// concurrently; after a failure, one caller re-finds the daemon under the write
-    /// gate while the rest wait, so no request runs against the old descriptor or
-    /// ahead of the replayed handshake.
+    /// POST one client message. A request the daemon refused before dispatch,
+    /// because its session was rescoped or expired, is sent once more on the
+    /// reopened session; a second refusal, and every other failure, goes back to
+    /// the client unretried.
     fn exchange(&self, body: &str) -> Result<(), String> {
-        if !self.stale.load(Ordering::SeqCst) {
+        match self.exchange_once(body) {
+            Err(ExchangeError::SessionRefused(_)) if resendable_after_refusal(body) => {
+                self.exchange_once(body).map_err(|error| match error {
+                    ExchangeError::SessionRefused(detail) => {
+                        format!("the host daemon refused the reopened session too: {detail}")
+                    }
+                    ExchangeError::Failed(detail) => detail,
+                })
+            }
+            result => result.map_err(ExchangeError::into_message),
+        }
+    }
+
+    /// One attempt. Healthy calls share the read gate and run concurrently; after a
+    /// failure, one caller rebuilds the session under the write gate while the rest
+    /// wait, so no request runs against the old descriptor or session, or ahead of
+    /// the replayed handshake.
+    fn exchange_once(&self, body: &str) -> Result<(), ExchangeError> {
+        if self.stale.load(Ordering::SeqCst) == HEALTHY {
             let _healthy = self
                 .gate
                 .read()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
-            if !self.stale.load(Ordering::SeqCst) {
+            if self.stale.load(Ordering::SeqCst) == HEALTHY {
                 self.remember_handshake(body);
                 return self.post(body, true);
             }
@@ -618,11 +701,12 @@ impl Session {
             .gate
             .write()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if self.stale.swap(false, Ordering::SeqCst) {
-            if let Err(error) = self.recover() {
+        let stale = self.stale.swap(HEALTHY, Ordering::SeqCst);
+        if stale != HEALTHY {
+            if let Err(error) = self.recover(stale) {
                 // Let a later request try again rather than staying healthy-looking.
-                self.stale.store(true, Ordering::SeqCst);
-                return Err(error);
+                self.stale.fetch_max(stale, Ordering::SeqCst);
+                return Err(ExchangeError::Failed(error));
             }
         }
         self.remember_handshake(body);
@@ -671,6 +755,43 @@ fn modern_headers(message: &serde_json::Value) -> Vec<(String, String)> {
     )];
     headers.extend(crate::downstream::modern_routing_headers(message));
     headers
+}
+
+/// Whether a failed daemon POST is the pre-dispatch session refusal, and nothing
+/// else: the body must be exactly the daemon's refusal object.
+fn is_session_refusal(body: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(body).is_ok_and(|value| {
+        value.as_object().is_some_and(|object| object.len() == 1)
+            && value["error"] == SESSION_REFUSED_ERROR
+    })
+}
+
+/// Whether a request refused for its session may be sent once more. Only legacy
+/// requests carry a session. `initialize` opens its own; a notification or a
+/// reply to the daemon belongs to the session that was refused.
+fn resendable_after_refusal(body: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(body).is_ok_and(|message| {
+        message.get("id").is_some_and(|id| !id.is_null())
+            && message["method"]
+                .as_str()
+                .is_some_and(|method| method != "initialize")
+            && declared_version(&message).is_none()
+    })
+}
+
+/// The error in a JSON-RPC reply to `id`, if that is what `frame` is.
+fn reply_error(frame: &str, id: Option<&serde_json::Value>) -> Option<String> {
+    let value = serde_json::from_str::<serde_json::Value>(frame).ok()?;
+    if value.get("method").is_some() || value.get("id") != id {
+        return None;
+    }
+    let error = value.get("error")?;
+    Some(
+        error["message"]
+            .as_str()
+            .map(str::to_string)
+            .unwrap_or_else(|| error.to_string()),
+    )
 }
 
 /// Whether a daemon body is a JSON-RPC response, rather than a transport error.
@@ -1235,6 +1356,478 @@ mod tests {
         drop(replacement);
         drop(second);
         assert!(session.subscriptions.lock().unwrap().is_empty());
+    }
+
+    /// Client output captured in memory instead of the process stdout.
+    #[derive(Clone, Default)]
+    struct Sink(Arc<Mutex<Vec<u8>>>);
+
+    impl Write for Sink {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl Sink {
+        fn messages(&self) -> Vec<serde_json::Value> {
+            String::from_utf8(self.0.lock().unwrap().clone())
+                .unwrap()
+                .lines()
+                .map(|line| serde_json::from_str(line).unwrap())
+                .collect()
+        }
+    }
+
+    /// One POST the scripted daemon received.
+    #[derive(Clone)]
+    struct Posted {
+        session: Option<String>,
+        message: serde_json::Value,
+    }
+
+    struct Answer {
+        status: u16,
+        session: Option<String>,
+        body: String,
+        delay: Duration,
+    }
+
+    impl Answer {
+        fn result(to: &Posted, result: serde_json::Value) -> Self {
+            Self::body(
+                200,
+                serde_json::json!({ "jsonrpc": "2.0", "id": to.message["id"], "result": result }),
+            )
+        }
+
+        fn body(status: u16, body: serde_json::Value) -> Self {
+            Self {
+                status,
+                session: None,
+                body: body.to_string(),
+                delay: Duration::ZERO,
+            }
+        }
+
+        fn accepted() -> Self {
+            Self {
+                status: 202,
+                session: None,
+                body: String::new(),
+                delay: Duration::ZERO,
+            }
+        }
+
+        fn refused() -> Self {
+            Self::body(404, serde_json::json!({ "error": SESSION_REFUSED_ERROR }))
+        }
+
+        fn with_session(mut self, session: String) -> Self {
+            self.session = Some(session);
+            self
+        }
+
+        fn after(mut self, delay: Duration) -> Self {
+            self.delay = delay;
+            self
+        }
+    }
+
+    /// A loopback stand-in for the daemon's `/mcp` endpoint that answers each POST
+    /// from a script and records what it received.
+    struct ScriptedDaemon {
+        endpoint: String,
+        posted: Arc<Mutex<Vec<Posted>>>,
+    }
+
+    impl ScriptedDaemon {
+        fn start(script: impl Fn(&Posted) -> Answer + Send + Sync + 'static) -> Self {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let endpoint = listener.local_addr().unwrap().to_string();
+            let posted = Arc::new(Mutex::new(Vec::new()));
+            let script = Arc::new(script);
+            let record = Arc::clone(&posted);
+            std::thread::spawn(move || {
+                for stream in listener.incoming().map_while(Result::ok) {
+                    let script = Arc::clone(&script);
+                    let record = Arc::clone(&record);
+                    std::thread::spawn(move || {
+                        let mut reader = BufReader::new(stream.try_clone().unwrap());
+                        let mut length = 0;
+                        let mut session = None;
+                        loop {
+                            let mut line = String::new();
+                            if reader.read_line(&mut line).unwrap_or(0) == 0 {
+                                return;
+                            }
+                            let line = line.trim_end();
+                            if line.is_empty() {
+                                break;
+                            }
+                            if let Some((name, value)) = line.split_once(':') {
+                                match name.to_ascii_lowercase().as_str() {
+                                    "content-length" => length = value.trim().parse().unwrap(),
+                                    "mcp-session-id" => session = Some(value.trim().to_string()),
+                                    _ => {}
+                                }
+                            }
+                        }
+                        let mut body = vec![0; length];
+                        reader.read_exact(&mut body).unwrap();
+                        let posted = Posted {
+                            session,
+                            message: serde_json::from_slice(&body).unwrap(),
+                        };
+                        record.lock().unwrap().push(posted.clone());
+                        let answer = script(&posted);
+                        std::thread::sleep(answer.delay);
+                        let mut head = format!(
+                            "HTTP/1.1 {} Scripted\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n",
+                            answer.status,
+                            answer.body.len()
+                        );
+                        if let Some(session) = answer.session {
+                            head.push_str(&format!("Mcp-Session-Id: {session}\r\n"));
+                        }
+                        let mut stream = stream;
+                        let _ = write!(stream, "{head}\r\n{}", answer.body);
+                        let _ = stream.flush();
+                    });
+                }
+            });
+            Self { endpoint, posted }
+        }
+
+        fn posted(&self, method: &str) -> Vec<Posted> {
+            self.posted
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|posted| posted.message["method"] == method)
+                .cloned()
+                .collect()
+        }
+    }
+
+    fn scripted_session(daemon: &ScriptedDaemon, sink: &Sink, timeout: Duration) -> Session {
+        let data_dir = std::env::temp_dir();
+        let compat = CompatKey::new("test", data_dir.to_string_lossy());
+        let mut session = Session::new(
+            Rendezvous::new(&data_dir, compat.clone()),
+            DaemonDescriptor::new(daemon.endpoint.as_str(), "test-token", &compat),
+        );
+        session.stdout = Mutex::new(Box::new(sink.clone()));
+        session.request_timeout = timeout;
+        session
+    }
+
+    /// Answers `initialize` with a new session id (`s1`, `s2`, ...) each time and
+    /// accepts `notifications/initialized`; anything else goes to `call`.
+    fn session_daemon(
+        call: impl Fn(&Posted) -> Answer + Send + Sync + 'static,
+    ) -> (ScriptedDaemon, Arc<AtomicUsize>) {
+        let minted = Arc::new(AtomicUsize::new(0));
+        let count = Arc::clone(&minted);
+        let daemon = ScriptedDaemon::start(move |posted| match posted.message["method"].as_str() {
+            Some("initialize") => {
+                let n = count.fetch_add(1, Ordering::SeqCst) + 1;
+                Answer::result(
+                    posted,
+                    serde_json::json!({ "protocolVersion": "2024-11-05" }),
+                )
+                .with_session(format!("s{n}"))
+            }
+            Some("notifications/initialized") => Answer::accepted(),
+            _ => call(posted),
+        });
+        (daemon, minted)
+    }
+
+    fn open(session: &Session) {
+        session
+            .exchange(r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}"#)
+            .unwrap();
+        session
+            .exchange(r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#)
+            .unwrap();
+    }
+
+    fn tool_call(id: u64) -> String {
+        serde_json::json!({
+            "jsonrpc": "2.0", "id": id, "method": "tools/call",
+            "params": { "name": "write_note", "arguments": { "text": id.to_string() } }
+        })
+        .to_string()
+    }
+
+    const TEST_TIMEOUT: Duration = Duration::from_secs(10);
+
+    #[test]
+    fn a_refused_session_is_reopened_and_the_request_sent_once_more() {
+        let executed = Arc::new(AtomicUsize::new(0));
+        let runs = Arc::clone(&executed);
+        let (daemon, minted) = session_daemon(move |posted| {
+            if posted.session.as_deref() == Some("s1") {
+                return Answer::refused();
+            }
+            runs.fetch_add(1, Ordering::SeqCst);
+            Answer::result(posted, serde_json::json!({ "content": [] }))
+        });
+        let sink = Sink::default();
+        let session = scripted_session(&daemon, &sink, TEST_TIMEOUT);
+        open(&session);
+
+        session.exchange(&tool_call(2)).unwrap();
+
+        assert_eq!(
+            executed.load(Ordering::SeqCst),
+            1,
+            "the call ran exactly once"
+        );
+        assert_eq!(minted.load(Ordering::SeqCst), 2, "one replacement session");
+        let sessions: Vec<_> = daemon
+            .posted("tools/call")
+            .into_iter()
+            .map(|posted| posted.session)
+            .collect();
+        assert_eq!(sessions, [Some("s1".into()), Some("s2".into())]);
+        assert_eq!(daemon.posted("notifications/initialized").len(), 2);
+        let replies = sink.messages();
+        assert_eq!(
+            replies.len(),
+            2,
+            "the replayed initialize is not forwarded: {replies:?}"
+        );
+        assert_eq!(replies[1]["id"], 2);
+        assert!(replies[1].get("result").is_some());
+        assert_eq!(session.stale.load(Ordering::SeqCst), HEALTHY);
+    }
+
+    #[test]
+    fn a_second_refusal_is_returned_without_another_send() {
+        let (daemon, minted) = session_daemon(|_| Answer::refused());
+        let sink = Sink::default();
+        let session = scripted_session(&daemon, &sink, TEST_TIMEOUT);
+        open(&session);
+
+        let error = session.exchange(&tool_call(2)).unwrap_err();
+
+        assert!(
+            error.contains("refused the reopened session too"),
+            "{error}"
+        );
+        assert_eq!(daemon.posted("tools/call").len(), 2);
+        assert_eq!(minted.load(Ordering::SeqCst), 2);
+        assert_eq!(
+            sink.messages().len(),
+            1,
+            "only the initialize reply reached the client"
+        );
+    }
+
+    #[test]
+    fn other_failures_are_not_sent_again() {
+        for (label, answer, stale) in [
+            (
+                "another 404",
+                Answer::body(404, serde_json::json!({ "error": "not found" })),
+                HEALTHY,
+            ),
+            (
+                "a refusal-like body with more fields",
+                Answer::body(
+                    404,
+                    serde_json::json!({ "error": SESSION_REFUSED_ERROR, "detail": "proxy" }),
+                ),
+                HEALTHY,
+            ),
+            (
+                "a server error",
+                Answer::body(500, serde_json::json!({ "error": "boom" })),
+                HEALTHY,
+            ),
+        ] {
+            let answer = Mutex::new(Some(answer));
+            let (daemon, minted) =
+                session_daemon(move |_| answer.lock().unwrap().take().expect("one call only"));
+            let sink = Sink::default();
+            let session = scripted_session(&daemon, &sink, TEST_TIMEOUT);
+            open(&session);
+            assert!(session.exchange(&tool_call(2)).is_err(), "{label}");
+            assert_eq!(daemon.posted("tools/call").len(), 1, "{label}");
+            assert_eq!(minted.load(Ordering::SeqCst), 1, "{label}");
+            assert_eq!(session.stale.load(Ordering::SeqCst), stale, "{label}");
+        }
+    }
+
+    #[test]
+    fn a_refused_notification_is_not_sent_again() {
+        let (daemon, minted) = session_daemon(|_| Answer::refused());
+        let sink = Sink::default();
+        let session = scripted_session(&daemon, &sink, TEST_TIMEOUT);
+        open(&session);
+        let cancelled =
+            r#"{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":2}}"#;
+        assert!(session.exchange(cancelled).is_err());
+        assert_eq!(daemon.posted("notifications/cancelled").len(), 1);
+        assert_eq!(minted.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            session.stale.load(Ordering::SeqCst),
+            SESSION_REFUSED,
+            "the next request reopens the session first"
+        );
+    }
+
+    #[test]
+    fn a_timed_out_request_is_not_sent_again() {
+        let (daemon, _) = session_daemon(|posted| {
+            Answer::result(posted, serde_json::json!({})).after(Duration::from_secs(2))
+        });
+        let sink = Sink::default();
+        let session = scripted_session(&daemon, &sink, TEST_TIMEOUT);
+        open(&session);
+        let mut session = session;
+        session.request_timeout = Duration::from_millis(300);
+
+        assert!(session.exchange(&tool_call(2)).is_err());
+        std::thread::sleep(Duration::from_millis(500));
+        assert_eq!(daemon.posted("tools/call").len(), 1);
+        assert_eq!(session.stale.load(Ordering::SeqCst), DAEMON_LOST);
+    }
+
+    #[test]
+    fn downstream_json_rpc_errors_are_relayed_once() {
+        for status in [200, 400] {
+            let (daemon, _) = session_daemon(move |posted| {
+                Answer::body(
+                    status,
+                    serde_json::json!({
+                        "jsonrpc": "2.0", "id": posted.message["id"],
+                        "error": { "code": -32000, "message": "downstream failed" }
+                    }),
+                )
+            });
+            let sink = Sink::default();
+            let session = scripted_session(&daemon, &sink, TEST_TIMEOUT);
+            open(&session);
+            session.exchange(&tool_call(2)).unwrap();
+            assert_eq!(daemon.posted("tools/call").len(), 1, "HTTP {status}");
+            let replies = sink.messages();
+            assert_eq!(replies[1]["error"]["message"], "downstream failed");
+            assert_eq!(session.stale.load(Ordering::SeqCst), HEALTHY);
+        }
+    }
+
+    #[test]
+    fn a_failed_reopen_is_reported_and_nothing_is_resent() {
+        let minted = Arc::new(AtomicUsize::new(0));
+        let count = Arc::clone(&minted);
+        let daemon = ScriptedDaemon::start(move |posted| match posted.message["method"].as_str() {
+            Some("initialize") if count.fetch_add(1, Ordering::SeqCst) == 0 => {
+                Answer::result(posted, serde_json::json!({})).with_session("s1".into())
+            }
+            Some("initialize") => Answer::body(
+                200,
+                serde_json::json!({
+                    "jsonrpc": "2.0", "id": posted.message["id"],
+                    "error": { "code": -32602, "message": "unsupported protocol version" }
+                }),
+            )
+            .with_session("s2".into()),
+            Some("notifications/initialized") => Answer::accepted(),
+            _ => Answer::refused(),
+        });
+        let sink = Sink::default();
+        let session = scripted_session(&daemon, &sink, TEST_TIMEOUT);
+        open(&session);
+
+        let error = session.exchange(&tool_call(2)).unwrap_err();
+
+        assert!(error.contains("could not be reopened"), "{error}");
+        assert!(error.contains("unsupported protocol version"), "{error}");
+        assert_eq!(daemon.posted("tools/call").len(), 1);
+        assert_eq!(minted.load(Ordering::SeqCst), 2);
+        assert_eq!(
+            session.stale.load(Ordering::SeqCst),
+            SESSION_REFUSED,
+            "a later request tries to reopen again"
+        );
+    }
+
+    #[test]
+    fn concurrent_refusals_reopen_the_session_once() {
+        let executed = Arc::new(Mutex::new(Vec::new()));
+        let runs = Arc::clone(&executed);
+        let (daemon, minted) = session_daemon(move |posted| {
+            if posted.session.as_deref() == Some("s1") {
+                return Answer::refused().after(Duration::from_millis(100));
+            }
+            runs.lock()
+                .unwrap()
+                .push(posted.message["id"].as_u64().unwrap());
+            Answer::result(posted, serde_json::json!({ "content": [] }))
+        });
+        let sink = Sink::default();
+        let session = Arc::new(scripted_session(&daemon, &sink, TEST_TIMEOUT));
+        open(&session);
+
+        let start = Arc::new(std::sync::Barrier::new(8));
+        let callers: Vec<_> = (2..10)
+            .map(|id| {
+                let session = Arc::clone(&session);
+                let start = Arc::clone(&start);
+                std::thread::spawn(move || {
+                    start.wait();
+                    session.exchange(&tool_call(id))
+                })
+            })
+            .collect();
+        for caller in callers {
+            caller.join().unwrap().unwrap();
+        }
+
+        assert_eq!(minted.load(Ordering::SeqCst), 2, "one replacement session");
+        let mut ran = executed.lock().unwrap().clone();
+        ran.sort_unstable();
+        assert_eq!(
+            ran,
+            (2..10).collect::<Vec<_>>(),
+            "each call ran exactly once"
+        );
+        assert_eq!(sink.messages().len(), 9);
+    }
+
+    #[test]
+    fn only_a_refused_legacy_request_may_be_sent_again() {
+        assert!(resendable_after_refusal(&tool_call(1)));
+        assert!(resendable_after_refusal(
+            r#"{"jsonrpc":"2.0","id":"a","method":"tools/list"}"#
+        ));
+        for body in [
+            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}"#,
+            r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+            r#"{"jsonrpc":"2.0","id":null,"method":"tools/list"}"#,
+            r#"{"jsonrpc":"2.0","id":7,"result":{"roots":[]}}"#,
+            r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}"#,
+            "not json",
+        ] {
+            assert!(!resendable_after_refusal(body), "{body}");
+        }
+        assert!(is_session_refusal(
+            r#"{"error":"unknown or expired Mcp-Session-Id; re-initialize"}"#
+        ));
+        for body in [
+            r#"{"error":"missing Mcp-Session-Id (send initialize first)"}"#,
+            r#"{"error":"unknown or expired Mcp-Session-Id; re-initialize","x":1}"#,
+            "unknown or expired Mcp-Session-Id; re-initialize",
+        ] {
+            assert!(!is_session_refusal(body), "{body}");
+        }
     }
 
     use std::sync::Condvar;

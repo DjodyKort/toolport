@@ -2688,29 +2688,199 @@ fn matrix_routing_live_profile_change_reopens_the_adapter_session() {
     reg.client_scopes
         .insert("matrix-rescope".to_string(), "scope-two".to_string());
     registry::save_to(&path, &reg).expect("change client scope");
-    let deadline = Instant::now() + Duration::from_secs(10);
-    loop {
-        let reply = client.request("tools/list", json!({}));
-        if reply.get("error").is_some() {
-            break;
-        }
-        assert!(
-            Instant::now() < deadline,
-            "the old session was never invalidated"
-        );
-        std::thread::sleep(Duration::from_millis(100));
-    }
-
-    client.wait_for_tool_where(
-        "the two__ prefix after recovery",
-        |name| name.starts_with("two__"),
-        Duration::from_secs(30),
+    // The daemon refuses the old session before dispatch. The adapter reopens it
+    // and sends the refused request again, so the client never sees the rescope
+    // as an error.
+    let names = list_until_no_error(
+        &mut client,
+        |names| names.iter().any(|name| name.starts_with("two__")),
+        "the two__ prefix after the rescope",
     );
-    let names = client.tool_names();
     assert!(
         !names.iter().any(|name| name.starts_with("one__")),
         "the reopened session still exposes the old profile: {names:?}"
     );
+}
+
+/// Poll tools/list until `done` holds, failing on any error reply. A scope change
+/// must reach the client as the new catalog, never as a failed request.
+fn list_until_no_error(
+    client: &mut AdapterClient,
+    done: impl Fn(&[String]) -> bool,
+    label: &str,
+) -> Vec<String> {
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        let reply = client.request("tools/list", json!({}));
+        assert!(
+            reply.get("error").is_none(),
+            "a scope change surfaced as an error: {reply}\n{}",
+            client.diagnostics()
+        );
+        let names: Vec<String> = reply["result"]["tools"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|tool| tool["name"].as_str().map(str::to_string))
+            .collect();
+        if done(&names) {
+            return names;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "no catalog matching {label} before the deadline: {names:?}\n{}",
+            client.diagnostics()
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+/// Turn one server off in the active profile, the way a Team handoff swaps a
+/// personal server for its Team copy, then wait until `observer` sees the change.
+/// The observer is a separate session, so the session under test sends nothing
+/// until the daemon has loaded the new enabled set.
+fn disable_and_observe(dir: &Path, server: &str, observer: &mut AdapterClient) {
+    let path = dir.join("registry.json");
+    let mut reg = registry::load_from(&path).expect("load fixture registry");
+    let active = reg.active_profile_id();
+    reg.set_server_enabled(&active, server, false)
+        .expect("disable the server");
+    registry::save_to(&path, &reg).expect("save the enabled-set change");
+    let prefix = format!("{server}__");
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        let reply = observer.request("tools/list", json!({}));
+        let visible = reply["result"]["tools"].as_array().is_some_and(|tools| {
+            tools.iter().any(|tool| {
+                tool["name"]
+                    .as_str()
+                    .is_some_and(|n| n.starts_with(&prefix))
+            })
+        });
+        if reply.get("result").is_some() && !visible {
+            return;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "the daemon never loaded the enabled-set change\n{}",
+            observer.diagnostics()
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+fn enabled_set_fixture(tag: &str) -> (Fixture, PathBuf, AdapterClient, AdapterClient) {
+    let (fixture, dir) = Fixture::new(tag);
+    write_registry(
+        &dir,
+        vec![
+            mock_server_entry("one", &dir.join("one.jsonl"), None),
+            mock_server_entry("two", &dir.join("two.jsonl"), None),
+        ],
+        vec![],
+    );
+    let mut client = spawn_adapter(&dir, &AdapterOptions::default());
+    let mut observer = spawn_adapter(&dir, &AdapterOptions::default());
+    client.initialize(tag);
+    observer.initialize(&format!("{tag}-observer"));
+    for session in [&mut client, &mut observer] {
+        session.wait_for_tool_where(
+            "both servers",
+            |name| name.starts_with("two__"),
+            Duration::from_secs(30),
+        );
+        session.wait_for_tool_where(
+            "both servers",
+            |name| name.starts_with("one__"),
+            Duration::from_secs(30),
+        );
+    }
+    (fixture, dir, client, observer)
+}
+
+/// Wait for a downstream transcript to settle at exactly `expected` calls.
+fn assert_call_count(path: &Path, expected: usize, label: &str) {
+    wait_until(
+        || transcript_method_count(path, "tools/call") >= expected,
+        label,
+        Duration::from_secs(10),
+    );
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(
+        transcript_method_count(path, "tools/call"),
+        expected,
+        "{label}"
+    );
+}
+
+#[test]
+fn matrix_routing_enabled_set_change_resends_a_refused_call_once() {
+    let _guard = CASE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let (_fixture, dir, mut client, mut observer) = enabled_set_fixture("enabled-set");
+    let transcript = dir.join("one.jsonl");
+    let echo = client.wait_for_tool_where(
+        "one__echo",
+        |name| name.starts_with("one__") && name.ends_with("__echo"),
+        Duration::from_secs(30),
+    );
+    assert_eq!(
+        text_of(&client.call_tool(&echo, json!({ "text": "before" }))),
+        "before"
+    );
+    let calls = transcript_method_count(&transcript, "tools/call");
+
+    disable_and_observe(&dir, "two", &mut observer);
+
+    // The client's session belongs to the old enabled set. Its next request is
+    // refused before dispatch, then sent once more on a fresh session.
+    let reply = client.request(
+        "tools/call",
+        json!({ "name": echo, "arguments": { "text": "after" } }),
+    );
+    assert!(
+        reply.get("error").is_none() && reply["result"]["isError"] != true,
+        "the refused call was not recovered: {reply}\n{}",
+        client.diagnostics()
+    );
+    assert_eq!(text_of(&reply["result"]), "after");
+    assert_call_count(&transcript, calls + 1, "the resent call ran exactly once");
+}
+
+#[test]
+fn matrix_routing_resent_call_uses_the_narrowed_enabled_set() {
+    let _guard = CASE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let (_fixture, dir, mut client, mut observer) = enabled_set_fixture("narrowed-set");
+    let transcript = dir.join("two.jsonl");
+    let removed = client.wait_for_tool_where(
+        "two__echo",
+        |name| name.starts_with("two__") && name.ends_with("__echo"),
+        Duration::from_secs(30),
+    );
+    let calls = transcript_method_count(&transcript, "tools/call");
+
+    disable_and_observe(&dir, "two", &mut observer);
+
+    // The fresh session no longer includes the disabled server, so the gateway
+    // itself refuses the call. It must not reach the downstream, and it must not
+    // look like a transport failure.
+    let reply = client.request(
+        "tools/call",
+        json!({ "name": removed, "arguments": { "text": "blocked" } }),
+    );
+    assert!(
+        !reply.to_string().contains("host daemon request failed"),
+        "the refused session reached the client: {reply}\n{}",
+        client.diagnostics()
+    );
+    assert!(
+        reply["result"]["isError"] == true || reply.get("error").is_some(),
+        "a call to a disabled server must be refused: {reply}"
+    );
+    assert_call_count(&transcript, calls, "the disabled server never ran the call");
 }
 
 #[test]
@@ -2962,20 +3132,13 @@ fn matrix_routing_live_tool_scope_change_reopens_the_adapter_session() {
         .tool_scope
         .insert("shared".to_string(), vec!["add".to_string()]);
     registry::save_to(&path, &reg).expect("change tool scope");
-    let deadline = Instant::now() + Duration::from_secs(10);
-    loop {
-        let reply = client.request("tools/list", json!({}));
-        if reply.get("error").is_some() {
-            break;
-        }
-        assert!(
-            Instant::now() < deadline,
-            "old tool scope was never invalidated"
-        );
-        std::thread::sleep(Duration::from_millis(100));
-    }
+    let names = list_until_no_error(
+        &mut client,
+        |names| names.iter().any(|name| name.ends_with("__add")),
+        "the new tool scope",
+    );
+    assert!(!names.contains(&echo));
     let add = client.wait_for_tool("__add", Duration::from_secs(30));
-    assert!(!client.tool_names().contains(&echo));
     assert_eq!(
         client.call_tool(&echo, json!({ "text": "blocked" }))["isError"],
         true
