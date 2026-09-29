@@ -6,6 +6,28 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ## [Unreleased]
 
+## [1.23.3] - 2026-09-29
+
+### Fixed
+
+- The Teams approval prompt closes as soon as the browser approves the connection,
+  and a failed or expired request says why. You can hide the prompt or cancel the
+  request, and a repeated link brings back the same prompt instead of starting over.
+- AI clients connected through Toolport no longer get a one-time "unknown or expired
+  Mcp-Session-Id" error after a profile, server or tool change, including the switch
+  that happens when you share a server. Toolport reopens the session and sends the
+  refused request once.
+- Sharing into a Team that already has servers explains itself. The preview says
+  whether each server is new, an update or already shared, points out a separate
+  Team server with the same name, and says what changes in your profile. The result
+  names each server and which copy is in use.
+- One server that needs its own setup no longer stops the others from switching to
+  their Team copies. Re-sharing an edited server keeps its Team copy in use, and a
+  server removed from the Team and shared again switches reliably.
+- Servers with environment keys no longer look changed every time you share them.
+- Servers with launch inputs can now be shared. Teammates keep those values in their
+  own vault.
+
 ## [1.23.2] - 2026-09-28
 
 ### Fixed
