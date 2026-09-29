@@ -103,6 +103,25 @@ pub(crate) fn detach_changed(reg: &mut Registry, id: &str) -> Result<(), String>
     Ok(())
 }
 
+/// Whether an earlier handoff bound a Team copy of this connection to `personal`,
+/// and that copy is enabled in `profile`. The original may have changed since:
+/// that change is what re-sharing publishes, and the handoff checks it again.
+pub(crate) fn bound_copy_enabled(reg: &Registry, profile: &str, personal: &str) -> bool {
+    let Some(team) = reg.team.as_ref() else {
+        return false;
+    };
+    bindings(reg).is_ok_and(|entries| {
+        entries.iter().any(|(managed, binding)| {
+            binding.personal_id == personal
+                && binding.team_id == team.team_id
+                && binding.origin == team.server_url
+                && binding.device_id == team.reporting_device_id
+                && team.managed_server_ids.get(managed) == Some(&binding.personal_id)
+                && reg.is_enabled(profile, managed)
+        })
+    })
+}
+
 pub(crate) fn ensure_unconfigured(reg: &Registry, managed: &ServerEntry) -> Result<(), String> {
     if bindings(reg)?.contains_key(&managed.id) {
         owner_in(reg, &managed.id)?;

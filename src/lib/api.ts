@@ -680,6 +680,25 @@ export interface ShareDefinitionPreview {
   fields: { label: string; value: string }[];
 }
 
+/** What sharing does, or did, to one selected server in the active profile. */
+export interface LocalHandoff {
+  id: string;
+  name: string;
+  outcome: "switched" | "kept" | "notEnabled" | "attention";
+  message: string;
+}
+
+/** How one selected personal server relates to the Team. Sentences come from the
+ * backend so the GTK and React previews say the same thing. */
+export interface ShareSelectionPreview {
+  id: string;
+  name: string;
+  teamChange: "New" | "Update" | "Already shared";
+  teamDetail: string;
+  notes: string[];
+  local: LocalHandoff;
+}
+
 export interface TeamPushPreview {
   baseVersion: number;
   localFingerprint: string;
@@ -687,6 +706,7 @@ export interface TeamPushPreview {
   changed: string[];
   removed: string[];
   definitions: ShareDefinitionPreview[];
+  selections: ShareSelectionPreview[];
 }
 
 /** Admin: compare the local server export with the team's current shared server list. */
@@ -696,7 +716,12 @@ export function teamPushPreview(selectedIds?: string[]): Promise<TeamPushPreview
 
 export interface TeamPublishResult {
   version: number;
+  /** False when every selection was already shared unchanged and nothing was uploaded. */
+  published: boolean;
   localSetupError: string | null;
+  handoffs: LocalHandoff[];
+  /** The notice text, identical to the GTK shell's. */
+  summary: string;
 }
 
 /** Publish, then finish the confirmed publisher handoff locally. */
@@ -709,6 +734,23 @@ export function teamPush(
     localFingerprint: preview.localFingerprint,
     selectedIds,
   });
+}
+
+/** A Teams connection link's browser-approval state, from the `team-pair` event. */
+export interface TeamPairEvent {
+  state: "pending" | "connected" | "cancelled" | "failed";
+  check: string | null;
+  message: string | null;
+}
+
+/** The approval prompt still waiting, for a view that mounted after the event. */
+export function teamPairState(): Promise<TeamPairEvent | null> {
+  return invoke<TeamPairEvent | null>("team_pair_state");
+}
+
+/** Stop waiting for browser approval of a Teams connection. */
+export function teamPairCancel(): Promise<void> {
+  return invoke<void>("team_pair_cancel");
 }
 
 /** Probe every supported MCP client and read its current server configuration. */

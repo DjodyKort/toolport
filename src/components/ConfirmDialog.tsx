@@ -19,6 +19,8 @@ interface Props {
   contentClassName?: string;
   description?: ReactNode;
   confirmLabel?: string;
+  /** Keep the confirm button off when there is nothing to confirm. */
+  confirmDisabled?: boolean;
   cancelLabel?: string;
   /** Style the confirm button as destructive (red). */
   destructive?: boolean;
@@ -38,6 +40,7 @@ export function ConfirmDialog({
   contentClassName = "sm:max-w-sm",
   description,
   confirmLabel = "Confirm",
+  confirmDisabled = false,
   cancelLabel = "Cancel",
   destructive = false,
   onConfirm,
@@ -104,7 +107,7 @@ export function ConfirmDialog({
           <Button
             variant={destructive ? "destructive" : "default"}
             onClick={handleConfirm}
-            disabled={busy}
+            disabled={busy || confirmDisabled}
           >
             {confirmLabel}
           </Button>

@@ -8,6 +8,7 @@ mod catalog;
 mod hooks;
 mod http_bridge;
 mod onboarding;
+mod pairing;
 mod permissions;
 mod playground;
 mod settings;
@@ -7699,10 +7700,6 @@ fn build_content(
     (server_page.0, server_page.1, approval_page)
 }
 
-thread_local! {
-    static TEAM_PAIR_PENDING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
-}
-
 fn open_shared_setup(url: &str, page: ServerPage) {
     if let Some((origin, team)) = crate::teams::parse_pair_link(url) {
         if crate::registry::load().is_ok_and(|reg| crate::teams::pair_target_is_current(&reg, &origin, &team)) {
@@ -7710,44 +7707,22 @@ fn open_shared_setup(url: &str, page: ServerPage) {
             if let Some(window) = page.app.active_window() { window.present(); }
             return;
         }
-        if TEAM_PAIR_PENDING.with(|pending| pending.replace(true)) {
-            page.show_feedback("A team connection is already pending. Complete or cancel that request first.", false);
-            return;
-        }
         for window in page.app.windows() { if window.title().as_deref() == Some("Toolport setup") { window.close(); } }
-        let Some(parent) = page.app.active_window() else { TEAM_PAIR_PENDING.with(|p| p.set(false)); return; };
-        #[allow(deprecated)]
-        let dialog = adw::MessageDialog::new(Some(&parent), Some("Connect Toolport to Teams?"), Some(&format!("Control plane: {origin}\n\nOnly continue if you trust this origin. Your browser will show the named team and signed-in account before approval. Connecting replaces this installation's current team connection.")));
-        dialog.set_size_request(520, -1);
-        dialog.add_response("cancel", "Cancel"); dialog.add_response("connect", "Continue to browser"); dialog.set_close_response("cancel");
-        dialog.connect_response(None, move |dialog, response| {
-            if response == "connect" {
-                let (tx, rx) = std::sync::mpsc::channel::<Result<(String,String),String>>();
-                let origin=origin.clone(); let team=team.clone();
-                std::thread::spawn(move || {
-                    let result=crate::teams::pair_device(&origin,&team,|url,check| { let _=tx.send(Ok((url.into(),check.into()))); });
-                    let _=tx.send(result.map(|_| (String::new(),String::new())));
-                });
-                let page=page.clone();
-                gtk::glib::timeout_add_local(std::time::Duration::from_millis(100),move || {
-                    if let Ok(message)=rx.try_recv() { match message {
-                        Ok((url,check)) if !url.is_empty() => {
-                            page.show_feedback(&format!("Browser approval pending. Match device check {check}."),false);
-                            if let Some(parent)=page.app.active_window() {
-                                #[allow(deprecated)]
-                                let info=adw::MessageDialog::new(Some(&parent),Some("Approve this device in your browser"),Some(&format!("Device check: {check}\n\nApprove only if the browser shows this same check, the intended team and your account. This request expires in five minutes.")));
-                                info.add_response("close","Close"); info.connect_response(None,|d,_|d.close()); info.present();
-                            }
-                            let _=crate::oauth::open_web_url(&url);
-                        }
-                        Ok(_) => { TEAM_PAIR_PENDING.with(|p| p.set(false)); page.show_feedback("Toolport connected. Open Teams to share or finish local setup.",false); return gtk::glib::ControlFlow::Break; }
-                        Err(e) => { TEAM_PAIR_PENDING.with(|p| p.set(false)); page.show_feedback(&e,true); return gtk::glib::ControlFlow::Break; }
-                    }}
-                    gtk::glib::ControlFlow::Continue
-                });
-            } else { TEAM_PAIR_PENDING.with(|p| p.set(false)); }
-            dialog.close();
-        });dialog.present(); return;
+        let (parent_app, connected_app, feedback) = (page.app.clone(), page.app.clone(), page.clone());
+        let hooks = pairing::PairingHooks {
+            parent: Box::new(move || parent_app.active_window()),
+            feedback: Box::new(move |message, error| feedback.show_feedback(message, error)),
+            connected: Box::new(move || {
+                if let Some(action) = connected_app.lookup_action("show-teams") { action.activate(None); }
+                if let Some(window) = connected_app.active_window() { window.present(); }
+            }),
+            open_url: Box::new(|url| { let _ = crate::oauth::open_web_url(url); }),
+        };
+        let pair_origin = origin.clone();
+        pairing::request(hooks, &origin, Box::new(move |cancel, show| {
+            crate::teams::pair_device(&pair_origin, &team, cancel, show).map(|_| ())
+        }));
+        return;
     }
     let Some(id) = crate::sharing_controller::parse_share_url(url) else {
         page.show_feedback("The shared setup link was invalid.", true);

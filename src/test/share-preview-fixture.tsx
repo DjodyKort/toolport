@@ -2,7 +2,8 @@
 import { createRoot } from "react-dom/client";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { TeamSharePreview } from "@/components/TeamSharePreview";
-import type { TeamPushPreview } from "@/lib/api";
+import { teamShareAction } from "@/lib/teamShare";
+import type { ShareSelectionPreview, TeamPushPreview } from "@/lib/api";
 import "../index.css";
 
 if (!import.meta.env.DEV) throw new Error("Fixtures require the development server");
@@ -43,7 +44,52 @@ const http = {
     { label: "Environment / credential keys", value: "API_TOKEN" },
   ],
 };
-const definitions = mode === "stdio" ? [stdio] : mode === "http" ? [http] : [stdio, http];
+const selection = (
+  name: string,
+  teamChange: ShareSelectionPreview["teamChange"],
+  teamDetail: string,
+  outcome: ShareSelectionPreview["local"]["outcome"],
+  message: string,
+  notes: string[] = [],
+): ShareSelectionPreview => ({
+  id: name.toLowerCase(),
+  name,
+  teamChange,
+  teamDetail,
+  notes,
+  local: { id: name.toLowerCase(), name, outcome, message },
+});
+const switches =
+  "This profile switches to the Team copy. Your personal server stays saved and turns off here.";
+const definitions =
+  mode === "existing"
+    ? []
+    : mode === "stdio"
+      ? [stdio]
+      : mode === "http"
+        ? [http]
+        : [stdio, http];
+// Sharing into a Team that already has definitions: one already shared, one whose
+// Team copy has its own sign-in, and a same-name definition that stays separate.
+const existing = [
+  selection(
+    "Linear",
+    "Already shared",
+    "The Team already has this exact definition, so nothing changes for the team.",
+    "switched",
+    switches,
+    [
+      "The team also has a separate definition named Linear (ID linear-2). It stays separate because sharing matches server IDs, not names.",
+    ],
+  ),
+  selection(
+    "Vercel (Full API)",
+    "Already shared",
+    "The Team already has this exact definition, so nothing changes for the team.",
+    "attention",
+    "This team copy already has its own local credentials. Keep its existing setup and enable it separately. Your personal server stays on in this profile.",
+  ),
+];
 const preview: TeamPushPreview = {
   baseVersion: 3,
   localFingerprint: "fixture",
@@ -51,6 +97,20 @@ const preview: TeamPushPreview = {
   added: definitions.filter((d) => d.change === "Added").map((d) => d.name),
   changed: definitions.filter((d) => d.change === "Changed").map((d) => d.name),
   removed: mode === "multiple" ? ["Retired tools"] : [],
+  selections:
+    mode === "existing"
+      ? existing
+      : definitions.map((d) =>
+          selection(
+            d.name,
+            d.change === "Added" ? "New" : "Update",
+            d.change === "Added"
+              ? "Adds a new Team definition."
+              : "Replaces the Team definition with the same server ID. Members review the change before it runs for them.",
+            "switched",
+            switches,
+          ),
+        ),
 };
 // This synthetic value is deliberately outside the display allowlist.
 Object.assign(preview, { credentialValue: "SYNTHETIC_PREVIEW_SECRET_MUST_NOT_RENDER" });
@@ -60,7 +120,8 @@ createRoot(document.getElementById("root")!).render(
     contentClassName="sm:max-w-lg"
     title="Share selected servers with your team?"
     description={<TeamSharePreview preview={preview} />}
-    confirmLabel="Share selected"
+    confirmLabel={teamShareAction(preview) ?? "Share selected"}
+    confirmDisabled={!teamShareAction(preview)}
     onConfirm={() => {}}
   />,
 );
