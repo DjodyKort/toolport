@@ -190,9 +190,10 @@ fn spawn_daemon() -> Result<(), String> {
         .map_err(|error| format!("could not start the host daemon: {error}"))
 }
 
-/// The exact body the daemon sends when it refuses a session id. Missing,
-/// expired, rescoped and foreign sessions all get it, before any dispatch.
-const SESSION_REFUSED_ERROR: &str = "unknown or expired Mcp-Session-Id; re-initialize";
+/// The exact error the daemon sends when it refuses a session id. Missing,
+/// expired, rescoped and foreign sessions all get it, before any dispatch. The
+/// daemon uses this constant too, so the adapter's match cannot drift from it.
+pub const SESSION_REFUSED_ERROR: &str = "unknown or expired Mcp-Session-Id; re-initialize";
 
 /// How much of the daemon connection the next exchange must rebuild. Ordered,
 /// so the more thorough recovery wins when both are needed.

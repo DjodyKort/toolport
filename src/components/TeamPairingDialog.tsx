@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,11 @@ import { teamPairCancel, teamPairState, type TeamPairEvent } from "@/lib/api";
 export function TeamPairingDialog({ onConnected }: { onConnected: () => void }) {
   const [shown, setShown] = useState<TeamPairEvent | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  // The latest callback, so the subscription below runs once per mount.
+  const connected = useRef(onConnected);
+  useEffect(() => {
+    connected.current = onConnected;
+  });
 
   useEffect(() => {
     let active = true;
@@ -27,7 +32,7 @@ export function TeamPairingDialog({ onConnected }: { onConnected: () => void }) 
       if (event.state === "connected") {
         setShown(null);
         toast.success("Toolport connected to Teams.");
-        onConnected();
+        connected.current();
       } else if (event.state === "cancelled") {
         setShown(null);
         toast("Connection request cancelled.");
@@ -45,7 +50,7 @@ export function TeamPairingDialog({ onConnected }: { onConnected: () => void }) 
       active = false;
       void unlisten.then((stop) => stop());
     };
-  }, [onConnected]);
+  }, []);
 
   const hide = () => setShown(null);
   const cancel = async () => {

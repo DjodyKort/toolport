@@ -15683,7 +15683,7 @@ fn mcp_require_session(
         // response so callers cannot probe whether another client's id exists.
         None => Err(HttpOut::json_err(
             404,
-            "unknown or expired Mcp-Session-Id; re-initialize",
+            conduit_lib::stdio_adapter::SESSION_REFUSED_ERROR,
         )),
     }
 }
