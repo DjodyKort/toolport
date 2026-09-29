@@ -595,6 +595,7 @@ fn profile(id: &str, enabled: &[&str]) -> Profile {
         name: id.to_string(),
         enabled_server_ids: enabled.iter().map(|s| s.to_string()).collect(),
         tool_scope: std::collections::HashMap::new(),
+        instructions: None,
     }
 }
 

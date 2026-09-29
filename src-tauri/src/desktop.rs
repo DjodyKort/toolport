@@ -5598,6 +5598,7 @@ mod tests {
             name: "Default".into(),
             enabled_server_ids: vec!["gh".into()],
             tool_scope: Default::default(),
+            instructions: None,
         }];
         let mut baselines = BTreeMap::new();
         let bl = |fp: &str, fs: u64, lc: u64| integrity::ToolBaseline {

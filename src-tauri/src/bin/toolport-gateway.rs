@@ -97,6 +97,10 @@ struct ActiveRequestContext {
     /// Transport carrying the originating request. Progress and notifications
     /// must never infer this from process topology in a multi-client daemon.
     upstream_transport: UpstreamTransport,
+    /// Profile the requesting connection is scoped to: a daemon adapter's profile, a
+    /// registered HTTP client's profile, or the stdio gateway's own. Selects the
+    /// per-profile server instructions (#971). `None` = the dispatch `profile` argument.
+    connection_profile: Option<String>,
 }
 
 thread_local! {
@@ -107,6 +111,7 @@ thread_local! {
             mcp_session: None,
             adapter_root: None,
             upstream_transport: UpstreamTransport::Unknown,
+            connection_profile: None,
         }) };
 }
 
@@ -251,6 +256,31 @@ impl Drop for UpstreamTransportGuard {
 
 fn active_upstream_is_stdio() -> bool {
     ACTIVE_REQUEST_CONTEXT.with(|cell| cell.borrow().upstream_transport == UpstreamTransport::Stdio)
+}
+
+/// Installs the requesting connection's profile for one request and restores the
+/// previous value on drop.
+struct ConnectionProfileGuard(Option<String>);
+
+impl ConnectionProfileGuard {
+    fn enter(profile: Option<String>) -> Self {
+        Self(
+            ACTIVE_REQUEST_CONTEXT
+                .with(|cell| std::mem::replace(&mut cell.borrow_mut().connection_profile, profile)),
+        )
+    }
+}
+
+impl Drop for ConnectionProfileGuard {
+    fn drop(&mut self) {
+        ACTIVE_REQUEST_CONTEXT.with(|cell| {
+            cell.borrow_mut().connection_profile = self.0.take();
+        });
+    }
+}
+
+fn active_connection_profile() -> Option<String> {
+    ACTIVE_REQUEST_CONTEXT.with(|cell| cell.borrow().connection_profile.clone())
 }
 
 /// Installs a complete request context on a worker that continues work for a
@@ -1343,6 +1373,28 @@ fn confirm_tool_def() -> Value {
 }
 
 const ROUTINE_AGENT_INSTRUCTIONS: &str = "Saved routines are advertised directly as `toolport_routine_*` tools; prefer one whose description matches the task over re-orchestrating the same steps. If no advertised Routine is a confident match, toolport_list_routines remains a catalog fallback before authoring a new parameterizable Code Mode orchestration with multiple MCP calls or significant local transformation. Use a Routine only when its description and input schema match the goal and every required argument can be supplied confidently; otherwise fall back to Code Mode. For a new reusable pattern, run Code Mode with immutable input plus an explicit inputSchema. When a tool result carries a `[Toolport advisor: ...]` note about repeated similar calls, prefer fetching the prepared draft with toolport_fetch_result and running it as one toolport_run_script call over continuing one-by-one. Only call toolport_save_routine when the user asks to persist or reuse this work: pass the runId from the run result or advisor note, and tell the user in one short sentence that a save-approval prompt is coming - a statement, not a question. Toolport also queues strong repeated patterns in the Toolport app where the user saves them directly; you never need to campaign for saving. Do not retry a save after denial or timeout. Every Routine execution re-enters current governance and receives no future permission from promotion approval.";
+
+/// What `server/discover` puts in front of the routine guidance in its built-in text.
+const DISCOVER_INSTRUCTIONS_PREAMBLE: &str = "Toolport aggregates every configured MCP server behind one endpoint. In lazy discovery mode the catalog is reached through toolport_search_tools / toolport_call_tool rather than a full tools/list.";
+
+/// The `instructions` for an `initialize` or `server/discover` result, or `None` to omit
+/// the field (#971). The requesting connection's profile (see
+/// [`ConnectionProfileGuard`]; `profile` when none is installed) picks the configured
+/// text: that profile's `instructions`, else `gatewayInstructions`, else `built_in`.
+/// Clients such as Claude Code load every server's instructions into context, so one
+/// gateway connected once per profile would otherwise repeat the same block each time.
+fn server_instructions(
+    reg: &Registry,
+    profile: Option<&str>,
+    built_in: impl FnOnce() -> String,
+) -> Option<String> {
+    let connection = active_connection_profile();
+    match reg.configured_instructions(connection.as_deref().or(profile)) {
+        None => Some(built_in()),
+        Some(text) if text.trim().is_empty() => None,
+        Some(text) => Some(text.to_string()),
+    }
+}
 
 /// The `toolport_run_script` "code mode" meta-tool (advertised only when
 /// [`HostState::code_mode_enabled`]). One script replaces many round-trips.
@@ -3795,6 +3847,11 @@ struct HttpCaller {
     /// native-search client the full catalog and a local model the meta-tools at the
     /// same time, and a mode switch after boot reaches both without a restart.
     discovery: Option<DiscoveryMode>,
+    /// The profile this caller is scoped to (an adapter's effective profile or a
+    /// registered client's `profile`), used only to pick its server instructions
+    /// (#971). Deliberately separate from `session_owner.profile`, which also drives
+    /// adapter routing. `None` = unscoped; the gateway's own profile applies.
+    profile: Option<String>,
 }
 
 /// An adapter's identity is asserted only on the private daemon endpoint, with
@@ -3841,11 +3898,12 @@ fn resolve_adapter_caller(
             audit_label: Some(client_id.to_string()),
             session_owner: McpSessionOwner {
                 identity: format!("adapter:{client_id}"),
-                profile: Some(profile),
+                profile: Some(profile.clone()),
                 tool_scope: Some(tool_scope),
                 scope: Some(scope),
             },
             discovery: http_client_discovery_override(reg, client_id),
+            profile: Some(profile),
         },
     )
 }
@@ -3881,6 +3939,7 @@ fn resolve_http_caller(
                         scope: None,
                     },
                     discovery: None,
+                    profile: None,
                 },
             ));
         }
@@ -3914,6 +3973,7 @@ fn resolve_http_caller(
                     scope: owner_scope(&allowed),
                 },
                 discovery: http_client_discovery_override(reg, &client.id),
+                profile: (!client.profile.trim().is_empty()).then(|| client.profile.clone()),
             },
         ));
     }
@@ -3944,6 +4004,7 @@ fn resolve_http_caller(
                     scope: None,
                 },
                 discovery: None,
+                profile: None,
             },
         ));
     }
@@ -7846,12 +7907,10 @@ fn handle_request_with_cancel(
         // Modern clients open here instead of handshaking. Servers MUST implement
         // it, and it is also the stdio backward-compatibility probe a dual-era
         // client uses to decide which era Toolport speaks.
-        "server/discover" => Some(success(
-            id,
-            json!({
+        "server/discover" => {
+            let mut result = json!({
                 "supportedVersions": SUPPORTED_UPSTREAM_VERSIONS,
                 "capabilities": gateway_capabilities(host, router, allowed, reg, mode),
-                "instructions": format!("Toolport aggregates every configured MCP server behind one endpoint. In lazy discovery mode the catalog is reached through toolport_search_tools / toolport_call_tool rather than a full tools/list. {ROUTINE_AGENT_INSTRUCTIONS}"),
                 // server/discover is a cacheable operation. The list results grow
                 // these fields in SOU-454.
                 "ttlMs": 300_000,
@@ -7859,8 +7918,14 @@ fn handle_request_with_cancel(
                 // client's scope and profile, so a shared intermediary must not
                 // reuse one client's answer for another.
                 "cacheScope": "private"
-            }),
-        )),
+            });
+            if let Some(text) = server_instructions(reg, profile, || {
+                format!("{DISCOVER_INSTRUCTIONS_PREAMBLE} {ROUTINE_AGENT_INSTRUCTIONS}")
+            }) {
+                result["instructions"] = Value::String(text);
+            }
+            Some(success(id, result))
+        }
         "initialize" => {
             // Every transport, not just HTTP: a stdio client that re-handshakes on the
             // same process would otherwise carry the previous conversation's pseudonym
@@ -7877,15 +7942,17 @@ fn handle_request_with_cancel(
             } else {
                 PROTOCOL_VERSION
             };
-            Some(success(
-                id,
-                json!({
-                    "protocolVersion": proto,
-                    "capabilities": gateway_capabilities(host, router, allowed, reg, mode),
-                    "serverInfo": { "name": "toolport-gateway", "version": env!("CARGO_PKG_VERSION") },
-                    "instructions": ROUTINE_AGENT_INSTRUCTIONS
-                }),
-            ))
+            let mut result = json!({
+                "protocolVersion": proto,
+                "capabilities": gateway_capabilities(host, router, allowed, reg, mode),
+                "serverInfo": { "name": "toolport-gateway", "version": env!("CARGO_PKG_VERSION") },
+            });
+            if let Some(text) =
+                server_instructions(reg, profile, || ROUTINE_AGENT_INSTRUCTIONS.to_string())
+            {
+                result["instructions"] = Value::String(text);
+            }
+            Some(success(id, result))
         }
         "tools/list" => {
             // The same policy-filtered catalog and surface builder serve the real
@@ -11170,6 +11237,8 @@ fn effective_profile(
 /// user's RAM. Comparing this slice lets the watcher rebuild only when something the router
 /// `allowRoutineWrites` also changes only Toolport's fixed meta-tool surface, not any
 /// downstream route, so it is refreshed with `tools/list_changed` without a rebuild.
+/// Server instructions (`gatewayInstructions`, each profile's `instructions`) are read
+/// from the published registry at the next handshake, so editing them never rebuilds.
 /// Returned as a serde_json::Value and compared with `==`
 /// (order-independent) so HashMap key-order jitter across a load can't look like a change.
 fn router_relevant(reg: &Registry) -> Value {
@@ -11177,6 +11246,12 @@ fn router_relevant(reg: &Registry) -> Value {
     if let Some(obj) = v.as_object_mut() {
         obj.remove("team");
         obj.remove("allowRoutineWrites");
+        obj.remove("gatewayInstructions");
+        if let Some(profiles) = obj.get_mut("profiles").and_then(Value::as_array_mut) {
+            for profile in profiles.iter_mut().filter_map(Value::as_object_mut) {
+                profile.remove("instructions");
+            }
+        }
     }
     v
 }
@@ -11416,7 +11491,9 @@ fn watch_tick(
                     "toolport: routine tool surface changed; notified clients without rebuilding downstream servers"
                 );
             } else {
-                eprintln!("toolport: registry changed (team metadata only); skipped rebuild");
+                eprintln!(
+                    "toolport: registry changed (team metadata or instructions only); skipped rebuild"
+                );
             }
             return TickOutcome {
                 quarantine_changed,
@@ -14726,6 +14803,8 @@ fn process_request(
     confirm: &ConfirmGuard,
     allowed: Option<&std::collections::HashSet<String>>,
     adapter_profile: Option<&str>,
+    // The profile an HTTP caller is scoped to (`HttpCaller::profile`); `None` on stdio.
+    connection_profile: Option<&str>,
     cancel: Option<downstream::CancelContext>,
     client: Option<&str>,
     client_name: Option<&str>,
@@ -15053,6 +15132,15 @@ fn process_request(
         None
     };
     let _live_view = LiveRouterResolverGuard::enter(live_view);
+    // The caller's own profile when it has one, else this gateway's. A stdio gateway
+    // serves one client, so its profile is that client's; an unscoped HTTP caller
+    // follows the bridge's base profile, the same fallback its routing uses.
+    let _connection_profile = ConnectionProfileGuard::enter(
+        connection_profile
+            .or(adapter_profile)
+            .or(profile_snapshot.as_deref())
+            .map(str::to_string),
+    );
     handle_request_with_cancel(
         state,
         req,
@@ -15119,6 +15207,7 @@ fn handle_stdio_request(state: GatewayState, req: Value, request_key: String) {
             &req,
             &guards.search,
             &guards.confirm,
+            None,
             None,
             None,
             Some(cancel_context),
@@ -15913,6 +16002,7 @@ fn handle_mcp_http(
     client_name: Option<&str>,
     discovery: DiscoveryMode,
     session_owner: Option<&McpSessionOwner>,
+    connection_profile: Option<&str>,
 ) -> HttpOut {
     let prefer_sse = mcp_prefers_sse(headers.accept);
     let _adapter_root = AdapterRootGuard::enter(
@@ -16168,6 +16258,7 @@ fn handle_mcp_http(
                     confirm,
                     allowed,
                     session_owner.and_then(|owner| owner.profile.as_deref()),
+                    connection_profile,
                     None,
                     client,
                     client_name,
@@ -16188,6 +16279,7 @@ fn handle_mcp_http(
                 confirm,
                 allowed,
                 session_owner.and_then(|owner| owner.profile.as_deref()),
+                connection_profile,
                 None,
                 client,
                 client_name,
@@ -16244,6 +16336,7 @@ fn handle_http_with_headers(
     let client = caller.map(|value| value.session_owner.identity.as_str());
     let client_name = caller.and_then(|value| value.audit_label.as_deref());
     let session_owner = caller.map(|value| &value.session_owner);
+    let connection_profile = caller.and_then(|value| value.profile.as_deref());
     // Per-client discovery (#868): a caller whose client set clientDiscovery gets that mode;
     // every other request reads the host's live mode, exactly like stdio and the daemon, so a
     // switch after boot reaches this bridge at once instead of waiting for a restart.
@@ -16354,6 +16447,7 @@ fn handle_http_with_headers(
             client_name,
             discovery,
             session_owner,
+            connection_profile,
         );
     }
 
@@ -16415,6 +16509,7 @@ fn handle_http_with_headers(
                     client_name,
                     discovery,
                     session_owner,
+                    connection_profile,
                 );
             }
             let args: Value = if body.trim().is_empty() {
@@ -16440,6 +16535,7 @@ fn handle_http_with_headers(
                 confirm,
                 allowed,
                 caller.and_then(|caller| caller.session_owner.profile.as_deref()),
+                connection_profile,
                 None,
                 client,
                 client_name,
@@ -19017,6 +19113,7 @@ fn main() {
                 None,
                 None,
                 None,
+                None,
                 state.discovery_mode(),
             );
             continue;
@@ -20093,6 +20190,7 @@ mod tests {
                 );
                 m
             },
+            instructions: None,
         });
         reg.profiles.push(registry::Profile {
             id: "b".into(),
@@ -20106,6 +20204,7 @@ mod tests {
                 );
                 m
             },
+            instructions: None,
         });
         let merged = merge_tool_scopes_for_http(&reg);
         let set = merged.get("team_gh").expect("org scope present");
@@ -20328,6 +20427,18 @@ mod tests {
             "routine-write opt-in changes only fixed meta-tools and must not rebuild servers"
         );
         reg.allow_routine_writes = false;
+
+        // Server instructions are read at the next handshake; editing them must not respawn
+        // every downstream server.
+        reg.gateway_instructions = Some(String::new());
+        reg.profiles[0].instructions = Some("Profile text.".into());
+        assert_eq!(
+            router_relevant(&reg),
+            base,
+            "server instructions are not router-relevant"
+        );
+        reg.gateway_instructions = None;
+        reg.profiles[0].instructions = None;
 
         // A policy flag lives OUTSIDE the team block: a real change the router must rebuild for.
         reg.deny_destructive = !reg.deny_destructive;
@@ -26503,6 +26614,7 @@ mod tests {
                 scope: scope.map(|s| s.iter().map(|v| v.to_string()).collect()),
             },
             discovery: None,
+            profile: None,
         }
     }
 
@@ -26640,6 +26752,7 @@ mod tests {
                 scope: None,
             },
             discovery: Some(DiscoveryMode::Full),
+            profile: None,
         };
         let overridden = paths(&spec(&state, Some(&pinned_full)));
         assert!(
@@ -26659,6 +26772,7 @@ mod tests {
                 scope: None,
             },
             discovery: Some(DiscoveryMode::Lazy),
+            profile: None,
         };
         let pinned = paths(&spec(&state, Some(&pinned_lazy)));
         assert!(
@@ -29301,6 +29415,266 @@ mod tests {
         assert_eq!(toolport["agentControl"], false);
         assert_eq!(toolport["destructiveConfirmation"], false);
         assert_eq!(toolport["humanApproval"], false);
+    }
+
+    /// Profiles for the server-instructions tests (#971): `default` (active) and `infra`
+    /// set nothing, `postgres` opts out with an empty string, `media` has its own text.
+    fn instructions_registry() -> Registry {
+        let mut reg = Registry::default();
+        for (name, instructions) in [
+            ("Infra", None),
+            ("Postgres", Some("")),
+            ("Media", Some("Media only.")),
+        ] {
+            let id = reg.add_profile(name);
+            reg.profiles
+                .iter_mut()
+                .find(|p| p.id == id)
+                .unwrap()
+                .instructions = instructions.map(str::to_string);
+        }
+        reg
+    }
+
+    fn initialize_req() -> Value {
+        json!({
+            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": { "protocolVersion": "2025-06-18", "capabilities": {} }
+        })
+    }
+
+    /// The `instructions` a dispatch with `profile` returns for `req`; `None` = omitted.
+    fn dispatched_instructions(
+        reg: &Registry,
+        profile: Option<&str>,
+        req: &Value,
+    ) -> Option<Value> {
+        let host = dispatch_host(false);
+        let resp = handle_request(
+            &host,
+            req,
+            reg,
+            &Router::new(),
+            &[],
+            true,
+            profile,
+            &SearchGuard::default(),
+            &ConfirmGuard::new(),
+            None,
+            None,
+        )
+        .expect("a request with an id gets a response");
+        assert!(resp.get("error").is_none(), "{resp}");
+        resp["result"].get("instructions").cloned()
+    }
+
+    fn http_instructions(out: &HttpOut) -> Option<Value> {
+        assert_eq!(out.status, 200, "body={}", out.body);
+        let resp: Value = serde_json::from_str(&out.body).expect("JSON-RPC body");
+        assert!(resp.get("error").is_none(), "{resp}");
+        resp["result"].get("instructions").cloned()
+    }
+
+    #[test]
+    fn built_in_instructions_are_unchanged_without_configuration() {
+        assert_eq!(
+            dispatch(&initialize_req())["result"]["instructions"],
+            ROUTINE_AGENT_INSTRUCTIONS
+        );
+        assert_eq!(
+            dispatch(&modern_req(1, "server/discover", json!({})))["result"]["instructions"],
+            format!("{DISCOVER_INSTRUCTIONS_PREAMBLE} {ROUTINE_AGENT_INSTRUCTIONS}")
+        );
+    }
+
+    #[test]
+    fn profile_instructions_replace_or_omit_the_built_in_text() {
+        let mut reg = instructions_registry();
+        let discover = modern_req(1, "server/discover", json!({}));
+        for req in [initialize_req(), discover.clone()] {
+            assert_eq!(
+                dispatched_instructions(&reg, Some("media"), &req),
+                Some(json!("Media only."))
+            );
+            assert_eq!(
+                dispatched_instructions(&reg, Some("postgres"), &req),
+                None,
+                "an empty string omits the field"
+            );
+        }
+        assert_eq!(
+            dispatched_instructions(&reg, Some("infra"), &initialize_req()),
+            Some(json!(ROUTINE_AGENT_INSTRUCTIONS)),
+            "a profile that sets nothing keeps the built-in text"
+        );
+
+        reg.gateway_instructions = Some("Shared.".into());
+        for req in [initialize_req(), discover.clone()] {
+            assert_eq!(
+                dispatched_instructions(&reg, Some("infra"), &req),
+                Some(json!("Shared."))
+            );
+            assert_eq!(
+                dispatched_instructions(&reg, None, &req),
+                Some(json!("Shared.")),
+                "no profile follows the active one"
+            );
+            assert_eq!(
+                dispatched_instructions(&reg, Some("media"), &req),
+                Some(json!("Media only.")),
+                "a profile's own text beats the registry default"
+            );
+            assert_eq!(dispatched_instructions(&reg, Some("postgres"), &req), None);
+        }
+
+        reg.gateway_instructions = Some(" \n\t".into());
+        assert_eq!(
+            dispatched_instructions(&reg, Some("infra"), &discover),
+            None,
+            "whitespace-only text counts as empty"
+        );
+    }
+
+    #[test]
+    fn the_connection_profile_beats_the_dispatch_profile() {
+        let reg = instructions_registry();
+        {
+            let _connection = ConnectionProfileGuard::enter(Some("media".into()));
+            assert_eq!(
+                dispatched_instructions(&reg, Some("postgres"), &initialize_req()),
+                Some(json!("Media only."))
+            );
+        }
+        assert_eq!(
+            active_connection_profile(),
+            None,
+            "the guard restores the previous value"
+        );
+        assert_eq!(
+            dispatched_instructions(&reg, Some("postgres"), &initialize_req()),
+            None
+        );
+    }
+
+    #[test]
+    fn registered_http_clients_get_their_own_profiles_instructions() {
+        let state = http_state(true);
+        let mut reg = instructions_registry();
+        for (id, profile) in [("c-media", "media"), ("c-pg", "Postgres"), ("c-all", "")] {
+            reg.http_clients.push(registry::HttpClient {
+                id: id.into(),
+                label: id.into(),
+                token_sha256: registry::sha256_hex(id),
+                profile: profile.into(),
+            });
+        }
+        *state.registry.lock().unwrap() = reg.clone();
+        let initialize = |token: &str| {
+            let (allowed, caller) =
+                resolve_http_caller(&reg, None, Some(token), false, true).unwrap();
+            http_instructions(&handle_http(
+                &state,
+                &SearchGuard::default(),
+                &ConfirmGuard::new(),
+                "POST",
+                "/mcp",
+                &initialize_req().to_string(),
+                None,
+                None,
+                allowed.as_ref(),
+                Some(&caller),
+            ))
+        };
+
+        assert_eq!(initialize("c-media"), Some(json!("Media only.")));
+        assert_eq!(
+            initialize("c-pg"),
+            None,
+            "a client scoped by profile name opts out too"
+        );
+        assert_eq!(
+            initialize("c-all"),
+            Some(json!(ROUTINE_AGENT_INSTRUCTIONS)),
+            "an unscoped client follows the active profile, which sets nothing"
+        );
+
+        // Modern requests carry no session, so the profile comes from the bearer alone.
+        let (allowed, caller) =
+            resolve_http_caller(&reg, None, Some("c-media"), false, true).unwrap();
+        let discover = handle_http_with_headers(
+            &state,
+            &SearchGuard::default(),
+            &ConfirmGuard::new(),
+            "POST",
+            "/mcp",
+            &modern_http_body(2, "server/discover", json!({})),
+            modern_http_headers("server/discover", None, None, None),
+            allowed.as_ref(),
+            Some(&caller),
+        );
+        assert_eq!(http_instructions(&discover), Some(json!("Media only.")));
+
+        // An unscoped caller uses the bridge's own profile, the base its routing uses.
+        *state.profile.lock().unwrap() = Some("media".into());
+        assert_eq!(initialize("c-all"), Some(json!("Media only.")));
+        assert_eq!(
+            initialize("c-pg"),
+            None,
+            "a scoped client keeps its own profile"
+        );
+    }
+
+    #[test]
+    fn a_daemon_adapter_gets_its_profiles_instructions() {
+        let state = http_state(false);
+        state.daemon_mode.store(true, Ordering::SeqCst);
+        let reg = instructions_registry();
+        *state.registry.lock().unwrap() = reg.clone();
+        // The daemon's own profile must not leak into an adapter's handshake.
+        *state.profile.lock().unwrap() = Some("postgres".into());
+        let (allowed, caller) = resolve_adapter_caller(&reg, "claude-code", Some("media"), None);
+        let out = handle_http_with_headers(
+            &state,
+            &SearchGuard::default(),
+            &ConfirmGuard::new(),
+            "POST",
+            "/mcp",
+            &initialize_req().to_string(),
+            McpHttpRequestHeaders::default(),
+            allowed.as_ref(),
+            Some(&caller),
+        );
+        assert_eq!(http_instructions(&out), Some(json!("Media only.")));
+    }
+
+    #[test]
+    fn a_caller_without_its_own_profile_uses_the_gateways() {
+        // The stdio path: no caller profile, so the gateway's live profile decides.
+        let state = http_state(false);
+        *state.registry.lock().unwrap() = instructions_registry();
+        let handshake = |state: &GatewayState| {
+            process_request(
+                state,
+                &initialize_req(),
+                &SearchGuard::default(),
+                &ConfirmGuard::new(),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                DiscoveryMode::Lazy,
+            )
+            .expect("initialize is answered")["result"]
+                .get("instructions")
+                .cloned()
+        };
+        assert_eq!(handshake(&state), Some(json!(ROUTINE_AGENT_INSTRUCTIONS)));
+        *state.profile.lock().unwrap() = Some("media".into());
+        assert_eq!(handshake(&state), Some(json!("Media only.")));
+        *state.profile.lock().unwrap() = Some("postgres".into());
+        assert_eq!(handshake(&state), None);
     }
 
     #[test]
@@ -32289,6 +32663,67 @@ mod tests {
         assert!(
             other_host.code_mode_enabled(),
             "a reload must not touch another host's code-mode flag"
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// #971: an instructions-only edit is published for the next handshake without the
+    /// rebuild that would respawn every downstream server.
+    #[test]
+    fn watch_tick_publishes_an_instructions_edit_without_rebuilding() {
+        let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir =
+            std::env::temp_dir().join(format!("toolport-instructions-tick-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let _data_dir = conduit_lib::registry::DataDirOverride::set(&dir);
+
+        let live = Registry::default();
+        let mut on_disk = live.clone();
+        on_disk.gateway_instructions = Some(String::new());
+        on_disk.profiles[0].instructions = Some("Profile text.".into());
+        let reg_path = dir.join("registry.json");
+        conduit_lib::registry::save_to(&reg_path, &on_disk).unwrap();
+        let mut state = WatchLoopState {
+            last_mtime: None,
+            last_relevant: router_relevant(&live),
+            last_routines_mtime: None,
+        };
+        let server_handler: ServerRequestHandler = Arc::new(|_| None);
+        let host = host_from_parts(
+            Arc::new(Mutex::new(live)),
+            Arc::new(AtomicBool::new(true)),
+            Arc::new(Mutex::new(Arc::new(Router::new()))),
+            Arc::new(Mutex::new(Arc::new(CatalogSnapshot::default()))),
+            Arc::new(AtomicU8::new(0)),
+            server_handler,
+            Arc::new(Mutex::new(())),
+            None,
+            None,
+        );
+        let before = Arc::clone(&host.router.lock().unwrap());
+
+        let _ = watch_tick(
+            &reg_path,
+            &test_stdio_session(),
+            &Arc::new(Mutex::new(None)),
+            None,
+            None,
+            false,
+            &Arc::new(Mutex::new(None)),
+            None,
+            &mut state,
+            &host,
+        );
+
+        let published = host.registry.lock().unwrap().clone();
+        assert_eq!(published.gateway_instructions.as_deref(), Some(""));
+        assert_eq!(
+            published.profiles[0].instructions.as_deref(),
+            Some("Profile text.")
+        );
+        assert!(
+            Arc::ptr_eq(&before, &host.router.lock().unwrap()),
+            "an instructions-only edit must not rebuild the router"
         );
         let _ = std::fs::remove_dir_all(dir);
     }

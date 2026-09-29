@@ -55,6 +55,35 @@ Code, Codex) and `"lazy"` for one that does not, in the same bridge process. Onl
 and `lazy` are per-client: `grouped` stays process-global, and a client without an entry
 inherits the process mode.
 
+**Server instructions per profile.** The gateway sends a block of instructions to every
+client when it connects. Some clients, including Claude Code, add each server's
+instructions to the model's context, so connecting one gateway several times (one entry
+per profile) repeats the same text. Set `instructions` on a profile in `registry.json`
+to replace what connections scoped to it receive, or set it to `""` to send none. This
+keeps the built-in text on `infrastructure` and sends nothing for `postgres`:
+
+```json
+{
+  "profiles": [
+    { "id": "infrastructure", "name": "Infrastructure", "enabledServerIds": ["proxmox"] },
+    {
+      "id": "postgres",
+      "name": "Postgres",
+      "enabledServerIds": ["postgres"],
+      "instructions": ""
+    }
+  ]
+}
+```
+
+A top-level `gatewayInstructions` works the same way for every profile that doesn't set
+its own. Leave both out to keep the built-in text everywhere.
+
+The profile is the one the connection is scoped to: a registered HTTP client's
+`profile`, or the stdio client's profile. A connection without one uses the gateway's
+own profile, which is the active profile unless `TOOLPORT_PROFILE` sets another.
+Changes apply the next time a client connects and don't restart any servers.
+
 **Code mode limits.** Execution, validation, and saved routines run Boa in a separate
 worker process. The parent enforces the 60-second wall-clock budget even during pure
 JavaScript and permits at most four simultaneous runs. Saved routines can set lower

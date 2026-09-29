@@ -4743,6 +4743,7 @@ mod tests {
             name: "Second".into(),
             enabled_server_ids: Vec::new(),
             tool_scope: Default::default(),
+            instructions: None,
         });
         let cfg = json!({ "servers": [
             { "id": "review1", "name": "Review1", "transport": "stdio", "command": "run-me" }
