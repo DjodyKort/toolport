@@ -152,7 +152,7 @@ describe("TeamsView shared-server update", () => {
       await userEvent.click(screen.getByRole("button", { name: "Share selected" }));
       await waitFor(() => expect(api.teamPush).toHaveBeenCalledWith(preview, ["github"]));
       const notice = await screen.findByText(/version 8/i);
-      expect(notice).toHaveTextContent(summary.replace("\n", " "));
+      expect(notice).toHaveTextContent(summary.replace(/\n/g, " "));
       expect(api.teamSync).not.toHaveBeenCalled();
       expect(api.getRegistry).toHaveBeenCalled();
       if (localSetupError)

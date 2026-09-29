@@ -67,9 +67,7 @@ describe("TeamPairingDialog", () => {
     emit({ state: "failed", message });
     expect(await screen.findByText("Connection not completed")).toBeInTheDocument();
     expect(screen.queryByText(APPROVE)).toBeNull();
-    expect(
-      screen.getByText(new RegExp(message.replace(/[.:]/g, "\\$&"))),
-    ).toBeInTheDocument();
+    expect(screen.getByText(message, { exact: false })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Close" }));
     await waitFor(() =>
       expect(screen.queryByText("Connection not completed")).toBeNull(),

@@ -3917,11 +3917,20 @@ fn team_pairing() -> std::sync::MutexGuard<'static, Option<TeamPairing>> {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
-/// Clears the attempt however its worker ends, including a panic.
-struct TeamPairGuard;
+/// Clears its own attempt however its worker ends, including a panic. A newer
+/// attempt started after this one finished is left alone.
+struct TeamPairGuard(std::sync::Arc<std::sync::atomic::AtomicBool>);
+impl TeamPairGuard {
+    fn owns(&self, pairing: &TeamPairing) -> bool {
+        std::sync::Arc::ptr_eq(&pairing.cancel, &self.0)
+    }
+}
 impl Drop for TeamPairGuard {
     fn drop(&mut self) {
-        team_pairing().take();
+        let mut pairing = team_pairing();
+        if pairing.as_ref().is_some_and(|current| self.owns(current)) {
+            pairing.take();
+        }
     }
 }
 
@@ -3960,22 +3969,21 @@ fn deliver_team_pair(app: &AppHandle, origin: String, team: String) {
         *pairing = Some(TeamPairing { cancel: std::sync::Arc::clone(&cancel), check: None });
         cancel
     };
-    let pending = TeamPairGuard;
+    let pending = TeamPairGuard(std::sync::Arc::clone(&cancel));
     let handle=app.clone();
     app.dialog().message(format!("Control plane: {origin}\nOnly continue if you trust this origin. Your browser will show the named team and account before approval. Connecting replaces this installation's current team connection."))
         .title("Connect Toolport to Teams?").buttons(MessageDialogButtons::OkCancel).show(move |approved| {
             if !approved { drop(pending); return; }
             std::thread::spawn(move || {
-                let _pending = pending;
                 let result=teams::pair_device(&origin,&team,&cancel,|url,check| {
-                    if let Some(current) = team_pairing().as_mut() { current.check = Some(check.to_string()); }
+                    if let Some(current) = team_pairing().as_mut().filter(|current| pending.owns(current)) { current.check = Some(check.to_string()); }
                     let _ = handle.emit("team-pair", TeamPairEvent { check: Some(check.to_string()), ..TeamPairEvent::new("pending") });
                     let _=crate::oauth::open_web_url(url);
                 });
-                team_pairing().take();
+                drop(pending);
                 let event = match result {
                     Ok(reg) => { let _=handle.emit("team-sync-registry",&reg); TeamPairEvent::new("connected") }
-                    Err(_) if cancel.load(std::sync::atomic::Ordering::SeqCst) => TeamPairEvent::new("cancelled"),
+                    Err(e) if e == teams::PAIRING_CANCELLED => TeamPairEvent::new("cancelled"),
                     Err(e) => TeamPairEvent { message: Some(e), ..TeamPairEvent::new("failed") },
                 };
                 let _ = handle.emit("team-pair", event);

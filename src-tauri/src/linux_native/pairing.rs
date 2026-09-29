@@ -205,7 +205,9 @@ impl Attempt {
                 (self.hooks.feedback)("Toolport connected to Teams.", false);
                 (self.hooks.connected)();
             }
-            Err(_) if self.cancel.load(Ordering::SeqCst) => {
+            // Only the cancellation itself; a real failure after a late cancel
+            // still says what went wrong.
+            Err(error) if error == crate::teams::PAIRING_CANCELLED => {
                 (self.hooks.feedback)(crate::teams::PAIRING_CANCELLED, false);
             }
             Err(error) => {
