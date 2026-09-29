@@ -421,6 +421,9 @@ export interface Profile {
    * exposes on that server. A server absent = all its tools; empty/absent = server-granular
    * only. Enforced in tools/list, search, and the call guard. */
   toolScope?: Record<string, string[]>;
+  /** Server instructions sent to a connection scoped to this profile. Absent = inherit
+   * `gatewayInstructions`, then the built-in text; empty = send none. */
+  instructions?: string;
 }
 
 /** A folder -> profile auto-routing mapping (SOU-188): a client whose reported project
@@ -544,6 +547,9 @@ export interface Registry {
   /** Global discovery mode ("full" | "lazy" | "grouped"). Takes precedence over
    * `lazyDiscovery`; absent = fall back to the `lazyDiscovery` bool. */
   discoveryMode?: string | null;
+  /** Replacement for the gateway's built-in server instructions, for profiles that set
+   * none of their own. Absent = built-in text; empty = send none. */
+  gatewayInstructions?: string;
   /** Code mode: advertise `toolport_run_script` so agents can orchestrate many tool
    * calls in one server-side script. On by default (SOU-397); Settings is the kill switch. */
   codeMode?: boolean;

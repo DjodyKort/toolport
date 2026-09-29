@@ -6,6 +6,13 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ## [Unreleased]
 
+### Added
+
+- Profiles can set their own server instructions in `registry.json`, or send none with
+  `""`, and a top-level `gatewayInstructions` sets the default for the rest. A client
+  that connects to one gateway once per profile no longer has to load the same text
+  each time. See [Configuration](docs/configuration.md).
+
 ## [1.23.3] - 2026-09-29
 
 ### Fixed

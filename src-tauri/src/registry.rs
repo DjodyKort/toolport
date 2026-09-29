@@ -761,6 +761,13 @@ pub struct Profile {
     /// tools/list, search, and the call guard.
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub tool_scope: HashMap<String, Vec<String>>,
+    /// Server instructions the gateway returns from `initialize` / `server/discover` to a
+    /// connection scoped to this profile (#971). Absent = inherit
+    /// [`Registry::gateway_instructions`], then the built-in text. An empty (or
+    /// whitespace-only) string omits `instructions` entirely, so clients that load every
+    /// server's instructions into context don't repeat the same block once per profile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instructions: Option<String>,
 }
 
 /// One named set of the user's own agent rules (CLAUDE.md / AGENTS.md / GEMINI.md content),
@@ -1056,6 +1063,11 @@ pub struct Registry {
     /// Defaults on, since clients commonly cap the tool list.
     #[serde(default = "default_true")]
     pub lazy_discovery: bool,
+    /// Registry-wide replacement for the gateway's built-in server instructions, used by
+    /// every connection whose profile doesn't set [`Profile::instructions`]. Same three
+    /// states: absent = built-in text, a string = sent instead, empty = omitted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gateway_instructions: Option<String>,
     /// Discovery-mode override: `"lazy"` | `"grouped"` | `"full"`. When set, it takes
     /// precedence over `lazy_discovery`; `None` (the default, and every pre-existing
     /// registry) falls back to that bool. An explicit `CONDUIT_DISCOVERY` env var still
@@ -1473,6 +1485,7 @@ impl Default for Registry {
                 name: "Default".to_string(),
                 enabled_server_ids: Vec::new(),
                 tool_scope: HashMap::new(),
+                instructions: None,
             }],
             active_profile_id: Some(DEFAULT_PROFILE_ID.to_string()),
             gateway_topology: None,
@@ -1491,6 +1504,7 @@ impl Default for Registry {
             pinned_tools: HashMap::new(),
             quarantine_on_drift: false,
             lazy_discovery: true,
+            gateway_instructions: None,
             discovery_mode: None,
             code_mode: true,
             allow_routine_writes: false,
@@ -2316,6 +2330,7 @@ impl Registry {
             name: name.to_string(),
             enabled_server_ids: Vec::new(),
             tool_scope: HashMap::new(),
+            instructions: None,
         });
         id
     }
@@ -2461,6 +2476,19 @@ impl Registry {
             .iter()
             .filter(|s| self.is_enabled(&id, &s.id))
             .collect()
+    }
+
+    /// The server instructions configured for a connection scoped to `profile_ref` (id or
+    /// name; `None` = the active profile): that profile's own `instructions`, else
+    /// `gateway_instructions`. `None` means nothing is configured and the gateway sends its
+    /// built-in text. An empty or whitespace-only result means send no instructions.
+    pub fn configured_instructions(&self, profile_ref: Option<&str>) -> Option<&str> {
+        let id = self.resolve_profile_id(profile_ref.unwrap_or(""));
+        self.profiles
+            .iter()
+            .find(|profile| profile.id == id)
+            .and_then(|profile| profile.instructions.as_deref())
+            .or(self.gateway_instructions.as_deref())
     }
 
     /// Resolve the folder-scoped profile for a client's reported root path, if any
@@ -4831,6 +4859,68 @@ mod tests {
             r.enabled_servers_for("nope").is_empty(),
             "unknown profile must fail closed, not fall back to active"
         );
+    }
+
+    #[test]
+    fn configured_instructions_prefer_the_profile_then_the_registry_default() {
+        let mut r = Registry::default();
+        let postgres = r.add_profile("Postgres");
+        assert_eq!(r.configured_instructions(None), None);
+        assert_eq!(r.configured_instructions(Some(&postgres)), None);
+
+        r.gateway_instructions = Some("Shared text.".into());
+        assert_eq!(r.configured_instructions(None), Some("Shared text."));
+        assert_eq!(
+            r.configured_instructions(Some(&postgres)),
+            Some("Shared text.")
+        );
+
+        let p = r.profiles.iter_mut().find(|p| p.id == postgres).unwrap();
+        p.instructions = Some(String::new());
+        assert_eq!(r.configured_instructions(Some(&postgres)), Some(""));
+        assert_eq!(
+            r.configured_instructions(Some("postgres")),
+            Some(""),
+            "a profile resolves by name as well as id"
+        );
+        assert_eq!(
+            r.configured_instructions(None),
+            Some("Shared text."),
+            "no profile means the active one, which sets nothing of its own"
+        );
+        assert_eq!(
+            r.configured_instructions(Some("deleted")),
+            Some("Shared text."),
+            "a dangling reference gets the registry default"
+        );
+
+        r.active_profile_id = Some(postgres.clone());
+        assert_eq!(r.configured_instructions(None), Some(""));
+    }
+
+    #[test]
+    fn instructions_round_trip_and_stay_absent_when_unset() {
+        let r = Registry::default();
+        let json = serde_json::to_value(&r).unwrap();
+        assert!(json.get("gatewayInstructions").is_none());
+        assert!(json["profiles"][0].get("instructions").is_none());
+
+        let mut json = json;
+        json["gatewayInstructions"] = serde_json::json!("");
+        json["profiles"][0]["instructions"] = serde_json::json!("One line.");
+        let parsed: Registry = serde_json::from_value(json).unwrap();
+        assert_eq!(parsed.gateway_instructions.as_deref(), Some(""));
+        assert_eq!(
+            parsed.profiles[0].instructions.as_deref(),
+            Some("One line.")
+        );
+        assert!(
+            parsed.unknown_fields.is_empty(),
+            "known fields must not land in the forward-compat bucket"
+        );
+        let again = serde_json::to_value(&parsed).unwrap();
+        assert_eq!(again["gatewayInstructions"], "", "an empty string is kept");
+        assert_eq!(again["profiles"][0]["instructions"], "One line.");
     }
 
     #[test]
