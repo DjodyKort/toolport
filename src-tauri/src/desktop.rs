@@ -2543,7 +2543,7 @@ async fn team_push(
     refresh_from_disk(state.inner())?;
     // push_current does a blocking GET + PUT to the team server; keep it off the main thread.
     tauri::async_runtime::spawn_blocking(move || {
-        match selected_ids { Some(ids) => teams::push_selected(&ids, base_version, &local_fingerprint), None => teams::push_current(base_version, &local_fingerprint).map(|version| teams::PublishResult { version, local_setup_error: None }) }
+        match selected_ids { Some(ids) => teams::push_selected(&ids, base_version, &local_fingerprint), None => teams::push_current(base_version, &local_fingerprint).map(teams::PublishResult::whole_set) }
     })
     .await
     .map_err(|e| format!("push task join failed: {e}"))?
@@ -3901,12 +3901,44 @@ fn nudge_wayland_input_region(w: &tauri::WebviewWindow) {
 #[cfg(not(target_os = "linux"))]
 fn nudge_wayland_input_region(_w: &tauri::WebviewWindow) {}
 
-/// Bring the main window back to the foreground (from the tray, a re-launch, or an
-/// approval). Un-hides, un-minimizes, and focuses so it works from every hidden state.
-static TEAM_PAIR_PENDING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// The one Teams pairing attempt in progress. The webview shows its approval
+/// prompt from `team-pair` events, so the prompt closes when pairing ends; a
+/// native dialog here could not be dismissed from code.
+struct TeamPairing {
+    cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    /// Set once the browser page is open.
+    check: Option<String>,
+}
+static TEAM_PAIRING: Mutex<Option<TeamPairing>> = Mutex::new(None);
+
+fn team_pairing() -> std::sync::MutexGuard<'static, Option<TeamPairing>> {
+    TEAM_PAIRING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// Clears the attempt however its worker ends, including a panic.
 struct TeamPairGuard;
 impl Drop for TeamPairGuard {
-    fn drop(&mut self) { TEAM_PAIR_PENDING.store(false, std::sync::atomic::Ordering::Release); }
+    fn drop(&mut self) {
+        team_pairing().take();
+    }
+}
+
+/// Payload of the `team-pair` event and of `team_pair_state`.
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TeamPairEvent {
+    /// "pending", "connected", "cancelled" or "failed".
+    state: &'static str,
+    check: Option<String>,
+    message: Option<String>,
+}
+
+impl TeamPairEvent {
+    fn new(state: &'static str) -> Self {
+        Self { state, check: None, message: None }
+    }
 }
 
 fn deliver_team_pair(app: &AppHandle, origin: String, team: String) {
@@ -3915,7 +3947,19 @@ fn deliver_team_pair(app: &AppHandle, origin: String, team: String) {
         let _ = app.emit("show-teams", ());
         return;
     }
-    if TEAM_PAIR_PENDING.swap(true, std::sync::atomic::Ordering::AcqRel) { return; }
+    let cancel = {
+        let mut pairing = team_pairing();
+        if let Some(current) = pairing.as_ref() {
+            // A repeated link brings the waiting prompt back instead of pairing twice.
+            if let Some(check) = &current.check {
+                let _ = app.emit("team-pair", TeamPairEvent { check: Some(check.clone()), ..TeamPairEvent::new("pending") });
+            }
+            return;
+        }
+        let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        *pairing = Some(TeamPairing { cancel: std::sync::Arc::clone(&cancel), check: None });
+        cancel
+    };
     let pending = TeamPairGuard;
     let handle=app.clone();
     app.dialog().message(format!("Control plane: {origin}\nOnly continue if you trust this origin. Your browser will show the named team and account before approval. Connecting replaces this installation's current team connection."))
@@ -3923,16 +3967,37 @@ fn deliver_team_pair(app: &AppHandle, origin: String, team: String) {
             if !approved { drop(pending); return; }
             std::thread::spawn(move || {
                 let _pending = pending;
-                let result=teams::pair_device(&origin,&team,|url,check| {
-                    handle.dialog().message(format!("Device check: {check}\nApprove in your browser only if the same check, intended team and account are shown. Expires in five minutes.")).title("Approve this device").show(|_| {});
+                let result=teams::pair_device(&origin,&team,&cancel,|url,check| {
+                    if let Some(current) = team_pairing().as_mut() { current.check = Some(check.to_string()); }
+                    let _ = handle.emit("team-pair", TeamPairEvent { check: Some(check.to_string()), ..TeamPairEvent::new("pending") });
                     let _=crate::oauth::open_web_url(url);
                 });
-                match result {
-                    Ok(reg) => { let _=handle.emit("team-sync-registry",&reg); handle.dialog().message("Toolport connected. Open Teams to share or finish local setup.").title("Connected").show(|_| {}); }
-                    Err(e) => handle.dialog().message(e).title("Connection not completed").show(|_| {}),
-                }
+                team_pairing().take();
+                let event = match result {
+                    Ok(reg) => { let _=handle.emit("team-sync-registry",&reg); TeamPairEvent::new("connected") }
+                    Err(_) if cancel.load(std::sync::atomic::Ordering::SeqCst) => TeamPairEvent::new("cancelled"),
+                    Err(e) => TeamPairEvent { message: Some(e), ..TeamPairEvent::new("failed") },
+                };
+                let _ = handle.emit("team-pair", event);
             });
         });
+}
+
+/// The waiting approval prompt, for a webview that started listening after the
+/// `team-pair` event was sent.
+#[tauri::command]
+fn team_pair_state() -> Option<TeamPairEvent> {
+    team_pairing().as_ref().and_then(|current| {
+        current.check.clone().map(|check| TeamPairEvent { check: Some(check), ..TeamPairEvent::new("pending") })
+    })
+}
+
+/// Stop waiting for browser approval. The unredeemed request expires on the server.
+#[tauri::command]
+fn team_pair_cancel() {
+    if let Some(current) = team_pairing().as_ref() {
+        current.cancel.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
 }
 
 fn show_main_window(app: &AppHandle) {
@@ -4368,6 +4433,8 @@ pub fn run() {
             hooks_recent,
             team_disconnect,
             team_push_preview,
+            team_pair_state,
+            team_pair_cancel,
             team_use_managed,
             team_account_link,
             team_push,

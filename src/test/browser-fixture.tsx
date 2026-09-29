@@ -90,6 +90,7 @@ mockIPC(
         return false;
       case "take_pending_shared":
       case "take_registry_recovery_notice":
+      case "team_pair_state":
       case "plugin:updater|check":
         return null;
       case "savings_summary":

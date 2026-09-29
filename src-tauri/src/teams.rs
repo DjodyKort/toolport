@@ -753,11 +753,15 @@ pub fn parse_pair_link(raw: &str) -> Option<(String, String)> {
     Some((u.origin().ascii_serialization(), team))
 }
 static PAIRING_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+/// Returned by [`pair_device`] when the person cancelled the request in the app.
+pub const PAIRING_CANCELLED: &str = "Connection request cancelled.";
 /// Runs only after the native UI confirms the origin. The verifier never leaves this
 /// process except in a POST to the same origin; browser URLs carry an opaque transaction.
+/// Setting `cancel` stops polling; the unredeemed transaction expires on the server.
 pub fn pair_device(
     origin: &str,
     team: &str,
+    cancel: &std::sync::atomic::AtomicBool,
     show_challenge: impl Fn(&str, &str),
 ) -> Result<Registry, String> {
     let _pair = PAIRING_LOCK
@@ -783,8 +787,12 @@ pub fn pair_device(
         .ok_or("Invalid pairing transaction")?;
     let browser = format!("{}/#pair={transaction}", base(origin));
     show_challenge(&browser, &challenge[..8]);
+    let cancelled = || cancel.load(std::sync::atomic::Ordering::SeqCst);
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(300);
     while std::time::Instant::now() < deadline {
+        if cancelled() {
+            return Err(PAIRING_CANCELLED.into());
+        }
         let response = agent(origin)
             .post(&format!("{}/pairing/{transaction}/poll", base(origin)))
             .send_json(json!({"verifier":verifier}))
@@ -801,7 +809,13 @@ pub fn pair_device(
                 _ => return Err("Unexpected approval state".into()),
             }
         }
-        std::thread::sleep(std::time::Duration::from_secs(2));
+        // Poll every two seconds, but notice a cancellation sooner.
+        for _ in 0..10 {
+            if cancelled() {
+                return Err(PAIRING_CANCELLED.into());
+            }
+            std::thread::sleep(std::time::Duration::from_millis(200));
+        }
     }
     Err("Connection request expired. Choose Connect Toolport again.".into())
 }

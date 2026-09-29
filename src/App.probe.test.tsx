@@ -19,6 +19,8 @@ const captured: {
 } = { onProbe: null, onOpenRules: null };
 
 vi.mock("@/lib/api", () => ({
+  teamPairState: vi.fn(() => Promise.resolve(null)),
+  teamPairCancel: vi.fn(),
   addServer: vi.fn(),
   detectClients: (...a: unknown[]) => detectClients(...a),
   getRegistry: (...a: unknown[]) => getRegistry(...a),

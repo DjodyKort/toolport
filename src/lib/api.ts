@@ -711,6 +711,23 @@ export function teamPush(
   });
 }
 
+/** A Teams connection link's browser-approval state, from the `team-pair` event. */
+export interface TeamPairEvent {
+  state: "pending" | "connected" | "cancelled" | "failed";
+  check: string | null;
+  message: string | null;
+}
+
+/** The approval prompt still waiting, for a view that mounted after the event. */
+export function teamPairState(): Promise<TeamPairEvent | null> {
+  return invoke<TeamPairEvent | null>("team_pair_state");
+}
+
+/** Stop waiting for browser approval of a Teams connection. */
+export function teamPairCancel(): Promise<void> {
+  return invoke<void>("team_pair_cancel");
+}
+
 /** Probe every supported MCP client and read its current server configuration. */
 export function detectClients(): Promise<DetectedClient[]> {
   return invoke<DetectedClient[]>("detect_clients");

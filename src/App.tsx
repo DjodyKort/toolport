@@ -58,6 +58,7 @@ import {
 import { AppSidebar } from "@/components/AppSidebar";
 import { ClientLogo } from "@/components/ClientLogo";
 import { PendingApprovals } from "@/components/PendingApprovals";
+import { TeamPairingDialog } from "@/components/TeamPairingDialog";
 import { QuarantineAlert } from "@/components/QuarantineAlert";
 import { RegistryServerRow } from "@/components/RegistryServerRow";
 import { ServerDialog } from "@/components/ServerDialog";
@@ -263,6 +264,12 @@ function App() {
     },
     [reprobeAfterMutation],
   );
+
+  // A Teams connection that finished pairing lands on its Teams view.
+  const openTeams = useCallback(() => {
+    setSelectedClientId(null);
+    setView("teams");
+  }, []);
 
   useEffect(() => {
     const unlisten = listen("show-teams", () => setView("teams"));
@@ -1119,6 +1126,7 @@ function App() {
         onVisibleChange={setStarSurface}
       />
       <PendingApprovals />
+      <TeamPairingDialog onConnected={openTeams} />
       {/* Quarantine has no global signal otherwise: the first sign used to be an agent
           call failing, with the only fix buried in Settings (SOU-293). */}
       <QuarantineAlert onReview={() => selectView("settings")} />
