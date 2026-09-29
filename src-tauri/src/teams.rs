@@ -423,6 +423,46 @@ pub struct PushPreview {
     pub changed: Vec<String>,
     pub removed: Vec<String>,
     pub definitions: Vec<ShareDefinitionPreview>,
+    /// One entry per selected personal server; empty for a whole-set push.
+    pub selections: Vec<ShareSelectionPreview>,
+}
+
+/// How one selected personal server relates to the Team, and what sharing it will
+/// do in the active profile. Both desktop shells render these sentences as-is.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShareSelectionPreview {
+    pub id: String,
+    pub name: String,
+    /// "New", "Update" or "Already shared".
+    pub team_change: String,
+    pub team_detail: String,
+    /// Other Team definitions with the same display name, which stay separate.
+    pub notes: Vec<String>,
+    pub local: LocalHandoff,
+}
+
+/// What sharing does, or did, to one selected server in the active profile.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalHandoff {
+    pub id: String,
+    pub name: String,
+    pub outcome: HandoffOutcome,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum HandoffOutcome {
+    /// The Team copy replaced the personal server in this profile.
+    Switched,
+    /// The Team copy was already in use here and stays in use.
+    Kept,
+    /// The personal server is off in this profile, so nothing switches.
+    NotEnabled,
+    /// The Team copy needs separate setup; the message says which route is on.
+    Attention,
 }
 
 /// Display-only allowlist from the export being compared, never the live registry or keychain.
@@ -568,6 +608,29 @@ fn server_index(servers: &Value) -> Result<BTreeMap<String, &Value>, String> {
     Ok(indexed)
 }
 
+/// A definition as the Teams service stores it. The service drops fields that could
+/// carry a secret value before saving, which includes every `secret` flag and
+/// `value`, so env entries and launch inputs come back without them. Comparing in
+/// this form keeps a definition the Team already has from looking changed on every
+/// share.
+fn stored_definition(value: &Value) -> Value {
+    match value {
+        Value::Object(fields) => Value::Object(
+            fields
+                .iter()
+                .filter(|(key, _)| !matches!(key.as_str(), "secret" | "value"))
+                .map(|(key, field)| (key.clone(), stored_definition(field)))
+                .collect(),
+        ),
+        Value::Array(items) => Value::Array(items.iter().map(stored_definition).collect()),
+        other => other.clone(),
+    }
+}
+
+fn same_definition(a: &Value, b: &Value) -> bool {
+    stored_definition(a) == stored_definition(b)
+}
+
 fn preview_name(server: &Value, id: &str) -> String {
     server
         .get("name")
@@ -603,7 +666,7 @@ pub(crate) fn build_push_preview(
                 added.push(preview_name(server, id));
                 definitions.push(share_definition_preview(id, server, "Added"));
             }
-            Some(previous) if *previous != *server => {
+            Some(previous) if !same_definition(previous, server) => {
                 changed.push(preview_name(server, id));
                 definitions.push(share_definition_preview(id, server, "Changed"));
             }
@@ -628,6 +691,7 @@ pub(crate) fn build_push_preview(
         changed,
         removed,
         definitions,
+        selections: Vec::new(),
     })
 }
 
@@ -2227,7 +2291,160 @@ fn apply_use_managed(reg: &mut Registry, managed_id: &str, profile: &str) -> Res
 #[serde(rename_all = "camelCase")]
 pub struct PublishResult {
     pub version: i64,
+    /// False when every selection was already shared unchanged, so nothing was
+    /// uploaded and only the local step ran.
+    pub published: bool,
     pub local_setup_error: Option<String>,
+    pub handoffs: Vec<LocalHandoff>,
+    /// The notice both desktop shells show after sharing.
+    pub summary: String,
+}
+
+impl PublishResult {
+    /// A whole-set push has no selections and no local handoff.
+    pub fn whole_set(version: i64) -> Self {
+        Self {
+            version,
+            published: true,
+            local_setup_error: None,
+            handoffs: Vec::new(),
+            summary: publish_summary(version, true, None, &[]),
+        }
+    }
+
+    pub fn needs_attention(&self) -> bool {
+        self.local_setup_error.is_some()
+            || self
+                .handoffs
+                .iter()
+                .any(|handoff| handoff.outcome == HandoffOutcome::Attention)
+    }
+}
+
+fn publish_summary(
+    version: i64,
+    published: bool,
+    local_setup_error: Option<&str>,
+    handoffs: &[LocalHandoff],
+) -> String {
+    let mut lines = vec![if published {
+        format!("Shared with your team (version {version}).")
+    } else {
+        format!("Already shared with your team (version {version}). Nothing new was uploaded.")
+    }];
+    if let Some(error) = local_setup_error {
+        lines.push(format!("Local setup needs attention: {error}"));
+    }
+    lines.extend(
+        handoffs
+            .iter()
+            .map(|handoff| format!("{}: {}", handoff.name, handoff.message)),
+    );
+    lines.join("\n")
+}
+
+/// The one local Team copy of a personal original. Mappings whose Team row is
+/// gone are ignored, so a leftover from a deleted definition never decides it.
+fn managed_copy_of(reg: &Registry, original: &str) -> Result<String, String> {
+    let team = reg.team.as_ref().ok_or("Not connected to a team")?;
+    let tag = tag_for(&team.team_id);
+    let copies: Vec<&String> = team
+        .managed_server_ids
+        .iter()
+        .filter(|(managed, raw)| {
+            raw.as_str() == original
+                && reg
+                    .servers
+                    .iter()
+                    .any(|s| &s.id == *managed && is_team_server(s, &tag))
+        })
+        .map(|(managed, _)| managed)
+        .collect();
+    match copies.as_slice() {
+        [one] => Ok((*one).clone()),
+        [] => Err("The Team copy is not available on this device.".into()),
+        _ => Err("More than one Team copy matches this server. Review them in Teams.".into()),
+    }
+}
+
+/// Hand each selected server that is in use in the active profile over to its
+/// Team copy. Each selection is staged on its own, so one that needs separate
+/// setup leaves the others switched, and a failed one keeps a working route.
+/// `before` is the registry the share was confirmed against; `reg` already has
+/// the published definitions merged. `predicted` only changes the wording, for
+/// the preview's dry run of this same code.
+fn stage_publisher_handoffs(
+    reg: &mut Registry,
+    before: &Registry,
+    ids: &[String],
+    predicted: bool,
+) -> Vec<LocalHandoff> {
+    let profile = before.active_profile_id();
+    let mut handoffs = Vec::new();
+    for id in ids {
+        let name = before
+            .servers
+            .iter()
+            .find(|s| &s.id == id)
+            .map(|s| s.name.clone())
+            .unwrap_or_else(|| id.clone());
+        let personal_on = before.is_enabled(&profile, id);
+        // A personal server that an earlier share handed off is off here only
+        // because its Team copy is in use. Re-sharing a change must keep that route.
+        let using_team_copy =
+            !personal_on && crate::local_auth::bound_copy_enabled(before, &profile, id);
+        let (outcome, message) = if !personal_on && !using_team_copy {
+            (
+                HandoffOutcome::NotEnabled,
+                if predicted {
+                    "Not enabled in this profile, so nothing switches here."
+                } else {
+                    "Not enabled in this profile, so nothing switched."
+                }
+                .to_string(),
+            )
+        } else {
+            let mut attempt = reg.clone();
+            match managed_copy_of(&attempt, id)
+                .and_then(|managed| apply_use_managed(&mut attempt, &managed, &profile))
+            {
+                Ok(()) => {
+                    *reg = attempt;
+                    match (using_team_copy, predicted) {
+                        (true, true) => (HandoffOutcome::Kept, "This profile keeps using the Team copy.".to_string()),
+                        (true, false) => (HandoffOutcome::Kept, "Still uses the Team copy in this profile.".to_string()),
+                        (false, true) => (HandoffOutcome::Switched, "This profile switches to the Team copy. Your personal server stays saved and turns off here.".to_string()),
+                        (false, false) => (HandoffOutcome::Switched, "Now uses the Team copy in this profile. Your personal server is saved and turned off here.".to_string()),
+                    }
+                }
+                Err(reason) => {
+                    let team_on = managed_copy_of(reg, id)
+                        .is_ok_and(|managed| reg.is_enabled(&profile, &managed));
+                    let route = if reg.is_enabled(&profile, id) {
+                        "Your personal server stays on in this profile."
+                    } else if team_on {
+                        "The Team copy stays on in this profile."
+                    } else if reg.set_server_enabled(&profile, id, true).is_ok() {
+                        if predicted {
+                            "Your personal server turns back on in this profile."
+                        } else {
+                            "Your personal server is back on in this profile."
+                        }
+                    } else {
+                        "Turn your personal server back on in Servers."
+                    };
+                    (HandoffOutcome::Attention, format!("{reason} {route}"))
+                }
+            }
+        };
+        handoffs.push(LocalHandoff {
+            id: id.clone(),
+            name,
+            outcome,
+            message,
+        });
+    }
+    handoffs
 }
 
 fn publisher_fingerprint(reg: &Registry, ids: &[String]) -> Result<String, String> {
@@ -2255,32 +2472,13 @@ fn finish_publisher_share(
     before: &Registry,
     ids: &[String],
     version: i64,
-) -> Result<(), String> {
+) -> Result<Vec<LocalHandoff>, String> {
     if publisher_fingerprint(reg, ids)? != publisher_fingerprint(before, ids)?
         || reg.team.as_ref().map(|t| t.last_version) != Some(version)
     {
         return Err("Your team, profile or selected definitions changed. Review local setup below; the shared update is already saved.".into());
     }
-    let profile = before.active_profile_id();
-    // Stage every handoff together. A failed match leaves the working personal routes intact.
-    let mut candidate = reg.clone();
-    for id in ids {
-        if !before.is_enabled(&profile, id) {
-            continue;
-        }
-        let managed = candidate
-            .team
-            .as_ref()
-            .unwrap()
-            .managed_server_ids
-            .iter()
-            .find(|(_, original)| *original == id)
-            .map(|(managed, _)| managed.clone())
-            .ok_or("A shared definition is not available locally yet. Retry local setup.")?;
-        apply_use_managed(&mut candidate, &managed, &profile)?;
-    }
-    *reg = candidate;
-    Ok(())
+    Ok(stage_publisher_handoffs(reg, before, ids, false))
 }
 
 /// Merge only explicitly selected personal definitions. Never remove unrelated remote entries.
@@ -2299,6 +2497,87 @@ fn selected_export(reg: &Registry, ids: &[String]) -> Result<Value, String> {
     }
     Ok(Value::Array(selected.into_values().collect()))
 }
+fn same_display_name(a: &str, b: &str) -> bool {
+    a.trim().to_lowercase() == b.trim().to_lowercase()
+}
+
+/// A local-only hint for the share picker, from the last sync: whether this
+/// personal server already has a Team copy here and whether it is in use, or
+/// whether a different Team server has the same name. The React picker applies
+/// the same rules.
+pub fn personal_share_hint(reg: &Registry, personal: &ServerEntry) -> Option<&'static str> {
+    if let Ok(copy) = managed_copy_of(reg, &personal.id) {
+        return Some(if reg.is_enabled(&reg.active_profile_id(), &copy) {
+            "Shared. The Team copy is in use in this profile."
+        } else {
+            "Shared. The Team copy is not in use in this profile."
+        });
+    }
+    let tag = tag_for(&reg.team.as_ref()?.team_id);
+    reg.servers
+        .iter()
+        .any(|s| is_team_server(s, &tag) && same_display_name(&s.name, &personal.name))
+        .then_some("The team has a different server with this name. Sharing adds a separate definition.")
+}
+
+/// The preview's explanation for each selection, including a dry run of the local
+/// handoff: `published`, as the service will store it, is merged into a copy of the
+/// registry exactly as the sync after publishing merges it, then the same staging
+/// code runs on that copy.
+fn share_selections(
+    reg: &Registry,
+    remote: &Value,
+    selected: &Value,
+    published: &Value,
+) -> Result<Vec<ShareSelectionPreview>, String> {
+    let team_id = reg.team.as_ref().ok_or("not connected to a team")?.team_id.clone();
+    let remote = server_index(remote)?;
+    let selected = server_index(selected)?;
+    let ids: Vec<String> = selected.keys().cloned().collect();
+    let mut simulated = reg.clone();
+    // Merge what the service will store, as the sync after publishing does.
+    apply_team_config(&mut simulated, &team_id, &stored_definition(published));
+    let local = stage_publisher_handoffs(&mut simulated, reg, &ids, true);
+    Ok(selected
+        .iter()
+        .zip(local)
+        .map(|((id, server), local)| {
+            let name = preview_name(server, id);
+            let (team_change, team_detail) = match remote.get(id) {
+                None => ("New", "Adds a new Team definition."),
+                Some(current) if !same_definition(current, server) => (
+                    "Update",
+                    "Replaces the Team definition with the same server ID. Members review the change before it runs for them.",
+                ),
+                Some(_) => (
+                    "Already shared",
+                    "The Team already has this exact definition, so nothing changes for the team.",
+                ),
+            };
+            let notes = remote
+                .iter()
+                .filter(|(other, definition)| {
+                    *other != id && same_display_name(&preview_name(definition, other), &name)
+                })
+                .map(|(other, definition)| {
+                    format!(
+                        "The team also has a separate definition named {} (ID {other}). It stays separate because sharing matches server IDs, not names.",
+                        preview_name(definition, other)
+                    )
+                })
+                .collect();
+            ShareSelectionPreview {
+                id: id.clone(),
+                name,
+                team_change: team_change.into(),
+                team_detail: team_detail.into(),
+                notes,
+                local,
+            }
+        })
+        .collect())
+}
+
 fn additive_server_set(remote: &Value, selected: &Value) -> Result<Value, String> {
     let mut merged: BTreeMap<String, Value> = server_index(remote)?
         .into_iter()
@@ -2324,6 +2603,8 @@ pub fn preview_push_selected(ids: &[String]) -> Result<PushPreview, String> {
     let merged = additive_server_set(remote, &selected)?;
     let mut preview = build_push_preview(version, remote, &merged)?;
     preview.local_fingerprint = publisher_fingerprint(&reg, ids)?;
+    let published = replace_server_set(config.clone(), merged)?;
+    preview.selections = share_selections(&reg, remote, &selected, &published)?;
     Ok(preview)
 }
 pub fn push_selected(
@@ -2345,27 +2626,43 @@ pub fn push_selected(
     if version != expected_version {
         return Err(STALE_PUSH_MESSAGE.into());
     }
-    let servers = additive_server_set(
-        config
-            .get("servers")
-            .ok_or("team config has no server list")?,
-        &selected,
-    )?;
-    let config = replace_server_set(config, servers)?;
-    let version = push_config(&conn.server_url, &conn.team_id, &token, &config, version)?;
+    let remote = config
+        .get("servers")
+        .ok_or("team config has no server list")?;
+    let servers = additive_server_set(remote, &selected)?;
+    // Re-sharing definitions the Team already has unchanged only runs the local step.
+    let before = server_index(remote)?;
+    let published = server_index(&servers)?
+        .iter()
+        .any(|(id, server)| before.get(id).is_none_or(|current| !same_definition(current, server)));
+    let version = if published {
+        let config = replace_server_set(config, servers)?;
+        push_config(&conn.server_url, &conn.team_id, &token, &config, version)?
+    } else {
+        version
+    };
+    let mut handoffs = Vec::new();
     let local_setup_error = (|| {
         sync_now()?;
         let applied = crate::registry::load()?;
         let _authentication = lock_handoff_authentication(&applied, ids)?;
-        crate::registry::update(|current| {
+        let (_, staged) = crate::registry::update(|current| {
             if current.team.as_ref().map(|t| &t.managed_server_ids) != applied.team.as_ref().map(|t| &t.managed_server_ids) {
                 return Err("Team server identities changed. Review local setup again.".into());
             }
             finish_publisher_share(current, &reg, ids, version)
         })?;
+        handoffs = staged;
         Ok::<_, String>(())
     })().err();
-    Ok(PublishResult { version, local_setup_error })
+    let summary = publish_summary(version, published, local_setup_error.as_deref(), &handoffs);
+    Ok(PublishResult {
+        version,
+        published,
+        local_setup_error,
+        handoffs,
+        summary,
+    })
 }
 
 /// Admin: preview replacing the remote config's server list with the current local server set.
@@ -2804,6 +3101,10 @@ pub fn apply_team_config(reg: &mut Registry, team_id: &str, team_cfg: &Value) ->
         }
     }
 
+    // Only rows that exist keep a mapping. A definition deleted from the Team and
+    // shared again later can get a new local id; its old mapping must not linger
+    // beside the new one for the same original.
+    managed_server_ids.retain(|id, _| reg.servers.iter().any(|s| &s.id == id && is_team_server(s, &tag)));
     if let Some(conn) = reg.team.as_mut().filter(|c| c.team_id == team_id) {
         conn.managed_server_ids = managed_server_ids;
     }
@@ -3013,7 +3314,14 @@ pub(crate) fn consent_fingerprint(entry: &ServerEntry) -> String {
         field("arg", arg);
     }
     if let Some(launch) = &entry.launch {
-        if let Ok(encoded) = serde_json::to_string(&launch.without_values()) {
+        // Whether an input is vaulted decides where its value lives, not what runs,
+        // and the Teams service drops the flag. Hash every input as vaulted so an
+        // owner's original and its Team copy agree.
+        let mut launch = launch.without_values();
+        for input in &mut launch.inputs {
+            input.secret = true;
+        }
+        if let Ok(encoded) = serde_json::to_string(&launch) {
             field("launch", &encoded);
         }
     }
@@ -3039,6 +3347,19 @@ pub(crate) fn consent_fingerprint(entry: &ServerEntry) -> String {
 /// Classify one team-config server JSON for the member's machine. Env keeps only keys
 /// (no values, since the team server never carried a secret); the member vaults each
 /// one locally.
+/// A shared launch config as members receive it. The Teams service drops every
+/// input's `secret` flag before storing, so an input without one is treated as
+/// secret: each member keeps its value in their own vault, never inline.
+fn team_launch_value(value: &Value) -> Value {
+    let mut value = value.clone();
+    if let Some(inputs) = value.get_mut("inputs").and_then(Value::as_array_mut) {
+        for input in inputs.iter_mut().filter_map(Value::as_object_mut) {
+            input.entry("secret").or_insert(Value::Bool(true));
+        }
+    }
+    value
+}
+
 fn classify_team_server(s: &Value, tag: &str) -> TeamClass {
     let str_field = |k: &str| s.get(k).and_then(Value::as_str).filter(|x| !x.is_empty());
     let orig_id = str_field("id");
@@ -3128,8 +3449,9 @@ fn classify_team_server(s: &Value, tag: &str) -> TeamClass {
     let transport = str_field("transport").unwrap_or("stdio").to_string();
     let command = str_field("command").map(String::from);
     let launch = match s.get("launch").filter(|value| !value.is_null()) {
-        Some(value) => match serde_json::from_value::<crate::registry::LaunchConfig>(value.clone())
-        {
+        Some(value) => match serde_json::from_value::<crate::registry::LaunchConfig>(
+            team_launch_value(value),
+        ) {
             Ok(launch) => Some(launch.without_values()),
             Err(_) => return TeamClass::Blocked,
         },
@@ -4106,10 +4428,16 @@ mod tests {
                     }
                 }
                 let snapshot = serde_json::to_value(&r).unwrap();
-                assert!(
-                    finish_publisher_share(&mut r, &before, &["mine".into()], 2).is_err(),
-                    "{field}"
-                );
+                let result = finish_publisher_share(&mut r, &before, &["mine".into()], 2);
+                if field == "target" {
+                    // A changed Team copy fails only its own selection, and keeps
+                    // the working personal route.
+                    let handoffs = result.unwrap();
+                    assert_eq!(handoffs[0].outcome, HandoffOutcome::Attention);
+                    assert!(handoffs[0].message.ends_with("Your personal server stays on in this profile."));
+                } else {
+                    assert!(result.is_err(), "{field}");
+                }
                 assert_eq!(serde_json::to_value(&r).unwrap(), snapshot);
             }
         });
@@ -4177,8 +4505,10 @@ mod tests {
             crate::registry::save(&r).unwrap();
             crate::secrets::set_secret(&id, crate::secrets::HTTP_AUTH_KEY, "independent-synthetic")
                 .unwrap();
-            assert!(finish_publisher_share(&mut r, &before, &["mine".into()], 2).is_err());
+            let refused = finish_publisher_share(&mut r, &before, &["mine".into()], 2).unwrap();
+            assert_eq!(refused[0].outcome, HandoffOutcome::Attention);
             assert!(r.is_enabled(&r.active_profile_id(), "mine"));
+            assert!(!r.is_enabled(&r.active_profile_id(), &id));
             crate::secrets::delete_secret(&id, crate::secrets::HTTP_AUTH_KEY).unwrap();
             crate::secrets::set_secret("mine", crate::secrets::HTTP_AUTH_KEY, "personal-synthetic")
                 .unwrap();
@@ -6290,5 +6620,406 @@ mod tests {
         let mut with_cwd = base.clone();
         with_cwd.cwd = Some("/tmp".into());
         assert_ne!(consent_fingerprint(&with_cwd), fp);
+    }
+
+    /// Sharing into a Team that already has definitions. Each case mirrors the
+    /// offline part of `push_selected`: preview, additive publish, sync, handoff.
+    mod existing_team_shares {
+        use super::*;
+
+        fn stdio(id: &str, name: &str, command: &str) -> ServerEntry {
+            let mut server = base_registry().servers[0].clone();
+            server.id = id.into();
+            server.name = name.into();
+            server.command = Some(command.into());
+            server
+        }
+
+        fn team_copy(r: &Registry, original: &str) -> String {
+            managed_copy_of(r, original).unwrap()
+        }
+
+        /// Sync `remote` as the service returns it, without secret flags or values.
+        fn synced(before: &Registry, remote: &Value, version: i64) -> Registry {
+            let mut r = before.clone();
+            apply_team_config(
+                &mut r,
+                "publisher-test",
+                &stored_definition(&json!({ "servers": remote })),
+            );
+            r.team.as_mut().unwrap().last_version = version;
+            r
+        }
+
+        fn preview(before: &Registry, remote: &Value, ids: &[&str]) -> Vec<ShareSelectionPreview> {
+            let ids: Vec<String> = ids.iter().map(|id| id.to_string()).collect();
+            let selected = selected_export(before, &ids).unwrap();
+            let merged = additive_server_set(remote, &selected).unwrap();
+            share_selections(before, remote, &selected, &json!({ "servers": merged })).unwrap()
+        }
+
+        /// Publish, sync and hand off. Returns the registry and the published set.
+        fn share(before: &Registry, remote: &Value, ids: &[&str]) -> (Registry, Value, Vec<LocalHandoff>) {
+            let ids: Vec<String> = ids.iter().map(|id| id.to_string()).collect();
+            let merged = additive_server_set(remote, &selected_export(before, &ids).unwrap()).unwrap();
+            let mut r = synced(before, &merged, 2);
+            let handoffs = finish_publisher_share(&mut r, before, &ids, 2).unwrap();
+            (r, merged, handoffs)
+        }
+
+        /// A plain local env value, or a plain launch input bound into the arguments.
+        #[derive(Clone, Copy, Debug)]
+        enum LocalValue {
+            None,
+            Env,
+            Launch,
+        }
+
+        fn with_local_value(server: &mut ServerEntry, kind: LocalValue) {
+            match kind {
+                LocalValue::None => {}
+                LocalValue::Env => {
+                    server.env = vec![serde_json::from_value(
+                        json!({"key":"REGION","value":"us-east","secret":false}),
+                    )
+                    .unwrap()]
+                }
+                LocalValue::Launch => {
+                    server.args = vec!["<launch-input>".into()];
+                    server.launch = Some(
+                        serde_json::from_value(json!({
+                            "inputs": [{"key":"WORKSPACE","label":"Workspace","secret":false,"value":"/work"}],
+                            "bindings": [{"index":0,"parts":[{"kind":"input","key":"WORKSPACE"}]}]
+                        }))
+                        .unwrap(),
+                    );
+                }
+            }
+        }
+
+        fn local_value(server: &ServerEntry) -> Option<String> {
+            server
+                .env
+                .first()
+                .and_then(|env| env.value.clone())
+                .or_else(|| server.launch.as_ref()?.inputs.first()?.value.clone())
+        }
+
+        /// The registry after an earlier 1.23.2 share handed `mine` off, ready to
+        /// share again from version 1.
+        fn handed_off_with(kind: LocalValue) -> (Registry, Value) {
+            let mut personal = publisher_registry();
+            with_local_value(&mut personal.servers[0], kind);
+            let remote = team_server_export(&personal);
+            let (mut r, merged, _) = share(&synced(&personal, &remote, 1), &remote, &["mine"]);
+            r.team.as_mut().unwrap().last_version = 1;
+            (r, merged)
+        }
+
+        fn handed_off() -> (Registry, Value) {
+            handed_off_with(LocalValue::None)
+        }
+
+        #[test]
+        fn preview_explains_each_relationship_to_the_team() {
+            crate::secrets::tests::with_isolated_vault(|| {
+                let personal = publisher_registry();
+
+                let remote = team_server_export(&personal);
+                let already = preview(&synced(&personal, &remote, 1), &remote, &["mine"]);
+                assert_eq!(already[0].team_change, "Already shared");
+                assert_eq!(already[0].local.outcome, HandoffOutcome::Switched);
+                assert!(already[0].notes.is_empty());
+
+                let remote = json!([{"id":"mine","name":"Mine","transport":"stdio","command":"old"}]);
+                let update = preview(&synced(&personal, &remote, 1), &remote, &["mine"]);
+                assert_eq!(update[0].team_change, "Update");
+                assert_eq!(update[0].local.outcome, HandoffOutcome::Switched);
+
+                let remote = json!([{"id":"mine-portal","name":" mine ","transport":"stdio","command":"x"}]);
+                let before = synced(&personal, &remote, 1);
+                let new = preview(&before, &remote, &["mine"]);
+                assert_eq!(new[0].team_change, "New");
+                assert_eq!(new[0].notes.len(), 1);
+                assert!(new[0].notes[0].contains("(ID mine-portal)"), "{:?}", new[0].notes);
+                let (after, _, _) = share(&before, &remote, &["mine"]);
+                assert!(
+                    after.servers.iter().any(|s| saved_team_original_id(s) == Some("mine-portal")),
+                    "a same-name definition is never merged away"
+                );
+
+                let (again, merged) = handed_off();
+                let kept = preview(&again, &merged, &["mine"]);
+                assert_eq!(kept[0].team_change, "Already shared");
+                assert_eq!(kept[0].local.outcome, HandoffOutcome::Kept);
+
+                let mut off = personal.clone();
+                let profile = off.active_profile_id();
+                off.set_server_enabled(&profile, "mine", false).unwrap();
+                let remote = team_server_export(&off);
+                let idle = preview(&synced(&off, &remote, 1), &remote, &["mine"]);
+                assert_eq!(idle[0].local.outcome, HandoffOutcome::NotEnabled);
+            });
+        }
+
+        #[test]
+        fn preview_predicts_a_team_copy_with_its_own_credentials() {
+            crate::secrets::tests::with_isolated_vault(|| {
+                let personal = publisher_registry();
+                let remote = team_server_export(&personal);
+                let before = synced(&personal, &remote, 1);
+                let managed = team_copy(&before, "mine");
+                crate::registry::save(&before).unwrap();
+                crate::secrets::set_secret(&managed, crate::secrets::HTTP_AUTH_KEY, "independent-synthetic").unwrap();
+
+                let predicted = preview(&before, &remote, &["mine"]);
+                assert_eq!(predicted[0].local.outcome, HandoffOutcome::Attention);
+                assert!(predicted[0].local.message.contains("own local credentials"));
+                assert!(predicted[0].local.message.ends_with("Your personal server stays on in this profile."));
+                assert!(!predicted[0].local.message.contains("independent-synthetic"));
+
+                let (r, _, handoffs) = share(&before, &remote, &["mine"]);
+                assert_eq!(handoffs[0].outcome, HandoffOutcome::Attention);
+                assert_eq!(handoffs[0].message, predicted[0].local.message);
+                let profile = r.active_profile_id();
+                assert!(r.is_enabled(&profile, "mine"));
+                assert!(!r.is_enabled(&profile, &managed));
+                assert_eq!(crate::secrets::get_secret(&managed, crate::secrets::HTTP_AUTH_KEY).as_deref(), Some("independent-synthetic"));
+                crate::secrets::delete_secret(&managed, crate::secrets::HTTP_AUTH_KEY).unwrap();
+            });
+        }
+
+        #[test]
+        fn one_selection_that_needs_setup_does_not_block_the_others() {
+            crate::secrets::tests::with_isolated_vault(|| {
+                let mut two = publisher_registry();
+                let profile = two.active_profile_id();
+                two.servers.push(stdio("other", "Other", "y"));
+                two.profiles.iter_mut().find(|p| p.id == profile).unwrap().enabled_server_ids.push("other".into());
+                let remote = team_server_export(&two);
+                let before = synced(&two, &remote, 1);
+                let other = team_copy(&before, "other");
+                crate::registry::save(&before).unwrap();
+                crate::secrets::set_secret(&other, crate::secrets::HTTP_AUTH_KEY, "independent-synthetic").unwrap();
+
+                let (r, _, handoffs) = share(&before, &remote, &["mine", "other"]);
+
+                let outcomes: Vec<_> = handoffs.iter().map(|h| (h.id.as_str(), h.outcome)).collect();
+                assert_eq!(outcomes, [("mine", HandoffOutcome::Switched), ("other", HandoffOutcome::Attention)]);
+                let mine = team_copy(&r, "mine");
+                assert!(r.is_enabled(&profile, &mine) && !r.is_enabled(&profile, "mine"));
+                assert!(r.is_enabled(&profile, "other") && !r.is_enabled(&profile, &other));
+                assert_eq!(crate::local_auth::owner_in(&r, &mine).unwrap(), "mine");
+                assert_eq!(crate::local_auth::owner_in(&r, &other).unwrap(), other);
+                crate::secrets::delete_secret(&other, crate::secrets::HTTP_AUTH_KEY).unwrap();
+            });
+        }
+
+        #[test]
+        fn resharing_a_changed_server_keeps_its_team_copy_in_use() {
+            crate::secrets::tests::with_isolated_vault(|| {
+                for kind in [LocalValue::None, LocalValue::Env, LocalValue::Launch] {
+                    let (mut edited, merged) = handed_off_with(kind);
+                    let expected = local_value(&edited.servers[0]);
+                    let profile = edited.active_profile_id();
+                    assert!(
+                        crate::local_auth::bound_copy_enabled(&edited, &profile, "mine"),
+                        "the first share handed off"
+                    );
+                    edited.servers.iter_mut().find(|s| s.id == "mine").unwrap().args.push("--new".into());
+
+                    let predicted = preview(&edited, &merged, &["mine"]);
+                    assert_eq!(predicted[0].team_change, "Update");
+                    assert_eq!(
+                        predicted[0].local.outcome,
+                        HandoffOutcome::Kept,
+                        "{kind:?}: {}",
+                        predicted[0].local.message
+                    );
+
+                    let (r, _, handoffs) = share(&edited, &merged, &["mine"]);
+                    assert_eq!(handoffs[0].outcome, HandoffOutcome::Kept, "{:?}", handoffs[0]);
+                    let copy = team_copy(&r, "mine");
+                    assert!(r.is_enabled(&profile, &copy), "the Team copy stays in use");
+                    assert!(!r.is_enabled(&profile, "mine"));
+                    assert_eq!(crate::local_auth::owner_in(&r, &copy).unwrap(), "mine");
+                    assert_eq!(
+                        local_value(r.servers.iter().find(|s| s.id == copy).unwrap()),
+                        expected,
+                        "{kind:?}: the local value follows the original"
+                    );
+                }
+            });
+        }
+
+        #[test]
+        fn a_shared_launch_input_server_reaches_owner_and_members() {
+            crate::secrets::tests::with_isolated_vault(|| {
+                let mut personal = publisher_registry();
+                with_local_value(&mut personal.servers[0], LocalValue::Launch);
+                let profile = personal.active_profile_id();
+
+                let predicted = preview(&personal, &json!([]), &["mine"]);
+                assert_eq!(predicted[0].local.outcome, HandoffOutcome::Switched);
+                let (r, published, handoffs) = share(&personal, &json!([]), &["mine"]);
+                assert_eq!(handoffs[0].outcome, HandoffOutcome::Switched, "{:?}", handoffs[0]);
+                let copy = team_copy(&r, "mine");
+                assert!(r.is_enabled(&profile, &copy) && !r.is_enabled(&profile, "mine"));
+                assert_eq!(crate::local_auth::owner_in(&r, &copy).unwrap(), "mine");
+
+                // The next sync keeps the owner's local value and binding.
+                let mut again = r.clone();
+                apply_team_config(&mut again, "publisher-test", &stored_definition(&json!({"servers": published})));
+                let owner_copy = again.servers.iter().find(|s| s.id == copy).unwrap();
+                assert_eq!(local_value(owner_copy).as_deref(), Some("/work"));
+                assert!(again.is_enabled(&profile, &copy));
+                assert_eq!(crate::local_auth::owner_in(&again, &copy).unwrap(), "mine");
+
+                // A member receives a Team copy to set up, with the input vaulted.
+                let mut member = base_registry();
+                member.servers.clear();
+                let outcome = apply_team_config(&mut member, "publisher-test", &stored_definition(&json!({"servers": published})));
+                assert_eq!((outcome.blocked, outcome.review), (0, 1));
+                let input = &member.servers[0].launch.as_ref().unwrap().inputs[0];
+                assert!(input.secret && input.value.is_none());
+            });
+        }
+
+        #[test]
+        fn launch_input_flags_are_not_part_of_consent() {
+            let mut vaulted = base_registry().servers[0].clone();
+            with_local_value(&mut vaulted, LocalValue::Launch);
+            let mut plain = vaulted.clone();
+            vaulted.launch.as_mut().unwrap().inputs[0].secret = true;
+            vaulted.launch.as_mut().unwrap().inputs[0].value = None;
+            assert_eq!(consent_fingerprint(&vaulted), consent_fingerprint(&plain));
+            plain.launch.as_mut().unwrap().inputs[0].key = "OTHER".into();
+            assert_ne!(consent_fingerprint(&vaulted), consent_fingerprint(&plain));
+        }
+
+        #[test]
+        fn a_failed_reshare_never_leaves_both_routes_off() {
+            crate::secrets::tests::with_isolated_vault(|| {
+                let (mut edited, merged) = handed_off();
+                let profile = edited.active_profile_id();
+                edited.servers.iter_mut().find(|s| s.id == "mine").unwrap().args = vec!["--new".into()];
+                let ids = vec!["mine".to_string()];
+                let published = additive_server_set(&merged, &selected_export(&edited, &ids).unwrap()).unwrap();
+                let mut r = synced(&edited, &published, 2);
+                let copy = team_copy(&r, "mine");
+                // Something the owner typed into the Team copy on its own.
+                r.servers.iter_mut().find(|s| s.id == copy).unwrap().env = vec![serde_json::from_value(
+                    json!({"key":"REGION","value":"independent","secret":false}),
+                ).unwrap()];
+
+                let handoffs = finish_publisher_share(&mut r, &edited, &ids, 2).unwrap();
+
+                assert_eq!(handoffs[0].outcome, HandoffOutcome::Attention);
+                assert!(handoffs[0].message.ends_with("Your personal server is back on in this profile."));
+                assert!(r.is_enabled(&profile, "mine"));
+                assert_eq!(r.servers.iter().find(|s| s.id == copy).unwrap().env[0].value.as_deref(), Some("independent"));
+            });
+        }
+
+        #[test]
+        fn a_deleted_and_reshared_definition_hands_off_every_time() {
+            crate::secrets::tests::with_isolated_vault(|| {
+                let personal = publisher_registry();
+                for round in 0..24 {
+                    let remote = team_server_export(&personal);
+                    let deleted = synced(&synced(&personal, &remote, 1), &json!([]), 1);
+                    assert!(
+                        deleted.team.as_ref().unwrap().managed_server_ids.is_empty(),
+                        "a deleted definition leaves no mapping behind"
+                    );
+                    let mut changed = deleted.clone();
+                    changed.servers.iter_mut().find(|s| s.id == "mine").unwrap().args = vec![format!("--round-{round}")];
+                    let (r, _, handoffs) = share(&changed, &json!([]), &["mine"]);
+                    assert_eq!(handoffs[0].outcome, HandoffOutcome::Switched, "round {round}: {:?}", handoffs[0]);
+                    assert_eq!(r.team.as_ref().unwrap().managed_server_ids.len(), 1);
+                }
+                // A leftover mapping from an older client never decides the handoff.
+                let remote = team_server_export(&personal);
+                let mut r = synced(&personal, &remote, 2);
+                r.team.as_mut().unwrap().managed_server_ids.insert("team_mine-stale".into(), "mine".into());
+                assert_eq!(team_copy(&r, "mine"), member_id(&r, "mine"));
+                assert_eq!(finish_publisher_share(&mut r, &personal, &["mine".into()], 2).unwrap()[0].outcome, HandoffOutcome::Switched);
+            });
+        }
+
+        #[test]
+        fn definitions_compare_in_the_form_the_service_stores() {
+            crate::secrets::tests::with_isolated_vault(|| {
+                let mut personal = publisher_registry();
+                personal.servers[0].env = vec![serde_json::from_value(
+                    json!({"key":"API_TOKEN","secret":true}),
+                )
+                .unwrap()];
+                // The service drops every `secret` flag and `value` before saving.
+                let stored = stored_definition(&team_server_export(&personal));
+                assert!(!stored.to_string().contains("\"secret\""));
+                let local = team_server_export(&personal);
+                let compared = build_push_preview(1, &stored, &local).unwrap();
+                assert!(compared.changed.is_empty() && compared.definitions.is_empty());
+                let selections = preview(&synced(&personal, &stored, 1), &stored, &["mine"]);
+                assert_eq!(selections[0].team_change, "Already shared");
+                assert_eq!(selections[0].local.outcome, HandoffOutcome::Switched);
+
+                personal.servers[0].env.push(serde_json::from_value(json!({"key":"REGION","secret":false})).unwrap());
+                let compared = build_push_preview(1, &stored, &team_server_export(&personal)).unwrap();
+                assert_eq!(compared.changed, ["Mine"], "a new key is a real change");
+            });
+        }
+
+        #[test]
+        fn the_share_picker_hint_uses_the_last_sync() {
+            crate::secrets::tests::with_isolated_vault(|| {
+                let personal = publisher_registry();
+                let mine = |r: &Registry| r.servers.iter().find(|s| s.id == "mine").unwrap().clone();
+                assert_eq!(personal_share_hint(&personal, &mine(&personal)), None);
+
+                let remote = team_server_export(&personal);
+                let synced_only = synced(&personal, &remote, 1);
+                assert_eq!(
+                    personal_share_hint(&synced_only, &mine(&synced_only)),
+                    Some("Shared. The Team copy is not in use in this profile.")
+                );
+                let (handed, _) = handed_off();
+                assert_eq!(
+                    personal_share_hint(&handed, &mine(&handed)),
+                    Some("Shared. The Team copy is in use in this profile.")
+                );
+                let remote = json!([{"id":"mine-portal","name":"MINE","transport":"stdio","command":"x"}]);
+                let other = synced(&personal, &remote, 1);
+                assert_eq!(
+                    personal_share_hint(&other, &mine(&other)),
+                    Some("The team has a different server with this name. Sharing adds a separate definition.")
+                );
+            });
+        }
+
+        #[test]
+        fn the_notice_says_what_was_uploaded_and_which_route_is_on() {
+            let handoff = |name: &str, outcome, message: &str| LocalHandoff {
+                id: name.to_lowercase(),
+                name: name.into(),
+                outcome,
+                message: message.into(),
+            };
+            assert_eq!(
+                publish_summary(4, false, None, &[handoff("Linear", HandoffOutcome::Switched, "Now uses the Team copy in this profile.")]),
+                "Already shared with your team (version 4). Nothing new was uploaded.\nLinear: Now uses the Team copy in this profile."
+            );
+            let result = PublishResult {
+                version: 5,
+                published: true,
+                local_setup_error: None,
+                handoffs: vec![handoff("Vercel", HandoffOutcome::Attention, "Needs setup. Your personal server stays on in this profile.")],
+                summary: String::new(),
+            };
+            assert!(result.needs_attention());
+            assert!(!PublishResult::whole_set(5).needs_attention());
+            assert_eq!(PublishResult::whole_set(5).summary, "Shared with your team (version 5).");
+        }
     }
 }

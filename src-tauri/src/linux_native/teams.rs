@@ -766,7 +766,8 @@ impl TeamsPage {
             }
         };
         #[allow(deprecated)]
-        let dialog = adw::MessageDialog::new(Some(&parent), Some("Share with your team"), Some("Choose one working server to begin. Other team servers and your personal originals stay in place. Each member supplies credentials locally."));
+        let dialog = adw::MessageDialog::new(Some(&parent), Some("Share with your team"), Some("Choose one working server to begin. Other team servers and your personal originals stay in place. Each member supplies credentials locally. The preview shows how each choice relates to the team before anything is uploaded."));
+        dialog.set_size_request(480, -1);
         dialog.add_response("cancel", "Cancel");
         dialog.add_response("select", "Preview selected");
         dialog.set_response_enabled("select", false);
@@ -783,12 +784,12 @@ impl TeamsPage {
                 .map(|e| e.key.as_str())
                 .collect::<Vec<_>>()
                 .join(", ");
-            let label = if keys.is_empty() {
-                server.name.clone()
-            } else {
-                format!("{} — local credentials: {keys}", server.name)
-            };
-            let check = gtk::CheckButton::with_label(&label);
+            let check = gtk::CheckButton::new();
+            check.set_child(Some(&share_choice_label(
+                &server.name,
+                (!keys.is_empty()).then(|| format!("Local credentials: {keys}")),
+                crate::teams::personal_share_hint(&reg, server),
+            )));
             let ids = choices.clone();
             let id = server.id.clone();
             let d = dialog.clone();
@@ -856,10 +857,8 @@ impl TeamsPage {
                     .await;
                     match result {
                         Ok(Ok(result)) => {
-                            *page.sync_notice.borrow_mut() = Some(match result.local_setup_error {
-                                Some(error) => (format!("Shared with your team (version {}). Local setup needs attention: {error}", result.version), true),
-                                None => (format!("Shared with your team (version {}). Your enabled selections are now in use in this profile.", result.version), false),
-                            });
+                            *page.sync_notice.borrow_mut() =
+                                Some((result.summary.clone(), result.needs_attention()));
                             page.refresh();
                         }
                         Ok(Err(error)) => page.show_error(&error),
@@ -1187,6 +1186,45 @@ fn review_server_row(server: crate::registry::ServerEntry, page: TeamsPage) -> g
     row
 }
 
+/// A picker row: the server name, then muted lines for its credential keys and
+/// how it relates to the team.
+fn share_choice_label(name: &str, keys: Option<String>, hint: Option<&str>) -> gtk::Box {
+    let column = gtk::Box::new(gtk::Orientation::Vertical, 2);
+    let title = gtk::Label::builder().label(name).xalign(0.0).wrap(true).build();
+    column.append(&title);
+    for detail in keys.as_deref().into_iter().chain(hint) {
+        let line = gtk::Label::builder()
+            .label(detail)
+            .xalign(0.0)
+            .wrap(true)
+            .max_width_chars(48)
+            .build();
+        line.add_css_class("toolport-muted");
+        column.append(&line);
+    }
+    column
+}
+
+/// What the confirm button does for this preview, or `None` when there is
+/// nothing to upload or switch. The React preview applies the same rule.
+fn share_action(preview: &crate::teams::PushPreview) -> Option<&'static str> {
+    if share_uploads(preview) {
+        Some("Share selected")
+    } else if preview
+        .selections
+        .iter()
+        .any(|selection| selection.local.outcome == crate::teams::HandoffOutcome::Switched)
+    {
+        Some("Use Team copies")
+    } else {
+        None
+    }
+}
+
+fn share_uploads(preview: &crate::teams::PushPreview) -> bool {
+    !(preview.added.is_empty() && preview.changed.is_empty() && preview.removed.is_empty())
+}
+
 #[allow(deprecated)]
 fn share_preview_dialog(
     parent: &gtk::Window,
@@ -1194,11 +1232,13 @@ fn share_preview_dialog(
 ) -> adw::MessageDialog {
     let dialog = adw::MessageDialog::new(
         Some(parent), Some("Share selected servers?"),
-        Some("Selected definitions are added or updated. Other team servers, instructions and policies stay unchanged. Your enabled selections switch to the team versions in this profile, using your existing local credentials. Your personal servers remain saved; other profiles stay unchanged. Credential values are never uploaded. Each member uses their own credentials locally."),
+        Some("Other team servers, instructions and policies stay unchanged. Your personal servers remain saved, and other profiles stay unchanged. Credential values are never uploaded. Each member uses their own credentials locally."),
     );
     dialog.set_size_request(520, -1);
     dialog.add_response("cancel", "Cancel");
-    dialog.add_response("push", "Share selected");
+    let action = share_action(preview);
+    dialog.add_response("push", action.unwrap_or("Share selected"));
+    dialog.set_response_enabled("push", action.is_some());
     dialog.set_close_response("cancel");
     dialog.set_default_response(Some("cancel"));
     dialog.set_response_appearance("push", adw::ResponseAppearance::Suggested);
@@ -1220,11 +1260,38 @@ fn share_preview_content(preview: &crate::teams::PushPreview) -> gtk::ScrolledWi
             .selectable(true)
             .build()
     };
+    for selection in &preview.selections {
+        let heading = label(&format!("{} · {}", selection.name, selection.team_change));
+        heading.add_css_class("heading");
+        changes.append(&heading);
+        changes.append(&label(&selection.team_detail));
+        for note in &selection.notes {
+            let note = label(note);
+            note.add_css_class("toolport-muted");
+            changes.append(&note);
+        }
+        let local = label(&selection.local.message);
+        if selection.local.outcome == crate::teams::HandoffOutcome::Attention {
+            local.add_css_class("error");
+        }
+        changes.append(&local);
+    }
+    let uploads = share_uploads(preview);
+    if !preview.selections.is_empty() && !uploads {
+        changes.append(&label(if share_action(preview).is_some() {
+            "Nothing new is uploaded to the team. Only this profile changes."
+        } else {
+            "Nothing to upload or switch for this selection."
+        }));
+    }
     for (kind, names) in [
         ("Added", &preview.added),
         ("Changed", &preview.changed),
         ("Removed", &preview.removed),
-    ] {
+    ]
+    .into_iter()
+    .filter(|_| uploads || preview.selections.is_empty())
+    {
         let heading = label(&format!("{kind} ({})", names.len()));
         heading.add_css_class("heading");
         changes.append(&heading);
@@ -1272,7 +1339,116 @@ fn share_preview_content(preview: &crate::teams::PushPreview) -> gtk::ScrolledWi
 mod tests {
     use super::share_preview_dialog;
     use super::team_review_line;
+    use super::{share_action, share_choice_label};
+    use crate::teams::{HandoffOutcome, LocalHandoff, PushPreview, ShareSelectionPreview};
     use adw::prelude::*;
+
+    fn selection(name: &str, change: &str, outcome: HandoffOutcome, message: &str) -> ShareSelectionPreview {
+        ShareSelectionPreview {
+            id: name.to_lowercase(),
+            name: name.into(),
+            team_change: change.into(),
+            team_detail: format!("{change} detail."),
+            notes: vec![],
+            local: LocalHandoff {
+                id: name.to_lowercase(),
+                name: name.into(),
+                outcome,
+                message: message.into(),
+            },
+        }
+    }
+
+    fn selection_preview(selections: Vec<ShareSelectionPreview>) -> PushPreview {
+        PushPreview {
+            base_version: 3,
+            local_fingerprint: "f".into(),
+            added: vec![],
+            changed: vec![],
+            removed: vec![],
+            definitions: vec![],
+            selections,
+        }
+    }
+
+    fn collect(widget: &gtk::Widget, text: &mut String) {
+        if let Some(expander) = widget.downcast_ref::<gtk::Expander>() {
+            if let Some(child) = expander.child() {
+                collect(&child, text);
+            }
+        }
+        if let Some(label) = widget.downcast_ref::<gtk::Label>() {
+            text.push_str(&label.text());
+            text.push('\n');
+        }
+        let mut child = widget.first_child();
+        while let Some(w) = child {
+            collect(&w, text);
+            child = w.next_sibling();
+        }
+    }
+
+    #[test]
+    fn the_confirm_action_matches_what_the_share_will_do() {
+        let switch = selection("Linear", "Already shared", HandoffOutcome::Switched, "switches");
+        let kept = selection("Linear", "Already shared", HandoffOutcome::Kept, "keeps");
+        let blocked = selection("Vercel", "Already shared", HandoffOutcome::Attention, "needs setup");
+        assert_eq!(share_action(&selection_preview(vec![switch.clone(), blocked.clone()])), Some("Use Team copies"));
+        assert_eq!(share_action(&selection_preview(vec![kept, blocked])), None);
+        let mut update = selection_preview(vec![switch]);
+        update.changed = vec!["Linear".into()];
+        update.definitions = vec![crate::teams::ShareDefinitionPreview {
+            id: "linear".into(),
+            name: "Linear".into(),
+            change: "Changed".into(),
+            transport: "http".into(),
+            fields: vec![],
+        }];
+        assert_eq!(share_action(&update), Some("Share selected"));
+    }
+
+    #[test]
+    #[ignore = "requires an isolated GTK desktop; run in omabox"]
+    fn share_preview_explains_each_selection_and_its_route() {
+        adw::init().unwrap();
+        let mut same_name = selection("Linear", "New", HandoffOutcome::Switched, "This profile switches to the Team copy. Your personal server stays saved and turns off here.");
+        same_name.notes = vec!["The team also has a separate definition named Linear (ID linear-2). It stays separate because sharing matches server IDs, not names.".into()];
+        let preview = selection_preview(vec![
+            same_name,
+            selection("Vercel (Full API)", "Already shared", HandoffOutcome::Attention, "This team copy already has its own local credentials. Keep its existing setup and enable it separately. Your personal server stays on in this profile."),
+        ]);
+        let parent = gtk::Window::builder().default_width(1000).default_height(760).build();
+        parent.present();
+        let dialog = share_preview_dialog(&parent, &preview);
+        let mut text = String::new();
+        collect(dialog.upcast_ref(), &mut text);
+        for expected in [
+            "Linear · New",
+            "(ID linear-2)",
+            "Vercel (Full API) · Already shared",
+            "Your personal server stays on in this profile.",
+            "Nothing new is uploaded to the team. Only this profile changes.",
+        ] {
+            assert!(text.contains(expected), "missing {expected}:\n{text}");
+        }
+        assert!(!text.contains("Added (0)"), "{text}");
+        assert!(dialog.is_response_enabled("push"));
+        assert_eq!(dialog.response_label("push"), "Use Team copies");
+        dialog.present();
+        if std::env::var_os("TOOLPORT_SHARE_PREVIEW_CAPTURE").is_some() {
+            let main_loop = gtk::glib::MainLoop::new(None, false);
+            let stop = main_loop.clone();
+            gtk::glib::timeout_add_seconds_local_once(180, move || stop.quit());
+            main_loop.run();
+        }
+        dialog.close();
+
+        let picker = share_choice_label("Linear", None, Some("Shared. The Team copy is in use in this profile."));
+        let mut text = String::new();
+        collect(picker.upcast_ref(), &mut text);
+        assert_eq!(text, "Linear\nShared. The Team copy is in use in this profile.\n");
+        parent.close();
+    }
 
     #[test]
     #[ignore = "requires an isolated GTK desktop; run in omabox"]
@@ -1296,22 +1472,6 @@ mod tests {
             .build();
         parent.present();
         let dialog = share_preview_dialog(&parent, &preview);
-        fn collect(widget: &gtk::Widget, text: &mut String) {
-            if let Some(expander) = widget.downcast_ref::<gtk::Expander>() {
-                if let Some(child) = expander.child() {
-                    collect(&child, text);
-                }
-            }
-            if let Some(label) = widget.downcast_ref::<gtk::Label>() {
-                text.push_str(&label.text());
-                text.push('\n');
-            }
-            let mut child = widget.first_child();
-            while let Some(w) = child {
-                collect(&w, text);
-                child = w.next_sibling();
-            }
-        }
         let mut text = String::new();
         collect(dialog.upcast_ref(), &mut text);
         for expected in [

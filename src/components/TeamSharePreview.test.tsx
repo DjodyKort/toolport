@@ -1,7 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { TeamSharePreview } from "./TeamSharePreview";
-import type { TeamPushPreview } from "@/lib/api";
+import { teamShareAction } from "@/lib/teamShare";
+import type { ShareSelectionPreview, TeamPushPreview } from "@/lib/api";
 
 const preview: TeamPushPreview = {
   baseVersion: 7,
@@ -35,6 +36,51 @@ const preview: TeamPushPreview = {
         { label: "Environment / credential keys", value: "API_TOKEN" },
       ],
     },
+  ],
+  selections: [],
+};
+
+function selection(
+  name: string,
+  teamChange: ShareSelectionPreview["teamChange"],
+  outcome: ShareSelectionPreview["local"]["outcome"],
+  message: string,
+): ShareSelectionPreview {
+  const id = name.toLowerCase();
+  return {
+    id,
+    name,
+    teamChange,
+    teamDetail: `${teamChange} detail.`,
+    notes: [],
+    local: { id, name, outcome, message },
+  };
+}
+
+const alreadyShared: TeamPushPreview = {
+  ...preview,
+  added: [],
+  changed: [],
+  removed: [],
+  definitions: [],
+  selections: [
+    {
+      ...selection(
+        "Linear",
+        "Already shared",
+        "switched",
+        "This profile switches to the Team copy. Your personal server stays saved and turns off here.",
+      ),
+      notes: [
+        "The team also has a separate definition named Linear (ID linear-2). It stays separate because sharing matches server IDs, not names.",
+      ],
+    },
+    selection(
+      "Vercel",
+      "Already shared",
+      "attention",
+      "This team copy already has its own local credentials. Keep its existing setup and enable it separately. Your personal server stays on in this profile.",
+    ),
   ],
 };
 
@@ -75,6 +121,33 @@ describe("Team share definition preview", () => {
     const { container } = render(<TeamSharePreview preview={contaminated} />);
     expect(container.innerHTML).not.toMatch(/SYNTHETIC_.*SECRET/);
     expect(screen.getByText("API_TOKEN")).toBeInTheDocument();
+  });
+
+  it("explains each selection's relationship to the team and its local route", () => {
+    render(<TeamSharePreview preview={alreadyShared} />);
+    expect(screen.getByText("Linear · Already shared")).toBeInTheDocument();
+    expect(screen.getByText(/\(ID linear-2\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Your personal server stays on in this profile/)).toHaveClass(
+      "text-destructive",
+    );
+    expect(
+      screen.getByText("Nothing new is uploaded to the team. Only this profile changes."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Added (0)")).toBeNull();
+  });
+
+  it("labels the confirm action by what the share will do", () => {
+    expect(teamShareAction(preview)).toBe("Share selected");
+    expect(teamShareAction(alreadyShared)).toBe("Use Team copies");
+    const nothing = {
+      ...alreadyShared,
+      selections: [selection("Linear", "Already shared", "kept", "keeps")],
+    };
+    expect(teamShareAction(nothing)).toBeNull();
+    render(<TeamSharePreview preview={nothing} />);
+    expect(
+      screen.getByText("Nothing to upload or switch for this selection."),
+    ).toBeInTheDocument();
   });
 
   it("opens a single definition and keeps multiple definitions compact", () => {

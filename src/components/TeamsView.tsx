@@ -1,4 +1,5 @@
 import { TeamSharePreview } from "./TeamSharePreview";
+import { teamShareAction } from "@/lib/teamShare";
 import { useEffect, useState } from "react";
 import {
   RefreshCw,
@@ -236,6 +237,21 @@ export function TeamsView({
       setNotice("Left the team. Its servers were removed; your own are untouched.");
     });
 
+  // The same local-only hint the GTK picker shows, from the last sync.
+  const shareHint = (server: (typeof personalServers)[number]) => {
+    const copies = teamServers.filter(
+      (s) => team?.managedServerIds?.[s.id] === server.id,
+    );
+    if (copies.length === 1)
+      return registry && isEnabled(registry, copies[0].id)
+        ? "Shared. The Team copy is in use in this profile."
+        : "Shared. The Team copy is not in use in this profile.";
+    const name = server.name.trim().toLowerCase();
+    return teamServers.some((s) => s.name.trim().toLowerCase() === name)
+      ? "The team has a different server with this name. Sharing adds a separate definition."
+      : null;
+  };
+
   const onPreviewPush = () =>
     run("preview-push", async () => {
       setPushPreview(await teamPushPreview(selectedIds));
@@ -246,11 +262,10 @@ export function TeamsView({
       if (!pushPreview) throw new Error("Review the shared-server update before saving.");
       const v = await teamPush(pushPreview, selectedIds);
       setPushPreview(null);
-      setNotice(
-        v.localSetupError
-          ? `Shared with your team (version ${v.version}). Local setup needs attention: ${v.localSetupError}`
-          : `Shared with your team (version ${v.version}). Your enabled selections are now in use in this profile.`,
-      );
+      // The summary names each selection and which route is on in this profile.
+      if (v.localSetupError || v.handoffs.some((h) => h.outcome === "attention"))
+        setSkipNote(v.summary);
+      else setNotice(v.summary);
       onRegistryChange(await getRegistry());
     });
 
@@ -394,12 +409,12 @@ export function TeamsView({
         </Callout>
       )}
       {skipNote && (
-        <Callout variant="warning" className="mb-4">
+        <Callout variant="warning" className="mb-4 whitespace-pre-line">
           {skipNote}
         </Callout>
       )}
       {notice && (
-        <Callout variant="success" className="mb-4">
+        <Callout variant="success" className="mb-4 whitespace-pre-line">
           {notice}
         </Callout>
       )}
@@ -686,6 +701,9 @@ export function TeamsView({
                         {server.env.length
                           ? `Local credentials: ${server.env.map((e) => e.key).join(", ")}`
                           : "No environment credentials declared"}
+                        {shareHint(server) && (
+                          <span className="block">{shareHint(server)}</span>
+                        )}
                       </span>
                     </label>
                   ))}
@@ -709,7 +727,10 @@ export function TeamsView({
                   title="Share selected servers with your team?"
                   contentClassName="sm:max-w-lg"
                   description={pushPreview && <TeamSharePreview preview={pushPreview} />}
-                  confirmLabel="Share selected"
+                  confirmLabel={
+                    (pushPreview && teamShareAction(pushPreview)) ?? "Share selected"
+                  }
+                  confirmDisabled={pushPreview !== null && !teamShareAction(pushPreview)}
                   onConfirm={onPush}
                 />
               </div>

@@ -101,6 +101,9 @@ describe("TeamsView shared-server update", () => {
   it.each([null, "Unable to refresh local setup"])(
     "publishes only after confirmation and distinguishes local outcome: %s",
     async (localSetupError) => {
+      const summary = localSetupError
+        ? `Shared with your team (version 8).\nLocal setup needs attention: ${localSetupError}`
+        : "Shared with your team (version 8).\nPersonal GitHub: Now uses the Team copy in this profile.";
       const preview = {
         baseVersion: 7,
         localFingerprint: "preview-fingerprint",
@@ -118,9 +121,16 @@ describe("TeamsView shared-server update", () => {
             fields: [],
           },
         ],
+        selections: [],
       };
       api.teamPushPreview.mockResolvedValue(preview);
-      api.teamPush.mockResolvedValue({ version: 8, localSetupError });
+      api.teamPush.mockResolvedValue({
+        version: 8,
+        published: true,
+        localSetupError,
+        handoffs: [],
+        summary,
+      });
 
       render(<TeamsView registry={registry} onRegistryChange={vi.fn()} />);
       if (!(screen.getByRole("checkbox") as HTMLInputElement).checked)
@@ -141,13 +151,189 @@ describe("TeamsView shared-server update", () => {
 
       await userEvent.click(screen.getByRole("button", { name: "Share selected" }));
       await waitFor(() => expect(api.teamPush).toHaveBeenCalledWith(preview, ["github"]));
-      expect(await screen.findByText(/version 8/i)).toBeInTheDocument();
+      const notice = await screen.findByText(/version 8/i);
+      expect(notice).toHaveTextContent(summary.replace("\n", " "));
       expect(api.teamSync).not.toHaveBeenCalled();
       expect(api.getRegistry).toHaveBeenCalled();
       if (localSetupError)
         expect(screen.getByText(/Local setup needs attention/)).toBeInTheDocument();
     },
   );
+
+  it("switches to Team copies without uploading when every selection is already shared", async () => {
+    const handoff = {
+      id: "github",
+      name: "Personal GitHub",
+      outcome: "switched" as const,
+      message: "Now uses the Team copy in this profile.",
+    };
+    const preview = {
+      baseVersion: 7,
+      localFingerprint: "preview-fingerprint",
+      added: [],
+      changed: [],
+      removed: [],
+      definitions: [],
+      selections: [
+        {
+          id: "github",
+          name: "Personal GitHub",
+          teamChange: "Already shared",
+          teamDetail:
+            "The Team already has this exact definition, so nothing changes for the team.",
+          notes: [],
+          local: { ...handoff, message: "This profile switches to the Team copy." },
+        },
+      ],
+    };
+    api.teamPushPreview.mockResolvedValue(preview);
+    api.teamPush.mockResolvedValue({
+      version: 7,
+      published: false,
+      localSetupError: null,
+      handoffs: [handoff],
+      summary:
+        "Already shared with your team (version 7). Nothing new was uploaded.\nPersonal GitHub: Now uses the Team copy in this profile.",
+    });
+
+    render(<TeamsView registry={registry} onRegistryChange={vi.fn()} />);
+    if (!(screen.getByRole("checkbox") as HTMLInputElement).checked)
+      await userEvent.click(screen.getByRole("checkbox"));
+    await userEvent.click(screen.getByRole("button", { name: "Share selected servers" }));
+    expect(
+      await screen.findByText("Personal GitHub · Already shared"),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Use Team copies" }));
+    await waitFor(() => expect(api.teamPush).toHaveBeenCalledWith(preview, ["github"]));
+    expect(await screen.findByText(/Nothing new was uploaded/)).toBeInTheDocument();
+  });
+
+  it("shows a selection that needs separate setup as a warning with its route", async () => {
+    const preview = {
+      baseVersion: 7,
+      localFingerprint: "preview-fingerprint",
+      added: [],
+      changed: ["Personal GitHub"],
+      removed: [],
+      definitions: [],
+      selections: [],
+    };
+    const summary =
+      "Shared with your team (version 8).\nPersonal GitHub: This team copy already has its own local credentials. Your personal server stays on in this profile.";
+    api.teamPushPreview.mockResolvedValue(preview);
+    api.teamPush.mockResolvedValue({
+      version: 8,
+      published: true,
+      localSetupError: null,
+      handoffs: [
+        {
+          id: "github",
+          name: "Personal GitHub",
+          outcome: "attention",
+          message:
+            "This team copy already has its own local credentials. Your personal server stays on in this profile.",
+        },
+      ],
+      summary,
+    });
+
+    render(<TeamsView registry={registry} onRegistryChange={vi.fn()} />);
+    if (!(screen.getByRole("checkbox") as HTMLInputElement).checked)
+      await userEvent.click(screen.getByRole("checkbox"));
+    await userEvent.click(screen.getByRole("button", { name: "Share selected servers" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Share selected" }));
+    const warning = await screen.findByText(/stays on in this profile/);
+    expect(warning.className).toMatch(/text-warning/);
+  });
+
+  it("disables the confirm when nothing would be uploaded or switched", async () => {
+    api.teamPushPreview.mockResolvedValue({
+      baseVersion: 7,
+      localFingerprint: "preview-fingerprint",
+      added: [],
+      changed: [],
+      removed: [],
+      definitions: [],
+      selections: [
+        {
+          id: "github",
+          name: "Personal GitHub",
+          teamChange: "Already shared",
+          teamDetail:
+            "The Team already has this exact definition, so nothing changes for the team.",
+          notes: [],
+          local: {
+            id: "github",
+            name: "Personal GitHub",
+            outcome: "kept",
+            message: "This profile keeps using the Team copy.",
+          },
+        },
+      ],
+    });
+    render(<TeamsView registry={registry} onRegistryChange={vi.fn()} />);
+    if (!(screen.getByRole("checkbox") as HTMLInputElement).checked)
+      await userEvent.click(screen.getByRole("checkbox"));
+    await userEvent.click(screen.getByRole("button", { name: "Share selected servers" }));
+    expect(await screen.findByRole("button", { name: "Share selected" })).toBeDisabled();
+    expect(api.teamPush).not.toHaveBeenCalled();
+  });
+
+  it("hints how each personal server relates to the team from the last sync", () => {
+    const withCopies: Registry = {
+      ...registry,
+      servers: [
+        ...registry.servers,
+        {
+          id: "linear",
+          name: "Linear",
+          transport: "http",
+          command: null,
+          args: [],
+          env: [],
+          url: "https://mcp.linear.app/mcp",
+          source: null,
+        },
+        {
+          id: "team_github-1",
+          name: "Personal GitHub",
+          transport: "stdio",
+          command: "python3",
+          args: [],
+          env: [],
+          url: null,
+          source: "team:team-1",
+        },
+        {
+          id: "team_linear-portal-1",
+          name: " linear ",
+          transport: "http",
+          command: null,
+          args: [],
+          env: [],
+          url: "https://mcp.linear.app/mcp",
+          source: "team:team-1",
+        },
+      ] as Registry["servers"],
+      profiles: [{ id: "default", name: "Default", enabledServerIds: ["team_github-1"] }],
+      team: {
+        ...registry.team!,
+        managedServerIds: {
+          "team_github-1": "github",
+          "team_linear-portal-1": "linear-portal",
+        },
+      },
+    };
+    render(<TeamsView registry={withCopies} onRegistryChange={vi.fn()} />);
+    expect(
+      screen.getByText("Shared. The Team copy is in use in this profile."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "The team has a different server with this name. Sharing adds a separate definition.",
+      ),
+    ).toBeInTheDocument();
+  });
 
   it.each([
     {
@@ -217,6 +403,7 @@ describe("TeamsView shared-server update", () => {
       changed: ["GitHub"],
       removed: [],
       definitions: [],
+      selections: [],
     };
     api.teamPushPreview.mockResolvedValue(preview);
     api.teamPush.mockRejectedValue(
