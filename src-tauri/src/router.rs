@@ -537,6 +537,31 @@ impl SharedServerSlot {
 /// returns `None` if the server still can't be reached.
 pub type Reconnect = Box<dyn Fn() -> Option<DownstreamServer> + Send + Sync>;
 
+/// Whether an ambiguous health failure may replay the current operation after
+/// rebuilding its connection. Tool annotations are not evidence of safe replay.
+#[derive(Clone, Copy)]
+enum ReplayPolicy {
+    ReadOnly,
+    NoAmbiguousReplay,
+}
+
+impl ReplayPolicy {
+    fn for_task(method: &str) -> Self {
+        if method == "tasks/get" {
+            Self::ReadOnly
+        } else {
+            Self::NoAmbiguousReplay
+        }
+    }
+
+    fn uncertain_failure<'a>(self, error: &'a TransportError) -> Option<&'a TransportError> {
+        match (self, error) {
+            (Self::NoAmbiguousReplay, TransportError::Unavailable(_)) => Some(error),
+            _ => None,
+        }
+    }
+}
+
 /// After this many consecutive health failures, a server's circuit opens.
 const BREAKER_FAILURE_THRESHOLD: u32 = 3;
 /// How long a tripped circuit stays open before one probe call is let through.
@@ -1562,6 +1587,7 @@ impl Router {
         slot: &Arc<ServerSlot>,
         cancel: Option<&CancelContext>,
         dispatch_cancelled_continuation: bool,
+        replay_policy: ReplayPolicy,
         mut f: F,
     ) -> Result<T, String>
     where
@@ -1628,7 +1654,9 @@ impl Router {
                     if e.is_health_failure() {
                         // The server has now failed for a full cooldown and the probe
                         // confirms it's still down. Re-spawn the connection once and
-                        // retry: this recovers a crashed stdio child or a dropped remote
+                        // replay only when safe: an uncertain mutation instead keeps
+                        // its original error and recovers transport for future calls.
+                        // This recovers a crashed stdio child or a dropped remote
                         // that the plain breaker would otherwise fast-fail forever (its
                         // self-heal only fires when EVERY server is dead). Gated on the
                         // probe so a live server is never re-spawned on a transient blip.
@@ -1638,7 +1666,12 @@ impl Router {
                                     "request cancelled before downstream reconnect".to_string()
                                 );
                             }
-                            if let Some(v) = self.reconnect_and_retry(slot, cancel, &mut f) {
+                            if let Some(v) = self.reconnect_and_retry(
+                                slot,
+                                cancel,
+                                replay_policy.uncertain_failure(&e),
+                                &mut f,
+                            ) {
                                 return v;
                             }
                         }
@@ -1654,7 +1687,9 @@ impl Router {
     }
 
     /// Re-spawn a slot's downstream connection and retry the call once on the fresh
-    /// transport. Returns `Some(result)` when a reconnect was attempted (so the caller
+    /// transport only when replay is safe. `uncertain_failure` instead preserves
+    /// the original error and installs the fresh connection for future requests.
+    /// Returns `Some(result)` when a reconnect was attempted (so the caller
     /// stops), or `None` when the slot has no reconnect factory (fall through to the
     /// normal breaker-failure path). The spawn runs without holding the `inner` lock so
     /// a slow re-spawn doesn't wedge other callers to the same server.
@@ -1662,6 +1697,7 @@ impl Router {
         &self,
         slot: &Arc<ServerSlot>,
         cancel: Option<&CancelContext>,
+        uncertain_failure: Option<&TransportError>,
         f: &mut F,
     ) -> Option<Result<T, String>>
     where
@@ -1688,6 +1724,15 @@ impl Router {
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
             *server = fresh; // swap the live child/connection for the fresh one
             slot.tool_revision.fetch_add(1, Ordering::AcqRel);
+            if let Some(error) = uncertain_failure {
+                // Recovery invalidates cached tool identity but cannot prove whether
+                // the previous mutation completed. Use fresh transport next time.
+                slot.breaker
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .record_success();
+                return Some(Err(error.to_string()));
+            }
             f(&mut server)
         };
         let mut breaker = slot
@@ -1750,6 +1795,7 @@ impl Router {
             &slot,
             cancel.as_ref(),
             mrtr.is_some_and(|request| !request.is_empty()),
+            ReplayPolicy::NoAmbiguousReplay,
             |server| {
                 let supports_tasks = server
                     .extensions()
@@ -1809,9 +1855,13 @@ impl Router {
         let slot = self.slot_for(&server_id)?;
         let mut forwarded = params;
         forwarded["taskId"] = json!(native_task_id);
-        let result = self.call_with_retry(&slot, cancel.as_ref(), false, |server| {
-            server.task_request(method, forwarded.clone(), cancel.clone(), meta)
-        })?;
+        let result = self.call_with_retry(
+            &slot,
+            cancel.as_ref(),
+            false,
+            ReplayPolicy::for_task(method),
+            |server| server.task_request(method, forwarded.clone(), cancel.clone(), meta),
+        )?;
         let mut result = result;
         if method == "tasks/get" {
             if result.get("taskId").and_then(Value::as_str).is_none() {
@@ -1969,6 +2019,7 @@ impl Router {
             &slot,
             cancel.as_ref(),
             mrtr.is_some_and(|request| !request.is_empty()),
+            ReplayPolicy::ReadOnly,
             |server| server.read_resource_with_cancel_and_mrtr(uri, cancel.clone(), meta, mrtr),
         )
     }
@@ -1982,7 +2033,13 @@ impl Router {
             .ok_or_else(|| format!("no server owns resource '{uri}'"))?
             .to_string();
         let slot = self.slot_for(&server_id)?;
-        self.call_with_retry(&slot, None, false, |server| server.subscribe_resource(uri))
+        self.call_with_retry(
+            &slot,
+            None,
+            false,
+            ReplayPolicy::NoAmbiguousReplay,
+            |server| server.subscribe_resource(uri),
+        )
     }
 
     /// Unsubscribe from resource-updated notifications on the owning downstream
@@ -2007,9 +2064,13 @@ impl Router {
         uri: &str,
     ) -> Result<Value, String> {
         let slot = self.slot_for(server_id)?;
-        self.call_with_retry(&slot, None, false, |server| {
-            server.unsubscribe_resource(uri)
-        })
+        self.call_with_retry(
+            &slot,
+            None,
+            false,
+            ReplayPolicy::NoAmbiguousReplay,
+            |server| server.unsubscribe_resource(uri),
+        )
     }
 
     /// Get a prompt by its exposed name, forwarding the server's real name.
@@ -2046,6 +2107,7 @@ impl Router {
             &slot,
             cancel.as_ref(),
             mrtr.is_some_and(|request| !request.is_empty()),
+            ReplayPolicy::ReadOnly,
             |server| {
                 server.get_prompt_with_cancel_and_mrtr(
                     &name,
@@ -2071,9 +2133,13 @@ impl Router {
     ) -> Result<Value, String> {
         let (server_id, forwarded) = self.resolve_completion(&params)?;
         let slot = self.slot_for(&server_id)?;
-        self.call_with_retry(&slot, cancel.as_ref(), false, |server| {
-            server.complete_with_cancel(forwarded.clone(), cancel.clone())
-        })
+        self.call_with_retry(
+            &slot,
+            cancel.as_ref(),
+            false,
+            ReplayPolicy::ReadOnly,
+            |server| server.complete_with_cancel(forwarded.clone(), cancel.clone()),
+        )
     }
 }
 
@@ -2850,7 +2916,8 @@ mod tests {
         let router = Router::new();
         // Factory hands back a healthy connection, mirroring a re-spawn that succeeds.
         let slot = dead_slot(Some(Box::new(|| Some(mock_server("s")))));
-        let out = router.reconnect_and_retry(&slot, None, &mut |ds| ds.call("echo", json!({})));
+        let out =
+            router.reconnect_and_retry(&slot, None, None, &mut |ds| ds.call("echo", json!({})));
         // The probe re-spawned the server and the retried call went through.
         let value = out.expect("reconnect attempted").expect("call recovered");
         assert!(serde_json::to_string(&value).unwrap().contains("s:echo"));
@@ -2872,7 +2939,7 @@ mod tests {
         // caller must fall through to record the failure.
         let slot = dead_slot(Some(Box::new(|| None)));
         let out: Option<Result<Value, String>> =
-            router.reconnect_and_retry(&slot, None, &mut |ds| ds.call("echo", json!({})));
+            router.reconnect_and_retry(&slot, None, None, &mut |ds| ds.call("echo", json!({})));
         assert!(
             out.is_none(),
             "a failed re-spawn falls through to the breaker"
@@ -2894,7 +2961,7 @@ mod tests {
         let calls = Arc::clone(&retried_calls);
 
         let result = router
-            .reconnect_and_retry(&slot, Some(&cancel), &mut move |ds| {
+            .reconnect_and_retry(&slot, Some(&cancel), None, &mut move |ds| {
                 calls.fetch_add(1, Ordering::SeqCst);
                 ds.call("echo", json!({}))
             })
@@ -2920,7 +2987,7 @@ mod tests {
         let slot = dead_slot(Some(Box::new(|| Some(mock_server("s")))));
 
         let result: Result<Value, String> = router
-            .reconnect_and_retry(&slot, Some(&cancel), &mut move |_server| {
+            .reconnect_and_retry(&slot, Some(&cancel), None, &mut move |_server| {
                 assert!(cancel_from_retry.cancel("retry-cancel", Some("user pressed stop")));
                 Err(TransportError::Cancelled(
                     "request cancelled during reconnected call".to_string(),
@@ -2946,8 +3013,275 @@ mod tests {
         // reconnect is skipped and the breaker path handles the failure.
         let slot = dead_slot(None);
         let out: Option<Result<Value, String>> =
-            router.reconnect_and_retry(&slot, None, &mut |ds| ds.call("echo", json!({})));
+            router.reconnect_and_retry(&slot, None, None, &mut |ds| ds.call("echo", json!({})));
         assert!(out.is_none());
+    }
+
+    /// An inert transport records a completed effect before losing the reply.
+    /// Its healthy replacement uses the same counter, so a replay is observable.
+    struct LostReplyTransport {
+        inner: Box<dyn Transport>,
+        operation: &'static str,
+        lose_reply: bool,
+        effects: Arc<AtomicU32>,
+    }
+
+    impl Transport for LostReplyTransport {
+        fn request(&mut self, method: &str, params: Value) -> Result<Value, TransportError> {
+            if method == self.operation {
+                self.effects.fetch_add(1, Ordering::SeqCst);
+                if self.lose_reply {
+                    return Err(TransportError::Unavailable(
+                        "reply lost after effect".into(),
+                    ));
+                }
+            }
+            let mut result = self.inner.request(method, params)?;
+            if method == "tools/list" {
+                // Even favorable server hints cannot prove mutation replay safe.
+                for tool in result["tools"].as_array_mut().unwrap() {
+                    tool["annotations"] = json!({
+                        "readOnlyHint": true,
+                        "idempotentHint": true,
+                        "destructiveHint": false
+                    });
+                }
+            }
+            Ok(result)
+        }
+
+        fn notify(&mut self, method: &str, params: Value) -> Result<(), TransportError> {
+            self.inner.notify(method, params)
+        }
+    }
+
+    fn lost_reply_server(
+        operation: &'static str,
+        lose_reply: bool,
+        effects: Arc<AtomicU32>,
+    ) -> DownstreamServer {
+        let inner: Box<dyn Transport> = if operation.starts_with("tasks/") {
+            Box::new(TaskTransport {
+                seen: Arc::new(Mutex::new(Vec::new())),
+                advertise_tasks: true,
+            })
+        } else {
+            Box::new(MockTransport { label: "s".into() })
+        };
+        let mut server = DownstreamServer::connect(
+            "s".into(),
+            Box::new(LostReplyTransport {
+                inner,
+                operation,
+                lose_reply,
+                effects,
+            }),
+        )
+        .unwrap();
+        server.load_resources_prompts();
+        server
+    }
+
+    fn expired_probe_router(
+        operation: &'static str,
+        effects: Arc<AtomicU32>,
+        reconnect: Option<Reconnect>,
+    ) -> Router {
+        let mut router = Router::new();
+        router.add_with_reconnect(lost_reply_server(operation, true, effects), reconnect);
+        let mut breaker = router.servers[0].breaker.lock().unwrap();
+        breaker.consecutive_failures = BREAKER_FAILURE_THRESHOLD;
+        breaker.open_until = Some(Instant::now() - Duration::from_secs(1));
+        drop(breaker);
+        router
+    }
+
+    #[test]
+    fn replay_policy_ambiguous_tool_effect_is_not_replayed_but_next_call_uses_fresh_connection() {
+        let effects = Arc::new(AtomicU32::new(0));
+        let fresh_effects = Arc::clone(&effects);
+        let reconnects = Arc::new(AtomicU32::new(0));
+        let factory_calls = Arc::clone(&reconnects);
+        let router = expired_probe_router(
+            "tools/call",
+            Arc::clone(&effects),
+            Some(Box::new(move || {
+                factory_calls.fetch_add(1, Ordering::SeqCst);
+                Some(lost_reply_server(
+                    "tools/call",
+                    false,
+                    Arc::clone(&fresh_effects),
+                ))
+            })),
+        );
+
+        let revision_before = router.servers[0].tool_revision.load(Ordering::Acquire);
+        let error = router
+            .route_call("s__echo", json!({ "request": "first" }))
+            .unwrap_err();
+        assert_eq!(error, "reply lost after effect");
+        assert_eq!(
+            effects.load(Ordering::SeqCst),
+            1,
+            "completed effect must not replay"
+        );
+        assert_eq!(reconnects.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            router.servers[0].tool_revision.load(Ordering::Acquire),
+            revision_before + 1,
+            "fresh transport must invalidate tool identity before the uncertain error returns"
+        );
+        assert_eq!(
+            router.servers[0]
+                .breaker
+                .lock()
+                .unwrap()
+                .consecutive_failures,
+            0
+        );
+        assert!(router
+            .route_call("s__echo", json!({ "request": "next" }))
+            .is_ok());
+        assert_eq!(
+            effects.load(Ordering::SeqCst),
+            2,
+            "only the next independent call runs"
+        );
+        assert_eq!(reconnects.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn replay_policy_preserves_classified_retry_for_tool_calls() {
+        let (server, attempts) = retry_server_inspectable("retry", 1);
+        let mut router = Router::new();
+        router.add(server);
+        let result = router.route_call("retry__flaky", json!({})).unwrap();
+        assert_eq!(result["content"][0]["text"], "ok-after-retry");
+        assert_eq!(attempts.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn replay_policy_read_probe_can_replay_after_transport_recovery() {
+        let reads = Arc::new(AtomicU32::new(0));
+        let fresh_reads = Arc::clone(&reads);
+        let router = expired_probe_router(
+            "resources/read",
+            Arc::clone(&reads),
+            Some(Box::new(move || {
+                Some(lost_reply_server(
+                    "resources/read",
+                    false,
+                    Arc::clone(&fresh_reads),
+                ))
+            })),
+        );
+        assert!(router.read_resource("s://readme").is_ok());
+        assert_eq!(
+            reads.load(Ordering::SeqCst),
+            2,
+            "read probe retains safe recovery"
+        );
+        assert_eq!(
+            router.servers[0]
+                .breaker
+                .lock()
+                .unwrap()
+                .consecutive_failures,
+            0
+        );
+    }
+
+    #[test]
+    fn replay_policy_task_mutations_do_not_replay_while_task_get_recovers() {
+        for method in ["tasks/update", "tasks/cancel", "tasks/get"] {
+            let effects = Arc::new(AtomicU32::new(0));
+            let fresh_effects = Arc::clone(&effects);
+            let router = expired_probe_router(
+                method,
+                Arc::clone(&effects),
+                Some(Box::new(move || {
+                    Some(lost_reply_server(method, false, Arc::clone(&fresh_effects)))
+                })),
+            );
+            let slot = router.slot_for("s").unwrap();
+            // Raw task ids keep this fixture independent of the OS secret store.
+            let result = router.call_with_retry(
+                &slot,
+                None,
+                false,
+                ReplayPolicy::for_task(method),
+                |server| server.task_request(method, json!({ "taskId": "fixture" }), None, None),
+            );
+            if method == "tasks/get" {
+                assert!(result.is_ok());
+                assert_eq!(effects.load(Ordering::SeqCst), 2);
+            } else {
+                assert_eq!(result.unwrap_err(), "reply lost after effect");
+                assert_eq!(effects.load(Ordering::SeqCst), 1);
+            }
+            assert_eq!(slot.breaker.lock().unwrap().consecutive_failures, 0);
+        }
+    }
+
+    #[test]
+    fn replay_policy_uncertain_mutation_keeps_failure_when_factory_is_missing_or_fails() {
+        for failed_factory in [false, true] {
+            let effects = Arc::new(AtomicU32::new(0));
+            let reconnect: Option<Reconnect> = if failed_factory {
+                Some(Box::new(|| None))
+            } else {
+                None
+            };
+            let router = expired_probe_router("tools/call", Arc::clone(&effects), reconnect);
+            assert_eq!(
+                router.route_call("s__echo", json!({})).unwrap_err(),
+                "reply lost after effect"
+            );
+            assert_eq!(effects.load(Ordering::SeqCst), 1);
+            assert!(router.servers[0]
+                .breaker
+                .lock()
+                .unwrap()
+                .open_until
+                .is_some());
+        }
+    }
+
+    #[test]
+    fn replay_policy_cancellation_during_uncertain_reconnect_does_not_emit_another_effect() {
+        let effects = Arc::new(AtomicU32::new(0));
+        let fresh_effects = Arc::clone(&effects);
+        let cancellations = CancelRegistry::new();
+        assert!(cancellations.begin_client_request("uncertain-cancel".into()));
+        let cancel = cancellations.context("uncertain-cancel".into());
+        let cancel_from_factory = cancellations.clone();
+        let router = expired_probe_router(
+            "tools/call",
+            Arc::clone(&effects),
+            Some(Box::new(move || {
+                assert!(cancel_from_factory.cancel("uncertain-cancel", Some("stop")));
+                Some(lost_reply_server(
+                    "tools/call",
+                    false,
+                    Arc::clone(&fresh_effects),
+                ))
+            })),
+        );
+        let error = router
+            .route_call_with_cancel("s__echo", json!({}), Some(cancel), None)
+            .unwrap_err();
+        assert!(error.contains("cancelled"));
+        assert_eq!(effects.load(Ordering::SeqCst), 1);
+        // Cancellation adds no health penalty to the pre-existing probe streak.
+        assert_eq!(
+            router.servers[0]
+                .breaker
+                .lock()
+                .unwrap()
+                .consecutive_failures,
+            BREAKER_FAILURE_THRESHOLD
+        );
+        cancellations.finish_client_request("uncertain-cancel");
     }
 
     #[test]
