@@ -195,9 +195,12 @@ pub(crate) fn try_acquire_oauth_lock(
         .truncate(false)
         .open(path.with_extension("owner"))
         .map_err(|error| format!("could not open oauth ownership lock: {error}"))?;
+    // Windows reports ERROR_LOCK_VIOLATION rather than WouldBlock.
     match owner.try_lock_exclusive() {
         Ok(()) => {}
-        Err(error) if error.kind() == ErrorKind::WouldBlock => return Ok(None),
+        Err(error) if error.raw_os_error() == fs2::lock_contended_error().raw_os_error() => {
+            return Ok(None)
+        }
         Err(error) => return Err(format!("could not lock oauth ownership: {error}")),
     }
     // Compatibility with older shells that only write a lease. For new shells,
