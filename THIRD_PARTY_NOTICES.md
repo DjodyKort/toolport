@@ -46,3 +46,9 @@ Selected client and server icon data is adapted from
 is released under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 Individual marks may remain subject to their owners' trademark and usage rules.
 See the [Simple Icons disclaimer](https://github.com/simple-icons/simple-icons/blob/develop/DISCLAIMER.md).
+
+## RevenueCat
+
+The RevenueCat logomark is vendored from the official
+[RevenueCat press kit](https://www.revenuecat.com/press-kit). It is used only to
+identify the corresponding server. The mark remains the property of RevenueCat.

@@ -79,7 +79,7 @@ fn category_for(name: &str) -> &'static str {
         "Firecrawl" | "Apify" | "Browserbase" => "Web & automation",
         "Stripe" | "Stripe (Full API)" | "Notion" | "Composio" | "Linear" | "Atlassian"
         | "Airtable" | "Todoist" | "Slack" | "Resend" | "Figma" | "Postiz" | "Twilio" | "n8n"
-        | "Langfuse" | "Postman" => "Apps & productivity",
+        | "Langfuse" | "Postman" | "Trello" => "Apps & productivity",
         "Filesystem"
         | "Fetch"
         | "Git"
@@ -182,7 +182,7 @@ fn credentials_for(name: &str) -> Option<(&'static str, &'static str)> {
             "Enter one allowed directory in Launch setup. Add more directories as literal arguments if needed.",
         ),
         // OAuth: authorize in the browser, no manual token.
-        "GitHub" | "Vercel" | "Sentry" | "Notion" | "Linear" | "Stripe" | "Postman" => (
+        "GitHub" | "Vercel" | "Sentry" | "Notion" | "Linear" | "Stripe" | "Postman" | "Trello" => (
             "",
             "OAuth: click Authenticate when prompted; no manual token needed.",
         ),
@@ -285,6 +285,7 @@ pub fn curated() -> Vec<CatalogEntry> {
         http("Notion", "Search and edit Notion pages and databases.", "https://mcp.notion.com/mcp", "https://developers.notion.com"),
         http("Postman", "Manage Postman workspaces, collections, and environments.", "https://mcp.postman.com/minimal", "https://github.com/postmanlabs/postman-mcp-server"),
         http("Composio", "Connect AI agents to 1,000+ apps (Gmail, Slack, GitHub, Notion, Linear, and more).", "https://connect.composio.dev/mcp", "https://composio.dev"),
+        http("Trello", "Boards, lists, cards, checklists, and workspace search.", "https://mcp.trello.com/v1", "https://github.com/atlassian/trello-mcp-server"),
         http("Linear", "Issues, projects, and cycles in Linear.", "https://mcp.linear.app/mcp", "https://linear.app/docs"),
         http("Atlassian", "Jira issues and Confluence pages.", "https://mcp.atlassian.com/v2/mcp?tools=all", "https://support.atlassian.com/atlassian-ai-gateway/docs/get-started-with-the-atlassian-remote-mcp-server/"),
         cmd("Airtable", "Read and write records in your Airtable bases.", "npx", &["-y", "airtable-mcp-server"], &["AIRTABLE_API_KEY"], "https://github.com/domdomegg/airtable-mcp-server"),
@@ -933,6 +934,20 @@ mod tests {
         assert!(is_active(&item("active")));
         assert!(!is_active(&item("deprecated")));
         assert!(!is_active(&item("deleted")));
+    }
+
+    #[test]
+    fn trello_is_a_hosted_oauth_catalog_entry() {
+        let entries = curated();
+        let trello = entries.iter().find(|entry| entry.name == "Trello").unwrap();
+        assert_eq!(trello.transport, "http");
+        assert_eq!(trello.url.as_deref(), Some("https://mcp.trello.com/v1"));
+        assert!(trello.command.is_none());
+        assert!(trello.env_keys.is_empty());
+        assert_eq!(trello.category, "Apps & productivity");
+        assert!(trello.setup_hint.as_deref().unwrap().contains("OAuth"));
+        assert!(trello.credentials_url.is_none());
+        assert_eq!(filter_catalog(entries, "trello").len(), 1);
     }
 
     #[test]
