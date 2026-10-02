@@ -15,7 +15,87 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Select checks
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    outputs:
+      rust: ${{ steps.select.outputs.rust }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+      - name: Test check selection and required gate
+        run: node --test .github/scripts/ci-policy.test.mjs
+      - name: Select changed native checks
+        id: select
+        env:
+          CI_EVENT: ${{ github.event_name }}
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node .github/scripts/ci-policy.mjs select
+
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Production dependency audit
+        run: npm run audit:prod
+
+      # Enforce consistent formatting before anything else — fails fast on
+      # formatting-only issues so the contributor doesn't wait for a full build.
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      # Frontend type-check + build (`build` is `tsc && vite build`). Also produces
+      # dist/, which tauri-build expects when compiling the Rust crate below.
+      - name: Frontend type-check + build
+        run: npm run build
+
+      - name: Frontend tests
+        run: npm run test
+
+      - name: Startup bundle budget
+        run: npm run bench:bundle
+
+      - name: Install browser for offline UI smoke
+        timeout-minutes: 5
+        run: npx playwright install --with-deps chromium
+
+      - name: Offline browser fixture smoke
+        run: npm run smoke:browser
+
+      - name: Keep browser failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: browser-smoke-diagnostics
+          path: .verify/browser-*/
+          include-hidden-files: true
+          if-no-files-found: ignore
+
   linux-native:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     name: Linux-native GTK preview
     timeout-minutes: 30
     runs-on: ubuntu-24.04
@@ -31,16 +111,12 @@ jobs:
       - name: Install GTK build dependencies
         run: scripts/ci-apt-install.sh build-essential libssl-dev pkg-config libdbus-1-dev libgtk-4-dev libadwaita-1-dev
 
-      - name: Cache cargo + target
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            src-tauri/target
-          key: ${{ runner.os }}-gtk-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-gtk-cargo-
-
+          workspaces: src-tauri
+          key: ci-gtk
+          cache-bin: "false"
       - name: Build the native GTK shell
         run: cargo check --manifest-path src-tauri/Cargo.toml --no-default-features --features gtk-desktop --bin toolport-gtk
 
@@ -50,6 +126,8 @@ jobs:
           --features gtk-desktop --lib linux_native::
 
   clippy:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     name: Rust Clippy
     # Without this the job inherits GitHub's 6-hour default. A flaky Ubuntu mirror
     # hung `apt-get update` here for 34 minutes with no compiler ever reached, and
@@ -74,10 +152,19 @@ jobs:
 
       # --no-default-features matches every other Rust job here. With the desktop
       # feature on, this needs the GTK and WebKit headers and dies building gdk-sys.
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: src-tauri
+          key: ci-clippy
+          cache-bin: "false"
+
       - name: Clippy
         run: cargo clippy --manifest-path src-tauri/Cargo.toml --no-default-features --lib --bins
 
   build-test:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     name: Linux build + test
     # Same gap as clippy above, and this one feeds the required merge gate, so a
     # hang here stalls every PR rather than one advisory check. Higher than the
@@ -108,54 +195,15 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/share/swift 2>/dev/null || true
           sudo fallocate -l 8G /mnt/ci-swap && sudo chmod 600 /mnt/ci-swap && sudo mkswap /mnt/ci-swap && sudo swapon /mnt/ci-swap || true
 
-      - name: Cache cargo + target
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            src-tauri/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
-
+          workspaces: src-tauri
+          key: ci-desktop
+          cache-bin: "false"
       - run: npm ci
-
-      - name: Production dependency audit
-        run: npm run audit:prod
-
-      # Enforce consistent formatting before anything else — fails fast on
-      # formatting-only issues so the contributor doesn't wait for a full build.
-      - name: Check formatting
-        run: npm run format:check
-
-      - name: Lint
-        run: npm run lint
-
-      # Frontend type-check + build (`build` is `tsc && vite build`). Also produces
-      # dist/, which tauri-build expects when compiling the Rust crate below.
-      - name: Frontend type-check + build
+      - name: Build frontend assets for the desktop Rust tests
         run: npm run build
-
-      - name: Frontend tests
-        run: npm run test
-
-      - name: Startup bundle budget
-        run: npm run bench:bundle
-
-      - name: Install browser for offline UI smoke
-        run: npx playwright install --with-deps chromium
-
-      - name: Offline browser fixture smoke
-        run: npm run smoke:browser
-
-      - name: Keep browser failure diagnostics
-        if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: browser-smoke-diagnostics
-          path: .verify/browser-*/
-          include-hidden-files: true
-          if-no-files-found: ignore
 
       # Run the library, standalone binary, and integration targets explicitly.
       # Keeping all three flags prevents any test class from silently dropping
@@ -170,6 +218,8 @@ jobs:
         run: npm run smoke:headless
 
   cross-platform-rust:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     name: Headless Rust tests (${{ matrix.os }})
     timeout-minutes: 30
     strategy:
@@ -195,15 +245,19 @@ jobs:
         if: matrix.os == 'ubuntu-22.04'
         run: scripts/ci-apt-install.sh build-essential libssl-dev pkg-config libdbus-1-dev
 
-      - name: Cache cargo + target
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            src-tauri/target
-          key: ${{ runner.os }}-headless-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-headless-cargo-
+          workspaces: src-tauri
+          key: ci-headless
+          cache-bin: "false"
+      - name: Compile Rust tests and record build timings
+        if: matrix.os != 'windows-latest'
+        run: cargo test --manifest-path src-tauri/Cargo.toml --no-default-features --lib --bins --tests --no-run --timings
+
+      - name: Compile Windows Rust tests and record build timings
+        if: matrix.os == 'windows-latest'
+        run: powershell -ExecutionPolicy Bypass -File scripts/test-rust-windows.ps1 -NoDefaultFeatures -BuildOnly
 
       - name: Rust tests (lib + binaries + integration, no desktop)
         if: matrix.os != 'windows-latest'
@@ -227,10 +281,19 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: powershell -ExecutionPolicy Bypass -File scripts/smoke-headless.ps1
 
-  # scripts/install.ps1 is piped into `iex` from a pinned commit, so a
-  # regression in asset selection, checksum enforcement, or the silent-install
-  # flag reaches users with no build step in between. Nothing else in CI runs
-  # it. Its own job because it needs neither Rust nor Node (SBS-713).
+      # scripts/install.ps1 is piped into `iex` from a pinned commit, so a
+      # regression in asset selection, checksum enforcement, or the silent-install
+      # flag reaches users with no build step in between. Nothing else in CI runs
+      # it. Its own job because it needs neither Rust nor Node (SBS-713).
+      - name: Save Rust compilation timings
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rust-build-timings-${{ matrix.os }}
+          path: src-tauri/target/cargo-timings/*.html
+          if-no-files-found: ignore
+          retention-days: 7
+
   installer-script:
     name: Installer script tests
     runs-on: windows-latest
@@ -317,9 +380,9 @@ jobs:
   # "Build + test". That name used to belong to the Linux-only job, so a red
   # Windows keyring run (Headless Rust tests (windows-latest)) or a red
   # install.ps1 Pester job could not block merge. This job keeps the required
-  # name and fails unless every job that must gate merge succeeded. A skipped
-  # or cancelled dependency must not count as success (`if: always()` plus
-  # explicit result checks). Clippy stays out of this gate (non-blocking
+  # name and requires all selected checks. Only unchanged native jobs on a
+  # frontend-only PR may skip; failures, cancellations and unexpected skips
+  # block the gate. Clippy stays out of this gate (non-blocking
   # until existing warnings are cleared). Adding the individual job names as
   # separate required contexts still needs a GitHub settings click; this file
   # cannot do that.
@@ -327,6 +390,8 @@ jobs:
     name: Build + test
     if: always()
     needs:
+      - changes
+      - frontend
       - build-test
       - cross-platform-rust
       - installer-script
@@ -335,15 +400,13 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 5
     steps:
-      - name: Require Linux, Windows/macOS headless, both installers and pinned URLs
-        run: |
-          echo "build-test=${{ needs.build-test.result }}"
-          echo "cross-platform-rust=${{ needs.cross-platform-rust.result }}"
-          echo "installer-script=${{ needs.installer-script.result }}"
-          echo "installer-script-bash=${{ needs.installer-script-bash.result }}"
-          echo "pinned-install-urls=${{ needs.pinned-install-urls.result }}"
-          test "${{ needs.build-test.result }}" = "success"
-          test "${{ needs.cross-platform-rust.result }}" = "success"
-          test "${{ needs.installer-script.result }}" = "success"
-          test "${{ needs.installer-script-bash.result }}" = "success"
-          test "${{ needs.pinned-install-urls.result }}" = "success"
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+      - name: Require all selected checks
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: node .github/scripts/ci-policy.mjs gate

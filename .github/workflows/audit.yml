@@ -24,6 +24,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   audit:
     # Backstop only - GitHub defaults to 360 minutes. npm audit is a network call and a JSON parse; anything longer is a hang.
