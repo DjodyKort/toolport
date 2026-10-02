@@ -6,6 +6,9 @@ describe("serverLogoKey", () => {
     expect(serverLogoKey("Stripe (Full API)")).toBe("stripe");
     expect(serverLogoKey("Cloudflare Docs")).toBe("cloudflare");
     expect(serverLogoKey("Linear")).toBe("linear");
+    expect(serverLogoKey("Trello (work)")).toBe("trello");
+    expect(serverLogoKey("RevenueCat")).toBe("revenuecat");
+    expect(serverLogoKey("Revenue Cat (personal)")).toBe("revenuecat");
     expect(serverLogoKey("Atlassian")).toBe("atlassian");
     expect(serverLogoKey("Postman")).toBe("postman");
     expect(serverLogoKey("Redis")).toBe("redis");

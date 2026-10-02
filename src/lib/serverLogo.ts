@@ -18,6 +18,8 @@ const NAME_LOGO: [RegExp, string][] = [
   [/notion/i, "notion"],
   [/postman/i, "postman"],
   [/linear/i, "linear"],
+  [/trello/i, "trello"],
+  [/revenue[ -]?cat/i, "revenuecat"],
   [/atlassian/i, "atlassian"],
   [/jira/i, "jira"],
   [/asana/i, "asana"],

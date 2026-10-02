@@ -1,11 +1,19 @@
 use adw::prelude::*;
 
+// Card text can wrap into several lines when tiled. Keep the badge's
+// allocation independent of the row height, including transport fallbacks.
+fn centered_logo(image: gtk::Image) -> gtk::Image {
+    image.set_halign(gtk::Align::Center);
+    image.set_valign(gtk::Align::Center);
+    image
+}
+
 fn png_image(bytes: &'static [u8], css_class: &str) -> gtk::Image {
     let image = gtk::gdk::Texture::from_bytes(&gtk::glib::Bytes::from_static(bytes))
         .map(|texture| gtk::Image::from_paintable(Some(&texture)))
         .unwrap_or_default();
     image.add_css_class(css_class);
-    image
+    centered_logo(image)
 }
 
 pub(super) fn toolport_mark() -> gtk::Image {
@@ -56,7 +64,7 @@ pub(super) fn client_logo(id: &str) -> gtk::Image {
         || {
             let image = gtk::Image::from_icon_name("computer-symbolic");
             image.add_css_class("toolport-card-icon");
-            image
+            centered_logo(image)
         },
         |bytes| png_image(bytes, "toolport-client-logo"),
     )
@@ -90,6 +98,11 @@ fn server_logo_key(name: &str) -> Option<&'static str> {
         ("qdrant", "qdrant"),
         ("notion", "notion"),
         ("linear", "linear"),
+        ("trello", "trello"),
+        ("revenuecat", "revenuecat"),
+        ("revenue cat", "revenuecat"),
+        ("redis", "redis"),
+        ("postman", "postman"),
         ("atlassian", "atlassian"),
         ("jira", "jira"),
         ("asana", "asana"),
@@ -135,6 +148,10 @@ pub(super) fn server_logo(name: &str, transport: &str) -> gtk::Image {
         Some("qdrant") => Some(include_bytes!("../../icons/server-logos/qdrant.png")),
         Some("notion") => Some(include_bytes!("../../icons/server-logos/notion.png")),
         Some("linear") => Some(include_bytes!("../../icons/server-logos/linear.png")),
+        Some("trello") => Some(include_bytes!("../../icons/server-logos/trello.png")),
+        Some("revenuecat") => Some(include_bytes!("../../icons/server-logos/revenuecat.png")),
+        Some("redis") => Some(include_bytes!("../../icons/server-logos/redis.png")),
+        Some("postman") => Some(include_bytes!("../../icons/server-logos/postman.png")),
         Some("atlassian") => Some(include_bytes!("../../icons/server-logos/atlassian.png")),
         Some("jira") => Some(include_bytes!("../../icons/server-logos/jira.png")),
         Some("asana") => Some(include_bytes!("../../icons/server-logos/asana.png")),
@@ -162,7 +179,7 @@ pub(super) fn server_logo(name: &str, transport: &str) -> gtk::Image {
                     "network-server-symbolic"
                 });
             icon.add_css_class("toolport-card-icon");
-            icon
+            centered_logo(icon)
         },
         |bytes| png_image(bytes, "toolport-server-logo"),
     )
@@ -170,6 +187,49 @@ pub(super) fn server_logo(name: &str, transport: &str) -> gtk::Image {
 
 #[cfg(test)]
 mod tests {
+
+    /// Exercises GTK allocation, not just alignment properties. A taller card
+    /// must not turn provider marks or neutral fallback badges into rectangles.
+    #[test]
+    #[ignore = "requires a GTK display; run inside isolated omabox"]
+    fn logo_badges_stay_square_in_tall_cards() {
+        use adw::prelude::*;
+        gtk::init().unwrap();
+        let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+        let images = [
+            super::server_logo("Trello", "http"),
+            super::server_logo("RevenueCat", "http"),
+            super::server_logo("private MCP", "http"),
+            super::server_logo("private tool", "stdio"),
+            super::client_logo("cursor"),
+            super::client_logo("unknown client"),
+        ];
+        for image in &images {
+            row.append(image);
+        }
+        let window = gtk::Window::builder().child(&row).build();
+        for height in [120, 220] {
+            row.set_size_request(-1, height);
+            window.present();
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+            let context = gtk::glib::MainContext::default();
+            while row.height() < height && std::time::Instant::now() < deadline {
+                while context.pending() {
+                    context.iteration(false);
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            assert!(
+                row.height() >= height,
+                "card must receive its tall allocation"
+            );
+            for image in &images {
+                assert!(image.width() > 0 && image.width() <= 32);
+                assert_eq!(image.width(), image.height(), "badge must stay square");
+            }
+        }
+        window.close();
+    }
 
     /// Ordered substring matching found "git" inside unrelated names:
     /// "digitalocean" carries it at offset 2 and wore the Git logo.
@@ -188,6 +248,14 @@ mod tests {
         assert_eq!(server_logo_key("Stripe (Full API)"), Some("stripe"));
         assert_eq!(server_logo_key("Cloudflare Docs"), Some("cloudflare"));
         assert_eq!(server_logo_key("Jira Production"), Some("jira"));
+        assert_eq!(server_logo_key("Trello (work)"), Some("trello"));
+        assert_eq!(server_logo_key("RevenueCat"), Some("revenuecat"));
+        assert_eq!(
+            server_logo_key("Revenue Cat (personal)"),
+            Some("revenuecat")
+        );
+        assert_eq!(server_logo_key("Redis"), Some("redis"));
+        assert_eq!(server_logo_key("Postman"), Some("postman"));
         assert_eq!(server_logo_key("private MCP"), None);
     }
 }

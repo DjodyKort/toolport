@@ -123,6 +123,14 @@ if (new URLSearchParams(location.search).has("logos")) {
     claude: "claude-desktop",
     devin: "devin-cli",
   };
+  const logoServers = [
+    ...servers,
+    ...["Trello", "RevenueCat", "Redis", "Postman"].map((name) => ({
+      id: name,
+      name,
+      transport: "http",
+    })),
+  ];
   const clients = paths.map((p) => p.split("/").pop()!.replace(".svg", ""));
   createRoot(document.getElementById("root")!).render(
     <main>
@@ -137,7 +145,7 @@ if (new URLSearchParams(location.search).has("logos")) {
                   {id}
                 </div>
               ))}
-              {servers.map((s) => (
+              {logoServers.map((s) => (
                 <div key={s.id} className="flex flex-col items-center gap-2 text-xs">
                   <ServerLogo name={s.name} transport={s.transport} size={32} />
                   {s.name}
