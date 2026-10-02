@@ -6,12 +6,20 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ## [Unreleased]
 
+## [1.23.4] - 2026-10-02
+
 ### Added
 
-- Profiles can set their own server instructions in `registry.json`, or send none with
-  `""`, and a top-level `gatewayInstructions` sets the default for the rest. A client
-  that connects to one gateway once per profile no longer has to load the same text
-  each time. See [Configuration](docs/configuration.md).
+- Trello is available in the catalog with browser sign-in.
+- Profiles can override or omit the server instructions sent to AI clients.
+
+### Fixed
+
+- Browser sign-in can be cancelled and retried when authorization is abandoned.
+  Fully quitting Toolport clears the pending attempt so sign-in can start again.
+- Logo badges stay square in tiled Linux windows.
+- Trello and RevenueCat now show their logos in both desktop shells. The native
+  Linux app also shows Redis and Postman logos.
 
 ## [1.23.3] - 2026-09-29
 
