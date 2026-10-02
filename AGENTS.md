@@ -59,7 +59,9 @@ that touch logs; never point tests at the user's installed data directory.
 - Keep before/after data and state the build profile and fixture size. Browser
   fixtures verify UI behavior; they are not native desktop performance evidence.
 - Inspect `git status` before editing. Preserve existing work and report unrelated
-  baseline failures separately. Do not commit, push, or publish without approval.
+  baseline failures separately. Commit, push task branches, and open PRs within
+  authorized work without repeated approval. Merges require the relevant CI checks;
+  releases require authorization and validation of their candidate artifacts.
 
 ## Public communication and external services
 
