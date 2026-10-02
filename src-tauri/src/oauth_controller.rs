@@ -185,6 +185,36 @@ fn oauth_lock_path(server_id: &str, url: &str) -> Result<std::path::PathBuf, Str
     Ok(locks.join(format!("{}.lock", oauth_lock_key(server_id, url))))
 }
 
+/// A Windows process object may outlive the process while another handle is
+/// open. Legacy lease recovery needs execution liveness, not object existence.
+#[cfg(windows)]
+fn legacy_owner_is_running(pid: u32) -> bool {
+    use windows_sys::Win32::Foundation::{
+        CloseHandle, GetLastError, ERROR_INVALID_PARAMETER, WAIT_OBJECT_0,
+    };
+    use windows_sys::Win32::System::Threading::{
+        OpenProcess, WaitForSingleObject, SYNCHRONIZATION_SYNCHRONIZE,
+    };
+    unsafe {
+        let process = OpenProcess(SYNCHRONIZATION_SYNCHRONIZE, 0, pid);
+        if process.is_null() {
+            // Only a missing PID proves the owner gone; access denial remains
+            // conservative so a live legacy owner is never displaced.
+            return GetLastError() != ERROR_INVALID_PARAMETER;
+        }
+        // Zero timeout never waits. A terminated process is signaled; timeout
+        // or an unexpected query failure still counts as potentially running.
+        let running = WaitForSingleObject(process, 0) != WAIT_OBJECT_0;
+        CloseHandle(process);
+        running
+    }
+}
+
+#[cfg(not(windows))]
+fn legacy_owner_is_running(pid: u32) -> bool {
+    crate::gateway_publish::pid_is_running(pid)
+}
+
 pub(crate) fn try_acquire_oauth_lock(
     path: &std::path::Path,
 ) -> Result<Option<OAuthFlowLock>, String> {
@@ -215,7 +245,7 @@ pub(crate) fn try_acquire_oauth_lock(
             .lines()
             .find_map(|line| line.strip_prefix("pid="))
             .and_then(|pid| pid.parse::<u32>().ok())
-            .map(crate::gateway_publish::pid_is_running);
+            .map(legacy_owner_is_running);
         if !os_owned
             && (owner_running == Some(true)
                 || (owner_running.is_none() && !lock_snapshot_is_expired(&snapshot)))
@@ -645,6 +675,8 @@ mod tests {
         assert!(try_acquire_oauth_lock(&path).unwrap().is_none());
         child.kill().unwrap();
         child.wait().unwrap();
+        // Keep Child's handle open: on Windows the exited process object can
+        // still be opened by PID. The legacy-owner check must detect its exit.
         let snapshot = read_oauth_lock_snapshot(&path).unwrap().unwrap();
         assert!(!lock_snapshot_is_expired(&snapshot));
         let retry = try_acquire_oauth_lock(&path)
