@@ -8,6 +8,7 @@ mod catalog;
 mod hooks;
 mod http_bridge;
 mod onboarding;
+mod pairing;
 mod permissions;
 mod playground;
 mod settings;
@@ -34,10 +35,28 @@ const APP_ID: &str = "com.tsout.Toolport";
 const LEGACY_PREVIEW_APP_ID: &str = "com.tsout.Toolport.NativePreview";
 
 pub fn run() {
+    let launch_hidden = std::env::args_os().any(|arg| arg == "--hidden");
+    let args = std::env::args()
+        .filter(|arg| arg != "--hidden")
+        .collect::<Vec<_>>();
+    let app = adw::Application::builder()
+        .application_id(APP_ID)
+        .flags(gtk::gio::ApplicationFlags::HANDLES_OPEN)
+        .build();
+    // Register before starting the tray, broker, bridge or startup maintenance.
+    // Secondary launches only forward activation/URLs to the primary process.
+    if let Err(error) = app.register(gtk::gio::Cancellable::NONE) {
+        eprintln!("toolport: could not register the desktop application: {error}");
+        return;
+    }
+    if app.is_remote() {
+        app.run_with_args(&args);
+        return;
+    }
     let registry = match crate::registry::load() {
         Ok(registry) => registry,
         Err(error) => {
-            run_registry_startup_failure(error);
+            run_registry_startup_failure(&app, &args, error);
             return;
         }
     };
@@ -50,14 +69,6 @@ pub fn run() {
     if !cfg!(debug_assertions) {
         std::thread::spawn(run_startup_maintenance);
     }
-    let launch_hidden = std::env::args_os().any(|arg| arg == "--hidden");
-    let args = std::env::args()
-        .filter(|arg| arg != "--hidden")
-        .collect::<Vec<_>>();
-    let app = adw::Application::builder()
-        .application_id(APP_ID)
-        .flags(gtk::gio::ApplicationFlags::HANDLES_OPEN)
-        .build();
     let _hold = app.hold();
     let broker = crate::approval_broker::start_native();
     let bridge = http_bridge::BridgeController::default();
@@ -101,6 +112,7 @@ pub fn run() {
     let bridge_for_open = bridge.clone();
     let notice_for_open = startup_notice.clone();
     app.connect_open(move |app, files, _hint| {
+        if files.iter().any(|file| crate::teams::parse_pair_link(file.uri().as_str()).is_some()) { let _ = onboarding::mark_complete(); }
         build_window(
             app,
             theme::ThemeController::new(),
@@ -117,6 +129,7 @@ pub fn run() {
             action.activate(Some(&uri.to_variant()));
         }
     });
+    app.connect_shutdown(|_| crate::oauth_controller::cancel_all_attempts());
     app.run_with_args(&args);
     if let Some(tray) = tray {
         tray.shutdown().wait();
@@ -306,6 +319,7 @@ fn build_window(
         app,
         &split,
         &stack,
+        server_page.clone(),
         client_page.clone(),
         activity_page.clone(),
         catalog_page.clone(),
@@ -411,6 +425,7 @@ fn build_window(
 
     window.set_content(Some(&alerts));
     theme.attach(&window);
+    let page_for_focus = server_page.clone();
     let state = state::RegistryController::new(move |snapshot| {
         server_page.render(snapshot);
         if let Some(notice) = startup_notice.borrow_mut().take() {
@@ -426,6 +441,13 @@ fn build_window(
                 ),
                 true,
             );
+        }
+    });
+    let stack_for_focus = stack.clone();
+    window.connect_is_active_notify(move |window| {
+        if window.is_active() && stack_for_focus.visible_child_name().as_deref() == Some("servers")
+        {
+            page_for_focus.reprobe_if_stale();
         }
     });
     state.attach(&window);
@@ -576,11 +598,9 @@ fn run_startup_maintenance() {
     crate::agent_guard::apply_on_startup();
 }
 
-fn run_registry_startup_failure(error: String) {
-    let app = adw::Application::builder()
-        .application_id("com.tsout.Toolport.Recovery")
-        .build();
+fn run_registry_startup_failure(app: &adw::Application, args: &[String], error: String) {
     app.connect_activate(move |app| {
+        if let Some(window) = app.active_window() { window.present(); return; }
         let path = crate::registry::resolved_path()
             .map(|path| path.display().to_string())
             .unwrap_or_else(|| "the Toolport data directory".to_string());
@@ -632,13 +652,15 @@ fn run_registry_startup_failure(error: String) {
         window.set_content(Some(&page));
         window.present();
     });
-    app.run();
+    app.connect_open(|app, _, _| app.activate());
+    app.run_with_args(args);
 }
 
 fn build_sidebar(
     app: &adw::Application,
     split: &adw::NavigationSplitView,
     stack: &gtk::Stack,
+    server_page: ServerPage,
     client_page: ClientPage,
     activity_page: ActivityPage,
     catalog_page: CatalogPage,
@@ -726,6 +748,7 @@ fn build_sidebar(
         let stack = stack.clone();
         let buttons = buttons.clone();
         let client_page = client_page.clone();
+        let server_page = server_page.clone();
         let activity_page = activity_page.clone();
         let catalog_page = catalog_page.clone();
         let playground_page = playground_page.clone();
@@ -740,6 +763,7 @@ fn build_sidebar(
                 &stack,
                 &buttons,
                 &target,
+                &server_page,
                 &client_page,
                 &activity_page,
                 &catalog_page,
@@ -760,6 +784,7 @@ fn build_sidebar(
         let buttons = buttons.clone();
         let target = target.clone();
         let client_page = client_page.clone();
+        let server_page = server_page.clone();
         let activity_page = activity_page.clone();
         let catalog_page = catalog_page.clone();
         let playground_page = playground_page.clone();
@@ -774,6 +799,7 @@ fn build_sidebar(
                 &stack,
                 &buttons,
                 &target,
+                &server_page,
                 &client_page,
                 &activity_page,
                 &catalog_page,
@@ -1147,6 +1173,24 @@ fn newly_observed_security_events(
     (current, security_attention_incidents(&newcomers))
 }
 
+/// A damaged quarantine store makes duplicate suppression uncertain, but it
+/// must not stop the independent security-event feed. The quarantine badge
+/// reports its own read failure as unknown.
+fn read_security_watch_snapshot() -> Result<
+    (
+        Vec<serde_json::Value>,
+        Result<Vec<serde_json::Value>, String>,
+    ),
+    String,
+> {
+    let events = crate::integrity::read_recent(25)
+        .map_err(|error| format!("could not read security events: {error}"))?;
+    // Keep the error distinct from a known-empty quarantine. The badge displays
+    // unknown, while this watcher still announces new security findings.
+    let quarantined = crate::integrity::all_quarantined();
+    Ok((events, quarantined))
+}
+
 fn security_attention_incidents(events: &[serde_json::Value]) -> Vec<serde_json::Value> {
     events
         .iter()
@@ -1192,21 +1236,17 @@ fn start_security_event_watch(app: &adw::Application, alert: SecurityEventAlert)
         let seen = seen.clone();
         let running = running.clone();
         gtk::glib::spawn_future_local(async move {
-            let result = gtk::gio::spawn_blocking(|| -> Result<_, String> {
-                Ok((
-                    crate::integrity::read_recent(25)
-                        .map_err(|error| format!("could not read security events: {error}"))?,
-                    crate::integrity::all_quarantined()?,
-                ))
-            })
-            .await;
+            let result = gtk::gio::spawn_blocking(read_security_watch_snapshot).await;
             running.set(false);
             let Ok(Ok((events, quarantined))) = result else {
                 return;
             };
             let mut guard = seen.borrow_mut();
-            let (current, newcomers) =
-                newly_observed_security_events(guard.as_ref(), &events, &quarantined);
+            let (current, newcomers) = newly_observed_security_events(
+                guard.as_ref(),
+                &events,
+                quarantined.as_deref().unwrap_or_default(),
+            );
             *guard = Some(current);
             if newcomers.is_empty() {
                 return;
@@ -1303,6 +1343,7 @@ fn show_native_page(
     stack: &gtk::Stack,
     buttons: &[(String, gtk::Button)],
     target: &str,
+    server_page: &ServerPage,
     client_page: &ClientPage,
     activity_page: &ActivityPage,
     catalog_page: &CatalogPage,
@@ -1322,7 +1363,9 @@ fn show_native_page(
             candidate.remove_css_class("selected");
         }
     }
-    if target == "clients" {
+    if target == "servers" {
+        server_page.reprobe_if_stale();
+    } else if target == "clients" {
         client_page.refresh();
     } else if target == "activity" {
         activity_page.refresh();
@@ -1371,6 +1414,8 @@ struct ServerPage {
     >,
     /// Invalidates in-flight probes when the list re-renders.
     probe_generation: std::rc::Rc<std::cell::Cell<u64>>,
+    last_probe_started: std::rc::Rc<std::cell::Cell<Option<std::time::Instant>>>,
+    pending_probes: std::rc::Rc<std::cell::Cell<usize>>,
 }
 
 #[derive(Clone)]
@@ -1383,7 +1428,38 @@ struct HealthRow {
     copy_error: gtk::Button,
 }
 
+const HEALTH_REPROBE_AFTER: std::time::Duration = std::time::Duration::from_secs(20);
+
+fn health_reprobe_due(
+    last_started: Option<std::time::Instant>,
+    pending: usize,
+    now: std::time::Instant,
+) -> bool {
+    pending == 0
+        && last_started
+            .is_none_or(|last| now.saturating_duration_since(last) >= HEALTH_REPROBE_AFTER)
+}
+
 impl ServerPage {
+    fn reprobe_after_auth_change(&self) {
+        if let Some(snapshot) = self.last_snapshot.borrow().clone() {
+            self.render_server_list(&snapshot);
+        }
+    }
+
+    fn reprobe_if_stale(&self) {
+        if !health_reprobe_due(
+            self.last_probe_started.get(),
+            self.pending_probes.get(),
+            std::time::Instant::now(),
+        ) {
+            return;
+        }
+        if let Some(snapshot) = self.last_snapshot.borrow().clone() {
+            self.start_probes(&snapshot);
+        }
+    }
+
     fn render(&self, state: state::RegistryState) {
         self.hide_feedback();
 
@@ -1533,11 +1609,26 @@ impl ServerPage {
             .collect();
         let total = to_probe.len();
         if total == 0 {
+            self.pending_probes.set(0);
             self.posture.set_visible(false);
             return;
         }
+        self.last_probe_started.set(Some(std::time::Instant::now()));
+        self.pending_probes.set(total);
         self.posture.set_visible(true);
         self.posture.set_label(&posture_line(0, 0, 0, total, total));
+        for server_id in &to_probe {
+            if let Some(row) = self.health_rows.borrow().get(server_id) {
+                row.label
+                    .set_label(&format!("{} · Checking…", row.transport));
+                for class in ["success", "error", "review"] {
+                    row.label.remove_css_class(class);
+                }
+                row.label.set_tooltip_text(None);
+                row.authenticate.set_visible(false);
+                row.copy_error.set_visible(false);
+            }
+        }
         // Per-round tallies: only this round's probes feed the posture line, so
         // a server removed mid-round can never inflate the counts.
         let counts = std::rc::Rc::new((
@@ -1584,6 +1675,7 @@ impl ServerPage {
                     errors.set(errors.get() + 1);
                 }
                 pending.set(pending.get().saturating_sub(1));
+                page.pending_probes.set(pending.get());
                 page.apply_probe(&server_id, probe);
                 page.posture.set_label(&posture_line(
                     ready.get(),
@@ -2847,9 +2939,9 @@ struct ActivityPage {
     identity_search: gtk::SearchEntry,
     updating_filters: std::rc::Rc<std::cell::Cell<bool>>,
     savings_banner: gtk::Box,
+    savings_title: gtk::Label,
     savings_value: gtk::Label,
-    savings_dollars: gtk::Label,
-    savings_model: gtk::DropDown,
+    savings_unit: gtk::Label,
     savings_detail: gtk::Label,
     expanded_stat_servers: std::rc::Rc<std::cell::RefCell<std::collections::HashSet<String>>>,
     server_stat_order: std::rc::Rc<std::cell::RefCell<Vec<String>>>,
@@ -2953,7 +3045,7 @@ impl ActivityPage {
             ("–", "Retained calls"),
             ("–", "Success rate"),
             ("–", "Average latency"),
-            ("–", "Tokens saved"),
+            ("–", "Tokens saved (est.)"),
         ] {
             let (item, value) = summary_item(value, label);
             values.push(value);
@@ -2996,14 +3088,12 @@ impl ActivityPage {
         savings_banner.add_css_class("toolport-card");
         savings_banner.set_visible(false);
         let savings_header = gtk::Box::new(gtk::Orientation::Horizontal, 10);
-        savings_header.append(
-            &gtk::Label::builder()
-                .label("Context savings")
-                .halign(gtk::Align::Start)
-                .hexpand(true)
-                .css_classes(["heading"])
-                .build(),
-        );
+        let savings_title = gtk::Label::builder()
+            .halign(gtk::Align::Start)
+            .hexpand(true)
+            .css_classes(["heading"])
+            .build();
+        savings_header.append(&savings_title);
         let savings_share = gtk::Button::with_label("Share");
         savings_share.add_css_class("toolport-secondary-action");
         savings_share.set_valign(gtk::Align::Center);
@@ -3016,45 +3106,16 @@ impl ActivityPage {
             .css_classes(["title-2"])
             .build();
         savings_row.append(&savings_value);
-        savings_row.append(
-            &gtk::Label::builder()
-                .label("tool-definition tokens kept out of agent context")
-                .halign(gtk::Align::Fill)
-                .xalign(0.0)
-                .valign(gtk::Align::End)
-                .wrap(true)
-                .css_classes(["toolport-muted"])
-                .build(),
-        );
-        savings_banner.append(&savings_row);
-        let estimate_row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        estimate_row.append(
-            &gtk::Label::builder()
-                .label("Estimated input cost")
-                .halign(gtk::Align::Start)
-                .valign(gtk::Align::Center)
-                .css_classes(["toolport-muted", "caption"])
-                .build(),
-        );
-        let savings_dollars = gtk::Label::builder()
-            .halign(gtk::Align::Start)
-            .valign(gtk::Align::Center)
-            .hexpand(true)
-            .css_classes(["heading"])
+        let savings_unit = gtk::Label::builder()
+            .label("tokens of tool definitions kept out of agent context")
+            .halign(gtk::Align::Fill)
+            .xalign(0.0)
+            .valign(gtk::Align::End)
+            .wrap(true)
+            .css_classes(["toolport-muted"])
             .build();
-        estimate_row.append(&savings_dollars);
-        let savings_model = gtk::DropDown::from_strings(
-            &SAVINGS_MODELS
-                .iter()
-                .map(|(label, _)| *label)
-                .collect::<Vec<_>>(),
-        );
-        savings_model.set_selected(1); // Claude Sonnet, the shipping default.
-        savings_model.add_css_class("toolport-input");
-        savings_model.add_css_class("toolport-compact-select");
-        savings_model.set_valign(gtk::Align::Center);
-        estimate_row.append(&savings_model);
-        savings_banner.append(&estimate_row);
+        savings_row.append(&savings_unit);
+        savings_banner.append(&savings_row);
         let savings_detail = gtk::Label::builder()
             .halign(gtk::Align::Fill)
             .xalign(0.0)
@@ -3222,9 +3283,9 @@ impl ActivityPage {
             identity_search,
             updating_filters: std::rc::Rc::new(std::cell::Cell::new(false)),
             savings_banner,
+            savings_title,
             savings_value,
-            savings_dollars,
-            savings_model,
+            savings_unit,
             savings_detail,
             expanded_stat_servers: std::rc::Rc::new(std::cell::RefCell::new(
                 std::collections::HashSet::new(),
@@ -3237,20 +3298,25 @@ impl ActivityPage {
                 std::cell::RefCell::new(load_security_dismissed()),
             ),
         };
-        let page_for_model = activity_page.clone();
-        activity_page
-            .savings_model
-            .connect_selected_notify(move |_| page_for_model.render_savings());
         let page_for_share = activity_page.clone();
         savings_share.connect_clicked(move |_| {
-            let tokens = page_for_share
+            let (tokens, loads, searches, bytes) = page_for_share
                 .last_snapshot
                 .borrow()
                 .as_ref()
-                .map(|snapshot| snapshot.tokens_saved)
-                .unwrap_or(0);
+                .map(|snapshot| {
+                    (
+                        snapshot.tokens_saved,
+                        snapshot.savings_list_loads,
+                        snapshot.savings_discovery_count,
+                        snapshot.savings_discovery_bytes,
+                    )
+                })
+                .unwrap_or((0, 0, 0, 0));
             if let Some(display) = gtk::gdk::Display::default() {
-                display.clipboard().set_text(&savings_share_line(tokens));
+                display
+                    .clipboard()
+                    .set_text(&savings_share_line(tokens, loads, searches, bytes));
                 page_for_share
                     .feedback
                     .set_label("Savings copied, paste them anywhere.");
@@ -3394,7 +3460,8 @@ impl ActivityPage {
                 activity_section_changed(
                     previous.map(|snapshot| snapshot.tool_identities.as_slice()),
                     &snapshot.tool_identities,
-                ),
+                ) || previous.and_then(|snapshot| snapshot.tool_identities_error.as_deref())
+                    != snapshot.tool_identities_error.as_deref(),
                 activity_section_changed(
                     previous.map(|snapshot| snapshot.search_traces.as_slice()),
                     &snapshot.search_traces,
@@ -3440,7 +3507,7 @@ impl ActivityPage {
             "–".to_string()
         });
         self.tokens_saved.set_tooltip_text(Some(
-            "Tool-definition tokens lazy discovery has kept out of your agent's context",
+            "Tool-definition tokens Toolport kept out of your agent's context, estimated from their serialized size. Actual model usage depends on the client and caching.",
         ));
         self.feedback.set_label("");
         self.feedback.remove_css_class("error");
@@ -3448,6 +3515,8 @@ impl ActivityPage {
         self.feedback.set_visible(false);
         self.clear_button.set_sensitive(
             snapshot.call_count > 0
+                || snapshot.savings_list_loads > 0
+                || snapshot.savings_discovery_count > 0
                 || !snapshot.search_traces.is_empty()
                 || !snapshot.inspect_calls.is_empty(),
         );
@@ -3728,24 +3797,86 @@ impl ActivityPage {
         let Some(snapshot) = borrowed.as_ref() else {
             return;
         };
-        if snapshot.tokens_saved == 0 {
+        if !savings_banner_visible(
+            snapshot.savings_list_loads,
+            snapshot.savings_discovery_count,
+        ) {
             self.savings_banner.set_visible(false);
             return;
         }
         self.savings_banner.set_visible(true);
-        self.savings_value.set_label(&format!(
-            "≈ {}",
-            state::format_token_count(snapshot.tokens_saved)
-        ));
-        self.savings_dollars.set_label(&savings_dollar_line(
+        let has_catalog = snapshot.savings_list_loads > 0;
+        self.savings_title
+            .set_label(savings_title(snapshot.savings_list_loads));
+        let (primary, unit) = savings_primary_display(
             snapshot.tokens_saved,
-            self.savings_model.selected() as usize,
-        ));
-        self.savings_detail.set_label(&savings_detail_line(
             snapshot.savings_list_loads,
-            snapshot.savings_peak_catalog,
-            savings_since_date(snapshot.savings_since_ts),
-        ));
+            snapshot.savings_discovery_bytes,
+        );
+        self.savings_value.set_label(&primary);
+        self.savings_unit.set_label(unit);
+        let mut detail = if has_catalog {
+            savings_detail_line(
+                snapshot.savings_list_loads,
+                snapshot.savings_peak_catalog,
+                savings_since_date(snapshot.savings_since_ts),
+            )
+        } else {
+            String::new()
+        };
+        if snapshot.savings_list_loads > 0 {
+            detail.push_str(&format!(
+                " · ≈{} per load",
+                state::format_token_count(snapshot.tokens_saved / snapshot.savings_list_loads)
+            ));
+        }
+        if snapshot.savings_latest_catalog_ts > 0 {
+            detail.push_str(&format!(
+                "\nLatest load: {} / {} tools full → {} / {} tools exposed.",
+                format_byte_count(snapshot.savings_latest_full_bytes),
+                snapshot.savings_latest_full_tools,
+                format_byte_count(snapshot.savings_latest_exposed_bytes),
+                snapshot.savings_latest_exposed_tools,
+            ));
+        }
+        if snapshot.savings_measured_loads > 0 {
+            detail.push_str(&format!("\n{} full · {} exposed · {} avoided (exact serialized UTF-8 bytes across {} measured loads)",
+                format_byte_count(snapshot.savings_full_bytes),
+                format_byte_count(snapshot.savings_exposed_bytes),
+                format_byte_count(snapshot.savings_avoided_bytes),
+                snapshot.savings_measured_loads));
+            detail.push_str(&format!(
+                " · {} full/load",
+                format_byte_count(snapshot.savings_full_bytes / snapshot.savings_measured_loads)
+            ));
+            if snapshot.savings_extra_bytes > 0 {
+                detail.push_str(&format!(
+                    "\n{} extra exposure on small catalogs.",
+                    format_byte_count(snapshot.savings_extra_bytes)
+                ));
+            }
+        }
+        if snapshot.savings_discovery_count > 0 {
+            detail.push_str(&format!(
+                "\n{} searches returned {} of discovery text.",
+                snapshot.savings_discovery_count,
+                format_byte_count(snapshot.savings_discovery_bytes)
+            ));
+        }
+        if snapshot.savings_legacy_tokens > 0 {
+            detail.push_str(&format!(
+                "\nIncludes ≈{} from older estimated records.",
+                state::format_token_count(snapshot.savings_legacy_tokens)
+            ));
+        }
+        if has_catalog {
+            detail.push_str("\nEstimate: serialized UTF-8 bytes ÷ 4. Actual model usage depends on client, model, and caching.");
+        } else {
+            detail.push_str(
+                "\nExact text bytes at Toolport's MCP boundary; model token usage may differ.",
+            );
+        }
+        self.savings_detail.set_label(&detail);
     }
 
     /// The server the filter dropdown currently points at, or `None` for all.
@@ -3829,6 +3960,14 @@ impl ActivityPage {
         while let Some(child) = self.identity_list.first_child() {
             self.identity_list.remove(&child);
         }
+        if let Some(error) = &snapshot.tool_identities_error {
+            let message =
+                empty_activity_label(&format!("Tool identities are unavailable: {error}"));
+            message.remove_css_class("toolport-muted");
+            message.add_css_class("error");
+            self.identity_list.append(&message);
+            return;
+        }
         if snapshot.tool_identities.is_empty() {
             self.identity_list.append(&empty_activity_label(
                 "No tool baselines pinned yet. Identities appear after a client lists tools through the gateway.",
@@ -3880,6 +4019,7 @@ impl ActivityPage {
         }
         self.feedback.remove_css_class("success");
         self.feedback.add_css_class("error");
+        self.feedback.set_visible(true);
     }
 
     fn confirm_clear(&self) {
@@ -4422,6 +4562,22 @@ fn trace_ranking_lines(trace: &serde_json::Value) -> Vec<String> {
 
 /// The returned-vs-flat token math for one trace.
 fn trace_token_line(trace: &serde_json::Value) -> String {
+    if let Some(bytes) = trace
+        .get("responseContentBytes")
+        .and_then(serde_json::Value::as_u64)
+    {
+        let schemas = trace
+            .get("returned")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0);
+        let catalog = trace
+            .get("catalogSchemaBytes")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0);
+        return format!("Returned {} of discovery content containing {schemas} matching schemas; full scoped catalog schemas: {}. ≈{} tokens (UTF-8 bytes ÷ 4).",
+            format_byte_count(bytes), format_byte_count(catalog),
+            state::format_token_count(bytes.div_ceil(4)));
+    }
     let number = |key: &str| {
         trace
             .get(key)
@@ -4430,22 +4586,11 @@ fn trace_token_line(trace: &serde_json::Value) -> String {
     };
     let returned = number("returnedTokens");
     let flat = number("flatTokens");
-    let saved = number("savedTokens");
-    let mut line = format!(
-        "Put ≈{} tokens of tool schemas into context, vs ≈{} to load the whole catalog",
+    format!(
+        "Legacy schema-only estimates: ≈{} returned vs ≈{} catalog; search guidance text was not counted.",
         state::format_token_count(returned),
         state::format_token_count(flat)
-    );
-    if flat > 0 {
-        let mut percent = saved.saturating_mul(100) / flat;
-        if percent == 0 && saved > 0 {
-            percent = 1;
-        }
-        line.push_str(&format!(" ({percent}% less this turn)."));
-    } else {
-        line.push('.');
-    }
-    line
+    )
 }
 
 fn search_trace_card(
@@ -4574,29 +4719,6 @@ fn inspect_card(capture: &serde_json::Value, expanded_rows: ActivityExpansionSta
     card
 }
 
-/// Models for the savings dollar estimate: input-token list prices ($/1M),
-/// matching the shipping banner and the public calculator at toolport.app.
-const SAVINGS_MODELS: &[(&str, f64)] = &[
-    ("Claude Opus", 5.0),
-    ("Claude Sonnet", 3.0),
-    ("Claude Haiku", 1.0),
-    ("GPT-5.6 Sol", 5.0),
-    ("GPT-5.6 Terra", 2.5),
-    ("GPT-5.6 Luna", 1.0),
-    ("Gemini 3.1 Pro", 2.0),
-    ("Gemini 3.5 Flash", 1.5),
-    ("Gemini 3.1 Flash-Lite", 0.25),
-];
-
-fn savings_dollar_line(tokens_saved: u64, model_index: usize) -> String {
-    let (_, price) = SAVINGS_MODELS
-        .get(model_index)
-        .copied()
-        .unwrap_or(("Claude Sonnet", 3.0));
-    let dollars = tokens_saved as f64 / 1_000_000.0 * price;
-    format!("≈ ${dollars:.2}")
-}
-
 fn savings_detail_line(list_loads: u64, peak_catalog: u64, since: Option<String>) -> String {
     let mut parts = vec![format!(
         "{list_loads} catalog {}",
@@ -4611,12 +4733,54 @@ fn savings_detail_line(list_loads: u64, peak_catalog: u64, since: Option<String>
     parts.join(" · ")
 }
 
-fn savings_share_line(tokens_saved: u64) -> String {
-    format!(
-        "Toolport keeps ~{} tokens of MCP tool definitions out of my agent's context so far. \
-         One local gateway for all my MCP servers: toolport.app",
-        state::format_token_count(tokens_saved)
+fn savings_banner_visible(loads: u64, searches: u64) -> bool {
+    loads > 0 || searches > 0
+}
+
+fn savings_title(loads: u64) -> &'static str {
+    if loads == 0 {
+        "Discovery payload returned"
+    } else {
+        "Tool definitions kept out of your agent's context"
+    }
+}
+
+fn savings_primary_display(
+    tokens_saved: u64,
+    loads: u64,
+    discovery_bytes: u64,
+) -> (String, &'static str) {
+    if loads == 0 {
+        return (
+            format_byte_count(discovery_bytes),
+            "discovery text returned",
+        );
+    }
+    (
+        format!("≈ {}", state::format_token_count(tokens_saved)),
+        "tokens of tool definitions kept out of agent context",
     )
+}
+
+fn savings_share_line(tokens_saved: u64, loads: u64, searches: u64, bytes: u64) -> String {
+    if loads == 0 {
+        return format!("Toolport recorded {searches} discovery searches returning {} of text at its MCP boundary. toolport.app", format_byte_count(bytes));
+    }
+    format!("Toolport kept ≈{} tokens of MCP tool definitions out of my agent's context across {loads} loads. Estimated from serialized size (UTF-8 bytes / 4), not model billing. toolport.app", state::format_token_count(tokens_saved))
+}
+
+fn format_byte_count(bytes: u64) -> String {
+    if bytes >= 999_950_000_000 {
+        format!("{:.1} TB", bytes as f64 / 1_000_000_000_000.0)
+    } else if bytes >= 999_950_000 {
+        format!("{:.1} GB", bytes as f64 / 1_000_000_000.0)
+    } else if bytes >= 999_950 {
+        format!("{:.1} MB", bytes as f64 / 1_000_000.0)
+    } else if bytes >= 1_000 {
+        format!("{:.1} KB", bytes as f64 / 1_000.0)
+    } else {
+        format!("{bytes} B")
+    }
 }
 
 /// "Mar 4"-style date for the savings detail line, or `None` for epoch 0.
@@ -7022,6 +7186,18 @@ fn approval_card(
             .build(),
     );
 
+    if let Some(rule) = &view.agent_rule {
+        card.append(
+            &gtk::Label::builder()
+                .label(format!("Your permission rule: {rule}"))
+                .halign(gtk::Align::Start)
+                .xalign(0.0)
+                .wrap(true)
+                .selectable(true)
+                .build(),
+        );
+    }
+
     if let Some(url) = &view.url_elicitation {
         card.append(
             &gtk::Label::builder()
@@ -7180,6 +7356,7 @@ fn approval_reason(reason: crate::approval::ApprovalReason) -> &'static str {
         }
         crate::approval::ApprovalReason::PersistentCodeWrite => "persistent routine write",
         crate::approval::ApprovalReason::PiiCrossServer => "cross-server data release",
+        crate::approval::ApprovalReason::AgentPermission => "ask-first permission rule",
     }
 }
 
@@ -7421,6 +7598,8 @@ fn build_content(
                 std::collections::HashMap::new(),
             )),
             probe_generation: std::rc::Rc::new(std::cell::Cell::new(0)),
+            last_probe_started: std::rc::Rc::new(std::cell::Cell::new(None)),
+            pending_probes: std::rc::Rc::new(std::cell::Cell::new(0)),
         },
     );
     let page_for_add = server_page.1.clone();
@@ -7523,6 +7702,29 @@ fn build_content(
 }
 
 fn open_shared_setup(url: &str, page: ServerPage) {
+    if let Some((origin, team)) = crate::teams::parse_pair_link(url) {
+        if crate::registry::load().is_ok_and(|reg| crate::teams::pair_target_is_current(&reg, &origin, &team)) {
+            if let Some(action) = page.app.lookup_action("show-teams") { action.activate(None); }
+            if let Some(window) = page.app.active_window() { window.present(); }
+            return;
+        }
+        for window in page.app.windows() { if window.title().as_deref() == Some("Toolport setup") { window.close(); } }
+        let (parent_app, connected_app, feedback) = (page.app.clone(), page.app.clone(), page.clone());
+        let hooks = pairing::PairingHooks {
+            parent: Box::new(move || parent_app.active_window()),
+            feedback: Box::new(move |message, error| feedback.show_feedback(message, error)),
+            connected: Box::new(move || {
+                if let Some(action) = connected_app.lookup_action("show-teams") { action.activate(None); }
+                if let Some(window) = connected_app.active_window() { window.present(); }
+            }),
+            open_url: Box::new(|url| { let _ = crate::oauth::open_web_url(url); }),
+        };
+        let pair_origin = origin.clone();
+        pairing::request(hooks, &origin, Box::new(move |cancel, show| {
+            crate::teams::pair_device(&pair_origin, &team, cancel, show).map(|_| ())
+        }));
+        return;
+    }
     let Some(id) = crate::sharing_controller::parse_share_url(url) else {
         page.show_feedback("The shared setup link was invalid.", true);
         return;
@@ -8353,6 +8555,15 @@ fn approval_notification(view: &crate::approval_broker::PendingView) -> (String,
             ),
         );
     }
+    if let Some(rule) = &view.agent_rule {
+        return (
+            "Toolport: approval required".to_string(),
+            format!(
+                "{} asks before {}: your rule {rule}. Approve or deny it in Toolport.",
+                view.server, view.tool
+            ),
+        );
+    }
     let requester = view.client.as_deref().unwrap_or("An AI client");
     (
         "Toolport: approval required".to_string(),
@@ -8477,6 +8688,8 @@ fn server_card(
             .css_classes(["heading"])
             .build(),
     );
+    text.append(&gtk::Label::builder().label(&server.origin_label)
+        .halign(gtk::Align::Start).css_classes(["toolport-muted"]).build());
     // Transport and health share one line: a card per server is already the
     // densest thing on the page, and a third stacked line made each row read as
     // a paragraph.
@@ -8512,7 +8725,6 @@ fn server_card(
             }
         });
     }
-    card.append(&authenticate);
     let copy_error = gtk::Button::builder()
         .icon_name("edit-copy-symbolic")
         .tooltip_text("Copy the full probe error")
@@ -8534,7 +8746,13 @@ fn server_card(
             }
         });
     }
-    card.append(&copy_error);
+    // Put recovery actions below the health line. Keeping them in the card's
+    // horizontal row leaves too little room for the status in narrow windows.
+    let health_actions = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    health_actions.set_halign(gtk::Align::Start);
+    health_actions.append(&authenticate);
+    health_actions.append(&copy_error);
+    text.append(&health_actions);
     if server.enabled && !server.requires_review {
         page.health_rows.borrow_mut().insert(
             server.id.clone(),
@@ -8926,7 +9144,7 @@ fn open_authentication_editor(server: state::ServerView, page: ServerPage) {
     content.append(&editor_intro(
         "system-lock-screen-symbolic",
         "Remote authentication",
-        "Paste a bearer token for this server. Toolport stores it in the system keychain and never displays it again.",
+        "Use browser sign-in when supported, or paste a token supplied by your provider. Toolport stores credentials in the system keychain.",
     ));
     let feedback = gtk::Label::builder()
         .halign(gtk::Align::Fill)
@@ -8975,12 +9193,18 @@ fn open_authentication_editor(server: state::ServerView, page: ServerPage) {
     actions.set_halign(gtk::Align::End);
     let sign_in = gtk::Button::with_label("Sign in with browser");
     sign_in.add_css_class("toolport-secondary-action");
+    let cancel_sign_in = gtk::Button::with_label("Cancel sign-in");
+    cancel_sign_in.set_visible(false);
     let remove = gtk::Button::with_label("Remove token");
     remove.add_css_class("destructive-action");
     remove.set_sensitive(false);
     let save = gtk::Button::with_label("Store token");
     save.add_css_class("suggested-action");
-    actions.append(&sign_in);
+    let browser_actions = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    browser_actions.set_halign(gtk::Align::Start);
+    browser_actions.append(&sign_in);
+    browser_actions.append(&cancel_sign_in);
+    content.append(&browser_actions);
     actions.append(&remove);
     actions.append(&save);
     token_section.append(&actions);
@@ -9126,6 +9350,21 @@ fn open_authentication_editor(server: state::ServerView, page: ServerPage) {
     let editor_for_done = editor.clone();
     done.connect_clicked(move |_| editor_for_done.close());
 
+    let oauth_attempt = std::rc::Rc::new(std::cell::RefCell::new(None::<String>));
+    let auth_epoch = std::rc::Rc::new(std::cell::Cell::new(0u64));
+    {
+        let attempt = oauth_attempt.clone();
+        let epoch = auth_epoch.clone();
+        editor.connect_close_request(move |_| {
+            epoch.set(epoch.get().wrapping_add(1));
+            if let Some(id) = attempt.borrow_mut().take() {
+                crate::oauth_controller::request_cancel_attempt(&id);
+                std::thread::spawn(move || crate::oauth_controller::cancel_attempt(&id));
+            }
+            gtk::glib::Propagation::Proceed
+        });
+    }
+    let status_epoch = auth_epoch.clone();
     let server_id = server.id.clone();
     let feedback_for_status = feedback.clone();
     let remove_for_status = remove.clone();
@@ -9134,6 +9373,9 @@ fn open_authentication_editor(server: state::ServerView, page: ServerPage) {
             crate::registry_controller::has_auth_token(&server_id)
         })
         .await;
+        if status_epoch.get() != 0 {
+            return;
+        }
         match result {
             Ok(Ok(has_token)) => {
                 feedback_for_status.set_label(if has_token {
@@ -9255,57 +9497,144 @@ fn open_authentication_editor(server: state::ServerView, page: ServerPage) {
         });
     });
 
+    let has_client = server.client_credentials.is_some();
+    let remove_before_oauth = std::rc::Rc::new(std::cell::Cell::new(false));
+    // Only the current editor attempt may update widgets after blocking work.
+    // Cancellation retires it before a late callback/token response can return.
     let server_id = server.id.clone();
     let server_name = server.name.clone();
     let server_url = server.url.clone().unwrap_or_default();
-    let feedback_for_sign_in = feedback.clone();
-    let remove_for_sign_in = remove.clone();
-    let page_for_sign_in = page.clone();
-    sign_in.connect_clicked(move |button| {
-        if server_url.is_empty() {
-            feedback_for_sign_in.set_label("This server does not have a remote URL to sign in to.");
-            feedback_for_sign_in.add_css_class("error");
-            return;
-        }
-        button.set_sensitive(false);
-        feedback_for_sign_in
-            .set_label("Opening your browser. Finish sign-in there, then return to Toolport…");
-        feedback_for_sign_in.remove_css_class("error");
-        let server_id = server_id.clone();
-        let server_name = server_name.clone();
-        let server_url = server_url.clone();
-        let feedback = feedback_for_sign_in.clone();
-        let remove = remove_for_sign_in.clone();
-        let page = page_for_sign_in.clone();
-        let button = button.clone();
-        gtk::glib::spawn_future_local(async move {
-            let result = gtk::gio::spawn_blocking(move || {
-                crate::oauth_controller::authenticate(&server_id, &server_url)
-            })
-            .await;
-            button.set_sensitive(true);
-            match result {
-                Ok(Ok(())) => {
-                    feedback.set_label(
-                        "Browser sign-in completed and the token is stored in the system keychain.",
-                    );
-                    feedback.remove_css_class("error");
-                    feedback.add_css_class("success");
-                    remove.set_sensitive(true);
-                    page.show_confirmation(&format!("Authenticated {server_name}"));
-                }
-                Ok(Err(error)) => {
-                    feedback.set_label(&error);
-                    feedback.remove_css_class("success");
-                    feedback.add_css_class("error");
-                }
-                Err(_) => {
-                    feedback.set_label("Browser sign-in stopped unexpectedly.");
-                    feedback.add_css_class("error");
-                }
+    {
+        let feedback = feedback.clone();
+        let remove = remove.clone();
+        let save = save.clone();
+        let save_client = save_client.clone();
+        let remove_client = remove_client.clone();
+        let cancel = cancel_sign_in.clone();
+        let page = page.clone();
+        let attempt = oauth_attempt.clone();
+        let epoch = auth_epoch.clone();
+        let remove_before = remove_before_oauth.clone();
+        sign_in.connect_clicked(move |button| {
+            if server_url.is_empty() {
+                feedback.set_label("This server does not have a remote URL to sign in to.");
+                feedback.add_css_class("error");
+                return;
             }
+            let id = crate::oauth_controller::start_attempt();
+            *attempt.borrow_mut() = Some(id.clone());
+            epoch.set(epoch.get().wrapping_add(1));
+            let generation = epoch.get();
+            button.set_sensitive(false);
+            save.set_sensitive(false);
+            save_client.set_sensitive(false);
+            remove_client.set_sensitive(false);
+            remove_before.set(remove.is_sensitive());
+            remove.set_sensitive(false);
+            cancel.set_visible(true);
+            feedback.set_label("Opening your browser. Approve access there. Waiting up to 3 minutes for the callback. Closed the browser? Cancel sign-in, then sign in again to reopen it. Closing this panel cancels sign-in. The main window closes to tray; Quit Toolport exits.");
+            feedback.remove_css_class("error");
+            feedback.remove_css_class("success");
+            let server_id = server_id.clone();
+            let server_name = server_name.clone();
+            let server_url = server_url.clone();
+            let feedback = feedback.clone();
+            let remove = remove.clone();
+            let save = save.clone();
+            let save_client = save_client.clone();
+            let remove_client = remove_client.clone();
+
+            let cancel = cancel.clone();
+            let page = page.clone();
+            let button = button.clone();
+            let attempt = attempt.clone();
+            let epoch = epoch.clone();
+            let remove_before = remove_before.clone();
+            gtk::glib::spawn_future_local(async move {
+                let result = gtk::gio::spawn_blocking(move || {
+                    crate::oauth_controller::authenticate(&server_id, &server_url, &id)
+                }).await;
+                if epoch.get() != generation { return; }
+                attempt.borrow_mut().take();
+                remove.set_sensitive(remove_before.get());
+                button.set_sensitive(true);
+                save.set_sensitive(true);
+                save_client.set_sensitive(true);
+                remove_client.set_sensitive(has_client);
+                cancel.set_visible(false);
+                match result {
+                    Ok(Ok(())) => {
+                        feedback.set_label("Browser sign-in completed and the token is stored in the system keychain.");
+                        feedback.remove_css_class("error");
+                        feedback.add_css_class("success");
+                        remove.set_sensitive(true);
+                        page.show_confirmation(&format!("Authenticated {server_name}"));
+                        page.reprobe_after_auth_change();
+                    }
+                    Ok(Err(error)) => {
+                        feedback.set_label(&error);
+                        feedback.remove_css_class("success");
+                        feedback.add_css_class("error");
+                    }
+                    Err(_) => {
+                        feedback.set_label("Browser sign-in stopped unexpectedly. Sign in with browser to try again.");
+                        feedback.add_css_class("error");
+                    }
+                }
+            });
         });
-    });
+    }
+    {
+        let attempt = oauth_attempt.clone();
+        let epoch = auth_epoch.clone();
+        let feedback = feedback.clone();
+        let sign_in = sign_in.clone();
+        let save = save.clone();
+        let save_client = save_client.clone();
+        let remove_client = remove_client.clone();
+        let has_client = server.client_credentials.is_some();
+        let remove = remove.clone();
+        let remove_before = remove_before_oauth.clone();
+        cancel_sign_in.connect_clicked(move |button| {
+            let Some(id) = attempt.borrow_mut().take() else {
+                return;
+            };
+            crate::oauth_controller::request_cancel_attempt(&id);
+            epoch.set(epoch.get().wrapping_add(1));
+            let generation = epoch.get();
+            button.set_sensitive(false);
+            feedback.set_label("Cancelling browser sign-in…");
+            let epoch = epoch.clone();
+            let feedback = feedback.clone();
+            let sign_in = sign_in.clone();
+            let save = save.clone();
+            let save_client = save_client.clone();
+            let remove_client = remove_client.clone();
+            let remove = remove.clone();
+            let remove_before = remove_before.clone();
+            let button = button.clone();
+            gtk::glib::spawn_future_local(async move {
+                let result =
+                    gtk::gio::spawn_blocking(move || crate::oauth_controller::cancel_attempt(&id))
+                        .await;
+                if epoch.get() != generation {
+                    return;
+                }
+                sign_in.set_sensitive(true);
+                save.set_sensitive(true);
+                save_client.set_sensitive(true);
+                remove_client.set_sensitive(has_client);
+                remove.set_sensitive(remove_before.get());
+                button.set_sensitive(true);
+                button.set_visible(false);
+                feedback.set_label(match result {
+                    Ok(true) => "Browser sign-in cancelled. Sign in with browser to try again.",
+                    Ok(false) => "Browser sign-in already finished. Close and reopen this panel to check token status.",
+                    Err(_) => "Cancellation stopped unexpectedly. Close this panel and try again.",
+                });
+            });
+        });
+    }
 
     let server_id = server.id.clone();
     let server_name = server.name.clone();
@@ -9343,6 +9672,7 @@ fn open_authentication_editor(server: state::ServerView, page: ServerPage) {
                     feedback.add_css_class("success");
                     remove.set_sensitive(true);
                     page.show_confirmation(&format!("Updated authentication for {server_name}"));
+                    page.reprobe_after_auth_change();
                 }
                 Ok(Err(error)) => {
                     feedback.set_label(&error);
@@ -9363,7 +9693,11 @@ fn open_authentication_editor(server: state::ServerView, page: ServerPage) {
     let server_name = server.name;
     let feedback_for_remove = feedback;
     let page_for_remove = page;
+    let sign_in_for_remove = sign_in.clone();
     remove.connect_clicked(move |button| {
+        if !sign_in_for_remove.is_sensitive() {
+            return;
+        }
         button.set_sensitive(false);
         feedback_for_remove.set_label("Removing token from the system keychain…");
         feedback_for_remove.remove_css_class("error");
@@ -9383,6 +9717,7 @@ fn open_authentication_editor(server: state::ServerView, page: ServerPage) {
                     feedback.remove_css_class("error");
                     feedback.add_css_class("success");
                     page.show_confirmation(&format!("Removed authentication for {server_name}"));
+                    page.reprobe_after_auth_change();
                 }
                 Ok(Err(error)) => {
                     button.set_sensitive(true);
@@ -9963,6 +10298,67 @@ fn open_server_editor_prefilled(
     let args_row = editor_field("Arguments, one per line", &args_scroller);
     connection.append(&args_row);
 
+    let original_launch = server.as_ref().and_then(|server| server.launch.clone());
+    let original_command = server.as_ref().and_then(|server| server.command.clone());
+    let original_args = server
+        .as_ref()
+        .map(|server| server.args.clone())
+        .unwrap_or_default();
+    let mut launch_entries: Vec<(crate::registry::LaunchInput, gtk::Entry)> = Vec::new();
+    if let Some(launch) = &original_launch {
+        if !launch.inputs.is_empty() {
+            let section = gtk::Box::new(gtk::Orientation::Vertical, 8);
+            section.add_css_class("toolport-form-section");
+            section.append(&section_heading(
+                "Launch setup",
+                "Secret values stay in Toolport's vault. Leave a saved secret blank to keep it.",
+            ));
+            for input in &launch.inputs {
+                let field = gtk::Entry::builder()
+                    .text(if input.secret {
+                        ""
+                    } else {
+                        input.value.as_deref().unwrap_or("")
+                    })
+                    .placeholder_text(if input.secret {
+                        "Saved value stays in vault"
+                    } else {
+                        "Required before enabling"
+                    })
+                    .visibility(!input.secret)
+                    .hexpand(true)
+                    .css_classes(["toolport-input"])
+                    .build();
+                section.append(&editor_field(&input.label, &field));
+                launch_entries.push((input.clone(), field));
+            }
+            connection.append(&section);
+        }
+        let binding_warning = gtk::Label::builder()
+            .label("Editing the command or arguments removes catalog launch setup. Replace <launch-input> before saving, or restore the catalog preset.")
+            .halign(gtk::Align::Fill).xalign(0.0).wrap(true).visible(false)
+            .css_classes(["toolport-feedback", "error"]).build();
+        connection.append(&binding_warning);
+        let args_for_warning = args.clone();
+        let command_for_warning = command.clone();
+        let old_args = original_args.clone();
+        let old_command = original_command.clone();
+        let update_warning = move || {
+            let buffer = args_for_warning.buffer();
+            let text = buffer
+                .text(&buffer.start_iter(), &buffer.end_iter(), false)
+                .to_string();
+            let parsed = text.lines().map(str::to_string).collect::<Vec<_>>();
+            binding_warning.set_visible(
+                parsed != old_args || Some(command_for_warning.text().to_string()) != old_command,
+            );
+        };
+        let update_warning = std::rc::Rc::new(update_warning);
+        let on_args = update_warning.clone();
+        args.buffer().connect_changed(move |_| on_args());
+        command.connect_changed(move |_| update_warning());
+    }
+
     let cwd = gtk::Entry::builder()
         .text(
             server
@@ -10145,6 +10541,10 @@ fn open_server_editor_prefilled(
     let args_for_test = args.clone();
     let url_for_test = url.clone();
     let cwd_for_test = cwd.clone();
+    let launch_for_test = launch_entries.clone();
+    let launch_definition_for_test = original_launch.clone();
+    let original_command_for_test = original_command.clone();
+    let original_args_for_test = original_args.clone();
     test.connect_clicked(move |button| {
         button.set_sensitive(false);
         feedback_for_test.set_label("Testing connection…");
@@ -10159,15 +10559,36 @@ fn open_server_editor_prefilled(
             &url_for_test,
             &cwd_for_test,
         );
+        let binding_changed =
+            fields.command != original_command_for_test || fields.args != original_args_for_test;
+        let launch_values = launch_for_test
+            .iter()
+            .map(|(input, field)| (input.key.clone(), input.secret, field.text().to_string()))
+            .collect::<Vec<_>>();
+        let launch_definition = launch_definition_for_test.clone();
         let server_id = server_id_for_test.clone();
         let feedback = feedback_for_test.clone();
         let button = button.clone();
         gtk::glib::spawn_future_local(async move {
             let result = gtk::gio::spawn_blocking(move || {
-                let entry = crate::registry_controller::server_entry_for_probe(
+                let mut entry = crate::registry_controller::server_entry_for_probe(
                     server_id.as_deref(),
                     fields,
                 )?;
+                if !binding_changed {
+                    if entry.launch.is_none() {
+                        entry.launch = launch_definition;
+                    }
+                    if let Some(launch) = &mut entry.launch {
+                        for input in &mut launch.inputs {
+                            if let Some((_, _, value)) =
+                                launch_values.iter().find(|(key, _, _)| *key == input.key)
+                            {
+                                apply_launch_probe_value(input, value);
+                            }
+                        }
+                    }
+                }
                 Ok::<_, String>(crate::server_runtime::probe_one_bounded(&entry))
             })
             .await;
@@ -10214,11 +10635,22 @@ fn open_server_editor_prefilled(
     });
 
     let editor_for_save = editor.clone();
+    let launch_for_save = launch_entries.clone();
+    let original_launch_for_save = original_launch.clone();
+    let original_command_for_save = original_command.clone();
+    let original_args_for_save = original_args.clone();
     save.connect_clicked(move |save| {
         save.set_sensitive(false);
         feedback.set_visible(false);
         let server_id = server_id.clone();
         let fields = collect_server_fields(&name, &transport, &command, &args, &url, &cwd);
+        let binding_changed =
+            fields.command != original_command_for_save || fields.args != original_args_for_save;
+        let launch_values = launch_for_save
+            .iter()
+            .map(|(input, field)| (input.clone(), field.text().to_string()))
+            .collect::<Vec<_>>();
+        let launch_definition = original_launch_for_save.clone();
         let display_name = fields.name.trim().to_string();
         let env = snippet_env.borrow().clone();
         let page = page.clone();
@@ -10226,23 +10658,52 @@ fn open_server_editor_prefilled(
         let feedback = feedback.clone();
         let editor = editor_for_save.clone();
         gtk::glib::spawn_future_local(async move {
-            let update = gtk::gio::spawn_blocking(move || match server_id {
-                Some(server_id) => {
-                    let registry =
-                        crate::registry_controller::update_server_fields(&server_id, fields)?;
-                    Ok((registry, Vec::new(), Vec::new()))
+            let update = gtk::gio::spawn_blocking(move || {
+                if binding_changed
+                    && launch_definition.is_some()
+                    && fields.args.iter().any(|arg| arg == "<launch-input>")
+                {
+                    return Err(
+                        "Replace <launch-input> with a literal argument before saving".into(),
+                    );
                 }
-                None if env.is_empty() => {
-                    let registry = crate::registry_controller::add_server(fields)?;
-                    Ok((registry, Vec::new(), Vec::new()))
-                }
-                None => {
-                    let outcome = crate::registry_controller::add_snippet_server(fields, env)?;
-                    Ok::<_, String>((
-                        outcome.registry,
-                        outcome.declared_without_value,
-                        outcome.failed,
-                    ))
+                match server_id {
+                    Some(server_id) => {
+                        let mut registry =
+                            crate::registry_controller::update_server_fields(&server_id, fields)?;
+                        if !binding_changed {
+                            registry = save_launch_entries(&server_id, &launch_values, registry)?;
+                        }
+                        Ok((registry, Vec::new(), Vec::new()))
+                    }
+                    None if env.is_empty() => {
+                        let mut registry = if !binding_changed {
+                            match launch_definition {
+                                Some(launch) => crate::registry_controller::add_server_with_launch(
+                                    fields, launch,
+                                )?,
+                                None => crate::registry_controller::add_server(fields)?,
+                            }
+                        } else {
+                            crate::registry_controller::add_server(fields)?
+                        };
+                        if !binding_changed {
+                            if let Some(id) =
+                                registry.servers.last().map(|server| server.id.clone())
+                            {
+                                registry = save_launch_entries(&id, &launch_values, registry)?;
+                            }
+                        }
+                        Ok((registry, Vec::new(), Vec::new()))
+                    }
+                    None => {
+                        let outcome = crate::registry_controller::add_snippet_server(fields, env)?;
+                        Ok::<_, String>((
+                            outcome.registry,
+                            outcome.declared_without_value,
+                            outcome.failed,
+                        ))
+                    }
                 }
             })
             .await;
@@ -10279,6 +10740,36 @@ fn open_server_editor_prefilled(
     });
     editor.present();
     Some(editor)
+}
+
+fn apply_launch_probe_value(input: &mut crate::registry::LaunchInput, value: &str) {
+    // Only a blank secret means "keep the vaulted value". Clearing a plain
+    // field must also clear the saved value used by this unsaved probe.
+    if !input.secret || !value.is_empty() {
+        input.value = (!value.is_empty()).then(|| value.to_string());
+    }
+}
+
+fn save_launch_entries(
+    server_id: &str,
+    values: &[(crate::registry::LaunchInput, String)],
+    mut registry: crate::registry::Registry,
+) -> Result<crate::registry::Registry, String> {
+    for (input, value) in values {
+        if input.secret {
+            if !value.is_empty() {
+                registry =
+                    crate::registry_controller::set_launch_secret(server_id, &input.key, value)?;
+            }
+        } else if input.value.as_deref().unwrap_or("") != value {
+            registry = crate::registry_controller::set_launch_input_value(
+                server_id,
+                &input.key,
+                (!value.is_empty()).then_some(value.clone()),
+            )?;
+        }
+    }
+    Ok(registry)
 }
 
 fn editor_field(label: &str, child: &impl IsA<gtk::Widget>) -> gtk::Box {
@@ -10520,6 +11011,26 @@ fn state_card(icon_name: &str, title: &str, body: &str, error: bool) -> gtk::Box
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn cleared_launch_field_is_missing_in_native_probe_but_blank_secret_keeps_vault() {
+        let mut input = crate::registry::LaunchInput {
+            key: "DIRECTORY".into(),
+            label: "Directory".into(),
+            secret: false,
+            required: true,
+            value: Some("/previous/directory".into()),
+        };
+        super::apply_launch_probe_value(&mut input, "");
+        assert_eq!(input.value, None, "the probe must use the cleared field");
+        input.secret = true;
+        super::apply_launch_probe_value(&mut input, "");
+        assert_eq!(
+            input.value, None,
+            "blank saved secrets resolve from the vault"
+        );
+        super::apply_launch_probe_value(&mut input, "unsaved-secret");
+        assert_eq!(input.value.as_deref(), Some("unsaved-secret"));
+    }
 
     fn preview_scratch(label: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!(
@@ -10784,19 +11295,44 @@ mod tests {
     }
 
     #[test]
-    fn savings_lines_price_detail_and_share_read_like_the_shipping_banner() {
-        assert_eq!(savings_dollar_line(2_000_000, 1), "≈ $6.00");
-        assert_eq!(savings_dollar_line(2_000_000, 999), "≈ $6.00");
+    fn savings_detail_and_share_describe_estimated_catalog_exposure() {
+        assert!(!savings_banner_visible(0, 0));
+        assert!(
+            savings_banner_visible(0, 1),
+            "discovery-only telemetry is visible"
+        );
+        assert!(savings_banner_visible(1, 0));
+        assert_eq!(
+            savings_primary_display(41_100, 12, 0),
+            (
+                "≈ 41.1k".into(),
+                "tokens of tool definitions kept out of agent context"
+            )
+        );
+        assert_eq!(
+            savings_primary_display(0, 0, 12_340),
+            ("12.3 KB".into(), "discovery text returned")
+        );
+        assert_eq!(
+            savings_title(12),
+            "Tool definitions kept out of your agent's context"
+        );
+        assert_eq!(savings_title(0), "Discovery payload returned");
+        assert_eq!(format_byte_count(999_949), "999.9 KB");
+        assert_eq!(format_byte_count(999_999), "1.0 MB");
+        assert_eq!(format_byte_count(999_999_999), "1.0 GB");
+        assert_eq!(format_byte_count(999_949_999_999), "999.9 GB");
+        assert_eq!(format_byte_count(1_000_000_000_000), "1.0 TB");
         assert_eq!(
             savings_detail_line(12, 80, Some("Mar 4".to_string())),
             "12 catalog loads · peak 80 tools · since Mar 4"
         );
         assert_eq!(savings_detail_line(1, 3, None), "1 catalog load");
         assert_eq!(
-            savings_share_line(41_100),
-            "Toolport keeps ~41.1k tokens of MCP tool definitions out of my agent's context \
-             so far. One local gateway for all my MCP servers: toolport.app"
+            savings_share_line(41_100, 12, 0, 0),
+            "Toolport kept ≈41.1k tokens of MCP tool definitions out of my agent's context across 12 loads. Estimated from serialized size (UTF-8 bytes / 4), not model billing. toolport.app"
         );
+        assert_eq!(savings_share_line(0, 0, 3, 12_340), "Toolport recorded 3 discovery searches returning 12.3 KB of text at its MCP boundary. toolport.app");
     }
 
     #[test]
@@ -10831,8 +11367,7 @@ mod tests {
         );
         assert_eq!(
             trace_token_line(&trace),
-            "Put ≈900 tokens of tool schemas into context, vs ≈42.0k to load the whole \
-             catalog (97% less this turn)."
+            "Legacy schema-only estimates: ≈900 returned vs ≈42.0k catalog; search guidance text was not counted."
         );
         let miss = serde_json::json!({ "query": "nothing", "returned": 0, "total": 12 });
         assert_eq!(
@@ -10840,6 +11375,10 @@ mod tests {
             "\u{201c}nothing\u{201d} · no match"
         );
         assert!(trace_ranking_lines(&miss).is_empty());
+        let measured = serde_json::json!({"returned":3, "responseContentBytes":24_000,
+            "catalogSchemaBytes":5_400_000});
+        assert_eq!(trace_token_line(&measured),
+            "Returned 24.0 KB of discovery content containing 3 matching schemas; full scoped catalog schemas: 5.4 MB. ≈6.0k tokens (UTF-8 bytes ÷ 4).");
     }
 
     #[test]
@@ -10898,6 +11437,7 @@ mod tests {
             arguments: serde_json::json!({}),
             url_elicitation: None,
             pii_release: None,
+            agent_rule: None,
             deadline_ms: 0,
         };
         assert_eq!(
@@ -10981,6 +11521,71 @@ mod tests {
         later["ts"] = serde_json::json!(2000);
         let (_, newcomers) = newly_observed_security_events(Some(&baseline), &[later], &[]);
         assert_eq!(newcomers.len(), 1);
+    }
+
+    #[test]
+    fn damaged_quarantine_store_keeps_security_feed_and_activity_available() {
+        let _data_dir_lock = crate::registry::data_dir_test_lock();
+        struct CleanupDir(std::path::PathBuf);
+        impl Drop for CleanupDir {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let dir = std::env::temp_dir().join(format!(
+            "toolport-native-damaged-quarantine-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let _cleanup = CleanupDir(dir.clone());
+        let _override = crate::registry::DataDirOverride::set(&dir);
+        let event = serde_json::json!({
+            "ts": 1000,
+            "type": "tool_drift",
+            "server": "srv",
+            "tool": "srv__wipe",
+            "change": "changed",
+            "severity": "high"
+        });
+        std::fs::write(dir.join("security.jsonl"), format!("{event}\n")).unwrap();
+        std::fs::write(dir.join("quarantine.json"), "{ not json").unwrap();
+
+        let (events, quarantined) =
+            read_security_watch_snapshot().expect("the security feed remains readable");
+        assert_eq!(events, vec![event]);
+        assert!(quarantined.is_err(), "quarantine state remains unknown");
+        let (_, newcomers) = newly_observed_security_events(
+            Some(&std::collections::HashSet::new()),
+            &events,
+            quarantined.as_deref().unwrap_or_default(),
+        );
+        assert_eq!(newcomers.len(), 1, "a new finding must still alert");
+
+        let activity = state::load_activity_snapshot().expect("Activity remains readable");
+        assert!(
+            activity
+                .tool_identities_error
+                .as_deref()
+                .is_some_and(|error| error.contains("quarantine")),
+            "the identity panel must say why it is unknown: {activity:?}"
+        );
+        assert_eq!(activity.security_events, events);
+
+        std::fs::write(dir.join("quarantine.json"), "{}").unwrap();
+        std::fs::write(dir.join("tool-pins.json"), "{ not json").unwrap();
+        let activity = state::load_activity_snapshot().expect("pin damage stays panel-local");
+        assert!(
+            activity
+                .tool_identities_error
+                .as_deref()
+                .is_some_and(|error| error.contains("pin store")),
+            "a lost pin baseline must not look like an empty identity panel: {activity:?}"
+        );
+        assert_eq!(activity.security_events, events);
     }
 
     #[test]
@@ -11129,6 +11734,19 @@ mod tests {
             probe_status_line(&probe(false, 0, false)),
             ("Error".to_string(), "error")
         );
+    }
+
+    #[test]
+    fn health_reprobe_waits_for_the_previous_round_and_refreshes_stale_results() {
+        let now = std::time::Instant::now();
+        assert!(health_reprobe_due(None, 0, now));
+        assert!(!health_reprobe_due(None, 1, now));
+        assert!(!health_reprobe_due(
+            Some(now - HEALTH_REPROBE_AFTER + std::time::Duration::from_millis(1)),
+            0,
+            now,
+        ));
+        assert!(health_reprobe_due(Some(now - HEALTH_REPROBE_AFTER), 0, now,));
     }
 
     #[test]
@@ -11289,12 +11907,14 @@ mod tests {
 
     fn server(name: &str, transport: &str) -> state::ServerView {
         state::ServerView {
+            origin_label: "Personal".into(),
             id: "server".into(),
             name: name.into(),
             transport: transport.into(),
             transport_id: "stdio".into(),
             command: None,
             args: Vec::new(),
+            launch: None,
             url: None,
             cwd: None,
             secret_keys: Vec::new(),

@@ -133,6 +133,71 @@ pub fn record_timed_with_pii(
     ));
 }
 
+/// Record the actual routed identity independently from the normalized tool prefix.
+/// Existing Activity consumers keep `server`; Teams uses the authoritative `serverId`.
+#[allow(clippy::too_many_arguments)]
+pub fn record_routed_call(
+    reg: &crate::registry::Registry,
+    server_id: &str,
+    tool: &str,
+    ok: bool,
+    duration_ms: Option<u64>,
+    error: Option<&str>,
+    client: Option<&str>,
+    client_name: Option<&str>,
+    args_hash: Option<&str>,
+    pii: Option<PiiPass>,
+) {
+    let mut entry = timed_entry(
+        &crate::router::sanitize_segment(server_id),
+        tool,
+        ok,
+        duration_ms,
+        error,
+        client,
+        client_name,
+        args_hash,
+        pii,
+    );
+    if let Err(error) = crate::team_activity::record(reg, server_id, ok) {
+        eprintln!("Toolport: Teams activity could not be persisted: {error}");
+    }
+    entry["serverId"] = json!(server_id);
+    if let Some(team) = &reg.team {
+        let source = format!("team:{}", team.team_id);
+        if reg
+            .servers
+            .iter()
+            .any(|s| s.id == server_id && s.source.as_deref() == Some(&source))
+        {
+            entry["teamId"] = json!(team.team_id);
+            entry["configVersion"] = json!(team.last_version);
+            if let Some(id) = team.managed_server_ids.get(server_id) {
+                entry["teamServerId"] = json!(id);
+            }
+        }
+    }
+    write_line(&entry);
+}
+
+/// Resolve older display-prefix records only when all local principals agree on one ID.
+/// An explicit raw ID is authoritative; it must never fall back to another principal.
+pub fn resolve_server_id<'a>(entry: &Value, ids: &'a [String]) -> Option<&'a str> {
+    if let Some(raw) = entry.get("serverId").and_then(Value::as_str) {
+        return ids.iter().find(|id| id.as_str() == raw).map(String::as_str);
+    }
+    let legacy = entry.get("server")?.as_str()?;
+    let mut matches = ids
+        .iter()
+        .filter(|id| id.as_str() == legacy || crate::router::sanitize_segment(id) == legacy);
+    let first = matches.next()?;
+    if matches.next().is_some() {
+        None
+    } else {
+        Some(first.as_str())
+    }
+}
+
 /// Build the tool-call audit entry. Pure (no I/O) so the record's shape is unit-testable,
 /// like [`decision_entry`] on the approval path.
 #[allow(clippy::too_many_arguments)]
@@ -682,7 +747,58 @@ pub fn tool_call_ok(entry: &Value) -> Option<bool> {
 /// retained (the byte cap bounds it), not a fixed window, so the error rate stays consistent
 /// with the call count instead of being taken over an arbitrary slice.
 pub fn stats() -> std::io::Result<Value> {
-    Ok(aggregate(&read_all()?))
+    // Read on every request: metadata alone can miss equal-length replacements,
+    // coarse timestamps, and changes from another gateway process.
+    let content = match audit_path().map(std::fs::read_to_string) {
+        None => String::new(),
+        Some(Ok(content)) => content,
+        Some(Err(e)) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Some(Err(e)) => return Err(e),
+    };
+    static CACHE: std::sync::Mutex<StatsCache> = std::sync::Mutex::new(StatsCache {
+        content: None,
+        stats: Value::Null,
+    });
+    Ok(CACHE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(content))
+}
+
+/// Cache one exact snapshot, bounded by the normal log cap. Idle Activity polls
+/// still read the file but avoid reparsing every retained row and sorting all
+/// duration samples. Errors are returned before consulting this cache.
+struct StatsCache {
+    content: Option<String>,
+    stats: Value,
+}
+
+impl StatsCache {
+    fn get(&mut self, content: String) -> Value {
+        if self.content.as_ref() == Some(&content) {
+            return self.stats.clone();
+        }
+        // Release the previous snapshot before parsing its replacement. Feed
+        // rows directly to the accumulator instead of retaining a JSON tree
+        // for every row (including error text that stats never uses).
+        self.content = None;
+        self.stats = Value::Null;
+        let stats = aggregate_rows(
+            content
+                .lines()
+                .rev()
+                .filter_map(|line| serde_json::from_str::<Value>(line).ok()),
+        );
+        if content.len() as u64 <= MAX_AUDIT_BYTES {
+            self.content = Some(content);
+            self.stats = stats.clone();
+        } else {
+            // Oversized imports still aggregate correctly without being retained.
+            self.content = None;
+            self.stats = Value::Null;
+        }
+        stats
+    }
 }
 
 /// [`stats`] over entries the caller already read, so a view that needs both the
@@ -694,6 +810,10 @@ pub fn stats_for_entries(entries: &[Value]) -> Value {
 /// Pure aggregation of audit entries into per-server + global stats. Split from
 /// `stats` so the dashboard math is testable without touching the on-disk log.
 fn aggregate(entries: &[Value]) -> Value {
+    aggregate_rows(entries)
+}
+
+fn aggregate_rows<T: std::borrow::Borrow<Value>>(entries: impl IntoIterator<Item = T>) -> Value {
     use std::collections::HashMap;
 
     #[derive(Default)]
@@ -717,7 +837,8 @@ fn aggregate(entries: &[Value]) -> Value {
     let mut total = 0u64;
     let mut errors = 0u64;
 
-    for e in entries {
+    for row in entries {
+        let e = row.borrow();
         let Some(ok) = tool_call_ok(e) else {
             continue;
         };
@@ -930,6 +1051,27 @@ mod tests {
             }
             let _ = std::fs::remove_dir_all(&self.root);
         }
+    }
+
+    #[test]
+    fn stats_cache_tracks_exact_contents_and_bounds_retention() {
+        let mut cache = StatsCache {
+            content: None,
+            stats: Value::Null,
+        };
+        let first = "{\"server\":\"old\",\"ok\":true,\"durationMs\":10}\n";
+        let expected = aggregate(&[serde_json::from_str(first).unwrap()]);
+        assert_eq!(cache.get(first.into()), expected);
+        assert_eq!(cache.get(first.into()), expected);
+        let replaced = first.replace("old", "new");
+        assert_eq!(replaced.len(), first.len());
+        assert_eq!(cache.get(replaced.clone())["servers"][0]["server"], "new");
+        assert_eq!(cache.get(format!("{replaced}{first}broken\n"))["total"], 2);
+        assert_eq!(cache.get(String::new())["total"], 0);
+        let oversized = format!("{}{first}", " ".repeat(MAX_AUDIT_BYTES as usize + 1));
+        assert_eq!(cache.get(oversized)["total"], 1);
+        assert!(cache.content.is_none());
+        assert_eq!(cache.get(first.into()), expected);
     }
 
     #[test]
@@ -1589,6 +1731,28 @@ mod tests {
         (crate::registry::DataDirOverride::set(&path), path)
     }
 
+    #[test]
+    fn stats_cache_never_hides_read_errors_or_cleared_history() {
+        let _lock = crate::registry::data_dir_test_lock();
+        let (_override, root) = isolated_data_dir("stats-cache");
+        let _cleanup = AuditProcessFixture::new(root);
+        let path = audit_path().unwrap();
+        std::fs::write(&path, "{\"server\":\"s\",\"ok\":true}\n").unwrap();
+        assert_eq!(stats().unwrap()["total"], 1);
+        assert_eq!(stats().unwrap()["total"], 1);
+        std::fs::write(&path, [0xff]).unwrap();
+        assert_eq!(stats().unwrap_err().kind(), std::io::ErrorKind::InvalidData);
+        std::fs::remove_file(&path).unwrap();
+        std::fs::create_dir(&path).unwrap();
+        assert!(stats().is_err());
+        std::fs::remove_dir(&path).unwrap();
+        assert_eq!(stats().unwrap()["total"], 0);
+        std::fs::write(&path, "{\"server\":\"s\",\"ok\":false}\n").unwrap();
+        assert_eq!(stats().unwrap()["errors"], 1);
+        try_clear().unwrap();
+        assert_eq!(stats().unwrap()["total"], 0);
+    }
+
     /// A missing audit.jsonl is an empty log, not a load failure.
     #[test]
     fn read_recent_missing_file_is_ok_empty() {
@@ -1630,5 +1794,60 @@ mod tests {
         let err = read_recent(10).expect_err("unreadable existing path must be Err");
         assert_ne!(err.kind(), std::io::ErrorKind::NotFound);
         let _ = std::fs::remove_dir_all(root);
+    }
+}
+
+#[cfg(test)]
+mod identity_tests {
+    use super::*;
+    #[test]
+    fn raw_identity_never_uses_display_alias() {
+        let ids = vec![
+            "team_audit-echo".into(),
+            "team_audit_echo".into(),
+            "Team Audit.v2".into(),
+        ];
+        for id in &ids {
+            assert_eq!(
+                resolve_server_id(&json!({"serverId":id,"server":"wrong"}), &ids),
+                Some(id.as_str())
+            );
+        }
+        assert_eq!(
+            resolve_server_id(
+                &json!({"serverId":"missing","server":"team_audit_echo"}),
+                &ids
+            ),
+            None
+        );
+        assert_eq!(
+            resolve_server_id(&json!({"server":"team_audit_echo"}), &ids),
+            None
+        );
+        assert_eq!(
+            resolve_server_id(&json!({"server":"Team_Audit_v2"}), &ids),
+            Some("Team Audit.v2")
+        );
+        assert_eq!(
+            resolve_server_id(&json!({"server":"team_audit_v2"}), &ids),
+            None
+        );
+    }
+    #[test]
+    fn legacy_unique_prefix_and_raw_success_failure_roll_up() {
+        let ids = vec!["personal-echo".into(), "team_audit-echo".into()];
+        assert_eq!(
+            resolve_server_id(&json!({"server":"team_audit_echo"}), &ids),
+            Some("team_audit-echo")
+        );
+        let rows = vec![
+            json!({"ts":0,"server":"team_audit_echo","serverId":"team_audit-echo","ok":true}),
+            json!({"ts":0,"server":"team_audit_echo","serverId":"team_audit-echo","ok":false}),
+            json!({"ts":0,"server":"team_audit_echo","serverId":"personal-echo","ok":true}),
+        ];
+        let managed = ["team_audit-echo".to_string()].into_iter().collect();
+        let totals = crate::usage_report::rollup("1970-01-01", &rows, &[], &managed);
+        assert_eq!(totals["team_audit-echo"].calls, 2);
+        assert_eq!(totals.len(), 1);
     }
 }

@@ -250,6 +250,9 @@ fn prewarm_launcher(server: &ServerEntry) {
     }
     let server = server.clone();
     std::thread::spawn(move || {
+        let Ok(resolved) = crate::launch_inputs::resolve_args_for_prewarm(&server) else {
+            return;
+        };
         let mut env: Vec<(String, String)> = Vec::new();
         for e in &server.env {
             match e.value.clone() {
@@ -272,7 +275,7 @@ fn prewarm_launcher(server: &ServerEntry) {
             .cwd
             .as_deref()
             .and_then(|c| resolve_root_token(c, None));
-        if let Ok(t) = StdioTransport::spawn(&command, &server.args, &env, cwd.as_deref()) {
+        if let Ok(t) = StdioTransport::spawn(&command, &resolved.args, &env, cwd.as_deref()) {
             // Attempting the handshake keeps the child alive until the download
             // finishes (dropping the transport kills it), and warms it end-to-end
             // when the server actually comes up.
@@ -840,6 +843,46 @@ async fn set_secret(
     .map_err(|e| format!("keychain task join failed: {e}"))?
 }
 
+#[tauri::command]
+async fn set_launch_secret(
+    app: AppHandle,
+    server_id: String,
+    key: String,
+    value: String,
+) -> Result<Registry, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<RegistryState>();
+        crate::registry_controller::set_launch_secret_with(
+            &server_id,
+            &key,
+            &value,
+            |server_id, key| {
+                let (registry, ()) = write_registry(state.inner(), |registry| {
+                    crate::registry_controller::apply_launch_secret_generation(
+                        registry, server_id, key,
+                    )
+                })?;
+                Ok(registry)
+            },
+        )
+    })
+    .await
+    .map_err(|e| format!("keychain task join failed: {e}"))?
+}
+
+#[tauri::command]
+fn set_launch_input_value(
+    state: State<RegistryState>,
+    server_id: String,
+    key: String,
+    value: Option<String>,
+) -> Result<Registry, String> {
+    let (registry, ()) = write_registry(state.inner(), |registry| {
+        crate::registry_controller::apply_launch_input_value(registry, &server_id, &key, value)
+    })?;
+    Ok(registry)
+}
+
 /// Remove a secret from the keychain and drop the env var from the server entry.
 #[tauri::command]
 async fn delete_secret(app: AppHandle, server_id: String, key: String) -> Result<Registry, String> {
@@ -1087,13 +1130,15 @@ async fn get_security_events(limit: usize) -> Result<Vec<serde_json::Value>, Str
     .map_err(|e| format!("security events task join failed: {e}"))?
 }
 
-/// Cumulative tool-definition tokens that lazy discovery has kept out of clients'
-/// context, summed from the local savings log for the in-app counter.
+/// Catalog exposure measurements plus legacy estimated token equivalents from
+/// the local savings log. Byte fields are exact MCP payload measurements.
 #[tauri::command]
-async fn savings_summary() -> serde_json::Value {
-    tauri::async_runtime::spawn_blocking(savings::summary)
-        .await
-        .unwrap_or(serde_json::Value::Null)
+async fn savings_summary() -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        savings::try_summary().map_err(|error| format!("Couldn't read catalog telemetry: {error}"))
+    })
+    .await
+    .map_err(|error| format!("catalog telemetry task join failed: {error}"))?
 }
 
 /// A shareable diagnostics blob for bug reports: Toolport version + OS, a
@@ -1547,8 +1592,8 @@ fn clear_inspect_log() -> Result<(), String> {
 }
 
 /// Recent lazy-discovery search traces (newest first): what the model searched for,
-/// which tools matched, and the tool-definition tokens the results cost vs. loading
-/// the whole catalog. The in-path proof that lazy discovery is working. Empty when
+/// which tools matched, and exact UTF-8 response content bytes when measured.
+/// Older token fields are schema-only estimates. Empty when
 /// nothing has searched yet.
 #[tauri::command]
 async fn get_search_traces(limit: usize) -> Result<Vec<serde_json::Value>, String> {
@@ -1559,7 +1604,7 @@ async fn get_search_traces(limit: usize) -> Result<Vec<serde_json::Value>, Strin
     .map_err(|e| format!("search traces task join failed: {e}"))?
 }
 
-/// Clear the search-trace log (delete `search-trace.jsonl`).
+/// Clear legacy and v2 search-trace logs.
 #[tauri::command]
 fn clear_search_traces() -> Result<(), String> {
     searchtrace::try_clear().map_err(|e| format!("Couldn't clear the search traces: {e}"))
@@ -2069,7 +2114,7 @@ async fn team_sync(
 /// Long-polling sync for the member's background loop: the config pull parks on the server
 /// for up to `wait_secs` (clamped) and returns the instant the team config view changes, so
 /// a dashboard policy edit enforces in ~1s instead of at the next interval. Otherwise
-/// identical to [`team_sync`]; the frontend re-invokes it in a loop. See [`team_sync`] for
+/// identical to [`team_sync`]; retained for explicit callers. The native lifecycle owns background polling. See [`team_sync`] for
 /// why the blocking pull must run off the main thread.
 #[tauri::command]
 async fn team_sync_wait(
@@ -2083,6 +2128,50 @@ async fn team_sync_wait(
         .await
         .map_err(|e| format!("sync task join failed: {e}"))??;
     finish_sync(&app, state.inner(), result)
+}
+
+/// Owns required Teams work for the application's lifetime, including hidden/tray
+/// and straight-to-tray launches. No webview timers or visibility signal participates.
+struct TeamLifecycleStop(std::sync::Arc<std::sync::atomic::AtomicBool>);
+fn start_team_lifecycle(app: &tauri::AppHandle) {
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    app.manage(TeamLifecycleStop(stop.clone()));
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        let mut failures = 0u32;
+        while !stop.load(std::sync::atomic::Ordering::Acquire) {
+            let connected = registry::load().map(|r| r.team.is_some());
+            let delay = match connected {
+                Ok(false) => { failures = 0; 3 }
+                Ok(true) => match teams::sync_wait(25) {
+                    Ok(result) => {
+                        failures = 0;
+                        if stop.load(std::sync::atomic::Ordering::Acquire) { break; }
+                        let state = handle.state::<RegistryState>();
+                        match finish_sync(&handle, state.inner(), result) {
+                            Ok(fresh) => { let _ = handle.emit("team-sync-registry", &fresh); }
+                            Err(error) => eprintln!("Toolport: Teams registry refresh failed: {error}"),
+                        }
+                        teams::retry_delay_seconds(0)
+                    }
+                    Err(error) => {
+                        failures = failures.saturating_add(1);
+                        eprintln!("Toolport: Teams sync pending: {error}");
+                        teams::retry_delay_seconds(failures)
+                    }
+                },
+                Err(error) => {
+                    failures = failures.saturating_add(1);
+                    eprintln!("Toolport: Teams registry unavailable: {error}");
+                    teams::retry_delay_seconds(failures)
+                }
+            };
+            for _ in 0..delay {
+                if stop.load(std::sync::atomic::Ordering::Acquire) { break; }
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
+        }
+    });
 }
 
 /// Apply a sync result to the shared registry state and tell the UI what happened. Shared by
@@ -2412,6 +2501,11 @@ async fn hooks_recent(limit: usize) -> Result<Vec<serde_json::Value>, String> {
 
 /// Leave the team: remove its merged servers, clear the connection and the token.
 #[tauri::command]
+async fn team_account_link() -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(teams::account_link).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 fn team_disconnect(state: State<RegistryState>) -> Result<Registry, String> {
     refresh_from_disk(state.inner())?;
     teams::disconnect()?;
@@ -2420,13 +2514,21 @@ fn team_disconnect(state: State<RegistryState>) -> Result<Registry, String> {
     Ok(fresh)
 }
 
+#[tauri::command]
+async fn team_use_managed(app: tauri::AppHandle, state: State<'_, RegistryState>, server_id: String) -> Result<Registry, String> {
+    tauri::async_runtime::spawn_blocking(move || teams::use_managed_server(&server_id)).await.map_err(|e| e.to_string())??;
+    let fresh = reload_into_state(state.inner())?;
+    let _ = app.emit("team-sync-registry", &fresh);
+    Ok(fresh)
+}
+
 /// Admin: replace only the team's shared server list with the current local set (own servers
 /// only, secret values never sent). Remote instructions and policy fields are preserved, and
 /// an optimistic-concurrency conflict is returned rather than overwriting another admin.
 #[tauri::command]
-async fn team_push_preview(state: State<'_, RegistryState>) -> Result<teams::PushPreview, String> {
+async fn team_push_preview(state: State<'_, RegistryState>, selected_ids: Option<Vec<String>>) -> Result<teams::PushPreview, String> {
     refresh_from_disk(state.inner())?;
-    tauri::async_runtime::spawn_blocking(teams::preview_push_current)
+    tauri::async_runtime::spawn_blocking(move || match selected_ids { Some(ids) => teams::preview_push_selected(&ids), None => teams::preview_push_current() })
         .await
         .map_err(|e| format!("push preview task join failed: {e}"))?
 }
@@ -2436,11 +2538,12 @@ async fn team_push(
     state: State<'_, RegistryState>,
     base_version: i64,
     local_fingerprint: String,
-) -> Result<i64, String> {
+    selected_ids: Option<Vec<String>>,
+) -> Result<teams::PublishResult, String> {
     refresh_from_disk(state.inner())?;
     // push_current does a blocking GET + PUT to the team server; keep it off the main thread.
     tauri::async_runtime::spawn_blocking(move || {
-        teams::push_current(base_version, &local_fingerprint)
+        match selected_ids { Some(ids) => teams::push_selected(&ids, base_version, &local_fingerprint), None => teams::push_current(base_version, &local_fingerprint).map(teams::PublishResult::whole_set) }
     })
     .await
     .map_err(|e| format!("push task join failed: {e}"))?
@@ -2537,14 +2640,34 @@ async fn probe_auth(url: String) -> vendors::AuthInfo {
 /// access token (and refresh token). Runs on a blocking worker so the UI thread
 /// stays responsive while the user completes sign-in in their browser.
 #[tauri::command]
-async fn authenticate_oauth(app: AppHandle, server_id: String, url: String) -> Result<(), String> {
+async fn authenticate_oauth(
+    app: AppHandle,
+    server_id: String,
+    url: String,
+    attempt_id: String,
+) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
-        crate::oauth_controller::authenticate_with(&server_id, &url, || {
+        crate::oauth_controller::authenticate_with(&server_id, &url, &attempt_id, || {
             bump_secrets_generation(app.state::<RegistryState>().inner())
         })
     })
     .await
     .map_err(|error| format!("OAuth task join failed: {error}"))?
+}
+
+#[tauri::command]
+fn start_oauth_attempt() -> String {
+    crate::oauth_controller::start_attempt()
+}
+
+#[tauri::command]
+async fn cancel_oauth_attempt(attempt_id: String) -> Result<bool, String> {
+    crate::oauth_controller::request_cancel_attempt(&attempt_id);
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::oauth_controller::cancel_attempt(&attempt_id)
+    })
+    .await
+    .map_err(|error| format!("Could not cancel browser sign-in: {error}"))
 }
 
 /// The popular catalog (the curated set).
@@ -3091,30 +3214,18 @@ fn stop_spawned_gateways(bridge: State<HttpBridgeState>) -> UpdateShutdownReport
                     let intent = UpdateHttpBridgeIntent { port, token };
                     match save_update_http_bridge_intent(&intent) {
                         Ok(()) => {
-                            let mut child = bridge.child.take().expect("live bridge has a child");
-                            let stopped = match child.kill() {
-                                Ok(()) => child.wait().map(|_| ()),
-                                Err(kill_error) => match child.try_wait() {
-                                    Ok(Some(_)) => Ok(()),
-                                    Ok(None) => Err(kill_error),
-                                    Err(wait_error) => Err(wait_error),
-                                },
-                            };
+                            let stopped = crate::http_bridge::stop_with(
+                                &mut bridge,
+                                std::process::Child::kill,
+                            );
                             match stopped {
-                                Ok(()) => {
-                                    bridge.port = None;
-                                    bridge.token = None;
-                                    OwnedBridgeStop::Stopped(port)
-                                }
-                                Err(error) => {
-                                    bridge.child = Some(child);
-                                    OwnedBridgeStop::FailedWithIntent {
-                                        port,
-                                        error: format!(
-                                            "Toolport HTTP endpoint on port {port}: {error}"
-                                        ),
-                                    }
-                                }
+                                Ok(_) => OwnedBridgeStop::Stopped(port),
+                                Err(error) => OwnedBridgeStop::FailedWithIntent {
+                                    port,
+                                    error: format!(
+                                        "Toolport HTTP endpoint on port {port}: {error}"
+                                    ),
+                                },
                             }
                         }
                         Err(error) => OwnedBridgeStop::FailedBeforeIntent(error),
@@ -3810,8 +3921,113 @@ fn nudge_wayland_input_region(w: &tauri::WebviewWindow) {
 #[cfg(not(target_os = "linux"))]
 fn nudge_wayland_input_region(_w: &tauri::WebviewWindow) {}
 
-/// Bring the main window back to the foreground (from the tray, a re-launch, or an
-/// approval). Un-hides, un-minimizes, and focuses so it works from every hidden state.
+/// The one Teams pairing attempt in progress. The webview shows its approval
+/// prompt from `team-pair` events, so the prompt closes when pairing ends; a
+/// native dialog here could not be dismissed from code.
+struct TeamPairing {
+    cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    /// Set once the browser page is open.
+    check: Option<String>,
+}
+static TEAM_PAIRING: Mutex<Option<TeamPairing>> = Mutex::new(None);
+
+fn team_pairing() -> std::sync::MutexGuard<'static, Option<TeamPairing>> {
+    TEAM_PAIRING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// Clears its own attempt however its worker ends, including a panic. A newer
+/// attempt started after this one finished is left alone.
+struct TeamPairGuard(std::sync::Arc<std::sync::atomic::AtomicBool>);
+impl TeamPairGuard {
+    fn owns(&self, pairing: &TeamPairing) -> bool {
+        std::sync::Arc::ptr_eq(&pairing.cancel, &self.0)
+    }
+}
+impl Drop for TeamPairGuard {
+    fn drop(&mut self) {
+        let mut pairing = team_pairing();
+        if pairing.as_ref().is_some_and(|current| self.owns(current)) {
+            pairing.take();
+        }
+    }
+}
+
+/// Payload of the `team-pair` event and of `team_pair_state`.
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TeamPairEvent {
+    /// "pending", "connected", "cancelled" or "failed".
+    state: &'static str,
+    check: Option<String>,
+    message: Option<String>,
+}
+
+impl TeamPairEvent {
+    fn new(state: &'static str) -> Self {
+        Self { state, check: None, message: None }
+    }
+}
+
+fn deliver_team_pair(app: &AppHandle, origin: String, team: String) {
+    show_main_window(app);
+    if registry::load().is_ok_and(|reg| teams::pair_target_is_current(&reg, &origin, &team)) {
+        let _ = app.emit("show-teams", ());
+        return;
+    }
+    let cancel = {
+        let mut pairing = team_pairing();
+        if let Some(current) = pairing.as_ref() {
+            // A repeated link brings the waiting prompt back instead of pairing twice.
+            if let Some(check) = &current.check {
+                let _ = app.emit("team-pair", TeamPairEvent { check: Some(check.clone()), ..TeamPairEvent::new("pending") });
+            }
+            return;
+        }
+        let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        *pairing = Some(TeamPairing { cancel: std::sync::Arc::clone(&cancel), check: None });
+        cancel
+    };
+    let pending = TeamPairGuard(std::sync::Arc::clone(&cancel));
+    let handle=app.clone();
+    app.dialog().message(format!("Control plane: {origin}\nOnly continue if you trust this origin. Your browser will show the named team and account before approval. Connecting replaces this installation's current team connection."))
+        .title("Connect Toolport to Teams?").buttons(MessageDialogButtons::OkCancel).show(move |approved| {
+            if !approved { drop(pending); return; }
+            std::thread::spawn(move || {
+                let result=teams::pair_device(&origin,&team,&cancel,|url,check| {
+                    if let Some(current) = team_pairing().as_mut().filter(|current| pending.owns(current)) { current.check = Some(check.to_string()); }
+                    let _ = handle.emit("team-pair", TeamPairEvent { check: Some(check.to_string()), ..TeamPairEvent::new("pending") });
+                    let _=crate::oauth::open_web_url(url);
+                });
+                drop(pending);
+                let event = match result {
+                    Ok(reg) => { let _=handle.emit("team-sync-registry",&reg); TeamPairEvent::new("connected") }
+                    Err(e) if e == teams::PAIRING_CANCELLED => TeamPairEvent::new("cancelled"),
+                    Err(e) => TeamPairEvent { message: Some(e), ..TeamPairEvent::new("failed") },
+                };
+                let _ = handle.emit("team-pair", event);
+            });
+        });
+}
+
+/// The waiting approval prompt, for a webview that started listening after the
+/// `team-pair` event was sent.
+#[tauri::command]
+fn team_pair_state() -> Option<TeamPairEvent> {
+    team_pairing().as_ref().and_then(|current| {
+        current.check.clone().map(|check| TeamPairEvent { check: Some(check), ..TeamPairEvent::new("pending") })
+    })
+}
+
+/// Stop waiting for browser approval. The unredeemed request expires on the server.
+#[tauri::command]
+fn team_pair_cancel() {
+    if let Some(current) = team_pairing().as_ref() {
+        current.cancel.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
 fn show_main_window(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         // A visible window means the app should own a Dock icon again (macOS).
@@ -3820,18 +4036,18 @@ fn show_main_window(app: &AppHandle) {
         let _ = w.unminimize();
         let _ = w.set_focus();
         nudge_wayland_input_region(&w);
-        // Tell the frontend the window is visible again so the team-sync loop resumes and does
-        // an immediate catch-up poll. The webview's Page Visibility API doesn't report Tauri
+        // Tell visibility-aware UI observers that the window is visible again.
+        // Required Teams synchronization continues independently in Rust. The webview's Page Visibility API doesn't report Tauri
         // tray show/hide on Windows, so this event is the authoritative signal (see the
-        // team-sync effect in App.tsx and `main_window_visible`).
+        // visibility observers and `main_window_visible`).
         let _ = app.emit("team-window-visible", true);
     }
 }
 
 /// Whether the main window is currently shown (vs hidden to the tray). Seeds the frontend
-/// team-sync loop's visibility gate on mount - live changes come via the `team-window-visible`
+/// UI visibility observers on mount - live changes come via the `team-window-visible`
 /// event emitted from show/hide. Defaults to visible if the window is missing or the platform
-/// query fails, so sync never wedges off on an unexpected error.
+/// query fails. This does not control Teams synchronization.
 #[tauri::command]
 fn main_window_visible(app: AppHandle) -> bool {
     app.get_webview_window("main")
@@ -4156,6 +4372,8 @@ pub fn run() {
             uninstall_gateway,
             migrate_client,
             set_secret,
+            set_launch_secret,
+            set_launch_input_value,
             delete_secret,
             set_client_credentials,
             clear_client_credentials,
@@ -4243,11 +4461,17 @@ pub fn run() {
             hooks_recent,
             team_disconnect,
             team_push_preview,
+            team_pair_state,
+            team_pair_cancel,
+            team_use_managed,
+            team_account_link,
             team_push,
             set_auth_token,
             clear_auth_token,
             has_auth_token,
             authenticate_oauth,
+            start_oauth_attempt,
+            cancel_oauth_attempt,
             probe_auth,
             popular_catalog,
             list_stacks,
@@ -4286,9 +4510,8 @@ pub fn run() {
                     let _ = window.hide();
                     // Hidden to the tray => menu-bar only, so drop the Dock icon (macOS).
                     set_dock_icon_visible(window.app_handle(), false);
-                    // Tell the frontend the window is hidden so the team-sync loop parks and
-                    // stops polling the team server (each poll would otherwise keep a
-                    // scale-to-zero Postgres awake). Resumes via show_main_window's emit.
+                    // Notify visibility-aware UI observers; the native Teams worker
+                    // continues config delivery and reporting while the window is hidden.
                     let _ = window.app_handle().emit("team-window-visible", false);
                     maybe_show_tray_hint(window.app_handle());
                 }
@@ -4338,15 +4561,23 @@ pub fn run() {
             // HttpBridgeState so a stopped bridge can be brought back (SOU-418).
             let migrate_handle = app.handle().clone();
             std::thread::spawn(move || {
+                // A data-dir override is a separate Toolport instance. Its bundled
+                // gateway and bridge belong to that instance, but the detected AI
+                // client configs and startup hooks live in the user's normal home.
+                // Do not redirect those clients to this instance on launch.
+                let isolated_data_dir =
+                    crate::brand::env_var_os("TOOLPORT_DATA_DIR", "CONDUIT_DATA_DIR").is_some();
                 // Prefer a quiet data-dir rename before publishing/repointing so the
                 // new bin path is under Toolport and client configs get that path.
                 // Gateways holding files open may block the rename; we then keep the
                 // legacy leaf and still repoint names/env keys.
-                if let Some(migrated) = registry::migrate_legacy_data_dir() {
-                    eprintln!(
-                        "toolport: migrated data directory to {}",
-                        migrated.display()
-                    );
+                if !isolated_data_dir {
+                    if let Some(migrated) = registry::migrate_legacy_data_dir() {
+                        eprintln!(
+                            "toolport: migrated data directory to {}",
+                            migrated.display()
+                        );
+                    }
                 }
                 if let Some(published) = crate::gateway_publish::publish_bundled_gateway() {
                     eprintln!(
@@ -4380,70 +4611,72 @@ pub fn run() {
                     ),
                 }
                 // Ownership map from disk (this launch thread has no RegistryState handle).
-                let managed_snapshot = registry::load()
-                    .map(|r| r.client_managed_entries)
-                    .unwrap_or_default();
-                let repoint = clients::repoint_stale_gateways(&managed_snapshot);
-                if !repoint.repointed.is_empty() {
-                    let ids: Vec<&str> = repoint
-                        .repointed
-                        .iter()
-                        .map(|(id, _)| id.as_str())
-                        .collect();
-                    eprintln!(
-                        "toolport: re-pointed {} client config(s) to the renamed gateway: {}",
-                        repoint.repointed.len(),
-                        ids.join(", ")
-                    );
-                    // Refresh ownership records for everything we rewrote (SOU-406).
-                    let _ = registry::update(|reg| {
-                        for (id, entry) in &repoint.repointed {
-                            reg.set_client_managed_entry(id, entry.clone());
-                        }
-                        Ok(())
-                    });
-                }
-                if !repoint.customized.is_empty() {
-                    eprintln!(
-                        "toolport: left {} client config(s) alone (custom configuration): {}",
-                        repoint.customized.len(),
-                        repoint.customized.join(", ")
-                    );
-                }
-                if !repoint.failed.is_empty() {
-                    // A client that needed migrating and could not be written stays
-                    // on a superseded gateway until someone notices. Keep it
-                    // distinguishable from "nothing to do" at the call site too,
-                    // not just in the gateway log.
-                    eprintln!(
-                        "toolport: FAILED to re-point {} client config(s); they will keep \
-                         launching their previous gateway: {}",
-                        repoint.failed.len(),
-                        repoint
-                            .failed
+                if !isolated_data_dir {
+                    let managed_snapshot = registry::load()
+                        .map(|r| r.client_managed_entries)
+                        .unwrap_or_default();
+                    let repoint = clients::repoint_stale_gateways(&managed_snapshot);
+                    if !repoint.repointed.is_empty() {
+                        let ids: Vec<&str> = repoint
+                            .repointed
                             .iter()
-                            .map(|(id, why)| format!("{id} ({why})"))
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    );
+                            .map(|(id, _)| id.as_str())
+                            .collect();
+                        eprintln!(
+                            "toolport: re-pointed {} client config(s) to the renamed gateway: {}",
+                            repoint.repointed.len(),
+                            ids.join(", ")
+                        );
+                        // Refresh ownership records for everything we rewrote (SOU-406).
+                        let _ = registry::update(|reg| {
+                            for (id, entry) in &repoint.repointed {
+                                reg.set_client_managed_entry(id, entry.clone());
+                            }
+                            Ok(())
+                        });
+                    }
+                    if !repoint.customized.is_empty() {
+                        eprintln!(
+                            "toolport: left {} client config(s) alone (custom configuration): {}",
+                            repoint.customized.len(),
+                            repoint.customized.join(", ")
+                        );
+                    }
+                    if !repoint.failed.is_empty() {
+                        // A client that needed migrating and could not be written stays
+                        // on a superseded gateway until someone notices. Keep it
+                        // distinguishable from "nothing to do" at the call site too,
+                        // not just in the gateway log.
+                        eprintln!(
+                            "toolport: FAILED to re-point {} client config(s); they will keep \
+                             launching their previous gateway: {}",
+                            repoint.failed.len(),
+                            repoint
+                                .failed
+                                .iter()
+                                .map(|(id, why)| format!("{id} ({why})"))
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        );
+                    }
+                    // Re-assert the user's personal agent rules (SBS-821), on this same launch
+                    // thread because it is the one already allowed to touch client files on disk.
+                    // Picks up a client installed, reinstalled, or updated since the last apply
+                    // without the user opening the Rules tab. Cheap and quiet: it returns before
+                    // scanning anything when no rule set is configured and nothing was ever
+                    // written, and `write_target` no-ops when a client's block already matches, so
+                    // a steady-state launch touches no files.
+                    rules::apply_on_startup();
+                    // Same launch thread, same reason, for the agent hook sensor (SBS-822).
+                    // This one additionally repairs the binary path after an update: the
+                    // published gateway is versioned and the reaper prunes superseded
+                    // builds, so hooks written before an update would name a binary that
+                    // no longer exists. Returns immediately when the sensor was never
+                    // turned on.
+                    hooks::apply_on_startup();
+                    agent_permissions::apply_on_startup();
+                    agent_guard::apply_on_startup();
                 }
-                // Re-assert the user's personal agent rules (SBS-821), on this same launch
-                // thread because it is the one already allowed to touch client files on disk.
-                // Picks up a client installed, reinstalled, or updated since the last apply
-                // without the user opening the Rules tab. Cheap and quiet: it returns before
-                // scanning anything when no rule set is configured and nothing was ever
-                // written, and `write_target` no-ops when a client's block already matches, so
-                // a steady-state launch touches no files.
-                rules::apply_on_startup();
-                // Same launch thread, same reason, for the agent hook sensor (SBS-822).
-                // This one additionally repairs the binary path after an update: the
-                // published gateway is versioned and the reaper prunes superseded
-                // builds, so hooks written before an update would name a binary that
-                // no longer exists. Returns immediately when the sensor was never
-                // turned on.
-                hooks::apply_on_startup();
-                agent_permissions::apply_on_startup();
-                agent_guard::apply_on_startup();
 
                 // Stop obsolete gateway processes. Path-based identity on all OS
                 // (SOU-414); not gated on repoint (SOU-306).
@@ -4523,6 +4756,7 @@ pub fn run() {
             // or denies them here. Always managed so the approve/deny commands have state.
             let broker = approval_broker::start(app.handle().clone());
             app.manage(broker);
+            start_team_lifecycle(app.handle());
 
             // toolport://import?s=<id> (and legacy conduit://) deep links open the
             // shared-stack import. The installer registers the schemes; we also
@@ -4546,7 +4780,8 @@ pub fn run() {
                 // Cold start: the URL(s) the app was launched with.
                 if let Ok(Some(urls)) = app.deep_link().get_current() {
                     for url in urls {
-                        if let Some(id) = parse_share_url(url.as_str()) {
+                        if let Some((origin,team)) = teams::parse_pair_link(url.as_str()) { deliver_team_pair(app.handle(), origin, team); }
+                        else if let Some(id) = parse_share_url(url.as_str()) {
                             deliver_shared_import(app.handle(), id);
                         }
                     }
@@ -4556,7 +4791,8 @@ pub fn run() {
                 let handle = app.handle().clone();
                 app.deep_link().on_open_url(move |event| {
                     for url in event.urls() {
-                        if let Some(id) = parse_share_url(url.as_str()) {
+                        if let Some((origin,team)) = teams::parse_pair_link(url.as_str()) { deliver_team_pair(&handle, origin, team); }
+                        else if let Some(id) = parse_share_url(url.as_str()) {
                             deliver_shared_import(&handle, id);
                         }
                     }
@@ -4584,6 +4820,10 @@ pub fn run() {
             // endpoint descriptor so a gateway dialing after we're gone reads no broker
             // (a clean Unreachable) rather than connecting to the dead port we left behind.
             if matches!(event, tauri::RunEvent::Exit) {
+                if let Some(stop) = app_handle.try_state::<TeamLifecycleStop>() {
+                    stop.0.store(true, std::sync::atomic::Ordering::Release);
+                }
+                crate::oauth_controller::cancel_all_attempts();
                 if let Some(broker) = app_handle.try_state::<approval_broker::ApprovalBroker>() {
                     broker.clear_endpoint();
                 }
@@ -4662,6 +4902,7 @@ mod tests {
             child: Some(child),
             port: Some(9876),
             token: Some("preserved-secret-token".to_string()),
+            proxy_mode: false,
         };
 
         let error = stop_http_bridge_with(&mut bridge, |_| {
@@ -4856,6 +5097,8 @@ mod tests {
             cwd: None,
             client_credentials: None,
             request_timeout_ms: None,
+            initialize_timeout_ms: None,
+            launch: None,
             unknown_fields: serde_json::Map::new(),
         }
     }
@@ -4891,6 +5134,8 @@ mod tests {
             cwd: None,
             client_credentials: None,
             request_timeout_ms: None,
+            initialize_timeout_ms: None,
+            launch: None,
             unknown_fields: serde_json::Map::new(),
         }
     }
@@ -5324,47 +5569,6 @@ mod tests {
     }
 
     #[test]
-    fn stale_lock_replace_requires_same_observed_instance() {
-        let unique = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("conduit-oauth-lock-{unique}.lock"));
-
-        let observed_id = format!("observed-{unique}");
-        let fresh_id = format!("fresh-owner-{unique}");
-        let contender_id = format!("contender-{unique}");
-        std::fs::write(&path, oauth_lock_contents(&observed_id))
-            .expect("initial lock write should work");
-        let observed = read_oauth_lock_snapshot(&path)
-            .expect("snapshot read should work")
-            .expect("snapshot should exist");
-
-        std::thread::sleep(Duration::from_millis(5));
-        std::fs::write(&path, oauth_lock_contents(&fresh_id))
-            .expect("fresh lock write should work");
-
-        let replaced = try_replace_stale_lock(
-            &path,
-            &observed,
-            &oauth_lock_contents(&contender_id),
-            &contender_id,
-        )
-        .expect("replace check should not error");
-        assert!(
-            !replaced,
-            "stale cleanup must not clobber a newly replaced lock"
-        );
-
-        let current = std::fs::read_to_string(&path).expect("current lock should be readable");
-        assert!(
-            current.contains(&format!("attempt_id={fresh_id}")),
-            "fresh lock instance must remain intact"
-        );
-        let _ = std::fs::remove_file(path);
-    }
-
-    #[test]
     fn tool_identities_attribute_alias_to_server_and_profiles() {
         use std::collections::{BTreeMap, BTreeSet};
         let servers = vec![
@@ -5376,6 +5580,7 @@ mod tests {
             name: "Default".into(),
             enabled_server_ids: vec!["gh".into()],
             tool_scope: Default::default(),
+            instructions: None,
         }];
         let mut baselines = BTreeMap::new();
         let bl = |fp: &str, fs: u64, lc: u64| integrity::ToolBaseline {
@@ -5431,6 +5636,8 @@ mod tests {
             cwd: None,
             client_credentials: None,
             request_timeout_ms: None,
+            initialize_timeout_ms: None,
+            launch: None,
             unknown_fields: serde_json::Map::new(),
         });
 
@@ -5538,6 +5745,8 @@ mod tests {
             cwd: None,
             client_credentials: None,
             request_timeout_ms: None,
+            initialize_timeout_ms: None,
+            launch: None,
             unknown_fields: serde_json::Map::new(),
         });
         let doc = build_export(&reg, None, None, None);
@@ -5607,6 +5816,8 @@ mod tests {
             cwd: None,
             client_credentials: None,
             request_timeout_ms: None,
+            initialize_timeout_ms: None,
+            launch: None,
             unknown_fields: serde_json::Map::new(),
         });
         let doc = build_export(&reg, None, None, None);
@@ -5658,6 +5869,8 @@ mod tests {
             cwd: None,
             client_credentials: None,
             request_timeout_ms: None,
+            initialize_timeout_ms: None,
+            launch: None,
             unknown_fields: serde_json::Map::new(),
         });
         let serialized = serde_json::to_string(&build_export(&reg, None, None, None)).unwrap();
@@ -5699,6 +5912,8 @@ mod tests {
             cwd: None,
             client_credentials: None,
             request_timeout_ms: None,
+            initialize_timeout_ms: None,
+            launch: None,
             unknown_fields: serde_json::Map::new(),
         });
         let json = serde_json::to_string(&build_export(&reg, None, None, None)).unwrap();
@@ -5814,6 +6029,8 @@ mod tests {
             cwd: None,
             client_credentials: None,
             request_timeout_ms: None,
+            initialize_timeout_ms: None,
+            launch: None,
             unknown_fields: serde_json::Map::new(),
         });
         reg.add_server(ServerEntry {
@@ -5829,6 +6046,8 @@ mod tests {
             cwd: None,
             client_credentials: None,
             request_timeout_ms: None,
+            initialize_timeout_ms: None,
+            launch: None,
             unknown_fields: serde_json::Map::new(),
         });
 
@@ -6269,7 +6488,7 @@ mod tests {
     /// write failure must surface the partial state — the token is gone from the keychain
     /// but the running gateway was never told to reload (#737, #743).
     #[test]
-    fn clear_auth_token_propagates_reload_failure_after_keychain_removal() {
+    fn clear_auth_token_checks_ownership_and_propagates_reload_failure() {
         let _serial = GEN_TEST_LOCK
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -6279,9 +6498,6 @@ mod tests {
         let _data = registry::data_dir_test_lock();
         let dir = unique_update_test_dir("clear-auth-reload-fail");
         std::fs::create_dir_all(&dir).unwrap();
-        // The registry "file" is an existing directory, so the atomic temp+rename
-        // save fails fast and `bump_secrets_generation` must propagate the failure.
-        std::fs::create_dir_all(dir.join("registry.json")).unwrap();
         let _override = registry::DataDirOverride::set(&dir);
 
         let previous_key = std::env::var_os("TOOLPORT_SECRET_KEY");
@@ -6317,9 +6533,24 @@ mod tests {
             Some("tok-123".to_string())
         );
 
+        // An unreadable registry cannot establish which vault owns this token.
+        // Refuse deletion, then prove the token survives once access is restored.
+        std::fs::create_dir_all(dir.join("registry.json")).unwrap();
         let state: RegistryState = Mutex::new(Registry::default());
         let err = clear_auth_token_inner("srv-clear-auth", &state)
-            .expect_err("a failed bump must propagate on the clear path");
+            .expect_err("unverifiable ownership must prevent deletion");
+        assert!(err.contains("Cannot verify local authentication ownership"));
+        std::fs::remove_dir(dir.join("registry.json")).unwrap();
+        assert_eq!(
+            secrets::get_secret_result("srv-clear-auth", secrets::HTTP_AUTH_KEY).unwrap(),
+            Some("tok-123".to_string())
+        );
+
+        // Inject the later reload failure after ownership has been verified.
+        let err = crate::registry_controller::clear_auth_token_with("srv-clear-auth", || {
+            Err("the registry could not be saved".into())
+        })
+        .expect_err("a failed bump must propagate on the clear path");
         assert!(
             err.contains("removed from the keychain"),
             "unexpected error: {err}"

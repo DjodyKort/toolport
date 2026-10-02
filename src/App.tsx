@@ -31,13 +31,11 @@ import {
   getRegistry,
   takeRegistryRecoveryNotice,
   importServers,
-  mainWindowVisible,
   previewImportServers,
   probeServers,
   removeServer,
   setAllEnabled,
   setServerEnabled,
-  teamSyncWait,
   type ClientNeedingRestart,
 } from "@/lib/api";
 import {
@@ -60,6 +58,7 @@ import {
 import { AppSidebar } from "@/components/AppSidebar";
 import { ClientLogo } from "@/components/ClientLogo";
 import { PendingApprovals } from "@/components/PendingApprovals";
+import { TeamPairingDialog } from "@/components/TeamPairingDialog";
 import { QuarantineAlert } from "@/components/QuarantineAlert";
 import { RegistryServerRow } from "@/components/RegistryServerRow";
 import { ServerDialog } from "@/components/ServerDialog";
@@ -266,6 +265,19 @@ function App() {
     [reprobeAfterMutation],
   );
 
+  // A Teams connection that finished pairing lands on its Teams view.
+  const openTeams = useCallback(() => {
+    setSelectedClientId(null);
+    setView("teams");
+  }, []);
+
+  useEffect(() => {
+    const unlisten = listen("show-teams", () => setView("teams"));
+    return () => {
+      void unlisten.then((dispose) => dispose());
+    };
+  }, []);
+
   // Refresh statuses when the user returns to the window, so a server that came
   // up (or went down) while they were away reflects reality without a manual
   // refresh. Guarded so rapid alt-tabbing doesn't re-spawn every server.
@@ -433,113 +445,16 @@ function App() {
     };
   }, []);
 
-  // Keep a team member's shared server set AND security policy current even if they never
-  // open the Teams tab: an admin tightening a force-quarantine / approval policy must reach
-  // every member near-instantly, not just those who happen to click "Sync now". This runs a
-  // continuous long-poll: each call parks on the server for up to WAIT_SECS and returns the
-  // instant the team config view changes (or the wait elapses), so a dashboard edit lands in
-  // ~1s while staying cheap when idle. Not tied to the Teams view. Keyed on the team id so it
-  // starts on connect and tears down on disconnect/removal.
-  //
-  // While the app is hidden to the tray the loop PAUSES entirely (zero requests): a
-  // connected-but-idle client otherwise re-polls every ~25s forever, and each poll hits the
-  // team server's database, which pins a scale-to-zero Postgres (Neon) awake around the clock
-  // and burns compute even when nobody is using Toolport (SOU-256). We resume with an immediate
-  // catch-up poll the instant the window is shown, so a policy change that landed while hidden
-  // is picked up the moment the user comes back.
-  //
-  // The visibility signal comes from the Rust side: the `team-window-visible` event emitted on
-  // show/hide, seeded by an initial `mainWindowVisible()` pull for a straight-to-tray launch.
-  // The webview's own Page Visibility API is NOT reliable here - on Windows, hiding a Tauri
-  // window to the tray does not flip `document.hidden`, so a purely web-based gate kept polling
-  // from the tray. We still fold in `document.hidden` as a secondary signal for the platforms
-  // where it does fire (e.g. a real minimize).
-  const teamId = registry?.team?.teamId;
+  // Required Teams work lives in Rust for the application's lifetime. The webview
+  // observes results; hiding/minimizing it cannot stop config delivery or reporting.
   useEffect(() => {
-    if (!teamId) return;
-    let cancelled = false;
-    const WAIT_SECS = 25;
-    // Floor between re-parks. A change is applied the instant it arrives (below), so this only
-    // paces the NEXT poll, never delays enforcement. It also keeps us gentle against an OLDER
-    // server that doesn't support `?wait` and so returns immediately: without a floor that would
-    // be a hot loop; with it, an old server degrades to a polite ~3s poll.
-    const FLOOR_MS = 3000;
-    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-    // Window visibility, source of truth = Rust; `hidden()` also folds in the webview signal.
-    // A backgrounded loop parks in `waitUntilVisible` (issuing zero requests) and wakes on show
-    // or on teardown.
-    let windowVisible = true;
-    const hidden = () => !windowVisible || document.hidden;
-    let wake: (() => void) | null = null;
-    const maybeWake = () => {
-      if (!hidden() && wake) {
-        wake();
-        wake = null;
-      }
-    };
-    const setWindowVisible = (v: boolean) => {
-      windowVisible = v;
-      maybeWake();
-    };
-    document.addEventListener("visibilitychange", maybeWake);
-    // Seed initial state (covers a launch that goes straight to the tray via --hidden), then
-    // track live show/hide from the Rust side.
-    void mainWindowVisible()
-      .then((v) => {
-        if (!cancelled) setWindowVisible(v);
-      })
-      .catch(() => {});
-    const unlisten = listen<boolean>("team-window-visible", (e) => {
-      if (!cancelled) setWindowVisible(e.payload);
+    const unlisten = listen<Registry>("team-sync-registry", (event) => {
+      applyRegistryChange(event.payload);
     });
-    const waitUntilVisible = () =>
-      new Promise<void>((resolve) => {
-        if (!hidden() || cancelled) {
-          resolve();
-          return;
-        }
-        wake = resolve;
-      });
-
-    const loop = async () => {
-      while (!cancelled) {
-        if (hidden()) {
-          await waitUntilVisible();
-          if (cancelled) break;
-          // Fall straight through to a poll so we resync immediately on show.
-        }
-        const started = Date.now();
-        try {
-          const fresh = await teamSyncWait(WAIT_SECS);
-          if (cancelled) break;
-          applyRegistryChange(fresh);
-        } catch {
-          // Network blip or server down: back off before re-parking so we don't spin.
-          // Removal is a clean 401/403 the backend turns into a cleared team + the
-          // team-removed event, not a throw, so it won't land here.
-          if (cancelled) break;
-          await sleep(15000);
-          continue;
-        }
-        // If the call returned well before the wait window (a real change, already applied
-        // above, or an old server ignoring `?wait`), pace the next park.
-        const elapsed = Date.now() - started;
-        if (!cancelled && elapsed < FLOOR_MS) await sleep(FLOOR_MS - elapsed);
-      }
-    };
-    void loop();
     return () => {
-      cancelled = true;
-      document.removeEventListener("visibilitychange", maybeWake);
-      void unlisten.then((f) => f());
-      // Unblock a loop parked in waitUntilVisible so its cancelled check runs and it exits.
-      if (wake) {
-        wake();
-        wake = null;
-      }
+      void unlisten.then((stop) => stop());
     };
-  }, [applyRegistryChange, teamId]);
+  }, [applyRegistryChange]);
 
   function selectClient(id: string) {
     setSelectedClientId(id);
@@ -1211,6 +1126,7 @@ function App() {
         onVisibleChange={setStarSurface}
       />
       <PendingApprovals />
+      <TeamPairingDialog onConnected={openTeams} />
       {/* Quarantine has no global signal otherwise: the first sign used to be an agent
           call failing, with the only fix buried in Settings (SOU-293). */}
       <QuarantineAlert onReview={() => selectView("settings")} />

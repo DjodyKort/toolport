@@ -7,6 +7,7 @@ const api = vi.hoisted(() => ({
   addServer: vi.fn(),
   parseServerSnippet: vi.fn(),
   setSecret: vi.fn(),
+  setLaunchSecret: vi.fn(),
   testServer: vi.fn(),
   updateServer: vi.fn(),
 }));
@@ -81,6 +82,95 @@ describe("ServerDialog", () => {
     vi.clearAllMocks();
   });
 
+  it("vaults composed launch inputs and clears bindings when arguments change", async () => {
+    const initial: ServerEntry = {
+      id: "",
+      name: "Twilio",
+      transport: "stdio",
+      command: "npx",
+      args: ["-y", "@twilio-alpha/mcp", "<launch-input>"],
+      env: [],
+      url: null,
+      source: "catalog:curated",
+      launch: {
+        inputs: [
+          { key: "ACCOUNT", label: "Account SID", secret: false, required: true },
+          { key: "KEY", label: "API Key SID", secret: true, required: true },
+          { key: "SECRET", label: "API Secret", secret: true, required: true },
+        ],
+        bindings: [
+          {
+            index: 2,
+            parts: [
+              { kind: "input", key: "ACCOUNT" },
+              { kind: "literal", value: "/" },
+              { kind: "input", key: "KEY" },
+              { kind: "literal", value: ":" },
+              { kind: "input", key: "SECRET" },
+            ],
+          },
+        ],
+      },
+    };
+    const added = savedRegistry("twilio");
+    api.addServer.mockResolvedValue(added);
+    api.setLaunchSecret.mockResolvedValue(added);
+    const user = userEvent.setup();
+    render(<ServerDialog autoOpen initial={initial} onSaved={vi.fn()} />);
+    await user.type(screen.getByLabelText("Account SID *"), "AC123");
+    await user.type(screen.getByLabelText("API Key SID *"), "SK123");
+    await user.type(screen.getByLabelText("API Secret *"), "private-value");
+    await user.click(screen.getByRole("button", { name: "Add" }));
+    await waitFor(() => expect(api.setLaunchSecret).toHaveBeenCalledTimes(2));
+    expect(api.addServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        launch: expect.objectContaining({
+          inputs: [
+            expect.objectContaining({ value: "AC123" }),
+            expect.objectContaining({ value: null }),
+            expect.objectContaining({ value: null }),
+          ],
+        }),
+      }),
+    );
+    expect(api.setLaunchSecret).toHaveBeenCalledWith("twilio", "SECRET", "private-value");
+
+    render(<ServerDialog autoOpen initial={initial} onSaved={vi.fn()} />);
+    await user.type(screen.getAllByLabelText("Arguments")[0], " extra");
+    expect(screen.getByText(/Catalog launch setup was removed/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add" })).toBeDisabled();
+  });
+
+  it("clears requirements when customizing a preset without argument bindings", async () => {
+    const initial: ServerEntry = {
+      id: "qdrant",
+      name: "Qdrant",
+      transport: "stdio",
+      command: "uvx",
+      args: ["mcp-server-qdrant"],
+      env: [{ key: "QDRANT_URL", value: null, secret: true }],
+      url: null,
+      source: "catalog:curated",
+      launch: {
+        inputs: [],
+        bindings: [],
+        requiredEnv: ["QDRANT_URL"],
+      },
+    };
+    api.updateServer.mockResolvedValue(savedRegistry("qdrant"));
+    const user = userEvent.setup();
+    render(<ServerDialog autoOpen editId="qdrant" initial={initial} onSaved={vi.fn()} />);
+
+    await user.type(screen.getByLabelText("Arguments"), " --transport stdio");
+    expect(screen.getByText(/Catalog launch setup was removed/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(api.updateServer).toHaveBeenCalledTimes(1));
+    expect(api.updateServer).toHaveBeenCalledWith(
+      expect.objectContaining({ launch: null, source: "manual" }),
+    );
+  });
+
   it("opens from its trigger and shows the add form", async () => {
     render(<ServerDialog trigger={<button>Add server</button>} onSaved={vi.fn()} />);
     expect(screen.queryByText("Add MCP server")).not.toBeInTheDocument();
@@ -122,6 +212,10 @@ describe("ServerDialog", () => {
     render(<ServerDialog autoOpen editId="local" initial={initial} onSaved={vi.fn()} />);
     await user.click(screen.getByLabelText("Transport"));
     await user.click(screen.getByRole("option", { name: "http (remote)" }));
+    expect(screen.getByLabelText("Startup timeout (optional)")).toHaveAttribute(
+      "placeholder",
+      "30",
+    );
     await user.type(screen.getByLabelText("URL"), "https://mcp.example.com/mcp");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
@@ -131,6 +225,39 @@ describe("ServerDialog", () => {
         id: "local",
         transport: "http",
         requestTimeoutMs: null,
+      }),
+    );
+  });
+
+  it("saves the startup timeout in milliseconds", async () => {
+    const initial: ServerEntry = {
+      id: "remote",
+      name: "Remote",
+      transport: "http",
+      command: null,
+      args: [],
+      env: [],
+      url: "https://mcp.example.com/mcp",
+      source: "manual",
+      requestTimeoutMs: 90_000,
+      initializeTimeoutMs: 240_000,
+    };
+    api.updateServer.mockResolvedValueOnce(savedRegistry("remote"));
+    const user = userEvent.setup();
+
+    render(<ServerDialog autoOpen editId="remote" initial={initial} onSaved={vi.fn()} />);
+    const input = screen.getByLabelText("Startup timeout (optional)");
+    expect(input).toHaveValue(240);
+    expect(input).toHaveAttribute("placeholder", "90");
+    await user.clear(input);
+    await user.type(input, "300.5");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(api.updateServer).toHaveBeenCalledTimes(1));
+    expect(api.updateServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "remote",
+        initializeTimeoutMs: 300_500,
       }),
     );
   });

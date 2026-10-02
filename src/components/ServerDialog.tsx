@@ -15,11 +15,13 @@ import {
   addServer,
   parseServerSnippet,
   setSecret,
+  setLaunchSecret,
   testServer,
   updateServer,
 } from "@/lib/api";
 import { formatArgs, parseArgs } from "@/lib/args";
-import type { Registry, ServerEntry, Transport } from "@/lib/types";
+import { isDownloadLauncher } from "@/lib/launcher";
+import type { LaunchConfig, Registry, ServerEntry, Transport } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -87,12 +89,26 @@ export function ServerDialog({
     args: formatArgs(initial?.args ?? []),
     url: initial?.url ?? "",
     cwd: initial?.cwd ?? "",
+    initializeTimeoutSeconds:
+      initial?.initializeTimeoutMs == null
+        ? ""
+        : String(initial.initializeTimeoutMs / 1000),
   });
   // Env vars (API keys etc.). Values are vaulted in the OS keychain, never stored
   // in the registry, so existing secrets show as declared keys with empty values.
   const [envRows, setEnvRows] = useState<{ key: string; value: string }[]>(
     initial?.env.map((e) => ({ key: e.key, value: "" })) ?? [],
   );
+  const [launch, setLaunch] = useState<LaunchConfig | null>(initial?.launch ?? null);
+  const [launchValues, setLaunchValues] = useState<Record<string, string>>(
+    Object.fromEntries(
+      initial?.launch?.inputs.map((input) => [
+        input.key,
+        input.secret ? "" : (input.value ?? ""),
+      ]) ?? [],
+    ),
+  );
+  const [bindingCleared, setBindingCleared] = useState(false);
   const [busy, setBusy] = useState(false);
   const [test, setTest] = useState<TestState>(IDLE_TEST);
   const testRequestId = useRef(0);
@@ -139,8 +155,22 @@ export function ServerDialog({
         args: formatArgs(initial?.args ?? []),
         url: initial?.url ?? "",
         cwd: initial?.cwd ?? "",
+        initializeTimeoutSeconds:
+          initial?.initializeTimeoutMs == null
+            ? ""
+            : String(initial.initializeTimeoutMs / 1000),
       });
       setEnvRows(initial?.env.map((e) => ({ key: e.key, value: "" })) ?? []);
+      setLaunch(initial?.launch ?? null);
+      setLaunchValues(
+        Object.fromEntries(
+          initial?.launch?.inputs.map((input) => [
+            input.key,
+            input.secret ? "" : (input.value ?? ""),
+          ]) ?? [],
+        ),
+      );
+      setBindingCleared(false);
       setTest(IDLE_TEST);
       setShowPaste(false);
       setPasteText("");
@@ -149,6 +179,10 @@ export function ServerDialog({
   }
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
+    if ((key === "args" || key === "command") && value !== form[key] && launch) {
+      setLaunch(null);
+      setBindingCleared(true);
+    }
     setForm((f) => ({ ...f, [key]: value }));
     clearTest();
   }
@@ -183,6 +217,7 @@ export function ServerDialog({
         args: formatArgs(s.args),
         url: s.url ?? "",
         cwd: "",
+        initializeTimeoutSeconds: "",
       });
       setEnvRows(
         s.env.map((e) => ({
@@ -190,6 +225,9 @@ export function ServerDialog({
           value: e.value ?? "",
         })),
       );
+      setLaunch(null);
+      setLaunchValues({});
+      setBindingCleared(false);
       clearTest();
       if (servers.length > 1) {
         toast.info(
@@ -218,16 +256,33 @@ export function ServerDialog({
       transport: form.transport,
       command: isStdio ? form.command.trim() || null : null,
       args: isStdio ? parseArgs(form.args) : [],
+      launch:
+        isStdio && launch
+          ? {
+              ...launch,
+              inputs: launch.inputs.map((input) => ({
+                ...input,
+                value: input.secret
+                  ? withSecretValues
+                    ? launchValues[input.key] || null
+                    : null
+                  : launchValues[input.key] || null,
+              })),
+            }
+          : null,
       env: declared.map((r) => ({
         key: r.key.trim(),
         value: withSecretValues && r.value ? r.value : null,
         secret: true,
       })),
       url: isStdio ? null : form.url.trim() || null,
-      source: initial?.source ?? "manual",
+      source: bindingCleared ? "manual" : (initial?.source ?? "manual"),
       cwd: isStdio ? form.cwd.trim() || null : null,
       requestTimeoutMs:
         isStdio || initialUsesLocalCommand ? null : initial?.requestTimeoutMs,
+      initializeTimeoutMs: form.initializeTimeoutSeconds.trim()
+        ? Math.round(Number(form.initializeTimeoutSeconds) * 1000)
+        : null,
     };
   }
 
@@ -240,10 +295,20 @@ export function ServerDialog({
   if (!nameTrim) errors.push("Give the server a name.");
   if (isStdio) {
     if (!cmdTrim) errors.push("Enter the command to run (e.g. npx).");
+    if (bindingCleared && parseArgs(form.args).includes("<launch-input>")) {
+      errors.push("Replace <launch-input> with a literal argument before saving.");
+    }
   } else if (!urlTrim) {
     errors.push("Enter the server URL.");
   } else if (!/^https?:\/\//i.test(urlTrim)) {
     errors.push("The URL must start with http:// or https://.");
+  }
+  if (form.initializeTimeoutSeconds.trim()) {
+    const seconds = Number(form.initializeTimeoutSeconds);
+    const milliseconds = Math.round(seconds * 1000);
+    if (!Number.isFinite(seconds) || milliseconds < 1 || milliseconds > 86_400_000) {
+      errors.push("Startup timeout must be greater than 0 and at most 86,400 seconds.");
+    }
   }
   const ownName = editing
     ? (initial?.name ?? partialEdit?.name)?.trim().toLowerCase()
@@ -307,6 +372,14 @@ export function ServerDialog({
             result = await setSecret(id, key, r.value);
           } catch {
             failedKeys.push(key);
+          }
+        }
+        for (const input of launch?.inputs ?? []) {
+          if (!input.secret || !launchValues[input.key]) continue;
+          try {
+            result = await setLaunchSecret(id, input.key, launchValues[input.key]);
+          } catch {
+            failedKeys.push(input.label);
           }
         }
       }
@@ -430,7 +503,48 @@ export function ServerDialog({
                   value={form.args}
                   onChange={(e) => set("args", e.target.value)}
                 />
+                {bindingCleared && (
+                  <p className="text-xs text-warning">
+                    Catalog launch setup was removed when you edited the command or
+                    arguments. Add any required values to the new command or restore the
+                    catalog preset.
+                  </p>
+                )}
               </div>
+              {!!launch?.inputs.length && (
+                <div className="flex flex-col gap-2 rounded-md border p-3">
+                  <Label>Launch setup</Label>
+                  {launch.inputs.map((input) => (
+                    <div className="flex flex-col gap-1" key={input.key}>
+                      <Label htmlFor={`launch-${input.key}`}>
+                        {input.label}
+                        {input.required ? " *" : ""}
+                      </Label>
+                      <Input
+                        id={`launch-${input.key}`}
+                        type={input.secret ? "password" : "text"}
+                        value={launchValues[input.key] ?? ""}
+                        placeholder={
+                          input.secret && editing
+                            ? "Leave blank to keep vaulted value"
+                            : input.label
+                        }
+                        onChange={(event) => {
+                          setLaunchValues((values) => ({
+                            ...values,
+                            [input.key]: event.target.value,
+                          }));
+                          clearTest();
+                        }}
+                      />
+                    </div>
+                  ))}
+                  <p className="text-xs text-muted-foreground">
+                    Secret inputs are saved in Toolport's vault. This server stays
+                    disabled until required inputs are configured.
+                  </p>
+                </div>
+              )}
               <div className="flex flex-col gap-2">
                 <Label htmlFor="srv-cwd">Working directory (optional)</Label>
                 <Input
@@ -464,6 +578,34 @@ export function ServerDialog({
               )}
             </div>
           )}
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="srv-initialize-timeout">Startup timeout (optional)</Label>
+            <Input
+              id="srv-initialize-timeout"
+              type="number"
+              min="0.001"
+              max="86400"
+              step="0.001"
+              placeholder={
+                isStdio
+                  ? isDownloadLauncher(form.command, parseArgs(form.args))
+                    ? "120"
+                    : "10"
+                  : String(
+                      (initialUsesLocalCommand
+                        ? 30_000
+                        : (initial?.requestTimeoutMs ?? 30_000)) / 1000,
+                    )
+              }
+              value={form.initializeTimeoutSeconds}
+              onChange={(e) => set("initializeTimeoutSeconds", e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Seconds to wait for this server to initialize. Raise this for a slow first
+              start, such as a model download or index build.
+            </p>
+          </div>
 
           <div className="flex flex-col gap-2">
             <Label>Environment variables</Label>

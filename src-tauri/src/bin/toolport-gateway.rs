@@ -18,19 +18,23 @@
 //!   model searches and calls on demand, keeping context flat.
 //! - Records every tool call to a local audit log.
 
-use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use std::io::{BufRead, Read, Write};
 use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU8, AtomicUsize, Ordering};
-use std::sync::{Arc, Condvar, Mutex, OnceLock};
-use std::time::{Duration, Instant, SystemTime};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, AtomicU8, AtomicUsize, Ordering};
+use std::sync::{Arc, Condvar, Mutex, OnceLock, RwLock};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use base64::Engine as _;
 use serde_json::{json, Value};
 
 use conduit_lib::approval;
+use conduit_lib::approval::{new_correlation_id, read_endpoint_descriptor, request_human_decision};
+use conduit_lib::audit;
 use conduit_lib::clients;
 use conduit_lib::codemode;
+use conduit_lib::codemode_worker as worker;
 use conduit_lib::downstream::{
     self, CacheHint, DownstreamServer, MrtrRequest, ResourceUpdatedSink, ServerRequestAction,
     ServerRequestHandler, StdioTransport, Transport, MODERN_PROTOCOL_VERSION, PROTOCOL_VERSION,
@@ -40,7 +44,9 @@ use conduit_lib::integrity;
 use conduit_lib::pii;
 use conduit_lib::registry::{self, Registry, ServerEntry};
 use conduit_lib::remote;
-use conduit_lib::router::{is_destructive, sanitize_segment, Reconnect, Router, ToolPolicy};
+use conduit_lib::router::{
+    is_destructive, sanitize_segment, Reconnect, Router, SharedServerSlot, ToolPolicy,
+};
 use conduit_lib::routine_advisor::{self, AdvisorLedger, HintSlot};
 use conduit_lib::routine_candidates::{
     CandidateRegistry, CodeRunEvidence, Recommendation, ToolReceipt,
@@ -52,8 +58,13 @@ use conduit_lib::savings;
 use conduit_lib::searchtrace;
 use conduit_lib::secrets;
 use conduit_lib::semantic;
+use conduit_lib::session_store::SessionStore;
 use conduit_lib::shaping;
-use conduit_lib::{audit, usage_report};
+use conduit_lib::topology::LaunchKey;
+
+#[cfg(any(unix, windows))]
+#[global_allocator]
+static CODE_MODE_ALLOCATOR: worker::WorkerAllocator = worker::WorkerAllocator;
 
 /// Context that belongs to the request currently executing on this worker.
 ///
@@ -81,9 +92,15 @@ struct ActiveRequestContext {
     upstream_capabilities: Option<Arc<Value>>,
     /// Legacy HTTP session or modern subscription key used for upstream routing.
     mcp_session: Option<String>,
+    /// Authenticated root on a sessionless modern daemon adapter request.
+    adapter_root: Option<String>,
     /// Transport carrying the originating request. Progress and notifications
     /// must never infer this from process topology in a multi-client daemon.
     upstream_transport: UpstreamTransport,
+    /// Profile the requesting connection is scoped to: a daemon adapter's profile, a
+    /// registered HTTP client's profile, or the stdio gateway's own. Selects the
+    /// per-profile server instructions (#971). `None` = the dispatch `profile` argument.
+    connection_profile: Option<String>,
 }
 
 thread_local! {
@@ -92,8 +109,37 @@ thread_local! {
             upstream_version: None,
             upstream_capabilities: None,
             mcp_session: None,
+            adapter_root: None,
             upstream_transport: UpstreamTransport::Unknown,
+            connection_profile: None,
         }) };
+}
+
+type LiveRouterResolver = Arc<dyn Fn() -> Arc<Router> + Send + Sync>;
+
+thread_local! {
+    static ACTIVE_LIVE_ROUTER_RESOLVER: std::cell::RefCell<Option<LiveRouterResolver>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+struct LiveRouterResolverGuard(Option<LiveRouterResolver>);
+
+impl LiveRouterResolverGuard {
+    fn enter(resolver: Option<LiveRouterResolver>) -> Self {
+        Self(ACTIVE_LIVE_ROUTER_RESOLVER.with(|cell| cell.replace(resolver)))
+    }
+}
+
+impl Drop for LiveRouterResolverGuard {
+    fn drop(&mut self) {
+        ACTIVE_LIVE_ROUTER_RESOLVER.with(|cell| {
+            cell.replace(self.0.take());
+        });
+    }
+}
+
+fn active_live_router_resolver() -> Option<LiveRouterResolver> {
+    ACTIVE_LIVE_ROUTER_RESOLVER.with(|cell| cell.borrow().clone())
 }
 
 /// Sets the serving era for one request and restores the previous value on drop,
@@ -171,6 +217,25 @@ fn active_mcp_session() -> Option<String> {
     ACTIVE_REQUEST_CONTEXT.with(|cell| cell.borrow().mcp_session.clone())
 }
 
+struct AdapterRootGuard(Option<String>);
+
+impl AdapterRootGuard {
+    fn enter(root: Option<String>) -> Self {
+        Self(
+            ACTIVE_REQUEST_CONTEXT
+                .with(|cell| std::mem::replace(&mut cell.borrow_mut().adapter_root, root)),
+        )
+    }
+}
+
+impl Drop for AdapterRootGuard {
+    fn drop(&mut self) {
+        ACTIVE_REQUEST_CONTEXT.with(|cell| {
+            cell.borrow_mut().adapter_root = self.0.take();
+        });
+    }
+}
+
 struct UpstreamTransportGuard(UpstreamTransport);
 
 impl UpstreamTransportGuard {
@@ -191,6 +256,31 @@ impl Drop for UpstreamTransportGuard {
 
 fn active_upstream_is_stdio() -> bool {
     ACTIVE_REQUEST_CONTEXT.with(|cell| cell.borrow().upstream_transport == UpstreamTransport::Stdio)
+}
+
+/// Installs the requesting connection's profile for one request and restores the
+/// previous value on drop.
+struct ConnectionProfileGuard(Option<String>);
+
+impl ConnectionProfileGuard {
+    fn enter(profile: Option<String>) -> Self {
+        Self(
+            ACTIVE_REQUEST_CONTEXT
+                .with(|cell| std::mem::replace(&mut cell.borrow_mut().connection_profile, profile)),
+        )
+    }
+}
+
+impl Drop for ConnectionProfileGuard {
+    fn drop(&mut self) {
+        ACTIVE_REQUEST_CONTEXT.with(|cell| {
+            cell.borrow_mut().connection_profile = self.0.take();
+        });
+    }
+}
+
+fn active_connection_profile() -> Option<String> {
+    ACTIVE_REQUEST_CONTEXT.with(|cell| cell.borrow().connection_profile.clone())
 }
 
 /// Installs a complete request context on a worker that continues work for a
@@ -507,10 +597,11 @@ fn unsupported_version_error(id: Value, requested: &str) -> Value {
 /// aligned across eras, while the removed legacy `resources.subscribe` flag is
 /// omitted from modern discovery in favor of `subscriptions/listen`.
 fn gateway_capabilities(
+    host: &HostState,
     router: &Router,
     allowed: Option<&std::collections::HashSet<String>>,
     reg: &Registry,
-    lazy: bool,
+    mode: DiscoveryMode,
 ) -> Value {
     let resources = if serving_modern_client() {
         json!({ "listChanged": true })
@@ -546,21 +637,17 @@ fn gateway_capabilities(
         } else {
             extensions.remove(MCP_APPS_EXTENSION);
         }
-        let discovery_mode = if lazy {
-            DiscoveryMode::Lazy
-        } else if grouped_discovery() {
-            DiscoveryMode::Grouped
-        } else {
-            DiscoveryMode::Full
-        };
+        // The caller resolved this request's mode (a per-client override, else the host's
+        // live mode), so advertise exactly that instead of re-deriving it from a bool,
+        // which could only see the boot value.
         // This is Toolport's capability on the upstream hop, so it wins over a
         // downstream server attempting to claim the same vendor namespace.
         extensions.insert(
             TOOLPORT_GATEWAY_EXTENSION.to_string(),
             json!({
                 "version": "1.0.0",
-                "discoveryMode": discovery_mode.as_str(),
-                "codeMode": code_mode_enabled(),
+                "discoveryMode": mode.as_str(),
+                "codeMode": host.code_mode_enabled(),
                 "agentControl": reg.allow_agent_control,
                 "destructiveConfirmation": reg.confirm_destructive
                     && !reg.human_approval_effective(),
@@ -736,27 +823,26 @@ impl OpenGate {
 
 /// If the leader panics (or otherwise unwinds) between claiming leadership and
 /// calling `finish_open_*`, clear the opening gate and fail waiters (WS1-4).
-struct LeadOpenGuard<'a> {
-    state: &'a GatewayState,
+struct LeadOpenGuard {
+    subscriptions: Arc<Mutex<ResourceSubscriptionTable>>,
     uri: String,
     gate: Arc<OpenGate>,
     armed: bool,
 }
 
-impl LeadOpenGuard<'_> {
+impl LeadOpenGuard {
     fn disarm(&mut self) {
         self.armed = false;
     }
 }
 
-impl Drop for LeadOpenGuard<'_> {
+impl Drop for LeadOpenGuard {
     fn drop(&mut self) {
         if !self.armed {
             return;
         }
         let mut table = self
-            .state
-            .resource_subs
+            .subscriptions
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         // Only finish if this gate is still the in-flight open for the URI.
@@ -858,6 +944,9 @@ impl ResourceSubscriptionTable {
         uri: &str,
         owner: &str,
     ) -> Result<BeginSubscribe, String> {
+        if let Some(gate) = self.opening.get(uri) {
+            return Ok(BeginSubscribe::Wait(Arc::clone(gate)));
+        }
         if self
             .by_session
             .get(session)
@@ -866,9 +955,6 @@ impl ResourceSubscriptionTable {
             return Ok(BeginSubscribe::AlreadyLocal);
         }
         self.check_limits(session)?;
-        if let Some(gate) = self.opening.get(uri) {
-            return Ok(BeginSubscribe::Wait(Arc::clone(gate)));
-        }
         if self.uri_owner.contains_key(uri) {
             // Downstream already open for other sessions.
             self.insert_local(session, uri, owner);
@@ -1023,63 +1109,31 @@ type ResourceUpdatedDispatch = Arc<dyn Fn(String, String) + Send + Sync>;
 /// bound per downstream server so delivery can verify who emitted it (SOU-444).
 type ProgressDispatch = Arc<dyn Fn(String, Value) + Send + Sync>;
 
-/// Process-wide progress dispatch, installed once at startup.
+/// Progress dispatch, installed once at startup.
 ///
 /// The resource-updated dispatch is threaded through `build_router` because
 /// subscriptions are rebuilt alongside the router. Progress needs none of that:
-/// it depends only on singletons that live for the whole process (stdout, the
-/// HTTP session table, and the in-flight token map), and every downstream
-/// connection wants the same one. A set-once global keeps it out of four
-/// intermediate signatures that have nothing else to do with it.
+/// the in-flight token table is host state, every downstream connection wants the
+/// same dispatch, and a set-once global keeps it out of four intermediate
+/// signatures that have nothing else to do with it.
+///
+/// Host-scoped by decision (one-gateway-per-host P1.2), not session-scoped: the
+/// token table is one per host, and every entry records the session key that
+/// minted its token (a real session id for HTTP, the [`RESOURCE_SUB_STDIO`]
+/// sentinel for the stdio client), so P1.3 moves this alongside
+/// [`PROGRESS_ROUTES`] onto `HostState`.
+///
+/// The stdio half is still welded to one connection: this dispatch closes over
+/// the gateway's stdio session, which is also where a stdio route's hand-off
+/// queue lives ([`SessionState::stdio_progress_sender`]). Giving a second stdio
+/// client its own identity here is part of the `RESOURCE_SUB_STDIO` work that
+/// remains.
 static PROGRESS_DISPATCH: std::sync::OnceLock<ProgressDispatch> = std::sync::OnceLock::new();
 
 /// In-flight `progressToken` routes, shared by every downstream connection.
+/// Host-scoped for the same reason as [`PROGRESS_DISPATCH`].
 static PROGRESS_ROUTES: std::sync::OnceLock<Arc<Mutex<ProgressRoutes>>> =
     std::sync::OnceLock::new();
-
-/// Once this stdio peer sends a 2026-07-28 request, unsolicited legacy
-/// notifications must stop. Modern notifications travel only through its
-/// explicit `subscriptions/listen` filter.
-static MODERN_STDIO_UPSTREAM: AtomicBool = AtomicBool::new(false);
-
-/// Whether the raw-stdio peer has finished the MCP handshake, so the server may
-/// put its own traffic on stdout.
-///
-/// MCP forbids a server sending any request or notification before the client's
-/// `notifications/initialized`, and a client is entitled to enforce that. The
-/// rule matters here because the gateway's startup work is asynchronous: the
-/// background catalog build finishes on its own thread and calls
-/// [`notify_tools_changed`] whenever it is done. A client that spawns the
-/// gateway process first and only sends `initialize` some seconds later (Grok
-/// Code does exactly this - it spawns at session create and handshakes lazily)
-/// therefore reads `notifications/tools/list_changed` as the FIRST frame of the
-/// stream, before it has sent anything at all. Its transport rejects the frame
-/// and the handshake never completes: the server looks like it simply never
-/// answered `initialize` (SBS-1019).
-static STDIO_CLIENT_READY: AtomicBool = AtomicBool::new(false);
-
-/// `list_changed` methods withheld by [`notify_list_changed`], replayed in order
-/// once the handshake completes.
-///
-/// Withheld rather than dropped: the catalog really did change while the client
-/// was still starting up, and a client that cached an empty `tools/list` would
-/// otherwise never learn to re-fetch.
-static STDIO_DEFERRED_LIST_CHANGED: Mutex<Vec<String>> = Mutex::new(Vec::new());
-
-/// Whether any reply has actually reached stdout yet.
-///
-/// The gateway's first frame must be an answer to something the client asked,
-/// whatever that something was. `initialize` is the usual case but not the only
-/// one: `server/discover` is a documented probe, and a client that treats the
-/// first frame it reads as that probe's result fails exactly the way SBS-1019
-/// failed `initialize`.
-///
-/// Ordering against the write rather than against the request is what makes
-/// "after the handshake" mean what it says. Requests carry an id, so the stdio
-/// loop hands them to a worker thread, while a no-id notification is processed
-/// inline on the reader thread - so a client that pipelines its opening frames
-/// can mark the peer ready while the worker still holds the reply.
-static STDIO_RESPONDED: AtomicBool = AtomicBool::new(false);
 
 /// Where progress for the request being served should be delivered, or `None`
 /// when there is no channel to deliver it on.
@@ -1218,7 +1272,7 @@ fn validate_search_query(query: &str) -> Result<(), String> {
 fn status_tool_def() -> Value {
     json!({
         "name": "toolport_status",
-        "description": "Report Toolport's status: the MCP servers enabled in the active profile, each server's tool count, and how many tokens (and dollars) lazy discovery has saved you so far.",
+        "description": "Report enabled MCP servers, their tool counts, and discovery mode. Unscoped callers may also see an estimate of the MCP tool definitions kept out of context.",
         "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }
     })
 }
@@ -1320,8 +1374,30 @@ fn confirm_tool_def() -> Value {
 
 const ROUTINE_AGENT_INSTRUCTIONS: &str = "Saved routines are advertised directly as `toolport_routine_*` tools; prefer one whose description matches the task over re-orchestrating the same steps. If no advertised Routine is a confident match, toolport_list_routines remains a catalog fallback before authoring a new parameterizable Code Mode orchestration with multiple MCP calls or significant local transformation. Use a Routine only when its description and input schema match the goal and every required argument can be supplied confidently; otherwise fall back to Code Mode. For a new reusable pattern, run Code Mode with immutable input plus an explicit inputSchema. When a tool result carries a `[Toolport advisor: ...]` note about repeated similar calls, prefer fetching the prepared draft with toolport_fetch_result and running it as one toolport_run_script call over continuing one-by-one. Only call toolport_save_routine when the user asks to persist or reuse this work: pass the runId from the run result or advisor note, and tell the user in one short sentence that a save-approval prompt is coming - a statement, not a question. Toolport also queues strong repeated patterns in the Toolport app where the user saves them directly; you never need to campaign for saving. Do not retry a save after denial or timeout. Every Routine execution re-enters current governance and receives no future permission from promotion approval.";
 
+/// What `server/discover` puts in front of the routine guidance in its built-in text.
+const DISCOVER_INSTRUCTIONS_PREAMBLE: &str = "Toolport aggregates every configured MCP server behind one endpoint. In lazy discovery mode the catalog is reached through toolport_search_tools / toolport_call_tool rather than a full tools/list.";
+
+/// The `instructions` for an `initialize` or `server/discover` result, or `None` to omit
+/// the field (#971). The requesting connection's profile (see
+/// [`ConnectionProfileGuard`]; `profile` when none is installed) picks the configured
+/// text: that profile's `instructions`, else `gatewayInstructions`, else `built_in`.
+/// Clients such as Claude Code load every server's instructions into context, so one
+/// gateway connected once per profile would otherwise repeat the same block each time.
+fn server_instructions(
+    reg: &Registry,
+    profile: Option<&str>,
+    built_in: impl FnOnce() -> String,
+) -> Option<String> {
+    let connection = active_connection_profile();
+    match reg.configured_instructions(connection.as_deref().or(profile)) {
+        None => Some(built_in()),
+        Some(text) if text.trim().is_empty() => None,
+        Some(text) => Some(text.to_string()),
+    }
+}
+
 /// The `toolport_run_script` "code mode" meta-tool (advertised only when
-/// [`code_mode_enabled`]). One script replaces many round-trips.
+/// [`HostState::code_mode_enabled`]). One script replaces many round-trips.
 fn run_script_tool_def() -> Value {
     json!({
         "name": "toolport_run_script",
@@ -1425,8 +1501,9 @@ fn run_routine_tool_def() -> Value {
     })
 }
 
-fn append_routine_tool_defs(tools: &mut Vec<Value>, allow_writes: bool) {
-    if !code_mode_enabled() {
+/// `host` is the gate: with code mode off, routines are not advertised at all.
+fn append_routine_tool_defs(host: &HostState, tools: &mut Vec<Value>, allow_writes: bool) {
+    if !host.code_mode_enabled() {
         return;
     }
     tools.push(list_routines_tool_def());
@@ -1441,9 +1518,19 @@ fn append_routine_tool_defs(tools: &mut Vec<Value>, allow_writes: bool) {
 /// `toolport_` meta namespace so scoped clients keep it (meta-tools pass
 /// `scope_tools` unrouted).
 const ROUTINE_TOOL_PREFIX: &str = "toolport_routine_";
-/// Keep virtual Routine tools compatible with clients that enforce the common
-/// 64-character function-name limit, even though Routine display names may be longer.
+/// Provider function names cap at 64 characters. Many clients also prefix a
+/// server's tools (`toolport_` from OpenCode and others), so the advertised name
+/// keeps headroom rather than spending the whole 64 on its own (#872).
 const ROUTINE_TOOL_NAME_MAX_CHARS: usize = 64;
+/// Characters reserved for a client's own prefix so `prefix + advertised name`
+/// still fits under the provider cap.
+const ROUTINE_CLIENT_PREFIX_HEADROOM: usize = 12;
+/// Hex characters of the routine id used to keep advertised names distinct. A
+/// 12-hex (48-bit) tail is plenty for a local store and leaves the slug readable;
+/// a longer tail is taken only when two routines would otherwise collide.
+const ROUTINE_ID_TAIL_HEX: usize = 12;
+/// Full hex length of a routine id (`routine_` plus 32 hex).
+const ROUTINE_ID_HEX_CHARS: usize = 32;
 /// Direct advertisement stays bounded so a large long-lived Routine Store cannot undo
 /// lazy discovery's context savings. Older definitions remain reachable via the Catalog.
 const MAX_FLATTENED_ROUTINE_TOOLS: usize = 32;
@@ -1453,6 +1540,15 @@ const MAX_FLATTENED_ROUTINE_TOOLS: usize = 32;
 /// alike from colliding. Collapsing underscores also guarantees these gateway-owned names
 /// never contain the downstream `server__tool` namespace separator.
 fn routine_tool_name(routine: &routines::RoutineDefinition) -> String {
+    routine_tool_name_with_tail(routine, ROUTINE_ID_TAIL_HEX)
+}
+
+/// [`routine_tool_name`] with an explicit id-tail length, so a caller that needs to
+/// disambiguate two otherwise identical names can take more of the id.
+fn routine_tool_name_with_tail(
+    routine: &routines::RoutineDefinition,
+    id_tail_chars: usize,
+) -> String {
     let mut slug = String::new();
     let mut previous_was_separator = false;
     for character in sanitize_segment(routine.name()).chars() {
@@ -1467,12 +1563,14 @@ fn routine_tool_name(routine: &routines::RoutineDefinition) -> String {
         }
     }
     let slug = slug.trim_matches('_');
-    let id_tail = routine
+    let id = routine
         .id()
         .strip_prefix("routine_")
         .unwrap_or_else(|| routine.id());
-    let slug_budget =
-        ROUTINE_TOOL_NAME_MAX_CHARS.saturating_sub(ROUTINE_TOOL_PREFIX.len() + 1 + id_tail.len());
+    let id_tail: String = id.chars().take(id_tail_chars).collect();
+    let slug_budget = ROUTINE_TOOL_NAME_MAX_CHARS
+        .saturating_sub(ROUTINE_CLIENT_PREFIX_HEADROOM)
+        .saturating_sub(ROUTINE_TOOL_PREFIX.len() + 1 + id_tail.len());
     let slug = slug.chars().take(slug_budget).collect::<String>();
     let slug = slug.trim_end_matches('_');
     if slug.is_empty() {
@@ -1480,6 +1578,43 @@ fn routine_tool_name(routine: &routines::RoutineDefinition) -> String {
     } else {
         format!("{ROUTINE_TOOL_PREFIX}{slug}_{id_tail}")
     }
+}
+
+/// Saved routines in advertisement order: newest first, one per display name, capped.
+/// Shared by the advertised defs and the resolver so both compute identical names.
+fn advertised_routines() -> Result<Vec<routines::RoutineDefinition>, String> {
+    let mut seen_display_names = std::collections::HashSet::new();
+    let mut advertised = Vec::new();
+    for routine in routines::list()? {
+        if advertised.len() >= MAX_FLATTENED_ROUTINE_TOOLS {
+            break;
+        }
+        if !seen_display_names.insert(routine.name().to_string()) {
+            continue;
+        }
+        advertised.push(routine);
+    }
+    Ok(advertised)
+}
+
+/// Advertised names for `advertised`, in order. If two routines would produce the
+/// same name, the later one takes more of its id until they differ, so a truncated
+/// id tail can never make two routines share one advertised name.
+fn routine_tool_names(advertised: &[routines::RoutineDefinition]) -> Vec<String> {
+    let mut used = std::collections::HashSet::new();
+    advertised
+        .iter()
+        .map(|routine| {
+            let mut tail_chars = ROUTINE_ID_TAIL_HEX.min(ROUTINE_ID_HEX_CHARS);
+            loop {
+                let name = routine_tool_name_with_tail(routine, tail_chars);
+                if used.insert(name.clone()) || tail_chars >= ROUTINE_ID_HEX_CHARS {
+                    return name;
+                }
+                tail_chars += 4;
+            }
+        })
+        .collect()
 }
 
 /// Advertise each saved routine as a first-class tool so the model can select it by
@@ -1491,19 +1626,19 @@ fn routine_tool_name(routine: &routines::RoutineDefinition) -> String {
 /// display name shared by several immutable definitions resolves to the newest one, both
 /// here and in [`resolve_flattened_routine_id`].
 fn flattened_routine_tool_defs() -> Vec<Value> {
-    let Ok(saved) = routines::list() else {
-        return Vec::new();
+    let advertised = match advertised_routines() {
+        Ok(advertised) => advertised,
+        Err(error) => {
+            eprintln!(
+                "toolport-gateway: saved routines could not be loaded and are hidden \
+                 until routines.json is fixed: {error}"
+            );
+            return Vec::new();
+        }
     };
+    let names = routine_tool_names(&advertised);
     let mut defs = Vec::new();
-    let mut seen_display_names = std::collections::HashSet::new();
-    for routine in saved {
-        if defs.len() >= MAX_FLATTENED_ROUTINE_TOOLS {
-            break;
-        }
-        if !seen_display_names.insert(routine.name().to_string()) {
-            continue;
-        }
-        let name = routine_tool_name(&routine);
+    for (routine, name) in advertised.iter().zip(names) {
         let dependencies = routine
             .evidence()
             .observed_dependencies()
@@ -1542,21 +1677,13 @@ fn resolve_flattened_routine_id(tool_name: &str) -> Option<String> {
     if !tool_name.starts_with(ROUTINE_TOOL_PREFIX) {
         return None;
     }
-    let saved = routines::list().ok()?;
-    let mut seen_display_names = std::collections::HashSet::new();
-    for routine in saved {
-        if seen_display_names.len() >= MAX_FLATTENED_ROUTINE_TOOLS {
-            break;
-        }
-        if !seen_display_names.insert(routine.name().to_string()) {
-            continue;
-        }
-        let name = routine_tool_name(&routine);
-        if name == tool_name {
-            return Some(routine.id().to_string());
-        }
-    }
-    None
+    let advertised = advertised_routines().ok()?;
+    let names = routine_tool_names(&advertised);
+    advertised
+        .iter()
+        .zip(names)
+        .find(|(_, name)| name == tool_name)
+        .map(|(routine, _)| routine.id().to_string())
 }
 
 fn fetch_result_tool_def() -> Value {
@@ -1627,8 +1754,8 @@ fn disable_server_tool_def() -> Value {
 // implies not-lazy (the lazy resolver only returns true for `=lazy`).
 
 /// The three tool-discovery modes. Resolved from env + the registry (including a
-/// per-client override) and cached in `DISCOVERY_MODE`, which the registry watcher
-/// refreshes on every change so a mode edit applies live.
+/// per-client override) and cached on the host as `HostState::discovery`, which the
+/// registry watcher refreshes on every change so a mode edit applies live.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DiscoveryMode {
     Lazy,
@@ -1661,99 +1788,17 @@ impl DiscoveryMode {
     }
 }
 
-/// The live discovery mode. Mutable (not a `OnceLock`) so the watcher can refresh it when
-/// the registry's per-client override changes; `discovery_mode()` reads it lock-free.
-static DISCOVERY_MODE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
-
-fn set_discovery_mode(mode: DiscoveryMode) {
-    DISCOVERY_MODE.store(mode.as_u8(), std::sync::atomic::Ordering::Relaxed);
-}
-
-#[cfg(test)]
-static DISCOVERY_MODE_TEST_LOCK: Mutex<()> = Mutex::new(());
-
-#[cfg(test)]
-struct DiscoveryModeGuard {
-    prev: DiscoveryMode,
-    _lock: std::sync::MutexGuard<'static, ()>,
-}
-
-#[cfg(test)]
-impl DiscoveryModeGuard {
-    fn acquire() -> Self {
-        let lock = DISCOVERY_MODE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        Self {
-            prev: discovery_mode(),
-            _lock: lock,
-        }
-    }
-}
-
-#[cfg(test)]
-impl Drop for DiscoveryModeGuard {
-    fn drop(&mut self) {
-        set_discovery_mode(self.prev);
-    }
-}
-
-/// The live "code mode" flag, synced from the registry's `code_mode` on startup and by the
-/// registry watcher (like [`DISCOVERY_MODE`]). Read lock-free by [`code_mode_enabled`], so the
-/// six advertise/dispatch sites don't need a `Registry` threaded through them.
-static CODE_MODE: AtomicBool = AtomicBool::new(false);
-
-/// Serializes tests that flip [`CODE_MODE`] so parallel cargo tests cannot leave
-/// the process flag stuck true (WS2-6).
-#[cfg(test)]
-static CODE_MODE_TEST_LOCK: Mutex<()> = Mutex::new(());
-
-/// Holds [`CODE_MODE_TEST_LOCK`] and restores the flag's prior value on drop.
+/// The code-mode flag a registry load seeds (WS2-5).
 ///
-/// Restoring with a plain call after the assertions is not enough: a failing
-/// assertion unwinds past it and leaks the flag into every later test, and since
-/// every lock site recovers from poisoning with `PoisonError::into_inner`, those
-/// tests then run against state the failure left behind. One real failure would
-/// cascade into unrelated ones.
-#[cfg(test)]
-struct CodeModeGuard {
-    prev: bool,
-    _lock: std::sync::MutexGuard<'static, ()>,
-}
-
-#[cfg(test)]
-impl CodeModeGuard {
-    fn acquire() -> Self {
-        let lock = CODE_MODE_TEST_LOCK
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        Self {
-            prev: CODE_MODE.load(Ordering::Relaxed),
-            _lock: lock,
-        }
-    }
-}
-
-#[cfg(test)]
-impl Drop for CodeModeGuard {
-    fn drop(&mut self) {
-        set_code_mode_flag(self.prev);
-    }
-}
-
-fn set_code_mode_flag(enabled: bool) {
-    CODE_MODE.store(enabled, Ordering::Relaxed);
-}
-
-/// Seed [`CODE_MODE`] from a registry load outcome (WS2-5).
-///
-/// Successful loads copy `registry.code_mode`. Load failures must fail closed
-/// (`false`): [`Registry::default`] has `code_mode: true`, so seeding from the
-/// error fallback would silently re-enable code mode after a corrupt registry.
-fn seed_code_mode_after_registry_load(loaded: Result<&Registry, ()>) {
+/// A successful load copies `registry.code_mode`, which is the value a host's flag starts
+/// from (see [`HostState::code_mode_enabled`]). A load failure must fail closed (`false`):
+/// [`Registry::default`] has `code_mode: true`, so seeding from the error fallback would
+/// silently re-enable code mode after a corrupt registry. The watcher already fails safe by
+/// not touching the flag when a reload fails.
+fn seed_code_mode_after_registry_load(loaded: Result<&Registry, ()>) -> bool {
     match loaded {
-        Ok(reg) => set_code_mode_flag(reg.code_mode),
-        Err(()) => set_code_mode_flag(false),
+        Ok(reg) => reg.code_mode,
+        Err(()) => false,
     }
 }
 
@@ -1764,6 +1809,18 @@ fn parse_mode(s: &str) -> Option<DiscoveryMode> {
         "grouped" => Some(DiscoveryMode::Grouped),
         "full" => Some(DiscoveryMode::Full),
         "lazy" => Some(DiscoveryMode::Lazy),
+        _ => None,
+    }
+}
+
+/// Per-HTTP-client discovery override from `clientDiscovery[<client id>]`. Only
+/// `full` and `lazy` are honored per client: grouped still depends on
+/// host-wide publisher state, so a `grouped` value (or any unrecognized one)
+/// yields `None` and the request uses the host's mode.
+fn http_client_discovery_override(reg: &Registry, client_id: &str) -> Option<DiscoveryMode> {
+    match reg.client_discovery_mode(client_id).and_then(parse_mode) {
+        Some(DiscoveryMode::Lazy) => Some(DiscoveryMode::Lazy),
+        Some(DiscoveryMode::Full) => Some(DiscoveryMode::Full),
         _ => None,
     }
 }
@@ -1846,30 +1903,6 @@ fn resolve_mode_from(
     }
 }
 
-/// The resolved mode. Defaults to `Lazy` before `main` sets it (only unit tests, which
-/// don't run `main` and test the grouped helpers directly, ever observe that default).
-fn discovery_mode() -> DiscoveryMode {
-    DiscoveryMode::from_u8(DISCOVERY_MODE.load(std::sync::atomic::Ordering::Relaxed))
-}
-
-/// True when this gateway runs in grouped discovery mode (see [`grouped_tool_defs`]).
-fn grouped_discovery() -> bool {
-    discovery_mode() == DiscoveryMode::Grouped
-}
-
-/// Gate for server-side "code mode" (the `toolport_run_script` meta-tool).
-///
-/// Policy (SOU-397): **on by default** via the registry's `code_mode` field (Settings
-/// switch, synced into [`CODE_MODE`]). Kill switch: turn Settings off. Code mode runs
-/// agent-supplied JS and is not a security boundary; each host call still passes the same
-/// scope / human-approval gates as `toolport_call_tool`. `TOOLPORT_CODE_MODE=1` (or legacy
-/// `CONDUIT_CODE_MODE`) still force-enables for power users and tests. When off, `run_script`
-/// is neither advertised nor dispatched.
-fn code_mode_enabled() -> bool {
-    let env_forced = conduit_lib::brand::env_flag("TOOLPORT_CODE_MODE", "CONDUIT_CODE_MODE");
-    env_forced || CODE_MODE.load(Ordering::Relaxed)
-}
-
 /// The server prefix of a *namespaced* tool (`server__tool`). `None` for a bare name
 /// (a meta-tool), so those never spawn a spurious `help_<meta>` browse tool. (Guard:
 /// `tool_prefix` returns the whole name when there is no `__`.)
@@ -1923,6 +1956,7 @@ fn help_tool_def(prefix: &str, tool_count: usize) -> Value {
 /// `catalog` must already be scoped to the calling client. Takes the two registry
 /// flags directly so callers needn't hold the registry lock across the router lock.
 fn grouped_tool_defs(
+    host: &HostState,
     allow_agent_control: bool,
     allow_routine_writes: bool,
     confirm_destructive: bool,
@@ -1934,10 +1968,10 @@ fn grouped_tool_defs(
         call_tool_def(),
         fetch_result_tool_def(),
     ];
-    if code_mode_enabled() {
+    if host.code_mode_enabled() {
         tools.push(run_script_tool_def());
     }
-    append_routine_tool_defs(&mut tools, allow_routine_writes);
+    append_routine_tool_defs(host, &mut tools, allow_routine_writes);
     if allow_agent_control {
         tools.push(enable_server_tool_def());
         tools.push(disable_server_tool_def());
@@ -2969,6 +3003,7 @@ fn project_budgeted(tools: &[&Value]) -> Vec<Value> {
 }
 
 fn enabled_summary(
+    host: &HostState,
     reg: &Registry,
     cached: &[Value],
     profile: Option<&str>,
@@ -3083,33 +3118,38 @@ fn enabled_summary(
             }
         }
     }
-    // The discovery mode this client is actually resolved to (env > per-client override >
-    // global), so `toolport_status` answers "why am I seeing meta-tools vs the full
-    // catalog?" and confirms a per-client override took effect.
+    // The discovery mode this host is resolved to (env > per-client override > registry), so
+    // `toolport_status` answers "why am I seeing meta-tools vs the full catalog?". The value is
+    // the host's, so it does not reflect a per-client override the caller arrived with.
     out.push_str(&format!(
         "\nDiscovery mode: {}\n",
-        discovery_mode().as_str()
+        host.discovery_mode().as_str()
     ));
-    out.push_str(&savings_line());
+    // Persisted legacy totals and unscoped v2 totals cannot be attributed to a
+    // particular allowed set or profile. Never expose them to a scoped caller.
+    if allowed.is_none() && profile.is_none() {
+        out.push_str(&savings_line());
+    }
     out
 }
 
-/// Compact token count for status text: "1.2M", "541k", or the raw number.
+/// Compact estimated token-equivalent for status text.
 fn fmt_tokens(n: u64) -> String {
-    if n >= 1_000 {
-        let thousands = (n as f64 / 1_000.0).round();
-        if thousands >= 1_000.0 {
-            format!("{:.1}M", n as f64 / 1_000_000.0)
-        } else {
-            format!("{thousands:.0}k")
-        }
+    if n >= 999_950_000_000 {
+        format!("{:.1}T", n as f64 / 1_000_000_000_000.0)
+    } else if n >= 999_950_000 {
+        format!("{:.1}B", n as f64 / 1_000_000_000.0)
+    } else if n >= 999_950 {
+        format!("{:.1}M", n as f64 / 1_000_000.0)
+    } else if n >= 1_000 {
+        format!("{:.1}k", n as f64 / 1_000.0)
     } else {
         n.to_string()
     }
 }
 
-/// One line summarizing what lazy discovery has saved, for toolport_status, so an
-/// agent can answer "what is Toolport saving me?". Empty until something is saved
+/// One line summarizing local catalog exposure for unscoped toolport_status.
+/// Empty until something is measured or estimated
 /// (a fresh install, or non-lazy mode where nothing is recorded).
 fn savings_line() -> String {
     let s = savings::summary();
@@ -3125,17 +3165,15 @@ fn savings_line() -> String {
     if saved > 0 {
         let loads = s.get("listLoads").and_then(Value::as_u64).unwrap_or(0);
         let peak = s.get("peakCatalog").and_then(Value::as_u64).unwrap_or(0);
-        let dollars = usage_report::est_cost(saved); // Claude Sonnet input $/M
         line.push_str(&format!(
-            "Lazy discovery has kept ~{} tokens of tool definitions out of your agent's \
-             context so far (about ${:.2} at Claude Sonnet input rates) across {loads} \
-             tool-list load(s)",
-            fmt_tokens(saved),
-            dollars
+            "Toolport kept ≈{} tokens of MCP tool definitions out of context across \
+             {loads} load(s). Estimated at UTF-8 bytes / 4; actual model usage depends \
+             on client transformations, gating, and caching",
+            fmt_tokens(saved)
         ));
         if peak > 4 {
             line.push_str(&format!(
-                "; the biggest catalog collapsed {peak} tools down to a handful of meta-tools"
+                "; peak full catalog surface contained {peak} tools"
             ));
         }
         line.push_str(".\n");
@@ -3160,10 +3198,13 @@ fn savings_line() -> String {
 /// searches several DIFFERENT things (exploring), or narrows from broad to server
 /// to exact-name (each a different, justified result), never trips this. So it fixes
 /// the weak-model loop without ever penalizing Claude, Cursor, or any model doing
-/// real multi-step work. Any non-search action resets it. Per client connection.
-/// Interior-mutable so the HTTP workers can share ONE guard (the anti-thrash signal
-/// is cross-request, so it can't be per-worker) without any of them holding a lock
-/// across a downstream call: `lock()` is taken only for the brief bookkeeping below.
+/// real multi-step work. Any non-search action resets it. Per client connection:
+/// the streak is one conversation's, so it lives on the session ([`SessionGuards`])
+/// rather than on the process.
+/// Interior-mutable so the HTTP workers of ONE session share a single guard (the
+/// anti-thrash signal is cross-request, so it can't be per-worker) without any of
+/// them holding a lock across a downstream call: `lock()` is taken only for the
+/// brief bookkeeping below.
 #[derive(Default)]
 struct SearchGuard {
     inner: Mutex<SearchState>,
@@ -3197,10 +3238,17 @@ impl SearchGuard {
 /// Per-call confirmation state for destructive tools. When `confirm_destructive`
 /// is on, the first call to a destructive tool returns a preview with a token;
 /// `toolport_confirm { token }` replays the stored call. Entries expire after 60s.
+///
+/// Session-scoped (one-gateway-per-host P1.2): a confirmation is issued to one
+/// conversation and redeemed inside it, so the pending set belongs to that
+/// session ([`SessionGuards`]) rather than to the gateway process. The `owner`
+/// check below still refuses a token presented by a different principal, which is
+/// what makes a shared host safe when two sessions do reach the same set.
 struct ConfirmGuard {
     /// Pending confirmations: token → the exact call to replay. Behind a Mutex so the
-    /// HTTP workers share ONE confirm set: a token stored by one request must be
-    /// redeemable by a later `toolport_confirm` that may land on a different worker.
+    /// HTTP workers of one session share ONE confirm set: a token stored by one
+    /// request must be redeemable by a later `toolport_confirm` that may land on a
+    /// different worker.
     pending: Mutex<std::collections::HashMap<String, PendingCall>>,
 }
 
@@ -3282,6 +3330,34 @@ impl ConfirmGuard {
     }
 }
 
+/// The cross-request guard state one client conversation owns
+/// (one-gateway-per-host P1.2).
+///
+/// Both halves are session state, not host state. The search-thrash streak counts
+/// one conversation's consecutive searches, so another client's searches must not
+/// push it toward escalation. A pending destructive confirmation was previewed for
+/// one conversation and must be redeemable in that same one; the `owner` check
+/// inside [`ConfirmGuard::take`] refuses a foreign principal on top of that.
+///
+/// Held behind `Arc`s because a dispatch borrows them for the whole call: a
+/// tools/call can hold its `&SearchGuard`/`&ConfirmGuard` across a downstream call
+/// or a human-approval hold while the session record they came from stays
+/// reachable from other threads.
+#[derive(Clone)]
+struct SessionGuards {
+    search: Arc<SearchGuard>,
+    confirm: Arc<ConfirmGuard>,
+}
+
+impl SessionGuards {
+    fn new() -> Self {
+        Self {
+            search: Arc::new(SearchGuard::default()),
+            confirm: Arc::new(ConfirmGuard::new()),
+        }
+    }
+}
+
 /// Escalate once the SAME top tool has come back this many times in a row: the
 /// model is stuck on one need, so return only that tool and command the call.
 const SEARCH_REPEAT_LIMIT: u32 = 3;
@@ -3307,6 +3383,27 @@ fn param_is_identifier(param: &str) -> bool {
         || param.ends_with("Secret")
 }
 
+/// `<team_id>`, `{{teamId}}`, `{{ teamId }}`: a template wrapper around one bare
+/// identifier-like token, which is what an LLM-invented placeholder looks like.
+/// Markup (`<p>...</p>`) and expressions (`{{ 1 + 1 }}`) do not match, so a real
+/// HTML field or template string is never refused.
+fn is_template_token(s: &str) -> bool {
+    let inner = s
+        .strip_prefix("{{")
+        .and_then(|rest| rest.strip_suffix("}}"))
+        .or_else(|| s.strip_prefix('<').and_then(|rest| rest.strip_suffix('>')));
+    match inner.map(str::trim) {
+        Some(inner) => {
+            !inner.is_empty()
+                && inner.len() <= 64
+                && inner
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'))
+        }
+        None => false,
+    }
+}
+
 /// True if a string argument value looks like an LLM-invented placeholder rather
 /// than a real value (e.g. "your_team_id", "<team_id>", "REPLACE_ME"). `param` is
 /// the argument's name: the collision-prone bare words ("string", "todo",
@@ -3318,15 +3415,18 @@ fn looks_like_placeholder(param: &str, v: &str) -> bool {
     if s.is_empty() {
         return false;
     }
-    // Unambiguous template forms: an LLM filled in a literal template. Never a
-    // real value, whatever the parameter is.
-    if (s.starts_with('<') && s.ends_with('>')) || (s.starts_with("{{") && s.ends_with("}}")) {
+    // A template wrapper around a single identifier is invented; a real value that
+    // merely contains a tag or delimiter (markup, a Jinja expression) is not. A
+    // dotted `{{ user.name }}` is a real Jinja attribute path, so it only counts as
+    // invented for an identifier-typed parameter.
+    if is_template_token(s)
+        && (!s.starts_with("{{") || !s.contains('.') || param_is_identifier(param))
+    {
         return true;
     }
     let low = s.to_ascii_lowercase();
     if low.starts_with("your_")
         || low.starts_with("your-")
-        || low.starts_with("your ")
         || low.ends_with("_here")
         || low.ends_with("-here")
         || matches!(
@@ -3340,6 +3440,11 @@ fn looks_like_placeholder(param: &str, v: &str) -> bool {
     // name or a JSON-schema type word instead of a real value). Only a giveaway
     // for an identifier-typed parameter; for content fields these are real values.
     if param_is_identifier(param) {
+        // "Your order ..." prose only reads as invented for an identifier field;
+        // for a body or message it is real content.
+        if low.starts_with("your ") {
+            return true;
+        }
         return matches!(
             low.as_str(),
             "string"
@@ -3472,22 +3577,10 @@ fn tools_per_server(tools: &[Value]) -> HashMap<String, usize> {
 /// server that is absent, or returned nothing at all, is indistinguishable here
 /// from one the user just disabled - and resurrecting a disabled server's tools
 /// from cache would be a far worse failure than briefly under-reporting one.
+///
 /// Consecutive guarded rebuilds per server, so the rebuild path can confirm-then-accept
 /// exactly as [`conduit_lib::downstream::apply_catalog_refresh`] does on the refresh path.
-///
-/// Process-global because the three rebuild call sites do not share a struct, and a
-/// gateway process serves one client. Tests drive the pure function with their own map.
-static REBUILD_SHRINK_STREAKS: std::sync::LazyLock<Mutex<HashMap<String, u8>>> =
-    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
-
-/// [`preserve_collapsed_servers`] against the process-global streak map.
-fn preserve_collapsed_servers_guarded(new_tools: Vec<Value>, previous: &[Value]) -> Vec<Value> {
-    let mut streaks = REBUILD_SHRINK_STREAKS
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    preserve_collapsed_servers(new_tools, previous, &mut streaks)
-}
-
+/// The caller owns `streaks` (the host's map); tests drive this with their own.
 fn preserve_collapsed_servers(
     new_tools: Vec<Value>,
     previous: &[Value],
@@ -3725,9 +3818,15 @@ fn is_fixed_meta_tool(name: &str) -> bool {
 /// Stable authorization context bound to an MCP Streamable-HTTP session. The
 /// identity distinguishes registered and legacy/open callers; the effective
 /// scope makes a live client re-scope invalidate its existing sessions.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct McpSessionOwner {
     identity: String,
+    /// Effective adapter profile. Part of session ownership so changing only a
+    /// tool allowlist profile still forces a fresh session.
+    profile: Option<String>,
+    /// Sorted original-tool allowlists captured when an adapter session was
+    /// minted. A policy edit invalidates that session before its next request.
+    tool_scope: Option<Vec<(String, Vec<String>)>>,
     /// `None` is the full connected set; `Some` is a sorted, deduplicated set of
     /// raw registry server ids, matching [`resolve_http_caller`].
     scope: Option<Vec<String>>,
@@ -3742,6 +3841,71 @@ struct McpSessionOwner {
 struct HttpCaller {
     audit_label: Option<String>,
     session_owner: McpSessionOwner,
+    /// Per-client discovery override, when `clientDiscovery[<client id>]` sets one
+    /// (#868). `None` means the request falls back to the host's live discovery mode
+    /// (see `handle_http_with_headers`), so one HTTP bridge can still serve a
+    /// native-search client the full catalog and a local model the meta-tools at the
+    /// same time, and a mode switch after boot reaches both without a restart.
+    discovery: Option<DiscoveryMode>,
+    /// The profile this caller is scoped to (an adapter's effective profile or a
+    /// registered client's `profile`), used only to pick its server instructions
+    /// (#971). Deliberately separate from `session_owner.profile`, which also drives
+    /// adapter routing. `None` = unscoped; the gateway's own profile applies.
+    profile: Option<String>,
+}
+
+/// An adapter's identity is asserted only on the private daemon endpoint, with
+/// the rendezvous bearer. Resolve its live stdio profile exactly as the legacy
+/// one-client gateway does, then use the HTTP bridge's per-request scope gate.
+fn adapter_tool_scope(reg: &Registry, profile: &str) -> Vec<(String, Vec<String>)> {
+    let resolved = reg.resolve_profile_id(profile);
+    let Some(profile) = reg.profiles.iter().find(|entry| entry.id == resolved) else {
+        return Vec::new();
+    };
+    let mut scope: Vec<(String, Vec<String>)> = profile
+        .tool_scope
+        .iter()
+        .map(|(server, tools)| {
+            let mut tools = tools.clone();
+            tools.sort();
+            tools.dedup();
+            (server.clone(), tools)
+        })
+        .collect();
+    scope.sort_by(|a, b| a.0.cmp(&b.0));
+    scope
+}
+
+fn resolve_adapter_caller(
+    reg: &Registry,
+    client_id: &str,
+    env_profile: Option<&str>,
+    root: Option<&str>,
+) -> (Option<std::collections::HashSet<String>>, HttpCaller) {
+    let profile = effective_profile(reg, Some(client_id), &env_profile.map(str::to_string), root)
+        .unwrap_or_else(|| reg.active_profile_id());
+    let allowed: std::collections::HashSet<String> = reg
+        .enabled_servers_for(&profile)
+        .iter()
+        .map(|server| server.id.clone())
+        .collect();
+    let mut scope: Vec<String> = allowed.iter().cloned().collect();
+    scope.sort();
+    let tool_scope = adapter_tool_scope(reg, &profile);
+    (
+        Some(allowed),
+        HttpCaller {
+            audit_label: Some(client_id.to_string()),
+            session_owner: McpSessionOwner {
+                identity: format!("adapter:{client_id}"),
+                profile: Some(profile.clone()),
+                tool_scope: Some(tool_scope),
+                scope: Some(scope),
+            },
+            discovery: http_client_discovery_override(reg, client_id),
+            profile: Some(profile),
+        },
+    )
 }
 
 /// Resolve authorization, routing scope, audit attribution, and MCP session
@@ -3760,7 +3924,6 @@ fn resolve_http_caller(
             ids
         })
     };
-
     // Legacy single token: sees the full connected set (back-compat).
     if let (Some(expected), Some(actual)) = (env_token, provided) {
         if ct_eq(expected.as_bytes(), actual.as_bytes()) {
@@ -3771,8 +3934,12 @@ fn resolve_http_caller(
                     audit_label: None,
                     session_owner: McpSessionOwner {
                         identity: format!("legacy:{}", registry::sha256_hex(actual)),
+                        profile: None,
+                        tool_scope: None,
                         scope: None,
                     },
+                    discovery: None,
+                    profile: None,
                 },
             ));
         }
@@ -3801,8 +3968,12 @@ fn resolve_http_caller(
                 audit_label,
                 session_owner: McpSessionOwner {
                     identity: format!("client:{}", client.id),
+                    profile: None,
+                    tool_scope: None,
                     scope: owner_scope(&allowed),
                 },
+                discovery: http_client_discovery_override(reg, &client.id),
+                profile: (!client.profile.trim().is_empty()).then(|| client.profile.clone()),
             },
         ));
     }
@@ -3828,8 +3999,12 @@ fn resolve_http_caller(
                 audit_label: None,
                 session_owner: McpSessionOwner {
                     identity: "open".to_string(),
+                    profile: None,
+                    tool_scope: None,
                     scope: None,
                 },
+                discovery: None,
+                profile: None,
             },
         ));
     }
@@ -3868,130 +4043,6 @@ fn http_client_label(reg: &Registry, provided: Option<&str>) -> Option<String> {
     } else {
         client.label.clone()
     })
-}
-
-#[allow(clippy::too_many_arguments)]
-/// A fresh 128-bit correlation id for an approval request (same CSPRNG-or-die policy
-/// as the confirm token: a randomness failure on a security gate is fatal, not papered).
-fn new_correlation_id() -> String {
-    let mut buf = [0u8; 16];
-    getrandom::getrandom(&mut buf).expect("CSPRNG unavailable");
-    buf.iter().map(|b| format!("{b:02x}")).collect()
-}
-
-/// Read the approval-broker endpoint the Toolport app publishes into the data dir.
-/// `None` when it is absent/unreadable (the app is not running) - a fail-closed signal.
-fn read_endpoint_descriptor() -> Option<approval::EndpointDescriptor> {
-    let dir = conduit_lib::registry::conduit_dir()?;
-    let raw = std::fs::read_to_string(dir.join(approval::ENDPOINT_FILE)).ok()?;
-    serde_json::from_str(&raw).ok()
-}
-
-/// The outcome of a single dial to the approval broker. Separating "we never reached a
-/// live broker" from "a broker answered" lets the caller retry a *stale* endpoint (the app
-/// just restarted and rebound to a new port) without ever re-prompting a human who was
-/// already asked.
-enum BrokerAttempt {
-    /// A broker received the request and answered (Approved / Denied / Timeout).
-    Decided(approval::ApprovalDecision),
-    /// We never handed the request to a live broker: no descriptor, connect refused, or the
-    /// transport failed before the request went across. No human was asked, so a retry
-    /// against a freshly-read descriptor is safe.
-    Unreachable,
-}
-
-/// One dial to the broker described by `desc`. FAIL-CLOSED throughout: the arguments travel
-/// over the socket and never touch disk. The dial itself ([`approval::dial_broker`]) makes
-/// the peer prove it holds the descriptor's token before a byte of the request is written,
-/// so a process that merely binds the published endpoint after the app has gone gets
-/// neither the arguments nor a say in the decision (SBS-867).
-///
-/// The key invariant: `Unreachable` is returned ONLY when the request never reached a
-/// broker (so no human saw it). Once the request is written, any later failure - including
-/// the read timeout that means "the human didn't answer" - is a `Decided(Timeout)`, so we
-/// never retry in a way that could double-prompt.
-fn try_decide_once(
-    desc: Option<approval::EndpointDescriptor>,
-    req: &mut approval::ApprovalRequest,
-) -> BrokerAttempt {
-    use std::io::{BufRead, BufReader, Write};
-    let Some(desc) = desc else {
-        return BrokerAttempt::Unreachable;
-    };
-    req.token = desc.token.clone();
-    // Connect refused, no answer to the challenge, or a wrong proof: in every case the
-    // request was never written, so no human was asked and a re-dial is safe.
-    let Ok(mut stream) = approval::dial_broker(&desc) else {
-        return BrokerAttempt::Unreachable;
-    };
-    let _ = stream.set_write_timeout(Some(Duration::from_secs(10)));
-    let _ = stream.set_read_timeout(Some(Duration::from_secs(approval::DEFAULT_TIMEOUT_SECS)));
-    let Ok(line) = serde_json::to_string(req) else {
-        // We connected but can't serialize our own request: not a reachability problem, so
-        // don't spin on retry. Fail closed.
-        return BrokerAttempt::Decided(approval::ApprovalDecision::Timeout);
-    };
-    if stream.write_all(line.as_bytes()).is_err() || stream.write_all(b"\n").is_err() {
-        // The request never made it across, so no human was asked: safe to re-dial.
-        return BrokerAttempt::Unreachable;
-    }
-    let _ = stream.flush();
-    let mut resp = String::new();
-    match BufReader::new(stream).read_line(&mut resp) {
-        // Connected and the peer closed with no answer: not a healthy broker. No human was
-        // shown a prompt (the broker's pre-prompt reject paths close silently), so re-dial.
-        Ok(0) => BrokerAttempt::Unreachable,
-        Ok(_) => {
-            let t = resp.trim();
-            if t.is_empty() {
-                BrokerAttempt::Unreachable
-            } else {
-                // A parseable decision is authoritative; an unparseable line is fail-closed
-                // as a Timeout (a real broker answered, so this is not a retry case).
-                BrokerAttempt::Decided(
-                    serde_json::from_str::<approval::ApprovalDecision>(t)
-                        .unwrap_or(approval::ApprovalDecision::Timeout),
-                )
-            }
-        }
-        // A read error AFTER we sent the request is the "human didn't answer in time" path
-        // (read timeout) or a mid-wait drop. Either way the broker had our request, so this
-        // is a genuine no-decision Timeout - never retry (that would re-prompt).
-        Err(_) => BrokerAttempt::Decided(approval::ApprovalDecision::Timeout),
-    }
-}
-
-/// Ask the app broker for a human decision on `req`, reading the endpoint descriptor once.
-/// Collapses an unreachable broker to the `Unreachable` decision (still fail-closed). Kept
-/// as a thin, dependency-free entry point for unit tests; `request_human_decision` is the
-/// production path with the self-healing retry.
-fn decide_via_broker(
-    desc: Option<approval::EndpointDescriptor>,
-    req: &mut approval::ApprovalRequest,
-) -> approval::ApprovalDecision {
-    match try_decide_once(desc, req) {
-        BrokerAttempt::Decided(d) => d,
-        BrokerAttempt::Unreachable => approval::ApprovalDecision::Unreachable,
-    }
-}
-
-/// Hold a gated tool call until a human decides via the Toolport app (or it fails closed).
-///
-/// If the first dial can't reach a live broker, re-read the descriptor and retry once: the
-/// app may have just restarted and rebound to a new port, leaving the descriptor we first
-/// read stale. This self-heals that race without ever failing open - two unreachable dials
-/// return `Unreachable`, which is still a deny.
-fn request_human_decision(mut req: approval::ApprovalRequest) -> approval::ApprovalDecision {
-    match try_decide_once(read_endpoint_descriptor(), &mut req) {
-        BrokerAttempt::Decided(d) => d,
-        BrokerAttempt::Unreachable => match try_decide_once(read_endpoint_descriptor(), &mut req) {
-            BrokerAttempt::Decided(d) => d,
-            BrokerAttempt::Unreachable => {
-                gtrace("approval broker unreachable after retry; failing closed (Unreachable)");
-                approval::ApprovalDecision::Unreachable
-            }
-        },
-    }
 }
 
 /// The stable machine token for a HITL decision, shared by the audit record and the
@@ -4084,6 +4135,9 @@ fn post_hitl_revalidation(
 /// Clone the current live `Arc<Router>` from the swappable slot, releasing the mutex
 /// immediately. Returns `None` only if `live_router` itself is `None` (test harnesses).
 fn clone_live_router(live_router: Option<&Arc<Mutex<Arc<Router>>>>) -> Option<Arc<Router>> {
+    if let Some(resolve) = active_live_router_resolver() {
+        return Some(resolve());
+    }
     live_router.map(|slot| {
         slot.lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -4290,8 +4344,15 @@ fn execute_call(
     // not sanitize_segment(server_id) — that collapses team-slack / team_slack.
     if let Some(set) = allowed {
         if !server_in_allowed_scope(server_id, set) {
+            // A name with no route belongs to no server. Say so, as an unscoped
+            // caller would hear, rather than calling an empty server id out of scope.
+            let text = if server_id.is_empty() {
+                router.no_route_message_within(name, |server| server_in_allowed_scope(server, set))
+            } else {
+                format!("Toolport: '{srv}' is not available to this client.")
+            };
             return json!({
-                "content": [{ "type": "text", "text": format!("Toolport: '{srv}' is not available to this client.") }],
+                "content": [{ "type": "text", "text": text }],
                 "isError": true
             });
         }
@@ -4330,7 +4391,7 @@ fn execute_call(
                     conduit_lib::rate_limits::check_and_count(&team.rate_limits, server_id, tool)
                 {
                     // Count as a failed call with a clear reason so Activity / export show the block.
-                    audit::record_timed(srv, tool, false, None, Some("rate_limit"), client);
+                    audit::record_routed_call(reg, server_id, tool, false, None, Some("rate_limit"), client, client_name, None, None);
                     return json!({
                         "content": [{ "type": "text", "text": msg }],
                         "isError": true
@@ -4412,6 +4473,7 @@ fn execute_call(
                 tool_fingerprint: current_fp.clone(),
                 url_elicitation: None,
                 pii_release: None,
+                agent_rule: None,
             };
             let mut approval_reason = reason;
             let (decision, held_ms, approved_fp, audit_approval) = if modern_direct_call {
@@ -4516,6 +4578,7 @@ fn execute_call(
                 approval::ApprovalReason::UntrustedSource => "untrusted_source",
                 approval::ApprovalReason::DestructiveAndUntrusted => "destructive_and_untrusted",
                 approval::ApprovalReason::PersistentCodeWrite => "persistent_code_write",
+                approval::ApprovalReason::AgentPermission => "agent_permission",
                 // Unreachable here: this gate comes from `gate_reason`, which never returns
                 // it. The PII release gate runs later, at the dispatch boundary, and audits
                 // itself in `approve_pii_release`.
@@ -4791,8 +4854,9 @@ fn execute_call(
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
             let err = if ok { None } else { Some(content_text(&out)) };
-            audit::record_timed_with_pii(
-                srv,
+            audit::record_routed_call(
+                reg,
+                server_id,
                 tool,
                 ok,
                 Some(ms),
@@ -4838,8 +4902,9 @@ fn execute_call(
                 shape,
             );
             let defended_err = audited_error_text(&e, &out);
-            audit::record_timed_with_pii(
-                srv,
+            audit::record_routed_call(
+                reg,
+                server_id,
                 tool,
                 false,
                 Some(ms),
@@ -4868,33 +4933,93 @@ struct CallOpts {
     allow_app_only: bool,
 }
 
-/// Run untrusted tool-call output through content defense and result shaping, then
-/// append a Toolport-authored trailer. Shared by the success and error branches of
-/// [`execute_call`] so they can't drift: a hostile server must not be able to bypass the
-/// injection scanner by answering `tools/call` with a JSON-RPC error instead of a result
-/// (issue #421). The trailer (a recovery hint) is Toolport's own text and is added AFTER
-/// both passes, so it is never wrapped as external data nor truncated by shaping.
+/// Session-scoped state the gateway keys by session or principal
+/// (one-gateway-per-host P1.2).
 ///
-/// When opt-in block-on-injection is effective for `srv` (SOU-345) and the scanner hits
-/// high confidence, the labeled body is withheld and replaced with an `isError` security
-/// message so the agent never sees the payload as a successful result.
-/// PII token maps, one per client (SBS-346).
+/// Two tables used to be process globals with ad-hoc lifetimes: the PII pseudonym
+/// map (SBS-346) and the modern HITL approval table. They share a conversation
+/// scope and are released together, so they get one owner with one set of rules: a
+/// session's state is dropped when it closes, is bounded by a TTL, and cannot grow
+/// past a cap. The shaped-result stash got the same treatment in
+/// [`conduit_lib::shaping`], which owns it behind a `SessionStore`. This is where
+/// the unification slice will thread the owner as one per-session value.
 ///
-/// Keyed by client, NOT process-global. One gateway process serves several
-/// clients over the HTTP bridge, each with its own bearer token, so a single
-/// shared map would let a token minted from client A's result be re-hydrated into
-/// client B's outgoing call -- handing A's real PII to B's downstream server.
-/// That is the exact leak this feature exists to prevent, so isolation is
-/// enforced here rather than assumed from "one process per stdio client".
+/// The PII table is keyed by MCP session when one exists. Two stdio adapters
+/// can use the same configured client identity against one daemon, but their
+/// conversations must not share pseudonyms. Sessionless requests retain their
+/// client-identity key for the HTTP bridge and standalone stdio process.
 ///
 /// `None` (the local stdio client, and Toolport's own internal calls) gets its own
 /// reserved key rather than sharing with the first HTTP client to connect.
 ///
 /// Ephemeral by construction: these live in memory and die with the process, so
 /// no PII reaches disk. Never serialized, never travels in a result.
-fn pii_sessions() -> &'static Mutex<HashMap<String, pii::SessionMap>> {
-    static SESSIONS: OnceLock<Mutex<HashMap<String, pii::SessionMap>>> = OnceLock::new();
-    SESSIONS.get_or_init(|| Mutex::new(HashMap::new()))
+struct SessionTables {
+    pii: Mutex<SessionStore<pii::SessionMap>>,
+    hitl: Mutex<SessionStore<ModernHitlApproval>>,
+}
+
+impl SessionTables {
+    fn new() -> Self {
+        Self {
+            // The map is cleared on session teardown and on a fresh initialize, so the
+            // TTL is a backstop against a client that never disconnects; it matches the
+            // MCP session TTL. Last use refreshes it, so a live conversation keeps its
+            // tokens. The cap matches the session cap: one map per live client.
+            pii: Mutex::new(SessionStore::new(MCP_SESSION_TTL, MCP_SESSION_MAX)),
+            hitl: Mutex::new(SessionStore::new(
+                MODERN_HITL_RETENTION,
+                MODERN_HITL_MAX_PENDING,
+            )),
+        }
+    }
+
+    /// Run `f` against one conversation's PII map, creating it on first use.
+    ///
+    /// A poisoned lock is recovered rather than propagated: the map is a cache,
+    /// and failing every tool call because one thread panicked mid-pass would be a
+    /// worse outcome than continuing with whatever it already holds.
+    fn with_pii<T>(&self, client: Option<&str>, f: impl FnOnce(&mut pii::SessionMap) -> T) -> T {
+        let mut sessions = self
+            .pii
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        sessions.get_or_insert_with(&conversation_scope(client), pii::SessionMap::new, f)
+    }
+
+    /// Forget everything mapped for the current conversation.
+    fn clear_pii(&self, client: Option<&str>) {
+        let scope = conversation_scope(client);
+        self.pii
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(&scope);
+        self.hitl()
+            .remove_where(|_, pending| pending.scope == scope);
+    }
+
+    fn clear_mcp_session(&self, session: &str) {
+        let scope = format!("\0mcp:{session}");
+        self.pii
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(&scope);
+        self.hitl()
+            .remove_where(|_, pending| pending.scope == scope);
+    }
+
+    fn hitl(&self) -> std::sync::MutexGuard<'_, SessionStore<ModernHitlApproval>> {
+        self.hitl
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+}
+
+/// This process's session-scoped tables. One per gateway; resolved here until
+/// the request path is threaded with its owner in the unification slice.
+fn session_tables() -> &'static SessionTables {
+    static STATE: OnceLock<SessionTables> = OnceLock::new();
+    STATE.get_or_init(SessionTables::new)
 }
 
 /// True when a browser `Origin` names this machine, so the request came from a page
@@ -5007,6 +5132,15 @@ fn configured_allowed_origins() -> Vec<String> {
 /// NUL so it cannot collide with a real client id.
 const PII_LOCAL_SESSION: &str = "\0local";
 
+/// MCP session ids take priority over the configured client identity. Prefixes
+/// keep the two namespaces separate, including the local stdio fallback key.
+fn conversation_scope(client: Option<&str>) -> String {
+    match active_mcp_session() {
+        Some(session) => format!("\0mcp:{session}"),
+        None => format!("\0client:{}", client.unwrap_or(PII_LOCAL_SESSION)),
+    }
+}
+
 /// The spelling of a server id used as a PII origin.
 ///
 /// Origins are compared by string equality, so every mint and rehydrate path has to
@@ -5020,7 +5154,7 @@ fn pii_origin_id(server: &str) -> String {
     sanitize_segment(server)
 }
 
-/// Forget everything mapped for one client.
+/// Forget PII mappings and pending approvals for the current conversation.
 ///
 /// Called on MCP session teardown and on a fresh `initialize`. Without it "session"
 /// meant the whole gateway process: a new conversation against a long-lived HTTP
@@ -5028,15 +5162,14 @@ fn pii_origin_id(server: &str) -> String {
 /// resident for the process lifetime with no eviction at all (SBS-605). Memory was
 /// bounded by `DEFAULT_MAX_VALUES`; PII retention was not.
 ///
-/// Keyed by client, so a client running two concurrent MCP sessions clears both.
-/// That is deliberate — over-clearing costs a refused call, under-clearing leaks
-/// across conversations — and the tokens simply stop resolving rather than
-/// resolving to something wrong.
+/// A daemon session has its own key even when another adapter declares the
+/// same client identity. Sessionless requests retain the client key.
 fn clear_pii_session(client: Option<&str>) {
-    pii_sessions()
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .remove(client.unwrap_or(PII_LOCAL_SESSION));
+    session_tables().clear_pii(client);
+}
+
+fn clear_mcp_session_tables(session: &str) {
+    session_tables().clear_mcp_session(session);
 }
 
 /// Run `f` against one client's map.
@@ -5045,13 +5178,7 @@ fn clear_pii_session(client: Option<&str>) {
 /// failing every tool call because one thread panicked mid-pass would be a worse
 /// outcome than continuing with whatever it already holds.
 fn with_pii_session<T>(client: Option<&str>, f: impl FnOnce(&mut pii::SessionMap) -> T) -> T {
-    let mut sessions = pii_sessions()
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let map = sessions
-        .entry(client.unwrap_or(PII_LOCAL_SESSION).to_string())
-        .or_insert_with(pii::SessionMap::new);
-    f(map)
+    session_tables().with_pii(client, f)
 }
 
 /// Resolve pseudonyms on the owned dispatch copy only, for a call bound to `server`.
@@ -5174,6 +5301,7 @@ fn approve_pii_release(
             // re-checked against the map once the answer comes back.
             values: values.clone(),
         }),
+        agent_rule: None,
     });
     // The audit record names the tokens' count via the args hash only -- `record_decision`
     // hashes rather than stores, so the released values stay out of the log.
@@ -5389,6 +5517,16 @@ fn pseudonymize_if_enabled(
     })
 }
 
+/// Run untrusted tool-call output through content defense and result shaping, then
+/// append a Toolport-authored trailer. Shared by the success and error branches of
+/// [`execute_call`] so they can't drift: a hostile server must not be able to bypass the
+/// injection scanner by answering `tools/call` with a JSON-RPC error instead of a result
+/// (issue #421). The trailer (a recovery hint) is Toolport's own text and is added AFTER
+/// both passes, so it is never wrapped as external data nor truncated by shaping.
+///
+/// When opt-in block-on-injection is effective for `srv` (SOU-345) and the scanner hits
+/// high confidence, the labeled body is withheld and replaced with an `isError` security
+/// message so the agent never sees the payload as a successful result.
 fn defend_and_shape(
     reg: &Registry,
     srv: &str,
@@ -5602,8 +5740,16 @@ fn validate_script(
     let fetch: codemode::FetchBinding =
         Arc::new(|_args: codemode::FetchArgs| json!({ "content": [], "isError": false }));
 
-    let outcome =
-        codemode::run_script_with_input(script, input, call, Some(fetch), limits, &catalog);
+    let outcome = run_code_mode_isolated(
+        script,
+        input,
+        call,
+        Some(fetch),
+        limits,
+        &catalog,
+        None,
+        worker::HostCalls::default(),
+    );
 
     // No `savings::record_orchestration` here: a dry run replaced no round-trips,
     // and counting it would inflate the savings the real feature is measured by.
@@ -5748,6 +5894,7 @@ fn candidate_caller(client: Option<&str>) -> String {
 /// promotion approval.
 #[allow(clippy::too_many_arguments)]
 fn advise_after_direct_call(
+    host: &HostState,
     reg: &Registry,
     router: &Router,
     cached: &[Value],
@@ -5761,7 +5908,7 @@ fn advise_after_direct_call(
 ) -> Value {
     // The advisor's whole output is Code Mode material; with the kill switch off the
     // hint would point at a disabled door.
-    if !code_mode_enabled() {
+    if !host.code_mode_enabled() {
         return result;
     }
     let ok = !result
@@ -6180,6 +6327,12 @@ fn run_script_dispatch_with_candidates(
             });
         }
     };
+    if script.len() > worker::MAX_SCRIPT_BYTES {
+        return routine_error(format!(
+            "run_script `script` exceeds the {}-byte source limit.",
+            worker::MAX_SCRIPT_BYTES
+        ));
+    }
     if let Err(error) = reject_unknown_arguments(
         arguments,
         &["script", "data", "input", "inputSchema", "validate"],
@@ -6199,9 +6352,21 @@ fn run_script_dispatch_with_candidates(
         if !value.is_object() {
             return routine_error("run_script `input` must be an object.");
         }
+        if worker::json_size(&value, worker::MAX_VALUE_BYTES).is_none() {
+            return routine_error(format!(
+                "run_script `input` exceeds the {}-byte value limit.",
+                worker::MAX_VALUE_BYTES
+            ));
+        }
         let Some(schema) = arguments.get("inputSchema").cloned() else {
             return routine_error("run_script `input` requires `inputSchema`.");
         };
+        if worker::json_size(&schema, worker::MAX_SCHEMA_BYTES).is_none() {
+            return routine_error(format!(
+                "run_script `inputSchema` exceeds the {}-byte schema limit.",
+                worker::MAX_SCHEMA_BYTES
+            ));
+        }
         if let Err(error) = routines::validate_arguments(&schema, &value) {
             return routine_error(format!(
                 "run_script input validation failed before execution. {error}"
@@ -6213,13 +6378,14 @@ fn run_script_dispatch_with_candidates(
             true,
         )
     } else {
-        (
-            codemode::ScriptInput::Data(
-                arguments.get("data").cloned().unwrap_or_else(|| json!({})),
-            ),
-            None,
-            false,
-        )
+        let data = arguments.get("data").cloned().unwrap_or_else(|| json!({}));
+        if worker::json_size(&data, worker::MAX_VALUE_BYTES).is_none() {
+            return routine_error(format!(
+                "run_script `data` exceeds the {}-byte value limit.",
+                worker::MAX_VALUE_BYTES
+            ));
+        }
+        (codemode::ScriptInput::Data(data), None, false)
     };
 
     // Dry run: same compile, same scoped `servers.*` surface, same limits, but a
@@ -6324,7 +6490,8 @@ fn execute_script_dispatch_with_candidate(
     let client_owned = client.map(str::to_string);
     let client_name_owned = client_name.map(str::to_string);
     let allowed_owned = allowed.cloned();
-    let cancel_owned = cancel;
+    let host_calls = worker::HostCalls::default();
+    let host_calls_for_binding = host_calls.clone();
     let receipts = Arc::new(Mutex::new(Vec::<ToolReceipt>::new()));
     let receipts_for_call = Arc::clone(&receipts);
 
@@ -6334,12 +6501,14 @@ fn execute_script_dispatch_with_candidate(
     // request reach its HTTP client but then misclassifies it as legacy when a
     // downstream asks for sampling/elicitation/roots (SBS-551, extending WS2-3).
     let request_context = active_request_context();
+    let live_view_resolver = active_live_router_resolver();
 
     // Arc + Send + Sync so independent callAsync work can run on a small host thread pool.
     // shape=false: intermediate results stay full-sized in the sandbox (never enter model
     // context). Content defense still runs. Final aggregate is shaped below.
     let call: codemode::CallBinding = Arc::new(move |name: &str, args: Value| {
         let run = || {
+            let host_call = host_calls_for_binding.start();
             let result = execute_call(
                 &reg_owned,
                 &router_owned,
@@ -6347,7 +6516,7 @@ fn execute_script_dispatch_with_candidate(
                 client_owned.as_deref(),
                 client_name_owned.as_deref(),
                 allowed_owned.as_ref(),
-                cancel_owned.clone(),
+                Some(host_call.context.clone()),
                 None,
                 name,
                 args,
@@ -6364,9 +6533,8 @@ fn execute_script_dispatch_with_candidate(
             );
             let fingerprint = tool_fingerprint_for(name, &cached_owned, &router_owned);
             let risk_class = tool_risk_class(name, &cached_owned, &router_owned);
-            let result_bytes = serde_json::to_vec(&result)
-                .map(|bytes| bytes.len())
-                .unwrap_or(0);
+            let result_bytes = worker::json_size(&result, worker::MAX_FRAME_BYTES)
+                .unwrap_or(worker::MAX_FRAME_BYTES + 1);
             receipts_for_call
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -6383,6 +6551,7 @@ fn execute_script_dispatch_with_candidate(
             result
         };
         let _context = ActiveRequestContextGuard::enter(request_context.clone());
+        let _live_view = LiveRouterResolverGuard::enter(live_view_resolver.clone());
         run()
     });
 
@@ -6404,8 +6573,16 @@ fn execute_script_dispatch_with_candidate(
         owner_of_exposed_tool(Some(router_arc.as_ref()), &owners, name)
     });
 
-    let outcome =
-        codemode::run_script_with_input(script, input, call, Some(fetch), limits, &catalog);
+    let outcome = run_code_mode_isolated(
+        script,
+        input,
+        call,
+        Some(fetch),
+        limits,
+        &catalog,
+        cancel.clone(),
+        host_calls,
+    );
 
     let candidate_started = Instant::now();
     let candidate_assessment = candidate.map(|context| {
@@ -6516,9 +6693,13 @@ fn execute_script_dispatch_with_candidate(
         Some(v) => format!("checkpoint: {v}. "),
         None => String::new(),
     };
-    let protected_failure_prefix_bytes = checkpoint.as_ref().map_or(0, |checkpoint| {
-        format!("Toolport code mode: the script failed. checkpoint: {checkpoint}. ").len()
-    });
+    let failure_prefix = match routine {
+        Some(routine) => format!("Toolport routine {} failed. ", routine.id()),
+        None => "Toolport code mode: the script failed. ".to_string(),
+    };
+    let protected_failure_prefix_bytes = checkpoint
+        .as_ref()
+        .map_or(0, |_| failure_prefix.len() + checkpoint_text.len());
 
     let ledger_text = if outcome.progress.is_empty() {
         "no calls completed".to_string()
@@ -6546,7 +6727,7 @@ fn execute_script_dispatch_with_candidate(
         (Some(err), Some(routine)) => json!({
             "content": [{
                 "type": "text",
-                "text": format!("Toolport routine {} failed. {ledger_text}. Error: {err}", routine.id())
+                "text": format!("{failure_prefix}{checkpoint_text}{ledger_text}. Error: {err}")
             }],
             "isError": true,
             "structuredContent": {
@@ -6557,6 +6738,7 @@ fn execute_script_dispatch_with_candidate(
                     "ok": false,
                     "calls": outcome.calls,
                     "progress": progress,
+                    "checkpoint": checkpoint,
                     "error": err
                 }
             }
@@ -6564,7 +6746,7 @@ fn execute_script_dispatch_with_candidate(
         (Some(err), None) => json!({
             "content": [{
                 "type": "text",
-                "text": format!("Toolport code mode: the script failed. {checkpoint_text}{ledger_text}. Error: {err}")
+                "text": format!("{failure_prefix}{checkpoint_text}{ledger_text}. Error: {err}")
             }],
             "isError": true,
             "structuredContent": { "toolportScript": { "ok": false, "calls": outcome.calls, "progress": progress, "checkpoint": checkpoint, "error": err } }
@@ -6924,6 +7106,7 @@ fn refused_promotion_result(decision: approval::ApprovalDecision) -> Value {
 }
 
 fn save_routine_promotion_dispatch(
+    host: &HostState,
     reg: &Registry,
     candidates: &CandidateRegistry,
     client: Option<&str>,
@@ -7033,6 +7216,7 @@ fn save_routine_promotion_dispatch(
         tool_fingerprint: None,
         url_elicitation: None,
         pii_release: None,
+        agent_rule: None,
     });
     audit::record_decision(
         "toolport",
@@ -7069,7 +7253,7 @@ fn save_routine_promotion_dispatch(
         .map(|fresh| fresh.allow_routine_writes)
         .unwrap_or(false);
     if lease.is_expired()
-        || !code_mode_enabled()
+        || !host.code_mode_enabled()
         || !fresh_writes_enabled
         || definition.verify().is_err()
         || audit::args_hash(&approval_payload) != approval_hash
@@ -7146,6 +7330,7 @@ fn save_routine_promotion_dispatch(
 
 #[cfg(test)]
 fn save_routine_dispatch(
+    host: &HostState,
     reg: &Registry,
     cached: &[Value],
     client: Option<&str>,
@@ -7272,6 +7457,7 @@ fn save_routine_dispatch(
         tool_fingerprint: None,
         url_elicitation: None,
         pii_release: None,
+        agent_rule: None,
     });
     audit::record_decision(
         "toolport",
@@ -7322,7 +7508,7 @@ fn save_routine_dispatch(
         Ok(registry) => registry,
         Err(error) => return routine_error(format!("could not re-read the registry ({error}).")),
     };
-    if !code_mode_enabled() || !fresh.allow_routine_writes {
+    if !host.code_mode_enabled() || !fresh.allow_routine_writes {
         audit::record_routine(
             "save",
             definition.id(),
@@ -7554,6 +7740,7 @@ fn run_routine_dispatch(
 #[cfg(test)]
 #[allow(clippy::too_many_arguments)]
 fn handle_request(
+    host: &HostState,
     req: &Value,
     reg: &Registry,
     router: &Router,
@@ -7569,12 +7756,22 @@ fn handle_request(
     client: Option<&str>,
 ) -> Option<Value> {
     let search_index = CatalogSearchIndex::build(cached);
+    // Callers of this wrapper hand in the mode as a bool; translate it back to a mode so
+    // a host-wide grouped mode still applies to them.
+    let mode = if lazy {
+        DiscoveryMode::Lazy
+    } else if host.grouped_discovery() {
+        DiscoveryMode::Grouped
+    } else {
+        DiscoveryMode::Full
+    };
     handle_request_with_cancel(
+        host,
         req,
         reg,
         router,
         cached,
-        lazy,
+        mode,
         profile,
         guard,
         confirm,
@@ -7590,13 +7787,69 @@ fn handle_request(
     )
 }
 
+/// Construct the exact tool array for one discovery mode from a policy-filtered
+/// catalog. Both the response and the hypothetical full baseline use this path.
+fn tool_surface(
+    host: &HostState,
+    reg: &Registry,
+    router: &Router,
+    catalog: &[Value],
+    allowed: Option<&std::collections::HashSet<String>>,
+    mode: DiscoveryMode,
+) -> Vec<Value> {
+    let mut scoped = if mode == DiscoveryMode::Lazy {
+        Vec::new()
+    } else {
+        let owners = unique_prefix_owners(reg);
+        scope_tools(catalog, allowed, |name| {
+            owner_of_exposed_tool(Some(router), &owners, name)
+        })
+    };
+    match mode {
+        DiscoveryMode::Full => {
+            let mut tools = vec![status_tool_def(), fetch_result_tool_def()];
+            if host.code_mode_enabled() {
+                tools.push(run_script_tool_def());
+            }
+            append_routine_tool_defs(host, &mut tools, reg.allow_routine_writes);
+            if reg.confirm_destructive {
+                tools.push(confirm_tool_def());
+            }
+            if !relays_mcp_app_html_to_active_client(router, allowed) {
+                scoped.retain(mcp_app_tool_is_model_visible);
+            }
+            neutralize_listed_tools(&mut scoped);
+            tools.extend(scoped);
+            tools
+        }
+        DiscoveryMode::Lazy | DiscoveryMode::Grouped => {
+            let mut tools = grouped_tool_defs(
+                host,
+                reg.allow_agent_control,
+                reg.allow_routine_writes,
+                reg.confirm_destructive,
+                if mode == DiscoveryMode::Grouped {
+                    &scoped
+                } else {
+                    &[]
+                },
+            );
+            let mut app_tools = mcp_app_tools_for_client(catalog, allowed, router, reg);
+            neutralize_listed_tools(&mut app_tools);
+            tools.extend(app_tools);
+            tools
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn handle_request_with_cancel(
+    host: &HostState,
     req: &Value,
     reg: &Registry,
     router: &Router,
     cached: &[Value],
-    lazy: bool,
+    mode: DiscoveryMode,
     profile: Option<&str>,
     guard: &SearchGuard,
     confirm: &ConfirmGuard,
@@ -7654,12 +7907,10 @@ fn handle_request_with_cancel(
         // Modern clients open here instead of handshaking. Servers MUST implement
         // it, and it is also the stdio backward-compatibility probe a dual-era
         // client uses to decide which era Toolport speaks.
-        "server/discover" => Some(success(
-            id,
-            json!({
+        "server/discover" => {
+            let mut result = json!({
                 "supportedVersions": SUPPORTED_UPSTREAM_VERSIONS,
-                "capabilities": gateway_capabilities(router, allowed, reg, lazy),
-                "instructions": format!("Toolport aggregates every configured MCP server behind one endpoint. In lazy discovery mode the catalog is reached through toolport_search_tools / toolport_call_tool rather than a full tools/list. {ROUTINE_AGENT_INSTRUCTIONS}"),
+                "capabilities": gateway_capabilities(host, router, allowed, reg, mode),
                 // server/discover is a cacheable operation. The list results grow
                 // these fields in SOU-454.
                 "ttlMs": 300_000,
@@ -7667,8 +7918,14 @@ fn handle_request_with_cancel(
                 // client's scope and profile, so a shared intermediary must not
                 // reuse one client's answer for another.
                 "cacheScope": "private"
-            }),
-        )),
+            });
+            if let Some(text) = server_instructions(reg, profile, || {
+                format!("{DISCOVER_INSTRUCTIONS_PREAMBLE} {ROUTINE_AGENT_INSTRUCTIONS}")
+            }) {
+                result["instructions"] = Value::String(text);
+            }
+            Some(success(id, result))
+        }
         "initialize" => {
             // Every transport, not just HTTP: a stdio client that re-handshakes on the
             // same process would otherwise carry the previous conversation's pseudonym
@@ -7685,174 +7942,43 @@ fn handle_request_with_cancel(
             } else {
                 PROTOCOL_VERSION
             };
-            Some(success(
-                id,
-                json!({
-                    "protocolVersion": proto,
-                    "capabilities": gateway_capabilities(router, allowed, reg, lazy),
-                    "serverInfo": { "name": "toolport-gateway", "version": env!("CARGO_PKG_VERSION") },
-                    "instructions": ROUTINE_AGENT_INSTRUCTIONS
-                }),
-            ))
+            let mut result = json!({
+                "protocolVersion": proto,
+                "capabilities": gateway_capabilities(host, router, allowed, reg, mode),
+                "serverInfo": { "name": "toolport-gateway", "version": env!("CARGO_PKG_VERSION") },
+            });
+            if let Some(text) =
+                server_instructions(reg, profile, || ROUTINE_AGENT_INSTRUCTIONS.to_string())
+            {
+                result["instructions"] = Value::String(text);
+            }
+            Some(success(id, result))
         }
         "tools/list" => {
-            // Lazy mode: advertise only the meta-tools, so the client's context
-            // holds a handful of tool defs instead of the whole catalog. The model
-            // finds real tools via toolport_search_tools and runs toolport_call_tool.
-            if lazy {
-                let mut tools = vec![
-                    status_tool_def(),
-                    search_tool_def(),
-                    call_tool_def(),
-                    fetch_result_tool_def(),
-                ];
-                // Code mode (on by default, Settings kill switch): one script that
-                // orchestrates many calls in a single round-trip.
-                if code_mode_enabled() {
-                    tools.push(run_script_tool_def());
-                }
-                append_routine_tool_defs(&mut tools, reg.allow_routine_writes);
-                // Opt-in: surface the agent-control tools only when the user has
-                // allowed it, so an agent can't even see them otherwise.
-                if reg.allow_agent_control {
-                    tools.push(enable_server_tool_def());
-                    tools.push(disable_server_tool_def());
-                }
-                // The confirm tool is advertised only while confirmation is on,
-                // so an agent can't see it (and attempt to call it) otherwise.
-                if reg.confirm_destructive {
-                    tools.push(confirm_tool_def());
-                }
-                // Record what lazy discovery kept out of the client's context: the
-                // full catalog we'd otherwise serve (status + every downstream tool)
-                // minus these 4 meta-tools. Estimating over the cached slice avoids
-                // cloning the whole catalog on a serve.
-                let agg;
-                let unblocked;
-                let catalog: &[Value] = if cached.is_empty() {
-                    agg = router.aggregated_tools();
-                    &agg
-                } else {
-                    unblocked = drop_blocked_from_cache(cached.to_vec(), router, reg);
-                    &unblocked
-                };
-                // MCP Apps hosts discover the UI resource linkage only through
-                // tools/list. Preserve those few tools when the requesting host
-                // explicitly negotiated the UI extension; the rest of the
-                // downstream catalog remains behind lazy discovery.
-                let mut app_tools = mcp_app_tools_for_client(catalog, allowed, router, reg);
-                neutralize_listed_tools(&mut app_tools);
-                tools.extend(app_tools);
-                let status = status_tool_def();
-                let full_tokens = savings::estimate_tokens(catalog)
-                    + savings::estimate_tokens(std::slice::from_ref(&status));
-                savings::record(
-                    full_tokens,
-                    savings::estimate_tokens(&tools),
-                    catalog.len() as u64 + 1,
-                    savings::per_server_tokens(catalog, |name| {
-                        router.route_of(name).map(|(s, _)| s.to_string())
-                    }),
-                );
-                gtrace(&format!(
-                    "tools/list -> {} meta-tools (lazy discovery)",
-                    tools.len()
-                ));
-                return Some(success(
-                    id,
-                    cacheable_for_upstream(
-                        json!({ "tools": tools }),
-                        CacheHint::local(LOCAL_CACHE_TTL_MS),
-                        cache_scoped,
-                    ),
-                ));
-            }
-            // Grouped mode: the lazy meta-tools plus a per-server help_<server> browse
-            // tool, so a weak model can pick a server by name instead of inventing a
-            // search query. Scoped to the client's servers, same as full mode.
-            if grouped_discovery() {
-                let agg;
-                let unblocked;
-                let catalog: &[Value] = if cached.is_empty() {
-                    agg = router.aggregated_tools();
-                    &agg
-                } else {
-                    unblocked = drop_blocked_from_cache(cached.to_vec(), router, reg);
-                    &unblocked
-                };
-                let owners = unique_prefix_owners(reg);
-                let scoped = scope_tools(catalog, allowed, |n| {
-                    owner_of_exposed_tool(Some(router), &owners, n)
-                });
-                let mut tools = grouped_tool_defs(
-                    reg.allow_agent_control,
-                    reg.allow_routine_writes,
-                    reg.confirm_destructive,
-                    &scoped,
-                );
-                let mut app_tools = mcp_app_tools_for_client(catalog, allowed, router, reg);
-                neutralize_listed_tools(&mut app_tools);
-                tools.extend(app_tools);
-                // Savings vs. advertising the whole (scoped) catalog + status.
-                let status = status_tool_def();
-                let full_tokens = savings::estimate_tokens(&scoped)
-                    + savings::estimate_tokens(std::slice::from_ref(&status));
-                savings::record(
-                    full_tokens,
-                    savings::estimate_tokens(&tools),
-                    scoped.len() as u64 + 1,
-                    savings::per_server_tokens(&scoped, |name| {
-                        router.route_of(name).map(|(s, _)| s.to_string())
-                    }),
-                );
-                gtrace(&format!(
-                    "tools/list -> {} tools (grouped: {} server browse tools)",
-                    tools.len(),
-                    distinct_server_prefixes(&scoped).len()
-                ));
-                return Some(success(
-                    id,
-                    cacheable_for_upstream(
-                        json!({ "tools": tools }),
-                        router
-                            .tools_cache_hint()
-                            .map(|hint| CacheHint::local(LOCAL_CACHE_TTL_MS).merge(hint))
-                            .unwrap_or_else(|| CacheHint::local(LOCAL_CACHE_TTL_MS)),
-                        cache_scoped,
-                    ),
-                ));
-            }
-            let mut tools = vec![status_tool_def(), fetch_result_tool_def()];
-            if code_mode_enabled() {
-                tools.push(run_script_tool_def());
-            }
-            append_routine_tool_defs(&mut tools, reg.allow_routine_writes);
-            // The confirm tool is advertised only while confirmation is on.
-            if reg.confirm_destructive {
-                tools.push(confirm_tool_def());
-            }
-            // Prefer the cached catalog (instant); fall back to the live router.
-            // Scope to the client's allowed servers (a no-op when unscoped), so a
-            // registered HTTP client only ever sees its own servers' tools.
+            // The same policy-filtered catalog and surface builder serve the real
+            // response and the hypothetical full-mode baseline for this client.
             let catalog = if cached.is_empty() {
                 router.aggregated_tools()
             } else {
                 drop_blocked_from_cache(cached.to_vec(), router, reg)
             };
-            let owners = unique_prefix_owners(reg);
-            let mut scoped = scope_tools(&catalog, allowed, |n| {
-                owner_of_exposed_tool(Some(router), &owners, n)
-            });
-            if !relays_mcp_app_html_to_active_client(router, allowed) {
-                scoped.retain(mcp_app_tool_is_model_visible);
+            let tools = tool_surface(host, reg, router, &catalog, allowed, mode);
+            if mode != DiscoveryMode::Full {
+                let full = tool_surface(host, reg, router, &catalog, allowed, DiscoveryMode::Full);
+                savings::record_catalog(
+                    if mode == DiscoveryMode::Lazy {
+                        "lazy"
+                    } else {
+                        "grouped"
+                    },
+                    client,
+                    &full,
+                    &tools,
+                    |name| router.route_of(name).map(|(server, _)| server.to_string()),
+                );
             }
-            // `scoped` is an owned clone (scope_tools). Neutralize every listed
-            // string here so a full tools/list cannot deliver a fake Toolport
-            // voice (SBS-896). Lazy-mode meta-tools above are Toolport-authored.
-            neutralize_listed_tools(&mut scoped);
-            tools.extend(scoped);
             gtrace(&format!(
-                "tools/list -> {} tools (cache={})",
+                "tools/list -> {} tools ({mode:?}, cache={})",
                 tools.len(),
                 !cached.is_empty()
             ));
@@ -7860,10 +7986,14 @@ fn handle_request_with_cancel(
                 id,
                 cacheable_for_upstream(
                     json!({ "tools": tools }),
-                    router
-                        .tools_cache_hint()
-                        .map(|hint| CacheHint::local(LOCAL_CACHE_TTL_MS).merge(hint))
-                        .unwrap_or_else(|| CacheHint::local(LOCAL_CACHE_TTL_MS)),
+                    if mode == DiscoveryMode::Lazy {
+                        CacheHint::local(LOCAL_CACHE_TTL_MS)
+                    } else {
+                        router
+                            .tools_cache_hint()
+                            .map(|hint| CacheHint::local(LOCAL_CACHE_TTL_MS).merge(hint))
+                            .unwrap_or_else(|| CacheHint::local(LOCAL_CACHE_TTL_MS))
+                    },
                     cache_scoped,
                 ),
             ))
@@ -7898,7 +8028,7 @@ fn handle_request_with_cancel(
             // alternative to inventing a search query. Rewrite it into a server-scoped
             // toolport_search_tools so it reuses the exact ranking/listing path, and
             // dispatch of the chosen tool still goes through toolport_call_tool below.
-            if grouped_discovery() {
+            if mode == DiscoveryMode::Grouped {
                 if let Some(prefix) = grouped_help_target(&name) {
                     let q = arguments.get("query").cloned().unwrap_or_else(|| json!(""));
                     let server = prefix.to_string();
@@ -7970,7 +8100,7 @@ fn handle_request_with_cancel(
                 return Some(success(
                     id,
                     json!({
-                        "content": [{ "type": "text", "text": enabled_summary(reg, cached, profile, allowed) }],
+                        "content": [{ "type": "text", "text": enabled_summary(host, reg, cached, profile, allowed) }],
                         "isError": false
                     }),
                 ));
@@ -7982,6 +8112,7 @@ fn handle_request_with_cancel(
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
                 if let Err(message) = validate_search_query(query) {
+                    savings::record_discovery(message.len() as u64, savings::surface_bytes(&[]));
                     return Some(success(
                         id,
                         json!({
@@ -8227,9 +8358,12 @@ fn handle_request_with_cancel(
                     // spending tokens on indentation and line breaks on every search.
                     serde_json::to_string(&matches).unwrap_or_default()
                 );
-                // Record the trace: the ground-truth cost of what THIS search returned
-                // vs. what advertising the whole (scoped) catalog would cost per turn.
-                // Being in-path, we know both exactly rather than estimating from logs.
+                let response_content_bytes = text.len() as u64;
+                let matched_schema_bytes = savings::surface_bytes(&matches);
+                let catalog_schema_bytes = savings::surface_bytes(source);
+                savings::record_discovery(response_content_bytes, matched_schema_bytes);
+                // Record exact UTF-8 returned text and schema-array bytes. Legacy
+                // token fields remain reference estimates for existing readers.
                 let returned_names: Vec<String> = matches
                     .iter()
                     .filter_map(|m| m.get("name").and_then(|v| v.as_str()).map(str::to_string))
@@ -8259,7 +8393,7 @@ fn handle_request_with_cancel(
                 } else {
                     "lexical"
                 };
-                searchtrace::record(
+                searchtrace::record_measured(
                     client,
                     query,
                     server,
@@ -8268,8 +8402,11 @@ fn handle_request_with_cancel(
                     matches.len(),
                     total,
                     broadened,
-                    savings::estimate_tokens(&matches),
-                    savings::estimate_tokens(source),
+                    savings::estimated_tokens(matched_schema_bytes),
+                    savings::estimated_tokens(catalog_schema_bytes),
+                    response_content_bytes,
+                    matched_schema_bytes,
+                    catalog_schema_bytes,
                     escalate,
                     &ranking,
                     mode,
@@ -8307,7 +8444,7 @@ fn handle_request_with_cancel(
             // round-trip; intermediate results never enter model context. Opt-in, and needs
             // the shareable router (router_arc) to build the script's call binding.
             if name == "toolport_run_script" {
-                if !code_mode_enabled() {
+                if !host.code_mode_enabled() {
                     return Some(success(
                         id,
                         json!({
@@ -8316,28 +8453,55 @@ fn handle_request_with_cancel(
                         }),
                     ));
                 }
-                return Some(success(
-                    id,
-                    run_script_dispatch_with_candidates(
-                        reg,
-                        router_arc,
-                        cached,
-                        client,
-                        client_name,
-                        allowed,
-                        cancel,
-                        &arguments,
-                        live_router,
-                        candidates,
-                    ),
-                ));
+                let started = Instant::now();
+                let result = run_script_dispatch_with_candidates(
+                    reg,
+                    router_arc,
+                    cached,
+                    client,
+                    client_name,
+                    allowed,
+                    cancel,
+                    &arguments,
+                    live_router,
+                    candidates,
+                );
+                let failed = result
+                    .get("isError")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+                let detail = result
+                    .pointer("/structuredContent/toolportScript/error")
+                    .or_else(|| result.pointer("/structuredContent/toolportValidate/error"))
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                // Log attribution and a bounded category, never submitted source,
+                // input values, or arbitrary text thrown by a script.
+                let reason = failed.then_some(
+                    if detail.starts_with("code mode script exceeded its memory budget") {
+                        "code_mode_memory_budget"
+                    } else if detail.contains("wall-clock") {
+                        "code_mode_deadline"
+                    } else {
+                        "code_mode_failed"
+                    },
+                );
+                audit::record_timed(
+                    "toolport",
+                    "run_script",
+                    !failed,
+                    Some(started.elapsed().as_millis().min(u64::MAX as u128) as u64),
+                    reason,
+                    client,
+                );
+                return Some(success(id, result));
             }
 
             if matches!(
                 name.as_str(),
                 "toolport_save_routine" | "toolport_list_routines" | "toolport_run_routine"
             ) {
-                if !code_mode_enabled() {
+                if !host.code_mode_enabled() {
                     return Some(success(
                         id,
                         routine_error(
@@ -8349,6 +8513,7 @@ fn handle_request_with_cancel(
                     "toolport_save_routine" => {
                         let fallback = CandidateRegistry::default();
                         save_routine_promotion_dispatch(
+                            host,
                             reg,
                             candidates.unwrap_or(&fallback),
                             client,
@@ -8378,7 +8543,7 @@ fn handle_request_with_cancel(
             // `flattened_routine_tool_defs`). Rewrap the call and run it through the
             // exact same governed dispatch as an explicit `toolport_run_routine`.
             if name.starts_with(ROUTINE_TOOL_PREFIX) && !name.contains("__") {
-                if !code_mode_enabled() {
+                if !host.code_mode_enabled() {
                     return Some(success(
                         id,
                         routine_error(
@@ -8462,8 +8627,8 @@ fn handle_request_with_cancel(
             }
             let result = match (advisor, advisor_arguments) {
                 (Some(advisor), Some(arguments)) => advise_after_direct_call(
-                    reg, router, cached, client, allowed, candidates, advisor, &name, arguments,
-                    result,
+                    host, reg, router, cached, client, allowed, candidates, advisor, &name,
+                    arguments, result,
                 ),
                 _ => result,
             };
@@ -8953,11 +9118,77 @@ fn prior_quarantine_from_router(router: &Router) -> Option<PriorQuarantine> {
 /// Spawn and connect every enabled server into a router. With `profile` set, only
 /// that profile's servers are connected (per-client scoping); otherwise the
 /// active profile is used.
+fn server_uses_project_root(server: &ServerEntry) -> bool {
+    server.command.is_some()
+        && server
+            .cwd
+            .as_deref()
+            .is_some_and(|cwd| cwd.contains("${ROOT}"))
+}
+
+fn daemon_root_servers(reg: &Registry) -> Vec<ServerEntry> {
+    reg.servers
+        .iter()
+        .filter(|server| {
+            !clients::is_gateway_server(server)
+                && server_uses_project_root(server)
+                && reg
+                    .profiles
+                    .iter()
+                    .any(|profile| reg.is_enabled(&profile.id, &server.id))
+        })
+        .cloned()
+        .collect()
+}
+
+fn root_servers_in_scope(
+    specs: &[ServerEntry],
+    allowed: Option<&HashSet<String>>,
+) -> Vec<ServerEntry> {
+    specs
+        .iter()
+        .filter(|server| allowed.is_none_or(|scope| server_in_allowed_scope(&server.id, scope)))
+        .cloned()
+        .collect()
+}
+
+fn root_launch_keys(specs: &[ServerEntry], root: &str, secrets_generation: u64) -> Vec<LaunchKey> {
+    specs
+        .iter()
+        .map(|server| {
+            let env_names: BTreeSet<String> =
+                server.env.iter().map(|entry| entry.key.clone()).collect();
+            let cwd = server
+                .cwd
+                .as_deref()
+                .and_then(|cwd| downstream::resolve_root_token(cwd, Some(root)));
+            LaunchKey::stdio(
+                &server.id,
+                server.command.as_deref().unwrap_or(""),
+                &server.args,
+                cwd.as_deref(),
+                &env_names,
+                secrets_generation,
+            )
+        })
+        .collect()
+}
+
+fn root_subscription_key(server: &ServerEntry, root: &str) -> (String, String) {
+    let resolved_cwd = server
+        .cwd
+        .as_deref()
+        .and_then(|cwd| downstream::resolve_root_token(cwd, Some(root)))
+        .unwrap_or_else(|| root.to_string());
+    (server.id.clone(), resolved_cwd)
+}
+
 #[allow(clippy::too_many_arguments)] // SBS-871 adds the pre-rebuild quarantine set.
 fn build_router(
     reg: &Registry,
     profile: Option<&str>,
     http_mode: bool,
+    daemon_mode: bool,
     dirty: &Arc<AtomicU8>,
     server_handler: ServerRequestHandler,
     // The upstream client's project root for the ${ROOT} cwd token (issue #239),
@@ -8976,7 +9207,18 @@ fn build_router(
     // union of all their profiles (per-request filtering scopes each one down).
     // In stdio mode the process serves a single client, so connect only its
     // profile - that's what keeps stdio per-client scoping intact.
-    let enabled = if http_mode {
+    let enabled = if daemon_mode {
+        // Adapters may belong to any stdio profile, including one that did
+        // not start the daemon. The per-request allowed set narrows this union.
+        reg.servers
+            .iter()
+            .filter(|server| {
+                reg.profiles
+                    .iter()
+                    .any(|profile| reg.is_enabled(&profile.id, &server.id))
+            })
+            .collect()
+    } else if http_mode {
         reg.bridge_enabled_servers(profile)
     } else {
         match profile {
@@ -8984,7 +9226,7 @@ fn build_router(
             None => reg.enabled_servers(),
         }
     };
-    let servers: Vec<ServerEntry> = enabled
+    let all_servers: Vec<ServerEntry> = enabled
         .into_iter()
         .filter(|s| !clients::is_gateway_server(s)) // never proxy ourselves
         .cloned()
@@ -8993,11 +9235,18 @@ fn build_router(
     // Build the policy from the same server set: per-tool disables + the global
     // destructive switch. The router enforces it as servers are added.
     let mut disabled = std::collections::HashMap::new();
-    for s in &servers {
+    for s in &all_servers {
         if !s.disabled_tools.is_empty() {
             disabled.insert(s.id.clone(), s.disabled_tools.iter().cloned().collect());
         }
     }
+    // A daemon learns each adapter's project root only after that adapter's
+    // handshake. Delay these launches until a session has a resolved root;
+    // starting them here would create an extra child in the daemon's own cwd.
+    let servers: Vec<ServerEntry> = all_servers
+        .into_iter()
+        .filter(|server| !daemon_mode || !server_uses_project_root(server))
+        .collect();
     // Tool-granular profile scope (SOU-189 / SOU-167): per-server ORIGINAL tool allow-lists.
     // Stdio: bake the single active (or requested) profile's tool_scope.
     // HTTP: one shared router serves every registered client/profile. Bake a fail-closed
@@ -9166,7 +9415,10 @@ fn connect_one(
     // connect, and `DownstreamServer::set_server_request_handler` wraps again afterwards
     // (idempotent) (SBS-891).
     let server_handler = downstream::stamping_server_request_handler(&server.id, server_handler);
-    let result = if let Some(command) = &server.command {
+    let initialize_timeout = server.initialize_timeout();
+    let result = if let Err(error) = &initialize_timeout {
+        Err(error.clone())
+    } else if let Some(command) = &server.command {
         let mut env: Vec<(String, String)> = Vec::new();
         // A failed vault read is NOT "no secret stored" (SBS-789): a locked
         // Credential Manager or torn chunk read must fail the connect, not spawn
@@ -9209,20 +9461,33 @@ fn connect_one(
             .cwd
             .as_deref()
             .and_then(|c| downstream::resolve_root_token(c, root));
+        let resolved = match conduit_lib::launch_inputs::resolve_args(server) {
+            Ok(resolved) => resolved,
+            Err(error) => {
+                let msg = format!("'{}' failed: {error}", server.id);
+                eprintln!("toolport: {msg}");
+                glog(&msg);
+                return None;
+            }
+        };
         match StdioTransport::spawn_watched(
             command,
-            &server.args,
+            &resolved.args,
             &env,
             resolved_cwd.as_deref(),
             Arc::clone(dirty),
             resource_updated,
         ) {
             Ok(mut t) => {
+                if let Some(timeout) = initialize_timeout.expect("validated above") {
+                    t.set_connect_timeout(timeout);
+                }
                 t.set_server_request_handler(Arc::clone(&server_handler));
                 t.set_progress_sink(progress);
                 DownstreamServer::connect(server.id.clone(), Box::new(t))
+                    .map_err(|error| resolved.redact(error))
             }
-            Err(e) => Err(e),
+            Err(e) => Err(resolved.redact(e)),
         }
     } else if server.url.is_some() {
         remote::connect_remote_with_handler(
@@ -9240,8 +9505,17 @@ fn connect_one(
         Ok(mut ds) => {
             ds.set_server_request_handler(server_handler);
             // Only the gateway needs resources/prompts (to proxy them); fetch
-            // them here, off the health-probe path.
+            // them here, off the health-probe path. These initial catalog reads
+            // intentionally run at the bounded STDIO_READ_TIMEOUT — the widened
+            // live-call timeout is applied after, so a server with a large
+            // requestTimeoutMs cannot stall startup.
             ds.load_resources_prompts();
+            // Per-server `requestTimeoutMs` widens only this server's live-call
+            // read deadline; connect budgets stay bounded. Clamped to >=1ms so a
+            // zero entry cannot become an instant timeout on every call.
+            if let Some(ms) = server.request_timeout_ms {
+                ds.set_call_timeout(Duration::from_millis(ms.max(1)));
+            }
             let msg = format!("connected '{}' ({} tools)", server.id, ds.tools.len());
             eprintln!("toolport: {msg}");
             glog(&msg);
@@ -9261,10 +9535,199 @@ fn mtime(path: &Path) -> Option<SystemTime> {
 }
 
 fn notify_tools_changed(
-    stdout: &Arc<Mutex<std::io::Stdout>>,
-    mcp_sessions: Option<&Arc<Mutex<HashMap<String, Arc<McpSession>>>>>,
+    stdio: &SessionState,
+    mcp_sessions: Option<&Arc<Mutex<HashMap<String, Arc<SessionState>>>>>,
 ) {
-    notify_list_changed(stdout, mcp_sessions, "notifications/tools/list_changed");
+    notify_list_changed(stdio, mcp_sessions, "notifications/tools/list_changed");
+}
+
+/// A shared downstream's catalog is visible to every session authorized for
+/// that server. Notify exactly the sessions whose visible catalog changed;
+/// sending this to the whole host leaks activity from other profiles.
+fn notify_tools_changed_for_catalog_diff(
+    stdio: &SessionState,
+    mcp_sessions: Option<&Arc<Mutex<HashMap<String, Arc<SessionState>>>>>,
+    previous: &[Value],
+    current: &[Value],
+    previous_router: &Router,
+    current_router: &Router,
+    reg: &Registry,
+    previous_adapter_tools: Option<&HashMap<McpSessionOwner, Vec<Value>>>,
+) {
+    notify_list_changed(stdio, None, "notifications/tools/list_changed");
+    let Some(sessions) = mcp_sessions else {
+        return;
+    };
+    let owners = unique_prefix_owners(reg);
+    let sessions: Vec<Arc<SessionState>> = sessions
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .values()
+        .cloned()
+        .collect();
+    let msg = json!({ "jsonrpc": "2.0", "method": "notifications/tools/list_changed" });
+    let mut changed_by_scope: HashMap<Option<McpSessionOwner>, bool> = HashMap::new();
+    for session in sessions {
+        if session.is_expired() || session.closed.load(Ordering::SeqCst) {
+            continue;
+        }
+        let owner = session.owner.clone();
+        let changed = *changed_by_scope.entry(owner.clone()).or_insert_with(|| {
+            let Some(owner) = owner else {
+                return previous != current;
+            };
+            let prior_owner = owner.clone();
+            let Some(scope) = owner.scope else {
+                return previous != current;
+            };
+            let allowed: std::collections::HashSet<String> = scope.into_iter().collect();
+            if let (Some(profile), Some(prior_tool_scope)) =
+                (owner.profile.as_deref(), owner.tool_scope)
+            {
+                let prior_allow = prior_tool_scope
+                    .into_iter()
+                    .map(|(server, tools)| (server, tools.into_iter().collect()))
+                    .collect();
+                let current_allow = adapter_tool_scope(reg, profile)
+                    .into_iter()
+                    .map(|(server, tools)| (server, tools.into_iter().collect()))
+                    .collect();
+                let before_router = previous_router.with_tool_allow(prior_allow);
+                let after_router = current_router.with_tool_allow(current_allow);
+                let before_tools = previous_adapter_tools
+                    .and_then(|by_owner| by_owner.get(&prior_owner))
+                    .cloned()
+                    .unwrap_or_else(|| before_router.aggregated_tools());
+                let before = if previous_adapter_tools
+                    .is_some_and(|by_owner| by_owner.contains_key(&prior_owner))
+                {
+                    before_tools
+                } else {
+                    scope_tools(&before_tools, Some(&allowed), |name| {
+                        owner_of_exposed_tool(Some(&before_router), &owners, name)
+                    })
+                };
+                let after = scope_tools(&after_router.aggregated_tools(), Some(&allowed), |name| {
+                    owner_of_exposed_tool(Some(&after_router), &owners, name)
+                });
+                return before != after;
+            }
+            let before = scope_tools(previous, Some(&allowed), |name| {
+                owner_of_exposed_tool(Some(previous_router), &owners, name)
+            });
+            let after = scope_tools(current, Some(&allowed), |name| {
+                owner_of_exposed_tool(Some(current_router), &owners, name)
+            });
+            before != after
+        });
+        if !changed {
+            continue;
+        }
+        if let Some(json) = session.notification_json(&msg) {
+            if !session.push_message(json, None) {
+                eprintln!("toolport: MCP session could not take a notification; dropped");
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum ChangedListKind {
+    Resources,
+    Prompts,
+}
+
+fn visible_changed_list(
+    router: &Router,
+    allowed: Option<&std::collections::HashSet<String>>,
+    kind: ChangedListKind,
+) -> Vec<Value> {
+    let in_scope = |server: Option<&str>| {
+        allowed.map_or(true, |set| {
+            server.is_some_and(|server| server_in_allowed_scope(server, set))
+        })
+    };
+    match kind {
+        ChangedListKind::Resources => {
+            let mut resources = router.aggregated_resources();
+            resources.retain(|resource| {
+                in_scope(
+                    resource["uri"]
+                        .as_str()
+                        .and_then(|uri| router.resource_server(uri)),
+                )
+            });
+            let mut templates = router.aggregated_resource_templates();
+            templates.retain(|template| {
+                in_scope(
+                    template["uriTemplate"]
+                        .as_str()
+                        .and_then(|uri| router.resource_template_server(uri)),
+                )
+            });
+            resources.extend(templates);
+            resources
+        }
+        ChangedListKind::Prompts => {
+            let mut prompts = router.aggregated_prompts();
+            prompts.retain(|prompt| {
+                in_scope(
+                    prompt["name"]
+                        .as_str()
+                        .and_then(|name| router.prompt_server(name)),
+                )
+            });
+            prompts
+        }
+    }
+}
+
+fn notify_list_changed_for_router_diff(
+    stdio: &SessionState,
+    mcp_sessions: Option<&Arc<Mutex<HashMap<String, Arc<SessionState>>>>>,
+    previous: &Router,
+    current: &Router,
+    kind: ChangedListKind,
+) {
+    let method = match kind {
+        ChangedListKind::Resources => "notifications/resources/list_changed",
+        ChangedListKind::Prompts => "notifications/prompts/list_changed",
+    };
+    notify_list_changed(stdio, None, method);
+    let Some(sessions) = mcp_sessions else {
+        return;
+    };
+    let sessions: Vec<Arc<SessionState>> = sessions
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .values()
+        .cloned()
+        .collect();
+    let msg = json!({ "jsonrpc": "2.0", "method": method });
+    let mut changed_by_scope: HashMap<Option<Vec<String>>, bool> = HashMap::new();
+    for session in sessions {
+        if session.is_expired() || session.closed.load(Ordering::SeqCst) {
+            continue;
+        }
+        let scope = session.owner.as_ref().and_then(|owner| owner.scope.clone());
+        let changed = *changed_by_scope.entry(scope.clone()).or_insert_with(|| {
+            let allowed = scope.map(|scope| {
+                scope
+                    .into_iter()
+                    .collect::<std::collections::HashSet<String>>()
+            });
+            visible_changed_list(previous, allowed.as_ref(), kind)
+                != visible_changed_list(current, allowed.as_ref(), kind)
+        });
+        if !changed {
+            continue;
+        }
+        if let Some(json) = session.notification_json(&msg) {
+            if !session.push_message(json, None) {
+                eprintln!("toolport: MCP session could not take a notification; dropped");
+            }
+        }
+    }
 }
 
 /// How long a server->client request waits for the stdio handshake to finish
@@ -9273,21 +9736,12 @@ fn notify_tools_changed(
 /// a client that is not going to finish at all.
 const STDIO_HANDSHAKE_WAIT: Duration = Duration::from_secs(10);
 
-/// Whether the gateway may put its own traffic on stdio right now.
-///
-/// Two conditions, not one. The peer must have spoken past `initialize`, and it
-/// must already have been answered at least once - see [`STDIO_RESPONDED`] for
-/// why the second is not implied by the first.
-fn stdio_may_speak() -> bool {
-    STDIO_CLIENT_READY.load(Ordering::SeqCst) && STDIO_RESPONDED.load(Ordering::SeqCst)
-}
-
 /// Block until the raw-stdio peer has handshaked, up to `timeout`. Returns
 /// whether it did.
-fn await_stdio_client_ready(timeout: Duration) -> bool {
+fn await_stdio_client_ready(stdio: &SessionState, timeout: Duration) -> bool {
     let deadline = Instant::now() + timeout;
     loop {
-        if stdio_may_speak() {
+        if stdio.stdio_may_speak() {
             return true;
         }
         if Instant::now() >= deadline {
@@ -9307,7 +9761,8 @@ fn write_stdio_list_changed(stdout: &Arc<Mutex<std::io::Stdout>>, method: &str) 
 }
 
 /// Record that the raw-stdio peer finished the handshake, and replay whatever
-/// [`notify_list_changed`] withheld while it had not. See [`STDIO_CLIENT_READY`].
+/// [`notify_list_changed`] withheld while it had not. See
+/// [`SessionState::stdio_client_ready`].
 ///
 /// Called for `notifications/initialized` and, deliberately, for any other
 /// post-`initialize` stdio request too: `initialized` is required but not every
@@ -9319,11 +9774,11 @@ fn write_stdio_list_changed(stdout: &Arc<Mutex<std::io::Stdout>>, method: &str) 
 /// [`drain_stdio_deferred`]'s call to make. The flag is raised before that call
 /// takes the queue lock, which is what stops a racing `notify_list_changed` from
 /// pushing onto a list that was just emptied.
-fn mark_stdio_client_ready(stdout: &Arc<Mutex<std::io::Stdout>>) {
-    if STDIO_CLIENT_READY.swap(true, Ordering::SeqCst) {
+fn mark_stdio_client_ready(stdio: &SessionState) {
+    if stdio.stdio_client_ready.swap(true, Ordering::SeqCst) {
         return;
     }
-    drain_stdio_deferred(stdout);
+    drain_stdio_deferred(stdio);
 }
 
 /// Release whatever [`notify_list_changed`] withheld, if releasing it is now
@@ -9335,12 +9790,13 @@ fn mark_stdio_client_ready(stdout: &Arc<Mutex<std::io::Stdout>>) {
 /// this either lands in the queue this call is about to take or is written
 /// directly by its own caller. It cannot be pushed onto a list that was just
 /// emptied, which would strand it until the next catalog change.
-fn drain_stdio_deferred(stdout: &Arc<Mutex<std::io::Stdout>>) {
-    if !stdio_may_speak() {
+fn drain_stdio_deferred(stdio: &SessionState) {
+    if !stdio.stdio_may_speak() {
         return;
     }
     let deferred = {
-        let mut queue = STDIO_DEFERRED_LIST_CHANGED
+        let mut queue = stdio
+            .stdio_deferred_list_changed
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         std::mem::take(&mut *queue)
@@ -9351,13 +9807,19 @@ fn drain_stdio_deferred(stdout: &Arc<Mutex<std::io::Stdout>>) {
     // `subscriptions/listen` filter it opened, carrying the subscription id.
     // These were queued before the peer declared its version, so dropping them
     // here is the same call `notify_list_changed` would have made had it known.
-    if MODERN_STDIO_UPSTREAM.load(Ordering::SeqCst) {
+    //
+    // Read off the session, not a process flag: the era belongs to this one
+    // connection, so a second session cannot mute or unmute it.
+    if stdio.is_modern_upstream() {
         return;
     }
+    let Some(stdout) = stdio.stdio_stdout() else {
+        return;
+    };
     // Outside the queue lock: writing takes the stdout mutex, and no other path
     // holds these two at once.
     for method in deferred {
-        write_stdio_list_changed(stdout, &method);
+        write_stdio_list_changed(&stdout, &method);
     }
 }
 
@@ -9369,46 +9831,53 @@ fn drain_stdio_deferred(stdout: &Arc<Mutex<std::io::Stdout>>) {
 /// list changes.
 ///
 /// Before the handshake the stdio copy is queued rather than written: see
-/// [`STDIO_CLIENT_READY`] for why putting it on the wire early breaks the client
+/// [`SessionState::stdio_client_ready`] for why putting it on the wire early breaks
+/// the client
 /// that is still on its way to sending `initialize`. The HTTP fanout is not gated
 /// - an MCP session only exists after that session initialized.
+///
+/// `stdio` is the gateway's stdio client session. Both the sink it writes to and
+/// the protocol era that decides whether it may write at all are session state,
+/// so one owner holds them instead of two process-wide flags.
 fn notify_list_changed(
-    stdout: &Arc<Mutex<std::io::Stdout>>,
-    mcp_sessions: Option<&Arc<Mutex<HashMap<String, Arc<McpSession>>>>>,
+    stdio: &SessionState,
+    mcp_sessions: Option<&Arc<Mutex<HashMap<String, Arc<SessionState>>>>>,
     method: &str,
 ) {
-    if !MODERN_STDIO_UPSTREAM.load(Ordering::SeqCst) {
-        let ready = {
-            let mut queue = STDIO_DEFERRED_LIST_CHANGED
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            let ready = stdio_may_speak();
-            // Deduped: replaying "the tool list changed" twice tells the client
-            // nothing the first replay did not.
-            if !ready && !queue.iter().any(|queued| queued == method) {
-                queue.push(method.to_string());
+    if let Some(stdout) = stdio.stdio_stdout() {
+        if !stdio.is_modern_upstream() {
+            let ready = {
+                let mut queue = stdio
+                    .stdio_deferred_list_changed
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                let ready = stdio.stdio_may_speak();
+                // Deduped: replaying "the tool list changed" twice tells the client
+                // nothing the first replay did not.
+                if !ready && !queue.iter().any(|queued| queued == method) {
+                    queue.push(method.to_string());
+                }
+                ready
+            };
+            if ready {
+                write_stdio_list_changed(&stdout, method);
             }
-            ready
-        };
-        if ready {
-            write_stdio_list_changed(stdout, method);
         }
     }
     if let Some(sessions) = mcp_sessions {
         let msg = json!({ "jsonrpc": "2.0", "method": method });
-        fanout_mcp_notification(stdout, sessions, &msg);
+        fanout_mcp_notification(sessions, &msg);
     }
 }
 
-/// Queue a server→client JSON-RPC notification on every non-expired HTTP MCP
-/// session (SOU-328). Best-effort: a full outbound queue drops that session's
-/// copy and continues so one stuck client cannot block the others.
+/// Queue a server→client JSON-RPC notification on every non-expired MCP session
+/// (SOU-328). Best-effort: a session that cannot take the message drops its copy
+/// and the rest continue, so one stuck client cannot block the others.
 fn fanout_mcp_notification(
-    stdout: &Arc<Mutex<std::io::Stdout>>,
-    mcp_sessions: &Arc<Mutex<HashMap<String, Arc<McpSession>>>>,
+    mcp_sessions: &Arc<Mutex<HashMap<String, Arc<SessionState>>>>,
     msg: &Value,
 ) {
-    let sessions: Vec<Arc<McpSession>> = mcp_sessions
+    let sessions: Vec<Arc<SessionState>> = mcp_sessions
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .values()
@@ -9421,15 +9890,8 @@ fn fanout_mcp_notification(
         let Some(json) = session.notification_json(msg) else {
             continue;
         };
-        if session.is_modern_stdio() {
-            if let Ok(value) = serde_json::from_str::<Value>(&json) {
-                let mut out = stdout
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner);
-                let _ = write_json_line(&mut *out, &value);
-            }
-        } else if !session.push_message(json, request_id_key(msg)) {
-            eprintln!("toolport: MCP session outbound queue full; list_changed dropped");
+        if !session.push_message(json, request_id_key(msg)) {
+            eprintln!("toolport: MCP session could not take a notification; dropped");
         }
     }
 }
@@ -9441,8 +9903,8 @@ fn fanout_mcp_notification(
 /// only proceeds when that id matches the URI's first-writer owner (SOU-398);
 /// spoofed or colliding updates are dropped and logged.
 fn deliver_resource_updated(
-    stdout: &Arc<Mutex<std::io::Stdout>>,
-    mcp_sessions: &Arc<Mutex<HashMap<String, Arc<McpSession>>>>,
+    stdio: &SessionState,
+    mcp_sessions: &Arc<Mutex<HashMap<String, Arc<SessionState>>>>,
     subs: &Arc<Mutex<ResourceSubscriptionTable>>,
     producer: &str,
     uri: &str,
@@ -9481,17 +9943,18 @@ fn deliver_resource_updated(
             session_ids.push(sid);
         }
     }
-    if should_write_legacy_stdio_resource_update(
-        need_stdio,
-        MODERN_STDIO_UPSTREAM.load(Ordering::SeqCst),
-    ) {
-        let mut out = stdout
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let _ = write_json_line(&mut *out, &msg);
+    if should_write_legacy_stdio_resource_update(need_stdio, stdio.is_modern_upstream()) {
+        // A write, not a return: the HTTP/SSE fanout below is not conditional on
+        // this session having a stdio face.
+        if let Some(out) = stdio.stdio_stdout() {
+            let mut out = out
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let _ = write_json_line(&mut *out, &msg);
+        }
     }
     if !session_ids.is_empty() {
-        let targets: Vec<Arc<McpSession>> = {
+        let targets: Vec<Arc<SessionState>> = {
             let sessions = mcp_sessions
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -9507,15 +9970,8 @@ fn deliver_resource_updated(
             let Some(json) = session.notification_json(&msg) else {
                 continue;
             };
-            if session.is_modern_stdio() {
-                if let Ok(value) = serde_json::from_str::<Value>(&json) {
-                    let mut out = stdout
-                        .lock()
-                        .unwrap_or_else(std::sync::PoisonError::into_inner);
-                    let _ = write_json_line(&mut *out, &value);
-                }
-            } else if !session.push_message(json, None) {
-                eprintln!("toolport: MCP session outbound queue full; resources/updated dropped");
+            if !session.push_message(json, None) {
+                eprintln!("toolport: MCP session could not take resources/updated; dropped");
             }
         }
     }
@@ -9544,10 +10000,6 @@ struct ProgressRoute {
 /// reading costs dropped notifications rather than a stalled drain thread.
 const PROGRESS_STDIO_QUEUE: usize = 256;
 
-/// Source of gateway-minted progress tokens. Process-wide and monotonic, so a
-/// token is never reused while an earlier call is still in flight.
-static PROGRESS_TOKEN_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
-
 /// Live `progressToken` -> originating client map (SOU-444).
 ///
 /// Progress is request-scoped, so an entry lives exactly as long as the
@@ -9558,6 +10010,13 @@ static PROGRESS_TOKEN_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::Ato
 #[derive(Default)]
 struct ProgressRoutes {
     active: HashMap<String, ProgressRoute>,
+    /// Minting counter for our own progress tokens: monotonic, so a token is never
+    /// reused while an earlier call is still in flight. It lives on the table
+    /// rather than in a process global because a token is only ever resolved
+    /// against the table that minted it, so uniqueness is needed within a table and
+    /// nowhere else. Two hosts minting the same token is fine; one table minting
+    /// the same token twice is not.
+    next_seq: u64,
 }
 
 /// RAII registration: the entry is removed when the call finishes, however it
@@ -9591,23 +10050,21 @@ fn register_progress(
 ) -> Option<(ProgressRegistration, String)> {
     let client_token = client_meta?.get("progressToken")?.clone();
     // Mint our own token rather than reusing the client's. Two clients picking
-    // the same value (integers are common) would otherwise share a table entry.
-    let key = format!(
-        "tp-{}",
-        PROGRESS_TOKEN_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-    );
-    table
+    // the same value (integers are common) would otherwise share a table entry,
+    // so the counter lives on the table itself rather than in a global.
+    let mut routes = table
         .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .active
-        .insert(
-            key.clone(),
-            ProgressRoute {
-                session: session.to_string(),
-                producer: producer.to_string(),
-                client_token,
-            },
-        );
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    routes.next_seq += 1;
+    let key = format!("tp-{}", routes.next_seq);
+    routes.active.insert(
+        key.clone(),
+        ProgressRoute {
+            session: session.to_string(),
+            producer: producer.to_string(),
+            client_token,
+        },
+    );
     Some((
         ProgressRegistration {
             table: Arc::clone(table),
@@ -9654,8 +10111,8 @@ fn prepare_progress(
 /// Deliver one `notifications/progress` to the client that minted its token,
 /// dropping anything unroutable or spoofed (SOU-444).
 fn deliver_progress(
-    stdio: &std::sync::mpsc::SyncSender<Value>,
-    mcp_sessions: &Arc<Mutex<HashMap<String, Arc<McpSession>>>>,
+    stdio: &Arc<SessionState>,
+    mcp_sessions: &Arc<Mutex<HashMap<String, Arc<SessionState>>>>,
     routes: &Arc<Mutex<ProgressRoutes>>,
     producer: &str,
     note: &Value,
@@ -9701,7 +10158,15 @@ fn deliver_progress(
         // so the in-flight call never completes while still holding the per-server
         // slot mutex, wedging that server for every client. Bounded and dropping
         // when full, exactly as the HTTP session queue already behaves (SOU-474).
-        if stdio.try_send(note.clone()).is_err() {
+        //
+        // The queue belongs to the stdio session, not to the process: a second
+        // stdio client would be a second session with its own hand-off rather
+        // than a second writer on one shared stdout.
+        let Some(sender) = stdio.stdio_progress_sender() else {
+            eprintln!("toolport: stdio progress for a session with no stdio face; dropped");
+            return;
+        };
+        if sender.try_send(note.clone()).is_err() {
             eprintln!("toolport: stdio progress queue full or closed; progress dropped");
         }
         return;
@@ -9725,28 +10190,20 @@ fn deliver_progress(
 
 /// Build the shared dispatch that routes progress notifications to the client
 /// that minted the token. Bound per downstream via [`bind_progress_sink`].
+///
+/// `stdio` is this gateway's stdio client session, and the delivery target for a
+/// `RESOURCE_SUB_STDIO` route. The dispatch closes over that session rather than
+/// over a stdout captured at startup, so the queue a notification lands in
+/// belongs to the connection. What is still single-client is the route table's
+/// stdio sentinel ([`RESOURCE_SUB_STDIO`]), and that moves with the stdio
+/// connection object.
 fn make_progress_sink(
-    stdout: Arc<Mutex<std::io::Stdout>>,
-    mcp_sessions: Arc<Mutex<HashMap<String, Arc<McpSession>>>>,
+    stdio: Arc<SessionState>,
+    mcp_sessions: Arc<Mutex<HashMap<String, Arc<SessionState>>>>,
     routes: Arc<Mutex<ProgressRoutes>>,
 ) -> ProgressDispatch {
-    // One writer thread owns the blocking write to the stdio client, fed by a
-    // bounded queue. Delivery runs on the downstream drain thread, which must
-    // never block (see `deliver_progress`).
-    let (tx, rx) = std::sync::mpsc::sync_channel::<Value>(PROGRESS_STDIO_QUEUE);
-    std::thread::spawn(move || {
-        for note in rx {
-            let mut out = stdout
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            if write_json_line(&mut *out, &note).is_err() {
-                // The stdio client is gone; nothing further will be readable.
-                break;
-            }
-        }
-    });
     Arc::new(move |producer: String, note: Value| {
-        deliver_progress(&tx, &mcp_sessions, &routes, &producer, &note);
+        deliver_progress(&stdio, &mcp_sessions, &routes, &producer, &note);
     })
 }
 
@@ -9763,13 +10220,17 @@ fn bind_progress_sink(dispatch: &ProgressDispatch, producer: &str) -> downstream
 /// Build the shared dispatch that fans resource-updated notifications to
 /// subscribed upstream clients only (SOU-394), after verifying the producer
 /// owns the URI (SOU-398). Bound per downstream via [`bind_resource_updated_sink`].
+///
+/// `stdio` is this gateway's stdio client session: the legacy stdio copy of the
+/// notification goes to that session's stdout, and whether it may be written at
+/// all is that session's protocol era.
 fn make_resource_updated_sink(
-    stdout: Arc<Mutex<std::io::Stdout>>,
-    mcp_sessions: Arc<Mutex<HashMap<String, Arc<McpSession>>>>,
+    stdio: Arc<SessionState>,
+    mcp_sessions: Arc<Mutex<HashMap<String, Arc<SessionState>>>>,
     subs: Arc<Mutex<ResourceSubscriptionTable>>,
 ) -> ResourceUpdatedDispatch {
     Arc::new(move |producer: String, uri: String| {
-        deliver_resource_updated(&stdout, &mcp_sessions, &subs, &producer, &uri);
+        deliver_resource_updated(&stdio, &mcp_sessions, &subs, &producer, &uri);
     })
 }
 
@@ -9830,6 +10291,16 @@ fn handle_resource_subscription(
             ));
         }
     }
+    let (subscriptions, rooted_active) = match state.subscriptions_for_route(router, &owner) {
+        Some(route) => route,
+        None => {
+            return Some(error(
+                id,
+                -32602,
+                "Toolport: this resource route was replaced; retry the request",
+            ));
+        }
+    };
     let session = active_resource_session_id();
     match method {
         "resources/subscribe" => {
@@ -9844,8 +10315,27 @@ fn handle_resource_subscription(
             // clippy's deny-by-default never_loop was the one hard error blocking a
             // -D warnings gate in CI.
             let begin = {
-                let mut table = state
-                    .resource_subs
+                let _capacity = state
+                    .resource_sub_capacity
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                let already_local = subscriptions
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .by_session
+                    .get(&session)
+                    .is_some_and(|uris| uris.contains(uri));
+                if !already_local && state.total_resource_subscriptions() >= MAX_RESOURCE_SUBS_TOTAL
+                {
+                    return Some(error(
+                        id,
+                        -32602,
+                        &format!(
+                            "Toolport: global subscription limit ({MAX_RESOURCE_SUBS_TOTAL}) reached"
+                        ),
+                    ));
+                }
+                let mut table = subscriptions
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
                 match table.begin_subscribe(&session, uri, &owner) {
@@ -9856,6 +10346,17 @@ fn handle_resource_subscription(
                 }
             };
             match begin {
+                BeginSubscribe::AlreadyLocal | BeginSubscribe::Joined
+                    if rooted_active
+                        .as_ref()
+                        .is_some_and(|active| !active.load(Ordering::SeqCst)) =>
+                {
+                    subscriptions
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .remove(&session, uri);
+                    return Some(error(id, -32602, "Toolport: resource route changed; retry"));
+                }
                 BeginSubscribe::AlreadyLocal | BeginSubscribe::Joined => {
                     return Some(success(id, json!({})));
                 }
@@ -9863,15 +10364,34 @@ fn handle_resource_subscription(
                     // If subscribe_resource panics, Drop clears `opening` and
                     // fails waiters instead of parking them forever (WS1-4).
                     let mut lead_guard = LeadOpenGuard {
-                        state,
+                        subscriptions: Arc::clone(&subscriptions),
                         uri: uri.to_string(),
                         gate: Arc::clone(&gate),
                         armed: true,
                     };
                     match router.subscribe_resource(uri) {
+                        Ok(_)
+                            if rooted_active
+                                .as_ref()
+                                .is_some_and(|active| !active.load(Ordering::SeqCst)) =>
+                        {
+                            let mut table = subscriptions
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner);
+                            table.finish_open_err(
+                                uri,
+                                &gate,
+                                "resource route changed during subscribe".to_string(),
+                            );
+                            lead_guard.disarm();
+                            return Some(error(
+                                id,
+                                -32602,
+                                "Toolport: resource route changed; retry",
+                            ));
+                        }
                         Ok(_) => {
-                            let mut table = state
-                                .resource_subs
+                            let mut table = subscriptions
                                 .lock()
                                 .unwrap_or_else(std::sync::PoisonError::into_inner);
                             table.finish_open_ok(uri, &gate);
@@ -9883,8 +10403,7 @@ fn handle_resource_subscription(
                                 &integrity::sanitize_wrapper_label(&owner),
                                 &e,
                             );
-                            let mut table = state
-                                .resource_subs
+                            let mut table = subscriptions
                                 .lock()
                                 .unwrap_or_else(std::sync::PoisonError::into_inner);
                             table.finish_open_err(uri, &gate, msg.clone());
@@ -9894,9 +10413,36 @@ fn handle_resource_subscription(
                     }
                 }
                 BeginSubscribe::Wait(gate) => match gate.wait(cancel) {
+                    Ok(())
+                        if rooted_active
+                            .as_ref()
+                            .is_some_and(|active| !active.load(Ordering::SeqCst)) =>
+                    {
+                        return Some(error(id, -32602, "Toolport: resource route changed; retry"));
+                    }
                     Ok(()) => {
-                        let mut table = state
-                            .resource_subs
+                        let _capacity = state
+                            .resource_sub_capacity
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner);
+                        let already_local = subscriptions
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner)
+                            .by_session
+                            .get(&session)
+                            .is_some_and(|uris| uris.contains(uri));
+                        if !already_local
+                            && state.total_resource_subscriptions() >= MAX_RESOURCE_SUBS_TOTAL
+                        {
+                            return Some(error(
+                                id,
+                                -32602,
+                                &format!(
+                                    "Toolport: global subscription limit ({MAX_RESOURCE_SUBS_TOTAL}) reached"
+                                ),
+                            ));
+                        }
+                        let mut table = subscriptions
                             .lock()
                             .unwrap_or_else(std::sync::PoisonError::into_inner);
                         match table.join_open(&session, uri, &owner) {
@@ -9914,8 +10460,7 @@ fn handle_resource_subscription(
         }
         "resources/unsubscribe" => {
             let last_owner = {
-                let mut table = state
-                    .resource_subs
+                let mut table = subscriptions
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
                 table.remove(&session, uri)
@@ -10024,19 +10569,59 @@ fn cleanup_resource_subs_for_session(state: &GatewayState, session: &str) {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         table.drop_session(session)
     };
-    if need_unsub.is_empty() {
-        return;
+    if !need_unsub.is_empty() {
+        let router = state
+            .router
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        for (uri, owner) in need_unsub {
+            if let Err(e) = router.unsubscribe_resource_on_server(&owner, &uri) {
+                eprintln!(
+                    "toolport: cleanup resources/unsubscribe failed for '{uri}' on '{owner}': {e}"
+                );
+            }
+        }
     }
-    let router = state
-        .router
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .clone();
-    for (uri, owner) in need_unsub {
-        if let Err(e) = router.unsubscribe_resource_on_server(&owner, &uri) {
-            eprintln!(
-                "toolport: cleanup resources/unsubscribe failed for '{uri}' on '{owner}': {e}"
-            );
+    cleanup_root_resource_subs_for_session(state, session);
+}
+
+fn cleanup_root_resource_subs_for_session(state: &GatewayState, session: &str) {
+    let subscriptions: Vec<_> = {
+        let pool = state
+            .root_launch_pool
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        pool.subscriptions
+            .iter()
+            .map(|(key, table)| {
+                let slot = pool
+                    .launches
+                    .values()
+                    .find(|launch| launch.subscription_key == *key)
+                    .map(|launch| launch.slot.clone());
+                (slot, Arc::clone(table))
+            })
+            .collect()
+    };
+    for (slot, subscriptions) in subscriptions {
+        let need_unsub = subscriptions
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .drop_session(session);
+        if need_unsub.is_empty() {
+            continue;
+        }
+        let Some(slot) = slot else {
+            continue;
+        };
+        let router = Router::new().with_shared_server_slot(&slot);
+        for (uri, owner) in need_unsub {
+            if let Err(error) = router.unsubscribe_resource_on_server(&owner, &uri) {
+                eprintln!(
+                    "toolport: cleanup rooted resources/unsubscribe failed for '{uri}' on '{owner}': {error}"
+                );
+            }
         }
     }
 }
@@ -10070,6 +10655,8 @@ fn maybe_check_integrity(
     if !enabled {
         return Ok(None);
     }
+    integrity::ensure_quarantine_store_for_fresh_pins(profile)
+        .map_err(|error| (error, BTreeSet::new()))?;
     let events = integrity::check_staged(profile, tools).map_err(|e| {
         // Without a trustworthy pin-store update we cannot identify which definitions are
         // safely baselined. Keep the whole live catalog behind the integrity gate until a
@@ -10206,6 +10793,7 @@ fn fail_closed_integrity_catalog(
 fn effective_quarantine(
     registry: &Arc<Mutex<Registry>>,
     profile: Option<&str>,
+    read_failed: &AtomicBool,
 ) -> Option<BTreeSet<String>> {
     let on = {
         let r = registry
@@ -10221,7 +10809,7 @@ fn effective_quarantine(
     match stored {
         Ok(set) => {
             // Recovered: let a future failure warn again.
-            QUARANTINE_READ_FAILED.store(false, Ordering::SeqCst);
+            read_failed.store(false, Ordering::SeqCst);
             Some(set)
         }
         // Fail CLOSED. An unreadable store is indistinguishable from an empty one, so
@@ -10231,7 +10819,7 @@ fn effective_quarantine(
         Err(e) => {
             // Warn once per failure streak: this runs on a 1s watcher tick, so logging
             // unconditionally would bury the gateway log.
-            if !QUARANTINE_READ_FAILED.swap(true, Ordering::SeqCst) {
+            if !read_failed.swap(true, Ordering::SeqCst) {
                 glog(&format!(
                     "SECURITY: {e}; keeping the current quarantine set rather than \
                      un-blocking. Re-approve tools once the store is readable."
@@ -10242,11 +10830,6 @@ fn effective_quarantine(
         }
     }
 }
-
-/// Whether the last quarantine-store read failed, so the 1s watcher tick warns on the
-/// transition into failure rather than on every tick.
-static QUARANTINE_READ_FAILED: std::sync::atomic::AtomicBool =
-    std::sync::atomic::AtomicBool::new(false);
 
 /// Reconcile the router's live quarantine set against what's persisted, and re-filter if
 /// they diverged. Returns whether anything changed.
@@ -10267,12 +10850,13 @@ static QUARANTINE_READ_FAILED: std::sync::atomic::AtomicBool =
 fn reconcile_quarantine(
     registry: &Arc<Mutex<Registry>>,
     router: &Arc<Mutex<Arc<Router>>>,
-    stdout: &Arc<Mutex<std::io::Stdout>>,
+    stdio: &SessionState,
     profile: Option<&str>,
-    mcp_sessions: Option<&Arc<Mutex<HashMap<String, Arc<McpSession>>>>>,
+    mcp_sessions: Option<&Arc<Mutex<HashMap<String, Arc<SessionState>>>>>,
+    read_failed: &AtomicBool,
 ) -> bool {
-    match effective_quarantine(registry, profile) {
-        Some(want) => reconcile_to(router, stdout, mcp_sessions, want),
+    match effective_quarantine(registry, profile, read_failed) {
+        Some(want) => reconcile_to(router, stdio, mcp_sessions, want),
         // Store unreadable: keep enforcing the current set rather than weakening it.
         None => false,
     }
@@ -10288,8 +10872,8 @@ fn reconcile_quarantine(
 /// `requarantine` call sits on an error path and leaves the hide up.
 fn reconcile_to(
     router: &Arc<Mutex<Arc<Router>>>,
-    stdout: &Arc<Mutex<std::io::Stdout>>,
-    mcp_sessions: Option<&Arc<Mutex<HashMap<String, Arc<McpSession>>>>>,
+    stdio: &SessionState,
+    mcp_sessions: Option<&Arc<Mutex<HashMap<String, Arc<SessionState>>>>>,
     want: BTreeSet<String>,
 ) -> bool {
     let changed = {
@@ -10320,7 +10904,7 @@ fn reconcile_to(
         eprintln!("toolport: quarantine set changed on disk; re-filtering exposed tools");
         // Fan to HTTP MCP sessions too (SOU-328): quarantine/re-approval must not
         // leave streamable-HTTP clients on a stale tools/list.
-        notify_tools_changed(stdout, mcp_sessions);
+        notify_tools_changed(stdio, mcp_sessions);
     }
     changed
 }
@@ -10398,56 +10982,141 @@ fn cached_tool_is_destructive(tool: &Value, exposed: &str) -> bool {
     }
 }
 
-fn persist_and_emit_with_sessions(
-    tools: &[Value],
-    cached_tools: &SharedCatalog,
-    router: &Arc<Mutex<Arc<Router>>>,
-    previous_router: Option<&Router>,
-    stdout: &Arc<Mutex<std::io::Stdout>>,
-    mcp_sessions: Option<&Arc<Mutex<HashMap<String, Arc<McpSession>>>>>,
-    profile: Option<&str>,
-) {
-    if router_is_fail_closed(router) {
-        clear_catalog_for_fail_closed(cached_tools, profile);
-        notify_tools_changed(stdout, mcp_sessions);
-        return;
+impl HostState {
+    /// Freeze each adapter's visible catalog before a downstream refresh mutates
+    /// the shared ServerSlot. Cloning Router alone would keep the same slot.
+    fn adapter_tools_before_refresh(
+        &self,
+        router: &Router,
+    ) -> HashMap<McpSessionOwner, Vec<Value>> {
+        let reg = self
+            .registry
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        let owners = unique_prefix_owners(&reg);
+        let sessions: Vec<McpSessionOwner> = self
+            .mcp_sessions
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .values()
+            .filter_map(|session| session.owner.clone())
+            .collect();
+        let mut catalogs = HashMap::new();
+        for owner in sessions {
+            let (Some(scope), Some(tool_scope)) = (&owner.scope, &owner.tool_scope) else {
+                continue;
+            };
+            if catalogs.contains_key(&owner) {
+                continue;
+            }
+            let allow = tool_scope
+                .iter()
+                .map(|(server, tools)| (server.clone(), tools.iter().cloned().collect()))
+                .collect();
+            let view = router.with_tool_allow(allow);
+            let allowed: HashSet<String> = scope.iter().cloned().collect();
+            let tools = scope_tools(&view.aggregated_tools(), Some(&allowed), |name| {
+                owner_of_exposed_tool(Some(&view), &owners, name)
+            });
+            catalogs.insert(owner, tools);
+        }
+        catalogs
     }
-    if !tools.is_empty() {
-        let started = Instant::now();
-        let tools = {
+
+    /// Persist a rebuilt catalog and fan out `notifications/tools/list_changed`.
+    fn persist_and_emit_with_sessions(
+        &self,
+        tools: &[Value],
+        cached_tools: &SharedCatalog,
+        router: &Arc<Mutex<Arc<Router>>>,
+        previous_router: Option<&Router>,
+        stdio: &SessionState,
+        mcp_sessions: Option<&Arc<Mutex<HashMap<String, Arc<SessionState>>>>>,
+        profile: Option<&str>,
+        scope_diff_only: bool,
+        previous_adapter_tools: Option<&HashMap<McpSessionOwner, Vec<Value>>>,
+    ) {
+        self.invalidate_root_views();
+        self.invalidate_tool_scope_views();
+        let previous_catalog = scope_diff_only.then(|| {
+            cached_tools
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .tools
+                .clone()
+        });
+        if router_is_fail_closed(router) {
+            clear_catalog_for_fail_closed(cached_tools, profile);
+            notify_tools_changed(stdio, mcp_sessions);
+            return;
+        }
+        if !tools.is_empty() {
+            let started = Instant::now();
+            let tools = {
+                let current = cached_tools
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .clone();
+                self.preserve_collapsed_servers_guarded(tools.to_vec(), &current.tools)
+            };
+            // A guarded rebuild keeps the previous catalog for a collapsed server in
+            // the cache, but the router was already published from the degraded
+            // connect, so its routes map misses every restored tool while the cache
+            // still advertises it. Re-adopt those routes from the pre-rebuild router
+            // (authoritative (server, original) mapping -- never re-derived by
+            // splitting the exposed name) so route_of resolves what tools/list
+            // advertises (issue #700).
+            if let Some(prev) = previous_router {
+                let mut guard = router
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                Arc::make_mut(&mut guard).adopt_restored_routes(prev, &tools);
+            }
+            let next = Arc::new(CatalogSnapshot::new(tools.clone()));
+            let index_bytes = next.search.estimated_auxiliary_bytes();
+            *cached_tools
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) = next;
+            gtrace(&format!(
+                "search index rebuilt: {} tools, ~{} KiB auxiliary, {:.2} ms",
+                tools.len(),
+                index_bytes.div_ceil(1024),
+                started.elapsed().as_secs_f64() * 1000.0
+            ));
+            save_tool_cache(&tools, profile);
+        }
+        if let (Some(previous), Some(previous_router)) =
+            (previous_catalog.as_deref(), previous_router)
+        {
             let current = cached_tools
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .tools
                 .clone();
-            preserve_collapsed_servers_guarded(tools.to_vec(), &current.tools)
-        };
-        // A guarded rebuild keeps the previous catalog for a collapsed server in
-        // the cache, but the router was already published from the degraded
-        // connect, so its routes map misses every restored tool while the cache
-        // still advertises it. Re-adopt those routes from the pre-rebuild router
-        // (authoritative (server, original) mapping -- never re-derived by
-        // splitting the exposed name) so route_of resolves what tools/list
-        // advertises (issue #700).
-        if let Some(prev) = previous_router {
-            let mut guard = router
+            let current_router = router
                 .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            Arc::make_mut(&mut guard).adopt_restored_routes(prev, &tools);
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .clone();
+            let reg = self
+                .registry
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .clone();
+            notify_tools_changed_for_catalog_diff(
+                stdio,
+                mcp_sessions,
+                previous,
+                &current,
+                previous_router,
+                &current_router,
+                &reg,
+                previous_adapter_tools,
+            );
+        } else {
+            notify_tools_changed(stdio, mcp_sessions);
         }
-        let next = Arc::new(CatalogSnapshot::new(tools.clone()));
-        let index_bytes = next.search.estimated_auxiliary_bytes();
-        *cached_tools
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = next;
-        gtrace(&format!(
-            "search index rebuilt: {} tools, ~{} KiB auxiliary, {:.2} ms",
-            tools.len(),
-            index_bytes.div_ceil(1024),
-            started.elapsed().as_secs_f64() * 1000.0
-        ));
-        save_tool_cache(&tools, profile);
     }
-    notify_tools_changed(stdout, mcp_sessions);
 }
 
 /// Append a line to the always-on gateway log (connection lifecycle: starts,
@@ -10547,8 +11216,9 @@ fn resolve_live_profile(
 /// when the client's reported project root matches a `folder_profiles` mapping (SOU-188),
 /// otherwise the client's configured profile from [`resolve_live_profile`]. Folder routing
 /// auto-scopes by working directory with no manual profile switch; an unmatched or unknown
-/// root leaves the configured behavior exactly as before. stdio-only for now (the root comes
-/// from the single upstream client's MCP `roots`); the HTTP bridge always passes `root: None`.
+/// root leaves the configured behavior exactly as before. The standalone stdio gateway
+/// uses its one upstream client's MCP roots; daemon adapter requests use that adapter's
+/// session root. The public HTTP bridge passes `root: None`.
 fn effective_profile(
     reg: &Registry,
     client_id: Option<&str>,
@@ -10567,6 +11237,8 @@ fn effective_profile(
 /// user's RAM. Comparing this slice lets the watcher rebuild only when something the router
 /// `allowRoutineWrites` also changes only Toolport's fixed meta-tool surface, not any
 /// downstream route, so it is refreshed with `tools/list_changed` without a rebuild.
+/// Server instructions (`gatewayInstructions`, each profile's `instructions`) are read
+/// from the published registry at the next handshake, so editing them never rebuilds.
 /// Returned as a serde_json::Value and compared with `==`
 /// (order-independent) so HashMap key-order jitter across a load can't look like a change.
 fn router_relevant(reg: &Registry) -> Value {
@@ -10574,6 +11246,12 @@ fn router_relevant(reg: &Registry) -> Value {
     if let Some(obj) = v.as_object_mut() {
         obj.remove("team");
         obj.remove("allowRoutineWrites");
+        obj.remove("gatewayInstructions");
+        if let Some(profiles) = obj.get_mut("profiles").and_then(Value::as_array_mut) {
+            for profile in profiles.iter_mut().filter_map(Value::as_object_mut) {
+                profile.remove("instructions");
+            }
+        }
     }
     v
 }
@@ -10605,32 +11283,21 @@ struct TickOutcome {
 #[allow(clippy::too_many_arguments)]
 fn watch_registry(
     path: PathBuf,
-    registry: Arc<Mutex<Registry>>,
-    // Republished with every registry swap so the HTTP auth path never reads a
-    // recovered or defaulted registry as "no clients configured" (SBS-900).
-    registry_trusted: Arc<AtomicBool>,
-    router: Arc<Mutex<Arc<Router>>>,
-    stdout: Arc<Mutex<std::io::Stdout>>,
-    cached_tools: SharedCatalog,
+    // The gateway's stdio client session: the refresh paths tell that connection
+    // its catalog changed, and its declared era decides which frame may be sent.
+    stdio: Arc<SessionState>,
     profile: Arc<Mutex<Option<String>>>,
     client_id: Option<String>,
     env_profile: Option<String>,
     http_mode: bool,
-    downstream_dirty: Arc<AtomicU8>,
-    server_handler: ServerRequestHandler,
     // Shared ${ROOT} path (issue #239) so a registry-change rebuild keeps placing
     // ${ROOT} servers in the client's project root instead of resetting to fallback.
     client_root: Arc<Mutex<Option<String>>>,
-    // Live HTTP MCP sessions so list_changed notifications also fan out over SSE
-    // (SOU-328). Empty in pure-stdio mode; same Arc as GatewayState.
-    mcp_sessions: Arc<Mutex<HashMap<String, Arc<McpSession>>>>,
-    // Resource-updated dispatch re-wired into rebuilds after registry reload
-    // (SOU-394 / SOU-398).
-    resource_updated: Option<ResourceUpdatedDispatch>,
-    // Subscription table so rebuilds re-issue resources/subscribe.
-    resource_subs: Option<Arc<Mutex<ResourceSubscriptionTable>>>,
-    // Single-flight with startup self-heal and ${ROOT} rebuilds (SOU-337).
-    rebuild_lock: Arc<Mutex<()>>,
+    // Overrides the host's `resources/updated` sink for this watcher only. `None`
+    // keeps the host's own sink, which is what every production caller wants; a test
+    // passes `Some(None)` to watch a rebuild with no sink wired.
+    resource_updated_override: Option<Option<ResourceUpdatedDispatch>>,
+    host: Arc<HostState>,
 ) {
     eprintln!("toolport: watching registry at {}", path.display());
     let mut state = WatchLoopState {
@@ -10639,7 +11306,8 @@ fn watch_registry(
         // Router-relevant slice (everything except the `team` block) as of the initial build,
         // so a team-metadata-only rewrite from the desktop sync loop doesn't force a rebuild.
         last_relevant: router_relevant(
-            &registry
+            &host
+                .registry
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner),
         ),
@@ -10648,23 +11316,15 @@ fn watch_registry(
         std::thread::sleep(Duration::from_millis(1000));
         let _ = watch_tick(
             &path,
-            &registry,
-            &registry_trusted,
-            &router,
-            &stdout,
-            &cached_tools,
+            &stdio,
             &profile,
             client_id.as_deref(),
             env_profile.as_deref(),
             http_mode,
-            &downstream_dirty,
-            &server_handler,
             &client_root,
-            Some(&mcp_sessions),
-            resource_updated.as_ref(),
-            resource_subs.as_ref(),
-            &rebuild_lock,
+            resource_updated_override.clone(),
             &mut state,
+            &host,
         );
     }
 }
@@ -10678,27 +11338,39 @@ fn watch_registry(
 #[allow(clippy::too_many_arguments)]
 fn watch_tick(
     path: &Path,
-    registry: &Arc<Mutex<Registry>>,
-    // Published together with every swap of `registry` (SBS-900).
-    registry_trusted: &Arc<AtomicBool>,
-    router: &Arc<Mutex<Arc<Router>>>,
-    stdout: &Arc<Mutex<std::io::Stdout>>,
-    cached_tools: &SharedCatalog,
+    stdio: &SessionState,
     profile: &Arc<Mutex<Option<String>>>,
     client_id: Option<&str>,
     env_profile: Option<&str>,
     http_mode: bool,
-    downstream_dirty: &Arc<AtomicU8>,
-    server_handler: &ServerRequestHandler,
     client_root: &Arc<Mutex<Option<String>>>,
-    mcp_sessions: Option<&Arc<Mutex<HashMap<String, Arc<McpSession>>>>>,
-    resource_updated: Option<&ResourceUpdatedDispatch>,
-    resource_subs: Option<&Arc<Mutex<ResourceSubscriptionTable>>>,
-    // Serializes full rebuilds with self-heal / ${ROOT} (SOU-337). Unused on the
-    // in-place list_changed refresh branch, which does not spawn.
-    rebuild_lock: &Arc<Mutex<()>>,
+    // Same override as [`watch_registry`]: `None` uses the host's own sink.
+    resource_updated_override: Option<Option<ResourceUpdatedDispatch>>,
     state: &mut WatchLoopState,
+    host: &HostState,
 ) -> TickOutcome {
+    host.reap_root_launches();
+    // Everything host-scoped in this tick comes off the host, so a caller cannot pair
+    // one host with another host's router, cache, session table, or rebuild lock.
+    let registry = &host.registry;
+    let registry_trusted = &host.registry_trusted;
+    let router = &host.router;
+    let cached_tools = &host.cached_tools;
+    let downstream_dirty = &host.downstream_dirty;
+    let server_handler = &host.server_handler;
+    let rebuild_lock = &host.rebuild_lock;
+    // Own the resolved sink so `resource_updated` can be handed out as `Option<&_>`
+    // regardless of which source won.
+    let resolved_resource_updated;
+    let resource_updated = match resource_updated_override {
+        Some(sink) => {
+            resolved_resource_updated = sink;
+            resolved_resource_updated.as_ref()
+        }
+        None => host.resource_updated_sink.as_ref(),
+    };
+    let mcp_sessions = Some(&host.mcp_sessions);
+    let resource_subs = Some(&host.resource_subs);
     // Re-approving a tool rewrites quarantine.json, which is NOT the registry file
     // this loop watches, so it has to be reconciled on its own. Deliberately ahead of
     // the early-continue below: a release changes neither the registry mtime nor the
@@ -10708,8 +11380,19 @@ fn watch_tick(
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone();
-        reconcile_quarantine(registry, router, stdout, p.as_deref(), mcp_sessions)
+        reconcile_quarantine(
+            registry,
+            router,
+            stdio,
+            p.as_deref(),
+            mcp_sessions,
+            &host.quarantine_read_failed,
+        )
     };
+    if quarantine_changed {
+        host.invalidate_root_views();
+        host.invalidate_tool_scope_views();
+    }
     // A live downstream server that changed its own tool set (sent
     // tools/list_changed) sets this. Swap before acting so a notification
     // arriving mid-refresh is caught on the next tick rather than lost.
@@ -10719,7 +11402,7 @@ fn watch_tick(
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone();
-        live.expired_cache_kinds()
+        live.expired_cache_kinds() | host.rooted_cache_expired_kinds()
     };
     let downstream_changed = downstream_notified | cache_expired;
     let current_routines_mtime = routines::routines_path().and_then(|path| mtime(&path));
@@ -10731,7 +11414,7 @@ fn watch_tick(
     let file_changed = current != state.last_mtime;
     if !file_changed && downstream_changed == 0 {
         if routine_catalog_changed {
-            notify_tools_changed(stdout, mcp_sessions);
+            notify_tools_changed(stdio, mcp_sessions);
             eprintln!(
                 "toolport: routine catalog changed; notified clients without rebuilding downstream servers"
             );
@@ -10782,10 +11465,10 @@ fn watch_tick(
         // override edit (`client_discovery`) may be the only change, and it isn't
         // router-relevant, so resolve it here before the rebuild fast-path can return.
         let new_mode = discovery_mode_for(&new_reg, client_id);
-        if new_mode != discovery_mode() {
+        if new_mode != host.discovery_mode() {
             eprintln!("toolport: discovery mode -> {}", new_mode.as_str());
         }
-        set_discovery_mode(new_mode);
+        host.set_discovery_mode(new_mode);
         let routine_surface_changed = registry
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -10793,7 +11476,7 @@ fn watch_tick(
             != new_reg.allow_routine_writes;
         // Refresh code mode from the freshly-loaded registry so a Settings toggle takes
         // effect without restarting the client (same live-refresh path as discovery mode).
-        set_code_mode_flag(new_reg.code_mode);
+        host.set_code_mode(new_reg.code_mode);
         // A team-metadata-only rewrite (usage watermark, sync version/etag, role) from
         // the desktop sync loop changes nothing the router depends on. Update the stored
         // copy but skip the rebuild, so a routine sync never re-spawns every stdio server
@@ -10803,12 +11486,14 @@ fn watch_tick(
         if downstream_changed == 0 && new_relevant == state.last_relevant {
             publish_registry(new_reg);
             if routine_surface_changed || routine_catalog_changed {
-                notify_tools_changed(stdout, mcp_sessions);
+                notify_tools_changed(stdio, mcp_sessions);
                 eprintln!(
                     "toolport: routine tool surface changed; notified clients without rebuilding downstream servers"
                 );
             } else {
-                eprintln!("toolport: registry changed (team metadata only); skipped rebuild");
+                eprintln!(
+                    "toolport: registry changed (team metadata or instructions only); skipped rebuild"
+                );
             }
             return TickOutcome {
                 quarantine_changed,
@@ -10866,6 +11551,7 @@ fn watch_tick(
             &new_reg,
             resolved.as_deref(),
             http_mode,
+            host.daemon_mode.load(Ordering::SeqCst),
             downstream_dirty,
             Arc::clone(server_handler),
             root.as_deref(),
@@ -10887,14 +11573,16 @@ fn watch_tick(
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner) = Arc::new(new_router);
         let tools = requarantine_if_needed(registry, router, tools, resolved.as_deref());
-        persist_and_emit_with_sessions(
+        host.persist_and_emit_with_sessions(
             &tools,
             cached_tools,
             router,
             Some(&previous_router),
-            stdout,
+            stdio,
             mcp_sessions,
             resolved.as_deref(),
+            false,
+            None,
         );
         let fmt_profile = |p: &Option<String>| match p {
             Some(name) => format!("'{name}'"),
@@ -10911,6 +11599,7 @@ fn watch_tick(
             tools.len(),
         );
     } else {
+        host.refresh_rooted_catalogs(downstream_changed);
         let resolved = profile
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -10938,6 +11627,8 @@ fn watch_tick(
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
                 (**guard).clone()
             };
+            let previous_router = next.clone();
+            let previous_adapter_tools = host.adapter_tools_before_refresh(&previous_router);
             if downstream_notified & downstream::change::TOOLS != 0 {
                 next.refresh_tools();
             } else {
@@ -10948,17 +11639,16 @@ fn watch_tick(
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner) = Arc::new(next);
             let tools = requarantine_if_needed(registry, router, tools, resolved.as_deref());
-            persist_and_emit_with_sessions(
+            host.persist_and_emit_with_sessions(
                 &tools,
                 cached_tools,
                 router,
-                // In-place refresh keeps the previous catalog per slot when a
-                // list implausibly shrinks, so the refreshed router routes what
-                // the cache advertises -- nothing to re-adopt.
-                None,
-                stdout,
+                Some(&previous_router),
+                stdio,
                 mcp_sessions,
                 resolved.as_deref(),
+                true,
+                Some(&previous_adapter_tools),
             );
             eprintln!("toolport: downstream tools/list_changed, refreshed + sent");
         }
@@ -10969,6 +11659,7 @@ fn watch_tick(
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
                 (**guard).clone()
             };
+            let previous = next.clone();
             // Also refreshes resource templates (MCP has no separate templates
             // list_changed; they ride on resources/list_changed).
             if downstream_notified & downstream::change::RESOURCES != 0 {
@@ -10976,10 +11667,19 @@ fn watch_tick(
             } else {
                 next.refresh_stale_resources();
             }
+            let current = Arc::new(next);
             *router
                 .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner) = Arc::new(next);
-            notify_list_changed(stdout, mcp_sessions, "notifications/resources/list_changed");
+                .unwrap_or_else(std::sync::PoisonError::into_inner) = Arc::clone(&current);
+            host.invalidate_root_views();
+            host.invalidate_tool_scope_views();
+            notify_list_changed_for_router_diff(
+                stdio,
+                mcp_sessions,
+                &previous,
+                &current,
+                ChangedListKind::Resources,
+            );
             eprintln!("toolport: downstream resources/list_changed, refreshed + sent");
         }
         if downstream_changed & downstream::change::PROMPTS != 0 {
@@ -10989,15 +11689,25 @@ fn watch_tick(
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
                 (**guard).clone()
             };
+            let previous = next.clone();
             if downstream_notified & downstream::change::PROMPTS != 0 {
                 next.refresh_prompts();
             } else {
                 next.refresh_stale_prompts();
             }
+            let current = Arc::new(next);
             *router
                 .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner) = Arc::new(next);
-            notify_list_changed(stdout, mcp_sessions, "notifications/prompts/list_changed");
+                .unwrap_or_else(std::sync::PoisonError::into_inner) = Arc::clone(&current);
+            host.invalidate_root_views();
+            host.invalidate_tool_scope_views();
+            notify_list_changed_for_router_diff(
+                stdio,
+                mcp_sessions,
+                &previous,
+                &current,
+                ChangedListKind::Prompts,
+            );
             eprintln!("toolport: downstream prompts/list_changed, refreshed + sent");
         }
     }
@@ -11017,9 +11727,123 @@ fn watch_tick(
 // two transports, so behavior can never drift between them.
 // ---------------------------------------------------------------------------
 
-/// Thread-safe gateway state shared by both transports (cheap Arc clones).
-#[derive(Clone)]
-struct GatewayState {
+/// Host-scoped gateway state (one-gateway-per-host P1.3): the pieces a single
+/// host runtime owns exactly once and shares with every session it serves. None
+/// of it carries session identity, so two sessions on one host share one
+/// registry, one router, one catalog, and one rebuild lock.
+#[derive(Default)]
+struct ToolScopeViews {
+    by_base: HashMap<usize, ToolScopeBase>,
+}
+
+struct ToolScopeBase {
+    base: Arc<Router>,
+    by_profile: HashMap<String, ProfileToolView>,
+}
+
+struct ProfileToolView {
+    allow: HashMap<String, HashSet<String>>,
+    router: Arc<Router>,
+    catalog: Arc<CatalogSnapshot>,
+}
+
+#[derive(Default)]
+struct RootLaunchPool {
+    base: Option<Arc<Router>>,
+    specs: Vec<ServerEntry>,
+    secrets_generation: u64,
+    launches: BTreeMap<LaunchKey, RootLaunch>,
+    /// Subscription identity is stable across secret and command changes that
+    /// replace a child at the same rooted cwd.
+    subscriptions: BTreeMap<(String, String), Arc<Mutex<ResourceSubscriptionTable>>>,
+    views: BTreeMap<Vec<LaunchKey>, Arc<Router>>,
+    root_scopes: BTreeMap<Vec<LaunchKey>, String>,
+    last_used: BTreeMap<Vec<LaunchKey>, Instant>,
+    failed_until: BTreeMap<LaunchKey, Instant>,
+    incomplete_until: BTreeMap<Vec<LaunchKey>, Instant>,
+}
+
+const ROOT_VIEW_IDLE_GRACE: Duration = Duration::from_secs(60);
+
+struct RootLaunch {
+    slot: SharedServerSlot,
+    subscriptions: Arc<Mutex<ResourceSubscriptionTable>>,
+    subscription_key: (String, String),
+    active: Arc<AtomicBool>,
+}
+
+impl RootLaunchPool {
+    fn retire_launches(&mut self) -> BTreeMap<LaunchKey, RootLaunch> {
+        for launch in self.launches.values() {
+            launch.active.store(false, Ordering::SeqCst);
+        }
+        std::mem::take(&mut self.launches)
+    }
+}
+
+fn visible_root_list(
+    router: &Router,
+    owner: &McpSessionOwner,
+    reg: &Registry,
+    kind: u8,
+) -> Vec<Value> {
+    let allowed: Option<HashSet<String>> = owner
+        .scope
+        .as_ref()
+        .map(|scope| scope.iter().cloned().collect());
+    if kind == downstream::change::TOOLS {
+        let scoped = owner.tool_scope.as_ref().map(|scope| {
+            let allow = scope
+                .iter()
+                .map(|(server, tools)| (server.clone(), tools.iter().cloned().collect()))
+                .collect();
+            router.with_tool_allow(allow)
+        });
+        let view = scoped.as_ref().unwrap_or(router);
+        let owners = unique_prefix_owners(reg);
+        return scope_tools(&view.aggregated_tools(), allowed.as_ref(), |name| {
+            owner_of_exposed_tool(Some(view), &owners, name)
+        });
+    }
+    let kind = if kind == downstream::change::RESOURCES {
+        ChangedListKind::Resources
+    } else {
+        ChangedListKind::Prompts
+    };
+    visible_changed_list(router, allowed.as_ref(), kind)
+}
+
+const HTTP_SERVICE_LEASE_TTL: Duration = Duration::from_secs(120);
+
+struct HttpServiceLease {
+    token_sha256: String,
+    bind_host: String,
+    expires_at: Instant,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HttpServiceLeaseRequest {
+    token_sha256: String,
+    bind_host: String,
+}
+
+fn valid_http_service_hash(hash: &str) -> bool {
+    hash.len() == 64
+        && hash
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn valid_http_service_bind_host(host: &str) -> bool {
+    !host.is_empty()
+        && host.len() <= 255
+        && host
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b".:-[]".contains(&byte))
+}
+
+struct HostState {
     registry: Arc<Mutex<Registry>>,
     /// Whether `registry` above is a faithful copy of what is on disk, i.e.
     /// whether an EMPTY field in it means the user configured nothing (SBS-900).
@@ -11034,10 +11858,17 @@ struct GatewayState {
     // behind an in-flight request. Rebuilds swap in a new Arc; refresh/requarantine fork
     // via Arc::make_mut.
     router: Arc<Mutex<Arc<Router>>>,
+    /// Profile views re-index the daemon's shared connections under each
+    /// adapter's original-tool allowlist. Invalidated when the live router or
+    /// that profile's allowlist changes.
+    tool_scope_views: Mutex<ToolScopeViews>,
+    /// Root-dependent downstreams are keyed by their resolved launch parameters.
+    /// Every view shares the host router's ordinary slots and any rooted slot
+    /// whose LaunchKey is equal, even when another root view is composed later.
+    root_launch_pool: Mutex<RootLaunchPool>,
     cached_tools: SharedCatalog,
     routine_candidates: CandidateRegistry,
     routine_advisor: AdvisorLedger,
-    stdout: Arc<Mutex<std::io::Stdout>>,
     ready: Arc<AtomicBool>,
     downstream_dirty: Arc<AtomicU8>,
     /// Serializes every full `build_router` + router swap: startup background build,
@@ -11046,11 +11877,6 @@ struct GatewayState {
     /// the loser's Drop kills mid-flight work. In-place tools/list_changed refresh
     /// does not take it (no spawn).
     rebuild_lock: Arc<Mutex<()>>,
-    lazy: bool,
-    /// Live-updated: the registry watcher keeps this in sync with
-    /// `registry.client_scopes` for a scoped client, so a profile switch reaches
-    /// every reader here without a gateway restart.
-    profile: Arc<Mutex<Option<String>>>,
     /// True when this process is the HTTP/OpenAPI bridge (vs a stdio client's
     /// gateway). The bridge connects the union of all registered clients' servers.
     http: bool,
@@ -11059,32 +11885,1059 @@ struct GatewayState {
     /// request. Both empty for stdio.
     http_bind_host: String,
     http_allowed_origins: Vec<String>,
-    /// Streamable-HTTP MCP sessions (`Mcp-Session-Id` → state). Only used when
-    /// `http` is true; empty for stdio gateways.
-    mcp_sessions: Arc<Mutex<HashMap<String, Arc<McpSession>>>>,
-    /// Client-declared upstream capabilities (stdio gateway). Per-session copy on
-    /// [`McpSession`] for HTTP MCP clients.
-    client_upstream: Arc<Mutex<ClientUpstreamCaps>>,
-    /// The upstream client's project root path for the `${ROOT}` cwd token
-    /// (issue #239), decoded from its first declared root via `file_uri_to_path`.
-    /// `None` until roots are fetched, or if the client declares none; `${ROOT}`
-    /// servers fall back to the gateway cwd until it is set. stdio-only.
-    client_root: Arc<Mutex<Option<String>>>,
-    /// Forward server-initiated JSON-RPC to the stdio upstream client.
-    stdio_upstream: Arc<StdioUpstream>,
     /// Answers downstream server-initiated RPC (roots, sampling, elicitation).
     server_handler: ServerRequestHandler,
+    /// Upstream resource subscriptions (session → URI) for SOU-394 fanout.
+    resource_subs: Arc<Mutex<ResourceSubscriptionTable>>,
+    /// Serializes the process-wide subscription cap across the ordinary table
+    /// and every rooted child table.
+    resource_sub_capacity: Mutex<()>,
+    /// The daemon's stdio face is inert, but the per-launch notification sinks
+    /// use the same delivery path as ordinary downstreams.
+    resource_stdio: Arc<SessionState>,
+    /// Shared dispatch `(producer, uri)` that delivers `notifications/resources/updated`
+    /// to subscribed clients after ownership check (SOU-394 / SOU-398). Bound per
+    /// server at connect/reconnect.
+    resource_updated_sink: Option<ResourceUpdatedDispatch>,
+    /// Consecutive guarded rebuilds per server, for the collapse guard in
+    /// [`preserve_collapsed_servers_guarded`]. The streak belongs to the host's one
+    /// router, so one host means one map.
+    rebuild_shrink_streaks: Mutex<HashMap<String, u8>>,
+    /// The live discovery mode. Mutable (not a `OnceLock`) so the watcher can refresh it
+    /// when the registry's per-client override changes; [`HostState::discovery_mode`] reads
+    /// it lock-free.
+    ///
+    /// Host policy by decision (one-gateway-per-host P1.2), not session state: it is resolved
+    /// from the registry (which the watcher refreshes live) plus a process env override, so
+    /// every session on one host sees the same switch. The per-client half of discovery
+    /// already resolves per request from the caller's client id
+    /// (`http_client_discovery_override`), and a daemon session will resolve it from the
+    /// identity asserted at session open; a per-session copy of the host-wide value would be
+    /// the thing that goes stale.
+    discovery: AtomicU8,
+    /// The live "code mode" flag (SOU-397 policy), synced from the registry's `code_mode`
+    /// at boot ([`seed_code_mode_after_registry_load`]) and by the registry watcher on every
+    /// reload, the same live-refresh path as discovery mode.
+    ///
+    /// Host policy, not session state: it is the registry's switch plus a process env
+    /// override, so every session on one host sees the same value and a second host must not
+    /// read the first one's. Read via [`HostState::code_mode_enabled`], set via
+    /// [`HostState::set_code_mode`].
+    code_mode: AtomicBool,
+    /// Whether the last quarantine-store read failed. [`effective_quarantine`] owns it:
+    /// it stores `true` (and warns once per failing streak) when the store cannot be
+    /// read, and stores `false` again as soon as a read succeeds.
+    quarantine_read_failed: AtomicBool,
+    /// Streamable-HTTP MCP sessions (`Mcp-Session-Id` → state), and in stdio mode
+    /// the one session that connection owns. The table belongs to the host, not to
+    /// a connection: every session on this host is a row in it, and the server
+    /// request handler and the list_changed fanout look sessions up here.
+    mcp_sessions: Arc<Mutex<HashMap<String, Arc<SessionState>>>>,
+    /// True once this process is serving as the host daemon (`--daemon`). Set
+    /// before the first request, read by the daemon identity route.
+    daemon_mode: AtomicBool,
+    /// The desktop's public bridge may use its existing bearer on this daemon
+    /// while it holds a short private lease. A bridge crash leaves no permanent
+    /// authorization behind.
+    http_service_lease: Mutex<Option<HttpServiceLease>>,
+    /// The updater may ask a daemon with no clients to leave before replacing
+    /// its image. The watchdog still checks live work before exiting.
+    shutdown_if_idle: AtomicBool,
+    /// Millis of the last request a listener accepted. The daemon's idle watchdog
+    /// compares it against its grace period to decide the host is unused.
+    last_activity_ms: AtomicU64,
+}
+
+impl HostState {
+    fn http_service_lease_active(&self) -> bool {
+        self.http_service_lease
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .as_ref()
+            .is_some_and(|lease| Instant::now() < lease.expires_at)
+    }
+
+    fn http_service_token_active(&self, token: &str) -> bool {
+        let hash = registry::sha256_hex(token);
+        self.http_service_lease
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .as_ref()
+            .is_some_and(|lease| {
+                Instant::now() < lease.expires_at
+                    && ct_eq(hash.as_bytes(), lease.token_sha256.as_bytes())
+            })
+    }
+
+    fn http_service_bind_host(&self) -> Option<String> {
+        self.http_service_lease
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .as_ref()
+            .filter(|lease| Instant::now() < lease.expires_at)
+            .map(|lease| lease.bind_host.clone())
+    }
+
+    fn total_resource_subscriptions(&self) -> usize {
+        let ordinary = self
+            .resource_subs
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .total_count();
+        let pool = self
+            .root_launch_pool
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        ordinary
+            + pool
+                .subscriptions
+                .values()
+                .map(|table| {
+                    table
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .total_count()
+                })
+                .sum::<usize>()
+    }
+
+    fn subscriptions_for_route(
+        &self,
+        router: &Router,
+        owner: &str,
+    ) -> Option<(
+        Arc<Mutex<ResourceSubscriptionTable>>,
+        Option<Arc<AtomicBool>>,
+    )> {
+        if !self.daemon_mode.load(Ordering::SeqCst) {
+            return Some((Arc::clone(&self.resource_subs), None));
+        }
+        let Some(slot) = router.server_slot(owner) else {
+            return None;
+        };
+        let rooted = self
+            .root_launch_pool
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .launches
+            .values()
+            .find(|launch| launch.slot.ptr_eq(&slot))
+            .map(|launch| {
+                (
+                    Arc::clone(&launch.subscriptions),
+                    Some(Arc::clone(&launch.active)),
+                )
+            });
+        if rooted.is_some() {
+            return rooted;
+        }
+        let ordinary = self
+            .router
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .server_slot(owner)
+            .is_some_and(|current| current.ptr_eq(&slot));
+        ordinary.then(|| (Arc::clone(&self.resource_subs), None))
+    }
+
+    fn refresh_rooted_catalogs(&self, changed: u8) {
+        let kinds: Vec<u8> = [
+            downstream::change::TOOLS,
+            downstream::change::RESOURCES,
+            downstream::change::PROMPTS,
+        ]
+        .into_iter()
+        .filter(|kind| changed & kind != 0)
+        .collect();
+        if kinds.is_empty() {
+            return;
+        }
+        let reg = self
+            .registry
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        let specs = daemon_root_servers(&reg);
+        let sessions: Vec<Arc<SessionState>> = self
+            .mcp_sessions
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .values()
+            .cloned()
+            .collect();
+        let (launches, old_views, root_scopes) = {
+            let pool = self
+                .root_launch_pool
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if pool.launches.is_empty() {
+                return;
+            }
+            (
+                pool.launches
+                    .values()
+                    .map(|launch| launch.slot.clone())
+                    .collect::<Vec<_>>(),
+                pool.views.clone(),
+                pool.root_scopes.clone(),
+            )
+        };
+        let mut before = Vec::new();
+        for session in &sessions {
+            let (Some(owner), Some(root)) =
+                (session.owner.as_ref(), Self::resolved_adapter_root(session))
+            else {
+                continue;
+            };
+            let allowed: Option<HashSet<String>> = owner
+                .scope
+                .as_ref()
+                .map(|scope| scope.iter().cloned().collect());
+            let scoped = root_servers_in_scope(&specs, allowed.as_ref());
+            let keys = root_launch_keys(&scoped, &root, reg.secrets_generation);
+            let Some(view) = old_views.get(&keys) else {
+                continue;
+            };
+            for &kind in &kinds {
+                before.push((
+                    Arc::clone(session),
+                    keys.clone(),
+                    kind,
+                    visible_root_list(view, owner, &reg, kind),
+                ));
+            }
+        }
+        // Each launch is refreshed once. The ordinary host router does not own
+        // these slots, so its refresh loop cannot see their catalog changes.
+        for slot in &launches {
+            let mut view = Router::new().with_shared_server_slot(slot);
+            for &kind in &kinds {
+                if kind == downstream::change::TOOLS {
+                    view.refresh_tools();
+                } else if kind == downstream::change::RESOURCES {
+                    view.refresh_resources();
+                } else {
+                    view.refresh_prompts();
+                }
+            }
+        }
+        let updated: BTreeMap<Vec<LaunchKey>, Arc<Router>> = old_views
+            .iter()
+            .filter_map(|(keys, view)| {
+                let scope = root_scopes.get(keys)?;
+                let mut refreshed = view.reindexed();
+                if changed & downstream::change::TOOLS != 0 {
+                    self.check_rooted_integrity(&mut refreshed, scope, keys);
+                }
+                Some((keys.clone(), Arc::new(refreshed)))
+            })
+            .collect();
+        let committed: BTreeMap<_, _> = {
+            let mut pool = self
+                .root_launch_pool
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            updated
+                .into_iter()
+                .filter_map(|(keys, view)| {
+                    let old = old_views.get(&keys)?;
+                    let current = pool.views.get_mut(&keys)?;
+                    if !Arc::ptr_eq(old, current) {
+                        return None;
+                    }
+                    *current = Arc::clone(&view);
+                    Some((keys, view))
+                })
+                .collect()
+        };
+        if !committed.is_empty() {
+            self.invalidate_tool_scope_views();
+        }
+
+        for (session, keys, kind, prior) in before {
+            if session.is_expired() || session.closed.load(Ordering::SeqCst) {
+                continue;
+            }
+            let (Some(owner), Some(view)) = (session.owner.as_ref(), committed.get(&keys)) else {
+                continue;
+            };
+            if prior == visible_root_list(view, owner, &reg, kind) {
+                continue;
+            }
+            let method = if kind == downstream::change::TOOLS {
+                "notifications/tools/list_changed"
+            } else if kind == downstream::change::RESOURCES {
+                "notifications/resources/list_changed"
+            } else {
+                "notifications/prompts/list_changed"
+            };
+            let msg = json!({ "jsonrpc": "2.0", "method": method });
+            if let Some(json) = session.notification_json(&msg) {
+                if !session.push_message(json, None) {
+                    eprintln!("toolport: MCP session could not take a root catalog notification");
+                }
+            }
+        }
+    }
+
+    fn rooted_cache_expired_kinds(&self) -> u8 {
+        self.root_launch_pool
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .views
+            .values()
+            .fold(0, |changed, view| changed | view.expired_cache_kinds())
+    }
+
+    fn invalidate_root_views(&self) {
+        if !self.daemon_mode.load(Ordering::SeqCst) {
+            return;
+        }
+        let reg = self
+            .registry
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        let specs = daemon_root_servers(&reg);
+        let mut pool = self
+            .root_launch_pool
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let retired_launches =
+            if pool.specs != specs || pool.secrets_generation != reg.secrets_generation {
+                let retired = pool.retire_launches();
+                pool.failed_until.clear();
+                pool.incomplete_until.clear();
+                pool.specs = specs;
+                pool.secrets_generation = reg.secrets_generation;
+                retired
+            } else {
+                BTreeMap::new()
+            };
+        pool.base = None;
+        let retired_views = std::mem::take(&mut pool.views);
+        pool.root_scopes.clear();
+        pool.last_used.clear();
+        pool.incomplete_until.clear();
+        drop(pool);
+        drop(retired_views);
+        drop(retired_launches);
+    }
+
+    fn reap_root_launches(&self) {
+        if !self.daemon_mode.load(Ordering::SeqCst) {
+            return;
+        }
+        let reg = self
+            .registry
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        let specs = daemon_root_servers(&reg);
+        let sessions: Vec<Arc<SessionState>> = self
+            .mcp_sessions
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .values()
+            .cloned()
+            .collect();
+        let active: Vec<_> = sessions
+            .iter()
+            .filter(|session| !session.closed.load(Ordering::SeqCst) && !session.is_expired())
+            .filter_map(|session| {
+                let owner = session.owner.as_ref()?;
+                // A roots/list refresh temporarily pauses dispatch, but the
+                // existing launch remains leased until the answer selects a
+                // replacement. Reaping it now would drop live subscriptions.
+                let root = Self::last_adapter_root(session)?;
+                let allowed: Option<HashSet<String>> = owner
+                    .scope
+                    .as_ref()
+                    .map(|scope| scope.iter().cloned().collect());
+                let scoped = root_servers_in_scope(&specs, allowed.as_ref());
+                let launch_keys = root_launch_keys(&scoped, &root, reg.secrets_generation);
+                let subscription_keys = scoped
+                    .iter()
+                    .map(|server| root_subscription_key(server, &root))
+                    .collect::<Vec<_>>();
+                Some((launch_keys, subscription_keys))
+            })
+            .collect();
+        let mut active_views: BTreeSet<Vec<LaunchKey>> =
+            active.iter().map(|(keys, _)| keys.clone()).collect();
+        let mut active_subscription_keys: BTreeSet<(String, String)> = active
+            .into_iter()
+            .flat_map(|(_, subscriptions)| subscriptions)
+            .collect();
+        let mut pool = self
+            .root_launch_pool
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let now = Instant::now();
+        pool.last_used
+            .retain(|_, used| now.duration_since(*used) < ROOT_VIEW_IDLE_GRACE);
+        active_views.extend(pool.last_used.keys().cloned());
+        let active_keys: BTreeSet<LaunchKey> = active_views.iter().flatten().cloned().collect();
+        active_subscription_keys.extend(
+            pool.launches
+                .iter()
+                .filter(|(key, _)| active_keys.contains(*key))
+                .map(|(_, launch)| launch.subscription_key.clone()),
+        );
+        let before = (pool.views.len(), pool.launches.len());
+        let mut retired_views = Vec::new();
+        let mut retained_views = BTreeMap::new();
+        for (keys, view) in std::mem::take(&mut pool.views) {
+            if active_views.contains(&keys) {
+                retained_views.insert(keys, view);
+            } else {
+                retired_views.push(view);
+            }
+        }
+        pool.views = retained_views;
+        let mut retired_launches = Vec::new();
+        let mut retained_launches = BTreeMap::new();
+        for (key, launch) in std::mem::take(&mut pool.launches) {
+            if active_keys.contains(&key) {
+                retained_launches.insert(key, launch);
+            } else {
+                launch.active.store(false, Ordering::SeqCst);
+                retired_launches.push(launch);
+            }
+        }
+        pool.launches = retained_launches;
+        pool.failed_until.retain(|key, _| active_keys.contains(key));
+        pool.incomplete_until
+            .retain(|keys, _| active_views.contains(keys));
+        pool.root_scopes
+            .retain(|keys, _| active_views.contains(keys));
+        let mut retired_subscriptions = Vec::new();
+        let mut retained_subscriptions = BTreeMap::new();
+        for (key, table) in std::mem::take(&mut pool.subscriptions) {
+            if active_subscription_keys.contains(&key) {
+                retained_subscriptions.insert(key, table);
+            } else {
+                retired_subscriptions.push(table);
+            }
+        }
+        pool.subscriptions = retained_subscriptions;
+        if pool.views.is_empty() && pool.launches.is_empty() {
+            pool.base = None;
+        }
+        let changed = before != (pool.views.len(), pool.launches.len());
+        drop(pool);
+        drop(retired_views);
+        drop(retired_launches);
+        drop(retired_subscriptions);
+        if changed {
+            self.invalidate_tool_scope_views();
+        }
+    }
+
+    fn resolved_adapter_root(session: &SessionState) -> Option<String> {
+        if !session
+            .owner
+            .as_ref()
+            .is_some_and(|owner| owner.identity.starts_with("adapter:"))
+        {
+            return None;
+        }
+        let override_root = session
+            .client_root_override
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        if override_root.is_some() {
+            return override_root;
+        }
+        let capable = session
+            .client_upstream
+            .lock()
+            .map(|caps| caps.roots.supported)
+            .unwrap_or(false);
+        if capable
+            && (!session.root_refreshed.load(Ordering::SeqCst)
+                || session.root_refreshing.load(Ordering::SeqCst))
+        {
+            return None;
+        }
+        let root = session
+            .client_root
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        root
+    }
+
+    fn last_adapter_root(session: &SessionState) -> Option<String> {
+        if !session
+            .owner
+            .as_ref()
+            .is_some_and(|owner| owner.identity.starts_with("adapter:"))
+        {
+            return None;
+        }
+        session
+            .client_root_override
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+            .or_else(|| {
+                session
+                    .client_root
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .clone()
+            })
+    }
+
+    fn active_adapter_root(&self) -> Option<String> {
+        if let Some(sid) = active_mcp_session() {
+            let session = self
+                .mcp_sessions
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .get(&sid)
+                .cloned()?;
+            Self::resolved_adapter_root(&session)
+        } else {
+            ACTIVE_REQUEST_CONTEXT.with(|cell| cell.borrow().adapter_root.clone())
+        }
+    }
+
+    fn rooted_quarantine(&self, scope: &str) -> Option<BTreeSet<String>> {
+        let mut global = effective_quarantine(&self.registry, None, &self.quarantine_read_failed)?;
+        global.extend(effective_quarantine(
+            &self.registry,
+            Some(scope),
+            &self.quarantine_read_failed,
+        )?);
+        Some(global)
+    }
+
+    fn check_rooted_integrity(&self, view: &mut Router, scope: &str, keys: &[LaunchKey]) {
+        if let Err(error) = integrity::register_root_scope(scope) {
+            glog(&format!(
+                "SECURITY: rooted integrity scope registration failed: {error}"
+            ));
+            view.fail_closed_catalog();
+            return;
+        }
+        let rooted_ids: HashSet<&str> = keys.iter().map(|key| key.server.as_str()).collect();
+        let tools: Vec<Value> = view
+            .aggregated_tools()
+            .into_iter()
+            .filter(|tool| {
+                tool["name"]
+                    .as_str()
+                    .and_then(|name| view.route_of(name))
+                    .is_some_and(|(server, _)| rooted_ids.contains(server))
+            })
+            .collect();
+        let pending = match maybe_check_integrity(&self.registry, &tools, Some(scope)) {
+            Ok(pending) => pending.unwrap_or_default(),
+            Err((error, _)) => {
+                glog(&format!(
+                    "SECURITY: rooted catalog integrity check failed: {error}"
+                ));
+                view.fail_closed_catalog();
+                return;
+            }
+        };
+        match self.rooted_quarantine(scope) {
+            Some(mut quarantined) => {
+                quarantined.extend(pending);
+                view.requarantine_from_store(quarantined);
+            }
+            None => view.fail_closed_catalog(),
+        }
+    }
+
+    fn reconcile_rooted_view(&self, keys: &[LaunchKey], cached: Arc<Router>) -> Arc<Router> {
+        let scope = {
+            let pool = self
+                .root_launch_pool
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            pool.root_scopes.get(keys).cloned()
+        };
+        let wanted = scope.and_then(|scope| self.rooted_quarantine(&scope));
+        if wanted
+            .as_ref()
+            .is_some_and(|set| set == cached.quarantined() && !cached.catalog_fail_closed())
+            || wanted.is_none() && cached.catalog_fail_closed()
+        {
+            return cached;
+        }
+        let mut updated = (*cached).clone();
+        if let Some(set) = wanted {
+            updated.requarantine_from_store(set);
+        } else {
+            updated.fail_closed_catalog();
+        }
+        let updated = Arc::new(updated);
+        let mut pool = self
+            .root_launch_pool
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let Some(current) = pool.views.get_mut(keys) else {
+            return cached;
+        };
+        if !Arc::ptr_eq(current, &cached) {
+            return Arc::clone(current);
+        }
+        *current = Arc::clone(&updated);
+        drop(pool);
+        self.invalidate_tool_scope_views();
+        updated
+    }
+
+    fn router_for_root(
+        &self,
+        base: Arc<Router>,
+        reg: &Registry,
+        root: Option<&str>,
+        allowed: Option<&HashSet<String>>,
+    ) -> Arc<Router> {
+        let all_specs = daemon_root_servers(reg);
+        let specs = root_servers_in_scope(&all_specs, allowed);
+        let Some(root) = root else {
+            return base;
+        };
+        if specs.is_empty() {
+            return base;
+        }
+        let keys = root_launch_keys(&specs, root, reg.secrets_generation);
+        let live = self
+            .router
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        if !Arc::ptr_eq(&live, &base) {
+            return base;
+        }
+        let mut pool = self
+            .root_launch_pool
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut retired_launches = Vec::new();
+        let mut retired_views = Vec::new();
+        if pool.specs != all_specs || pool.secrets_generation != reg.secrets_generation {
+            retired_launches.extend(pool.retire_launches().into_values());
+            retired_views.extend(std::mem::take(&mut pool.views).into_values());
+            pool.failed_until.clear();
+            pool.incomplete_until.clear();
+            pool.root_scopes.clear();
+            pool.last_used.clear();
+            pool.specs = all_specs;
+            pool.secrets_generation = reg.secrets_generation;
+        }
+        if !pool
+            .base
+            .as_ref()
+            .is_some_and(|previous| Arc::ptr_eq(previous, &base))
+        {
+            pool.base = Some(Arc::clone(&base));
+            retired_views.extend(std::mem::take(&mut pool.views).into_values());
+            pool.incomplete_until.clear();
+            pool.root_scopes.clear();
+            pool.last_used.clear();
+        }
+        pool.root_scopes
+            .insert(keys.clone(), format!("root:{}", registry::sha256_hex(root)));
+        if active_mcp_session().is_none() {
+            pool.last_used.insert(keys.clone(), Instant::now());
+        }
+        if pool
+            .incomplete_until
+            .get(&keys)
+            .is_some_and(|until| *until <= Instant::now())
+        {
+            if let Some(view) = pool.views.remove(&keys) {
+                retired_views.push(view);
+            }
+            pool.incomplete_until.remove(&keys);
+        }
+        if let Some(view) = pool.views.get(&keys) {
+            let view = Arc::clone(view);
+            drop(pool);
+            drop(retired_views);
+            drop(retired_launches);
+            return self.reconcile_rooted_view(&keys, view);
+        }
+        let missing: Vec<_> = specs
+            .iter()
+            .zip(&keys)
+            .filter(|(_, key)| {
+                !pool.launches.contains_key(*key)
+                    && !pool
+                        .failed_until
+                        .get(*key)
+                        .is_some_and(|until| *until > Instant::now())
+            })
+            .map(|(server, key)| (server.clone(), key.clone()))
+            .collect();
+        let missing: Vec<_> = missing
+            .into_iter()
+            .map(|(server, key)| {
+                let subscription_key = root_subscription_key(&server, root);
+                let subscriptions = Arc::clone(
+                    pool.subscriptions
+                        .entry(subscription_key.clone())
+                        .or_insert_with(|| {
+                            Arc::new(Mutex::new(ResourceSubscriptionTable::default()))
+                        }),
+                );
+                (server, key, subscription_key, subscriptions)
+            })
+            .collect();
+        drop(pool);
+        drop(retired_views);
+        drop(retired_launches);
+
+        // Spawning and handshaking can block for the server's initialize timeout.
+        // Keep every other root and adapter free to use the pool during that wait.
+        let mut connected = Vec::new();
+        for (server, key, subscription_key, subscriptions) in missing {
+            let dirty = Arc::clone(&self.downstream_dirty);
+            let handler = Arc::clone(&self.server_handler);
+            let active = Arc::new(AtomicBool::new(true));
+            let dispatch = make_resource_updated_sink(
+                Arc::clone(&self.resource_stdio),
+                Arc::clone(&self.mcp_sessions),
+                Arc::clone(&subscriptions),
+            );
+            let sink_active = Arc::clone(&active);
+            let sink: Option<ResourceUpdatedDispatch> = Some(Arc::new(move |producer, uri| {
+                if sink_active.load(Ordering::SeqCst) {
+                    dispatch(producer, uri);
+                }
+            }));
+            let Some(mut ds) = connect_one(&server, &dirty, handler, Some(root), sink.clone())
+            else {
+                active.store(false, Ordering::SeqCst);
+                connected.push((key, None));
+                continue;
+            };
+            // A replacement child at the same rooted cwd inherits active
+            // subscribers before the route becomes visible to new requests.
+            resubscribe_server_resources(&mut ds, &server.id, &subscriptions);
+            let spec = server.clone();
+            let root = root.to_string();
+            let subs = Arc::clone(&subscriptions);
+            let handler = Arc::clone(&self.server_handler);
+            let server_id = server.id.clone();
+            let reconnect_active = Arc::clone(&active);
+            let reconnect: Reconnect = Box::new(move || {
+                if !reconnect_active.load(Ordering::SeqCst) {
+                    return None;
+                }
+                let mut ds = connect_one(
+                    &spec,
+                    &dirty,
+                    Arc::clone(&handler),
+                    Some(&root),
+                    sink.clone(),
+                )?;
+                if !reconnect_active.load(Ordering::SeqCst) {
+                    return None;
+                }
+                resubscribe_server_resources(&mut ds, &server_id, &subs);
+                Some(ds)
+            });
+            let slot = Router::new()
+                .with_server_launch(ds, Some(reconnect))
+                .server_slot(&server.id);
+            connected.push((
+                key,
+                slot.map(|slot| RootLaunch {
+                    slot,
+                    subscriptions,
+                    subscription_key,
+                    active,
+                }),
+            ));
+        }
+
+        let mut pool = self
+            .root_launch_pool
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if pool.specs != daemon_root_servers(reg)
+            || pool.secrets_generation != reg.secrets_generation
+            || !pool
+                .base
+                .as_ref()
+                .is_some_and(|current| Arc::ptr_eq(current, &base))
+        {
+            drop(pool);
+            for (_, launch) in &connected {
+                if let Some(launch) = launch {
+                    launch.active.store(false, Ordering::SeqCst);
+                }
+            }
+            return base;
+        }
+        let mut inserted = false;
+        let mut discarded = Vec::new();
+        for (key, launch) in connected {
+            if pool.launches.contains_key(&key) {
+                if let Some(launch) = launch {
+                    launch.active.store(false, Ordering::SeqCst);
+                    discarded.push(launch);
+                }
+                continue;
+            }
+            if let Some(launch) = launch {
+                pool.failed_until.remove(&key);
+                pool.launches.insert(key, launch);
+                inserted = true;
+            } else {
+                pool.failed_until
+                    .insert(key, Instant::now() + Duration::from_secs(5));
+            }
+        }
+        if inserted {
+            pool.views.remove(&keys);
+            pool.incomplete_until.remove(&keys);
+        }
+        if let Some(view) = pool.views.get(&keys) {
+            let view = Arc::clone(view);
+            drop(pool);
+            drop(discarded);
+            return self.reconcile_rooted_view(&keys, view);
+        }
+        let slots: Vec<_> = keys
+            .iter()
+            .map(|key| pool.launches.get(key).map(|launch| launch.slot.clone()))
+            .collect();
+        let complete = slots.iter().all(Option::is_some);
+        drop(pool);
+        drop(discarded);
+        let mut view = (*base).clone();
+        for slot in slots.iter().flatten() {
+            view = view.with_shared_server_slot(slot);
+        }
+        self.check_rooted_integrity(
+            &mut view,
+            &format!("root:{}", registry::sha256_hex(root)),
+            &keys,
+        );
+        let view = Arc::new(view);
+        let mut pool = self
+            .root_launch_pool
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if pool.specs == daemon_root_servers(reg)
+            && pool.secrets_generation == reg.secrets_generation
+            && pool
+                .base
+                .as_ref()
+                .is_some_and(|current| Arc::ptr_eq(current, &base))
+            && keys
+                .iter()
+                .zip(&slots)
+                .all(|(key, slot)| match (pool.launches.get(key), slot) {
+                    (Some(current), Some(slot)) => current.slot.ptr_eq(slot),
+                    (None, None) => true,
+                    _ => false,
+                })
+        {
+            if !complete {
+                pool.incomplete_until
+                    .insert(keys.clone(), Instant::now() + Duration::from_secs(5));
+            }
+            let selected = Arc::clone(pool.views.entry(keys).or_insert_with(|| Arc::clone(&view)));
+            drop(pool);
+            return selected;
+        }
+        base
+    }
+
+    fn invalidate_tool_scope_views(&self) {
+        let mut views = self
+            .tool_scope_views
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let retired = std::mem::take(&mut views.by_base);
+        drop(views);
+        drop(retired);
+    }
+
+    fn router_for_adapter_profile(
+        &self,
+        base: Arc<Router>,
+        reg: &Registry,
+        profile: &str,
+    ) -> (Arc<Router>, Arc<CatalogSnapshot>) {
+        let resolved = reg.resolve_profile_id(profile);
+        if !reg.profiles.iter().any(|entry| entry.id == resolved) {
+            let catalog = Arc::new(CatalogSnapshot::new(base.aggregated_tools()));
+            return (base, catalog);
+        }
+        let allow: HashMap<String, HashSet<String>> = adapter_tool_scope(reg, &resolved)
+            .into_iter()
+            .map(|(server, tools)| (server, tools.into_iter().collect()))
+            .collect();
+        let live = self
+            .router
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        let rooted_live = self
+            .root_launch_pool
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .views
+            .values()
+            .any(|view| Arc::ptr_eq(view, &base));
+        let mut views = self
+            .tool_scope_views
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if !Arc::ptr_eq(&live, &base) && !rooted_live {
+            // A rebuild won after this request took its snapshot. Keep serving
+            // that snapshot, but never pin its old downstream slots in the host.
+            let view = Arc::new(base.with_tool_allow(allow));
+            let catalog = Arc::new(CatalogSnapshot::new(view.aggregated_tools()));
+            return (view, catalog);
+        }
+        let key = Arc::as_ptr(&base) as usize;
+        if !views.by_base.contains_key(&key) && views.by_base.len() >= 32 {
+            if let Some(oldest) = views.by_base.keys().next().copied() {
+                views.by_base.remove(&oldest);
+            }
+        }
+        let scoped = views.by_base.entry(key).or_insert_with(|| ToolScopeBase {
+            base: Arc::clone(&base),
+            by_profile: HashMap::new(),
+        });
+        debug_assert!(Arc::ptr_eq(&scoped.base, &base));
+        if let Some(view) = scoped.by_profile.get(&resolved) {
+            if view.allow == allow {
+                return (Arc::clone(&view.router), Arc::clone(&view.catalog));
+            }
+        }
+        let router = Arc::new(base.with_tool_allow(allow.clone()));
+        let catalog = Arc::new(CatalogSnapshot::new(router.aggregated_tools()));
+        scoped.by_profile.insert(
+            resolved,
+            ProfileToolView {
+                allow,
+                router: Arc::clone(&router),
+                catalog: Arc::clone(&catalog),
+            },
+        );
+        (router, catalog)
+    }
+
+    /// Record that this host just served something, for the daemon idle lease.
+    fn touch_activity(&self) {
+        self.last_activity_ms
+            .store(activity_now_ms(), Ordering::Relaxed);
+    }
+
+    /// How long this host has been idle, for the daemon idle watchdog.
+    fn idle_for(&self) -> Duration {
+        Duration::from_millis(
+            activity_now_ms().saturating_sub(self.last_activity_ms.load(Ordering::Relaxed)),
+        )
+    }
+
+    /// [`preserve_collapsed_servers`] against this host's streak map: the collapse
+    /// guard is confirm-then-accept across rebuilds, so the streak has to outlive one
+    /// rebuild and belong to the router it protects.
+    fn preserve_collapsed_servers_guarded(
+        &self,
+        new_tools: Vec<Value>,
+        previous: &[Value],
+    ) -> Vec<Value> {
+        let mut streaks = self
+            .rebuild_shrink_streaks
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        preserve_collapsed_servers(new_tools, previous, &mut streaks)
+    }
+
+    /// Gate for server-side "code mode" (the `toolport_run_script` meta-tool).
+    ///
+    /// Policy (SOU-397): **on by default** via the registry's `code_mode` field (Settings
+    /// switch, synced into this host's flag). Kill switch: turn Settings off. Code mode runs
+    /// agent-supplied JS and is not a security boundary; each host call still passes the same
+    /// scope / human-approval gates as `toolport_call_tool`. `TOOLPORT_CODE_MODE=1` (or legacy
+    /// `CONDUIT_CODE_MODE`) still force-enables for power users and tests. When off, `run_script`
+    /// is neither advertised nor dispatched.
+    fn code_mode_enabled(&self) -> bool {
+        let env_forced = conduit_lib::brand::env_flag("TOOLPORT_CODE_MODE", "CONDUIT_CODE_MODE");
+        env_forced || self.code_mode.load(Ordering::Relaxed)
+    }
+
+    /// Set this host's code-mode flag: the registry load at boot, the registry watcher on
+    /// every reload, and a test that drives the switch.
+    fn set_code_mode(&self, enabled: bool) {
+        self.code_mode.store(enabled, Ordering::Relaxed);
+    }
+
+    /// The resolved discovery mode for this host. Defaults to `Lazy` before the bootstrap
+    /// sets it (only unit tests, which don't run `main`, ever observe that default).
+    fn discovery_mode(&self) -> DiscoveryMode {
+        DiscoveryMode::from_u8(self.discovery.load(Ordering::Relaxed))
+    }
+
+    /// Set this host's discovery mode: the bootstrap, the registry watcher on every reload,
+    /// and a test that drives the switch.
+    fn set_discovery_mode(&self, mode: DiscoveryMode) {
+        self.discovery.store(mode.as_u8(), Ordering::Relaxed);
+    }
+
+    /// True when this host runs in grouped discovery mode (see [`grouped_tool_defs`]).
+    ///
+    /// Test-only: the `handle_request` wrapper is its only caller and takes the mode
+    /// as a bool, while the bridge resolves the mode itself.
+    #[cfg(test)]
+    fn grouped_discovery(&self) -> bool {
+        self.discovery_mode() == DiscoveryMode::Grouped
+    }
+}
+
+/// Thread-safe gateway state shared by both transports (cheap Arc clones).
+///
+/// A facade over [`HostState`] plus what belongs to this connection: the resolved
+/// profile, the stdio client's own session, and its client id and boot profile.
+/// The `Deref` impl below is deliberate. It lets the host-scoped call sites keep
+/// reading `state.registry`, `state.mcp_sessions`, and friends while ownership
+/// moves into `HostState`, so this slice does not have to rewrite several hundred
+/// lines just to spell `state.host.registry`.
+///
+/// One consequence to know about: a `move` closure that names a host field captures
+/// the whole host (Rust truncates capture paths at an overloaded deref). Clone the
+/// facade, or borrow it, rather than moving one field out of it.
+#[derive(Clone)]
+struct GatewayState {
+    /// The host runtime. Cloning the facade shares it, as it must: one host, one
+    /// registry, one router, one session table.
+    host: Arc<HostState>,
+    /// Live-updated: the registry watcher keeps this in sync with
+    /// `registry.client_scopes` for a scoped client, so a profile switch reaches
+    /// every reader here without a gateway restart.
+    profile: Arc<Mutex<Option<String>>>,
+    /// Forward server-initiated JSON-RPC to the stdio upstream client, and carry its
+    /// declared capabilities and `${ROOT}` project root. The stdio client has exactly
+    /// one session, so its fields are this gateway's upstream-client state.
+    stdio_upstream: Arc<SessionState>,
     /// This stdio gateway's single client id + boot `CONDUIT_PROFILE`, kept so the
     /// root-change handler can recompute the effective (folder-scoped) profile off the
     /// request thread without re-reading env. Process constants; unused in HTTP mode.
     client_id: Option<String>,
     env_profile: Option<String>,
-    /// Upstream resource subscriptions (session → URI) for SOU-394 fanout.
-    resource_subs: Arc<Mutex<ResourceSubscriptionTable>>,
-    /// Shared dispatch `(producer, uri)` that delivers `notifications/resources/updated`
-    /// to subscribed clients after ownership check (SOU-394 / SOU-398). Bound per
-    /// server at connect/reconnect.
-    resource_updated_sink: Option<ResourceUpdatedDispatch>,
+}
+
+impl std::ops::Deref for GatewayState {
+    type Target = HostState;
+
+    fn deref(&self) -> &HostState {
+        &self.host
+    }
 }
 
 /// Client capabilities the upstream MCP client declared at `initialize`.
@@ -11096,98 +12949,32 @@ struct ClientUpstreamCaps {
     elicitation_url: bool,
 }
 
+impl GatewayState {
+    /// The guard pair for a request carrying this MCP session id, or `None` when
+    /// there is no session record (a modern request, which is self-contained, or an
+    /// OpenAPI tool call, which carries no MCP session at all).
+    ///
+    /// Guards are session state (P1.2): the search-thrash streak and the pending
+    /// destructive confirmations belong to the conversation that created them, so a
+    /// host serving several clients must not fold two of them into one pair. The
+    /// caller falls back to the listener-level pair only when no session record
+    /// exists, which is the behavior those requests already had.
+    fn session_guards(&self, session: Option<&str>) -> Option<SessionGuards> {
+        let session = session?;
+        self.mcp_sessions
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(session)
+            .map(|session| session.guards())
+    }
+}
+
 /// Roots the upstream MCP client exposed at `initialize`.
 #[derive(Clone, Default)]
 struct ClientRootsState {
     supported: bool,
     list_changed: bool,
     roots: Vec<Value>,
-}
-
-/// Pending upstream JSON-RPC over stdio (gateway → client request, client → response).
-struct StdioUpstream {
-    stdout: Arc<Mutex<std::io::Stdout>>,
-    pending: Arc<Mutex<HashMap<String, std::sync::mpsc::Sender<Value>>>>,
-    next_id: AtomicI64,
-}
-
-impl StdioUpstream {
-    fn new(stdout: Arc<Mutex<std::io::Stdout>>) -> Self {
-        Self {
-            stdout,
-            pending: Arc::new(Mutex::new(HashMap::new())),
-            next_id: AtomicI64::new(1),
-        }
-    }
-
-    fn call(&self, method: &str, params: Value) -> Result<Value, String> {
-        self.call_timeout(method, params, upstream_rpc_timeout(method))
-    }
-
-    fn call_timeout(
-        &self,
-        method: &str,
-        params: Value,
-        timeout: Duration,
-    ) -> Result<Value, String> {
-        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
-        let id_key = id.to_string();
-        let (tx, rx) = std::sync::mpsc::channel();
-        self.pending
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .insert(id_key.clone(), tx);
-        let req = json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params });
-        let send = {
-            let mut out = self
-                .stdout
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            write_json_line(&mut *out, &req).map_err(|e| e.to_string())
-        };
-        if let Err(e) = send {
-            self.pending
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .remove(&id_key);
-            return Err(e);
-        }
-        let resp = match rx.recv_timeout(timeout) {
-            Ok(v) => v,
-            Err(_) => {
-                self.pending
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner)
-                    .remove(&id_key);
-                return Err("upstream client did not answer".to_string());
-            }
-        };
-        if let Some(err) = resp.get("error") {
-            return Err(err.to_string());
-        }
-        Ok(resp.get("result").cloned().unwrap_or(Value::Null))
-    }
-
-    /// If `msg` answers a pending upstream call, deliver it and return true.
-    fn try_deliver(&self, msg: &Value) -> bool {
-        if !is_jsonrpc_response(msg) {
-            return false;
-        }
-        let Some(id) = msg.get("id").and_then(rpc_id_key) else {
-            return false;
-        };
-        let tx = self
-            .pending
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .remove(&id);
-        if let Some(tx) = tx {
-            let _ = tx.send(msg.clone());
-            true
-        } else {
-            false
-        }
-    }
 }
 
 fn should_write_legacy_stdio_resource_update(need_stdio: bool, modern_stdio: bool) -> bool {
@@ -11276,7 +13063,7 @@ fn register_modern_subscription(
     cancel: Option<&downstream::CancelContext>,
     owner: Option<&McpSessionOwner>,
     transport: ModernSubscriptionTransport,
-) -> Result<(String, Arc<McpSession>), Value> {
+) -> Result<(String, Arc<SessionState>), Value> {
     let id = req
         .get("id")
         .cloned()
@@ -11322,6 +13109,24 @@ fn register_modern_subscription(
     // Reuse the legacy subscription router so modern listeners inherit the same
     // ownership, HTTP scope, single-flight, and global/per-client limits. The
     // acknowledgement reports the subset that was actually granted.
+    // Resolve the stdio face before any downstream subscription is opened. The
+    // error path below must not run after the loop joined holders, or those
+    // holders would be stranded for a session that is never published.
+    let stdio_face = if transport == ModernSubscriptionTransport::Stdio {
+        match state.stdio_upstream.stdio_stdout() {
+            Some(stdout) => Some(stdout),
+            None => {
+                return Err(error(
+                    id,
+                    -32603,
+                    "Toolport: no stdio connection for this subscription",
+                ));
+            }
+        }
+    } else {
+        None
+    };
+
     let requested = std::mem::take(&mut filter.resource_subscriptions);
     for uri in requested {
         let subscribe = json!({
@@ -11358,12 +13163,35 @@ fn register_modern_subscription(
         }
     }
 
-    let session = Arc::new(McpSession::new_modern(
-        owner.cloned(),
-        id,
-        filter,
-        transport,
-    ));
+    // The stdio face is the gateway's stdio client, which always has one: the
+    // stdio arm is reachable only from a stdio request (the HTTP path passes
+    // Http), and it was resolved above before anything was subscribed.
+    let session = match transport {
+        ModernSubscriptionTransport::Http => Arc::new(SessionState::new_modern(
+            owner.cloned(),
+            id,
+            filter,
+            transport,
+        )),
+        ModernSubscriptionTransport::Stdio => {
+            let Some(stdout) = stdio_face else {
+                return Err(error(
+                    id,
+                    -32603,
+                    "Toolport: no stdio connection for this subscription",
+                ));
+            };
+            Arc::new(SessionState::new_modern_stdio(id, filter, stdout))
+        }
+    };
+    if transport == ModernSubscriptionTransport::Http
+        && owner.is_some_and(|owner| owner.identity.starts_with("adapter:"))
+    {
+        *session
+            .client_root
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = state.active_adapter_root();
+    }
     if transport == ModernSubscriptionTransport::Http {
         let _ = session.try_begin_listen();
     }
@@ -11396,40 +13224,18 @@ fn register_modern_subscription(
             "Toolport: too many active subscription listeners; retry later",
         ));
     }
-    match transport {
-        ModernSubscriptionTransport::Http => {
-            if !session.push_message(acknowledgement, None) {
-                state
-                    .mcp_sessions
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner)
-                    .remove(&key);
-                cleanup_resource_subs_for_session(state, &key);
-                return Err(error(Value::Null, -32603, "subscription queue is full"));
-            }
-        }
-        ModernSubscriptionTransport::Stdio => {
-            let value = serde_json::from_str::<Value>(&acknowledgement)
-                .map_err(|_| error(Value::Null, -32603, "failed to encode acknowledgement"))?;
-            let mut out = state
-                .stdout
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            if write_json_line(&mut *out, &value).is_err() {
-                drop(out);
-                state
-                    .mcp_sessions
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner)
-                    .remove(&key);
-                cleanup_resource_subs_for_session(state, &key);
-                return Err(error(
-                    Value::Null,
-                    -32603,
-                    "failed to write acknowledgement",
-                ));
-            }
-        }
+    if !session.push_message(acknowledgement, None) {
+        state
+            .mcp_sessions
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(&key);
+        cleanup_resource_subs_for_session(state, &key);
+        return Err(error(
+            Value::Null,
+            -32603,
+            "failed to deliver acknowledgement",
+        ));
     }
     Ok((key, session))
 }
@@ -11529,11 +13335,42 @@ struct ModernSubscription {
     transport: ModernSubscriptionTransport,
 }
 
-/// Per-session state for streamable-HTTP MCP (POST responses + GET listen stream).
-struct McpSession {
-    /// The authenticated HTTP identity and effective scope that initialized this
-    /// session. `None` is used only by direct unit-test callers.
+/// How a session reaches its upstream client.
+///
+/// Both transports share the same session record, ownership, capability gate, and
+/// server-initiated request correlation. Only the delivery sink differs: an HTTP
+/// session queues messages for the `GET /mcp` listen stream, while a stdio
+/// session writes each message to its own stdout.
+enum SessionTransportFace {
+    /// Streamable HTTP: server-to-client messages queue for an SSE listener.
+    Http,
+    /// One stdio client: server-to-client messages go straight to that session's
+    /// stdout.
+    Stdio(Arc<Mutex<std::io::Stdout>>),
+}
+
+/// Per-session state, shared by the stdio and streamable-HTTP transports
+/// (one-gateway-per-host P1.2). This is the type the stdio path used to call
+/// `StdioUpstream` and the HTTP path `McpSession`; unifying them removes the
+/// second copy of the upstream call/correlation logic.
+struct SessionState {
+    /// The transport that delivers server-to-client messages.
+    transport: SessionTransportFace,
+    /// The authenticated identity and effective scope that initialized this
+    /// session. `None` is used only by direct unit-test callers and the local
+    /// stdio client, which has no bearer identity.
     owner: Option<McpSessionOwner>,
+    /// Cross-request guard state this conversation owns: the search-thrash streak
+    /// and the pending destructive confirmations (P1.2).
+    guards: SessionGuards,
+    /// Once this stdio peer sends a 2026-07-28 request, unsolicited legacy
+    /// notifications must stop; modern notifications travel only through its
+    /// explicit `subscriptions/listen` filter.
+    ///
+    /// Session state rather than a process flag: the era is declared by ONE
+    /// connection, so in a shared host a second client must not be able to mute or
+    /// unmute this one. Always `false` for an HTTP face.
+    modern_upstream: AtomicBool,
     last_seen: Mutex<Instant>,
     outbound: Mutex<VecDeque<McpOutboundMessage>>,
     closed: AtomicBool,
@@ -11542,6 +13379,61 @@ struct McpSession {
     client_upstream: Mutex<ClientUpstreamCaps>,
     upstream_pending: Mutex<HashMap<String, std::sync::mpsc::Sender<Value>>>,
     next_upstream_id: AtomicI64,
+    /// The upstream client's project root for the `${ROOT}` cwd token (issue #239),
+    /// decoded from its first declared root. HTTP adapter sessions start with the
+    /// adapter's cwd and update this field after `roots/list`; a standalone stdio
+    /// session starts empty until its own root refresh resolves the fallback.
+    ///
+    /// An `Arc` inside the session so the registry watcher can hold the root alone
+    /// (it predates the session and only needs this field) instead of the whole
+    /// session.
+    client_root: Arc<Mutex<Option<String>>>,
+    /// The adapter's cwd, retained when a later roots/list reports no roots.
+    /// The daemon's cwd can belong to a different client process.
+    client_cwd: Mutex<Option<String>>,
+    client_root_override: Mutex<Option<String>>,
+    root_refreshing: AtomicBool,
+    root_refreshed: AtomicBool,
+    /// The stdio client's progress hand-off, created on first use: one writer
+    /// thread owns the blocking write to this session's stdout, fed by a bounded
+    /// queue. Delivery runs on the downstream drain thread, which must never block.
+    ///
+    /// On the session rather than in the shared progress dispatch so the sink
+    /// closes over a connection instead of over whichever stdout started the
+    /// process. Unused (and never created) for an HTTP face or a client that never
+    /// asks for progress.
+    stdio_progress: OnceLock<std::sync::mpsc::SyncSender<Value>>,
+    /// Whether this stdio peer has spoken past `initialize`. Connection-local by
+    /// decision: as a process global it silently assumed one stdio client per host,
+    /// and a second connection would have inherited the first one's handshake and
+    /// started emitting unsolicited frames to a peer that had not spoken yet
+    /// (SBS-1019). Always `false` for an HTTP face.
+    stdio_client_ready: AtomicBool,
+    /// Whether any reply has actually reached this peer's stdout yet. Kept separate
+    /// from `stdio_client_ready` because the first frame must answer something the
+    /// client asked: a pipelined `server/discover` can be answered by a worker after
+    /// the reader has already marked the peer ready.
+    stdio_responded: AtomicBool,
+    /// `list_changed` methods withheld from this peer until its handshake completes,
+    /// replayed in order. Withheld rather than dropped: the catalog really did change
+    /// while the client was starting, and a client that cached an empty `tools/list`
+    /// would otherwise never learn to re-fetch.
+    stdio_deferred_list_changed: Mutex<Vec<String>>,
+    /// Set once a write to this peer's stdout has failed, so the reader loop stops
+    /// instead of grinding through requests it can never answer. Per connection by
+    /// decision: it used to be one `Arc<AtomicBool>` owned by `main` and threaded
+    /// through the worker spawn, which is a per-process flag describing a per-session
+    /// condition. A second stdio client's write failure must not stop this one's loop.
+    stdio_broken: AtomicBool,
+    /// Cancellation for this connection's in-flight requests. Per connection by
+    /// decision: the registry is keyed by the CLIENT's JSON-RPC id, which is
+    /// client-chosen, so two stdio clients on one host would collide. One client
+    /// cancelling its id 7 could cancel another's id 7.
+    cancellations: downstream::CancelRegistry,
+    /// How many requests this connection is running on workers, against a cap, so a
+    /// client cannot spawn unbounded workers. Per connection for the same reason as
+    /// the registry: it is this peer's concurrency, not the host's.
+    stdio_inflight: Arc<AtomicUsize>,
     /// Present only for a 2026-07-28 `subscriptions/listen` request. Legacy
     /// Streamable-HTTP sessions keep this `None` and retain their existing fanout.
     modern_subscription: Option<ModernSubscription>,
@@ -11554,10 +13446,21 @@ struct McpOutboundMessage {
     request_id: Option<String>,
 }
 
-impl McpSession {
-    fn new(owner: Option<McpSessionOwner>) -> Self {
+impl SessionState {
+    fn new_http(owner: Option<McpSessionOwner>) -> Self {
+        Self::with_transport(SessionTransportFace::Http, owner)
+    }
+
+    fn new_stdio(stdout: Arc<Mutex<std::io::Stdout>>) -> Self {
+        Self::with_transport(SessionTransportFace::Stdio(stdout), None)
+    }
+
+    fn with_transport(transport: SessionTransportFace, owner: Option<McpSessionOwner>) -> Self {
         Self {
+            transport,
             owner,
+            guards: SessionGuards::new(),
+            modern_upstream: AtomicBool::new(false),
             last_seen: Mutex::new(Instant::now()),
             outbound: Mutex::new(VecDeque::new()),
             closed: AtomicBool::new(false),
@@ -11566,8 +13469,126 @@ impl McpSession {
             client_upstream: Mutex::new(ClientUpstreamCaps::default()),
             upstream_pending: Mutex::new(HashMap::new()),
             next_upstream_id: AtomicI64::new(1),
+            client_root: Arc::new(Mutex::new(None)),
+            client_cwd: Mutex::new(None),
+            client_root_override: Mutex::new(None),
+            root_refreshing: AtomicBool::new(false),
+            root_refreshed: AtomicBool::new(false),
+            stdio_progress: OnceLock::new(),
+            stdio_client_ready: AtomicBool::new(false),
+            stdio_responded: AtomicBool::new(false),
+            stdio_deferred_list_changed: Mutex::new(Vec::new()),
+            stdio_broken: AtomicBool::new(false),
+            cancellations: downstream::CancelRegistry::new(),
+            stdio_inflight: Arc::new(AtomicUsize::new(0)),
             modern_subscription: None,
         }
+    }
+
+    /// This session's cross-request guard state, as a shared handle the dispatch
+    /// can borrow for the whole call.
+    fn guards(&self) -> SessionGuards {
+        self.guards.clone()
+    }
+
+    /// Record that this stdio peer declared 2026-07-28 (see [`Self::modern_upstream`]).
+    fn mark_modern_upstream(&self) {
+        self.modern_upstream.store(true, Ordering::SeqCst);
+    }
+
+    /// Whether this peer has spoken past `initialize`.
+    fn stdio_client_ready(&self) -> bool {
+        self.stdio_client_ready.load(Ordering::SeqCst)
+    }
+
+    /// Whether any reply has reached this peer's stdout yet.
+    fn stdio_responded(&self) -> bool {
+        self.stdio_responded.load(Ordering::SeqCst)
+    }
+
+    /// Record that a reply reached this peer's stdout. Read by [`stdio_may_speak`]
+    /// to keep the first frame an answer to something the client asked.
+    fn mark_stdio_responded(&self) {
+        self.stdio_responded.store(true, Ordering::SeqCst);
+    }
+
+    /// Whether the gateway may put its own traffic on this stdio connection right
+    /// now: the peer must have spoken past `initialize` AND been answered at least
+    /// once. Two conditions, not one - see [`Self::stdio_responded`].
+    fn stdio_may_speak(&self) -> bool {
+        self.stdio_client_ready() && self.stdio_responded()
+    }
+
+    /// Whether a write to this peer has failed, so its reader loop should stop.
+    fn stdio_broken(&self) -> bool {
+        self.stdio_broken.load(Ordering::SeqCst)
+    }
+
+    /// Record that a write to this peer failed. Idempotent.
+    fn mark_stdio_broken(&self) {
+        self.stdio_broken.store(true, Ordering::SeqCst);
+    }
+
+    /// This connection's cancellation registry, as a shared handle the reader loop and
+    /// each worker both use. Keyed by the client's own request ids, so it has to be
+    /// one registry per connection.
+    fn cancellations(&self) -> downstream::CancelRegistry {
+        self.cancellations.clone()
+    }
+
+    /// This connection's in-flight request counter, for its worker cap.
+    fn stdio_inflight(&self) -> &Arc<AtomicUsize> {
+        &self.stdio_inflight
+    }
+
+    /// Whether this stdio peer is on the modern era. `false` for an HTTP face.
+    fn is_modern_upstream(&self) -> bool {
+        self.modern_upstream.load(Ordering::SeqCst)
+    }
+
+    /// The stdout sink of a stdio client, or `None` for every other face.
+    ///
+    /// Callers use it for the connection-local protocol writes that must reach
+    /// THIS client (bare `list_changed`, `resources/updated`), never as a stand-in
+    /// for process stdout.
+    fn stdio_stdout(&self) -> Option<Arc<Mutex<std::io::Stdout>>> {
+        match &self.transport {
+            SessionTransportFace::Stdio(stdout) => Some(Arc::clone(stdout)),
+            SessionTransportFace::Http => None,
+        }
+    }
+
+    /// This session's progress hand-off, or `None` when it has no stdio face.
+    /// Created on first use, so a client that never asks for progress pays for
+    /// neither the queue nor the writer thread.
+    fn stdio_progress_sender(&self) -> Option<&std::sync::mpsc::SyncSender<Value>> {
+        let stdout = match &self.transport {
+            SessionTransportFace::Stdio(stdout) => Arc::clone(stdout),
+            SessionTransportFace::Http => return None,
+        };
+        Some(self.stdio_progress.get_or_init(|| {
+            let (tx, rx) = std::sync::mpsc::sync_channel::<Value>(PROGRESS_STDIO_QUEUE);
+            std::thread::spawn(move || {
+                for note in rx {
+                    let mut out = stdout
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
+                    if write_json_line(&mut *out, &note).is_err() {
+                        // The stdio client is gone; nothing further will be readable.
+                        break;
+                    }
+                }
+            });
+            tx
+        }))
+    }
+
+    /// Test seam: hand this session a progress queue the test owns, so it can read
+    /// what the writer thread would have written. Real sessions create the queue
+    /// lazily, on first use.
+    #[cfg(test)]
+    fn set_stdio_progress(&self, sender: std::sync::mpsc::SyncSender<Value>) {
+        let _ = self.stdio_progress.set(sender);
     }
 
     fn new_modern(
@@ -11576,7 +13597,7 @@ impl McpSession {
         filter: ModernSubscriptionFilter,
         transport: ModernSubscriptionTransport,
     ) -> Self {
-        let mut session = Self::new(owner);
+        let mut session = Self::new_http(owner);
         session.modern_subscription = Some(ModernSubscription {
             id,
             filter,
@@ -11585,12 +13606,20 @@ impl McpSession {
         session
     }
 
-    fn is_modern_stdio(&self) -> bool {
-        self.modern_subscription
-            .as_ref()
-            .is_some_and(|subscription| {
-                subscription.transport == ModernSubscriptionTransport::Stdio
-            })
+    /// A modern stdio subscription listener: the same session record with a
+    /// stdio transport face, so its notifications reach stdout.
+    fn new_modern_stdio(
+        id: Value,
+        filter: ModernSubscriptionFilter,
+        stdout: Arc<Mutex<std::io::Stdout>>,
+    ) -> Self {
+        let mut session = Self::new_stdio(stdout);
+        session.modern_subscription = Some(ModernSubscription {
+            id,
+            filter,
+            transport: ModernSubscriptionTransport::Stdio,
+        });
+        session
     }
 
     fn modern_subscription_id_key(&self) -> Option<String> {
@@ -11674,7 +13703,7 @@ impl McpSession {
         Ok(resp.get("result").cloned().unwrap_or(Value::Null))
     }
 
-    fn try_deliver_upstream(&self, msg: &Value) -> bool {
+    fn try_deliver(&self, msg: &Value) -> bool {
         if !is_jsonrpc_response(msg) {
             return false;
         }
@@ -11701,6 +13730,10 @@ impl McpSession {
     }
 
     fn is_expired(&self) -> bool {
+        // A stdio session lives as long as the process that owns the connection.
+        if matches!(self.transport, SessionTransportFace::Stdio(_)) {
+            return false;
+        }
         if self.modern_subscription.is_some() {
             return false;
         }
@@ -11708,6 +13741,12 @@ impl McpSession {
             .lock()
             .map(|t| t.elapsed() >= MCP_SESSION_TTL)
             .unwrap_or(true)
+    }
+
+    /// Issue a server-to-client request over whichever transport this session
+    /// uses, with the method's default timeout.
+    fn call(&self, method: &str, params: Value) -> Result<Value, String> {
+        self.upstream_call_timeout(method, params, upstream_rpc_timeout(method))
     }
 
     fn close(&self) {
@@ -11724,18 +13763,34 @@ impl McpSession {
         self.wait.1.notify_all();
     }
 
+    /// Send one server-to-client JSON-RPC message. HTTP queues it for the listen
+    /// stream; stdio writes it straight to the client. Returns false when the
+    /// message could not be delivered (queue full, or a write failure).
     fn push_message(&self, json: String, request_id: Option<String>) -> bool {
-        let mut outbound = self
-            .outbound
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if outbound.len() >= MCP_SESSION_OUTBOUND_MAX {
-            return false;
+        match &self.transport {
+            SessionTransportFace::Stdio(stdout) => {
+                let Ok(value) = serde_json::from_str::<Value>(&json) else {
+                    return false;
+                };
+                let mut out = stdout
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                write_json_line(&mut *out, &value).is_ok()
+            }
+            SessionTransportFace::Http => {
+                let mut outbound = self
+                    .outbound
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                if outbound.len() >= MCP_SESSION_OUTBOUND_MAX {
+                    return false;
+                }
+                outbound.push_back(McpOutboundMessage { json, request_id });
+                drop(outbound);
+                self.wait.1.notify_all();
+                true
+            }
         }
-        outbound.push_back(McpOutboundMessage { json, request_id });
-        drop(outbound);
-        self.wait.1.notify_all();
-        true
     }
 
     fn remove_queued_request(&self, request_id: &str) {
@@ -11778,14 +13833,14 @@ impl McpSession {
 
 /// Blocking `Read` adapter for a long-lived `GET /mcp` SSE listen stream.
 struct McpSseReader {
-    session: Arc<McpSession>,
+    session: Arc<SessionState>,
     cleanup: Option<(GatewayState, String)>,
     buf: Vec<u8>,
     pos: usize,
 }
 
 impl McpSseReader {
-    fn new(session: Arc<McpSession>) -> Self {
+    fn new(session: Arc<SessionState>) -> Self {
         Self {
             session,
             cleanup: None,
@@ -11794,7 +13849,7 @@ impl McpSseReader {
         }
     }
 
-    fn with_cleanup(session: Arc<McpSession>, state: GatewayState, key: String) -> Self {
+    fn with_cleanup(session: Arc<SessionState>, state: GatewayState, key: String) -> Self {
         Self {
             session,
             cleanup: Some((state, key)),
@@ -11838,12 +13893,7 @@ impl Drop for McpSseReader {
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .remove(&key);
             cleanup_resource_subs_for_session(&state, &key);
-            clear_pii_session(
-                self.session
-                    .owner
-                    .as_ref()
-                    .map(|owner| owner.identity.as_str()),
-            );
+            clear_mcp_session_tables(&key);
         }
     }
 }
@@ -11869,24 +13919,24 @@ fn new_mcp_session_id() -> String {
 fn reap_stale_mcp_sessions(state: &GatewayState) {
     // Collect first so we do not hold the sessions lock across cleanup that may
     // call the router.
-    let stale: Vec<(String, Arc<McpSession>)> = {
+    let stale: Vec<String> = {
         let mut sessions = state
             .mcp_sessions
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let stale: Vec<(String, Arc<McpSession>)> = sessions
+        let stale: Vec<String> = sessions
             .iter()
             .filter(|(_, session)| session.is_expired() || session.closed.load(Ordering::SeqCst))
-            .map(|(id, session)| (id.clone(), Arc::clone(session)))
+            .map(|(id, _)| id.clone())
             .collect();
-        for (id, _) in &stale {
+        for id in &stale {
             sessions.remove(id);
         }
         stale
     };
-    for (id, session) in stale {
+    for id in stale {
         cleanup_resource_subs_for_session(state, &id);
-        clear_pii_session(session.owner.as_ref().map(|owner| owner.identity.as_str()));
+        clear_mcp_session_tables(&id);
     }
 }
 
@@ -11901,7 +13951,7 @@ fn mint_mcp_session(
     owner: Option<&McpSessionOwner>,
 ) -> Result<String, HttpOut> {
     let sid = new_mcp_session_id();
-    let session = Arc::new(McpSession::new(owner.cloned()));
+    let session = Arc::new(SessionState::new_http(owner.cloned()));
     reap_stale_mcp_sessions(state);
     let mut sessions = state
         .mcp_sessions
@@ -12057,6 +14107,7 @@ fn broker_url_elicitation(
             message: screened.message,
         }),
         pii_release: None,
+        agent_rule: None,
     });
     match decision {
         approval::ApprovalDecision::Approved => ServerRequestAction::Respond(
@@ -12114,7 +14165,7 @@ enum ModernHitlStatus {
 struct ModernHitlApproval {
     name: String,
     args_hash: String,
-    client: Option<String>,
+    scope: String,
     approved_fingerprint: Option<String>,
     reason: approval::ApprovalReason,
     started: Instant,
@@ -12140,18 +14191,10 @@ enum ModernHitlPoll {
 const MODERN_HITL_MAX_PENDING: usize = 64;
 const MODERN_HITL_RETENTION: Duration = Duration::from_secs(approval::DEFAULT_TIMEOUT_SECS + 30);
 
-fn modern_hitl_approvals() -> &'static Mutex<HashMap<String, ModernHitlApproval>> {
-    static STORE: std::sync::OnceLock<Mutex<HashMap<String, ModernHitlApproval>>> =
-        std::sync::OnceLock::new();
-    STORE.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
 fn modern_hitl_input_required(token: &str) -> Value {
-    let input_request = modern_hitl_approvals()
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .get(token)
-        .map(|pending| pending.input_request.clone());
+    let input_request = session_tables()
+        .hitl()
+        .peek(token, |pending| pending.input_request.clone());
     json!({
         "resultType": "input_required",
         "inputRequests": input_request.map(|request| json!({
@@ -12162,11 +14205,9 @@ fn modern_hitl_input_required(token: &str) -> Value {
 }
 
 fn modern_hitl_reason(token: &str) -> Option<approval::ApprovalReason> {
-    modern_hitl_approvals()
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .get(token)
-        .map(|pending| pending.reason)
+    session_tables()
+        .hitl()
+        .peek(token, |pending| pending.reason)
 }
 
 fn downstream_input_responses(input_responses: Option<Value>) -> Option<Value> {
@@ -12192,19 +14233,17 @@ fn start_modern_hitl(
 ) -> Result<String, approval::ApprovalDecision> {
     let token = format!("toolport-hitl-{}", new_correlation_id());
     {
-        let mut approvals = modern_hitl_approvals()
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        approvals.retain(|_, pending| pending.started.elapsed() <= MODERN_HITL_RETENTION);
+        let mut approvals = session_tables().hitl();
+        approvals.reap_expired();
         if approvals.len() >= MODERN_HITL_MAX_PENDING {
             return Err(approval::ApprovalDecision::Unreachable);
         }
         approvals.insert(
-            token.clone(),
+            &token,
             ModernHitlApproval {
                 name: name.to_string(),
                 args_hash,
-                client: client.map(str::to_string),
+                scope: conversation_scope(client),
                 approved_fingerprint,
                 reason,
                 started: Instant::now(),
@@ -12243,78 +14282,78 @@ fn poll_modern_hitl(
     client: Option<&str>,
     input_responses: Option<Value>,
 ) -> ModernHitlPoll {
-    let mut approvals = modern_hitl_approvals()
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    approvals.retain(|_, pending| pending.started.elapsed() <= MODERN_HITL_RETENTION);
-    let Some(pending) = approvals.get_mut(token) else {
-        return ModernHitlPoll::Missing;
-    };
-    if pending.name != name || pending.args_hash != args_hash || pending.client.as_deref() != client
-    {
-        return ModernHitlPoll::Stale;
-    }
-    let decision = match &pending.status {
-        ModernHitlStatus::AwaitingClient => {
-            let response = input_responses
-                .as_ref()
-                .and_then(|responses| responses.get("toolport_approval"));
-            let Some(response) = response else {
-                return ModernHitlPoll::Pending;
+    let (poll, remove) = session_tables()
+        .hitl()
+        .with(token, |pending| {
+            if pending.name != name
+                || pending.args_hash != args_hash
+                || pending.scope != conversation_scope(client)
+            {
+                return (ModernHitlPoll::Stale, false);
+            }
+            let decision = match &pending.status {
+                ModernHitlStatus::AwaitingClient => {
+                    let response = input_responses
+                        .as_ref()
+                        .and_then(|responses| responses.get("toolport_approval"));
+                    let Some(response) = response else {
+                        return (ModernHitlPoll::Pending, false);
+                    };
+                    let accepted = response.get("action").and_then(Value::as_str) == Some("accept")
+                        && response
+                            .get("content")
+                            .and_then(|content| content.get("approved"))
+                            .and_then(Value::as_bool)
+                            == Some(true);
+                    Some(if accepted {
+                        approval::ApprovalDecision::Approved
+                    } else {
+                        approval::ApprovalDecision::Denied
+                    })
+                }
+                ModernHitlStatus::Approved => None,
             };
-            let accepted = response.get("action").and_then(Value::as_str) == Some("accept")
-                && response
-                    .get("content")
-                    .and_then(|content| content.get("approved"))
-                    .and_then(Value::as_bool)
-                    == Some(true);
-            Some(if accepted {
-                approval::ApprovalDecision::Approved
-            } else {
-                approval::ApprovalDecision::Denied
-            })
-        }
-        ModernHitlStatus::Approved => None,
-    };
-    let newly_approved = decision.is_some();
-    if let Some(decision) = decision {
-        if !decision.is_approved() {
-            let held_ms = pending.started.elapsed().as_millis() as u64;
-            let reason = pending.reason;
-            approvals.remove(token);
-            return ModernHitlPoll::Decided(decision, held_ms, reason);
-        }
-        pending.status = ModernHitlStatus::Approved;
+            let newly_approved = decision.is_some();
+            if let Some(decision) = decision {
+                if !decision.is_approved() {
+                    let held_ms = pending.started.elapsed().as_millis() as u64;
+                    let reason = pending.reason;
+                    return (ModernHitlPoll::Decided(decision, held_ms, reason), true);
+                }
+                pending.status = ModernHitlStatus::Approved;
+            }
+            pending.downstream.input_responses = downstream_input_responses(input_responses);
+            (
+                ModernHitlPoll::Approved {
+                    approved_fingerprint: pending.approved_fingerprint.clone(),
+                    reason: pending.reason,
+                    held_ms: pending.started.elapsed().as_millis() as u64,
+                    downstream: pending.downstream.clone(),
+                    newly_approved,
+                },
+                false,
+            )
+        })
+        .unwrap_or((ModernHitlPoll::Missing, false));
+    if remove {
+        session_tables().hitl().remove(token);
     }
-    pending.downstream.input_responses = downstream_input_responses(input_responses);
-    ModernHitlPoll::Approved {
-        approved_fingerprint: pending.approved_fingerprint.clone(),
-        reason: pending.reason,
-        held_ms: pending.started.elapsed().as_millis() as u64,
-        downstream: pending.downstream.clone(),
-        newly_approved,
-    }
+    poll
 }
 
 fn update_modern_hitl_downstream(token: &str, result: &mut Value) {
-    let mut approvals = modern_hitl_approvals()
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    if let Some(pending) = approvals.get_mut(token) {
+    session_tables().hitl().with(token, |pending| {
         pending.downstream = MrtrRequest {
             input_responses: None,
             request_state: result.get("requestState").cloned(),
         };
         result["requestState"] = json!(token);
-    }
+    });
 }
 
 fn finish_modern_hitl(token: Option<&str>) {
     if let Some(token) = token {
-        modern_hitl_approvals()
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .remove(token);
+        session_tables().hitl().remove(token);
     }
 }
 
@@ -12330,9 +14369,8 @@ fn missing_modern_client_capability(id: Value, method: &str) -> Value {
 }
 
 fn make_server_request_handler(
-    client_upstream: Arc<Mutex<ClientUpstreamCaps>>,
-    stdio_upstream: Arc<StdioUpstream>,
-    mcp_sessions: Arc<Mutex<HashMap<String, Arc<McpSession>>>>,
+    stdio_upstream: Arc<SessionState>,
+    mcp_sessions: Arc<Mutex<HashMap<String, Arc<SessionState>>>>,
     http: bool,
 ) -> ServerRequestHandler {
     Arc::new(move |req| {
@@ -12370,41 +14408,38 @@ fn make_server_request_handler(
         }
         let params = upstream_rpc_params(method, &screened_request);
         let timeout = upstream_rpc_timeout(method);
-        let result = if http {
+        // The HTTP session is resolved from the request's session id; the stdio
+        // gateway has exactly one, held on state. Either way the call and its
+        // correlation are the same SessionState method.
+        let http_session = if http {
             let sid = active_mcp_session()?;
-            let session = {
-                let sessions = mcp_sessions.lock().ok()?;
-                sessions.get(&sid).cloned()?
-            };
-            let supported = session
+            let sessions = mcp_sessions.lock().ok()?;
+            Some(sessions.get(&sid).cloned()?)
+        } else {
+            None
+        };
+        let supported = match &http_session {
+            Some(session) => session
                 .client_upstream
                 .lock()
                 .map(|caps| client_supports_server_request(&caps, &screened_request))
-                .unwrap_or(false);
-            if !supported {
-                if let Some(screened) = url_elicitation {
-                    return Some(broker_url_elicitation(id, screened));
-                }
-                return Some(ServerRequestAction::Respond(upstream_client_unsupported(
-                    id, method,
-                )));
-            }
-            session.upstream_call_timeout(method, params, timeout)
-        } else {
-            let supported = client_upstream
+                .unwrap_or(false),
+            None => stdio_upstream
+                .client_upstream
                 .lock()
                 .map(|caps| client_supports_server_request(&caps, &screened_request))
-                .unwrap_or(false);
-            if !supported {
-                if let Some(screened) = url_elicitation {
-                    return Some(broker_url_elicitation(id, screened));
-                }
-                return Some(ServerRequestAction::Respond(upstream_client_unsupported(
-                    id, method,
-                )));
-            }
-            stdio_upstream.call_timeout(method, params, timeout)
+                .unwrap_or(false),
         };
+        if !supported {
+            if let Some(screened) = url_elicitation {
+                return Some(broker_url_elicitation(id, screened));
+            }
+            return Some(ServerRequestAction::Respond(upstream_client_unsupported(
+                id, method,
+            )));
+        }
+        let session = http_session.unwrap_or_else(|| Arc::clone(&stdio_upstream));
+        let result = session.upstream_call_timeout(method, params, timeout);
         Some(ServerRequestAction::Respond(upstream_json_rpc_response(
             id, result,
         )))
@@ -12414,6 +14449,7 @@ fn make_server_request_handler(
 /// Read the current resolved client project root for the `${ROOT}` cwd token.
 fn current_client_root(state: &GatewayState) -> Option<String> {
     state
+        .stdio_upstream
         .client_root
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -12472,6 +14508,7 @@ fn rebuild_router_for_root(state: &GatewayState) {
         &reg,
         profile.as_deref(),
         state.http,
+        state.daemon_mode.load(Ordering::SeqCst),
         &state.downstream_dirty,
         Arc::clone(&state.server_handler),
         root.as_deref(),
@@ -12486,14 +14523,16 @@ fn rebuild_router_for_root(state: &GatewayState) {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = Arc::new(new_router);
     let tools = requarantine_if_needed(&state.registry, &state.router, tools, profile.as_deref());
-    persist_and_emit_with_sessions(
+    state.persist_and_emit_with_sessions(
         &tools,
         &state.cached_tools,
         &state.router,
         Some(&previous_router),
-        &state.stdout,
+        &state.stdio_upstream,
         Some(&state.mcp_sessions),
         profile.as_deref(),
+        false,
+        None,
     );
     glog(&format!(
         "toolport: ${{ROOT}} rebuild (root={root:?}, {} tools)",
@@ -12511,6 +14550,7 @@ fn refresh_client_root(state: &GatewayState) {
         return;
     }
     let supported = state
+        .stdio_upstream
         .client_upstream
         .lock()
         .map(|c| c.roots.supported)
@@ -12522,7 +14562,8 @@ fn refresh_client_root(state: &GatewayState) {
     // agreed to be asked. Waiting costs nothing in practice, because the handshake
     // completes a few milliseconds later; a client that never finishes it falls
     // through to the ProcessCwd root it would have used anyway.
-    let handshaked = !supported || await_stdio_client_ready(STDIO_HANDSHAKE_WAIT);
+    let handshaked =
+        !supported || await_stdio_client_ready(&state.stdio_upstream, STDIO_HANDSHAKE_WAIT);
     let new_root = if supported && handshaked {
         match state.stdio_upstream.call("roots/list", json!({})) {
             Ok(result) => {
@@ -12532,7 +14573,7 @@ fn refresh_client_root(state: &GatewayState) {
                     .cloned()
                     .unwrap_or_default();
                 // Keep the init-captured field in sync for any downstream consumer.
-                if let Ok(mut caps) = state.client_upstream.lock() {
+                if let Ok(mut caps) = state.stdio_upstream.client_upstream.lock() {
                     caps.roots.roots = roots.clone();
                 }
                 roots
@@ -12570,6 +14611,7 @@ fn refresh_client_root(state: &GatewayState) {
     };
     let changed = {
         let mut cur = state
+            .stdio_upstream
             .client_root
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -12619,20 +14661,131 @@ fn refresh_client_root(state: &GatewayState) {
     }
 }
 
-fn handle_client_notification(state: &GatewayState, req: &Value) -> bool {
+/// Ask one HTTP adapter's client for its current roots after the handshake.
+/// The request travels over that session's SSE stream and its answer returns on
+/// the same session, so another adapter cannot supply this client's root.
+fn refresh_http_session_root(state: &GatewayState) {
+    if !state.daemon_mode.load(Ordering::SeqCst) {
+        return;
+    }
+    let Some(sid) = active_mcp_session() else {
+        return;
+    };
+    let session = state
+        .mcp_sessions
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(&sid)
+        .cloned();
+    let Some(session) = session else {
+        return;
+    };
+    if !session
+        .owner
+        .as_ref()
+        .is_some_and(|owner| owner.identity.starts_with("adapter:"))
+    {
+        return;
+    }
+    let supported = session
+        .client_upstream
+        .lock()
+        .map(|caps| caps.roots.supported)
+        .unwrap_or(false);
+    if !supported || session.root_refreshing.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let root_state = state.clone();
+    std::thread::spawn(move || {
+        let result = session.call("roots/list", json!({}));
+        match result {
+            Ok(result) => {
+                let roots = result
+                    .get("roots")
+                    .and_then(Value::as_array)
+                    .cloned()
+                    .unwrap_or_default();
+                let declared = roots
+                    .first()
+                    .and_then(|root| root.get("uri"))
+                    .and_then(Value::as_str)
+                    .and_then(downstream::file_uri_to_path);
+                if let Ok(mut caps) = session.client_upstream.lock() {
+                    caps.roots.roots = roots;
+                }
+                let fallback = session
+                    .client_cwd
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .clone();
+                let override_root = session
+                    .client_root_override
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .clone();
+                let next_root = override_root.or(declared).or(fallback);
+                let changed = {
+                    let mut current = session
+                        .client_root
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
+                    let changed = *current != next_root;
+                    *current = next_root;
+                    changed
+                };
+                if changed {
+                    cleanup_root_resource_subs_for_session(&root_state, &sid);
+                }
+            }
+            Err(error) => glog(&format!("toolport: HTTP roots/list failed: {error}")),
+        }
+        session.root_refreshed.store(true, Ordering::SeqCst);
+        session.root_refreshing.store(false, Ordering::SeqCst);
+    });
+}
+
+fn handle_client_notification(
+    state: &GatewayState,
+    req: &Value,
+    allowed: Option<&std::collections::HashSet<String>>,
+) -> bool {
     match req.get("method").and_then(|m| m.as_str()) {
+        Some("notifications/initialized") if state.http => {
+            refresh_http_session_root(state);
+            false
+        }
         Some("notifications/roots/list_changed") => {
-            // Re-place ${ROOT} servers if the client's project root changed. Off the
-            // request thread so the roots/list round-trip + rebuild don't block it.
-            let st = state.clone();
-            std::thread::spawn(move || refresh_client_root(&st));
-            // Still tell downstream servers, for ones that consume roots themselves.
-            let router = state
+            // Forward against the session's current root before refreshing it.
+            // The notification belongs to that root's downstream slot; the
+            // subsequent roots/list result selects any replacement launch.
+            let base = state
                 .router
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .clone();
-            router.notify_all_downstreams("notifications/roots/list_changed", json!({}));
+            let router = if state.daemon_mode.load(Ordering::SeqCst) {
+                let reg = state
+                    .registry
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .clone();
+                let root = state.active_adapter_root();
+                state.router_for_root(base, &reg, root.as_deref(), allowed)
+            } else {
+                base
+            };
+            if state.http {
+                refresh_http_session_root(state);
+            } else {
+                let st = state.clone();
+                std::thread::spawn(move || refresh_client_root(&st));
+            }
+            // Still tell downstream servers, for ones that consume roots themselves.
+            router.notify_downstreams_in_scope(
+                "notifications/roots/list_changed",
+                json!({}),
+                allowed,
+            );
             true
         }
         _ => false,
@@ -12642,15 +14795,20 @@ fn handle_client_notification(state: &GatewayState, req: &Value) -> bool {
 /// One request in, one response out: wait for a cold cache / live router when
 /// the method needs it, self-heal an empty router on a call, then dispatch.
 /// Shared by the stdio loop and the HTTP server so they can't diverge.
+#[allow(clippy::too_many_arguments)]
 fn process_request(
     state: &GatewayState,
     req: &Value,
     guard: &SearchGuard,
     confirm: &ConfirmGuard,
     allowed: Option<&std::collections::HashSet<String>>,
+    adapter_profile: Option<&str>,
+    // The profile an HTTP caller is scoped to (`HttpCaller::profile`); `None` on stdio.
+    connection_profile: Option<&str>,
     cancel: Option<downstream::CancelContext>,
     client: Option<&str>,
     client_name: Option<&str>,
+    discovery: DiscoveryMode,
 ) -> Option<Value> {
     let _transport = UpstreamTransportGuard::enter(if state.http {
         UpstreamTransport::Http
@@ -12659,24 +14817,24 @@ fn process_request(
     });
     let method = req.get("method").and_then(|m| m.as_str()).unwrap_or("");
     if !state.http && upstream_declared_version(req) == Some(MODERN_PROTOCOL_VERSION) {
-        MODERN_STDIO_UPSTREAM.store(true, Ordering::SeqCst);
+        state.stdio_upstream.mark_modern_upstream();
     }
     // Anything on stdio that is not `initialize` itself means the handshake is
     // behind us: the required `notifications/initialized`, or a first real request
     // from a client that skipped it. Either way the server may speak now (SBS-1019).
     // An empty method is a client->server response, which carries no such signal.
     if !state.http && !method.is_empty() && method != "initialize" {
-        mark_stdio_client_ready(&state.stdout);
+        mark_stdio_client_ready(&state.stdio_upstream);
     }
     let is_notification = !req.get("id").is_some_and(|id| !id.is_null());
     if is_notification {
-        if handle_client_notification(state, req) {
+        if handle_client_notification(state, req, allowed) {
             return None;
         }
     }
 
     if method == "initialize" && !state.http {
-        if let Ok(mut caps) = state.client_upstream.lock() {
+        if let Ok(mut caps) = state.stdio_upstream.client_upstream.lock() {
             capture_client_upstream_from_init(&mut caps, req.get("params"));
         }
         // Fetch the client's roots off-thread and place ${ROOT} servers once known,
@@ -12728,6 +14886,20 @@ fn process_request(
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .server_count()
             == 0
+        && !(state.daemon_mode.load(Ordering::SeqCst) && {
+            let reg = state
+                .registry
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            !reg.servers.iter().any(|server| {
+                !clients::is_gateway_server(server)
+                    && !server_uses_project_root(server)
+                    && reg
+                        .profiles
+                        .iter()
+                        .any(|profile| reg.is_enabled(&profile.id, &server.id))
+            })
+        })
     {
         // Single-flight: serialize the rebuild so a startup burst of concurrent
         // tools/call workers doesn't have each one spawn the full server set (and
@@ -12763,6 +14935,7 @@ fn process_request(
                 &reg,
                 profile_snapshot.as_deref(),
                 state.http,
+                state.daemon_mode.load(Ordering::SeqCst),
                 &state.downstream_dirty,
                 Arc::clone(&state.server_handler),
                 root.as_deref(),
@@ -12785,7 +14958,7 @@ fn process_request(
                         .lock()
                         .unwrap_or_else(std::sync::PoisonError::into_inner)
                         .clone();
-                    preserve_collapsed_servers_guarded(tools, &current.tools)
+                    state.preserve_collapsed_servers_guarded(tools, &current.tools)
                 };
                 // Re-adopt routes the guard kept from the previous catalog so the
                 // published router routes what the cache advertises (issue #700).
@@ -12796,6 +14969,8 @@ fn process_request(
                         .unwrap_or_else(std::sync::PoisonError::into_inner);
                     Arc::make_mut(&mut guard).adopt_restored_routes(&previous_router, &tools);
                 }
+                state.invalidate_root_views();
+                state.invalidate_tool_scope_views();
                 // A fail-closed rebuild hides everything, so the cache must not keep
                 // serving the last-good catalog past it (SBS-871).
                 if router_is_fail_closed(&state.router) {
@@ -12817,7 +14992,7 @@ fn process_request(
                         .server_count(),
                     tools.len()
                 ));
-                notify_tools_changed(&state.stdout, Some(&state.mcp_sessions));
+                notify_tools_changed(&state.stdio_upstream, Some(&state.mcp_sessions));
             }
         }
     }
@@ -12831,21 +15006,43 @@ fn process_request(
     // execute_call re-clones the live Arc (via `live_router`) so mid-hold quarantine
     // / definition drift fail closed (SOU-321 / SOU-322). The client label is
     // threaded in, not stored on the shared router.
-    let cache_snapshot = state
-        .cached_tools
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .clone();
     let reg = state
         .registry
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone();
-    let router = state
+    let base_router = state
         .router
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone();
+    let daemon_adapter = state.daemon_mode.load(Ordering::SeqCst) && adapter_profile.is_some();
+    let adapter_root = daemon_adapter
+        .then(|| state.active_adapter_root())
+        .flatten();
+    let rooted_router = if daemon_adapter {
+        state.router_for_root(base_router, &reg, adapter_root.as_deref(), allowed)
+    } else {
+        base_router
+    };
+    let (router, adapter_catalog) = if state.daemon_mode.load(Ordering::SeqCst) {
+        adapter_profile
+            .map(|profile| state.router_for_adapter_profile(rooted_router.clone(), &reg, profile))
+            .map(|(router, catalog)| (router, Some(catalog)))
+            .unwrap_or_else(|| (Arc::clone(&rooted_router), None))
+    } else {
+        (rooted_router, None)
+    };
+    // The shared HTTP cache reflects the fail-closed intersection across all
+    // profiles. An adapter needs the catalog indexed under its own tool scope,
+    // including search and code-mode calls, not that shared intersection.
+    let cache_snapshot = adapter_catalog.unwrap_or_else(|| {
+        state
+            .cached_tools
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    });
     if method == "subscriptions/listen"
         && !state.http
         && upstream_declared_version(req) == Some(MODERN_PROTOCOL_VERSION)
@@ -12892,12 +15089,65 @@ fn process_request(
             UpstreamEraGuard::enter(declared.filter(|v| v.as_str() == MODERN_PROTOCOL_VERSION));
         return handle_resource_subscription(state, &router, req, allowed, cancel.as_ref(), method);
     }
+    let live_view: Option<LiveRouterResolver> = if state.daemon_mode.load(Ordering::SeqCst) {
+        adapter_profile.map(|profile| {
+            let host = Arc::clone(&state.host);
+            let profile = profile.to_string();
+            let expected_scope = allowed.cloned();
+            let expected_tool_scope = adapter_tool_scope(&reg, &profile);
+            let expected_root = adapter_root.clone();
+            Arc::new(move || {
+                let current = host
+                    .registry
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .clone();
+                let current_scope: HashSet<String> = current
+                    .enabled_servers_for(&profile)
+                    .iter()
+                    .map(|server| server.id.clone())
+                    .collect();
+                if expected_scope.as_ref() != Some(&current_scope)
+                    || expected_tool_scope != adapter_tool_scope(&current, &profile)
+                    || host.active_adapter_root() != expected_root
+                {
+                    return Arc::new(Router::new());
+                }
+                let base = host
+                    .router
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .clone();
+                let rooted = host.router_for_root(
+                    base,
+                    &current,
+                    expected_root.as_deref(),
+                    expected_scope.as_ref(),
+                );
+                host.router_for_adapter_profile(rooted, &current, &profile)
+                    .0
+            }) as LiveRouterResolver
+        })
+    } else {
+        None
+    };
+    let _live_view = LiveRouterResolverGuard::enter(live_view);
+    // The caller's own profile when it has one, else this gateway's. A stdio gateway
+    // serves one client, so its profile is that client's; an unscoped HTTP caller
+    // follows the bridge's base profile, the same fallback its routing uses.
+    let _connection_profile = ConnectionProfileGuard::enter(
+        connection_profile
+            .or(adapter_profile)
+            .or(profile_snapshot.as_deref())
+            .map(str::to_string),
+    );
     handle_request_with_cancel(
+        state,
         req,
         &reg,
         &router,
         &cache_snapshot.tools,
-        state.lazy,
+        discovery,
         profile_snapshot.as_deref(),
         guard,
         confirm,
@@ -12916,11 +15166,14 @@ fn process_request(
     )
 }
 
-fn write_stdio_response(
-    stdout: &Arc<Mutex<std::io::Stdout>>,
-    response: &Value,
-    stdout_broken: &Arc<AtomicBool>,
-) -> bool {
+fn write_stdio_response(stdio: &SessionState, response: &Value) -> bool {
+    let Some(stdout) = stdio.stdio_stdout() else {
+        // No stdio face means there is nobody to answer. Treat it as a broken pipe
+        // so the reader loop stops instead of grinding through requests it can
+        // never reply to.
+        stdio.mark_stdio_broken();
+        return false;
+    };
     let result = {
         let mut out = stdout
             .lock()
@@ -12928,7 +15181,7 @@ fn write_stdio_response(
         write_json_line(&mut *out, response)
     };
     if let Err(err) = result {
-        stdout_broken.store(true, Ordering::SeqCst);
+        stdio.mark_stdio_broken();
         glog(&format!(
             "stdio client write failed; stopping reader loop: {err}"
         ));
@@ -12937,16 +15190,14 @@ fn write_stdio_response(
     true
 }
 
-fn handle_stdio_request(
-    state: GatewayState,
-    req: Value,
-    request_key: String,
-    search_guard: Arc<SearchGuard>,
-    confirm_guard: Arc<ConfirmGuard>,
-    cancel_registry: downstream::CancelRegistry,
-    stdout_broken: Arc<AtomicBool>,
-) {
+fn handle_stdio_request(state: GatewayState, req: Value, request_key: String) {
+    // The connection's own registry, so a cancel carries the reason to the worker
+    // that is running this request and nothing else.
+    let cancel_registry = state.stdio_upstream.cancellations();
     let cancel_context = cancel_registry.context(request_key.clone());
+    // The guards are the stdio session's own: one connection, one search streak,
+    // one set of pending confirmations (P1.2).
+    let guards = state.stdio_upstream.guards();
     // A panic in a handler must not kill the gateway: catch it, log it, and
     // return a JSON-RPC internal error for this request unless the client
     // cancelled it while it was in flight.
@@ -12954,12 +15205,15 @@ fn handle_stdio_request(
         process_request(
             &state,
             &req,
-            &search_guard,
-            &confirm_guard,
+            &guards.search,
+            &guards.confirm,
+            None,
+            None,
             None,
             Some(cancel_context),
             None,
             None,
+            state.discovery_mode(),
         )
     }))
     .unwrap_or_else(|_| {
@@ -12984,9 +15238,9 @@ fn handle_stdio_request(
         // the first thing it reads. This is the second of the two conditions in
         // `stdio_may_speak`; the peer's post-handshake message is the other, and
         // either one may land last.
-        if write_stdio_response(&state.stdout, &resp, &stdout_broken) {
-            STDIO_RESPONDED.store(true, Ordering::SeqCst);
-            drain_stdio_deferred(&state.stdout);
+        if write_stdio_response(&state.stdio_upstream, &resp) {
+            state.stdio_upstream.mark_stdio_responded();
+            drain_stdio_deferred(&state.stdio_upstream);
         }
     }
 }
@@ -13092,6 +15346,7 @@ fn state_prefix_owners(state: &GatewayState) -> HashMap<String, String> {
 fn http_tool_defs(
     state: &GatewayState,
     allowed: Option<&std::collections::HashSet<String>>,
+    discovery: DiscoveryMode,
 ) -> Vec<Value> {
     let (allow_agent, allow_routine_writes, confirm_destructive) = {
         let r = state
@@ -13121,23 +15376,23 @@ fn http_tool_defs(
             cached.tools.clone()
         }
     };
-    if state.lazy {
+    if matches!(discovery, DiscoveryMode::Lazy) {
         let mut tools = vec![
             status_tool_def(),
             search_tool_def(),
             call_tool_def(),
             fetch_result_tool_def(),
         ];
-        if code_mode_enabled() {
+        if state.code_mode_enabled() {
             tools.push(run_script_tool_def());
         }
-        append_routine_tool_defs(&mut tools, allow_routine_writes);
+        append_routine_tool_defs(state, &mut tools, allow_routine_writes);
         if allow_agent {
             tools.push(enable_server_tool_def());
             tools.push(disable_server_tool_def());
         }
         tools
-    } else if grouped_discovery() {
+    } else if matches!(discovery, DiscoveryMode::Grouped) {
         // Grouped: the meta-tools plus a per-server help_<server> browse tool. Scope
         // the catalog to this client FIRST so the help tools (which read as meta-tools
         // to the later scope pass) can't leak an out-of-scope server's browse entry.
@@ -13154,6 +15409,7 @@ fn http_tool_defs(
         });
         drop(router);
         grouped_tool_defs(
+            state,
             allow_agent,
             allow_routine_writes,
             confirm_destructive,
@@ -13161,10 +15417,10 @@ fn http_tool_defs(
         )
     } else {
         let mut tools = vec![status_tool_def(), fetch_result_tool_def()];
-        if code_mode_enabled() {
+        if state.code_mode_enabled() {
             tools.push(run_script_tool_def());
         }
-        append_routine_tool_defs(&mut tools, allow_routine_writes);
+        append_routine_tool_defs(state, &mut tools, allow_routine_writes);
         tools.extend(catalog());
         tools
     }
@@ -13176,10 +15432,11 @@ fn http_tool_defs(
 fn openapi_spec(
     state: &GatewayState,
     allowed: Option<&std::collections::HashSet<String>>,
+    discovery: DiscoveryMode,
 ) -> Value {
     // Scope the advertised tools to the client's allowed servers (no-op when
     // unscoped), so a registered client's spec never lists out-of-scope tools.
-    let all_defs = http_tool_defs(state, allowed);
+    let all_defs = http_tool_defs(state, allowed, discovery);
     // The bridge answers this before the router has connected anything, so the
     // registry-backed owner fallback (not the raw `server__` prefix) is what keeps
     // a colliding twin out of the spec on a cold cache (SBS-866).
@@ -13409,7 +15666,11 @@ struct HttpOut {
 
 #[derive(Clone, Copy, Default)]
 struct McpHttpRequestHeaders<'a> {
+    private_daemon_bearer: bool,
     session_id: Option<&'a str>,
+    adapter_cwd: Option<&'a str>,
+    adapter_root_override: Option<&'a str>,
+    adapter_resolved_root: Option<&'a str>,
     protocol_version: Option<&'a str>,
     method: Option<&'a str>,
     name: Option<&'a str>,
@@ -13417,7 +15678,7 @@ struct McpHttpRequestHeaders<'a> {
 }
 
 struct McpListen {
-    session: Arc<McpSession>,
+    session: Arc<SessionState>,
     cleanup: Option<(GatewayState, String)>,
 }
 
@@ -13432,7 +15693,7 @@ impl HttpOut {
         }
     }
 
-    fn mcp_listen(session: Arc<McpSession>) -> Self {
+    fn mcp_listen(session: Arc<SessionState>) -> Self {
         Self {
             status: 200,
             ctype: "text/event-stream",
@@ -13445,7 +15706,7 @@ impl HttpOut {
         }
     }
 
-    fn modern_mcp_listen(state: GatewayState, key: String, session: Arc<McpSession>) -> Self {
+    fn modern_mcp_listen(state: GatewayState, key: String, session: Arc<SessionState>) -> Self {
         Self {
             status: 200,
             ctype: "text/event-stream",
@@ -13482,7 +15743,7 @@ fn mcp_require_session(
     state: &GatewayState,
     session_hdr: Option<&str>,
     owner: Option<&McpSessionOwner>,
-) -> Result<(String, Arc<McpSession>), HttpOut> {
+) -> Result<(String, Arc<SessionState>), HttpOut> {
     let Some(sid) = session_hdr.map(str::trim).filter(|s| !s.is_empty()) else {
         return Err(HttpOut::json_err(
             400,
@@ -13511,7 +15772,7 @@ fn mcp_require_session(
         // response so callers cannot probe whether another client's id exists.
         None => Err(HttpOut::json_err(
             404,
-            "unknown or expired Mcp-Session-Id; re-initialize",
+            conduit_lib::stdio_adapter::SESSION_REFUSED_ERROR,
         )),
     }
 }
@@ -13739,9 +16000,17 @@ fn handle_mcp_http(
     allowed: Option<&std::collections::HashSet<String>>,
     client: Option<&str>,
     client_name: Option<&str>,
+    discovery: DiscoveryMode,
     session_owner: Option<&McpSessionOwner>,
+    connection_profile: Option<&str>,
 ) -> HttpOut {
     let prefer_sse = mcp_prefers_sse(headers.accept);
+    let _adapter_root = AdapterRootGuard::enter(
+        (state.daemon_mode.load(Ordering::SeqCst)
+            && session_owner.is_some_and(|owner| owner.identity.starts_with("adapter:")))
+        .then(|| headers.adapter_resolved_root.map(str::to_string))
+        .flatten(),
+    );
     match method {
         // GET (listen stream) and DELETE (session teardown) were removed in
         // 2026-07-28. Their transport header is the era boundary because neither
@@ -13783,7 +16052,7 @@ fn handle_mcp_http(
                     cleanup_resource_subs_for_session(state, &sid);
                     // The conversation is over; its pseudonym map must not outlive it
                     // and resolve tokens for the next one (SBS-605).
-                    clear_pii_session(session_owner.map(|o| o.identity.as_str()));
+                    clear_mcp_session_tables(&sid);
                     HttpOut::new(204, "text/plain", String::new())
                 }
                 Err(e) => e,
@@ -13825,11 +16094,37 @@ fn handle_mcp_http(
                 if !mcp_accepts_sse(headers.accept) {
                     return HttpOut::json_err(406, "Accept must include text/event-stream");
                 }
-                let router = state
+                let base = state
                     .router
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner)
                     .clone();
+                let reg = state
+                    .registry
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .clone();
+                let rooted = if state.daemon_mode.load(Ordering::SeqCst)
+                    && session_owner.is_some_and(|owner| owner.identity.starts_with("adapter:"))
+                {
+                    state.router_for_root(
+                        base,
+                        &reg,
+                        state.active_adapter_root().as_deref(),
+                        allowed,
+                    )
+                } else {
+                    base
+                };
+                let router = session_owner
+                    .and_then(|owner| owner.profile.as_deref())
+                    .filter(|_| state.daemon_mode.load(Ordering::SeqCst))
+                    .map(|profile| {
+                        state
+                            .router_for_adapter_profile(rooted.clone(), &reg, profile)
+                            .0
+                    })
+                    .unwrap_or(rooted);
                 return match register_modern_subscription(
                     state,
                     &router,
@@ -13888,6 +16183,37 @@ fn handle_mcp_http(
                 }
             };
 
+            if is_initialize
+                && state.daemon_mode.load(Ordering::SeqCst)
+                && session_owner.is_some_and(|owner| owner.identity.starts_with("adapter:"))
+            {
+                if let Some(sid) = session_id.as_deref() {
+                    if let Some(session) = state
+                        .mcp_sessions
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .get(sid)
+                    {
+                        *session
+                            .client_cwd
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner) =
+                            headers.adapter_cwd.map(str::to_string);
+                        *session
+                            .client_root_override
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner) =
+                            headers.adapter_root_override.map(str::to_string);
+                        *session
+                            .client_root
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner) =
+                            headers.adapter_resolved_root.map(str::to_string);
+                        session.root_refreshed.store(false, Ordering::SeqCst);
+                    }
+                }
+            }
+
             if let Some(session_id) = session_id.as_deref() {
                 if is_initialize {
                     if let Ok(sessions) = state.mcp_sessions.lock() {
@@ -13902,7 +16228,7 @@ fn handle_mcp_http(
                 if is_jsonrpc_response(&req) {
                     if let Ok(sessions) = state.mcp_sessions.lock() {
                         if let Some(sess) = sessions.get(session_id) {
-                            if sess.try_deliver_upstream(&req) {
+                            if sess.try_deliver(&req) {
                                 return HttpOut::new(202, "text/plain", String::new())
                                     .with_header("Mcp-Session-Id", session_id);
                             }
@@ -13910,6 +16236,17 @@ fn handle_mcp_http(
                     }
                 }
             }
+
+            // A legacy MCP session owns its own guard pair (P1.2): one search
+            // streak and one set of pending confirmations per conversation. A
+            // request with no session record keeps the listener-level pair passed
+            // in, which is what a modern (self-contained) request and every
+            // pre-session request already used.
+            let session_guards = state.session_guards(session_id.as_deref());
+            let (guard, confirm) = match &session_guards {
+                Some(guards) => (guards.search.as_ref(), guards.confirm.as_ref()),
+                None => (guard, confirm),
+            };
 
             // Notifications / JSON-RPC responses: 202 with empty body.
             if !has_id {
@@ -13920,9 +16257,12 @@ fn handle_mcp_http(
                     guard,
                     confirm,
                     allowed,
+                    session_owner.and_then(|owner| owner.profile.as_deref()),
+                    connection_profile,
                     None,
                     client,
                     client_name,
+                    discovery,
                 );
                 let out = HttpOut::new(202, "text/plain", String::new());
                 return match session_id.as_deref() {
@@ -13938,9 +16278,12 @@ fn handle_mcp_http(
                 guard,
                 confirm,
                 allowed,
+                session_owner.and_then(|owner| owner.profile.as_deref()),
+                connection_profile,
                 None,
                 client,
                 client_name,
+                discovery,
             );
             match resp {
                 Some(resp) => {
@@ -13993,8 +16336,101 @@ fn handle_http_with_headers(
     let client = caller.map(|value| value.session_owner.identity.as_str());
     let client_name = caller.and_then(|value| value.audit_label.as_deref());
     let session_owner = caller.map(|value| &value.session_owner);
+    let connection_profile = caller.and_then(|value| value.profile.as_deref());
+    // Per-client discovery (#868): a caller whose client set clientDiscovery gets that mode;
+    // every other request reads the host's live mode, exactly like stdio and the daemon, so a
+    // switch after boot reaches this bridge at once instead of waiting for a restart.
+    let discovery = caller
+        .and_then(|value| value.discovery)
+        .unwrap_or_else(|| state.discovery_mode());
     if method == "OPTIONS" {
         return HttpOut::new(204, "text/plain", String::new());
+    }
+
+    // Internal rendezvous identity. Daemon mode only, so the user-facing bridge
+    // never exposes the compat fingerprint or build; gated by the same bearer.
+    if state.daemon_mode.load(Ordering::SeqCst) && path == conduit_lib::daemon::IDENTITY_PATH {
+        return if headers.private_daemon_bearer {
+            HttpOut::new(200, "application/json", daemon_identity_json())
+        } else {
+            HttpOut::json_err(401, "unauthorized")
+        };
+    }
+    if state.daemon_mode.load(Ordering::SeqCst) && path == conduit_lib::daemon::TOPOLOGY_PATH {
+        return if !headers.private_daemon_bearer {
+            HttpOut::json_err(401, "unauthorized")
+        } else if method == "GET" {
+            HttpOut::new(200, "application/json", daemon_topology_json(state))
+        } else {
+            HttpOut::json_err(405, "method not allowed on /host/topology")
+        };
+    }
+    if state.daemon_mode.load(Ordering::SeqCst)
+        && path == conduit_lib::daemon::HTTP_SERVICE_LEASE_PATH
+    {
+        if !headers.private_daemon_bearer {
+            return HttpOut::json_err(401, "unauthorized");
+        }
+        if !matches!(method, "POST" | "DELETE") {
+            return HttpOut::json_err(405, "method not allowed on /host/http-service-lease");
+        }
+        if body.len() > 256 {
+            return HttpOut::json_err(413, "service lease request is too large");
+        }
+        let Ok(request) = serde_json::from_str::<HttpServiceLeaseRequest>(body) else {
+            return HttpOut::json_err(400, "invalid service lease request");
+        };
+        if !valid_http_service_hash(&request.token_sha256)
+            || !valid_http_service_bind_host(&request.bind_host)
+        {
+            return HttpOut::json_err(400, "invalid HTTP service lease");
+        }
+        let mut lease = state
+            .http_service_lease
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if method == "POST" {
+            *lease = Some(HttpServiceLease {
+                token_sha256: request.token_sha256,
+                bind_host: request.bind_host,
+                expires_at: Instant::now() + HTTP_SERVICE_LEASE_TTL,
+            });
+            return HttpOut::new(
+                200,
+                "application/json",
+                json!({ "leaseMs": HTTP_SERVICE_LEASE_TTL.as_millis() }).to_string(),
+            );
+        }
+        if lease.as_ref().is_some_and(|current| {
+            !ct_eq(
+                current.token_sha256.as_bytes(),
+                request.token_sha256.as_bytes(),
+            )
+        }) {
+            return HttpOut::json_err(409, "a different HTTP service holds the lease");
+        }
+        *lease = None;
+        return HttpOut::new(
+            200,
+            "application/json",
+            json!({ "released": true }).to_string(),
+        );
+    }
+    if state.daemon_mode.load(Ordering::SeqCst)
+        && path == conduit_lib::daemon::SHUTDOWN_IF_IDLE_PATH
+    {
+        if !headers.private_daemon_bearer {
+            return HttpOut::json_err(401, "unauthorized");
+        }
+        if method != "POST" {
+            return HttpOut::json_err(405, "method not allowed on /host/shutdown-if-idle");
+        }
+        state.shutdown_if_idle.store(true, Ordering::Release);
+        return HttpOut::new(
+            202,
+            "application/json",
+            json!({ "pending": true }).to_string(),
+        );
     }
 
     // Streamable-HTTP MCP endpoint (same port as OpenAPI).
@@ -14009,7 +16445,9 @@ fn handle_http_with_headers(
             allowed,
             client,
             client_name,
+            discovery,
             session_owner,
+            connection_profile,
         );
     }
 
@@ -14017,7 +16455,7 @@ fn handle_http_with_headers(
         ("GET", "/openapi.json") => HttpOut::new(
             200,
             "application/json",
-            openapi_spec(state, allowed).to_string(),
+            openapi_spec(state, allowed, discovery).to_string(),
         ),
         ("GET", "/") | ("GET", "/docs") => {
             let metrics_line = if conduit_lib::metrics::metrics_enabled() {
@@ -14069,7 +16507,9 @@ fn handle_http_with_headers(
                     allowed,
                     client,
                     client_name,
+                    discovery,
                     session_owner,
+                    connection_profile,
                 );
             }
             let args: Value = if body.trim().is_empty() {
@@ -14094,9 +16534,12 @@ fn handle_http_with_headers(
                 guard,
                 confirm,
                 allowed,
+                caller.and_then(|caller| caller.session_owner.profile.as_deref()),
+                connection_profile,
                 None,
                 client,
                 client_name,
+                discovery,
             ) {
                 Some(resp) => {
                     if let Some(err) = resp.get("error") {
@@ -14167,13 +16610,16 @@ fn handle_http(
 /// Cap on an inbound HTTP request body. Tool arguments are tiny; this just stops
 /// an unauthenticated caller from forcing the gateway to buffer a huge body.
 const MAX_HTTP_BODY: u64 = 4 * 1024 * 1024;
+/// The authenticated private daemon hop carries the adapter's stdio frames.
+/// Keep its body cap aligned with that frame cap without raising the public
+/// HTTP/OpenAPI limit.
+const MAX_DAEMON_HTTP_BODY: u64 = conduit_lib::stdio_adapter::MAX_FRAME_BYTES as u64;
 
 /// Bound the pre-routing socket work that `tiny_http` otherwise performs before
 /// yielding a request. Headers and bodies each get an absolute deadline, so a
 /// client cannot keep a connection alive forever by dripping one byte at a time.
 const MAX_HTTP_HEADER_BYTES: usize = 64 * 1024;
 const MAX_HTTP_PENDING_READS: usize = 64;
-const MAX_HTTP_CHUNK_WIRE_BYTES: usize = MAX_HTTP_BODY as usize + MAX_HTTP_HEADER_BYTES;
 const HTTP_HEADER_READ_TIMEOUT: Duration = Duration::from_secs(10);
 const HTTP_BODY_READ_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -14181,6 +16627,7 @@ const HTTP_BODY_READ_TIMEOUT: Duration = Duration::from_secs(30);
 struct HttpReadDeadlines {
     header: Duration,
     body: Duration,
+    max_body: u64,
 }
 
 impl Default for HttpReadDeadlines {
@@ -14188,6 +16635,7 @@ impl Default for HttpReadDeadlines {
         Self {
             header: HTTP_HEADER_READ_TIMEOUT,
             body: HTTP_BODY_READ_TIMEOUT,
+            max_body: MAX_HTTP_BODY,
         }
     }
 }
@@ -14236,7 +16684,10 @@ fn find_http_header_end(bytes: &[u8]) -> Option<usize> {
         .map(|offset| offset + 4)
 }
 
-fn parse_http_head(bytes: &[u8]) -> Result<ParsedHttpHead, HttpIngressError> {
+fn parse_http_head_with_limit(
+    bytes: &[u8],
+    max_body: u64,
+) -> Result<ParsedHttpHead, HttpIngressError> {
     let text = std::str::from_utf8(bytes).map_err(|_| HttpIngressError::BadRequest)?;
     let mut lines = text.split("\r\n");
     let request_line = lines
@@ -14293,7 +16744,7 @@ fn parse_http_head(bytes: &[u8]) -> Result<ParsedHttpHead, HttpIngressError> {
         forwarded.extend_from_slice(b"\r\n");
     }
 
-    if content_length.unwrap_or(0) > MAX_HTTP_BODY as usize {
+    if content_length.unwrap_or(0) > max_body as usize {
         return Err(HttpIngressError::BodyTooLarge);
     }
     let framing = match (content_length, transfer_encoding) {
@@ -14375,9 +16826,10 @@ fn chunked_http_trailer_end(body: &[u8], scan: &mut ChunkedHttpBodyScan) -> Opti
     None
 }
 
-fn chunked_http_body_end(
+fn chunked_http_body_end_with_limit(
     body: &[u8],
     scan: &mut ChunkedHttpBodyScan,
+    max_body: u64,
 ) -> Result<Option<usize>, HttpIngressError> {
     if scan.trailer_start.is_some() {
         return Ok(chunked_http_trailer_end(body, scan));
@@ -14404,7 +16856,7 @@ fn chunked_http_body_end(
         decoded = decoded
             .checked_add(size)
             .ok_or(HttpIngressError::BodyTooLarge)?;
-        if decoded > MAX_HTTP_BODY as usize {
+        if decoded > max_body as usize {
             return Err(HttpIngressError::BodyTooLarge);
         }
 
@@ -14432,6 +16884,19 @@ fn chunked_http_body_end(
     }
 }
 
+#[cfg(test)]
+fn parse_http_head(bytes: &[u8]) -> Result<ParsedHttpHead, HttpIngressError> {
+    parse_http_head_with_limit(bytes, MAX_HTTP_BODY)
+}
+
+#[cfg(test)]
+fn chunked_http_body_end(
+    body: &[u8],
+    scan: &mut ChunkedHttpBodyScan,
+) -> Result<Option<usize>, HttpIngressError> {
+    chunked_http_body_end_with_limit(body, scan, MAX_HTTP_BODY)
+}
+
 fn read_deadline_http_request(
     stream: &mut TcpStream,
     deadlines: HttpReadDeadlines,
@@ -14451,7 +16916,7 @@ fn read_deadline_http_request(
         }
     };
 
-    let parsed = parse_http_head(&received[..header_end - 2])?;
+    let parsed = parse_http_head_with_limit(&received[..header_end - 2], deadlines.max_body)?;
     if parsed.send_continue {
         stream
             .write_all(b"HTTP/1.1 100 Continue\r\n\r\n")
@@ -14466,7 +16931,7 @@ fn read_deadline_http_request(
         HttpBodyFraming::ContentLength(length) => {
             while body.len() < length {
                 read_before_deadline(stream, &mut body, body_deadline)?;
-                if body.len() > MAX_HTTP_BODY as usize {
+                if body.len() > deadlines.max_body as usize {
                     return Err(HttpIngressError::BodyTooLarge);
                 }
             }
@@ -14477,10 +16942,12 @@ fn read_deadline_http_request(
             loop {
                 // Permit ordinary chunk framing overhead while bounding the total wire
                 // buffer as well as the decoded body size checked by the parser.
-                if body.len() > MAX_HTTP_CHUNK_WIRE_BYTES {
+                if body.len() > deadlines.max_body as usize + MAX_HTTP_HEADER_BYTES {
                     return Err(HttpIngressError::BodyTooLarge);
                 }
-                if let Some(end) = chunked_http_body_end(&body, &mut scan)? {
+                if let Some(end) =
+                    chunked_http_body_end_with_limit(&body, &mut scan, deadlines.max_body)?
+                {
                     request.extend_from_slice(&body[..end]);
                     break;
                 }
@@ -14690,6 +17157,29 @@ fn insecure_loopback_requested(args: &[String]) -> bool {
     args.iter().any(|arg| arg == INSECURE_LOOPBACK_FLAG)
 }
 
+/// Whether the operator asked this process to be the host daemon (`--daemon`).
+/// Phase 2: the daemon role currently serves the internal identity handshake and
+/// exits after an idle grace; it does not own a router yet.
+fn daemon_requested(args: &[String]) -> bool {
+    args.iter().any(|arg| arg == "--daemon")
+}
+
+fn selected_adapter_requested(
+    args: &[String],
+    stdio_peer: bool,
+    override_value: Option<&str>,
+    topology: Option<registry::GatewayTopology>,
+) -> bool {
+    if !args.is_empty() || !stdio_peer {
+        return false;
+    }
+    match override_value.map(str::trim) {
+        Some(value) if value.eq_ignore_ascii_case("legacy") => false,
+        Some(value) if value.eq_ignore_ascii_case("daemon") => true,
+        _ => topology == Some(registry::GatewayTopology::Daemon),
+    }
+}
+
 /// Startup admission policy. The escape hatch is never valid for a non-loopback bind.
 ///
 /// `registry_loaded` is the boot `load_resolved` outcome (Ok=true, Err=false). A
@@ -14720,6 +17210,199 @@ fn http_allows_insecure_open(
     registry_loaded: bool,
 ) -> bool {
     loopback && insecure_loopback && !auth_configured && registry_loaded
+}
+
+/// The daemon's identity payload, matching [`conduit_lib::daemon::DaemonIdentity`].
+fn daemon_compat_fingerprint() -> String {
+    registry::conduit_dir()
+        .map(|dir| {
+            conduit_lib::topology::CompatKey::new(
+                env!("CARGO_PKG_VERSION"),
+                dir.display().to_string(),
+            )
+        })
+        .map(|compat| compat.fingerprint())
+        .unwrap_or_default()
+}
+
+fn daemon_identity_json() -> String {
+    json!({
+        "compat": daemon_compat_fingerprint(),
+        "protocol": conduit_lib::daemon::PROTOCOL_GENERATION,
+        "pid": std::process::id(),
+        "gatewayVersion": env!("CARGO_PKG_VERSION"),
+    })
+    .to_string()
+}
+
+/// Current daemon counts for a private acceptance probe. Locks are released
+/// between fields so diagnostics never hold a session lock over a router lock.
+fn daemon_topology_json(state: &GatewayState) -> String {
+    let sessions = state
+        .mcp_sessions
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .len();
+    let ordinary_launches = state
+        .router
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .server_count();
+    let rooted_launches = state
+        .root_launch_pool
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .launches
+        .len();
+    json!({
+        "role": "daemon",
+        "compat": daemon_compat_fingerprint(),
+        "pid": std::process::id(),
+        "sessions": sessions,
+        "ordinaryLaunches": ordinary_launches,
+        "rootedLaunches": rooted_launches,
+        "launches": ordinary_launches + rooted_launches,
+    })
+    .to_string()
+}
+
+fn activity_now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|since| since.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// Exit the daemon once nothing has been in flight for `grace`. An open connection
+/// is what a legacy adapter's listen stream, its subscriptions, and a call in
+/// progress all reduce to, and a modern adapter checks in well inside the grace,
+/// so "no request for the whole grace" is the idle condition. A session row left
+/// behind by an adapter that died without a DELETE does not pin the process.
+/// Discovery is withdrawn before the decision is final, and put back if work
+/// arrived in that window.
+fn spawn_daemon_idle_watchdog(
+    host: Arc<HostState>,
+    inflight: Arc<AtomicUsize>,
+    descriptor_path: std::path::PathBuf,
+    descriptor: conduit_lib::daemon::DaemonDescriptor,
+    grace: Duration,
+) {
+    let poll = Duration::from_millis(200).min(grace);
+    std::thread::spawn(move || loop {
+        std::thread::sleep(poll);
+        if inflight.load(Ordering::Relaxed) > 0 {
+            continue;
+        }
+        if host.http_service_lease_active() {
+            continue;
+        }
+        let update_requested = host.shutdown_if_idle.load(Ordering::Acquire);
+        if !update_requested && host.idle_for() < grace {
+            continue;
+        }
+        if update_requested
+            && host
+                .mcp_sessions
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .values()
+                .any(|session| session.listener_active.load(Ordering::Acquire))
+        {
+            continue;
+        }
+        // Commit: stop advertising this daemon, then confirm nothing connected in the
+        // window between the check and here.
+        conduit_lib::daemon::clear_descriptor(&descriptor_path);
+        std::thread::sleep(poll);
+        if inflight.load(Ordering::Relaxed) > 0
+            || host.http_service_lease_active()
+            || (update_requested
+                && host
+                    .mcp_sessions
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .values()
+                    .any(|session| session.listener_active.load(Ordering::Acquire)))
+        {
+            // A client found us first. Advertise again and keep serving.
+            let _ = conduit_lib::daemon::write_descriptor(&descriptor_path, &descriptor);
+            continue;
+        }
+        glog("daemon: idle exit");
+        std::process::exit(0);
+    });
+}
+
+/// Run the host daemon: one runtime for this host, served on an internal loopback
+/// endpoint with a random bearer and advertised through the rendezvous
+/// descriptor. Reachable by an adapter or a manual probe, and exits on its own
+/// once it has been idle past the grace period.
+fn serve_daemon(state: GatewayState) -> ! {
+    let Some(dir) = registry::conduit_dir() else {
+        eprintln!("toolport-gateway --daemon: no data directory could be resolved");
+        std::process::exit(1);
+    };
+    let compat =
+        conduit_lib::topology::CompatKey::new(env!("CARGO_PKG_VERSION"), dir.display().to_string());
+    let token = match conduit_lib::daemon::new_token() {
+        Ok(token) => token,
+        Err(error) => {
+            eprintln!("toolport-gateway --daemon: {error}");
+            std::process::exit(1);
+        }
+    };
+    let (server, _ingress, _) =
+        match bind_deadline_http_server(
+            ("127.0.0.1", 0u16),
+            HttpReadDeadlines {
+                max_body: MAX_DAEMON_HTTP_BODY,
+                ..HttpReadDeadlines::default()
+            },
+        ) {
+            Ok(bound) => bound,
+            Err(error) => {
+                eprintln!(
+                    "toolport-gateway --daemon: could not bind the internal endpoint: {error}"
+                );
+                std::process::exit(1);
+            }
+        };
+    let Some(addr) = server.server_addr().to_ip() else {
+        eprintln!("toolport-gateway --daemon: the internal endpoint was not an IP socket");
+        std::process::exit(1);
+    };
+    let port = addr.port();
+    let descriptor_path = conduit_lib::daemon::descriptor_path(&dir, &compat);
+    let descriptor = conduit_lib::daemon::DaemonDescriptor::new(
+        format!("127.0.0.1:{port}"),
+        token.clone(),
+        &compat,
+    );
+    // Set the mode before publishing, so the first adapter to probe the
+    // descriptor already sees the identity route.
+    state.daemon_mode.store(true, Ordering::SeqCst);
+    if let Err(error) = conduit_lib::daemon::write_descriptor(&descriptor_path, &descriptor) {
+        eprintln!("toolport-gateway --daemon: could not publish the descriptor: {error}");
+        std::process::exit(1);
+    }
+    glog(&format!(
+        "daemon: host runtime on http://127.0.0.1:{port} for {}",
+        compat.fingerprint()
+    ));
+    let search = Arc::new(SearchGuard::default());
+    let confirm = Arc::new(ConfirmGuard::new());
+    state.touch_activity();
+    let inflight = Arc::new(AtomicUsize::new(0));
+    spawn_daemon_idle_watchdog(
+        Arc::clone(&state.host),
+        Arc::clone(&inflight),
+        descriptor_path.clone(),
+        descriptor.clone(),
+        conduit_lib::daemon::idle_grace(),
+    );
+    serve_http_loop_with_inflight(server, state, Some(token), search, confirm, false, inflight);
+    conduit_lib::daemon::clear_descriptor(&descriptor_path);
+    std::process::exit(0);
 }
 
 fn serve_http(state: GatewayState, port: u16) {
@@ -14787,10 +17470,13 @@ fn serve_http(state: GatewayState, port: u16) {
         );
     }
 
-    // Two guards shared by every worker thread on BOTH loopback listeners: the
-    // anti-thrash SearchGuard and the destructive-confirm ConfirmGuard each hold
-    // cross-request state (a confirm token stored by one request is redeemed by a
-    // later one), so they must be a single shared instance, not per-thread.
+    // The listener-level guard pair. A request that carries an MCP session id
+    // uses that session's own pair (see GatewayState::session_guards); this one
+    // is the fallback for requests that have no session record: a modern
+    // (self-contained) request, an OpenAPI tool call, and the pre-session
+    // `initialize`. It is per listener rather than per worker because a confirm
+    // token stored by one request is redeemed by a later one, which may land on a
+    // different worker.
     let search = Arc::new(SearchGuard::default());
     let confirm = Arc::new(ConfirmGuard::new());
 
@@ -14843,6 +17529,219 @@ fn serve_http(state: GatewayState, port: u16) {
         "toolport-gateway: HTTP on http://localhost:{port}  (OpenAPI /openapi.json, MCP POST /mcp)"
     );
     serve_http_loop(server, state, token, search, confirm, allow_insecure_open);
+}
+
+struct HttpProxyState {
+    token_sha256: String,
+    bind_host: String,
+    /// Renewal holds a read lock through its POST; release takes the write lock
+    /// so no worker can reauthorize the bearer after shutdown.
+    lease_open: RwLock<bool>,
+    latest_descriptor: Mutex<conduit_lib::daemon::DaemonDescriptor>,
+}
+
+impl HttpProxyState {
+    fn renew(&self) -> Result<conduit_lib::daemon::DaemonDescriptor, String> {
+        let open = self
+            .lease_open
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if !*open {
+            return Err("the desktop HTTP service is stopping".to_string());
+        }
+        let descriptor = conduit_lib::stdio_adapter::ensure_host_daemon()?;
+        let url = format!(
+            "http://{}{}",
+            descriptor.endpoint,
+            conduit_lib::daemon::HTTP_SERVICE_LEASE_PATH
+        );
+        ureq::post(&url)
+            .timeout(Duration::from_secs(3))
+            .set("Authorization", &format!("Bearer {}", descriptor.token))
+            .send_json(json!({
+                "tokenSha256": self.token_sha256,
+                "bindHost": self.bind_host
+            }))
+            .map_err(|error| format!("could not renew the daemon HTTP service lease: {error}"))?;
+        *self
+            .latest_descriptor
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = descriptor.clone();
+        Ok(descriptor)
+    }
+
+    fn release(&self) {
+        let mut open = self
+            .lease_open
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *open = false;
+        let descriptor = self
+            .latest_descriptor
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        let url = format!(
+            "http://{}{}",
+            descriptor.endpoint,
+            conduit_lib::daemon::HTTP_SERVICE_LEASE_PATH
+        );
+        let _ = ureq::delete(&url)
+            .timeout(Duration::from_secs(2))
+            .set("Authorization", &format!("Bearer {}", descriptor.token))
+            .send_json(json!({
+                "tokenSha256": self.token_sha256,
+                "bindHost": self.bind_host
+            }));
+    }
+}
+
+fn proxy_public_http_connection(
+    mut client: TcpStream,
+    state: &HttpProxyState,
+    pending_read: InflightGuard,
+    active: &Arc<AtomicUsize>,
+) {
+    let request = match read_deadline_http_request(&mut client, HttpReadDeadlines::default()) {
+        Ok(request) => request,
+        Err(error) => {
+            let (status, reason, message) = error.response();
+            write_ingress_response(&mut client, status, reason, message);
+            return;
+        }
+    };
+    drop(pending_read);
+    let Some(_active) = try_acquire_inflight(active, MAX_HTTP_INFLIGHT) else {
+        write_ingress_response(&mut client, 503, "Service Unavailable", "gateway busy; retry later");
+        return;
+    };
+    // Authenticate the cached daemon before every new public request. A failed
+    // connection may be retried here because no request bytes were sent yet;
+    // a failed write after connection is never replayed.
+    let descriptor = match state.renew() {
+        Ok(descriptor) => descriptor,
+        Err(error) => {
+            glog(&format!("HTTP proxy: {error}"));
+            write_ingress_response(&mut client, 503, "Service Unavailable", "gateway unavailable");
+            return;
+        }
+    };
+    let Ok(endpoint) = descriptor.endpoint.parse::<SocketAddr>() else {
+        write_ingress_response(&mut client, 503, "Service Unavailable", "gateway unavailable");
+        return;
+    };
+    let mut upstream = match TcpStream::connect_timeout(&endpoint, Duration::from_secs(2)) {
+        Ok(stream) => stream,
+        Err(_) => {
+            write_ingress_response(&mut client, 503, "Service Unavailable", "gateway unavailable");
+            return;
+        }
+    };
+    if upstream.write_all(&request).is_err() {
+        write_ingress_response(&mut client, 503, "Service Unavailable", "gateway unavailable");
+        return;
+    }
+    let _ = upstream.shutdown(Shutdown::Write);
+    let _ = std::io::copy(&mut upstream, &mut client);
+}
+
+/// The desktop keeps this lightweight public listener as its child. The heavy
+/// router and downstream pool stay in the daemon shared with stdio adapters.
+fn serve_http_proxy(port: u16) -> Result<(), String> {
+    let token = conduit_lib::brand::env_var("TOOLPORT_HTTP_TOKEN", "CONDUIT_HTTP_TOKEN")
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "the HTTP proxy requires TOOLPORT_HTTP_TOKEN".to_string())?;
+    let bind_host = conduit_lib::brand::env_var("TOOLPORT_HTTP_HOST", "CONDUIT_HTTP_HOST")
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| "127.0.0.1".to_string());
+    let primary = TcpListener::bind((bind_host.as_str(), port))
+        .map_err(|error| format!("could not bind HTTP proxy on {bind_host}:{port}: {error}"))?;
+    let mut listeners = vec![primary];
+    if bind_host == "127.0.0.1" {
+        if let Ok(ipv6) = TcpListener::bind(("::1", port)) {
+            listeners.push(ipv6);
+        }
+    }
+    for listener in &listeners {
+        listener
+            .set_nonblocking(true)
+            .map_err(|error| format!("could not prepare HTTP proxy listener: {error}"))?;
+    }
+    let descriptor = conduit_lib::stdio_adapter::ensure_host_daemon()?;
+    let state = Arc::new(HttpProxyState {
+        token_sha256: registry::sha256_hex(&token),
+        bind_host,
+        lease_open: RwLock::new(true),
+        latest_descriptor: Mutex::new(descriptor),
+    });
+    if let Err(error) = state.renew() {
+        // A timeout can follow a successful lease POST. Revoke that possible
+        // lease before returning the startup error.
+        state.release();
+        return Err(error);
+    }
+    let stop = Arc::new(AtomicBool::new(false));
+    {
+        let stop = Arc::clone(&stop);
+        std::thread::spawn(move || {
+            let mut stdin = std::io::stdin().lock();
+            let mut bytes = [0u8; 64];
+            while stdin.read(&mut bytes).unwrap_or(0) > 0 {}
+            stop.store(true, Ordering::Release);
+        });
+    }
+    {
+        let stop = Arc::clone(&stop);
+        let state = Arc::clone(&state);
+        std::thread::spawn(move || {
+            while !stop.load(Ordering::Acquire) {
+                std::thread::sleep(Duration::from_secs(60));
+                if !stop.load(Ordering::Acquire) {
+                    if let Err(error) = state.renew() {
+                        glog(&format!("HTTP proxy lease renewal: {error}"));
+                    }
+                }
+            }
+        });
+    }
+    let pending_reads = Arc::new(AtomicUsize::new(0));
+    let active = Arc::new(AtomicUsize::new(0));
+    while !stop.load(Ordering::Acquire) {
+        for listener in &listeners {
+            match listener.accept() {
+                Ok((mut client, _)) => {
+                    if client.set_nonblocking(false).is_err() {
+                        write_ingress_response(&mut client, 503, "Service Unavailable", "gateway unavailable");
+                        continue;
+                    }
+                    let Some(pending) =
+                        try_acquire_inflight(&pending_reads, MAX_HTTP_PENDING_READS)
+                    else {
+                        write_ingress_response(&mut client, 503, "Service Unavailable", "gateway busy; retry later");
+                        continue;
+                    };
+                    let state = Arc::clone(&state);
+                    let active = Arc::clone(&active);
+                    std::thread::spawn(move || {
+                        proxy_public_http_connection(client, &state, pending, &active)
+                    });
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(error) => {
+                    state.release();
+                    return Err(format!("HTTP proxy accept failed: {error}"));
+                }
+            }
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let deadline = Instant::now() + Duration::from_secs(1);
+    while active.load(Ordering::Relaxed) > 0 && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    state.release();
+    Ok(())
 }
 
 /// The accept loop for one listener. Each accepted request is handed to its own
@@ -15020,6 +17919,7 @@ fn serve_http_loop_with_inflight(
     inflight: Arc<AtomicUsize>,
 ) {
     for request in server.incoming_requests() {
+        state.touch_activity();
         let Some(guard) = try_acquire_inflight(&inflight, MAX_HTTP_INFLIGHT) else {
             respond_http_overloaded(request);
             continue;
@@ -15040,6 +17940,9 @@ fn serve_http_loop_with_inflight(
                 &confirm,
                 allow_insecure_open,
             );
+            // Stamp on completion too, so a request that ran longer than the grace
+            // still gives the daemon a full grace after it finished.
+            state.touch_activity();
         });
     }
 }
@@ -15150,11 +18053,25 @@ fn handle_connection(
         .iter()
         .find(|h| h.field.equiv("Origin"))
         .map(|h| h.value.as_str().to_string());
+    let provided = request
+        .headers()
+        .iter()
+        .find(|h| h.field.equiv("Authorization"))
+        .map(|h| h.value.as_str().to_string());
+    let provided_tok = provided.as_deref().and_then(parse_bearer);
+    let service_bearer = provided_tok.filter(|actual| {
+        state.daemon_mode.load(Ordering::SeqCst) && state.http_service_token_active(actual)
+    });
+    // A service lease changes the permitted origin only for its own bearer.
+    // Registered HTTP clients retain the daemon's ordinary Origin policy.
+    let service_bind_host = service_bearer.and_then(|_| state.http_service_bind_host());
     let forbidden = cross_origin_forbidden(
         &method,
         sec_fetch_site.as_deref(),
         origin_hdr.as_deref(),
-        &state.http_bind_host,
+        service_bind_host
+            .as_deref()
+            .unwrap_or(&state.http_bind_host),
         &state.http_allowed_origins,
     );
 
@@ -15164,12 +18081,104 @@ fn handle_connection(
     // HTTP client (its profile's servers), or open only when startup explicitly
     // accepted `--insecure-loopback`.
     // A bad/missing token is rejected before we read the body or route.
-    let provided = request
-        .headers()
-        .iter()
-        .find(|h| h.field.equiv("Authorization"))
-        .map(|h| h.value.as_str().to_string());
-    let provided_tok = provided.as_deref().and_then(parse_bearer);
+    let adapter_client_header = request.headers().iter().find(|h| {
+        h.field
+            .equiv(conduit_lib::stdio_adapter::ADAPTER_CLIENT_ID_HEADER)
+    });
+    let adapter_profile_header = request.headers().iter().find(|h| {
+        h.field
+            .equiv(conduit_lib::stdio_adapter::ADAPTER_PROFILE_HEADER)
+    });
+    let adapter_cwd_header = request.headers().iter().find(|h| {
+        h.field
+            .equiv(conduit_lib::stdio_adapter::ADAPTER_CWD_HEADER)
+    });
+    let adapter_root_override_header = request.headers().iter().find(|h| {
+        h.field
+            .equiv(conduit_lib::stdio_adapter::ADAPTER_ROOT_OVERRIDE_HEADER)
+    });
+    let adapter_declared_root_header = request.headers().iter().find(|h| {
+        h.field
+            .equiv(conduit_lib::stdio_adapter::ADAPTER_DECLARED_ROOT_HEADER)
+    });
+    let adapter_header_value = |value: &str| {
+        (value.len() <= 512 && !value.trim().is_empty() && !value.chars().any(char::is_control))
+            .then(|| value.to_string())
+    };
+    let adapter_client_id =
+        adapter_client_header.and_then(|h| adapter_header_value(h.value.as_str()));
+    let adapter_profile =
+        adapter_profile_header.and_then(|h| adapter_header_value(h.value.as_str()));
+    let decode_adapter_path = |value: &str| {
+        (value.len() <= 8192)
+            .then(|| {
+                base64::engine::general_purpose::URL_SAFE_NO_PAD
+                    .decode(value)
+                    .ok()
+            })
+            .flatten()
+            .and_then(|bytes| String::from_utf8(bytes).ok())
+            .filter(|path| path.len() <= 4096 && !path.trim().is_empty())
+    };
+    let adapter_cwd = adapter_cwd_header
+        .and_then(|h| decode_adapter_path(h.value.as_str()))
+        .filter(|path| std::path::Path::new(path).is_absolute());
+    let adapter_root_override =
+        adapter_root_override_header.and_then(|h| decode_adapter_path(h.value.as_str()));
+    let adapter_declared_root =
+        adapter_declared_root_header.and_then(|h| decode_adapter_path(h.value.as_str()));
+    let has_adapter_claim = adapter_client_header.is_some()
+        || adapter_profile_header.is_some()
+        || adapter_cwd_header.is_some()
+        || adapter_root_override_header.is_some()
+        || adapter_declared_root_header.is_some();
+    let valid_adapter_claim = adapter_client_id.is_some()
+        && (adapter_profile_header.is_none() || adapter_profile.is_some())
+        && (adapter_cwd_header.is_none() || adapter_cwd.is_some())
+        && (adapter_root_override_header.is_none() || adapter_root_override.is_some())
+        && (adapter_declared_root_header.is_none() || adapter_declared_root.is_some());
+    let private_daemon_bearer = state.daemon_mode.load(Ordering::SeqCst)
+        && token
+            .as_deref()
+            .zip(provided_tok)
+            .is_some_and(|(expected, actual)| ct_eq(expected.as_bytes(), actual.as_bytes()));
+    // Resolve an existing adapter session's own root before selecting its scope.
+    // Its declared MCP root can differ from the adapter process cwd. Read only a
+    // session owned by this asserted client id; an unknown or foreign id falls
+    // back to the adapter's launch context and is rejected by the session gate.
+    let adapter_session_root = if private_daemon_bearer && valid_adapter_claim {
+        session_hdr
+            .as_deref()
+            .zip(adapter_client_id.as_deref())
+            .and_then(|(sid, client_id)| {
+                let expected = format!("adapter:{client_id}");
+                state
+                    .mcp_sessions
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .get(sid)
+                    .filter(|session| {
+                        session
+                            .owner
+                            .as_ref()
+                            .is_some_and(|owner| owner.identity == expected)
+                    })
+                    .and_then(|session| {
+                        session
+                            .client_root
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner)
+                            .clone()
+                    })
+            })
+    } else {
+        None
+    };
+    let adapter_root = adapter_session_root
+        .as_deref()
+        .or(adapter_root_override.as_deref())
+        .or(adapter_declared_root.as_deref())
+        .or(adapter_cwd.as_deref());
     let mut caller: Option<HttpCaller> = None;
     let scope: Option<Option<std::collections::HashSet<String>>> = if method == "OPTIONS" {
         Some(None)
@@ -15186,13 +18195,29 @@ fn handle_connection(
         let registry_loaded = state.registry_trusted.load(Ordering::SeqCst);
         // Resolve authorization, routing scope, audit attribution, and MCP
         // session ownership from one token lookup and one effective allow-set.
-        match resolve_http_caller(
-            &reg,
-            token.as_deref(),
-            provided_tok,
-            allow_insecure_open,
-            registry_loaded,
-        ) {
+        let resolved = if has_adapter_claim {
+            if private_daemon_bearer && valid_adapter_claim {
+                adapter_client_id.as_deref().map(|client_id| {
+                    resolve_adapter_caller(
+                        &reg,
+                        client_id,
+                        adapter_profile.as_deref(),
+                        adapter_root,
+                    )
+                })
+            } else {
+                None
+            }
+        } else {
+            resolve_http_caller(
+                &reg,
+                service_bearer.or(token.as_deref()),
+                provided_tok,
+                allow_insecure_open,
+                registry_loaded,
+            )
+        };
+        match resolved {
             Some((allowed, resolved_caller)) => {
                 caller = Some(resolved_caller);
                 Some(allowed)
@@ -15211,7 +18236,11 @@ fn handle_connection(
                 if method == "POST" || method == "DELETE" {
                     let _ = request
                         .as_reader()
-                        .take(MAX_HTTP_BODY)
+                        .take(if state.daemon_mode.load(Ordering::SeqCst) {
+                            MAX_DAEMON_HTTP_BODY
+                        } else {
+                            MAX_HTTP_BODY
+                        })
                         .read_to_string(&mut body);
                 }
                 // A panic in a handler must return 500, not kill the listener.
@@ -15224,7 +18253,23 @@ fn handle_connection(
                         &path,
                         &body,
                         McpHttpRequestHeaders {
+                            private_daemon_bearer,
                             session_id: session_hdr.as_deref(),
+                            adapter_cwd: if private_daemon_bearer && valid_adapter_claim {
+                                adapter_cwd.as_deref()
+                            } else {
+                                None
+                            },
+                            adapter_root_override: if private_daemon_bearer && valid_adapter_claim {
+                                adapter_root_override.as_deref()
+                            } else {
+                                None
+                            },
+                            adapter_resolved_root: if private_daemon_bearer && valid_adapter_claim {
+                                adapter_root
+                            } else {
+                                None
+                            },
                             protocol_version: protocol_version_hdr.as_deref(),
                             method: mcp_method_hdr.as_deref(),
                             name: mcp_name_hdr.as_deref(),
@@ -15279,7 +18324,14 @@ fn handle_connection(
 /// place so `--help`'s usage text and the unknown-flag check in [`parse_args`]
 /// can't drift from the real parsers in `http_port`, `insecure_loopback_requested`,
 /// and `main`'s `--selftest-secrets` check.
-const KNOWN_FLAGS: &[&str] = &["--http", INSECURE_LOOPBACK_FLAG, "--selftest-secrets"];
+const KNOWN_FLAGS: &[&str] = &[
+    "--http",
+    "--http-proxy",
+    INSECURE_LOOPBACK_FLAG,
+    "--daemon",
+    "--selftest-secrets",
+    conduit_lib::stdio_adapter::STDIO_ADAPTER_FLAG,
+];
 
 /// What the command line is asking `main` to do, decided purely from `args`
 /// (already excluding argv[0]) with no I/O - unit-testable without spawning a
@@ -15345,6 +18397,33 @@ fn parse_args(args: &[String]) -> ArgAction {
     ArgAction::Run
 }
 
+#[allow(clippy::too_many_arguments)]
+fn run_code_mode_isolated(
+    script: &str,
+    input: codemode::ScriptInput,
+    call: codemode::CallBinding,
+    fetch: Option<codemode::FetchBinding>,
+    limits: codemode::Limits,
+    catalog: &[String],
+    cancel: Option<downstream::CancelContext>,
+    host_calls: worker::HostCalls,
+) -> codemode::ScriptOutcome {
+    if let Err(error) = worker::check_input(script, &input) {
+        return worker::terminated_outcome(0, Vec::new(), error);
+    }
+    #[cfg(test)]
+    {
+        // Cargo's unit-test harness cannot re-enter the gateway's worker mode.
+        // Integration tests exercise the real executable and process boundary.
+        let _ = (cancel, host_calls);
+        codemode::run_script_with_input(script, input, call, fetch, limits, catalog)
+    }
+    #[cfg(not(test))]
+    worker::run_script(
+        script, input, call, fetch, limits, catalog, cancel, host_calls,
+    )
+}
+
 /// Usage text shared by `--help` and the unknown-flag error, so a typo and a
 /// deliberate `--help` land on the same page.
 fn usage() -> String {
@@ -15356,7 +18435,13 @@ fn usage() -> String {
          \n\
          FLAGS:\n\
          \x20   --http [port]         Serve over HTTP instead of stdio (default port 8765)\n\
+         \x20   --http-proxy [port]   Desktop HTTP bridge to the host daemon (internal)\n\
          \x20   {insecure}   Allow unauthenticated HTTP access on a loopback bind\n\
+         \x20   --daemon             Run as the host daemon for this host (Phase 2;\n\
+         \x20                        internal rendezvous endpoint, not the user HTTP\n\
+         \x20                        surface)\n\
+         \x20   --stdio-adapter      Proxy stdio to the host daemon instead of running\n\
+         \x20                        the in-process gateway (Phase 2; opt-in)\n\
          \x20   --selftest-secrets    Diagnostic: read every vaulted secret and report\n\
          \x20   --toolport-hook EVENT Record one agent lifecycle event and exit (installed\n\
          \x20                         into an agent's settings by Toolport; always exits 0)\n\
@@ -15410,11 +18495,15 @@ fn detach_from_client_session() {
 #[cfg(not(unix))]
 fn detach_from_client_session() {}
 
+/// Entry point: classify the command line, then run the requested role.
 fn main() {
     // `--help`/`--version`/an unrecognized flag are decided before anything
     // else touches disk, the keychain, or stdin - see #605. Positional args
     // and the existing four flags fall through to `Run` unchanged.
     let cli_args: Vec<String> = std::env::args().skip(1).collect();
+    if cli_args.first().map(String::as_str) == Some(worker::WORKER_ARG) {
+        worker::worker_main();
+    }
     match parse_args(&cli_args) {
         ArgAction::Help => {
             println!("{}", usage());
@@ -15463,6 +18552,51 @@ fn main() {
         }
         ArgAction::Run => {}
     }
+    if let Some(index) = cli_args.iter().position(|arg| arg == "--http-proxy") {
+        let port = match cli_args.get(index + 1) {
+            Some(value) => match value.parse::<u16>() {
+                Ok(port) if port > 0 => port,
+                _ => {
+                    eprintln!("toolport-gateway: invalid HTTP proxy port: {value}");
+                    std::process::exit(1);
+                }
+            },
+            None => 8765,
+        };
+        if let Err(error) = serve_http_proxy(port) {
+            eprintln!("toolport-gateway --http-proxy: {error}");
+            std::process::exit(1);
+        }
+        return;
+    }
+    // Phase 2 stdio adapter: hand stdio to the host daemon instead of starting an
+    // in-process gateway. Diverges, and deliberately runs before the session
+    // detach, registry load, and watcher: this role owns none of that state, the
+    // daemon does.
+    if conduit_lib::stdio_adapter::adapter_requested(&cli_args) {
+        conduit_lib::stdio_adapter::run_stdio_adapter();
+    }
+    if cli_args.is_empty() {
+        use std::io::IsTerminal;
+        let stdio_peer = !std::io::stdin().is_terminal();
+        let topology = if stdio_peer {
+            registry::load_resolved_with_source()
+                .ok()
+                .filter(|(_, source)| source.is_authoritative())
+                .map(|(reg, _)| reg.gateway_topology_effective())
+        } else {
+            None
+        };
+        if selected_adapter_requested(
+            &cli_args,
+            stdio_peer,
+            conduit_lib::brand::env_var("TOOLPORT_GATEWAY_TOPOLOGY", "CONDUIT_GATEWAY_TOPOLOGY")
+                .as_deref(),
+            topology,
+        ) {
+            conduit_lib::stdio_adapter::run_selected_stdio_adapter();
+        }
+    }
     let selftest_secrets = cli_args.first().map(String::as_str) == Some("--selftest-secrets");
     if !selftest_secrets {
         detach_from_client_session();
@@ -15481,6 +18615,9 @@ fn main() {
     // counters then stay process-local until the first successful bind.
     if let Some(dir) = registry::conduit_dir() {
         conduit_lib::rate_limits::bind_data_dir(&dir);
+        // Share downstream 429 backoff windows across gateway processes
+        // (issue #874) until the host daemon lands. Missing state = no backoff.
+        conduit_lib::downstream_backoff::bind_data_dir(&dir);
     }
     // Diagnostic: `toolport-gateway --selftest-secrets` reads every vaulted secret
     // from THIS (gateway) process and reports. Used to validate the macOS keychain
@@ -15537,11 +18674,11 @@ fn main() {
     // Discovery mode resolves from an explicit env override first (per-client), then
     // the registry (its `discovery_mode` override, else the `lazy_discovery` bool), so
     // it applies to EVERY client, including ones that don't forward env vars to the
-    // gateway (e.g. Antigravity). Resolved once and cached; `lazy` is derived so its
-    // behavior is unchanged, and grouped mode reads the same cached value.
+    // gateway (e.g. Antigravity). Resolved once and cached; grouped mode reads the
+    // same cached value.
     let mode = resolve_discovery_mode();
-    set_discovery_mode(mode);
-    let lazy = matches!(mode, DiscoveryMode::Lazy);
+    // The host's discovery mode starts from this bootstrap value; the watcher refreshes it.
+    let discovery_seed = mode.as_u8();
     // Per-client scoping: this gateway exposes only the named profile's servers.
     // This is only the bootstrap value - once the registry loads below, the live
     // value (kept in sync with registry.client_scopes on every watcher tick) wins.
@@ -15566,14 +18703,16 @@ fn main() {
     if let Some(msg) = warning {
         eprintln!("{msg}");
     }
-    let http_mode = http_port_opt.is_some();
+    let daemon_mode = daemon_requested(&cli_args);
+    let http_mode = http_port_opt.is_some() || daemon_mode;
     glog("=== gateway start ===");
     glog(&format!(
-        "cwd={:?} TOOLPORT_REGISTRY={:?} registry_path={:?} dir_resolution={:?} lazy={lazy} profile={env_profile:?} client_id={client_id:?}",
+        "cwd={:?} TOOLPORT_REGISTRY={:?} registry_path={:?} dir_resolution={:?} mode={} profile={env_profile:?} client_id={client_id:?}",
         std::env::current_dir().ok(),
         conduit_lib::brand::env_var("TOOLPORT_REGISTRY", "CONDUIT_REGISTRY"),
         registry::resolved_path(),
         registry::conduit_dir_resolution(),
+        mode.as_str(),
     ));
     if registry::conduit_dir_resolution() == registry::DirResolution::VirtualizedFallback {
         // Loud, not fatal: inside an MSIX container with no UNC escape, the data
@@ -15593,7 +18732,14 @@ fn main() {
     // fallback to `Registry::default()`, and an Ok whose contents came from a
     // backup or stood in for a file that could not be read. Only a load that
     // actually saw the configured state may be read as "no clients".
-    let (loaded, registry_loaded) = match registry::load_resolved_with_source() {
+    let load_outcome = registry::load_resolved_with_source();
+    // The host's code-mode flag starts from this load *outcome*, not from the registry value
+    // it falls back to: `Registry::default()` has `code_mode: true`, so seeding from the
+    // error fallback would silently re-enable code mode after a corrupt registry (WS2-5).
+    // The watcher already fails safe by not touching the flag when a reload fails.
+    let code_mode_seed =
+        seed_code_mode_after_registry_load(load_outcome.as_ref().map(|(r, _)| r).map_err(|_| ()));
+    let (loaded, registry_loaded) = match load_outcome {
         Ok((r, source)) => {
             glog(&format!(
                 "load_resolved OK ({source:?}): {} servers total, {} enabled (active={})",
@@ -15601,11 +18747,6 @@ fn main() {
                 r.enabled_servers().len(),
                 r.active_profile_id()
             ));
-            // Seed code mode only on a successful load. Registry::default() has
-            // code_mode: true, so seeding from the error fallback would silently
-            // re-enable code mode after a corrupt registry (WS2-5). The watcher
-            // already fails safe by not updating the flag on reload failure.
-            seed_code_mode_after_registry_load(Ok(&r));
             if !source.is_authoritative() {
                 eprintln!(
                     "toolport-gateway: registry was recovered or could not be read ({source:?}); \
@@ -15626,7 +18767,6 @@ fn main() {
                  Fix or recreate the registry to restore full functionality."
             );
             glog(&format!("load_resolved ERR: {e}"));
-            seed_code_mode_after_registry_load(Err(()));
             (registry::Registry::default(), false)
         }
     };
@@ -15668,12 +18808,20 @@ fn main() {
     // tool set mid-session propagates to the client instead of being dropped.
     let downstream_dirty = Arc::new(AtomicU8::new(0));
     let mcp_sessions = Arc::new(Mutex::new(HashMap::new()));
-    let client_upstream = Arc::new(Mutex::new(ClientUpstreamCaps::default()));
-    let client_root = Arc::new(Mutex::new(None::<String>));
+    // The gateway's stdio client session. Created here, ahead of the dispatches
+    // below, because both of them deliver to that one connection: its stdout is
+    // the sink, and its declared protocol era decides whether the legacy frames
+    // may be written at all.
+    let stdio_upstream = Arc::new(SessionState::new_stdio(Arc::clone(&stdout)));
     // Resource subscription tracking + drain-thread sink (SOU-394).
     let resource_subs = Arc::new(Mutex::new(ResourceSubscriptionTable::default()));
+    let resource_stdio = if daemon_mode {
+        Arc::new(SessionState::new_http(None))
+    } else {
+        Arc::clone(&stdio_upstream)
+    };
     let resource_updated_sink = Some(make_resource_updated_sink(
-        Arc::clone(&stdout),
+        Arc::clone(&resource_stdio),
         Arc::clone(&mcp_sessions),
         Arc::clone(&resource_subs),
     ));
@@ -15681,20 +18829,58 @@ fn main() {
     // every transport binds a sink; `connect_one` reads it from here rather than
     // taking it as a parameter.
     let _ = PROGRESS_DISPATCH.set(make_progress_sink(
-        Arc::clone(&stdout),
+        Arc::clone(&stdio_upstream),
         Arc::clone(&mcp_sessions),
         Arc::clone(progress_routes()),
     ));
     // Single-flight for every router build/swap (startup, watcher self-heal, and
     // ${ROOT} rebuilds). Created up front so the startup build can share it.
     let rebuild_lock = Arc::new(Mutex::new(()));
-    let stdio_upstream = Arc::new(StdioUpstream::new(Arc::clone(&stdout)));
     let server_handler = make_server_request_handler(
-        Arc::clone(&client_upstream),
         Arc::clone(&stdio_upstream),
         Arc::clone(&mcp_sessions),
         http_mode,
     );
+
+    // The host runtime, built before the background threads so they can carry it:
+    // the build thread needs the host's rebuild-streak map, and the registry watcher
+    // needs its quarantine-read flag.
+    let host = Arc::new(HostState {
+        registry: Arc::clone(&registry),
+        registry_trusted: Arc::clone(&registry_trusted),
+        router: Arc::clone(&router),
+        tool_scope_views: Mutex::new(ToolScopeViews::default()),
+        root_launch_pool: Mutex::new(RootLaunchPool::default()),
+        cached_tools: Arc::clone(&cached_tools),
+        routine_candidates: CandidateRegistry::default(),
+        routine_advisor: AdvisorLedger::default(),
+        ready: Arc::clone(&ready),
+        downstream_dirty: Arc::clone(&downstream_dirty),
+        rebuild_lock,
+        http: http_mode,
+        http_bind_host: if http_mode {
+            conduit_lib::brand::env_var("TOOLPORT_HTTP_HOST", "CONDUIT_HTTP_HOST")
+                .filter(|v| !v.trim().is_empty())
+                .unwrap_or_else(|| "127.0.0.1".to_string())
+        } else {
+            String::new()
+        },
+        http_allowed_origins: configured_allowed_origins(),
+        server_handler,
+        resource_subs,
+        resource_sub_capacity: Mutex::new(()),
+        resource_stdio,
+        resource_updated_sink,
+        mcp_sessions: Arc::clone(&mcp_sessions),
+        daemon_mode: AtomicBool::new(daemon_mode),
+        http_service_lease: Mutex::new(None),
+        shutdown_if_idle: AtomicBool::new(false),
+        last_activity_ms: AtomicU64::new(0),
+        rebuild_shrink_streaks: Mutex::new(HashMap::new()),
+        quarantine_read_failed: AtomicBool::new(false),
+        code_mode: AtomicBool::new(code_mode_seed),
+        discovery: AtomicU8::new(discovery_seed),
+    });
     glog(&format!(
         "loaded tool cache: {} tools",
         cached_tools
@@ -15707,17 +18893,18 @@ fn main() {
     {
         let registry = Arc::clone(&registry);
         let router = Arc::clone(&router);
-        let stdout = Arc::clone(&stdout);
+        let stdio = Arc::clone(&stdio_upstream);
         let ready = Arc::clone(&ready);
         let cached_tools = Arc::clone(&cached_tools);
         let downstream_dirty = Arc::clone(&downstream_dirty);
-        let server_handler = Arc::clone(&server_handler);
+        let server_handler = Arc::clone(&host.server_handler);
         let profile = Arc::clone(&profile);
-        let client_root = Arc::clone(&client_root);
-        let rebuild_lock = Arc::clone(&rebuild_lock);
+        let client_root = Arc::clone(&stdio_upstream.client_root);
+        let rebuild_lock = Arc::clone(&host.rebuild_lock);
         let mcp_sessions = Arc::clone(&mcp_sessions);
-        let resource_updated = resource_updated_sink.clone();
-        let resource_subs_for_build = Arc::clone(&resource_subs);
+        let resource_updated = host.resource_updated_sink.clone();
+        let resource_subs_for_build = Arc::clone(&host.resource_subs);
+        let host_for_build = Arc::clone(&host);
         std::thread::spawn(move || {
             let reg = registry
                 .lock()
@@ -15741,6 +18928,7 @@ fn main() {
                 &reg,
                 p.as_deref(),
                 http_mode,
+                daemon_mode,
                 &downstream_dirty,
                 server_handler,
                 root.as_deref(),
@@ -15771,6 +18959,8 @@ fn main() {
             *router
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner) = Arc::new(built);
+            host_for_build.invalidate_root_views();
+            host_for_build.invalidate_tool_scope_views();
             // Don't let a transient empty build (registry caught mid-write, or
             // every downstream momentarily unreachable) clobber a good catalog -
             // that's what leaves a client showing only toolport_status. A
@@ -15786,7 +18976,7 @@ fn main() {
                         .lock()
                         .unwrap_or_else(std::sync::PoisonError::into_inner)
                         .clone();
-                    preserve_collapsed_servers_guarded(tools, &current.tools)
+                    host_for_build.preserve_collapsed_servers_guarded(tools, &current.tools)
                 };
                 // Re-adopt routes the guard kept from the previous catalog so the
                 // published router routes what the cache advertises (issue #700).
@@ -15805,104 +18995,72 @@ fn main() {
                 glog("background build was empty; keeping previous tool cache");
             }
             ready.store(true, Ordering::SeqCst);
-            notify_tools_changed(&stdout, Some(&mcp_sessions));
+            notify_tools_changed(&stdio, Some(&mcp_sessions));
         });
     }
 
     if let Some(path) = registry::resolved_path() {
-        let registry = Arc::clone(&registry);
-        let registry_trusted = Arc::clone(&registry_trusted);
-        let router = Arc::clone(&router);
-        let stdout = Arc::clone(&stdout);
-        let cached_tools = Arc::clone(&cached_tools);
-        let downstream_dirty = Arc::clone(&downstream_dirty);
-        let server_handler = Arc::clone(&server_handler);
+        // Only what is genuinely not host state: the stdio session, the profile slots,
+        // the client identity, and the ${ROOT} slot. The host carries its own registry,
+        // router, cache, session table, handler, sink, subscriptions, and rebuild lock,
+        // so this closure cannot pair one host with another host's fields.
+        let stdio = Arc::clone(&stdio_upstream);
         let profile = Arc::clone(&profile);
         let client_id = client_id.clone();
         let env_profile = env_profile.clone();
-        let client_root = Arc::clone(&client_root);
-        let mcp_sessions = Arc::clone(&mcp_sessions);
-        let resource_updated = resource_updated_sink.clone();
-        let resource_subs_watch = Arc::clone(&resource_subs);
-        let rebuild_lock = Arc::clone(&rebuild_lock);
+        let client_root = Arc::clone(&stdio_upstream.client_root);
+        let host_for_watch = Arc::clone(&host);
         std::thread::spawn(move || {
             watch_registry(
                 path,
-                registry,
-                registry_trusted,
-                router,
-                stdout,
-                cached_tools,
+                stdio,
                 profile,
                 client_id,
                 env_profile,
                 http_mode,
-                downstream_dirty,
-                server_handler,
                 client_root,
-                mcp_sessions,
-                resource_updated,
-                Some(resource_subs_watch),
-                rebuild_lock,
+                None,
+                host_for_watch,
             )
         });
     }
 
     let state = GatewayState {
-        registry: Arc::clone(&registry),
-        registry_trusted: Arc::clone(&registry_trusted),
-        router: Arc::clone(&router),
-        cached_tools: Arc::clone(&cached_tools),
-        routine_candidates: CandidateRegistry::default(),
-        routine_advisor: AdvisorLedger::default(),
-        stdout: Arc::clone(&stdout),
-        ready: Arc::clone(&ready),
-        downstream_dirty: Arc::clone(&downstream_dirty),
-        rebuild_lock,
-        lazy,
+        host,
         profile: Arc::clone(&profile),
-        http: http_mode,
-        http_bind_host: if http_mode {
-            conduit_lib::brand::env_var("TOOLPORT_HTTP_HOST", "CONDUIT_HTTP_HOST")
-                .filter(|v| !v.trim().is_empty())
-                .unwrap_or_else(|| "127.0.0.1".to_string())
-        } else {
-            String::new()
-        },
-        http_allowed_origins: configured_allowed_origins(),
-        mcp_sessions,
-        client_upstream,
-        client_root,
         stdio_upstream,
-        server_handler,
         client_id: client_id.clone(),
         env_profile: env_profile.clone(),
-        resource_subs,
-        resource_updated_sink,
     };
 
     // Native HTTP/OpenAPI transport: a first-class path for HTTP tool clients
     // (Open WebUI and any OpenAPI consumer) with no external bridge. Standalone,
     // so it replaces the stdio loop; the background build + registry watcher
     // started above still keep the router and cache live underneath it.
+    // Host daemon transport: one runtime for this host, on an internal loopback
+    // endpoint advertised through the rendezvous descriptor. Explicit flag only.
+    if daemon_mode {
+        serve_daemon(state);
+    }
+
     if let Some(port) = http_port_opt {
         serve_http(state, port);
         return;
     }
 
     let stdin = std::io::stdin();
-    // stdio serves one client on one thread, so no sharing is needed, but the guards
-    // are now interior-mutable (&self methods) to match the shared HTTP path.
-    let search_guard = Arc::new(SearchGuard::default());
-    let confirm_guard = Arc::new(ConfirmGuard::new());
-    let cancel_registry = downstream::CancelRegistry::new();
-    let stdio_inflight = Arc::new(AtomicUsize::new(0));
-    let stdout_broken = Arc::new(AtomicBool::new(false));
+    // Every stdio client's cross-request state (search streak, pending
+    // confirmations) lives on its session, so the loop holds no guards of its own.
+    // This connection's own cancellation registry and worker counter. Both are keyed
+    // by, or bound to, one client's requests, so they live on the session rather than
+    // in `main`: two stdio clients would otherwise share one registry and one cap.
+    let cancel_registry = state.stdio_upstream.cancellations();
+    let stdio_inflight = Arc::clone(state.stdio_upstream.stdio_inflight());
     let mut stdio_workers = Vec::new();
     let mut stdin = stdin.lock();
     loop {
         reap_finished_workers(&mut stdio_workers);
-        if stdout_broken.load(Ordering::SeqCst) {
+        if state.stdio_upstream.stdio_broken() {
             break;
         }
         let line = match read_bounded_line(&mut stdin, MAX_STDIO_LINE_BYTES) {
@@ -15944,15 +19102,19 @@ fn main() {
         }
 
         let Some(request_key) = request_id_key(&req) else {
+            let guards = state.stdio_upstream.guards();
             let _ = process_request(
                 &state,
                 &req,
-                &search_guard,
-                &confirm_guard,
+                &guards.search,
+                &guards.confirm,
                 None,
                 None,
                 None,
                 None,
+                None,
+                None,
+                state.discovery_mode(),
             );
             continue;
         };
@@ -15962,27 +19124,15 @@ fn main() {
             ));
             let id = req.get("id").cloned().unwrap_or(Value::Null);
             let resp = error(id, -32600, "duplicate in-flight request id");
-            if !write_stdio_response(&state.stdout, &resp, &stdout_broken) {
+            if !write_stdio_response(&state.stdio_upstream, &resp) {
                 break;
             }
             continue;
         }
 
         let state = state.clone();
-        let search_guard = Arc::clone(&search_guard);
-        let confirm_guard = Arc::clone(&confirm_guard);
-        let cancel_registry = cancel_registry.clone();
-        let stdout_broken_for_worker = Arc::clone(&stdout_broken);
         let job = move || {
-            handle_stdio_request(
-                state,
-                req,
-                request_key,
-                search_guard,
-                confirm_guard,
-                cancel_registry,
-                stdout_broken_for_worker,
-            );
+            handle_stdio_request(state, req, request_key);
         };
         if let Some(handle) = spawn_or_run_stdio_inflight(&stdio_inflight, job) {
             stdio_workers.push(handle);
@@ -15995,6 +19145,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use conduit_lib::approval::decide_via_broker;
 
     /// A server whose NAME contains a write verb must not drag its read-only
     /// tools out of the catalog. The destructive fallback scans the tool name for
@@ -16066,10 +19217,16 @@ mod tests {
     #[test]
     fn formats_compact_token_counts() {
         assert_eq!(fmt_tokens(999), "999");
-        assert_eq!(fmt_tokens(1_000), "1k");
+        assert_eq!(fmt_tokens(1_000), "1.0k");
+        assert_eq!(fmt_tokens(999_949), "999.9k");
         assert_eq!(fmt_tokens(999_950), "1.0M");
         assert_eq!(fmt_tokens(1_000_000), "1.0M");
         assert_eq!(fmt_tokens(1_250_000), "1.2M");
+        assert_eq!(fmt_tokens(999_949_999), "999.9M");
+        assert_eq!(fmt_tokens(1_000_000_000), "1.0B");
+        assert_eq!(fmt_tokens(3_692_944_923), "3.7B");
+        assert_eq!(fmt_tokens(999_949_999_999), "999.9B");
+        assert_eq!(fmt_tokens(1_000_000_000_000), "1.0T");
     }
 
     #[test]
@@ -16144,6 +19301,50 @@ mod tests {
             dir,
             _data_dir: data_dir,
             _env: env,
+        }
+    }
+
+    /// A serialized environment with its own data directory, for any test that can write
+    /// an audit row.
+    ///
+    /// The dispatch path resolves [`conduit_lib::registry::conduit_dir`] on every call to
+    /// find `audit.jsonl`, so a test that routes a real `tools/call` writes one row per
+    /// call. Without an override those rows land in the developer's REAL data directory
+    /// (SOU-301's failure mode, on a path `DataDirOverride` was never guarding), and
+    /// without the lock two tests can interleave: one test's unattributed fixture row is
+    /// then the first one another test's audit reader finds, which is how
+    /// `mcp_http_audit_entry_records_client_and_client_name` failed on CI with
+    /// `left: Null, right: "client:c1"` while passing alone.
+    ///
+    /// Hold one whenever a test can reach [`audit`] or [`searchtrace::record`]. Fields drop
+    /// in declaration order after the `Drop` impl runs, so the override is released before
+    /// the lock and the next test never inherits it.
+    struct DataDirTestEnv {
+        dir: std::path::PathBuf,
+        _data_dir: conduit_lib::registry::DataDirOverride,
+        _env: std::sync::MutexGuard<'static, ()>,
+    }
+
+    impl DataDirTestEnv {
+        fn new(name: &str) -> Self {
+            let env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+            let dir = std::env::temp_dir().join(format!(
+                "toolport-{name}-{}",
+                routines::generate_id().unwrap()
+            ));
+            std::fs::create_dir_all(&dir).expect("a writable scratch dir");
+            let data_dir = conduit_lib::registry::DataDirOverride::set(&dir);
+            Self {
+                dir,
+                _data_dir: data_dir,
+                _env: env,
+            }
+        }
+    }
+
+    impl Drop for DataDirTestEnv {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.dir);
         }
     }
 
@@ -16680,11 +19881,15 @@ mod tests {
 
     #[test]
     fn a_bad_tools_call_is_a_tool_error_not_a_protocol_error() {
+        let _data_env =
+            DataDirTestEnv::new("a_bad_tools_call_is_a_tool_error_not_a_protocol_error");
+        let host = dispatch_host(false);
         // SEP-1303 (SBS-452): input/routing failures on tools/call must come back as
         // tool execution errors so the model can read them and self-correct. A
         // JSON-RPC error is invisible to the model and ends the turn instead.
         let reg = Registry::default();
         let resp = handle_request(
+            &host,
             &json!({
                 "jsonrpc": "2.0", "id": 1, "method": "tools/call",
                 "params": { "name": "nosuch__tool", "arguments": { "x": 1 } }
@@ -16985,6 +20190,7 @@ mod tests {
                 );
                 m
             },
+            instructions: None,
         });
         reg.profiles.push(registry::Profile {
             id: "b".into(),
@@ -16998,6 +20204,7 @@ mod tests {
                 );
                 m
             },
+            instructions: None,
         });
         let merged = merge_tool_scopes_for_http(&reg);
         let set = merged.get("team_gh").expect("org scope present");
@@ -17192,6 +20399,10 @@ mod tests {
             last_version: 42,
             last_etag: Some("\"v42\"".into()),
             usage_reported: usage,
+            managed_server_ids: Default::default(),
+            reporting_device_id: String::new(),
+            team_name: None,
+            account_linked: None,
             team_instructions_content: None,
             team_instructions_version: 0,
             team_instructions_targets: Vec::new(),
@@ -17216,6 +20427,18 @@ mod tests {
             "routine-write opt-in changes only fixed meta-tools and must not rebuild servers"
         );
         reg.allow_routine_writes = false;
+
+        // Server instructions are read at the next handshake; editing them must not respawn
+        // every downstream server.
+        reg.gateway_instructions = Some(String::new());
+        reg.profiles[0].instructions = Some("Profile text.".into());
+        assert_eq!(
+            router_relevant(&reg),
+            base,
+            "server instructions are not router-relevant"
+        );
+        reg.gateway_instructions = None;
+        reg.profiles[0].instructions = None;
 
         // A policy flag lives OUTSIDE the team block: a real change the router must rebuild for.
         reg.deny_destructive = !reg.deny_destructive;
@@ -17383,8 +20606,7 @@ mod tests {
     fn modern_server_requests_become_mrtr_only_with_the_required_capability() {
         let stdout = Arc::new(Mutex::new(std::io::stdout()));
         let handler = make_server_request_handler(
-            Arc::new(Mutex::new(ClientUpstreamCaps::default())),
-            Arc::new(StdioUpstream::new(stdout)),
+            Arc::new(SessionState::new_stdio(stdout)),
             Arc::new(Mutex::new(HashMap::new())),
             false,
         );
@@ -17440,8 +20662,7 @@ mod tests {
     fn modern_server_request_without_capability_returns_reserved_error() {
         let stdout = Arc::new(Mutex::new(std::io::stdout()));
         let handler = make_server_request_handler(
-            Arc::new(Mutex::new(ClientUpstreamCaps::default())),
-            Arc::new(StdioUpstream::new(stdout)),
+            Arc::new(SessionState::new_stdio(stdout)),
             Arc::new(Mutex::new(HashMap::new())),
             false,
         );
@@ -17469,10 +20690,7 @@ mod tests {
 
     #[test]
     fn initial_modern_hitl_call_starts_mrtr_without_retry_fields() {
-        modern_hitl_approvals()
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .clear();
+        session_tables().hitl().clear();
         let request = json!({
             "params": {
                 "_meta": {
@@ -17609,12 +20827,12 @@ mod tests {
     #[test]
     fn modern_hitl_state_is_bound_to_the_exact_call() {
         let token = format!("test-{}", new_correlation_id());
-        modern_hitl_approvals().lock().unwrap().insert(
-            token.clone(),
+        session_tables().hitl().insert(
+            &token,
             ModernHitlApproval {
                 name: "s__wipe".into(),
                 args_hash: audit::args_hash(&json!({ "target": "x" })),
-                client: Some("cursor".into()),
+                scope: conversation_scope(Some("cursor")),
                 approved_fingerprint: None,
                 reason: approval::ApprovalReason::Destructive,
                 started: Instant::now(),
@@ -17634,6 +20852,97 @@ mod tests {
             ModernHitlPoll::Stale
         ));
         finish_modern_hitl(Some(&token));
+    }
+
+    #[test]
+    fn session_state_tables_reap_on_close_and_enforce_their_cap() {
+        // P1.2: the PII and HITL tables now sit on a SessionStore. Closing a
+        // session drops its PII map, and the HITL table stays bounded.
+        let state = SessionTables::new();
+
+        // Reap on close: clearing the client's entry leaves a fresh, empty map.
+        state.with_pii(Some("p12-client"), |map| {
+            map.pseudonymize("crm", "ada@example.com");
+        });
+        assert!(state.with_pii(Some("p12-client"), |map| !map.is_empty()));
+        state.clear_pii(Some("p12-client"));
+        assert!(state.with_pii(Some("p12-client"), |map| map.is_empty()));
+
+        // Cap: inserting past the cap evicts the oldest approval, so the table
+        // cannot grow without bound on a long-lived gateway.
+        {
+            let mut hitl = state.hitl();
+            for i in 0..(MODERN_HITL_MAX_PENDING + 1) {
+                hitl.insert(
+                    &format!("token-{i}"),
+                    ModernHitlApproval {
+                        name: "s__wipe".into(),
+                        args_hash: audit::args_hash(&json!({ "target": i })),
+                        scope: conversation_scope(Some("cursor")),
+                        approved_fingerprint: None,
+                        reason: approval::ApprovalReason::Destructive,
+                        started: Instant::now(),
+                        downstream: MrtrRequest::default(),
+                        input_request: json!({ "method": "elicitation/create" }),
+                        status: ModernHitlStatus::AwaitingClient,
+                    },
+                );
+            }
+            assert_eq!(hitl.len(), MODERN_HITL_MAX_PENDING);
+            assert!(
+                hitl.peek("token-0", |_| ()).is_none(),
+                "the oldest approval is evicted at the cap"
+            );
+            assert!(hitl.peek("token-1", |_| ()).is_some());
+        }
+    }
+
+    #[test]
+    fn two_daemon_sessions_with_one_client_identity_keep_pii_and_approvals_separate() {
+        let client = Some("shared-adapter-client");
+        let first = format!("first-{}", new_correlation_id());
+        let second = format!("second-{}", new_correlation_id());
+        let args = json!({ "target": "x" });
+        let hash = audit::args_hash(&args);
+        let token = {
+            let _session = McpSessionGuard::enter(Some(first.clone()));
+            with_pii_session(client, |map| {
+                map.pseudonymize("crm", "ada@example.com");
+            });
+            start_modern_hitl(
+                "s__wipe",
+                hash.clone(),
+                None,
+                approval::ApprovalReason::Destructive,
+                client,
+                "s",
+                "wipe",
+                &args,
+                MrtrRequest::default(),
+            )
+            .expect("first approval starts")
+        };
+        {
+            let _session = McpSessionGuard::enter(Some(second.clone()));
+            assert!(with_pii_session(client, |map| map.is_empty()));
+            with_pii_session(client, |map| {
+                map.pseudonymize("crm", "bob@example.com");
+            });
+            assert!(matches!(
+                poll_modern_hitl(&token, "s__wipe", &hash, client, None),
+                ModernHitlPoll::Stale
+            ));
+        }
+        clear_mcp_session_tables(&first);
+        {
+            let _session = McpSessionGuard::enter(Some(second.clone()));
+            assert!(!with_pii_session(client, |map| map.is_empty()));
+            assert!(matches!(
+                poll_modern_hitl(&token, "s__wipe", &hash, client, None),
+                ModernHitlPoll::Missing
+            ));
+        }
+        clear_mcp_session_tables(&second);
     }
 
     #[test]
@@ -17685,6 +20994,7 @@ mod tests {
             tool_fingerprint: Some("v2:abc".into()),
             url_elicitation: None,
             pii_release: None,
+            agent_rule: None,
         };
         // No endpoint descriptor (Toolport app not running) -> Unreachable (fail-closed),
         // distinct from a human Timeout so the caller can explain *why* it was blocked.
@@ -17741,6 +21051,7 @@ mod tests {
             tool_fingerprint: Some("v2:abc".into()),
             url_elicitation: None,
             pii_release: None,
+            agent_rule: None,
         };
         let desc = Some(approval::EndpointDescriptor {
             endpoint,
@@ -18122,6 +21433,7 @@ mod tests {
     /// call count is reported for savings accounting.
     #[test]
     fn run_script_aggregates_downstream_calls() {
+        let _data_env = DataDirTestEnv::new("run_script_aggregates_downstream_calls");
         let reg = Registry::default();
         let router = Arc::new(paging_router("hello".to_string()));
         let args = json!({
@@ -18329,6 +21641,9 @@ mod tests {
 
     #[test]
     fn routine_preserves_failed_progress_and_cannot_confirm_destructive_calls() {
+        let _data_env = DataDirTestEnv::new(
+            "routine_preserves_failed_progress_and_cannot_confirm_destructive_calls",
+        );
         let (router, calls, catalog) = counting_router(false);
         let reg = Registry::default();
         let failed = routines::new_definition(
@@ -18398,7 +21713,10 @@ mod tests {
 
     #[test]
     fn an_oversized_routine_failure_keeps_its_call_ledger_in_the_text() {
-        let _env = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        // The oversized run dispatches a real call, so it audits: serialize and take a
+        // scratch data dir (DataDirTestEnv acquires ENV_LOCK itself).
+        let _data_env =
+            DataDirTestEnv::new("an_oversized_routine_failure_keeps_its_call_ledger_in_the_text");
         let previous = std::env::var("TOOLPORT_RESULT_BUDGET").ok();
         std::env::set_var("TOOLPORT_RESULT_BUDGET", "2048");
 
@@ -18549,6 +21867,7 @@ mod tests {
     /// aggregate is shaped for the model. Scripts can filter/project huge bodies in JS.
     #[test]
     fn run_script_shapes_oversized_final_aggregate() {
+        let _data_env = DataDirTestEnv::new("run_script_shapes_oversized_final_aggregate");
         let reg = Registry::default();
         let body = "x".repeat(shaping::DEFAULT_BUDGET_BYTES * 2);
         let router = Arc::new(paging_router(body.clone()));
@@ -18615,6 +21934,7 @@ mod tests {
     /// payload, which is what a split across two servers looks like to the gateway.
     #[test]
     fn run_script_final_aggregate_is_screened_for_injection() {
+        let _data_env = DataDirTestEnv::new("run_script_final_aggregate_is_screened_for_injection");
         let mut reg = Registry::default();
         reg.content_defense = true;
         reg.block_on_injection = false;
@@ -18677,6 +21997,7 @@ mod tests {
     /// checkpoint are the script's, so each of those is judged on its own.
     #[test]
     fn run_script_blocked_failure_keeps_the_recovery_ledger() {
+        let _data_env = DataDirTestEnv::new("run_script_blocked_failure_keeps_the_recovery_ledger");
         let mut reg = Registry::default();
         reg.content_defense = true;
         reg.block_on_injection = true;
@@ -18726,6 +22047,8 @@ mod tests {
     /// Script sees the full oversized intermediate and can return a small projection.
     #[test]
     fn run_script_can_project_large_intermediate_without_cursor() {
+        let _data_env =
+            DataDirTestEnv::new("run_script_can_project_large_intermediate_without_cursor");
         let reg = Registry::default();
         let big = "y".repeat(shaping::DEFAULT_BUDGET_BYTES * 2);
         let router = Arc::new(paging_router(big.clone()));
@@ -18958,6 +22281,7 @@ mod tests {
     /// End-to-end: a typed stub routes through execute_call like toolport.call.
     #[test]
     fn run_script_servers_stub_aggregates_downstream() {
+        let _data_env = DataDirTestEnv::new("run_script_servers_stub_aggregates_downstream");
         let reg = Registry::default();
         let router = Arc::new(paging_router("hello".to_string()));
         let cached = vec![json!({ "name": "s__big" })];
@@ -18987,6 +22311,8 @@ mod tests {
     /// call, the call is refused - nothing destructive executes.
     #[test]
     fn run_script_destructive_call_fails_closed_without_confirmation() {
+        let _data_env =
+            DataDirTestEnv::new("run_script_destructive_call_fails_closed_without_confirmation");
         let mut reg = Registry::default();
         reg.confirm_destructive = true;
         let router = Arc::new(paging_router("x".to_string()));
@@ -19098,8 +22424,8 @@ mod tests {
         // without it, this test's override drop mid-way through a parallel test redirected
         // that test's routine writes into the developer's REAL data directory.
         let _env = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
-        let _code_mode = CodeModeGuard::acquire();
-        set_code_mode_flag(true);
+        let host = dispatch_host(false);
+        host.set_code_mode(true);
         let dir = std::env::temp_dir().join(format!(
             "toolport-code-run-candidate-{}",
             routines::generate_id().unwrap()
@@ -19151,6 +22477,7 @@ mod tests {
         let (broker, requests) =
             spawn_approval_broker(&dir, approval::ApprovalDecision::Approved, None);
         let promoted = save_routine_promotion_dispatch(
+            &host,
             &reg,
             &candidates,
             None,
@@ -19548,7 +22875,10 @@ mod tests {
     /// shaping truncates the body head-first.
     #[test]
     fn an_oversized_code_mode_failure_keeps_its_call_ledger_in_the_text() {
-        let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        // Same as the routine variant above: the run audits, so it needs the lock and
+        // its own data dir rather than the developer's real one.
+        let _data_env =
+            DataDirTestEnv::new("an_oversized_code_mode_failure_keeps_its_call_ledger_in_the_text");
         let previous = std::env::var("TOOLPORT_RESULT_BUDGET").ok();
         std::env::set_var("TOOLPORT_RESULT_BUDGET", "2048");
 
@@ -19695,14 +23025,15 @@ mod tests {
         );
     }
 
-    /// Kill switch path: when the live flag is off, dispatch refuses
+    /// Kill switch path: when this host's flag is off, dispatch refuses
     /// `toolport_run_script`. Production seeds the flag from the registry at boot.
     #[test]
     fn run_script_is_refused_when_code_mode_disabled() {
-        // WS2-6: drive the live atomic. Serialize so parallel tests cannot leave
-        // CODE_MODE stuck true (and so tools/list counts stay stable).
-        let _guard = CodeModeGuard::acquire();
-        set_code_mode_flag(false);
+        // Scratch data dir: the refusal returns before the audit writer, so this test writes no
+        // row while the gate is off. Force the gate on, as a sabotage does, and the dispatch
+        // reaches `audit::record_timed`; the guard keeps that row out of the real dev log.
+        let _data_env = DataDirTestEnv::new("run_script_is_refused_when_code_mode_disabled");
+        let host = dispatch_host(false);
         let mut reg = Registry::default();
         reg.code_mode = false;
         let router = routed_router("s", "tool");
@@ -19713,6 +23044,7 @@ mod tests {
             "params": { "name": "toolport_run_script", "arguments": { "script": "return 1;" } }
         });
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router,
@@ -19732,12 +23064,59 @@ mod tests {
             .contains("code mode is disabled"));
     }
 
-    /// WS2-6: live CODE_MODE atomic gates `handle_request_with_cancel` (the
+    /// P1.3: the code-mode flag belongs to the host, so one host's switch cannot decide
+    /// what another host advertises.
+    ///
+    /// Teeth: with the flag back on a process static, both lists come from the one value and
+    /// one of these assertions fails. It also covers the WS2-6 flake class the old global
+    /// had, because two hosts here hold different values at the same time with no lock
+    /// between them.
+    #[test]
+    fn code_mode_is_per_host() {
+        let on = dispatch_host(true);
+        let off = dispatch_host(false);
+        let reg = Registry::default();
+        let req = json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" });
+        let advertised = |host: &HostState| -> Vec<String> {
+            let resp = handle_request(
+                host,
+                &req,
+                &reg,
+                &router(),
+                &[],
+                true,
+                None,
+                &SearchGuard::default(),
+                &ConfirmGuard::new(),
+                None,
+                None,
+            )
+            .unwrap();
+            resp["result"]["tools"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(|t| t["name"].as_str().map(str::to_string))
+                .collect()
+        };
+
+        assert!(
+            advertised(&on).contains(&"toolport_run_script".to_string()),
+            "a host with code mode on must advertise run_script"
+        );
+        assert!(
+            !advertised(&off).contains(&"toolport_run_script".to_string()),
+            "a host with code mode off must not advertise run_script"
+        );
+    }
+
+    /// WS2-6: the host's code-mode flag gates `handle_request_with_cancel` (the
     /// production path that passes a shareable router Arc). Plain `handle_request`
     /// always passes `router_arc: None`, so it cannot assert a successful run.
     #[test]
     fn run_script_respects_live_code_mode_flag() {
-        let _guard = CodeModeGuard::acquire();
+        let _data_env = DataDirTestEnv::new("run_script_respects_live_code_mode_flag");
+        let host = dispatch_host(false);
         let reg = Registry::default();
         let router = Arc::new(routed_router("s", "tool"));
         let search_index = CatalogSearchIndex::build(&[]);
@@ -19748,13 +23127,14 @@ mod tests {
             "params": { "name": "toolport_run_script", "arguments": { "script": "return 42;" } }
         });
 
-        set_code_mode_flag(false);
+        host.set_code_mode(false);
         let refused = handle_request_with_cancel(
+            &host,
             &req,
             &reg,
             &router,
             &[],
-            true,
+            DiscoveryMode::Lazy,
             None,
             &SearchGuard::default(),
             &ConfirmGuard::new(),
@@ -19775,13 +23155,14 @@ mod tests {
             .unwrap()
             .contains("code mode is disabled"));
 
-        set_code_mode_flag(true);
+        host.set_code_mode(true);
         let allowed = handle_request_with_cancel(
+            &host,
             &req,
             &reg,
             &router,
             &[],
-            true,
+            DiscoveryMode::Lazy,
             None,
             &SearchGuard::default(),
             &ConfirmGuard::new(),
@@ -19828,9 +23209,12 @@ mod tests {
 
     #[test]
     fn routine_write_opt_in_defaults_off_and_controls_advertisement() {
-        let _guard = CodeModeGuard::acquire();
-        let _discovery = DiscoveryModeGuard::acquire();
-        set_code_mode_flag(true);
+        // One host for the whole test body: the dispatch wrapper and the HTTP tool list each
+        // read the code-mode flag off the host they are handed, and a process global used to
+        // make those two agree by accident.
+        let state = http_state(true);
+        state.set_code_mode(true);
+        let host = Arc::clone(&state.host);
         let list_req = json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" });
         let router = router();
         let listed_names = |listed: &Value| {
@@ -19849,6 +23233,7 @@ mod tests {
             serde_json::from_str(r#"{"version":1,"servers":[],"profiles":[]}"#).unwrap();
         assert!(!legacy.allow_routine_writes);
         let listed = handle_request(
+            &host,
             &list_req,
             &reg,
             &router,
@@ -19873,8 +23258,9 @@ mod tests {
             (DiscoveryMode::Grouped, false),
             (DiscoveryMode::Full, false),
         ] {
-            set_discovery_mode(mode);
+            host.set_discovery_mode(mode);
             let listed = handle_request(
+                &host,
                 &list_req,
                 &enabled,
                 &router,
@@ -19901,18 +23287,18 @@ mod tests {
             }
         }
 
-        set_discovery_mode(DiscoveryMode::Lazy);
-        let state = http_state(true);
+        host.set_discovery_mode(DiscoveryMode::Lazy);
         *state.registry.lock().unwrap() = enabled;
-        let http_names: std::collections::HashSet<String> = http_tool_defs(&state, None)
-            .iter()
-            .filter_map(|tool| tool["name"].as_str().map(str::to_string))
-            .collect();
+        let http_names: std::collections::HashSet<String> =
+            http_tool_defs(&state, None, DiscoveryMode::Lazy)
+                .iter()
+                .filter_map(|tool| tool["name"].as_str().map(str::to_string))
+                .collect();
         assert!(http_names.contains("toolport_save_routine"));
         assert!(http_names.contains("toolport_list_routines"));
         assert!(http_names.contains("toolport_run_routine"));
 
-        let spec = openapi_spec(&state, None);
+        let spec = openapi_spec(&state, None, DiscoveryMode::Lazy);
         for expected in [
             "toolport_save_routine",
             "toolport_list_routines",
@@ -19928,10 +23314,9 @@ mod tests {
     #[test]
     fn flattened_routine_tools_are_advertised_and_run() {
         let _env = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
-        let _code_mode = CodeModeGuard::acquire();
-        let _discovery = DiscoveryModeGuard::acquire();
-        set_code_mode_flag(true);
-        set_discovery_mode(DiscoveryMode::Lazy);
+        let host = dispatch_host(false);
+        host.set_code_mode(true);
+        host.set_discovery_mode(DiscoveryMode::Lazy);
         let dir = std::env::temp_dir().join(format!(
             "toolport-routine-flatten-{}",
             routines::generate_id().unwrap()
@@ -20002,11 +23387,12 @@ mod tests {
         let search_index = CatalogSearchIndex::build(&catalog);
         let list = |req: &Value| {
             handle_request_with_cancel(
+                &host,
                 req,
                 &reg,
                 &router,
                 &catalog,
-                true,
+                DiscoveryMode::Lazy,
                 None,
                 &SearchGuard::default(),
                 &ConfirmGuard::new(),
@@ -20031,7 +23417,8 @@ mod tests {
             .filter(|name| name.starts_with(ROUTINE_TOOL_PREFIX))
             .collect();
         let work_alias = routine_tool_name(&newer);
-        assert!(work_alias.ends_with(newer.id().trim_start_matches("routine_")));
+        let id_hex = newer.id().trim_start_matches("routine_");
+        assert!(work_alias.ends_with(&id_hex[..ROUTINE_ID_TAIL_HEX]));
         assert_eq!(
             flattened.iter().filter(|name| **name == work_alias).count(),
             1,
@@ -20042,7 +23429,12 @@ mod tests {
             flattened.contains(&cjk_alias.as_str()),
             "non-ASCII name must fall back to the id tail: {flattened:?}"
         );
-        assert!(flattened.iter().all(|name| name.len() <= 64));
+        assert!(
+            flattened
+                .iter()
+                .all(|name| name.len()
+                    <= ROUTINE_TOOL_NAME_MAX_CHARS - ROUTINE_CLIENT_PREFIX_HEADROOM)
+        );
         assert!(flattened.iter().all(|name| !name.contains("__")));
         assert_ne!(
             routine_tool_name(&punctuation),
@@ -20097,7 +23489,7 @@ mod tests {
             .contains("toolport_list_routines"));
 
         // Code Mode off hides the flattened aliases entirely.
-        set_code_mode_flag(false);
+        host.set_code_mode(false);
         let hidden = list(&json!({ "jsonrpc": "2.0", "id": 5, "method": "tools/list" }));
         assert!(
             !hidden["result"]["tools"]
@@ -20153,8 +23545,8 @@ mod tests {
     fn advisor_fan_out_hint_mints_synthesized_candidate_and_persists_via_approval() {
         // ENV_LOCK serializes the DataDirOverride below (see registry::DataDirOverride).
         let _env = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
-        let _code_mode = CodeModeGuard::acquire();
-        set_code_mode_flag(true);
+        let host = dispatch_host(false);
+        host.set_code_mode(true);
         let dir = std::env::temp_dir().join(format!(
             "toolport-advisor-e2e-{}",
             routines::generate_id().unwrap()
@@ -20171,6 +23563,7 @@ mod tests {
         let search_index = CatalogSearchIndex::build(&catalog);
         let direct = |id: usize, value: &str| {
             handle_request_with_cancel(
+                &host,
                 &json!({
                     "jsonrpc": "2.0", "id": id, "method": "tools/call",
                     "params": { "name": "s__work", "arguments": { "value": value } }
@@ -20178,7 +23571,7 @@ mod tests {
                 &reg,
                 &router,
                 &catalog,
-                true,
+                DiscoveryMode::Lazy,
                 None,
                 &SearchGuard::default(),
                 &ConfirmGuard::new(),
@@ -20243,6 +23636,7 @@ mod tests {
         let (broker, requests) =
             spawn_approval_broker(&dir, approval::ApprovalDecision::Approved, None);
         let promoted = save_routine_promotion_dispatch(
+            &host,
             &reg,
             &candidates,
             None,
@@ -20275,8 +23669,8 @@ mod tests {
     fn advisor_second_burst_publishes_a_suggestion_instead_of_talking_to_the_model() {
         // ENV_LOCK serializes the DataDirOverride below (see registry::DataDirOverride).
         let _env = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
-        let _code_mode = CodeModeGuard::acquire();
-        set_code_mode_flag(true);
+        let host = dispatch_host(false);
+        host.set_code_mode(true);
         let dir = std::env::temp_dir().join(format!(
             "toolport-advisor-strong-{}",
             routines::generate_id().unwrap()
@@ -20292,6 +23686,7 @@ mod tests {
         let candidates = CandidateRegistry::default();
         let observe = |value: &str, is_error: bool| {
             advise_after_direct_call(
+                &host,
                 &reg,
                 &router,
                 &catalog,
@@ -20439,13 +23834,18 @@ mod tests {
 
     #[test]
     fn advisor_stays_silent_without_a_ledger_or_with_code_mode_off() {
-        let _code_mode = CodeModeGuard::acquire();
-        set_code_mode_flag(false);
+        // The advisor path can audit via record_candidate and record_advisor_hint, so this
+        // test needs a scratch data dir and ENV_LOCK (see registry::DataDirOverride).
+        let _data_env =
+            DataDirTestEnv::new("advisor_stays_silent_without_a_ledger_or_with_code_mode_off");
+        let host = dispatch_host(false);
+        host.set_code_mode(false);
         let advisor = AdvisorLedger::default();
         let (router, _calls, catalog) = counting_router(false);
         // Code mode off: the ledger is consulted but never hints at a disabled door.
         for value in ["a", "b", "c", "d"] {
             let result = advise_after_direct_call(
+                &host,
                 &Registry::default(),
                 &router,
                 &catalog,
@@ -20464,8 +23864,10 @@ mod tests {
 
     #[test]
     fn routine_prefix_does_not_intercept_a_namespaced_downstream_tool() {
-        let _code_mode = CodeModeGuard::acquire();
-        set_code_mode_flag(true);
+        let _data_env =
+            DataDirTestEnv::new("routine_prefix_does_not_intercept_a_namespaced_downstream_tool");
+        let host = dispatch_host(false);
+        host.set_code_mode(true);
         let calls = Arc::new(AtomicUsize::new(0));
         let downstream = DownstreamServer::connect(
             "toolport_routine_backend".to_string(),
@@ -20480,6 +23882,7 @@ mod tests {
         let router = Arc::new(router);
         let catalog = router.aggregated_tools();
         let response = handle_request(
+            &host,
             &json!({
                 "jsonrpc": "2.0", "id": 1, "method": "tools/call",
                 "params": {
@@ -20505,8 +23908,10 @@ mod tests {
 
     #[test]
     fn guessed_save_routine_is_refused_while_writes_are_disabled() {
-        let _guard = CodeModeGuard::acquire();
-        set_code_mode_flag(true);
+        let _data_env =
+            DataDirTestEnv::new("guessed_save_routine_is_refused_while_writes_are_disabled");
+        let host = dispatch_host(false);
+        host.set_code_mode(true);
         let reg = Registry::default();
         let router = router();
         let req = json!({
@@ -20524,6 +23929,7 @@ mod tests {
             }
         });
         let response = handle_request(
+            &host,
             &req,
             &reg,
             &router,
@@ -20601,8 +24007,8 @@ mod tests {
     #[test]
     fn routine_save_denial_timeout_and_unreachable_never_write() {
         let _env = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
-        let _code_mode = CodeModeGuard::acquire();
-        set_code_mode_flag(true);
+        let host = dispatch_host(false);
+        host.set_code_mode(true);
 
         for (label, decision) in [
             ("unreachable", None),
@@ -20624,6 +24030,7 @@ mod tests {
                 (handle, requests)
             });
             let result = save_routine_dispatch(
+                &host,
                 &reg,
                 &[],
                 Some("routine-test"),
@@ -20693,8 +24100,8 @@ mod tests {
     #[test]
     fn routine_save_rejects_credentials_in_description_and_schema_without_writing() {
         let _env = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
-        let _code_mode = CodeModeGuard::acquire();
-        set_code_mode_flag(true);
+        let host = dispatch_host(false);
+        host.set_code_mode(true);
         let dir = std::env::temp_dir().join(format!(
             "toolport-routine-save-credentials-{}",
             routines::generate_id().unwrap()
@@ -20708,6 +24115,7 @@ mod tests {
         let mut description_credential = routine_save_arguments("SOURCE", "ARGUMENT");
         description_credential["description"] = json!("password = \"abcdefghijklmnop\"");
         let description_result = save_routine_dispatch(
+            &host,
             &reg,
             &[],
             Some("routine-test"),
@@ -20720,8 +24128,14 @@ mod tests {
         let mut schema_credential = routine_save_arguments("SOURCE", "ARGUMENT");
         schema_credential["inputSchema"]["properties"]["value"]["default"] =
             json!("api_key: \"abcdefghijklmnop\"");
-        let schema_result =
-            save_routine_dispatch(&reg, &[], Some("routine-test"), None, &schema_credential);
+        let schema_result = save_routine_dispatch(
+            &host,
+            &reg,
+            &[],
+            Some("routine-test"),
+            None,
+            &schema_credential,
+        );
         assert_eq!(schema_result["isError"], true);
         assert!(schema_result.to_string().contains("credential-like"));
 
@@ -20735,8 +24149,8 @@ mod tests {
     #[test]
     fn approved_routine_save_is_content_bound_idempotent_and_audit_safe() {
         let _env = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
-        let _code_mode = CodeModeGuard::acquire();
-        set_code_mode_flag(true);
+        let host = dispatch_host(false);
+        host.set_code_mode(true);
         let dir = std::env::temp_dir().join(format!(
             "toolport-routine-save-approved-{}",
             routines::generate_id().unwrap()
@@ -20751,7 +24165,8 @@ mod tests {
         let save_once = || {
             let (broker, requests) =
                 spawn_approval_broker(&dir, approval::ApprovalDecision::Approved, None);
-            let result = save_routine_dispatch(&reg, &[], Some("routine-test"), None, &arguments);
+            let result =
+                save_routine_dispatch(&host, &reg, &[], Some("routine-test"), None, &arguments);
             let request = requests.recv_timeout(Duration::from_secs(2)).unwrap();
             broker.join().unwrap();
             (result, request)
@@ -20808,8 +24223,8 @@ mod tests {
     #[test]
     fn disabling_routine_writes_during_approval_prevents_the_save() {
         let _env = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
-        let _code_mode = CodeModeGuard::acquire();
-        set_code_mode_flag(true);
+        let host = dispatch_host(false);
+        host.set_code_mode(true);
         let dir = std::env::temp_dir().join(format!(
             "toolport-routine-save-toggle-{}",
             routines::generate_id().unwrap()
@@ -20835,6 +24250,7 @@ mod tests {
             Some(before_reply),
         );
         let result = save_routine_dispatch(
+            &host,
             &reg,
             &[],
             Some("routine-test"),
@@ -20858,11 +24274,15 @@ mod tests {
     /// the fallback [`Registry::default`] has `code_mode: true`.
     #[test]
     fn code_mode_flag_fails_closed_when_registry_load_fails() {
-        let _guard = CodeModeGuard::acquire();
-        set_code_mode_flag(true);
-
-        // Same helper the boot path uses on Err(load_resolved).
-        seed_code_mode_after_registry_load(Err(()));
+        // Scratch data dir: while the gate is off every call below is refused before the audit
+        // writer, so this test writes nothing. Force the gate on, as a sabotage does, and the
+        // run_script dispatch reaches `audit::record_timed` and would append its row to the
+        // developer's real dev log. The guard keeps that local either way.
+        let _data_env = DataDirTestEnv::new("code_mode_flag_fails_closed_when_registry_load_fails");
+        // The seed rule the boot path applies to a failed load, driven directly: if it
+        // returned true, the host below would advertise and dispatch run_script, which the
+        // assertions reject.
+        let host = dispatch_host(seed_code_mode_after_registry_load(Err(())));
         let reg = Registry::default();
         assert!(
             reg.code_mode,
@@ -20871,6 +24291,7 @@ mod tests {
 
         let list_req = json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" });
         let list = handle_request(
+            &host,
             &list_req,
             &reg,
             &router(),
@@ -20917,6 +24338,7 @@ mod tests {
                 "params": { "name": name, "arguments": arguments }
             });
             let call = handle_request(
+                &host,
                 &call_req,
                 &reg,
                 &routed_router("s", "tool"),
@@ -21064,6 +24486,7 @@ mod tests {
                     json!({ "contents": [{ "uri": params["uri"], "text": "cached" }] }),
                     20_000,
                 )),
+                "resources/subscribe" | "resources/unsubscribe" => Ok(json!({})),
                 "prompts/list" => Ok(cached(json!({ "prompts": [{ "name": "cached" }] }), 10_000)),
                 other => Err(conduit_lib::downstream::TransportError::Fatal(format!(
                     "unexpected {other}"
@@ -21159,50 +24582,194 @@ mod tests {
         r
     }
 
+    /// One host whose host-scoped fields ARE the Arcs a watcher test builds locally.
+    ///
+    /// The watcher tests assert on their own registry/router/cache handles, so they cannot
+    /// use [`http_state`], which builds fresh ones. This wires the test's pieces into a
+    /// single [`HostState`] and hands it back: the test keeps its locals, and `watch_tick`
+    /// sees one host whose fields are all that test's own. Pairs with the collapse of
+    /// `watch_tick`'s host-sourced parameters, which is what removes the old hazard of a
+    /// caller pairing one host with another host's router or cache.
+    #[allow(clippy::too_many_arguments)]
+    fn host_from_parts(
+        registry: Arc<Mutex<Registry>>,
+        registry_trusted: Arc<AtomicBool>,
+        router: Arc<Mutex<Arc<Router>>>,
+        cached_tools: SharedCatalog,
+        downstream_dirty: Arc<AtomicU8>,
+        server_handler: ServerRequestHandler,
+        rebuild_lock: Arc<Mutex<()>>,
+        // The test's own session table, when it asserts list_changed fanout to it.
+        mcp_sessions: Option<Arc<Mutex<HashMap<String, Arc<SessionState>>>>>,
+        // The test's own `resources/updated` sink, when it asserts rebuild fanout.
+        resource_updated_sink: Option<ResourceUpdatedDispatch>,
+    ) -> HostState {
+        HostState {
+            registry,
+            registry_trusted,
+            router,
+            tool_scope_views: Mutex::new(ToolScopeViews::default()),
+            root_launch_pool: Mutex::new(RootLaunchPool::default()),
+            cached_tools,
+            routine_candidates: CandidateRegistry::default(),
+            routine_advisor: AdvisorLedger::default(),
+            ready: Arc::new(AtomicBool::new(true)),
+            downstream_dirty,
+            rebuild_lock,
+            http: true,
+            http_bind_host: "127.0.0.1".to_string(),
+            http_allowed_origins: Vec::new(),
+            server_handler,
+            resource_subs: Arc::new(Mutex::new(ResourceSubscriptionTable::default())),
+            resource_sub_capacity: Mutex::new(()),
+            resource_stdio: Arc::new(SessionState::new_http(None)),
+            // Host state now, not a parameter: the watcher reads both off the host, so
+            // these are the test's own handles when it supplies them and empty otherwise.
+            resource_updated_sink,
+            rebuild_shrink_streaks: Mutex::new(HashMap::new()),
+            quarantine_read_failed: AtomicBool::new(false),
+            code_mode: AtomicBool::new(false),
+            discovery: AtomicU8::new(0),
+            mcp_sessions: mcp_sessions.unwrap_or_else(|| Arc::new(Mutex::new(HashMap::new()))),
+            daemon_mode: AtomicBool::new(false),
+            http_service_lease: Mutex::new(None),
+            shutdown_if_idle: AtomicBool::new(false),
+            last_activity_ms: AtomicU64::new(0),
+        }
+    }
+
     fn http_state(lazy: bool) -> GatewayState {
         let stdout = Arc::new(Mutex::new(std::io::stdout()));
         let mcp_sessions = Arc::new(Mutex::new(HashMap::new()));
-        let client_upstream = Arc::new(Mutex::new(ClientUpstreamCaps::default()));
-        let stdio_upstream = Arc::new(StdioUpstream::new(Arc::clone(&stdout)));
+        let stdio_upstream = Arc::new(SessionState::new_stdio(Arc::clone(&stdout)));
         let server_handler = make_server_request_handler(
-            Arc::clone(&client_upstream),
             Arc::clone(&stdio_upstream),
             Arc::clone(&mcp_sessions),
             true,
         );
         let resource_subs = Arc::new(Mutex::new(ResourceSubscriptionTable::default()));
         let resource_updated_sink = Some(make_resource_updated_sink(
-            Arc::clone(&stdout),
+            Arc::clone(&stdio_upstream),
             Arc::clone(&mcp_sessions),
             Arc::clone(&resource_subs),
         ));
         GatewayState {
-            registry: Arc::new(Mutex::new(Registry::default())),
-            // Tests stand in for a clean boot load; the ones that care flip it.
-            registry_trusted: Arc::new(AtomicBool::new(true)),
-            router: Arc::new(Mutex::new(Arc::new(Router::new()))),
-            cached_tools: Arc::new(Mutex::new(Arc::new(CatalogSnapshot::default()))),
-            routine_candidates: CandidateRegistry::default(),
-            routine_advisor: AdvisorLedger::default(),
-            stdout,
-            ready: Arc::new(AtomicBool::new(true)),
-            downstream_dirty: Arc::new(AtomicU8::new(0)),
-            rebuild_lock: Arc::new(Mutex::new(())),
-            lazy,
+            host: Arc::new(HostState {
+                registry: Arc::new(Mutex::new(Registry::default())),
+                // Tests stand in for a clean boot load; the ones that care flip it.
+                registry_trusted: Arc::new(AtomicBool::new(true)),
+                router: Arc::new(Mutex::new(Arc::new(Router::new()))),
+                tool_scope_views: Mutex::new(ToolScopeViews::default()),
+                root_launch_pool: Mutex::new(RootLaunchPool::default()),
+                cached_tools: Arc::new(Mutex::new(Arc::new(CatalogSnapshot::default()))),
+                routine_candidates: CandidateRegistry::default(),
+                routine_advisor: AdvisorLedger::default(),
+                ready: Arc::new(AtomicBool::new(true)),
+                downstream_dirty: Arc::new(AtomicU8::new(0)),
+                rebuild_lock: Arc::new(Mutex::new(())),
+                http: true,
+                http_bind_host: "127.0.0.1".to_string(),
+                http_allowed_origins: Vec::new(),
+                server_handler,
+                resource_subs,
+                resource_sub_capacity: Mutex::new(()),
+                resource_stdio: Arc::clone(&stdio_upstream),
+                resource_updated_sink,
+                mcp_sessions: Arc::clone(&mcp_sessions),
+                daemon_mode: AtomicBool::new(false),
+                http_service_lease: Mutex::new(None),
+                shutdown_if_idle: AtomicBool::new(false),
+                last_activity_ms: AtomicU64::new(0),
+                rebuild_shrink_streaks: Mutex::new(HashMap::new()),
+                quarantine_read_failed: AtomicBool::new(false),
+                code_mode: AtomicBool::new(false),
+                // The bridge resolves discovery from this live field, so seed it from the
+                // flag the test passes: true = a lazy bridge, false = full. (A host from
+                // `host_from_parts` keeps main's Lazy default instead, because the tests
+                // there assert host-mode-derived output; set it explicitly when needed.)
+                discovery: AtomicU8::new(
+                    if lazy {
+                        DiscoveryMode::Lazy
+                    } else {
+                        DiscoveryMode::Full
+                    }
+                    .as_u8(),
+                ),
+            }),
             profile: Arc::new(Mutex::new(None)),
-            http: true,
-            http_bind_host: "127.0.0.1".to_string(),
-            http_allowed_origins: Vec::new(),
-            mcp_sessions,
-            client_upstream,
-            client_root: Arc::new(Mutex::new(None)),
             stdio_upstream,
-            server_handler,
             client_id: None,
             env_profile: None,
-            resource_subs,
-            resource_updated_sink,
         }
+    }
+
+    /// A host for a test that dispatches with its own registry/router/catalog locals.
+    ///
+    /// Those locals stay parameters of the dispatch entry points. The host carries the
+    /// host-scoped state the dispatch core reads off it, so a test that needs a code-mode
+    /// value sets it on the host it dispatches with instead of on a process global.
+    ///
+    /// Bind ONE per test body and pass it to every call in that body: a fresh host per call
+    /// would reset the host-scoped state between calls and quietly weaken a test that
+    /// dispatches more than once.
+    fn dispatch_host(code_mode: bool) -> Arc<HostState> {
+        let state = http_state(false);
+        state.set_code_mode(code_mode);
+        Arc::clone(&state.host)
+    }
+
+    /// Swap the host's live router, the way a rebuild does: the field's identity is
+    /// the lock, not the `Arc<Router>` inside it. Takes either form so callers can
+    /// hand over a plain router or an already-shared one.
+    fn swap_router(state: &GatewayState, router: impl Into<Arc<Router>>) {
+        *state
+            .router
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = router.into();
+    }
+
+    /// P1.3: one host, several sessions. Cloning the facade is what happens per
+    /// session (and per request), so a clone must share the host runtime rather
+    /// than copy it: one registry, one live router, one rebuild lock. Two clones
+    /// that each owned a router would double-spawn downstream children on the next
+    /// rebuild and let the loser's Drop kill mid-flight work.
+    #[test]
+    fn one_host_backs_every_session_with_the_same_router_and_registry() {
+        let first = http_state(true);
+        let second = first.clone();
+
+        assert!(
+            Arc::ptr_eq(&first.host, &second.host),
+            "a session clone must share the host, not duplicate it"
+        );
+        assert!(
+            Arc::ptr_eq(&first.router, &second.router),
+            "one host owns exactly one live router"
+        );
+        assert!(Arc::ptr_eq(&first.registry, &second.registry));
+        assert!(Arc::ptr_eq(&first.rebuild_lock, &second.rebuild_lock));
+        assert!(Arc::ptr_eq(&first.cached_tools, &second.cached_tools));
+
+        // One live router means a rebuild seen through one session is seen through
+        // every other one. A second router behind its own lock would fail here.
+        let (router, _calls, _catalog) = counting_router(false);
+        assert!(
+            first.router.lock().unwrap().aggregated_tools().is_empty(),
+            "the fixture starts with no routes"
+        );
+        swap_router(&second, router);
+        // Lock once per statement: both facades share one mutex, so holding two
+        // guards at the same time would deadlock this test against itself.
+        let routes_seen_from_first = first.router.lock().unwrap().aggregated_tools().len();
+        let routes_seen_from_second = second.router.lock().unwrap().aggregated_tools().len();
+        assert!(
+            routes_seen_from_first > 0,
+            "a router swapped in for one session must be the host's router"
+        );
+        assert_eq!(routes_seen_from_first, routes_seen_from_second);
+        let first_router = Arc::as_ptr(&*first.router.lock().unwrap());
+        let second_router = Arc::as_ptr(&*second.router.lock().unwrap());
+        assert_eq!(first_router, second_router);
     }
 
     /// Minimal raw HTTP/1.1 client for the concurrency test: one request per
@@ -21264,6 +24831,7 @@ mod tests {
         let deadlines = HttpReadDeadlines {
             header: Duration::from_millis(180),
             body: Duration::from_millis(120),
+            ..HttpReadDeadlines::default()
         };
         let (_server, _ingress, public_addr) =
             bind_deadline_http_server("127.0.0.1:0", deadlines).unwrap();
@@ -21416,11 +24984,33 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn private_daemon_body_limit_accepts_stdio_frames_without_raising_public_limit() {
+        let between = format!(
+            "POST /mcp HTTP/1.1\r\nContent-Length: {}\r\n",
+            MAX_HTTP_BODY + 1
+        );
+        assert!(matches!(
+            parse_http_head_with_limit(between.as_bytes(), MAX_HTTP_BODY),
+            Err(HttpIngressError::BodyTooLarge)
+        ));
+        assert!(parse_http_head_with_limit(between.as_bytes(), MAX_DAEMON_HTTP_BODY).is_ok());
+        let over_daemon = format!(
+            "POST /mcp HTTP/1.1\r\nContent-Length: {}\r\n",
+            MAX_DAEMON_HTTP_BODY + 1
+        );
+        assert!(matches!(
+            parse_http_head_with_limit(over_daemon.as_bytes(), MAX_DAEMON_HTTP_BODY),
+            Err(HttpIngressError::BodyTooLarge)
+        ));
+    }
+
     /// The live proof of the multithreaded HTTP loop: a call blocked in dispatch (a
     /// slow downstream, or the moral equivalent of a 120s approval hold) must NOT stall
     /// an unrelated request. A single-threaded accept loop would serialize them.
     #[test]
     fn http_slow_call_does_not_block_other_requests() {
+        let _data_env = DataDirTestEnv::new("http_slow_call_does_not_block_other_requests");
         // A downstream whose tools/call blocks ~800ms; initialize/tools/list stay fast
         // so the connect handshake and routing (`s__wait`) work normally.
         struct SlowRoute {
@@ -21466,8 +25056,8 @@ mod tests {
         .unwrap();
         let mut router = Router::new();
         router.add(ds);
-        let mut state = http_state(false);
-        state.router = Arc::new(Mutex::new(Arc::new(router)));
+        let state = http_state(false);
+        swap_router(&state, router);
 
         let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
         let port = server.server_addr().to_ip().unwrap().port();
@@ -21672,7 +25262,7 @@ mod tests {
 
     #[test]
     fn openapi_exposes_meta_tools_as_post_paths() {
-        let spec = openapi_spec(&http_state(true), None);
+        let spec = openapi_spec(&http_state(true), None, DiscoveryMode::Lazy);
         let paths = spec.get("paths").unwrap().as_object().unwrap();
         // The lazy meta-tools are each a POST path.
         assert!(paths.contains_key("/toolport_search_tools"));
@@ -21714,6 +25304,8 @@ mod tests {
             ("teamId", "your_team_id"),
             ("teamId", "<team_id>"),
             ("teamId", "{{teamId}}"),
+            ("teamId", "{{ teamId }}"),
+            ("teamId", "{{ team.id }}"),
             ("apiKey", "REPLACE_ME"),
             ("teamId", "team_id_here"),
         ] {
@@ -21737,6 +25329,13 @@ mod tests {
             ("name", "example"),
             ("message", "xxx"),
             ("branch", "tbd"),
+            // Real content that merely contains a tag or delimiter (#871).
+            ("headText", "<p>Dear Sir or Madam,</p>"),
+            ("footText", "<div><p>Kind regards</p></div>"),
+            ("template", "{{ states('sun.sun') }}"),
+            ("template", "{{ 1 + 1 }}"),
+            ("template", "{{ user.name }}"),
+            ("body", "Your order has shipped"),
         ] {
             assert!(
                 !looks_like_placeholder(param, val),
@@ -22037,6 +25636,7 @@ mod tests {
 
     #[test]
     fn scope_tools_filters_by_server_keeps_meta() {
+        let _data_env = DataDirTestEnv::new("scope_tools_filters_by_server_keeps_meta");
         let tools = vec![
             json!({ "name": "vercel__deploy" }),
             json!({ "name": "resend__send" }),
@@ -22211,8 +25811,8 @@ mod tests {
         // execute_call(), which is where the audit entry is recorded.
         let (router, _calls, _catalog) = counting_router(false);
 
-        let mut state = http_state(true);
-        state.router = Arc::new(Mutex::new(router));
+        let state = http_state(true);
+        swap_router(&state, router);
 
         let search = SearchGuard::default();
         let confirm = ConfirmGuard::new();
@@ -22395,6 +25995,19 @@ mod tests {
 
     #[test]
     fn status_summary_scopes_to_allowed_servers() {
+        let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _data_lock = registry::data_dir_test_lock();
+        let dir =
+            std::env::temp_dir().join(format!("toolport-status-scope-{}", std::process::id()));
+        let _override = registry::DataDirOverride::set(&dir);
+        savings::record_catalog(
+            "lazy",
+            Some("alpha-client"),
+            &[json!({"name":"alpha__secret","description":"alpha-only-schema"})],
+            &[json!({"name":"toolport_status"})],
+            |name| (name == "alpha__secret").then(|| "alpha".to_string()),
+        );
+        let host = dispatch_host(false);
         use std::collections::HashSet;
         let mut reg = Registry::default();
         for id in ["alpha", "bravo"] {
@@ -22411,6 +26024,8 @@ mod tests {
                 cwd: None,
                 client_credentials: None,
                 request_timeout_ms: None,
+                initialize_timeout_ms: None,
+                launch: None,
                 unknown_fields: serde_json::Map::new(),
             });
         }
@@ -22420,20 +26035,48 @@ mod tests {
         reg.set_server_enabled(&billing, "bravo", true).unwrap();
         let cached = vec![json!({ "name": "alpha__x" }), json!({ "name": "bravo__y" })];
         // Unscoped (legacy/stdio): the active profile -> alpha only.
-        let full = enabled_summary(&reg, &cached, None, None);
+        let full = enabled_summary(&host, &reg, &cached, None, None);
         assert!(full.contains("alpha"));
         assert!(!full.contains("bravo")); // not in the active profile
-                                          // Scoped to bravo: shows bravo (its real scope) even though bravo isn't in
-                                          // the active profile, and never leaks alpha's name/command/tool count.
+        assert!(full.contains("tokens of MCP tool definitions out of context"));
+        // Scoped to bravo: shows bravo (its real scope) even though bravo isn't in
+        // the active profile, and never leaks alpha's name/command/tool count.
         let allowed: HashSet<String> = ["bravo".to_string()].into_iter().collect();
-        let scoped = enabled_summary(&reg, &cached, None, Some(&allowed));
+        let scoped = enabled_summary(&host, &reg, &cached, None, Some(&allowed));
         assert!(scoped.contains("bravo"));
         assert!(!scoped.contains("alpha"));
         assert!(!scoped.contains("alpha-cmd"));
+        assert!(!scoped.contains("tokens of MCP tool definitions out of context"));
+        assert!(!scoped.contains("alpha-only-schema"));
+        assert!(!scoped.contains("peak full catalog"));
+        assert!(!scoped.contains("load(s)"));
+        let rpc = handle_request(
+            &host,
+            &json!({"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"toolport_status","arguments":{}}}),
+            &reg,
+            &Router::new(),
+            &cached,
+            true,
+            None,
+            &SearchGuard::default(),
+            &ConfirmGuard::new(),
+            Some(&allowed),
+            Some("bravo-client"),
+        ).unwrap();
+        let rpc_text = rpc["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(rpc_text.contains("bravo"));
+        assert!(!rpc_text.contains("tokens of MCP tool definitions out of context"));
+        // The status line reports the mode of the host it is asked about.
+        host.set_discovery_mode(DiscoveryMode::Grouped);
+        let grouped = enabled_summary(&host, &reg, &cached, None, None);
+        assert!(grouped.contains("Discovery mode: grouped"), "{grouped}");
+        savings::try_clear().unwrap();
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
     fn status_flags_enabled_servers_that_expose_no_tools() {
+        let host = dispatch_host(false);
         let mut reg = Registry::default();
         for id in ["github", "atlassian"] {
             reg.servers.push(ServerEntry {
@@ -22449,6 +26092,8 @@ mod tests {
                 cwd: None,
                 client_credentials: None,
                 request_timeout_ms: None,
+                initialize_timeout_ms: None,
+                launch: None,
                 unknown_fields: serde_json::Map::new(),
             });
             reg.set_server_enabled("default", id, true).unwrap();
@@ -22459,7 +26104,7 @@ mod tests {
             json!({ "name": "github__list_repos" }),
             json!({ "name": "github__create_issue" }),
         ];
-        let out = enabled_summary(&reg, &cached, None, None);
+        let out = enabled_summary(&host, &reg, &cached, None, None);
         assert!(out.contains("github: 2 tool(s)"));
         assert!(out.contains("Enabled but exposing 0 tools"));
         // The silent server is named under the hint; the one with tools is not.
@@ -22474,6 +26119,7 @@ mod tests {
     /// dropped its counts, then reported it as exposing 0 tools.
     #[test]
     fn status_counts_tools_for_a_hyphenated_server_id() {
+        let host = dispatch_host(false);
         let mut reg = Registry::default();
         reg.servers.push(stub_server("file-system", "File System"));
         reg.set_server_enabled("default", "file-system", true)
@@ -22482,13 +26128,13 @@ mod tests {
             json!({ "name": "file_system__read" }),
             json!({ "name": "file_system__write" }),
         ];
-        let out = enabled_summary(&reg, &cached, None, None);
+        let out = enabled_summary(&host, &reg, &cached, None, None);
         assert!(out.contains("file_system: 2 tool(s)"), "{out}");
         assert!(!out.contains("Enabled but exposing 0 tools"), "{out}");
         // Same answer for a scoped HTTP caller, whose allow-set is raw ids too.
         let allowed: std::collections::HashSet<String> =
             ["file-system".to_string()].into_iter().collect();
-        let scoped = enabled_summary(&reg, &cached, None, Some(&allowed));
+        let scoped = enabled_summary(&host, &reg, &cached, None, Some(&allowed));
         assert!(scoped.contains("file_system: 2 tool(s)"), "{scoped}");
 
         // A prefix two tenants share is counted for neither, rather than crediting
@@ -22500,12 +26146,19 @@ mod tests {
         twins
             .set_server_enabled("default", "team_slack", true)
             .unwrap();
-        let out = enabled_summary(&twins, &[json!({ "name": "team_slack__send" })], None, None);
+        let out = enabled_summary(
+            &host,
+            &twins,
+            &[json!({ "name": "team_slack__send" })],
+            None,
+            None,
+        );
         assert!(!out.contains("team_slack: 1 tool(s)"), "{out}");
     }
 
     #[test]
     fn status_omits_zero_tool_hint_before_catalog_populates() {
+        let host = dispatch_host(false);
         // Before any server has produced tools (empty catalog = still connecting),
         // the hint must stay silent - otherwise every server reads as "0 tools".
         let mut reg = Registry::default();
@@ -22522,15 +26175,19 @@ mod tests {
             cwd: None,
             client_credentials: None,
             request_timeout_ms: None,
+            initialize_timeout_ms: None,
+            launch: None,
             unknown_fields: serde_json::Map::new(),
         });
         reg.set_server_enabled("default", "github", true).unwrap();
-        let out = enabled_summary(&reg, &[], None, None);
+        let out = enabled_summary(&host, &reg, &[], None, None);
         assert!(!out.contains("Enabled but exposing 0 tools"));
     }
 
     #[test]
     fn scoped_call_to_out_of_scope_server_is_refused() {
+        let _data_env = DataDirTestEnv::new("scoped_call_to_out_of_scope_server_is_refused");
+        let host = dispatch_host(false);
         let reg = Registry::default();
         let allowed: std::collections::HashSet<String> =
             ["vercel".to_string()].into_iter().collect();
@@ -22540,9 +26197,10 @@ mod tests {
             "params": { "name": "resend__send", "arguments": {} }
         });
         let resp = handle_request(
+            &host,
             &req,
             &reg,
-            &router(),
+            &routed_router("resend", "send"),
             &catalog(),
             true,
             None,
@@ -22561,7 +26219,10 @@ mod tests {
             .and_then(|b| b.get("text"))
             .and_then(|t| t.as_str())
             .unwrap_or("");
-        assert!(text.contains("not available to this client"));
+        assert!(
+            text.contains("'resend' is not available to this client"),
+            "got {text}"
+        );
         // An in-scope call passes the scope guard (it then fails at routing since
         // no server is connected, but NOT with the scope-refusal message).
         let req_ok = json!({
@@ -22569,6 +26230,7 @@ mod tests {
             "params": { "name": "vercel__deploy", "arguments": {} }
         });
         let resp_ok = handle_request(
+            &host,
             &req_ok,
             &reg,
             // A routed router so `vercel__deploy` resolves to server `vercel` (in scope)
@@ -22685,11 +26347,13 @@ mod tests {
 
     #[test]
     fn openapi_post_reports_failed_and_unknown_tools_by_status() {
+        let _data_env =
+            DataDirTestEnv::new("openapi_post_reports_failed_and_unknown_tools_by_status");
         // SBS-937: Open WebUI, n8n and generated OpenAPI clients branch on the
         // status code. A 200 carrying error text runs their success path.
         let (router, calls, _catalog) = counting_router(false);
-        let mut state = http_state(true);
-        state.router = Arc::new(Mutex::new(router));
+        let state = http_state(true);
+        swap_router(&state, router);
         let search = SearchGuard::default();
         let confirm = ConfirmGuard::new();
         let post = |path: &str| {
@@ -22928,7 +26592,11 @@ mod tests {
         accept: Option<&'a str>,
     ) -> McpHttpRequestHeaders<'a> {
         McpHttpRequestHeaders {
+            private_daemon_bearer: false,
             session_id,
+            adapter_cwd: None,
+            adapter_root_override: None,
+            adapter_resolved_root: None,
             protocol_version: Some(MODERN_PROTOCOL_VERSION),
             method: Some(method),
             name,
@@ -22941,8 +26609,12 @@ mod tests {
             audit_label: Some(identity.to_string()),
             session_owner: McpSessionOwner {
                 identity: identity.to_string(),
+                profile: None,
+                tool_scope: None,
                 scope: scope.map(|s| s.iter().map(|v| v.to_string()).collect()),
             },
+            discovery: None,
+            profile: None,
         }
     }
 
@@ -23020,6 +26692,123 @@ mod tests {
         assert!(
             state.mcp_sessions.lock().unwrap().is_empty(),
             "an ordinary modern request must not create protocol session state"
+        );
+    }
+
+    /// The HTTP bridge resolves its own requests from the host's live discovery mode
+    /// (a per-client override still wins), so a switch after boot reaches it at once
+    /// instead of waiting for a restart, exactly like stdio and the daemon. The plan doc
+    /// recorded the old boot-frozen read as a hazard; this pins the fix.
+    #[test]
+    fn http_bridge_follows_a_live_discovery_switch() {
+        let state = http_state(false);
+        let spec = |state: &GatewayState, caller: Option<&HttpCaller>| -> Value {
+            let out = handle_http_with_headers(
+                state,
+                &SearchGuard::default(),
+                &ConfirmGuard::new(),
+                "GET",
+                "/openapi.json",
+                "",
+                McpHttpRequestHeaders::default(),
+                None,
+                caller,
+            );
+            assert_eq!(out.status, 200, "body={}", out.body);
+            serde_json::from_str(&out.body).expect("the spec is JSON")
+        };
+        let paths = |spec: &Value| -> std::collections::BTreeSet<String> {
+            spec["paths"]
+                .as_object()
+                .unwrap_or_else(|| panic!("a spec without paths: {spec}"))
+                .keys()
+                .cloned()
+                .collect()
+        };
+
+        // Booted full: the bridge advertises the catalog bridge, not the lazy meta-tools.
+        let full = paths(&spec(&state, None));
+        assert!(
+            full.contains("/toolport_status") && !full.contains("/toolport_search_tools"),
+            "a full-mode bridge must advertise the catalog bridge, not the meta-tools: {full:?}"
+        );
+
+        // A live switch reaches the bridge without a restart.
+        state.host.set_discovery_mode(DiscoveryMode::Lazy);
+        let lazy = paths(&spec(&state, None));
+        assert!(
+            lazy.contains("/toolport_search_tools"),
+            "a live switch to lazy must reach the bridge: {lazy:?}"
+        );
+
+        // A per-client override still wins (#868), whichever way the host is set: a
+        // client pinned to full keeps the catalog bridge on a lazy host.
+        let pinned_full = HttpCaller {
+            audit_label: Some("client:pinned-full".to_string()),
+            session_owner: McpSessionOwner {
+                identity: "client:pinned-full".to_string(),
+                profile: None,
+                tool_scope: None,
+                scope: None,
+            },
+            discovery: Some(DiscoveryMode::Full),
+            profile: None,
+        };
+        let overridden = paths(&spec(&state, Some(&pinned_full)));
+        assert!(
+            overridden.contains("/toolport_status")
+                && !overridden.contains("/toolport_search_tools"),
+            "a client pinned to full must keep the catalog bridge on a lazy host: {overridden:?}"
+        );
+
+        // And a switch back out of lazy does not override a client pinned to lazy.
+        state.host.set_discovery_mode(DiscoveryMode::Full);
+        let pinned_lazy = HttpCaller {
+            audit_label: Some("client:pinned-lazy".to_string()),
+            session_owner: McpSessionOwner {
+                identity: "client:pinned-lazy".to_string(),
+                profile: None,
+                tool_scope: None,
+                scope: None,
+            },
+            discovery: Some(DiscoveryMode::Lazy),
+            profile: None,
+        };
+        let pinned = paths(&spec(&state, Some(&pinned_lazy)));
+        assert!(
+            pinned.contains("/toolport_search_tools"),
+            "a client pinned to lazy must get the meta-tools on a full host: {pinned:?}"
+        );
+
+        let back = paths(&spec(&state, None));
+        assert!(
+            back.contains("/toolport_status") && !back.contains("/toolport_search_tools"),
+            "a switch back out of lazy must reach the bridge too: {back:?}"
+        );
+    }
+
+    /// `gateway_capabilities` advertises the mode it is handed rather than a mode it
+    /// re-derives from the host: the caller has already resolved per-client overrides
+    /// (#868), so a client pinned to `full` on a grouped host must be told `full`.
+    #[test]
+    fn gateway_capabilities_advertises_the_resolved_mode() {
+        // The vendor extension is only advertised to a modern client, and that is
+        // per-request thread-local state. Enter the era here instead of inheriting it
+        // from whatever test ran on this worker thread before.
+        let _era = UpstreamEraGuard::enter(Some(MODERN_PROTOCOL_VERSION.to_string()));
+        let host = dispatch_host(false);
+        host.set_discovery_mode(DiscoveryMode::Grouped);
+        assert!(host.grouped_discovery(), "the fixture host must be grouped");
+        let advertised = gateway_capabilities(
+            &host,
+            &Router::new(),
+            None,
+            &Registry::default(),
+            DiscoveryMode::Full,
+        );
+        assert_eq!(
+            advertised["extensions"][TOOLPORT_GATEWAY_EXTENSION]["discoveryMode"], "full",
+            "the resolved mode must win over the host's grouped bit: {advertised}"
         );
     }
 
@@ -23647,12 +27436,10 @@ mod tests {
             .is_none());
 
         fanout_mcp_notification(
-            &state.stdout,
             &state.mcp_sessions,
             &json!({ "jsonrpc": "2.0", "method": "notifications/prompts/list_changed" }),
         );
         fanout_mcp_notification(
-            &state.stdout,
             &state.mcp_sessions,
             &json!({ "jsonrpc": "2.0", "method": "notifications/tools/list_changed" }),
         );
@@ -23673,21 +27460,61 @@ mod tests {
         );
 
         let pii_client = Some(caller.session_owner.identity.as_str());
-        with_pii_session(pii_client, |map| {
-            *map = pii::SessionMap::new();
-            map.pseudonymize("crm", "ada@example.com");
-        });
         let listen = out.mcp_listen.take().unwrap();
         let (cleanup_state, cleanup_key) = listen.cleanup.unwrap();
+        {
+            let _session = McpSessionGuard::enter(Some(cleanup_key.clone()));
+            with_pii_session(pii_client, |map| {
+                *map = pii::SessionMap::new();
+                map.pseudonymize("crm", "ada@example.com");
+            });
+        }
+        let verify_key = cleanup_key.clone();
         let reader = McpSseReader::with_cleanup(listen.session, cleanup_state, cleanup_key);
         drop(reader);
         assert!(
             state.mcp_sessions.lock().unwrap().is_empty(),
             "closing the POST response removes the listener"
         );
+        let _session = McpSessionGuard::enter(Some(verify_key));
         assert!(
             !with_pii_session(pii_client, |map| !map.is_empty()),
             "closing the SSE conversation must drop its PII map"
+        );
+    }
+
+    #[test]
+    fn modern_adapter_listener_keeps_its_authenticated_root() {
+        let state = http_state(true);
+        state.daemon_mode.store(true, Ordering::SeqCst);
+        let caller = test_caller("adapter:modern-root", None);
+        let mut headers = modern_http_headers(
+            "subscriptions/listen",
+            None,
+            None,
+            Some("application/json, text/event-stream"),
+        );
+        headers.adapter_resolved_root = Some("/project-modern");
+        let out = handle_http_with_headers(
+            &state,
+            &SearchGuard::default(),
+            &ConfirmGuard::new(),
+            "POST",
+            "/mcp",
+            &modern_http_body(
+                1,
+                "subscriptions/listen",
+                json!({"notifications": {"toolsListChanged": true}}),
+            ),
+            headers,
+            None,
+            Some(&caller),
+        );
+        assert_eq!(out.status, 200, "body={}", out.body);
+        let session = &out.mcp_listen.as_ref().unwrap().session;
+        assert_eq!(
+            HostState::resolved_adapter_root(session).as_deref(),
+            Some("/project-modern")
         );
     }
 
@@ -23773,7 +27600,7 @@ mod tests {
         let state = http_state(true);
         let id = json!("listen-1");
         let key = modern_subscription_key(None, &id, ModernSubscriptionTransport::Stdio);
-        let session = Arc::new(McpSession::new_modern(
+        let session = Arc::new(SessionState::new_modern(
             None,
             id.clone(),
             ModernSubscriptionFilter {
@@ -23835,7 +27662,7 @@ mod tests {
         let sid_a = mint_mcp_session(&state, None).ok().unwrap();
         let sid_b = mint_mcp_session(&state, None).ok().unwrap();
         let msg = json!({"jsonrpc":"2.0","method":"notifications/resources/list_changed"});
-        fanout_mcp_notification(&state.stdout, &state.mcp_sessions, &msg);
+        fanout_mcp_notification(&state.mcp_sessions, &msg);
         for sid in [sid_a, sid_b] {
             let sessions = state.mcp_sessions.lock().unwrap();
             let session = sessions.get(&sid).unwrap();
@@ -23880,6 +27707,8 @@ mod tests {
             cwd: None,
             client_credentials: None,
             request_timeout_ms: None,
+            initialize_timeout_ms: None,
+            launch: None,
             unknown_fields: serde_json::Map::new(),
         }
     }
@@ -23916,6 +27745,38 @@ mod tests {
         );
         assert!(server_in_allowed_scope("team-slack", &set));
         assert!(!server_in_allowed_scope("team_slack", &set));
+    }
+
+    /// #868: a named HTTP client can pin its own discovery mode through
+    /// `clientDiscovery[id]`, so one bridge serves a full client and a lazy one.
+    #[test]
+    fn resolve_http_caller_carries_the_client_discovery_override() {
+        let mut reg = Registry::default();
+        reg.http_clients.push(registry::HttpClient {
+            id: "c-claude-code".into(),
+            label: "Claude Code".into(),
+            token_sha256: registry::sha256_hex("tok-cc"),
+            profile: String::new(),
+        });
+        let resolve = |reg: &Registry| {
+            resolve_http_caller(reg, None, Some("tok-cc"), false, true)
+                .unwrap()
+                .1
+                .discovery
+        };
+
+        reg.set_client_discovery("c-claude-code", Some("full"));
+        assert_eq!(resolve(&reg), Some(DiscoveryMode::Full));
+
+        reg.set_client_discovery("c-claude-code", Some("lazy"));
+        assert_eq!(resolve(&reg), Some(DiscoveryMode::Lazy));
+
+        // Grouped still depends on host-wide publisher state, so it is not a
+        // per-client override, and neither is an unset client.
+        reg.set_client_discovery("c-claude-code", Some("grouped"));
+        assert_eq!(resolve(&reg), None);
+        reg.set_client_discovery("c-claude-code", None);
+        assert_eq!(resolve(&reg), None);
     }
 
     /// SBS-866: route_of is authoritative; an override-renamed team tool must not
@@ -24023,7 +27884,7 @@ mod tests {
         *state.cached_tools.lock().unwrap() = Arc::new(CatalogSnapshot::new(cached));
         let personal = personal_scope();
 
-        let spec = openapi_spec(&state, Some(&personal)).to_string();
+        let spec = openapi_spec(&state, Some(&personal), DiscoveryMode::Full).to_string();
         assert!(
             !spec.contains("send_2"),
             "the team twin must not reach a Personal token's OpenAPI doc: {spec}"
@@ -24087,6 +27948,7 @@ mod tests {
 
     #[test]
     fn execute_call_refuses_team_twin_for_personal_scope() {
+        let _data_env = DataDirTestEnv::new("execute_call_refuses_team_twin_for_personal_scope");
         let reg = Registry::default();
         let router = twin_router();
         let cached = router.aggregated_tools();
@@ -24146,8 +28008,81 @@ mod tests {
     }
 
     #[test]
+    fn execute_call_reports_an_unknown_tool_the_same_with_or_without_scope() {
+        let _data_env = DataDirTestEnv::new("execute_call_reports_an_unknown_tool");
+        let reg = Registry::default();
+        let router = twin_router();
+        let cached = router.aggregated_tools();
+        let personal = personal_scope();
+        let unknown = execute_call(
+            &reg,
+            &router,
+            &cached,
+            Some("open-webui"),
+            None,
+            Some(&personal),
+            None,
+            Some(&ConfirmGuard::new()),
+            "no_such_tool",
+            json!({}),
+            None,
+            None,
+            CallOpts {
+                confirmed: true,
+                shape: false,
+                allow_app_only: true,
+            },
+            None,
+        );
+        assert_eq!(unknown["isError"], true, "got {unknown}");
+        assert_eq!(
+            unknown["content"][0]["text"], "no route for tool 'no_such_tool'",
+            "an unknown tool is not a scope denial for an empty server id"
+        );
+
+        // A client-side alias is resolved only to a tool the caller may call, so
+        // the hint cannot confirm that an out-of-scope tool exists.
+        let (personal_name, team_name) = twin_tool_names(&router, &cached);
+        let alias_text = |exposed: &str| {
+            execute_call(
+                &reg,
+                &router,
+                &cached,
+                Some("open-webui"),
+                None,
+                Some(&personal),
+                None,
+                Some(&ConfirmGuard::new()),
+                exposed,
+                json!({}),
+                None,
+                None,
+                CallOpts {
+                    confirmed: true,
+                    shape: false,
+                    allow_app_only: true,
+                },
+                None,
+            )["content"][0]["text"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string()
+        };
+        let in_scope = format!("mcp__toolport__{personal_name}");
+        assert!(
+            alias_text(&in_scope).contains(&format!("named '{personal_name}'")),
+            "an in-scope alias still points at the real name"
+        );
+        let out_of_scope = format!("mcp__toolport__{team_name}");
+        assert_eq!(
+            alias_text(&out_of_scope),
+            format!("no route for tool '{out_of_scope}'")
+        );
+    }
+
+    #[test]
     fn mcp_session_outbound_queue_is_bounded() {
-        let session = McpSession::new(None);
+        let session = SessionState::new_http(None);
         for i in 0..MCP_SESSION_OUTBOUND_MAX {
             assert!(session.push_message(
                 json!({"jsonrpc":"2.0","method":"notifications/test","params":{"i":i}}).to_string(),
@@ -24166,7 +28101,7 @@ mod tests {
 
     #[test]
     fn mcp_upstream_timeout_drops_undelivered_request() {
-        let session = McpSession::new(None);
+        let session = SessionState::new_http(None);
         let err = session
             .upstream_call_timeout("roots/list", json!({}), Duration::ZERO)
             .unwrap_err();
@@ -24177,7 +28112,7 @@ mod tests {
 
     #[test]
     fn mcp_upstream_call_fails_immediately_when_queue_is_full() {
-        let session = McpSession::new(None);
+        let session = SessionState::new_http(None);
         for _ in 0..MCP_SESSION_OUTBOUND_MAX {
             assert!(session.push_message("queued".to_string(), None));
         }
@@ -24193,10 +28128,187 @@ mod tests {
     }
 
     #[test]
+    fn http_roots_refresh_updates_only_its_session_and_keeps_adapter_cwd_fallback() {
+        let state = http_state(false);
+        state.daemon_mode.store(true, Ordering::SeqCst);
+        let owner_a = McpSessionOwner {
+            identity: "adapter:a".to_string(),
+            profile: None,
+            tool_scope: None,
+            scope: None,
+        };
+        let owner_b = McpSessionOwner {
+            identity: "adapter:b".to_string(),
+            profile: None,
+            tool_scope: None,
+            scope: None,
+        };
+        let sid_a =
+            mint_mcp_session(&state, Some(&owner_a)).unwrap_or_else(|_| panic!("session A"));
+        let sid_b =
+            mint_mcp_session(&state, Some(&owner_b)).unwrap_or_else(|_| panic!("session B"));
+        let sessions = state.mcp_sessions.lock().unwrap();
+        let a = Arc::clone(sessions.get(&sid_a).unwrap());
+        let b = Arc::clone(sessions.get(&sid_b).unwrap());
+        drop(sessions);
+        *a.client_cwd.lock().unwrap() = Some("/adapter-a".to_string());
+        *a.client_root.lock().unwrap() = Some("/adapter-a".to_string());
+        *b.client_root.lock().unwrap() = Some("/adapter-b".to_string());
+        a.client_upstream.lock().unwrap().roots.supported = true;
+
+        let project = std::env::temp_dir().join("toolport-http-roots-project-a");
+        let answer = |root: Option<&std::path::Path>| {
+            {
+                let _active = McpSessionGuard::enter(Some(sid_a.clone()));
+                refresh_http_session_root(&state);
+            }
+            let request = (0..500)
+                .find_map(|_| {
+                    let frame = a.outbound.lock().unwrap().pop_front();
+                    if frame.is_none() {
+                        std::thread::sleep(Duration::from_millis(10));
+                    }
+                    frame
+                })
+                .expect("roots/list queued for adapter A");
+            let request: Value = serde_json::from_str(&request.json).unwrap();
+            assert_eq!(request["method"], "roots/list");
+            let roots = root
+                .map(|path| {
+                    vec![json!({
+                        "uri": url::Url::from_file_path(path).expect("file URI").to_string(),
+                        "name": "project"
+                    })]
+                })
+                .unwrap_or_default();
+            assert!(a.try_deliver(&json!({
+                "jsonrpc": "2.0", "id": request["id"],
+                "result": {"roots": roots}
+            })));
+            for _ in 0..500 {
+                if !a.root_refreshing.load(Ordering::SeqCst) {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            panic!("roots refresh did not finish");
+        };
+        answer(Some(&project));
+        assert_eq!(a.client_root.lock().unwrap().as_deref(), project.to_str());
+        assert_eq!(b.client_root.lock().unwrap().as_deref(), Some("/adapter-b"));
+        answer(None);
+        assert_eq!(a.client_root.lock().unwrap().as_deref(), Some("/adapter-a"));
+        *a.client_root_override.lock().unwrap() = Some("/operator-root".to_string());
+        answer(Some(&project));
+        assert_eq!(
+            a.client_root.lock().unwrap().as_deref(),
+            Some("/operator-root")
+        );
+        state.daemon_mode.store(false, Ordering::SeqCst);
+        {
+            let _active = McpSessionGuard::enter(Some(sid_a));
+            refresh_http_session_root(&state);
+        }
+        assert!(
+            a.outbound.lock().unwrap().is_empty(),
+            "public HTTP mode must not query roots"
+        );
+    }
+
+    #[test]
+    fn adapter_initialize_seeds_its_session_root_without_changing_other_sessions() {
+        let state = http_state(false);
+        state.daemon_mode.store(true, Ordering::SeqCst);
+        let caller = test_caller("adapter:root-test", None);
+        let initialize = json!({
+            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": { "protocolVersion": "2025-06-18", "capabilities": {} }
+        })
+        .to_string();
+        let init = |cwd: &str, root_override: Option<&str>| {
+            let out = handle_http_with_headers(
+                &state,
+                &SearchGuard::default(),
+                &ConfirmGuard::new(),
+                "POST",
+                "/mcp",
+                &initialize,
+                McpHttpRequestHeaders {
+                    adapter_cwd: Some(cwd),
+                    adapter_root_override: root_override,
+                    adapter_resolved_root: root_override.or(Some(cwd)),
+                    ..McpHttpRequestHeaders::default()
+                },
+                None,
+                Some(&caller),
+            );
+            assert_eq!(out.status, 200, "body={}", out.body);
+            mcp_session_of(&out)
+        };
+        let sid_a = init("/adapter-a", None);
+        let sid_b = init("/adapter-b", Some("/operator-b"));
+        let sessions = state.mcp_sessions.lock().unwrap();
+        assert_eq!(
+            sessions
+                .get(&sid_a)
+                .unwrap()
+                .client_root
+                .lock()
+                .unwrap()
+                .as_deref(),
+            Some("/adapter-a")
+        );
+        assert_eq!(
+            sessions
+                .get(&sid_b)
+                .unwrap()
+                .client_root
+                .lock()
+                .unwrap()
+                .as_deref(),
+            Some("/operator-b")
+        );
+        drop(sessions);
+
+        // An existing adapter session can have learned a root after initialize.
+        // Its next initialize must keep the root that selected its owner scope,
+        // even when the adapter has cleared its declared-root header meanwhile.
+        let out = handle_http_with_headers(
+            &state,
+            &SearchGuard::default(),
+            &ConfirmGuard::new(),
+            "POST",
+            "/mcp",
+            &initialize,
+            McpHttpRequestHeaders {
+                session_id: Some(&sid_a),
+                adapter_cwd: Some("/adapter-a"),
+                adapter_resolved_root: Some("/learned-project"),
+                ..McpHttpRequestHeaders::default()
+            },
+            None,
+            Some(&caller),
+        );
+        assert_eq!(out.status, 200, "body={}", out.body);
+        assert_eq!(
+            state.mcp_sessions.lock().unwrap()[&sid_a]
+                .client_root
+                .lock()
+                .unwrap()
+                .as_deref(),
+            Some("/learned-project")
+        );
+    }
+
+    #[test]
     fn stdio_upstream_delivery_requires_response_shape() {
-        let upstream = StdioUpstream::new(Arc::new(Mutex::new(std::io::stdout())));
+        let upstream = SessionState::new_stdio(Arc::new(Mutex::new(std::io::stdout())));
         let (tx, rx) = std::sync::mpsc::channel();
-        upstream.pending.lock().unwrap().insert("1".to_string(), tx);
+        upstream
+            .upstream_pending
+            .lock()
+            .unwrap()
+            .insert("1".to_string(), tx);
 
         let request = json!({
             "jsonrpc": "2.0",
@@ -24205,7 +28317,7 @@ mod tests {
             "params": {}
         });
         assert!(!upstream.try_deliver(&request));
-        assert!(upstream.pending.lock().unwrap().contains_key("1"));
+        assert!(upstream.upstream_pending.lock().unwrap().contains_key("1"));
 
         let response = json!({
             "jsonrpc": "2.0",
@@ -24214,12 +28326,12 @@ mod tests {
         });
         assert!(upstream.try_deliver(&response));
         assert_eq!(rx.try_recv().unwrap(), response);
-        assert!(upstream.pending.lock().unwrap().is_empty());
+        assert!(upstream.upstream_pending.lock().unwrap().is_empty());
     }
 
     #[test]
     fn http_upstream_delivery_requires_response_shape() {
-        let session = McpSession::new(None);
+        let session = SessionState::new_http(None);
         let (tx, rx) = std::sync::mpsc::channel();
         session
             .upstream_pending
@@ -24233,29 +28345,33 @@ mod tests {
             "method": "tools/list",
             "params": {}
         });
-        assert!(!session.try_deliver_upstream(&request));
+        assert!(!session.try_deliver(&request));
         assert!(session.upstream_pending.lock().unwrap().contains_key("1"));
 
         let response = json!({ "jsonrpc": "2.0", "id": 1, "result": {} });
-        assert!(session.try_deliver_upstream(&response));
+        assert!(session.try_deliver(&response));
         assert_eq!(rx.try_recv().unwrap(), response);
         assert!(session.upstream_pending.lock().unwrap().is_empty());
     }
 
     #[test]
     fn upstream_delivery_distinguishes_numeric_and_string_ids() {
-        let upstream = StdioUpstream::new(Arc::new(Mutex::new(std::io::stdout())));
+        let upstream = SessionState::new_stdio(Arc::new(Mutex::new(std::io::stdout())));
         let numeric_key = rpc_id_key(&json!(1)).unwrap();
         let (tx, rx) = std::sync::mpsc::channel();
         upstream
-            .pending
+            .upstream_pending
             .lock()
             .unwrap()
             .insert(numeric_key.clone(), tx);
 
         let string_response = json!({ "jsonrpc": "2.0", "id": "1", "result": {} });
         assert!(!upstream.try_deliver(&string_response));
-        assert!(upstream.pending.lock().unwrap().contains_key(&numeric_key));
+        assert!(upstream
+            .upstream_pending
+            .lock()
+            .unwrap()
+            .contains_key(&numeric_key));
 
         let numeric_response = json!({ "jsonrpc": "2.0", "id": 1, "result": {} });
         assert!(upstream.try_deliver(&numeric_response));
@@ -24453,6 +28569,7 @@ mod tests {
 
     #[test]
     fn agent_control_gates_then_persists() {
+        let _data_env = DataDirTestEnv::new("agent_control_gates_then_persists");
         // Two servers, only Alpha enabled, agent control OFF.
         let path =
             std::env::temp_dir().join(format!("conduit-ac-test-{}.json", std::process::id()));
@@ -24492,6 +28609,7 @@ mod tests {
 
     #[test]
     fn agent_control_respects_the_client_scope() {
+        let _data_env = DataDirTestEnv::new("agent_control_respects_the_client_scope");
         let path =
             std::env::temp_dir().join(format!("conduit-ac-scope-{}.json", std::process::id()));
         let json = r#"{"version":1,
@@ -24553,12 +28671,14 @@ mod tests {
 
     #[test]
     fn initialize_echoes_protocol_and_advertises_tools() {
+        let host = dispatch_host(false);
         let reg = Registry::default();
         let req = json!({
             "jsonrpc": "2.0", "id": 1, "method": "initialize",
             "params": { "protocolVersion": "2025-06-18" }
         });
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router(),
@@ -24613,6 +28733,15 @@ mod tests {
             BeginSubscribe::Lead(g) => g,
             _ => panic!("expected Lead, got non-lead"),
         };
+        // A duplicate request from the same session must also wait for the
+        // actual downstream result instead of reporting a premature success.
+        match table
+            .begin_subscribe("s1", "file://x", "alpha")
+            .expect("same-session wait")
+        {
+            BeginSubscribe::Wait(g) => assert!(Arc::ptr_eq(&lead, &g)),
+            _ => panic!("expected Wait for the leader's own session"),
+        }
         // Concurrent second session must wait, not join as if already open.
         match table
             .begin_subscribe("s2", "file://x", "alpha")
@@ -24651,6 +28780,101 @@ mod tests {
             wait_gate.waiters.load(Ordering::Acquire),
             0,
             "a completed gate returns immediately without consuming a waiter slot"
+        );
+    }
+
+    #[test]
+    fn rooted_subscriptions_consume_the_process_wide_capacity() {
+        let state = http_state(false);
+        let table = Arc::new(Mutex::new(ResourceSubscriptionTable::default()));
+        {
+            let mut held = table.lock().unwrap();
+            for index in 0..MAX_RESOURCE_SUBS_TOTAL {
+                held.insert_local(&format!("root-session-{index}"), "fixture://held", "rooted");
+            }
+        }
+        state
+            .root_launch_pool
+            .lock()
+            .unwrap()
+            .subscriptions
+            .insert(("rooted".into(), "/project".into()), table);
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "resources/subscribe",
+            "params": { "uri": "fixture://cached" }
+        });
+        let _session = McpSessionGuard::enter(Some("other-session".to_string()));
+        let reply = handle_resource_subscription(
+            &state,
+            &cache_router(),
+            &request,
+            None,
+            None,
+            "resources/subscribe",
+        )
+        .expect("an error response");
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .is_some_and(|message| message.contains("global subscription limit")),
+            "rooted subscriptions did not count toward the cap: {reply}"
+        );
+    }
+
+    #[test]
+    fn retired_root_route_cannot_report_a_new_subscription_as_open() {
+        let state = http_state(false);
+        state.daemon_mode.store(true, Ordering::SeqCst);
+        let router = cache_router();
+        let slot = router.server_slot("cache").expect("cache slot");
+        let table = Arc::new(Mutex::new(ResourceSubscriptionTable::default()));
+        let active = Arc::new(AtomicBool::new(false));
+        let key = LaunchKey {
+            server: "cache".into(),
+            kind: "stdio",
+            digest: "fixture-root-launch".into(),
+        };
+        {
+            let mut pool = state.root_launch_pool.lock().unwrap();
+            pool.subscriptions
+                .insert(("cache".into(), "/project".into()), Arc::clone(&table));
+            pool.launches.insert(
+                key,
+                RootLaunch {
+                    slot,
+                    subscriptions: Arc::clone(&table),
+                    subscription_key: ("cache".into(), "/project".into()),
+                    active,
+                },
+            );
+        }
+        let request = json!({
+            "jsonrpc": "2.0", "id": 1, "method": "resources/subscribe",
+            "params": { "uri": "fixture://cached" }
+        });
+        let reply = handle_resource_subscription(
+            &state,
+            &router,
+            &request,
+            None,
+            None,
+            "resources/subscribe",
+        )
+        .expect("stale route answers with an error");
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .is_some_and(|m| m.contains("retry")),
+            "unexpected subscribe reply: {reply}"
+        );
+        assert_eq!(table.lock().unwrap().total_count(), 0);
+
+        state.root_launch_pool.lock().unwrap().retire_launches();
+        assert!(
+            state.subscriptions_for_route(&router, "cache").is_none(),
+            "a retired rooted slot must never fall back to the ordinary table"
         );
     }
 
@@ -24842,6 +29066,8 @@ mod tests {
         let state = http_state(false);
         let owner = McpSessionOwner {
             identity: "client:reaped-pii".into(),
+            profile: None,
+            tool_scope: None,
             scope: None,
         };
         let pii_client = Some(owner.identity.as_str());
@@ -24849,10 +29075,13 @@ mod tests {
             Ok(s) => s,
             Err(_) => panic!("mint s1 failed"),
         };
-        with_pii_session(pii_client, |map| {
-            *map = pii::SessionMap::new();
-            map.pseudonymize("crm", "ada@example.com");
-        });
+        {
+            let _session = McpSessionGuard::enter(Some(s1.clone()));
+            with_pii_session(pii_client, |map| {
+                *map = pii::SessionMap::new();
+                map.pseudonymize("crm", "ada@example.com");
+            });
+        }
         {
             let mut table = state.resource_subs.lock().unwrap();
             table.add(&s1, "file://orphan", "srv").unwrap();
@@ -24881,6 +29110,7 @@ mod tests {
             "reaped session must not leave subscription orphans"
         );
         assert!(table.sessions_for_uri("file://orphan").is_empty());
+        let _session = McpSessionGuard::enter(Some(s1));
         assert!(
             !with_pii_session(pii_client, |map| !map.is_empty()),
             "reaped session must not leave its PII map behind"
@@ -24946,7 +29176,7 @@ mod tests {
             table.add(&s1, "fixture://only-s1", "srv").unwrap();
         }
         deliver_resource_updated(
-            &state.stdout,
+            &state.stdio_upstream,
             &state.mcp_sessions,
             &state.resource_subs,
             "srv",
@@ -24973,13 +29203,17 @@ mod tests {
         );
     }
 
-    /// A stdio progress channel plus its receiver, so a test can assert what the
-    /// writer thread would have written.
-    fn stdio_progress_channel() -> (
-        std::sync::mpsc::SyncSender<Value>,
-        std::sync::mpsc::Receiver<Value>,
-    ) {
-        std::sync::mpsc::sync_channel(PROGRESS_STDIO_QUEUE)
+    /// A stdio session whose progress hand-off is a channel the test owns, so a
+    /// test can assert what the session's writer thread would have written to
+    /// stdout. The session normally creates that queue lazily on first use; the
+    /// test seam injects one up front.
+    fn stdio_session_with_progress() -> (Arc<SessionState>, std::sync::mpsc::Receiver<Value>) {
+        let session = Arc::new(SessionState::new_stdio(Arc::new(Mutex::new(
+            std::io::stdout(),
+        ))));
+        let (tx, rx) = std::sync::mpsc::sync_channel(PROGRESS_STDIO_QUEUE);
+        session.set_stdio_progress(tx);
+        (session, rx)
     }
 
     fn progress_note(token: &str) -> Value {
@@ -24999,9 +29233,11 @@ mod tests {
 
     /// Dispatch one request with the default test rig.
     fn dispatch(req: &Value) -> Value {
+        let host = dispatch_host(false);
         let reg = Registry::default();
         let router = routed_router("s", "tool");
         handle_request(
+            &host,
             req,
             &reg,
             &router,
@@ -25181,16 +29417,277 @@ mod tests {
         assert_eq!(toolport["humanApproval"], false);
     }
 
+    /// Profiles for the server-instructions tests (#971): `default` (active) and `infra`
+    /// set nothing, `postgres` opts out with an empty string, `media` has its own text.
+    fn instructions_registry() -> Registry {
+        let mut reg = Registry::default();
+        for (name, instructions) in [
+            ("Infra", None),
+            ("Postgres", Some("")),
+            ("Media", Some("Media only.")),
+        ] {
+            let id = reg.add_profile(name);
+            reg.profiles
+                .iter_mut()
+                .find(|p| p.id == id)
+                .unwrap()
+                .instructions = instructions.map(str::to_string);
+        }
+        reg
+    }
+
+    fn initialize_req() -> Value {
+        json!({
+            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": { "protocolVersion": "2025-06-18", "capabilities": {} }
+        })
+    }
+
+    /// The `instructions` a dispatch with `profile` returns for `req`; `None` = omitted.
+    fn dispatched_instructions(
+        reg: &Registry,
+        profile: Option<&str>,
+        req: &Value,
+    ) -> Option<Value> {
+        let host = dispatch_host(false);
+        let resp = handle_request(
+            &host,
+            req,
+            reg,
+            &Router::new(),
+            &[],
+            true,
+            profile,
+            &SearchGuard::default(),
+            &ConfirmGuard::new(),
+            None,
+            None,
+        )
+        .expect("a request with an id gets a response");
+        assert!(resp.get("error").is_none(), "{resp}");
+        resp["result"].get("instructions").cloned()
+    }
+
+    fn http_instructions(out: &HttpOut) -> Option<Value> {
+        assert_eq!(out.status, 200, "body={}", out.body);
+        let resp: Value = serde_json::from_str(&out.body).expect("JSON-RPC body");
+        assert!(resp.get("error").is_none(), "{resp}");
+        resp["result"].get("instructions").cloned()
+    }
+
+    #[test]
+    fn built_in_instructions_are_unchanged_without_configuration() {
+        assert_eq!(
+            dispatch(&initialize_req())["result"]["instructions"],
+            ROUTINE_AGENT_INSTRUCTIONS
+        );
+        assert_eq!(
+            dispatch(&modern_req(1, "server/discover", json!({})))["result"]["instructions"],
+            format!("{DISCOVER_INSTRUCTIONS_PREAMBLE} {ROUTINE_AGENT_INSTRUCTIONS}")
+        );
+    }
+
+    #[test]
+    fn profile_instructions_replace_or_omit_the_built_in_text() {
+        let mut reg = instructions_registry();
+        let discover = modern_req(1, "server/discover", json!({}));
+        for req in [initialize_req(), discover.clone()] {
+            assert_eq!(
+                dispatched_instructions(&reg, Some("media"), &req),
+                Some(json!("Media only."))
+            );
+            assert_eq!(
+                dispatched_instructions(&reg, Some("postgres"), &req),
+                None,
+                "an empty string omits the field"
+            );
+        }
+        assert_eq!(
+            dispatched_instructions(&reg, Some("infra"), &initialize_req()),
+            Some(json!(ROUTINE_AGENT_INSTRUCTIONS)),
+            "a profile that sets nothing keeps the built-in text"
+        );
+
+        reg.gateway_instructions = Some("Shared.".into());
+        for req in [initialize_req(), discover.clone()] {
+            assert_eq!(
+                dispatched_instructions(&reg, Some("infra"), &req),
+                Some(json!("Shared."))
+            );
+            assert_eq!(
+                dispatched_instructions(&reg, None, &req),
+                Some(json!("Shared.")),
+                "no profile follows the active one"
+            );
+            assert_eq!(
+                dispatched_instructions(&reg, Some("media"), &req),
+                Some(json!("Media only.")),
+                "a profile's own text beats the registry default"
+            );
+            assert_eq!(dispatched_instructions(&reg, Some("postgres"), &req), None);
+        }
+
+        reg.gateway_instructions = Some(" \n\t".into());
+        assert_eq!(
+            dispatched_instructions(&reg, Some("infra"), &discover),
+            None,
+            "whitespace-only text counts as empty"
+        );
+    }
+
+    #[test]
+    fn the_connection_profile_beats_the_dispatch_profile() {
+        let reg = instructions_registry();
+        {
+            let _connection = ConnectionProfileGuard::enter(Some("media".into()));
+            assert_eq!(
+                dispatched_instructions(&reg, Some("postgres"), &initialize_req()),
+                Some(json!("Media only."))
+            );
+        }
+        assert_eq!(
+            active_connection_profile(),
+            None,
+            "the guard restores the previous value"
+        );
+        assert_eq!(
+            dispatched_instructions(&reg, Some("postgres"), &initialize_req()),
+            None
+        );
+    }
+
+    #[test]
+    fn registered_http_clients_get_their_own_profiles_instructions() {
+        let state = http_state(true);
+        let mut reg = instructions_registry();
+        for (id, profile) in [("c-media", "media"), ("c-pg", "Postgres"), ("c-all", "")] {
+            reg.http_clients.push(registry::HttpClient {
+                id: id.into(),
+                label: id.into(),
+                token_sha256: registry::sha256_hex(id),
+                profile: profile.into(),
+            });
+        }
+        *state.registry.lock().unwrap() = reg.clone();
+        let initialize = |token: &str| {
+            let (allowed, caller) =
+                resolve_http_caller(&reg, None, Some(token), false, true).unwrap();
+            http_instructions(&handle_http(
+                &state,
+                &SearchGuard::default(),
+                &ConfirmGuard::new(),
+                "POST",
+                "/mcp",
+                &initialize_req().to_string(),
+                None,
+                None,
+                allowed.as_ref(),
+                Some(&caller),
+            ))
+        };
+
+        assert_eq!(initialize("c-media"), Some(json!("Media only.")));
+        assert_eq!(
+            initialize("c-pg"),
+            None,
+            "a client scoped by profile name opts out too"
+        );
+        assert_eq!(
+            initialize("c-all"),
+            Some(json!(ROUTINE_AGENT_INSTRUCTIONS)),
+            "an unscoped client follows the active profile, which sets nothing"
+        );
+
+        // Modern requests carry no session, so the profile comes from the bearer alone.
+        let (allowed, caller) =
+            resolve_http_caller(&reg, None, Some("c-media"), false, true).unwrap();
+        let discover = handle_http_with_headers(
+            &state,
+            &SearchGuard::default(),
+            &ConfirmGuard::new(),
+            "POST",
+            "/mcp",
+            &modern_http_body(2, "server/discover", json!({})),
+            modern_http_headers("server/discover", None, None, None),
+            allowed.as_ref(),
+            Some(&caller),
+        );
+        assert_eq!(http_instructions(&discover), Some(json!("Media only.")));
+
+        // An unscoped caller uses the bridge's own profile, the base its routing uses.
+        *state.profile.lock().unwrap() = Some("media".into());
+        assert_eq!(initialize("c-all"), Some(json!("Media only.")));
+        assert_eq!(
+            initialize("c-pg"),
+            None,
+            "a scoped client keeps its own profile"
+        );
+    }
+
+    #[test]
+    fn a_daemon_adapter_gets_its_profiles_instructions() {
+        let state = http_state(false);
+        state.daemon_mode.store(true, Ordering::SeqCst);
+        let reg = instructions_registry();
+        *state.registry.lock().unwrap() = reg.clone();
+        // The daemon's own profile must not leak into an adapter's handshake.
+        *state.profile.lock().unwrap() = Some("postgres".into());
+        let (allowed, caller) = resolve_adapter_caller(&reg, "claude-code", Some("media"), None);
+        let out = handle_http_with_headers(
+            &state,
+            &SearchGuard::default(),
+            &ConfirmGuard::new(),
+            "POST",
+            "/mcp",
+            &initialize_req().to_string(),
+            McpHttpRequestHeaders::default(),
+            allowed.as_ref(),
+            Some(&caller),
+        );
+        assert_eq!(http_instructions(&out), Some(json!("Media only.")));
+    }
+
+    #[test]
+    fn a_caller_without_its_own_profile_uses_the_gateways() {
+        // The stdio path: no caller profile, so the gateway's live profile decides.
+        let state = http_state(false);
+        *state.registry.lock().unwrap() = instructions_registry();
+        let handshake = |state: &GatewayState| {
+            process_request(
+                state,
+                &initialize_req(),
+                &SearchGuard::default(),
+                &ConfirmGuard::new(),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                DiscoveryMode::Lazy,
+            )
+            .expect("initialize is answered")["result"]
+                .get("instructions")
+                .cloned()
+        };
+        assert_eq!(handshake(&state), Some(json!(ROUTINE_AGENT_INSTRUCTIONS)));
+        *state.profile.lock().unwrap() = Some("media".into());
+        assert_eq!(handshake(&state), Some(json!("Media only.")));
+        *state.profile.lock().unwrap() = Some("postgres".into());
+        assert_eq!(handshake(&state), None);
+    }
+
     #[test]
     fn toolport_extension_reports_active_features_without_gating_core_tools() {
-        let _code_mode = CodeModeGuard::acquire();
-        set_code_mode_flag(true);
+        let host = dispatch_host(false);
+        host.set_code_mode(true);
         let mut reg = Registry::default();
         reg.allow_agent_control = true;
         reg.confirm_destructive = true;
         let router = Router::new();
         let request = modern_req(1, "server/discover", json!({}));
         let response = handle_request(
+            &host,
             &request,
             &reg,
             &router,
@@ -25213,6 +29710,7 @@ mod tests {
 
         reg.human_approval = true;
         let human_gated = handle_request(
+            &host,
             &modern_req(3, "server/discover", json!({})),
             &reg,
             &router,
@@ -25233,6 +29731,7 @@ mod tests {
         // No client extension opt-in is required: the extension describes the
         // existing core tools, which remain the graceful-degradation path.
         let tools = handle_request(
+            &host,
             &modern_req(4, "tools/list", json!({})),
             &reg,
             &router,
@@ -25258,6 +29757,7 @@ mod tests {
 
     #[test]
     fn server_discover_aggregates_only_relayable_extensions_in_scope() {
+        let host = dispatch_host(false);
         struct ExtensionServer;
 
         impl Transport for ExtensionServer {
@@ -25305,6 +29805,7 @@ mod tests {
         );
         let request = modern_req(11, "server/discover", json!({}));
         let response = handle_request(
+            &host,
             &request,
             &reg,
             &router,
@@ -25335,6 +29836,7 @@ mod tests {
 
         let allowed = std::collections::HashSet::from(["other".to_string()]);
         let scoped = handle_request(
+            &host,
             &request,
             &reg,
             &router,
@@ -25474,6 +29976,14 @@ mod tests {
 
     #[test]
     fn lazy_discovery_keeps_ui_linked_tools_only_for_apps_hosts() {
+        let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _lock = registry::data_dir_test_lock();
+        let dir = std::env::temp_dir().join(format!(
+            "toolport-apps-measure-{}",
+            routines::generate_id().unwrap()
+        ));
+        let _data = registry::DataDirOverride::set(&dir);
+        let host = dispatch_host(false);
         let reg = Registry::default();
         let mut router = Router::new();
         router.add(
@@ -25484,6 +29994,7 @@ mod tests {
         let confirm = ConfirmGuard::new();
 
         let discovered = handle_request(
+            &host,
             &modern_req(0, "server/discover", json!({})),
             &reg,
             &router,
@@ -25502,6 +30013,7 @@ mod tests {
         );
 
         let apps = handle_request(
+            &host,
             &modern_apps_req(1, "tools/list", json!({})),
             &reg,
             &router,
@@ -25533,7 +30045,32 @@ mod tests {
             "ui://fixture/dashboard"
         );
 
+        let full_apps = handle_request(
+            &host,
+            &modern_apps_req(11, "tools/list", json!({})),
+            &reg,
+            &router,
+            &cached,
+            false,
+            None,
+            &guard,
+            &confirm,
+            None,
+            None,
+        )
+        .unwrap();
+        let measured = savings::entries().into_iter().next().unwrap();
+        assert_eq!(
+            measured["exposedSurfaceBytes"],
+            savings::surface_bytes(apps["result"]["tools"].as_array().unwrap())
+        );
+        assert_eq!(
+            measured["fullSurfaceBytes"],
+            savings::surface_bytes(full_apps["result"]["tools"].as_array().unwrap())
+        );
+
         let ordinary = handle_request(
+            &host,
             &modern_req(2, "tools/list", json!({})),
             &reg,
             &router,
@@ -25561,6 +30098,7 @@ mod tests {
             }
         });
         let wrong_mime = handle_request(
+            &host,
             &wrong_mime,
             &reg,
             &router,
@@ -25580,10 +30118,14 @@ mod tests {
             .all(|tool| !tool["name"]
                 .as_str()
                 .is_some_and(|name| name.starts_with("apps__"))));
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
     fn app_only_tools_stay_out_of_model_facing_gateway_paths() {
+        let _data_env =
+            DataDirTestEnv::new("app_only_tools_stay_out_of_model_facing_gateway_paths");
+        let host = dispatch_host(false);
         let reg = Registry::default();
         let mut router = Router::new();
         router.add(
@@ -25594,6 +30136,7 @@ mod tests {
         let confirm = ConfirmGuard::new();
 
         let ordinary_full = handle_request(
+            &host,
             &modern_req(10, "tools/list", json!({})),
             &reg,
             &router,
@@ -25613,6 +30156,7 @@ mod tests {
             .all(|tool| tool["name"] != "apps__app_only"));
 
         let apps_full = handle_request(
+            &host,
             &modern_apps_req(11, "tools/list", json!({})),
             &reg,
             &router,
@@ -25632,6 +30176,7 @@ mod tests {
             .any(|tool| tool["name"] == "apps__app_only"));
 
         let searched = handle_request(
+            &host,
             &modern_apps_req(
                 12,
                 "tools/call",
@@ -25654,6 +30199,7 @@ mod tests {
         assert!(!searched.to_string().contains("apps__app_only"));
 
         let nested = handle_request(
+            &host,
             &modern_apps_req(
                 13,
                 "tools/call",
@@ -25680,6 +30226,7 @@ mod tests {
             .contains("available only to its MCP App"));
 
         let direct = handle_request(
+            &host,
             &modern_apps_req(
                 14,
                 "tools/call",
@@ -25701,6 +30248,7 @@ mod tests {
 
     #[test]
     fn negotiated_mcp_app_html_passes_through_without_content_defense_rewrite() {
+        let host = dispatch_host(false);
         let reg = Registry::default();
         assert!(
             reg.content_defense_effective(),
@@ -25711,6 +30259,7 @@ mod tests {
             DownstreamServer::connect("apps".into(), Box::new(McpAppsServer::default())).unwrap(),
         );
         let response = handle_request(
+            &host,
             &modern_apps_req(
                 3,
                 "resources/read",
@@ -25738,6 +30287,7 @@ mod tests {
         );
 
         let ordinary = handle_request(
+            &host,
             &modern_req(
                 4,
                 "resources/read",
@@ -25807,6 +30357,7 @@ mod tests {
 
     #[test]
     fn modern_cacheable_results_preserve_hints_and_scoping_fails_private() {
+        let host = dispatch_host(false);
         let reg = Registry::default();
         let router = cache_router();
         let guard = SearchGuard::default();
@@ -25825,6 +30376,7 @@ mod tests {
 
         for (index, (method, params, max_ttl)) in cases.into_iter().enumerate() {
             let response = handle_request(
+                &host,
                 &modern_req(index as i64 + 10, method, params),
                 &reg,
                 &router,
@@ -25847,6 +30399,7 @@ mod tests {
         }
 
         let scoped = handle_request(
+            &host,
             &modern_req(20, "tools/list", json!({})),
             &reg,
             &router,
@@ -25862,6 +30415,7 @@ mod tests {
         assert_eq!(scoped["result"]["cacheScope"], "private");
 
         let legacy = handle_request(
+            &host,
             &json!({
                 "jsonrpc": "2.0",
                 "id": 21,
@@ -26205,7 +30759,7 @@ mod tests {
         let s1 = mint_mcp_session(&state, None).ok().expect("mint s1");
         let s2 = mint_mcp_session(&state, None).ok().expect("mint s2");
         let routes = Arc::new(Mutex::new(ProgressRoutes::default()));
-        let (stdio_tx, _stdio_rx) = stdio_progress_channel();
+        let (stdio, _stdio_rx) = stdio_session_with_progress();
 
         let (_registration, wire_token) = register_progress(
             &routes,
@@ -26220,7 +30774,7 @@ mod tests {
         );
 
         deliver_progress(
-            &stdio_tx,
+            &stdio,
             &state.mcp_sessions,
             &routes,
             "alpha",
@@ -26253,7 +30807,7 @@ mod tests {
         let s1 = mint_mcp_session(&state, None).ok().expect("mint s1");
         let s2 = mint_mcp_session(&state, None).ok().expect("mint s2");
         let routes = Arc::new(Mutex::new(ProgressRoutes::default()));
-        let (stdio_tx, _stdio_rx) = stdio_progress_channel();
+        let (stdio, _stdio_rx) = stdio_session_with_progress();
 
         // Same client token, same downstream server, two different clients.
         let (_r1, wire1) =
@@ -26268,7 +30822,7 @@ mod tests {
         );
 
         let note = progress_note(&wire1);
-        deliver_progress(&stdio_tx, &state.mcp_sessions, &routes, "alpha", &note);
+        deliver_progress(&stdio, &state.mcp_sessions, &routes, "alpha", &note);
 
         let first = drain_session(&state, &s1);
         assert_eq!(first.len(), 1, "progress goes to the client that asked");
@@ -26287,7 +30841,7 @@ mod tests {
         let state = http_state(false);
         let s1 = mint_mcp_session(&state, None).ok().expect("mint s1");
         let routes = Arc::new(Mutex::new(ProgressRoutes::default()));
-        let (stdio_tx, _stdio_rx) = stdio_progress_channel();
+        let (stdio, _stdio_rx) = stdio_session_with_progress();
 
         let (registration, wire_token) = register_progress(
             &routes,
@@ -26299,7 +30853,7 @@ mod tests {
 
         // beta was never given this token.
         deliver_progress(
-            &stdio_tx,
+            &stdio,
             &state.mcp_sessions,
             &routes,
             "beta",
@@ -26312,7 +30866,7 @@ mod tests {
 
         // A token nobody registered is dropped rather than broadcast.
         deliver_progress(
-            &stdio_tx,
+            &stdio,
             &state.mcp_sessions,
             &routes,
             "alpha",
@@ -26325,7 +30879,7 @@ mod tests {
 
         // The rightful owner still gets through...
         deliver_progress(
-            &stdio_tx,
+            &stdio,
             &state.mcp_sessions,
             &routes,
             "alpha",
@@ -26341,7 +30895,7 @@ mod tests {
             "the route must not outlive the call"
         );
         deliver_progress(
-            &stdio_tx,
+            &stdio,
             &state.mcp_sessions,
             &routes,
             "alpha",
@@ -26362,7 +30916,7 @@ mod tests {
         // for every client (SOU-474).
         let state = http_state(false);
         let routes = Arc::new(Mutex::new(ProgressRoutes::default()));
-        let (stdio_tx, stdio_rx) = stdio_progress_channel();
+        let (stdio, stdio_rx) = stdio_session_with_progress();
 
         let (_reg, wire) = register_progress(
             &routes,
@@ -26373,7 +30927,7 @@ mod tests {
         .expect("registers");
 
         deliver_progress(
-            &stdio_tx,
+            &stdio,
             &state.mcp_sessions,
             &routes,
             "alpha",
@@ -26391,7 +30945,7 @@ mod tests {
         // never given would have been caught for HTTP clients and forwarded to the
         // stdio one - the primary deployment (SOU-474).
         deliver_progress(
-            &stdio_tx,
+            &stdio,
             &state.mcp_sessions,
             &routes,
             "beta",
@@ -26404,11 +30958,14 @@ mod tests {
 
         // Fill the queue, then confirm a further send is DROPPED rather than
         // blocking. Without the bound this call would hang forever.
+        let sender = stdio
+            .stdio_progress_sender()
+            .expect("a stdio session owns a progress hand-off");
         for _ in 0..PROGRESS_STDIO_QUEUE {
-            let _ = stdio_tx.try_send(json!({}));
+            let _ = sender.try_send(json!({}));
         }
         deliver_progress(
-            &stdio_tx,
+            &stdio,
             &state.mcp_sessions,
             &routes,
             "alpha",
@@ -26465,7 +31022,7 @@ mod tests {
         // The common case: clients that never ask for progress cost nothing and
         // leave no state behind.
         let routes = Arc::new(Mutex::new(ProgressRoutes::default()));
-        let (_stdio_tx, _stdio_rx) = stdio_progress_channel();
+        let (_stdio, _stdio_rx) = stdio_session_with_progress();
         assert!(register_progress(&routes, None, "alpha", "stdio").is_none());
         assert!(register_progress(
             &routes,
@@ -26491,7 +31048,7 @@ mod tests {
         }
         // Spoof: beta claims an update for alpha's URI.
         deliver_resource_updated(
-            &state.stdout,
+            &state.stdio_upstream,
             &state.mcp_sessions,
             &state.resource_subs,
             "beta",
@@ -26509,7 +31066,7 @@ mod tests {
         }
         // Legitimate owner still fans out.
         deliver_resource_updated(
-            &state.stdout,
+            &state.stdio_upstream,
             &state.mcp_sessions,
             &state.resource_subs,
             "alpha",
@@ -26536,7 +31093,7 @@ mod tests {
             Err(_) => panic!("mint s1 failed"),
         };
         deliver_resource_updated(
-            &state.stdout,
+            &state.stdio_upstream,
             &state.mcp_sessions,
             &state.resource_subs,
             "alpha",
@@ -26570,9 +31127,11 @@ mod tests {
 
     #[test]
     fn notifications_get_no_reply() {
+        let host = dispatch_host(false);
         let reg = Registry::default();
         let note = json!({ "jsonrpc": "2.0", "method": "notifications/initialized" });
         assert!(handle_request(
+            &host,
             &note,
             &reg,
             &router(),
@@ -26589,9 +31148,11 @@ mod tests {
 
     #[test]
     fn tools_list_always_includes_status() {
+        let host = dispatch_host(false);
         let reg = Registry::default();
         let req = json!({ "jsonrpc": "2.0", "id": 7, "method": "tools/list" });
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router(),
@@ -26615,6 +31176,7 @@ mod tests {
 
     #[test]
     fn status_tool_reports_enabled_servers() {
+        let host = dispatch_host(false);
         let mut reg = Registry::default();
         let id = reg.add_server(registry::ServerEntry {
             id: String::new(),
@@ -26632,6 +31194,8 @@ mod tests {
             cwd: None,
             client_credentials: None,
             request_timeout_ms: None,
+            initialize_timeout_ms: None,
+            launch: None,
             unknown_fields: serde_json::Map::new(),
         });
         reg.set_server_enabled("default", &id, true).unwrap();
@@ -26641,6 +31205,7 @@ mod tests {
             "params": { "name": "toolport_status", "arguments": {} }
         });
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router(),
@@ -26660,9 +31225,11 @@ mod tests {
 
     #[test]
     fn unknown_method_is_jsonrpc_error() {
+        let host = dispatch_host(false);
         let reg = Registry::default();
         let req = json!({ "jsonrpc": "2.0", "id": 9, "method": "frobnicate" });
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router(),
@@ -26688,15 +31255,16 @@ mod tests {
 
     #[test]
     fn lazy_tools_list_returns_only_meta_tools() {
-        // Hold CODE_MODE_TEST_LOCK: other tests flip the global atomic, and an
-        // exact tool count of 4 assumes run_script is not advertised.
-        let _guard = CodeModeGuard::acquire();
-        set_code_mode_flag(false);
+        let host = dispatch_host(false);
+        // The exact tool count of 4 assumes run_script is not advertised, and the flag on
+        // the host this test dispatches with is the only thing that decides that.
+        host.set_code_mode(false);
 
         let reg = Registry::default();
         let req = json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" });
         // Even with a full cached catalog, lazy mode advertises just the meta-tools.
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router(),
@@ -26724,6 +31292,227 @@ mod tests {
         assert!(names.contains(&"toolport_fetch_result"));
         assert!(!names.contains(&"resend__send_email"));
         assert!(!names.contains(&"toolport_run_script"));
+    }
+
+    #[test]
+    fn catalog_measurement_uses_actual_surfaces_for_modes_scope_and_dynamic_defs() {
+        let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _lock = registry::data_dir_test_lock();
+        let dir = std::env::temp_dir().join(format!(
+            "toolport-catalog-measure-{}",
+            routines::generate_id().unwrap()
+        ));
+        let _data = registry::DataDirOverride::set(&dir);
+        let mut router = Router::new();
+        for server in ["alpha", "beta"] {
+            router.add(DownstreamServer::connect(server.into(), Box::new(MockRoute {
+                tools: vec![
+                    json!({"name":"work", "description":format!("{server} work é"), "inputSchema":{"type":"object"}}),
+                    json!({"name":"danger", "description":"Destructive fixture", "inputSchema":{"type":"object"}, "annotations":{"destructiveHint":true}}),
+                ],
+            })).unwrap());
+        }
+        let cached = router.aggregated_tools();
+        let host = dispatch_host(false);
+        let mut reg = Registry::default();
+        let guard = SearchGuard::default();
+        let confirm = ConfirmGuard::new();
+        let req = json!({"jsonrpc":"2.0", "id":1, "method":"tools/list"});
+        let allowed = std::collections::HashSet::from(["alpha".to_string()]);
+        let scoped_client = format!("scoped-{}", routines::generate_id().unwrap());
+        for code in [false, true] {
+            host.set_code_mode(code);
+            for confirm_on in [false, true] {
+                reg.confirm_destructive = confirm_on;
+                reg.allow_agent_control = confirm_on;
+                host.set_discovery_mode(DiscoveryMode::Full);
+                let full = handle_request(
+                    &host,
+                    &req,
+                    &reg,
+                    &router,
+                    &cached,
+                    false,
+                    None,
+                    &guard,
+                    &confirm,
+                    Some(&allowed),
+                    Some(&scoped_client),
+                )
+                .unwrap();
+                let full_tools = full["result"]["tools"].as_array().unwrap();
+                let has =
+                    |tools: &[Value], name: &str| tools.iter().any(|tool| tool["name"] == name);
+                assert!(full_tools.iter().any(|tool| tool["name"] == "alpha__work"));
+                assert!(!full_tools.iter().any(|tool| tool["name"] == "beta__work"));
+                assert_eq!(has(full_tools, "toolport_run_script"), code);
+                assert_eq!(has(full_tools, "toolport_confirm"), confirm_on);
+                let scoped_rows = || {
+                    savings::entries()
+                        .into_iter()
+                        .filter(|row| {
+                            row["kind"] == "catalog_exposure" && row["client"] == scoped_client
+                        })
+                        .collect::<Vec<_>>()
+                };
+                let before = scoped_rows().len();
+                for mode in [DiscoveryMode::Lazy, DiscoveryMode::Grouped] {
+                    host.set_discovery_mode(mode);
+                    let exposed = handle_request(
+                        &host,
+                        &req,
+                        &reg,
+                        &router,
+                        &cached,
+                        mode == DiscoveryMode::Lazy,
+                        None,
+                        &guard,
+                        &confirm,
+                        Some(&allowed),
+                        Some(&scoped_client),
+                    )
+                    .unwrap();
+                    let exposed_tools = exposed["result"]["tools"].as_array().unwrap();
+                    assert_eq!(has(exposed_tools, "toolport_run_script"), code);
+                    assert_eq!(has(exposed_tools, "toolport_confirm"), confirm_on);
+                    assert_eq!(has(exposed_tools, "toolport_enable_server"), confirm_on);
+                    assert_eq!(
+                        has(full_tools, "toolport_list_routines"),
+                        has(exposed_tools, "toolport_list_routines")
+                    );
+                    if mode == DiscoveryMode::Grouped {
+                        assert!(has(exposed_tools, "help_alpha"));
+                        assert!(!has(exposed_tools, "help_beta"));
+                    }
+                    let row = scoped_rows().pop().unwrap();
+                    let full_bytes = savings::surface_bytes(full_tools);
+                    let exposed_bytes = savings::surface_bytes(exposed_tools);
+                    assert_eq!(row["fullSurfaceBytes"], full_bytes);
+                    assert_eq!(row["exposedSurfaceBytes"], exposed_bytes);
+                    assert_eq!(
+                        row["avoidedSurfaceBytes"],
+                        full_bytes.saturating_sub(exposed_bytes)
+                    );
+                    assert_eq!(row["fullToolCount"], full_tools.len());
+                    assert_eq!(row["exposedToolCount"], exposed_tools.len());
+                    assert_eq!(row["client"], scoped_client);
+                    assert_eq!(row["byServerBytes"].as_object().unwrap().len(), 1);
+                    assert!(row["byServerBytes"].get("alpha").is_some());
+                    assert!(row["byServerBytes"].get("beta").is_none());
+                    assert_eq!(
+                        row["mode"],
+                        if mode == DiscoveryMode::Lazy {
+                            "lazy"
+                        } else {
+                            "grouped"
+                        }
+                    );
+                }
+                assert_eq!(scoped_rows().len(), before + 2);
+            }
+        }
+        reg.deny_destructive = true;
+        host.set_discovery_mode(DiscoveryMode::Full);
+        let filtered = handle_request(
+            &host,
+            &req,
+            &reg,
+            &router,
+            &cached,
+            false,
+            None,
+            &guard,
+            &confirm,
+            Some(&allowed),
+            Some(&scoped_client),
+        )
+        .unwrap();
+        assert!(!filtered["result"]["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|tool| tool["name"] == "alpha__danger"));
+        host.set_discovery_mode(DiscoveryMode::Lazy);
+        let _ = handle_request(
+            &host,
+            &req,
+            &reg,
+            &router,
+            &cached,
+            true,
+            None,
+            &guard,
+            &confirm,
+            Some(&allowed),
+            Some(&scoped_client),
+        )
+        .unwrap();
+        // Other tests may append telemetry concurrently; select this client's row.
+        let row = savings::entries()
+            .into_iter()
+            .filter(|row| row["kind"] == "catalog_exposure" && row["client"] == scoped_client)
+            .last()
+            .unwrap();
+        assert_eq!(
+            row["fullSurfaceBytes"],
+            savings::surface_bytes(filtered["result"]["tools"].as_array().unwrap())
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn search_measurement_includes_lead_and_guidance_text() {
+        let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _lock = registry::data_dir_test_lock();
+        let dir = std::env::temp_dir().join(format!(
+            "toolport-search-measure-{}",
+            routines::generate_id().unwrap()
+        ));
+        let _data = registry::DataDirOverride::set(&dir);
+        let response = handle_request(
+            &dispatch_host(false),
+            &json!({"jsonrpc":"2.0", "id":1, "method":"tools/call",
+                "params":{"name":"toolport_search_tools", "arguments":{"query":"charges"}}}),
+            &Registry::default(),
+            &router(),
+            &catalog(),
+            true,
+            None,
+            &SearchGuard::default(),
+            &ConfirmGuard::new(),
+            None,
+            None,
+        )
+        .unwrap();
+        let text = response["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(text.starts_with("Found"));
+        // Other tests can append telemetry while this one holds the data-dir
+        // override, so the last row need not belong to this search.
+        let trace = searchtrace::read_recent(usize::MAX)
+            .unwrap()
+            .into_iter()
+            .find(|entry| {
+                entry["query"] == "charges"
+                    && entry["responseContentBytes"].as_u64() == Some(text.len() as u64)
+            })
+            .expect("trace for this search");
+        assert_eq!(trace["responseContentBytes"], text.len());
+        assert!(
+            trace["responseContentBytes"].as_u64().unwrap()
+                > trace["matchedSchemaBytes"].as_u64().unwrap()
+        );
+        let discovery = savings::entries()
+            .into_iter()
+            .rev()
+            .find(|entry| {
+                entry["kind"] == "discovery_response"
+                    && entry["responseContentBytes"] == trace["responseContentBytes"]
+                    && entry["matchedSchemaBytes"] == trace["matchedSchemaBytes"]
+            })
+            .expect("savings entry for this search");
+        assert_eq!(discovery["kind"], "discovery_response");
+        assert_eq!(discovery["responseContentBytes"], text.len());
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     /// A tool definition whose forged Toolport voice sits everywhere BUT the
@@ -26765,11 +31554,12 @@ mod tests {
     /// reach the model verbatim otherwise.
     #[test]
     fn full_tools_list_neutralizes_spoofs_outside_the_description() {
-        let _discovery = DiscoveryModeGuard::acquire();
-        set_discovery_mode(DiscoveryMode::Full);
+        let host = dispatch_host(false);
+        host.set_discovery_mode(DiscoveryMode::Full);
         let poisoned = vec![spoofed_tool("resend__send_email")];
         let reg = Registry::default();
         let resp = handle_request(
+            &host,
             &json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" }),
             &reg,
             &router(),
@@ -26852,11 +31642,14 @@ mod tests {
 
     #[test]
     fn legacy_conduit_alias_dispatches_like_toolport() {
+        let _data_env = DataDirTestEnv::new("legacy_conduit_alias_dispatches_like_toolport");
+        let host = dispatch_host(false);
         // A tools/call under the OLD conduit_* name must route identically to the
         // renamed toolport_* name, so nothing that still uses the old names breaks.
         let reg = Registry::default();
         let call = |nm: &str| {
             handle_request(
+                &host,
                 &json!({
                     "jsonrpc": "2.0", "id": 1, "method": "tools/call",
                     "params": { "name": nm, "arguments": { "query": "email" } }
@@ -26924,60 +31717,31 @@ mod tests {
 
     static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-    /// Serializes the tests that drive the process-wide stdio handshake statics.
+    /// Serializes the four tests that drive the stdio handshake.
     ///
-    /// Distinct from `ENV_LOCK`: these tests are not asserting anything about the
+    /// The flags and deferral queue are per-session now, so this is no longer protecting
+    /// shared state: it serializes the WRITES. Every one of these tests builds a session
+    /// over the test process's own stdout, and a released deferral writes `list_changed`
+    /// to it, so without this the four interleave frames into one stream and the output
+    /// becomes unreadable. Distinct from `ENV_LOCK`: these tests assert nothing about the
     /// environment, and borrowing that lock would couple two unrelated groups.
     static STDIO_HANDSHAKE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-    /// Restores every stdio handshake static on the way out, panic or not.
+    /// The handshake flags and the deferral queue are per-session state now, so the
+    /// tests below need no shared-state guard: each one builds its own session via
+    /// [`test_stdio_session`] and cannot observe another test's handshake. This used
+    /// to be a process-wide `StdioHandshakeGuard` plus the `STDIO_HANDSHAKE_LOCK`
+    /// above it, because the flags were process globals shared with the reconcile
+    /// tests in this same binary. The lock itself is still needed, but for a different
+    /// reason now: it serializes writes to the shared process stdout, not shared flags.
     ///
-    /// They are `static`s shared with the rest of this test binary - the
-    /// reconcile tests reach the same queue through `notify_tools_changed` - and
-    /// `cargo test` runs those in parallel threads of one process. A flag left
-    /// flipped by a failing test would change what an unrelated one observes.
-    struct StdioHandshakeGuard;
-
-    /// Every method these tests emit starts with this, so cleanup can find its
-    /// own leftovers without touching anything a concurrent test queued.
-    const TEST_METHOD_PREFIX: &str = "notifications/toolport-test-";
-
-    impl StdioHandshakeGuard {
-        fn clear() {
-            STDIO_CLIENT_READY.store(false, Ordering::SeqCst);
-            MODERN_STDIO_UPSTREAM.store(false, Ordering::SeqCst);
-            STDIO_RESPONDED.store(false, Ordering::SeqCst);
-            // Drop this test's own queued methods. Deliberately not a whole
-            // `mem::take`: the queue is shared with reconcile tests running on
-            // other threads, and taking it would swallow entries they queued.
-            STDIO_DEFERRED_LIST_CHANGED
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .retain(|method| !method.starts_with(TEST_METHOD_PREFIX));
-        }
-    }
-
-    impl Drop for StdioHandshakeGuard {
-        fn drop(&mut self) {
-            Self::clear();
-        }
-    }
-
-    /// Clear the statics now and hand back the guard that clears them again on
-    /// scope exit, so a panicking test leaves nothing behind either.
-    fn reset_stdio_handshake() -> StdioHandshakeGuard {
-        let guard = StdioHandshakeGuard;
-        StdioHandshakeGuard::clear();
-        guard
-    }
-
-    /// How many times `method` is sitting in the deferral queue.
+    /// How many times `method` is sitting in a session's deferral queue.
     ///
-    /// Counted per method rather than asserting on the whole queue: unrelated
-    /// tests push `notifications/tools/list_changed` through `reconcile_to` from
-    /// other threads, so the queue's total length is not this test's to predict.
-    fn deferred_count(method: &str) -> usize {
-        STDIO_DEFERRED_LIST_CHANGED
+    /// Counted per method rather than asserting on the whole queue, so a method a
+    /// different code path queued cannot change what this asserts.
+    fn deferred_count(stdio: &SessionState, method: &str) -> usize {
+        stdio
+            .stdio_deferred_list_changed
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .iter()
@@ -26997,59 +31761,59 @@ mod tests {
     /// has handshaked, or the notification is withheld and then never delivered.
     ///
     /// Note the limit of this and its siblings: there is no writer seam in this
-    /// binary - every path takes a concrete `Arc<Mutex<Stdout>>` - so these
-    /// assert on the deferral queue, which is the state that decides whether a
-    /// write happens, and not on the bytes. Proving the wire order needs a
-    /// spawned gateway; that belongs in an integration test, not here.
+    /// binary - every path takes the session whose stdout a frame would go to, and
+    /// the session's face is a concrete `Arc<Mutex<Stdout>>` - so these assert on
+    /// the deferral queue, which is the state that decides whether a write
+    /// happens, and not on the bytes. Proving the wire order needs a spawned
+    /// gateway; that belongs in an integration test, not here.
     #[test]
     fn stdio_list_changed_waits_for_the_client_handshake() {
         let _serial = STDIO_HANDSHAKE_LOCK
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let _restore = reset_stdio_handshake();
-        let stdout = Arc::new(Mutex::new(std::io::stdout()));
+        let stdio = test_stdio_session();
         // A name no other test emits, so a concurrent `reconcile_to` cannot add
         // to or subtract from what is asserted below.
         let method = "notifications/toolport-test-handshake/list_changed";
 
         // The background build lands while the client is still starting up. Twice,
         // because a ${ROOT} rebuild follows the cold build in a real session.
-        notify_list_changed(&stdout, None, method);
-        notify_list_changed(&stdout, None, method);
+        notify_list_changed(&stdio, None, method);
+        notify_list_changed(&stdio, None, method);
         assert_eq!(
-            deferred_count(method),
+            deferred_count(&stdio, method),
             1,
             "held back, and held back once: a second replay tells the client nothing"
         );
 
         // The peer speaks again, but nothing has been answered yet, so the
         // gateway still has no business putting a frame on the wire.
-        mark_stdio_client_ready(&stdout);
-        assert!(STDIO_CLIENT_READY.load(Ordering::SeqCst));
+        mark_stdio_client_ready(&stdio);
+        assert!(stdio.stdio_client_ready());
         assert_eq!(
-            deferred_count(method),
+            deferred_count(&stdio, method),
             1,
             "still held: the client has not read a reply from us yet"
         );
 
         // Its reply lands. The held notification is released, not dropped - the
         // catalog really did change while the client could not be told.
-        STDIO_RESPONDED.store(true, Ordering::SeqCst);
-        drain_stdio_deferred(&stdout);
+        stdio.mark_stdio_responded();
+        drain_stdio_deferred(&stdio);
         assert_eq!(
-            deferred_count(method),
+            deferred_count(&stdio, method),
             0,
             "the queue is drained on release, not left to replay forever"
         );
 
         // From here it goes straight out with nothing queued.
         let after = "notifications/toolport-test-handshake/after";
-        notify_list_changed(&stdout, None, after);
-        assert_eq!(deferred_count(after), 0);
+        notify_list_changed(&stdio, None, after);
+        assert_eq!(deferred_count(&stdio, after), 0);
 
         // A second release must not re-drain or re-announce.
-        mark_stdio_client_ready(&stdout);
-        assert_eq!(deferred_count(method), 0);
+        mark_stdio_client_ready(&stdio);
+        assert_eq!(deferred_count(&stdio, method), 0);
     }
 
     /// The peer opened with an id-bearing request - `initialize`, or the
@@ -27066,32 +31830,31 @@ mod tests {
         let _serial = STDIO_HANDSHAKE_LOCK
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let _restore = reset_stdio_handshake();
-        let stdout = Arc::new(Mutex::new(std::io::stdout()));
+        let stdio = test_stdio_session();
         let method = "notifications/toolport-test-initorder/list_changed";
 
         // The opening request has been read, but no reply has been written.
-        notify_list_changed(&stdout, None, method);
-        assert_eq!(deferred_count(method), 1);
+        notify_list_changed(&stdio, None, method);
+        assert_eq!(deferred_count(&stdio, method), 1);
 
         // The pipelined follow-up marks the peer ready on the reader thread.
-        mark_stdio_client_ready(&stdout);
-        assert!(STDIO_CLIENT_READY.load(Ordering::SeqCst));
+        mark_stdio_client_ready(&stdio);
+        assert!(stdio.stdio_client_ready());
         assert_eq!(
-            deferred_count(method),
+            deferred_count(&stdio, method),
             1,
             "still withheld: the peer has not been answered yet"
         );
         // And a notification arriving in this window must not slip out either.
         let during = "notifications/toolport-test-initorder/during";
-        notify_list_changed(&stdout, None, during);
-        assert_eq!(deferred_count(during), 1);
+        notify_list_changed(&stdio, None, during);
+        assert_eq!(deferred_count(&stdio, during), 1);
 
         // The worker writes the reply; now the queue may go.
-        STDIO_RESPONDED.store(true, Ordering::SeqCst);
-        drain_stdio_deferred(&stdout);
-        assert_eq!(deferred_count(method), 0);
-        assert_eq!(deferred_count(during), 0);
+        stdio.mark_stdio_responded();
+        drain_stdio_deferred(&stdio);
+        assert_eq!(deferred_count(&stdio, method), 0);
+        assert_eq!(deferred_count(&stdio, during), 0);
     }
 
     /// A client that spawned early, had a notification queued for it, and only
@@ -27106,37 +31869,146 @@ mod tests {
         let _serial = STDIO_HANDSHAKE_LOCK
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let _restore = reset_stdio_handshake();
-        let stdout = Arc::new(Mutex::new(std::io::stdout()));
+        let stdio = test_stdio_session();
         let method = "notifications/toolport-test-modern/list_changed";
 
         // Queued while the peer's version was still unknown.
-        notify_list_changed(&stdout, None, method);
-        assert_eq!(deferred_count(method), 1);
+        notify_list_changed(&stdio, None, method);
+        assert_eq!(deferred_count(&stdio, method), 1);
 
         // Its first post-`initialize` message declares the modern version, which
         // `process_request` records before it marks the peer ready.
-        MODERN_STDIO_UPSTREAM.store(true, Ordering::SeqCst);
-        STDIO_RESPONDED.store(true, Ordering::SeqCst);
-        mark_stdio_client_ready(&stdout);
+        stdio.mark_modern_upstream();
+        stdio.mark_stdio_responded();
+        mark_stdio_client_ready(&stdio);
         assert_eq!(
-            deferred_count(method),
+            deferred_count(&stdio, method),
             0,
             "dropped on release, not carried forward to replay later"
         );
 
         // And nothing new is banked for it either.
         let later = "notifications/toolport-test-modern/later";
-        notify_list_changed(&stdout, None, later);
-        assert_eq!(deferred_count(later), 0);
+        notify_list_changed(&stdio, None, later);
+        assert_eq!(deferred_count(&stdio, later), 0);
     }
 
-    /// The router wrapped the way the gateway holds it, plus a stdout sink.
-    fn reconcile_harness() -> (Arc<Mutex<Arc<Router>>>, Arc<Mutex<std::io::Stdout>>) {
+    /// The router wrapped the way the gateway holds it, plus the stdio session
+    /// whose connection a notification would be written to.
+    fn reconcile_harness() -> (Arc<Mutex<Arc<Router>>>, Arc<SessionState>) {
         (
             Arc::new(Mutex::new(Arc::new(Router::new()))),
-            Arc::new(Mutex::new(std::io::stdout())),
+            test_stdio_session(),
         )
+    }
+
+    /// A stdio session over the test process's own stdout. The session is the
+    /// owner of everything a stdio client's notifications depend on (P1.2), so a
+    /// test that drives the notify path needs one.
+    fn test_stdio_session() -> Arc<SessionState> {
+        Arc::new(SessionState::new_stdio(Arc::new(Mutex::new(
+            std::io::stdout(),
+        ))))
+    }
+
+    /// The broken-stdout latch is per session, and a reply to a peer with no stdio
+    /// face sets only that peer's latch.
+    ///
+    /// The no-face branch of [`write_stdio_response`] is the reachable unit seam for
+    /// this flag: a session with no stdio face cannot be answered, so the reply path
+    /// reports the pipe broken. Driving that branch is what makes this a test of the
+    /// behavior rather than of the field: asserting `mark_stdio_broken` then
+    /// `stdio_broken` would only prove the accessor round-trips.
+    ///
+    /// The third assertion is the discriminating one. A re-globalized flag would still
+    /// report `false` from the first reply and `true` from the second, so only
+    /// "an unrelated session is untouched" fails when the flag stops being per-session.
+    #[test]
+    fn a_broken_stdout_latch_belongs_to_one_session() {
+        let httpless = SessionState::new_http(None);
+        let other = test_stdio_session();
+
+        let answered = write_stdio_response(&httpless, &json!({ "jsonrpc": "2.0", "id": 1 }));
+
+        assert!(
+            !answered,
+            "a peer with no stdio face cannot be answered, so the write reports failure"
+        );
+        assert!(
+            httpless.stdio_broken(),
+            "the failed write marks the peer it was addressed to"
+        );
+        assert!(
+            !other.stdio_broken(),
+            "one connection's write failure must not mark another session broken"
+        );
+    }
+
+    /// The cancellation registry and the in-flight counter belong to one connection.
+    ///
+    /// Both are keyed by, or bound to, one client's requests: the registry by the
+    /// client's own JSON-RPC ids, the counter by how many of its requests are on
+    /// workers. Shared across a host, one client cancelling its id 7 would cancel
+    /// another client's id 7, and one client's queue depth would throttle another's.
+    ///
+    /// The two assertions that matter are the cross-session ones. `is_cancelled` on the
+    /// peer that asked, plus `!is_cancelled` on the peer that did not, is what fails
+    /// when the registry stops being per-connection; a test that only cancelled and
+    /// re-checked one session would pass either way.
+    #[test]
+    fn a_cancellation_belongs_to_one_connection() {
+        let asking = test_stdio_session();
+        let other = test_stdio_session();
+
+        let asking_registry = asking.cancellations();
+        let other_registry = other.cancellations();
+        let id = "1".to_string();
+
+        assert!(
+            asking_registry.begin_client_request(id.clone()),
+            "a fresh connection accepts its first request id"
+        );
+        assert!(
+            other_registry.begin_client_request(id.clone()),
+            "the same id on another connection is that connection's own request, not a duplicate"
+        );
+
+        // Cancel through the asking connection's context, which is how the dispatch
+        // observes it, then check both registries.
+        let asking_context = asking_registry.context(id.clone());
+        assert!(
+            asking_registry.cancel(&id, Some("user")),
+            "the owning connection cancels its own in-flight request"
+        );
+        assert!(
+            asking_context.is_cancelled(),
+            "the connection that cancelled sees it"
+        );
+        assert!(
+            !other_registry.context(id.clone()).is_cancelled(),
+            "one connection cancelling its id must not cancel another's"
+        );
+
+        // The in-flight cap is per connection too: the counter a session hands out is
+        // its own, so one peer's queue depth cannot throttle another's.
+        assert!(
+            !Arc::ptr_eq(asking.stdio_inflight(), other.stdio_inflight()),
+            "each connection counts its own in-flight requests"
+        );
+
+        // And a connection hands out the SAME state every time. Without this, an accessor
+        // that fabricated fresh state per call would satisfy every assertion above while
+        // breaking production: `main` would register the request in one registry and the
+        // worker would look for it in another, so no cancellation would ever be delivered.
+        let asking_again = asking.cancellations();
+        assert!(
+            asking_again.cancel(&id, Some("user")),
+            "a second handle from the same connection sees the request the first registered"
+        );
+        assert!(
+            Arc::ptr_eq(asking.stdio_inflight(), asking.stdio_inflight()),
+            "a connection hands out the same in-flight counter every time"
+        );
     }
 
     fn set_of(names: &[&str]) -> BTreeSet<String> {
@@ -27151,10 +32023,10 @@ mod tests {
         // watcher doesn't look at that file either, so the router kept the stale entry and
         // `route_call` (which reads the materialized `blocked` map) failed with
         // "quarantined ... re-approve to restore" while the app showed nothing quarantined.
-        let (router, stdout) = reconcile_harness();
+        let (router, stdio) = reconcile_harness();
 
         // A drift quarantines a tool.
-        assert!(reconcile_to(&router, &stdout, None, set_of(&["srv__wipe"])));
+        assert!(reconcile_to(&router, &stdio, None, set_of(&["srv__wipe"])));
         assert_eq!(
             router.lock().unwrap().quarantined(),
             &set_of(&["srv__wipe"])
@@ -27162,17 +32034,12 @@ mod tests {
 
         // The same set again is a no-op, so the gateway's own quarantine writes can't
         // churn the catalog or spam the client with list_changed.
-        assert!(!reconcile_to(
-            &router,
-            &stdout,
-            None,
-            set_of(&["srv__wipe"])
-        ));
+        assert!(!reconcile_to(&router, &stdio, None, set_of(&["srv__wipe"])));
 
         // The user re-approves and the set SHRINKS. This is the assertion that fails
         // without the fix.
         assert!(
-            reconcile_to(&router, &stdout, None, BTreeSet::new()),
+            reconcile_to(&router, &stdio, None, BTreeSet::new()),
             "a release must be reconciled into the live router"
         );
         assert!(
@@ -27181,24 +32048,24 @@ mod tests {
         );
 
         // Idempotent: the next watcher tick does nothing.
-        assert!(!reconcile_to(&router, &stdout, None, BTreeSet::new()));
+        assert!(!reconcile_to(&router, &stdio, None, BTreeSet::new()));
     }
 
     #[test]
     fn reconcile_to_detects_a_partial_release() {
         // Releasing one of several must still re-filter. A cheaper "is it empty vs
         // non-empty" check would miss this and leave the released tool blocked.
-        let (router, stdout) = reconcile_harness();
+        let (router, stdio) = reconcile_harness();
         assert!(reconcile_to(
             &router,
-            &stdout,
+            &stdio,
             None,
             set_of(&["a__x", "b__y"])
         ));
 
-        assert!(reconcile_to(&router, &stdout, None, set_of(&["a__x"])));
+        assert!(reconcile_to(&router, &stdio, None, set_of(&["a__x"])));
         assert_eq!(router.lock().unwrap().quarantined(), &set_of(&["a__x"]));
-        assert!(!reconcile_to(&router, &stdout, None, set_of(&["a__x"])));
+        assert!(!reconcile_to(&router, &stdio, None, set_of(&["a__x"])));
     }
 
     /// SBS-871: build_router must not Default::default() an empty set on store Err.
@@ -27288,14 +32155,14 @@ mod tests {
 
     /// The gateway's router wrapper holding a router that fail-closed because the
     /// quarantine store could not be read (SBS-871).
-    fn fail_closed_harness() -> (Arc<Mutex<Arc<Router>>>, Arc<Mutex<std::io::Stdout>>) {
+    fn fail_closed_harness() -> (Arc<Mutex<Arc<Router>>>, Arc<SessionState>) {
         let policy = ToolPolicy {
             fail_closed_catalog: true,
             ..ToolPolicy::default()
         };
         (
             Arc::new(Mutex::new(Arc::new(Router::with_policy(policy)))),
-            Arc::new(Mutex::new(std::io::stdout())),
+            test_stdio_session(),
         )
     }
 
@@ -27304,11 +32171,11 @@ mod tests {
     /// empty), so a running gateway stayed dark until it restarted.
     #[test]
     fn sbs871_reconcile_to_lifts_fail_closed_on_a_successful_empty_read() {
-        let (router, stdout) = fail_closed_harness();
+        let (router, stdio) = fail_closed_harness();
         assert!(router.lock().unwrap().catalog_fail_closed());
 
         assert!(
-            reconcile_to(&router, &stdout, None, BTreeSet::new()),
+            reconcile_to(&router, &stdio, None, BTreeSet::new()),
             "a successful read of an empty store must reconcile, not no-op"
         );
         assert!(
@@ -27316,7 +32183,7 @@ mod tests {
             "a successful store read is exactly what lifts the hide"
         );
         // And it settles: the next watcher tick does nothing.
-        assert!(!reconcile_to(&router, &stdout, None, BTreeSet::new()));
+        assert!(!reconcile_to(&router, &stdio, None, BTreeSet::new()));
     }
 
     /// SBS-871: everything that is NOT a successful store read must leave the hide up.
@@ -27325,7 +32192,7 @@ mod tests {
     /// the store was still unreadable.
     #[test]
     fn sbs871_integrity_change_with_an_unreadable_store_keeps_fail_closed() {
-        let (router, _stdout) = fail_closed_harness();
+        let (router, _stdio) = fail_closed_harness();
 
         requarantine_after_integrity_change(
             &router,
@@ -27351,7 +32218,7 @@ mod tests {
     /// known and the catalog comes back.
     #[test]
     fn sbs871_integrity_change_with_a_readable_store_lifts_fail_closed() {
-        let (router, _stdout) = fail_closed_harness();
+        let (router, _stdio) = fail_closed_harness();
 
         requarantine_after_integrity_change(&router, BTreeSet::new(), Ok(set_of(&["srv__wipe"])));
 
@@ -27376,13 +32243,23 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let _data_dir = conduit_lib::registry::DataDirOverride::set(&dir);
 
-        let (router, stdout) = fail_closed_harness();
+        let (router, stdio) = fail_closed_harness();
         let cached_tools: SharedCatalog =
             Arc::new(Mutex::new(Arc::new(CatalogSnapshot::new(vec![
                 json!({ "name": "srv__wipe", "description": "", "inputSchema": {} }),
             ]))));
 
-        persist_and_emit_with_sessions(&[], &cached_tools, &router, None, &stdout, None, None);
+        http_state(false).persist_and_emit_with_sessions(
+            &[],
+            &cached_tools,
+            &router,
+            None,
+            &stdio,
+            None,
+            None,
+            false,
+            None,
+        );
 
         assert!(
             cached_tools.lock().unwrap().tools.is_empty(),
@@ -27405,7 +32282,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let _data_dir = conduit_lib::registry::DataDirOverride::set(&dir);
-        let (router, _stdout) = reconcile_harness();
+        let (router, _stdio) = reconcile_harness();
         {
             let mut guard = router.lock().unwrap();
             Arc::make_mut(&mut guard).requarantine(set_of(&["srv__already_blocked"]));
@@ -27423,7 +32300,7 @@ mod tests {
 
     #[test]
     fn post_write_quarantine_read_failure_still_blocks_the_new_candidate() {
-        let (router, _stdout) = reconcile_harness();
+        let (router, _stdio) = reconcile_harness();
         {
             let mut guard = router.lock().unwrap();
             Arc::make_mut(&mut guard).requarantine(set_of(&["srv__already_blocked"]));
@@ -27460,7 +32337,7 @@ mod tests {
         );
         let registry = Arc::new(Mutex::new(reg));
         assert_eq!(
-            effective_quarantine(&registry, Some("unused-profile")),
+            effective_quarantine(&registry, Some("unused-profile"), &AtomicBool::new(false)),
             Some(BTreeSet::new()),
             "feature off is a known-empty set, not an unknown one"
         );
@@ -27489,7 +32366,7 @@ mod tests {
         let mut reg = Registry::default();
         reg.quarantine_on_drift = false;
         let registry = Arc::new(Mutex::new(reg));
-        let (router, stdout) = reconcile_harness();
+        let (router, stdio) = reconcile_harness();
         {
             let mut guard = router.lock().unwrap();
             // Simulate fail_closed_integrity_catalog after the mandatory tamper quarantine write
@@ -27497,9 +32374,17 @@ mod tests {
             Arc::make_mut(&mut guard).requarantine(set_of(&["srv__wipe"]));
         }
 
-        assert_eq!(effective_quarantine(&registry, profile), None);
+        assert_eq!(
+            effective_quarantine(&registry, profile, &AtomicBool::new(false)),
+            None
+        );
         assert!(!reconcile_quarantine(
-            &registry, &router, &stdout, profile, None
+            &registry,
+            &router,
+            &stdio,
+            profile,
+            None,
+            &AtomicBool::new(false)
         ));
         assert_eq!(
             router.lock().unwrap().quarantined(),
@@ -27548,7 +32433,7 @@ mod tests {
             "the baseline-tamper quarantine is durable and mandatory"
         );
         assert_eq!(
-            effective_quarantine(&registry, profile),
+            effective_quarantine(&registry, profile, &AtomicBool::new(false)),
             None,
             "while the trust root remains corrupt, watcher reconciliation must retain the live set"
         );
@@ -27575,10 +32460,15 @@ mod tests {
         reg.quarantine_on_drift = true;
         let registry = Arc::new(Mutex::new(reg));
         let router = Arc::new(Mutex::new(Arc::new(Router::new())));
-        let stdout = Arc::new(Mutex::new(std::io::stdout()));
+        let stdio = test_stdio_session();
 
         assert!(reconcile_quarantine(
-            &registry, &router, &stdout, profile, None
+            &registry,
+            &router,
+            &stdio,
+            profile,
+            None,
+            &AtomicBool::new(false)
         ));
         assert!(router.lock().unwrap().quarantined().contains("srv__wipe"));
 
@@ -27591,12 +32481,19 @@ mod tests {
         std::fs::write(&path, "{ not json at all").unwrap();
 
         assert_eq!(
-            effective_quarantine(&registry, profile),
+            effective_quarantine(&registry, profile, &AtomicBool::new(false)),
             None,
             "an unreadable store must be reported as unknown, not as empty"
         );
         assert!(
-            !reconcile_quarantine(&registry, &router, &stdout, profile, None),
+            !reconcile_quarantine(
+                &registry,
+                &router,
+                &stdio,
+                profile,
+                None,
+                &AtomicBool::new(false)
+            ),
             "a corrupt store must not trigger a re-filter"
         );
         assert!(
@@ -27607,7 +32504,12 @@ mod tests {
         // And it must recover once the store is readable again.
         std::fs::write(&path, "{}").unwrap();
         assert!(reconcile_quarantine(
-            &registry, &router, &stdout, profile, None
+            &registry,
+            &router,
+            &stdio,
+            profile,
+            None,
+            &AtomicBool::new(false)
         ));
         assert!(router.lock().unwrap().quarantined().is_empty());
 
@@ -27626,7 +32528,7 @@ mod tests {
         let registry = Arc::new(Mutex::new(Registry::default()));
         let registry_trusted = Arc::new(AtomicBool::new(true));
         let router = Arc::new(Mutex::new(Arc::new(Router::new())));
-        let stdout = Arc::new(Mutex::new(std::io::stdout()));
+        let stdio = test_stdio_session();
         let cached_tools = Arc::new(Mutex::new(Arc::new(CatalogSnapshot::default())));
         let profile_slot = Arc::new(Mutex::new(None));
         let downstream_dirty = Arc::new(AtomicU8::new(0));
@@ -27641,25 +32543,31 @@ mod tests {
             last_routines_mtime: None,
         };
 
+        // One host whose fields are this test's own handles, so the tick
+        // cannot read another host's router or cache.
+        let watch_host = host_from_parts(
+            Arc::clone(&registry),
+            Arc::clone(&registry_trusted),
+            Arc::clone(&router),
+            Arc::clone(&cached_tools),
+            Arc::clone(&downstream_dirty),
+            Arc::clone(&server_handler),
+            Arc::clone(&rebuild_lock),
+            None,
+            None,
+        );
+
         let _ = watch_tick(
             &reg_path,
-            &registry,
-            &registry_trusted,
-            &router,
-            &stdout,
-            &cached_tools,
+            &stdio,
             &profile_slot,
             None,
             Some("Default"),
             true,
-            &downstream_dirty,
-            &server_handler,
             &client_root,
             None,
-            None,
-            None,
-            &rebuild_lock,
             &mut state,
+            &watch_host,
         );
         assert!(
             profile_slot.lock().unwrap().is_none(),
@@ -27668,6 +32576,307 @@ mod tests {
         assert!(
             registry_trusted.load(Ordering::SeqCst),
             "a clean reload keeps the registry trustworthy"
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// P1.3: the code-mode switch is the host's, so the watcher's live refresh has to land
+    /// on the host it was given and on no other.
+    ///
+    /// Teeth: it drives the real writer (the reload path inside `watch_tick`) rather than the
+    /// setter, and asserts a second host keeps the value it was seeded with. A refresh that
+    /// re-globalized the flag, or wrote it to a different host, fails an assertion here.
+    #[test]
+    fn watch_tick_refreshes_code_mode_on_the_host_it_was_given() {
+        let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir =
+            std::env::temp_dir().join(format!("toolport-code-mode-tick-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let _data_dir = conduit_lib::registry::DataDirOverride::set(&dir);
+
+        let registry = Arc::new(Mutex::new(Registry::default()));
+        let registry_trusted = Arc::new(AtomicBool::new(true));
+        let router = Arc::new(Mutex::new(Arc::new(Router::new())));
+        let stdio = test_stdio_session();
+        let cached_tools = Arc::new(Mutex::new(Arc::new(CatalogSnapshot::default())));
+        let profile_slot = Arc::new(Mutex::new(None));
+        let downstream_dirty = Arc::new(AtomicU8::new(0));
+        let client_root = Arc::new(Mutex::new(None));
+        let server_handler: ServerRequestHandler = Arc::new(|_| None);
+        let rebuild_lock = Arc::new(Mutex::new(()));
+        // The Settings switch is OFF on disk, so the reload has something to publish.
+        let on_disk = Registry {
+            code_mode: false,
+            ..Registry::default()
+        };
+        let reg_path = dir.join("registry.json");
+        conduit_lib::registry::save_to(&reg_path, &on_disk).unwrap();
+        let mut state = WatchLoopState {
+            last_mtime: None,
+            last_relevant: json!({}),
+            last_routines_mtime: None,
+        };
+
+        let watch_host = host_from_parts(
+            Arc::clone(&registry),
+            Arc::clone(&registry_trusted),
+            Arc::clone(&router),
+            Arc::clone(&cached_tools),
+            Arc::clone(&downstream_dirty),
+            Arc::clone(&server_handler),
+            Arc::clone(&rebuild_lock),
+            None,
+            None,
+        );
+        let other_host = host_from_parts(
+            Arc::clone(&registry),
+            Arc::clone(&registry_trusted),
+            Arc::clone(&router),
+            Arc::clone(&cached_tools),
+            Arc::clone(&downstream_dirty),
+            Arc::clone(&server_handler),
+            Arc::clone(&rebuild_lock),
+            None,
+            None,
+        );
+        // Both start ON, so the reload has to turn exactly one of them off.
+        watch_host.set_code_mode(true);
+        other_host.set_code_mode(true);
+
+        let _ = watch_tick(
+            &reg_path,
+            &stdio,
+            &profile_slot,
+            None,
+            None,
+            false,
+            &client_root,
+            None,
+            &mut state,
+            &watch_host,
+        );
+
+        assert!(
+            !watch_host.code_mode_enabled(),
+            "the reload must publish the on-disk code-mode switch to this host"
+        );
+        assert!(
+            other_host.code_mode_enabled(),
+            "a reload must not touch another host's code-mode flag"
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// #971: an instructions-only edit is published for the next handshake without the
+    /// rebuild that would respawn every downstream server.
+    #[test]
+    fn watch_tick_publishes_an_instructions_edit_without_rebuilding() {
+        let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir =
+            std::env::temp_dir().join(format!("toolport-instructions-tick-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let _data_dir = conduit_lib::registry::DataDirOverride::set(&dir);
+
+        let live = Registry::default();
+        let mut on_disk = live.clone();
+        on_disk.gateway_instructions = Some(String::new());
+        on_disk.profiles[0].instructions = Some("Profile text.".into());
+        let reg_path = dir.join("registry.json");
+        conduit_lib::registry::save_to(&reg_path, &on_disk).unwrap();
+        let mut state = WatchLoopState {
+            last_mtime: None,
+            last_relevant: router_relevant(&live),
+            last_routines_mtime: None,
+        };
+        let server_handler: ServerRequestHandler = Arc::new(|_| None);
+        let host = host_from_parts(
+            Arc::new(Mutex::new(live)),
+            Arc::new(AtomicBool::new(true)),
+            Arc::new(Mutex::new(Arc::new(Router::new()))),
+            Arc::new(Mutex::new(Arc::new(CatalogSnapshot::default()))),
+            Arc::new(AtomicU8::new(0)),
+            server_handler,
+            Arc::new(Mutex::new(())),
+            None,
+            None,
+        );
+        let before = Arc::clone(&host.router.lock().unwrap());
+
+        let _ = watch_tick(
+            &reg_path,
+            &test_stdio_session(),
+            &Arc::new(Mutex::new(None)),
+            None,
+            None,
+            false,
+            &Arc::new(Mutex::new(None)),
+            None,
+            &mut state,
+            &host,
+        );
+
+        let published = host.registry.lock().unwrap().clone();
+        assert_eq!(published.gateway_instructions.as_deref(), Some(""));
+        assert_eq!(
+            published.profiles[0].instructions.as_deref(),
+            Some("Profile text.")
+        );
+        assert!(
+            Arc::ptr_eq(&before, &host.router.lock().unwrap()),
+            "an instructions-only edit must not rebuild the router"
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// P1.3: the discovery mode belongs to the host, so one host's switch cannot decide what
+    /// another host advertises.
+    ///
+    /// Teeth: with the mode back on a process global, both hosts read one value and one of
+    /// these assertions fails. It also pins that the dispatch path reads the host it was
+    /// handed rather than a value resolved somewhere else.
+    #[test]
+    fn discovery_mode_is_per_host() {
+        let grouped = dispatch_host(false);
+        grouped.set_discovery_mode(DiscoveryMode::Grouped);
+        let full = dispatch_host(false);
+        full.set_discovery_mode(DiscoveryMode::Full);
+        let reg = Registry::default();
+        let router = routed_router("s", "tool");
+        let catalog = vec![json!({
+            "name": "s__tool",
+            "description": "a tool",
+            "inputSchema": { "type": "object" }
+        })];
+        let req = json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" });
+        let names = |host: &HostState| -> Vec<String> {
+            let resp = handle_request(
+                host,
+                &req,
+                &reg,
+                &router,
+                &catalog,
+                false,
+                None,
+                &SearchGuard::default(),
+                &ConfirmGuard::new(),
+                None,
+                None,
+            )
+            .unwrap();
+            resp["result"]["tools"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(|tool| tool["name"].as_str().map(str::to_string))
+                .collect()
+        };
+
+        let full_names = names(&full);
+        assert!(
+            full_names.contains(&"s__tool".to_string()),
+            "full discovery advertises the catalog: {full_names:?}"
+        );
+        let grouped_names = names(&grouped);
+        assert!(
+            !grouped_names.contains(&"s__tool".to_string()),
+            "grouped discovery must not advertise the raw catalog: {grouped_names:?}"
+        );
+        assert!(
+            grouped_names.iter().any(|name| name.starts_with("help_")),
+            "grouped discovery advertises one help_<server> tool per server: {grouped_names:?}"
+        );
+    }
+
+    /// P1.3: the discovery mode is the host's, so the watcher's live refresh has to land on the
+    /// host it was given and on no other. This is the discovery twin of
+    /// `watch_tick_refreshes_code_mode_on_the_host_it_was_given`.
+    ///
+    /// Teeth: it drives the real writer (the reload inside `watch_tick`) rather than the setter.
+    /// A refresh that stopped publishing, or wrote a process global instead of the host, fails
+    /// one of the two assertions.
+    #[test]
+    fn watch_tick_refreshes_discovery_mode_on_the_host_it_was_given() {
+        let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir =
+            std::env::temp_dir().join(format!("toolport-discovery-tick-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let _data_dir = conduit_lib::registry::DataDirOverride::set(&dir);
+
+        let registry = Arc::new(Mutex::new(Registry::default()));
+        let registry_trusted = Arc::new(AtomicBool::new(true));
+        let router = Arc::new(Mutex::new(Arc::new(Router::new())));
+        let stdio = test_stdio_session();
+        let cached_tools = Arc::new(Mutex::new(Arc::new(CatalogSnapshot::default())));
+        let profile_slot = Arc::new(Mutex::new(None));
+        let downstream_dirty = Arc::new(AtomicU8::new(0));
+        let client_root = Arc::new(Mutex::new(None));
+        let server_handler: ServerRequestHandler = Arc::new(|_| None);
+        let rebuild_lock = Arc::new(Mutex::new(()));
+        // The registry on disk resolves to `full`, so the reload has something to publish.
+        let on_disk = Registry {
+            discovery_mode: Some("full".to_string()),
+            ..Registry::default()
+        };
+        let reg_path = dir.join("registry.json");
+        conduit_lib::registry::save_to(&reg_path, &on_disk).unwrap();
+        let mut state = WatchLoopState {
+            last_mtime: None,
+            last_relevant: json!({}),
+            last_routines_mtime: None,
+        };
+
+        let watch_host = host_from_parts(
+            Arc::clone(&registry),
+            Arc::clone(&registry_trusted),
+            Arc::clone(&router),
+            Arc::clone(&cached_tools),
+            Arc::clone(&downstream_dirty),
+            Arc::clone(&server_handler),
+            Arc::clone(&rebuild_lock),
+            None,
+            None,
+        );
+        let other_host = host_from_parts(
+            Arc::clone(&registry),
+            Arc::clone(&registry_trusted),
+            Arc::clone(&router),
+            Arc::clone(&cached_tools),
+            Arc::clone(&downstream_dirty),
+            Arc::clone(&server_handler),
+            Arc::clone(&rebuild_lock),
+            None,
+            None,
+        );
+        // Both start Grouped, which no registry in this fixture resolves to, so the reload
+        // moving exactly one of them is the assertion.
+        watch_host.set_discovery_mode(DiscoveryMode::Grouped);
+        other_host.set_discovery_mode(DiscoveryMode::Grouped);
+
+        let _ = watch_tick(
+            &reg_path,
+            &stdio,
+            &profile_slot,
+            None,
+            None,
+            false,
+            &client_root,
+            None,
+            &mut state,
+            &watch_host,
+        );
+
+        // The value the fixture resolves to, computed rather than hardcoded, so an ambient
+        // TOOLPORT_DISCOVERY override cannot fail this test while the publish still lands.
+        let expected = discovery_mode_for(&on_disk, None);
+        assert_eq!(
+            watch_host.discovery_mode(),
+            expected,
+            "the reload must publish the resolved discovery mode to this host"
+        );
+        assert_eq!(
+            other_host.discovery_mode(),
+            DiscoveryMode::Grouped,
+            "a reload must not touch another host's discovery mode"
         );
         let _ = std::fs::remove_dir_all(dir);
     }
@@ -27701,7 +32910,7 @@ mod tests {
         let registry = Arc::new(Mutex::new(with_client));
         let registry_trusted = Arc::new(AtomicBool::new(true));
         let router = Arc::new(Mutex::new(Arc::new(Router::new())));
-        let stdout = Arc::new(Mutex::new(std::io::stdout()));
+        let stdio = test_stdio_session();
         let cached_tools = Arc::new(Mutex::new(Arc::new(CatalogSnapshot::default())));
         let profile_slot = Arc::new(Mutex::new(None));
         let downstream_dirty = Arc::new(AtomicU8::new(0));
@@ -27716,25 +32925,31 @@ mod tests {
             last_relevant: json!({}),
             last_routines_mtime: None,
         };
+
+        // One host whose fields are this test's own handles, so the tick
+        // cannot read another host's router or cache.
+        let watch_host = host_from_parts(
+            Arc::clone(&registry),
+            Arc::clone(&registry_trusted),
+            Arc::clone(&router),
+            Arc::clone(&cached_tools),
+            Arc::clone(&downstream_dirty),
+            Arc::clone(&server_handler),
+            Arc::clone(&rebuild_lock),
+            None,
+            None,
+        );
         let _ = watch_tick(
             &reg_path,
-            &registry,
-            &registry_trusted,
-            &router,
-            &stdout,
-            &cached_tools,
+            &stdio,
             &profile_slot,
             None,
             None,
             true,
-            &downstream_dirty,
-            &server_handler,
             &client_root,
             None,
-            None,
-            None,
-            &rebuild_lock,
             &mut state,
+            &watch_host,
         );
 
         let live = registry.lock().unwrap_or_else(|e| e.into_inner());
@@ -27781,7 +32996,7 @@ mod tests {
         let registry = Arc::new(Mutex::new(reg));
         let registry_trusted = Arc::new(AtomicBool::new(true));
         let router = Arc::new(Mutex::new(Arc::new(Router::new())));
-        let stdout = Arc::new(Mutex::new(std::io::stdout()));
+        let stdio = test_stdio_session();
         let cached_tools = Arc::new(Mutex::new(Arc::new(CatalogSnapshot::default())));
         let profile_slot = Arc::new(Mutex::new(Some(profile_name.to_string())));
         let downstream_dirty = Arc::new(AtomicU8::new(0));
@@ -27799,25 +33014,31 @@ mod tests {
 
         // First tick: pick up the quarantined tool from disk.
         let rebuild_lock = Arc::new(Mutex::new(()));
+
+        // One host whose fields are this test's own handles, so the tick
+        // cannot read another host's router or cache.
+        let watch_host = host_from_parts(
+            Arc::clone(&registry),
+            Arc::clone(&registry_trusted),
+            Arc::clone(&router),
+            Arc::clone(&cached_tools),
+            Arc::clone(&downstream_dirty),
+            Arc::clone(&server_handler),
+            Arc::clone(&rebuild_lock),
+            None,
+            None,
+        );
         let load = watch_tick(
             &reg_path,
-            &registry,
-            &registry_trusted,
-            &router,
-            &stdout,
-            &cached_tools,
+            &stdio,
             &profile_slot,
             None,
             None,
             false,
-            &downstream_dirty,
-            &server_handler,
             &client_root,
             None,
-            None,
-            None,
-            &rebuild_lock,
             &mut state,
+            &watch_host,
         );
         assert!(
             load.idle_after_quarantine,
@@ -27832,23 +33053,15 @@ mod tests {
         // Steady state: still idle, no re-filter.
         let steady = watch_tick(
             &reg_path,
-            &registry,
-            &registry_trusted,
-            &router,
-            &stdout,
-            &cached_tools,
+            &stdio,
             &profile_slot,
             None,
             None,
             false,
-            &downstream_dirty,
-            &server_handler,
             &client_root,
             None,
-            None,
-            None,
-            &rebuild_lock,
             &mut state,
+            &watch_host,
         );
         assert!(steady.idle_after_quarantine);
         assert!(!steady.quarantine_changed);
@@ -27857,23 +33070,15 @@ mod tests {
         assert!(conduit_lib::integrity::release(profile, "srv__wipe").unwrap());
         let after = watch_tick(
             &reg_path,
-            &registry,
-            &registry_trusted,
-            &router,
-            &stdout,
-            &cached_tools,
+            &stdio,
             &profile_slot,
             None,
             None,
             false,
-            &downstream_dirty,
-            &server_handler,
             &client_root,
             None,
-            None,
-            None,
-            &rebuild_lock,
             &mut state,
+            &watch_host,
         );
         assert!(
             after.idle_after_quarantine,
@@ -27895,7 +33100,6 @@ mod tests {
     #[test]
     fn routine_write_toggle_refreshes_tools_without_rebuilding_the_router() {
         let _env = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
-        let _code_mode = CodeModeGuard::acquire();
         let dir = std::env::temp_dir().join(format!(
             "toolport-routine-watch-{}",
             routines::generate_id().unwrap()
@@ -27907,14 +33111,14 @@ mod tests {
         let registry_trusted = Arc::new(AtomicBool::new(true));
         let original_router = Arc::new(Router::new());
         let router = Arc::new(Mutex::new(Arc::clone(&original_router)));
-        let stdout = Arc::new(Mutex::new(std::io::stdout()));
+        let stdio = test_stdio_session();
         let cached_tools = Arc::new(Mutex::new(Arc::new(CatalogSnapshot::default())));
         let profile = Arc::new(Mutex::new(None));
         let downstream_dirty = Arc::new(AtomicU8::new(0));
         let client_root = Arc::new(Mutex::new(None));
         let server_handler: ServerRequestHandler = Arc::new(|_| None);
         let rebuild_lock = Arc::new(Mutex::new(()));
-        let session = Arc::new(McpSession::new(None));
+        let session = Arc::new(SessionState::new_http(None));
         let mcp_sessions = Arc::new(Mutex::new(HashMap::from([(
             "routine-watch".to_string(),
             Arc::clone(&session),
@@ -27931,25 +33135,31 @@ mod tests {
             last_relevant: router_relevant(&Registry::default()),
         };
 
+        // One host whose fields are this test's own handles, so the tick
+        // cannot read another host's router or cache.
+        let watch_host = host_from_parts(
+            Arc::clone(&registry),
+            Arc::clone(&registry_trusted),
+            Arc::clone(&router),
+            Arc::clone(&cached_tools),
+            Arc::clone(&downstream_dirty),
+            Arc::clone(&server_handler),
+            Arc::clone(&rebuild_lock),
+            Some(Arc::clone(&mcp_sessions)),
+            None,
+        );
+
         let outcome = watch_tick(
             &path,
-            &registry,
-            &registry_trusted,
-            &router,
-            &stdout,
-            &cached_tools,
+            &stdio,
             &profile,
             None,
             None,
             false,
-            &downstream_dirty,
-            &server_handler,
             &client_root,
-            Some(&mcp_sessions),
-            None,
-            None,
-            &rebuild_lock,
+            Some(None),
             &mut state,
+            &watch_host,
         );
 
         assert!(!outcome.idle_after_quarantine);
@@ -27978,23 +33188,15 @@ mod tests {
         routines::append_immutable(routine).unwrap();
         let catalog_change = watch_tick(
             &path,
-            &registry,
-            &registry_trusted,
-            &router,
-            &stdout,
-            &cached_tools,
+            &stdio,
             &profile,
             None,
             None,
             false,
-            &downstream_dirty,
-            &server_handler,
             &client_root,
-            Some(&mcp_sessions),
-            None,
-            None,
-            &rebuild_lock,
+            Some(None),
             &mut state,
+            &watch_host,
         );
         assert!(!catalog_change.idle_after_quarantine);
         assert!(
@@ -28042,23 +33244,38 @@ mod tests {
         reg.quarantine_on_drift = true;
         let registry = Arc::new(Mutex::new(reg));
         let router = Arc::new(Mutex::new(Arc::new(Router::new())));
-        let stdout = Arc::new(Mutex::new(std::io::stdout()));
+        let stdio = test_stdio_session();
 
         // Picks the persisted set up off disk (effective_quarantine's ON branch).
         assert!(reconcile_quarantine(
-            &registry, &router, &stdout, profile, None
+            &registry,
+            &router,
+            &stdio,
+            profile,
+            None,
+            &AtomicBool::new(false)
         ));
         assert!(router.lock().unwrap().quarantined().contains("srv__wipe"));
 
         // Steady state: no churn while nothing changes.
         assert!(!reconcile_quarantine(
-            &registry, &router, &stdout, profile, None
+            &registry,
+            &router,
+            &stdio,
+            profile,
+            None,
+            &AtomicBool::new(false)
         ));
 
         // The user re-approves. This is the SOU-292 regression, end to end.
         assert!(conduit_lib::integrity::release(profile, "srv__wipe").unwrap());
         assert!(reconcile_quarantine(
-            &registry, &router, &stdout, profile, None
+            &registry,
+            &router,
+            &stdio,
+            profile,
+            None,
+            &AtomicBool::new(false)
         ));
         assert!(
             router.lock().unwrap().quarantined().is_empty(),
@@ -28449,6 +33666,7 @@ mod tests {
 
     #[test]
     fn search_query_bounds_are_enforced_before_ranking() {
+        let host = dispatch_host(false);
         assert!(validate_search_query(&"x".repeat(MAX_SEARCH_QUERY_CHARS)).is_ok());
         let char_limit_error =
             validate_search_query(&"x".repeat(MAX_SEARCH_QUERY_CHARS + 1)).unwrap_err();
@@ -28465,6 +33683,7 @@ mod tests {
 
         let call = |query: &str| {
             handle_request(
+                &host,
                 &search_req(query),
                 &Registry::default(),
                 &router(),
@@ -28500,12 +33719,15 @@ mod tests {
 
     #[test]
     fn search_tool_call_returns_matches() {
+        let _data_env = DataDirTestEnv::new("search_tool_call_returns_matches");
+        let host = dispatch_host(false);
         let reg = Registry::default();
         let req = json!({
             "jsonrpc": "2.0", "id": 5, "method": "tools/call",
             "params": { "name": "toolport_search_tools", "arguments": { "query": "charges" } }
         });
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router(),
@@ -28553,6 +33775,8 @@ mod tests {
     /// taught marker unless it gets the same pass.
     #[test]
     fn search_neutralizes_pinned_prerequisite_definitions() {
+        let _data_env = DataDirTestEnv::new("search_neutralizes_pinned_prerequisite_definitions");
+        let host = dispatch_host(false);
         let mut reg = Registry::default();
         reg.set_tool_pinned("evil", "prereq", true);
         let router = routed_router("evil", "prereq");
@@ -28568,6 +33792,7 @@ mod tests {
             }),
         ];
         let resp = handle_request(
+            &host,
             &search_req("charges"),
             &reg,
             &router,
@@ -28603,12 +33828,16 @@ mod tests {
 
     #[test]
     fn search_no_matches_explains_the_exhaustive_escape_hatch() {
+        let _data_env =
+            DataDirTestEnv::new("search_no_matches_explains_the_exhaustive_escape_hatch");
+        let host = dispatch_host(false);
         let reg = Registry::default();
         let req = json!({
             "jsonrpc": "2.0", "id": 7, "method": "tools/call",
             "params": { "name": "toolport_search_tools", "arguments": { "query": "zzznotarealtoolzzz" } }
         });
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router(),
@@ -28632,6 +33861,9 @@ mod tests {
 
     #[test]
     fn search_empty_scope_does_not_claim_fallback_candidates_exist() {
+        let _data_env =
+            DataDirTestEnv::new("search_empty_scope_does_not_claim_fallback_candidates_exist");
+        let host = dispatch_host(false);
         let reg = Registry::default();
         let req = json!({
             "jsonrpc": "2.0", "id": 8, "method": "tools/call",
@@ -28641,6 +33873,7 @@ mod tests {
             }
         });
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router(),
@@ -28669,7 +33902,9 @@ mod tests {
     }
 
     fn search_text(reg: &Registry, guard: &SearchGuard, query: &str) -> String {
+        let host = dispatch_host(false);
         let resp = handle_request(
+            &host,
             &search_req(query),
             reg,
             &router(),
@@ -28690,6 +33925,8 @@ mod tests {
 
     #[test]
     fn repeated_same_need_escalates_then_resets() {
+        let _data_env = DataDirTestEnv::new("repeated_same_need_escalates_then_resets");
+        let host = dispatch_host(false);
         let reg = Registry::default();
         let guard = SearchGuard::default();
 
@@ -28713,6 +33950,7 @@ mod tests {
             "params": { "name": "toolport_status", "arguments": {} }
         });
         handle_request(
+            &host,
             &status,
             &reg,
             &router(),
@@ -28734,6 +33972,8 @@ mod tests {
 
     #[test]
     fn repeated_low_confidence_search_never_forces_a_weak_top_result() {
+        let _data_env =
+            DataDirTestEnv::new("repeated_low_confidence_search_never_forces_a_weak_top_result");
         let reg = Registry::default();
         let guard = SearchGuard::default();
 
@@ -28747,6 +33987,7 @@ mod tests {
 
     #[test]
     fn searching_different_needs_never_escalates() {
+        let _data_env = DataDirTestEnv::new("searching_different_needs_never_escalates");
         // The capable-model guarantee: a model that searches several DIFFERENT things
         // in a row (different top tool each time) is never cut off, no matter how many
         // searches. This is what keeps Claude/Cursor's exploration unaffected.
@@ -28771,13 +34012,14 @@ mod tests {
 
     #[test]
     fn grouped_mode_advertises_meta_plus_per_server_help() {
+        let host = dispatch_host(false);
         // The catalog: two servers, github with 2 tools, stripe with 1.
         let catalog = vec![
             json!({ "name": "github__create_issue", "description": "Create an issue", "inputSchema": {} }),
             json!({ "name": "github__list_repos", "description": "List repos", "inputSchema": {} }),
             json!({ "name": "stripe__create_charge", "description": "Create a charge", "inputSchema": {} }),
         ];
-        let defs = grouped_tool_defs(false, false, false, &catalog);
+        let defs = grouped_tool_defs(&host, false, false, false, &catalog);
         let names: Vec<&str> = defs
             .iter()
             .filter_map(|t| t.get("name").and_then(|v| v.as_str()))
@@ -28811,8 +34053,9 @@ mod tests {
 
     #[test]
     fn grouped_mode_gates_agent_and_confirm_tools() {
+        let host = dispatch_host(false);
         let catalog = vec![json!({ "name": "s__t", "description": "x", "inputSchema": {} })];
-        let defs = grouped_tool_defs(true, false, true, &catalog);
+        let defs = grouped_tool_defs(&host, true, false, true, &catalog);
         let names: Vec<&str> = defs
             .iter()
             .filter_map(|t| t.get("name").and_then(|v| v.as_str()))
@@ -28940,6 +34183,73 @@ mod tests {
     #[test]
     fn parse_args_no_args_runs_normally() {
         assert_eq!(parse_args(&[]), ArgAction::Run);
+    }
+
+    #[test]
+    fn daemon_flag_selects_the_daemon_role() {
+        assert!(daemon_requested(&["--daemon".to_string()]));
+        assert!(!daemon_requested(&["--http".to_string()]));
+        assert!(!daemon_requested(&[]));
+    }
+
+    #[test]
+    fn registry_topology_selects_only_ordinary_client_stdio() {
+        use registry::GatewayTopology::{Daemon, Legacy};
+        assert!(!selected_adapter_requested(&[], true, None, None));
+        assert!(selected_adapter_requested(&[], true, None, Some(Daemon)));
+        assert!(!selected_adapter_requested(&[], true, None, Some(Legacy)));
+        assert!(!selected_adapter_requested(&[], false, None, Some(Daemon)));
+        assert!(!selected_adapter_requested(
+            &["--daemon".into()],
+            true,
+            None,
+            Some(Daemon)
+        ));
+        assert!(!selected_adapter_requested(
+            &["--http".into()],
+            true,
+            None,
+            Some(Daemon)
+        ));
+        assert!(!selected_adapter_requested(
+            &[],
+            true,
+            Some("legacy"),
+            Some(Daemon)
+        ));
+        assert!(selected_adapter_requested(
+            &[],
+            true,
+            Some("daemon"),
+            Some(Legacy)
+        ));
+    }
+
+    #[test]
+    fn daemon_identity_matches_the_compat_key() {
+        let _env = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let dir = std::env::temp_dir().join(format!(
+            "toolport-daemon-identity-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let _data = conduit_lib::registry::DataDirOverride::set(&dir);
+
+        let compat = conduit_lib::topology::CompatKey::new(
+            env!("CARGO_PKG_VERSION"),
+            dir.display().to_string(),
+        );
+        let identity: conduit_lib::daemon::DaemonIdentity =
+            serde_json::from_str(&daemon_identity_json()).unwrap();
+        assert!(identity.is_compatible_with(&compat));
+        assert_eq!(identity.pid, std::process::id());
+        assert_eq!(identity.protocol, conduit_lib::daemon::PROTOCOL_GENERATION);
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -29366,6 +34676,9 @@ mod tests {
     /// `rehydrate_for_downstream` ever moves back above the intercept.
     #[test]
     fn destructive_confirm_preview_shows_the_token_not_the_real_value() {
+        let _data_env =
+            DataDirTestEnv::new("destructive_confirm_preview_shows_the_token_not_the_real_value");
+        let host = dispatch_host(false);
         let client = None;
         let token = with_pii_session(client, |map| {
             *map = pii::SessionMap::new();
@@ -29384,6 +34697,7 @@ mod tests {
         });
 
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router(),
@@ -29415,12 +34729,15 @@ mod tests {
 
     #[test]
     fn confirm_destructive_intercepts_destructive_call() {
+        let _data_env = DataDirTestEnv::new("confirm_destructive_intercepts_destructive_call");
+        let host = dispatch_host(false);
         let reg = registry_with_confirm();
         let req = json!({
             "jsonrpc": "2.0", "id": 1, "method": "tools/call",
             "params": { "name": "stripe__delete_customer", "arguments": { "id": "cus_123" } }
         });
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router(),
@@ -29446,12 +34763,15 @@ mod tests {
 
     #[test]
     fn confirm_destructive_does_not_intercept_safe_call() {
+        let _data_env = DataDirTestEnv::new("confirm_destructive_does_not_intercept_safe_call");
+        let host = dispatch_host(false);
         let reg = registry_with_confirm();
         let req = json!({
             "jsonrpc": "2.0", "id": 2, "method": "tools/call",
             "params": { "name": "stripe__list_charges", "arguments": {} }
         });
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router(),
@@ -29475,12 +34795,15 @@ mod tests {
 
     #[test]
     fn confirm_destructive_off_does_not_intercept() {
+        let _data_env = DataDirTestEnv::new("confirm_destructive_off_does_not_intercept");
+        let host = dispatch_host(false);
         let reg = Registry::default(); // confirm_destructive = false
         let req = json!({
             "jsonrpc": "2.0", "id": 3, "method": "tools/call",
             "params": { "name": "stripe__delete_customer", "arguments": { "id": "cus_123" } }
         });
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router(),
@@ -29502,6 +34825,9 @@ mod tests {
 
     #[test]
     fn confirm_destructive_cannot_be_bypassed_via_toolport_call_tool() {
+        let _data_env =
+            DataDirTestEnv::new("confirm_destructive_cannot_be_bypassed_via_toolport_call_tool");
+        let host = dispatch_host(false);
         let reg = registry_with_confirm();
         // Agent tries to call the destructive tool via toolport_call_tool instead
         // of directly — the interceptor should still catch it because
@@ -29517,6 +34843,7 @@ mod tests {
             }
         });
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router(),
@@ -29539,12 +34866,14 @@ mod tests {
 
     #[test]
     fn confirm_destructive_invalid_token_fails() {
+        let host = dispatch_host(false);
         let reg = registry_with_confirm();
         let req = json!({
             "jsonrpc": "2.0", "id": 5, "method": "tools/call",
             "params": { "name": "toolport_confirm", "arguments": { "token": "deadbeef" } }
         });
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router(),
@@ -29567,12 +34896,14 @@ mod tests {
 
     #[test]
     fn confirm_destructive_empty_token_fails() {
+        let host = dispatch_host(false);
         let reg = registry_with_confirm();
         let req = json!({
             "jsonrpc": "2.0", "id": 6, "method": "tools/call",
             "params": { "name": "toolport_confirm", "arguments": { "token": "" } }
         });
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router(),
@@ -29594,9 +34925,11 @@ mod tests {
 
     #[test]
     fn confirm_destructive_tools_list_includes_toolport_confirm() {
+        let host = dispatch_host(false);
         let reg = registry_with_confirm();
         let req = json!({ "jsonrpc": "2.0", "id": 7, "method": "tools/list" });
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router(),
@@ -29623,9 +34956,11 @@ mod tests {
 
     #[test]
     fn confirm_destructive_tools_list_excludes_toolport_confirm_when_off() {
+        let host = dispatch_host(false);
         let reg = Registry::default(); // confirm_destructive = false
         let req = json!({ "jsonrpc": "2.0", "id": 8, "method": "tools/list" });
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router(),
@@ -29686,6 +35021,9 @@ mod tests {
 
     #[test]
     fn confirm_destructive_token_is_client_scoped_and_does_not_loop() {
+        let _data_env =
+            DataDirTestEnv::new("confirm_destructive_token_is_client_scoped_and_does_not_loop");
+        let host = dispatch_host(false);
         // The critical test: a destructive call is intercepted, then confirmed
         // via toolport_confirm. A different client cannot redeem or consume it,
         // and the rightful owner's confirmed call must NOT be re-intercepted.
@@ -29699,6 +35037,7 @@ mod tests {
             "params": { "name": "stripe__delete_customer", "arguments": { "id": "cus_999" } }
         });
         let resp1 = handle_request(
+            &host,
             &req1,
             &reg,
             &router(),
@@ -29724,6 +35063,7 @@ mod tests {
             "params": { "name": "toolport_confirm", "arguments": { "token": token } }
         });
         let resp2 = handle_request(
+            &host,
             &req2,
             &reg,
             &router(),
@@ -29746,6 +35086,7 @@ mod tests {
         // owner can still confirm. This falls through to normal routing and is
         // NOT re-intercepted.
         let resp3 = handle_request(
+            &host,
             &req2,
             &reg,
             &router(),
@@ -29770,6 +35111,8 @@ mod tests {
 
     #[test]
     fn oversized_tool_call_can_be_fetched() {
+        let _data_env = DataDirTestEnv::new("oversized_tool_call_can_be_fetched");
+        let host = dispatch_host(false);
         let body = format!("{}THE_END", "A".repeat(50_000));
 
         let reg = Registry::default();
@@ -29787,6 +35130,7 @@ mod tests {
         });
 
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router,
@@ -29843,6 +35187,7 @@ mod tests {
         });
 
         let fetch_resp = handle_request(
+            &host,
             &fetch_req,
             &reg,
             &router,
@@ -29865,6 +35210,9 @@ mod tests {
 
     #[test]
     fn fetch_result_projection_dispatch_returns_requested_field() {
+        let _data_env =
+            DataDirTestEnv::new("fetch_result_projection_dispatch_returns_requested_field");
+        let host = dispatch_host(false);
         let body = "A".repeat(50_000);
 
         let reg = Registry::default();
@@ -29881,6 +35229,7 @@ mod tests {
         });
 
         let resp = handle_request(
+            &host,
             &req,
             &reg,
             &router,
@@ -29918,6 +35267,7 @@ mod tests {
         });
 
         let fetch_resp = handle_request(
+            &host,
             &fetch_req,
             &reg,
             &router,
@@ -29937,5 +35287,386 @@ mod tests {
             fetch_resp["result"]["content"][0]["text"].as_str().unwrap(),
             "30"
         );
+    }
+
+    /// P1.2: the anti-thrash streak belongs to one conversation. A host that
+    /// serves several clients must not let one client's repeated search escalate
+    /// another client's answer, and each client's own third repeat still trips it.
+    #[test]
+    fn each_session_owns_its_own_search_streak() {
+        let _data_env = DataDirTestEnv::new("each_session_owns_its_own_search_streak");
+        let reg = Registry::default();
+        let a = test_stdio_session();
+        let b = test_stdio_session();
+        let a_guard = a.guards().search;
+        let b_guard = b.guards().search;
+
+        for _ in 0..2 {
+            assert!(!search_text(&reg, &a_guard, "charges").contains(ESCALATION_MARK));
+        }
+        // b's first search is already its own first search, not a's third.
+        let b_first = search_text(&reg, &b_guard, "charges");
+        assert!(b_first.contains("Top match:"));
+        assert!(
+            !b_first.contains(ESCALATION_MARK),
+            "another session must not inherit this streak: {b_first}"
+        );
+
+        // a's third consecutive same-result search still escalates.
+        assert!(
+            search_text(&reg, &a_guard, "charges").contains(ESCALATION_MARK),
+            "the owning session keeps the escalation"
+        );
+        assert!(
+            !search_text(&reg, &b_guard, "charges").contains(ESCALATION_MARK),
+            "b is on its own second search, still polite"
+        );
+    }
+
+    /// P1.2: a pending destructive confirmation is issued to one conversation and
+    /// is redeemable only there. Cross-session redemption is what the guard's
+    /// `owner` check would already refuse for a foreign principal; this asserts the
+    /// stronger session boundary underneath it.
+    #[test]
+    fn a_confirmation_belongs_to_the_session_that_stored_it() {
+        let a = test_stdio_session();
+        let b = test_stdio_session();
+        let owner = Some("client:a");
+        let token = a.guards().confirm.store(
+            "stripe__delete_customer".to_string(),
+            json!({ "id": "cus_1" }),
+            owner,
+        );
+
+        assert!(
+            b.guards().confirm.take(&token, owner).is_none(),
+            "another session must not redeem a token it never minted, even for the same principal"
+        );
+        let redeemed = a.guards().confirm.take(&token, owner);
+        assert_eq!(
+            redeemed.map(|(name, _)| name).as_deref(),
+            Some("stripe__delete_customer"),
+            "the owning session still redeems its own token"
+        );
+    }
+
+    /// P1.2: the 2026-07-28 era is declared by ONE connection. A second session
+    /// must keep the legacy behavior: nothing is withheld for a modern peer, and a
+    /// modern peer does not mute anyone else's notifications.
+    #[test]
+    fn a_modern_peer_does_not_mute_another_session() {
+        let _serial = STDIO_HANDSHAKE_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let modern = test_stdio_session();
+        let legacy = test_stdio_session();
+        modern.mark_modern_upstream();
+        assert!(modern.is_modern_upstream());
+        assert!(
+            !legacy.is_modern_upstream(),
+            "one connection's era must not reach another session"
+        );
+
+        let method = "notifications/toolport-test-era/list_changed";
+        // No subscription filter was opened, so a modern peer gets no bare frame
+        // and nothing is banked for it either.
+        notify_list_changed(&modern, None, method);
+        assert_eq!(
+            deferred_count(&modern, method),
+            0,
+            "nothing withheld for a modern peer"
+        );
+        notify_list_changed(&legacy, None, method);
+        assert_eq!(
+            deferred_count(&legacy, method),
+            1,
+            "the legacy peer still queues the notification for its handshake"
+        );
+        assert_eq!(
+            deferred_count(&modern, method),
+            0,
+            "and the legacy peer's queue is not the modern peer's"
+        );
+
+        // The handshake flags are per-session too, which is the stronger half of this
+        // claim: one peer completing its handshake must not make the gateway think the
+        // other one has. Drive the legacy peer through BOTH halves of the handshake and
+        // assert the modern peer's own state is untouched.
+        //
+        // Both halves are checked deliberately. Readiness and respondedness are separate
+        // conditions in [`SessionState::stdio_may_speak`], so a per-session `ready` with a
+        // process-wide `responded` would still let one peer's answer unlock another peer's
+        // traffic. Re-globalizing either flag alone must fail this test.
+        mark_stdio_client_ready(&legacy);
+        legacy.mark_stdio_responded();
+        assert!(
+            legacy.stdio_may_speak(),
+            "the peer that handshaked may be spoken to"
+        );
+        assert!(
+            !modern.stdio_client_ready(),
+            "one connection's handshake must not mark another session ready"
+        );
+        assert!(
+            !modern.stdio_responded(),
+            "one connection's answer must not mark another session responded"
+        );
+        assert!(
+            !modern.stdio_may_speak(),
+            "a peer that never handshaked must not be treated as speakable"
+        );
+    }
+
+    /// P1.2: an HTTP request that carries a session id uses that session's guards,
+    /// so a confirmation minted in one session is invisible to another. A request
+    /// with no session record (a modern request, or an OpenAPI call) falls back to
+    /// the listener-level pair.
+    #[test]
+    fn http_requests_use_the_guards_of_their_session() {
+        let state = http_state(false);
+        let s1 = mint_mcp_session(&state, None).ok().expect("mint s1");
+        let s2 = mint_mcp_session(&state, None).ok().expect("mint s2");
+        let first = state
+            .session_guards(Some(&s1))
+            .expect("a minted session has guards");
+        let second = state
+            .session_guards(Some(&s2))
+            .expect("a minted session has guards");
+        let owner = Some("client:c1");
+        let token = second.confirm.store(
+            "stripe__delete_customer".to_string(),
+            json!({ "id": "cus_1" }),
+            owner,
+        );
+
+        assert!(
+            first.confirm.take(&token, owner).is_none(),
+            "s1 must not redeem a token minted by s2"
+        );
+        assert!(
+            second.confirm.take(&token, owner).is_some(),
+            "the minting session redeems it"
+        );
+        assert!(
+            state.session_guards(Some("no-such-session")).is_none(),
+            "an unknown session id falls back to the listener-level pair"
+        );
+    }
+
+    /// P1.3: the host owns its daemon runtime. A second host must not see the first
+    /// one's daemon flag or activity clock; while those were process statics it did.
+    #[test]
+    fn daemon_runtime_state_belongs_to_the_host() {
+        let first = http_state(true);
+        let second = http_state(true);
+
+        assert!(!first.daemon_mode.load(Ordering::SeqCst));
+        first.daemon_mode.store(true, Ordering::SeqCst);
+        assert!(first.daemon_mode.load(Ordering::SeqCst));
+        assert!(
+            !second.daemon_mode.load(Ordering::SeqCst),
+            "daemon mode must not leak between hosts"
+        );
+
+        // A host that has never served anything is idle since the epoch; a touch
+        // resets its own lease and nothing else's.
+        assert!(second.idle_for() > Duration::from_secs(60));
+        first.touch_activity();
+        assert!(first.idle_for() < Duration::from_secs(5));
+        assert!(
+            second.idle_for() > Duration::from_secs(60),
+            "the activity lease must not leak between hosts"
+        );
+    }
+
+    /// P1.3: the token counter lives on the table, so tokens stay unique within a
+    /// table while a fresh table starts its own sequence over. Two hosts may mint
+    /// the same token because a token is resolved against its own table only.
+    #[test]
+    fn progress_tokens_are_unique_per_table_and_restart_with_a_fresh_table() {
+        let first = Arc::new(Mutex::new(ProgressRoutes::default()));
+        let second = Arc::new(Mutex::new(ProgressRoutes::default()));
+        let meta = json!({ "progressToken": 7 });
+
+        let (first_a, token_a) = register_progress(&first, Some(&meta), "alpha", "s1").unwrap();
+        let (first_b, token_b) = register_progress(&first, Some(&meta), "alpha", "s2").unwrap();
+        let (_second_a, token_c) = register_progress(&second, Some(&meta), "alpha", "s3").unwrap();
+
+        assert_ne!(token_a, token_b, "one table must never mint a token twice");
+        assert_eq!(token_a, "tp-1");
+        assert_eq!(
+            token_a, token_c,
+            "a fresh table starts its own counter instead of continuing another's"
+        );
+        drop(first_a);
+        drop(first_b);
+    }
+
+    /// P1.3: the identity route follows the host's own daemon flag, which is what
+    /// makes the flag worth owning per host: a plain HTTP bridge (or a test host)
+    /// must never serve it, with or without a bearer.
+    #[test]
+    fn the_daemon_identity_route_follows_the_hosts_daemon_flag() {
+        let state = http_state(true);
+        let caller = test_caller("daemon-probe", None);
+        let probe = |state: &GatewayState, caller: Option<&HttpCaller>, private_bearer: bool| {
+            handle_http_with_headers(
+                state,
+                &SearchGuard::default(),
+                &ConfirmGuard::new(),
+                "GET",
+                conduit_lib::daemon::IDENTITY_PATH,
+                "",
+                McpHttpRequestHeaders {
+                    private_daemon_bearer: private_bearer,
+                    ..McpHttpRequestHeaders::default()
+                },
+                None,
+                caller,
+            )
+        };
+
+        assert!(
+            !state.daemon_mode.load(Ordering::SeqCst),
+            "the fixture is not a daemon"
+        );
+        let bridge = probe(&state, Some(&caller), true);
+        assert!(
+            bridge.status != 200 && bridge.status != 401,
+            "a non-daemon host must neither serve nor advertise the identity route: {}",
+            bridge.body
+        );
+        let bridge_topology = handle_http_with_headers(
+            &state,
+            &SearchGuard::default(),
+            &ConfirmGuard::new(),
+            "GET",
+            conduit_lib::daemon::TOPOLOGY_PATH,
+            "",
+            McpHttpRequestHeaders::default(),
+            None,
+            Some(&caller),
+        );
+        assert_ne!(bridge_topology.status, 200);
+
+        state.daemon_mode.store(true, Ordering::SeqCst);
+        let anonymous = probe(&state, None, false);
+        assert_eq!(anonymous.status, 401, "body={}", anonymous.body);
+        let registered_client = probe(&state, Some(&caller), false);
+        assert_eq!(registered_client.status, 401, "body={}", registered_client.body);
+        let registered_topology = handle_http_with_headers(
+            &state,
+            &SearchGuard::default(),
+            &ConfirmGuard::new(),
+            "GET",
+            conduit_lib::daemon::TOPOLOGY_PATH,
+            "",
+            McpHttpRequestHeaders::default(),
+            None,
+            Some(&caller),
+        );
+        assert_eq!(registered_topology.status, 401);
+        let authenticated = probe(&state, Some(&caller), true);
+        assert_eq!(authenticated.status, 200, "body={}", authenticated.body);
+        let identity: Value = serde_json::from_str(&authenticated.body).unwrap();
+        assert!(
+            identity.get("compat").is_some(),
+            "body={}",
+            authenticated.body
+        );
+    }
+
+    #[test]
+    fn expired_http_service_lease_stops_authorizing_its_bearer() {
+        let state = http_state(true);
+        let token = "expired-public-token";
+        *state
+            .http_service_lease
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(HttpServiceLease {
+            token_sha256: registry::sha256_hex(token),
+            bind_host: "127.0.0.1".to_string(),
+            expires_at: Instant::now() - Duration::from_secs(1),
+        });
+        assert!(!state.http_service_lease_active());
+        assert!(!state.http_service_token_active(token));
+        assert!(state.http_service_bind_host().is_none());
+    }
+
+    /// P1.3: the rebuild streak map and the quarantine read flag belong to the host.
+    /// While they were process statics, a second host shared the first one's streak
+    /// (so it could accept a collapse it never saw) and its store-failure warning
+    /// state. Both are per-host now.
+    #[test]
+    fn rebuild_streaks_and_quarantine_read_state_belong_to_the_host() {
+        let first = http_state(false);
+        let second = http_state(false);
+
+        // A catalog that collapsed from five tools to one: the guard confirms before it
+        // accepts, so each guarded rebuild bumps the streak for that server.
+        let before: Vec<Value> = "abcde"
+            .chars()
+            .map(|c| json!({ "name": format!("srv__{c}"), "description": "", "inputSchema": {} }))
+            .collect();
+        let after = vec![json!({ "name": "srv__a", "description": "", "inputSchema": {} })];
+
+        let guarded = first.preserve_collapsed_servers_guarded(after.clone(), &before);
+        assert_eq!(
+            guarded.len(),
+            before.len(),
+            "the first guarded rebuild keeps the previous catalog"
+        );
+        let first_streak = first
+            .rebuild_shrink_streaks
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get("srv")
+            .copied();
+        assert_eq!(
+            first_streak,
+            Some(1),
+            "the host that ran the guard must accumulate the streak"
+        );
+        assert!(
+            second
+                .rebuild_shrink_streaks
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .is_empty(),
+            "a second host must not see another host's rebuild streak"
+        );
+
+        // The quarantine half drives the flag's only reader rather than poking the two
+        // fields: poking the atomics directly would pass for any two independent flags,
+        // which is exactly what a re-globalized flag would not be. The failure is forced
+        // with a directory where the store's JSON file must be (SOU-320: an unreadable
+        // store is reported as unknown, never as empty).
+        let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = std::env::temp_dir().join(format!("toolport-host-qflag-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let _data_dir = conduit_lib::registry::DataDirOverride::set(&dir);
+        let profile = Some("host-qflag");
+        std::fs::create_dir_all(dir.join(format!(
+            "quarantine-v2-{}.json",
+            conduit_lib::registry::profile_store_key("host-qflag")
+        )))
+        .unwrap();
+
+        assert_eq!(
+            effective_quarantine(&first.registry, profile, &first.quarantine_read_failed),
+            None,
+            "an unreadable store is reported as unknown, not as empty"
+        );
+        assert!(
+            first.quarantine_read_failed.load(Ordering::SeqCst),
+            "the host whose store read failed must record the failure"
+        );
+        assert!(
+            !second.quarantine_read_failed.load(Ordering::SeqCst),
+            "a store failure on one host must not mark another host's read as failed"
+        );
+        drop(_data_dir);
+        std::fs::remove_dir_all(&dir).ok();
     }
 }

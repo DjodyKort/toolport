@@ -93,7 +93,7 @@ export function getSecurityEvents(limit = 100): Promise<SecurityEvent[]> {
   return invoke<SecurityEvent[]>("get_security_events", { limit });
 }
 
-/** Cumulative tokens lazy discovery has kept out of client context. */
+/** Catalog exposure: exact serialized MCP bytes plus a bytes/4 token-equivalent estimate. */
 export function getSavingsSummary(): Promise<SavingsSummary> {
   return invoke<SavingsSummary>("savings_summary");
 }
@@ -291,9 +291,8 @@ export function clearInspectLog(): Promise<void> {
   return invoke<void>("clear_inspect_log");
 }
 
-/** Recent lazy-discovery search traces (newest first): what the model searched for,
- * which tools matched, and the tool-definition tokens the results cost vs. loading the
- * whole catalog. Empty until something has searched. */
+/** Recent discovery searches, including exact returned UTF-8 content bytes on v2
+ * traces. Older token fields are schema-only estimates. */
 export function getSearchTraces(limit = 100): Promise<SearchTrace[]> {
   return invoke<SearchTrace[]>("get_search_traces", { limit });
 }
@@ -493,6 +492,10 @@ export interface TeamConnectResult {
 }
 
 /** Join a Toolport Teams server with an invite or join-link code; merges the team's servers in. */
+export function teamAccountLink(): Promise<string> {
+  return invoke<string>("team_account_link");
+}
+
 export function teamConnect(
   serverUrl: string,
   inviteCode: string,
@@ -669,25 +672,85 @@ export function rulesImportFile(
   });
 }
 
+export interface ShareDefinitionPreview {
+  id: string;
+  name: string;
+  change: "Added" | "Changed";
+  transport: string;
+  fields: { label: string; value: string }[];
+}
+
+/** What sharing does, or did, to one selected server in the active profile. */
+export interface LocalHandoff {
+  id: string;
+  name: string;
+  outcome: "switched" | "kept" | "notEnabled" | "attention";
+  message: string;
+}
+
+/** How one selected personal server relates to the Team. Sentences come from the
+ * backend so the GTK and React previews say the same thing. */
+export interface ShareSelectionPreview {
+  id: string;
+  name: string;
+  teamChange: "New" | "Update" | "Already shared";
+  teamDetail: string;
+  notes: string[];
+  local: LocalHandoff;
+}
+
 export interface TeamPushPreview {
   baseVersion: number;
   localFingerprint: string;
   added: string[];
   changed: string[];
   removed: string[];
+  definitions: ShareDefinitionPreview[];
+  selections: ShareSelectionPreview[];
 }
 
 /** Admin: compare the local server export with the team's current shared server list. */
-export function teamPushPreview(): Promise<TeamPushPreview> {
-  return invoke<TeamPushPreview>("team_push_preview");
+export function teamPushPreview(selectedIds?: string[]): Promise<TeamPushPreview> {
+  return invoke<TeamPushPreview>("team_push_preview", { selectedIds });
 }
 
-/** Admin: apply an explicitly previewed shared-server replacement; returns version. */
-export function teamPush(preview: TeamPushPreview): Promise<number> {
-  return invoke<number>("team_push", {
+export interface TeamPublishResult {
+  version: number;
+  /** False when every selection was already shared unchanged and nothing was uploaded. */
+  published: boolean;
+  localSetupError: string | null;
+  handoffs: LocalHandoff[];
+  /** The notice text, identical to the GTK shell's. */
+  summary: string;
+}
+
+/** Publish, then finish the confirmed publisher handoff locally. */
+export function teamPush(
+  preview: TeamPushPreview,
+  selectedIds?: string[],
+): Promise<TeamPublishResult> {
+  return invoke<TeamPublishResult>("team_push", {
     baseVersion: preview.baseVersion,
     localFingerprint: preview.localFingerprint,
+    selectedIds,
   });
+}
+
+/** A Teams connection link's browser-approval state, from the `team-pair` event. */
+export interface TeamPairEvent {
+  state: "pending" | "connected" | "cancelled" | "failed";
+  check: string | null;
+  message: string | null;
+}
+
+/** The approval prompt still waiting, for a view that mounted after the event. */
+export function teamPairState(): Promise<TeamPairEvent | null> {
+  return invoke<TeamPairEvent | null>("team_pair_state");
+}
+
+/** Stop waiting for browser approval of a Teams connection. */
+export function teamPairCancel(): Promise<void> {
+  return invoke<void>("team_pair_cancel");
 }
 
 /** Probe every supported MCP client and read its current server configuration. */
@@ -747,6 +810,23 @@ export function setSecret(
   return invoke<Registry>("set_secret", { serverId, key, value });
 }
 
+/** Vault an argument input without exposing it as an environment variable. */
+export function setLaunchSecret(
+  serverId: string,
+  key: string,
+  value: string,
+): Promise<Registry> {
+  return invoke<Registry>("set_launch_secret", { serverId, key, value });
+}
+
+export function setLaunchInputValue(
+  serverId: string,
+  key: string,
+  value: string | null,
+): Promise<Registry> {
+  return invoke<Registry>("set_launch_input_value", { serverId, key, value });
+}
+
 /** Remove a secret from the keychain and the server entry. */
 export function deleteSecret(serverId: string, key: string): Promise<Registry> {
   return invoke<Registry>("delete_secret", { serverId, key });
@@ -773,9 +853,23 @@ export function hasAuthToken(serverId: string): Promise<boolean> {
   return invoke<boolean>("has_auth_token", { serverId });
 }
 
-/** Run the OAuth 2.1 browser flow for a remote server; vaults the access token. */
-export function authenticateOauth(serverId: string, url: string): Promise<void> {
-  return invoke<void>("authenticate_oauth", { serverId, url });
+/** Allocate an attempt id before dispatching work so a queued sign-in can be cancelled. */
+export function startOauthAttempt(): Promise<string> {
+  return invoke<string>("start_oauth_attempt");
+}
+
+/** Cancel and release ownership. False means this attempt already finished. */
+export function cancelOauthAttempt(attemptId: string): Promise<boolean> {
+  return invoke<boolean>("cancel_oauth_attempt", { attemptId });
+}
+
+/** Run the browser flow for this attempt and vault the resulting credentials. */
+export function authenticateOauth(
+  serverId: string,
+  url: string,
+  attemptId: string,
+): Promise<void> {
+  return invoke<void>("authenticate_oauth", { serverId, url, attemptId });
 }
 
 /** Configure the headless OAuth client-credentials flow for an http server.
@@ -939,6 +1033,7 @@ export function addCatalogServer(entry: CatalogEntry): Promise<Registry> {
     transport: entry.transport,
     command: entry.command,
     args: entry.args,
+    launch: entry.launch,
     env: entry.envKeys.map((key) => ({ key, value: null, secret: true })),
     url: entry.url,
     source: `catalog:${entry.source}`,
@@ -1077,4 +1172,9 @@ export function hooksPreview(): Promise<HooksPreview[]> {
 /** The most recent sensor rows, newest first. */
 export function hooksRecent(limit: number): Promise<HookEvent[]> {
   return invoke<HookEvent[]>("hooks_recent", { limit });
+}
+
+/** Explicitly use an identical managed definition in the active profile. */
+export function teamUseManaged(serverId: string): Promise<Registry> {
+  return invoke<Registry>("team_use_managed", { serverId });
 }

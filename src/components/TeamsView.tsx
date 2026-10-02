@@ -1,3 +1,5 @@
+import { TeamSharePreview } from "./TeamSharePreview";
+import { teamShareAction } from "@/lib/teamShare";
 import { useEffect, useState } from "react";
 import {
   RefreshCw,
@@ -22,10 +24,13 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   teamConnect,
+  teamAccountLink,
   teamJoinPoll,
   teamSync,
   teamDisconnect,
   teamPushPreview,
+  getRegistry,
+  teamUseManaged,
   teamPush,
   teamInstructionsStatus,
   setServerEnabled,
@@ -70,6 +75,12 @@ export function TeamsView({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [skipNote, setSkipNote] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const personalServers = (registry?.servers ?? []).filter(
+    (s) =>
+      !s.source?.startsWith("team:") &&
+      !["toolport-gateway", "conduit-gateway"].includes(s.id),
+  );
   const [pushPreview, setPushPreview] = useState<TeamPushPreview | null>(null);
   // The member-facing Team Instructions status on this machine (spec W4): what the org pushed
   // and how each installed AI client currently holds it. Refetched on connect and whenever a sync
@@ -111,8 +122,8 @@ export function TeamsView({
     memberName?: string;
   } | null>(null);
 
-  // Team servers that run a local command or hit a LAN address arrive OFF (the member
-  // reviews + enables them below); link-local/metadata URLs are blocked outright. The
+  // Local commands, LAN addresses and changed remote definitions require review
+  // below; link-local/metadata URLs are blocked outright. The
   // backend emits the counts so the state is explained, not a silent mystery.
   useEffect(() => {
     const un = listen<{ review: number; blocked: number }>("team-servers-review", (e) => {
@@ -120,7 +131,7 @@ export function TeamsView({
       const parts: string[] = [];
       if (review > 0)
         parts.push(
-          `${review} team server${review === 1 ? "" : "s"} run${review === 1 ? "s" : ""} a local command or a LAN address, so ${review === 1 ? "it's" : "they're"} off until you review and enable ${review === 1 ? "it" : "them"} below.`,
+          `${review} team server${review === 1 ? "" : "s"} ${review === 1 ? "is" : "are"} off until you review and enable ${review === 1 ? "it" : "them"} below. Check the command, address and authentication before enabling.`,
         );
       if (blocked > 0)
         parts.push(
@@ -226,17 +237,36 @@ export function TeamsView({
       setNotice("Left the team. Its servers were removed; your own are untouched.");
     });
 
+  // The same local-only hint the GTK picker shows, from the last sync.
+  const shareHint = (server: (typeof personalServers)[number]) => {
+    const copies = teamServers.filter(
+      (s) => team?.managedServerIds?.[s.id] === server.id,
+    );
+    if (copies.length === 1)
+      return registry && isEnabled(registry, copies[0].id)
+        ? "Shared. The Team copy is in use in this profile."
+        : "Shared. The Team copy is not in use in this profile.";
+    const name = server.name.trim().toLowerCase();
+    return teamServers.some((s) => s.name.trim().toLowerCase() === name)
+      ? "The team has a different server with this name. Sharing adds a separate definition."
+      : null;
+  };
+
   const onPreviewPush = () =>
     run("preview-push", async () => {
-      setPushPreview(await teamPushPreview());
+      setPushPreview(await teamPushPreview(selectedIds));
     });
 
   const onPush = () =>
     run("push", async () => {
       if (!pushPreview) throw new Error("Review the shared-server update before saving.");
-      const v = await teamPush(pushPreview);
+      const v = await teamPush(pushPreview, selectedIds);
       setPushPreview(null);
-      setNotice(`Updated the team's shared servers (now version ${v}).`);
+      // The summary names each selection and which route is on in this profile.
+      if (v.localSetupError || v.handoffs.some((h) => h.outcome === "attention"))
+        setSkipNote(v.summary);
+      else setNotice(v.summary);
+      onRegistryChange(await getRegistry());
     });
 
   // Member consent: enable a review server (local command / LAN URL) into the active
@@ -254,9 +284,12 @@ export function TeamsView({
   // One row in the Shared-servers list. Extracted so the review and active groups
   // below can each render it.
   const renderTeamServer = (s: (typeof teamServers)[number]) => {
+    const personal = personalServers.find((p) => p.id === team?.managedServerIds?.[s.id]);
     const on = registry ? isEnabled(registry, s.id) : false;
     const isLocal = s.transport === "stdio" || !!s.command;
-    const detail = s.command ? [s.command, ...(s.args ?? [])].join(" ") : (s.url ?? "");
+    const detail = s.command
+      ? `Command: ${s.command}\nArguments: ${JSON.stringify(s.args ?? [])}\nWorking directory: ${s.cwd ?? "Inherit from client"}\nCredentials required: ${s.env.map((e) => e.key).join(", ") || "None declared"}`
+      : `URL: ${s.url ?? ""}\nCredentials required: ${s.env.map((e) => e.key).join(", ") || "None declared"}`;
     return (
       <li
         key={s.id}
@@ -264,7 +297,9 @@ export function TeamsView({
       >
         <div className="flex items-center gap-2">
           <Server className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate font-medium">{s.name}</span>
+          <span className="truncate font-medium">
+            {team?.teamName ?? "Team"}-managed {s.name}
+          </span>
           <TransportPill transport={s.transport} />
           {on ? (
             <Badge variant="success" className="ml-auto shrink-0">
@@ -276,15 +311,38 @@ export function TeamsView({
             </Badge>
           )}
         </div>
+        {personal && registry && isEnabled(registry, personal.id) && (
+          <ConfirmDialog
+            trigger={
+              <Button size="sm" variant="outline" disabled={busy !== null}>
+                Use team-managed version for this profile
+              </Button>
+            }
+            title={`Use team-managed ${s.name}?`}
+            description={
+              <div className="whitespace-pre-wrap">
+                {detail}
+                {"\n\n"}This enables the managed copy and disables Personal{" "}
+                {personal.name} in this profile. The personal definition stays saved.
+                Existing credentials and sign-in are reused locally only when the
+                definitions match exactly. Signing out affects both copies.
+              </div>
+            }
+            confirmLabel="Use managed version"
+            onConfirm={() =>
+              run("managed", async () => onRegistryChange(await teamUseManaged(s.id)))
+            }
+          />
+        )}
         {!on && (
           <div className="mt-2 flex items-end justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs text-muted-foreground">
                 {isLocal
                   ? "Runs this local command on your machine:"
-                  : "Connects to this private/LAN address:"}
+                  : "Connects to this address:"}
               </p>
-              <code className="block truncate font-mono text-xs text-foreground">
+              <code className="block whitespace-pre-wrap break-all font-mono text-xs text-foreground">
                 {detail}
               </code>
             </div>
@@ -303,7 +361,7 @@ export function TeamsView({
               description={
                 isLocal
                   ? `This runs a local command on your machine: ${detail}. Only enable it if you trust your team and recognize this command.`
-                  : `This connects Toolport to ${detail}, a private/LAN address. Only enable it if you trust your team.`
+                  : `This connects Toolport to ${detail} using this server's saved authentication. Verify the address and credentials before enabling it.`
               }
               confirmLabel="Enable"
               onConfirm={() => onEnable(s.id)}
@@ -351,12 +409,12 @@ export function TeamsView({
         </Callout>
       )}
       {skipNote && (
-        <Callout variant="warning" className="mb-4">
+        <Callout variant="warning" className="mb-4 whitespace-pre-line">
           {skipNote}
         </Callout>
       )}
       {notice && (
-        <Callout variant="success" className="mb-4">
+        <Callout variant="success" className="mb-4 whitespace-pre-line">
           {notice}
         </Callout>
       )}
@@ -566,12 +624,26 @@ export function TeamsView({
                   {team.serverUrl}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Team {team.teamId} · config v{team.lastVersion ?? 0} ·{" "}
-                  {teamServers.length} shared{" "}
+                  {team.teamName || `Team ${team.teamId}`} · config v
+                  {team.lastVersion ?? 0} · {teamServers.length} shared{" "}
                   {teamServers.length === 1 ? "server" : "servers"}
                 </p>
               </div>
               <div className="flex shrink-0 gap-2">
+                {team.accountLinked !== true && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy !== null}
+                    onClick={() =>
+                      run("account-link", async () => {
+                        await openExternal(await teamAccountLink());
+                      })
+                    }
+                  >
+                    Link portal account
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -585,12 +657,12 @@ export function TeamsView({
                   trigger={
                     <Button variant="outline" size="sm" disabled={busy !== null}>
                       <LogOut className="size-3.5" />
-                      Leave
+                      Disconnect app
                     </Button>
                   }
-                  title="Leave this team?"
-                  description="This removes the team's shared servers from Toolport. Your own servers are untouched."
-                  confirmLabel="Leave"
+                  title="Disconnect this app from the team?"
+                  description="Team servers, instructions and policy are removed from this app. Your personal servers stay saved. Your Team membership and shared setup remain. Reconnect from the Teams website."
+                  confirmLabel="Disconnect app"
                   destructive
                   onConfirm={onDisconnect}
                 />
@@ -604,59 +676,61 @@ export function TeamsView({
                     <ShieldCheck className="size-3.5 text-success" /> Admin
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Replace the team's shared servers with your current server set. Team
-                    instructions and security policies are preserved; secrets are never
-                    sent.
+                    Select one working personal server to begin. Unrelated team servers
+                    and your personal originals stay in place. Each member supplies
+                    credentials locally.
                   </p>
                 </div>
-                <Button size="sm" onClick={onPreviewPush} disabled={busy !== null}>
+                <div className="grid gap-2">
+                  {personalServers.map((server) => (
+                    <label key={server.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(server.id)}
+                        disabled={busy !== null || pushPreview !== null}
+                        onChange={(e) =>
+                          setSelectedIds((ids) =>
+                            e.target.checked
+                              ? [...ids, server.id]
+                              : ids.filter((id) => id !== server.id),
+                          )
+                        }
+                      />
+                      {server.name}{" "}
+                      <span className="text-xs text-muted-foreground">
+                        {server.env.length
+                          ? `Local credentials: ${server.env.map((e) => e.key).join(", ")}`
+                          : "No environment credentials declared"}
+                        {shareHint(server) && (
+                          <span className="block">{shareHint(server)}</span>
+                        )}
+                      </span>
+                    </label>
+                  ))}
+                  {!personalServers.length && (
+                    <p>Add a working personal server in Servers first.</p>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  onClick={onPreviewPush}
+                  disabled={busy !== null || selectedIds.length === 0}
+                >
                   <Upload className="size-3.5" />
-                  {busy === "preview-push" ? "Comparing…" : "Update shared servers"}
+                  {busy === "preview-push" ? "Comparing…" : "Share selected servers"}
                 </Button>
                 <ConfirmDialog
                   open={pushPreview !== null}
                   onOpenChange={(open) => {
                     if (!open) setPushPreview(null);
                   }}
-                  title="Replace the team's shared servers?"
-                  description={
-                    pushPreview && (
-                      <div className="grid gap-3 text-left">
-                        <p>
-                          Only the shared server list changes. Team instructions, security
-                          policies, and other settings stay unchanged.
-                        </p>
-                        {(
-                          [
-                            ["Added", pushPreview.added],
-                            ["Changed", pushPreview.changed],
-                            ["Removed", pushPreview.removed],
-                          ] as const
-                        ).map(([label, names]) => (
-                          <div key={label}>
-                            <div className="font-medium text-foreground">
-                              {label} ({names.length})
-                            </div>
-                            {names.length > 0 ? (
-                              <ul className="mt-1 max-h-24 list-disc overflow-y-auto pl-5">
-                                {names.map((name, index) => (
-                                  <li key={`${label}-${name}-${index}`}>{name}</li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <div className="mt-1">None</div>
-                            )}
-                          </div>
-                        ))}
-                        <p>
-                          If the team or your local servers change before saving, Toolport
-                          will stop and ask you to review again instead of overwriting
-                          anything.
-                        </p>
-                      </div>
-                    )
+                  title="Share selected servers with your team?"
+                  contentClassName="sm:max-w-lg"
+                  description={pushPreview && <TeamSharePreview preview={pushPreview} />}
+                  confirmLabel={
+                    (pushPreview && teamShareAction(pushPreview)) ?? "Share selected"
                   }
-                  confirmLabel="Replace shared servers"
+                  confirmDisabled={pushPreview !== null && !teamShareAction(pushPreview)}
                   onConfirm={onPush}
                 />
               </div>
@@ -692,8 +766,9 @@ export function TeamsView({
                             {review.length})
                           </div>
                           <p className="mt-1 mb-2 text-xs text-muted-foreground">
-                            These run a local command or reach a LAN address, so they stay
-                            off until you review and enable each one.
+                            Review each server's command, address and authentication
+                            before enabling it. Changed remote servers require a new
+                            review too.
                           </p>
                           <ul className="grid gap-2">{review.map(renderTeamServer)}</ul>
                         </div>

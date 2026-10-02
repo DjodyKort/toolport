@@ -6,6 +6,271 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ## [Unreleased]
 
+## [1.23.4] - 2026-10-02
+
+### Added
+
+- Trello is available in the catalog with browser sign-in.
+- Profiles can override or omit the server instructions sent to AI clients.
+
+### Fixed
+
+- Browser sign-in can be cancelled and retried when authorization is abandoned.
+  Fully quitting Toolport clears the pending attempt so sign-in can start again.
+- Logo badges stay square in tiled Linux windows.
+- Trello and RevenueCat now show their logos in both desktop shells. The native
+  Linux app also shows Redis and Postman logos.
+
+## [1.23.3] - 2026-09-29
+
+### Fixed
+
+- The Teams approval prompt closes as soon as the browser approves the connection,
+  and a failed or expired request says why. You can hide the prompt or cancel the
+  request, and a repeated link brings back the same prompt instead of starting over.
+- AI clients connected through Toolport no longer get a one-time "unknown or expired
+  Mcp-Session-Id" error after a profile, server or tool change, including the switch
+  that happens when you share a server. Toolport reopens the session and sends the
+  refused request once.
+- Sharing into a Team that already has servers explains itself. The preview says
+  whether each server is new, an update or already shared, points out a separate
+  Team server with the same name, and says what changes in your profile. The result
+  names each server and which copy is in use.
+- One server that needs its own setup no longer stops the others from switching to
+  their Team copies. Re-sharing an edited server keeps its Team copy in use, and a
+  server removed from the Team and shared again switches reliably.
+- Servers with environment keys no longer look changed every time you share them.
+- Servers with launch inputs can now be shared. Teammates keep those values in their
+  own vault.
+
+## [1.23.2] - 2026-09-28
+
+### Fixed
+
+- Sharing an enabled personal server now completes its local Team setup while
+  keeping the personal original and credentials on your device.
+- Repeated GTK launches and Team links reuse the open app. Links for the current
+  Team keep the existing connection.
+- Server rows distinguish personal and Team entries, and Team actions use compact
+  buttons. Disconnecting the app restores the personal routes it replaced.
+
+- **Updating a .deb install no longer drops every MCP connection.** The update
+  feed only carries an AppImage for Linux, so the in-app updater stopped every
+  gateway and then failed with "invalid updater binary format". Installs from a
+  .deb or .rpm package now link to the release page to download the new package
+  instead. (#961, thanks @JustinKeltner)
+
+## [1.23.1] - 2026-09-27
+
+### Fixed
+
+- Teams share previews now show the command, arguments, working directory,
+  endpoint and declared credential names before publication in both desktop shells.
+  Credential values stay hidden, personal originals remain saved, and unrelated
+  Team servers stay unchanged.
+
+## [1.23.0] - 2026-09-27
+
+### Added
+
+- Teams activation: additive sharing of selected personal servers, explicit managed use, named account association and secure desktop pairing.
+- Teams configuration and required success reporting continue while the desktop is hidden, with durable versioned receipts and stable raw server attribution.
+
+### Fixed
+
+- **Modern MCP clients work through the shared gateway.** The stdio adapter now
+  sends the `MCP-Protocol-Version`, `Mcp-Method`, and `Mcp-Name` headers a
+  2026-07-28 request needs, so discovery no longer fails with HTTP 400. Protocol
+  errors such as an unsupported version reach the client unchanged, modern
+  requests run concurrently, `subscriptions/listen` delivers notifications as
+  they arrive, and an idle modern client keeps its daemon running.
+- **Unknown tool names get the same answer in every topology.** The shared
+  daemon now reports that the tool has no route instead of calling an empty
+  server unavailable to the client.
+- **The savings badge says what it measures again.** The sidebar and Activity
+  view report tokens saved by keeping tool definitions out of the agent's
+  context, replacing "schema token-equivalent". The estimate method stays in the
+  tooltip and fine print. The native Linux shell, the share text, and
+  `toolport_status` use the same wording.
+
+## [1.22.0] - 2026-09-25
+
+### Fixed
+
+- **Atlassian now uses its documented v2 MCP endpoint.** The catalog requests
+  the gateway-compatible flat tool list. Only untouched saved v1 catalog
+  entries migrate; custom URLs and tool choices stay as they are. Existing
+  OAuth sessions may need a new sign-in. The Atlassian and Parallel Search
+  documentation links were refreshed.
+- **Curated local servers now ask for required launch inputs.** Twilio composes its
+  account SID, API Key SID, and API Secret into the argument its API server
+  requires. PostgreSQL vaults its connection URL; Filesystem asks for an allowed
+  directory so standalone tests work. Browserbase uses its current package and
+  requests Gemini credentials. Brave, Perplexity, Qdrant, and AWS presets were
+  updated from confirmed upstream package and setup changes. Untouched saved
+  catalog entries migrate while edited entries keep their configuration. Team
+  members can fill launch setup values locally without changing the team server.
+- **Startup errors now say when stderr is empty.** The message no longer claims
+  the process had no output when stdout might have been used.
+- **Optional catalog credentials work in Test Connection.** The probe now follows
+  the same optional environment rules as the gateway, including AWS credential
+  chains and Qdrant clusters without an API key. Qdrant no longer requires a
+  default collection. Customizing a preset's command or arguments clears its
+  generated launch requirements, and missing env credentials no longer prevent
+  background package prewarming.
+- **Team sync keeps launch setup with the correct server.** Local IDs now follow
+  the team's original entry identity, so reordering IDs with the same slug
+  cannot swap member setup values, vaulted credentials, or standing consent.
+  Ambiguous older collisions require members to fill setup again.
+- **Team credentials stay scoped to their team.** Newly assigned local IDs
+  include the team identity, preventing a later team from inheriting credentials
+  left in the vault. Changed remote destinations or OAuth client settings require
+  individual review, including after removal and re-addition. Enable all and the
+  playground respect that requirement. Legacy ID prefixes no longer transfer
+  setup or consent.
+- **Shared launch templates remain usable.** Export preserves bound input markers
+  after secret flags while removing actual values. The GTK connection probe also
+  honors cleared launch fields instead of testing an old saved value.
+- **Hosted setup follows current publisher requirements.** Langfuse uses its
+  documented path and Basic-auth guidance; Postiz uses its documented bearer
+  endpoint. Asana is held out of curated additions until Toolport supports its
+  preregistered OAuth client requirement. Existing saved URLs are unchanged.
+- **Catalog search shows current registry entries.** Live search now uses the
+  stable registry API and requests latest versions, so older package versions
+  cannot crowd current servers out of the result limit.
+- **Microsoft Learn is in the curated catalog.** Its hosted documentation
+  server works without an install or account.
+
+### Added
+
+- **Postman and Redis join the curated catalog.** Postman uses its hosted OAuth
+  server in Minimal mode. Redis uses the publisher's `uvx` server and keeps its
+  required connection URL in Toolport's vault.
+
+## [1.21.2] - 2026-09-25
+
+Toolport now uses one shared host gateway for registry-backed MCP clients by
+default. An explicit `legacy` setting remains available if a client needs the
+previous per-session gateway behavior.
+
+### Added
+
+- **MCP sessions share downstream connections.** Lightweight stdio adapters use
+  one host daemon and pool ordinary server launches. Profiles, project roots,
+  subscriptions, approvals, and sensitive-data controls remain scoped to the
+  originating session. (#910, #937, #938, #939, #943, #944, #945)
+- **Shared HTTP uses the same host daemon.** The desktop HTTP endpoint runs as a
+  lightweight proxy with a private service lease instead of starting another
+  full gateway. The endpoint releases its lease when the app closes. (#947, #948)
+- **Gateway savings and topology diagnostics are measurable.** A local Linux
+  acceptance run with three sessions and six configured servers measured 18 to
+  9 gateway-tree processes and 1,446.1 to 621.1 MiB of private memory. These
+  figures describe that test setup, not every installation. (#940, #941, #942)
+
+### Fixed
+
+- **Simultaneous clients tolerate a slow daemon startup.** Adapters keep
+  checking a published daemon's authenticated identity during a busy cold
+  start instead of disconnecting after the old six-second probe window.
+- **Updates protect active shared gateways.** The updater requests shutdown
+  from idle daemons and refuses installation while a shared daemon is still
+  serving sessions. Startup cleanup also limits an explicit data-directory run
+  to its own gateway processes. (#949, #950, #952)
+- **Managed Unix clients move off an old gateway path even while that file still
+  exists.** A previous installation could leave its binary behind, causing a
+  client to start the old standalone gateway after an update.
+- **Isolated desktop launches leave existing AI clients alone.** A launch with an
+  explicit data directory publishes its own gateway without rewriting client
+  configs or agent hooks in the user's normal home. (#958)
+- **The Linux server list refreshes authentication health when focused.** A
+  server that needs a new sign-in now updates in the visible app, and its
+  Authenticate action fits narrow windows. (#953)
+
+## [1.20.0] - 2026-09-22
+
+Toolport 1.20.0 brings slow-start controls and Cursor ask-first approvals into the
+app, and makes damaged integrity stores visible without taking down unrelated
+Linux panels. The shared host daemon remains opt-in; this release does not change
+the default gateway topology.
+
+### Added
+
+- **A Cursor "ask first" rule now prompts in Toolport instead of Cursor.** When the guard
+  is enforcing and a native call matches one of your ask-first rules, the question routes
+  to Toolport's approval window (the one destructive calls use) as its own reason, naming
+  the rule that matched, so agent prompts and tool approvals land in one place. A denial,
+  no answer in time, or Toolport not running all refuse the call, each saying which. The
+  Linux-native settings gained the per-agent switch for it.
+
+- **Servers that need a slow cold start can set their own startup timeout.** The server
+  editor's new **Startup timeout** field applies to `initialize` for stdio, HTTP, and SSE
+  servers, with a maximum of 24 hours, while the normal request timeout resumes afterward.
+  Server rows also say "Initializing…" after a few seconds, so a slow first start no longer
+  looks like a missing route. (#918)
+
+- **Arch and Omarchy installs can follow the signed pacman repository.** The install
+  and update steps are now documented alongside the other download paths.
+
+### Fixed
+
+- **Damaged integrity stores no longer look like missing identities or an empty
+  quarantine.** Cross-profile pin and quarantine views report unreadable, empty, or
+  corrupt stores as unknown, naming the affected profile. A vanished pin store with
+  a valid backup recovers from that backup instead of starting a fresh baseline.
+  Unrecoverable stores still fail closed during enforcement. (#922, #931)
+
+- **A damaged quarantine store no longer blanks unrelated Linux pages.** Settings
+  shows the failure in the blocked-tools panel, Activity shows it in the identity
+  panel, and the security watcher continues to announce new findings even when
+  quarantine-based duplicate suppression is unavailable. (#930)
+
+- **Pending approvals no longer reappear from an older refresh.** When a poll or
+  gateway event starts a newer list request, a late older response cannot replace
+  it. (#923)
+
+- **The HTTP bridge follows a live discovery-mode change.** Its OpenAPI and MCP
+  requests now read the host's current mode, while a client's own discovery
+  override still wins. Switching into or out of lazy mode no longer requires a
+  gateway restart. (#924)
+
+- **A Windows agent-plugin launch can no longer trust an older gateway manifest over a
+  newer published binary.** The launcher scans the published bin directory for the newest
+  versioned or content-addressed gateway first, then uses `gateway-manifest.json` as the
+  fallback for MSIX installs. A readable manifest left over from a previous install can no
+  longer pin new sessions to older gateway code when the current binary is already there.
+  (#916)
+
+- **A downstream server that rejects `initialize` for an authentication reason now says
+  so.** Toolport previously probed for the modern protocol after that failure and could
+  replace the actionable auth error with a misleading version mismatch. Explicit auth
+  failures now stop the probe and reach the user unchanged. (#914)
+
+- **The opt-in host daemon no longer risks clearing or duplicating a live rendezvous
+  entry.** A daemon that is slow or silent is treated as possibly live rather than stale, so
+  a concurrent start does not replace its descriptor or elect a second daemon; a daemon
+  exiting clears only the descriptor that still identifies itself. The stdio adapter also
+  re-runs rendezvous before the next request if its daemon dies. This work remains behind
+  `--stdio-adapter`; the default gateway topology is unchanged. (#893, #915)
+
+## [1.19.0] - 2026-09-15
+
+Toolport 1.19.0 lets one shared gateway serve clients with different discovery
+modes at the same time, stops an over-long routine name from breaking every
+request from a prefixing client, and fixes a placeholder guard that refused real
+HTML and template values. It also carries cross-process rate-limit backoff for
+busy hosts and two dependency security updates.
+
+### Added
+
+- **The shared HTTP gateway can pick a discovery mode per client.** One bridge
+  process previously resolved a single mode at startup and applied it to every
+  client, so it could serve a native-tool-search client the full catalog or a
+  local model the compact meta-tools, but not both. It now honors
+  `clientDiscovery[<http-client-id>]` for the client its bearer token resolves
+  to: set `full` for Claude Code or Codex and `lazy` for Open WebUI in the same
+  process. Only `full` and `lazy` are per-client; `grouped` stays process-wide,
+  and a client without an entry inherits the process mode. (#868)
+
 ### Fixed
 
 - **Two server ids that differ only by `-` and `_` could become one server.** The
@@ -33,6 +298,59 @@ Entries before the rename below shipped under the project's former name, Conduit
   get the same PII, brand-spoof and injection passes as a direct result. They are
   attributed to the script rather than to a server, so a per-server block exemption
   cannot cover a multi-server result. Routines share the same path.
+
+- **The invented-placeholder guard refused real HTML and template values.** A value
+  wrapped in `<...>` or `{{...}}` was treated as an invented placeholder for every
+  parameter, so a sevDesk `headText` carrying `<p>...</p>`, a Home Assistant template
+  like `{{ states('sun.sun') }}`, or a message starting with "Your " was refused before
+  it reached the server. The wrapper now only counts when it holds a single identifier
+  such as `<team_id>` or `{{teamId}}`, and the "Your " prefix only applies to
+  identifier-typed parameters. (#871)
+
+- **One over-long routine name could break every request from a prefixing client.**
+  Advertised routine tool names spent the whole 64-character provider budget before the
+  client added anything, so a routine with an ordinary name became a 73-character name
+  once a client prefixed it, and providers rejected every request. Names now use a
+  12-hex id tail and reserve room for a client prefix. The routine store also logs when
+  it restores a backup or fails to load, instead of dropping an edited routine without
+  a word. (#872)
+
+- **Three Activity panels showed a failed load as an empty result.** Discovery traces,
+  tool identities, and the live inspector rendered a rejected fetch with the same
+  wording as a genuinely empty panel, so a backend failure read as "nothing here". Each
+  now shows an error with a retry, and tool identities no longer disappears on failure.
+  (#728)
+
+- **Session-start fan-out kept re-hitting a rate-limited HTTP provider.** Every stdio
+  session runs its own gateway, and each started with fresh backoff state, so a host
+  with many sessions re-tripped a provider's rate limit on every start. A 429 now
+  records a provider-origin retry window in the data directory that every gateway
+  process on the host honors before any wire traffic, on the request, inline-reply, and
+  subscription paths, with HTTP-date `Retry-After` parsed. It does not remove the
+  duplicate connections; the host daemon remains the structural fix. (#875, #874)
+
+### Security
+
+- **Updated two Rust dependencies for published advisories.** `rustls` 0.23.45
+  addresses RUSTSEC-2026-0285 (TLS 1.3 handshake messages accepted across encryption
+  levels), and `event-listener` 5.4.2 addresses RUSTSEC-2026-0221. Both arrived
+  transitively and are single-package lockfile bumps.
+
+### Thanks
+
+Two of the fixes here came from outside, and the reports behind two more did.
+
+- **[Vermitrude](https://github.com/Vermitrude)** - the fix that makes the three
+  Activity panels say a load failed instead of showing an empty result, across discovery
+  traces, tool identities, and the live inspector (#728).
+- **[bradhallett](https://github.com/bradhallett)** - cross-process 429 backoff, so
+  session-start fan-out stops re-tripping a rate-limited HTTP provider, and the report
+  behind it with the connect counts that made the case (#874).
+- **[TheOriginal92](https://github.com/TheOriginal92)** - reported the placeholder guard
+  refusing real HTML and Jinja values, with the repro and a proposed fix (#871).
+- **[unifirer](https://github.com/unifirer)** - reported the advertised routine name
+  overflowing the provider limit and breaking every request from a prefixing client
+  (#872).
 
 ## [1.18.0] - 2026-08-30
 

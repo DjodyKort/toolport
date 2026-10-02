@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { TransportPill } from "@/components/TransportPill";
 import { SecretsDialog } from "@/components/SecretsDialog";
 import { ServerDialog } from "@/components/ServerDialog";
+import { LaunchSetupDialog } from "@/components/LaunchSetupDialog";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ServerLogo } from "@/components/ServerLogo";
 
@@ -74,20 +75,23 @@ export function RegistryServerRow({
       : (server.url ?? "");
   const secretCount = server.env.filter((e) => e.secret).length;
   const status = statusOf(enabled, health);
-  // For npx/uvx-style servers, a first probe that sits in "checking" past a few
-  // seconds is almost certainly the launcher downloading the package (a warm start
-  // answers in ~1s). Name that wait "Installing…" so a slow first connect reads as
-  // progress, not a stall. Resets whenever the row leaves "checking".
+  const requiredLaunch = server.launch?.inputs.filter((input) => input.required) ?? [];
+  const missingPlainLaunch = requiredLaunch.filter(
+    (input) => !input.secret && !input.value?.trim(),
+  );
+  // A probe that sits in "checking" past a few seconds is still starting. Name
+  // that wait so a slow initialize reads as progress rather than a missing route.
+  // Download launchers keep the more specific "Installing…" label.
   const launcher = isDownloadLauncher(server.command, server.args);
-  const [installing, setInstalling] = useState(false);
+  const [initializing, setInitializing] = useState(false);
   // Reset during render (not in the effect) so a later re-check starts back at
   // "Checking…" instead of flashing a stale "Installing…".
-  if (installing && (status !== "checking" || !launcher)) setInstalling(false);
+  if (initializing && status !== "checking") setInitializing(false);
   useEffect(() => {
-    if (status !== "checking" || !launcher) return;
-    const t = setTimeout(() => setInstalling(true), 4000);
+    if (status !== "checking") return;
+    const t = setTimeout(() => setInitializing(true), 4000);
     return () => clearTimeout(t);
-  }, [status, launcher]);
+  }, [status]);
   // Team-synced servers are tagged `team:<id>`. An admin manages them centrally, so a
   // member sees a Team badge and can't edit/remove them locally (a local change would
   // just re-sync away), but still authenticates them (keys stay on their own machine).
@@ -99,10 +103,16 @@ export function RegistryServerRow({
       : status === "error"
         ? "Error"
         : status === "checking"
-          ? installing
-            ? "Installing…"
+          ? initializing
+            ? launcher
+              ? "Installing…"
+              : "Initializing…"
             : "Checking…"
-          : "Disabled";
+          : requiredLaunch.length
+            ? missingPlainLaunch.length
+              ? `Setup required: ${missingPlainLaunch.map((input) => input.label).join(", ")}`
+              : "Disabled · check launch setup"
+            : "Disabled";
 
   // Next free "Name (N)" for the duplicate-for-another-account action.
   const existingNames = new Set(registry?.servers.map((s) => s.name.toLowerCase()) ?? []);
@@ -145,18 +155,23 @@ export function RegistryServerRow({
             <Users className="size-3" aria-hidden="true" />
             Team
           </span>
-        ) : server.source ? (
+        ) : (
           <span className="hidden max-w-40 shrink-0 truncate rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground md:inline">
-            {server.source.replace("imported:", "from ")}
+            Personal
+            {server.source?.startsWith("imported:")
+              ? ` · ${server.source.replace("imported:", "from ")}`
+              : ""}
           </span>
-        ) : null}
+        )}
 
         <span className="ml-auto flex shrink-0 items-center gap-2.5">
           <span
             role="status"
             aria-label={
-              installing
-                ? "Installing the server package"
+              initializing
+                ? launcher
+                  ? "Installing the server package"
+                  : "Server initializing"
                 : status === "connected"
                   ? label.replace(" · ", ", ")
                   : STATUS_ARIA_LABEL[status]
@@ -206,6 +221,12 @@ export function RegistryServerRow({
 
       {expanded && (
         <div className="flex flex-col gap-2.5 px-3.5 pt-0.5 pb-3 pl-12">
+          {!!requiredLaunch.length && (
+            <p className="text-xs text-muted-foreground">
+              Launch setup: {requiredLaunch.map((input) => input.label).join(", ")}. Open
+              Launch setup to add or review these values before enabling.
+            </p>
+          )}
           {target && (
             <code className="block rounded-md bg-muted px-2 py-1.5 font-mono text-xs break-all text-muted-foreground">
               {target}
@@ -253,6 +274,15 @@ export function RegistryServerRow({
                 </button>
               }
             />
+
+            {!!server.launch?.inputs.length && (
+              <LaunchSetupDialog
+                server={server}
+                onSaved={onRegistryChange}
+                onChanged={onReprobe}
+                trigger={<button className={ACTION}>Launch setup</button>}
+              />
+            )}
 
             {isTeam ? (
               <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground">

@@ -106,44 +106,44 @@ pub fn encode_mcp_header_text(value: &str) -> String {
     }
 }
 
-fn modern_standard_headers(body: &Value) -> Result<Vec<(String, String)>, TransportError> {
+/// The name a modern method routes on: `None` when the method has none, and
+/// `Some(None)` when it has one but the body does not carry it.
+fn modern_routing_name<'a>(method: &str, body: &'a Value) -> Option<Option<&'a str>> {
+    let field = match method {
+        "tools/call" | "prompts/get" => "name",
+        "resources/read" => "uri",
+        "tasks/get" | "tasks/update" | "tasks/cancel" => "taskId",
+        _ => return None,
+    };
+    Some(
+        body.get("params")
+            .and_then(|params| params.get(field))
+            .and_then(Value::as_str),
+    )
+}
+
+/// `Mcp-Method`, plus `Mcp-Name` when the body carries the name its method
+/// routes on. Leaves a missing name for the receiving server to reject.
+pub(crate) fn modern_routing_headers(body: &Value) -> Vec<(String, String)> {
     let Some(method) = body.get("method").and_then(Value::as_str) else {
-        return Ok(Vec::new());
+        return Vec::new();
     };
     let mut headers = vec![("Mcp-Method".to_string(), encode_mcp_header_text(method))];
-    let name = match method {
-        "tools/call" | "prompts/get" => body
-            .get("params")
-            .and_then(|params| params.get("name"))
-            .and_then(Value::as_str),
-        "resources/read" => body
-            .get("params")
-            .and_then(|params| params.get("uri"))
-            .and_then(Value::as_str),
-        "tasks/get" | "tasks/update" | "tasks/cancel" => body
-            .get("params")
-            .and_then(|params| params.get("taskId"))
-            .and_then(Value::as_str),
-        _ => None,
-    };
-    if matches!(
-        method,
-        "tools/call"
-            | "prompts/get"
-            | "resources/read"
-            | "tasks/get"
-            | "tasks/update"
-            | "tasks/cancel"
-    ) && name.is_none()
-    {
-        return Err(TransportError::Fatal(format!(
-            "modern HTTP request '{method}' is missing its routing name"
-        )));
-    }
-    if let Some(name) = name {
+    if let Some(Some(name)) = modern_routing_name(method, body) {
         headers.push(("Mcp-Name".to_string(), encode_mcp_header_text(name)));
     }
-    Ok(headers)
+    headers
+}
+
+fn modern_standard_headers(body: &Value) -> Result<Vec<(String, String)>, TransportError> {
+    if let Some(method) = body.get("method").and_then(Value::as_str) {
+        if modern_routing_name(method, body) == Some(None) {
+            return Err(TransportError::Fatal(format!(
+                "modern HTTP request '{method}' is missing its routing name"
+            )));
+        }
+    }
+    Ok(modern_routing_headers(body))
 }
 
 fn contains_x_mcp_header(value: &Value) -> bool {
@@ -476,7 +476,7 @@ fn apply_catalog_refresh(
     new_hint: CacheHint,
     server_id: &str,
     kind: &str,
-) {
+) -> bool {
     if is_implausible_shrink(previous.len(), new_items.len()) {
         *shrink_streak = shrink_streak.saturating_add(1);
         let (before, after) = (previous.len(), new_items.len());
@@ -487,7 +487,7 @@ fn apply_catalog_refresh(
             );
             eprintln!("{msg}");
             crate::gatewaylog::append(&msg);
-            return;
+            return false;
         }
         let msg = format!(
             "toolport: accepting {kind} catalog collapse {before} -> {after} for server '{server_id}' after {EMPTY_CATALOG_CONFIRMATIONS} consecutive confirmations"
@@ -497,11 +497,12 @@ fn apply_catalog_refresh(
         *shrink_streak = 0;
         *cache_hint = new_hint;
         *previous = new_items;
-        return;
+        return true;
     }
     *shrink_streak = 0;
     *cache_hint = new_hint;
     *previous = new_items;
+    true
 }
 
 /// Error codes the 2026-07-28 allocation policy reserves for the specification
@@ -1245,6 +1246,34 @@ impl TransportError {
         }
     }
 
+    /// True when the server explicitly rejected the credential or requires the
+    /// caller to authenticate. Preserve these errors during era detection: a
+    /// later `server/discover` probe cannot make the credential valid, and its
+    /// protocol error would hide the action the user actually needs to take.
+    fn is_auth_failure(&self) -> bool {
+        fn message_is_auth_failure(message: &str) -> bool {
+            let lower = message.to_ascii_lowercase();
+            lower.contains("unauthorized")
+                || lower.contains("unauthenticated")
+                || lower.contains("needs authentication")
+                || lower.contains("authentication required")
+                || lower.starts_with("http 401")
+                || lower.starts_with("http 403")
+        }
+
+        match self {
+            TransportError::Rpc(error) => {
+                matches!(error.get("code").and_then(Value::as_i64), Some(401 | 403))
+                    || error
+                        .get("message")
+                        .and_then(Value::as_str)
+                        .is_some_and(message_is_auth_failure)
+            }
+            TransportError::Fatal(message) => message_is_auth_failure(message),
+            _ => false,
+        }
+    }
+
     /// True when the server answered with an error only a *modern* (2026-07-28 or
     /// later) implementation produces.
     ///
@@ -1317,14 +1346,29 @@ pub(crate) fn backoff_delay(attempt: u32) -> Duration {
     HTTP_RETRY_BASE.saturating_mul(mult).min(HTTP_RETRY_CAP)
 }
 
-/// Parse a `Retry-After` value in delta-seconds form (the common 429 form),
-/// capped so a hostile or misconfigured server can't park a call for minutes.
+/// Parse a `Retry-After` header in either RFC 7231 form: delta-seconds (the
+/// common 429 form) or an HTTP-date. Elapsed dates parse to zero (the retry
+/// moment already passed); future dates are capped so a hostile or
+/// misconfigured server can't park a call for minutes. Unparseable values
+/// return None so callers apply their full-cap fallback.
 fn retry_after_delay(value: &str) -> Option<Duration> {
-    value
-        .trim()
-        .parse::<u64>()
-        .ok()
-        .map(|s| Duration::from_secs(s).min(HTTP_RETRY_CAP))
+    let value = value.trim();
+    if let Ok(seconds) = value.parse::<u64>() {
+        return Some(Duration::from_secs(seconds).min(HTTP_RETRY_CAP));
+    }
+    let target = httpdate::parse_http_date(value).ok()?;
+    let now = std::time::SystemTime::now();
+    let remaining = target.duration_since(now).unwrap_or(Duration::ZERO);
+    Some(remaining.min(HTTP_RETRY_CAP))
+}
+
+/// Record a 429 into the shared cross-process backoff window and return the
+/// parsed Retry-After, so every egress path (POST, inline POST, and the
+/// subscriptions/listen worker) records and reports rate limits identically.
+fn record_shared_rate_limit(url: &str, resp: &ureq::Response) -> Option<Duration> {
+    let retry_after = resp.header("retry-after").and_then(retry_after_delay);
+    crate::downstream_backoff::record_rate_limited(url, retry_after);
+    retry_after
 }
 
 /// True for transport errors where the request never reached the server (DNS or
@@ -2081,8 +2125,8 @@ pub trait Transport: Send {
     }
     fn notify(&mut self, method: &str, params: Value) -> Result<(), TransportError>;
     /// Bound how long a single `request` waits for its response. Used to fail the
-    /// connect handshake fast. Default no-op: transports with their own fixed
-    /// request timeout (e.g. HTTP) ignore it.
+    /// connect handshake fast. Default no-op: transports with their own request
+    /// timeout (for example HTTP) manage phase changes through dedicated hooks.
     fn set_read_timeout(&mut self, _timeout: Duration) {}
     /// Budget for the connect handshake's `initialize`. Stdio invocations that
     /// download their package before running (npx and friends) report the long
@@ -2091,6 +2135,9 @@ pub trait Transport: Send {
     fn connect_timeout(&self) -> Duration {
         STDIO_CONNECT_TIMEOUT
     }
+    /// The first `initialize` request has completed. Transports that temporarily
+    /// replaced their ordinary request timeout restore it here.
+    fn initialize_complete(&mut self) {}
     /// Start reacting to the server's own `notifications/tools/list_changed`.
     /// Called once the connect handshake is done, so a server that announces its
     /// tools during startup doesn't trigger a needless rebuild. Default no-op:
@@ -2964,6 +3011,9 @@ pub struct StdioTransport {
     /// How long a single request waits for its response. Lowered during the
     /// connect handshake, then restored for (potentially slow) live tool calls.
     read_timeout: Duration,
+    /// Per-server override for the first `initialize` request. Defaults to the
+    /// launcher-aware policy derived from the configured command.
+    connect_timeout: Duration,
     /// Gate shared with the stdout drain: the drain only flags a `dirty` signal
     /// once this is set, so tool-list changes announced during startup are
     /// ignored. Flipped on by `arm_tools_watch` after the handshake.
@@ -3469,6 +3519,7 @@ impl StdioTransport {
             stderr: stderr_buf,
             next_id: 1,
             read_timeout: STDIO_READ_TIMEOUT,
+            connect_timeout: stdio_connect_timeout(command, args),
             armed,
             launcher,
             server_handler: None,
@@ -3489,6 +3540,10 @@ impl StdioTransport {
             .unwrap_or_else(std::sync::PoisonError::into_inner) = sink;
     }
 
+    pub fn set_connect_timeout(&mut self, timeout: Duration) {
+        self.connect_timeout = timeout;
+    }
+
     /// Build a useful error for when the child's stdout closed (it exited or
     /// crashed). Includes the exit status and the tail of stderr when available -
     /// that is where "package not found" or "missing API key" actually shows up.
@@ -3506,7 +3561,9 @@ impl StdioTransport {
             msg.push_str(&format!(" (status {code})"));
         }
         if tail.is_empty() {
-            msg.push_str(" without output. Check the command, args, and any required API keys.");
+            msg.push_str(
+                " without stderr output. Check the command, args, and any required setup values.",
+            );
         } else {
             msg.push_str(":\n");
             msg.push_str(&tail);
@@ -3731,11 +3788,7 @@ impl Transport for StdioTransport {
     }
 
     fn connect_timeout(&self) -> Duration {
-        if self.launcher {
-            LAUNCHER_CONNECT_TIMEOUT
-        } else {
-            STDIO_CONNECT_TIMEOUT
-        }
+        self.connect_timeout
     }
 
     fn arm_tools_watch(&mut self) {
@@ -3977,6 +4030,11 @@ pub struct HttpTransport {
     agent: ureq::Agent,
     /// Separate pool so inline replies can POST while an SSE body is still open.
     inline_agent: ureq::Agent,
+    /// Deadline selected for the first `initialize` request. The transport
+    /// restores the ordinary request timeout as soon as that request completes.
+    connect_timeout: Duration,
+    /// Ordinary HTTP request deadline restored immediately after `initialize`.
+    request_timeout: Duration,
     session_id: Option<String>,
     next_id: i64,
     /// Raw bearer token (without the "Bearer " prefix), if the server needs auth.
@@ -4170,6 +4228,8 @@ impl HttpTransport {
             url: url.to_string(),
             agent: guarded_agent_with_timeout(block_private, request_timeout),
             inline_agent: guarded_agent_with_timeout(block_private, request_timeout),
+            connect_timeout: request_timeout,
+            request_timeout,
             session_id: None,
             next_id: 1,
             auth: Arc::new(Mutex::new(auth)),
@@ -4194,6 +4254,17 @@ impl HttpTransport {
 
     pub fn set_scope_reauthorize(&mut self, callback: Option<ScopeReauthorizeFn>) {
         self.scope_reauthorize = callback.map(|callback| Arc::new(Mutex::new(callback)));
+    }
+
+    pub fn set_connect_timeout(&mut self, timeout: Duration) {
+        self.connect_timeout = timeout;
+        self.agent = guarded_agent_with_timeout(self.block_private, timeout);
+        self.inline_agent = guarded_agent_with_timeout(self.block_private, timeout);
+    }
+
+    fn restore_request_timeout(&mut self) {
+        self.agent = guarded_agent_with_timeout(self.block_private, self.request_timeout);
+        self.inline_agent = guarded_agent_with_timeout(self.block_private, self.request_timeout);
     }
 
     /// Declare an extension Toolport supports on this connection.
@@ -4256,6 +4327,8 @@ impl HttpTransport {
             url: self.url.clone(),
             agent: self.agent.clone(),
             inline_agent: self.inline_agent.clone(),
+            connect_timeout: self.connect_timeout,
+            request_timeout: self.request_timeout,
             session_id: self.session_id.clone(),
             next_id: self.next_id,
             auth: Arc::clone(&self.auth),
@@ -4563,6 +4636,9 @@ impl HttpTransport {
         body: &Value,
         cancel: Option<&HttpCancelSignal>,
     ) -> Result<(), TransportError> {
+        // Same shared-window consult as the request/response POST path: an
+        // inline reply is still egress and must not slip past an open window.
+        self.shared_backoff_gate()?;
         let payload = body.to_string();
         self.refresh_before_send();
         let mut refreshed = self.forced_refresh_spent();
@@ -4627,6 +4703,16 @@ impl HttpTransport {
                     let _ = read_capped(resp, 8 * 1024);
                     refreshed = true;
                     self.force_refresh_after_auth_error(code)?;
+                }
+                Err(ureq::Error::Status(429, r)) => {
+                    // Record into the shared window like the main POST path
+                    // and surface a Retry signal so the Router backs off.
+                    let retry_after = record_shared_rate_limit(&self.url, &r);
+                    let _ = read_capped(r, 8 * 1024);
+                    return Err(TransportError::Retry {
+                        retry_after,
+                        message: "HTTP 429: rate limited".to_string(),
+                    });
                 }
                 Err(e) => return Err(TransportError::Fatal(e.to_string())),
             }
@@ -4748,6 +4834,23 @@ impl HttpTransport {
         ))
     }
 
+    /// Cross-process 429 backoff consult shared by every egress path of this
+    /// transport: while any gateway process on the host holds the provider's
+    /// window open, fail fast exactly like a live 429 — including during the
+    /// session-start handshake, which never reaches the Router's retry loop.
+    fn shared_backoff_gate(&self) -> Result<(), TransportError> {
+        match crate::downstream_backoff::remaining_for_url(&self.url) {
+            Some(remaining) => Err(TransportError::Retry {
+                retry_after: Some(remaining),
+                message: format!(
+                    "HTTP 429: rate limited (shared backoff: {}s)",
+                    remaining.as_secs() + 1
+                ),
+            }),
+            None => Ok(()),
+        }
+    }
+
     fn post(
         &mut self,
         body: &Value,
@@ -4772,6 +4875,9 @@ impl HttpTransport {
         extra_headers: &[(String, String)],
         cancel: Option<&HttpCancelSignal>,
     ) -> Result<Option<Value>, TransportError> {
+        // Cross-process 429 backoff (issue #874): consult the shared window
+        // before any wire traffic, including the session-start handshake.
+        self.shared_backoff_gate()?;
         let payload = body.to_string();
 
         // Refresh shortly before the known expiry, including before initialize.
@@ -4840,7 +4946,10 @@ impl HttpTransport {
                 // Rate limited: return a Retry signal so the Router sleeps
                 // *outside* the per-server Mutex.
                 Err(ureq::Error::Status(429, r)) => {
-                    let retry_after = r.header("retry-after").and_then(retry_after_delay);
+                    // Persist the window so the other gateway processes on this
+                    // host (one per client session) also hold off instead of
+                    // re-hitting the same provider limit at their next start.
+                    let retry_after = record_shared_rate_limit(&self.url, &r);
                     let _ = read_capped(r, 8 * 1024);
                     return Err(TransportError::Retry {
                         retry_after,
@@ -4935,6 +5044,14 @@ impl Transport for HttpTransport {
     fn request(&mut self, method: &str, params: Value) -> Result<Value, TransportError> {
         self.restore_drained()?;
         self.request_inner(method, params, &[])
+    }
+
+    fn connect_timeout(&self) -> Duration {
+        self.connect_timeout
+    }
+
+    fn initialize_complete(&mut self) {
+        self.restore_request_timeout();
     }
 
     fn request_with_cancel(
@@ -5123,6 +5240,14 @@ impl Transport for HttpTransport {
                         }
                     }
                 }
+                // Shared 429 backoff (#874): the listener is its own egress
+                // path, so never connect while another gateway process holds
+                // the provider's window open. Re-consult after each capped
+                // sleep; the cap keeps a replaced listener noticed promptly.
+                if let Some(remaining) = crate::downstream_backoff::remaining_for_url(&url) {
+                    std::thread::sleep(remaining.min(Duration::from_secs(5)));
+                    continue;
+                }
                 let mut forced_refresh = false;
                 let response = loop {
                     let mut request = agent
@@ -5140,6 +5265,18 @@ impl Transport for HttpTransport {
                     }
                     match request.send_string(&payload) {
                         Ok(response) => break Some(response),
+                        Err(ureq::Error::Status(429, response)) => {
+                            // Rate limited: record the shared window like
+                            // every other egress path, then fall into the
+                            // reconnect backoff below, which re-consults the
+                            // window before each retry.
+                            let _ = record_shared_rate_limit(&url, &response);
+                            let _ = read_capped(response, 8 * 1024);
+                            downstream_trace(
+                                "subscriptions/listen rate limited (429); deferring reconnect",
+                            );
+                            break None;
+                        }
                         Err(ureq::Error::Status(code, response))
                             if (code == 401 || code == 403)
                                 && insufficient_scope_challenge(&response).is_some() =>
@@ -5364,6 +5501,10 @@ pub struct DownstreamServer {
     /// Desired per-resource notification set carried by the modern listener.
     /// Legacy servers keep using resources/subscribe and resources/unsubscribe.
     modern_resource_subscriptions: HashSet<String>,
+    /// Live-call read deadline. Starts at STDIO_READ_TIMEOUT; a per-server
+    /// `requestTimeoutMs` widens it through `set_call_timeout`. The separate
+    /// `initializeTimeoutMs` setting can widen only the first initialize request.
+    call_timeout: Duration,
     /// Existing legacy server-to-client request bridge. Modern downstream
     /// `input_required` results use it as a compatibility shim when the upstream
     /// client predates MRTR.
@@ -5403,14 +5544,16 @@ impl DownstreamServer {
         // Going legacy-first costs the existing install base exactly nothing and
         // costs a modern server one cheap rejected request. Worth revisiting once
         // modern servers are common.
-        let (era, caps) = match transport.request(
+        let initialize_result = transport.request(
             "initialize",
             json!({
                 "protocolVersion": PROTOCOL_VERSION,
                 "capabilities": {},
                 "clientInfo": { "name": "toolport-gateway", "version": env!("CARGO_PKG_VERSION") }
             }),
-        ) {
+        );
+        transport.initialize_complete();
+        let (era, caps) = match initialize_result {
             Ok(init) => {
                 let version = init
                     .get("protocolVersion")
@@ -5426,6 +5569,10 @@ impl DownstreamServer {
             // A dead or unresponsive server is not a modern server. Probing it
             // again would just double the wait before reporting the same failure.
             Err(err) if err.is_health_failure() => return Err(err.to_string()),
+            // Authentication is independent of the protocol era. Probing after
+            // an explicit rejection can only replace the actionable error with a
+            // secondary protocol failure (#914).
+            Err(err) if err.is_auth_failure() => return Err(err.to_string()),
             Err(init_err) => {
                 // The server answered, but refused `initialize`. A modern server
                 // has no such method. Confirm with `server/discover`, which every
@@ -5615,8 +5762,18 @@ impl DownstreamServer {
             era,
             modern_http,
             modern_resource_subscriptions: std::collections::HashSet::new(),
+            call_timeout: STDIO_READ_TIMEOUT,
             server_handler: None,
         })
+    }
+
+    /// Widen the live-call read deadline for this server (per-server
+    /// `requestTimeoutMs`). Post-handshake requests only: initialize and probe
+    /// budgets keep their own bounds, and a zero configured value is rejected by
+    /// the caller.
+    pub fn set_call_timeout(&mut self, timeout: Duration) {
+        self.call_timeout = timeout;
+        self.transport.set_read_timeout(timeout);
     }
 
     /// Install the upstream request bridge on both this server wrapper and its
@@ -5799,20 +5956,22 @@ impl DownstreamServer {
     /// Re-fetch the server's tool list on the existing connection, after it
     /// announced a `tools/list_changed`. Bounds the wait like the handshake so a
     /// hung server can't stall the refresh; on error the previous list is kept.
-    pub fn refresh_tools(&mut self) {
-        self.refresh_tools_inner();
+    pub fn refresh_tools(&mut self) -> bool {
+        self.refresh_tools_inner()
     }
 
     /// Refresh a positive-TTL catalog only once its downstream freshness window
     /// expires. Notifications keep calling `refresh_tools` and therefore bypass
     /// this check: they invalidate a still-fresh result immediately.
-    pub fn refresh_tools_if_stale(&mut self) {
+    pub fn refresh_tools_if_stale(&mut self) -> bool {
         if self.tool_cache_hint.needs_refresh() {
-            self.refresh_tools_inner();
+            self.refresh_tools_inner()
+        } else {
+            false
         }
     }
 
-    fn refresh_tools_inner(&mut self) {
+    fn refresh_tools_inner(&mut self) -> bool {
         self.transport.set_read_timeout(STDIO_CONNECT_TIMEOUT);
         let modern_version = match &self.era {
             Era::Modern { version } => Some(version.clone()),
@@ -5831,7 +5990,7 @@ impl DownstreamServer {
             self.transport
                 .set_protocol_meta(Some(protocol_meta_for(version)));
         }
-        match listed {
+        let refreshed = match listed {
             Ok(listed) if listed.warning.is_none() => {
                 let new_tools = if self.modern_http {
                     filter_modern_http_tools(&self.id, listed.items)
@@ -5846,7 +6005,7 @@ impl DownstreamServer {
                     listed.cache_hint,
                     &self.id,
                     "tool",
-                );
+                )
             }
             Ok(listed) => {
                 self.tool_cache_hint.mark_stale_and_defer();
@@ -5858,6 +6017,7 @@ impl DownstreamServer {
                 );
                 eprintln!("{msg}");
                 crate::gatewaylog::append(&msg);
+                false
             }
             Err(error) => {
                 self.tool_cache_hint.mark_stale_and_defer();
@@ -5865,9 +6025,11 @@ impl DownstreamServer {
                     "toolport: keeping server '{}' previous tool catalog after refresh failed: {error}",
                     self.id
                 );
+                false
             }
-        }
-        self.transport.set_read_timeout(STDIO_READ_TIMEOUT);
+        };
+        self.transport.set_read_timeout(self.call_timeout);
+        refreshed
     }
 
     /// Re-fetch the resource list on the existing connection after the server
@@ -5957,7 +6119,7 @@ impl DownstreamServer {
                 );
             }
         }
-        self.transport.set_read_timeout(STDIO_READ_TIMEOUT);
+        self.transport.set_read_timeout(self.call_timeout);
     }
 
     /// Re-fetch the prompt list on the existing connection after the server
@@ -6006,7 +6168,7 @@ impl DownstreamServer {
                 );
             }
         }
-        self.transport.set_read_timeout(STDIO_READ_TIMEOUT);
+        self.transport.set_read_timeout(self.call_timeout);
     }
 
     /// Fetch the resources, resource templates, and prompts the server advertised.
@@ -6862,6 +7024,7 @@ mod tests {
             },
             modern_http: false,
             modern_resource_subscriptions: std::collections::HashSet::new(),
+            call_timeout: super::STDIO_READ_TIMEOUT,
             server_handler: None,
         };
         server.refresh_tools();
@@ -6897,6 +7060,7 @@ mod tests {
             },
             modern_http: false,
             modern_resource_subscriptions: std::collections::HashSet::new(),
+            call_timeout: super::STDIO_READ_TIMEOUT,
             server_handler: None,
         };
         server.refresh_tools();
@@ -6938,6 +7102,7 @@ mod tests {
             },
             modern_http: false,
             modern_resource_subscriptions: std::collections::HashSet::new(),
+            call_timeout: super::STDIO_READ_TIMEOUT,
             server_handler: None,
         };
         server.refresh_tools();
@@ -6979,6 +7144,7 @@ mod tests {
             },
             modern_http: false,
             modern_resource_subscriptions: std::collections::HashSet::new(),
+            call_timeout: super::STDIO_READ_TIMEOUT,
             server_handler: None,
         };
         server.refresh_tools();
@@ -7017,6 +7183,7 @@ mod tests {
             },
             modern_http: false,
             modern_resource_subscriptions: std::collections::HashSet::new(),
+            call_timeout: super::STDIO_READ_TIMEOUT,
             server_handler: None,
         };
         server.refresh_resources();
@@ -7064,6 +7231,7 @@ mod tests {
             },
             modern_http: false,
             modern_resource_subscriptions: std::collections::HashSet::new(),
+            call_timeout: super::STDIO_READ_TIMEOUT,
             server_handler: None,
         };
         server.refresh_resources();
@@ -7500,7 +7668,7 @@ mod tests {
         std::env::set_var("npm_config_cache", &root);
         let transport = super::StdioTransport::spawn_inner("npx", &args, &[], None, None, None);
         std::env::remove_var("npm_config_cache");
-        let transport = transport.expect("the stub server must spawn");
+        let mut transport = transport.expect("the stub server must spawn");
 
         assert!(
             transport.launcher,
@@ -7511,6 +7679,12 @@ mod tests {
             transport.connect_timeout(),
             super::LAUNCHER_CONNECT_TIMEOUT,
             "and it must reach connect_timeout as the long budget"
+        );
+        transport.set_connect_timeout(std::time::Duration::from_secs(300));
+        assert_eq!(
+            transport.connect_timeout(),
+            std::time::Duration::from_secs(300),
+            "a per-server override must replace the launcher default"
         );
 
         drop(transport);
@@ -8723,6 +8897,7 @@ mod tests {
             stderr: Arc::new(Mutex::new(String::new())),
             next_id: 1,
             read_timeout: std::time::Duration::from_secs(30),
+            connect_timeout: super::STDIO_CONNECT_TIMEOUT,
             armed: Arc::new(AtomicBool::new(false)),
             launcher: false,
             server_handler: None,
@@ -9622,15 +9797,34 @@ mod tests {
     }
 
     #[test]
-    fn retry_after_parses_delta_seconds_and_caps() {
+    fn retry_after_parses_delta_seconds_http_dates_and_caps() {
         use super::{retry_after_delay, HTTP_RETRY_CAP};
         use std::time::Duration;
         assert_eq!(retry_after_delay("2"), Some(Duration::from_secs(2)));
         assert_eq!(retry_after_delay("  5 "), Some(Duration::from_secs(5)));
         // Over the cap is clamped to the cap.
         assert_eq!(retry_after_delay("9999"), Some(HTTP_RETRY_CAP));
-        // HTTP-date form and junk are not delta-seconds: no delay parsed.
-        assert_eq!(retry_after_delay("Wed, 21 Oct 2026 07:28:00 GMT"), None);
+        // HTTP-date form: a far-future date parses and clamps to the cap...
+        let far = std::time::SystemTime::now() + Duration::from_secs(3_600);
+        assert_eq!(
+            retry_after_delay(&httpdate::fmt_http_date(far)),
+            Some(HTTP_RETRY_CAP)
+        );
+        // ...a near-future date keeps its exact delay...
+        let soon = std::time::SystemTime::now() + Duration::from_secs(2);
+        let delay = retry_after_delay(&httpdate::fmt_http_date(soon)).unwrap();
+        assert!(
+            delay <= Duration::from_secs(2) && !delay.is_zero(),
+            "near-future date should keep ~2s, got {delay:?}"
+        );
+        // ...and a date that already elapsed means "retry now".
+        let past = std::time::SystemTime::now() - Duration::from_secs(60);
+        assert_eq!(
+            retry_after_delay(&httpdate::fmt_http_date(past)),
+            Some(Duration::ZERO)
+        );
+        // Junk parses to nothing, so callers apply the full-cap fallback.
+        assert_eq!(retry_after_delay("later"), None);
         assert_eq!(retry_after_delay(""), None);
     }
 
@@ -10642,6 +10836,68 @@ mod tests {
     }
 
     #[test]
+    fn initialize_auth_failure_is_not_replaced_by_the_era_probe() {
+        // LaunchDarkly rejects an unauthenticated legacy initialize with -32001,
+        // then rejects the modern probe with UnsupportedProtocolVersion. The
+        // second error used to replace the first and send the user toward a
+        // protocol upgrade instead of sign-in (#914).
+        use super::{DownstreamServer, Transport, TransportError};
+        use std::collections::VecDeque;
+        use std::sync::{Arc, Mutex};
+
+        struct Probe {
+            responses: VecDeque<Result<Value, TransportError>>,
+            methods: Arc<Mutex<Vec<String>>>,
+        }
+        impl Transport for Probe {
+            fn request(&mut self, method: &str, _params: Value) -> Result<Value, TransportError> {
+                self.methods.lock().unwrap().push(method.to_string());
+                self.responses.pop_front().expect("a response per request")
+            }
+            fn notify(&mut self, _method: &str, _params: Value) -> Result<(), TransportError> {
+                Ok(())
+            }
+        }
+
+        let methods = Arc::new(Mutex::new(Vec::new()));
+        let transport = Probe {
+            methods: Arc::clone(&methods),
+            responses: VecDeque::from(vec![
+                Err(TransportError::Rpc(json!({
+                    "code": -32001,
+                    "message": "unauthorized access"
+                }))),
+                Err(TransportError::Rpc(json!({
+                    "code": super::UNSUPPORTED_PROTOCOL_VERSION,
+                    "message": "Unsupported protocol version",
+                    "data": {
+                        "requested": super::MODERN_PROTOCOL_VERSION,
+                        "supported": [super::PROTOCOL_VERSION]
+                    }
+                }))),
+            ]),
+        };
+
+        let err = match DownstreamServer::connect("launchdarkly".to_string(), Box::new(transport)) {
+            Err(err) => err,
+            Ok(_) => panic!("an unauthenticated server cannot connect"),
+        };
+        assert!(
+            err.contains("unauthorized access"),
+            "unexpected error: {err}"
+        );
+        assert!(
+            !err.contains("cannot negotiate"),
+            "the auth error must not be replaced by a version error: {err}"
+        );
+        assert_eq!(
+            *methods.lock().unwrap(),
+            vec!["initialize"],
+            "an explicit auth rejection must skip the era probe"
+        );
+    }
+
+    #[test]
     fn modern_server_offering_another_version_is_not_reported_as_legacy() {
         // The compatibility ladder's pivot. A server that refuses `initialize`
         // AND answers the probe with a recognized modern error IS modern, it just
@@ -10713,6 +10969,33 @@ mod tests {
             MODERN_PROTOCOL_VERSION,
             "the header must follow the negotiated version, not a constant"
         );
+    }
+
+    #[test]
+    fn http_initialize_timeout_is_distinct_from_the_request_timeout() {
+        use super::{HttpTransport, Transport};
+        use std::time::Duration;
+
+        let mut transport = HttpTransport::guarded_with_timeout(
+            "https://example.invalid/mcp",
+            None,
+            None,
+            true,
+            Duration::from_secs(30),
+        );
+        assert_eq!(transport.connect_timeout(), Duration::from_secs(30));
+
+        transport.set_connect_timeout(Duration::from_secs(240));
+        assert_eq!(transport.connect_timeout(), Duration::from_secs(240));
+        assert_eq!(transport.request_timeout, Duration::from_secs(30));
+
+        transport.initialize_complete();
+        assert_eq!(
+            transport.connect_timeout(),
+            Duration::from_secs(240),
+            "restoring HTTP requests must not overwrite the initialize setting"
+        );
+        assert_eq!(transport.request_timeout, Duration::from_secs(30));
     }
 
     #[test]
@@ -11546,9 +11829,12 @@ mod tests {
     #[test]
     fn post_returns_retry_on_429_with_retry_after() {
         use super::{HttpTransport, TransportError};
+        use crate::downstream_backoff;
         use std::sync::atomic::{AtomicUsize, Ordering};
         use std::sync::Arc;
         use std::time::Duration;
+        let _backoff_state = downstream_backoff::lock_state_for_test();
+        downstream_backoff::reset_for_test();
 
         // Mock MCP server: 429 with Retry-After: 2 on the first request,
         // 200 JSON-RPC on the second.
@@ -11595,6 +11881,10 @@ mod tests {
             }
             other => panic!("expected TransportError::Retry, got {other:?}"),
         }
+
+        // The 429 above recorded a shared 2s backoff window for this origin;
+        // clear it so the second POST below can reach the wire as before.
+        downstream_backoff::reset_for_test();
 
         // Second call: the server now responds 200.
         let result2 = t.post(
@@ -11987,6 +12277,128 @@ mod tests {
             normalize_invocation("/usr/bin/my tool", &[]),
             ("/usr/bin/my tool".into(), vec![]),
         );
+    }
+
+    #[test]
+    fn post_fails_fast_while_shared_backoff_window_open() {
+        use super::{HttpTransport, TransportError};
+        use crate::downstream_backoff;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+        use std::time::Duration;
+        let _backoff_state = downstream_backoff::lock_state_for_test();
+        downstream_backoff::reset_for_test();
+
+        // Mock server that records any request it receives. The point of the
+        // shared window is that NO wire traffic happens while it is open, so
+        // the test fails if this server is ever contacted.
+        let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
+        let port = server.server_addr().to_ip().unwrap().port();
+        let hit = Arc::new(AtomicBool::new(false));
+        let hc = Arc::clone(&hit);
+        let handle = std::thread::spawn(move || {
+            // recv_timeout (not recv) so the thread always exits and the join
+            // below returns even when the fast-fail works and nothing arrives.
+            if let Ok(Some(req)) = server.recv_timeout(Duration::from_secs(2)) {
+                hc.store(true, Ordering::SeqCst);
+                let _ = req.respond(tiny_http::Response::from_string("late").with_status_code(200));
+            }
+        });
+
+        // Simulate another gateway process on the host having recorded the
+        // window (unbound state is in-memory here, which is equivalent for
+        // this process's consult).
+        let url = format!("http://127.0.0.1:{port}/");
+        downstream_backoff::record_rate_limited(&url, Some(Duration::from_secs(2)));
+
+        let mut t = HttpTransport::new(&url);
+        let result = t.post(
+            &serde_json::json!({ "jsonrpc": "2.0", "id": 1, "method": "ping" }),
+            true,
+        );
+        match &result {
+            Err(TransportError::Retry {
+                retry_after,
+                message,
+            }) => {
+                assert!(*retry_after <= Some(Duration::from_secs(2)));
+                assert!(message.contains("shared backoff"), "{message}");
+            }
+            other => panic!("expected fast-fail Retry, got {other:?}"),
+        }
+        assert!(
+            !hit.load(Ordering::SeqCst),
+            "no request may reach the wire while the shared window is open"
+        );
+        drop(t);
+        let _ = handle.join();
+        downstream_backoff::reset_for_test();
+    }
+
+    #[test]
+    fn inline_post_honors_and_records_shared_backoff() {
+        use super::{HttpTransport, TransportError};
+        use crate::downstream_backoff;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+        use std::time::Duration;
+        let _backoff_state = downstream_backoff::lock_state_for_test();
+        downstream_backoff::reset_for_test();
+
+        let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
+        let port = server.server_addr().to_ip().unwrap().port();
+        let url = format!("http://127.0.0.1:{port}/");
+
+        // Guard: with a shared window open, an inline reply must fail fast
+        // exactly like the request/response POST path — no wire traffic.
+        downstream_backoff::record_rate_limited(&url, Some(Duration::from_secs(2)));
+        let mut t = HttpTransport::new(&url);
+        let result = t.send_post_no_response(&serde_json::json!({
+            "jsonrpc": "2.0", "id": 2, "result": {}
+        }));
+        match &result {
+            Err(TransportError::Retry { message, .. }) => {
+                assert!(message.contains("shared backoff"), "{message}");
+            }
+            other => panic!("expected fast-fail Retry, got {other:?}"),
+        }
+
+        // Record: a live 429 on the inline path enters the shared window.
+        downstream_backoff::reset_for_test();
+        let hit = Arc::new(AtomicBool::new(false));
+        let hc = Arc::clone(&hit);
+        let handle = std::thread::spawn(move || {
+            if let Ok(Some(req)) = server.recv_timeout(Duration::from_secs(2)) {
+                hc.store(true, Ordering::SeqCst);
+                let retry_after =
+                    tiny_http::Header::from_bytes(&b"Retry-After"[..], &b"1"[..]).unwrap();
+                let _ = req.respond(
+                    tiny_http::Response::from_string("rate limited")
+                        .with_status_code(429)
+                        .with_header(retry_after),
+                );
+            }
+        });
+        let result = t.send_post_no_response(&serde_json::json!({
+            "jsonrpc": "2.0", "id": 3, "result": {}
+        }));
+        match &result {
+            Err(TransportError::Retry { retry_after, .. }) => {
+                assert_eq!(*retry_after, Some(Duration::from_secs(1)));
+            }
+            other => panic!("expected Retry from live 429, got {other:?}"),
+        }
+        assert!(
+            hit.load(Ordering::SeqCst),
+            "the 429 response came from the wire"
+        );
+        assert!(
+            downstream_backoff::remaining_for_url(&url).is_some(),
+            "the inline 429 must be recorded into the shared window"
+        );
+        drop(t);
+        let _ = handle.join();
+        downstream_backoff::reset_for_test();
     }
 
     #[test]

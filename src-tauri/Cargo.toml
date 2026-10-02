@@ -1,6 +1,6 @@
 [package]
 name = "conduit"
-version = "1.18.0"
+version = "1.23.4"
 description = "Local MCP gateway: manage all your MCP servers in one place, set up once and shared by every AI client, with ~90% fewer tokens per request"
 authors = ["South Forge AI"]
 edition = "2021"
@@ -97,6 +97,9 @@ urlencoding = "2"
 # file:// URI -> path decoding for the ${ROOT} cwd token (issue #239); already in
 # the tree transitively, promoted to a direct dep for url::Url::to_file_path.
 url = "2"
+# RFC 7231 HTTP-date parsing for Retry-After headers: delta-seconds alone
+# misses the date form several providers send on 429s.
+httpdate = "1"
 # Minimal synchronous HTTP server for the gateway's native HTTP/OpenAPI mode
 # (first-class Open WebUI and any OpenAPI tool client, no external bridge).
 tiny_http = "0.12"
@@ -114,6 +117,9 @@ windows-sys = { version = "0.61", features = [
     "Win32_System_JobObjects",
     "Win32_System_Threading",
 ] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 keyring = { version = "3", features = ["apple-native"] }
@@ -141,3 +147,7 @@ debug = "line-tables-only"
 # Same for the profile `cargo test` builds under.
 [profile.test]
 debug = "line-tables-only"
+
+[[example]]
+name = "audit-performance"
+required-features = ["test-support"]

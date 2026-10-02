@@ -109,8 +109,8 @@ export interface InspectEntry {
   durationMs?: number;
 }
 
-/** One lazy-discovery search: what the model searched for and what came back, with
- * the ground-truth token cost of the results vs. loading the whole catalog. */
+/** One lazy-discovery search. Byte fields are exact UTF-8 payload measurements;
+ * token fields are legacy/reference estimates, never provider usage. */
 export interface SearchTrace {
   ts: number;
   client?: string;
@@ -122,12 +122,17 @@ export interface SearchTrace {
   total: number;
   /** Full count of appended recovery candidates. Absent on older traces. */
   fallbacks?: number;
-  /** Tool-definition tokens the returned schemas cost this turn (≈). */
+  /** Legacy compatibility estimate of matched-schema bytes / 4; excludes lead text. */
   returnedTokens: number;
-  /** Tool-definition tokens advertising the whole (scoped) catalog would cost (≈). */
+  /** Legacy compatibility estimate of searchable catalog schema bytes / 4. */
   flatTokens: number;
-  /** flatTokens - returnedTokens: the context kept out of the model this turn. */
+  /** Schema-only estimate difference, not provider tokens saved. */
   savedTokens: number;
+  responseContentBytes?: number;
+  matchedSchemaBytes?: number;
+  catalogSchemaBytes?: number;
+  estimatedResponseTokens?: number;
+  estimateMethod?: "utf8_bytes_div_4";
   /** The loop-breaker fired: repeated searches kept landing on the same top tool. */
   escalated: boolean;
   /** Ranker used: keyword-only (`lexical`) or semantic re-rank. Absent on older traces. */
@@ -257,12 +262,31 @@ export interface AuditStats {
   servers: ServerStat[];
 }
 
-/** Cumulative tool-definition tokens lazy discovery kept out of client context. */
+/** Cumulative catalog exposure measurements plus the legacy estimate. */
 export interface SavingsSummary {
+  /** Compatibility total: v1 legacy estimates plus v2 UTF-8 bytes / 4. */
   tokensSaved: number;
   listLoads: number;
   peakCatalog: number;
   sinceTs: number;
+  legacyEstimatedTokensAvoided?: number;
+  measuredLoads?: number;
+  latestCatalogTs?: number;
+  latestFullToolCount?: number;
+  latestExposedToolCount?: number;
+  latestFullSurfaceBytes?: number;
+  latestExposedSurfaceBytes?: number;
+  fullSurfaceBytes?: number;
+  exposedSurfaceBytes?: number;
+  avoidedSurfaceBytes?: number;
+  extraExposedSurfaceBytes?: number;
+  surfaceDeltaBytes?: number;
+  estimatedTokensAvoided?: number;
+  estimateMethod?: "utf8_bytes_div_4";
+  discoveryCount?: number;
+  discoveryResponseBytes?: number;
+  matchedSchemaBytes?: number;
+  estimatedDiscoveryTokens?: number;
   /** Downstream tool round-trips collapsed into single code-mode run_script calls.
    * Absent in older savings logs written before code mode. */
   roundTripsSaved?: number;
@@ -295,6 +319,7 @@ export interface CatalogEntry {
   transport: Transport;
   command: string | null;
   args: string[];
+  launch?: LaunchConfig | null;
   url: string | null;
   envKeys: string[];
   source: "curated" | "registry" | "user";
@@ -328,12 +353,35 @@ export interface EnvVar {
   secret: boolean;
 }
 
+export interface LaunchInput {
+  key: string;
+  label: string;
+  secret: boolean;
+  required: boolean;
+  /** Present only for nonsecret inputs in saved configuration. */
+  value?: string | null;
+}
+
+export type ArgPart = { kind: "literal"; value: string } | { kind: "input"; key: string };
+export interface ArgBinding {
+  index: number;
+  parts: ArgPart[];
+}
+export interface LaunchConfig {
+  inputs: LaunchInput[];
+  bindings: ArgBinding[];
+  requiredEnv?: string[];
+  template?: string | null;
+  revision?: number | null;
+}
+
 export interface ServerEntry {
   id: string;
   name: string;
   transport: Transport;
   command: string | null;
   args: string[];
+  launch?: LaunchConfig | null;
   env: EnvVar[];
   url: string | null;
   source: string | null;
@@ -348,6 +396,9 @@ export interface ServerEntry {
   /** Total deadline for each HTTP request, in milliseconds.
    * Valid values are 1 ms through 24 hours; unset preserves the 30-second default. */
   requestTimeoutMs?: number | null;
+  /** Deadline for the initial MCP initialize request, in milliseconds.
+   * Unset keeps the launcher-aware transport default. */
+  initializeTimeoutMs?: number | null;
 }
 
 /** Non-secret client-credentials config. The client SECRET is never here: it
@@ -370,6 +421,9 @@ export interface Profile {
    * exposes on that server. A server absent = all its tools; empty/absent = server-granular
    * only. Enforced in tools/list, search, and the call guard. */
   toolScope?: Record<string, string[]>;
+  /** Server instructions sent to a connection scoped to this profile. Absent = inherit
+   * `gatewayInstructions`, then the built-in text; empty = send none. */
+  instructions?: string;
 }
 
 /** A folder -> profile auto-routing mapping (SOU-188): a client whose reported project
@@ -392,7 +446,8 @@ export interface PendingApproval {
     | "untrusted_source"
     | "destructive_and_untrusted"
     | "persistent_code_write"
-    | "pii_cross_server";
+    | "pii_cross_server"
+    | "agent_permission";
   arguments: unknown;
   /** A screened URL-mode elicitation brokered by the desktop because the MCP host
    * did not declare URL elicitation support. */
@@ -411,6 +466,9 @@ export interface PendingApproval {
     server: string;
     values: { token: string; value: string; origins: string[] }[];
   } | null;
+  /** The "ask first" permission rule behind an `agent_permission` ask, e.g.
+   * `Bash(git push*)`. `server` is the agent and `tool` the call kind. */
+  agentRule?: string | null;
   /** Wall-clock epoch-ms when this call auto-denies; the overlay counts down to it. */
   deadlineMs: number;
 }
@@ -489,6 +547,9 @@ export interface Registry {
   /** Global discovery mode ("full" | "lazy" | "grouped"). Takes precedence over
    * `lazyDiscovery`; absent = fall back to the `lazyDiscovery` bool. */
   discoveryMode?: string | null;
+  /** Replacement for the gateway's built-in server instructions, for profiles that set
+   * none of their own. Absent = built-in text; empty = send none. */
+  gatewayInstructions?: string;
   /** Code mode: advertise `toolport_run_script` so agents can orchestrate many tool
    * calls in one server-side script. On by default (SOU-397); Settings is the kill switch. */
   codeMode?: boolean;
@@ -545,8 +606,11 @@ export interface HttpClient {
 
 /** A joined Toolport Teams server (the shared config-sync layer). */
 export interface TeamConnection {
+  managedServerIds?: Record<string, string>;
   serverUrl: string;
   teamId: string;
+  teamName?: string | null;
+  accountLinked?: boolean | null;
   /** "admin" | "member" */
   role: string;
   memberName?: string | null;

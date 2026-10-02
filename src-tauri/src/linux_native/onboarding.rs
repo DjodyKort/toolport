@@ -87,7 +87,7 @@ fn onboarding_complete_at(path: &Path) -> Result<bool, String> {
     }
 }
 
-fn mark_complete() -> Result<(), String> {
+pub(super) fn mark_complete() -> Result<(), String> {
     if onboarding_complete()? {
         return Ok(());
     }
@@ -1103,6 +1103,8 @@ mod tests {
             disabled_tools: Vec::new(),
             client_credentials: None,
             request_timeout_ms: None,
+            initialize_timeout_ms: None,
+            launch: None,
             unknown_fields: serde_json::Map::new(),
         });
         assert!(!should_offer(&registry, &empty));

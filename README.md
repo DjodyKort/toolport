@@ -32,11 +32,15 @@ them across Claude, Cursor, Codex, VS Code, and other clients.
 
 1. [Download Toolport](https://toolport.app/download) for Windows, macOS, or Linux.
 2. Add a server from the catalog, import an existing setup, or paste a server config.
+   Curated servers that need launch arguments show a Launch setup section; see
+   [catalog launch setup](docs/catalog-launch-setup.md) for inputs and package status,
+   and the [curation review](docs/catalog-curation-review.md) for selection criteria.
 3. Authenticate the server, then open **Clients** and connect your AI apps.
 
 Installers and release notes are also on
 [GitHub Releases](https://github.com/btsouth/toolport/releases).
-For Linux desktop integration, see [Toolport on Omarchy](https://toolport.app/omarchy).
+On Arch and Omarchy, the [pacman repository](docs/arch-pacman-repo.md) keeps
+Toolport on your normal update path.
 
 ## Documentation
 
@@ -44,6 +48,7 @@ For Linux desktop integration, see [Toolport on Omarchy](https://toolport.app/om
 - [Profiles, environment variables, and configuration](docs/configuration.md)
 - [Agent rules](docs/agent-rules.md) and [permissions](docs/agent-permissions.md)
 - [Headless gateway and Docker](docs/headless.md)
+- [Arch and Omarchy install (pacman repository)](docs/arch-pacman-repo.md)
 - [Open WebUI](docs/openwebui.md) and [agent plugin](packaging/agent-plugin/toolport/README.md)
 - [Security](SECURITY.md) and [troubleshooting](docs/troubleshooting.md)
 - [Changelog](CHANGELOG.md)

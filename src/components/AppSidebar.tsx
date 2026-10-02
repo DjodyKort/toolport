@@ -5,6 +5,7 @@ import {
   ArrowUpCircle,
   ClipboardList,
   Compass,
+  ExternalLink,
   FileText,
   FlaskConical,
   FolderOpen,
@@ -32,7 +33,13 @@ import {
   openDataDir,
 } from "@/lib/api";
 import { fmtTokens } from "@/lib/utils";
-import { checkForUpdate, installUpdate, type UpdateProgress } from "@/lib/updater";
+import {
+  checkForUpdate,
+  installUpdate,
+  releasePageUrl,
+  type SystemPackage,
+  type UpdateProgress,
+} from "@/lib/updater";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ProfileBar } from "@/components/ProfileBar";
@@ -63,7 +70,8 @@ function updateProgressLabel(progress: UpdateProgress | null): string {
 /** Footer showing the running version, and an in-app update button when a newer
  * release is published. The check is best-effort: any failure (dev build,
  * offline, no manifest yet) just shows the current version. Clicking downloads,
- * installs, and relaunches into the new version. */
+ * installs, and relaunches into the new version, except on .deb and .rpm installs,
+ * which link to the release page instead. */
 function VersionFooter({
   onImport,
   onReplay,
@@ -73,6 +81,7 @@ function VersionFooter({
 }) {
   const [version, setVersion] = useState("");
   const [update, setUpdate] = useState<Update | null>(null);
+  const [systemPackage, setSystemPackage] = useState<SystemPackage | null>(null);
   const [installing, setInstalling] = useState(false);
   const [installProgress, setInstallProgress] = useState<UpdateProgress | null>(null);
   const [checking, setChecking] = useState(false);
@@ -82,6 +91,7 @@ function VersionFooter({
   const announceCheckRef = useRef(false);
   const installingRef = useRef(false);
   const lastCheckRef = useRef(0);
+  const updateRef = useRef<Update | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -95,6 +105,7 @@ function VersionFooter({
       });
     return () => {
       mountedRef.current = false;
+      if (!installingRef.current) void updateRef.current?.close().catch(() => {});
     };
   }, []);
 
@@ -123,11 +134,25 @@ function VersionFooter({
     try {
       const result = await checkForUpdate();
       if (result.kind !== "error") lastCheckRef.current = Date.now();
-      if (!mountedRef.current) return;
+      if (!mountedRef.current) {
+        if (result.kind === "update") void result.update.close().catch(() => {});
+        return;
+      }
+      if (result.kind !== "error") {
+        // Each Update owns a native resource that only close() frees, and package
+        // installs never install, so release the one this result replaces. An
+        // install in progress still needs it.
+        const previous = updateRef.current;
+        updateRef.current = result.kind === "update" ? result.update : null;
+        if (previous && previous !== updateRef.current && !installingRef.current) {
+          void previous.close().catch(() => {});
+        }
+      }
       const shouldAnnounce = announce || announceCheckRef.current;
       announceCheckRef.current = false;
       if (result.kind === "update") {
         setUpdate(result.update);
+        setSystemPackage(result.systemPackage ?? null);
         if (shouldAnnounce) setShowNotes(true);
       } else if (result.kind === "current") {
         setUpdate(null);
@@ -238,6 +263,7 @@ function VersionFooter({
         open={showNotes}
         onOpenChange={setShowNotes}
         update={update}
+        systemPackage={systemPackage}
         installing={installing}
         progressLabel={progressLabel}
         onInstall={applyUpdate}
@@ -299,6 +325,7 @@ function UpdateNotes({
   open,
   onOpenChange,
   update,
+  systemPackage,
   installing,
   progressLabel,
   onInstall,
@@ -306,6 +333,7 @@ function UpdateNotes({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   update: Update | null;
+  systemPackage: SystemPackage | null;
   installing: boolean;
   progressLabel: string;
   onInstall: () => void;
@@ -327,21 +355,39 @@ function UpdateNotes({
               A new version is ready to install.
             </p>
           )}
+          {systemPackage && (
+            <p className="text-sm text-muted-foreground">
+              This copy was installed from a .{systemPackage} package, so Toolport can't
+              replace it itself. Download the new .{systemPackage} and install it the same
+              way.
+            </p>
+          )}
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
               {installing ? "Hide" : "Later"}
             </Button>
-            <Button onClick={onInstall} disabled={installing}>
-              {installing ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" /> {progressLabel}
-                </>
-              ) : (
-                <>
-                  <ArrowUpCircle className="size-4" /> Install and restart
-                </>
-              )}
-            </Button>
+            {systemPackage ? (
+              <Button
+                onClick={() => {
+                  onOpenChange(false);
+                  void openExternal(releasePageUrl(update.version));
+                }}
+              >
+                <ExternalLink className="size-4" /> Open download page
+              </Button>
+            ) : (
+              <Button onClick={onInstall} disabled={installing}>
+                {installing ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" /> {progressLabel}
+                  </>
+                ) : (
+                  <>
+                    <ArrowUpCircle className="size-4" /> Install and restart
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>
@@ -365,6 +411,7 @@ export function AppSidebar({
   onReplayOnboarding,
 }: Props) {
   const [savings, setSavings] = useState<SavingsSummary | null>(null);
+  const [savingsStale, setSavingsStale] = useState(false);
   // `null` means "no confirmed count": the first poll hasn't answered yet. It
   // must render distinctly from a confirmed zero so a gateway that never
   // answered never reads as "all clear" (#741).
@@ -375,14 +422,18 @@ export function AppSidebar({
   // the "?" glyph and its "Could not reach the gateway" tooltip must only appear
   // once a poll has actually failed, not on every app start (#742).
   const [quarantineStale, setQuarantineStale] = useState(false);
-  // Surface the running token savings in the sidebar so the headline number isn't
+  // Surface the running catalog estimate in the sidebar so the headline number isn't
   // hidden one click away in Activity. Refresh on a light interval as calls flow.
   useEffect(() => {
     let alive = true;
     const load = () =>
       getSavingsSummary()
-        .then((s) => alive && setSavings(s))
-        .catch(() => {});
+        .then((s) => {
+          if (!alive) return;
+          setSavings(s);
+          setSavingsStale(false);
+        })
+        .catch(() => alive && setSavingsStale(true));
     load();
     const id = setInterval(load, 60_000);
     return () => {
@@ -552,14 +603,14 @@ export function AppSidebar({
           <button
             onClick={() => onSelectView("activity")}
             className="mx-3 mt-2 flex items-center gap-2 rounded-lg border border-success/30 bg-success/5 px-3 py-2 text-left text-xs transition-colors hover:bg-success/10"
-            title="Tool-definition tokens lazy discovery has kept out of your agent's context. Click for the breakdown."
+            title={`${savingsStale ? "Catalog telemetry unavailable; showing the last loaded estimate. " : ""}Tool-definition tokens Toolport kept out of your agent's context, estimated from their serialized size. Actual model usage depends on the client and caching. Click for the breakdown.`}
           >
             <Zap className="size-3.5 shrink-0 text-success" />
             <span className="text-muted-foreground">
               <span className="font-semibold text-foreground">
-                {fmtTokens(savings.tokensSaved)}
+                ≈{fmtTokens(savings.tokensSaved)}
               </span>{" "}
-              tokens saved
+              tokens saved{savingsStale ? " (stale)" : ""}
             </span>
           </button>
         )}

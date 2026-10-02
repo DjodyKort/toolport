@@ -13,6 +13,7 @@
 //! map so `tools/call` still forwards the server's real, hyphenated tool name.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -22,8 +23,8 @@ use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use serde_json::{json, Value};
 
 use crate::downstream::{
-    backoff_delay, CacheHint, CancelContext, DownstreamServer, MrtrRequest, TransportError,
-    HTTP_MAX_RETRIES, HTTP_RETRY_CAP,
+    backoff_delay, is_implausible_shrink, CacheHint, CancelContext, DownstreamServer, MrtrRequest,
+    TransportError, HTTP_MAX_RETRIES, HTTP_RETRY_CAP,
 };
 use crate::registry::ToolOverride;
 
@@ -508,6 +509,7 @@ impl ToolPolicy {
 struct ServerSlot {
     id: String,
     inner: Mutex<DownstreamServer>,
+    tool_revision: AtomicU64,
     /// Fast-fail state for a server that keeps failing (dead/hung), so we don't pay
     /// its full read timeout on every call once it's clearly down.
     breaker: Mutex<Breaker>,
@@ -517,6 +519,17 @@ struct ServerSlot {
     /// needlessly re-spawned on a transient blip. `None` = not reconnectable (e.g. a
     /// test fixture), in which case a dead server just stays fast-failed as before.
     reconnect: Option<Reconnect>,
+}
+
+/// An opaque reference to one live downstream launch. The gateway's launch
+/// pool can hold this without retaining an obsolete router or its other slots.
+#[derive(Clone)]
+pub struct SharedServerSlot(Arc<ServerSlot>);
+
+impl SharedServerSlot {
+    pub fn ptr_eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
 }
 
 /// Factory that rebuilds a downstream connection on demand. Supplied by the gateway
@@ -608,6 +621,9 @@ pub struct Router {
     tools: Vec<Value>,
     /// Exposed tool name -> (server id, original downstream tool name).
     routes: HashMap<String, (String, String)>,
+    /// Routes kept across a guarded catalog collapse. Profile views recheck
+    /// these under their own allowlist after indexing the shared live slots.
+    restored_candidates: Vec<RestoredTool>,
     /// Exposed names already handed out, for collision disambiguation.
     seen: HashSet<String>,
     /// What may be exposed; applied as each server is added.
@@ -639,6 +655,15 @@ pub struct Router {
     /// so a live router whose connects all failed is still a real prior decision
     /// and not a cold start (SBS-871).
     built: bool,
+}
+
+#[derive(Clone)]
+struct RestoredTool {
+    definition: Value,
+    exposed: String,
+    server: String,
+    original: String,
+    source_revision: u64,
 }
 
 impl Router {
@@ -676,6 +701,51 @@ impl Router {
         self.routes
             .get(exposed)
             .map(|(s, t)| (s.as_str(), t.as_str()))
+    }
+
+    /// Why a call to `exposed_name` cannot be routed.
+    pub fn no_route_message(&self, exposed_name: &str) -> String {
+        self.no_route_message_within(exposed_name, |_| true)
+    }
+
+    /// [`Router::no_route_message`] for a scoped caller: the alias hint only
+    /// names a tool whose server `visible` accepts, so the message cannot reveal
+    /// that a tool outside the caller's scope exists.
+    pub fn no_route_message_within(
+        &self,
+        exposed_name: &str,
+        visible: impl Fn(&str) -> bool,
+    ) -> String {
+        // Several client harnesses expose gateway tools to their model as
+        // `mcp__<gateway-alias>__<tool>`; models then reuse that spelling inside
+        // toolport_run_script and land here (observed with Codex, 2026-08-13).
+        // Point at the name that will actually route instead of a dead end.
+        let client_prefixed = exposed_name
+            .strip_prefix("mcp__")
+            .and_then(|rest| rest.split_once("__"))
+            .map(|(_, tool)| tool)
+            .filter(|candidate| {
+                self.routes
+                    .get(*candidate)
+                    .is_some_and(|(server, _)| visible(server))
+            });
+        match client_prefixed {
+            Some(real) => format!(
+                "no route for tool '{exposed_name}'; that looks like a client-side alias - \
+                 inside Toolport the tool is named '{real}', call that instead"
+            ),
+            None => format!("no route for tool '{exposed_name}'"),
+        }
+    }
+
+    /// Re-index the same live downstream slots under one adapter profile's
+    /// original-tool allowlists. The shared HTTP router can keep its fail-closed
+    /// intersection while each daemon adapter sees only its own tool scope.
+    pub fn with_tool_allow(&self, allow: HashMap<String, HashSet<String>>) -> Self {
+        let mut view = self.clone();
+        view.policy.allow = allow;
+        view.rebuild_preserving_restored();
+        view
     }
 
     /// Index one server's advertised tools/resources/templates/prompts into the
@@ -861,10 +931,82 @@ impl Router {
         self.servers.push(Arc::new(ServerSlot {
             id: id.clone(),
             inner: Mutex::new(server),
+            tool_revision: AtomicU64::new(0),
             breaker: Mutex::new(Breaker::default()),
             reconnect,
         }));
         self.by_id.insert(id, idx);
+    }
+
+    /// Build a view with one root-specific launch added or replaced. All other
+    /// slots stay shared with the source router. Re-index from the selected
+    /// slots so catalogs cannot leak across roots.
+    pub fn with_server_launch(
+        &self,
+        server: DownstreamServer,
+        reconnect: Option<Reconnect>,
+    ) -> Self {
+        let mut view = self.clone();
+        if let Some(&index) = view.by_id.get(&server.id) {
+            view.restored_candidates
+                .retain(|candidate| candidate.server != server.id);
+            view.servers[index] = Arc::new(ServerSlot {
+                id: server.id.clone(),
+                inner: Mutex::new(server),
+                tool_revision: AtomicU64::new(0),
+                breaker: Mutex::new(Breaker::default()),
+                reconnect,
+            });
+            view.rebuild_preserving_restored();
+        } else {
+            view.add_with_reconnect(server, reconnect);
+        }
+        view
+    }
+
+    /// Compose a launch already owned by another view into this one. The source
+    /// and result share the exact slot, so selecting the same LaunchKey never
+    /// starts a second child or splits its reconnect state.
+    pub fn with_server_slot_from(&self, source: &Router, server_id: &str) -> Option<Self> {
+        Some(self.with_shared_server_slot(&source.server_slot(server_id)?))
+    }
+
+    pub fn server_slot(&self, server_id: &str) -> Option<SharedServerSlot> {
+        let index = *self.by_id.get(server_id)?;
+        Some(SharedServerSlot(Arc::clone(self.servers.get(index)?)))
+    }
+
+    fn tool_revision(&self, server_id: &str) -> Option<u64> {
+        self.by_id
+            .get(server_id)
+            .and_then(|index| self.servers.get(*index))
+            .map(|slot| slot.tool_revision.load(Ordering::Acquire))
+    }
+
+    pub fn with_shared_server_slot(&self, slot: &SharedServerSlot) -> Self {
+        let server_id = &slot.0.id;
+        let mut view = self.clone();
+        if let Some(&index) = view.by_id.get(server_id) {
+            if !Arc::ptr_eq(&view.servers[index], &slot.0) {
+                view.restored_candidates
+                    .retain(|candidate| candidate.server != server_id.as_str());
+            }
+            view.servers[index] = Arc::clone(&slot.0);
+        } else {
+            let index = view.servers.len();
+            view.servers.push(Arc::clone(&slot.0));
+            view.by_id.insert(server_id.to_string(), index);
+        }
+        view.rebuild_preserving_restored();
+        view
+    }
+
+    /// Re-index a view after one of its shared downstream slots refreshed its
+    /// catalog. The view keeps its own policy and routes while sharing launches.
+    pub fn reindexed(&self) -> Self {
+        let mut view = self.clone();
+        view.rebuild_preserving_restored();
+        view
     }
 
     pub fn server_count(&self) -> usize {
@@ -1079,20 +1221,28 @@ impl Router {
     pub fn refresh_tools(&mut self) {
         // `&mut self` is exclusive, so locking each slot here can't contend.
         for slot in &self.servers {
-            slot.inner
+            if slot
+                .inner
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .refresh_tools();
+                .refresh_tools()
+            {
+                slot.tool_revision.fetch_add(1, Ordering::AcqRel);
+            }
         }
         self.rebuild_aggregation();
     }
 
     pub fn refresh_stale_tools(&mut self) {
         for slot in &self.servers {
-            slot.inner
+            if slot
+                .inner
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .refresh_tools_if_stale();
+                .refresh_tools_if_stale()
+            {
+                slot.tool_revision.fetch_add(1, Ordering::AcqRel);
+            }
         }
         self.rebuild_aggregation();
     }
@@ -1109,7 +1259,7 @@ impl Router {
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .refresh_resources();
         }
-        self.rebuild_aggregation();
+        self.rebuild_preserving_restored();
     }
 
     pub fn refresh_stale_resources(&mut self) {
@@ -1119,7 +1269,7 @@ impl Router {
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .refresh_resources_if_stale();
         }
-        self.rebuild_aggregation();
+        self.rebuild_preserving_restored();
     }
 
     /// Re-query every live server's prompt list (a downstream announced a
@@ -1132,7 +1282,7 @@ impl Router {
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .refresh_prompts();
         }
-        self.rebuild_aggregation();
+        self.rebuild_preserving_restored();
     }
 
     pub fn refresh_stale_prompts(&mut self) {
@@ -1142,12 +1292,21 @@ impl Router {
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .refresh_prompts_if_stale();
         }
-        self.rebuild_aggregation();
+        self.rebuild_preserving_restored();
     }
 
-    /// Forward one JSON-RPC notification to every connected downstream server.
-    pub fn notify_all_downstreams(&self, method: &str, params: Value) {
+    /// Forward one JSON-RPC notification only to downstream servers visible to
+    /// this upstream session. `None` is the standalone stdio caller's full set.
+    pub fn notify_downstreams_in_scope(
+        &self,
+        method: &str,
+        params: Value,
+        allowed: Option<&HashSet<String>>,
+    ) {
         for slot in &self.servers {
+            if allowed.is_some_and(|scope| !scope.contains(&slot.id)) {
+                continue;
+            }
             if let Ok(mut ds) = slot.inner.lock() {
                 let _ = ds.notify_downstream(method, params.clone());
             }
@@ -1164,7 +1323,7 @@ impl Router {
     /// set came from a successful read.
     pub fn requarantine(&mut self, quarantined: BTreeSet<String>) {
         self.policy.quarantined = quarantined;
-        self.rebuild_aggregation();
+        self.rebuild_preserving_restored();
     }
 
     /// Install a quarantine set that came from a SUCCESSFUL store read, lifting the
@@ -1173,6 +1332,12 @@ impl Router {
     pub fn requarantine_from_store(&mut self, quarantined: BTreeSet<String>) {
         self.policy.fail_closed_catalog = false;
         self.requarantine(quarantined);
+    }
+
+    /// Hide a derived catalog when its integrity store cannot be trusted.
+    pub fn fail_closed_catalog(&mut self) {
+        self.policy.fail_closed_catalog = true;
+        self.rebuild_preserving_restored();
     }
 
     /// True when this router is hiding the whole catalog because the quarantine
@@ -1217,47 +1382,121 @@ impl Router {
     /// previous build are absent from its `blocked` map and must not slip back
     /// in through the guarded catalog (which still carries them from the cache).
     pub fn adopt_restored_routes(&mut self, previous: &Router, catalog: &[Value]) {
+        let mut candidates = Vec::new();
+        let mut seen = HashSet::new();
         for tool in catalog {
             let Some(exposed) = tool.get("name").and_then(Value::as_str) else {
                 continue;
             };
-            if self.routes.contains_key(exposed) || self.blocked.contains_key(exposed) {
-                continue;
-            }
             // The previous router indexed the same exposed name; reuse its
             // (server, original) pair verbatim instead of re-deriving it.
             let Some((server_id, original)) = previous.route_of(exposed) else {
                 continue;
             };
-            // Re-evaluate policy before adopting. The rebuilt router only indexed
-            // the degraded connect, so a tool quarantined / disabled / scoped out
-            // since the previous build has no entry in `self.blocked` yet and the
-            // guarded catalog (from the disk cache) still carries it. Adopting it
-            // now would silently bypass the quarantine and scope guards while the
-            // cache keeps advertising it (review on #717).
-            if let Some(reason) = self
-                .policy
-                .blocked_reason(exposed, server_id, original, tool)
+            if seen.insert(exposed.to_string()) {
+                candidates.push(RestoredTool {
+                    definition: tool.clone(),
+                    exposed: exposed.to_string(),
+                    server: server_id.to_string(),
+                    original: original.to_string(),
+                    source_revision: self.tool_revision(server_id).unwrap_or(0),
+                });
+            }
+        }
+
+        // The host's guarded catalog can omit tools visible only to one profile:
+        // its base allowlist is the intersection. A severe raw slot shrink still
+        // needs those previous definitions for that profile's view. The next
+        // rebuild sees the degraded slot as its previous raw catalog and accepts
+        // a genuine persistent shrink, matching the host's confirm-then-accept
+        // guard rather than pinning stale definitions forever.
+        let mut collapsed = HashSet::new();
+        for slot in &self.servers {
+            let Some(old_index) = previous.by_id.get(&slot.id) else {
+                continue;
+            };
+            let old_count = previous.servers[*old_index]
+                .inner
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .tools
+                .len();
+            let new_count = slot
+                .inner
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .tools
+                .len();
+            if new_count > 0 && is_implausible_shrink(old_count, new_count) {
+                collapsed.insert(slot.id.clone());
+            }
+        }
+        if !collapsed.is_empty() {
+            let unrestricted = previous.with_tool_allow(HashMap::new());
+            for tool in unrestricted.aggregated_tools() {
+                let Some(exposed) = tool.get("name").and_then(Value::as_str) else {
+                    continue;
+                };
+                let Some((server_id, original)) = unrestricted.route_of(exposed) else {
+                    continue;
+                };
+                if collapsed.contains(server_id) && seen.insert(exposed.to_string()) {
+                    candidates.push(RestoredTool {
+                        definition: tool.clone(),
+                        exposed: exposed.to_string(),
+                        server: server_id.to_string(),
+                        original: original.to_string(),
+                        source_revision: self.tool_revision(server_id).unwrap_or(0),
+                    });
+                }
+            }
+        }
+        self.restored_candidates = candidates;
+        self.apply_restored_candidates();
+    }
+
+    fn apply_restored_candidates(&mut self) {
+        for candidate in &self.restored_candidates {
+            if self.routes.contains_key(&candidate.exposed)
+                || self.blocked.contains_key(&candidate.exposed)
+                || !self.by_id.contains_key(&candidate.server)
             {
-                self.blocked.insert(exposed.to_string(), reason.to_string());
+                continue;
+            }
+            // Re-evaluate every candidate under this router's current policy.
+            // A profile can allow a tool the host intersection hid, while a new
+            // quarantine must still block it (review on #717).
+            if let Some(reason) = self.policy.blocked_reason(
+                &candidate.exposed,
+                &candidate.server,
+                &candidate.original,
+                &candidate.definition,
+            ) {
+                self.blocked
+                    .insert(candidate.exposed.clone(), reason.to_string());
                 continue;
             }
             self.routes.insert(
-                exposed.to_string(),
-                (server_id.to_string(), original.to_string()),
+                candidate.exposed.clone(),
+                (candidate.server.clone(), candidate.original.clone()),
             );
-            // Re-adopt the exposed tool entry so aggregated_tools() and the
-            // quarantine/fingerprint paths see the restored tool, matching what
-            // the cache advertises.
-            if !self
-                .tools
-                .iter()
-                .any(|t| t.get("name").and_then(Value::as_str) == Some(exposed))
-            {
-                self.tools.push(tool.clone());
-            }
-            self.seen.insert(exposed.to_string());
+            self.tools.push(candidate.definition.clone());
+            self.seen.insert(candidate.exposed.clone());
         }
+    }
+
+    fn rebuild_preserving_restored(&mut self) {
+        let restored: Vec<_> = self
+            .restored_candidates
+            .iter()
+            .filter(|candidate| {
+                self.tool_revision(&candidate.server) == Some(candidate.source_revision)
+            })
+            .cloned()
+            .collect();
+        self.rebuild_aggregation_with_reserved(&restored);
+        self.restored_candidates = restored;
+        self.apply_restored_candidates();
     }
 
     /// Re-derive the exposed tool/resource/template/prompt aggregation from the
@@ -1265,9 +1504,34 @@ impl Router {
     /// exposed names and their `_2` collision suffixes stay stable. The server
     /// set itself is unchanged, so `servers` and `by_id` are kept.
     fn rebuild_aggregation(&mut self) {
+        self.rebuild_aggregation_with_reserved(&[]);
+    }
+
+    fn rebuild_aggregation_with_reserved(&mut self, restored: &[RestoredTool]) {
+        self.restored_candidates.clear();
         self.tools.clear();
         self.routes.clear();
         self.seen.clear();
+        // A restored route keeps its exposed name until a fresh tool catalog
+        // confirms its removal. Reserve that name before indexing new slots,
+        // otherwise a later colliding tool can silently inherit the old route.
+        for candidate in restored {
+            let still_advertised = self
+                .by_id
+                .get(&candidate.server)
+                .and_then(|index| self.servers.get(*index))
+                .is_some_and(|slot| {
+                    slot.inner
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .tools
+                        .iter()
+                        .any(|tool| tool["name"] == candidate.original)
+                });
+            if !still_advertised {
+                self.seen.insert(candidate.exposed.clone());
+            }
+        }
         self.blocked.clear();
         self.resources.clear();
         self.resource_routes.clear();
@@ -1459,10 +1723,10 @@ impl Router {
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
             *server = fresh; // swap the live child/connection for the fresh one
+            slot.tool_revision.fetch_add(1, Ordering::AcqRel);
             if let Some(error) = uncertain_failure {
-                // The handshake restored transport health, not the outcome of
-                // the already-sent operation. Admit the next independent request
-                // without executing this uncertain mutation a second time.
+                // Recovery invalidates cached tool identity but cannot prove whether
+                // the previous mutation completed. Use fresh transport next time.
                 slot.breaker
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -1522,24 +1786,10 @@ impl Router {
         if let Some(reason) = self.blocked.get(exposed_name) {
             return Err(format!("tool '{exposed_name}' is {reason}"));
         }
-        let (server_id, tool) = self.routes.get(exposed_name).ok_or_else(|| {
-            // Several client harnesses expose gateway tools to their model as
-            // `mcp__<gateway-alias>__<tool>`; models then reuse that spelling inside
-            // toolport_run_script and land here (observed with Codex, 2026-08-13).
-            // Point at the name that will actually route instead of a dead end.
-            let client_prefixed = exposed_name
-                .strip_prefix("mcp__")
-                .and_then(|rest| rest.split_once("__"))
-                .map(|(_, tool)| tool)
-                .filter(|candidate| self.routes.contains_key(*candidate));
-            match client_prefixed {
-                Some(real) => format!(
-                    "no route for tool '{exposed_name}'; that looks like a client-side alias - \
-                     inside Toolport the tool is named '{real}', call that instead"
-                ),
-                None => format!("no route for tool '{exposed_name}'"),
-            }
-        })?;
+        let (server_id, tool) = self
+            .routes
+            .get(exposed_name)
+            .ok_or_else(|| self.no_route_message(exposed_name))?;
         let slot = self.slot_for(server_id)?;
         let (result, downstream_supports_tasks) = self.call_with_retry(
             &slot,
@@ -2655,6 +2905,7 @@ mod tests {
             inner: Mutex::new(
                 DownstreamServer::connect("s".into(), Box::new(DeadOnCallTransport)).unwrap(),
             ),
+            tool_revision: AtomicU64::new(0),
             breaker: Mutex::new(Breaker::default()),
             reconnect,
         })
@@ -2864,6 +3115,7 @@ mod tests {
             })),
         );
 
+        let revision_before = router.servers[0].tool_revision.load(Ordering::Acquire);
         let error = router
             .route_call("s__echo", json!({ "request": "first" }))
             .unwrap_err();
@@ -2874,6 +3126,11 @@ mod tests {
             "completed effect must not replay"
         );
         assert_eq!(reconnects.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            router.servers[0].tool_revision.load(Ordering::Acquire),
+            revision_before + 1,
+            "fresh transport must invalidate tool identity before the uncertain error returns"
+        );
         assert_eq!(
             router.servers[0]
                 .breaker
@@ -3136,6 +3393,78 @@ mod tests {
             .unwrap();
         let text = result["content"][0]["text"].as_str().unwrap();
         assert_eq!(text, "postgres:add");
+    }
+
+    #[test]
+    fn profile_views_share_downstreams_but_reindex_distinct_tool_scopes() {
+        let mut base = Router::with_policy(ToolPolicy {
+            allow: HashMap::from([("shared".to_string(), HashSet::new())]),
+            ..ToolPolicy::default()
+        });
+        base.add(mock_server("shared"));
+        assert!(base.aggregated_tools().is_empty());
+
+        let echo = base.with_tool_allow(HashMap::from([(
+            "shared".to_string(),
+            HashSet::from(["echo".to_string()]),
+        )]));
+        let add = base.with_tool_allow(HashMap::from([(
+            "shared".to_string(),
+            HashSet::from(["add".to_string()]),
+        )]));
+        assert!(Arc::ptr_eq(&base.servers[0], &echo.servers[0]));
+        assert!(Arc::ptr_eq(&echo.servers[0], &add.servers[0]));
+        assert!(echo.route_of("shared__echo").is_some());
+        assert!(echo.route_of("shared__add").is_none());
+        assert!(add.route_of("shared__echo").is_none());
+        assert!(add.route_of("shared__add").is_some());
+    }
+
+    #[test]
+    fn replacing_a_root_slot_shares_unrelated_connections_and_rebuilds_its_catalog() {
+        let mut base = Router::new();
+        base.add(mock_server("ordinary"));
+        base.add(mock_server("rooted"));
+        let mut replacement = DownstreamServer::connect(
+            "rooted".to_string(),
+            Box::new(MockTransport {
+                label: "another-root".to_string(),
+            }),
+        )
+        .expect("replacement downstream");
+        replacement.tools.push(json!({
+            "name": "only_at_this_root",
+            "inputSchema": { "type": "object" }
+        }));
+        let view = base.with_server_launch(replacement, None);
+
+        assert!(Arc::ptr_eq(&base.servers[0], &view.servers[0]));
+        assert!(!Arc::ptr_eq(&base.servers[1], &view.servers[1]));
+        assert!(view.route_of("rooted__only_at_this_root").is_some());
+        assert!(base.route_of("rooted__only_at_this_root").is_none());
+        assert_eq!(
+            view.route_call("ordinary__add", json!({})).unwrap()["content"][0]["text"],
+            "ordinary:add"
+        );
+        assert_eq!(
+            base.route_call("rooted__add", json!({})).unwrap()["content"][0]["text"],
+            "rooted:add"
+        );
+        assert_eq!(
+            view.route_call("rooted__add", json!({})).unwrap()["content"][0]["text"],
+            "another-root:add"
+        );
+
+        let mut ordinary_only = Router::new();
+        ordinary_only.add(mock_server("ordinary"));
+        let inserted = ordinary_only.with_server_launch(mock_server("rooted"), None);
+        assert!(Arc::ptr_eq(&ordinary_only.servers[0], &inserted.servers[0]));
+        assert!(inserted.route_of("rooted__add").is_some());
+        assert!(ordinary_only.route_of("rooted__add").is_none());
+        let reused = ordinary_only
+            .with_server_slot_from(&inserted, "rooted")
+            .expect("inserted slot can be shared");
+        assert!(Arc::ptr_eq(&inserted.servers[1], &reused.servers[1]));
     }
 
     #[test]
@@ -3502,6 +3831,75 @@ mod tests {
             .collect();
         assert!(names.contains("atlassian__t39"));
         assert_eq!(names.len(), 45, "40 restored + 5 healthy");
+    }
+
+    #[test]
+    fn profile_view_retains_a_tool_hidden_from_the_base_during_a_guarded_shrink() {
+        let mut previous = router_with_catalogs(&[("atlassian", 40)]);
+        previous
+            .policy
+            .allow
+            .insert("atlassian".to_string(), HashSet::from(["t0".to_string()]));
+        previous.rebuild_aggregation();
+        let mut rebuilt = router_with_catalogs(&[("atlassian", 3)]);
+        rebuilt.policy.allow = previous.policy.allow.clone();
+        rebuilt.rebuild_aggregation();
+        rebuilt.adopt_restored_routes(&previous, &previous.aggregated_tools());
+
+        let profile = rebuilt.with_tool_allow(HashMap::from([(
+            "atlassian".to_string(),
+            HashSet::from(["t39".to_string()]),
+        )]));
+        assert_eq!(
+            profile.route_of("atlassian__t39"),
+            Some(("atlassian", "t39"))
+        );
+        assert!(profile
+            .aggregated_tools()
+            .iter()
+            .any(|tool| tool["name"] == "atlassian__t39"));
+        let refreshed = profile.reindexed();
+        assert_eq!(
+            refreshed.route_of("atlassian__t39"),
+            Some(("atlassian", "t39")),
+            "a rooted catalog refresh must retain guarded routes from unchanged slots"
+        );
+        let slot = profile.server_slot("atlassian").unwrap();
+        let shared = profile.with_shared_server_slot(&slot);
+        assert_eq!(
+            shared.route_of("atlassian__t39"),
+            Some(("atlassian", "t39"))
+        );
+        let mut quarantined = profile.clone();
+        quarantined.requarantine(BTreeSet::from(["atlassian__t39".to_string()]));
+        assert!(quarantined.route_of("atlassian__t39").is_none());
+        assert!(quarantined.is_blocked("atlassian__t39"));
+    }
+
+    #[test]
+    fn guarded_route_keeps_its_name_when_a_new_server_collides() {
+        let previous = router_with_catalogs(&[("a-b", 40)]);
+        let mut guarded = router_with_catalogs(&[("a-b", 3)]);
+        guarded.adopt_restored_routes(&previous, &previous.aggregated_tools());
+        let new_server = router_with_catalogs(&[("a_b", 40)]);
+        let slot = new_server.server_slot("a_b").unwrap();
+        let combined = guarded.with_shared_server_slot(&slot);
+        assert_eq!(combined.route_of("a_b__t39"), Some(("a-b", "t39")));
+        assert_eq!(combined.route_of("a_b__t39_2"), Some(("a_b", "t39")));
+    }
+
+    #[test]
+    fn confirmed_tool_refresh_expires_only_its_own_guarded_routes() {
+        let previous = router_with_catalogs(&[("a", 40), ("b", 40)]);
+        let mut guarded = router_with_catalogs(&[("a", 3), ("b", 3)]);
+        guarded.adopt_restored_routes(&previous, &previous.aggregated_tools());
+        assert!(guarded.reindexed().route_of("a__t39").is_some());
+
+        let slot = guarded.server_slot("a").unwrap();
+        slot.0.tool_revision.fetch_add(1, Ordering::AcqRel);
+        let refreshed = guarded.reindexed();
+        assert!(refreshed.route_of("a__t39").is_none());
+        assert_eq!(refreshed.route_of("b__t39"), Some(("b", "t39")));
     }
 
     #[test]

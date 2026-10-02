@@ -36,6 +36,10 @@ and has direct test or runtime evidence.
 | Arch payload and metadata                                                               | Staging and `PKGBUILD` include both binaries, desktop entry, URL handlers, AppStream, icons, license, and Agent Plugins archive                                                          | Desktop and AppStream validation plus isolated pacman lifecycle test                                    | Complete for preview |
 | Data-preserving install, upgrade, rollback, and uninstall                               | Isolated fakeroot pacman transactions hash registry and client fixtures after every transaction                                                                                          | `scripts/test-linux-native-package-lifecycle.sh`                                                        | Complete             |
 
+Native Activity now shows exact MCP catalog and discovery byte measurements
+alongside labeled bytes/4 token-equivalent estimates. Discovery-only activity
+has its own visible summary, and legacy history remains labeled as estimated.
+
 ## Remaining gaps to full 1:1 (2026-08-29 audit)
 
 All 26 gaps from the 2026-08-29 deep audit were closed the same day. What was
@@ -47,9 +51,10 @@ import, config rewrite with backup, scope + managed record, rollback), with a
 per-client "Move in N" action and moved/imported/backup feedback; (3) the
 Servers list probes every enabled server in the background with per-row
 Ready/Needs sign-in/Error status, an Authenticate CTA, copy-probe-error, a
-posture line, and attention-first grouping; (4) the startup reaper runs at
-launch plus a delayed pass, restores the bridge, and announces restart advice
-by feedback and notification, with a durable per-app/pid list in Settings;
+posture line, and attention-first grouping. It rechecks when the window regains
+focus or Servers is reopened, and after authentication changes; (4) the startup
+reaper runs at launch plus a delayed pass, restores the bridge, and announces
+restart advice by feedback and notification, with a durable per-app/pid list in Settings;
 (5) quarantine has a 15-second watcher, sidebar count badge (with an honest
 "?" unknown state), and OS notifications via shared
 `integrity::quarantine_notification`; (6) the tray shows the live pending

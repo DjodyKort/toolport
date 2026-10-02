@@ -22,7 +22,7 @@ pub(super) struct TeamsPage {
     poll_timer: Rc<RefCell<Option<gtk::glib::SourceId>>>,
     /// A removal or review/blocked notice from the last sync, applied by the
     /// next render so the async refresh cannot overwrite it.
-    sync_notice: Rc<RefCell<Option<String>>>,
+    sync_notice: Rc<RefCell<Option<(String, bool)>>>,
     rendered_state: Rc<RefCell<Option<(String, bool)>>>,
 }
 
@@ -128,20 +128,18 @@ impl TeamsPage {
         let running = Rc::new(Cell::new(false));
         let next_allowed = Rc::new(RefCell::new(std::time::Instant::now()));
         let page = self.clone();
-        let window_for_timer = window.clone();
+        let failures = Rc::new(Cell::new(0u32));
         let running_for_timer = running.clone();
         let next_for_timer = next_allowed.clone();
         let source = gtk::glib::timeout_add_local(std::time::Duration::from_secs(1), move || {
-            if !window_for_timer.is_visible()
-                || running_for_timer.get()
-                || std::time::Instant::now() < *next_for_timer.borrow()
-            {
+            if running_for_timer.get() || std::time::Instant::now() < *next_for_timer.borrow() {
                 return gtk::glib::ControlFlow::Continue;
             }
             running_for_timer.set(true);
             let page = page.clone();
             let running = running_for_timer.clone();
             let next_allowed = next_for_timer.clone();
+            let failures = failures.clone();
             gtk::glib::spawn_future_local(async move {
                 let result = gtk::gio::spawn_blocking(|| {
                     if crate::registry::load()?.team.is_none() {
@@ -153,17 +151,22 @@ impl TeamsPage {
                 running.set(false);
                 match result {
                     Ok(Ok(Some(outcome))) => {
+                        failures.set(0);
                         *next_allowed.borrow_mut() =
                             std::time::Instant::now() + std::time::Duration::from_secs(3);
                         page.absorb_sync_result(outcome);
                     }
                     Ok(Ok(None)) => {
+                        failures.set(0);
                         *next_allowed.borrow_mut() =
                             std::time::Instant::now() + std::time::Duration::from_secs(10);
                     }
                     Ok(Err(error)) => {
-                        *next_allowed.borrow_mut() =
-                            std::time::Instant::now() + std::time::Duration::from_secs(15);
+                        failures.set(failures.get().saturating_add(1));
+                        *next_allowed.borrow_mut() = std::time::Instant::now()
+                            + std::time::Duration::from_secs(crate::teams::retry_delay_seconds(
+                                failures.get(),
+                            ));
                         if page.root.is_mapped() {
                             page.show_error(&format!(
                                 "team sync failed; retrying automatically: {error}"
@@ -171,8 +174,11 @@ impl TeamsPage {
                         }
                     }
                     Err(_) => {
-                        *next_allowed.borrow_mut() =
-                            std::time::Instant::now() + std::time::Duration::from_secs(15);
+                        failures.set(failures.get().saturating_add(1));
+                        *next_allowed.borrow_mut() = std::time::Instant::now()
+                            + std::time::Duration::from_secs(crate::teams::retry_delay_seconds(
+                                failures.get(),
+                            ));
                         if page.root.is_mapped() {
                             page.show_error(
                                 "team sync stopped unexpectedly; retrying automatically",
@@ -214,8 +220,9 @@ impl TeamsPage {
         while let Some(child) = self.content.first_child() {
             self.content.remove(&child);
         }
-        if let Some(notice) = notice {
-            self.set_status(&notice, true);
+        if let Some((notice, is_error)) = notice {
+            self.set_status(&notice, is_error);
+            if !is_error { self.feedback.add_css_class("success"); }
             if let Some(team) = registry.team.clone() {
                 self.render_connected(registry, team);
             } else {
@@ -482,7 +489,11 @@ impl TeamsPage {
         summary.add_css_class("toolport-card");
         summary.append(
             &gtk::Label::builder()
-                .label(format!("Team {}", team.team_id))
+                .label(
+                    team.team_name
+                        .clone()
+                        .unwrap_or_else(|| format!("Team {}", team.team_id)),
+                )
                 .halign(gtk::Align::Start)
                 .css_classes(["heading"])
                 .build(),
@@ -506,34 +517,54 @@ impl TeamsPage {
         sync.connect_clicked(move |button| page_for_sync.sync(button.clone()));
         actions.append(&sync);
         if team.role == "admin" {
-            let push = gtk::Button::with_label("Update shared servers");
+            let push = gtk::Button::with_label("Share selected servers");
             push.add_css_class("toolport-secondary-action");
             let page_for_push = self.clone();
-            push.connect_clicked(move |button| page_for_push.preview_push(button.clone()));
+            push.connect_clicked(move |button| page_for_push.select_servers(button.clone()));
             actions.append(&push);
         }
-        let leave = gtk::Button::with_label("Leave team");
+        let account_link = gtk::Button::with_label("Link portal account");
+        let page_for_link = self.clone();
+        account_link.connect_clicked(move |button| {
+            let page = page_for_link.clone();
+            let button = button.clone();
+            button.set_sensitive(false);
+            gtk::glib::spawn_future_local(async move {
+                let result = gtk::gio::spawn_blocking(crate::teams::account_link).await;
+                match result {
+                    Ok(Ok(url)) => {
+                        let _ = crate::oauth::open_web_url(&url);
+                    }
+                    Ok(Err(error)) => page.feedback.set_text(&error),
+                    Err(_) => page
+                        .feedback
+                        .set_text("Could not prepare account link. Please try again."),
+                }
+                button.set_sensitive(true);
+            });
+        });
+        if team.account_linked != Some(true) {
+            actions.append(&account_link);
+        }
+        let leave = gtk::Button::with_label("Disconnect app");
         leave.add_css_class("destructive-action");
         let page_for_leave = self.clone();
         leave.connect_clicked(move |button| page_for_leave.confirm_leave(button.clone()));
         actions.append(&leave);
         summary.append(&actions);
         self.content.append(&summary);
+        self.content.append(&gtk::Label::builder().label("Open Clients to use your enabled team servers from an AI client. Review any remaining servers below before enabling them. Successful managed calls are reported automatically.").wrap(true).xalign(0.0).build());
 
-        let active_profile = registry.active_profile_id();
         let review = registry
             .servers
             .iter()
-            .filter(|server| {
-                server.needs_team_enable_review()
-                    && !registry.is_enabled(&active_profile, &server.id)
-            })
+            .filter(|server| server.source.as_deref() == Some(&format!("team:{}", team.team_id)))
             .cloned()
             .collect::<Vec<_>>();
         if !review.is_empty() {
             self.content.append(
                 &gtk::Label::builder()
-                    .label("Member review required")
+                    .label("Team-managed servers · review and local setup")
                     .halign(gtk::Align::Start)
                     .css_classes(["heading"])
                     .build(),
@@ -709,7 +740,7 @@ impl TeamsPage {
             crate::teams::SyncResult::Removed => {
                 let message = "You were removed from the team. Its shared servers \
                                and this machine's team token have been cleared.";
-                *self.sync_notice.borrow_mut() = Some(message.to_string());
+                *self.sync_notice.borrow_mut() = Some((message.to_string(), true));
                 let notification = gtk::gio::Notification::new("Removed from team");
                 notification.set_body(Some(message));
                 self.app
@@ -717,94 +748,117 @@ impl TeamsPage {
             }
             crate::teams::SyncResult::Ok { applied, .. } => {
                 let outcome = applied.map(|(_, outcome)| outcome).unwrap_or_default();
-                *self.sync_notice.borrow_mut() = team_review_line(outcome.review, outcome.blocked);
+                *self.sync_notice.borrow_mut() = team_review_line(outcome.review, outcome.blocked).map(|message| (message, true));
             }
         }
         self.refresh();
     }
 
-    fn preview_push(&self, button: gtk::Button) {
+    fn select_servers(&self, button: gtk::Button) {
+        let Some(parent) = self.app.active_window() else {
+            return;
+        };
+        let reg = match crate::registry::load() {
+            Ok(r) => r,
+            Err(e) => {
+                self.show_error(&e);
+                return;
+            }
+        };
+        #[allow(deprecated)]
+        let dialog = adw::MessageDialog::new(Some(&parent), Some("Share with your team"), Some("Choose one working server to begin. Other team servers and your personal originals stay in place. Each member supplies credentials locally. The preview shows how each choice relates to the team before anything is uploaded."));
+        dialog.set_size_request(480, -1);
+        dialog.add_response("cancel", "Cancel");
+        dialog.add_response("select", "Preview selected");
+        dialog.set_response_enabled("select", false);
+        dialog.set_close_response("cancel");
+        let list = gtk::Box::new(gtk::Orientation::Vertical, 8);
+        let choices = Rc::new(RefCell::new(Vec::<String>::new()));
+        for server in reg.servers.iter().filter(|s| {
+            !s.source.as_deref().unwrap_or("").starts_with("team:")
+                && !crate::clients::is_gateway_server(s)
+        }) {
+            let keys = server
+                .env
+                .iter()
+                .map(|e| e.key.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let check = gtk::CheckButton::new();
+            check.set_child(Some(&share_choice_label(
+                &server.name,
+                (!keys.is_empty()).then(|| format!("Local credentials: {keys}")),
+                crate::teams::personal_share_hint(&reg, server),
+            )));
+            let ids = choices.clone();
+            let id = server.id.clone();
+            let d = dialog.clone();
+            check.connect_toggled(move |c| {
+                let mut ids = ids.borrow_mut();
+                ids.retain(|x| x != &id);
+                if c.is_active() {
+                    ids.push(id.clone());
+                }
+                d.set_response_enabled("select", !ids.is_empty());
+            });
+            list.append(&check);
+        }
+        if list.first_child().is_none() {
+            list.append(&gtk::Label::new(Some(
+                "Add a working personal server in Servers first.",
+            )));
+        }
+        dialog.set_extra_child(Some(&list));
+        let page = self.clone();
+        dialog.connect_response(None, move |d, response| {
+            if response == "select" {
+                page.preview_push(button.clone(), choices.borrow().clone());
+            }
+            d.close();
+        });
+        dialog.present();
+    }
+
+    fn preview_push(&self, button: gtk::Button, selected: Vec<String>) {
         button.set_sensitive(false);
         self.feedback
             .set_label("Comparing local and shared team servers…");
         let page = self.clone();
         gtk::glib::spawn_future_local(async move {
-            let result = gtk::gio::spawn_blocking(crate::teams::preview_push_current).await;
+            let ids = selected.clone();
+            let result =
+                gtk::gio::spawn_blocking(move || crate::teams::preview_push_selected(&ids)).await;
             button.set_sensitive(true);
             match result {
-                Ok(Ok(preview)) => page.show_push_review(preview),
+                Ok(Ok(preview)) => page.show_push_review(preview, selected),
                 Ok(Err(error)) => page.show_error(&error),
                 Err(_) => page.show_error("the team comparison stopped unexpectedly"),
             }
         });
     }
 
-    fn show_push_review(&self, preview: crate::teams::PushPreview) {
+    fn show_push_review(&self, preview: crate::teams::PushPreview, selected: Vec<String>) {
         let Some(parent) = self.app.active_window() else {
             return;
         };
-        #[allow(deprecated)]
-        let dialog = adw::MessageDialog::new(
-            Some(&parent),
-            Some("Replace the team’s shared servers?"),
-            Some("Only the shared server list changes. Team instructions, security policies, and other settings stay unchanged. Secrets are never sent."),
-        );
-        dialog.add_response("cancel", "Cancel");
-        dialog.add_response("push", "Replace shared servers");
-        dialog.set_close_response("cancel");
-        dialog.set_default_response(Some("cancel"));
-        dialog.set_response_appearance("push", adw::ResponseAppearance::Destructive);
-        let changes = gtk::Box::new(gtk::Orientation::Vertical, 8);
-        changes.add_css_class("toolport-settings-group");
-        for (label, names) in [
-            ("Added", &preview.added),
-            ("Changed", &preview.changed),
-            ("Removed", &preview.removed),
-        ] {
-            let names = if names.is_empty() {
-                "None".to_string()
-            } else {
-                names.join(", ")
-            };
-            changes.append(
-                &gtk::Label::builder()
-                    .label(format!("{label}: {names}"))
-                    .halign(gtk::Align::Fill)
-                    .xalign(0.0)
-                    .wrap(true)
-                    .css_classes(["toolport-muted"])
-                    .build(),
-            );
-        }
-        changes.append(
-            &gtk::Label::builder()
-                .label("If either side changes after this preview, Toolport stops instead of overwriting it.")
-                .halign(gtk::Align::Fill)
-                .xalign(0.0)
-                .wrap(true)
-                .css_classes(["toolport-muted"])
-                .build(),
-        );
-        dialog.set_extra_child(Some(&changes));
+        let dialog = share_preview_dialog(&parent, &preview);
         let page = self.clone();
         dialog.connect_response(None, move |dialog, response| {
             if response == "push" {
                 let base_version = preview.base_version;
                 let fingerprint = preview.local_fingerprint.clone();
+                let selected = selected.clone();
                 page.feedback.set_label("Updating shared team servers…");
                 let page = page.clone();
                 gtk::glib::spawn_future_local(async move {
                     let result = gtk::gio::spawn_blocking(move || {
-                        crate::teams::push_current(base_version, &fingerprint)
+                        crate::teams::push_selected(&selected, base_version, &fingerprint)
                     })
                     .await;
                     match result {
-                        Ok(Ok(version)) => {
-                            page.feedback.set_label(&format!(
-                                "Shared team servers updated to version {version}."
-                            ));
-                            page.feedback.remove_css_class("error");
-                            page.feedback.add_css_class("success");
+                        Ok(Ok(result)) => {
+                            *page.sync_notice.borrow_mut() =
+                                Some((result.summary.clone(), result.needs_attention()));
                             page.refresh();
                         }
                         Ok(Err(error)) => page.show_error(&error),
@@ -824,11 +878,11 @@ impl TeamsPage {
         #[allow(deprecated)]
         let dialog = adw::MessageDialog::new(
             Some(&parent),
-            Some("Leave this Toolport team?"),
-            Some("Team-provided servers, instructions, and enforced policy are removed. Your own servers and settings stay intact."),
+            Some("Disconnect this app from the team?"),
+            Some("Team servers, instructions and policy are removed from this app. Your personal servers stay saved. Your Team membership and shared setup remain. Reconnect from the Teams website."),
         );
         dialog.add_response("cancel", "Cancel");
-        dialog.add_response("leave", "Leave team");
+        dialog.add_response("leave", "Disconnect app");
         dialog.set_close_response("cancel");
         dialog.set_default_response(Some("cancel"));
         dialog.set_response_appearance("leave", adw::ResponseAppearance::Destructive);
@@ -959,9 +1013,8 @@ fn team_review_line(review: usize, blocked: usize) -> Option<String> {
     let mut parts = Vec::new();
     if review > 0 {
         parts.push(format!(
-            "{review} team {} a local command or a LAN address, so {} off until you review and enable {} below.",
-            if review == 1 { "server runs" } else { "servers run" },
-            if review == 1 { "it's" } else { "they're" },
+            "{review} team {} off until you review and enable {} below. Check the command, address and authentication before enabling.",
+            if review == 1 { "server is" } else { "servers are" },
             if review == 1 { "it" } else { "them" },
         ));
     }
@@ -999,14 +1052,37 @@ fn review_server_row(server: crate::registry::ServerEntry, page: TeamsPage) -> g
             .css_classes(["heading"])
             .build(),
     );
-    let target = server
-        .command
-        .as_deref()
-        .or(server.url.as_deref())
-        .unwrap_or("Unknown target");
+    let credentials = server
+        .env
+        .iter()
+        .map(|e| e.key.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let target = if let Some(command) = &server.command {
+        format!(
+            "Command: {command}\nArguments: {}\nWorking directory: {}\nCredentials required: {}",
+            serde_json::to_string(&server.args).unwrap_or_default(),
+            server.cwd.as_deref().unwrap_or("Inherit from client"),
+            if credentials.is_empty() {
+                "None declared"
+            } else {
+                &credentials
+            }
+        )
+    } else {
+        format!(
+            "URL: {}\nCredentials required: {}",
+            server.url.as_deref().unwrap_or("Unknown target"),
+            if credentials.is_empty() {
+                "None declared"
+            } else {
+                &credentials
+            }
+        )
+    };
     copy.append(
         &gtk::Label::builder()
-            .label(target)
+            .label(&target)
             .halign(gtk::Align::Fill)
             .xalign(0.0)
             .wrap(true)
@@ -1014,7 +1090,50 @@ fn review_server_row(server: crate::registry::ServerEntry, page: TeamsPage) -> g
             .build(),
     );
     row.append(&copy);
-    let enable = gtk::Button::with_label("Review and enable");
+    let original = crate::registry::load().ok().and_then(|r| {
+        let id = r.team.as_ref()?.managed_server_ids.get(&server.id)?;
+        r.servers
+            .iter()
+            .find(|s| {
+                &s.id == id
+                    && !s.source.as_deref().unwrap_or("").starts_with("team:")
+                    && r.is_enabled(&r.active_profile_id(), id)
+            })
+            .map(|s| s.name.clone())
+    });
+    if let Some(original) = original {
+        let use_managed = gtk::Button::with_label("Use in this profile");
+        use_managed.set_valign(gtk::Align::Center);
+        let page = page.clone();
+        let id = server.id.clone();
+        let detail = target.clone();
+        use_managed.connect_clicked(move |_| {
+            let Some(parent) = page.app.active_window() else { return; };
+            #[allow(deprecated)]
+            let d = adw::MessageDialog::new(Some(&parent), Some("Use team-managed version?"), Some(&format!("{detail}\n\nEnable this managed copy and disable Personal {original} in this profile. The original stays saved. Existing local credentials and sign-in are reused only when the definitions match exactly. Nothing is uploaded. Signing out affects both copies.")));
+            d.set_size_request(520, -1);
+            d.add_response("cancel", "Cancel"); d.add_response("use", "Use managed version"); d.set_close_response("cancel");
+            let page = page.clone(); let id = id.clone();
+            d.connect_response(None, move |d, response| {
+                if response == "use" { let page = page.clone(); let id = id.clone(); gtk::glib::spawn_future_local(async move {
+                    match gtk::gio::spawn_blocking(move || crate::teams::use_managed_server(&id)).await {
+                        Ok(Ok(_)) => page.refresh(), Ok(Err(e)) => page.show_error(&e), Err(_) => page.show_error("Could not switch to managed server"),
+                    }
+                }); }
+                d.close();
+            }); d.present();
+        });
+        row.append(&use_managed);
+    }
+    let already_enabled =
+        crate::registry::load().is_ok_and(|r| r.is_enabled(&r.active_profile_id(), &server.id));
+    let enable = gtk::Button::with_label(if already_enabled {
+        "Enabled in this profile"
+    } else {
+        "Review and enable"
+    });
+    enable.set_valign(gtk::Align::Center);
+    enable.set_sensitive(!already_enabled);
     enable.add_css_class("toolport-secondary-action");
     let server_name = server.name.clone();
     let server_id = server.id.clone();
@@ -1026,7 +1145,7 @@ fn review_server_row(server: crate::registry::ServerEntry, page: TeamsPage) -> g
         let dialog = adw::MessageDialog::new(
             Some(&parent),
             Some(&format!("Enable {server_name}?")),
-            Some("This team server runs a local command or connects to a private address. Enable it only after verifying the target above."),
+            Some(&format!("{target}\n\nEnable only after verifying this definition and saved authentication. Credentials remain local.")),
         );
         dialog.add_response("cancel", "Keep disabled");
         dialog.add_response("enable", "Enable");
@@ -1067,23 +1186,334 @@ fn review_server_row(server: crate::registry::ServerEntry, page: TeamsPage) -> g
     row
 }
 
+/// A picker row: the server name, then muted lines for its credential keys and
+/// how it relates to the team.
+fn share_choice_label(name: &str, keys: Option<String>, hint: Option<&str>) -> gtk::Box {
+    let column = gtk::Box::new(gtk::Orientation::Vertical, 2);
+    let title = gtk::Label::builder().label(name).xalign(0.0).wrap(true).build();
+    column.append(&title);
+    for detail in keys.as_deref().into_iter().chain(hint) {
+        let line = gtk::Label::builder()
+            .label(detail)
+            .xalign(0.0)
+            .wrap(true)
+            .max_width_chars(48)
+            .build();
+        line.add_css_class("toolport-muted");
+        column.append(&line);
+    }
+    column
+}
+
+/// What the confirm button does for this preview, or `None` when there is
+/// nothing to upload or switch. The React preview applies the same rule.
+fn share_action(preview: &crate::teams::PushPreview) -> Option<&'static str> {
+    if share_uploads(preview) {
+        Some("Share selected")
+    } else if preview
+        .selections
+        .iter()
+        .any(|selection| selection.local.outcome == crate::teams::HandoffOutcome::Switched)
+    {
+        Some("Use Team copies")
+    } else {
+        None
+    }
+}
+
+fn share_uploads(preview: &crate::teams::PushPreview) -> bool {
+    !(preview.added.is_empty() && preview.changed.is_empty() && preview.removed.is_empty())
+}
+
+#[allow(deprecated)]
+fn share_preview_dialog(
+    parent: &gtk::Window,
+    preview: &crate::teams::PushPreview,
+) -> adw::MessageDialog {
+    let dialog = adw::MessageDialog::new(
+        Some(parent), Some("Share selected servers?"),
+        Some("Other team servers, instructions and policies stay unchanged. Your personal servers remain saved, and other profiles stay unchanged. Credential values are never uploaded. Each member uses their own credentials locally."),
+    );
+    dialog.set_size_request(520, -1);
+    dialog.add_response("cancel", "Cancel");
+    let action = share_action(preview);
+    dialog.add_response("push", action.unwrap_or("Share selected"));
+    dialog.set_response_enabled("push", action.is_some());
+    dialog.set_close_response("cancel");
+    dialog.set_default_response(Some("cancel"));
+    dialog.set_response_appearance("push", adw::ResponseAppearance::Suggested);
+    dialog.set_extra_child(Some(&share_preview_content(preview)));
+    dialog
+}
+
+/// Bounded, expandable review of the exact display-only preview also used by Tauri.
+fn share_preview_content(preview: &crate::teams::PushPreview) -> gtk::ScrolledWindow {
+    let changes = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    changes.add_css_class("toolport-settings-group");
+    let label = |text: &str| {
+        gtk::Label::builder()
+            .label(text)
+            .xalign(0.0)
+            .wrap(true)
+            .wrap_mode(gtk::pango::WrapMode::WordChar)
+            .max_width_chars(52)
+            .selectable(true)
+            .build()
+    };
+    for selection in &preview.selections {
+        let heading = label(&format!("{} · {}", selection.name, selection.team_change));
+        heading.add_css_class("heading");
+        changes.append(&heading);
+        changes.append(&label(&selection.team_detail));
+        for note in &selection.notes {
+            let note = label(note);
+            note.add_css_class("toolport-muted");
+            changes.append(&note);
+        }
+        let local = label(&selection.local.message);
+        if selection.local.outcome == crate::teams::HandoffOutcome::Attention {
+            local.add_css_class("error");
+        }
+        changes.append(&local);
+    }
+    let uploads = share_uploads(preview);
+    if !preview.selections.is_empty() && !uploads {
+        changes.append(&label(if share_action(preview).is_some() {
+            "Nothing new is uploaded to the team. Only this profile changes."
+        } else {
+            "Nothing to upload or switch for this selection."
+        }));
+    }
+    for (kind, names) in [
+        ("Added", &preview.added),
+        ("Changed", &preview.changed),
+        ("Removed", &preview.removed),
+    ]
+    .into_iter()
+    .filter(|_| uploads || preview.selections.is_empty())
+    {
+        let heading = label(&format!("{kind} ({})", names.len()));
+        heading.add_css_class("heading");
+        changes.append(&heading);
+        if names.is_empty() {
+            changes.append(&label("None"));
+        }
+        if kind == "Removed" {
+            for name in names {
+                changes.append(&label(name));
+            }
+            continue;
+        }
+        for definition in preview.definitions.iter().filter(|d| d.change == kind) {
+            let expander = gtk::Expander::builder()
+                .expanded(preview.definitions.len() == 1)
+                .build();
+            let summary = label(&format!("{} · {}", definition.name, definition.transport));
+            summary.set_selectable(false);
+            expander.set_label_widget(Some(&summary));
+            let fields = gtk::Box::new(gtk::Orientation::Vertical, 6);
+            fields.set_margin_start(16);
+            for field in &definition.fields {
+                let title = label(&field.label);
+                title.add_css_class("toolport-muted");
+                fields.append(&title);
+                let value = label(&field.value);
+                value.add_css_class("monospace");
+                fields.append(&value);
+            }
+            expander.set_child(Some(&fields));
+            changes.append(&expander);
+        }
+    }
+    changes.append(&label("If the team or your local servers change before saving, Toolport stops and asks you to review again."));
+    gtk::ScrolledWindow::builder()
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .min_content_width(440)
+        .max_content_height(360)
+        .propagate_natural_height(true)
+        .child(&changes)
+        .build()
+}
+
 #[cfg(test)]
 mod tests {
+    use super::share_preview_dialog;
     use super::team_review_line;
+    use super::{share_action, share_choice_label};
+    use crate::teams::{HandoffOutcome, LocalHandoff, PushPreview, ShareSelectionPreview};
+    use adw::prelude::*;
+
+    fn selection(name: &str, change: &str, outcome: HandoffOutcome, message: &str) -> ShareSelectionPreview {
+        ShareSelectionPreview {
+            id: name.to_lowercase(),
+            name: name.into(),
+            team_change: change.into(),
+            team_detail: format!("{change} detail."),
+            notes: vec![],
+            local: LocalHandoff {
+                id: name.to_lowercase(),
+                name: name.into(),
+                outcome,
+                message: message.into(),
+            },
+        }
+    }
+
+    fn selection_preview(selections: Vec<ShareSelectionPreview>) -> PushPreview {
+        PushPreview {
+            base_version: 3,
+            local_fingerprint: "f".into(),
+            added: vec![],
+            changed: vec![],
+            removed: vec![],
+            definitions: vec![],
+            selections,
+        }
+    }
+
+    fn collect(widget: &gtk::Widget, text: &mut String) {
+        if let Some(expander) = widget.downcast_ref::<gtk::Expander>() {
+            if let Some(child) = expander.child() {
+                collect(&child, text);
+            }
+        }
+        if let Some(label) = widget.downcast_ref::<gtk::Label>() {
+            text.push_str(&label.text());
+            text.push('\n');
+        }
+        let mut child = widget.first_child();
+        while let Some(w) = child {
+            collect(&w, text);
+            child = w.next_sibling();
+        }
+    }
+
+    #[test]
+    fn the_confirm_action_matches_what_the_share_will_do() {
+        let switch = selection("Linear", "Already shared", HandoffOutcome::Switched, "switches");
+        let kept = selection("Linear", "Already shared", HandoffOutcome::Kept, "keeps");
+        let blocked = selection("Vercel", "Already shared", HandoffOutcome::Attention, "needs setup");
+        assert_eq!(share_action(&selection_preview(vec![switch.clone(), blocked.clone()])), Some("Use Team copies"));
+        assert_eq!(share_action(&selection_preview(vec![kept, blocked])), None);
+        let mut update = selection_preview(vec![switch]);
+        update.changed = vec!["Linear".into()];
+        update.definitions = vec![crate::teams::ShareDefinitionPreview {
+            id: "linear".into(),
+            name: "Linear".into(),
+            change: "Changed".into(),
+            transport: "http".into(),
+            fields: vec![],
+        }];
+        assert_eq!(share_action(&update), Some("Share selected"));
+    }
+
+    #[test]
+    #[ignore = "requires an isolated GTK desktop; run in omabox"]
+    fn share_preview_explains_each_selection_and_its_route() {
+        adw::init().unwrap();
+        let mut same_name = selection("Linear", "New", HandoffOutcome::Switched, "This profile switches to the Team copy. Your personal server stays saved and turns off here.");
+        same_name.notes = vec!["The team also has a separate definition named Linear (ID linear-2). It stays separate because sharing matches server IDs, not names.".into()];
+        let preview = selection_preview(vec![
+            same_name,
+            selection("Vercel (Full API)", "Already shared", HandoffOutcome::Attention, "This team copy already has its own local credentials. Keep its existing setup and enable it separately. Your personal server stays on in this profile."),
+        ]);
+        let parent = gtk::Window::builder().default_width(1000).default_height(760).build();
+        parent.present();
+        let dialog = share_preview_dialog(&parent, &preview);
+        let mut text = String::new();
+        collect(dialog.upcast_ref(), &mut text);
+        for expected in [
+            "Linear · New",
+            "(ID linear-2)",
+            "Vercel (Full API) · Already shared",
+            "Your personal server stays on in this profile.",
+            "Nothing new is uploaded to the team. Only this profile changes.",
+        ] {
+            assert!(text.contains(expected), "missing {expected}:\n{text}");
+        }
+        assert!(!text.contains("Added (0)"), "{text}");
+        assert!(dialog.is_response_enabled("push"));
+        assert_eq!(dialog.response_label("push"), "Use Team copies");
+        dialog.present();
+        if std::env::var_os("TOOLPORT_SHARE_PREVIEW_CAPTURE").is_some() {
+            let main_loop = gtk::glib::MainLoop::new(None, false);
+            let stop = main_loop.clone();
+            gtk::glib::timeout_add_seconds_local_once(180, move || stop.quit());
+            main_loop.run();
+        }
+        dialog.close();
+
+        let picker = share_choice_label("Linear", None, Some("Shared. The Team copy is in use in this profile."));
+        let mut text = String::new();
+        collect(picker.upcast_ref(), &mut text);
+        assert_eq!(text, "Linear\nShared. The Team copy is in use in this profile.\n");
+        parent.close();
+    }
+
+    #[test]
+    #[ignore = "requires an isolated GTK desktop; run in omabox"]
+    fn share_preview_widgets_show_allowlisted_definitions() {
+        adw::init().unwrap();
+        let preview = crate::teams::build_push_preview(3, &serde_json::json!([
+            {"id":"http", "name":"Internal knowledge", "url":"https://old.test"},
+            {"id":"removed", "name":"Retired tools"}
+        ]), &serde_json::json!([
+            {"id":"stdio", "name":"Project tools", "transport":"stdio", "command":"python3",
+             "args":["/home/test/projects/a-long-workspace-name/services/tool-server/server.py", "--workspace", "/home/test/projects/team workspace", "--verbose"],
+             "cwd":"/home/test/projects/a-long-workspace-name/services/tool-server",
+             "env":[{"key":"GITHUB_TOKEN","value":"SYNTHETIC_ENV_SECRET"},{"key":"WORKSPACE_KEY"},{"key":"SERVICE_ACCOUNT_TOKEN"}]},
+            {"id":"http", "name":"Internal knowledge", "transport":"http", "url":"https://example.internal/platform/knowledge/mcp?workspace=engineering&region=us-east",
+             "env":[{"key":"API_TOKEN","value":"SYNTHETIC_HTTP_SECRET"}], "oauthToken":"SYNTHETIC_OAUTH_SECRET"}
+        ])).unwrap();
+        let parent = gtk::Window::builder()
+            .title("Phase 4 controlled GTK preview")
+            .default_width(1000)
+            .default_height(760)
+            .build();
+        parent.present();
+        let dialog = share_preview_dialog(&parent, &preview);
+        let mut text = String::new();
+        collect(dialog.upcast_ref(), &mut text);
+        for expected in [
+            "python3",
+            "--workspace",
+            "Working directory",
+            "Endpoint",
+            "API_TOKEN",
+            "GITHUB_TOKEN",
+            "Added (1)",
+            "Changed (1)",
+            "Removed (1)",
+            "personal servers remain saved",
+            "Other team servers",
+        ] {
+            assert!(text.contains(expected), "missing {expected}");
+        }
+        assert!(!text.contains("SYNTHETIC_"));
+        dialog.present();
+        if std::env::var_os("TOOLPORT_SHARE_PREVIEW_CAPTURE").is_some() {
+            let main_loop = gtk::glib::MainLoop::new(None, false);
+            let stop = main_loop.clone();
+            gtk::glib::timeout_add_seconds_local_once(180, move || stop.quit());
+            main_loop.run();
+        }
+        dialog.close();
+        parent.close();
+    }
 
     #[test]
     fn merge_notices_explain_held_and_blocked_servers() {
         assert_eq!(team_review_line(0, 0), None);
         assert_eq!(
             team_review_line(1, 0).unwrap(),
-            "1 team server runs a local command or a LAN address, so it's off until you \
-             review and enable it below."
+            "1 team server is off until you review and enable it below. \
+             Check the command, address and authentication before enabling."
         );
         assert_eq!(
             team_review_line(2, 1).unwrap(),
-            "2 team servers run a local command or a LAN address, so they're off until you \
-             review and enable them below. 1 was blocked as unsafe (link-local or \
-             cloud-metadata URLs)."
+            "2 team servers are off until you review and enable them below. \
+             Check the command, address and authentication before enabling. \
+             1 was blocked as unsafe (link-local or cloud-metadata URLs)."
         );
     }
 }

@@ -1,13 +1,25 @@
 # Design: One heavy gateway per host
 
-Status: Phase 0 landed (SBS-838). Phases 1-4 remain PROPOSED, and **the current gateway
-topology is unchanged** — every stdio client session still runs its own gateway and its
-own copy of every enabled downstream server.
+Status: Phase 0, P1.2, Phases 2 and 3, and P4.1 through P4.3 were delivered in increments.
+Client-spawned stdio gateways now select the host daemon by default when their
+registry is authoritative. Desktop Shared HTTP uses a lightweight proxy and a
+private daemon service lease. An explicit registry or launch `legacy` choice keeps
+the separate in-process topology available for rollback. P1.3 host-state field
+moves remain structural cleanup. See
+[the plan](one-gateway-per-host-plan.md) for the slice-by-slice status.
 
 SBS-551 delivered this design plus a slice of Phase 1 (`ActiveRequestContext` and the
 per-request guards). It was closed at that point, which read as "one gateway per host is
 done" when only the enabling refactor had shipped. The measured cost of the unchanged
 topology is in the Phase 0 baseline below.
+
+One interim mitigation for the rate-limit cost of this topology has shipped: when a
+downstream HTTP server returns 429 (honoring `Retry-After` when present), the gateway
+records a capped retry-not-before window for that provider in
+`downstream_backoff.json` in the data dir, and every gateway process on the host fails
+fast against that provider while the window is open (issue #874). This keeps
+session-start fan-out from re-tripping a provider that is already limiting, but it does
+not deduplicate the connects themselves — only the daemon phases below do that.
 
 ## Goal
 
@@ -41,11 +53,17 @@ owned at the wrong boundaries:
 - The desktop app owns one fixed-port `toolport-gateway --http` child and kills it on app
   exit (`desktop.rs`, `start_http_bridge_at`). It fails when the port is occupied rather
   than discovering an existing compatible process, so it is not a host daemon.
-- `GatewayState` mixes host state (registry, router, catalog, rebuild lock) with
-  connection state (stdout, profile, root, upstream capabilities and server-request
-  routing). Process globals also encode single-client assumptions: discovery/code mode,
-  stdio presence and era, progress dispatch, PII maps, result stash, and pending modern
-  HITL approvals.
+- `GatewayState` was the single struct mixing host state (registry, router, catalog,
+  rebuild lock) with connection state (profile, root, upstream capabilities and
+  server-request routing). The host half now lives on `HostState`, which `GatewayState`
+  reaches through a `Deref` facade, and the host owns its session table, its daemon runtime,
+  its rebuild streaks, and its quarantine read state too. Process globals also encoded
+  single-client assumptions: discovery/code mode, stdio presence (the `STDIO_*` handshake
+  statics), and the progress dispatch and token table. The stdio era, the per-connection
+  progress hand-off, the broken-stdout latch, the cancellation registry and in-flight cap, the
+  PII maps, the result stash, and the pending modern HITL approvals
+  have since moved onto session state, and `GatewayState` no longer holds a stdout; see
+  [the plan](one-gateway-per-host-plan.md) for what landed when.
 - Streamable HTTP already has useful session primitives: authenticated owner and scope,
   client capabilities, outbound queues, upstream request correlation, subscriptions,
   expiry, and cleanup.
@@ -206,11 +224,10 @@ running as the same OS user.
 
 Do not combine daemon rollout with changing the public Shared HTTP contract.
 
-Initially, the internal daemon endpoint is private rendezvous infrastructure and the
-existing opt-in desktop HTTP bridge remains unchanged. After stdio sharing is stable, the
-desktop app can acquire a service lease and publish the configured port/token through the
-same host runtime. At that point `start_http_bridge_at` discovers/adopts the daemon and app
-exit releases its lease instead of killing the process.
+The internal daemon endpoint remains private rendezvous infrastructure. The
+desktop app now holds a service lease and publishes its configured port/token
+through a lightweight proxy into the same host runtime. `start_http_bridge_at`
+discovers the daemon, and app exit releases the lease instead of killing the host.
 
 This sequencing keeps fixed-port behavior, registered client tokens, LAN exposure options,
 and user expectations out of the first migration. It also avoids accidentally exposing the

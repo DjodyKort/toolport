@@ -8,9 +8,13 @@ const getRegistry = vi.fn();
 const detectClients = vi.fn();
 const takeRegistryRecoveryNotice = vi.fn();
 const setServerEnabled = vi.fn();
-const teamSyncWait = vi.fn();
+const { eventHandlers } = vi.hoisted(() => ({
+  eventHandlers: new Map<string, (event: { payload: Registry }) => void>(),
+}));
 
 vi.mock("@/lib/api", () => ({
+  teamPairState: vi.fn(() => Promise.resolve(null)),
+  teamPairCancel: vi.fn(),
   addServer: vi.fn(),
   detectClients: (...a: unknown[]) => detectClients(...a),
   getRegistry: (...a: unknown[]) => getRegistry(...a),
@@ -24,13 +28,15 @@ vi.mock("@/lib/api", () => ({
   setSecret: vi.fn(),
   setServerEnabled: (...a: unknown[]) => setServerEnabled(...a),
   takeRegistryRecoveryNotice: (...a: unknown[]) => takeRegistryRecoveryNotice(...a),
-  teamSyncWait: (...a: unknown[]) => teamSyncWait(...a),
   testServer: vi.fn(),
   updateServer: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn(() => Promise.resolve(() => {})),
+  listen: vi.fn((name: string, handler: (event: { payload: Registry }) => void) => {
+    eventHandlers.set(name, handler);
+    return Promise.resolve(() => eventHandlers.delete(name));
+  }),
 }));
 
 vi.mock("@/lib/trayApprovals", () => ({
@@ -71,16 +77,9 @@ function registryWith(args: string[]): Registry {
   } as Registry;
 }
 
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((res) => {
-    resolve = res;
-  });
-  return { promise, resolve };
-}
-
 beforeEach(() => {
   vi.clearAllMocks();
+  eventHandlers.clear();
   localStorage.clear();
   getRegistry.mockResolvedValue(registryWith(["-y", "old-tool"]));
   detectClients.mockResolvedValue([]);
@@ -96,12 +95,6 @@ describe("team enable review dialog", () => {
     "stays open showing the new command when the definition changes mid-review",
     { timeout: 20000 },
     async () => {
-      const sync = deferred<Registry>();
-      // First long-poll delivers the mutated registry when we choose; later polls park.
-      teamSyncWait
-        .mockReturnValueOnce(sync.promise)
-        .mockReturnValue(new Promise(() => {}));
-
       render(<App />);
       // The (only) server is off, so it sits in the collapsed Disabled group.
       await userEvent.click(
@@ -113,7 +106,9 @@ describe("team enable review dialog", () => {
 
       // The push lands while the member is reading the dialog.
       await act(async () => {
-        sync.resolve(registryWith(["-y", "new-tool"]));
+        const onSync = eventHandlers.get("team-sync-registry");
+        expect(onSync).toBeDefined();
+        onSync!({ payload: registryWith(["-y", "new-tool"]) });
       });
 
       await userEvent.click(screen.getByRole("button", { name: "Enable" }));

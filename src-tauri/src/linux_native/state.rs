@@ -34,14 +34,29 @@ pub(super) struct ActivitySnapshot {
     pub(super) call_count: usize,
     pub(super) error_count: usize,
     pub(super) average_duration_ms: Option<u64>,
-    /// Cumulative tool-definition tokens lazy discovery kept out of client context,
-    /// from the local savings log; not derived from the audit entries.
+    /// Compatibility token-equivalent estimate from catalog exposure records.
+    /// Exact MCP surface bytes are recorded separately; provider usage is unknown.
     pub(super) tokens_saved: u64,
     pub(super) savings_list_loads: u64,
     pub(super) savings_peak_catalog: u64,
     pub(super) savings_since_ts: u64,
+    pub(super) savings_full_bytes: u64,
+    pub(super) savings_exposed_bytes: u64,
+    pub(super) savings_avoided_bytes: u64,
+    pub(super) savings_extra_bytes: u64,
+    pub(super) savings_measured_loads: u64,
+    pub(super) savings_latest_catalog_ts: u64,
+    pub(super) savings_latest_full_tools: u64,
+    pub(super) savings_latest_exposed_tools: u64,
+    pub(super) savings_latest_full_bytes: u64,
+    pub(super) savings_latest_exposed_bytes: u64,
+    pub(super) savings_discovery_count: u64,
+    pub(super) savings_discovery_bytes: u64,
+    pub(super) savings_legacy_tokens: u64,
     /// Every pinned tool's provenance, newest-changed first.
     pub(super) tool_identities: Vec<crate::integrity::ToolIdentity>,
+    /// A damaged identity store affects this panel, not the rest of Activity.
+    pub(super) tool_identities_error: Option<String>,
     /// Per-server aggregation of the full retained log (`audit::stats` rows),
     /// busiest first; each row carries its per-tool breakdown.
     pub(super) server_stats: Vec<serde_json::Value>,
@@ -118,7 +133,21 @@ impl ActivitySnapshot {
             savings_list_loads: 0,
             savings_peak_catalog: 0,
             savings_since_ts: 0,
+            savings_full_bytes: 0,
+            savings_exposed_bytes: 0,
+            savings_avoided_bytes: 0,
+            savings_extra_bytes: 0,
+            savings_measured_loads: 0,
+            savings_latest_catalog_ts: 0,
+            savings_latest_full_tools: 0,
+            savings_latest_exposed_tools: 0,
+            savings_latest_full_bytes: 0,
+            savings_latest_exposed_bytes: 0,
+            savings_discovery_count: 0,
+            savings_discovery_bytes: 0,
+            savings_legacy_tokens: 0,
             tool_identities: Vec::new(),
+            tool_identities_error: None,
             server_stats: Vec::new(),
         }
     }
@@ -170,7 +199,11 @@ pub(super) fn group_tool_identities(
 
 /// The savings tile's number, compressed the way the shipping sidebar shows it.
 pub(super) fn format_token_count(tokens: u64) -> String {
-    if tokens >= 1_000_000 {
+    if tokens >= 999_950_000_000 {
+        format!("{:.1}T", tokens as f64 / 1_000_000_000_000.0)
+    } else if tokens >= 999_950_000 {
+        format!("{:.1}B", tokens as f64 / 1_000_000_000.0)
+    } else if tokens >= 999_950 {
         format!("{:.1}M", tokens as f64 / 1_000_000.0)
     } else if tokens >= 1_000 {
         format!("{:.1}k", tokens as f64 / 1_000.0)
@@ -239,7 +272,8 @@ pub(super) fn load_activity_snapshot() -> Result<ActivitySnapshot, String> {
         .map_err(|error| format!("could not read discovery traces: {error}"))?;
     snapshot.inspect_calls = crate::inspect::read_recent(25)
         .map_err(|error| format!("could not read inspector captures: {error}"))?;
-    let savings = crate::savings::summary();
+    let savings = crate::savings::try_summary()
+        .map_err(|error| format!("could not read catalog telemetry: {error}"))?;
     let savings_number = |key: &str| {
         savings
             .get(key)
@@ -250,11 +284,30 @@ pub(super) fn load_activity_snapshot() -> Result<ActivitySnapshot, String> {
     snapshot.savings_list_loads = savings_number("listLoads");
     snapshot.savings_peak_catalog = savings_number("peakCatalog");
     snapshot.savings_since_ts = savings_number("sinceTs");
-    let registry = crate::registry::load()
-        .map_err(|error| format!("could not read the registry for tool identities: {error}"))?;
-    snapshot.tool_identities =
-        crate::integrity::tool_identities(&registry.servers, &registry.profiles)
-            .map_err(|error| format!("could not read tool identity pins: {error}"))?;
+    snapshot.savings_full_bytes = savings_number("fullSurfaceBytes");
+    snapshot.savings_exposed_bytes = savings_number("exposedSurfaceBytes");
+    snapshot.savings_avoided_bytes = savings_number("avoidedSurfaceBytes");
+    snapshot.savings_extra_bytes = savings_number("extraExposedSurfaceBytes");
+    snapshot.savings_measured_loads = savings_number("measuredLoads");
+    snapshot.savings_latest_catalog_ts = savings_number("latestCatalogTs");
+    snapshot.savings_latest_full_tools = savings_number("latestFullToolCount");
+    snapshot.savings_latest_exposed_tools = savings_number("latestExposedToolCount");
+    snapshot.savings_latest_full_bytes = savings_number("latestFullSurfaceBytes");
+    snapshot.savings_latest_exposed_bytes = savings_number("latestExposedSurfaceBytes");
+    snapshot.savings_discovery_count = savings_number("discoveryCount");
+    snapshot.savings_discovery_bytes = savings_number("discoveryResponseBytes");
+    snapshot.savings_legacy_tokens = savings_number("legacyEstimatedTokensAvoided");
+    // Identity provenance has its own panel. A damaged pin or quarantine store
+    // must show as unknown there without hiding retained calls and audit stats.
+    match crate::registry::load()
+        .map_err(|error| format!("could not read the registry for tool identities: {error}"))
+        .and_then(|registry| {
+            crate::integrity::tool_identities(&registry.servers, &registry.profiles)
+                .map_err(|error| format!("could not read the tool identity stores: {error}"))
+        }) {
+        Ok(identities) => snapshot.tool_identities = identities,
+        Err(error) => snapshot.tool_identities_error = Some(error),
+    }
     Ok(snapshot)
 }
 
@@ -374,12 +427,14 @@ pub(super) fn detect_client_views() -> Result<ClientSnapshot, String> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ServerView {
+    pub(super) origin_label: String,
     pub(super) id: String,
     pub(super) name: String,
     pub(super) transport: String,
     pub(super) transport_id: String,
     pub(super) command: Option<String>,
     pub(super) args: Vec<String>,
+    pub(super) launch: Option<crate::registry::LaunchConfig>,
     pub(super) url: Option<String>,
     pub(super) cwd: Option<String>,
     pub(super) secret_keys: Vec<String>,
@@ -440,12 +495,16 @@ impl RegistrySnapshot {
             .map(|server| {
                 let enabled = registry.is_enabled(&active_profile_id, &server.id);
                 ServerView {
+                    origin_label: if server.source.as_deref().unwrap_or("").starts_with("team:") {
+                        format!("Team · {}", registry.team.as_ref().and_then(|t| t.team_name.as_deref()).unwrap_or("Shared"))
+                    } else { "Personal".into() },
                     id: server.id.clone(),
                     name: server.name.clone(),
                     transport: transport_label(&server.transport).to_string(),
                     transport_id: server.transport.clone(),
                     command: server.command.clone(),
                     args: server.args.clone(),
+                    launch: server.launch.clone(),
                     url: server.url.clone(),
                     cwd: server.cwd.clone(),
                     secret_keys: server
@@ -615,12 +674,50 @@ mod tests {
     use crate::registry::ServerEntry;
 
     #[test]
+    fn activity_snapshot_distinguishes_missing_and_corrupt_telemetry() {
+        let _guard = crate::registry::data_dir_test_lock();
+        let dir = std::env::temp_dir().join(format!(
+            "toolport-native-savings-read-{}",
+            std::process::id()
+        ));
+        let _override = crate::registry::DataDirOverride::set(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let empty = load_activity_snapshot().unwrap();
+        assert_eq!(empty.savings_list_loads, 0);
+        let path = dir.join("savings-v2.jsonl");
+        std::fs::write(&path, "{broken\n").unwrap();
+        assert!(load_activity_snapshot()
+            .unwrap_err()
+            .contains("could not read catalog telemetry"));
+        std::fs::remove_file(path).unwrap();
+        assert_eq!(load_activity_snapshot().unwrap().savings_list_loads, 0);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn token_counts_compress_like_the_shipping_sidebar() {
         assert_eq!(format_token_count(0), "0");
         assert_eq!(format_token_count(950), "950");
         assert_eq!(format_token_count(12_340), "12.3k");
         assert_eq!(format_token_count(999_949), "999.9k");
         assert_eq!(format_token_count(4_500_000), "4.5M");
+        for (value, expected) in [
+            (999, "999"),
+            (1_000, "1.0k"),
+            (12_340, "12.3k"),
+            (999_949, "999.9k"),
+            (999_999, "1.0M"),
+            (1_000_000, "1.0M"),
+            (999_949_999, "999.9M"),
+            (999_999_999, "1.0B"),
+            (1_000_000_000, "1.0B"),
+            (3_692_944_923, "3.7B"),
+            (999_949_999_999, "999.9B"),
+            (999_999_999_999, "1.0T"),
+            (1_000_000_000_000, "1.0T"),
+        ] {
+            assert_eq!(format_token_count(value), expected);
+        }
     }
 
     fn server(id: &str, name: &str, transport: &str) -> ServerEntry {
@@ -637,6 +734,8 @@ mod tests {
             disabled_tools: Vec::new(),
             client_credentials: None,
             request_timeout_ms: None,
+            initialize_timeout_ms: None,
+            launch: None,
             unknown_fields: serde_json::Map::new(),
         }
     }
@@ -665,12 +764,14 @@ mod tests {
             snapshot.servers,
             vec![
                 ServerView {
+                    origin_label: "Personal".into(),
                     id: "local".into(),
                     name: "Files".into(),
                     transport: "Local stdio".into(),
                     transport_id: "stdio".into(),
                     command: None,
                     args: Vec::new(),
+                    launch: None,
                     url: None,
                     cwd: None,
                     secret_keys: vec!["TOKEN".into()],
@@ -679,12 +780,14 @@ mod tests {
                     requires_review: false,
                 },
                 ServerView {
+                    origin_label: "Personal".into(),
                     id: "remote".into(),
                     name: "GitHub".into(),
                     transport: "Remote HTTP".into(),
                     transport_id: "http".into(),
                     command: None,
                     args: Vec::new(),
+                    launch: None,
                     url: None,
                     cwd: None,
                     secret_keys: Vec::new(),

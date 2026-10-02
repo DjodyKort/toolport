@@ -1,15 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { InstructionsStatusView, Registry } from "@/lib/types";
 
 const api = vi.hoisted(() => ({
   teamConnect: vi.fn(),
+  teamUseManaged: vi.fn(),
+  teamAccountLink: vi.fn(),
   teamJoinPoll: vi.fn(),
   teamSync: vi.fn(),
   teamDisconnect: vi.fn(),
   teamPushPreview: vi.fn(),
   teamPush: vi.fn(),
+  getRegistry: vi.fn(),
   teamInstructionsStatus: vi.fn().mockResolvedValue(null),
   setServerEnabled: vi.fn(),
 }));
@@ -54,7 +57,18 @@ function expectNoPitch() {
 
 const registry: Registry = {
   version: 1,
-  servers: [],
+  servers: [
+    {
+      id: "github",
+      name: "Personal GitHub",
+      transport: "stdio",
+      command: "python3",
+      args: [],
+      env: [],
+      url: null,
+      source: null,
+    },
+  ],
   profiles: [{ id: "default", name: "Default", enabledServerIds: [] }],
   activeProfileId: "default",
   team: {
@@ -71,75 +85,315 @@ const noTeam: Registry = { ...registry, team: null };
 describe("TeamsView shared-server update", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    api.getRegistry.mockResolvedValue(registry);
   });
 
-  it("shows a deterministic diff and does not push until the admin confirms", async () => {
+  it("explains that disconnecting the app does not remove Team membership", async () => {
+    render(<TeamsView registry={registry} onRegistryChange={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: "Disconnect app" }));
+    expect(
+      screen.getByText(/Your Team membership and shared setup remain/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Reconnect from the Teams website/)).toBeInTheDocument();
+    expect(api.teamDisconnect).not.toHaveBeenCalled();
+  });
+
+  it.each([null, "Unable to refresh local setup"])(
+    "publishes only after confirmation and distinguishes local outcome: %s",
+    async (localSetupError) => {
+      const summary = localSetupError
+        ? `Shared with your team (version 8).\nLocal setup needs attention: ${localSetupError}`
+        : "Shared with your team (version 8).\nPersonal GitHub: Now uses the Team copy in this profile.";
+      const preview = {
+        baseVersion: 7,
+        localFingerprint: "preview-fingerprint",
+        added: ["Alpha", "beta"],
+        changed: ["GitHub"],
+        removed: ["Legacy"],
+        definitions: [
+          { id: "alpha", name: "Alpha", change: "Added", transport: "stdio", fields: [] },
+          { id: "beta", name: "beta", change: "Added", transport: "http", fields: [] },
+          {
+            id: "github",
+            name: "GitHub",
+            change: "Changed",
+            transport: "stdio",
+            fields: [],
+          },
+        ],
+        selections: [],
+      };
+      api.teamPushPreview.mockResolvedValue(preview);
+      api.teamPush.mockResolvedValue({
+        version: 8,
+        published: true,
+        localSetupError,
+        handoffs: [],
+        summary,
+      });
+
+      render(<TeamsView registry={registry} onRegistryChange={vi.fn()} />);
+      if (!(screen.getByRole("checkbox") as HTMLInputElement).checked)
+        await userEvent.click(screen.getByRole("checkbox"));
+      await userEvent.click(
+        screen.getByRole("button", { name: "Share selected servers" }),
+      );
+
+      expect(await screen.findByText("Added (2)")).toBeInTheDocument();
+      expect(screen.getByText("Changed (1)")).toBeInTheDocument();
+      expect(screen.getByText("Removed (1)")).toBeInTheDocument();
+      for (const name of ["Alpha", "beta", "GitHub", "Legacy"]) {
+        expect(
+          within(screen.getByRole("dialog")).getByText(name, { exact: false }),
+        ).toBeInTheDocument();
+      }
+      expect(api.teamPush).not.toHaveBeenCalled();
+
+      await userEvent.click(screen.getByRole("button", { name: "Share selected" }));
+      await waitFor(() => expect(api.teamPush).toHaveBeenCalledWith(preview, ["github"]));
+      const notice = await screen.findByText(/version 8/i);
+      expect(notice).toHaveTextContent(summary.replace(/\n/g, " "));
+      expect(api.teamSync).not.toHaveBeenCalled();
+      expect(api.getRegistry).toHaveBeenCalled();
+      if (localSetupError)
+        expect(screen.getByText(/Local setup needs attention/)).toBeInTheDocument();
+    },
+  );
+
+  it("switches to Team copies without uploading when every selection is already shared", async () => {
+    const handoff = {
+      id: "github",
+      name: "Personal GitHub",
+      outcome: "switched" as const,
+      message: "Now uses the Team copy in this profile.",
+    };
     const preview = {
       baseVersion: 7,
       localFingerprint: "preview-fingerprint",
-      added: ["Alpha", "beta"],
-      changed: ["GitHub"],
-      removed: ["Legacy"],
+      added: [],
+      changed: [],
+      removed: [],
+      definitions: [],
+      selections: [
+        {
+          id: "github",
+          name: "Personal GitHub",
+          teamChange: "Already shared",
+          teamDetail:
+            "The Team already has this exact definition, so nothing changes for the team.",
+          notes: [],
+          local: { ...handoff, message: "This profile switches to the Team copy." },
+        },
+      ],
     };
     api.teamPushPreview.mockResolvedValue(preview);
-    api.teamPush.mockResolvedValue(8);
+    api.teamPush.mockResolvedValue({
+      version: 7,
+      published: false,
+      localSetupError: null,
+      handoffs: [handoff],
+      summary:
+        "Already shared with your team (version 7). Nothing new was uploaded.\nPersonal GitHub: Now uses the Team copy in this profile.",
+    });
 
     render(<TeamsView registry={registry} onRegistryChange={vi.fn()} />);
-    await userEvent.click(screen.getByRole("button", { name: "Update shared servers" }));
-
-    expect(await screen.findByText("Added (2)")).toBeInTheDocument();
-    expect(screen.getByText("Changed (1)")).toBeInTheDocument();
-    expect(screen.getByText("Removed (1)")).toBeInTheDocument();
-    for (const name of ["Alpha", "beta", "GitHub", "Legacy"]) {
-      expect(screen.getByText(name)).toBeInTheDocument();
-    }
-    expect(api.teamPush).not.toHaveBeenCalled();
-
-    await userEvent.click(screen.getByRole("button", { name: "Replace shared servers" }));
-    await waitFor(() => expect(api.teamPush).toHaveBeenCalledWith(preview));
-    expect(await screen.findByText(/now version 8/i)).toBeInTheDocument();
+    if (!(screen.getByRole("checkbox") as HTMLInputElement).checked)
+      await userEvent.click(screen.getByRole("checkbox"));
+    await userEvent.click(screen.getByRole("button", { name: "Share selected servers" }));
+    expect(
+      await screen.findByText("Personal GitHub · Already shared"),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Use Team copies" }));
+    await waitFor(() => expect(api.teamPush).toHaveBeenCalledWith(preview, ["github"]));
+    expect(await screen.findByText(/Nothing new was uploaded/)).toBeInTheDocument();
   });
 
-  it("passes reviewed=true when the member confirms enabling a review server", async () => {
-    const withReviewServer: Registry = {
+  it("shows a selection that needs separate setup as a warning with its route", async () => {
+    const preview = {
+      baseVersion: 7,
+      localFingerprint: "preview-fingerprint",
+      added: [],
+      changed: ["Personal GitHub"],
+      removed: [],
+      definitions: [],
+      selections: [],
+    };
+    const summary =
+      "Shared with your team (version 8).\nPersonal GitHub: This team copy already has its own local credentials. Your personal server stays on in this profile.";
+    api.teamPushPreview.mockResolvedValue(preview);
+    api.teamPush.mockResolvedValue({
+      version: 8,
+      published: true,
+      localSetupError: null,
+      handoffs: [
+        {
+          id: "github",
+          name: "Personal GitHub",
+          outcome: "attention",
+          message:
+            "This team copy already has its own local credentials. Your personal server stays on in this profile.",
+        },
+      ],
+      summary,
+    });
+
+    render(<TeamsView registry={registry} onRegistryChange={vi.fn()} />);
+    if (!(screen.getByRole("checkbox") as HTMLInputElement).checked)
+      await userEvent.click(screen.getByRole("checkbox"));
+    await userEvent.click(screen.getByRole("button", { name: "Share selected servers" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Share selected" }));
+    const warning = await screen.findByText(/stays on in this profile/);
+    expect(warning.className).toMatch(/text-warning/);
+  });
+
+  it("disables the confirm when nothing would be uploaded or switched", async () => {
+    api.teamPushPreview.mockResolvedValue({
+      baseVersion: 7,
+      localFingerprint: "preview-fingerprint",
+      added: [],
+      changed: [],
+      removed: [],
+      definitions: [],
+      selections: [
+        {
+          id: "github",
+          name: "Personal GitHub",
+          teamChange: "Already shared",
+          teamDetail:
+            "The Team already has this exact definition, so nothing changes for the team.",
+          notes: [],
+          local: {
+            id: "github",
+            name: "Personal GitHub",
+            outcome: "kept",
+            message: "This profile keeps using the Team copy.",
+          },
+        },
+      ],
+    });
+    render(<TeamsView registry={registry} onRegistryChange={vi.fn()} />);
+    if (!(screen.getByRole("checkbox") as HTMLInputElement).checked)
+      await userEvent.click(screen.getByRole("checkbox"));
+    await userEvent.click(screen.getByRole("button", { name: "Share selected servers" }));
+    expect(await screen.findByRole("button", { name: "Share selected" })).toBeDisabled();
+    expect(api.teamPush).not.toHaveBeenCalled();
+  });
+
+  it("hints how each personal server relates to the team from the last sync", () => {
+    const withCopies: Registry = {
       ...registry,
       servers: [
+        ...registry.servers,
         {
-          id: "team-tool",
-          name: "Team tool",
+          id: "linear",
+          name: "Linear",
+          transport: "http",
+          command: null,
+          args: [],
+          env: [],
+          url: "https://mcp.linear.app/mcp",
+          source: null,
+        },
+        {
+          id: "team_github-1",
+          name: "Personal GitHub",
           transport: "stdio",
-          command: "npx",
-          args: ["-y", "some-tool"],
+          command: "python3",
+          args: [],
           env: [],
           url: null,
           source: "team:team-1",
         },
+        {
+          id: "team_linear-portal-1",
+          name: " linear ",
+          transport: "http",
+          command: null,
+          args: [],
+          env: [],
+          url: "https://mcp.linear.app/mcp",
+          source: "team:team-1",
+        },
       ] as Registry["servers"],
+      profiles: [{ id: "default", name: "Default", enabledServerIds: ["team_github-1"] }],
+      team: {
+        ...registry.team!,
+        managedServerIds: {
+          "team_github-1": "github",
+          "team_linear-portal-1": "linear-portal",
+        },
+      },
     };
-    api.setServerEnabled.mockResolvedValue(withReviewServer);
-
-    render(<TeamsView registry={withReviewServer} onRegistryChange={vi.fn()} />);
-    await userEvent.click(screen.getByRole("button", { name: "Enable" }));
-    // The ConfirmDialog's confirm button carries the same label as the trigger;
-    // the dialog copy shows the exact command being consented to (the row also
-    // renders the command, so anchor on dialog-only copy).
-    expect(await screen.findByText(/recognize this command/)).toBeInTheDocument();
-    const confirm = screen
-      .getAllByRole("button", { name: "Enable" })
-      .at(-1) as HTMLElement;
-    await userEvent.click(confirm);
-
-    // The fourth arg is the backend's consent assertion: without it the gate
-    // in set_server_enabled refuses and Teams enable silently breaks.
-    await waitFor(() =>
-      expect(api.setServerEnabled).toHaveBeenCalledWith(
-        "default",
-        "team-tool",
-        true,
-        true,
+    render(<TeamsView registry={withCopies} onRegistryChange={vi.fn()} />);
+    expect(
+      screen.getByText("Shared. The Team copy is in use in this profile."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "The team has a different server with this name. Sharing adds a separate definition.",
       ),
-    );
+    ).toBeInTheDocument();
   });
+
+  it.each([
+    {
+      transport: "stdio",
+      command: "npx",
+      args: ["-y", "some-tool"],
+      url: null,
+      prompt: /recognize this command/,
+    },
+    {
+      transport: "http",
+      command: null,
+      args: [],
+      url: "https://changed.example/mcp",
+      prompt: /saved authentication/,
+    },
+  ])(
+    "requires confirmation before enabling a $transport team server",
+    async ({ transport, command, args, url, prompt }) => {
+      const withReviewServer: Registry = {
+        ...registry,
+        servers: [
+          {
+            id: "team-tool",
+            name: "Team tool",
+            transport,
+            command,
+            args,
+            env: [],
+            url,
+            source: "team:team-1",
+          },
+        ] as Registry["servers"],
+      };
+      api.setServerEnabled.mockResolvedValue(withReviewServer);
+
+      render(<TeamsView registry={withReviewServer} onRegistryChange={vi.fn()} />);
+      await userEvent.click(screen.getByRole("button", { name: "Enable" }));
+      // The ConfirmDialog's confirm button carries the same label as the trigger;
+      // the dialog copy shows the exact command being consented to (the row also
+      // renders the command, so anchor on dialog-only copy).
+      expect(await screen.findByText(prompt)).toBeInTheDocument();
+      expect(api.setServerEnabled).not.toHaveBeenCalled();
+      const confirm = screen
+        .getAllByRole("button", { name: "Enable" })
+        .at(-1) as HTMLElement;
+      await userEvent.click(confirm);
+
+      // The fourth arg is the backend's consent assertion: without it the gate
+      // in set_server_enabled refuses and Teams enable silently breaks.
+      await waitFor(() =>
+        expect(api.setServerEnabled).toHaveBeenCalledWith(
+          "default",
+          "team-tool",
+          true,
+          true,
+        ),
+      );
+    },
+  );
 
   it("discards a stale confirmation and requires a fresh preview", async () => {
     const preview = {
@@ -148,6 +402,8 @@ describe("TeamsView shared-server update", () => {
       added: [],
       changed: ["GitHub"],
       removed: [],
+      definitions: [],
+      selections: [],
     };
     api.teamPushPreview.mockResolvedValue(preview);
     api.teamPush.mockRejectedValue(
@@ -155,19 +411,21 @@ describe("TeamsView shared-server update", () => {
     );
 
     render(<TeamsView registry={registry} onRegistryChange={vi.fn()} />);
-    await userEvent.click(screen.getByRole("button", { name: "Update shared servers" }));
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Replace shared servers" }),
-    );
+    if (!(screen.getByRole("checkbox") as HTMLInputElement).checked)
+      await userEvent.click(screen.getByRole("checkbox"));
+    await userEvent.click(screen.getByRole("button", { name: "Share selected servers" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Share selected" }));
 
     expect(
       await screen.findByText(/team config changed; nothing was overwritten/i),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Replace shared servers" }),
+      screen.queryByRole("button", { name: "Share selected" }),
     ).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Update shared servers" }));
+    if (!(screen.getByRole("checkbox") as HTMLInputElement).checked)
+      await userEvent.click(screen.getByRole("checkbox"));
+    await userEvent.click(screen.getByRole("button", { name: "Share selected servers" }));
     await waitFor(() => expect(api.teamPushPreview).toHaveBeenCalledTimes(2));
   });
 });
@@ -181,6 +439,7 @@ describe("TeamsView instructions status", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    api.getRegistry.mockResolvedValue(registry);
   });
 
   it("keeps the last status after a failed refresh and retries", async () => {
@@ -292,6 +551,7 @@ describe("TeamsView instructions status", () => {
 describe("TeamsView disconnected pitch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    api.getRegistry.mockResolvedValue(registry);
     openExternal.mockClear();
   });
 

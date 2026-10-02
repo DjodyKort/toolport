@@ -15,8 +15,12 @@ interface Props {
    * Optional when the dialog is driven in controlled mode via `open`. */
   trigger?: ReactNode;
   title: string;
+  /** Optional width for previews with structured details. */
+  contentClassName?: string;
   description?: ReactNode;
   confirmLabel?: string;
+  /** Keep the confirm button off when there is nothing to confirm. */
+  confirmDisabled?: boolean;
   cancelLabel?: string;
   /** Style the confirm button as destructive (red). */
   destructive?: boolean;
@@ -33,8 +37,10 @@ interface Props {
 export function ConfirmDialog({
   trigger,
   title,
+  contentClassName = "sm:max-w-sm",
   description,
   confirmLabel = "Confirm",
+  confirmDisabled = false,
   cancelLabel = "Cancel",
   destructive = false,
   onConfirm,
@@ -76,7 +82,7 @@ export function ConfirmDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent
-        className="sm:max-w-sm"
+        className={contentClassName}
         onClick={(e) => e.stopPropagation()}
         aria-describedby={richDescription ? descriptionId : undefined}
       >
@@ -101,7 +107,7 @@ export function ConfirmDialog({
           <Button
             variant={destructive ? "destructive" : "default"}
             onClick={handleConfirm}
-            disabled={busy}
+            disabled={busy || confirmDisabled}
           >
             {confirmLabel}
           </Button>

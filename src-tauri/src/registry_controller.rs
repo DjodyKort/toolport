@@ -137,7 +137,12 @@ fn try_acquire_auth_lock(path: &Path) -> Result<Option<AuthMutationLock>, String
 }
 
 pub(crate) fn acquire_auth_lock(server_id: &str) -> Result<AuthMutationLock, String> {
-    let path = auth_lock_path(server_id)?;
+    acquire_auth_owner_lock(&crate::local_auth::owner(server_id)?)
+}
+
+/// Handoffs lock both raw namespaces before changing ownership, outside the registry lock.
+pub(crate) fn acquire_auth_owner_lock(owner: &str) -> Result<AuthMutationLock, String> {
+    let path = auth_lock_path(owner)?;
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(AUTH_LOCK_WAIT_SECS);
     loop {
         if let Some(lock) = try_acquire_auth_lock(&path)? {
@@ -360,6 +365,8 @@ pub fn apply_add_server(registry: &mut Registry, fields: ServerFields) -> Result
             disabled_tools: Vec::new(),
             client_credentials: None,
             request_timeout_ms: None,
+            initialize_timeout_ms: None,
+            launch: None,
             unknown_fields: serde_json::Map::new(),
         },
     ))
@@ -391,6 +398,8 @@ pub(crate) fn server_from_detected(server: &clients::McpServer, client_id: &str)
         cwd: None,
         client_credentials: None,
         request_timeout_ms: None,
+        initialize_timeout_ms: None,
+        launch: None,
         unknown_fields: serde_json::Map::new(),
     }
 }
@@ -474,6 +483,9 @@ pub fn import_client_servers(selected: Vec<String>) -> Result<(Registry, usize),
 }
 
 pub fn apply_update_entry(registry: &mut Registry, entry: ServerEntry) -> Result<(), String> {
+    if let Some(launch) = &entry.launch {
+        launch.validate(&entry.args, true)?;
+    }
     registry.update_server(entry)
 }
 
@@ -488,6 +500,16 @@ pub fn apply_update_server_fields(
         .iter_mut()
         .find(|server| server.id == server_id)
         .ok_or_else(|| format!("No server with id '{server_id}'"))?;
+    if server.command != fields.command || server.args != fields.args || fields.transport != "stdio"
+    {
+        if server.launch.is_some() {
+            if fields.args.iter().any(|arg| arg == "<launch-input>") {
+                return Err("Replace <launch-input> with a literal argument before saving the edited command or arguments".into());
+            }
+            server.source = Some("manual".into());
+        }
+        server.launch = None;
+    }
     server.name = fields.name;
     server.transport = fields.transport;
     server.command = fields.command;
@@ -503,6 +525,24 @@ pub fn apply_remove_server(registry: &mut Registry, server_id: &str) -> Result<(
 
 pub fn add_server(fields: ServerFields) -> Result<Registry, String> {
     let (registry, _) = registry::update(|registry| apply_add_server(registry, fields))?;
+    Ok(registry)
+}
+
+pub fn add_server_with_launch(
+    fields: ServerFields,
+    launch: crate::registry::LaunchConfig,
+) -> Result<Registry, String> {
+    let (registry, _) = registry::update(|registry| {
+        let id = apply_add_server(registry, fields)?;
+        let server = registry
+            .servers
+            .iter_mut()
+            .find(|server| server.id == id)
+            .expect("just added");
+        launch.validate(&server.args, true)?;
+        server.launch = Some(launch);
+        Ok(id)
+    })?;
     Ok(registry)
 }
 
@@ -579,6 +619,8 @@ fn catalog_server(entry: crate::catalog::CatalogEntry) -> ServerEntry {
         disabled_tools: Vec::new(),
         client_credentials: None,
         request_timeout_ms: None,
+        initialize_timeout_ms: None,
+        launch: entry.launch,
         unknown_fields: serde_json::Map::new(),
     }
 }
@@ -654,6 +696,8 @@ pub fn server_entry_for_probe(
                 disabled_tools: Vec::new(),
                 client_credentials: None,
                 request_timeout_ms: None,
+                initialize_timeout_ms: None,
+                launch: None,
                 unknown_fields: serde_json::Map::new(),
             })
         }
@@ -1471,6 +1515,7 @@ pub fn set_client_credentials(
     scope: Option<&str>,
 ) -> Result<Registry, String> {
     let _mutation = acquire_auth_lock(server_id)?;
+    if crate::local_auth::owner(server_id)? != server_id { return Err("Edit the personal original to change the shared local sign-in configuration.".into()); }
     let client_id = client_id.trim().to_string();
     if client_id.is_empty() {
         return Err("a client id is required for client-credentials auth".into());
@@ -1528,6 +1573,7 @@ pub fn set_client_credentials(
 
 pub fn clear_client_credentials(server_id: &str) -> Result<Registry, String> {
     let _mutation = acquire_auth_lock(server_id)?;
+    if crate::local_auth::owner(server_id)? != server_id { return Err("Edit the personal original to change the shared local sign-in configuration.".into()); }
     crate::remote::reset_client_credentials(server_id)?;
     let (registry, ()) = registry::update(|registry| {
         let Some(server) = registry
@@ -1725,6 +1771,89 @@ pub fn set_server_secret(server_id: &str, key: &str, value: &str) -> Result<Regi
     })
 }
 
+/// Vault a launch argument input without declaring an environment variable.
+pub fn set_launch_secret_with(
+    server_id: &str,
+    key: &str,
+    value: &str,
+    write_registry: impl FnOnce(&str, &str) -> Result<Registry, String>,
+) -> Result<Registry, String> {
+    let key = normalize_secret_key(key)?;
+    let _lock = acquire_auth_lock(server_id)?;
+    set_server_secret_using(
+        server_id,
+        &key,
+        value,
+        crate::secrets::get_vault_secret_result,
+        crate::secrets::set_secret,
+        crate::secrets::delete_secret,
+        write_registry,
+    )
+}
+
+pub fn set_launch_secret(server_id: &str, key: &str, value: &str) -> Result<Registry, String> {
+    set_launch_secret_with(server_id, key, value, |server_id, key| {
+        let (registry, ()) =
+            registry::update(|registry| apply_launch_secret_generation(registry, server_id, key))?;
+        Ok(registry)
+    })
+}
+
+pub fn set_launch_input_value(
+    server_id: &str,
+    key: &str,
+    value: Option<String>,
+) -> Result<Registry, String> {
+    let (registry, ()) =
+        registry::update(|registry| apply_launch_input_value(registry, server_id, key, value))?;
+    Ok(registry)
+}
+
+pub fn apply_launch_input_value(
+    registry: &mut Registry,
+    server_id: &str,
+    key: &str,
+    value: Option<String>,
+) -> Result<(), String> {
+    let server = registry
+        .servers
+        .iter_mut()
+        .find(|server| server.id == server_id)
+        .ok_or_else(|| format!("No server with id '{server_id}'"))?;
+    let input = server
+        .launch
+        .as_mut()
+        .and_then(|launch| launch.inputs.iter_mut().find(|input| input.key == key))
+        .ok_or("launch input no longer exists")?;
+    if input.secret {
+        return Err("secret launch inputs must be vaulted".into());
+    }
+    input.value = value;
+    Ok(())
+}
+
+pub fn apply_launch_secret_generation(
+    registry: &mut Registry,
+    server_id: &str,
+    key: &str,
+) -> Result<(), String> {
+    let server = registry
+        .servers
+        .iter()
+        .find(|server| server.id == server_id)
+        .ok_or_else(|| format!("No server with id '{server_id}'"))?;
+    if !server.launch.as_ref().is_some_and(|launch| {
+        launch
+            .inputs
+            .iter()
+            .any(|input| input.key == key && input.secret)
+    }) {
+        return Err("not a declared secret launch input".into());
+    }
+    registry.secrets_generation = registry.secrets_generation.wrapping_add(1);
+    Ok(())
+}
+
 pub fn delete_server_secret(server_id: &str, key: &str) -> Result<Registry, String> {
     delete_server_secret_with(server_id, key, |server_id, key| {
         let (registry, ()) =
@@ -1740,6 +1869,18 @@ pub fn apply_server_enabled(
     enabled: bool,
     reviewed: bool,
 ) -> Result<(), String> {
+    if reviewed { crate::local_auth::detach_changed(registry, server_id)?; }
+    if enabled {
+        if let Some(server) = registry
+            .servers
+            .iter()
+            .find(|server| server.id == server_id)
+        {
+            if server.launch.is_some() {
+                crate::launch_inputs::resolve_args(server)?;
+            }
+        }
+    }
     if enabled
         && !reviewed
         && registry
@@ -1748,7 +1889,7 @@ pub fn apply_server_enabled(
             .any(|server| server.id == server_id && server.needs_team_enable_review())
     {
         return Err(
-            "this team server runs a local command or private address; enable it from Teams after review"
+            "this team server needs consent for its command, address or authentication; enable it from Teams after review"
                 .into(),
         );
     }
@@ -1843,6 +1984,8 @@ mod tests {
             disabled_tools: Vec::new(),
             client_credentials: None,
             request_timeout_ms: None,
+            initialize_timeout_ms: None,
+            launch: None,
             unknown_fields: serde_json::Map::new(),
         }
     }
@@ -2072,6 +2215,56 @@ mod tests {
         assert_eq!(updated.env[0].key, "TOKEN");
         assert_eq!(updated.disabled_tools, ["dangerous"]);
         assert_eq!(updated.unknown_fields["futureField"]["kept"], true);
+    }
+
+    #[test]
+    fn native_field_edit_keeps_or_clears_generated_binding_explicitly() {
+        let mut registry = Registry::default();
+        let mut existing = server("one");
+        existing.command = Some("npx".into());
+        existing.args = vec!["-y".into(), "pkg".into(), "<launch-input>".into()];
+        existing.source = Some("catalog:curated".into());
+        existing.launch = Some(crate::registry::LaunchConfig {
+            inputs: vec![crate::registry::LaunchInput {
+                key: "ROOT".into(),
+                label: "Root".into(),
+                secret: false,
+                required: true,
+                value: Some("/tmp/root".into()),
+            }],
+            bindings: vec![crate::registry::ArgBinding {
+                index: 2,
+                parts: vec![crate::registry::ArgPart::Input { key: "ROOT".into() }],
+            }],
+            ..Default::default()
+        });
+        registry.servers.push(existing);
+        let same = ServerFields {
+            name: "Renamed".into(),
+            transport: "stdio".into(),
+            command: Some("npx".into()),
+            args: vec!["-y".into(), "pkg".into(), "<launch-input>".into()],
+            url: None,
+            cwd: None,
+        };
+        apply_update_server_fields(&mut registry, "one", same.clone()).unwrap();
+        assert_eq!(
+            registry.servers[0].launch.as_ref().unwrap().inputs[0]
+                .value
+                .as_deref(),
+            Some("/tmp/root")
+        );
+        let mut stale = same.clone();
+        stale.command = Some("node".into());
+        assert!(apply_update_server_fields(&mut registry, "one", stale)
+            .unwrap_err()
+            .contains("Replace <launch-input>"));
+        assert!(registry.servers[0].launch.is_some());
+        let mut changed = same;
+        changed.args[2] = "/literal/root".into();
+        apply_update_server_fields(&mut registry, "one", changed).unwrap();
+        assert!(registry.servers[0].launch.is_none());
+        assert_eq!(registry.servers[0].source.as_deref(), Some("manual"));
     }
 
     #[test]

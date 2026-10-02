@@ -1,3 +1,4 @@
+import { useWindowVisible } from "@/lib/windowVisible";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
@@ -17,9 +18,10 @@ import {
   X,
   XCircle,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
-  fmtDollars,
+  fmtBytes,
   fmtMs,
   fmtPercent,
   fmtTokens,
@@ -55,44 +57,10 @@ import type {
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-/** Models for the dollar estimate, input-token list prices ($/1M), grouped by
- *  provider. Matches the public calculator at toolport.app/calculator. */
-const SAVINGS_MODELS = [
-  {
-    group: "Anthropic",
-    items: [
-      { label: "Claude Opus", price: 5 },
-      { label: "Claude Sonnet", price: 3 },
-      { label: "Claude Haiku", price: 1 },
-    ],
-  },
-  {
-    group: "OpenAI",
-    items: [
-      { label: "GPT-5.6 Sol", price: 5 },
-      { label: "GPT-5.6 Terra", price: 2.5 },
-      { label: "GPT-5.6 Luna", price: 1 },
-    ],
-  },
-  {
-    group: "Google",
-    items: [
-      { label: "Gemini 3.1 Pro", price: 2 },
-      { label: "Gemini 3.5 Flash", price: 1.5 },
-      { label: "Gemini 3.1 Flash-Lite", price: 0.25 },
-    ],
-  },
-];
-const SAVINGS_MODEL_PRICE = new Map(
-  SAVINGS_MODELS.flatMap((g) => g.items).map((m) => [m.label, m.price]),
-);
 
 /** A badge describing one security event by kind. */
 function eventBadge(e: SecurityEvent): { label: string; cls: string } {
@@ -505,25 +473,32 @@ function QuietDriftHistory({
   );
 }
 
-/** Hero stat: tool-definition tokens (and dollars) lazy discovery kept out of
- *  agent context, with a one-click share so users can flex their savings. */
+/** Catalog exposure: exact serialized bytes with a provider-independent estimate. */
 function SavingsBanner({ savings }: { savings: SavingsSummary }) {
-  const [modelLabel, setModelLabel] = useState("Claude Sonnet");
-  const price = SAVINGS_MODEL_PRICE.get(modelLabel) ?? 3;
-  const dollars = (savings.tokensSaved / 1_000_000) * price;
+  const hasCatalog = savings.listLoads > 0;
+  const measured = (savings.measuredLoads ?? 0) > 0;
+  const discovered = (savings.discoveryCount ?? 0) > 0;
+  const avoided = savings.avoidedSurfaceBytes ?? 0;
+  const legacy =
+    savings.legacyEstimatedTokensAvoided ?? (measured ? 0 : savings.tokensSaved);
   const since = savings.sinceTs > 0 ? fmtTs(savings.sinceTs, "monthDay") : null;
   const details = [
-    `across ${savings.listLoads.toLocaleString()} tool-list load${savings.listLoads === 1 ? "" : "s"}`,
-    savings.peakCatalog > 4
-      ? `biggest catalog collapsed ${savings.peakCatalog} tools to a handful`
+    hasCatalog
+      ? `across ${savings.listLoads.toLocaleString()} tool-list load${savings.listLoads === 1 ? "" : "s"}`
+      : null,
+    hasCatalog
+      ? `≈${fmtTokens(Math.round(savings.tokensSaved / savings.listLoads))} per load`
+      : null,
+    hasCatalog && savings.peakCatalog > 4
+      ? `peak catalog ${savings.peakCatalog.toLocaleString()} tools`
       : null,
     since ? `since ${since}` : null,
   ].filter(Boolean);
 
   const share = async () => {
-    const text =
-      `Toolport keeps ~${fmtTokens(savings.tokensSaved)} tokens of MCP tool definitions out of my agent's ` +
-      `context so far. One local gateway for all my MCP servers: toolport.app`;
+    const text = hasCatalog
+      ? `Toolport kept ≈${fmtTokens(savings.tokensSaved)} tokens of MCP tool definitions out of my agent's context across ${savings.listLoads.toLocaleString()} loads. Estimated from serialized size (UTF-8 bytes / 4), not model billing. toolport.app`
+      : `Toolport recorded ${savings.discoveryCount ?? 0} discovery searches returning ${fmtBytes(savings.discoveryResponseBytes ?? 0)} of text at its MCP boundary. toolport.app`;
     try {
       await navigator.clipboard.writeText(text);
       toast.success("Savings copied, paste them anywhere");
@@ -537,45 +512,44 @@ function SavingsBanner({ savings }: { savings: SavingsSummary }) {
       <div className="flex items-center gap-2">
         <Sparkles className="size-4 text-success" />
         <span className="text-sm font-medium text-muted-foreground">
-          Tool definitions lazy discovery keeps out of context
+          {hasCatalog
+            ? "Tool definitions kept out of your agent's context"
+            : "Discovery payload returned"}
         </span>
       </div>
       <div className="mt-2 flex flex-wrap items-end gap-x-6 gap-y-1">
         <span className="text-3xl font-semibold tabular-nums text-success">
-          ≈ {fmtTokens(savings.tokensSaved)}{" "}
-          <span className="text-base font-normal text-muted-foreground">tokens</span>
-        </span>
-        <span
-          className="text-xl font-semibold tabular-nums text-muted-foreground"
-          title="A ceiling at list input prices. Tool definitions live in the cacheable prompt prefix, so with prompt caching the real figure is lower; actual spend depends on your model mix and cache-hit rate."
-        >
-          up to {fmtDollars(dollars)}
-          <span className="ml-1 text-xs font-normal text-muted-foreground/70">
-            list prices, before caching
+          {hasCatalog
+            ? `≈ ${fmtTokens(savings.tokensSaved)}`
+            : fmtBytes(savings.discoveryResponseBytes ?? 0)}{" "}
+          <span className="text-base font-normal text-muted-foreground">
+            {hasCatalog ? "tokens saved" : "discovery text"}
           </span>
         </span>
       </div>
+      {(savings.latestCatalogTs ?? 0) > 0 && (
+        <div className="mt-2 text-sm text-muted-foreground">
+          Latest load: {fmtBytes(savings.latestFullSurfaceBytes ?? 0)} /{" "}
+          {(savings.latestFullToolCount ?? 0).toLocaleString()} tools full
+          {" → "}
+          {fmtBytes(savings.latestExposedSurfaceBytes ?? 0)} /{" "}
+          {(savings.latestExposedToolCount ?? 0).toLocaleString()} tools exposed
+        </div>
+      )}
+      {measured && (
+        <div
+          className="mt-2 text-sm text-muted-foreground"
+          title={`${avoided.toLocaleString()} exact UTF-8 bytes avoided`}
+        >
+          {fmtBytes(savings.fullSurfaceBytes ?? 0)} full ·{" "}
+          {fmtBytes(savings.exposedSurfaceBytes ?? 0)} exposed · {fmtBytes(avoided)}{" "}
+          avoided across measured loads
+          {` · ${fmtBytes(Math.round((savings.fullSurfaceBytes ?? 0) / (savings.measuredLoads ?? 1)))} full/load`}
+          {(savings.extraExposedSurfaceBytes ?? 0) > 0 &&
+            ` · ${fmtBytes(savings.extraExposedSurfaceBytes ?? 0)} extra exposure on small catalogs`}
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Select value={modelLabel} onValueChange={setModelLabel}>
-          <SelectTrigger
-            aria-label="Model for the dollar estimate"
-            className="h-7 w-fit gap-1.5 px-2 py-1 text-xs text-muted-foreground"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {SAVINGS_MODELS.map((g) => (
-              <SelectGroup key={g.group}>
-                <SelectLabel>{g.group}</SelectLabel>
-                {g.items.map((m) => (
-                  <SelectItem key={m.label} value={m.label}>
-                    at {m.label} (${m.price}/1M)
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            ))}
-          </SelectContent>
-        </Select>
         <button
           onClick={share}
           className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs text-muted-foreground transition hover:text-foreground"
@@ -584,8 +558,19 @@ function SavingsBanner({ savings }: { savings: SavingsSummary }) {
         </button>
       </div>
       <p className="mt-2.5 text-xs text-muted-foreground">
-        {details.join(" · ")}. Estimated, counted once per tool-list load. Clients with
-        built-in tool search (Claude, VS Code) benefit less.
+        {details.length > 0 ? `${details.join(" · ")}. ` : ""}
+        {measured
+          ? `${(savings.measuredLoads ?? 0).toLocaleString()} measured load${savings.measuredLoads === 1 ? "" : "s"}. `
+          : ""}
+        {discovered
+          ? `${(savings.discoveryCount ?? 0).toLocaleString()} searches returned ${fmtBytes(savings.discoveryResponseBytes ?? 0)} of discovery text. `
+          : ""}
+        {legacy > 0
+          ? `Includes ≈${fmtTokens(legacy)} from older estimated records. `
+          : ""}
+        {hasCatalog
+          ? "Estimate: serialized UTF-8 bytes ÷ 4. Actual model usage depends on the client, model, and caching."
+          : "Exact text bytes at Toolport's MCP boundary; model token usage may differ."}
       </p>
     </div>
   );
@@ -958,15 +943,9 @@ function InspectRow({ e }: { e: InspectEntry }) {
   );
 }
 
-/** One recorded search: the query, what matched, and how much tool-definition context
- * this search put into the model vs. loading the whole catalog. Expands to the full
- * list of returned tool names. */
+/** One recorded search and its exact returned text size when available. */
 function DiscoveryRow({ t }: { t: SearchTrace }) {
   const [open, setOpen] = useState(false);
-  const pct =
-    t.flatTokens > 0
-      ? fmtPercent(t.savedTokens / t.flatTokens, { floorNonZero: t.savedTokens > 0 })
-      : "0%";
   const hit = t.returned > 0;
   const fallbackCount = t.fallbacks ?? t.ranking?.filter((r) => r.fallback).length ?? 0;
   const resultSummary = fallbackCount
@@ -1070,43 +1049,110 @@ function DiscoveryRow({ t }: { t: SearchTrace }) {
           ) : (
             <div className="mb-2 text-muted-foreground">No tools matched this query.</div>
           )}
-          <div className="text-muted-foreground">
-            Put{" "}
-            <span className="font-medium text-foreground">
-              ≈{fmtTokens(t.returnedTokens)}
-            </span>{" "}
-            tokens of tool schemas into context, vs{" "}
-            <span className="font-medium text-foreground">
-              ≈{fmtTokens(t.flatTokens)}
-            </span>{" "}
-            to load the whole catalog
-            {t.flatTokens > 0 ? <> ({pct} less this turn).</> : "."}
-          </div>
+          {t.responseContentBytes !== undefined ? (
+            <div
+              className="text-muted-foreground"
+              title={`${t.responseContentBytes.toLocaleString()} exact UTF-8 text bytes`}
+            >
+              Returned {fmtBytes(t.responseContentBytes)} of discovery content containing{" "}
+              {t.returned} matching schema{t.returned === 1 ? "" : "s"}.
+              {t.catalogSchemaBytes !== undefined &&
+                ` Full scoped catalog schemas: ${fmtBytes(t.catalogSchemaBytes)}.`}{" "}
+              ≈{fmtTokens(t.estimatedResponseTokens ?? 0)} tokens (UTF-8 bytes ÷ 4).
+            </div>
+          ) : (
+            <div className="text-muted-foreground">
+              Legacy schema-only estimates: ≈{fmtTokens(t.returnedTokens)} returned vs ≈
+              {fmtTokens(t.flatTokens)} catalog. Search guidance text was not counted.
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-/** Collapsible discovery panel: the in-path proof that lazy discovery is working.
- * Lists recent toolport_search_tools calls with what matched and the exact per-turn
- * tool-definition token overhead. Self-hides until something has searched. Always-on,
- * local, bounded. */
+/** Collapsible local discovery history. */
+/** Loading placeholder for a self-contained Activity panel, shown only while its
+ * first fetch is in flight (never once real rows exist — a live refresh should not
+ * flash this over last-known data). */
+function PanelLoadingNotice({ label, icon: Icon }: { label: string; icon: LucideIcon }) {
+  return (
+    <div
+      role="status"
+      className="mb-6 flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 p-4 text-xs text-muted-foreground"
+    >
+      <Icon className="size-4 shrink-0" />
+      <span>Loading {label.toLowerCase()}…</span>
+    </div>
+  );
+}
+
+/** A failed load for a self-contained Activity panel. Distinguishes "couldn't check"
+ * from "nothing to show" with an explicit retry, so a backend failure never collapses
+ * into the same wording as a genuinely empty panel (#728). */
+function PanelErrorNotice({ label, onRetry }: { label: string; onRetry: () => void }) {
+  return (
+    <div
+      role="alert"
+      className="mb-6 flex items-center gap-3 rounded-lg border border-warning/40 bg-warning/5 p-4 text-xs"
+    >
+      <AlertTriangle className="size-4 shrink-0 text-warning" />
+      <span className="text-muted-foreground">
+        <span className="font-medium text-foreground">
+          Couldn't load {label.toLowerCase()}.
+        </span>{" "}
+        This isn't necessarily empty — Toolport couldn't check.
+      </span>
+      <button
+        type="button"
+        onClick={onRetry}
+        aria-label={`Retry loading ${label.toLowerCase()}`}
+        className="ml-auto shrink-0 rounded-md border px-2.5 py-1 font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
+        Retry
+      </button>
+    </div>
+  );
+}
+
 function DiscoveryTraces({ refreshKey }: { refreshKey: number }) {
   const [entries, setEntries] = useState<SearchTrace[]>([]);
   // Collapsed by default: this is glanceable telemetry, not an alert, and the list can run
   // to 100 rows. Leading with it open was a big part of the Activity tab feeling busy.
   const [open, setOpen] = useState(false);
+  // Distinguishes a load failure from a genuinely empty result (#728): both leave
+  // `entries` empty, but only one should show "Nothing searched yet."
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [retryTick, setRetryTick] = useState(0);
 
   useEffect(() => {
     let alive = true;
+    setStatus((s) => (s === "error" ? "loading" : s));
     getSearchTraces(100)
-      .then((e) => alive && setEntries(e))
-      .catch(() => alive && setEntries([]));
+      .then((e) => {
+        if (!alive) return;
+        setEntries(e);
+        setStatus("ready");
+      })
+      .catch(() => {
+        if (!alive) return;
+        setStatus("error");
+      });
     return () => {
       alive = false;
     };
-  }, [refreshKey]);
+  }, [refreshKey, retryTick]);
+
+  if (status === "loading" && entries.length === 0) {
+    return <PanelLoadingNotice label="Discovery" icon={Search} />;
+  }
+
+  if (status === "error") {
+    return (
+      <PanelErrorNotice label="Discovery" onRetry={() => setRetryTick((t) => t + 1)} />
+    );
+  }
 
   if (entries.length === 0)
     return (
@@ -1116,8 +1162,7 @@ function DiscoveryTraces({ refreshKey }: { refreshKey: number }) {
           <span className="font-medium text-foreground/80">Discovery</span>
         </div>
         With lazy discovery on, this shows every tool search your agents run, what
-        matched, why it ranked, and the context tokens it kept out of the model. Nothing
-        searched yet.
+        matched, why it ranked, and the returned MCP payload size. Nothing searched yet.
       </div>
     );
 
@@ -1143,9 +1188,9 @@ function DiscoveryTraces({ refreshKey }: { refreshKey: number }) {
         <>
           <p className="mt-2 mb-3 max-w-2xl text-xs text-muted-foreground">
             What the model searched for and what Toolport handed back. Each search returns
-            only the matching tools, so just those schemas enter context instead of every
-            tool on every turn. Match counts are exact; token figures are an ≈ estimate.
-            Local and bounded: tool names only, never arguments or results.
+            matching tool schemas. Match counts and returned text bytes are exact at
+            Toolport's MCP boundary; token figures are estimates. Local and bounded: tool
+            names only, never arguments or results.
           </p>
           <div className="flex flex-col gap-1">
             {stableListKeys(entries, (t) => `${t.ts}-${t.query}`).map((key, i) => (
@@ -1292,16 +1337,28 @@ function ToolIdentities({ refreshKey }: { refreshKey: number }) {
   const [rows, setRows] = useState<ToolIdentity[]>([]);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  // Distinguishes a load failure from a genuinely empty result (#728): both leave
+  // `rows` empty, but only one should hide the panel.
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [retryTick, setRetryTick] = useState(0);
 
   useEffect(() => {
     let alive = true;
+    setStatus((s) => (s === "error" ? "loading" : s));
     getToolIdentities()
-      .then((r) => alive && setRows(r))
-      .catch(() => alive && setRows([]));
+      .then((r) => {
+        if (!alive) return;
+        setRows(r);
+        setStatus("ready");
+      })
+      .catch(() => {
+        if (!alive) return;
+        setStatus("error");
+      });
     return () => {
       alive = false;
     };
-  }, [refreshKey]);
+  }, [refreshKey, retryTick]);
 
   const q = query.trim().toLowerCase();
 
@@ -1335,6 +1392,19 @@ function ToolIdentities({ refreshKey }: { refreshKey: number }) {
       })
       .filter(([, items]) => items.length > 0);
   }, [groups, q]);
+
+  if (status === "loading" && rows.length === 0) {
+    return <PanelLoadingNotice label="Tool identities" icon={Fingerprint} />;
+  }
+
+  if (status === "error") {
+    return (
+      <PanelErrorNotice
+        label="Tool identities"
+        onRetry={() => setRetryTick((t) => t + 1)}
+      />
+    );
+  }
 
   if (rows.length === 0) return null;
 
@@ -1414,16 +1484,28 @@ function ToolIdentities({ refreshKey }: { refreshKey: number }) {
 function LiveInspector({ refreshKey }: { refreshKey: number }) {
   const [entries, setEntries] = useState<InspectEntry[]>([]);
   const [open, setOpen] = useState(true);
+  // Distinguishes a load failure from a genuinely empty buffer (#728): both leave
+  // `entries` empty, but only one should say "run a tool and it'll show here."
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [retryTick, setRetryTick] = useState(0);
 
   useEffect(() => {
     let alive = true;
+    setStatus((s) => (s === "error" ? "loading" : s));
     getInspectLog(50)
-      .then((e) => alive && setEntries(e))
-      .catch(() => alive && setEntries([]));
+      .then((e) => {
+        if (!alive) return;
+        setEntries(e);
+        setStatus("ready");
+      })
+      .catch(() => {
+        if (!alive) return;
+        setStatus("error");
+      });
     return () => {
       alive = false;
     };
-  }, [refreshKey]);
+  }, [refreshKey, retryTick]);
 
   return (
     <div className="mb-6 rounded-lg border border-info/30 bg-info/[0.04] p-4">
@@ -1451,7 +1533,16 @@ function LiveInspector({ refreshKey }: { refreshKey: number }) {
             is separate from the audit log, never leaves your machine, and clears when you
             turn inspection off or restart the gateway.
           </p>
-          {entries.length === 0 ? (
+          {status === "loading" && entries.length === 0 ? (
+            <p role="status" className="py-6 text-center text-sm text-muted-foreground">
+              Checking for captured calls…
+            </p>
+          ) : status === "error" ? (
+            <PanelErrorNotice
+              label="Live inspector"
+              onRetry={() => setRetryTick((t) => t + 1)}
+            />
+          ) : entries.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
               No calls captured yet. Run a tool through Toolport and it'll show here.
             </p>
@@ -1480,6 +1571,7 @@ export function ActivityView({
   const [entries, setEntries] = useState<AuditEntry[] | null>(null);
   const [stats, setStats] = useState<AuditStats | null>(null);
   const [savings, setSavings] = useState<SavingsSummary | null>(null);
+  const [savingsLoadStatus, setSavingsLoadStatus] = useState<LoadStatus>("loading");
   const [serverFilter, setServerFilter] = useState<string>("");
   // Show ALL recent calls by default, not a pre-filtered errors-only view. Defaulting the
   // filter on made a healthy log read as "everything is failing"; the StatsPanel already
@@ -1521,6 +1613,8 @@ export function ActivityView({
       auditGeneration.current += 1;
       setEntries([]);
       setAuditLoadStatus("ready");
+      setSavings(null);
+      setSavingsLoadStatus("loading");
       toast.success("Cleared retained activity");
       setReloadTick((t) => t + 1);
     } catch (e) {
@@ -1528,20 +1622,16 @@ export function ActivityView({
     }
   }
 
-  // Live update (SOU-142): tool calls never touch the registry, so the parent's refreshKey
-  // never bumps for them and the feed would sit frozen while an agent works. While Activity
-  // is mounted, tick every few seconds so the call list + Live Inspector refetch the local
-  // logs in place (silent, no spinner). Mirrors how PendingApprovals polls. The visibility
-  // check skips a tick when the webview reports the page hidden; it's best-effort (a desktop
-  // webview doesn't reliably flip visibilityState on minimize), but each tick is only a few
-  // cheap local-file reads, so continuing while minimized costs next to nothing.
+  // Native visibility also covers a window hidden to the tray, where the
+  // webview may keep reporting "visible". Pause file reads and rerenders while
+  // the user is elsewhere; resume within one tick when they return.
+  const windowVisible = useWindowVisible();
   const [liveTick, setLiveTick] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => {
-      if (document.visibilityState === "visible") setLiveTick((t) => t + 1);
-    }, 3000);
+    if (!windowVisible) return;
+    const id = setInterval(() => setLiveTick((t) => t + 1), 3000);
     return () => clearInterval(id);
-  }, []);
+  }, [windowVisible]);
   // Combined so panels refetch on either a registry change or a live tick. Both counters
   // only increase, so the sum always changes when either does (no collisions).
   const liveKey = refreshKey + liveTick;
@@ -1566,8 +1656,17 @@ export function ActivityView({
       .then((s) => alive && setStats(s))
       .catch(() => alive && setStats(null));
     getSavingsSummary()
-      .then((s) => alive && setSavings(s))
-      .catch(() => alive && setSavings(null));
+      .then((s) => {
+        if (!alive) return;
+        setSavings(s);
+        setSavingsLoadStatus("ready");
+      })
+      .catch(() => {
+        if (!alive) return;
+        setSavingsLoadStatus((status) =>
+          status === "ready" || status === "stale" ? "stale" : "error",
+        );
+      });
     getSecurityEvents(50)
       .then((s) => {
         if (!alive) return;
@@ -1661,7 +1760,16 @@ export function ActivityView({
       {/* Calm lane: lead with the value stat people actually want to see, then keep the
           reference panels (discovery / identities / inspector) collapsed below it so they
           don't stack into a wall on first load. */}
-      {savings && savings.tokensSaved > 0 ? <SavingsBanner savings={savings} /> : null}
+      {(savingsLoadStatus === "error" || savingsLoadStatus === "stale") && (
+        <p role="alert" className="mb-3 text-sm text-destructive">
+          {savingsLoadStatus === "stale"
+            ? "Catalog telemetry unavailable. Showing the last loaded measurements."
+            : "Catalog telemetry unavailable. Retry Activity to load measurements."}
+        </p>
+      )}
+      {savings && (savings.listLoads > 0 || (savings.discoveryCount ?? 0) > 0) ? (
+        <SavingsBanner savings={savings} />
+      ) : null}
       <DiscoveryTraces refreshKey={liveKey} />
       <ToolIdentities refreshKey={liveKey} />
       {registry?.liveInspect ? <LiveInspector refreshKey={liveKey} /> : null}
