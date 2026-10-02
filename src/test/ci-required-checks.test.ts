@@ -33,6 +33,7 @@ interface WorkflowStep {
   run?: string;
   uses?: string;
   shell?: string;
+  env?: Record<string, string>;
   "continue-on-error"?: boolean;
 }
 
@@ -191,13 +192,23 @@ describe("CI required merge gate (SBS-874)", () => {
     expect(needsOf(gate)).not.toContain("clippy");
   });
 
-  it("fails the required check unless every gated job reported success", () => {
+  it("passes every dependency to the fail-closed selected-check policy", () => {
     const [, gate] = jobsWithCheckName(jobs, REQUIRED_CHECK_NAME)[0];
-    // The point of the gate: `if: always()` means the step runs on failed,
-    // skipped, and cancelled dependencies, so it must compare each result
-    // against `success` itself, in a step where a false comparison is what
-    // makes the step exit non-zero.
-    expect(failClosedResultChecks(ci, gate)).toEqual([...GATED_JOB_IDS].sort());
+    expect(gate["continue-on-error"]).not.toBe(true);
+    expect(needsOf(gate)).toEqual(
+      expect.arrayContaining(["changes", "frontend", ...GATED_JOB_IDS]),
+    );
+    const steps = (gate.steps ?? []).filter(
+      (step) => step.run === "node .github/scripts/ci-policy.mjs gate",
+    );
+    expect(steps).toHaveLength(1);
+    const step = steps[0];
+    expect(step.if).toBeUndefined();
+    expect(step["continue-on-error"]).not.toBe(true);
+    expect(step.env?.CI_NEEDS).toBe("${{ toJSON(needs) }}");
+    expect(runScripts(jobs.changes).join("\n")).toContain(
+      "node --test .github/scripts/ci-policy.test.mjs",
+    );
   });
 
   it("keeps the Linux suite under a different check name", () => {

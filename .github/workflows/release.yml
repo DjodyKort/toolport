@@ -24,6 +24,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     # Backstop only - GitHub defaults to 360 minutes. Deliberately generous: bundles Tauri on four targets and waits on Apple notarisation.

@@ -120,16 +120,20 @@ If `target/` is still too large, `--lib` alone beats `--lib --bins --tests`,
 
 ### Let CI do the verifying
 
-CI runs the full matrix on **every pull request**, including the platforms most
-contributors do not have. You do not need a clean local run before opening one:
+CI runs frontend and installer checks on every pull request. PRs limited to
+`src/`, `public/`, `index.html`, or Vite/TypeScript configuration skip unchanged
+native code. Rust, dependency, script, workflow, and unknown-file changes run the
+full native matrix, including the platforms most contributors do not have.
+Pushes to `main` always run the full matrix. You do not need a clean local run before opening one:
 push a draft PR and iterate on what CI reports. That is the intended path when
 your machine cannot build the whole project, and it is never treated as a lower
 grade of contribution.
 
 The GitHub required check is still named **Build + test**. That name is a
-merge gate over the Linux suite, the headless Rust matrix (the Windows
-keyring tests live on `windows-latest`), and the `install.ps1` Pester job
-(SBS-874). Clippy stays non-blocking until existing warnings are cleared.
+merge gate over frontend checks, the selected Linux and headless Rust suites
+(the Windows keyring tests live on `windows-latest`), both installer suites,
+and pinned install URLs (SBS-874). Failed or cancelled checks and unexpected
+skips block this gate. Clippy stays non-blocking until existing warnings are cleared.
 Adding the individual job names as separate required contexts is a GitHub
 settings click; it is not something a workflow file can do.
 

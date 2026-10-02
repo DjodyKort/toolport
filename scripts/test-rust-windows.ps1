@@ -1,5 +1,6 @@
 param(
-  [switch]$NoDefaultFeatures
+  [switch]$NoDefaultFeatures,
+  [switch]$BuildOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -25,6 +26,8 @@ $cargoArgs = @(
   "--tests"
 )
 if ($NoDefaultFeatures) { $cargoArgs += "--no-default-features" }
+
+if ($BuildOnly) { $cargoArgs += @("--no-run", "--timings") }
 
 & cargo @cargoArgs
 exit $LASTEXITCODE
