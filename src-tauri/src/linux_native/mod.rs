@@ -129,6 +129,7 @@ pub fn run() {
             action.activate(Some(&uri.to_variant()));
         }
     });
+    app.connect_shutdown(|_| crate::oauth_controller::cancel_all_attempts());
     app.run_with_args(&args);
     if let Some(tray) = tray {
         tray.shutdown().wait();
@@ -9143,7 +9144,7 @@ fn open_authentication_editor(server: state::ServerView, page: ServerPage) {
     content.append(&editor_intro(
         "system-lock-screen-symbolic",
         "Remote authentication",
-        "Paste a bearer token for this server. Toolport stores it in the system keychain and never displays it again.",
+        "Use browser sign-in when supported, or paste a token supplied by your provider. Toolport stores credentials in the system keychain.",
     ));
     let feedback = gtk::Label::builder()
         .halign(gtk::Align::Fill)
@@ -9192,12 +9193,18 @@ fn open_authentication_editor(server: state::ServerView, page: ServerPage) {
     actions.set_halign(gtk::Align::End);
     let sign_in = gtk::Button::with_label("Sign in with browser");
     sign_in.add_css_class("toolport-secondary-action");
+    let cancel_sign_in = gtk::Button::with_label("Cancel sign-in");
+    cancel_sign_in.set_visible(false);
     let remove = gtk::Button::with_label("Remove token");
     remove.add_css_class("destructive-action");
     remove.set_sensitive(false);
     let save = gtk::Button::with_label("Store token");
     save.add_css_class("suggested-action");
-    actions.append(&sign_in);
+    let browser_actions = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    browser_actions.set_halign(gtk::Align::Start);
+    browser_actions.append(&sign_in);
+    browser_actions.append(&cancel_sign_in);
+    content.append(&browser_actions);
     actions.append(&remove);
     actions.append(&save);
     token_section.append(&actions);
@@ -9343,6 +9350,21 @@ fn open_authentication_editor(server: state::ServerView, page: ServerPage) {
     let editor_for_done = editor.clone();
     done.connect_clicked(move |_| editor_for_done.close());
 
+    let oauth_attempt = std::rc::Rc::new(std::cell::RefCell::new(None::<String>));
+    let auth_epoch = std::rc::Rc::new(std::cell::Cell::new(0u64));
+    {
+        let attempt = oauth_attempt.clone();
+        let epoch = auth_epoch.clone();
+        editor.connect_close_request(move |_| {
+            epoch.set(epoch.get().wrapping_add(1));
+            if let Some(id) = attempt.borrow_mut().take() {
+                crate::oauth_controller::request_cancel_attempt(&id);
+                std::thread::spawn(move || crate::oauth_controller::cancel_attempt(&id));
+            }
+            gtk::glib::Propagation::Proceed
+        });
+    }
+    let status_epoch = auth_epoch.clone();
     let server_id = server.id.clone();
     let feedback_for_status = feedback.clone();
     let remove_for_status = remove.clone();
@@ -9351,6 +9373,9 @@ fn open_authentication_editor(server: state::ServerView, page: ServerPage) {
             crate::registry_controller::has_auth_token(&server_id)
         })
         .await;
+        if status_epoch.get() != 0 {
+            return;
+        }
         match result {
             Ok(Ok(has_token)) => {
                 feedback_for_status.set_label(if has_token {
@@ -9472,58 +9497,144 @@ fn open_authentication_editor(server: state::ServerView, page: ServerPage) {
         });
     });
 
+    let has_client = server.client_credentials.is_some();
+    let remove_before_oauth = std::rc::Rc::new(std::cell::Cell::new(false));
+    // Only the current editor attempt may update widgets after blocking work.
+    // Cancellation retires it before a late callback/token response can return.
     let server_id = server.id.clone();
     let server_name = server.name.clone();
     let server_url = server.url.clone().unwrap_or_default();
-    let feedback_for_sign_in = feedback.clone();
-    let remove_for_sign_in = remove.clone();
-    let page_for_sign_in = page.clone();
-    sign_in.connect_clicked(move |button| {
-        if server_url.is_empty() {
-            feedback_for_sign_in.set_label("This server does not have a remote URL to sign in to.");
-            feedback_for_sign_in.add_css_class("error");
-            return;
-        }
-        button.set_sensitive(false);
-        feedback_for_sign_in
-            .set_label("Opening your browser. Finish sign-in there, then return to Toolport…");
-        feedback_for_sign_in.remove_css_class("error");
-        let server_id = server_id.clone();
-        let server_name = server_name.clone();
-        let server_url = server_url.clone();
-        let feedback = feedback_for_sign_in.clone();
-        let remove = remove_for_sign_in.clone();
-        let page = page_for_sign_in.clone();
-        let button = button.clone();
-        gtk::glib::spawn_future_local(async move {
-            let result = gtk::gio::spawn_blocking(move || {
-                crate::oauth_controller::authenticate(&server_id, &server_url)
-            })
-            .await;
-            button.set_sensitive(true);
-            match result {
-                Ok(Ok(())) => {
-                    feedback.set_label(
-                        "Browser sign-in completed and the token is stored in the system keychain.",
-                    );
-                    feedback.remove_css_class("error");
-                    feedback.add_css_class("success");
-                    remove.set_sensitive(true);
-                    page.show_confirmation(&format!("Authenticated {server_name}"));
-                    page.reprobe_after_auth_change();
-                }
-                Ok(Err(error)) => {
-                    feedback.set_label(&error);
-                    feedback.remove_css_class("success");
-                    feedback.add_css_class("error");
-                }
-                Err(_) => {
-                    feedback.set_label("Browser sign-in stopped unexpectedly.");
-                    feedback.add_css_class("error");
-                }
+    {
+        let feedback = feedback.clone();
+        let remove = remove.clone();
+        let save = save.clone();
+        let save_client = save_client.clone();
+        let remove_client = remove_client.clone();
+        let cancel = cancel_sign_in.clone();
+        let page = page.clone();
+        let attempt = oauth_attempt.clone();
+        let epoch = auth_epoch.clone();
+        let remove_before = remove_before_oauth.clone();
+        sign_in.connect_clicked(move |button| {
+            if server_url.is_empty() {
+                feedback.set_label("This server does not have a remote URL to sign in to.");
+                feedback.add_css_class("error");
+                return;
             }
+            let id = crate::oauth_controller::start_attempt();
+            *attempt.borrow_mut() = Some(id.clone());
+            epoch.set(epoch.get().wrapping_add(1));
+            let generation = epoch.get();
+            button.set_sensitive(false);
+            save.set_sensitive(false);
+            save_client.set_sensitive(false);
+            remove_client.set_sensitive(false);
+            remove_before.set(remove.is_sensitive());
+            remove.set_sensitive(false);
+            cancel.set_visible(true);
+            feedback.set_label("Opening your browser. Approve access there. Waiting up to 3 minutes for the callback. Closed the browser? Cancel sign-in, then sign in again to reopen it. Closing this panel cancels sign-in. The main window closes to tray; Quit Toolport exits.");
+            feedback.remove_css_class("error");
+            feedback.remove_css_class("success");
+            let server_id = server_id.clone();
+            let server_name = server_name.clone();
+            let server_url = server_url.clone();
+            let feedback = feedback.clone();
+            let remove = remove.clone();
+            let save = save.clone();
+            let save_client = save_client.clone();
+            let remove_client = remove_client.clone();
+
+            let cancel = cancel.clone();
+            let page = page.clone();
+            let button = button.clone();
+            let attempt = attempt.clone();
+            let epoch = epoch.clone();
+            let remove_before = remove_before.clone();
+            gtk::glib::spawn_future_local(async move {
+                let result = gtk::gio::spawn_blocking(move || {
+                    crate::oauth_controller::authenticate(&server_id, &server_url, &id)
+                }).await;
+                if epoch.get() != generation { return; }
+                attempt.borrow_mut().take();
+                remove.set_sensitive(remove_before.get());
+                button.set_sensitive(true);
+                save.set_sensitive(true);
+                save_client.set_sensitive(true);
+                remove_client.set_sensitive(has_client);
+                cancel.set_visible(false);
+                match result {
+                    Ok(Ok(())) => {
+                        feedback.set_label("Browser sign-in completed and the token is stored in the system keychain.");
+                        feedback.remove_css_class("error");
+                        feedback.add_css_class("success");
+                        remove.set_sensitive(true);
+                        page.show_confirmation(&format!("Authenticated {server_name}"));
+                        page.reprobe_after_auth_change();
+                    }
+                    Ok(Err(error)) => {
+                        feedback.set_label(&error);
+                        feedback.remove_css_class("success");
+                        feedback.add_css_class("error");
+                    }
+                    Err(_) => {
+                        feedback.set_label("Browser sign-in stopped unexpectedly. Sign in with browser to try again.");
+                        feedback.add_css_class("error");
+                    }
+                }
+            });
         });
-    });
+    }
+    {
+        let attempt = oauth_attempt.clone();
+        let epoch = auth_epoch.clone();
+        let feedback = feedback.clone();
+        let sign_in = sign_in.clone();
+        let save = save.clone();
+        let save_client = save_client.clone();
+        let remove_client = remove_client.clone();
+        let has_client = server.client_credentials.is_some();
+        let remove = remove.clone();
+        let remove_before = remove_before_oauth.clone();
+        cancel_sign_in.connect_clicked(move |button| {
+            let Some(id) = attempt.borrow_mut().take() else {
+                return;
+            };
+            crate::oauth_controller::request_cancel_attempt(&id);
+            epoch.set(epoch.get().wrapping_add(1));
+            let generation = epoch.get();
+            button.set_sensitive(false);
+            feedback.set_label("Cancelling browser sign-in…");
+            let epoch = epoch.clone();
+            let feedback = feedback.clone();
+            let sign_in = sign_in.clone();
+            let save = save.clone();
+            let save_client = save_client.clone();
+            let remove_client = remove_client.clone();
+            let remove = remove.clone();
+            let remove_before = remove_before.clone();
+            let button = button.clone();
+            gtk::glib::spawn_future_local(async move {
+                let result =
+                    gtk::gio::spawn_blocking(move || crate::oauth_controller::cancel_attempt(&id))
+                        .await;
+                if epoch.get() != generation {
+                    return;
+                }
+                sign_in.set_sensitive(true);
+                save.set_sensitive(true);
+                save_client.set_sensitive(true);
+                remove_client.set_sensitive(has_client);
+                remove.set_sensitive(remove_before.get());
+                button.set_sensitive(true);
+                button.set_visible(false);
+                feedback.set_label(match result {
+                    Ok(true) => "Browser sign-in cancelled. Sign in with browser to try again.",
+                    Ok(false) => "Browser sign-in already finished. Close and reopen this panel to check token status.",
+                    Err(_) => "Cancellation stopped unexpectedly. Close this panel and try again.",
+                });
+            });
+        });
+    }
 
     let server_id = server.id.clone();
     let server_name = server.name.clone();
@@ -9582,7 +9693,11 @@ fn open_authentication_editor(server: state::ServerView, page: ServerPage) {
     let server_name = server.name;
     let feedback_for_remove = feedback;
     let page_for_remove = page;
+    let sign_in_for_remove = sign_in.clone();
     remove.connect_clicked(move |button| {
+        if !sign_in_for_remove.is_sensitive() {
+            return;
+        }
         button.set_sensitive(false);
         feedback_for_remove.set_label("Removing token from the system keychain…");
         feedback_for_remove.remove_css_class("error");

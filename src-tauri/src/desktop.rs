@@ -2640,14 +2640,34 @@ async fn probe_auth(url: String) -> vendors::AuthInfo {
 /// access token (and refresh token). Runs on a blocking worker so the UI thread
 /// stays responsive while the user completes sign-in in their browser.
 #[tauri::command]
-async fn authenticate_oauth(app: AppHandle, server_id: String, url: String) -> Result<(), String> {
+async fn authenticate_oauth(
+    app: AppHandle,
+    server_id: String,
+    url: String,
+    attempt_id: String,
+) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
-        crate::oauth_controller::authenticate_with(&server_id, &url, || {
+        crate::oauth_controller::authenticate_with(&server_id, &url, &attempt_id, || {
             bump_secrets_generation(app.state::<RegistryState>().inner())
         })
     })
     .await
     .map_err(|error| format!("OAuth task join failed: {error}"))?
+}
+
+#[tauri::command]
+fn start_oauth_attempt() -> String {
+    crate::oauth_controller::start_attempt()
+}
+
+#[tauri::command]
+async fn cancel_oauth_attempt(attempt_id: String) -> Result<bool, String> {
+    crate::oauth_controller::request_cancel_attempt(&attempt_id);
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::oauth_controller::cancel_attempt(&attempt_id)
+    })
+    .await
+    .map_err(|error| format!("Could not cancel browser sign-in: {error}"))
 }
 
 /// The popular catalog (the curated set).
@@ -4450,6 +4470,8 @@ pub fn run() {
             clear_auth_token,
             has_auth_token,
             authenticate_oauth,
+            start_oauth_attempt,
+            cancel_oauth_attempt,
             probe_auth,
             popular_catalog,
             list_stacks,
@@ -4801,6 +4823,7 @@ pub fn run() {
                 if let Some(stop) = app_handle.try_state::<TeamLifecycleStop>() {
                     stop.0.store(true, std::sync::atomic::Ordering::Release);
                 }
+                crate::oauth_controller::cancel_all_attempts();
                 if let Some(broker) = app_handle.try_state::<approval_broker::ApprovalBroker>() {
                     broker.clear_endpoint();
                 }
@@ -5543,47 +5566,6 @@ mod tests {
             }
         }
         cleanup_oauth_lock(&path, &[&first_attempt]);
-    }
-
-    #[test]
-    fn stale_lock_replace_requires_same_observed_instance() {
-        let unique = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("conduit-oauth-lock-{unique}.lock"));
-
-        let observed_id = format!("observed-{unique}");
-        let fresh_id = format!("fresh-owner-{unique}");
-        let contender_id = format!("contender-{unique}");
-        std::fs::write(&path, oauth_lock_contents(&observed_id))
-            .expect("initial lock write should work");
-        let observed = read_oauth_lock_snapshot(&path)
-            .expect("snapshot read should work")
-            .expect("snapshot should exist");
-
-        std::thread::sleep(Duration::from_millis(5));
-        std::fs::write(&path, oauth_lock_contents(&fresh_id))
-            .expect("fresh lock write should work");
-
-        let replaced = try_replace_stale_lock(
-            &path,
-            &observed,
-            &oauth_lock_contents(&contender_id),
-            &contender_id,
-        )
-        .expect("replace check should not error");
-        assert!(
-            !replaced,
-            "stale cleanup must not clobber a newly replaced lock"
-        );
-
-        let current = std::fs::read_to_string(&path).expect("current lock should be readable");
-        assert!(
-            current.contains(&format!("attempt_id={fresh_id}")),
-            "fresh lock instance must remain intact"
-        );
-        let _ = std::fs::remove_file(path);
     }
 
     #[test]

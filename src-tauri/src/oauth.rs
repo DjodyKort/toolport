@@ -4,8 +4,8 @@
 //! access token that rides the same keychain injection path as a manually-pasted
 //! token.
 //!
-//! The browser leg is interactive and can't be unit-tested; the deterministic
-//! pieces (PKCE, URL building, origin parsing) are.
+//! Loopback and cancellation behavior are tested with simulated authorization;
+//! real-provider browser sign-in still requires manual acceptance.
 
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -14,6 +14,51 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use base64::Engine;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
+
+/// Shared cancellation gate. Holding the gate across browser launch or credential
+/// commit makes cancellation linearizable: after cancel returns, neither can start.
+#[derive(Default)]
+pub(crate) struct Cancellation {
+    cancelled: std::sync::atomic::AtomicBool,
+    gate: std::sync::Mutex<()>,
+}
+
+impl Cancellation {
+    pub(crate) fn cancel(&self) {
+        self.request_cancel();
+        // Wait for a browser launch or commit that had already won the gate.
+        drop(
+            self.gate
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        );
+    }
+
+    pub(crate) fn request_cancel(&self) {
+        self.cancelled
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    pub(crate) fn check(&self) -> Result<(), String> {
+        if self.cancelled.load(std::sync::atomic::Ordering::SeqCst) {
+            Err("Browser sign-in cancelled. Sign in with browser to try again.".into())
+        } else {
+            Ok(())
+        }
+    }
+
+    pub(crate) fn with_active<T>(
+        &self,
+        action: impl FnOnce() -> Result<T, String>,
+    ) -> Result<T, String> {
+        let _gate = self
+            .gate
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        self.check()?;
+        action()
+    }
+}
 
 /// Stable HTTPS client identifier whose metadata is published by toolport.app.
 /// Authorization servers that advertise CIMD support fetch this document rather
@@ -1497,17 +1542,38 @@ fn validate_authorization_response_issuer(
     }
 }
 
+#[cfg(test)]
 fn wait_for_code(
     listener: &TcpListener,
     expected_state: &str,
     expected_issuer: &str,
     issuer_parameter_required: bool,
 ) -> Result<String, String> {
-    let deadline = Instant::now() + Duration::from_secs(180);
+    wait_for_code_until(
+        listener,
+        expected_state,
+        expected_issuer,
+        issuer_parameter_required,
+        &Cancellation::default(),
+        Instant::now() + Duration::from_secs(180),
+    )
+}
 
+fn wait_for_code_until(
+    listener: &TcpListener,
+    expected_state: &str,
+    expected_issuer: &str,
+    issuer_parameter_required: bool,
+    cancellation: &Cancellation,
+    deadline: Instant,
+) -> Result<String, String> {
     loop {
+        cancellation.check()?;
         if Instant::now() > deadline {
-            return Err("timed out waiting for browser authorization".to_string());
+            return Err(
+                "Browser sign-in timed out after 3 minutes. Sign in with browser to try again."
+                    .to_string(),
+            );
         }
         match listener.accept() {
             Ok((mut stream, _)) => {
@@ -1515,7 +1581,8 @@ fn wait_for_code(
                 // inherit that, which would make our timed read return nothing. Force
                 // it back to blocking so read_callback_query's read timeout applies.
                 let _ = stream.set_nonblocking(false);
-                let query = read_callback_query(&mut stream);
+                let query = read_callback_query_cancellable(&mut stream, cancellation)?;
+                cancellation.check()?;
                 let mut params: std::collections::HashMap<String, String> =
                     std::collections::HashMap::new();
                 for kv in query.split('&') {
@@ -1614,18 +1681,27 @@ fn wait_for_code(
 /// Read an HTTP request from the callback socket and return its raw query string
 /// (the part after `?` in the request target). Reads until the end of the request
 /// line/headers so a long `code` isn't truncated by a single short read.
+#[cfg(test)]
 fn read_callback_query(stream: &mut std::net::TcpStream) -> String {
+    read_callback_query_cancellable(stream, &Cancellation::default()).unwrap_or_default()
+}
+
+fn read_callback_query_cancellable(
+    stream: &mut std::net::TcpStream,
+    cancellation: &Cancellation,
+) -> Result<String, String> {
     // The accepted socket can be non-blocking: on macOS/BSD it inherits the
     // listener's mode (unlike Windows), which would make a single read return
     // nothing and we'd serve a blank page while the browser sits on the callback.
     // Force blocking AND tolerate WouldBlock by retrying within a deadline, so the
     // request is read regardless of socket mode.
     let _ = stream.set_nonblocking(false);
-    let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(100)));
     let deadline = Instant::now() + Duration::from_secs(5);
     let mut data = Vec::new();
     let mut buf = [0u8; 1024];
     while Instant::now() < deadline {
+        cancellation.check()?;
         match stream.read(&mut buf) {
             Ok(0) => break,
             Ok(n) => {
@@ -1649,7 +1725,7 @@ fn read_callback_query(stream: &mut std::net::TcpStream) -> String {
         .next()
         .and_then(|l| l.split_whitespace().nth(1))
         .unwrap_or("");
-    target.split('?').nth(1).unwrap_or("").to_string()
+    Ok(target.split('?').nth(1).unwrap_or("").to_string())
 }
 
 fn write_callback_page(stream: &mut std::net::TcpStream, message: &str) {
@@ -1660,6 +1736,7 @@ fn write_callback_page(stream: &mut std::net::TcpStream, message: &str) {
         html.len(),
         html
     );
+    let _ = stream.set_write_timeout(Some(Duration::from_millis(500)));
     let _ = stream.write_all(resp.as_bytes());
 }
 
@@ -1675,6 +1752,15 @@ pub fn authenticate_with_scope(
     mcp_url: &str,
     requested_scope_set: Option<&str>,
 ) -> Result<AuthResult, String> {
+    authenticate_cancellable(mcp_url, requested_scope_set, &Cancellation::default())
+}
+
+pub(crate) fn authenticate_cancellable(
+    mcp_url: &str,
+    requested_scope_set: Option<&str>,
+    cancellation: &Cancellation,
+) -> Result<AuthResult, String> {
+    cancellation.check()?;
     debug_log(&format!("=== oauth start: {mcp_url} ==="));
     // Same provenance rule as discover(): a public configured server must not have
     // its DCR / token POST reach a private/loopback host, even via a DNS rebind. Use the
@@ -1683,6 +1769,7 @@ pub fn authenticate_with_scope(
         .map(|h| host_is_definitely_private(&h))
         .unwrap_or(false);
     let endpoints = discover(mcp_url)?;
+    cancellation.check()?;
     let scope = scope_union(requested_scope_set, endpoints.scope.as_deref());
     debug_log(&format!(
         "endpoints: authz={} token={} reg={:?} cimd={} scope={:?}",
@@ -1719,6 +1806,7 @@ pub fn authenticate_with_scope(
     if client_id.trim().is_empty() {
         return Err("dynamic registration returned an empty client_id".to_string());
     }
+    cancellation.check()?;
     let (verifier, challenge) = pkce()?;
     let state = random_token(16)?;
 
@@ -1740,13 +1828,20 @@ pub fn authenticate_with_scope(
         "opening authorize endpoint: {}",
         endpoints.authorization_endpoint
     ));
-    open_browser(&auth_url);
-    let code = wait_for_code(
+    cancellation.with_active(|| {
+        open_browser(&auth_url);
+        Ok(())
+    })?;
+    let code = wait_for_code_until(
         &listener,
         &state,
         &endpoints.issuer,
         endpoints.authorization_response_iss_parameter_supported,
+        cancellation,
+        Instant::now() + Duration::from_secs(180),
     )?;
+    drop(listener);
+    cancellation.check()?;
     debug_log(&format!("got code (len {})", code.len()));
     let tokens = match exchange_code(
         &endpoints.token_endpoint,
@@ -1766,6 +1861,7 @@ pub fn authenticate_with_scope(
             return Err(e);
         }
     };
+    cancellation.check()?;
     Ok(AuthResult {
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
@@ -2124,6 +2220,61 @@ mod tests {
                 "must compare the issuer exactly: {different}"
             );
         }
+    }
+
+    #[test]
+    fn abandoned_browser_callback_times_out() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let error = wait_for_code_until(
+            &listener,
+            "state",
+            "https://auth.example.com",
+            false,
+            &Cancellation::default(),
+            Instant::now() + Duration::from_millis(20),
+        )
+        .unwrap_err();
+        assert!(error.contains("timed out"));
+        assert!(error.contains("try again"));
+    }
+
+    #[test]
+    fn cancellation_closes_abandoned_callback_listener() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let address = listener.local_addr().unwrap();
+        let cancellation = std::sync::Arc::new(Cancellation::default());
+        let signal = cancellation.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let result = wait_for_code_until(
+                &listener,
+                "state",
+                "https://auth.example.com",
+                false,
+                &signal,
+                Instant::now() + Duration::from_secs(180),
+            );
+            drop(listener);
+            tx.send(result).unwrap();
+        });
+        // An incomplete incoming connection must not delay cancellation for the
+        // callback parser's entire five-second read deadline.
+        let _slow_client = std::net::TcpStream::connect(address).unwrap();
+        cancellation.cancel();
+        assert!(rx
+            .recv_timeout(Duration::from_secs(2))
+            .unwrap()
+            .unwrap_err()
+            .contains("cancelled"));
+        worker.join().unwrap();
+        assert!(std::net::TcpStream::connect(address).is_err());
+        // A new listener still accepts a valid callback through the normal checks.
+        assert_eq!(
+            callback_result(&["/callback?code=retry-code&state=retry"], "retry").unwrap(),
+            "retry-code"
+        );
     }
 
     #[test]

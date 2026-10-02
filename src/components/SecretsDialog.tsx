@@ -1,10 +1,12 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, ExternalLink, KeyRound, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toast";
 import { openExternal } from "@/lib/openUrl";
 import {
   authenticateOauth,
+  startOauthAttempt,
+  cancelOauthAttempt,
   setClientCredentials,
   clearClientCredentials,
   hasClientSecret,
@@ -100,6 +102,21 @@ export function SecretsDialog({ server, onSaved, trigger, onChanged }: Props) {
   const [authProbeError, setAuthProbeError] = useState(false);
   const [authInput, setAuthInput] = useState("");
   const [oauthBusy, setOauthBusy] = useState(false);
+  const [oauthMessage, setOauthMessage] = useState("");
+  const oauthRef = useRef<{ id: Promise<string>; retired: boolean } | null>(null);
+
+  // Closing/unmounting retires UI ownership immediately. The backend id is
+  // allocated first so even a queued worker can be cancelled without a race.
+  useEffect(
+    () => () => {
+      const attempt = oauthRef.current;
+      if (attempt) {
+        attempt.retired = true;
+        void attempt.id.then(cancelOauthAttempt).catch((e) => toastError(`${e}`));
+      }
+    },
+    [],
+  );
   // Headless (client-credentials) auth. `ccSecretSet` tracks only whether a
   // secret exists; the value is never read back out of the keychain.
   const [ccOpen, setCcOpen] = useState(false);
@@ -258,6 +275,11 @@ export function SecretsDialog({ server, onSaved, trigger, onChanged }: Props) {
   function onOpenChange(next: boolean) {
     setOpen(next);
     if (next) refreshStatus();
+    else {
+      runIdRef.current += 1;
+      vaultRunIdRef.current += 1;
+      void cancelOauth();
+    }
   }
 
   async function saveAuth() {
@@ -362,33 +384,80 @@ export function SecretsDialog({ server, onSaved, trigger, onChanged }: Props) {
     }
   }
 
-  async function doOauth() {
-    if (!server.url) return;
-    retireInFlightVaultProbes();
-    setOauthBusy(true);
-    toast.info("Opening your browser…", {
-      description:
-        "Sign in to the provider if prompted (you may need an existing account session), then approve access.",
-    });
+  async function cancelOauth() {
+    const attempt = oauthRef.current;
+    if (!attempt) return;
+    attempt.retired = true;
+    setOauthMessage("Cancelling browser sign-in…");
     try {
-      await authenticateOauth(server.id, server.url);
+      // A rejected id allocation never dispatched a worker, so there is
+      // nothing in the backend to cancel.
+      const id = await attempt.id.catch(() => null);
+      const cancelled = id === null || (await cancelOauthAttempt(id));
+      if (oauthRef.current !== attempt) return;
+      oauthRef.current = null;
+      setOauthBusy(false);
+      setOauthMessage(
+        cancelled
+          ? "Browser sign-in cancelled. Sign in with browser to try again."
+          : "Browser sign-in already finished. Check the token status before trying again.",
+      );
+      if (!cancelled) void refreshStatus();
+    } catch (e) {
+      // Keep the attempt available for another cancellation request.
+      if (oauthRef.current === attempt) {
+        setOauthMessage("Could not cancel sign-in. Try Cancel sign-in again.");
+        toastError(`${e}`);
+      }
+    }
+  }
+
+  async function doOauth() {
+    if (!server.url || oauthRef.current) return;
+    retireInFlightVaultProbes();
+    const attempt = { id: startOauthAttempt(), retired: false };
+    oauthRef.current = attempt;
+    const fresh = () => oauthRef.current === attempt && !attempt.retired;
+    setOauthBusy(true);
+    setOauthMessage("");
+    try {
+      const id = await attempt.id;
+      if (!fresh()) {
+        await cancelOauthAttempt(id);
+        return;
+      }
+      await authenticateOauth(server.id, server.url, id);
+      if (!fresh()) return;
       setAuthSet(true);
       setAuthProbeError(false);
+      setOauthMessage("Browser sign-in completed. Your token is stored in the keychain.");
       toast.success("Authenticated");
       onChanged?.();
     } catch (e) {
+      if (!fresh()) return;
+      // Invocation can fail after allocating an id but before the worker
+      // dispatches. Retire that id before enabling another attempt.
+      const id = await attempt.id.catch(() => null);
+      if (id !== null) {
+        try {
+          await cancelOauthAttempt(id);
+        } catch (cancelError) {
+          if (!fresh()) return;
+          attempt.retired = true;
+          setOauthMessage("Could not cancel sign-in. Try Cancel sign-in again.");
+          toastError(`${cancelError}`);
+          return;
+        }
+      }
+      if (!fresh()) return;
       const msg = `${e}`;
-      const blankHint = /state mismatch|timed out|closed/i.test(msg);
-      // Backend messages are complete sentences and already name the failure
-      // (e.g. "The token was stored in the keychain, but could not reload..."), so
-      // prefixing "OAuth failed:" produced a toast that argued with itself (#743).
-      toastError(msg, {
-        description: blankHint
-          ? "If the sign-in page was blank, your default browser (e.g. Safari) may block the local redirect. Set Chrome or Brave as default and try once more, or paste an access token above instead."
-          : undefined,
-      });
+      setOauthMessage(msg);
+      toastError(msg);
     } finally {
-      setOauthBusy(false);
+      if (fresh()) {
+        oauthRef.current = null;
+        setOauthBusy(false);
+      }
     }
   }
 
@@ -497,6 +566,17 @@ export function SecretsDialog({ server, onSaved, trigger, onChanged }: Props) {
                     </div>
                   )}
 
+                  {authInfo?.kind === "oauth" && (
+                    <p className="text-xs text-muted-foreground">
+                      This server supports browser sign-in. A pasted access token is
+                      optional if your provider supplies one.
+                    </p>
+                  )}
+                  {oauthMessage && (
+                    <p role="status" className="text-xs text-muted-foreground">
+                      {oauthMessage}
+                    </p>
+                  )}
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center gap-2">
                       <Label className="text-xs">Access token</Label>
@@ -525,7 +605,7 @@ export function SecretsDialog({ server, onSaved, trigger, onChanged }: Props) {
                       <Button
                         size="sm"
                         variant="outline"
-                        disabled={busyKey !== null || !authInput}
+                        disabled={oauthBusy || busyKey !== null || !authInput}
                         onClick={saveAuth}
                       >
                         {busyKey === "auth" ? (
@@ -550,7 +630,7 @@ export function SecretsDialog({ server, onSaved, trigger, onChanged }: Props) {
                               variant="ghost"
                               className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
                               aria-label="Clear auth token"
-                              disabled={busyKey !== null}
+                              disabled={oauthBusy || busyKey !== null}
                             >
                               {busyKey === "auth-clear" ? (
                                 <Loader2 className="size-4 animate-spin" />
@@ -580,9 +660,14 @@ export function SecretsDialog({ server, onSaved, trigger, onChanged }: Props) {
                             Waiting for browser sign-in…
                           </>
                         ) : (
-                          "Sign in with OAuth"
+                          "Sign in with browser"
                         )}
                       </Button>
+                      {oauthBusy && (
+                        <Button variant="outline" size="sm" onClick={cancelOauth}>
+                          Cancel sign-in
+                        </Button>
+                      )}
                       {!oauthBusy && /mac/i.test(navigator.userAgent) && (
                         <p className="text-[11px] text-muted-foreground">
                           On macOS, set Chrome or Brave as your default browser first.
@@ -591,10 +676,11 @@ export function SecretsDialog({ server, onSaved, trigger, onChanged }: Props) {
                       )}
                       {oauthBusy && (
                         <p className="text-[11px] text-muted-foreground">
-                          Finish signing in and approve access in your browser. If the
-                          page is blank, your default browser (e.g. Safari) may block the
-                          local redirect, use Chrome or Brave, or paste an access token
-                          above instead.
+                          Finish signing in and approve access in your browser. This
+                          attempt waits up to 3 minutes for the browser callback. If you
+                          closed the browser, cancel sign-in, then sign in again to reopen
+                          it. Closing this panel cancels sign-in. Closing the app window
+                          keeps Toolport running in the tray; use Quit Toolport to exit.
                         </p>
                       )}
                     </>
@@ -689,7 +775,7 @@ export function SecretsDialog({ server, onSaved, trigger, onChanged }: Props) {
                         <div className="flex gap-2">
                           <Button
                             size="sm"
-                            disabled={ccBusy}
+                            disabled={oauthBusy || ccBusy}
                             onClick={saveClientCredentials}
                             aria-label="Save client credentials"
                           >
@@ -710,7 +796,7 @@ export function SecretsDialog({ server, onSaved, trigger, onChanged }: Props) {
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  disabled={ccBusy}
+                                  disabled={oauthBusy || ccBusy}
                                   aria-label="Remove client credentials"
                                 >
                                   Remove

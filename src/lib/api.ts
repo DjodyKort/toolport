@@ -853,9 +853,23 @@ export function hasAuthToken(serverId: string): Promise<boolean> {
   return invoke<boolean>("has_auth_token", { serverId });
 }
 
-/** Run the OAuth 2.1 browser flow for a remote server; vaults the access token. */
-export function authenticateOauth(serverId: string, url: string): Promise<void> {
-  return invoke<void>("authenticate_oauth", { serverId, url });
+/** Allocate an attempt id before dispatching work so a queued sign-in can be cancelled. */
+export function startOauthAttempt(): Promise<string> {
+  return invoke<string>("start_oauth_attempt");
+}
+
+/** Cancel and release ownership. False means this attempt already finished. */
+export function cancelOauthAttempt(attemptId: string): Promise<boolean> {
+  return invoke<boolean>("cancel_oauth_attempt", { attemptId });
+}
+
+/** Run the browser flow for this attempt and vault the resulting credentials. */
+export function authenticateOauth(
+  serverId: string,
+  url: string,
+  attemptId: string,
+): Promise<void> {
+  return invoke<void>("authenticate_oauth", { serverId, url, attemptId });
 }
 
 /** Configure the headless OAuth client-credentials flow for an http server.
