@@ -3,7 +3,7 @@ use super::kdf;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -182,6 +182,10 @@ pub(crate) fn read_salt(dir: &Path) -> Result<Vec<u8>, SyncError> {
         .map_err(|_| SyncError::Format("salt.txt is not base64".into()))
 }
 
+fn blob_name_for(key: &str) -> String {
+    format!("{}.enc", key.replace(['/', '\\'], "__"))
+}
+
 fn is_portable_json(entry: &ManifestEntry, key: &str) -> bool {
     entry.category == "global" && key.ends_with(".json")
 }
@@ -280,6 +284,18 @@ pub fn write_bundle_with_origins(
             return Err(SyncError::Format("passphrase needs a salt".into()))
         }
     };
+    let mut blob_owners: HashMap<String, &str> = HashMap::new();
+    for file in files {
+        let blob_name = blob_name_for(&file.key);
+        if let Some(other) = blob_owners.insert(blob_name.clone(), &file.key) {
+            if other != file.key {
+                return Err(SyncError::Format(format!(
+                    "{other} and {} share the blob name {blob_name}",
+                    file.key
+                )));
+            }
+        }
+    }
     let blobs = out_dir.join("blobs");
     fs::create_dir_all(&blobs).map_err(|e| io(&blobs, e))?;
     if let Some(salt) = salt {
@@ -320,7 +336,7 @@ pub fn write_bundle_with_origins(
                 "base64",
             ),
         };
-        let blob_name = format!("{}.enc", file.key.replace(['/', '\\'], "__"));
+        let blob_name = blob_name_for(&file.key);
         let token = fernet::encrypt(&key, &plaintext)?;
         let blob_path = blobs.join(&blob_name);
         fs::write(&blob_path, token).map_err(|e| io(&blob_path, e))?;
