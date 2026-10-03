@@ -75,6 +75,12 @@ pub fn register_all_with_home(registry: &mut TranspilerRegistry, home: Option<Pa
     registry.register(Box::new(zed::Zed));
 }
 
+pub fn registry_with_home(home: Option<PathBuf>) -> TranspilerRegistry {
+    let mut registry = TranspilerRegistry::new();
+    register_all_with_home(&mut registry, home);
+    registry
+}
+
 pub fn register_all(registry: &mut TranspilerRegistry) {
     register_all_with_home(registry, dirs::home_dir());
 }

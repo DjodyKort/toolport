@@ -18,6 +18,7 @@ pub mod pyfs;
 pub mod repo;
 pub mod repo_handlers;
 pub(crate) mod schema;
+pub mod state_handlers;
 pub mod styles;
 pub mod sync;
 pub mod taps;

@@ -7,7 +7,9 @@ use crate::plus::skills::agents::{
     all_agent_transpilers, discover_agents, parse_agent_file, sync_agents, Agent, AgentSyncOptions,
 };
 use crate::plus::skills::assets::compute_skill_hash;
-use crate::plus::skills::ops::diff_skills;
+use crate::plus::skills::ops::{
+    diff_skills, has_drift, lock_dir, lock_output_root, read_lock, skills_status as output_rows,
+};
 use crate::plus::skills::lock::{get_entry, load_lockfile, save_lockfile, LockFile};
 use crate::plus::skills::parser::{
     build_frontmatter, discover_skills, parse_frontmatter, parse_skill_file, Skill, SkillType,
@@ -20,9 +22,8 @@ use crate::plus::skills::styles::{
     sync_styles, Style, StyleOptions, Tier,
 };
 use crate::plus::skills::transpiler::TranspilerRegistry;
-use crate::plus::skills::transpilers::register_all_with_home;
+use crate::plus::skills::transpilers::registry_with_home;
 use crate::plus::skills::{sync_skills, SyncOptions, SystemClock};
-use crate::registry;
 use serde_json::{json, Value};
 use serde_yaml::{Mapping, Value as Yaml};
 use std::path::{Path, PathBuf};
@@ -49,16 +50,8 @@ fn client_keys(args: &Value) -> Option<Vec<String>> {
     (!keys.is_empty()).then_some(keys)
 }
 
-fn lock_dir(global: bool, repo: &Path) -> PathBuf {
-    if global {
-        registry::conduit_dir().unwrap_or_else(|| repo.to_path_buf())
-    } else {
-        repo.to_path_buf()
-    }
-}
-
 fn lock_for_read(repo: &Path) -> Option<LockFile> {
-    load_lockfile(repo).or_else(|| registry::conduit_dir().and_then(|d| load_lockfile(&d)))
+    read_lock(repo).map(|(lock, _)| lock)
 }
 
 fn persist(dir: &Path, lock: &LockFile, dry_run: bool) -> Result<(), ToolError> {
@@ -109,9 +102,7 @@ fn name_arg(args: &Value) -> Result<&str, ToolError> {
 }
 
 fn registry_for_skills() -> Result<TranspilerRegistry, ToolError> {
-    let mut reg = TranspilerRegistry::new();
-    register_all_with_home(&mut reg, Some(home()?));
-    Ok(reg)
+    Ok(registry_with_home(Some(home()?)))
 }
 
 fn find_skill(repo: &Path, name: &str) -> Result<Skill, ToolError> {
@@ -330,11 +321,12 @@ pub(super) fn skills_diff(args: &Value) -> Outcome {
 
 fn skills_status(args: &Value) -> Outcome {
     let repo = skills_repo(args)?;
-    let lock = lock_for_read(&repo);
+    let found = read_lock(&repo);
+    let lock = found.as_ref().map(|(lock, _)| lock);
     let skills = discover_skills(&repo);
     let mut entries = Vec::new();
     for skill in &skills {
-        let bucket = lock.as_ref().map(|l| match skill.skill_type {
+        let bucket = lock.map(|l| match skill.skill_type {
             SkillType::Rule => &l.rules,
             SkillType::Skill => &l.skills,
         });
@@ -350,17 +342,33 @@ fn skills_status(args: &Value) -> Outcome {
             "clientsSynced": entry.map(|e| e.clients_synced.clone()).unwrap_or_default(),
         }));
     }
-    let targeted = client_keys(args).unwrap_or_else(|| {
-        let mut reg = TranspilerRegistry::new();
-        register_all_with_home(&mut reg, crate::clients::home());
-        reg.all().map(|t| t.client_key().to_string()).collect()
-    });
+    let transpilers = registry_with_home(crate::clients::home());
+    let wanted = client_keys(args);
+    let targeted = wanted
+        .clone()
+        .unwrap_or_else(|| transpilers.all().map(|t| t.client_key().to_string()).collect());
+    let mut outputs = Vec::new();
+    let mut output_root = Value::Null;
+    if let Some((lock, source)) = &found {
+        let root = lock_output_root(*source, &repo)
+            .map_err(|e| ToolError::new("not_found", e))?;
+        outputs = output_rows(lock, &transpilers, &root);
+        outputs.retain(|row| targeted.contains(&row.client));
+        output_root = json!(root.to_string_lossy());
+    }
     Ok(json!({
         "repo": repo.to_string_lossy(),
         "lockfilePresent": lock.is_some(),
-        "lockfileSyncedAt": lock.as_ref().map(|l| l.synced_at.clone()),
+        "lockfileSyncedAt": lock.map(|l| l.synced_at.clone()),
+        "lockedCount": lock.map_or(0, |l| l.skills.len() + l.rules.len()),
         "targetedClients": targeted,
         "entries": entries,
+        "outputRoot": output_root,
+        "drift": has_drift(&outputs),
+        "outputs": outputs
+            .iter()
+            .map(|row| json!({"name": row.name, "client": row.client, "present": row.present}))
+            .collect::<Vec<_>>(),
     }))
 }
 

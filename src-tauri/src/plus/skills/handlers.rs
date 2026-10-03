@@ -23,3 +23,7 @@ pub fn lint_handler(args: Value) -> Result<Value, String> {
 pub fn diff_handler(args: Value) -> Result<Value, String> {
     finish(selfmcp::skills_diff(&args))
 }
+
+pub fn status_handler(args: Value) -> Result<Value, String> {
+    finish(selfmcp::call_tool("skills_status", &args))
+}
