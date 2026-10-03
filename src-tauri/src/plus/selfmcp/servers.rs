@@ -579,6 +579,10 @@ fn auth(args: &Value) -> Outcome {
     if let Some(cwd) = &server.cwd {
         cmd.current_dir(cwd);
     }
+    let configured: std::collections::HashSet<&str> =
+        server.env.iter().map(|var| var.key.as_str()).collect();
+    crate::downstream::strip_gateway_control_env(&mut cmd, &configured);
+    let mut env: Vec<(String, String)> = Vec::new();
     for var in &server.env {
         let value = if var.secret {
             crate::secrets::get_secret(&server.id, &var.key)
@@ -586,7 +590,8 @@ fn auth(args: &Value) -> Outcome {
             var.value.clone()
         };
         if let Some(value) = value {
-            cmd.env(&var.key, value);
+            cmd.env(&var.key, &value);
+            env.push((var.key.clone(), value));
         }
     }
     cmd.stdin(Stdio::null())
@@ -615,7 +620,9 @@ fn auth(args: &Value) -> Outcome {
         match rx.recv_timeout(Duration::from_millis(200)) {
             Ok(line) => {
                 url = find_url(&line);
-                tail.push(line);
+                tail.push(crate::launch_inputs::redact_env_secrets(
+                    &server, &env, line,
+                ));
                 if tail.len() > 10 {
                     tail.remove(0);
                 }
