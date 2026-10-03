@@ -14,11 +14,11 @@ pub mod source;
 mod tests;
 
 use crate::registry::{self, ServerEntry};
+use crate::plus::args::{flag, str_nonempty};
+use crate::plus::skills::clock::{Clock, SystemClock};
 use exec::{GitRunner, ShellRunner};
 use net::HttpClient;
 use serde::Serialize;
-use crate::plus::args::{flag, str_nonempty};
-use crate::plus::skills::clock::{Clock, SystemClock};
 use serde_json::{json, Map, Value};
 use source::Source;
 use std::cmp::Ordering;

@@ -17,8 +17,8 @@ use super::google::{
     endpoint_allowed, sanitize_code, ClientVault, GoogleRefreshProbe, SecretsVault,
 };
 use super::probe::{Clock, Probe, ProbeKind, ProbeRegistry, ProbeSpec, SystemClock};
-use super::{agent, read_capped};
 use super::types::ProbeOutcome;
+use super::{agent, read_capped};
 use crate::plus::compression::ledger;
 
 pub const PARAM_SERVICE: &str = "service";

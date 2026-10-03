@@ -42,6 +42,10 @@ impl ToolError {
         }
     }
 
+    pub fn backend(message: impl Into<String>) -> Self {
+        Self::new("backend_error", message)
+    }
+
     pub fn not_implemented(what: &str) -> Self {
         Self::new(
             "not_implemented",
