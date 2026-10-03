@@ -148,11 +148,28 @@ fn frontmatter_fields(rng: &mut Rng, chaos: u64) -> Vec<(String, Value)> {
     fields
 }
 
+fn line_model(doc: &str) -> Option<(String, String)> {
+    let lines: Vec<&str> = doc.split('\n').collect();
+    let bare = |l: &str| l.starts_with("---") && l.trim() == "---";
+    if lines.len() < 2 || !bare(lines[0]) {
+        return None;
+    }
+    let close = (1..lines.len()).find(|&i| bare(lines[i]))?;
+    let yaml: String = lines[1..close].iter().map(|l| format!("{l}\n")).collect();
+    Some((yaml, lines[close + 1..].join("\n").trim().to_string()))
+}
+
 #[test]
-fn splitting_garbage_documents_never_panics_and_obeys_the_regex_contract() {
+fn splitting_garbage_documents_never_panics_and_matches_a_line_model() {
     const VOCAB: &[&str] = &[
         "---",
         "---\n",
+        "--- \n",
+        "---\r\n",
+        "--- x\n",
+        "----\n",
+        "  ---\n",
+        "a---b\n",
         "\n",
         "\r\n",
         "name: a\n",
@@ -184,11 +201,17 @@ fn splitting_garbage_documents_never_panics_and_obeys_the_regex_contract() {
             doc.push_str(&rng.garbage(10));
         }
         let split = split_frontmatter(&doc);
+        assert_eq!(
+            split.map(|(y, b)| (y.to_string(), b.to_string())),
+            line_model(&doc),
+            "{doc:?}"
+        );
         if let Some((yaml, body)) = split {
             assert!(doc.starts_with("---"), "{doc:?}");
             assert!(
-                !yaml.contains("---"),
-                "lazy match must stop at the first fence: {doc:?}"
+                yaml.split('\n')
+                    .all(|l| !(l.starts_with("---") && l.trim() == "---")),
+                "a fence line must close the frontmatter: {doc:?}"
             );
             assert_eq!(body, body.trim());
             assert!(doc.contains(yaml) && doc.contains(body));
@@ -281,6 +304,53 @@ fn serialised_frontmatter_round_trips_through_the_parser() {
         assert_eq!(fm.priority, priority);
         assert_eq!(fm.activation.as_str(), activation);
         assert_eq!(parse_frontmatter(&doc), parse_frontmatter(&doc));
+    });
+}
+
+fn with_dashes(rng: &mut Rng, max: usize) -> String {
+    let mut chars: Vec<char> = rng.garbage(max).chars().collect();
+    for _ in 0..rng.range(1, 4) {
+        let at = rng.range(0, chars.len());
+        for (i, c) in "---".chars().enumerate() {
+            chars.insert(at + i, c);
+        }
+    }
+    let mut text: String = chars.into_iter().collect();
+    text.push('x');
+    text
+}
+
+#[test]
+fn values_containing_dashes_round_trip_through_the_parser() {
+    run_cases("skills-frontmatter-dashes-roundtrip", 3000, |_, rng| {
+        let name = rng.slug(40);
+        let description = with_dashes(rng, 60);
+        let globs = with_dashes(rng, 20);
+        let mut map = Mapping::new();
+        map.insert("name".into(), Value::String(name.clone()));
+        map.insert("description".into(), Value::String(description.clone()));
+        map.insert("globs".into(), Value::String(globs.clone()));
+        let body = with_dashes(rng, 80);
+        let doc = format!("---\n{}---\n{body}", serde_yaml::to_string(&map).unwrap());
+        let (fields, parsed_body) = parse_frontmatter(&doc).unwrap();
+        assert_eq!(parsed_body, body.trim(), "{doc:?}");
+        let fm = build_frontmatter(&fields).unwrap();
+        assert_eq!(fm.name, name);
+        assert_eq!(fm.description, description, "{doc:?}");
+        assert_eq!(fm.globs.as_deref(), Some(globs.as_str()));
+    });
+}
+
+#[test]
+fn plain_scalars_with_dashes_inside_survive_unquoted() {
+    run_cases("skills-frontmatter-dashes-plain", 1000, |_, rng| {
+        let head = rng.string("abc xyz019", 12);
+        let tail = rng.string("abc xyz019", 12);
+        let value = format!("w{head}---{tail}w");
+        let doc = format!("---\nname: a\ndescription: {value}\n---\nbody");
+        let (fields, body) = parse_frontmatter(&doc).unwrap();
+        assert_eq!(fields[1].1, Value::String(value), "{doc:?}");
+        assert_eq!(body, "body");
     });
 }
 
@@ -404,12 +474,37 @@ fn bom_prefixed_document_has_no_frontmatter() {
 }
 
 #[test]
-fn dashes_inside_a_value_end_the_frontmatter_early_like_mcpm() {
+fn dashes_inside_a_value_do_not_end_the_frontmatter() {
     let doc = "---\nname: a\ndescription: use --- as a separator\n---\nbody";
     let (fields, body) = parse_frontmatter(doc).unwrap();
     assert_eq!(fields.len(), 2);
-    assert_eq!(fields[1].1, Value::String("use".into()));
-    assert!(body.starts_with("as a separator"));
+    assert_eq!(fields[1].1, Value::String("use --- as a separator".into()));
+    assert_eq!(body, "body");
+}
+
+#[test]
+fn only_a_bare_dashes_line_closes_the_frontmatter() {
+    let body_of = |doc: &str| parse_frontmatter(doc).unwrap().1;
+    assert_eq!(body_of("---\nname: a\n--- \t\nbody"), "body");
+    assert_eq!(body_of("---\r\nname: a\r\n---\r\nbody"), "body");
+    assert_eq!(body_of("---\nname: a\n---"), "");
+    assert_eq!(body_of("---\nname: a\n---\n---\nlater"), "---\nlater");
+    for open in [
+        "---\nname: a\n--- body",
+        "---\nname: a\n----\nbody",
+        "---\nname: a\n  ---\nbody",
+        "---\nname: a\nk: v ---\nbody",
+        "---\nname: a\nk: ---\nbody",
+    ] {
+        assert_eq!(
+            parse_frontmatter(open),
+            Ok((Vec::new(), open.into())),
+            "{open:?}"
+        );
+    }
+    let (fields, body) = parse_frontmatter("---\nname: a\nk: v ---\n---\nbody").unwrap();
+    assert_eq!(fields[1].1, Value::String("v ---".into()));
+    assert_eq!(body, "body");
 }
 
 #[test]

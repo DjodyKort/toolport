@@ -264,8 +264,11 @@ fn scaffolded_rules_stay_under_the_rules_dir_for_any_name() {
 
 fn model_split(text: &str) -> Option<(&str, &str)> {
     let rest = text.strip_prefix("---")?;
-    let end = rest.find("---")?;
-    Some((&rest[..end], &rest[end + 3..]))
+    rest.match_indices('\n').find_map(|(newline, _)| {
+        let line = rest[newline + 1..].split('\n').next().unwrap_or_default();
+        (line.starts_with("---") && line.trim() == "---")
+            .then(|| (&rest[..newline + 1], &rest[newline + 4..]))
+    })
 }
 
 fn layer_text(rng: &mut Rng) -> Vec<u8> {
@@ -313,7 +316,7 @@ fn layer_text(rng: &mut Rng) -> Vec<u8> {
 }
 
 #[test]
-fn list_layers_and_body_match_a_find_based_model() {
+fn list_layers_and_body_match_a_fence_line_model() {
     let home = ScratchDir::new("layers-list");
     run_cases("layers-list", 400, |_, rng| {
         home.reset();
@@ -390,6 +393,76 @@ fn list_layers_and_body_match_a_find_based_model() {
             };
             assert_eq!(body_of(&layer.path), body, "{dir}");
         }
+    });
+}
+
+#[test]
+fn dashes_inside_a_value_do_not_end_the_layer_frontmatter() {
+    let home = ScratchDir::new("layers-dashes");
+    let file = |text: &str| {
+        let path = home.path().join("SKILL.md");
+        fs::write(&path, text).unwrap();
+        path
+    };
+    let doc = "---\nname: a\ndescription: use --- as a separator\n---\nBody --- more\n";
+    let path = file(doc);
+    let fm = frontmatter(&path);
+    assert_eq!(fm.len(), 2);
+    assert_eq!(
+        fm.get(Yaml::String("description".into())),
+        Some(&Yaml::String("use --- as a separator".into()))
+    );
+    assert_eq!(body_of(&path), "\nBody --- more\n");
+    for doc in [
+        "---\nname: a\n--- body\n",
+        "---\nname: a\n----\nbody\n",
+        "---\nname: a\n  ---\nbody\n",
+        "---\nname: a\nk: ---\nbody\n",
+    ] {
+        let path = file(doc);
+        assert!(frontmatter(&path).is_empty(), "{doc:?}");
+        assert_eq!(body_of(&path), doc, "{doc:?}");
+    }
+    let path = file("---\r\nname: a\r\n---  \r\nbody");
+    assert_eq!(frontmatter(&path).len(), 1);
+    assert_eq!(body_of(&path), "  \r\nbody");
+    let path = file("---\nname: a\n---");
+    assert_eq!(frontmatter(&path).len(), 1);
+    assert_eq!(body_of(&path), "");
+}
+
+#[test]
+fn layer_values_containing_dashes_round_trip() {
+    let home = ScratchDir::new("layers-dashes-roundtrip");
+    run_cases("layers-dashes-roundtrip", 600, |_, rng| {
+        home.reset();
+        let roots = Roots::from_home(home.path());
+        let dashed = |rng: &mut Rng, max: usize| {
+            let text = rng.string("abc é-:", max);
+            let at = text
+                .char_indices()
+                .map(|(i, _)| i)
+                .nth(rng.range(0, text.chars().count()))
+                .unwrap_or(text.len());
+            format!("{}---{}x", &text[..at], &text[at..])
+        };
+        let description = dashed(rng, 30);
+        let globs = dashed(rng, 10);
+        let body = format!("\n{}\n", dashed(rng, 40));
+        let mut map = serde_yaml::Mapping::new();
+        map.insert("name".into(), Yaml::String("client-acme".into()));
+        map.insert("description".into(), Yaml::String(description.clone()));
+        map.insert("activation".into(), Yaml::String("always".into()));
+        map.insert("globs".into(), Yaml::String(globs.clone()));
+        let dir = roots.rules_dir().join("client-acme");
+        fs::create_dir_all(&dir).unwrap();
+        let text = format!("---\n{}---{body}", serde_yaml::to_string(&map).unwrap());
+        fs::write(dir.join("SKILL.md"), &text).unwrap();
+        let layers = list_layers(&roots);
+        assert_eq!(layers.len(), 1, "{text:?}");
+        assert_eq!(layers[0].description, description, "{text:?}");
+        assert_eq!(layers[0].globs, [globs.trim().to_string()], "{text:?}");
+        assert_eq!(body_of(&layers[0].path), body, "{text:?}");
     });
 }
 
