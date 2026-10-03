@@ -3,6 +3,7 @@
 
 mod commands;
 mod compression;
+mod import;
 mod output;
 mod secret;
 
@@ -110,6 +111,16 @@ pub const COMMANDS: &[Command] = &[
         handler: None,
     },
     Command {
+        path: &["import", "mcpm"],
+        summary: "Import an mcpm config root (--dry-run prints the plan)",
+        handler: Some(import::mcpm),
+    },
+    Command {
+        path: &["import"],
+        summary: "Import data from other tools",
+        handler: None,
+    },
+    Command {
         path: &["skills"],
         summary: "Skills sync",
         handler: None,
@@ -165,7 +176,7 @@ pub fn parse(args: &[String]) -> Result<Parsed, String> {
                 Some(value) => parsed.data_dir = Some(value.to_string()),
                 None if matches!(
                     parsed.positional.first().map(String::as_str),
-                    Some("compression" | "secret")
+                    Some("compression" | "secret" | "import")
                 ) =>
                 {
                     parsed.positional.push(other.to_string())
