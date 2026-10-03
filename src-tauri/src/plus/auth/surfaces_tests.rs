@@ -143,6 +143,23 @@ fn hook_is_quiet_when_healthy_and_adds_context_otherwise() {
     assert!(!context.contains("alpha:"));
 }
 
+#[test]
+fn hook_extends_the_statusline_without_changing_it() {
+    let loud = hook(&sample(), NOW);
+    let mut stripped = loud.clone();
+    stripped.as_object_mut().unwrap().remove("hookSpecificOutput");
+    assert_eq!(stripped, statusline(&sample(), NOW));
+    let context = loud["hookSpecificOutput"]["additionalContext"].as_str().unwrap();
+    assert_eq!(context.lines().next(), loud["auth"]["text"].as_str());
+
+    let mut healthy = StatusFile::default();
+    healthy
+        .servers
+        .insert("alpha".into(), entry(AuthState::Ok, "ok", None));
+    assert_eq!(hook(&healthy, NOW), statusline(&healthy, NOW));
+    assert_eq!(hook(&StatusFile::default(), NOW), statusline(&StatusFile::default(), NOW));
+}
+
 fn edge(server: &str, to: &str) -> EdgeEvent {
     EdgeEvent {
         ts: NOW,
