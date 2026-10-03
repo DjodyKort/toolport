@@ -6,8 +6,8 @@ use std::time::{Duration, SystemTime};
 use serde_json::Value;
 
 use super::probe::{Probe, ProbeSpec};
-use super::{agent, read_capped};
 use super::types::ProbeOutcome;
+use super::{agent, read_capped};
 
 pub const DEFAULT_TOKEN_ENDPOINT: &str = "https://oauth2.googleapis.com/token";
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);

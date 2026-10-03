@@ -1,6 +1,7 @@
 use super::backend::{lint_value, skills_repo};
-use crate::plus::args::{flag, flag_or, list, str_arg};
 use super::ToolError;
+use crate::plus::args::{flag, flag_or, list, str_arg};
+use crate::plus::hashing::lock_hash;
 use crate::plus::skills::agents::lint::lint_agents;
 use crate::plus::skills::agents::{
     all_agent_transpilers, discover_agents, parse_agent_file, sync_agents, Agent, AgentSyncOptions,
@@ -24,7 +25,6 @@ use crate::plus::skills::{sync_skills, SyncOptions, SystemClock};
 use crate::registry;
 use serde_json::{json, Value};
 use serde_yaml::{Mapping, Value as Yaml};
-use crate::plus::hashing::lock_hash;
 use std::path::{Path, PathBuf};
 
 type Outcome = Result<Value, ToolError>;
@@ -61,8 +61,11 @@ fn lock_for_read(repo: &Path) -> Option<LockFile> {
     load_lockfile(repo).or_else(|| registry::conduit_dir().and_then(|d| load_lockfile(&d)))
 }
 
-fn save(dir: &Path, lock: &LockFile) -> Result<(), ToolError> {
-    save_lockfile(dir, lock).map_err(|e| ToolError::new("backend_error", e))
+fn persist(dir: &Path, lock: &LockFile, dry_run: bool) -> Result<(), ToolError> {
+    if dry_run {
+        return Ok(());
+    }
+    save_lockfile(dir, lock).map_err(ToolError::backend)
 }
 
 fn path_safe(name: &str) -> Result<&str, ToolError> {
@@ -147,7 +150,7 @@ fn find_style(repo: &Path, name: &str) -> Result<Style, ToolError> {
 }
 
 fn file_hash(path: &Path) -> Result<String, ToolError> {
-    let bytes = std::fs::read(path).map_err(|e| ToolError::new("backend_error", e.to_string()))?;
+    let bytes = std::fs::read(path).map_err(|e| ToolError::backend(e.to_string()))?;
     Ok(lock_hash(bytes))
 }
 
@@ -157,7 +160,7 @@ fn fence(line: &str) -> bool {
 
 fn rewrite_body(path: &Path, new_body: &str) -> Result<String, ToolError> {
     let raw = std::fs::read_to_string(path)
-        .map_err(|e| ToolError::new("backend_error", e.to_string()))?;
+        .map_err(|e| ToolError::backend(e.to_string()))?;
     let mut lines = raw.split_inclusive('\n');
     let first_ok = lines.next().is_some_and(fence);
     let mut yaml = String::new();
@@ -178,13 +181,13 @@ fn rewrite_body(path: &Path, new_body: &str) -> Result<String, ToolError> {
         ));
     }
     let content = format!("---\n{yaml}---\n{}\n", new_body.trim_end());
-    write_text(path, &content).map_err(|e| ToolError::new("backend_error", e))?;
+    write_text(path, &content).map_err(ToolError::backend)?;
     file_hash(path)
 }
 
 fn rewrite_frontmatter(path: &Path, patch: &Value, skill: bool) -> Result<String, ToolError> {
     let raw = std::fs::read_to_string(path)
-        .map_err(|e| ToolError::new("backend_error", e.to_string()))?;
+        .map_err(|e| ToolError::backend(e.to_string()))?;
     let (mut fm, body) = parse_frontmatter(&raw).map_err(|e| ToolError::new("invalid_input", e))?;
     if fm.is_empty() {
         return Err(ToolError::new(
@@ -212,9 +215,9 @@ fn rewrite_frontmatter(path: &Path, patch: &Value, skill: bool) -> Result<String
         map.insert(Yaml::String(k), v);
     }
     let yaml =
-        serde_yaml::to_string(&map).map_err(|e| ToolError::new("backend_error", e.to_string()))?;
+        serde_yaml::to_string(&map).map_err(|e| ToolError::backend(e.to_string()))?;
     let content = format!("---\n{yaml}---\n{}\n", body.trim_end());
-    write_text(path, &content).map_err(|e| ToolError::new("backend_error", e))?;
+    write_text(path, &content).map_err(ToolError::backend)?;
     file_hash(path)
 }
 
@@ -225,7 +228,7 @@ fn scaffold(path: PathBuf, kind: &str, name: &str, content: String) -> Outcome {
             format!("{kind} {name} already exists at {}", path.display()),
         ));
     }
-    write_text(&path, &content).map_err(|e| ToolError::new("backend_error", e))?;
+    write_text(&path, &content).map_err(ToolError::backend)?;
     Ok(json!({"created_path": path.to_string_lossy(), "kind": kind}))
 }
 
@@ -256,10 +259,6 @@ fn active_styles(lock: Option<&LockFile>) -> Value {
         }
     }
     Value::Object(map)
-}
-
-fn style_root() -> Result<PathBuf, ToolError> {
-    home()
 }
 
 pub(super) fn inventory(kind: &str) -> Result<String, ToolError> {
@@ -317,7 +316,7 @@ pub(super) fn skills_diff(args: &Value) -> Outcome {
     let repo = skills_repo(args)?;
     let lock = lock_for_read(&repo);
     let skills = discover_skills(&repo);
-    let report = diff_skills(&skills, lock.as_ref()).map_err(|e| ToolError::new("backend_error", e))?;
+    let report = diff_skills(&skills, lock.as_ref()).map_err(ToolError::backend)?;
     Ok(json!({
         "repo": repo.to_string_lossy(),
         "noLockfile": report.no_lockfile,
@@ -399,10 +398,8 @@ fn skills_sync(args: &Value) -> Outcome {
         clock: &SystemClock,
     };
     let result = sync_skills(&skills, &registry_for_skills()?, &opts)
-        .map_err(|e| ToolError::new("backend_error", e))?;
-    if !opts.dry_run {
-        save(&dir, &result.lockfile)?;
-    }
+        .map_err(ToolError::backend)?;
+    persist(&dir, &result.lockfile, opts.dry_run)?;
     Ok(json!({
         "repo": repo.to_string_lossy(),
         "dryRun": opts.dry_run,
@@ -452,7 +449,7 @@ fn skills_delete(args: &Value) -> Outcome {
             "skill directory is outside the repository",
         ));
     }
-    std::fs::remove_dir_all(&dir).map_err(|e| ToolError::new("backend_error", e.to_string()))?;
+    std::fs::remove_dir_all(&dir).map_err(|e| ToolError::backend(e.to_string()))?;
     Ok(json!({"removedPath": dir.to_string_lossy()}))
 }
 
@@ -504,10 +501,8 @@ fn agents_sync(args: &Value) -> Outcome {
         clock: &SystemClock,
     };
     let lock = sync_agents(&agents, load_lockfile(&dir), &opts)
-        .map_err(|e| ToolError::new("backend_error", e))?;
-    if !opts.dry_run {
-        save(&dir, &lock)?;
-    }
+        .map_err(ToolError::backend)?;
+    persist(&dir, &lock, opts.dry_run)?;
     Ok(json!({
         "repo": repo.to_string_lossy(),
         "dryRun": opts.dry_run,
@@ -581,11 +576,9 @@ fn styles_sync_tier1(args: &Value) -> Outcome {
     let styles = discover_styles(&repo);
     let dir = lock_dir(true, &repo);
     let opts = style_options(args);
-    let lock = sync_styles(&styles, &style_root()?, load_lockfile(&dir), &opts)
-        .map_err(|e| ToolError::new("backend_error", e))?;
-    if !opts.dry_run {
-        save(&dir, &lock)?;
-    }
+    let lock = sync_styles(&styles, &home()?, load_lockfile(&dir), &opts)
+        .map_err(ToolError::backend)?;
+    persist(&dir, &lock, opts.dry_run)?;
     Ok(json!({
         "repo": repo.to_string_lossy(),
         "dryRun": opts.dry_run,
@@ -600,11 +593,9 @@ fn styles_apply(args: &Value) -> Outcome {
     let style = find_style(&repo, name)?;
     let dir = lock_dir(true, &repo);
     let opts = style_options(args);
-    let lock = apply_style(&style, &style_root()?, load_lockfile(&dir), &opts)
-        .map_err(|e| ToolError::new("backend_error", e))?;
-    if !opts.dry_run {
-        save(&dir, &lock)?;
-    }
+    let lock = apply_style(&style, &home()?, load_lockfile(&dir), &opts)
+        .map_err(ToolError::backend)?;
+    persist(&dir, &lock, opts.dry_run)?;
     Ok(json!({
         "applied": name,
         "dryRun": opts.dry_run,
@@ -616,11 +607,9 @@ fn styles_remove(args: &Value) -> Outcome {
     let repo = skills_repo(args)?;
     let dir = lock_dir(true, &repo);
     let opts = style_options(args);
-    let lock = remove_style(&style_root()?, load_lockfile(&dir), &opts)
-        .map_err(|e| ToolError::new("backend_error", e))?;
-    if !opts.dry_run {
-        save(&dir, &lock)?;
-    }
+    let lock = remove_style(&home()?, load_lockfile(&dir), &opts)
+        .map_err(ToolError::backend)?;
+    persist(&dir, &lock, opts.dry_run)?;
     Ok(json!({
         "dryRun": opts.dry_run,
         "activeStyles": active_styles(Some(&lock)),

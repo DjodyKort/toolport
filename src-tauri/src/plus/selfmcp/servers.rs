@@ -1,6 +1,6 @@
 use super::backend::{ctl, read_registry, skills_repo};
-use crate::plus::args::{flag, flag_or, list, str_arg, str_nonempty};
 use super::ToolError;
+use crate::plus::args::{flag, flag_or, list, str_arg, str_nonempty};
 use crate::plus::update::exec::{CmdOutput, GitRunner, ShellRunner, SystemGit, SystemShell};
 use crate::plus::update::source::{self, Source};
 use crate::plus::update::{execute, gitops, Mode, Options};
@@ -40,9 +40,13 @@ pub(super) fn run(name: &str, args: &Value) -> Option<Outcome> {
     })
 }
 
+fn safe_token(value: &str) -> bool {
+    !value.is_empty() && !value.starts_with('-')
+}
+
 fn name_arg(args: &Value) -> Result<&str, ToolError> {
     let name = str_arg(args, "name").unwrap_or_default().trim();
-    if name.is_empty() || name.starts_with('-') {
+    if !safe_token(name) {
         return Err(ToolError::new("invalid_arguments", "invalid server name"));
     }
     Ok(name)
@@ -63,10 +67,6 @@ fn resolve(reg: &Registry, key: &str) -> Result<ServerEntry, ToolError> {
 
 fn load(args: &Value) -> Result<ServerEntry, ToolError> {
     resolve(&read_registry()?, name_arg(args)?)
-}
-
-fn backend(e: String) -> ToolError {
-    ToolError::new("backend_error", e)
 }
 
 fn source_value(source: &Source) -> Value {
@@ -125,14 +125,14 @@ fn update_options(args: &Value, mode: Mode) -> Result<Options, ToolError> {
 
 fn check_updates(args: &Value) -> Outcome {
     let opts = update_options(args, Mode::Check)?;
-    execute(&opts).map(|r| r.to_value()).map_err(backend)
+    execute(&opts).map(|r| r.to_value()).map_err(ToolError::backend)
 }
 
 fn apply_update(args: &Value) -> Outcome {
     name_arg(args)?;
     let mut opts = update_options(args, Mode::Apply)?;
     opts.allow_commands = true;
-    execute(&opts).map(|r| r.to_value()).map_err(backend)
+    execute(&opts).map(|r| r.to_value()).map_err(ToolError::backend)
 }
 
 fn tags_of(reg: &Registry, server_id: &str) -> Vec<String> {
@@ -155,9 +155,9 @@ fn join_profile(server: &ServerEntry, tag: &str, add: bool) -> Result<Registry, 
     let profile = match find_profile(&reg, tag) {
         Some(id) => id,
         None if add => {
-            reg = registry_controller::create_profile(tag).map_err(backend)?;
+            reg = registry_controller::create_profile(tag).map_err(ToolError::backend)?;
             find_profile(&reg, tag)
-                .ok_or_else(|| ToolError::new("backend_error", "profile was not created"))?
+                .ok_or_else(|| ToolError::backend("profile was not created"))?
         }
         None => {
             return Err(ToolError::new(
@@ -166,7 +166,7 @@ fn join_profile(server: &ServerEntry, tag: &str, add: bool) -> Result<Registry, 
             ))
         }
     };
-    registry_controller::set_server_enabled(&profile, &server.id, add, false).map_err(backend)
+    registry_controller::set_server_enabled(&profile, &server.id, add, false).map_err(ToolError::backend)
 }
 
 fn profile_tag(args: &Value, add: bool) -> Outcome {
@@ -279,18 +279,18 @@ fn install(args: &Value) -> Outcome {
             ))
         }
         Some(server) => {
-            registry_controller::update_server_fields(&server.id, fields).map_err(backend)?;
+            registry_controller::update_server_fields(&server.id, fields).map_err(ToolError::backend)?;
             server.id
         }
         None => {
             let before: Vec<String> = reg.servers.iter().map(|s| s.id.clone()).collect();
-            let after = registry_controller::add_server(fields).map_err(backend)?;
+            let after = registry_controller::add_server(fields).map_err(ToolError::backend)?;
             after
                 .servers
                 .iter()
                 .find(|s| !before.contains(&s.id))
                 .map(|s| s.id.clone())
-                .ok_or_else(|| ToolError::new("backend_error", "server was not added"))?
+                .ok_or_else(|| ToolError::backend("server was not added"))?
         }
     };
     let server = resolve(&read_registry()?, &id)?;
@@ -315,7 +315,7 @@ fn update_config(args: &Value) -> Outcome {
         ));
     }
     let fields = fields_from(&server.name, patch, Some(&server))?;
-    registry_controller::update_server_fields(&server.id, fields).map_err(backend)?;
+    registry_controller::update_server_fields(&server.id, fields).map_err(ToolError::backend)?;
     let mut keys: Vec<&String> = patch.keys().collect();
     keys.sort();
     Ok(json!({"id": server.id, "updatedKeys": keys}))
@@ -376,11 +376,11 @@ fn clients_sync(args: &Value) -> Outcome {
 
 fn sync_push(args: &Value) -> Outcome {
     crate::plus::sync::handlers::push_handler(json!({"dryRun": flag(args, "dry_run")}))
-        .map_err(backend)
+        .map_err(ToolError::backend)
 }
 
 fn git(repo: &Path, cmd: &[&str]) -> Result<CmdOutput, ToolError> {
-    SystemGit.git(repo, cmd, GIT_TIMEOUT).map_err(backend)
+    SystemGit.git(repo, cmd, GIT_TIMEOUT).map_err(ToolError::backend)
 }
 
 fn git_ok(repo: &Path, cmd: &[&str]) -> Result<String, ToolError> {
@@ -388,9 +388,7 @@ fn git_ok(repo: &Path, cmd: &[&str]) -> Result<String, ToolError> {
     if out.ok() {
         Ok(out.stdout)
     } else {
-        Err(ToolError::new(
-            "backend_error",
-            format!("git {} failed: {}", cmd.join(" "), out.first_error_line()),
+        Err(ToolError::backend(format!("git {} failed: {}", cmd.join(" "), out.first_error_line()),
         ))
     }
 }
@@ -433,6 +431,44 @@ fn conflict_report(repo: &Path, branch: &str, resume: &str) -> Value {
     })
 }
 
+fn fork_rebase(repo: &Path, target: &str, upstream: &str) -> Outcome {
+    git_ok(repo, &["checkout", "-b", target])?;
+    Ok(if git(repo, &["rebase", upstream])?.ok() {
+        json!({"synced": true, "branch": target, "mode": "rebase"})
+    } else {
+        conflict_report(repo, target, "git rebase --continue")
+    })
+}
+
+fn fork_onto_author(repo: &Path, target: &str, upstream: &str, email: &str) -> Outcome {
+    let base = git_ok(repo, &["merge-base", "HEAD", upstream])?
+        .trim()
+        .to_string();
+    let range = format!("{base}..HEAD");
+    let author = format!("--author={email}");
+    let commits: Vec<String> = git_ok(
+        repo,
+        &[
+            "log",
+            "--reverse",
+            "--no-merges",
+            "--format=%H",
+            &author,
+            &range,
+        ],
+    )?
+    .lines()
+    .map(String::from)
+    .collect();
+    git_ok(repo, &["checkout", "-b", target, upstream])?;
+    for sha in &commits {
+        if !git(repo, &["cherry-pick", sha])?.ok() {
+            return Ok(conflict_report(repo, target, "git cherry-pick --continue"));
+        }
+    }
+    Ok(json!({"synced": true, "branch": target, "mode": "onto-author", "picked": commits.len()}))
+}
+
 fn fork_sync(args: &Value) -> Outcome {
     let server = load(args)?;
     let (src, _) = source::effective(&server, crate::clients::home().as_deref());
@@ -455,13 +491,11 @@ fn fork_sync(args: &Value) -> Outcome {
     let remote = str_arg(args, "upstream_remote").unwrap_or("upstream");
     let branch = str_arg(args, "upstream_branch").unwrap_or("main");
     let mode = str_arg(args, "mode").unwrap_or("rebase");
-    for value in [remote, branch] {
-        if value.is_empty() || value.starts_with('-') {
-            return Err(ToolError::new(
-                "invalid_arguments",
-                "invalid remote or branch",
-            ));
-        }
+    if !safe_token(remote) || !safe_token(branch) {
+        return Err(ToolError::new(
+            "invalid_arguments",
+            "invalid remote or branch",
+        ));
     }
     if !["rebase", "onto-author"].contains(&mode) {
         return Err(ToolError::new(
@@ -482,17 +516,11 @@ fn fork_sync(args: &Value) -> Outcome {
     git_ok(&repo, &["fetch", "--quiet", remote])?;
     let date = crate::plus::update::now_iso()[..10].replace('-', "");
     let target = str_arg(args, "target_branch")
-        .filter(|t| !t.is_empty() && !t.starts_with('-'))
+        .filter(|t| safe_token(t))
         .map(String::from)
         .unwrap_or_else(|| format!("{current}-synced-{date}"));
     let mut result = if mode == "rebase" {
-        git_ok(&repo, &["checkout", "-b", &target])?;
-        let out = git(&repo, &["rebase", &upstream])?;
-        if out.ok() {
-            json!({"synced": true, "branch": target, "mode": mode})
-        } else {
-            conflict_report(&repo, &target, "git rebase --continue")
-        }
+        fork_rebase(&repo, &target, &upstream)?
     } else {
         let email = str_arg(args, "author_email").unwrap_or_default();
         if email.is_empty() {
@@ -501,47 +529,14 @@ fn fork_sync(args: &Value) -> Outcome {
                 "author_email is required for onto-author",
             ));
         }
-        let base = git_ok(&repo, &["merge-base", "HEAD", &upstream])?
-            .trim()
-            .to_string();
-        let range = format!("{base}..HEAD");
-        let author = format!("--author={email}");
-        let commits: Vec<String> = git_ok(
-            &repo,
-            &[
-                "log",
-                "--reverse",
-                "--no-merges",
-                "--format=%H",
-                &author,
-                &range,
-            ],
-        )?
-        .lines()
-        .map(String::from)
-        .collect();
-        git_ok(&repo, &["checkout", "-b", &target, &upstream])?;
-        let mut conflict = None;
-        for sha in &commits {
-            if !git(&repo, &["cherry-pick", sha])?.ok() {
-                conflict = Some(conflict_report(
-                    &repo,
-                    &target,
-                    "git cherry-pick --continue",
-                ));
-                break;
-            }
-        }
-        conflict.unwrap_or_else(
-            || json!({"synced": true, "branch": target, "mode": mode, "picked": commits.len()}),
-        )
+        fork_onto_author(&repo, &target, &upstream, email)?
     };
     result["previousBranch"] = json!(current);
     if result["synced"] == true && flag(args, "run_post_update") {
         if let Some(cmd) = post_update {
             let out = SystemShell
                 .run(&cmd, &repo, Duration::from_secs(600))
-                .map_err(backend)?;
+                .map_err(ToolError::backend)?;
             result["postUpdate"] = json!({
                 "ok": out.ok(),
                 "stderrTail": out.stderr.lines().rev().take(10).collect::<Vec<_>>(),
@@ -593,11 +588,11 @@ fn auth(args: &Value) -> Outcome {
         .stderr(Stdio::piped());
     let mut child = cmd
         .spawn()
-        .map_err(|e| ToolError::new("backend_error", format!("could not start: {e}")))?;
+        .map_err(|e| ToolError::backend(format!("could not start: {e}")))?;
     let stderr = child
         .stderr
         .take()
-        .ok_or_else(|| ToolError::new("backend_error", "no stderr"))?;
+        .ok_or_else(|| ToolError::backend("no stderr"))?;
     let (tx, rx) = mpsc::channel::<String>();
     std::thread::spawn(move || {
         for line in BufReader::new(stderr).lines().map_while(Result::ok) {

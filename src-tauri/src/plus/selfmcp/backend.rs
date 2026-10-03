@@ -1,6 +1,6 @@
 use super::catalog::{ResourceDef, ToolDef};
-use super::{content, docs, servers};
 use super::ToolError;
+use super::{content, docs, servers};
 use crate::plus::args::{list, str_arg};
 use crate::plus::registry_ro;
 use crate::plus::skills::lint::{lint_skills, LintResult};

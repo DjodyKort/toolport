@@ -1,8 +1,8 @@
 use super::fernet::{self, FernetError, FernetKey};
 use super::kdf;
+use crate::plus::hashing::lock_hash;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
-use crate::plus::hashing::lock_hash;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fs;

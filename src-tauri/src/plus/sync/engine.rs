@@ -5,13 +5,13 @@ use super::bundle::{
     ImportTargets, Manifest, PortableRoots, SourceFile, SyncError, SERVER_ORIGINS_KEY,
 };
 use super::exec::Exec;
-use crate::plus::hashing::lock_hash;
 use super::fernet::{self, FernetError, FernetKey};
 use super::kdf;
 use super::origins::{detect_origins, resolve_servers, ResolveOptions, ResolveResult};
 use super::schema::{
     Changes, ConflictInfo, ServerOrigins, SyncConfig, SyncProjectConfig, SyncState, SyncStateEntry,
 };
+use crate::plus::hashing::lock_hash;
 use crate::plus::skills::clock::Clock;
 use serde::Serialize;
 use std::collections::BTreeMap;
