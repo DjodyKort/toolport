@@ -4,6 +4,8 @@
 
 use serde_json::{json, Value};
 
+pub mod auth;
+
 pub type Handler = fn(Value) -> Result<Value, String>;
 
 const HANDLERS: &[(&str, Handler)] = &[("plus.ping", ping)];
