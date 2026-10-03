@@ -1,7 +1,228 @@
 {
   "clientDiscovery": {
-    "claude-code": "full"
+    "claude-code": "full",
+    "claude-desktop": "lazy",
+    "cursor": "lazy",
+    "gemini-cli": "lazy"
   },
+  "clientEntries": [
+    {
+      "clientId": "claude-code",
+      "mapped": [
+        {
+          "key": "mcpm_anna-mcp",
+          "serverIds": ["anna"]
+        },
+        {
+          "key": "mcpm_context7",
+          "serverIds": ["context7"]
+        },
+        {
+          "key": "mcpm_drawio",
+          "serverIds": ["drawio"]
+        },
+        {
+          "key": "mcpm_figma",
+          "serverIds": ["figma"]
+        },
+        {
+          "key": "mcpm_framelink",
+          "serverIds": ["framelink"]
+        },
+        {
+          "key": "mcpm_google-docs-mcp",
+          "serverIds": ["gdocs"]
+        },
+        {
+          "key": "mcpm_lib",
+          "serverIds": ["lib"]
+        },
+        {
+          "key": "mcpm_moodle-mcp",
+          "serverIds": ["moodle"]
+        },
+        {
+          "key": "mcpm_odh",
+          "serverIds": ["dev-odoo"]
+        },
+        {
+          "key": "mcpm_org-odoo",
+          "serverIds": ["org-odoo"]
+        },
+        {
+          "key": "mcpm_org-typst",
+          "serverIds": ["org-typst"]
+        },
+        {
+          "key": "mcpm_profile_miro-stack",
+          "serverIds": ["miro", "miro-community"]
+        },
+        {
+          "key": "mcpm_profile_profile-a",
+          "serverIds": ["gdocs-a"]
+        },
+        {
+          "key": "mcpm_profile_profile-b",
+          "serverIds": ["gdocs-b"]
+        },
+        {
+          "key": "mcpm_scihub",
+          "serverIds": ["scihub"]
+        },
+        {
+          "key": "mcpm_serena",
+          "serverIds": ["serena"]
+        },
+        {
+          "key": "mcpm_stitch",
+          "serverIds": ["stitch"]
+        }
+      ],
+      "orphans": ["mcpm-mcp"],
+      "profileId": "claude-code"
+    },
+    {
+      "clientId": "claude-desktop",
+      "mapped": [
+        {
+          "key": "mcpm_anna-mcp",
+          "serverIds": ["anna"]
+        },
+        {
+          "key": "mcpm_clickup",
+          "serverIds": ["clickup"]
+        },
+        {
+          "key": "mcpm_context7",
+          "serverIds": ["context7"]
+        },
+        {
+          "key": "mcpm_drawio",
+          "serverIds": ["drawio"]
+        },
+        {
+          "key": "mcpm_figma",
+          "serverIds": ["figma"]
+        },
+        {
+          "key": "mcpm_framelink",
+          "serverIds": ["framelink"]
+        },
+        {
+          "key": "mcpm_moodle-mcp",
+          "serverIds": ["moodle"]
+        },
+        {
+          "key": "mcpm_odh",
+          "serverIds": ["dev-odoo"]
+        },
+        {
+          "key": "mcpm_org-odoo",
+          "serverIds": ["org-odoo"]
+        },
+        {
+          "key": "mcpm_org-typst",
+          "serverIds": ["org-typst"]
+        },
+        {
+          "key": "mcpm_profile_miro-stack",
+          "serverIds": ["miro", "miro-community"]
+        },
+        {
+          "key": "mcpm_profile_profile-a",
+          "serverIds": ["gdocs-a"]
+        },
+        {
+          "key": "mcpm_scihub",
+          "serverIds": ["scihub"]
+        },
+        {
+          "key": "mcpm_slack",
+          "serverIds": ["slack"]
+        },
+        {
+          "key": "mcpm_stitch",
+          "serverIds": ["stitch"]
+        }
+      ],
+      "orphans": ["context7", "playwright"],
+      "profileId": "claude-desktop"
+    },
+    {
+      "clientId": "cursor",
+      "mapped": [
+        {
+          "key": "mcpm_miro",
+          "serverIds": ["miro"]
+        },
+        {
+          "key": "mcpm_miro-community",
+          "serverIds": ["miro-community"]
+        }
+      ],
+      "orphans": [],
+      "profileId": "cursor"
+    },
+    {
+      "clientId": "gemini-cli",
+      "mapped": [
+        {
+          "key": "mcpm_anna-mcp",
+          "serverIds": ["anna"]
+        },
+        {
+          "key": "mcpm_clickup",
+          "serverIds": ["clickup"]
+        },
+        {
+          "key": "mcpm_context7",
+          "serverIds": ["context7"]
+        },
+        {
+          "key": "mcpm_drawio",
+          "serverIds": ["drawio"]
+        },
+        {
+          "key": "mcpm_figma",
+          "serverIds": ["figma"]
+        },
+        {
+          "key": "mcpm_google-docs-mcp",
+          "serverIds": ["gdocs"]
+        },
+        {
+          "key": "mcpm_miro",
+          "serverIds": ["miro"]
+        },
+        {
+          "key": "mcpm_miro-community",
+          "serverIds": ["miro-community"]
+        },
+        {
+          "key": "mcpm_moodle-mcp",
+          "serverIds": ["moodle"]
+        },
+        {
+          "key": "mcpm_org-odoo",
+          "serverIds": ["org-odoo"]
+        },
+        {
+          "key": "mcpm_org-typst",
+          "serverIds": ["org-typst"]
+        },
+        {
+          "key": "mcpm_scihub",
+          "serverIds": ["scihub"]
+        },
+        {
+          "key": "mcpm_stitch",
+          "serverIds": ["stitch"]
+        }
+      ],
+      "orphans": [],
+      "profileId": "gemini-cli"
+    }
+  ],
   "clientScopes": {
     "claude-code": "claude-code",
     "claude-desktop": "claude-desktop",

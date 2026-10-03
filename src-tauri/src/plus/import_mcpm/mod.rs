@@ -9,9 +9,11 @@ mod servers;
 #[cfg(test)]
 mod tests;
 
-pub use clients::{map_clients, ClientConfig, ClientMapping, ClientProfile, ClientSkip};
+pub use clients::{
+    map_clients, ClientConfig, ClientEntries, ClientMapping, ClientProfile, ClientSkip, MappedEntry,
+};
 pub use ids::{exposed_prefix, short_id, tool_name_fits, MAX_TOOL_NAME_LEN, TOOL_NAME_PREFIX};
-pub use run::{load_input, run, run_handler, Action, Change, Plan, RunOptions};
+pub use run::{load_input, run, run_handler, Action, Change, ClientChange, Plan, RunOptions};
 pub use servers::{map_servers, MappedServer, McpmInput, SecretWrite, Warning, IMPORT_SOURCE};
 
 use crate::registry::{Profile, ServerEntry};
@@ -26,6 +28,7 @@ pub struct Mapping {
     pub profiles: Vec<Profile>,
     pub client_scopes: BTreeMap<String, String>,
     pub client_discovery: BTreeMap<String, String>,
+    pub client_entries: Vec<ClientEntries>,
     pub skipped_clients: Vec<ClientSkip>,
     pub warnings: Vec<Warning>,
 }
@@ -56,6 +59,7 @@ impl Mapping {
             "profiles": self.profiles,
             "clientScopes": self.client_scopes,
             "clientDiscovery": self.client_discovery,
+            "clientEntries": self.client_entries,
             "skippedClients": self.skipped_clients,
             "warnings": self.warnings,
         })
@@ -65,6 +69,7 @@ impl Mapping {
 pub fn map_all(input: &McpmInput, clients: &[ClientConfig]) -> Mapping {
     let (servers, mut warnings) = map_servers(input);
     let ClientMapping {
+        entries,
         profiles,
         client_scopes,
         client_discovery,
@@ -77,6 +82,7 @@ pub fn map_all(input: &McpmInput, clients: &[ClientConfig]) -> Mapping {
         profiles,
         client_scopes,
         client_discovery,
+        client_entries: entries,
         skipped_clients: skipped,
         warnings,
     }

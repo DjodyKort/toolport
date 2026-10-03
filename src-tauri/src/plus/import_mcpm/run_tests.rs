@@ -19,11 +19,45 @@ fn fakeify(text: &str) -> String {
     out
 }
 
+struct HomeGuard {
+    _vars: Vec<crate::clients::EnvRestore>,
+}
+
+impl HomeGuard {
+    fn new(home: &Path) -> Self {
+        let empty = Path::new("");
+        let mut vars = vec![
+            crate::clients::EnvRestore::set("XDG_CONFIG_HOME", &home.join(".config")),
+            crate::clients::EnvRestore::set("XDG_DATA_HOME", &home.join(".local/share")),
+        ];
+        for key in [
+            "CLAUDE_CONFIG_DIR",
+            "CODEX_HOME",
+            "GEMINI_CLI_HOME",
+            "GOOSE_PATH_ROOT",
+            "COPILOT_HOME",
+            "KIMI_CODE_HOME",
+        ] {
+            vars.push(crate::clients::EnvRestore::set(key, empty));
+        }
+        crate::clients::TEST_HOME.with(|h| *h.borrow_mut() = Some(home.to_path_buf()));
+        HomeGuard { _vars: vars }
+    }
+}
+
+impl Drop for HomeGuard {
+    fn drop(&mut self) {
+        crate::clients::TEST_HOME.with(|h| *h.borrow_mut() = None);
+    }
+}
+
 struct World {
+    home: PathBuf,
     base: PathBuf,
     root: PathBuf,
     short_ids: PathBuf,
     _dir: crate::registry::DataDirOverride,
+    _home: HomeGuard,
 }
 
 impl World {
@@ -48,7 +82,12 @@ impl World {
         let data = base.join("data");
         std::fs::create_dir_all(&data).unwrap();
         let dir = crate::registry::DataDirOverride::set(&data);
+        let home = base.join("home");
+        std::fs::create_dir_all(&home).unwrap();
+        let guard = HomeGuard::new(&home);
         World {
+            home,
+            _home: guard,
             base,
             root,
             short_ids,
@@ -62,6 +101,8 @@ impl World {
             short_ids_path: Some(self.short_ids.clone()),
             home: Some("{{HOME}}".into()),
             dry_run,
+            write_clients: false,
+            prune_orphans: false,
         }
     }
 
@@ -84,6 +125,7 @@ impl World {
 }
 
 fn with_world(tag: &str, test: impl FnOnce(&World)) {
+    let _env = crate::clients::env_test_lock();
     crate::secrets::tests::with_isolated_vault(|| {
         let world = World::new(tag);
         test(&world);
@@ -314,5 +356,196 @@ fn missing_root_is_an_error() {
         let mut opts = w.opts(true);
         opts.root = w.base.join("nope");
         assert!(run(&opts).unwrap_err().contains("servers.json"));
+    });
+}
+
+fn client_files(w: &World) -> Vec<(&'static str, PathBuf)> {
+    vec![
+        ("claude-code", w.home.join(".claude.json")),
+        (
+            "claude-desktop",
+            w.home.join(".config/Claude/claude_desktop_config.json"),
+        ),
+        ("cursor", w.home.join(".cursor/mcp.json")),
+        ("gemini-cli", w.home.join(".gemini/settings.json")),
+    ]
+}
+
+fn seed_clients(w: &World) {
+    for (id, path) in client_files(w) {
+        let mut doc: Value = serde_json::from_str(
+            &std::fs::read_to_string(w.root.join(format!("{id}.json"))).unwrap(),
+        )
+        .unwrap();
+        doc["theme"] = json!("FAKE-theme");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, serde_json::to_string_pretty(&doc).unwrap()).unwrap();
+    }
+}
+
+fn read_json(path: &Path) -> Value {
+    serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
+}
+
+fn live_opts(w: &World, dry_run: bool) -> RunOptions {
+    RunOptions {
+        write_clients: true,
+        ..w.opts(dry_run)
+    }
+}
+
+#[test]
+fn clients_get_one_toolport_entry_bound_to_their_profile() {
+    with_world("clients", |w| {
+        seed_clients(w);
+        let plan = run(&live_opts(w, false)).unwrap();
+        assert_eq!(plan.clients.len(), 4);
+        assert!(plan.clients.iter().all(|c| c.action == Action::Created));
+        let reg: Value = serde_json::from_str(&w.registry_text().unwrap()).unwrap();
+        for (id, path) in client_files(w) {
+            let doc = read_json(&path);
+            let servers = doc["mcpServers"].as_object().unwrap();
+            assert!(servers.contains_key("toolport"), "{id}");
+            let env = &servers["toolport"]["env"];
+            assert_eq!(env["TOOLPORT_CLIENT_ID"], id);
+            assert_eq!(env["TOOLPORT_PROFILE"], id);
+            assert!(
+                servers.keys().all(|k| !k.starts_with("mcpm_")),
+                "{id}: {:?}",
+                servers.keys().collect::<Vec<_>>()
+            );
+            assert_eq!(doc["theme"], "FAKE-theme");
+            assert_eq!(reg["clientScopes"][id], id);
+            assert!(reg["clientManagedEntries"][id].is_object(), "{id}");
+        }
+        let code = read_json(&w.home.join(".claude.json"));
+        let keys: Vec<&str> = code["mcpServers"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        assert_eq!(keys.len(), 2, "{keys:?}");
+        assert!(keys.contains(&"mcpm-mcp"));
+        let desktop = read_json(&w.home.join(".config/Claude/claude_desktop_config.json"));
+        assert!(desktop["mcpServers"]["context7"].is_object());
+        assert!(desktop["mcpServers"]["playwright"].is_object());
+        let profiles = reg["profiles"].as_array().unwrap();
+        let count = |id: &str| {
+            profiles.iter().find(|p| p["id"] == id).unwrap()["enabledServerIds"]
+                .as_array()
+                .unwrap()
+                .len()
+        };
+        assert_eq!(count("claude-code"), 18);
+        assert_eq!(count("claude-desktop"), 16);
+        assert_eq!(reg["clientDiscovery"]["claude-code"], "full");
+        assert_eq!(reg["clientDiscovery"]["claude-desktop"], "lazy");
+        assert_eq!(reg["clientDiscovery"]["cursor"], "lazy");
+        assert_eq!(reg["clientDiscovery"]["gemini-cli"], "lazy");
+        let orphans: Vec<_> = plan
+            .clients
+            .iter()
+            .flat_map(|c| c.orphans.iter().cloned())
+            .collect();
+        assert_eq!(orphans.len(), 3, "{orphans:?}");
+    });
+}
+
+#[test]
+fn client_apply_is_idempotent_and_dry_run_writes_nothing() {
+    with_world("clients-idem", |w| {
+        seed_clients(w);
+        let before: Vec<String> = client_files(w)
+            .iter()
+            .map(|(_, p)| std::fs::read_to_string(p).unwrap())
+            .collect();
+        let dry = run(&live_opts(w, true)).unwrap();
+        assert!(dry.clients.iter().all(|c| c.action == Action::Created));
+        assert!(dry.clients.iter().all(|c| !c.removed.is_empty()));
+        let after: Vec<String> = client_files(w)
+            .iter()
+            .map(|(_, p)| std::fs::read_to_string(p).unwrap())
+            .collect();
+        assert_eq!(before, after);
+        assert!(w.registry_text().is_none());
+
+        run(&live_opts(w, false)).unwrap();
+        let written: Vec<String> = client_files(w)
+            .iter()
+            .map(|(_, p)| std::fs::read_to_string(p).unwrap())
+            .collect();
+        let registry = w.registry_text().unwrap();
+        let second = run(&live_opts(w, false)).unwrap();
+        assert!(!second.changed(), "{}", second.summary());
+        assert!(second.clients.iter().all(|c| c.action == Action::Unchanged));
+        let again: Vec<String> = client_files(w)
+            .iter()
+            .map(|(_, p)| std::fs::read_to_string(p).unwrap())
+            .collect();
+        assert_eq!(written, again);
+        assert_eq!(w.registry_text().unwrap(), registry);
+    });
+}
+
+#[test]
+fn prune_orphans_removes_unmanaged_entries() {
+    with_world("clients-prune", |w| {
+        seed_clients(w);
+        let opts = RunOptions {
+            prune_orphans: true,
+            ..live_opts(w, false)
+        };
+        let plan = run(&opts).unwrap();
+        assert!(plan.clients.iter().all(|c| c.orphans.is_empty()));
+        let code = read_json(&w.home.join(".claude.json"));
+        let keys: Vec<&String> = code["mcpServers"].as_object().unwrap().keys().collect();
+        assert_eq!(keys, ["toolport"]);
+        let desktop = read_json(&w.home.join(".config/Claude/claude_desktop_config.json"));
+        assert_eq!(desktop["mcpServers"].as_object().unwrap().len(), 1);
+    });
+}
+
+#[test]
+fn customized_toolport_entry_is_left_alone() {
+    with_world("clients-custom", |w| {
+        seed_clients(w);
+        let path = w.home.join(".cursor/mcp.json");
+        let mut doc = read_json(&path);
+        doc["mcpServers"]["toolport"] =
+            json!({"command": "/usr/bin/env", "args": ["FAKE-wrapper"]});
+        std::fs::write(&path, doc.to_string()).unwrap();
+        let before = std::fs::read_to_string(&path).unwrap();
+        let plan = run(&live_opts(w, false)).unwrap();
+        let cursor = plan.clients.iter().find(|c| c.id == "cursor").unwrap();
+        assert_eq!(cursor.action, Action::Conflict);
+        assert!(cursor.error.is_some());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), before);
+        let other = plan.clients.iter().find(|c| c.id == "claude-code").unwrap();
+        assert_eq!(other.action, Action::Created);
+    });
+}
+
+#[test]
+fn mcpm_client_names_map_to_toolport_ids() {
+    with_world("aliases", |w| {
+        for (file, key) in [
+            ("qwen-cli", "mcpServers"),
+            ("codex-cli", "mcpServers"),
+            ("vscode", "servers"),
+        ] {
+            std::fs::write(
+                w.root.join(format!("{file}.json")),
+                json!({ key: {"mcpm_context7": {"command": "mcpm", "args": ["run", "context7"]}} })
+                    .to_string(),
+            )
+            .unwrap();
+        }
+        let (_, clients) = load_input(&w.opts(true)).unwrap();
+        let ids: Vec<&str> = clients.iter().map(|c| c.client_id.as_str()).collect();
+        for id in ["qwen-code", "codex", "vscode"] {
+            assert!(ids.contains(&id), "{ids:?}");
+        }
+        assert!(clients.iter().all(|c| !c.servers.is_empty()));
     });
 }
