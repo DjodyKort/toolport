@@ -29,7 +29,7 @@ pub fn run(rest: &[String]) -> Result<Output, CtlError> {
         "update" => update(&runner, &opts),
         _ => return Err(CtlError::usage(USAGE)),
     }
-    .map_err(|e| CtlError::new("cc", e))?;
+    .map_err(|e| CtlError::failed("cc", e))?;
     let mut output = Output::new(report.to_value(), report.render());
     output.failed = report.has_errors();
     Ok(output)

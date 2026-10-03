@@ -69,7 +69,7 @@ pub(super) fn with_path(flags: &Flags, mut args: Value) -> Value {
 }
 
 pub(super) fn call(command: &str, args: Value) -> Result<Value, CtlError> {
-    crate::plus::dispatch(command, args).map_err(|e| CtlError::new("skills", e))
+    crate::plus::dispatch(command, args).map_err(|e| CtlError::failed("skills", e))
 }
 
 pub(super) fn strings(data: &Value, key: &str) -> Vec<String> {

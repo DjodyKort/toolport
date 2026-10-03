@@ -8,6 +8,8 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
+pub const MISSING_ARGUMENT: &str = "missing argument";
+
 fn dirs(args: &Value) -> Result<(PathBuf, PathBuf), String> {
     let base =
         || crate::registry::conduit_dir().ok_or_else(|| "data directory unavailable".to_string());
@@ -48,7 +50,7 @@ fn with_ctx<R: Serialize>(
 }
 
 fn required<'a>(args: &'a Value, key: &str) -> Result<&'a str, String> {
-    str_arg(args, key).ok_or_else(|| format!("missing argument: {key}"))
+    str_arg(args, key).ok_or_else(|| format!("{MISSING_ARGUMENT}: {key}"))
 }
 
 pub fn init_handler(args: Value) -> Result<Value, String> {
@@ -158,7 +160,7 @@ pub fn migrate_handler(args: Value) -> Result<Value, String> {
     let cred = match (str_arg(&args, "passphrase"), str_arg(&args, "key")) {
         (Some(p), _) => Credential::Passphrase(p),
         (None, Some(k)) => Credential::Key(k),
-        _ => return Err("missing argument: passphrase".into()),
+        _ => return Err(format!("{MISSING_ARGUMENT}: passphrase")),
     };
     with_ctx(&args, |ctx| {
         engine::migrate_bundle(ctx, &dir, cred, flag(&args, "includeProjects")).map(|r| {

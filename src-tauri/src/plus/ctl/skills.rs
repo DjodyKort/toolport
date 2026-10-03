@@ -60,7 +60,7 @@ fn repo_args(flags: &Flags) -> Value {
 }
 
 fn call(command: &str, args: Value) -> Result<Value, CtlError> {
-    crate::plus::dispatch(command, args).map_err(|e| CtlError::new("skills", e))
+    crate::plus::dispatch(command, args).map_err(|e| CtlError::failed("skills", e))
 }
 
 pub fn group(_rest: &[String]) -> Result<Output, CtlError> {

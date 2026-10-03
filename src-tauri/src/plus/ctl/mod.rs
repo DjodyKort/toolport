@@ -22,6 +22,7 @@ mod sync;
 mod update;
 mod usage;
 
+pub use output::ErrorKind;
 use output::{CtlError, Envelope, Output};
 
 pub const SCHEMA_VERSION: u32 = 1;
@@ -63,9 +64,7 @@ impl Command {
 macro_rules! planned_groups {
     ($($name:ident => $label:literal),* $(,)?) => {$(
         fn $name(_: &[String]) -> Result<Output, CtlError> {
-            Err(CtlError::new(
-                "not_implemented",
-                concat!($label, ": not implemented"),
+            Err(CtlError::not_implemented(concat!($label, ": not implemented"),
             ))
         }
     )*};
@@ -447,7 +446,7 @@ fn emit(
             let envelope = if output.failed {
                 Envelope::failure_with_data(
                     command,
-                    CtlError::new("unhealthy", "one or more checks failed"),
+                    CtlError::unhealthy("one or more checks failed"),
                     output.data,
                 )
             } else {
@@ -456,12 +455,8 @@ fn emit(
             (code, envelope, output.human)
         }
         Err(error) => {
-            let code = if error.code == "usage" {
-                EXIT_USAGE
-            } else {
-                EXIT_ERROR
-            };
-            let human = if error.code == "usage" {
+            let code = error.kind.exit_code();
+            let human = if error.kind == ErrorKind::Usage {
                 format!(
                     "toolportctl: {}\nRun `toolportctl --help` for usage.",
                     error.message
@@ -477,7 +472,7 @@ fn emit(
         let _ = writeln!(out, "{line}");
     } else if code == EXIT_OK {
         let _ = writeln!(out, "{}", human.trim_end());
-    } else if envelope.error.as_ref().map(|e| e.code.as_str()) == Some("unhealthy") {
+    } else if envelope.error.as_ref().map(|e| e.kind) == Some(ErrorKind::Unhealthy) {
         let _ = writeln!(out, "{}", human.trim_end());
     } else {
         let _ = writeln!(err, "{}", human.trim_end());

@@ -16,7 +16,7 @@ const LOADS: Spec = Spec {
 pub fn loads(rest: &[String]) -> Result<Output, CtlError> {
     let flags = LOADS.parse(rest)?;
     let home = dirs::home_dir()
-        .ok_or_else(|| CtlError::new("no_home", "home directory could not be resolved"))?;
+        .ok_or_else(|| CtlError::failed("no_home", "home directory could not be resolved"))?;
     let mut roots = Roots::from_home(&home);
     roots.env_claude_config_dir = std::env::var("CLAUDE_CONFIG_DIR").ok();
     compact::apply_env(&mut roots);
@@ -26,7 +26,7 @@ pub fn loads(rest: &[String]) -> Result<Output, CtlError> {
         None => std::env::current_dir().unwrap_or_else(|_| home.clone()),
     };
     let report = loads::what_loads(&roots, &config, flags.one("--profile"), &cwd)
-        .map_err(|e| CtlError::new("context_invalid", e))?;
+        .map_err(|e| CtlError::failed("context_invalid", e))?;
     let mut human = format!("{} tokens loaded in {}\n", report.total_tokens, report.cwd);
     for item in &report.items {
         let mark = if item.loaded { "+" } else { "-" };
@@ -54,7 +54,8 @@ pub fn loads(rest: &[String]) -> Result<Output, CtlError> {
                 .map_or_else(|| "none".to_string(), |p| p.to_string())
         ));
     }
-    let data = serde_json::to_value(&report).map_err(|e| CtlError::new("encode", e.to_string()))?;
+    let data =
+        serde_json::to_value(&report).map_err(|e| CtlError::failed("encode", e.to_string()))?;
     Ok(Output::new(data, human))
 }
 
@@ -76,16 +77,18 @@ pub fn checkpoint_status_from(
     let mut text = String::new();
     input
         .read_to_string(&mut text)
-        .map_err(|e| CtlError::new("stdin", e.to_string()))?;
+        .map_err(|e| CtlError::failed("stdin", e.to_string()))?;
     let statusline: serde_json::Value = serde_json::from_str(&text)
-        .map_err(|e| CtlError::new("bad_input", format!("statusline JSON: {e}")))?;
+        .map_err(|e| CtlError::failed("bad_input", format!("statusline JSON: {e}")))?;
     let config = load_config(&roots.context_config_path());
     let spec = match flags.one("--profile") {
         Some(name) => Some(
             config
                 .profiles
                 .get(name)
-                .ok_or_else(|| CtlError::new("context_invalid", format!("unknown profile: {name}")))?,
+                .ok_or_else(|| {
+                    CtlError::failed("context_invalid", format!("unknown profile: {name}"))
+                })?,
         ),
         None => None,
     };
@@ -96,7 +99,7 @@ pub fn checkpoint_status_from(
         flags.count("--window"),
         flags.count("--checkpoint-at"),
     )
-        .map_err(|e| CtlError::new("bad_input", e))?;
+        .map_err(|e| CtlError::failed("bad_input", e))?;
     let human = format!(
         "{} tokens used, checkpoint at {}\n",
         data["used_tokens"],
@@ -107,7 +110,7 @@ pub fn checkpoint_status_from(
 
 pub fn checkpoint_status(rest: &[String]) -> Result<Output, CtlError> {
     let home = dirs::home_dir()
-        .ok_or_else(|| CtlError::new("no_home", "home directory could not be resolved"))?;
+        .ok_or_else(|| CtlError::failed("no_home", "home directory could not be resolved"))?;
     let mut roots = Roots::from_home(&home);
     compact::apply_env(&mut roots);
     checkpoint_status_from(rest, &mut std::io::stdin().lock(), &roots)
@@ -160,7 +163,7 @@ fn render(data: &serde_json::Value) -> String {
 }
 
 fn deploy(command: &str, args: serde_json::Value) -> Result<serde_json::Value, CtlError> {
-    crate::plus::dispatch(command, args).map_err(|e| CtlError::new("context_invalid", e))
+    crate::plus::dispatch(command, args).map_err(|e| CtlError::failed("context_invalid", e))
 }
 
 pub fn group(_rest: &[String]) -> Result<Output, CtlError> {

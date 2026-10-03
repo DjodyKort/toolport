@@ -282,7 +282,7 @@ fn envelope_schema_snapshot() {
         ok,
         json!({"ok": true, "command": "status", "schemaVersion": 1, "data": {"x": 1}})
     );
-    let err = Envelope::failure("status", CtlError::new("io", "boom")).to_value();
+    let err = Envelope::failure("status", CtlError::failed("io", "boom")).to_value();
     assert_eq!(
         err,
         json!({

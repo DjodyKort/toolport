@@ -63,9 +63,9 @@ pub fn rename_refs_cmd(rest: &[String]) -> Result<Output, CtlError> {
     if paths.is_empty() {
         return Err(CtlError::usage("--paths is required"));
     }
-    let map = name_map(&opts, &PathBuf::from(tools)).map_err(|e| CtlError::new("import", e))?;
+    let map = name_map(&opts, &PathBuf::from(tools)).map_err(|e| CtlError::failed("import", e))?;
     let report = rename_refs(&paths, &map, flags.on("--dry-run"))
-        .map_err(|e| CtlError::new("import", e))?;
+        .map_err(|e| CtlError::failed("import", e))?;
     Ok(Output::new(report.to_value(), report.summary()))
 }
 
@@ -81,10 +81,11 @@ pub fn mcpm(rest: &[String]) -> Result<Output, CtlError> {
         let tools = flags
             .one("--tools")
             .ok_or_else(|| CtlError::usage("--name-map requires --tools <file>"))?;
-        let map = name_map(&opts, &PathBuf::from(tools)).map_err(|e| CtlError::new("import", e))?;
+        let map = name_map(&opts, &PathBuf::from(tools))
+            .map_err(|e| CtlError::failed("import", e))?;
         let summary = format!("{} tool names mapped", map.map.len());
         return Ok(Output::new(map.to_value(), summary));
     }
-    let plan = run(&opts).map_err(|e| CtlError::new("import", e))?;
+    let plan = run(&opts).map_err(|e| CtlError::failed("import", e))?;
     Ok(Output::new(plan.to_value(), plan.summary()))
 }

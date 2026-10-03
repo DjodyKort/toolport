@@ -56,7 +56,7 @@ const UNINSTALL: Spec = Spec {
 fn load_registry() -> Result<Registry, CtlError> {
     let snap = snapshot();
     match snap.registry_error {
-        Some(error) => Err(CtlError::new("registry_error", error)),
+        Some(error) => Err(CtlError::failed("registry_error", error)),
         None => Ok(snap.registry.unwrap_or_default()),
     }
 }
@@ -70,7 +70,7 @@ pub(super) fn resolve<'a>(reg: &'a Registry, key: &str) -> Result<&'a ServerEntr
                 .iter()
                 .find(|s| s.name.eq_ignore_ascii_case(key))
         })
-        .ok_or_else(|| CtlError::new("not_found", format!("no server '{key}'")))
+        .ok_or_else(|| CtlError::not_found(format!("no server '{key}'")))
 }
 
 fn catalog_row(entry: &CatalogEntry) -> Value {
@@ -91,7 +91,7 @@ fn run_search(query: &str, offline: bool) -> Result<Vec<CatalogEntry>, CtlError>
     if offline {
         Ok(catalog::search_curated(query))
     } else {
-        catalog::search(query).map_err(|e| CtlError::new("catalog", e))
+        catalog::search(query).map_err(|e| CtlError::failed("catalog", e))
     }
 }
 
@@ -138,21 +138,20 @@ pub fn install(rest: &[String]) -> Result<Output, CtlError> {
     let entry = found
         .into_iter()
         .find(|e| e.name.eq_ignore_ascii_case(name))
-        .ok_or_else(|| CtlError::new("not_found", format!("no catalog entry named '{name}'")))?;
+        .ok_or_else(|| CtlError::not_found(format!("no catalog entry named '{name}'")))?;
     let existing = load_registry()?;
     if existing
         .servers
         .iter()
         .any(|s| s.name.eq_ignore_ascii_case(&entry.name))
     {
-        return Err(CtlError::new(
-            "conflict",
+        return Err(CtlError::conflict(
             format!("server '{}' is already installed", entry.name),
         ));
     }
     let before: Vec<String> = existing.servers.iter().map(|s| s.id.clone()).collect();
     let reg = registry_controller::add_catalog_entry(entry.clone())
-        .map_err(|e| CtlError::new("install", e))?;
+        .map_err(|e| CtlError::failed("install", e))?;
     let added = reg
         .servers
         .iter()
@@ -236,13 +235,12 @@ pub fn new(rest: &[String]) -> Result<Output, CtlError> {
         .iter()
         .any(|s| s.name.eq_ignore_ascii_case(name.trim()))
     {
-        return Err(CtlError::new(
-            "conflict",
+        return Err(CtlError::conflict(
             format!("server '{name}' already exists"),
         ));
     }
     let before: Vec<String> = existing.servers.iter().map(|s| s.id.clone()).collect();
-    let reg = registry_controller::add_server(fields).map_err(|e| CtlError::new("input", e))?;
+    let reg = registry_controller::add_server(fields).map_err(|e| CtlError::failed("input", e))?;
     let added = reg
         .servers
         .iter()
@@ -278,7 +276,7 @@ pub fn edit(rest: &[String]) -> Result<Output, CtlError> {
     .map(|(n, _)| *n)
     .collect();
     registry_controller::update_server_fields(&id, fields)
-        .map_err(|e| CtlError::new("input", e))?;
+        .map_err(|e| CtlError::failed("input", e))?;
     Ok(Output::new(
         json!({"id": id, "changed": changed}),
         if changed.is_empty() {
@@ -372,7 +370,7 @@ pub fn uninstall(rest: &[String]) -> Result<Output, CtlError> {
     let mut secrets_removed = Vec::new();
     if !dry_run {
         registry_controller::remove_server(&server.id)
-            .map_err(|e| CtlError::new("uninstall", e))?;
+            .map_err(|e| CtlError::failed("uninstall", e))?;
         if !flags.on("--keep-secrets") {
             for k in &secret_keys {
                 if crate::secrets::delete_secret(&server.id, k).is_ok() {
@@ -416,7 +414,7 @@ pub fn inspect(rest: &[String]) -> Result<Output, CtlError> {
     let reg = load_registry()?;
     let server = resolve(&reg, key)?;
     let tools =
-        crate::playground::list_tools(&server.id).map_err(|e| CtlError::new("inspect", e))?;
+        crate::playground::list_tools(&server.id).map_err(|e| CtlError::failed("inspect", e))?;
     Ok(tools_output(&[(server.id.clone(), tools)], None))
 }
 
@@ -432,7 +430,7 @@ pub fn profile_inspect(rest: &[String]) -> Result<Output, CtlError> {
             .iter()
             .find(|p| p.id == *id || p.name.eq_ignore_ascii_case(id))
             .map(|p| p.id.clone())
-            .ok_or_else(|| CtlError::new("not_found", format!("no profile '{id}'")))?,
+            .ok_or_else(|| CtlError::not_found(format!("no profile '{id}'")))?,
         None => reg.active_profile_id(),
     };
     let mut rows = Vec::new();
@@ -442,7 +440,7 @@ pub fn profile_inspect(rest: &[String]) -> Result<Output, CtlError> {
         .filter(|s| reg.is_enabled(&profile_id, &s.id))
     {
         let tools =
-            crate::playground::list_tools(&s.id).map_err(|e| CtlError::new("inspect", e))?;
+            crate::playground::list_tools(&s.id).map_err(|e| CtlError::failed("inspect", e))?;
         rows.push((s.id.clone(), tools));
     }
     Ok(tools_output(&rows, Some(&profile_id)))

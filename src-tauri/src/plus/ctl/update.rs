@@ -45,7 +45,7 @@ pub fn update(rest: &[String]) -> Result<Output, CtlError> {
     } else {
         Mode::Check
     };
-    let report = execute(&opts).map_err(|e| CtlError::new("update", e))?;
+    let report = execute(&opts).map_err(|e| CtlError::failed("update", e))?;
     let mut output = Output::new(report.to_value(), report.render());
     output.failed = report.has_errors();
     Ok(output)
