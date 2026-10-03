@@ -1,0 +1,37 @@
+{
+  "provider": "none",
+  "runtime": "none",
+  "provider_version": {
+    "package": "headroom-ai",
+    "pin": "0.29.0",
+    "extras": ["proxy", "code", "ml"]
+  },
+  "scope": ["default"],
+  "clients": ["claude-code"],
+  "contexts": [],
+  "presets": {
+    "interactive": {
+      "mode": "cache",
+      "savings_profile": null,
+      "knobs": {},
+      "snapshot_version": null,
+      "port": 8787
+    },
+    "agent": {
+      "mode": "token",
+      "savings_profile": "agent-90",
+      "knobs": {},
+      "snapshot_version": null,
+      "port": 8788
+    },
+    "balanced": {
+      "mode": "token",
+      "savings_profile": "balanced",
+      "knobs": {},
+      "snapshot_version": null,
+      "port": 8787
+    }
+  },
+  "active_preset": "interactive",
+  "options": {}
+}

@@ -1,0 +1,1 @@
+enable --preset agent --mode cache --port 18788 --telemetry on

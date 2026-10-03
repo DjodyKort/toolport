@@ -1,0 +1,10 @@
+pin          0.29.0
+requirement  headroom-ai[proxy,code,ml]==0.29.0
+installed    0.30.1
+             drift — installed ≠ pin
+
+Installing headroom-ai[proxy,code,ml]==0.29.0
+  ✓ 0.30.1 → 0.29.0
+  ✓ preset knobs already match 0.29.0
+  • restart proxies to run the pinned build: mcpm compression proxy restart (close attached sessions first)
+[exit 0]

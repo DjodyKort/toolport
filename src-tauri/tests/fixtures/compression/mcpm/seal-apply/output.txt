@@ -1,0 +1,9 @@
+Posture of 'interactive' on :18787 (headroom 0.29.0)
+  + HEADROOM_ACCURACY_GUARD=1   vendor default → would become policy
+  + HEADROOM_COMPRESS_USER_MESSAGES=0   vendor default → would become policy
+  + HEADROOM_MAX_ITEMS=30   vendor default → would become policy
+  · HEADROOM_PROTECT_RECENT  unset — headroom's internal default; not expressible as env, stable only because the build is pinned
+
+  ✓ sealed 3 knob(s) into 'interactive' as policy (runtime unchanged — these are the values already in force)
+  1 setting(s) remain at headroom's internal default; a pin bump will diff them.
+[exit 0]

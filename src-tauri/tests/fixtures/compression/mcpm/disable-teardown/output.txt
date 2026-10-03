@@ -1,0 +1,8 @@
+Disabling compression
+  ✓ saved config (provider=none)
+  ✓ removed MCP server 'headroom' from mcpm servers.json
+  ✓ removed artifact <DATA>/compression-env.sh
+  ✓ headroom mcp uninstall — removed headroom mcp registration
+  ✓ headroom unwrap claude — unwrapped claude
+  Note: ~/.headroom/ data (toin/savings/memory) is left in place.
+[exit 0]

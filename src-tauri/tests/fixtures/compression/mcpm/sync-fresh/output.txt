@@ -1,0 +1,2 @@
+  ✓ saved config (provider=none)
+[exit 0]

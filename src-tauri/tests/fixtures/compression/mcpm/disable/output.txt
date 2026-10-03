@@ -1,0 +1,5 @@
+Disabling compression
+  ✓ saved config (provider=none)
+  ✓ removed MCP server 'headroom' from mcpm servers.json
+  ✓ removed artifact <DATA>/compression-env.sh
+[exit 0]

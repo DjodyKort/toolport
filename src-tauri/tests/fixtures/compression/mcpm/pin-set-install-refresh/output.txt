@@ -1,0 +1,15 @@
+Pin → 0.30.1  (requirement: headroom-ai[proxy,code,ml]==0.30.1)
+  presets still hold values snapshotted from another build — re-snapshot with `--install --refresh`.
+pin          0.30.1
+requirement  headroom-ai[proxy,code,ml]==0.30.1
+installed    0.29.0
+             drift — installed ≠ pin
+
+Installing headroom-ai[proxy,code,ml]==0.30.1
+  ✓ 0.29.0 → 0.30.1
+  ✓ preset 'agent' re-snapshotted from 0.30.1
+      + HEADROOM_NEW_KNOB=1
+      - HEADROOM_FORCE_KOMPRESS  (was 1)
+      ~ HEADROOM_MAX_ITEMS: 30 → 40
+  • restart proxies to run the pinned build: mcpm compression proxy restart (close attached sessions first)
+[exit 0]
