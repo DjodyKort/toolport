@@ -4348,8 +4348,6 @@ mod tests {
     use super::*;
     use crate::approval::fingerprint_allow_key;
 
-    static REGISTRY_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
     #[test]
     fn gateway_topology_absence_follows_default_and_explicit_choice_round_trips() {
         let mut reg = Registry::default();
@@ -5444,7 +5442,9 @@ mod tests {
 
     #[test]
     fn load_and_save_resolved_honor_registry_override() {
-        let _guard = REGISTRY_ENV_LOCK.lock().unwrap();
+        let _guard = REGISTRY_ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         // Resolves the data dir indirectly through save/load/update, so it owes
         // the same lock every other resolver takes. Without it this ran beside a
         // test holding a DataDirOverride and each saw the other's path.
@@ -5483,7 +5483,9 @@ mod tests {
 
     #[test]
     fn update_saves_to_the_same_resolved_path_it_locked() {
-        let _guard = REGISTRY_ENV_LOCK.lock().unwrap();
+        let _guard = REGISTRY_ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         // Resolves the data dir indirectly through save/load/update, so it owes
         // the same lock every other resolver takes. Without it this ran beside a
         // test holding a DataDirOverride and each saw the other's path.
@@ -5724,6 +5726,9 @@ mod tests {
     /// dropped guard revert the variable out from under the others.
     #[test]
     fn overlapping_lock_timeout_overrides_survive_the_first_drop() {
+        let _env = REGISTRY_ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let outer = LockTimeoutOverride::generous();
         {
             let _inner = LockTimeoutOverride::generous();

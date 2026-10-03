@@ -2006,6 +2006,9 @@ pub(crate) mod tests {
     /// Without the load-modify-save lock, last atomic_write wins and loses peers.
     #[test]
     fn file_backend_concurrent_sets_preserve_all_keys() {
+        let _registry_env = crate::registry::REGISTRY_ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let _data_dir = crate::registry::data_dir_test_lock();
         // This asserts no key is LOST, not that every writer wins the lock inside the
