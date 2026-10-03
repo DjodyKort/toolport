@@ -21,6 +21,7 @@ pub mod update;
 pub(crate) mod args;
 pub(crate) mod hashing;
 pub(crate) mod jsonfs;
+pub(crate) mod registry_ro;
 
 #[cfg(test)]
 pub(crate) mod testutil;

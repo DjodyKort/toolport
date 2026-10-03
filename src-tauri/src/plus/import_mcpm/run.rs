@@ -5,6 +5,7 @@ use crate::clients;
 use crate::registry::{self, ManagedEntry, Profile, Registry, ServerEntry};
 use serde::Serialize;
 use crate::plus::args::{flag, flag_or, str_arg};
+use crate::plus::registry_ro;
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -361,13 +362,7 @@ fn copy_scripts(moves: &[(PathBuf, PathBuf)], warnings: &mut Vec<Warning>) -> Re
 
 fn read_registry() -> Result<Registry, String> {
     let path = registry::registry_path().ok_or("Could not resolve registry path")?;
-    match std::fs::read_to_string(&path) {
-        Ok(text) => {
-            serde_json::from_str(&text).map_err(|e| format!("registry is not readable: {e}"))
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Registry::default()),
-        Err(e) => Err(format!("cannot read registry: {e}")),
-    }
+    Ok(registry_ro::read_at(&path)?.unwrap_or_default())
 }
 
 fn plan_secrets(

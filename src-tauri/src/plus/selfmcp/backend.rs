@@ -2,6 +2,7 @@ use super::catalog::{ResourceDef, ToolDef};
 use super::{content, docs, servers};
 use super::ToolError;
 use crate::plus::args::{list, str_arg};
+use crate::plus::registry_ro;
 use crate::plus::skills::lint::{lint_skills, LintResult};
 use crate::plus::skills::ops::find_skills_repo;
 use crate::plus::skills::parser::{discover_skills, Skill};
@@ -73,18 +74,7 @@ pub(super) fn skill_row(skill: &Skill) -> Value {
 }
 
 pub(super) fn read_registry() -> Result<Registry, ToolError> {
-    let Some(path) = registry::registry_path() else {
-        return Ok(Registry::default());
-    };
-    match std::fs::read_to_string(&path) {
-        Ok(text) => serde_json::from_str(&text)
-            .map_err(|e| ToolError::new("registry_error", registry::unreadable_message(&path, e))),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Registry::default()),
-        Err(e) => Err(ToolError::new(
-            "registry_error",
-            format!("cannot read registry: {e}"),
-        )),
-    }
+    registry_ro::read().map_err(|e| ToolError::new("registry_error", e))
 }
 
 fn server_row(reg: &Registry, active: &str, s: &registry::ServerEntry) -> Value {

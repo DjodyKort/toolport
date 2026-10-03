@@ -1,5 +1,6 @@
 use super::output::{CtlError, Output};
-use crate::registry::{self, Registry};
+use crate::plus::registry_ro;
+use crate::registry;
 use serde_json::json;
 use std::io::{IsTerminal, Read};
 
@@ -41,12 +42,6 @@ fn parse_options(rest: &[String], allow: &[&str]) -> Result<Options, CtlError> {
     Ok(options)
 }
 
-fn read_registry() -> Option<Registry> {
-    let path = registry::registry_path()?;
-    let text = std::fs::read_to_string(path).ok()?;
-    serde_json::from_str(&text).ok()
-}
-
 fn resolve_target(operands: &[String], usage: &str, must_exist: bool) -> Result<Target, CtlError> {
     let [server, key] = operands else {
         return Err(CtlError::usage(usage));
@@ -54,7 +49,7 @@ fn resolve_target(operands: &[String], usage: &str, must_exist: bool) -> Result<
     if key.is_empty() || key.contains("::") || (key.starts_with("__") && key.ends_with("__")) {
         return Err(CtlError::usage(format!("invalid secret key: {key}")));
     }
-    let registry = read_registry();
+    let registry = registry_ro::read_opt();
     let found = registry.as_ref().and_then(|reg| {
         reg.servers
             .iter()

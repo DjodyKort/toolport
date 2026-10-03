@@ -1,4 +1,5 @@
 use super::output::{CtlError, Output};
+use crate::plus::registry_ro;
 use crate::registry::{self, Registry};
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -33,13 +34,9 @@ pub(super) fn snapshot() -> Snapshot {
     let Some(path) = registry_path else {
         return snap;
     };
-    match std::fs::read_to_string(&path) {
-        Ok(text) => match serde_json::from_str::<Registry>(&text) {
-            Ok(reg) => snap.registry = Some(reg),
-            Err(e) => snap.registry_error = Some(registry::unreadable_message(&path, e)),
-        },
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-        Err(e) => snap.registry_error = Some(format!("cannot read registry: {e}")),
+    match registry_ro::read_at(&path) {
+        Ok(reg) => snap.registry = reg,
+        Err(e) => snap.registry_error = Some(e),
     }
     snap
 }
