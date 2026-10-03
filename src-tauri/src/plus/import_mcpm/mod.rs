@@ -8,6 +8,9 @@ mod launch_tests;
 mod name_map;
 #[cfg(test)]
 mod name_map_tests;
+mod rename_refs;
+#[cfg(test)]
+mod rename_refs_tests;
 mod run;
 #[cfg(test)]
 mod run_tests;
@@ -22,6 +25,9 @@ pub use ids::{exposed_prefix, short_id, tool_name_fits, MAX_TOOL_NAME_LEN, TOOL_
 pub use launch::{relocate_entry, relocate_script, scripts_dir, screen_entry, SCRIPTS_SUBDIR};
 pub use name_map::{
     build_name_map, name_map, name_map_handler, NameMap, NameMapError, ToolManifest,
+};
+pub use rename_refs::{
+    rename_refs, rename_refs_handler, rewrite_text, FileRewrite, Orphan, RenameReport,
 };
 pub use run::{load_input, run, run_handler, Action, Change, ClientChange, Plan, RunOptions};
 pub use servers::{map_servers, MappedServer, McpmInput, SecretWrite, Warning, IMPORT_SOURCE};
