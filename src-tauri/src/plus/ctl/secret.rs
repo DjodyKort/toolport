@@ -1,3 +1,4 @@
+use super::flags::{switch, value, Spec};
 use super::output::{CtlError, Output};
 use crate::plus::registry_ro;
 use serde_json::json;
@@ -10,36 +11,14 @@ struct Target {
     key: String,
 }
 
-struct Options {
-    reveal: bool,
-    value_env: Option<String>,
-    operands: Vec<String>,
-}
-
-fn parse_options(rest: &[String], allow: &[&str]) -> Result<Options, CtlError> {
-    let mut options = Options {
-        reveal: false,
-        value_env: None,
-        operands: Vec::new(),
-    };
-    let mut iter = rest.iter();
-    while let Some(arg) = iter.next() {
-        match arg.as_str() {
-            "--reveal" if allow.contains(&"--reveal") => options.reveal = true,
-            "--value-env" if allow.contains(&"--value-env") => {
-                let name = iter
-                    .next()
-                    .ok_or_else(|| CtlError::usage("--value-env requires a variable name"))?;
-                options.value_env = Some(name.clone());
-            }
-            flag if flag.starts_with('-') && flag != "-" => {
-                return Err(CtlError::usage(format!("unknown option: {flag}")));
-            }
-            _ => options.operands.push(arg.clone()),
-        }
-    }
-    Ok(options)
-}
+const SET: Spec = Spec {
+    flags: &[value("--value-env").needs("a variable name")],
+    ..Spec::PLAIN
+};
+const GET: Spec = Spec {
+    flags: &[switch("--reveal")],
+    ..Spec::PLAIN
+};
 
 fn resolve_target(operands: &[String], usage: &str, must_exist: bool) -> Result<Target, CtlError> {
     let [server, key] = operands else {
@@ -121,13 +100,13 @@ pub fn set(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 fn set_from(rest: &[String], reader: &mut dyn Read, interactive: bool) -> Result<Output, CtlError> {
-    let options = parse_options(rest, &["--value-env"])?;
+    let flags = SET.parse(rest)?;
     let target = resolve_target(
-        &options.operands,
+        flags.operands(),
         "usage: secret set <server> <KEY> [--value-env <VAR>] (value on stdin)",
         true,
     )?;
-    let value = read_value(options.value_env.as_deref(), reader, interactive)?;
+    let value = read_value(flags.one("--value-env"), reader, interactive)?;
     crate::secrets::set_secret(&target.server, &target.key, &value)
         .map_err(|e| CtlError::new("vault", e))?;
     Ok(Output::new(
@@ -137,9 +116,9 @@ fn set_from(rest: &[String], reader: &mut dyn Read, interactive: bool) -> Result
 }
 
 pub fn get(rest: &[String]) -> Result<Output, CtlError> {
-    let options = parse_options(rest, &["--reveal"])?;
+    let flags = GET.parse(rest)?;
     let target = resolve_target(
-        &options.operands,
+        flags.operands(),
         "usage: secret get <server> <KEY> [--reveal]",
         false,
     )?;
@@ -152,7 +131,7 @@ pub fn get(rest: &[String]) -> Result<Output, CtlError> {
         ));
     };
     let mut data = json!({"server": target.server, "key": target.key, "set": true});
-    let human = if options.reveal {
+    let human = if flags.on("--reveal") {
         data["value"] = json!(value);
         value
     } else {
@@ -162,8 +141,8 @@ pub fn get(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn rm(rest: &[String]) -> Result<Output, CtlError> {
-    let options = parse_options(rest, &[])?;
-    let target = resolve_target(&options.operands, "usage: secret rm <server> <KEY>", false)?;
+    let flags = Spec::PLAIN.parse(rest)?;
+    let target = resolve_target(flags.operands(), "usage: secret rm <server> <KEY>", false)?;
     crate::secrets::delete_secret(&target.server, &target.key)
         .map_err(|e| CtlError::new("vault", e))?;
     Ok(Output::new(
