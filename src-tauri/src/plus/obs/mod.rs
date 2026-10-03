@@ -1,5 +1,6 @@
 //! Observability: Claude Code transcript indexer and local OTel sink (OBS).
 
+pub mod monitor_db;
 pub mod otel;
 pub mod store;
 pub mod transcript;
@@ -180,7 +181,11 @@ pub fn run_summary(dir: &Path, root: Option<&Path>, refresh: bool) -> Result<Val
             transcript::index(&lock, root)?;
         }
     }
-    Ok(summarize(&lock.load_state(), &lock.read_events()))
+    let mut out = summarize(&lock.load_state(), &lock.read_events());
+    if let Some(history) = lock.load_history() {
+        out["mcpmHistory"] = history;
+    }
+    Ok(out)
 }
 
 pub fn summary_handler(args: Value) -> Result<Value, String> {
@@ -193,6 +198,18 @@ pub fn summary_handler(args: Value) -> Result<Value, String> {
     };
     let refresh = args.get("refresh").and_then(Value::as_bool).unwrap_or(true);
     run_summary(&dir, root.as_deref(), refresh)
+}
+
+pub fn import_monitor_handler(args: Value) -> Result<Value, String> {
+    let dir = crate::registry::conduit_dir()
+        .ok_or_else(|| "data directory unavailable".to_string())?
+        .join("obs");
+    let path = match args.get("path").and_then(Value::as_str) {
+        Some(p) => PathBuf::from(p),
+        None => monitor_db::default_path().ok_or_else(|| "home directory unavailable".to_string())?,
+    };
+    let lock = Locked::acquire(&dir)?;
+    monitor_db::import(&lock, &path)
 }
 
 #[cfg(test)]
