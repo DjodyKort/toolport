@@ -1,0 +1,9 @@
+{
+  "id": "toolport-plus-self",
+  "name": "toolport-plus-self",
+  "transport": "stdio",
+  "command": "<selfmcp>",
+  "args": [],
+  "env": [],
+  "source": "plus:selfmcp"
+}

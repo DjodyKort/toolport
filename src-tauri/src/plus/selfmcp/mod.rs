@@ -1,12 +1,18 @@
-//! Self-management MCP server (D-010, MIG-SELF-3): tool and resource registry, confirm-tier
-//! enforcement, JSON-RPC dispatch and the backends that already exist. Tools whose backing
-//! capability has not landed answer with a `not_implemented` tool error.
+//! Self-management MCP server (D-010, MIG-SELF-3/5): tool and resource registry, confirm-tier
+//! enforcement, JSON-RPC dispatch and the backends onto skills, the registry, client sync and
+//! encrypted sync.
 
 mod backend;
 mod catalog;
+mod content;
+mod docs;
 mod redact;
+pub mod register;
+mod servers;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod wired_tests;
 
 pub use catalog::{find_resource, find_tool, Gate, ResourceDef, ToolDef, RESOURCES, TOOLS};
 
@@ -47,7 +53,7 @@ pub fn server_definition() -> Value {
     json!({
         "name": SERVER_NAME,
         "transport": "stdio",
-        "command": BINARY_NAME,
+        "command": register::binary_path(),
         "args": [],
         "env": [],
         "source": "plus:selfmcp",
