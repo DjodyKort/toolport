@@ -7,7 +7,7 @@ Toolport+ additions (D-010). Full overview: `docs/toolport-plus.md`.
 - `auth/`: login-expiry probes, status cache, gateway state, status surfaces.
 - `context/`: layered rules deploy, what-loads viewer, folder profiles.
 - `compression/`: compression policy, launch plan, savings ledger.
-- `skills/`: skill parser, lockfile, lint, transpilers.
+- `skills/`: skill parser, lockfile, lint, transpilers; `ops` is the shared core under `toolportctl skills`, the `plus.skills.*` handlers and the selfmcp `skills_status` tool.
 - `sync/`: encrypted cross-machine sync.
 - `import_mcpm/`: mcpm to registry mapping and tool-reference rewrite.
 - `selfmcp/`: self-management MCP server.
