@@ -209,6 +209,11 @@ pub const COMMANDS: &[Command] = &[
         handler: Some(import::mcpm),
     },
     Command {
+        path: &["import", "rename-refs"],
+        summary: "Rewrite mcp__mcpm_ tool references under --paths (--tools F, --dry-run)",
+        handler: Some(import::rename_refs_cmd),
+    },
+    Command {
         path: &["import"],
         summary: "Import data from other tools",
         handler: None,
@@ -470,3 +475,6 @@ mod tests;
 
 #[cfg(test)]
 mod server_tests;
+
+#[cfg(test)]
+mod import_tests;
