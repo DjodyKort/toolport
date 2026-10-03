@@ -5,10 +5,14 @@
 use serde_json::{json, Value};
 
 pub mod auth;
+pub mod obs;
 
 pub type Handler = fn(Value) -> Result<Value, String>;
 
-const HANDLERS: &[(&str, Handler)] = &[("plus.ping", ping)];
+const HANDLERS: &[(&str, Handler)] = &[
+    ("plus.ping", ping),
+    ("plus.obs.summary", obs::summary_handler),
+];
 
 pub fn dispatch(command: &str, args: Value) -> Result<Value, String> {
     match HANDLERS.iter().find(|(name, _)| *name == command) {
