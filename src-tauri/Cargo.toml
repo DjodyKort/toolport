@@ -16,6 +16,10 @@ name = "toolport-gtk"
 path = "src/bin/toolport-gtk.rs"
 required-features = ["gtk-desktop"]
 
+[[bin]]
+name = "toolportctl"
+path = "src/bin/toolportctl.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]

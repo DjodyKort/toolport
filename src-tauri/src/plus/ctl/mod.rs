@@ -1,0 +1,276 @@
+//! `toolportctl` command line (D-010, MIG-SELF). The binary is a thin `main`;
+//! parsing, dispatch and rendering live here so they are unit-testable.
+
+mod commands;
+mod output;
+
+use output::{CtlError, Envelope, Output};
+
+pub const SCHEMA_VERSION: u32 = 1;
+pub const EXIT_OK: i32 = 0;
+pub const EXIT_ERROR: i32 = 1;
+pub const EXIT_USAGE: i32 = 2;
+
+pub type Handler = fn(&[String]) -> Result<Output, CtlError>;
+
+/// One row per command path. `None` marks a planned command that later items
+/// fill in by swapping the handler; matching prefers the longest path.
+pub struct Command {
+    pub path: &'static [&'static str],
+    pub summary: &'static str,
+    pub handler: Option<Handler>,
+}
+
+pub const COMMANDS: &[Command] = &[
+    Command {
+        path: &["status"],
+        summary: "Show registry, profile, secrets backend and gateway state",
+        handler: Some(commands::status),
+    },
+    Command {
+        path: &["doctor"],
+        summary: "Run read-only health checks",
+        handler: Some(commands::doctor),
+    },
+    Command {
+        path: &["server", "ls"],
+        summary: "List servers and whether the active profile enables them",
+        handler: Some(commands::server_ls),
+    },
+    Command {
+        path: &["server"],
+        summary: "Manage servers (mutations)",
+        handler: None,
+    },
+    Command {
+        path: &["secret"],
+        summary: "Manage server secrets",
+        handler: None,
+    },
+    Command {
+        path: &["context"],
+        summary: "Context sync",
+        handler: None,
+    },
+    Command {
+        path: &["compression"],
+        summary: "Compression runs",
+        handler: None,
+    },
+    Command {
+        path: &["skills"],
+        summary: "Skills sync",
+        handler: None,
+    },
+    Command {
+        path: &["sync"],
+        summary: "Registry sync push/pull",
+        handler: None,
+    },
+    Command {
+        path: &["update"],
+        summary: "Update management",
+        handler: None,
+    },
+];
+
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Parsed {
+    pub json: bool,
+    pub help: bool,
+    pub version: bool,
+    pub data_dir: Option<String>,
+    pub positional: Vec<String>,
+}
+
+pub fn parse(args: &[String]) -> Result<Parsed, String> {
+    let mut parsed = Parsed::default();
+    let mut iter = args.iter();
+    let mut rest_positional = false;
+    while let Some(arg) = iter.next() {
+        if rest_positional || !arg.starts_with('-') || arg == "-" {
+            parsed.positional.push(arg.clone());
+            continue;
+        }
+        match arg.as_str() {
+            "--" => rest_positional = true,
+            "--json" => parsed.json = true,
+            "-h" | "--help" => parsed.help = true,
+            "-V" | "--version" => parsed.version = true,
+            "--data-dir" => {
+                let value = iter
+                    .next()
+                    .ok_or_else(|| "--data-dir requires a value".to_string())?;
+                parsed.data_dir = Some(value.clone());
+            }
+            other => match other.strip_prefix("--data-dir=") {
+                Some("") => return Err("--data-dir requires a value".into()),
+                Some(value) => parsed.data_dir = Some(value.to_string()),
+                None => return Err(format!("unknown option: {other}")),
+            },
+        }
+    }
+    Ok(parsed)
+}
+
+pub fn find_command<'a>(positional: &'a [String]) -> Option<(&'static Command, &'a [String])> {
+    COMMANDS
+        .iter()
+        .filter(|c| {
+            positional.len() >= c.path.len()
+                && c.path.iter().zip(positional).all(|(a, b)| *a == b.as_str())
+        })
+        .max_by_key(|c| c.path.len())
+        .map(|c| (c, &positional[c.path.len()..]))
+}
+
+pub fn usage() -> String {
+    let mut text = String::from(
+        "toolportctl: manage Toolport+ from the command line\n\n\
+         Usage: toolportctl [--json] [--data-dir <dir>] <command> [args]\n\n\
+         Commands:\n",
+    );
+    for command in COMMANDS {
+        let name = command.path.join(" ");
+        let suffix = if command.handler.is_none() {
+            " (not implemented)"
+        } else {
+            ""
+        };
+        text.push_str(&format!("  {name:<14} {}{suffix}\n", command.summary));
+    }
+    text.push_str(
+        "\nOptions:\n  --json             Machine-readable envelope on stdout\n  \
+         --data-dir <dir>   Override the data directory (default: TOOLPORT_DATA_DIR)\n  \
+         -h, --help         Show this help\n  -V, --version      Show the version\n\n\
+         Exit codes: 0 ok, 1 error, 2 usage\n",
+    );
+    text
+}
+
+/// Runs the CLI and returns the process exit code.
+pub fn run(args: &[String]) -> i32 {
+    let mut out = std::io::stdout().lock();
+    let mut err = std::io::stderr().lock();
+    run_with(args, &mut out, &mut err)
+}
+
+pub fn run_with(
+    args: &[String],
+    out: &mut dyn std::io::Write,
+    err: &mut dyn std::io::Write,
+) -> i32 {
+    let want_json = args.iter().any(|a| a == "--json");
+    let parsed = match parse(args) {
+        Ok(p) => p,
+        Err(message) => return emit_usage(want_json, "", &message, out, err),
+    };
+    if parsed.help || (parsed.positional.is_empty() && !parsed.version) {
+        let _ = write!(out, "{}", usage());
+        return if parsed.help { EXIT_OK } else { EXIT_USAGE };
+    }
+    if parsed.version {
+        return emit(
+            parsed.json,
+            "version",
+            Ok(Output::new(
+                serde_json::json!({"name": "toolportctl", "version": env!("CARGO_PKG_VERSION")}),
+                format!("toolportctl {}", env!("CARGO_PKG_VERSION")),
+            )),
+            out,
+            err,
+        );
+    }
+    let name = parsed.positional.join(" ");
+    let Some((command, rest)) = find_command(&parsed.positional) else {
+        return emit_usage(
+            parsed.json,
+            &name,
+            &format!("unknown command: {name}"),
+            out,
+            err,
+        );
+    };
+    let command_name = command.path.join(" ");
+    let Some(handler) = command.handler else {
+        return emit(
+            parsed.json,
+            &command_name,
+            Err(CtlError::new(
+                "not_implemented",
+                format!("{command_name}: not implemented"),
+            )),
+            out,
+            err,
+        );
+    };
+    if let Some(dir) = &parsed.data_dir {
+        // Must precede the first data-dir lookup, which is memoized.
+        std::env::set_var("TOOLPORT_DATA_DIR", dir);
+    }
+    emit(parsed.json, &command_name, handler(rest), out, err)
+}
+
+fn emit_usage(
+    json: bool,
+    command: &str,
+    message: &str,
+    out: &mut dyn std::io::Write,
+    err: &mut dyn std::io::Write,
+) -> i32 {
+    emit(json, command, Err(CtlError::usage(message)), out, err)
+}
+
+fn emit(
+    json: bool,
+    command: &str,
+    result: Result<Output, CtlError>,
+    out: &mut dyn std::io::Write,
+    err: &mut dyn std::io::Write,
+) -> i32 {
+    let (code, envelope, human) = match result {
+        Ok(output) => {
+            let code = if output.failed { EXIT_ERROR } else { EXIT_OK };
+            let envelope = if output.failed {
+                Envelope::failure_with_data(
+                    command,
+                    CtlError::new("unhealthy", "one or more checks failed"),
+                    output.data,
+                )
+            } else {
+                Envelope::success(command, output.data)
+            };
+            (code, envelope, output.human)
+        }
+        Err(error) => {
+            let code = if error.code == "usage" {
+                EXIT_USAGE
+            } else {
+                EXIT_ERROR
+            };
+            let human = if error.code == "usage" {
+                format!(
+                    "toolportctl: {}\nRun `toolportctl --help` for usage.",
+                    error.message
+                )
+            } else {
+                format!("toolportctl: {}", error.message)
+            };
+            (code, Envelope::failure(command, error), human)
+        }
+    };
+    if json {
+        let line = serde_json::to_string(&envelope.to_value()).unwrap_or_default();
+        let _ = writeln!(out, "{line}");
+    } else if code == EXIT_OK {
+        let _ = writeln!(out, "{}", human.trim_end());
+    } else if envelope.error.as_ref().map(|e| e.code.as_str()) == Some("unhealthy") {
+        let _ = writeln!(out, "{}", human.trim_end());
+    } else {
+        let _ = writeln!(err, "{}", human.trim_end());
+    }
+    code
+}
+
+#[cfg(test)]
+mod tests;

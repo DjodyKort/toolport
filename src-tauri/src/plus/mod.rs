@@ -2,6 +2,8 @@
 //! here and is reached through the single generic `plus_invoke` IPC command, so
 //! upstream merges never touch the desktop command list again.
 
+pub mod ctl;
+
 use serde_json::{json, Value};
 
 pub mod auth;
