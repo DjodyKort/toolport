@@ -270,7 +270,7 @@ fn planned_commands_are_not_implemented() {
     for list in [
         &["secret", "get", "x"][..],
         &["context", "sync"][..],
-        &["compression", "run"][..],
+        &["compression", "use", "agent"][..],
         &["skills", "sync"][..],
         &["sync", "push"][..],
         &["update"][..],
