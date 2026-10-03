@@ -1,9 +1,12 @@
 //! Git access behind a trait so taps and the skills-repo sync can be tested without a network:
 //! `SystemGit` shells out to the `git` binary, `MockGit` records calls and replays canned results.
 
+use crate::plus::exec::git_stdout;
 use std::cell::RefCell;
 use std::path::Path;
-use std::process::Command;
+use std::time::Duration;
+
+const GIT_TIMEOUT: Duration = Duration::from_secs(300);
 
 pub trait GitRunner {
     fn clone_repo(&self, url: &str, dest: &Path) -> Result<(), String>;
@@ -22,23 +25,7 @@ pub struct SystemGit;
 
 impl SystemGit {
     fn run(&self, dir: Option<&Path>, args: &[&str]) -> Result<String, String> {
-        let mut cmd = Command::new("git");
-        if let Some(dir) = dir {
-            cmd.arg("-C").arg(dir);
-        }
-        let out = cmd
-            .args(args)
-            .env("GIT_TERMINAL_PROMPT", "0")
-            .output()
-            .map_err(|e| format!("git: {e}"))?;
-        if !out.status.success() {
-            return Err(format!(
-                "git {} failed: {}",
-                args.first().copied().unwrap_or(""),
-                String::from_utf8_lossy(&out.stderr).trim()
-            ));
-        }
-        Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+        git_stdout(dir, args, GIT_TIMEOUT).map(|out| out.trim().to_string())
     }
 }
 
