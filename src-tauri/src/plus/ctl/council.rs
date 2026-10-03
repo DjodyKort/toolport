@@ -1,5 +1,6 @@
 //! `toolportctl council install|uninstall|doctor|tools`.
 
+use super::flags::{switch, value, Operands, Spec, Unknown};
 use super::output::{CtlError, Output};
 use crate::plus::council as c;
 use crate::plus::registry_ro;
@@ -7,6 +8,21 @@ use serde_json::json;
 
 const USAGE: &str =
     "usage: council <install [--api-key-env VAR] | uninstall [--purge-key] | doctor | tools>";
+
+const INSTALL: Spec = Spec {
+    flags: &[value("--api-key-env").needs("a variable name")],
+    unknown: Unknown::Named,
+    operands: Operands::Reject,
+    ..Spec::PLAIN
+};
+const UNINSTALL: Spec = Spec {
+    flags: &[switch("--purge-key")],
+    ..INSTALL
+};
+const NONE: Spec = Spec {
+    flags: &[],
+    ..INSTALL
+};
 
 pub fn run(rest: &[String]) -> Result<Output, CtlError> {
     let Some((sub, args)) = rest.split_first() else {
@@ -22,20 +38,8 @@ pub fn run(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 fn install(args: &[String]) -> Result<Output, CtlError> {
-    let mut key_env: Option<&String> = None;
-    let mut iter = args.iter();
-    while let Some(arg) = iter.next() {
-        match arg.as_str() {
-            "--api-key-env" => {
-                key_env = Some(
-                    iter.next()
-                        .ok_or_else(|| CtlError::usage("--api-key-env requires a variable name"))?,
-                )
-            }
-            other => return Err(CtlError::usage(format!("unknown argument: {other}"))),
-        }
-    }
-    let key = match key_env {
+    let flags = INSTALL.parse(args)?;
+    let key = match flags.one("--api-key-env") {
         Some(name) => Some(
             std::env::var(name)
                 .ok()
@@ -62,13 +66,7 @@ fn install(args: &[String]) -> Result<Output, CtlError> {
 }
 
 fn uninstall(args: &[String]) -> Result<Output, CtlError> {
-    let mut purge = false;
-    for arg in args {
-        match arg.as_str() {
-            "--purge-key" => purge = true,
-            other => return Err(CtlError::usage(format!("unknown argument: {other}"))),
-        }
-    }
+    let purge = UNINSTALL.parse(args)?.on("--purge-key");
     let removed = c::uninstall(purge).map_err(|e| CtlError::new("council", e))?;
     let human = match &removed {
         Some(id) => format!("council '{id}' removed"),
@@ -81,9 +79,7 @@ fn uninstall(args: &[String]) -> Result<Output, CtlError> {
 }
 
 fn doctor(args: &[String]) -> Result<Output, CtlError> {
-    if let Some(extra) = args.first() {
-        return Err(CtlError::usage(format!("unknown argument: {extra}")));
-    }
+    NONE.parse(args)?;
     let reg = registry_ro::read_opt();
     let checks = c::doctor(reg.as_ref());
     let failed = checks.iter().any(|k| !k.ok);
@@ -105,9 +101,7 @@ fn doctor(args: &[String]) -> Result<Output, CtlError> {
 }
 
 fn tools(args: &[String]) -> Result<Output, CtlError> {
-    if let Some(extra) = args.first() {
-        return Err(CtlError::usage(format!("unknown argument: {extra}")));
-    }
+    NONE.parse(args)?;
     let mut human = String::from("tools\n");
     for t in c::TOOLS {
         human.push_str(&format!(

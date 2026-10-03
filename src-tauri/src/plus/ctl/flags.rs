@@ -73,6 +73,8 @@ pub(super) enum Unknown {
     Argument,
     ArgumentKey,
     ArgumentUsage(&'static str),
+    Named,
+    Usage(&'static str),
 }
 
 #[derive(Clone, Copy)]
@@ -110,6 +112,8 @@ impl Spec {
             Unknown::Argument => format!("unexpected argument: {arg}"),
             Unknown::ArgumentKey => format!("unexpected argument: {key}"),
             Unknown::ArgumentUsage(usage) => format!("unexpected argument: {arg}\n{usage}"),
+            Unknown::Named => format!("unknown argument: {arg}"),
+            Unknown::Usage(usage) => usage.to_string(),
         })
     }
 
