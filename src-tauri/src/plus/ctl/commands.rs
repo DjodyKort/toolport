@@ -232,7 +232,7 @@ pub fn server_ls(rest: &[String]) -> Result<Output, CtlError> {
     no_args(rest)?;
     let snap = snapshot();
     if let Some(error) = snap.registry_error {
-        return Err(CtlError::new("registry_error", error));
+        return Err(CtlError::failed("registry_error", error));
     }
     let reg = snap.registry.unwrap_or_default();
     let active = reg.active_profile_id();

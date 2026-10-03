@@ -152,7 +152,7 @@ pub fn sync(rest: &[String]) -> Result<Output, CtlError> {
     let (ids, dry_run) = (flags.all("--client"), flags.on("--dry-run"));
     let snap = snapshot();
     if let Some(error) = snap.registry_error {
-        return Err(CtlError::new("registry_error", error));
+        return Err(CtlError::failed("registry_error", error));
     }
     let reg = snap.registry.unwrap_or_default();
     let detected = clients::detect_clients();
@@ -166,7 +166,7 @@ pub fn sync(rest: &[String]) -> Result<Output, CtlError> {
     targets.dedup();
     for id in &ids {
         if !detected.iter().any(|c| &c.id == id) {
-            return Err(CtlError::new("not_found", format!("unknown client '{id}'")));
+            return Err(CtlError::not_found(format!("unknown client '{id}'")));
         }
     }
     let mut rows = Vec::new();
@@ -254,7 +254,7 @@ pub fn sync(rest: &[String]) -> Result<Output, CtlError> {
             }
             Ok(())
         })
-        .map_err(|e| CtlError::new("registry_error", e))?;
+        .map_err(|e| CtlError::failed("registry_error", e))?;
     }
     let human = if rows.is_empty() {
         "No managed clients to sync.".to_string()

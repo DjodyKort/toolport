@@ -44,7 +44,7 @@ fn install(args: &[String]) -> Result<Output, CtlError> {
         }
     }
     let (id, outcome) =
-        register::install_self_server(profile.as_deref()).map_err(|e| CtlError::new("mcp", e))?;
+        register::install_self_server(profile.as_deref()).map_err(|e| CtlError::failed("mcp", e))?;
     let action = format!("{outcome:?}").to_lowercase();
     let command = register::binary_path();
     let mut human = format!("self server '{id}' {action}; command {command}");
@@ -58,7 +58,7 @@ fn install(args: &[String]) -> Result<Output, CtlError> {
 }
 
 fn uninstall() -> Result<Output, CtlError> {
-    let removed = register::uninstall_self_server().map_err(|e| CtlError::new("mcp", e))?;
+    let removed = register::uninstall_self_server().map_err(|e| CtlError::failed("mcp", e))?;
     let human = match &removed {
         Some(id) => format!("self server '{id}' removed"),
         None => "self server is not installed".to_string(),

@@ -21,7 +21,7 @@ pub fn folders(rest: &[String]) -> Result<Output, CtlError> {
     }
     if enable || disable {
         dispatch("plus.context.folderProfilesSet", json!({"enabled": enable}))
-            .map_err(|e| CtlError::new("folders_set", e))?;
+            .map_err(|e| CtlError::failed("folders_set", e))?;
     }
     let cwd = match flags.one("--cwd") {
         Some(c) => c.to_string(),
@@ -30,7 +30,7 @@ pub fn folders(rest: &[String]) -> Result<Output, CtlError> {
             .unwrap_or_default(),
     };
     let data = dispatch("plus.context.folderProfiles", json!({"cwd": cwd}))
-        .map_err(|e| CtlError::new("folders", e))?;
+        .map_err(|e| CtlError::failed("folders", e))?;
     let enabled = data["enabled"].as_bool().unwrap_or(false);
     let mut human = format!(
         "folder profiles: {}\n",

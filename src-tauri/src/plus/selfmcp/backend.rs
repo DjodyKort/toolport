@@ -2,6 +2,7 @@ use super::catalog::{ResourceDef, ToolDef};
 use super::ToolError;
 use super::{content, docs, servers};
 use crate::plus::args::{list, str_arg};
+use crate::plus::ctl::ErrorKind;
 use crate::plus::registry_ro;
 use crate::plus::skills::lint::{lint_skills, LintResult};
 use crate::plus::skills::ops::find_skills_repo;
@@ -24,10 +25,10 @@ pub(super) fn ctl(path: &[&str]) -> Result<Value, ToolError> {
     (command.handler)(rest)
         .map(|out| out.data)
         .map_err(|e| {
-            let kind = match e.code.as_str() {
-                "not_found" => "not_found",
-                "conflict" => "conflict",
-                "usage" => "invalid_arguments",
+            let kind = match e.kind {
+                ErrorKind::NotFound => "not_found",
+                ErrorKind::Conflict => "conflict",
+                ErrorKind::Usage => "invalid_arguments",
                 _ => "backend_error",
             };
             ToolError::new(kind, e.message)

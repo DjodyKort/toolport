@@ -15,8 +15,8 @@ use serde_json::{json, Value};
 
 fn load() -> Result<(Paths, Loaded), CtlError> {
     let paths = Paths::from_data_dir()
-        .ok_or_else(|| CtlError::new("no_data_dir", "data directory could not be resolved"))?;
-    let loaded = store::read(&paths).map_err(|e| CtlError::new("config_invalid", e))?;
+        .ok_or_else(|| CtlError::failed("no_data_dir", "data directory could not be resolved"))?;
+    let loaded = store::read(&paths).map_err(|e| CtlError::failed("config_invalid", e))?;
     Ok((paths, loaded))
 }
 
@@ -189,7 +189,7 @@ pub fn run(rest: &[String]) -> Result<Output, CtlError> {
     let cwd = match args.cwd {
         Some(c) => c,
         None => std::env::current_dir()
-            .map_err(|e| CtlError::new("cwd", e.to_string()))?
+            .map_err(|e| CtlError::failed("cwd", e.to_string()))?
             .to_string_lossy()
             .into_owned(),
     };
@@ -221,10 +221,10 @@ pub fn run(rest: &[String]) -> Result<Output, CtlError> {
             }
         );
         let data =
-            serde_json::to_value(&plan).map_err(|e| CtlError::new("internal", e.to_string()))?;
+            serde_json::to_value(&plan).map_err(|e| CtlError::failed("internal", e.to_string()))?;
         return Ok(Output::new(data, human));
     }
-    let outcome = run_plan(plan, &mut ops).map_err(|e| CtlError::new("launch_failed", e))?;
+    let outcome = run_plan(plan, &mut ops).map_err(|e| CtlError::failed("launch_failed", e))?;
     for warning in &outcome.plan.warnings {
         eprintln!("toolportctl: {warning}");
     }
@@ -483,7 +483,7 @@ pub(super) fn ledger_record(paths: &Paths, rest: &[String]) -> Result<Output, Ct
             .number::<u64>("--after")?
             .ok_or_else(|| CtlError::usage("--after is required"))?,
     };
-    ledger::append_savings(paths, &entry).map_err(|e| CtlError::new("ledger_write", e))?;
+    ledger::append_savings(paths, &entry).map_err(|e| CtlError::failed("ledger_write", e))?;
     let human = format!(
         "recorded {} saved {} tokens ({} -> {})",
         entry.provider,
@@ -573,14 +573,14 @@ pub(super) fn proxy_with(
     if action != "up" {
         match engine::proxy_down(ops, port) {
             Ok(detail) => steps.push(detail),
-            Err(why) if action == "down" => return Err(CtlError::new("proxy_down", why)),
+            Err(why) if action == "down" => return Err(CtlError::failed("proxy_down", why)),
             Err(why) => steps.push(why),
         }
     }
     if action != "down" {
         match engine::proxy_up(ops, port, &env, 30) {
             Ok(detail) => steps.push(detail),
-            Err(why) => return Err(CtlError::new("proxy_up", why)),
+            Err(why) => return Err(CtlError::failed("proxy_up", why)),
         }
     }
     Ok(Output::new(
@@ -611,12 +611,11 @@ pub(super) fn update_with(
     latest: bool,
     accept: bool,
 ) -> Result<Output, CtlError> {
-    let target = engine::resolve_target(&config, ops, to, latest).map_err(|e| {
-        let code = match e {
-            crate::plus::compression::ops::UpdateError::Unresolvable => "update_unresolved",
-            _ => "usage",
-        };
-        CtlError::new(code, e.message())
+    let target = engine::resolve_target(&config, ops, to, latest).map_err(|e| match e {
+        crate::plus::compression::ops::UpdateError::Unresolvable => {
+            CtlError::failed("update_unresolved", e.message())
+        }
+        _ => CtlError::usage(e.message()),
     })?;
     let mut human = format!(
         "update pin  {}\n  this build is unverified against the recorded contract - run \
@@ -640,10 +639,10 @@ pub(super) fn update_with(
         return Ok(Output::new(data, human));
     }
     engine::set_pin_and_save(paths, &mut config, &target.target)
-        .map_err(|e| CtlError::new("config_write", e))?;
+        .map_err(|e| CtlError::failed("config_write", e))?;
     let report = engine::apply_update(&mut config, &target.target, ops)
-        .map_err(|e| CtlError::new("install_failed", e))?;
-    store::save(paths, &config).map_err(|e| CtlError::new("config_write", e))?;
+        .map_err(|e| CtlError::failed("install_failed", e))?;
+    store::save(paths, &config).map_err(|e| CtlError::failed("config_write", e))?;
     human.push_str(&format!("\n  installed: {}", report.install_detail));
     for note in &report.snapshot_notes {
         human.push_str(&format!("\n  {note}"));

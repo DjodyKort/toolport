@@ -35,7 +35,7 @@ pub fn run(rest: &[String]) -> Result<Output, CtlError> {
     if let Some(root) = root {
         args["root"] = Value::String(root);
     }
-    let data = dispatch("plus.obs.summary", args).map_err(|e| CtlError::new("usage", e))?;
+    let data = dispatch("plus.obs.summary", args).map_err(CtlError::usage)?;
     let human = render(&data);
     Ok(Output::new(data, human))
 }

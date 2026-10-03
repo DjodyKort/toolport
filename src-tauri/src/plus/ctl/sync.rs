@@ -109,7 +109,7 @@ fn secret_args(rest: &[String]) -> Result<(Vec<String>, Option<String>), CtlErro
                 let mut line = String::new();
                 std::io::stdin()
                     .read_to_string(&mut line)
-                    .map_err(|e| CtlError::new("io", e.to_string()))?;
+                    .map_err(|e| CtlError::failed("io", e.to_string()))?;
                 secret = Some(line.trim_end_matches(['\r', '\n']).to_string());
             }
             _ => remaining.push(arg.clone()),
@@ -243,10 +243,10 @@ pub fn run(rest: &[String]) -> Result<Output, CtlError> {
         _ => h::migrate_handler,
     };
     let data = handler(args).map_err(|e| {
-        if e.starts_with("missing argument") {
+        if e.starts_with(h::MISSING_ARGUMENT) {
             CtlError::usage(e)
         } else {
-            CtlError::new("sync", e)
+            CtlError::failed("sync", e)
         }
     })?;
     let human = render(sub, &data);
@@ -263,19 +263,19 @@ mod tests {
 
     #[test]
     fn usage_errors_are_reported() {
-        assert_eq!(run(&[]).err().unwrap().code, "usage");
-        assert_eq!(run(&strings(&["bogus"])).err().unwrap().code, "usage");
+        assert_eq!(run(&[]).err().unwrap().code(), "usage");
+        assert_eq!(run(&strings(&["bogus"])).err().unwrap().code(), "usage");
         assert_eq!(
-            run(&strings(&["push", "--nope"])).err().unwrap().code,
+            run(&strings(&["push", "--nope"])).err().unwrap().code(),
             "usage"
         );
         assert_eq!(
-            run(&strings(&["init", "--repo"])).err().unwrap().code,
+            run(&strings(&["init", "--repo"])).err().unwrap().code(),
             "usage"
         );
-        assert_eq!(run(&strings(&["init"])).err().unwrap().code, "usage");
+        assert_eq!(run(&strings(&["init"])).err().unwrap().code(), "usage");
         assert_eq!(
-            run(&strings(&["remove-project"])).err().unwrap().code,
+            run(&strings(&["remove-project"])).err().unwrap().code(),
             "usage"
         );
     }

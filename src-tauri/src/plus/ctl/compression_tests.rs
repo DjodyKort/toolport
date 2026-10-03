@@ -561,7 +561,7 @@ mod engine_cli {
 
         proxy_with(&cfg, &mut engine, "down").unwrap();
         assert_eq!(
-            proxy_with(&cfg, &mut engine, "down").err().unwrap().code,
+            proxy_with(&cfg, &mut engine, "down").err().unwrap().code(),
             "proxy_down"
         );
         let restart_cold = proxy_with(&cfg, &mut engine, "restart").unwrap();
@@ -611,11 +611,11 @@ mod engine_cli {
         let err = update_with(&paths, cfg.clone(), &mut offline, None, true, true)
             .err()
             .unwrap();
-        assert_eq!(err.code, "update_unresolved");
+        assert_eq!(err.code(), "update_unresolved");
         let err = update_with(&paths, cfg, &mut offline, Some("0.30.0"), true, false)
             .err()
             .unwrap();
-        assert_eq!(err.code, "usage");
+        assert_eq!(err.code(), "usage");
         assert_eq!(run_cli(&["compression", "update", "--to"]).0, 2);
     }
 

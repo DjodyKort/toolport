@@ -37,8 +37,7 @@ fn resolve_target(operands: &[String], usage: &str, must_exist: bool) -> Result<
     let server_id = match found {
         Some(entry) => entry.id.clone(),
         None if must_exist => {
-            return Err(CtlError::new(
-                "not_found",
+            return Err(CtlError::not_found(
                 format!("unknown server: {server}"),
             ))
         }
@@ -67,7 +66,7 @@ fn read_value(
 ) -> Result<String, CtlError> {
     let raw = match value_env {
         Some(name) => std::env::var(name).map_err(|_| {
-            CtlError::new("input", format!("environment variable {name} is not set"))
+            CtlError::failed("input", format!("environment variable {name} is not set"))
         })?,
         None => {
             if interactive {
@@ -79,16 +78,16 @@ fn read_value(
             reader
                 .take(MAX_VALUE_BYTES + 1)
                 .read_to_string(&mut text)
-                .map_err(|e| CtlError::new("input", format!("cannot read value: {e}")))?;
+                .map_err(|e| CtlError::failed("input", format!("cannot read value: {e}")))?;
             if text.len() as u64 > MAX_VALUE_BYTES {
-                return Err(CtlError::new("input", "value is too large"));
+                return Err(CtlError::failed("input", "value is too large"));
             }
             text
         }
     };
     let value = strip_line_ending(raw);
     if value.is_empty() {
-        return Err(CtlError::new("input", "value is empty"));
+        return Err(CtlError::failed("input", "value is empty"));
     }
     Ok(value)
 }
@@ -108,7 +107,7 @@ fn set_from(rest: &[String], reader: &mut dyn Read, interactive: bool) -> Result
     )?;
     let value = read_value(flags.one("--value-env"), reader, interactive)?;
     crate::secrets::set_secret(&target.server, &target.key, &value)
-        .map_err(|e| CtlError::new("vault", e))?;
+        .map_err(|e| CtlError::failed("vault", e))?;
     Ok(Output::new(
         json!({"server": target.server, "key": target.key, "stored": true}),
         format!("Stored {} for {}", target.key, target.server),
@@ -123,10 +122,9 @@ pub fn get(rest: &[String]) -> Result<Output, CtlError> {
         false,
     )?;
     let value = crate::secrets::get_vault_secret_result(&target.server, &target.key)
-        .map_err(|e| CtlError::new("vault", e))?;
+        .map_err(|e| CtlError::failed("vault", e))?;
     let Some(value) = value else {
-        return Err(CtlError::new(
-            "not_found",
+        return Err(CtlError::not_found(
             format!("{} is not set for {}", target.key, target.server),
         ));
     };
@@ -144,7 +142,7 @@ pub fn rm(rest: &[String]) -> Result<Output, CtlError> {
     let flags = Spec::PLAIN.parse(rest)?;
     let target = resolve_target(flags.operands(), "usage: secret rm <server> <KEY>", false)?;
     crate::secrets::delete_secret(&target.server, &target.key)
-        .map_err(|e| CtlError::new("vault", e))?;
+        .map_err(|e| CtlError::failed("vault", e))?;
     Ok(Output::new(
         json!({"server": target.server, "key": target.key, "removed": true}),
         format!("Removed {} for {}", target.key, target.server),
@@ -208,7 +206,7 @@ mod tests {
 
             rm(&args(&["alpha", "API_KEY"])).unwrap();
             let err = get(&args(&["alpha", "API_KEY"])).err().unwrap();
-            assert_eq!(err.code, "not_found");
+            assert_eq!(err.code(), "not_found");
         });
     }
 
@@ -260,12 +258,12 @@ mod tests {
             ];
             for (list, input, code) in cases {
                 let err = set_from(&list, &mut stdin(input), false).err().unwrap();
-                assert_eq!(err.code, code, "{list:?}");
+                assert_eq!(err.code(), code, "{list:?}");
             }
             let err = set_from(&args(&["alpha", "K"]), &mut stdin(FAKE), true)
                 .err()
                 .unwrap();
-            assert_eq!(err.code, "usage");
+            assert_eq!(err.code(), "usage");
             let err = set_from(
                 &args(&["alpha", "K", "--value-env", "FAKE_CTL_UNSET_VAR"]),
                 &mut stdin(""),
@@ -273,8 +271,8 @@ mod tests {
             )
             .err()
             .unwrap();
-            assert_eq!(err.code, "input");
-            assert_eq!(get(&args(&["alpha", "K"])).err().unwrap().code, "not_found");
+            assert_eq!(err.code(), "input");
+            assert_eq!(get(&args(&["alpha", "K"])).err().unwrap().code(), "not_found");
         });
     }
 
@@ -282,7 +280,7 @@ mod tests {
     fn get_and_rm_accept_unregistered_server_ids() {
         with_vault(|| {
             assert_eq!(
-                get(&args(&["orphan", "K"])).err().unwrap().code,
+                get(&args(&["orphan", "K"])).err().unwrap().code(),
                 "not_found"
             );
             assert!(rm(&args(&["orphan", "K"])).is_ok());

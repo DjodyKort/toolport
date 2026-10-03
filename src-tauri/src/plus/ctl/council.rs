@@ -44,11 +44,11 @@ fn install(args: &[String]) -> Result<Output, CtlError> {
             std::env::var(name)
                 .ok()
                 .filter(|v| !v.is_empty())
-                .ok_or_else(|| CtlError::new("input", format!("{name} is not set or empty")))?,
+                .ok_or_else(|| CtlError::failed("input", format!("{name} is not set or empty")))?,
         ),
         None => None,
     };
-    let done = c::install(key.as_deref()).map_err(|e| CtlError::new("council", e))?;
+    let done = c::install(key.as_deref()).map_err(|e| CtlError::failed("council", e))?;
     let human = format!(
         "council {} as '{}'{}",
         if done.created { "installed" } else { "updated" },
@@ -67,7 +67,7 @@ fn install(args: &[String]) -> Result<Output, CtlError> {
 
 fn uninstall(args: &[String]) -> Result<Output, CtlError> {
     let purge = UNINSTALL.parse(args)?.on("--purge-key");
-    let removed = c::uninstall(purge).map_err(|e| CtlError::new("council", e))?;
+    let removed = c::uninstall(purge).map_err(|e| CtlError::failed("council", e))?;
     let human = match &removed {
         Some(id) => format!("council '{id}' removed"),
         None => "council is not installed".to_string(),
