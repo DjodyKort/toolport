@@ -32,7 +32,13 @@ case "$1 ${2:-}" in
     [ -f "$root/servers.json" ] || exit 3
     if [ "$dry" = 1 ]; then echo "plan: 2 servers, 4 clients (dry run)"; exit 0; fi
     mkdir -p "$HOME/.config/toolport"
-    echo '{"servers":["fake-a","fake-b"]}' >"$HOME/.config/toolport/registry.json"
+    reg="$HOME/.config/toolport/registry.json"
+    state="${STUB_SELF_STATE:-enabled}"
+    if [ -f "$reg" ]; then
+      prev="$(sed -n 's/.*"selfServer":"\([a-z-]*\)".*/\1/p' "$reg")"
+      [ -z "$prev" ] || state="$prev"
+    fi
+    echo "{\"servers\":[\"fake-a\",\"fake-b\"],\"selfServer\":\"$state\"}" >"$reg"
     for f in .claude.json .config/Claude/claude_desktop_config.json .cursor/mcp.json .gemini/settings.json; do
       [ -f "$HOME/$f" ] || continue
       printf '{"mcpServers":{"toolport":{"command":"toolport-gateway"}}}\n' >"$HOME/$f"
@@ -55,6 +61,13 @@ case "$1 ${2:-}" in
     if [ "$dry" = 0 ]; then
       grep -rIl 'mcp__mcpm_' "${paths[@]}" 2>/dev/null | while IFS= read -r f; do sed -i.bak 's/mcp__mcpm_/mcp__toolport_/g' "$f"; rm -f "$f.bak"; done
     fi
+    ;;
+  "mcp doctor")
+    reg="$HOME/.config/toolport/registry.json"
+    [ -f "$reg" ] || { echo "state missing"; exit 1; }
+    state="$(sed -n 's/.*"selfServer":"\([a-z-]*\)".*/\1/p' "$reg")"
+    echo "state $state"
+    case "$state" in enabled|disabled|opted-out) exit 0 ;; *) exit 1 ;; esac
     ;;
   "doctor "*) echo "doctor: ok" ;;
   *) echo "stub: unknown command $*" >&2; exit 2 ;;
@@ -104,6 +117,9 @@ expect_not "dry run creates no registry" test -e "$home/.config/toolport"
 
 out="$("$SCRIPT_DIR/cutover.sh" --home "$home" --tools "$work/tools.json")"
 expect "cutover verifies" grep -q "verify ok: .claude.json" <<<"$out"
+expect "cutover verifies the self-management MCP" grep -q "verify ok: self-management MCP" <<<"$out"
+expect "cutover enabled the self-management MCP" grep -q "state enabled" <<<"$out"
+expect "cutover announces the self-management MCP step" grep -q "self-management MCP and enables it" <<<"$out"
 expect "cutover creates a backup with a manifest" test -f "$(echo "$home"/.toolport-cutover-backups/*/manifest.sha256)"
 expect "cutover switched the claude code config" grep -q '"toolport"' "$home/.claude.json"
 expect "cutover renamed tool refs" grep -q 'mcp__toolport_fake__ping' "$home/.claude/settings.json"
@@ -163,6 +179,42 @@ rm -rf "$home/.config/user-tool" "$home/.config/toolport" "$home/.claude/extras"
 expect "tree is byte-identical once user files are removed" diff "$before" <(tree_digest "$home")
 
 expect_not "cutover refuses a missing --home" "$SCRIPT_DIR/cutover.sh" --home "$work/none" 2>/dev/null
+
+# the self-management MCP: a failing mcp doctor fails the verify step
+home_bad="$work/home-bad"
+make_home "$home_bad"
+bad_rc=0
+bad_out="$(STUB_SELF_STATE=not-enabled "$SCRIPT_DIR/cutover.sh" --home "$home_bad" --tools "$work/tools.json" 2>&1)" || bad_rc=$?
+expect "cutover fails when mcp doctor fails" test "$bad_rc" -ne 0
+expect "the failed verify names mcp doctor" grep -q "verify FAIL: mcp doctor" <<<"$bad_out"
+expect "the failed verify still offers the rollback" grep -q "roll back with" <<<"$bad_out"
+
+# an opt-out is a healthy state for the verify step and survives the cutover
+home_opt="$work/home-opt"
+make_home "$home_opt"
+mkdir -p "$home_opt/.config/toolport"
+echo '{"servers":["old"],"selfServer":"opted-out"}' >"$home_opt/.config/toolport/registry.json"
+opt_out="$("$SCRIPT_DIR/cutover.sh" --home "$home_opt" --tools "$work/tools.json")"
+expect "an opted-out self server passes the verify step" grep -q "verify ok: self-management MCP" <<<"$opt_out"
+expect "cutover reports the opt-out" grep -q "state opted-out" <<<"$opt_out"
+expect "cutover keeps the opt-out" grep -q '"selfServer":"opted-out"' "$home_opt/.config/toolport/registry.json"
+
+# a choice made after the cutover is left alone by rollback and by the next cutover
+home_user="$work/home-user"
+make_home "$home_user"
+mkdir -p "$home_user/.config/toolport"
+echo '{"servers":["old"],"selfServer":"enabled"}' >"$home_user/.config/toolport/registry.json"
+"$SCRIPT_DIR/cutover.sh" --home "$home_user" --tools "$work/tools.json" >/dev/null
+sed -i.bak 's/"selfServer":"enabled"/"selfServer":"disabled"/' "$home_user/.config/toolport/registry.json"
+rm -f "$home_user/.config/toolport/registry.json.bak"
+user_rb="$("$SCRIPT_DIR/rollback.sh" --home "$home_user")"
+expect "rollback keeps a registry that existed before the cutover" test -f "$home_user/.config/toolport/registry.json"
+expect "rollback leaves the user's disable choice alone" grep -q '"selfServer":"disabled"' "$home_user/.config/toolport/registry.json"
+expect "rollback says the choice is left alone" grep -q "left alone: a Toolport registry" <<<"$user_rb"
+expect "rollback restored the mcpm client config" grep -q '"mcpm"' "$home_user/.claude.json"
+again="$("$SCRIPT_DIR/cutover.sh" --home "$home_user" --tools "$work/tools.json")"
+expect "a second cutover reports the disable as healthy" grep -q "state disabled" <<<"$again"
+expect "a second cutover does not re-enable it" grep -q '"selfServer":"disabled"' "$home_user/.config/toolport/registry.json"
 
 if [ "$failures" -ne 0 ]; then echo "$failures failure(s)"; exit 1; fi
 echo "all cutover tests passed"
