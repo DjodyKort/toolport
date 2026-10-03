@@ -2,7 +2,7 @@ use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 use super::types::Tracked;
@@ -141,23 +141,18 @@ impl Locked<'_> {
         if events.is_empty() {
             return Ok(());
         }
-        let path = self.store.events_path();
-        let mut file = crate::registry::open_append_private(&path).map_err(|e| e.to_string())?;
         let mut buf = String::new();
         for event in events {
             buf.push_str(&serde_json::to_string(event).map_err(|e| e.to_string())?);
             buf.push('\n');
         }
-        file.write_all(buf.as_bytes()).map_err(|e| e.to_string())?;
-        drop(file);
-        let size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
-        if size > self.store.events_max_bytes {
-            if let Ok(content) = std::fs::read_to_string(&path) {
-                let trimmed = crate::registry::trimmed_tail(&content, self.store.events_keep_lines);
-                crate::registry::atomic_write(&path, &trimmed)?;
-            }
-        }
-        Ok(())
+        crate::registry::append_line_locked(
+            &self.store.events_path(),
+            &buf,
+            self.store.events_max_bytes,
+            self.store.events_keep_lines,
+            None,
+        )
     }
 
     pub fn read_events(&self) -> Vec<EdgeEvent> {
