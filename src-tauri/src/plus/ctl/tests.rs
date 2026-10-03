@@ -117,7 +117,14 @@ fn status_json_golden() {
                 "serverCount": 2,
                 "profileCount": 2,
                 "activeProfile": "default",
-                "secretsBackend": "<BACKEND>"
+                "secretsBackend": "<BACKEND>",
+                "auth": {
+                    "counts": {
+                        "ok": 0, "expiring": 0, "needs_reauth": 0, "revoked": 0,
+                        "misconfigured": 0, "unreachable": 0, "unknown": 0
+                    },
+                    "servers": []
+                }
             }
         })
     );
@@ -371,4 +378,75 @@ fn context_loads_rejects_unknown_arguments() {
     assert_eq!(code, 2, "{err}");
     let (code, _, _) = run_cli(&["context", "loads", "--profile"]);
     assert_eq!(code, 2);
+}
+
+fn write_auth_status(dir: &std::path::Path) {
+    let now = chrono_now();
+    let status = json!({
+        "version": 1,
+        "servers": {
+            "alpha": {"tracked": {"state": "ok", "reason": "ok", "since": now, "transient": null},
+                      "lastProbeAt": now, "nextDueAt": now + 60},
+            "beta": {"tracked": {"state": "needs_reauth", "reason": "invalid_grant", "since": now, "transient": null},
+                     "lastProbeAt": now, "nextDueAt": now + 60}
+        },
+        "profiles": {}
+    });
+    std::fs::create_dir_all(dir.join("auth")).unwrap();
+    std::fs::write(dir.join("auth/status.json"), status.to_string()).unwrap();
+}
+
+fn chrono_now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64
+}
+
+#[test]
+fn status_json_includes_auth_rows_without_secrets() {
+    let fx = Fixture::new("authstatus", Some(sample_registry()));
+    write_auth_status(&fx.dir);
+    let (code, value) = json_of(&["--json", "status"]);
+    assert_eq!(code, 0);
+    let auth = &value["data"]["auth"];
+    assert_eq!(auth["counts"]["ok"], 1);
+    assert_eq!(auth["counts"]["needs_reauth"], 1);
+    assert_eq!(auth["servers"][0]["server"], "beta");
+    assert_eq!(auth["servers"][0]["fix"]["action"], "reauth");
+    assert!(auth["servers"][0].get("token").is_none());
+    assert!(!value.to_string().contains(FAKE_SECRET));
+}
+
+#[test]
+fn auth_statusline_and_hook_print_compact_json() {
+    let fx = Fixture::new("authline", Some(sample_registry()));
+    write_auth_status(&fx.dir);
+    let (code, out, _) = run_cli(&["auth", "statusline"]);
+    assert_eq!(code, 0);
+    let line: Value = serde_json::from_str(out.trim()).unwrap();
+    assert_eq!(line["auth"]["needs_reauth"], 1);
+    assert_eq!(line["auth"]["worst"], json!(["beta"]));
+    assert_eq!(out.trim().lines().count(), 1);
+
+    let (code, value) = json_of(&["--json", "auth", "hook"]);
+    assert_eq!(code, 0);
+    assert_eq!(value["command"], "auth hook");
+    assert_eq!(
+        value["data"]["hookSpecificOutput"]["hookEventName"],
+        "SessionStart"
+    );
+
+    let (code, _, err) = run_cli(&["auth", "statusline", "extra"]);
+    assert_eq!(code, 2);
+    assert!(err.contains("unexpected argument"));
+}
+
+#[test]
+fn auth_surfaces_write_nothing_on_first_run() {
+    let fx = Fixture::new("authfirst", None);
+    let (code, out, _) = run_cli(&["auth", "statusline"]);
+    assert_eq!(code, 0);
+    assert!(out.contains("auth ok (0)"));
+    assert!(!fx.dir.join("auth").exists());
 }

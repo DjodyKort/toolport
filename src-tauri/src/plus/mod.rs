@@ -23,6 +23,7 @@ const HANDLERS: &[(&str, Handler)] = &[
     ("plus.obs.importMonitor", obs::import_monitor_handler),
     ("plus.auth.status", auth::status_handler),
     ("plus.auth.probe", auth::probe_handler),
+    ("plus.auth.rows", auth::rows_handler),
     ("plus.context.plan", context::plan_handler),
     ("plus.context.apply", context::apply_handler),
     ("plus.import_mcpm.run", import_mcpm::run_handler),

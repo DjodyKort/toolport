@@ -95,6 +95,15 @@ fn path_str(path: &Option<PathBuf>) -> Value {
     }
 }
 
+fn auth_summary() -> Value {
+    use crate::plus::auth::surfaces;
+    use crate::plus::auth::{Clock, SystemClock};
+    match surfaces::auth_dir() {
+        Some(dir) => surfaces::status_summary(&surfaces::read_status(&dir), SystemClock.now()),
+        None => surfaces::status_summary(&Default::default(), SystemClock.now()),
+    }
+}
+
 fn status_data(snap: &Snapshot) -> Value {
     let (servers, profiles, active) = match &snap.registry {
         Some(reg) => (
@@ -118,6 +127,7 @@ fn status_data(snap: &Snapshot) -> Value {
         "profileCount": profiles,
         "activeProfile": active,
         "secretsBackend": secrets_backend(),
+        "auth": auth_summary(),
         "gateway": {
             "present": gateway.is_some(),
             "path": path_str(&gateway),

@@ -1,6 +1,7 @@
 //! `toolportctl` command line (D-010, MIG-SELF). The binary is a thin `main`;
 //! parsing, dispatch and rendering live here so they are unit-testable.
 
+mod auth;
 mod commands;
 mod compression;
 mod import;
@@ -44,6 +45,21 @@ pub const COMMANDS: &[Command] = &[
     Command {
         path: &["server"],
         summary: "Manage servers (mutations)",
+        handler: None,
+    },
+    Command {
+        path: &["auth", "statusline"],
+        summary: "Compact auth-health JSON for a Claude Code statusline",
+        handler: Some(auth::statusline),
+    },
+    Command {
+        path: &["auth", "hook"],
+        summary: "Auth-health JSON for a Claude Code SessionStart hook",
+        handler: Some(auth::hook),
+    },
+    Command {
+        path: &["auth"],
+        summary: "Auth health",
         handler: None,
     },
     Command {
