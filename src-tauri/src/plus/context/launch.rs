@@ -5,10 +5,11 @@
 use super::compact;
 use super::config::ProfileSpec;
 use super::doctor::{sha256_file, PROFILE_STATE_FILE};
-use super::layers::{body_of, list_layers};
+use super::layers::{body_of, list_layers, Layer};
 use super::roots::Roots;
 use super::Report;
 use serde_json::{json, Map, Value};
+use std::cell::OnceCell;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -81,18 +82,59 @@ pub(super) fn read_json_object(path: &Path) -> Map<String, Value> {
     crate::plus::jsonfs::read_json(path).unwrap_or_default()
 }
 
+/// What every profile of one run reads from disk, each read once on first use.
+pub struct Sources<'a> {
+    roots: &'a Roots,
+    servers: OnceCell<Map<String, Value>>,
+    settings: OnceCell<Map<String, Value>>,
+    settings_sha: OnceCell<Option<String>>,
+    layers: OnceCell<Vec<Layer>>,
+}
+
+impl<'a> Sources<'a> {
+    pub fn new(roots: &'a Roots) -> Self {
+        Sources {
+            roots,
+            servers: OnceCell::new(),
+            settings: OnceCell::new(),
+            settings_sha: OnceCell::new(),
+            layers: OnceCell::new(),
+        }
+    }
+
+    fn servers(&self) -> &Map<String, Value> {
+        self.servers.get_or_init(|| {
+            match read_json_object(&self.roots.claude_json).remove("mcpServers") {
+                Some(Value::Object(m)) => m,
+                _ => Map::new(),
+            }
+        })
+    }
+
+    fn settings(&self) -> &Map<String, Value> {
+        self.settings
+            .get_or_init(|| read_json_object(&self.roots.claude_home.join("settings.json")))
+    }
+
+    fn settings_sha(&self) -> &Option<String> {
+        self.settings_sha
+            .get_or_init(|| sha256_file(&self.roots.claude_home.join("settings.json")))
+    }
+
+    fn layers(&self) -> &[Layer] {
+        self.layers.get_or_init(|| list_layers(self.roots))
+    }
+}
+
 pub fn build_mcp_config(
-    roots: &Roots,
+    src: &Sources,
     spec: &ProfileSpec,
     report: &mut Report,
     name: &str,
 ) -> Result<Value, String> {
-    let all = match read_json_object(&roots.claude_json).remove("mcpServers") {
-        Some(Value::Object(m)) => m,
-        _ => Map::new(),
-    };
+    let all = src.servers();
     let chosen = match parse_selection(&spec.servers, "servers")? {
-        Selection::All => all,
+        Selection::All => all.clone(),
         Selection::None => Map::new(),
         Selection::Named(names) => {
             let mut picked = Map::new();
@@ -103,7 +145,7 @@ pub fn build_mcp_config(
                     }
                     None => report.warn(format!(
                         "profile {name}: server '{server}' not found in {}",
-                        roots.claude_json.display()
+                        src.roots.claude_json.display()
                     )),
                 }
             }
@@ -113,8 +155,9 @@ pub fn build_mcp_config(
     Ok(json!({ "mcpServers": chosen }))
 }
 
-pub fn build_settings(roots: &Roots, spec: &ProfileSpec) -> Value {
-    let mut settings = read_json_object(&roots.claude_home.join("settings.json"));
+pub fn build_settings(src: &Sources, spec: &ProfileSpec) -> Value {
+    let roots = src.roots;
+    let mut settings = src.settings().clone();
     for (key, value) in &spec.settings_overrides {
         settings.insert(key.clone(), value.clone());
     }
@@ -135,7 +178,7 @@ pub fn build_settings(roots: &Roots, spec: &ProfileSpec) -> Value {
 }
 
 pub fn build_append_prompt(
-    roots: &Roots,
+    src: &Sources,
     spec: &ProfileSpec,
     report: &mut Report,
     name: &str,
@@ -145,7 +188,7 @@ pub fn build_append_prompt(
     if wanted.is_empty() && instructions.is_none() {
         return None;
     }
-    let layers = list_layers(roots);
+    let layers = src.layers();
     let mut out = format!("{APPEND_HEADER}\n");
     for rule in wanted {
         match layers.iter().find(|l| l.name == rule) {
@@ -176,7 +219,6 @@ fn write_private(path: &Path, text: &str) -> Result<(), String> {
     crate::registry::atomic_write(path, text).map_err(|e| format!("{}: {e}", path.display()))
 }
 
-/// Writes `mcp.json`, `settings.json`, the optional append file and the drift state file.
 pub fn generate_profile(
     roots: &Roots,
     name: &str,
@@ -184,13 +226,25 @@ pub fn generate_profile(
     report: &mut Report,
     dry_run: bool,
 ) -> Result<(), String> {
-    let mcp = build_mcp_config(roots, spec, report, name)?;
+    generate_profile_with(&Sources::new(roots), name, spec, report, dry_run)
+}
+
+/// Writes `mcp.json`, `settings.json`, the optional append file and the drift state file.
+pub fn generate_profile_with(
+    src: &Sources,
+    name: &str,
+    spec: &ProfileSpec,
+    report: &mut Report,
+    dry_run: bool,
+) -> Result<(), String> {
+    let roots = src.roots;
+    let mcp = build_mcp_config(src, spec, report, name)?;
     parse_selection(&spec.rules, "rules")?;
     for warning in compact::warnings(roots, name, spec) {
         report.warn(warning);
     }
-    let settings = build_settings(roots, spec);
-    let append = build_append_prompt(roots, spec, report, name);
+    let settings = build_settings(src, spec);
+    let append = build_append_prompt(src, spec, report, name);
     for (field, value) in [
         ("commands", spec.commands),
         ("skills", spec.skills),
@@ -221,9 +275,8 @@ pub fn generate_profile(
             let _ = fs::remove_file(&append_path);
         }
     }
-    let base = sha256_file(&roots.claude_home.join("settings.json"));
     write_private(
         &dir.join(PROFILE_STATE_FILE),
-        &json_text(&json!({ "settings_base_sha256": base })),
+        &json_text(&json!({ "settings_base_sha256": src.settings_sha() })),
     )
 }

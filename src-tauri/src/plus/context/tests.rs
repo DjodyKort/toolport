@@ -503,6 +503,65 @@ fn generate_profile_writes_strict_files_and_is_idempotent() {
 }
 
 #[test]
+fn profiles_generated_in_one_run_match_profiles_generated_one_by_one() {
+    let h = TempHome::new();
+    let roots = h.roots();
+    h.write(
+        ".claude.json",
+        r#"{"mcpServers":{"toolport":{"command":"toolport-gateway"},"other":{"command":"x"},"third":{"url":"https://example.com/mcp"}}}"#,
+    );
+    h.write(".claude/settings.json", r#"{"permissions":{"allow":["Bash(ls)"]},"model":"sonnet"}"#);
+    for rule in ["personal", "client-acme"] {
+        h.write(
+            &format!(".config/mcpm/skills_repo/rules/{rule}/SKILL.md"),
+            &format!("---\nname: {rule}\n---\n\nbody of {rule}\n"),
+        );
+    }
+    let mut config = ContextConfig::default();
+    for (name, spec) in [
+        ("all", json!({})),
+        ("none", json!({"servers": "none", "rules": "none"})),
+        ("named", json!({"servers": ["toolport", "missing"], "rules": ["personal", "nope"]})),
+        ("bare", json!({"org": false, "settings_overrides": {"model": "opus"}, "skills": false})),
+        ("rules", json!({"servers": ["third"], "rules": ["client-acme", "personal"], "org": false})),
+        ("compact", json!({"auto_compact_window": 300000, "compact_instructions": "keep decisions"})),
+    ] {
+        config.profiles.insert(name.into(), profile_spec(spec));
+    }
+    let together = apply(&roots, &mut config, ApplyOptions { persist: false, dry_run: false }).unwrap();
+    let base = ".config/mcpm/claude-profiles";
+    let files = [
+        launch::MCP_FILE,
+        launch::SETTINGS_FILE,
+        launch::APPEND_FILE,
+        doctor::PROFILE_STATE_FILE,
+    ];
+    let snapshot = |h: &TempHome| -> Vec<(String, Option<String>)> {
+        let mut out = Vec::new();
+        for name in config.profiles.keys() {
+            for file in files {
+                let path = h.0.join(base).join(name).join(file);
+                out.push((format!("{name}/{file}"), fs::read_to_string(path).ok()));
+            }
+        }
+        out
+    };
+    let shared = snapshot(&h);
+    assert!(shared.iter().filter(|(_, text)| text.is_some()).count() >= 18);
+
+    let mut separate = Report::default();
+    fs::remove_dir_all(h.0.join(base)).unwrap();
+    for (name, spec) in &config.profiles {
+        launch::generate_profile(&roots, name, spec, &mut separate, false).unwrap();
+    }
+    assert_eq!(snapshot(&h), shared);
+    let profile_lines = |r: &Report| -> Vec<String> {
+        r.warnings.iter().chain(r.actions.iter()).filter(|l| l.contains("profile ")).cloned().collect()
+    };
+    assert_eq!(profile_lines(&together), profile_lines(&separate));
+}
+
+#[test]
 fn profile_selection_none_and_dry_run() {
     let h = TempHome::new();
     let roots = h.roots();
