@@ -1,9 +1,65 @@
 use super::output::{CtlError, Output};
-use crate::plus::import_mcpm::{name_map, run, RunOptions};
+use crate::plus::import_mcpm::{name_map, rename_refs, run, RunOptions};
 use std::path::PathBuf;
 
 const USAGE: &str =
     "usage: import mcpm <config-root> [--dry-run] [--short-ids <file>] [--home <dir>] [--skip-clients] [--prune-orphans] [--name-map --tools <file>]";
+
+const RENAME_USAGE: &str =
+    "usage: import rename-refs <config-root> --tools <file> --paths <path>... [--short-ids <file>] [--home <dir>] [--dry-run]";
+
+pub fn rename_refs_cmd(rest: &[String]) -> Result<Output, CtlError> {
+    let mut opts = RunOptions::default();
+    let mut root: Option<PathBuf> = None;
+    let mut tools: Option<PathBuf> = None;
+    let mut paths: Vec<PathBuf> = Vec::new();
+    let mut dry_run = false;
+    let mut iter = rest.iter().peekable();
+    while let Some(arg) = iter.next() {
+        match arg.as_str() {
+            "--dry-run" => dry_run = true,
+            "--tools" => {
+                let v = iter
+                    .next()
+                    .ok_or_else(|| CtlError::usage("--tools requires a file"))?;
+                tools = Some(PathBuf::from(v));
+            }
+            "--short-ids" => {
+                let v = iter
+                    .next()
+                    .ok_or_else(|| CtlError::usage("--short-ids requires a file"))?;
+                opts.short_ids_path = Some(PathBuf::from(v));
+            }
+            "--home" => {
+                let v = iter
+                    .next()
+                    .ok_or_else(|| CtlError::usage("--home requires a directory"))?;
+                opts.home = Some(v.clone());
+            }
+            "--paths" => {
+                while let Some(p) = iter.next_if(|p| !p.starts_with("--")) {
+                    paths.push(PathBuf::from(p));
+                }
+                if paths.is_empty() {
+                    return Err(CtlError::usage("--paths requires at least one path"));
+                }
+            }
+            flag if flag.starts_with('-') => {
+                return Err(CtlError::usage(format!("unknown option: {flag}")))
+            }
+            _ if root.is_none() => root = Some(PathBuf::from(arg)),
+            _ => return Err(CtlError::usage(RENAME_USAGE)),
+        }
+    }
+    opts.root = root.ok_or_else(|| CtlError::usage(RENAME_USAGE))?;
+    let tools = tools.ok_or_else(|| CtlError::usage("--tools is required"))?;
+    if paths.is_empty() {
+        return Err(CtlError::usage("--paths is required"));
+    }
+    let map = name_map(&opts, &tools).map_err(|e| CtlError::new("import", e))?;
+    let report = rename_refs(&paths, &map, dry_run).map_err(|e| CtlError::new("import", e))?;
+    Ok(Output::new(report.to_value(), report.summary()))
+}
 
 pub fn mcpm(rest: &[String]) -> Result<Output, CtlError> {
     let mut opts = RunOptions {
