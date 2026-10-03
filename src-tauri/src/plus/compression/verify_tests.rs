@@ -614,6 +614,7 @@ struct FakeEngine {
     latest: Option<String>,
     profiles: BTreeMap<String, Vec<(String, String)>>,
     spawn_error: Option<String>,
+    version_probes: std::cell::Cell<usize>,
 }
 
 impl EngineOps for FakeEngine {
@@ -653,6 +654,7 @@ impl EngineOps for FakeEngine {
     }
 
     fn installed_version(&self) -> Option<String> {
+        self.version_probes.set(self.version_probes.get() + 1);
         self.install_to.clone().or_else(|| self.installed.clone())
     }
 
@@ -805,6 +807,7 @@ fn apply_update_pins_installs_exactly_and_resnapshots_profile_presets() {
     assert_eq!(ops.installs, ["headroom-ai[proxy,code,ml]==0.30.0"]);
     assert_eq!(report.install_detail, "0.29.0 -> 0.30.0");
     assert!(report.version_changed);
+    assert_eq!(ops.version_probes.get(), 0, "the install result already carries the new version");
     let agent = cfg.presets.get("agent").unwrap();
     assert_eq!(agent.snapshot_version.as_deref(), Some("0.30.0"));
     assert_eq!(
