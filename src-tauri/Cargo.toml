@@ -20,6 +20,10 @@ required-features = ["gtk-desktop"]
 name = "toolportctl"
 path = "src/bin/toolportctl.rs"
 
+[[bin]]
+name = "toolport-selfmcp"
+path = "src/bin/toolport-selfmcp.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]

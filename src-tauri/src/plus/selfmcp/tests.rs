@@ -1,0 +1,434 @@
+use super::*;
+use serde_json::{json, Value};
+use std::collections::BTreeSet;
+use std::path::PathBuf;
+
+const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
+
+const EXPECTED_TOOLS: &[&str] = &[
+    "skills_list",
+    "skills_get",
+    "skills_lint",
+    "skills_status",
+    "skills_list_transpilers",
+    "skills_scaffold",
+    "skills_sync",
+    "skills_edit_body",
+    "skills_edit_frontmatter",
+    "skills_delete",
+    "agents_list",
+    "agents_get",
+    "agents_lint",
+    "agents_list_transpilers",
+    "agents_scaffold",
+    "agents_sync",
+    "agents_edit_body",
+    "styles_list",
+    "styles_get",
+    "styles_lint",
+    "styles_active",
+    "styles_list_transpilers",
+    "styles_scaffold",
+    "styles_sync_tier1",
+    "styles_apply",
+    "styles_edit_body",
+    "styles_remove",
+    "servers_list",
+    "servers_get",
+    "servers_list_profiles",
+    "servers_detect_source",
+    "servers_git_status",
+    "servers_check_updates",
+    "servers_add_profile_tag",
+    "servers_remove_profile_tag",
+    "servers_install",
+    "servers_update_config",
+    "servers_apply_update",
+    "servers_set_mode",
+    "servers_fork_sync",
+    "servers_auth",
+    "servers_uninstall",
+    "clients_list",
+    "clients_sync",
+    "skills_git_push",
+    "sync_push",
+    "where_am_i",
+    "doctor",
+    "flow_diagram",
+];
+
+const EXPECTED_RESOURCES: &[&str] = &[
+    "mcpm://paths",
+    "mcpm://status",
+    "mcpm://flow",
+    "mcpm://inventory/skills",
+    "mcpm://inventory/agents",
+    "mcpm://inventory/styles",
+    "mcpm://inventory/servers",
+    "mcpm://clients",
+    "mcpm://architecture",
+    "mcpm://workflows",
+    "mcpm://router/status",
+];
+
+struct Fixture {
+    dir: PathBuf,
+    _lock: std::sync::MutexGuard<'static, ()>,
+    _override: crate::registry::DataDirOverride,
+}
+
+impl Fixture {
+    fn new(tag: &str) -> Self {
+        let lock = crate::registry::data_dir_test_lock();
+        let dir = std::env::temp_dir().join(format!("selfmcp-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let registry = json!({
+            "version": 1,
+            "servers": [
+                {
+                    "id": "srv-alpha", "name": "alpha", "transport": "stdio",
+                    "command": "alpha-mcp", "args": [],
+                    "env": [{"key": "API_KEY", "value": FAKE_SECRET, "secret": true},
+                            {"key": "PLAIN", "value": FAKE_SECRET}]
+                },
+                {"id": "srv-beta", "name": "beta", "transport": "http", "url": "https://example.invalid/mcp"}
+            ],
+            "profiles": [{"id": "default", "name": "Default", "enabledServerIds": ["srv-alpha"]}],
+            "activeProfileId": "default"
+        });
+        std::fs::write(dir.join("registry.json"), registry.to_string()).unwrap();
+        let guard = crate::registry::DataDirOverride::set(&dir);
+        Self {
+            dir,
+            _lock: lock,
+            _override: guard,
+        }
+    }
+}
+
+impl Drop for Fixture {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.dir);
+    }
+}
+
+fn sample_args(tool: &ToolDef) -> Value {
+    let mut map = serde_json::Map::new();
+    for param in tool.params.iter().filter(|p| p.required) {
+        let value = match param.ty {
+            catalog::Ty::Str => json!("x"),
+            catalog::Ty::Bool => json!(true),
+            catalog::Ty::Obj => json!({}),
+            catalog::Ty::StrList => json!(["x"]),
+        };
+        map.insert(param.name.to_string(), value);
+    }
+    Value::Object(map)
+}
+
+fn err_kind(result: Result<Value, ToolError>) -> &'static str {
+    match result {
+        Ok(_) => "ok",
+        Err(e) => e.kind,
+    }
+}
+
+#[test]
+fn registry_has_all_49_tools_and_11_resources() {
+    let names: Vec<&str> = TOOLS.iter().map(|t| t.name).collect();
+    assert_eq!(names.len(), 49);
+    assert_eq!(
+        names.iter().copied().collect::<BTreeSet<_>>(),
+        EXPECTED_TOOLS.iter().copied().collect::<BTreeSet<_>>()
+    );
+    let uris: Vec<&str> = RESOURCES.iter().map(|r| r.uri).collect();
+    assert_eq!(uris.len(), 11);
+    assert_eq!(
+        uris.iter().copied().collect::<BTreeSet<_>>(),
+        EXPECTED_RESOURCES.iter().copied().collect::<BTreeSet<_>>()
+    );
+}
+
+#[test]
+fn module_counts_match_the_parity_matrix() {
+    let count = |prefix: &str| TOOLS.iter().filter(|t| t.name.starts_with(prefix)).count();
+    assert_eq!(count("skills_") - 1, 10);
+    assert_eq!(count("agents_"), 7);
+    assert_eq!(count("styles_"), 10);
+    assert_eq!(count("servers_"), 15);
+    assert_eq!(count("clients_"), 2);
+}
+
+#[test]
+fn every_tool_has_a_valid_object_schema() {
+    for tool in TOOLS {
+        let schema = catalog::input_schema(tool);
+        assert_eq!(schema["type"], "object", "{}", tool.name);
+        let props = schema["properties"].as_object().unwrap();
+        for param in tool.params {
+            assert!(
+                props.contains_key(param.name),
+                "{} {}",
+                tool.name,
+                param.name
+            );
+        }
+        for required in schema
+            .get("required")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            assert!(
+                props.contains_key(required.as_str().unwrap()),
+                "{}",
+                tool.name
+            );
+        }
+        assert_eq!(
+            props.contains_key("confirm"),
+            tool.gate != Gate::None,
+            "{}",
+            tool.name
+        );
+        assert!((1..=4).contains(&tool.tier), "{}", tool.name);
+        assert!(!tool.description.is_empty());
+    }
+}
+
+#[test]
+fn tiers_three_and_four_always_carry_a_gate() {
+    for tool in TOOLS {
+        if tool.tier >= 3 {
+            assert_ne!(tool.gate, Gate::None, "{}", tool.name);
+        }
+        if tool.tier == 1 {
+            assert_eq!(tool.gate, Gate::None, "{}", tool.name);
+        }
+    }
+    let destructive: BTreeSet<&str> = TOOLS
+        .iter()
+        .filter(|t| t.tier == 4)
+        .map(|t| t.name)
+        .collect();
+    assert_eq!(
+        destructive,
+        BTreeSet::from([
+            "skills_git_push",
+            "sync_push",
+            "styles_remove",
+            "servers_uninstall"
+        ])
+    );
+}
+
+#[test]
+fn gated_tools_refuse_without_confirmation() {
+    for tool in TOOLS.iter().filter(|t| t.gate == Gate::Always) {
+        let args = sample_args(tool);
+        assert_eq!(
+            err_kind(call_tool(tool.name, &args)),
+            "refused",
+            "{}",
+            tool.name
+        );
+        let mut explicit = args.clone();
+        explicit["confirm"] = json!(false);
+        assert_eq!(
+            err_kind(call_tool(tool.name, &explicit)),
+            "refused",
+            "{}",
+            tool.name
+        );
+        let mut confirmed = args;
+        confirmed["confirm"] = json!(true);
+        assert_ne!(
+            err_kind(call_tool(tool.name, &confirmed)),
+            "refused",
+            "{}",
+            tool.name
+        );
+    }
+}
+
+#[test]
+fn dry_run_waives_the_gate_only_where_declared() {
+    for name in ["clients_sync", "sync_push"] {
+        assert_eq!(err_kind(call_tool(name, &json!({}))), "refused", "{name}");
+        assert_ne!(
+            err_kind(call_tool(name, &json!({"dry_run": true}))),
+            "refused",
+            "{name}"
+        );
+    }
+    let refused = call_tool("styles_remove", &json!({"dry_run": true})).unwrap_err();
+    assert_eq!(refused.kind, "refused");
+    assert!(refused.message.contains("WARNING"));
+}
+
+#[test]
+fn argument_validation_rejects_bad_input() {
+    assert_eq!(err_kind(call_tool("nope", &json!({}))), "unknown_tool");
+    assert_eq!(
+        err_kind(call_tool("skills_get", &json!({}))),
+        "invalid_arguments"
+    );
+    assert_eq!(
+        err_kind(call_tool("skills_get", &json!({"name": 3}))),
+        "invalid_arguments"
+    );
+    assert_eq!(
+        err_kind(call_tool("doctor", &json!({"extra": 1}))),
+        "invalid_arguments"
+    );
+    assert_eq!(
+        err_kind(call_tool(
+            "skills_delete",
+            &json!({"name": "x", "confirm": "yes"})
+        )),
+        "invalid_arguments"
+    );
+    assert_eq!(
+        err_kind(call_tool("doctor", &json!("text"))),
+        "invalid_arguments"
+    );
+}
+
+#[test]
+fn unavailable_backends_report_not_implemented() {
+    let error = call_tool("skills_scaffold", &json!({"name": "x"})).unwrap_err();
+    assert_eq!(error.kind, "not_implemented");
+    let result = tool_result(Err(error));
+    assert_eq!(result["isError"], true);
+    assert!(result["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .starts_with("not_implemented"));
+}
+
+#[test]
+fn registry_reads_never_return_secret_values() {
+    let _fixture = Fixture::new("secrets");
+    let mut outputs = Vec::new();
+    for (name, args) in [
+        ("servers_list", json!({})),
+        ("servers_get", json!({"name": "alpha"})),
+        ("servers_list_profiles", json!({})),
+        ("where_am_i", json!({})),
+        ("doctor", json!({})),
+        ("clients_list", json!({})),
+    ] {
+        outputs.push(format!("{name}: {:?}", call_tool(name, &args)));
+    }
+    for def in RESOURCES {
+        outputs.push(format!("{}: {:?}", def.uri, read_resource(def.uri)));
+    }
+    for text in &outputs {
+        assert!(!text.contains(FAKE_SECRET), "{text}");
+    }
+    let got = call_tool("servers_get", &json!({"name": "alpha"})).unwrap();
+    assert_eq!(got["env"][0], json!({"key": "API_KEY", "secret": true}));
+    assert_eq!(got["transport"], "stdio");
+    assert_eq!(got["enabled"], true);
+    let listed = call_tool("servers_list", &json!({})).unwrap();
+    assert_eq!(listed["servers"].as_array().unwrap().len(), 2);
+}
+
+#[test]
+fn scrubber_masks_sensitive_keys_and_live_secrets() {
+    std::env::set_var("TOOLPORT_HTTP_TOKEN", "synthetic-live-token-123");
+    let scrubbed = redact::scrub(json!({
+        "apiToken": "abc",
+        "password": ["a"],
+        "secret": true,
+        "secretsBackend": "encrypted-file",
+        "note": "value synthetic-live-token-123 inside",
+        "nested": [{"Authorization": "Bearer q"}],
+    }));
+    std::env::remove_var("TOOLPORT_HTTP_TOKEN");
+    assert_eq!(scrubbed["apiToken"], "[redacted]");
+    assert_eq!(scrubbed["password"], "[redacted]");
+    assert_eq!(scrubbed["secret"], true);
+    assert_eq!(scrubbed["secretsBackend"], "encrypted-file");
+    assert_eq!(scrubbed["note"], "value [redacted] inside");
+    assert_eq!(scrubbed["nested"][0]["Authorization"], "[redacted]");
+}
+
+#[test]
+fn skills_tools_read_a_synthetic_repository() {
+    let _fixture = Fixture::new("skills");
+    let repo = std::env::temp_dir().join(format!("selfmcp-repo-{}", std::process::id()));
+    let skill_dir = repo.join("skills/demo");
+    std::fs::create_dir_all(&skill_dir).unwrap();
+    std::fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: demo\ndescription: A synthetic demo skill\n---\nBody text\n",
+    )
+    .unwrap();
+    let path = repo.to_string_lossy().to_string();
+    let list = call_tool("skills_list", &json!({"repo_path": path})).unwrap();
+    assert_eq!(list["skills"][0]["name"], "demo");
+    let got = call_tool("skills_get", &json!({"name": "demo", "repo_path": path})).unwrap();
+    assert!(got["body"].as_str().unwrap().contains("Body text"));
+    assert_eq!(
+        err_kind(call_tool(
+            "skills_get",
+            &json!({"name": "missing", "repo_path": path})
+        )),
+        "not_found"
+    );
+    let lint = call_tool("skills_lint", &json!({"repo_path": path})).unwrap();
+    assert!(lint["messages"].is_array());
+    let transpilers = call_tool("skills_list_transpilers", &json!({})).unwrap();
+    assert!(!transpilers["transpilers"].as_array().unwrap().is_empty());
+    let _ = std::fs::remove_dir_all(&repo);
+}
+
+#[test]
+fn json_rpc_surface_lists_calls_and_reads() {
+    let _fixture = Fixture::new("rpc");
+    let call = |message: Value| handle_message(&message).unwrap();
+    let init = call(json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}));
+    assert_eq!(init["result"]["serverInfo"]["name"], SERVER_NAME);
+    assert!(
+        handle_message(&json!({"jsonrpc": "2.0", "method": "notifications/initialized"})).is_none()
+    );
+    let tools = call(json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}));
+    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 49);
+    let resources = call(json!({"jsonrpc": "2.0", "id": 3, "method": "resources/list"}));
+    assert_eq!(
+        resources["result"]["resources"].as_array().unwrap().len(),
+        11
+    );
+    let refused = call(json!({"jsonrpc": "2.0", "id": 4, "method": "tools/call",
+        "params": {"name": "servers_uninstall", "arguments": {"name": "alpha"}}}));
+    assert_eq!(refused["result"]["isError"], true);
+    assert!(refused["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .starts_with("refused"));
+    let ok = call(json!({"jsonrpc": "2.0", "id": 5, "method": "tools/call",
+        "params": {"name": "servers_list", "arguments": {}}}));
+    assert_eq!(ok["result"]["isError"], false);
+    let read = call(
+        json!({"jsonrpc": "2.0", "id": 6, "method": "resources/read",
+        "params": {"uri": "mcpm://inventory/servers"}}),
+    );
+    let text = read["result"]["contents"][0]["text"].as_str().unwrap();
+    assert!(text.contains("alpha [stdio/unknown]"));
+    let missing = call(
+        json!({"jsonrpc": "2.0", "id": 7, "method": "resources/read",
+        "params": {"uri": "mcpm://nope"}}),
+    );
+    assert_eq!(missing["error"]["code"], -32002);
+    let unknown = call(json!({"jsonrpc": "2.0", "id": 8, "method": "bogus"}));
+    assert_eq!(unknown["error"]["code"], -32601);
+}
+
+#[test]
+fn server_definition_points_at_the_binary() {
+    let def = server_definition();
+    assert_eq!(def["command"], BINARY_NAME);
+    assert_eq!(def["transport"], "stdio");
+}
