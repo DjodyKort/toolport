@@ -22,6 +22,7 @@ pub(crate) mod jsonfs;
 
 #[cfg(test)]
 pub(crate) mod testutil;
+#[cfg(test)] pub(crate) mod randutil;
 
 pub type Handler = fn(Value) -> Result<Value, String>;
 
