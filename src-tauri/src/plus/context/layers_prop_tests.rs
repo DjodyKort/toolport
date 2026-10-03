@@ -82,10 +82,23 @@ fn slug_follows_the_regex_model_and_is_a_stable_name() {
 }
 
 #[test]
-fn long_client_names_produce_rule_names_the_skills_pipeline_rejects() {
-    let long = "x".repeat(70);
-    let rule = format!("client-{}", slug(&long));
-    assert!(crate::plus::skills::parser::valid_name(&rule).is_err());
+fn long_client_names_are_refused_before_anything_is_written() {
+    let home = ScratchDir::new("layers-client-long");
+    let roots = Roots::from_home(home.path());
+    let longest = "x".repeat(57);
+    let created = scaffold_client_rule(&roots, &longest, None)
+        .unwrap()
+        .unwrap();
+    let layers = list_layers(&roots);
+    assert_eq!(layers[0].name.len(), 64);
+    assert!(crate::plus::skills::parser::valid_name(&layers[0].name).is_ok());
+    fs::remove_file(created).unwrap();
+    for name in ["x".repeat(58), "x".repeat(70), "ab-".repeat(30)] {
+        let before = tree(home.path());
+        let err = scaffold_client_rule(&roots, &name, None).unwrap_err();
+        assert!(err.contains("1-64 characters"), "{err}");
+        assert_eq!(tree(home.path()), before, "nothing written for {name:?}");
+    }
 }
 
 #[test]
@@ -130,8 +143,8 @@ fn personal_rule_scaffold_fails_cleanly_when_the_rules_dir_is_a_file() {
 
 fn safe_client_name(rng: &mut Rng) -> String {
     loop {
-        let name = rng.string("abcXYZ019 _.-:#[]{}&*!'%@", 14);
-        if !name.is_empty() {
+        let name = rng.string("abcXYZ019 _.-:#[]{}&*!'%@\"\\", 14);
+        if !name.is_empty() && !name.contains("---") {
             return name;
         }
     }
@@ -146,8 +159,8 @@ fn scaffolded_client_rules_parse_back_and_are_never_overwritten() {
         let name = safe_client_name(rng);
         let glob = rng
             .chance(40)
-            .then(|| rng.string("*/abc._-, ", 16))
-            .filter(|g| !g.trim().is_empty());
+            .then(|| rng.string("*/abc._-, \"\\", 16))
+            .filter(|g| !g.trim().is_empty() && !g.contains("---"));
         let created = scaffold_client_rule(&roots, &name, glob.as_deref())
             .unwrap()
             .expect("fresh dir");
@@ -176,29 +189,52 @@ fn scaffolded_client_rules_parse_back_and_are_never_overwritten() {
 }
 
 #[test]
-fn client_names_with_yaml_breaking_characters_fall_back_to_the_directory_name() {
+fn client_names_with_quotes_and_backslashes_are_escaped_and_round_trip() {
     let home = ScratchDir::new("layers-client-quote");
-    for name in ["ac\"me", "ac\\me", "ac\u{1}me"] {
+    for name in ["ac\"me", "ac\\me", "\"", "\\", "a\\\"b\\", "ac\"\"me\\\\"] {
         home.reset();
         let roots = Roots::from_home(home.path());
         scaffold_client_rule(&roots, name, None).unwrap();
         let layers = list_layers(&roots);
         assert_eq!(layers.len(), 1, "{name:?}");
         assert_eq!(layers[0].name, format!("client-{}", slug(name)), "{name:?}");
-        assert!(layers[0].globs.is_empty(), "{name:?}");
-        assert!(layers[0].description.is_empty(), "{name:?}");
+        assert_eq!(
+            layers[0].description,
+            format!("Client context: {name}"),
+            "{name:?}"
+        );
+        assert_eq!(layers[0].globs, vec![format!("**/clients/{name}/**")]);
+        assert!(body_of(&layers[0].path).contains(&format!("## {name} \u{2014} client context")));
     }
+    home.reset();
+    let roots = Roots::from_home(home.path());
+    scaffold_client_rule(&roots, "acme", Some("a\"b/**, c\\d/**")).unwrap();
+    assert_eq!(list_layers(&roots)[0].globs, vec!["a\"b/**", "c\\d/**"]);
 }
 
 #[test]
-fn a_newline_in_a_client_name_is_folded_into_a_space_by_yaml() {
-    let home = ScratchDir::new("layers-client-newline");
+fn client_names_and_globs_that_cannot_sit_in_the_frontmatter_are_refused() {
+    let home = ScratchDir::new("layers-client-refused");
     let roots = Roots::from_home(home.path());
-    scaffold_client_rule(&roots, "ac\nme", None).unwrap();
-    let layers = list_layers(&roots);
-    assert_eq!(layers[0].name, "client-ac-me");
-    assert_eq!(layers[0].description, "Client context: ac me");
-    assert_eq!(layers[0].globs, vec!["**/clients/ac me/**"]);
+    let before = tree(home.path());
+    for name in [
+        "ac\nme",
+        "ac\rme",
+        "ac\u{1}me",
+        "ac\tme",
+        "ac\u{7f}me",
+        "a---b",
+    ] {
+        let err = scaffold_client_rule(&roots, name, None).unwrap_err();
+        assert!(err.starts_with("client name must not contain"), "{err}");
+        assert_eq!(tree(home.path()), before, "{name:?}");
+    }
+    for glob in ["a\nb", "a\u{0}b", "a---b"] {
+        let err = scaffold_client_rule(&roots, "acme", Some(glob)).unwrap_err();
+        assert!(err.starts_with("glob must not contain"), "{err}");
+        assert_eq!(tree(home.path()), before, "{glob:?}");
+    }
+    scaffold_client_rule(&roots, "a--b", Some("x--y")).unwrap();
 }
 
 #[test]

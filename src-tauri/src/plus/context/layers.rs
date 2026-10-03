@@ -68,13 +68,37 @@ pub fn slug(name: &str) -> String {
     }
 }
 
+fn yaml_double_quoted(text: &str) -> String {
+    text.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+fn check_scaffold_text(what: &str, text: &str) -> Result<(), String> {
+    if text.chars().any(char::is_control) {
+        return Err(format!("{what} must not contain control characters"));
+    }
+    if text.contains("---") {
+        return Err(format!(
+            "{what} must not contain '---' (it would end the frontmatter)"
+        ));
+    }
+    Ok(())
+}
+
 /// Creates `rules/client-<slug>/SKILL.md` with a path-scoped glob; `None` when present.
+/// Names the skills pipeline would reject or that cannot sit in the frontmatter are refused
+/// before anything is written.
 pub fn scaffold_client_rule(
     roots: &Roots,
     name: &str,
     glob: Option<&str>,
 ) -> Result<Option<PathBuf>, String> {
     let slug = slug(name);
+    check_scaffold_text("client name", name)?;
+    if let Some(glob) = glob {
+        check_scaffold_text("glob", glob)?;
+    }
+    crate::plus::skills::parser::valid_name(&format!("client-{slug}"))
+        .map_err(|e| format!("rule name client-{slug}: {e}"))?;
     let target = roots
         .rules_dir()
         .join(format!("client-{slug}"))
@@ -85,8 +109,9 @@ pub fn scaffold_client_rule(
     let globs = glob
         .map(str::to_string)
         .unwrap_or_else(|| format!("**/clients/{name}/**"));
+    let (quoted_name, globs) = (yaml_double_quoted(name), yaml_double_quoted(&globs));
     let content = format!(
-        "---\nname: client-{slug}\ndescription: \"Client context: {name}\"\nactivation: always\nglobs: \"{globs}\"\n---\n\n## {name} — client context\n\n<!-- Project knowledge for this client that doesn't belong in the repo's own\n     CLAUDE.md: contacts, conventions, environment quirks, gotchas. -->\n"
+        "---\nname: client-{slug}\ndescription: \"Client context: {quoted_name}\"\nactivation: always\nglobs: \"{globs}\"\n---\n\n## {name} — client context\n\n<!-- Project knowledge for this client that doesn't belong in the repo's own\n     CLAUDE.md: contacts, conventions, environment quirks, gotchas. -->\n"
     );
     write_text(&target, &content)?;
     Ok(Some(target))
