@@ -251,5 +251,9 @@ pub fn load_lockfile(dir: &Path) -> Option<LockFile> {
 }
 
 pub fn save_lockfile(dir: &Path, lock: &LockFile) -> Result<(), String> {
-    crate::registry::atomic_write(&lockfile_path(dir), &lock.serialize())
+    let path = lockfile_path(dir);
+    if path.is_file() && load_lockfile(dir).is_none() {
+        crate::registry::quarantine_existing(&path);
+    }
+    crate::registry::atomic_write(&path, &lock.serialize())
 }
