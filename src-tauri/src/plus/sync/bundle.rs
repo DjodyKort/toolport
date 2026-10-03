@@ -2,7 +2,7 @@ use super::fernet::{self, FernetError, FernetKey};
 use super::kdf;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use crate::plus::hashing::lock_hash;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fs;
@@ -132,12 +132,6 @@ pub struct SourceFile {
     pub bytes: Vec<u8>,
 }
 
-pub fn content_hash(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
-    format!("sha256:{}", &hex[..16])
-}
-
 pub(crate) fn safe_relative(raw: &str) -> Result<PathBuf, SyncError> {
     let path = Path::new(raw);
     let mut out = PathBuf::new();
@@ -248,9 +242,9 @@ fn content_hash_for_entry(entry: &ManifestEntry, plaintext: &[u8]) -> Result<Str
         let raw = STANDARD
             .decode(plaintext)
             .map_err(|_| SyncError::Format("base64 payload".into()))?;
-        Ok(content_hash(&raw))
+        Ok(lock_hash(&raw))
     } else {
-        Ok(content_hash(plaintext))
+        Ok(lock_hash(plaintext))
     }
 }
 
@@ -327,12 +321,12 @@ pub fn write_bundle_with_origins(
                     text
                 };
                 let bytes = text.into_bytes();
-                let hash = content_hash(&bytes);
+                let hash = lock_hash(&bytes);
                 (bytes, hash, "utf-8")
             }
             Err(_) => (
                 STANDARD.encode(&file.bytes).into_bytes(),
-                content_hash(&file.bytes),
+                lock_hash(&file.bytes),
                 "base64",
             ),
         };
@@ -357,7 +351,7 @@ pub fn write_bundle_with_origins(
         manifest.entries.insert(
             SERVER_ORIGINS_KEY.to_string(),
             ManifestEntry {
-                hash: content_hash(origins.as_bytes()),
+                hash: lock_hash(origins.as_bytes()),
                 encrypted_file: format!("blobs/{blob_name}"),
                 category: "global".into(),
                 project_name: None,

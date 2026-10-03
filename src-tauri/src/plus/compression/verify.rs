@@ -9,6 +9,7 @@ use super::shims::{defined_functions, SHIM_FUNCTIONS};
 use super::store::Paths;
 use serde::Serialize;
 use serde_json::Value;
+use crate::plus::hashing::hex;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -291,14 +292,7 @@ pub fn fingerprint(health: &Value) -> Fingerprint {
         .map(|c| c.keys().cloned().collect())
         .unwrap_or_default();
     keys.sort();
-    let mut hasher = Sha256::new();
-    hasher.update(keys.join("\n").as_bytes());
-    let digest: String = hasher
-        .finalize()
-        .iter()
-        .take(8)
-        .map(|b| format!("{b:02x}"))
-        .collect();
+    let digest = hex(&Sha256::digest(keys.join("\n"))[..8]);
     Fingerprint {
         version: health
             .get("version")

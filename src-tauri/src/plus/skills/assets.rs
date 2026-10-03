@@ -1,6 +1,7 @@
 //! Progressive-disclosure assets shipped next to a SKILL.md, and the content hash that covers them.
 
 use super::parser::Skill;
+use crate::plus::hashing::finish_lock_hash;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -167,8 +168,7 @@ pub fn compute_skill_hash(skill: &Skill) -> Result<String, String> {
         h.update(fs::read(&full).map_err(|e| format!("{}: {e}", full.display()))?);
         h.update(b"\n---\n");
     }
-    let hex: String = h.finalize().iter().map(|b| format!("{b:02x}")).collect();
-    Ok(format!("sha256:{}", &hex[..16]))
+    Ok(finish_lock_hash(h))
 }
 
 /// Copies allowed assets into `dst_dir` and returns the written paths relative to

@@ -1,10 +1,11 @@
 use super::backend::GitBackend;
 use super::bundle::{
-    content_hash, destination_for, import_bundle, read_bundle, read_manifest, safe_relative,
+    destination_for, import_bundle, read_bundle, read_manifest, safe_relative,
     write_bundle_with_origins, write_synced_file, Credential, ImportReport, ImportTargets,
     Manifest, PortableRoots, SourceFile, SyncError, SERVER_ORIGINS_KEY,
 };
 use super::exec::Exec;
+use crate::plus::hashing::lock_hash;
 use super::fernet::{self, FernetError, FernetKey};
 use super::kdf;
 use super::origins::{detect_origins, resolve_servers, ResolveOptions, ResolveResult};
@@ -538,7 +539,7 @@ fn update_state_after_push(
                 state.entries.insert(
                     key.clone(),
                     SyncStateEntry {
-                        local_hash_at_sync: content_hash(&bytes),
+                        local_hash_at_sync: lock_hash(&bytes),
                         remote_hash_at_sync: entry.hash.clone(),
                     },
                 );
@@ -581,7 +582,7 @@ pub fn detect_changes(
         }
         let local_changed = destination_for(key, &remote_entry.category, &targets)?
             .and_then(|path| fs::read(path).ok())
-            .map(|bytes| content_hash(&bytes) != state_entry.local_hash_at_sync)
+            .map(|bytes| lock_hash(&bytes) != state_entry.local_hash_at_sync)
             .unwrap_or(false);
         if local_changed {
             changes.conflicts.push(key.clone());
@@ -684,7 +685,7 @@ pub fn pull(ctx: &SyncContext<'_>, opts: &PullOptions) -> Result<PullReport, Syn
         };
         if !opts.force {
             if let (Ok(local), Some(prev)) = (fs::read(&path), state.entries.get(&file.key)) {
-                let local_hash = content_hash(&local);
+                let local_hash = lock_hash(&local);
                 if local_hash != prev.local_hash_at_sync && entry.hash == prev.remote_hash_at_sync {
                     report.kept_local.push(file.key.clone());
                     continue;
@@ -707,8 +708,8 @@ pub fn pull(ctx: &SyncContext<'_>, opts: &PullOptions) -> Result<PullReport, Syn
             file.key.clone(),
             SyncStateEntry {
                 local_hash_at_sync: fs::read(&path)
-                    .map(|b| content_hash(&b))
-                    .unwrap_or_else(|_| content_hash(&file.bytes)),
+                    .map(|b| lock_hash(&b))
+                    .unwrap_or_else(|_| lock_hash(&file.bytes)),
                 remote_hash_at_sync: entry.hash.clone(),
             },
         );

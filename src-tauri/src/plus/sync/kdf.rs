@@ -42,10 +42,7 @@ pub fn random_salt() -> Result<[u8; SALT_LEN], getrandom::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn hex(bytes: &[u8]) -> String {
-        bytes.iter().map(|b| format!("{b:02x}")).collect()
-    }
+    use crate::plus::hashing::hex;
 
     #[test]
     fn pbkdf2_matches_rfc7914_vectors() {

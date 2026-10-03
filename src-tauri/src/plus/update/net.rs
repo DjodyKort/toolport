@@ -1,3 +1,4 @@
+use crate::plus::hashing::hex;
 use sha2::{Digest, Sha256};
 use std::io::{Read, Write};
 use std::path::Path;
@@ -75,10 +76,6 @@ pub fn url_allowed(url: &str) -> Result<(), String> {
         };
     }
     Err("only https URLs are allowed".to_string())
-}
-
-pub fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 pub struct UreqHttp;
