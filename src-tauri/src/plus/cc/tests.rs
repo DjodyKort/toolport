@@ -1,6 +1,5 @@
 use super::*;
 use std::cell::RefCell;
-use std::os::unix::fs::PermissionsExt;
 
 struct Env {
     dir: PathBuf,
@@ -55,8 +54,7 @@ impl Env {
              *) echo unexpected >&2; exit 9;;\nesac\n",
             log = self.dir.join("calls.log").display()
         );
-        std::fs::write(&script, body).unwrap();
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        crate::plus::testutil::exec::write_executable(&script, &body);
         SystemClaude::with_bin(script.to_string_lossy())
     }
 

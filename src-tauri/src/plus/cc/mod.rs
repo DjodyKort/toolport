@@ -1,5 +1,5 @@
 use crate::plus::jsonfs::read_json;
-use crate::plus::update::exec::{run_command, CmdOutput};
+use crate::plus::update::exec::{is_not_found, run_command, CmdOutput};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -39,7 +39,7 @@ impl ClaudeRunner for SystemClaude {
         let mut cmd = Command::new(&self.bin);
         cmd.args(args);
         run_command(cmd, timeout).map_err(|e| {
-            if e.starts_with("could not start") {
+            if is_not_found(&e) {
                 "claude not found on PATH".to_string()
             } else {
                 e

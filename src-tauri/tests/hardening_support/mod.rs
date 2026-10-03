@@ -4,12 +4,14 @@ use serde_json::{json, Value};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Write};
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
+
+#[path = "../common/exec.rs"]
+mod exec_fixture;
 
 pub const CTL: &str = env!("CARGO_BIN_EXE_toolportctl");
 pub const SELFMCP: &str = env!("CARGO_BIN_EXE_toolport-selfmcp");
@@ -260,8 +262,7 @@ impl Sandbox {
 
     pub fn script(&self, name: &str, body: &str) -> PathBuf {
         let path = self.work.join(name);
-        std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        exec_fixture::write_executable(&path, &format!("#!/bin/sh\n{body}\n"));
         path
     }
 

@@ -19,6 +19,9 @@ use std::time::Duration;
 use conduit_lib::plus::ctl::{COMMANDS, SCHEMA_VERSION};
 use serde_json::{json, Value};
 
+#[path = "common/exec.rs"]
+mod exec_fixture;
+
 const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 const VAULTED_VALUE: &str = "FAKE-vaulted-value-1c9e";
 const RUN_TIMEOUT: Duration = Duration::from_secs(120);
@@ -147,13 +150,10 @@ impl World {
             "Use mcp__mcpm_alpha-mock__echo to echo.\n",
         )
         .unwrap();
-        std::fs::write(
+        exec_fixture::write_executable(
             &world.claude,
             "#!/bin/sh\necho '[{\"name\":\"demo-plugin\",\"marketplace\":\"fake-market\",\"version\":\"1.0.0\"}]'\n",
-        )
-        .unwrap();
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&world.claude, std::fs::Permissions::from_mode(0o755)).unwrap();
+        );
         world
     }
 
