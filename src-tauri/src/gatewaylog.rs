@@ -347,6 +347,9 @@ mod tests {
         std::fs::write(&path, "SEED\n").unwrap();
         // The child has to wait out the hold below, not time out into the
         // unlocked fallback append. Children inherit the raised deadline.
+        let _env = crate::registry::REGISTRY_ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let _lock_budget = crate::registry::LockTimeoutOverride::generous();
         let held = crate::registry::lock_at(&path).expect("hold the gateway log lock");
 

@@ -932,6 +932,9 @@ mod tests {
         // Asserts no record is LOST, not that all eight writers win the lock inside the
         // production budget. On a loaded runner the 5s default expires, one writer
         // correctly gives up, and this fails for the machine's timing (SBS-895).
+        let _registry_env = crate::registry::REGISTRY_ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let _lock_budget = crate::registry::LockTimeoutOverride::generous();
         let path = temp_path("concurrent");
         let workers: Vec<_> = (0..8)
