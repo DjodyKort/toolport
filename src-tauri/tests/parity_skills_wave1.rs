@@ -142,10 +142,12 @@ fn replay(case: &str) {
         );
     }
     let root =
-        std::env::temp_dir().join(format!("parity-skills-core-{}-{case}", std::process::id()));
+        std::env::temp_dir().join(format!("parity-skills-wave1-{}-{case}", std::process::id()));
     let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(root.join("home")).unwrap();
+    // Hook commands are symlink-resolved like Python's Path.resolve(); macOS /var is a symlink.
+    let root = fs::canonicalize(&root).unwrap();
     let home = root.join("home");
-    fs::create_dir_all(&home).unwrap();
     if let Some(shared) = spec["input_from"].as_str() {
         copy_dir(&inputs_root().join(shared), &home);
     }
