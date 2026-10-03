@@ -2733,9 +2733,45 @@ static DATA_DIR_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 #[cfg(any(debug_assertions, test, feature = "test-support"))]
 #[doc(hidden)]
 pub fn data_dir_test_lock() -> std::sync::MutexGuard<'static, ()> {
-    DATA_DIR_TEST_LOCK
+    let guard = DATA_DIR_TEST_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    *DATA_DIR_TEST_LOCK_OWNER
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(std::thread::current().id());
+    guard
+}
+
+#[cfg(any(debug_assertions, test, feature = "test-support"))]
+static DATA_DIR_TEST_LOCK_OWNER: std::sync::Mutex<Option<std::thread::ThreadId>> =
+    std::sync::Mutex::new(None);
+
+/// True for a libtest thread that is not the one holding [`data_dir_test_lock`]
+/// while some other test holds it.
+///
+/// Such a test never asked for the data dir to be redirected, but the override is
+/// process-global, so without this it would read and write the holder's scratch
+/// directory (a `gateway.log` or `security.jsonl` appearing mid-assertion in a
+/// test that counts the files in its own dir). It resolves the real dir instead,
+/// exactly as it would running alone.
+///
+/// libtest names each test thread after its path (`module::test`); threads a
+/// test spawns for itself are unnamed or carry a runtime name without `::`, so
+/// they keep seeing the holder's override.
+#[cfg(any(debug_assertions, test, feature = "test-support"))]
+fn bypasses_data_dir_override() -> bool {
+    let me = std::thread::current();
+    if !me.name().is_some_and(|name| name.contains("::")) {
+        return false;
+    }
+    let held_by_other = matches!(
+        DATA_DIR_TEST_LOCK.try_lock(),
+        Err(std::sync::TryLockError::WouldBlock)
+    ) && *DATA_DIR_TEST_LOCK_OWNER
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
+        != Some(me.id());
+    held_by_other
 }
 
 /// Points [`conduit_dir`] at a scratch directory until the guard drops. **Tests only.**
@@ -2796,7 +2832,7 @@ fn resolve_conduit_dir() -> (Option<PathBuf>, DirResolution) {
     // something else in the process has already resolved it. Debug-only: release
     // builds have no override mechanism at all.
     #[cfg(any(debug_assertions, test, feature = "test-support"))]
-    if DATA_DIR_OVERRIDE_ACTIVE.load(Ordering::SeqCst) {
+    if DATA_DIR_OVERRIDE_ACTIVE.load(Ordering::SeqCst) && !bypasses_data_dir_override() {
         if let Some(p) = DATA_DIR_OVERRIDE
             .read()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -5615,6 +5651,21 @@ mod tests {
         assert!(super::msix::unc_twin(Path::new(r"\\server\share\home")).is_none());
         assert!(super::msix::unc_twin(Path::new(r"relative\path")).is_none());
         assert!(super::msix::unc_twin(Path::new("C:")).is_none());
+    }
+
+    #[test]
+    fn a_test_without_the_data_dir_lock_does_not_see_the_holders_override() {
+        let fx = crate::plus::testutil::DataDirFx::new("override-bypass", "holder");
+        let scratch = fx.dir.clone();
+        let from_other_test = std::thread::Builder::new()
+            .name("registry::tests::another_test".into())
+            .spawn(conduit_dir)
+            .unwrap()
+            .join()
+            .unwrap();
+        assert_ne!(from_other_test, Some(scratch.clone()));
+        let from_helper_thread = std::thread::spawn(conduit_dir).join().unwrap();
+        assert_eq!(from_helper_thread, Some(scratch));
     }
 
     /// `cargo test` never runs with package identity, so resolution must be
