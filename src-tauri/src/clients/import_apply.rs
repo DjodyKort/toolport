@@ -97,3 +97,45 @@ pub fn apply_import(
     }
     Ok(result)
 }
+
+#[derive(Debug, Clone)]
+pub struct ClientPrune {
+    pub path: String,
+    pub removed: Vec<String>,
+    pub backup: Option<String>,
+}
+
+pub fn prune_entries(
+    client_id: &str,
+    names: &[String],
+    dry_run: bool,
+) -> Result<ClientPrune, String> {
+    let def = find_def(client_id).ok_or_else(|| format!("Unknown client '{client_id}'"))?;
+    let detected = read_client(&def);
+    if let Some(error) = detected.error {
+        return Err(error);
+    }
+    let removed: Vec<String> = names
+        .iter()
+        .filter(|n| detected.servers.iter().any(|s| &s.name == *n))
+        .cloned()
+        .collect();
+    let path = resolved_definition_path(&def)?;
+    let mut result = ClientPrune {
+        path: path.display().to_string(),
+        removed,
+        backup: None,
+    };
+    if result.removed.is_empty() {
+        return Ok(result);
+    }
+    if json_servers_key(&def.format).is_none() && !matches!(def.format, Format::TomlMcpServers) {
+        return Err(format!("removing entries is not supported for {}", def.id));
+    }
+    if dry_run {
+        return Ok(result);
+    }
+    result.backup = backup_file(client_id, &path)?.map(|b| b.display().to_string());
+    remove_entries(&def, &path, &result.removed)?;
+    Ok(result)
+}

@@ -5,11 +5,11 @@ use std::path::PathBuf;
 
 const GATEWAY_NAMES: [&str; 2] = ["toolport-gateway", "conduit-gateway"];
 
-struct Snapshot {
+pub(super) struct Snapshot {
     data_dir: Option<PathBuf>,
     registry_path: Option<PathBuf>,
-    registry: Option<Registry>,
-    registry_error: Option<String>,
+    pub(super) registry: Option<Registry>,
+    pub(super) registry_error: Option<String>,
 }
 
 fn no_args(rest: &[String]) -> Result<(), CtlError> {
@@ -21,7 +21,7 @@ fn no_args(rest: &[String]) -> Result<(), CtlError> {
 
 /// Reads the registry without any of the loader's recovery or migration
 /// writes, so inspection never changes the data directory.
-fn snapshot() -> Snapshot {
+pub(super) fn snapshot() -> Snapshot {
     let data_dir = registry::conduit_dir();
     let registry_path = registry::registry_path();
     let mut snap = Snapshot {
