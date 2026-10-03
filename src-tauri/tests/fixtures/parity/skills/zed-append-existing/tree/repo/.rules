@@ -47,4 +47,3 @@ Prefer `pathlib` over `os.path`.
 ## Footer
 
 Kept after the block.
-

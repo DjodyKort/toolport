@@ -17,3 +17,7 @@ Goldens change only through a `golden-bump` migration item: regenerate with
 Command text deviates from mcpm on purpose (D-042): the generator's names layer maps the commands mcpm tells the
 user to run onto their `toolportctl` equivalents, so `context/` goldens say `toolportctl context sync`, not `mcpm context sync`.
 Paths, file names and identifiers such as `.config/mcpm` stay as mcpm writes them.
+
+Other intentional deviations are applied the same way, by the generator's per-case `goldenlib/deviations.py` layer (not
+by hand), and the case's `manifest.json` lists them under `deviations`. Currently one: DEV-HRD11-1 (D-049), where
+`skills/zed-append-existing` `repo/.rules` ends the text after the managed block with one newline instead of mcpm's extra one.
