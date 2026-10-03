@@ -879,6 +879,7 @@ mod platform {
         /// first attempt could not.
         #[test]
         fn a_secret_service_op_retries_once_when_the_daemon_dies_mid_call() {
+            let _data = crate::plus::testutil::DataDirFx::new("secret-service", "retries-once");
             let calls = AtomicUsize::new(0);
             let result = with_service_after(Duration::ZERO, || {
                 if calls.fetch_add(1, Ordering::SeqCst) == 0 {
@@ -896,6 +897,7 @@ mod platform {
         /// D-Bus traffic that causes the crash in the first place.
         #[test]
         fn a_secret_service_op_does_not_retry_a_definitive_answer() {
+            let _data = crate::plus::testutil::DataDirFx::new("secret-service", "definitive");
             let calls = AtomicUsize::new(0);
             let result = with_service_after(Duration::ZERO, || {
                 calls.fetch_add(1, Ordering::SeqCst);
@@ -912,6 +914,7 @@ mod platform {
         /// a second unlock prompt — so it must be attempted once only.
         #[test]
         fn a_secret_service_op_does_not_retry_a_locked_keyring() {
+            let _data = crate::plus::testutil::DataDirFx::new("secret-service", "locked");
             let calls = AtomicUsize::new(0);
             let result = with_service_after(Duration::ZERO, || {
                 calls.fetch_add(1, Ordering::SeqCst);
@@ -1006,6 +1009,7 @@ mod platform {
         /// (SBS-789), so the error has to reach them.
         #[test]
         fn a_secret_service_op_gives_up_after_a_single_retry() {
+            let _data = crate::plus::testutil::DataDirFx::new("secret-service", "gives-up");
             let calls = AtomicUsize::new(0);
             let result = with_service_after(Duration::ZERO, || {
                 calls.fetch_add(1, Ordering::SeqCst);
@@ -1020,6 +1024,7 @@ mod platform {
         /// once, which is what races gnome-keyring's per-client bookkeeping.
         #[test]
         fn secret_service_ops_never_overlap_across_threads() {
+            let _data = crate::plus::testutil::DataDirFx::new("secret-service", "overlap");
             static IN_FLIGHT: AtomicUsize = AtomicUsize::new(0);
             static MAX_IN_FLIGHT: AtomicUsize = AtomicUsize::new(0);
 
