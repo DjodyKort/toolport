@@ -3,6 +3,7 @@
 
 use super::config::ContextConfig;
 use super::dedupe::plan_dedupe;
+use super::launch;
 use super::layers::PERSONAL_RULE_NAME;
 use super::roots::Roots;
 use crate::plus::skills::json::{parse, J};
@@ -13,8 +14,6 @@ use std::path::Path;
 
 pub type Check = (String, String);
 
-pub const PROFILE_MANAGED_HEADER: &str =
-    "<!-- Managed by `mcpm context` — regenerate with `mcpm context sync`; do not edit. -->";
 pub const PROFILE_STATE_FILE: &str = ".mcpm-context-state.json";
 
 /// The only `~/.claude` assets cf-dev-tools' sync writes today. New files in its `claude/`
@@ -133,7 +132,7 @@ fn check_settings_policy(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
     }
 }
 
-fn sha256_file(path: &Path) -> Option<String> {
+pub fn sha256_file(path: &Path) -> Option<String> {
     let bytes = fs::read(path).ok()?;
     Some(
         Sha256::digest(&bytes)
@@ -165,15 +164,13 @@ fn check_profiles(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
             continue;
         }
         let before = checks.len();
-        let claude_md = dir.join("CLAUDE.md");
-        let managed = fs::read_to_string(&claude_md)
-            .map(|t| t.contains(PROFILE_MANAGED_HEADER))
-            .unwrap_or(false);
-        if !managed {
-            checks.push(check(
-                "warn",
-                format!("profile '{name}': CLAUDE.md missing/unmanaged — run `mcpm context sync`"),
-            ));
+        for file in [launch::MCP_FILE, launch::SETTINGS_FILE] {
+            if !dir.join(file).is_file() {
+                checks.push(check(
+                    "warn",
+                    format!("profile '{name}': {file} missing — run `mcpm context sync`"),
+                ));
+            }
         }
         let mut broken: Vec<String> = fs::read_dir(&dir)
             .map(|r| {
