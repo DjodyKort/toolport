@@ -717,3 +717,49 @@ pub(super) fn update_with(
     data["snapshots"] = json!(report.snapshot_notes);
     Ok(Output::new(data, human))
 }
+
+fn handler_value(result: Result<Output, CtlError>) -> Result<Value, String> {
+    result.map(|o| o.data).map_err(|e| e.message)
+}
+
+fn handler_argv(args: &Value, keys: &[(&str, &str)]) -> Vec<String> {
+    let mut out = Vec::new();
+    for (key, flag) in keys {
+        match args.get(*key) {
+            Some(Value::Bool(true)) => out.push(format!("--{flag}")),
+            Some(Value::String(v)) => out.push(format!("--{flag}={v}")),
+            Some(Value::Number(v)) => out.push(format!("--{flag}={v}")),
+            _ => {}
+        }
+    }
+    out
+}
+
+pub fn status_handler(_args: Value) -> Result<Value, String> {
+    handler_value(status(&[]))
+}
+
+pub fn verify_handler(args: Value) -> Result<Value, String> {
+    let argv = handler_argv(
+        &args,
+        &[
+            ("limit", "limit"),
+            ("minTurns", "min-turns"),
+            ("transcripts", "transcripts"),
+            ("byPin", "by-pin"),
+        ],
+    );
+    handler_value(verify(&argv))
+}
+
+pub fn ledger_handler(args: Value) -> Result<Value, String> {
+    let mut argv = vec!["summary".to_string()];
+    argv.extend(handler_argv(&args, &[("provider", "provider"), ("since", "since")]));
+    handler_value(ledger_cmd(&argv))
+}
+
+pub fn plan_handler(args: Value) -> Result<Value, String> {
+    let mut argv = vec!["--plan".to_string()];
+    argv.extend(handler_argv(&args, &[("cwd", "cwd")]));
+    handler_value(run(&argv))
+}
