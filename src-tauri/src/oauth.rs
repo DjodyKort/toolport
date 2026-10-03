@@ -1524,6 +1524,41 @@ fn redact_secret(text: &str, secret: &str) -> String {
     text.replace(secret, "***")
 }
 
+thread_local! {
+    static CONSENT_OBSERVER: std::cell::RefCell<Option<Box<dyn Fn(&str)>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Runs `run` with `observer` receiving the consent URL instead of the OS browser.
+/// Scoped to the calling thread: the interactive flow never leaves it.
+pub(crate) fn with_consent_observer<T>(
+    observer: impl Fn(&str) + 'static,
+    run: impl FnOnce() -> T,
+) -> T {
+    struct Reset;
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            CONSENT_OBSERVER.with(|slot| *slot.borrow_mut() = None);
+        }
+    }
+    CONSENT_OBSERVER.with(|slot| *slot.borrow_mut() = Some(Box::new(observer)));
+    let _reset = Reset;
+    run()
+}
+
+fn present_consent(url: &str) {
+    let observed = CONSENT_OBSERVER.with(|slot| match slot.borrow().as_ref() {
+        Some(observer) => {
+            observer(url);
+            true
+        }
+        None => false,
+    });
+    if !observed {
+        open_browser(url);
+    }
+}
+
 pub(crate) fn open_browser(url: &str) {
     // NOT `cmd /C start` on Windows: cmd treats `&` in the URL as a command
     // separator and truncates it. rundll32 passes the URL through verbatim.
@@ -1850,7 +1885,7 @@ pub(crate) fn authenticate_cancellable(
         endpoints.authorization_endpoint
     ));
     cancellation.with_active(|| {
-        open_browser(&auth_url);
+        present_consent(&auth_url);
         Ok(())
     })?;
     let code = wait_for_code_until(
