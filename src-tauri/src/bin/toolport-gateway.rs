@@ -9484,10 +9484,19 @@ fn connect_one(
                 }
                 t.set_server_request_handler(Arc::clone(&server_handler));
                 t.set_progress_sink(progress);
-                DownstreamServer::connect(server.id.clone(), Box::new(t))
-                    .map_err(|error| resolved.redact(error))
+                DownstreamServer::connect(server.id.clone(), Box::new(t)).map_err(|error| {
+                    conduit_lib::launch_inputs::redact_env_secrets(
+                        server,
+                        &env,
+                        resolved.redact(error),
+                    )
+                })
             }
-            Err(e) => Err(resolved.redact(e)),
+            Err(e) => Err(conduit_lib::launch_inputs::redact_env_secrets(
+                server,
+                &env,
+                resolved.redact(e),
+            )),
         }
     } else if server.url.is_some() {
         remote::connect_remote_with_handler(

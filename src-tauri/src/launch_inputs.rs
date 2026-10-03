@@ -31,6 +31,28 @@ impl ResolvedArgs {
     }
 }
 
+/// A server's own secret environment values come back out through its stderr tail
+/// ("invalid key: <value>"), which the playground, ctl and the gateway all relay.
+pub fn redact_env_secrets(
+    server: &ServerEntry,
+    env: &[(String, String)],
+    message: String,
+) -> String {
+    let mut values: Vec<&str> = server
+        .env
+        .iter()
+        .filter(|entry| entry.secret)
+        .filter_map(|entry| env.iter().find(|(key, _)| *key == entry.key))
+        .map(|(_, value)| value.as_str())
+        .filter(|value| !value.is_empty())
+        .collect();
+    values.sort_by_key(|value| std::cmp::Reverse(value.len()));
+    values.dedup();
+    values
+        .into_iter()
+        .fold(message, |m, value| m.replace(value, "<redacted>"))
+}
+
 pub fn resolve_args(server: &ServerEntry) -> Result<ResolvedArgs, String> {
     let args = resolve_args_for_prewarm(server)?;
     if let Some(launch) = &server.launch {
