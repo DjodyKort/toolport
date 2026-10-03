@@ -30,16 +30,19 @@ const INSTALL: Spec = Spec {
 fn install(args: &[String]) -> Result<Output, CtlError> {
     let flags = INSTALL.parse(args)?;
     let profile = flags.one("--profile").map(String::from);
-    let (id, outcome) =
-        register::install_self_server(profile.as_deref()).map_err(|e| CtlError::failed("mcp", e))?;
-    let action = format!("{outcome:?}").to_lowercase();
+    let installed = register::install(profile.as_deref(), register::Intent::Install)
+        .map_err(|e| CtlError::failed("mcp", e))?;
+    let action = installed.outcome.as_str();
     let command = register::binary_path();
-    let mut human = format!("self server '{id}' {action}; command {command}");
-    if let Some(profile) = &profile {
-        human.push_str(&format!("; enabled in profile '{profile}'"));
+    let mut human = format!("self server '{}' {action}; command {command}", installed.id);
+    if !installed.enabled.is_empty() {
+        human.push_str(&format!("; enabled in {}", installed.enabled.join(", ")));
     }
     Ok(Output::new(
-        json!({"id": id, "action": action, "command": command, "profile": profile}),
+        json!({
+            "id": installed.id, "action": action, "command": command,
+            "profile": profile, "enabled": installed.enabled,
+        }),
         human,
     ))
 }
@@ -95,34 +98,84 @@ fn handshake_detail() -> (bool, String) {
     )
 }
 
+fn profile_list(profiles: &[register::ProfileState]) -> String {
+    let ids: Vec<&str> = profiles.iter().map(|p| p.id.as_str()).collect();
+    ids.join(", ")
+}
+
 fn doctor() -> Result<Output, CtlError> {
     let reg = registry_ro::read_opt();
     let entry = reg.as_ref().and_then(register::find_self);
     let wanted = register::binary_path();
+    let status = reg.as_ref().map(register::status);
+    let standing = status
+        .as_ref()
+        .map_or(register::Standing::Missing, |s| s.standing);
+    let opted_out = standing == register::Standing::OptedOut;
     let mut checks = vec![check(
         "registry_entry",
-        entry.is_some(),
-        entry
-            .map(|e| e.id.clone())
-            .unwrap_or_else(|| "run `toolportctl mcp install`".into()),
+        entry.is_some() || opted_out,
+        match entry {
+            Some(e) => e.id.clone(),
+            None if opted_out => "opted out; `toolportctl mcp install` brings it back".into(),
+            None => "run `toolportctl mcp install`".into(),
+        },
     )];
-    let registered = entry.and_then(|e| e.command.clone());
-    checks.push(check(
-        "command_matches_binary",
-        registered.as_deref() == Some(wanted.as_str()),
-        registered.unwrap_or_else(|| wanted.clone()),
-    ));
-    checks.push(check("binary_present", runnable(&wanted), wanted));
-    let active = reg.as_ref().map(|r| r.active_profile_id());
-    let enabled = match (&reg, entry) {
-        (Some(reg), Some(e)) => reg.is_enabled(&reg.active_profile_id(), &e.id),
-        _ => false,
-    };
-    checks.push(check(
-        "enabled_in_active_profile",
-        enabled,
-        active.unwrap_or_else(|| "-".into()),
-    ));
+    if opted_out {
+        checks.push(check("command_matches_binary", true, "skipped: opted out"));
+        checks.push(check("binary_present", true, "skipped: opted out"));
+        checks.push(check(
+            "enabled_in_active_profile",
+            true,
+            "skipped: opted out",
+        ));
+        checks.push(check(
+            "enabled_in_client_profiles",
+            true,
+            "skipped: opted out",
+        ));
+    } else {
+        let registered = entry.and_then(|e| e.command.clone());
+        checks.push(check(
+            "command_matches_binary",
+            registered.as_deref() == Some(wanted.as_str()),
+            registered.unwrap_or_else(|| wanted.clone()),
+        ));
+        checks.push(check("binary_present", runnable(&wanted), wanted));
+        let active = status.as_ref().and_then(|s| s.active.as_ref());
+        let (ok, detail) = match active {
+            Some(p) if p.enabled => (true, p.id.clone()),
+            Some(p) if p.opted_out => (true, format!("{}: disabled on purpose", p.id)),
+            Some(p) => (false, format!("{}: run `toolportctl mcp install`", p.id)),
+            None => (false, "-".into()),
+        };
+        checks.push(check("enabled_in_active_profile", ok, detail));
+        let clients = status.as_ref().map(|s| s.clients.as_slice()).unwrap_or(&[]);
+        let unset: Vec<register::ProfileState> = clients
+            .iter()
+            .filter(|p| !p.enabled && !p.opted_out)
+            .cloned()
+            .collect();
+        let off: Vec<register::ProfileState> =
+            clients.iter().filter(|p| p.opted_out).cloned().collect();
+        let detail = if !unset.is_empty() {
+            format!(
+                "not enabled in {}: run `toolportctl mcp install`",
+                profile_list(&unset)
+            )
+        } else if !off.is_empty() {
+            format!("disabled on purpose in {}", profile_list(&off))
+        } else if clients.is_empty() {
+            "no client is scoped to a profile".into()
+        } else {
+            profile_list(clients)
+        };
+        checks.push(check(
+            "enabled_in_client_profiles",
+            unset.is_empty(),
+            detail,
+        ));
+    }
     let (shaken, who) = handshake_detail();
     checks.push(check("handshake", shaken, who));
     checks.push(check(
@@ -131,7 +184,7 @@ fn doctor() -> Result<Output, CtlError> {
         format!("{} tools, {} resources", TOOLS.len(), RESOURCES.len()),
     ));
     let failed = checks.iter().any(|c| !c.ok);
-    let mut human = String::new();
+    let mut human = format!("state {}\n", standing.as_str());
     for c in &checks {
         human.push_str(&format!(
             "{:<28} {:<4} {}\n",
@@ -140,7 +193,14 @@ fn doctor() -> Result<Output, CtlError> {
             c.detail
         ));
     }
+    let profile_json = |p: &register::ProfileState| json!({"id": p.id, "enabled": p.enabled, "optedOut": p.opted_out});
     let data = json!({
+        "state": standing.as_str(),
+        "activeProfile": status.as_ref().and_then(|s| s.active.as_ref()).map(profile_json),
+        "clientProfiles": status
+            .as_ref()
+            .map(|s| s.clients.iter().map(profile_json).collect::<Vec<_>>())
+            .unwrap_or_default(),
         "checks": checks.iter().map(|c| json!({"name": c.name, "ok": c.ok, "detail": c.detail})).collect::<Vec<_>>(),
     });
     let mut out = Output::new(data, human);
