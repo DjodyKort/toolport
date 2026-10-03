@@ -12,6 +12,7 @@ mod skills;
 mod skills_repo;
 mod skills_state;
 pub(crate) mod context;
+mod flags;
 mod folders;
 mod mcp;
 mod output;
