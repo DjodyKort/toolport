@@ -149,7 +149,7 @@ pub fn expand_path(raw: &str, home: Option<&Path>) -> PathBuf {
         return home.map(Path::to_path_buf).unwrap_or_else(|| raw.into());
     }
     if let (Some(rest), Some(home)) = (raw.strip_prefix("~/"), home) {
-        return home.join(rest);
+        return home.join(rest.trim_start_matches('/'));
     }
     PathBuf::from(raw)
 }
