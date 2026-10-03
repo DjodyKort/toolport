@@ -13,19 +13,28 @@ enum Kind {
 pub(super) struct Flag {
     name: &'static str,
     kind: Kind,
+    needs: &'static str,
 }
 
 pub(super) const fn switch(name: &'static str) -> Flag {
-    Flag {
-        name,
-        kind: Kind::Switch,
-    }
+    Flag::new(name, Kind::Switch)
 }
 
 pub(super) const fn value(name: &'static str) -> Flag {
-    Flag {
-        name,
-        kind: Kind::Value,
+    Flag::new(name, Kind::Value)
+}
+
+impl Flag {
+    const fn new(name: &'static str, kind: Kind) -> Self {
+        Self {
+            name,
+            kind,
+            needs: "a value",
+        }
+    }
+
+    pub(super) const fn needs(self, what: &'static str) -> Self {
+        Self { needs: what, ..self }
     }
 }
 
@@ -59,9 +68,9 @@ impl Spec {
                 out.switches.push(flag.name);
                 continue;
             }
-            let value = iter
-                .next()
-                .ok_or_else(|| CtlError::usage(format!("{} requires a value", flag.name)))?;
+            let value = iter.next().ok_or_else(|| {
+                CtlError::usage(format!("{} requires {}", flag.name, flag.needs))
+            })?;
             out.values.push((flag.name, value.clone()));
         }
         Ok(out)
