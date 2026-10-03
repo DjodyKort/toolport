@@ -71,6 +71,15 @@ fn environment_for_probe_with(
     Ok(env)
 }
 
+fn redact_error(
+    server: &ServerEntry,
+    env: &[(String, String)],
+    resolved: &crate::launch_inputs::ResolvedArgs,
+    error: String,
+) -> String {
+    crate::launch_inputs::redact_env_secrets(server, env, resolved.redact(error))
+}
+
 pub fn connect_server(server: &ServerEntry) -> Result<DownstreamServer, String> {
     if let Some(command) = &server.command {
         let env = environment_for_probe_with(server, secrets::get_secret_result)?;
@@ -80,12 +89,12 @@ pub fn connect_server(server: &ServerEntry) -> Result<DownstreamServer, String> 
             .and_then(|cwd| resolve_root_token(cwd, None));
         let resolved = crate::launch_inputs::resolve_args(server)?;
         let mut transport = StdioTransport::spawn(command, &resolved.args, &env, cwd.as_deref())
-            .map_err(|error| resolved.redact(error))?;
+            .map_err(|error| redact_error(server, &env, &resolved, error))?;
         if let Some(timeout) = server.initialize_timeout()? {
             transport.set_connect_timeout(timeout);
         }
         DownstreamServer::connect(server.id.clone(), Box::new(transport))
-            .map_err(|error| resolved.redact(error))
+            .map_err(|error| redact_error(server, &env, &resolved, error))
     } else if server.url.is_some() {
         remote::connect_remote(server)
     } else {
