@@ -2,9 +2,10 @@
 //! handlers. Texts follow mcpm's with `toolportctl` in the hints (D-042). Scope is user level by
 //! default like `skills sync`; `--project` works inside the repository the way mcpm does.
 
+use super::flags::{switch, value, Flags, Spec};
 use super::output::{table, CtlError, Output};
 use super::skills::apply_home;
-use super::skills_repo::{call, str_of, strings, Args};
+use super::skills_repo::{call, no_operands, operand, spec, str_of, strings, with_path, PATH};
 use crate::plus::skills::LOCKFILE_NAME;
 use serde_json::{json, Value};
 use std::path::Path;
@@ -18,7 +19,46 @@ const UNINSTALL_USAGE: &str =
 const RESOLVE_USAGE: &str = "usage: skills resolve [--repo <dir>] [--home <dir>] [--client <key>] \
      [--project] [--dry-run] [--migrate|--no-migrate]";
 
-fn global_mode(args: &Args) -> Result<bool, CtlError> {
+const STATUS: Spec = spec(
+    &[PATH, value("--home"), value("--client"), switch("--strict")],
+    STATUS_USAGE,
+);
+const CLEAN: Spec = spec(
+    &[
+        PATH,
+        value("--home"),
+        value("--client"),
+        switch("--project"),
+        switch("--global"),
+        switch("--dry-run"),
+    ],
+    CLEAN_USAGE,
+);
+const UNINSTALL: Spec = spec(
+    &[
+        PATH,
+        value("--home"),
+        switch("--project"),
+        switch("--global"),
+        switch("--dry-run"),
+    ],
+    UNINSTALL_USAGE,
+);
+const RESOLVE: Spec = spec(
+    &[
+        PATH,
+        value("--home"),
+        value("--client"),
+        switch("--project"),
+        switch("--global"),
+        switch("--dry-run"),
+        switch("--migrate"),
+        switch("--no-migrate"),
+    ],
+    RESOLVE_USAGE,
+);
+
+fn global_mode(args: &Flags) -> Result<bool, CtlError> {
     if args.on("--global") && args.on("--project") {
         return Err(CtlError::usage(
             "--global and --project are mutually exclusive",
@@ -34,15 +74,10 @@ fn shown(path: &str, base: &str) -> String {
 }
 
 pub fn status(rest: &[String]) -> Result<Output, CtlError> {
-    let args = Args::parse(
-        rest,
-        &["--path", "--home", "--client"],
-        &["--strict"],
-        STATUS_USAGE,
-    )?;
-    args.no_operands(STATUS_USAGE)?;
+    let args = STATUS.parse(rest)?;
+    no_operands(&args, STATUS_USAGE)?;
     apply_home(args.one("--home"));
-    let mut request = args.with_path(json!({}));
+    let mut request = with_path(&args, json!({}));
     let clients = args.all("--client");
     if !clients.is_empty() {
         request["client_keys"] = json!(clients);
@@ -88,19 +123,17 @@ pub fn status(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn clean(rest: &[String]) -> Result<Output, CtlError> {
-    let args = Args::parse(
-        rest,
-        &["--path", "--home", "--client"],
-        &["--project", "--global", "--dry-run"],
-        CLEAN_USAGE,
-    )?;
-    args.no_operands(CLEAN_USAGE)?;
+    let args = CLEAN.parse(rest)?;
+    no_operands(&args, CLEAN_USAGE)?;
     apply_home(args.one("--home"));
     let dry_run = args.on("--dry-run");
-    let mut request = args.with_path(json!({
-        "global_mode": global_mode(&args)?,
-        "dry_run": dry_run,
-    }));
+    let mut request = with_path(
+        &args,
+        json!({
+            "global_mode": global_mode(&args)?,
+            "dry_run": dry_run,
+        }),
+    );
     if let Some(client) = args.one("--client") {
         request["client"] = json!(client);
     }
@@ -147,20 +180,18 @@ pub fn clean(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn uninstall(rest: &[String]) -> Result<Output, CtlError> {
-    let args = Args::parse(
-        rest,
-        &["--path", "--home"],
-        &["--project", "--global", "--dry-run"],
-        UNINSTALL_USAGE,
-    )?;
-    let name = args.operand("skill name", UNINSTALL_USAGE)?;
+    let args = UNINSTALL.parse(rest)?;
+    let name = operand(&args, "skill name", UNINSTALL_USAGE)?;
     apply_home(args.one("--home"));
     let dry_run = args.on("--dry-run");
-    let request = args.with_path(json!({
-        "name": name,
-        "global_mode": global_mode(&args)?,
-        "dry_run": dry_run,
-    }));
+    let request = with_path(
+        &args,
+        json!({
+            "name": name,
+            "global_mode": global_mode(&args)?,
+            "dry_run": dry_run,
+        }),
+    );
     let data = call("plus.skills.uninstall", request)?;
     let (removed, done) = if dry_run {
         ("Would remove", "Would uninstall")
@@ -186,29 +217,21 @@ pub fn uninstall(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn resolve(rest: &[String]) -> Result<Output, CtlError> {
-    let args = Args::parse(
-        rest,
-        &["--path", "--home", "--client"],
-        &[
-            "--project",
-            "--global",
-            "--dry-run",
-            "--migrate",
-            "--no-migrate",
-        ],
-        RESOLVE_USAGE,
-    )?;
-    args.no_operands(RESOLVE_USAGE)?;
+    let args = RESOLVE.parse(rest)?;
+    no_operands(&args, RESOLVE_USAGE)?;
     if args.on("--migrate") && args.on("--no-migrate") {
         return Err(CtlError::usage(
             "--migrate and --no-migrate are mutually exclusive",
         ));
     }
     apply_home(args.one("--home"));
-    let mut request = args.with_path(json!({
-        "global_mode": global_mode(&args)?,
-        "dry_run": args.on("--dry-run"),
-    }));
+    let mut request = with_path(
+        &args,
+        json!({
+            "global_mode": global_mode(&args)?,
+            "dry_run": args.on("--dry-run"),
+        }),
+    );
     if args.on("--migrate") || args.on("--no-migrate") {
         request["migrate"] = json!(args.on("--migrate"));
     }
