@@ -47,6 +47,18 @@ pub struct ProfileSpec {
     pub copy_auth: bool,
     #[serde(default = "yes")]
     pub link_rules: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_compact_window: Option<Value>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub model_windows: BTreeMap<String, Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_compact_enabled: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub compact_instructions: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checkpoint: Option<super::compact::CheckpointSpec>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub autocompact_flag: bool,
 }
 
 impl Default for ProfileSpec {
@@ -135,12 +147,13 @@ fn valid_profile_name(name: &str) -> bool {
 impl ContextConfig {
     /// Profile names become zsh function names, so anything outside `[a-z0-9][a-z0-9-]*` is refused.
     pub fn validate(&self) -> Result<(), String> {
-        for name in self.profiles.keys() {
+        for (name, spec) in &self.profiles {
             if !valid_profile_name(name) {
                 return Err(format!(
                     "profile name {name:?} must match [a-z0-9][a-z0-9-]* (it becomes a shell function)"
                 ));
             }
+            super::compact::validate(name, spec)?;
         }
         Ok(())
     }

@@ -2,6 +2,7 @@
 //! argv for `claude`, replacing the `CLAUDE_CONFIG_DIR` profile. The login stays in the default
 //! config dir, so there is no second `/login`.
 
+use super::compact;
 use super::config::ProfileSpec;
 use super::doctor::{sha256_file, PROFILE_STATE_FILE};
 use super::layers::{body_of, list_layers};
@@ -65,9 +66,13 @@ pub fn launch_argv(roots: &Roots, name: &str, spec: &ProfileSpec) -> Vec<String>
         "--settings".to_string(),
         show(SETTINGS_FILE),
     ];
-    if !named_rules(spec).is_empty() {
+    if !named_rules(spec).is_empty() || spec.compact_instructions.is_some() {
         argv.push("--append-system-prompt-file".to_string());
         argv.push(show(APPEND_FILE));
+    }
+    if let Some(value) = compact::flag_value(spec) {
+        argv.push("--autocompact".to_string());
+        argv.push(value);
     }
     argv
 }
@@ -132,6 +137,7 @@ pub fn build_settings(roots: &Roots, spec: &ProfileSpec) -> Value {
         }
         settings.insert("claudeMdExcludes".into(), Value::Array(excludes));
     }
+    compact::apply_settings(&mut settings, spec);
     Value::Object(settings)
 }
 
@@ -142,7 +148,8 @@ pub fn build_append_prompt(
     name: &str,
 ) -> Option<String> {
     let wanted = named_rules(spec);
-    if wanted.is_empty() {
+    let instructions = compact::instructions_block(spec);
+    if wanted.is_empty() && instructions.is_none() {
         return None;
     }
     let layers = list_layers(roots);
@@ -156,6 +163,11 @@ pub fn build_append_prompt(
             }
             None => report.warn(format!("profile {name}: rule layer '{rule}' not found")),
         }
+    }
+    if let Some(block) = instructions {
+        out.push('\n');
+        out.push_str(&block);
+        out.push('\n');
     }
     Some(out)
 }
@@ -188,6 +200,9 @@ pub fn generate_profile(
 ) -> Result<(), String> {
     let mcp = build_mcp_config(roots, spec, report, name)?;
     parse_selection(&spec.rules, "rules")?;
+    for warning in compact::warnings(roots, name, spec) {
+        report.warn(warning);
+    }
     let settings = build_settings(roots, spec);
     let append = build_append_prompt(roots, spec, report, name);
     for (field, value) in [

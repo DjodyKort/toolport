@@ -12,6 +12,8 @@ pub struct Roots {
     pub cache_dir: PathBuf,
     pub cf_dir: PathBuf,
     pub env_claude_config_dir: Option<String>,
+    pub env_auto_compact_window: Option<String>,
+    pub managed_settings: Option<PathBuf>,
 }
 
 impl Roots {
@@ -24,6 +26,8 @@ impl Roots {
             cache_dir: home.join(".cache/mcpm/context"),
             cf_dir: home.join(".local/share/cf-dev-tools"),
             env_claude_config_dir: None,
+            env_auto_compact_window: None,
+            managed_settings: None,
         }
     }
 

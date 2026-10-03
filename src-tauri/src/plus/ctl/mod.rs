@@ -5,7 +5,7 @@ mod auth;
 mod commands;
 mod compression;
 mod import;
-mod context;
+pub(crate) mod context;
 mod output;
 mod secret;
 mod sync;
@@ -87,6 +87,11 @@ pub const COMMANDS: &[Command] = &[
         path: &["context", "loads"],
         summary: "Show what a claude session loads, with token cost (--profile, --cwd)",
         handler: Some(context::loads),
+    },
+    Command {
+        path: &["context", "checkpoint-status"],
+        summary: "Report used tokens vs the checkpoint point from statusline JSON on stdin",
+        handler: Some(context::checkpoint_status),
     },
     Command {
         path: &["context"],

@@ -43,6 +43,8 @@ pub struct WhatLoads {
     pub tokens_by_kind: BTreeMap<String, u64>,
     pub total_tokens: u64,
     pub notes: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compact: Option<super::compact::CompactInfo>,
 }
 
 fn text_tokens(text: &str) -> u64 {
@@ -542,6 +544,11 @@ pub fn what_loads(
             }
         }
     }
+    if let Some(spec) = spec {
+        for w in super::compact::warnings(roots, profile.unwrap_or(""), spec) {
+            ctx.notes.push(w);
+        }
+    }
     let effective = settings(&mut ctx);
     memory(&mut ctx, &effective);
     rules(&mut ctx);
@@ -562,5 +569,6 @@ pub fn what_loads(
         tokens_by_kind: by_kind,
         total_tokens: total,
         notes: ctx.notes,
+        compact: spec.and_then(|s| super::compact::info(roots, s)),
     })
 }
