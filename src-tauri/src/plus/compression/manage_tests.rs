@@ -712,7 +712,7 @@ fn seal_previews_by_default_and_writes_the_posture_as_policy_with_apply() {
     assert_eq!(err.kind, Kind::Failed("no_proxy"));
     assert!(err
         .message
-        .starts_with("no proxy on :8787: start one first"));
+        .starts_with("no proxy on :8787 \u{2014} start one first"));
 
     w.engine.health = Some(live_config(json!({})));
     let before = w.snapshot();

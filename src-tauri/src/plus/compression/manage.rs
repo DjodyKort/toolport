@@ -56,7 +56,9 @@ pub struct Ctx<'a> {
 }
 
 /// The real data directory, engine and registry.
-pub fn with_system<T>(f: impl FnOnce(&mut Ctx) -> Result<T, CmdError>) -> Result<T, CmdError> {
+pub fn with_system<T, E: From<CmdError>>(
+    f: impl FnOnce(&mut Ctx) -> Result<T, E>,
+) -> Result<T, E> {
     let paths = Paths::from_data_dir()
         .ok_or_else(|| CmdError::failed("no_data_dir", "data directory could not be resolved"))?;
     let mut engine = SystemOps::new();
@@ -202,7 +204,7 @@ fn enable_next_steps(config: &CompressionConfig, paths: &Paths) -> Vec<String> {
         ));
         steps.push(
             "or launch directly: toolportctl compression run -- <claude args>  (resolves the \
-             per-dir preset, reuses a running proxy, execs claude)"
+             per-dir preset, ensures the proxy, execs claude)"
                 .into(),
         );
     }
@@ -383,9 +385,10 @@ pub fn pin(cx: &mut Ctx, req: &PinReq) -> CmdResult {
         if req.dry_run {
             data["install"] = json!({"requirement": requirement, "dryRun": true});
         } else {
-            let (before, after) = cx.engine.install(&requirement).map_err(|why| {
-                CmdError::failed("install_failed", format!("install {requirement}: {why}"))
-            })?;
+            let (before, after) = cx
+                .engine
+                .install(&requirement)
+                .map_err(|why| CmdError::failed("install_failed", why))?;
             changed = before != after;
             let detail = if before == after {
                 format!("already at {}", after.as_deref().unwrap_or("unknown"))
@@ -451,7 +454,7 @@ pub fn seal(cx: &mut Ctx, req: &SealReq) -> CmdResult {
             CmdError::failed(
                 "no_proxy",
                 format!(
-                    "no proxy on :{port}: start one first (toolportctl compression proxy up). \
+                    "no proxy on :{port} \u{2014} start one first (toolportctl compression proxy up). \
                      /health is the only truthful source for what a build actually runs."
                 ),
             )
