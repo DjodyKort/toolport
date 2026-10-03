@@ -268,7 +268,6 @@ fn help_and_version_exit_0() {
 fn planned_commands_are_not_implemented() {
     let _fx = Fixture::new("planned", Some(sample_registry()));
     for list in [
-        &["secret", "get", "x"][..],
         &["context", "sync"][..],
         &["compression", "use", "agent"][..],
         &["skills", "sync"][..],
