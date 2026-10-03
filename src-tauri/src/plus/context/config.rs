@@ -197,8 +197,6 @@ pub fn preserve_unreadable(path: &Path) -> Option<std::path::PathBuf> {
 }
 
 pub fn save_config(path: &Path, config: &ContextConfig) -> Result<(), String> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
-    }
-    fs::write(path, config.to_json_text()).map_err(|e| format!("{}: {e}", path.display()))
+    crate::registry::atomic_write(path, &config.to_json_text())
+        .map_err(|e| format!("{}: {e}", path.display()))
 }
