@@ -2,12 +2,16 @@
 
 mod clients;
 mod ids;
+mod run;
+#[cfg(test)]
+mod run_tests;
 mod servers;
 #[cfg(test)]
 mod tests;
 
 pub use clients::{map_clients, ClientConfig, ClientMapping, ClientProfile, ClientSkip};
 pub use ids::{exposed_prefix, short_id, tool_name_fits, MAX_TOOL_NAME_LEN, TOOL_NAME_PREFIX};
+pub use run::{load_input, run, run_handler, Action, Change, Plan, RunOptions};
 pub use servers::{map_servers, MappedServer, McpmInput, SecretWrite, Warning, IMPORT_SOURCE};
 
 use crate::registry::{Profile, ServerEntry};
