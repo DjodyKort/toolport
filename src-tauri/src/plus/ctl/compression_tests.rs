@@ -6,8 +6,9 @@ use std::path::PathBuf;
 
 struct Fx {
     dir: PathBuf,
-    _lock: std::sync::MutexGuard<'static, ()>,
+    // fields drop in order: the override must go before the lock is released
     _override: crate::registry::DataDirOverride,
+    _lock: std::sync::MutexGuard<'static, ()>,
 }
 
 impl Fx {
@@ -23,8 +24,8 @@ impl Fx {
         let guard = crate::registry::DataDirOverride::set(&dir);
         Self {
             dir,
-            _lock: lock,
             _override: guard,
+            _lock: lock,
         }
     }
 }
