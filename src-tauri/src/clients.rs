@@ -15,6 +15,8 @@ use serde::Serialize;
 
 use crate::registry::{ManagedEntry, ServerEntry};
 
+mod zcode;
+
 /// One MCP server, normalized across every client format.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -98,6 +100,8 @@ enum Format {
     /// `type` hint other clients use), and bearer auth is declared via
     /// `bearerTokenEnvVar` naming a shell env var that holds the token.
     JsonKimiMcpServers,
+    /// ZCode CLI and desktop share the user config's nested `mcp.servers` map.
+    JsonZCodeMcp,
     /// JSON with a top-level `servers` object (VS Code).
     JsonServers,
     /// JSON with a top-level `mcp` object (Crush).
@@ -297,6 +301,7 @@ fn resolve_client_config_path(
         "amazon-q" => home.join(".aws").join("amazonq").join("mcp.json"),
         "kiro" => home.join(".kiro").join("settings").join("mcp.json"),
         "kimi-code" => home.join(".kimi-code").join("mcp.json"),
+        "zcode" => home.join(".zcode").join("cli").join("config.json"),
         "lm-studio" => home.join(".lmstudio").join("mcp.json"),
         "jan" => data.join("Jan").join("data").join("mcp_config.json"),
         "zed" => match platform {
@@ -799,6 +804,7 @@ fn resolve_client_config_path_linux(client_id: &str, home: &std::path::Path) -> 
         "amazon-q" => home.join(".aws").join("amazonq").join("mcp.json"),
         "kiro" => home.join(".kiro").join("settings").join("mcp.json"),
         "kimi-code" => home.join(".kimi-code").join("mcp.json"),
+        "zcode" => home.join(".zcode").join("cli").join("config.json"),
         "lm-studio" => home.join(".lmstudio").join("mcp.json"),
         "jan" => data.join("Jan").join("data").join("mcp_config.json"),
         "zed" => config.join("zed").join("settings.json"),
@@ -1599,6 +1605,14 @@ fn defs() -> Vec<ClientDef> {
             plugin_scan: None,
         },
         ClientDef {
+            id: "zcode",
+            name: "ZCode",
+            format: Format::JsonZCodeMcp,
+            uses_connectors: false,
+            path: || client_config_path("zcode"),
+            plugin_scan: None,
+        },
+        ClientDef {
             id: "zed",
             name: "Zed",
             format: Format::JsonContextServers,
@@ -2101,6 +2115,27 @@ fn parse_json_snippet(
 ) -> Result<Vec<ParsedSnippetServer>, String> {
     let value = parse_json_value(content)?;
     let mut unusable_mcp = Vec::new();
+
+    // ZCode wraps the map one level deeper than Crush and OpenCode. Recognize
+    // it before their entry heuristics so unsupported settings cannot disappear.
+    // A Crush/OpenCode server can itself be named `servers`; its definition
+    // has direct transport fields rather than a map of server definitions.
+    if value
+        .get("mcp")
+        .and_then(|mcp| mcp.get("servers"))
+        .is_some_and(|servers| {
+            !servers
+                .get("command")
+                .is_some_and(|command| command.is_string() || command.is_array())
+                && !servers.get("url").is_some_and(serde_json::Value::is_string)
+                && !servers.get("type").is_some_and(serde_json::Value::is_string)
+                && !servers
+                    .get("enabled")
+                    .is_some_and(serde_json::Value::is_boolean)
+        })
+    {
+        return zcode::parse_snippet(content);
+    }
 
     if let Some(mcp) = value.get("mcp") {
         let obj = mcp
@@ -2811,6 +2846,7 @@ fn install_override(id: &str) -> Option<PathBuf> {
         // ~/.junie/mcp may not exist until MCP is configured; ~/.junie is the
         // stable user-scope data root created by Junie.
         "junie" => Some(home()?.join(".junie")),
+        "zcode" => Some(home()?.join(".zcode")),
         _ => None,
     }
 }
@@ -2871,6 +2907,13 @@ fn read_client(def: &ClientDef) -> DetectedClient {
     };
     let config_path = path.display().to_string();
 
+    if matches!(def.format, Format::JsonZCodeMcp) {
+        return match zcode::detect(&path) {
+            Ok((servers, exists)) => build(config_path, exists, servers, None),
+            Err(error) => build(config_path, path.exists(), Vec::new(), Some(error)),
+        };
+    }
+
     if !path.exists() {
         return build(config_path, false, Vec::new(), None);
     }
@@ -2898,6 +2941,7 @@ fn read_client(def: &ClientDef) -> DetectedClient {
         Format::JsonAmpMcpServers => parse_json(&content, "amp.mcpServers"),
         Format::JsonQwenMcpServers => parse_qwen_json(&content),
         Format::JsonKimiMcpServers => parse_json(&content, "mcpServers"),
+        Format::JsonZCodeMcp => zcode::parse(&content),
         Format::JsonServers => parse_json(&content, "servers"),
         Format::JsonMcp => parse_json(&content, "mcp"),
         Format::JsonOpenCodeMcp => parse_opencode_json(&content),
@@ -2922,6 +2966,19 @@ fn read_client(def: &ClientDef) -> DetectedClient {
 /// Probe every supported client and return what each currently has configured.
 pub fn detect_clients() -> Vec<DetectedClient> {
     defs().iter().map(read_client).collect()
+}
+
+/// Validate behavior the redacted inventory cannot carry before a ZCode import.
+/// Other adapters retain their existing import policy and public inventory ABI.
+pub(crate) fn validate_client_import(
+    client: &DetectedClient,
+    names: &[String],
+    migration: bool,
+) -> Result<(), String> {
+    if client.id == "zcode" {
+        zcode::validate_import(Path::new(&client.config_path), names, migration)?;
+    }
+    Ok(())
 }
 
 /// Whether a detected gateway slot matches the ownership record we last wrote.
@@ -5047,6 +5104,7 @@ pub fn write_servers(client_id: &str, servers: &[ServerEntry]) -> Result<WriteOu
         Format::JsonAmpMcpServers => write_json(&path, "amp.mcpServers", servers, true)?,
         Format::JsonQwenMcpServers => write_qwen_json(&path, servers)?,
         Format::JsonKimiMcpServers => write_kimi_json(&path, servers)?,
+        Format::JsonZCodeMcp => zcode::write_servers(&path, servers)?,
         Format::JsonServers => write_json(&path, "servers", servers, lenient)?,
         Format::JsonMcp => write_crush_json(&path, servers)?,
         Format::JsonOpenCodeMcp => write_opencode_json(&path, servers)?,
@@ -5410,6 +5468,7 @@ pub fn client_uses_mcp_remote_bridge(client_id: &str) -> bool {
         // Native remote shapes already exist in our writers.
         Format::JsonQwenMcpServers
         | Format::JsonKimiMcpServers
+        | Format::JsonZCodeMcp
         | Format::JsonMcp
         | Format::JsonCopilotMcpServers
         | Format::JsonDroidMcpServers
@@ -5741,6 +5800,7 @@ fn install_or_remove(client_id: &str, entry: Option<&ServerEntry>) -> Result<Wri
         Format::JsonAmpMcpServers => edit_json_gateway(&path, "amp.mcpServers", entry, true)?,
         Format::JsonQwenMcpServers => edit_qwen_json_gateway(&path, entry)?,
         Format::JsonKimiMcpServers => edit_kimi_json_gateway(&path, entry)?,
+        Format::JsonZCodeMcp => zcode::edit_gateway(&path, entry)?,
         Format::JsonServers => edit_json_gateway(&path, "servers", entry, lenient)?,
         Format::JsonMcp => edit_crush_gateway(&path, entry)?,
         Format::JsonOpenCodeMcp => edit_opencode_gateway(&path, entry)?,

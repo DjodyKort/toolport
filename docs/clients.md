@@ -1,6 +1,6 @@
 # Supported clients
 
-Toolport auto-detects these **35 AI clients**, installs the gateway into each with one
+Toolport auto-detects these **36 AI clients**, installs the gateway into each with one
 click, and can import a client's existing servers. It writes the config file shown
 below for you, so you never have to edit these by hand.
 
@@ -30,6 +30,7 @@ below for you, so you never have to edit these by hand.
 | Amazon Q                | `~/.aws/amazonq/mcp.json`                                                                              | JSON (`mcpServers`)      |
 | Kiro                    | `~/.kiro/settings/mcp.json`                                                                            | JSON (`mcpServers`)      |
 | Kimi Code               | `$KIMI_CODE_HOME/mcp.json` (default `~/.kimi-code/mcp.json`)                                           | JSON (`mcpServers`)      |
+| ZCode                   | `~/.zcode/cli/config.json`                                                                             | JSON (`mcp.servers`)     |
 | Zed                     | `~/.config/zed/settings.json`                                                                          | JSON (`context_servers`) |
 | LM Studio               | `~/.lmstudio/mcp.json`                                                                                 | JSON (`mcpServers`)      |
 | Jan                     | `<data>/Jan/data/mcp_config.json`                                                                      | JSON (`mcpServers`)      |
@@ -43,6 +44,29 @@ below for you, so you never have to edit these by hand.
 | Amp                     | `~/.config/amp/settings.json`                                                                          | JSON (`amp.mcpServers`)  |
 
 `<config>` is your OS application-config dir (`%APPDATA%` on Windows, `~/Library/Application Support` on macOS, `~/.config` on Linux); `<data>` is the data dir (`~/.local/share` on Linux, the same as `<config>` elsewhere). Zed and Goose paths vary slightly by OS; Toolport resolves the right one automatically.
+
+### ZCode setup
+
+Toolport manages ZCode's user config at `~/.zcode/cli/config.json` on all
+platforms. Connect from the **Clients** view, then restart ZCode to load the
+gateway entry under `mcp.servers`. Existing servers and other settings are
+preserved. Workspace configs are not managed yet.
+
+ZCode's desktop can load servers from `~/.agents/mcp.json` when the native
+server list is empty. Toolport refuses to add a gateway while those fallback
+servers are active, because doing so would hide them. Move the servers into
+ZCode's native user config first; Toolport leaves the shared fallback file
+untouched.
+
+Disconnect also refuses to report success if ZCode would still load a Toolport
+gateway from the shared fallback file. Remove that gateway from the shared
+config manually before disconnecting.
+
+Imports support basic stdio, HTTP, and SSE entries. Imported servers start
+disabled for review. Migration and pasted imports refuse disabled ZCode
+entries. Settings that the import model cannot preserve, such as a working
+directory, custom timeout, protocol version, or OAuth configuration, require
+manual setup. Toolport checks these before importing or migrating a ZCode config.
 
 ### Codex setup walkthrough
 

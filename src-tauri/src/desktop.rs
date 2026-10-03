@@ -178,7 +178,7 @@ fn selected_servers_to_import(
     detected: &[clients::DetectedClient],
     existing: &Registry,
     selected: Option<&std::collections::HashSet<String>>,
-) -> Vec<ServerEntry> {
+) -> Result<Vec<ServerEntry>, String> {
     crate::registry_controller::selected_servers_to_import(detected, existing, selected)
 }
 
@@ -196,7 +196,7 @@ async fn import_servers(
     let selected: Option<std::collections::HashSet<String>> =
         selected.map(|keys| keys.into_iter().collect());
     let (reg, _) = write_registry(state.inner(), |reg| {
-        for server in selected_servers_to_import(&detected, reg, selected.as_ref()) {
+        for server in selected_servers_to_import(&detected, reg, selected.as_ref())? {
             reg.add_server(server);
         }
         Ok(())
@@ -5232,7 +5232,8 @@ mod tests {
     fn selected_servers_to_import_respects_the_reviewed_keys() {
         let detected = vec![detected_client("cursor", vec!["linear", "github"], vec![])];
         let selected = std::collections::HashSet::from(["name:github".to_string()]);
-        let picked = selected_servers_to_import(&detected, &Registry::default(), Some(&selected));
+        let picked =
+            selected_servers_to_import(&detected, &Registry::default(), Some(&selected)).unwrap();
         assert_eq!(picked.len(), 1);
         assert_eq!(picked[0].name, "github");
     }
@@ -5335,7 +5336,7 @@ mod tests {
         ];
         let mut reg = Registry::default();
 
-        let (imported, moved) = import_client_servers_for_migration(&mut reg, &client);
+        let (imported, moved) = import_client_servers_for_migration(&mut reg, &client).unwrap();
 
         assert_eq!(imported, 0);
         assert!(moved.is_empty());
