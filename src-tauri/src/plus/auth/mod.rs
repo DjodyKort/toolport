@@ -6,6 +6,7 @@ mod gateway_state;
 mod google;
 mod http_probes;
 mod issues;
+pub mod login;
 mod machine;
 mod prober;
 mod probe;
@@ -84,3 +85,5 @@ mod scan_tests;
 #[cfg(test)]
 mod scheduler_tests;
 
+#[cfg(test)]
+mod login_tests;
