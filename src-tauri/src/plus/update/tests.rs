@@ -920,8 +920,9 @@ fn unknown_server_filter_is_an_error() {
 
 struct Fixture {
     dir: PathBuf,
-    _lock: std::sync::MutexGuard<'static, ()>,
+    // fields drop in order: the override must go before the lock is released
     _override: crate::registry::DataDirOverride,
+    _lock: std::sync::MutexGuard<'static, ()>,
 }
 
 impl Fixture {
@@ -939,8 +940,8 @@ impl Fixture {
         let guard = crate::registry::DataDirOverride::set(&dir);
         Self {
             dir,
-            _lock: lock,
             _override: guard,
+            _lock: lock,
         }
     }
 

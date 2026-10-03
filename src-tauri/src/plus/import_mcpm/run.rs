@@ -451,7 +451,11 @@ fn apply_clients(
         };
         match clients::apply_import(&entry.client_id, &entry.profile_id, &prune, opts.dry_run) {
             Ok(applied) => {
-                let record_stale = managed.get(&entry.client_id) != Some(&applied.managed);
+                let record_stale = managed.get(&entry.client_id).map_or(true, |m| {
+                    let mut same = applied.managed.clone();
+                    same.updated_at = m.updated_at;
+                    *m != same
+                });
                 change.path = Some(applied.path);
                 change.removed = applied.removed;
                 if applied.wrote_gateway {

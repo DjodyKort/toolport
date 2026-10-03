@@ -489,6 +489,7 @@ fn client_apply_is_idempotent_and_dry_run_writes_nothing() {
             .map(|(_, p)| std::fs::read_to_string(p).unwrap())
             .collect();
         let registry = w.registry_text().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(1100));
         let second = run(&live_opts(w, false)).unwrap();
         let detail = {
             let reg: Value = serde_json::from_str(&w.registry_text().unwrap()).unwrap();

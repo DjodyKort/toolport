@@ -6,8 +6,9 @@ const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 
 struct Fixture {
     dir: PathBuf,
-    _lock: std::sync::MutexGuard<'static, ()>,
+    // fields drop in order: the override must go before the lock is released
     _override: crate::registry::DataDirOverride,
+    _lock: std::sync::MutexGuard<'static, ()>,
 }
 
 impl Fixture {
@@ -26,8 +27,8 @@ impl Fixture {
         let guard = crate::registry::DataDirOverride::set(&dir);
         Self {
             dir,
-            _lock: lock,
             _override: guard,
+            _lock: lock,
         }
     }
 }
