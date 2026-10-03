@@ -342,7 +342,7 @@ fn takes_options(first: Option<&String>) -> bool {
     })
 }
 
-pub fn find_command<'a>(positional: &'a [String]) -> Option<(&'static Command, &'a [String])> {
+pub fn find_command(positional: &[String]) -> Option<(&'static Command, &[String])> {
     COMMANDS
         .iter()
         .filter(|c| {
@@ -470,9 +470,8 @@ fn emit(
     if json {
         let line = serde_json::to_string(&envelope.to_value()).unwrap_or_default();
         let _ = writeln!(out, "{line}");
-    } else if code == EXIT_OK {
-        let _ = writeln!(out, "{}", human.trim_end());
-    } else if envelope.error.as_ref().map(|e| e.kind) == Some(ErrorKind::Unhealthy) {
+    } else if code == EXIT_OK || envelope.error.as_ref().map(|e| e.kind) == Some(ErrorKind::Unhealthy)
+    {
         let _ = writeln!(out, "{}", human.trim_end());
     } else {
         let _ = writeln!(err, "{}", human.trim_end());
