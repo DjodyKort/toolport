@@ -4,6 +4,7 @@
 mod auth;
 mod commands;
 mod compression;
+mod council;
 mod import;
 pub(crate) mod context;
 mod output;
@@ -150,6 +151,11 @@ pub const COMMANDS: &[Command] = &[
         handler: None,
     },
     Command {
+        path: &["council"],
+        summary: "Council server: install uninstall doctor tools",
+        handler: Some(council::run),
+    },
+    Command {
         path: &["skills"],
         summary: "Skills sync",
         handler: None,
@@ -205,7 +211,7 @@ pub fn parse(args: &[String]) -> Result<Parsed, String> {
                 Some(value) => parsed.data_dir = Some(value.to_string()),
                 None if matches!(
                     parsed.positional.first().map(String::as_str),
-                    Some("compression" | "secret" | "import" | "context" | "sync" | "update")
+                    Some("compression" | "secret" | "import" | "context" | "sync" | "update" | "council")
                 ) =>
                 {
                     parsed.positional.push(other.to_string())
