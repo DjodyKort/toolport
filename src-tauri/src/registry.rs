@@ -3079,13 +3079,8 @@ fn write_backup_generation(path: &Path, content: &str, sequence: u128) {
     }
 }
 
-/// Recover the registry from the backups `save_to` maintains, newest-first by
-/// filesystem modification time across both `.bak` and rolling generations.
-/// Returns the first that parses (and
-/// best-effort rewrites the primary from it so a later read self-heals), or None
-/// when nothing usable remains. Walking the journal means one stale or corrupt
-/// `.bak` no longer strands recovery when fresher snapshots exist.
-fn restore_from_backup(path: &Path) -> Option<Registry> {
+/// The backups `save_to` maintains, newest-first across both `.bak` and the rolling generations.
+fn ordered_backups(path: &Path) -> Vec<PathBuf> {
     let single_backup = backup_path(path);
     let single_sequence = std::fs::read_to_string(backup_sequence_path(path))
         .ok()
@@ -3120,8 +3115,41 @@ fn restore_from_backup(path: &Path) -> Option<Registry> {
                 .then_with(|| b.as_os_str().len().cmp(&a.as_os_str().len())),
         }
     });
+    candidates
+}
 
-    for candidate in candidates {
+/// The backup [`restore_from_backup`] would recover from, found without rewriting anything.
+pub(crate) fn newest_usable_backup(path: &Path) -> Option<PathBuf> {
+    ordered_backups(path).into_iter().find(|candidate| {
+        std::fs::read_to_string(candidate).is_ok_and(|content| {
+            !content.trim().is_empty() && serde_json::from_str::<Registry>(&content).is_ok()
+        })
+    })
+}
+
+/// `registry is not readable: <error>` for the read-only surfaces (ctl, self-MCP). When a backup
+/// still parses it also names that generation and the manual restore step; restoring is never
+/// automatic here, because inspection must not change the data directory.
+pub(crate) fn unreadable_message(path: &Path, error: impl std::fmt::Display) -> String {
+    let base = format!("registry is not readable: {error}");
+    match newest_usable_backup(path) {
+        Some(backup) => format!(
+            "{base}; the newest readable backup generation is {}. To restore it, copy that file over {} yourself (nothing is restored automatically)",
+            backup.display(),
+            path.display()
+        ),
+        None => base,
+    }
+}
+
+/// Recover the registry from the backups `save_to` maintains, newest-first by
+/// filesystem modification time across both `.bak` and rolling generations.
+/// Returns the first that parses (and
+/// best-effort rewrites the primary from it so a later read self-heals), or None
+/// when nothing usable remains. Walking the journal means one stale or corrupt
+/// `.bak` no longer strands recovery when fresher snapshots exist.
+fn restore_from_backup(path: &Path) -> Option<Registry> {
+    for candidate in ordered_backups(path) {
         let Ok(content) = std::fs::read_to_string(&candidate) else {
             continue;
         };
