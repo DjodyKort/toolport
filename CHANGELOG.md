@@ -6,6 +6,15 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ## [Unreleased]
 
+## [1.23.5] - 2026-10-02
+
+### Fixed
+
+- Toolport no longer repeats a downstream mutation when its reply is lost during
+  reconnect recovery. The call returns the original error and the fresh connection
+  is used for subsequent requests. Read recovery and classified retries are preserved.
+  (#986, thanks @jckail)
+
 ## [1.23.4] - 2026-10-02
 
 ### Added
