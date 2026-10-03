@@ -83,16 +83,42 @@ pub fn apply_ensure_self_server(reg: &mut Registry, command: &str) -> Ensured {
     Ensured::Created
 }
 
+pub fn find_self(reg: &Registry) -> Option<&ServerEntry> {
+    reg.servers.iter().find(|s| is_self(s))
+}
+
 pub fn ensure_self_server() -> Result<(String, Ensured), String> {
+    install_self_server(None)
+}
+
+/// With a profile, the registry write is all-or-nothing: an unknown profile registers nothing.
+pub fn install_self_server(profile: Option<&str>) -> Result<(String, Ensured), String> {
     let command = binary_path();
-    let (reg, outcome) = registry::update(|reg| Ok(apply_ensure_self_server(reg, &command)))?;
-    let id = reg
-        .servers
-        .iter()
-        .find(|s| is_self(s))
-        .map(|s| s.id.clone())
-        .unwrap_or_default();
-    Ok((id, outcome))
+    let (_, installed) = registry::update(|reg| {
+        let outcome = apply_ensure_self_server(reg, &command);
+        let id = find_self(reg).map(|s| s.id.clone()).unwrap_or_default();
+        if let Some(profile) = profile {
+            if id.is_empty() {
+                return Err(format!(
+                    "a server named '{SERVER_NAME}' already exists and is not the self server"
+                ));
+            }
+            reg.set_server_enabled(profile, &id, true)?;
+        }
+        Ok((id, outcome))
+    })?;
+    Ok(installed)
+}
+
+pub fn uninstall_self_server() -> Result<Option<String>, String> {
+    let (_, removed) = registry::update(|reg| {
+        let Some(id) = find_self(reg).map(|s| s.id.clone()) else {
+            return Ok(None);
+        };
+        reg.remove_server(&id)?;
+        Ok(Some(id))
+    })?;
+    Ok(removed)
 }
 
 pub fn ensure_handler(_args: Value) -> Result<Value, String> {

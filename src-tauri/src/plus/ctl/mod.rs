@@ -13,6 +13,7 @@ mod skills_repo;
 mod skills_state;
 pub(crate) mod context;
 mod folders;
+mod mcp;
 mod output;
 mod secret;
 mod server;
@@ -249,6 +250,11 @@ pub const COMMANDS: &[Command] = &[
         handler: Some(council::run),
     },
     Command {
+        path: &["mcp"],
+        summary: "Self-management server: install [--profile <id>] uninstall doctor tools",
+        handler: Some(mcp::run),
+    },
+    Command {
         path: &["skills", "sync"],
         summary: "Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)",
         handler: Some(skills::sync),
@@ -387,6 +393,7 @@ pub fn parse(args: &[String]) -> Result<Parsed, String> {
                         "council" |
                         "import" |
                         "inspect" |
+                        "mcp" |
                         "profile" |
                         "secret" |
                         "server" |
