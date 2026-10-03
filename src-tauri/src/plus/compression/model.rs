@@ -159,6 +159,17 @@ pub enum RuntimeKind {
     None,
 }
 
+impl RuntimeKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            RuntimeKind::Proxy => "proxy",
+            RuntimeKind::Hook => "hook",
+            RuntimeKind::Plugin => "plugin",
+            RuntimeKind::None => "none",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CompressionMode {
