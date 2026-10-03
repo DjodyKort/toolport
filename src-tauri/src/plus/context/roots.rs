@@ -1,7 +1,12 @@
 //! Explicit filesystem roots so every operation can run against a temp tree.
 
+use super::config::ContextConfig;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+pub const ENV_CORP_TOOLS_DIR: &str = "TOOLPORT_CORP_TOOLS_DIR";
+pub const ENV_CLIENTS_ROOT: &str = "TOOLPORT_CLIENTS_ROOT";
+const DEFAULT_CORP_TOOLS_REL: &str = ".local/share/corp-dev-tools";
 
 #[derive(Clone, Debug)]
 pub struct Roots {
@@ -11,6 +16,8 @@ pub struct Roots {
     pub config_dir: PathBuf,
     pub cache_dir: PathBuf,
     pub cf_dir: PathBuf,
+    pub env_corp_tools_dir: Option<String>,
+    pub env_clients_root: Option<String>,
     pub env_claude_config_dir: Option<String>,
     pub env_auto_compact_window: Option<String>,
     pub managed_settings: Option<PathBuf>,
@@ -24,11 +31,45 @@ impl Roots {
             claude_json: home.join(".claude.json"),
             config_dir: home.join(".config/mcpm"),
             cache_dir: home.join(".cache/mcpm/context"),
-            cf_dir: home.join(".local/share/corp-dev-tools"),
+            cf_dir: home.join(DEFAULT_CORP_TOOLS_REL),
+            env_corp_tools_dir: None,
+            env_clients_root: None,
             env_claude_config_dir: None,
             env_auto_compact_window: None,
             managed_settings: None,
         }
+    }
+
+    pub fn read_env(&mut self) {
+        self.env_corp_tools_dir = std::env::var(ENV_CORP_TOOLS_DIR).ok();
+        self.env_clients_root = std::env::var(ENV_CLIENTS_ROOT).ok();
+    }
+
+    pub fn resolved(&self, config: &ContextConfig) -> Self {
+        let mut out = self.clone();
+        out.cf_dir = self.resolve_corp_tools_dir(config);
+        out
+    }
+
+    pub fn resolve_corp_tools_dir(&self, config: &ContextConfig) -> PathBuf {
+        if let Some(raw) = self.env_corp_tools_dir.clone().filter(|v| !v.is_empty()) {
+            return self.expand_user(&raw);
+        }
+        match config.corp_tools_dir.as_deref().filter(|v| !v.is_empty()) {
+            Some(raw) => self.expand_user(raw),
+            None => self.cf_dir.clone(),
+        }
+    }
+
+    pub fn resolve_clients_root(&self, config: &ContextConfig) -> PathBuf {
+        match self.env_clients_root.clone().filter(|v| !v.is_empty()) {
+            Some(raw) => self.expand_user(&raw),
+            None => self.expand_user(&config.clients_root),
+        }
+    }
+
+    pub fn default_cf_dir(&self) -> PathBuf {
+        self.home.join(DEFAULT_CORP_TOOLS_REL)
     }
 
     pub fn context_config_path(&self) -> PathBuf {

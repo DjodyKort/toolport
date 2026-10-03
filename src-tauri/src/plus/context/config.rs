@@ -118,6 +118,8 @@ pub struct ContextConfig {
     pub settings: SettingsPolicy,
     #[serde(default = "default_clients_root")]
     pub clients_root: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub corp_tools_dir: Option<String>,
     #[serde(default)]
     pub cf_wrapper_hash: Option<String>,
 }
@@ -130,6 +132,7 @@ impl Default for ContextConfig {
             dedupe: DedupePolicy::default(),
             settings: SettingsPolicy::default(),
             clients_root: default_clients_root(),
+            corp_tools_dir: None,
             cf_wrapper_hash: None,
         }
     }

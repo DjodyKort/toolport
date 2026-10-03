@@ -59,6 +59,16 @@ pub(super) fn shell_quote(arg: &str) -> String {
     }
 }
 
+const DEFAULT_CF_DIR_LINE: &str = r#"local cf_dir="${HOME}/.local/share/corp-dev-tools""#;
+
+fn presync_block(roots: &Roots) -> String {
+    if roots.cf_dir == roots.default_cf_dir() {
+        return PRESYNC.to_string();
+    }
+    let line = format!("local cf_dir={}", shell_quote(&roots.cf_dir.to_string_lossy()));
+    PRESYNC.replacen(DEFAULT_CF_DIR_LINE, &line, 1)
+}
+
 pub fn shim_snippet(
     roots: &Roots,
     profiles: &BTreeMap<String, ProfileSpec>,
@@ -66,7 +76,7 @@ pub fn shim_snippet(
 ) -> String {
     let mut lines: Vec<String> = vec![HEADER.to_string()];
     if wrap_default {
-        lines.push(PRESYNC.to_string());
+        lines.push(presync_block(roots));
     }
     let presync = if wrap_default {
         "mcpm_context_presync; "
