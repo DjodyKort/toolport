@@ -583,7 +583,8 @@ fn clause_matches(version: &[u64], clause: &str) -> bool {
 }
 
 /// Does `version` satisfy `spec` (`*` or comma-joined clauses)? An unknown version
-/// matches only `*`: a build is never guessed into a range.
+/// matches only `*`: a build is never guessed into a range. A spec of nothing but commas
+/// holds no clause and matches nothing.
 pub fn spec_matches(version: Option<&str>, spec: &str) -> bool {
     let spec = spec.trim();
     let spec = if spec.is_empty() { "*" } else { spec };
@@ -594,9 +595,8 @@ pub fn spec_matches(version: Option<&str>, spec: &str) -> bool {
     if parsed.is_empty() {
         return false;
     }
-    spec.split(',')
-        .filter(|c| !c.trim().is_empty())
-        .all(|c| clause_matches(&parsed, c))
+    let mut clauses = spec.split(',').filter(|c| !c.trim().is_empty()).peekable();
+    clauses.peek().is_some() && clauses.all(|c| clause_matches(&parsed, c))
 }
 
 /// The launch env for a preset against the pinned build. Every declared knob whose range
