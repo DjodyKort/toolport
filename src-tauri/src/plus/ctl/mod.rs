@@ -10,6 +10,7 @@ mod council;
 mod import;
 mod skills;
 pub(crate) mod context;
+mod folders;
 mod output;
 mod secret;
 mod server;
@@ -153,6 +154,11 @@ pub const COMMANDS: &[Command] = &[
         path: &["context", "loads"],
         summary: "Show what a claude session loads, with token cost (--profile, --cwd)",
         handler: Some(context::loads),
+    },
+    Command {
+        path: &["context", "folders"],
+        summary: "Show the active profile per folder (--cwd, --enable, --disable)",
+        handler: Some(folders::folders),
     },
     Command {
         path: &["context", "checkpoint-status"],

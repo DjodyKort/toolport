@@ -21394,12 +21394,31 @@ mod tests {
         }
     }
 
+    #[test]
+    fn effective_profile_ignores_folder_mappings_when_disabled() {
+        let mut reg = Registry::default();
+        reg.folder_profiles = vec![registry::FolderProfile {
+            path: "/proj/work".into(),
+            profile: "Work".into(),
+        }];
+        reg.client_scopes.insert("cursor".into(), "Billing".into());
+        let root = Some("/proj/work/repo");
+        let off = effective_profile(&reg, Some("cursor"), &None, root);
+        assert_ne!(off, Some("Work".into()));
+        reg.folder_profiles_enabled = true;
+        assert_eq!(
+            effective_profile(&reg, Some("cursor"), &None, root),
+            Some("Work".into())
+        );
+    }
+
     /// Folder routing (SOU-188): a reported root that matches a `folder_profiles` mapping
     /// overrides the client's configured profile; an unmatched or absent root falls back to
     /// the configured profile (client_scopes, then env), so unmapped clients are unchanged.
     #[test]
     fn effective_profile_prefers_folder_override_then_configured() {
         let mut reg = Registry::default();
+        reg.folder_profiles_enabled = true;
         reg.folder_profiles = vec![registry::FolderProfile {
             path: "/proj/work".into(),
             profile: "Work".into(),

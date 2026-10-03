@@ -85,3 +85,30 @@ export function plusWhatLoads(
 ): Promise<WhatLoads> {
   return plusInvoke<WhatLoads>("plus.context.whatLoads", args);
 }
+
+export interface FolderProfileRow {
+  root: string;
+  applies: boolean;
+  profile: string | null;
+  wouldApply: string | null;
+  rule: string | null;
+  reason: string;
+  launchProfile: string | null;
+  tokens: number;
+}
+
+export interface FolderProfiles {
+  enabled: boolean;
+  mappings: { path: string; profile: string }[];
+  folders: FolderProfileRow[];
+}
+
+export function plusFolderProfiles(
+  args: { cwd?: string; roots?: string[] } = {},
+): Promise<FolderProfiles> {
+  return plusInvoke<FolderProfiles>("plus.context.folderProfiles", args);
+}
+
+export function plusSetFolderProfiles(enabled: boolean): Promise<{ enabled: boolean }> {
+  return plusInvoke<{ enabled: boolean }>("plus.context.folderProfilesSet", { enabled });
+}

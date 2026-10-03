@@ -9,6 +9,7 @@ pub mod compact;
 pub mod config;
 pub mod dedupe;
 pub mod doctor;
+pub mod folders;
 pub mod launch;
 pub mod layers;
 pub mod loads;
@@ -21,6 +22,8 @@ pub mod shims;
 mod tests;
 #[cfg(test)]
 mod tests_compact;
+#[cfg(test)]
+mod tests_folders;
 #[cfg(test)]
 mod tests_hooks;
 

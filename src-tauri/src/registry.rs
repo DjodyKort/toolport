@@ -1165,6 +1165,10 @@ pub struct Registry {
     /// folder routing (every client follows its configured/active profile as before).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub folder_profiles: Vec<FolderProfile>,
+    /// `plus.folderProfiles.enabled`: master switch for folder routing. Off by default, so a
+    /// reported root never changes the client's profile until this is turned on.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub folder_profiles_enabled: bool,
     /// Per-client discovery-mode override, keyed by stable client id (e.g. "cursor" ->
     /// "grouped"). Value is `"full" | "lazy" | "grouped"`; an absent entry means the client
     /// inherits the global mode (`discovery_mode`, else `lazy_discovery`). The gateway
@@ -1519,6 +1523,7 @@ impl Default for Registry {
             result_budgets: HashMap::new(),
             client_scopes: HashMap::new(),
             folder_profiles: Vec::new(),
+            folder_profiles_enabled: false,
             client_discovery: HashMap::new(),
             client_managed_entries: HashMap::new(),
             http_clients: Vec::new(),
@@ -2499,6 +2504,15 @@ impl Registry {
     /// canonicalizing would fail for a root that doesn't exist on THIS machine, and the point
     /// is to match what the client reported.
     pub fn profile_for_root(&self, root: &str) -> Option<String> {
+        if !self.folder_profiles_enabled {
+            return None;
+        }
+        self.matching_folder_profile(root)
+            .map(|fp| self.resolve_profile_id(&fp.profile))
+    }
+
+    /// The longest-prefix mapping for `root`, regardless of the enable switch.
+    pub fn matching_folder_profile(&self, root: &str) -> Option<&FolderProfile> {
         let root = normalize_path(root);
         if root.is_empty() {
             return None;
@@ -2507,10 +2521,10 @@ impl Registry {
             .iter()
             .filter_map(|fp| {
                 let base = normalize_path(&fp.path);
-                path_is_within(&base, &root).then_some((base.len(), fp.profile.clone()))
+                path_is_within(&base, &root).then_some((base.len(), fp))
             })
             .max_by_key(|(len, _)| *len)
-            .map(|(_, profile)| self.resolve_profile_id(&profile))
+            .map(|(_, fp)| fp)
     }
 
     /// Replace the folder -> profile routing mappings (the UI edits the list wholesale). Drops
@@ -4924,6 +4938,7 @@ mod tests {
     #[test]
     fn profile_for_root_longest_prefix_wins_on_a_path_boundary() {
         let mut r = Registry::default();
+        r.folder_profiles_enabled = true;
         r.folder_profiles = vec![
             FolderProfile {
                 path: "/home/me/work".into(),
@@ -5051,6 +5066,7 @@ mod tests {
     #[test]
     fn profile_for_root_normalizes_separators_and_trailing_slash() {
         let mut r = Registry::default();
+        r.folder_profiles_enabled = true;
         r.folder_profiles = vec![FolderProfile {
             path: "/home/me/work/".into(),
             profile: "Work".into(),

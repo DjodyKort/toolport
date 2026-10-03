@@ -3251,6 +3251,7 @@ fn matrix_routing_declared_root_selects_folder_profile() {
     let mut reg = registry::load_from(&path).expect("load fixture registry");
     reg.client_scopes
         .insert("matrix-folder".to_string(), "scope-one".to_string());
+    reg.folder_profiles_enabled = true;
     reg.folder_profiles.push(FolderProfile {
         path: root.display().to_string(),
         profile: "scope-two".to_string(),
