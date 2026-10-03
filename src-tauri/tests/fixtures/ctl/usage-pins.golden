@@ -1760,6 +1760,220 @@ exit 2
 --- stderr
 toolportctl: --short-ids requires a file
 Run `toolportctl --help` for usage.
+=== ["mcp"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: mcp <install [--profile <id>] | uninstall | doctor | tools>
+Run `toolportctl --help` for usage.
+=== ["--json","mcp"]
+exit 2
+--- stdout
+{"command":"mcp","error":{"code":"usage","message":"usage: mcp <install [--profile <id>] | uninstall | doctor | tools>"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["mcp","serve"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: mcp <install [--profile <id>] | uninstall | doctor | tools>
+Run `toolportctl --help` for usage.
+=== ["mcp","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: mcp <install [--profile <id>] | uninstall | doctor | tools>
+Run `toolportctl --help` for usage.
+=== ["mcp","install","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["mcp","install","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: extra
+Run `toolportctl --help` for usage.
+=== ["mcp","install","-"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: -
+Run `toolportctl --help` for usage.
+=== ["mcp","install","-x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: -x
+Run `toolportctl --help` for usage.
+=== ["mcp","install","--profile"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --profile requires a profile id
+Run `toolportctl --help` for usage.
+=== ["mcp","install","--profile=x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: --profile=x
+Run `toolportctl --help` for usage.
+=== ["mcp","install","--profile","p","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: extra
+Run `toolportctl --help` for usage.
+=== ["mcp","install","--bogus","--profile"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["mcp","install","--profile","--bogus"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: No profile with id '--bogus'
+=== ["--json","mcp","install","--profile"]
+exit 2
+--- stdout
+{"command":"mcp","error":{"code":"usage","message":"--profile requires a profile id"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["mcp","uninstall","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: extra
+Run `toolportctl --help` for usage.
+=== ["mcp","uninstall","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["mcp","doctor","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: extra
+Run `toolportctl --help` for usage.
+=== ["mcp","doctor","-"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: -
+Run `toolportctl --help` for usage.
+=== ["mcp","tools","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: extra
+Run `toolportctl --help` for usage.
+=== ["--json","mcp","tools","extra"]
+exit 2
+--- stdout
+{"command":"mcp","error":{"code":"usage","message":"unknown argument: extra"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["usage","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: --bogus
+usage: usage [--root <projects dir>] [--no-refresh]
+Run `toolportctl --help` for usage.
+=== ["usage","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: extra
+usage: usage [--root <projects dir>] [--no-refresh]
+Run `toolportctl --help` for usage.
+=== ["usage","-"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: -
+usage: usage [--root <projects dir>] [--no-refresh]
+Run `toolportctl --help` for usage.
+=== ["usage","-x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: -x
+usage: usage [--root <projects dir>] [--no-refresh]
+Run `toolportctl --help` for usage.
+=== ["usage","--root"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --root requires a directory
+Run `toolportctl --help` for usage.
+=== ["usage","--root="]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --root requires a directory
+Run `toolportctl --help` for usage.
+=== ["usage","--root=","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --root requires a directory
+Run `toolportctl --help` for usage.
+=== ["usage","--bogus","--root="]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: --bogus
+usage: usage [--root <projects dir>] [--no-refresh]
+Run `toolportctl --help` for usage.
+=== ["usage","--no-refresh=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: --no-refresh=1
+usage: usage [--root <projects dir>] [--no-refresh]
+Run `toolportctl --help` for usage.
+=== ["usage","--no-refresh","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: --bogus
+usage: usage [--root <projects dir>] [--no-refresh]
+Run `toolportctl --help` for usage.
+=== ["usage","--root","d","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: extra
+usage: usage [--root <projects dir>] [--no-refresh]
+Run `toolportctl --help` for usage.
+=== ["usage","--root=d","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: extra
+usage: usage [--root <projects dir>] [--no-refresh]
+Run `toolportctl --help` for usage.
+=== ["usage","--root=d=e","--bogus=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: --bogus=1
+usage: usage [--root <projects dir>] [--no-refresh]
+Run `toolportctl --help` for usage.
+=== ["--json","usage","--bogus"]
+exit 2
+--- stdout
+{"command":"usage","error":{"code":"usage","message":"unknown argument: --bogus\nusage: usage [--root <projects dir>] [--no-refresh]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["--json","usage","--root"]
+exit 2
+--- stdout
+{"command":"usage","error":{"code":"usage","message":"--root requires a directory"},"ok":false,"schemaVersion":1}
+--- stderr
 === ["council"]
 exit 2
 --- stdout
