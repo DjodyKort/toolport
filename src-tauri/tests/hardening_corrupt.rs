@@ -146,6 +146,74 @@ fn truncated_registry_is_refused_by_the_ctl_and_recovered_by_the_loader() {
 }
 
 #[test]
+fn an_unreadable_registry_names_the_backup_and_leaves_the_restore_to_the_user() {
+    let sb = Sandbox::new("corrupt-registry-hint");
+    alpha_registry(&sb);
+    let quiet = sb.script("quiet.sh", "exit 0");
+    let quiet = quiet.to_string_lossy().into_owned();
+    for name in ["beta", "gamma"] {
+        sb.ctl(&["--json", "server", "new", name, "--command", &quiet])
+            .assert_ok();
+    }
+    truncate_half(&sb.registry_path());
+    let damaged = std::fs::read(sb.registry_path()).unwrap();
+    let before = sb.tree();
+
+    let listing = sb.ctl(&["--json", "server", "ls"]);
+    listing.assert_failed();
+    let message = listing.error_message();
+    assert!(message.contains("registry is not readable"), "{message}");
+    assert!(
+        message.contains("copy that file over") && message.contains("nothing is restored"),
+        "the manual restore step is missing: {message}"
+    );
+    let named = message
+        .split_once("backup generation is ")
+        .and_then(|(_, rest)| rest.split_once(". To restore"))
+        .map(|(path, _)| std::path::PathBuf::from(path))
+        .unwrap_or_else(|| panic!("no backup generation named: {message}"));
+    assert!(
+        named.starts_with(&sb.data)
+            && named
+                .file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.starts_with("registry.json.bak")),
+        "{named:?}"
+    );
+    let backed_up: Value = serde_json::from_slice(&std::fs::read(&named).unwrap())
+        .expect("the named generation must be readable");
+    assert!(backed_up["servers"].is_array());
+
+    let status = sb.ctl(&["--json", "status"]);
+    status.assert_ok();
+    assert_eq!(
+        status.data()["registry"]["error"].as_str(),
+        Some(message.as_str()),
+        "status and server ls must give the same hint"
+    );
+    assert_eq!(sb.tree(), before, "naming the backup must not restore it");
+    assert_eq!(std::fs::read(sb.registry_path()).unwrap(), damaged);
+
+    std::fs::copy(&named, sb.registry_path()).unwrap();
+    sb.ctl(&["--json", "server", "ls"]).assert_ok();
+    let names = sb.server_names();
+    assert!(
+        names.contains(&"alpha".to_string()) && names.contains(&"beta".to_string()),
+        "{names:?}"
+    );
+
+    let solo = Sandbox::new("corrupt-registry-hint-solo");
+    std::fs::write(solo.registry_path(), b"this is not json at all\n").unwrap();
+    let bare = solo.ctl(&["--json", "server", "ls"]);
+    bare.assert_failed();
+    let bare_message = bare.error_message();
+    assert!(
+        bare_message.contains("registry is not readable") && !bare_message.contains("backup"),
+        "no backup exists, so none may be named: {bare_message}"
+    );
+}
+
+#[test]
 fn damaged_secrets_vault_is_refused_clearly_and_never_rewritten() {
     let sb = Sandbox::new("corrupt-vault");
     alpha_registry(&sb);

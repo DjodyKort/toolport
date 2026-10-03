@@ -36,7 +36,7 @@ pub(super) fn snapshot() -> Snapshot {
     match std::fs::read_to_string(&path) {
         Ok(text) => match serde_json::from_str::<Registry>(&text) {
             Ok(reg) => snap.registry = Some(reg),
-            Err(e) => snap.registry_error = Some(format!("registry is not readable: {e}")),
+            Err(e) => snap.registry_error = Some(registry::unreadable_message(&path, e)),
         },
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
         Err(e) => snap.registry_error = Some(format!("cannot read registry: {e}")),

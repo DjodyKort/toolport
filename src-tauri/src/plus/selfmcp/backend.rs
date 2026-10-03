@@ -80,9 +80,8 @@ pub(super) fn read_registry() -> Result<Registry, ToolError> {
         return Ok(Registry::default());
     };
     match std::fs::read_to_string(&path) {
-        Ok(text) => serde_json::from_str(&text).map_err(|e| {
-            ToolError::new("registry_error", format!("registry is not readable: {e}"))
-        }),
+        Ok(text) => serde_json::from_str(&text)
+            .map_err(|e| ToolError::new("registry_error", registry::unreadable_message(&path, e))),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Registry::default()),
         Err(e) => Err(ToolError::new(
             "registry_error",
