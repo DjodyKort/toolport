@@ -58,7 +58,7 @@ pub struct Metrics {
 
 impl Metrics {
     pub fn read_ratio(&self) -> Option<f64> {
-        let total = self.cache_read + self.cache_create;
+        let total = u128::from(self.cache_read) + u128::from(self.cache_create);
         (total > 0).then(|| self.cache_read as f64 / total as f64)
     }
 
@@ -177,21 +177,21 @@ pub fn measure(paths: &[PathBuf], min_turns: usize) -> Metrics {
     for path in paths {
         let (mut rd, mut cw, mut inp, mut out, mut turns) = (0u64, 0u64, 0u64, 0u64, 0usize);
         for u in usage_blocks(path) {
-            rd += tokens(&u, "cache_read_input_tokens");
-            cw += tokens(&u, "cache_creation_input_tokens");
-            inp += tokens(&u, "input_tokens");
-            out += tokens(&u, "output_tokens");
+            rd = rd.saturating_add(tokens(&u, "cache_read_input_tokens"));
+            cw = cw.saturating_add(tokens(&u, "cache_creation_input_tokens"));
+            inp = inp.saturating_add(tokens(&u, "input_tokens"));
+            out = out.saturating_add(tokens(&u, "output_tokens"));
             turns += 1;
         }
-        if turns < min_turns || rd + cw == 0 {
+        if turns < min_turns || (rd == 0 && cw == 0) {
             continue;
         }
         m.sessions += 1;
         m.turns += turns as u64;
-        m.cache_read += rd;
-        m.cache_create += cw;
-        m.input_tokens += inp;
-        m.output_tokens += out;
+        m.cache_read = m.cache_read.saturating_add(rd);
+        m.cache_create = m.cache_create.saturating_add(cw);
+        m.input_tokens = m.input_tokens.saturating_add(inp);
+        m.output_tokens = m.output_tokens.saturating_add(out);
     }
     m
 }
