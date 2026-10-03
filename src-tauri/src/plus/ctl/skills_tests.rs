@@ -6,8 +6,8 @@ struct Fx {
     dir: PathBuf,
     home: PathBuf,
     repo: PathBuf,
-    _lock: std::sync::MutexGuard<'static, ()>,
     _override: crate::registry::DataDirOverride,
+    _lock: std::sync::MutexGuard<'static, ()>,
 }
 
 impl Fx {
