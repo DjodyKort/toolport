@@ -189,7 +189,26 @@ fn decorate(cfg: &Config, method: &str, mut result: Value) -> Value {
 
 /// The advertised tool list. `greet` only appears once the server has "grown"
 /// (after a `grow` call), modeling a runtime tool-set change.
+fn council_profile() -> bool {
+    std::env::var("MOCK_MCP_PROFILE").as_deref() == Ok("council")
+}
+
 fn tool_list(cfg: &Config, grown: bool) -> Value {
+    if council_profile() {
+        let tools: Vec<Value> = [
+            "council_models_list",
+            "council_ask",
+            "council_review",
+            "council_config_set",
+        ]
+        .iter()
+        .map(|name| {
+            json!({ "name": name, "description": "Council tool fixture.",
+                    "inputSchema": { "type": "object", "properties": {} } })
+        })
+        .collect();
+        return json!({ "tools": tools });
+    }
     let mut tools = vec![
         json!({ "name": "echo", "description": "Echo back the text argument.",
                 "inputSchema": { "type": "object", "properties": { "text": { "type": "string" } } } }),
@@ -236,6 +255,12 @@ fn tool_list(cfg: &Config, grown: bool) -> Value {
 /// The advertised resource list. `grown` adds a second resource, modeling a
 /// runtime `resources/list_changed`.
 fn resource_list(grown: bool) -> Value {
+    if council_profile() {
+        return json!({ "resources": [
+            { "uri": "council://config", "name": "config" },
+            { "uri": "council://how-to-use", "name": "how-to-use" },
+        ] });
+    }
     let mut resources = vec![json!({ "uri": "mock://base", "name": "base" })];
     if grown {
         resources.push(json!({ "uri": "mock://grown", "name": "grown" }));
