@@ -5,9 +5,21 @@ use std::path::{Path, PathBuf};
 #[path = "../../tests/common/exec.rs"]
 pub(crate) mod exec;
 
+struct SecretKeyRestore(Option<std::ffi::OsString>);
+
+impl Drop for SecretKeyRestore {
+    fn drop(&mut self) {
+        match &self.0 {
+            Some(value) => std::env::set_var("TOOLPORT_SECRET_KEY", value),
+            None => std::env::remove_var("TOOLPORT_SECRET_KEY"),
+        }
+    }
+}
+
 pub(crate) struct DataDirFx {
     pub dir: PathBuf,
-    // fields drop in order: the override must go before the lock is released
+    // fields drop in order: key and override must go before the lock is released
+    _secret_key: Option<SecretKeyRestore>,
     _override: crate::registry::DataDirOverride,
     _lock: std::sync::MutexGuard<'static, ()>,
 }
@@ -33,9 +45,19 @@ impl DataDirFx {
         let guard = crate::registry::DataDirOverride::set(&data_dir);
         Self {
             dir,
+            _secret_key: None,
             _override: guard,
             _lock: lock,
         }
+    }
+
+    /// Keeps secrets in the encrypted-file backend so a test never reaches the platform store.
+    pub fn with_secret_key(mut self, key: &str) -> Self {
+        if self._secret_key.is_none() {
+            self._secret_key = Some(SecretKeyRestore(std::env::var_os("TOOLPORT_SECRET_KEY")));
+        }
+        std::env::set_var("TOOLPORT_SECRET_KEY", key);
+        self
     }
 
     pub fn write_registry(&self, registry: &serde_json::Value) {
