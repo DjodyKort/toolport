@@ -24,7 +24,9 @@ Commands:
   server         Manage servers (mutations) (not implemented)
   auth statusline Compact auth-health JSON for a Claude Code statusline
   auth hook      Auth-health JSON for a Claude Code SessionStart hook
-  auth           Auth health (not implemented)
+  auth probe     Probe login health now (--server <id>, --force)
+  auth login     Sign in to a server again (<server>, --no-open)
+  auth           Auth health: statusline hook probe login
   secret set     Store a secret read from stdin or --value-env
   secret get     Check a secret (--reveal prints the value)
   secret rm      Remove a secret
@@ -111,7 +113,9 @@ Commands:
   server         Manage servers (mutations) (not implemented)
   auth statusline Compact auth-health JSON for a Claude Code statusline
   auth hook      Auth-health JSON for a Claude Code SessionStart hook
-  auth           Auth health (not implemented)
+  auth probe     Probe login health now (--server <id>, --force)
+  auth login     Sign in to a server again (<server>, --no-open)
+  auth           Auth health: statusline hook probe login
   secret set     Store a secret read from stdin or --value-env
   secret get     Check a secret (--reveal prints the value)
   secret rm      Remove a secret
@@ -198,7 +202,9 @@ Commands:
   server         Manage servers (mutations) (not implemented)
   auth statusline Compact auth-health JSON for a Claude Code statusline
   auth hook      Auth-health JSON for a Claude Code SessionStart hook
-  auth           Auth health (not implemented)
+  auth probe     Probe login health now (--server <id>, --force)
+  auth login     Sign in to a server again (<server>, --no-open)
+  auth           Auth health: statusline hook probe login
   secret set     Store a secret read from stdin or --value-env
   secret get     Check a secret (--reveal prints the value)
   secret rm      Remove a secret
@@ -285,7 +291,9 @@ Commands:
   server         Manage servers (mutations) (not implemented)
   auth statusline Compact auth-health JSON for a Claude Code statusline
   auth hook      Auth-health JSON for a Claude Code SessionStart hook
-  auth           Auth health (not implemented)
+  auth probe     Probe login health now (--server <id>, --force)
+  auth login     Sign in to a server again (<server>, --no-open)
+  auth           Auth health: statusline hook probe login
   secret set     Store a secret read from stdin or --value-env
   secret get     Check a secret (--reveal prints the value)
   secret rm      Remove a secret
@@ -459,20 +467,110 @@ exit 2
 {"command":"auth hook","error":{"code":"usage","message":"unexpected argument: extra"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["auth"]
-exit 1
+exit 2
 --- stdout
 --- stderr
-toolportctl: auth: not implemented
+toolportctl: usage: auth statusline|hook|probe|login (probe: [--server <id>] [--force]; login: <server> [--no-open])
+Run `toolportctl --help` for usage.
 === ["--json","auth"]
-exit 1
+exit 2
 --- stdout
-{"command":"auth","error":{"code":"not_implemented","message":"auth: not implemented"},"ok":false,"schemaVersion":1}
+{"command":"auth","error":{"code":"usage","message":"usage: auth statusline|hook|probe|login (probe: [--server <id>] [--force]; login: <server> [--no-open])"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["auth","nope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: auth statusline|hook|probe|login (probe: [--server <id>] [--force]; login: <server> [--no-open])
+Run `toolportctl --help` for usage.
+=== ["auth","probe","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: auth probe [--server <id>] [--force]
+Run `toolportctl --help` for usage.
+=== ["--json","auth","probe","--bogus"]
+exit 2
+--- stdout
+{"command":"auth probe","error":{"code":"usage","message":"unexpected argument: --bogus\nusage: auth probe [--server <id>] [--force]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["auth","probe","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: auth probe [--server <id>] [--force]
+Run `toolportctl --help` for usage.
+=== ["auth","probe","--server"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --server requires a server id
+Run `toolportctl --help` for usage.
+=== ["auth","probe","--server="]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --server requires a server id
+Run `toolportctl --help` for usage.
+=== ["auth","probe","--force=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --force=1
+usage: auth probe [--server <id>] [--force]
+Run `toolportctl --help` for usage.
+=== ["auth","probe","--server","nope"]
 exit 1
 --- stdout
 --- stderr
-toolportctl: auth: not implemented
+toolportctl: no auth probe is registered for nope; `toolportctl auth login nope` shows its sign-in step
+=== ["--json","auth","probe","--server","nope"]
+exit 1
+--- stdout
+{"command":"auth probe","error":{"code":"not_found","message":"no auth probe is registered for nope; `toolportctl auth login nope` shows its sign-in step"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["auth","login"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: auth login <server> [--no-open]
+Run `toolportctl --help` for usage.
+=== ["--json","auth","login"]
+exit 2
+--- stdout
+{"command":"auth login","error":{"code":"usage","message":"usage: auth login <server> [--no-open]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["auth","login","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: auth login <server> [--no-open]
+Run `toolportctl --help` for usage.
+=== ["auth","login","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: auth login <server> [--no-open]
+Run `toolportctl --help` for usage.
+=== ["auth","login","--no-open"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: auth login <server> [--no-open]
+Run `toolportctl --help` for usage.
+=== ["auth","login","nope"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: unknown server: nope
+=== ["--json","auth","login","nope"]
+exit 1
+--- stdout
+{"command":"auth login","error":{"code":"not_found","message":"unknown server: nope"},"ok":false,"schemaVersion":1}
+--- stderr
 === ["status","--","x"]
 exit 2
 --- stdout

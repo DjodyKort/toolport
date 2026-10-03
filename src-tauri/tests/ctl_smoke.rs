@@ -34,6 +34,8 @@ const NOT_READ_ONLY: &[(&str, &str)] = &[
     ("server edit", "changes a server; round trip test"),
     ("secret set", "writes the vault; round trip test"),
     ("secret rm", "writes the vault; round trip test"),
+    ("auth probe", "writes the auth status cache; ctl::auth_tests"),
+    ("auth login", "starts a sign-in and writes the vault; ctl::auth_tests"),
     ("compression proxy", "starts or stops a local proxy process"),
     ("compression enable", "writes the policy, shims and registry entry; compression round trip test"),
     ("compression disable", "writes the policy and removes artifacts; compression round trip test"),
