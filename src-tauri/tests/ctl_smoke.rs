@@ -100,6 +100,7 @@ impl World {
                 "servers": [
                     {"id": "srv-alpha", "name": "alpha", "transport": "stdio",
                      "command": mock, "args": [],
+                     "mcpmSource": {"type": "unknown", "reason": "synthetic fixture"},
                      "env": [{"key": "API_KEY", "value": FAKE_SECRET, "secret": true}]},
                     {"id": "srv-beta", "name": "beta", "transport": "http",
                      "url": "https://example.invalid/mcp"}
