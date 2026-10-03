@@ -3194,16 +3194,24 @@ fn read_registry_file(path: &Path) -> ReadOutcome {
 /// keeps the most recent few so a repeating failure can't fill the disk.
 /// Returns the quarantine file path when a copy was written.
 fn quarantine_unreadable(path: &Path, content: &str) -> Option<PathBuf> {
-    const KEEP: usize = 3;
+    let dest = quarantine_dest(path);
+    atomic_write(&dest, content).ok()?;
+    prune_quarantined(path)?;
+    Some(dest)
+}
+
+fn quarantine_dest(path: &Path) -> PathBuf {
     let ts = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis())
         .unwrap_or(0);
     let mut name = path.as_os_str().to_owned();
     name.push(format!(".unreadable-{ts}"));
-    let dest = PathBuf::from(name);
-    atomic_write(&dest, content).ok()?;
-    // Prune older quarantine files beyond the newest KEEP.
+    PathBuf::from(name)
+}
+
+fn prune_quarantined(path: &Path) -> Option<()> {
+    const KEEP: usize = 3;
     let (Some(dir), Some(base)) = (path.parent(), path.file_name().and_then(|f| f.to_str())) else {
         return None;
     };
@@ -3225,6 +3233,14 @@ fn quarantine_unreadable(path: &Path, content: &str) -> Option<PathBuf> {
     while quarantined.len() > KEEP {
         let _ = std::fs::remove_file(quarantined.remove(0));
     }
+    Some(())
+}
+
+/// [`quarantine_unreadable`] for a file other stores overwrite after falling back to defaults.
+pub(crate) fn quarantine_existing(path: &Path) -> Option<PathBuf> {
+    let dest = quarantine_dest(path);
+    std::fs::copy(path, &dest).ok()?;
+    prune_quarantined(path)?;
     Some(dest)
 }
 
