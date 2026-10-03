@@ -1,4 +1,4 @@
-//! Health checks: drift, staleness and the cf-dev-tools coexistence tripwires. Returns
+//! Health checks: drift, staleness and the corp-dev-tools coexistence tripwires. Returns
 //! `(level, message)` pairs, level being `ok`, `warn` or `fail`.
 
 use super::config::ContextConfig;
@@ -16,7 +16,7 @@ pub type Check = (String, String);
 
 pub const PROFILE_STATE_FILE: &str = ".mcpm-context-state.json";
 
-/// The only `~/.claude` assets cf-dev-tools' sync writes today. New files in its `claude/`
+/// The only `~/.claude` assets corp-dev-tools' sync writes today. New files in its `claude/`
 /// source dir mean the org sync grew scope.
 const KNOWN_CF_ASSETS: [&str; 5] = [
     "CLAUDE.md",
@@ -247,7 +247,7 @@ fn check_cf_drift(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
     if !cf.exists() {
         return vec![check(
             "ok",
-            "cf-dev-tools not installed — no coexistence constraints",
+            "corp-dev-tools not installed — no coexistence constraints",
         )];
     }
     let mut checks = Vec::new();
@@ -259,12 +259,12 @@ fn check_cf_drift(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
         if sha256_file(&wrapper).as_deref() != Some(baseline) {
             checks.push(check(
                 "warn",
-                "cf-dev-tools shell-wrapper.sh CHANGED since baseline — re-verify its sync still leaves rules/ and mcpServers alone, then re-baseline via `mcpm context sync`",
+                "corp-dev-tools shell-wrapper.sh CHANGED since baseline — re-verify its sync still leaves rules/ and mcpServers alone, then re-baseline via `mcpm context sync`",
             ));
         } else {
             checks.push(check(
                 "ok",
-                "cf-dev-tools shell-wrapper unchanged since baseline",
+                "corp-dev-tools shell-wrapper unchanged since baseline",
             ));
         }
     }
@@ -285,7 +285,7 @@ fn check_cf_drift(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
             checks.push(check(
                 "warn",
                 format!(
-                    "cf-dev-tools claude/ grew new assets: {} — its sync scope may have expanded",
+                    "corp-dev-tools claude/ grew new assets: {} — its sync scope may have expanded",
                     unexpected.join(", ")
                 ),
             ));

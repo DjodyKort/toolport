@@ -680,7 +680,7 @@ fn registry_infers_services_and_intervals() {
     reg.servers = vec![
         entry("slack", &[("SLACK_BOT_TOKEN", None, true)], json!({})),
         entry(
-            "codeforward-odoo",
+            "examplecorp-odoo",
             &[
                 ("ODOO_URL", Some("https://odoo.example.test"), false),
                 ("ODOO_DB", Some("db1"), false),
@@ -712,7 +712,7 @@ fn registry_infers_services_and_intervals() {
     let get = |id: &str| probes.get(id).unwrap().clone();
     assert_eq!(get("slack").params["service"], "slack");
     assert_eq!(get("slack").min_interval_secs, 30 * 60);
-    let odoo = get("codeforward-odoo");
+    let odoo = get("examplecorp-odoo");
     assert_eq!(odoo.min_interval_secs, 6 * 3600);
     assert_eq!(odoo.params["base_url"], "https://odoo.example.test");
     assert_eq!(odoo.params["db"], "db1");

@@ -12,7 +12,7 @@ pub const PERSONAL_RULE_NAME: &str = "personal";
 
 pub const MANAGED_LOCAL_HEADER: &str = "<!-- Managed by `mcpm context` — edit the canonical layer (skills_repo/rules/client-*/SKILL.md); `mcpm context sync` regenerates. -->";
 
-const PERSONAL_TEMPLATE: &str = "---\nname: personal\ndescription: \"Personal always-on layer on top of the org CLAUDE.md\"\nactivation: always\n---\n\n## Personal preferences\n\n<!-- Your personal layer. Survives cf-dev-tools syncs (it never touches rules/).\n     Keep it additive to the org CLAUDE.md — rules load after user memory. -->\n";
+const PERSONAL_TEMPLATE: &str = "---\nname: personal\ndescription: \"Personal always-on layer on top of the org CLAUDE.md\"\nactivation: always\n---\n\n## Personal preferences\n\n<!-- Your personal layer. Survives corp-dev-tools syncs (it never touches rules/).\n     Keep it additive to the org CLAUDE.md — rules load after user memory. -->\n";
 
 #[derive(Clone, Debug)]
 pub struct Layer {

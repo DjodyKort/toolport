@@ -523,7 +523,7 @@ fn google_registry_reads_plain_profile_env() {
     server(
         "google-docs-cf",
         "GOOGLE_MCP_PROFILE",
-        Some("codeforward"),
+        Some("examplecorp"),
         false,
     );
     server("other", "ODOO_URL", Some("x"), false);
@@ -531,10 +531,10 @@ fn google_registry_reads_plain_profile_env() {
     server("secretive", "GOOGLE_MCP_PROFILE", None, true);
     let registry = super::google::google_registry(&reg);
     let spec = registry.get("google-docs-cf").unwrap();
-    assert_eq!(spec.profile.as_deref(), Some("codeforward"));
+    assert_eq!(spec.profile.as_deref(), Some("examplecorp"));
     assert_eq!(
         spec.profile_gate_key().as_deref(),
-        Some("google:codeforward")
+        Some("google:examplecorp")
     );
     assert_eq!(registry.iter().count(), 1);
 }

@@ -363,7 +363,7 @@ fn shim_snippet_variants() {
 #[test]
 fn doctor_flags_a_changed_wrapper_and_new_cf_assets() {
     let h = TempHome::new();
-    h.write(".local/share/cf-dev-tools/claude/shell-wrapper.sh", "v1\n");
+    h.write(".local/share/corp-dev-tools/claude/shell-wrapper.sh", "v1\n");
     let roots = h.roots();
     let mut cfg = config(json!({}));
     let r = apply(&roots, &mut cfg, ApplyOptions::default()).unwrap();
@@ -371,8 +371,8 @@ fn doctor_flags_a_changed_wrapper_and_new_cf_assets() {
     assert!(doctor::run_checks(&roots, &cfg)
         .iter()
         .any(|c| c.1.contains("unchanged since baseline")));
-    h.write(".local/share/cf-dev-tools/claude/shell-wrapper.sh", "v2\n");
-    h.write(".local/share/cf-dev-tools/claude/hooks.json", "{}");
+    h.write(".local/share/corp-dev-tools/claude/shell-wrapper.sh", "v2\n");
+    h.write(".local/share/corp-dev-tools/claude/hooks.json", "{}");
     let checks = doctor::run_checks(&roots, &load_config(&roots.context_config_path()));
     assert!(checks
         .iter()
