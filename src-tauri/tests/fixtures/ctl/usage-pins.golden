@@ -37,13 +37,22 @@ Commands:
   context sync   Plan then apply the context deploy (--home <dir>, --rules, --dry-run)
   context        Context: loads checkpoint-status plan apply sync
   compression status Show the compression policy, pin and drift
-  compression presets List compression presets
+  compression presets List presets (--refresh re-snapshots knobs, --dry-run)
+  compression enable Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)
+  compression disable Disable compression (--teardown, --dry-run)
+  compression set-provider Swap the active provider and re-apply (--dry-run)
+  compression use Switch the active preset and re-apply (--dry-run)
+  compression sync Re-apply the policy: shims, env snippet, MCP entry (--mcpm-root, --dry-run)
+  compression pin Show or set the exact engine pin (--install, --refresh, --dry-run)
+  compression seal Declare the live proxy posture as policy (--apply, --dry-run)
+  compression env Print the proxy env for a directory, for eval (--cwd)
+  compression doctor Run the compression health checks
   compression run Launch claude under the directory's policy (--plan to preview)
   compression verify Check provider health, pin, shims and measure cache behaviour
   compression ledger Launch and token-savings ledger (summary | record)
   compression proxy Proxy lifecycle: up, down, restart
   compression update Move the engine pin (--to V | --latest, --accept to apply)
-  compression    Compression runs (not implemented)
+  compression    Compression: status presets enable disable set-provider use sync pin seal env doctor run verify ledger proxy update
   import mcpm    Import an mcpm config root (--dry-run prints the plan)
   import rename-refs Rewrite mcp__mcpm_ tool references under --paths (--tools F, --dry-run)
   import         Import data from other tools (not implemented)
@@ -115,13 +124,22 @@ Commands:
   context sync   Plan then apply the context deploy (--home <dir>, --rules, --dry-run)
   context        Context: loads checkpoint-status plan apply sync
   compression status Show the compression policy, pin and drift
-  compression presets List compression presets
+  compression presets List presets (--refresh re-snapshots knobs, --dry-run)
+  compression enable Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)
+  compression disable Disable compression (--teardown, --dry-run)
+  compression set-provider Swap the active provider and re-apply (--dry-run)
+  compression use Switch the active preset and re-apply (--dry-run)
+  compression sync Re-apply the policy: shims, env snippet, MCP entry (--mcpm-root, --dry-run)
+  compression pin Show or set the exact engine pin (--install, --refresh, --dry-run)
+  compression seal Declare the live proxy posture as policy (--apply, --dry-run)
+  compression env Print the proxy env for a directory, for eval (--cwd)
+  compression doctor Run the compression health checks
   compression run Launch claude under the directory's policy (--plan to preview)
   compression verify Check provider health, pin, shims and measure cache behaviour
   compression ledger Launch and token-savings ledger (summary | record)
   compression proxy Proxy lifecycle: up, down, restart
   compression update Move the engine pin (--to V | --latest, --accept to apply)
-  compression    Compression runs (not implemented)
+  compression    Compression: status presets enable disable set-provider use sync pin seal env doctor run verify ledger proxy update
   import mcpm    Import an mcpm config root (--dry-run prints the plan)
   import rename-refs Rewrite mcp__mcpm_ tool references under --paths (--tools F, --dry-run)
   import         Import data from other tools (not implemented)
@@ -193,13 +211,22 @@ Commands:
   context sync   Plan then apply the context deploy (--home <dir>, --rules, --dry-run)
   context        Context: loads checkpoint-status plan apply sync
   compression status Show the compression policy, pin and drift
-  compression presets List compression presets
+  compression presets List presets (--refresh re-snapshots knobs, --dry-run)
+  compression enable Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)
+  compression disable Disable compression (--teardown, --dry-run)
+  compression set-provider Swap the active provider and re-apply (--dry-run)
+  compression use Switch the active preset and re-apply (--dry-run)
+  compression sync Re-apply the policy: shims, env snippet, MCP entry (--mcpm-root, --dry-run)
+  compression pin Show or set the exact engine pin (--install, --refresh, --dry-run)
+  compression seal Declare the live proxy posture as policy (--apply, --dry-run)
+  compression env Print the proxy env for a directory, for eval (--cwd)
+  compression doctor Run the compression health checks
   compression run Launch claude under the directory's policy (--plan to preview)
   compression verify Check provider health, pin, shims and measure cache behaviour
   compression ledger Launch and token-savings ledger (summary | record)
   compression proxy Proxy lifecycle: up, down, restart
   compression update Move the engine pin (--to V | --latest, --accept to apply)
-  compression    Compression runs (not implemented)
+  compression    Compression: status presets enable disable set-provider use sync pin seal env doctor run verify ledger proxy update
   import mcpm    Import an mcpm config root (--dry-run prints the plan)
   import rename-refs Rewrite mcp__mcpm_ tool references under --paths (--tools F, --dry-run)
   import         Import data from other tools (not implemented)
@@ -271,13 +298,22 @@ Commands:
   context sync   Plan then apply the context deploy (--home <dir>, --rules, --dry-run)
   context        Context: loads checkpoint-status plan apply sync
   compression status Show the compression policy, pin and drift
-  compression presets List compression presets
+  compression presets List presets (--refresh re-snapshots knobs, --dry-run)
+  compression enable Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)
+  compression disable Disable compression (--teardown, --dry-run)
+  compression set-provider Swap the active provider and re-apply (--dry-run)
+  compression use Switch the active preset and re-apply (--dry-run)
+  compression sync Re-apply the policy: shims, env snippet, MCP entry (--mcpm-root, --dry-run)
+  compression pin Show or set the exact engine pin (--install, --refresh, --dry-run)
+  compression seal Declare the live proxy posture as policy (--apply, --dry-run)
+  compression env Print the proxy env for a directory, for eval (--cwd)
+  compression doctor Run the compression health checks
   compression run Launch claude under the directory's policy (--plan to preview)
   compression verify Check provider health, pin, shims and measure cache behaviour
   compression ledger Launch and token-savings ledger (summary | record)
   compression proxy Proxy lifecycle: up, down, restart
   compression update Move the engine pin (--to V | --latest, --accept to apply)
-  compression    Compression runs (not implemented)
+  compression    Compression: status presets enable disable set-provider use sync pin seal env doctor run verify ledger proxy update
   import mcpm    Import an mcpm config root (--dry-run prints the plan)
   import rename-refs Rewrite mcp__mcpm_ tool references under --paths (--tools F, --dry-run)
   import         Import data from other tools (not implemented)
@@ -1311,25 +1347,218 @@ exit 2
 {"command":"context folders","error":{"code":"usage","message":"--enable and --disable are exclusive"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["compression"]
-exit 1
+exit 2
 --- stdout
 --- stderr
-toolportctl: compression: not implemented
+toolportctl: usage: compression status|presets|enable|disable|set-provider|use|sync|pin|seal|env|doctor|run|verify|ledger|proxy|update (enable: [--provider <name>] [--port <n>] [--telemetry on|off] [--preset <name>] [--mode cache|token] [--dry-run]; disable: [--teardown] [--dry-run]; set-provider: <provider> [--dry-run]; use: <preset> [--dry-run]; sync: [--mcpm-root <dir>] [--dry-run]; pin: [<version>] [--install] [--refresh] [--dry-run]; seal: [<preset>] [--apply] [--dry-run]; env: [--cwd <dir>]; presets: [--refresh] [--dry-run])
+Run `toolportctl --help` for usage.
 === ["--json","compression"]
-exit 1
+exit 2
 --- stdout
-{"command":"compression","error":{"code":"not_implemented","message":"compression: not implemented"},"ok":false,"schemaVersion":1}
+{"command":"compression","error":{"code":"usage","message":"usage: compression status|presets|enable|disable|set-provider|use|sync|pin|seal|env|doctor|run|verify|ledger|proxy|update (enable: [--provider <name>] [--port <n>] [--telemetry on|off] [--preset <name>] [--mode cache|token] [--dry-run]; disable: [--teardown] [--dry-run]; set-provider: <provider> [--dry-run]; use: <preset> [--dry-run]; sync: [--mcpm-root <dir>] [--dry-run]; pin: [<version>] [--install] [--refresh] [--dry-run]; seal: [<preset>] [--apply] [--dry-run]; env: [--cwd <dir>]; presets: [--refresh] [--dry-run])"},"ok":false,"schemaVersion":1}
 --- stderr
-=== ["compression","use","agent"]
-exit 1
+=== ["compression","enable","--bogus"]
+exit 2
 --- stdout
 --- stderr
-toolportctl: compression: not implemented
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["compression","enable","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["compression","enable","--port"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --port requires a value
+Run `toolportctl --help` for usage.
+=== ["compression","enable","--port","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --port needs a whole number
+Run `toolportctl --help` for usage.
+=== ["compression","enable","--provider","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown provider 'x' (have: headroom, rtk-only, parsec, none)
+Run `toolportctl --help` for usage.
+=== ["compression","enable","--mode","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown mode 'x' (have: cache, token)
+Run `toolportctl --help` for usage.
+=== ["compression","enable","--telemetry","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown telemetry 'x' (have: off, on)
+Run `toolportctl --help` for usage.
+=== ["compression","enable","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --dry-run
+Run `toolportctl --help` for usage.
+=== ["--json","compression","enable","--bogus"]
+exit 2
+--- stdout
+{"command":"compression enable","error":{"code":"usage","message":"unknown option: --bogus"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["compression","disable","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["compression","disable","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["compression","disable","--teardown=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --teardown
+Run `toolportctl --help` for usage.
+=== ["compression","set-provider"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: set-provider needs a provider (headroom, rtk-only, parsec, none)
+Run `toolportctl --help` for usage.
+=== ["compression","set-provider","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown provider 'x' (have: headroom, rtk-only, parsec, none)
+Run `toolportctl --help` for usage.
+=== ["compression","set-provider","none","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: set-provider needs a provider (headroom, rtk-only, parsec, none)
+Run `toolportctl --help` for usage.
+=== ["compression","set-provider","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["--json","compression","set-provider"]
+exit 2
+--- stdout
+{"command":"compression set-provider","error":{"code":"usage","message":"set-provider needs a provider (headroom, rtk-only, parsec, none)"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["compression","use"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: use needs a preset name
+Run `toolportctl --help` for usage.
+=== ["compression","use","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: use needs a preset name
+Run `toolportctl --help` for usage.
+=== ["compression","use","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["compression","sync","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["compression","sync","--mcpm-root"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --mcpm-root requires a value
+Run `toolportctl --help` for usage.
+=== ["compression","sync","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["compression","pin","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+Run `toolportctl --help` for usage.
+=== ["compression","pin","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["compression","pin","--install=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --install
+Run `toolportctl --help` for usage.
+=== ["compression","seal","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+Run `toolportctl --help` for usage.
+=== ["compression","seal","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["compression","env","--cwd"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --cwd requires a value
+Run `toolportctl --help` for usage.
+=== ["compression","env","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["compression","doctor","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["compression","presets","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["compression","presets","--refresh=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --refresh
+Run `toolportctl --help` for usage.
 === ["compression","--bogus"]
-exit 1
+exit 2
 --- stdout
 --- stderr
-toolportctl: compression: not implemented
+toolportctl: usage: compression status|presets|enable|disable|set-provider|use|sync|pin|seal|env|doctor|run|verify|ledger|proxy|update (enable: [--provider <name>] [--port <n>] [--telemetry on|off] [--preset <name>] [--mode cache|token] [--dry-run]; disable: [--teardown] [--dry-run]; set-provider: <provider> [--dry-run]; use: <preset> [--dry-run]; sync: [--mcpm-root <dir>] [--dry-run]; pin: [<version>] [--install] [--refresh] [--dry-run]; seal: [<preset>] [--apply] [--dry-run]; env: [--cwd <dir>]; presets: [--refresh] [--dry-run])
+Run `toolportctl --help` for usage.
 === ["compression","status","--bogus"]
 exit 2
 --- stdout

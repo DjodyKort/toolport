@@ -260,10 +260,7 @@ fn help_and_version_exit_0() {
 #[test]
 fn planned_commands_are_not_implemented() {
     let _fx = Fixture::new("planned", Some(sample_registry()));
-    for list in [
-        &["compression", "use", "agent"][..],
-        &["server", "add"][..],
-    ] {
+    for list in [&["server", "add"][..]] {
         let (code, out, err) = run_cli(list);
         assert_eq!(code, 1, "{list:?}");
         assert!(out.is_empty());

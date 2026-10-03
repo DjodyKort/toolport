@@ -8,6 +8,7 @@ use crate::plus::compression::launch::{
     plan_launch, run_plan, LaunchOps, LaunchPlan, LedgerEntry, Probe, ProxySpec, SystemOps,
 };
 use crate::plus::compression::ledger::{self, SavingsEntry};
+use crate::plus::compression::manage::{self, Ctx};
 use crate::plus::compression::model::{env_for_preset, CompressionConfig, ProviderName};
 use crate::plus::compression::store::{self, Loaded, Paths};
 use crate::plus::compression::verify::{self, HealthProbe};
@@ -85,11 +86,8 @@ pub fn status(rest: &[String]) -> Result<Output, CtlError> {
     Ok(Output::new(data, human))
 }
 
-pub fn presets(rest: &[String]) -> Result<Output, CtlError> {
-    no_args(rest)?;
-    let (_, loaded) = load()?;
-    let config = &loaded.config;
-    let rows: Vec<Value> = config
+fn preset_rows(config: &CompressionConfig) -> Vec<Value> {
+    config
         .presets
         .keys()
         .map(|name| {
@@ -97,9 +95,12 @@ pub fn presets(rest: &[String]) -> Result<Output, CtlError> {
             row["active"] = json!(*name == config.active_preset);
             row
         })
-        .collect();
+        .collect()
+}
+
+fn preset_table(rows: &[Value]) -> String {
     let mut human = String::from("  preset       mode    savings   port  knobs  snapshot");
-    for row in &rows {
+    for row in rows {
         human.push_str(&format!(
             "\n{} {:<12} {:<7} {:<9} {:<5} {:<6} {}",
             if row["active"] == true { "*" } else { " " },
@@ -111,10 +112,36 @@ pub fn presets(rest: &[String]) -> Result<Output, CtlError> {
             row["snapshotVersion"].as_str().unwrap_or("unknown"),
         ));
     }
-    Ok(Output::new(
-        json!({"presets": rows, "active": config.active_preset}),
-        human,
-    ))
+    human
+}
+
+pub fn presets(rest: &[String]) -> Result<Output, CtlError> {
+    manage::with_system(|cx| presets_with(cx, rest))
+}
+
+pub(super) fn presets_with(cx: &mut Ctx, rest: &[String]) -> Result<Output, CtlError> {
+    let flags = super::compression_cfg::PRESETS.parse(rest)?;
+    no_args(flags.operands())?;
+    let dry_run = flags.on("--dry-run");
+    let refreshed = if flags.on("--refresh") {
+        Some(manage::refresh_presets(cx, dry_run)?)
+    } else {
+        None
+    };
+    let loaded = store::read(cx.paths).map_err(|e| CtlError::failed("config_invalid", e))?;
+    let config = &loaded.config;
+    let rows = preset_rows(config);
+    let mut human = String::new();
+    let mut data = json!({"presets": rows, "active": config.active_preset});
+    if let Some(refreshed) = refreshed {
+        for line in super::compression_cfg::refresh_lines(&refreshed, dry_run) {
+            human.push_str(&line);
+            human.push('\n');
+        }
+        data["refresh"] = refreshed;
+    }
+    human.push_str(&preset_table(&rows));
+    Ok(Output::new(data, human))
 }
 
 struct RunArgs {
@@ -231,7 +258,7 @@ pub fn run(rest: &[String]) -> Result<Output, CtlError> {
     std::process::exit(outcome.exit_code);
 }
 
-const fn spec(flags: &'static [Flag]) -> Spec {
+pub(super) const fn spec(flags: &'static [Flag]) -> Spec {
     Spec {
         flags,
         inline: Inline::Value,
