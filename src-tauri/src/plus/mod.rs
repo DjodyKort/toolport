@@ -17,6 +17,7 @@ pub type Handler = fn(Value) -> Result<Value, String>;
 const HANDLERS: &[(&str, Handler)] = &[
     ("plus.ping", ping),
     ("plus.obs.summary", obs::summary_handler),
+    ("plus.obs.importMonitor", obs::import_monitor_handler),
     ("plus.auth.status", auth::status_handler),
     ("plus.auth.probe", auth::probe_handler),
     ("plus.context.plan", context::plan_handler),

@@ -111,6 +111,20 @@ impl Locked {
         self.dir.join("events.jsonl")
     }
 
+    fn history_path(&self) -> PathBuf {
+        self.dir.join("monitor-history.json")
+    }
+
+    pub fn load_history(&self) -> Option<Value> {
+        let text = std::fs::read_to_string(self.history_path()).ok()?;
+        serde_json::from_str(&text).ok()
+    }
+
+    pub fn save_history(&self, history: &Value) -> Result<(), String> {
+        let text = serde_json::to_string(history).map_err(|e| e.to_string())?;
+        crate::registry::atomic_write(&self.history_path(), &text)
+    }
+
     pub fn load_state(&self) -> State {
         let Ok(text) = std::fs::read_to_string(self.state_path()) else {
             return State::default();
