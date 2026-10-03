@@ -173,14 +173,7 @@ fn json_text(value: &Value) -> String {
 }
 
 fn write_private(path: &Path, text: &str) -> Result<(), String> {
-    fs::write(path, text).map_err(|e| format!("{}: {e}", path.display()))?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(path, fs::Permissions::from_mode(0o600))
-            .map_err(|e| format!("{}: {e}", path.display()))?;
-    }
-    Ok(())
+    crate::registry::atomic_write(path, text).map_err(|e| format!("{}: {e}", path.display()))
 }
 
 /// Writes `mcp.json`, `settings.json`, the optional append file and the drift state file.

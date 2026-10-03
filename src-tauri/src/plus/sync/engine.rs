@@ -118,17 +118,8 @@ fn write_json<T: Serialize>(path: &Path, value: &T) -> Result<(), SyncError> {
 
 fn save_keyfile(ctx: &SyncContext<'_>, key: &str) -> Result<(), SyncError> {
     let path = ctx.keyfile_path();
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| io_err(parent, e))?;
-    }
-    fs::write(&path, key).map_err(|e| io_err(&path, e))?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o600))
-            .map_err(|e| io_err(&path, e))?;
-    }
-    Ok(())
+    crate::registry::atomic_write(&path, key)
+        .map_err(|e| SyncError::Io(format!("{}: {e}", path.display())))
 }
 
 fn load_keyfile(ctx: &SyncContext<'_>) -> Result<String, SyncError> {
