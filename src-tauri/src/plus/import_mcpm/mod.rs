@@ -2,6 +2,9 @@
 
 mod clients;
 mod ids;
+mod launch;
+#[cfg(test)]
+mod launch_tests;
 mod name_map;
 #[cfg(test)]
 mod name_map_tests;
@@ -16,6 +19,7 @@ pub use clients::{
     map_clients, ClientConfig, ClientEntries, ClientMapping, ClientProfile, ClientSkip, MappedEntry,
 };
 pub use ids::{exposed_prefix, short_id, tool_name_fits, MAX_TOOL_NAME_LEN, TOOL_NAME_PREFIX};
+pub use launch::{relocate_entry, relocate_script, scripts_dir, screen_entry, SCRIPTS_SUBDIR};
 pub use name_map::{
     build_name_map, name_map, name_map_handler, NameMap, NameMapError, ToolManifest,
 };
