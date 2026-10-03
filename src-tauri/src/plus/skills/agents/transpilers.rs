@@ -188,7 +188,9 @@ impl AgentTranspiler for CodexCliAgent {
             lines.push("[mcp_servers]".into());
             for server in &fm.mcp_servers {
                 lines.push(format!("[mcp_servers.\"{server}\"]"));
-                lines.push(format!("# Configure via mcpm: mcpm install {server}"));
+                lines.push(format!(
+                    "# Configure via toolportctl: toolportctl server install {server}"
+                ));
             }
         }
         let mut warnings = Vec::new();
