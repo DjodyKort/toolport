@@ -3,14 +3,19 @@
 //! store and `SystemOps` are the only parts that touch disk or processes.
 
 pub mod capability;
+pub mod engine;
 pub mod launch;
+pub mod ledger;
 pub mod model;
 pub mod ops;
 pub mod provider;
 pub mod shims;
 pub mod store;
+pub mod verify;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod verify_tests;
 
 pub use model::{CompressionConfig, ProviderName};

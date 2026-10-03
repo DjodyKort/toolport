@@ -189,7 +189,7 @@ impl SystemOps {
         Self { path: None }
     }
 
-    fn command(&self, program: &str) -> Command {
+    pub(super) fn command(&self, program: &str) -> Command {
         let mut cmd = Command::new(program);
         if let Some(path) = &self.path {
             cmd.env("PATH", path);

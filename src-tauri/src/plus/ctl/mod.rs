@@ -85,6 +85,26 @@ pub const COMMANDS: &[Command] = &[
         handler: Some(compression::run),
     },
     Command {
+        path: &["compression", "verify"],
+        summary: "Check provider health, pin, shims and measure cache behaviour",
+        handler: Some(compression::verify),
+    },
+    Command {
+        path: &["compression", "ledger"],
+        summary: "Launch and token-savings ledger (summary | record)",
+        handler: Some(compression::ledger_cmd),
+    },
+    Command {
+        path: &["compression", "proxy"],
+        summary: "Proxy lifecycle: up, down, restart",
+        handler: Some(compression::proxy),
+    },
+    Command {
+        path: &["compression", "update"],
+        summary: "Move the engine pin (--to V | --latest, --accept to apply)",
+        handler: Some(compression::update),
+    },
+    Command {
         path: &["compression"],
         summary: "Compression runs",
         handler: None,

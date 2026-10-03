@@ -12,6 +12,8 @@ use std::path::PathBuf;
 pub const CONFIG_FILE: &str = "compression.json";
 pub const SHIMS_FILE: &str = "compression-shims.zsh";
 pub const ENV_SNIPPET_FILE: &str = "compression-env.sh";
+pub const LAUNCHES_FILE: &str = "compression-launches.jsonl";
+pub const SAVINGS_FILE: &str = "compression-savings.jsonl";
 
 #[derive(Clone, Debug)]
 pub struct Paths {
@@ -38,6 +40,14 @@ impl Paths {
 
     pub fn env_snippet(&self) -> PathBuf {
         self.dir.join(ENV_SNIPPET_FILE)
+    }
+
+    pub fn launches(&self) -> PathBuf {
+        self.dir.join(LAUNCHES_FILE)
+    }
+
+    pub fn savings(&self) -> PathBuf {
+        self.dir.join(SAVINGS_FILE)
     }
 }
 
