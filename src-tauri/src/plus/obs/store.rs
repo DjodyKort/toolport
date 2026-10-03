@@ -127,9 +127,11 @@ impl Locked {
     }
 
     pub fn load_state(&self) -> State {
-        read_json::<State>(&self.state_path())
-            .filter(|state| state.version == STATE_VERSION)
-            .unwrap_or_default()
+        self.load_saved_state().unwrap_or_default()
+    }
+
+    pub fn load_saved_state(&self) -> Option<State> {
+        read_json::<State>(&self.state_path()).filter(|state| state.version == STATE_VERSION)
     }
 
     pub fn save_state(&self, state: &State) -> Result<(), String> {
@@ -151,15 +153,17 @@ impl Locked {
         file.write_all(buf.as_bytes()).map_err(|e| e.to_string())
     }
 
+    pub fn events(&self) -> impl Iterator<Item = Event> {
+        File::open(self.events_path()).into_iter().flat_map(|file| {
+            BufReader::new(file)
+                .lines()
+                .map_while(Result::ok)
+                .filter_map(|line| serde_json::from_str::<Event>(&line).ok())
+        })
+    }
+
     pub fn read_events(&self) -> Vec<Event> {
-        let Ok(file) = File::open(self.events_path()) else {
-            return Vec::new();
-        };
-        BufReader::new(file)
-            .lines()
-            .map_while(Result::ok)
-            .filter_map(|line| serde_json::from_str::<Event>(&line).ok())
-            .collect()
+        self.events().collect()
     }
 
     pub fn prune_events_before(&self, ts_ms: i64) -> Result<usize, String> {

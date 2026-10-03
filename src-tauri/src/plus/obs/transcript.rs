@@ -216,7 +216,14 @@ fn index_file(state: &mut State, path: &Path, report: &mut IndexReport) -> Resul
 }
 
 pub fn index(lock: &Locked, root: &Path) -> Result<IndexReport, String> {
-    let mut state = lock.load_state();
+    index_state(lock, root).map(|(report, _)| report)
+}
+
+/// The state is rewritten only when it changed or was not saved yet.
+pub fn index_state(lock: &Locked, root: &Path) -> Result<(IndexReport, State), String> {
+    let saved = lock.load_saved_state();
+    let was_saved = saved.is_some();
+    let mut state = saved.unwrap_or_default();
     let mut report = IndexReport::default();
     let mut files = Vec::new();
     collect_jsonl(root, &mut files);
@@ -235,8 +242,10 @@ pub fn index(lock: &Locked, root: &Path) -> Result<IndexReport, String> {
         state.files.remove(&k);
         report.files_gone += 1;
     }
-    lock.save_state(&state)?;
-    Ok(report)
+    if !was_saved || report.files_skipped != report.files_scanned || report.files_gone > 0 {
+        lock.save_state(&state)?;
+    }
+    Ok((report, state))
 }
 
 #[cfg(test)]
