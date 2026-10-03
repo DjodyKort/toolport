@@ -13,3 +13,7 @@ Never edit these files by hand and never bless in CI (`PARITY_BLESS` is rejected
 Goldens change only through a `golden-bump` migration item: regenerate with
 `scripts/golden/gen-golden --all --out <dir>` in the migration repo, replace this directory
 (without `run-meta.json`), and record the new mcpm SHA and the reason in the item.
+
+Command text deviates from mcpm on purpose (D-042): the generator's names layer maps the commands mcpm tells the
+user to run onto their `toolportctl` equivalents, so `context/` goldens say `toolportctl context sync`, not `mcpm context sync`.
+Paths, file names and identifiers such as `.config/mcpm` stay as mcpm writes them.

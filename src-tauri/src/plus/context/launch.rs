@@ -16,7 +16,7 @@ pub const MCP_FILE: &str = "mcp.json";
 pub const SETTINGS_FILE: &str = "settings.json";
 pub const APPEND_FILE: &str = "append-system-prompt.md";
 pub const APPEND_HEADER: &str =
-    "<!-- Managed by `mcpm context` — regenerate with `mcpm context sync`; do not edit. -->";
+    "<!-- Managed by `toolportctl context` — regenerate with `toolportctl context sync`; do not edit. -->";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Selection {

@@ -4,7 +4,7 @@ rc=0
 rc=0
   git -C <HOME>/.local/share/corp-dev-tools pull --quiet
   corp-python sync_claude_files+auto_update_mcp_repos
-  mcpm context sync
+  toolportctl context sync
   claude one CLAUDE_CONFIG_DIR=<unset>
 caches: cf=yes ctx=yes
 ## relaunch inside interval: nothing but claude
@@ -15,32 +15,32 @@ caches: cf=yes ctx=yes
 rc=0
   git -C <HOME>/.local/share/corp-dev-tools pull --quiet
   corp-python sync_claude_files+auto_update_mcp_repos
-  mcpm context sync
+  toolportctl context sync
   claude three CLAUDE_CONFIG_DIR=<unset>
 caches: cf=yes ctx=yes
 ## ctx cache missing, cf fresh: only ctx sync
 rc=0
-  mcpm context sync
+  toolportctl context sync
   claude four CLAUDE_CONFIG_DIR=<unset>
 caches: cf=yes ctx=yes
 ## cf cache stale (epoch 1): cf runs, ctx follows
 rc=0
   git -C <HOME>/.local/share/corp-dev-tools pull --quiet
   corp-python sync_claude_files+auto_update_mcp_repos
-  mcpm context sync
+  toolportctl context sync
   claude five CLAUDE_CONFIG_DIR=<unset>
 caches: cf=yes ctx=yes
-## mcpm fails: stderr hint, ctx cache not written
-mcpm: context sync failed, retrying next launch (run 'mcpm doctor')
+## ctl fails: stderr hint, ctx cache not written
+toolportctl: context sync failed, retrying next launch (run 'toolportctl doctor')
 rc=0
   git -C <HOME>/.local/share/corp-dev-tools pull --quiet
   corp-python sync_claude_files+auto_update_mcp_repos
-  mcpm context sync
+  toolportctl context sync
   claude six CLAUDE_CONFIG_DIR=<unset>
 caches: cf=yes ctx=no
 ## retry next launch with stale ctx cache
 rc=0
-  mcpm context sync
+  toolportctl context sync
   claude seven CLAUDE_CONFIG_DIR=<unset>
 caches: cf=yes ctx=yes
 ## huge interval: no sync
@@ -53,18 +53,18 @@ rc=0
 caches: cf=yes ctx=yes
 ## cf venv missing: cf skipped, ctx sync by cache age
 rc=0
-  mcpm context sync
+  toolportctl context sync
   claude ten CLAUDE_CONFIG_DIR=<unset>
 caches: cf=no ctx=yes
 ## cf .git missing: cf skipped
 rc=0
-  mcpm context sync
+  toolportctl context sync
   claude eleven CLAUDE_CONFIG_DIR=<unset>
 caches: cf=no ctx=yes
-## hrclaude defined: runs compression via mcpm
+## hrclaude defined: runs compression via ctl
 rc=0
-  mcpm context sync
-  mcpm compression run -- --flag
+  toolportctl context sync
+  toolportctl compression run -- --flag
 caches: cf=no ctx=yes
 ## claude args with spaces
 rc=0

@@ -15,9 +15,9 @@
       "sha256": "83ca0e3d969c4751fde63a53e0b72195821ffc39e56bd3746970a09ca2bcf68d"
     },
     ".config/mcpm/claude-profiles/work/CLAUDE.md": {
-      "bytes": 111,
+      "bytes": 125,
       "class": "A",
-      "sha256": "9d1e08e193f53cf446569d10e2156341eba787144d15cb55e2c6358b46b9445c"
+      "sha256": "fe15fc3382d6e37feac589152ac16dbbaba6f31782b1d0cea56a9b2fcc787fb6"
     },
     ".config/mcpm/claude-profiles/work/settings.json": {
       "bytes": 3,
@@ -35,14 +35,14 @@
       "sha256": "34ea38aaa86ecd9fcd1a3871968c82582188497f50e81ed9f21699971935b1d4"
     },
     "_golden/apply2-nothing.report.json": {
-      "bytes": 260,
+      "bytes": 273,
       "class": "B",
-      "sha256": "72e8226b1cf7c04d30539e7ca0287b4ecd7f777f88ffea5b656b93a44c74f68a"
+      "sha256": "fb1be0ae88f3f339cd0d60b6188f2e1254f6a1f19611b322fe6d31770bb1a8aa"
     },
     "_golden/apply3-nothing-again.report.json": {
-      "bytes": 207,
+      "bytes": 220,
       "class": "B",
-      "sha256": "cbd86b7d6512895b7405ea62b1757aedffc2aee95d967ae4d7f739a2870b850d"
+      "sha256": "6877bbe5afa11134e477238fd5d95a1eccfe8645e84edb5daa337c3a86098a3f"
     },
     "_golden/exists.after-removal.json": {
       "bytes": 46,
@@ -50,14 +50,14 @@
       "sha256": "19679aa5484c93f2583a6a780946e376db63ebcc4e908020c57691077fc801a5"
     },
     "_golden/shims.nowrap-profiles.zsh": {
-      "bytes": 276,
+      "bytes": 283,
       "class": "A",
-      "sha256": "6479c0d6df721cbe3d4747e60a4aa2d699ab263be486fdc580dad62b36d6f20e"
+      "sha256": "bb4ddacccfb5b2b647cd1ce124bd11c24830d81645768d904aaaa07fe666a9e5"
     },
     "_golden/snippet.wrap-off.no-profiles.zsh": {
-      "bytes": 176,
+      "bytes": 183,
       "class": "A",
-      "sha256": "696de8bf4993dffc02fb1c0f2ba80a5b8d0dd8a5d0d4286749342d604aa2e21e"
+      "sha256": "edf1cbde58a8ffd6f6e39f1102827425cf2d04d304aade8b2dab2166f289efb3"
     },
     "_golden/snippet.wrap-off.no-profiles.zsh-n.txt": {
       "bytes": 5,
@@ -65,9 +65,9 @@
       "sha256": "93ff7811a209e2a8479230bbb9b6bc19f7f311d3af383ec350c1db2a7e7d5494"
     },
     "_golden/snippet.wrap-off.profiles.zsh": {
-      "bytes": 376,
+      "bytes": 383,
       "class": "A",
-      "sha256": "8808df5971d7d4f7ed9c2e1bda8aae191e0f44f965d2c6e2455a8398bf018192"
+      "sha256": "e3b09176536bc799e06bd28db5dce161f2200412b0730c3bbd547e7b52d7e98e"
     },
     "_golden/snippet.wrap-off.profiles.zsh-n.txt": {
       "bytes": 5,

@@ -1,4 +1,4 @@
-<!-- Managed by `mcpm context` — edit the canonical layer (skills_repo/rules/client-*/SKILL.md); `mcpm context sync` regenerates. -->
+<!-- Managed by `toolportctl context` — edit the canonical layer (skills_repo/rules/client-*/SKILL.md); `toolportctl context sync` regenerates. -->
 
 ## acme
 

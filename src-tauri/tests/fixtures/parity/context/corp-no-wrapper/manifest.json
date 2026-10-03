@@ -15,9 +15,9 @@
       "sha256": "d8249a4c0a3d05958fa88106659d13216db1e10a33ddfc883cce8b82358ee9e5"
     },
     "_golden/doctor.json": {
-      "bytes": 137,
+      "bytes": 163,
       "class": "B",
-      "sha256": "67e02a3f386f6aec6ebd0e21d1e822bfef3fc4c4efa4d4bbdede0127ff315834"
+      "sha256": "a9b8769a37643b621a0aa4845007326225dbd5ebcc0009932d79eb22ac3afa27"
     },
     "_golden/exists.json": {
       "bytes": 40,

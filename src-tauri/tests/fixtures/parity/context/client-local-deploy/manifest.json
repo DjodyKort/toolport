@@ -65,19 +65,19 @@
       "sha256": "b6b4de3309a0f514c5ab1d354b063f96b8a93e899b8987bd5a62e23b0c77c2e4"
     },
     "clients/acme/CLAUDE.local.md": {
-      "bytes": 171,
-      "class": "A",
-      "sha256": "c3ead09260ad0e02482172fd69227a32ed97d2595de66fe5537805cce6c495e3"
-    },
-    "clients/gamma/CLAUDE.local.md": {
       "bytes": 185,
       "class": "A",
-      "sha256": "2f1a97b718634e6ef0f9c459c70bf4ad7a0f1f2f5ab4c257c68e7f000de94967"
+      "sha256": "99cba3865c15e7f6f8305c61e4bd5e5b57545839b300f7e538689819d3b38aaf"
+    },
+    "clients/gamma/CLAUDE.local.md": {
+      "bytes": 199,
+      "class": "A",
+      "sha256": "c0b20cc4ed318f85e24a9022e7c3e1b5ec486412c732f088e6d864d7ead22ad8"
     },
     "clients/v18_arp/CLAUDE.local.md": {
-      "bytes": 182,
+      "bytes": 196,
       "class": "A",
-      "sha256": "85b7a955c36e6fbcf56813be15416742ed73c27ec9a816159be71c3be0c9dba8"
+      "sha256": "3e04b43ec5f4101da53e12ee36bb18f54bf38adf1a9410f96299cd3ebbd61faf"
     }
   },
   "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
