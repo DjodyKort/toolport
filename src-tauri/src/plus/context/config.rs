@@ -175,15 +175,25 @@ impl ContextConfig {
     }
 }
 
-/// A corrupt or old config falls back to defaults rather than failing, like mcpm.
-pub fn load_config(path: &Path) -> ContextConfig {
-    let Ok(text) = fs::read_to_string(path) else {
-        return ContextConfig::default();
-    };
+fn parse_config(path: &Path) -> Option<ContextConfig> {
+    let text = fs::read_to_string(path).ok()?;
     serde_json::from_str::<Value>(&text)
         .ok()
         .and_then(|v| ContextConfig::from_value(v).ok())
-        .unwrap_or_default()
+}
+
+/// A corrupt or old config falls back to defaults rather than failing, like mcpm.
+pub fn load_config(path: &Path) -> ContextConfig {
+    parse_config(path).unwrap_or_default()
+}
+
+/// Copies a config that [`load_config`] would silently replace with defaults, so persisting
+/// those defaults does not destroy what the user wrote. Returns the copy's path.
+pub fn preserve_unreadable(path: &Path) -> Option<std::path::PathBuf> {
+    if !path.is_file() || parse_config(path).is_some() {
+        return None;
+    }
+    crate::registry::quarantine_existing(path)
 }
 
 pub fn save_config(path: &Path, config: &ContextConfig) -> Result<(), String> {

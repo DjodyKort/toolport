@@ -27,7 +27,7 @@ mod tests_folders;
 #[cfg(test)]
 mod tests_hooks;
 
-pub use config::{load_config, save_config, ContextConfig};
+pub use config::{load_config, preserve_unreadable, save_config, ContextConfig};
 pub use roots::Roots;
 
 use serde_json::{json, Value};
@@ -168,6 +168,12 @@ pub fn apply(
 
     record_cf_baseline(roots, config, &mut report);
     if opts.persist && !dry {
+        if let Some(kept) = preserve_unreadable(&roots.context_config_path()) {
+            report.add(format!(
+                "context.json was unreadable and is replaced by the effective config; kept a copy at {}",
+                kept.display()
+            ));
+        }
         save_config(&roots.context_config_path(), config)?;
         report.add(format!(
             "saved config ({} profile(s))",
