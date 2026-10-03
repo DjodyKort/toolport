@@ -1,9 +1,9 @@
 //! Declarative context config (`context.json`), compatible with mcpm-context's pydantic schema.
 
+use crate::plus::jsonfs::read_json;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::Path;
 
 pub const CF_LEGACY_SERVER_NAMES: [&str; 4] = [
@@ -176,9 +176,7 @@ impl ContextConfig {
 }
 
 fn parse_config(path: &Path) -> Option<ContextConfig> {
-    let text = fs::read_to_string(path).ok()?;
-    serde_json::from_str::<Value>(&text)
-        .ok()
+    read_json::<Value>(path)
         .and_then(|v| ContextConfig::from_value(v).ok())
 }
 

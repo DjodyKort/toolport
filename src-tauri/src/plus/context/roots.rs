@@ -1,7 +1,7 @@
 //! Explicit filesystem roots so every operation can run against a temp tree.
 
 use super::config::ContextConfig;
-use std::fs;
+use crate::plus::jsonfs::read_json;
 use std::path::{Path, PathBuf};
 
 pub const ENV_CORP_TOOLS_DIR: &str = "TOOLPORT_CORP_TOOLS_DIR";
@@ -101,16 +101,13 @@ impl Roots {
     /// The clone the skills pipeline transpiles from, so layers ride the existing sync/publish flow.
     pub fn skills_repo_path(&self) -> PathBuf {
         let sync_cfg = self.config_dir.join("skills_sync.json");
-        if let Ok(text) = fs::read_to_string(sync_cfg) {
-            if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) {
-                if let Some(local) = value.get("local_path").and_then(|v| v.as_str()) {
-                    if !local.is_empty() {
-                        return self.expand_user(local);
-                    }
-                }
-            }
+        match read_json::<serde_json::Value>(&sync_cfg) {
+            Some(value) => match value.get("local_path").and_then(|v| v.as_str()) {
+                Some(local) if !local.is_empty() => self.expand_user(local),
+                _ => self.config_dir.join("skills_repo"),
+            },
+            None => self.config_dir.join("skills_repo"),
         }
-        self.config_dir.join("skills_repo")
     }
 
     pub fn rules_dir(&self) -> PathBuf {

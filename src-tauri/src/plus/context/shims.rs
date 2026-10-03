@@ -7,6 +7,7 @@
 use super::config::ProfileSpec;
 use super::launch::launch_argv;
 use super::roots::Roots;
+use crate::plus::skills::pyfs::write_text;
 use std::collections::BTreeMap;
 use std::fs;
 
@@ -104,11 +105,7 @@ pub fn write_shims(
 ) -> Result<String, String> {
     let path = roots.shims_path();
     if !dry_run {
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
-        }
-        fs::write(&path, shim_snippet(roots, profiles, wrap_default))
-            .map_err(|e| format!("{}: {e}", path.display()))?;
+        write_text(&path, &shim_snippet(roots, profiles, wrap_default))?;
     }
     Ok(path.display().to_string())
 }

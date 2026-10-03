@@ -1,6 +1,7 @@
 use super::{render_frontmatter, Field};
 use crate::plus::skills::json::{self, J};
 use crate::plus::skills::parser::{Activation, Skill, SkillType};
+use crate::plus::skills::pyfs::write_text;
 use crate::plus::skills::transpiler::{TranspileResult, Transpiler};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -38,11 +39,7 @@ fn load_settings(root: &Path) -> Result<Vec<(String, J)>, String> {
 
 fn write_settings(root: &Path, settings: Vec<(String, J)>) -> Result<(), String> {
     let path = settings_path(root);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
-    }
-    fs::write(&path, format!("{}\n", J::Obj(settings).dumps()))
-        .map_err(|e| format!("{}: {e}", path.display()))
+    write_text(&path, &format!("{}\n", J::Obj(settings).dumps()))
 }
 
 fn slot<'a>(items: &'a mut Vec<(String, J)>, key: &str, default: J) -> &'a mut J {

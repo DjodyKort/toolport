@@ -4,6 +4,7 @@
 
 use super::roots::Roots;
 use super::Report;
+use crate::plus::skills::pyfs::write_text;
 use serde_yaml::Value as Yaml;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -22,20 +23,13 @@ pub struct Layer {
     pub description: String,
 }
 
-fn write_new(target: &Path, content: &str) -> Result<(), String> {
-    if let Some(parent) = target.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
-    }
-    fs::write(target, content).map_err(|e| format!("{}: {e}", target.display()))
-}
-
 /// Creates `rules/personal/SKILL.md`; `None` when it already exists.
 pub fn scaffold_personal_rule(roots: &Roots) -> Result<Option<PathBuf>, String> {
     let target = roots.rules_dir().join(PERSONAL_RULE_NAME).join("SKILL.md");
     if target.exists() {
         return Ok(None);
     }
-    write_new(&target, PERSONAL_TEMPLATE)?;
+    write_text(&target, PERSONAL_TEMPLATE)?;
     Ok(Some(target))
 }
 
@@ -87,7 +81,7 @@ pub fn scaffold_client_rule(
     let content = format!(
         "---\nname: client-{slug}\ndescription: \"Client context: {name}\"\nactivation: always\nglobs: \"{globs}\"\n---\n\n## {name} — client context\n\n<!-- Project knowledge for this client that doesn't belong in the repo's own\n     CLAUDE.md: contacts, conventions, environment quirks, gotchas. -->\n"
     );
-    write_new(&target, &content)?;
+    write_text(&target, &content)?;
     Ok(Some(target))
 }
 
@@ -257,11 +251,7 @@ fn ensure_local_exclude(repo: &Path, report: &mut Report, dry_run: bool) -> Resu
     }
     lines.push("CLAUDE.local.md");
     if !dry_run {
-        if let Some(parent) = exclude.parent() {
-            fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
-        }
-        fs::write(&exclude, format!("{}\n", lines.join("\n")))
-            .map_err(|e| format!("{}: {e}", exclude.display()))?;
+        write_text(&exclude, &format!("{}\n", lines.join("\n")))?;
     }
     let name = repo
         .file_name()

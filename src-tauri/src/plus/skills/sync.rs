@@ -6,6 +6,7 @@ use super::clock::Clock;
 use super::collisions::{detect_collisions, resolve_collisions, resolve_mode, CollisionSummary};
 use super::lock::{get_entry, get_entry_mut, load_lockfile, set_entry, LockEntry, LockFile};
 use super::parser::{Skill, SkillType};
+use super::pyfs::write_text;
 use super::transpiler::{
     Transpiler, TranspilerRegistry, APPEND_MODE_TRANSPILERS, PROJECT_ONLY_TRANSPILERS,
 };
@@ -229,13 +230,6 @@ pub fn sync_skills(
         collisions: summary,
         output_root: output_root.to_path_buf(),
     })
-}
-
-fn write_text(path: &Path, content: &str) -> Result<(), String> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
-    }
-    fs::write(path, content).map_err(|e| format!("{}: {e}", path.display()))
 }
 
 fn write_one(
