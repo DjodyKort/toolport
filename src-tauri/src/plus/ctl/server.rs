@@ -1,5 +1,6 @@
 use super::client;
 use super::commands::snapshot;
+use super::flags::{switch, value, Flags, Spec};
 use super::output::{CtlError, Output};
 use crate::catalog::{self, CatalogEntry};
 use crate::registry::{Registry, ServerEntry};
@@ -14,61 +15,43 @@ const INFO_USAGE: &str = "usage: server info <id|name>";
 const UNINSTALL_USAGE: &str =
     "usage: server uninstall <id|name> [--dry-run] [--keep-clients] [--keep-secrets]";
 
-#[derive(Default)]
-struct Flags {
-    values: Vec<(String, String)>,
-    switches: Vec<String>,
-    operands: Vec<String>,
-}
-
-impl Flags {
-    fn parse(rest: &[String], valued: &[&str], switches: &[&str]) -> Result<Self, CtlError> {
-        let mut flags = Flags::default();
-        let mut iter = rest.iter();
-        while let Some(arg) = iter.next() {
-            if valued.contains(&arg.as_str()) {
-                let value = iter
-                    .next()
-                    .ok_or_else(|| CtlError::usage(format!("{arg} requires a value")))?;
-                flags.values.push((arg.clone(), value.clone()));
-            } else if switches.contains(&arg.as_str()) {
-                flags.switches.push(arg.clone());
-            } else if arg.starts_with('-') && arg != "-" {
-                return Err(CtlError::usage(format!("unknown option: {arg}")));
-            } else {
-                flags.operands.push(arg.clone());
-            }
-        }
-        Ok(flags)
-    }
-
-    fn one(&self, name: &str) -> Option<&str> {
-        self.values
-            .iter()
-            .rev()
-            .find(|(k, _)| k == name)
-            .map(|(_, v)| v.as_str())
-    }
-
-    fn all(&self, name: &str) -> Vec<String> {
-        self.values
-            .iter()
-            .filter(|(k, _)| k == name)
-            .map(|(_, v)| v.clone())
-            .collect()
-    }
-
-    fn has(&self, name: &str) -> bool {
-        self.switches.iter().any(|s| s == name)
-    }
-
-    fn single_operand(&self, usage: &str) -> Result<&str, CtlError> {
-        match self.operands.as_slice() {
-            [one] => Ok(one),
-            _ => Err(CtlError::usage(usage)),
-        }
-    }
-}
+const SEARCH: Spec = Spec {
+    flags: &[value("--limit"), switch("--offline")],
+    ..Spec::PLAIN
+};
+const INSTALL: Spec = Spec {
+    flags: &[switch("--offline")],
+    ..Spec::PLAIN
+};
+const NEW: Spec = Spec {
+    flags: &[
+        value("--command"),
+        value("--arg"),
+        value("--url"),
+        value("--transport"),
+        value("--cwd"),
+    ],
+    ..Spec::PLAIN
+};
+const EDIT: Spec = Spec {
+    flags: &[
+        value("--name"),
+        value("--command"),
+        value("--arg"),
+        value("--url"),
+        value("--transport"),
+        value("--cwd"),
+    ],
+    ..Spec::PLAIN
+};
+const UNINSTALL: Spec = Spec {
+    flags: &[
+        switch("--dry-run"),
+        switch("--keep-clients"),
+        switch("--keep-secrets"),
+    ],
+    ..Spec::PLAIN
+};
 
 fn load_registry() -> Result<Registry, CtlError> {
     let snap = snapshot();
@@ -113,15 +96,15 @@ fn run_search(query: &str, offline: bool) -> Result<Vec<CatalogEntry>, CtlError>
 }
 
 pub fn search(rest: &[String]) -> Result<Output, CtlError> {
-    let flags = Flags::parse(rest, &["--limit"], &["--offline"])?;
+    let flags = SEARCH.parse(rest)?;
     let limit = match flags.one("--limit") {
         Some(v) => v
             .parse::<usize>()
             .map_err(|_| CtlError::usage(SEARCH_USAGE))?,
         None => usize::MAX,
     };
-    let query = flags.operands.join(" ");
-    let mut found = run_search(&query, flags.has("--offline"))?;
+    let query = flags.operands().join(" ");
+    let mut found = run_search(&query, flags.on("--offline"))?;
     let total = found.len();
     found.truncate(limit);
     let human = if found.is_empty() {
@@ -149,9 +132,9 @@ pub fn search(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn install(rest: &[String]) -> Result<Output, CtlError> {
-    let flags = Flags::parse(rest, &[], &["--offline"])?;
-    let name = flags.single_operand(INSTALL_USAGE)?;
-    let found = run_search(name, flags.has("--offline"))?;
+    let flags = INSTALL.parse(rest)?;
+    let name = flags.single(INSTALL_USAGE)?;
+    let found = run_search(name, flags.on("--offline"))?;
     let entry = found
         .into_iter()
         .find(|e| e.name.eq_ignore_ascii_case(name))
@@ -193,7 +176,11 @@ pub fn install(rest: &[String]) -> Result<Output, CtlError> {
     ))
 }
 
-fn fields_from(flags: &Flags, base: Option<&ServerEntry>) -> Result<ServerFields, CtlError> {
+fn fields_from(
+    flags: &Flags,
+    base: Option<&ServerEntry>,
+    name: Option<&str>,
+) -> Result<ServerFields, CtlError> {
     let command = flags
         .one("--command")
         .map(String::from)
@@ -202,10 +189,9 @@ fn fields_from(flags: &Flags, base: Option<&ServerEntry>) -> Result<ServerFields
         .one("--url")
         .map(String::from)
         .or_else(|| base.and_then(|b| b.url.clone()));
-    let args = if flags.values.iter().any(|(k, _)| k == "--arg") {
-        flags.all("--arg")
-    } else {
-        base.map(|b| b.args.clone()).unwrap_or_default()
+    let args = match flags.all("--arg") {
+        given if given.is_empty() => base.map(|b| b.args.clone()).unwrap_or_default(),
+        given => given,
     };
     let transport = match flags.one("--transport") {
         Some(t) => t.to_string(),
@@ -221,8 +207,8 @@ fn fields_from(flags: &Flags, base: Option<&ServerEntry>) -> Result<ServerFields
         },
     };
     Ok(ServerFields {
-        name: flags
-            .one("--name")
+        name: name
+            .or_else(|| flags.one("--name"))
             .map(String::from)
             .or_else(|| base.map(|b| b.name.clone()))
             .unwrap_or_default(),
@@ -238,17 +224,12 @@ fn fields_from(flags: &Flags, base: Option<&ServerEntry>) -> Result<ServerFields
 }
 
 pub fn new(rest: &[String]) -> Result<Output, CtlError> {
-    let mut flags = Flags::parse(
-        rest,
-        &["--command", "--arg", "--url", "--transport", "--cwd"],
-        &[],
-    )?;
-    let name = flags.single_operand(NEW_USAGE)?.to_string();
+    let flags = NEW.parse(rest)?;
+    let name = flags.single(NEW_USAGE)?.to_string();
     if flags.one("--command").is_none() && flags.one("--url").is_none() {
         return Err(CtlError::usage(NEW_USAGE));
     }
-    flags.values.push(("--name".into(), name.clone()));
-    let fields = fields_from(&flags, None)?;
+    let fields = fields_from(&flags, None, Some(&name))?;
     let existing = load_registry()?;
     if existing
         .servers
@@ -275,26 +256,15 @@ pub fn new(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn edit(rest: &[String]) -> Result<Output, CtlError> {
-    let flags = Flags::parse(
-        rest,
-        &[
-            "--name",
-            "--command",
-            "--arg",
-            "--url",
-            "--transport",
-            "--cwd",
-        ],
-        &[],
-    )?;
-    let key = flags.single_operand(EDIT_USAGE)?;
-    if flags.values.is_empty() {
+    let flags = EDIT.parse(rest)?;
+    let key = flags.single(EDIT_USAGE)?;
+    if !flags.has_values() {
         return Err(CtlError::usage(EDIT_USAGE));
     }
     let reg = load_registry()?;
     let server = resolve(&reg, key)?;
     let id = server.id.clone();
-    let fields = fields_from(&flags, Some(server))?;
+    let fields = fields_from(&flags, Some(server), None)?;
     let changed: Vec<&str> = [
         ("name", fields.name != server.name),
         ("transport", fields.transport != server.transport),
@@ -320,8 +290,8 @@ pub fn edit(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn info(rest: &[String]) -> Result<Output, CtlError> {
-    let flags = Flags::parse(rest, &[], &[])?;
-    let key = flags.single_operand(INFO_USAGE)?;
+    let flags = Spec::PLAIN.parse(rest)?;
+    let key = flags.single(INFO_USAGE)?;
     let reg = load_registry()?;
     let s = resolve(&reg, key)?;
     let profiles: Vec<&str> = reg
@@ -382,17 +352,13 @@ pub fn info(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn uninstall(rest: &[String]) -> Result<Output, CtlError> {
-    let flags = Flags::parse(
-        rest,
-        &[],
-        &["--dry-run", "--keep-clients", "--keep-secrets"],
-    )?;
-    let key = flags.single_operand(UNINSTALL_USAGE)?;
-    let dry_run = flags.has("--dry-run");
+    let flags = UNINSTALL.parse(rest)?;
+    let key = flags.single(UNINSTALL_USAGE)?;
+    let dry_run = flags.on("--dry-run");
     let reg = load_registry()?;
     let server = resolve(&reg, key)?.clone();
     let names = [server.name.clone(), server.id.clone()];
-    let plans = if flags.has("--keep-clients") {
+    let plans = if flags.on("--keep-clients") {
         Vec::new()
     } else {
         client::prune_matching(&names, dry_run)
@@ -407,7 +373,7 @@ pub fn uninstall(rest: &[String]) -> Result<Output, CtlError> {
     if !dry_run {
         registry_controller::remove_server(&server.id)
             .map_err(|e| CtlError::new("uninstall", e))?;
-        if !flags.has("--keep-secrets") {
+        if !flags.on("--keep-secrets") {
             for k in &secret_keys {
                 if crate::secrets::delete_secret(&server.id, k).is_ok() {
                     secrets_removed.push(k.clone());
@@ -445,8 +411,8 @@ pub fn uninstall(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn inspect(rest: &[String]) -> Result<Output, CtlError> {
-    let flags = Flags::parse(rest, &[], &[])?;
-    let key = flags.single_operand("usage: inspect <server id|name>")?;
+    let flags = Spec::PLAIN.parse(rest)?;
+    let key = flags.single("usage: inspect <server id|name>")?;
     let reg = load_registry()?;
     let server = resolve(&reg, key)?;
     let tools =
@@ -455,12 +421,12 @@ pub fn inspect(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn profile_inspect(rest: &[String]) -> Result<Output, CtlError> {
-    let flags = Flags::parse(rest, &[], &[])?;
-    if flags.operands.len() > 1 {
+    let flags = Spec::PLAIN.parse(rest)?;
+    if flags.operands().len() > 1 {
         return Err(CtlError::usage("usage: profile inspect [<profile id>]"));
     }
     let reg = load_registry()?;
-    let profile_id = match flags.operands.first() {
+    let profile_id = match flags.operands().first() {
         Some(id) => reg
             .profiles
             .iter()
