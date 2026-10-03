@@ -1,8 +1,8 @@
 use super::backend::GitBackend;
 use super::bundle::{
     destination_for, import_bundle, read_bundle, read_manifest, safe_relative,
-    write_bundle_with_origins, write_synced_file, Credential, ImportReport, ImportTargets,
-    Manifest, PortableRoots, SourceFile, SyncError, SERVER_ORIGINS_KEY,
+    write_bundle_with_origins, write_salt, write_synced_file, Credential, ImportReport,
+    ImportTargets, Manifest, PortableRoots, SourceFile, SyncError, SERVER_ORIGINS_KEY,
 };
 use super::exec::Exec;
 use crate::plus::hashing::lock_hash;
@@ -13,7 +13,6 @@ use super::schema::{
     Changes, ConflictInfo, ServerOrigins, SyncConfig, SyncProjectConfig, SyncState, SyncStateEntry,
 };
 use crate::plus::skills::clock::Clock;
-use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::ffi::OsString;
@@ -391,8 +390,7 @@ pub fn init(ctx: &SyncContext<'_>, opts: &InitOptions<'_>) -> Result<InitReport,
         }
     };
     if fresh {
-        let path = repo_dir.join(super::bundle::SALT_FILE);
-        fs::write(&path, STANDARD.encode(&salt)).map_err(|e| io_err(&path, e))?;
+        write_salt(&repo_dir, &salt)?;
     }
     save_config(ctx, &cfg)?;
     save_keyfile(ctx, &key)?;
@@ -856,8 +854,7 @@ pub fn rotate_passphrase(
         for (path, token) in &staged {
             fs::write(path, token).map_err(|e| io_err(path, e))?;
         }
-        let salt_path = repo.join(super::bundle::SALT_FILE);
-        fs::write(&salt_path, STANDARD.encode(salt)).map_err(|e| io_err(&salt_path, e))
+        write_salt(&repo, salt.as_slice())
     };
     let pushed = write_all()
         .and_then(|_| git.commit_and_push(&format!("rotate passphrase from {}", cfg.machine_id)));
