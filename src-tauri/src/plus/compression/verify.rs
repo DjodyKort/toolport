@@ -3,7 +3,7 @@
 //! a transcript is the only evidence trusted; a provider's self-reported savings never is.
 
 use super::capability::{split_unsealed, unsealed_for};
-use super::ledger::{attribute, parse_ts, LaunchRecord};
+use super::ledger::{parse_ts, Attributor, LaunchRecord};
 use super::model::{version_tuple, CompressionConfig, ProviderName};
 use super::shims::{defined_functions, SHIM_FUNCTIONS};
 use super::store::Paths;
@@ -245,9 +245,10 @@ pub struct Buckets {
 /// control); no matching launch is its own bucket, never folded into plain.
 pub fn partition(paths: &[PathBuf], launches: &[LaunchRecord]) -> Buckets {
     let mut out = Buckets::default();
+    let mut attributor = Attributor::new(launches);
     for path in paths {
         let (start, cwd) = session_origin(path);
-        match attribute(start, cwd.as_deref(), launches) {
+        match attributor.attribute(start, cwd.as_deref()) {
             None => out.unattributed.push(path.clone()),
             Some(rec) if rec.routed => out.proxied.push(path.clone()),
             Some(_) => out.plain.push(path.clone()),
@@ -263,9 +264,10 @@ pub fn partition_by_pin(
     launches: &[LaunchRecord],
 ) -> BTreeMap<String, Vec<PathBuf>> {
     let mut out: BTreeMap<String, Vec<PathBuf>> = BTreeMap::new();
+    let mut attributor = Attributor::new(launches);
     for path in paths {
         let (start, cwd) = session_origin(path);
-        if let Some(rec) = attribute(start, cwd.as_deref(), launches).filter(|r| r.routed) {
+        if let Some(rec) = attributor.attribute(start, cwd.as_deref()).filter(|r| r.routed) {
             let pin = rec.pin.clone().filter(|p| !p.is_empty());
             out.entry(pin.unwrap_or_else(|| "unknown".into()))
                 .or_default()
