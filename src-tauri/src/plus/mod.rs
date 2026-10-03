@@ -7,6 +7,7 @@ pub mod ctl;
 use serde_json::{json, Value};
 
 pub mod auth;
+pub mod cc;
 pub mod compression;
 pub mod council;
 pub mod context;
@@ -41,6 +42,8 @@ const HANDLERS: &[(&str, Handler)] = &[
     ("plus.sync.removeProject", sync::handlers::remove_project_handler),
     ("plus.sync.gitSync", sync::handlers::git_sync_handler),
     ("plus.sync.migrate", sync::handlers::migrate_handler),
+    ("plus.cc.list", cc::list_handler),
+    ("plus.cc.update", cc::update_handler),
     ("plus.update.check", update::check_handler),
     ("plus.update.apply", update::apply_handler),
 ];
