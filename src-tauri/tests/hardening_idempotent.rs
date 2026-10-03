@@ -112,6 +112,90 @@ fn import_mcpm_second_run_changes_nothing() {
     assert_same("import mcpm", &after_first, &sb);
 }
 
+const SELF_ID: &str = "toolport-plus-self";
+
+fn enabled_in(sb: &Sandbox, profile: &str) -> bool {
+    sb.registry()["profiles"]
+        .as_array()
+        .and_then(|profiles| profiles.iter().find(|p| p["id"] == profile))
+        .and_then(|p| p["enabledServerIds"].as_array())
+        .is_some_and(|ids| ids.iter().any(|id| id == SELF_ID))
+}
+
+fn has_self_server(sb: &Sandbox) -> bool {
+    sb.server_names().iter().any(|name| name == SELF_ID)
+}
+
+fn doctor_state(sb: &Sandbox) -> (String, bool) {
+    let run = sb.ctl(&["--json", "mcp", "doctor"]);
+    (
+        run.data()["state"].as_str().unwrap_or("").to_string(),
+        run.code == Some(0),
+    )
+}
+
+#[test]
+fn import_mcpm_enables_the_self_server_once_and_a_user_choice_survives_reimports() {
+    let sb = Sandbox::new("idem-self-choice");
+    seed_clients(&sb);
+    let root = mcpm_fixture(&sb, &Canary::new());
+    let home = sb.home.to_string_lossy().into_owned();
+    let args = ["--json", "import", "mcpm", &root, "--home", &home];
+
+    sb.ctl(&args).assert_ok();
+    for profile in ["default", "claude-code"] {
+        assert!(enabled_in(&sb, profile), "{profile} after the first import");
+    }
+    assert_eq!(doctor_state(&sb), ("enabled".to_string(), true));
+
+    let mut registry = sb.registry();
+    for profile in registry["profiles"].as_array_mut().unwrap() {
+        if profile["id"] == "claude-code" {
+            profile["enabledServerIds"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|id| id != SELF_ID);
+        }
+    }
+    sb.write_registry(&registry);
+    sb.ctl(&args).assert_ok();
+    let settled = sb.tree();
+    assert!(!enabled_in(&sb, "claude-code"), "a re-import re-enabled it");
+    assert!(enabled_in(&sb, "default"));
+    assert_eq!(doctor_state(&sb), ("disabled".to_string(), true));
+
+    let again = sb.ctl(&args);
+    again.assert_ok();
+    assert_eq!(counts(&again.data()), (0, 0), "{}", again.describe());
+    assert_same("import after a user opt-out", &settled, &sb);
+}
+
+#[test]
+fn import_mcpm_never_brings_back_an_uninstalled_self_server() {
+    let sb = Sandbox::new("idem-self-uninstall");
+    seed_clients(&sb);
+    let root = mcpm_fixture(&sb, &Canary::new());
+    let home = sb.home.to_string_lossy().into_owned();
+    let args = ["--json", "import", "mcpm", &root, "--home", &home];
+
+    sb.ctl(&args).assert_ok();
+    sb.ctl(&["--json", "mcp", "uninstall"]).assert_ok();
+    assert!(!has_self_server(&sb));
+    sb.ctl(&args).assert_ok();
+    let settled = sb.tree();
+    assert!(!has_self_server(&sb));
+    assert_eq!(doctor_state(&sb), ("opted-out".to_string(), true));
+
+    let again = sb.ctl(&args);
+    again.assert_ok();
+    assert_eq!(counts(&again.data()), (0, 0), "{}", again.describe());
+    assert_same("import after uninstall", &settled, &sb);
+
+    sb.ctl(&["--json", "mcp", "install"]).assert_ok();
+    assert!(has_self_server(&sb));
+    assert_eq!(doctor_state(&sb), ("enabled".to_string(), true));
+}
+
 #[test]
 fn import_mcpm_dry_run_writes_nothing() {
     let sb = Sandbox::new("idem-dry");

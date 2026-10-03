@@ -18,6 +18,7 @@ use std::time::Duration;
 use conduit_lib::plus::import_mcpm::{
     name_map, run, RunOptions, MAX_TOOL_NAME_LEN, TOOL_NAME_PREFIX,
 };
+use conduit_lib::plus::selfmcp::{register, TOOLS};
 use conduit_lib::registry;
 use serde_json::{json, Value};
 
@@ -43,10 +44,24 @@ struct Client {
 
 impl Client {
     fn start(dir: &Path) -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_toolport-gateway"))
+        Self::start_scoped(dir, None)
+    }
+
+    fn start_scoped(dir: &Path, profile: Option<&str>) -> Self {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_toolport-gateway"));
+        command
             .arg("--stdio-adapter")
             .env("TOOLPORT_DATA_DIR", dir)
-            .env("TOOLPORT_REGISTRY", dir.join("registry.json"))
+            .env("TOOLPORT_REGISTRY", dir.join("registry.json"));
+        match profile {
+            Some(profile) => command
+                .env("TOOLPORT_PROFILE", profile)
+                .env("TOOLPORT_CLIENT_ID", profile),
+            None => command
+                .env_remove("TOOLPORT_PROFILE")
+                .env_remove("TOOLPORT_CLIENT_ID"),
+        };
+        let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -244,4 +259,250 @@ fn imported_registry_serves_the_name_map_through_the_gateway() {
         json!({"name": "beta_mock__add", "arguments": {"a": 2, "b": 3}}),
     );
     assert_eq!(sum["result"]["content"][0]["text"], "5", "{sum}");
+}
+
+const SELF_PREFIX: &str = "toolport_plus_self__";
+
+struct SelfWorld {
+    data: PathBuf,
+    opts: RunOptions,
+    _override: registry::DataDirOverride,
+    _lock: std::sync::MutexGuard<'static, ()>,
+    _scratch: Scratch,
+}
+
+impl SelfWorld {
+    fn new(tag: &str) -> Self {
+        let lock = registry::data_dir_test_lock();
+        std::env::set_var("TOOLPORT_SECRET_KEY", "ab".repeat(32));
+        let base =
+            std::env::temp_dir().join(format!("import-selfmcp-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let scratch = Scratch(base.clone());
+        let data = base.join("data");
+        let home = base.join("home");
+        let root = base.join("mcpm");
+        std::fs::create_dir_all(data.join("bin")).unwrap();
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::create_dir_all(&root).unwrap();
+        std::os::unix::fs::symlink(
+            env!("CARGO_BIN_EXE_toolport-selfmcp"),
+            data.join("bin/toolport-selfmcp"),
+        )
+        .unwrap();
+        let mock = env!("CARGO_BIN_EXE_mock-mcp-server");
+        std::fs::write(
+            root.join("servers.json"),
+            json!({"alpha-mock": {"name": "alpha-mock", "profile_tags": ["smoke"],
+                                  "command": mock, "args": []}})
+            .to_string(),
+        )
+        .unwrap();
+        for client in ["claude-code", "cursor"] {
+            std::fs::write(
+                root.join(format!("{client}.json")),
+                json!({"mcpServers": {"mcpm_alpha-mock":
+                    {"command": "mcpm", "args": ["run", "alpha-mock"]}}})
+                .to_string(),
+            )
+            .unwrap();
+        }
+        let guard = registry::DataDirOverride::set(&data);
+        let opts = RunOptions {
+            root,
+            home: Some(home.to_string_lossy().into_owned()),
+            ..RunOptions::default()
+        };
+        let world = Self {
+            data,
+            opts,
+            _override: guard,
+            _lock: lock,
+            _scratch: scratch,
+        };
+        world.import();
+        let data_dir = world.data.to_string_lossy().into_owned();
+        registry::update(|reg| {
+            reg.set_lazy_discovery(false);
+            // The gateway strips TOOLPORT_* from child servers, so a self server that must
+            // use this data directory has to carry the variable in its own env.
+            let entry = reg
+                .servers
+                .iter_mut()
+                .find(|s| s.source.as_deref() == Some(register::SELF_SOURCE))
+                .expect("self server");
+            entry.env.push(registry::EnvVar {
+                key: "TOOLPORT_DATA_DIR".into(),
+                value: Some(data_dir),
+                secret: false,
+            });
+            reg.set_server_enabled("default", "alpha-mock", true)
+        })
+        .expect("full discovery");
+        world
+    }
+
+    fn import(&self) {
+        let plan = run(&self.opts).expect("import");
+        assert!(plan.rejects.is_empty(), "{:?}", plan.rejects);
+    }
+
+    fn switch_off(&self, profile: &str) {
+        registry::update(|reg| {
+            let id = register::find_self(reg).expect("self server").id.clone();
+            reg.set_server_enabled(profile, &id, false)
+        })
+        .expect("switch off");
+    }
+
+    fn open(&self, profile: Option<&str>) -> Client {
+        let mut client = Client::start_scoped(&self.data, profile);
+        client.request(
+            1,
+            "initialize",
+            json!({"protocolVersion": "2024-11-05", "capabilities": {},
+                   "clientInfo": {"name": "selfmcp-smoke", "version": "1"}}),
+        );
+        client.notify("notifications/initialized");
+        client
+    }
+
+    /// What a client of this profile can reach. A full-discovery client lists its tools; a lazy
+    /// one finds them through `toolport_search_tools`. The gateway builds its router in the
+    /// background, so this waits until the imported server, which every profile of this world
+    /// has, is reachable.
+    fn seen(&self, profile: Option<&str>) -> Seen {
+        let mut client = self.open(profile);
+        let started = std::time::Instant::now();
+        for round in 0..300 {
+            let list = client.request(1000 + round, "tools/list", json!({}));
+            let listed: BTreeSet<String> = list["result"]["tools"]
+                .as_array()
+                .expect("tools array")
+                .iter()
+                .filter_map(|t| t["name"].as_str().map(String::from))
+                .collect();
+            let lazy = listed.contains("toolport_search_tools");
+            if !lazy && listed.contains("alpha_mock__echo") {
+                return Seen {
+                    lazy,
+                    names: listed,
+                };
+            }
+            if lazy {
+                let found = search(&mut client, 2000 + round, "echo", None);
+                if found.contains("alpha_mock__echo") {
+                    let mut names =
+                        search(&mut client, 3000 + round, "", Some("toolport_plus_self"));
+                    names.insert("alpha_mock__echo".into());
+                    return Seen { lazy, names };
+                }
+            }
+            assert!(
+                started.elapsed() < Duration::from_secs(30),
+                "the gateway never reached the imported server for {profile:?}: {listed:?}"
+            );
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        panic!("the gateway never reached the imported server for {profile:?}");
+    }
+}
+
+struct Seen {
+    lazy: bool,
+    names: BTreeSet<String>,
+}
+
+fn search(client: &mut Client, id: i64, query: &str, server: Option<&str>) -> BTreeSet<String> {
+    let mut arguments = json!({"query": query, "limit": 200});
+    if let Some(server) = server {
+        arguments["server"] = json!(server);
+    }
+    let reply = client.request(
+        id,
+        "tools/call",
+        json!({"name": "toolport_search_tools", "arguments": arguments}),
+    );
+    let text = reply["result"]["content"][0]["text"].as_str().unwrap_or("");
+    let rows: Vec<Value> = text
+        .split_once("\n\n")
+        .and_then(|(_, rows)| serde_json::from_str(rows).ok())
+        .unwrap_or_default();
+    rows.iter()
+        .filter_map(|r| r["name"].as_str().map(String::from))
+        .collect()
+}
+
+fn self_tools(listed: &BTreeSet<String>) -> BTreeSet<String> {
+    listed
+        .iter()
+        .filter(|n| n.starts_with(SELF_PREFIX))
+        .cloned()
+        .collect()
+}
+
+#[test]
+fn imported_clients_see_the_self_tools_through_the_gateway() {
+    let world = SelfWorld::new("visible");
+    let expected: BTreeSet<String> = TOOLS
+        .iter()
+        .map(|t| format!("{SELF_PREFIX}{}", t.name))
+        .collect();
+    assert_eq!(expected.len(), 49);
+    for (profile, lazy) in [
+        (None, false),
+        (Some("claude-code"), false),
+        (Some("cursor"), true),
+    ] {
+        let seen = world.seen(profile);
+        assert_eq!(seen.lazy, lazy, "discovery mode of {profile:?}");
+        assert_eq!(self_tools(&seen.names), expected, "profile {profile:?}");
+    }
+
+    let mut client = world.open(Some("claude-code"));
+    let reply = client.request(
+        2,
+        "tools/call",
+        json!({"name": format!("{SELF_PREFIX}servers_list"), "arguments": {}}),
+    );
+    assert_ne!(reply["result"]["isError"], true, "{reply}");
+    let text = reply["result"]["content"][0]["text"].as_str().unwrap_or("");
+    assert!(
+        text.contains("toolport-plus-self") && text.contains("alpha-mock"),
+        "{reply}"
+    );
+}
+
+#[test]
+fn a_profile_the_user_switched_off_stays_without_the_self_tools() {
+    let world = SelfWorld::new("off");
+    world.switch_off("claude-code");
+    world.switch_off("default");
+    world.import();
+    let off = world.seen(Some("claude-code"));
+    assert!(self_tools(&off.names).is_empty(), "{:?}", off.names);
+    assert!(self_tools(&world.seen(None).names).is_empty());
+    assert_eq!(
+        self_tools(&world.seen(Some("cursor")).names).len(),
+        TOOLS.len()
+    );
+}
+
+#[test]
+fn an_uninstalled_self_server_stays_out_of_the_gateway_after_a_reimport() {
+    let world = SelfWorld::new("uninstall");
+    assert_eq!(
+        self_tools(&world.seen(Some("claude-code")).names).len(),
+        TOOLS.len()
+    );
+    register::uninstall_self_server().expect("uninstall");
+    world.import();
+    for profile in [None, Some("claude-code"), Some("cursor")] {
+        let seen = world.seen(profile);
+        assert!(
+            self_tools(&seen.names).is_empty(),
+            "{profile:?}: {:?}",
+            seen.names
+        );
+    }
 }
