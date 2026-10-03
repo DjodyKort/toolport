@@ -65,6 +65,18 @@ pub fn probe_due(status: &StatusFile, registry: &ProbeRegistry, now: i64) -> Vec
     due
 }
 
+pub fn probe_all(registry: &ProbeRegistry) -> Vec<String> {
+    let mut claimed = std::collections::BTreeSet::new();
+    registry
+        .iter()
+        .filter(|spec| {
+            spec.profile_gate_key()
+                .is_none_or(|key| claimed.insert(key))
+        })
+        .map(|spec| spec.server.clone())
+        .collect()
+}
+
 pub struct AuthProber {
     store: AuthStore,
     registry: ProbeRegistry,
@@ -97,7 +109,18 @@ impl AuthProber {
         self.flight.waiters(server)
     }
 
+    pub fn has_probe(&self, server: &str) -> bool {
+        self.registry.get(server).is_some()
+    }
+
+    pub fn registered(&self) -> Vec<String> {
+        probe_all(&self.registry)
+    }
+
     pub fn due(&self) -> Result<Vec<String>, String> {
+        if self.registry.iter().next().is_none() {
+            return Ok(Vec::new());
+        }
         let status = self.store.lock()?.load_status();
         Ok(probe_due(&status, &self.registry, self.clock.now()))
     }
