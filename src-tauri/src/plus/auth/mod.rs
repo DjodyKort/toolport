@@ -10,6 +10,7 @@ mod machine;
 mod prober;
 mod probe;
 pub mod scan;
+pub mod scheduler;
 pub mod stdio;
 pub mod surfaces;
 mod types;
@@ -80,4 +81,6 @@ mod stdio_tests;
 #[cfg(test)]
 mod scan_tests;
 
+#[cfg(test)]
+mod scheduler_tests;
 
