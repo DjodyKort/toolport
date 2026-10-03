@@ -16,6 +16,7 @@ mod wired_tests;
 
 pub use catalog::{find_resource, find_tool, Gate, ResourceDef, ToolDef, RESOURCES, TOOLS};
 
+use crate::plus::args::flag;
 use serde_json::{json, Value};
 
 pub const SERVER_NAME: &str = "toolport-plus-self";
@@ -137,13 +138,11 @@ fn type_matches(ty: catalog::Ty, value: &Value) -> bool {
 }
 
 fn gate_passes(tool: &ToolDef, args: &Value) -> bool {
-    let confirmed = args.get("confirm").and_then(Value::as_bool) == Some(true);
+    let confirmed = flag(args, "confirm");
     match tool.gate {
         Gate::None => true,
         Gate::Always => confirmed,
-        Gate::UnlessDryRun => {
-            confirmed || args.get("dry_run").and_then(Value::as_bool) == Some(true)
-        }
+        Gate::UnlessDryRun => confirmed || flag(args, "dry_run"),
     }
 }
 

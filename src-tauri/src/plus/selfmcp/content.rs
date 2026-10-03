@@ -1,4 +1,5 @@
-use super::backend::{arg_str, lint_value, skills_repo};
+use super::backend::{lint_value, skills_repo};
+use crate::plus::args::{flag, flag_or, list, str_arg};
 use super::ToolError;
 use crate::plus::skills::agents::lint::lint_agents;
 use crate::plus::skills::agents::{
@@ -33,21 +34,15 @@ fn home() -> Result<PathBuf, ToolError> {
 }
 
 fn global_mode(args: &Value) -> bool {
-    args.get("global_mode")
-        .and_then(Value::as_bool)
-        .unwrap_or(true)
+    flag_or(args, "global_mode", true)
 }
 
 fn dry_run(args: &Value) -> bool {
-    args.get("dry_run")
-        .and_then(Value::as_bool)
-        .unwrap_or(false)
+    flag(args, "dry_run")
 }
 
 fn client_keys(args: &Value) -> Option<Vec<String>> {
-    let keys: Vec<String> = args
-        .get("client_keys")
-        .and_then(Value::as_array)?
+    let keys: Vec<String> = list(args, "client_keys")?
         .iter()
         .filter_map(|v| v.as_str().map(String::from))
         .collect();
@@ -107,7 +102,7 @@ fn kebab(name: &str) -> Result<&str, ToolError> {
 }
 
 fn name_arg(args: &Value) -> Result<&str, ToolError> {
-    path_safe(arg_str(args, "name").unwrap_or_default())
+    path_safe(str_arg(args, "name").unwrap_or_default())
 }
 
 fn registry_for_skills() -> Result<TranspilerRegistry, ToolError> {
@@ -371,8 +366,8 @@ fn skills_status(args: &Value) -> Outcome {
 }
 
 fn skills_scaffold(args: &Value) -> Outcome {
-    let name = kebab(arg_str(args, "name").unwrap_or_default())?;
-    let skill_type = arg_str(args, "skill_type").unwrap_or("skill");
+    let name = kebab(str_arg(args, "name").unwrap_or_default())?;
+    let skill_type = str_arg(args, "skill_type").unwrap_or("skill");
     if !["skill", "rule"].contains(&skill_type) {
         return Err(ToolError::new(
             "invalid_arguments",
@@ -422,7 +417,7 @@ fn skills_sync(args: &Value) -> Outcome {
 
 fn edit_body(args: &Value, kind: &str) -> Outcome {
     let name = name_arg(args)?;
-    let body = arg_str(args, "new_body").unwrap_or_default();
+    let body = str_arg(args, "new_body").unwrap_or_default();
     let repo = skills_repo(args)?;
     let path = match kind {
         "skill" => find_skill(&repo, name)?.source_path,
@@ -478,8 +473,8 @@ fn agents_get(args: &Value) -> Outcome {
 }
 
 fn agents_scaffold(args: &Value) -> Outcome {
-    let name = kebab(arg_str(args, "name").unwrap_or_default())?;
-    let model = arg_str(args, "model").unwrap_or("inherit");
+    let name = kebab(str_arg(args, "name").unwrap_or_default())?;
+    let model = str_arg(args, "model").unwrap_or("inherit");
     if model.contains(['\n', '\r']) {
         return Err(ToolError::new("invalid_arguments", "invalid model"));
     }
@@ -560,7 +555,7 @@ fn styles_transpilers() -> Value {
 }
 
 fn styles_scaffold(args: &Value) -> Outcome {
-    let name = kebab(arg_str(args, "name").unwrap_or_default())?;
+    let name = kebab(str_arg(args, "name").unwrap_or_default())?;
     let repo = skills_repo(args)?;
     let content = format!(
         "---\nname: {name}\ndescription: \"TODO: Describe the tone, verbosity, and persona of this output style.\"\nkeep-coding-instructions: true\n---\n\nTODO: Add style instructions here.\n"

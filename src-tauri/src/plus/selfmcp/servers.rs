@@ -1,4 +1,5 @@
-use super::backend::{arg_str, ctl, read_registry, skills_repo};
+use super::backend::{ctl, read_registry, skills_repo};
+use crate::plus::args::{flag, flag_or, list, str_arg, str_nonempty};
 use super::ToolError;
 use crate::plus::update::exec::{CmdOutput, GitRunner, ShellRunner, SystemGit, SystemShell};
 use crate::plus::update::source::{self, Source};
@@ -40,15 +41,11 @@ pub(super) fn run(name: &str, args: &Value) -> Option<Outcome> {
 }
 
 fn name_arg(args: &Value) -> Result<&str, ToolError> {
-    let name = arg_str(args, "name").unwrap_or_default().trim();
+    let name = str_arg(args, "name").unwrap_or_default().trim();
     if name.is_empty() || name.starts_with('-') {
         return Err(ToolError::new("invalid_arguments", "invalid server name"));
     }
     Ok(name)
-}
-
-fn flag(args: &Value, key: &str) -> bool {
-    args.get(key).and_then(Value::as_bool).unwrap_or(false)
 }
 
 fn resolve(reg: &Registry, key: &str) -> Result<ServerEntry, ToolError> {
@@ -119,7 +116,7 @@ fn git_status(args: &Value) -> Outcome {
 
 fn update_options(args: &Value, mode: Mode) -> Result<Options, ToolError> {
     let mut opts = Options::new(mode);
-    if let Some(name) = arg_str(args, "name").filter(|n| !n.is_empty()) {
+    if let Some(name) = str_nonempty(args, "name") {
         let server = resolve(&read_registry()?, name)?;
         opts.server = Some(server.id);
     }
@@ -174,7 +171,7 @@ fn join_profile(server: &ServerEntry, tag: &str, add: bool) -> Result<Registry, 
 
 fn profile_tag(args: &Value, add: bool) -> Outcome {
     let server = load(args)?;
-    let tag = arg_str(args, "profile_tag").unwrap_or_default().trim();
+    let tag = str_arg(args, "profile_tag").unwrap_or_default().trim();
     if tag.is_empty() {
         return Err(ToolError::new("invalid_arguments", "profile_tag is empty"));
     }
@@ -297,7 +294,7 @@ fn install(args: &Value) -> Outcome {
         }
     };
     let server = resolve(&read_registry()?, &id)?;
-    if let Some(tags) = args.get("profile_tags").and_then(Value::as_array) {
+    if let Some(tags) = list(args, "profile_tags") {
         for tag in tags.iter().filter_map(Value::as_str) {
             join_profile(&server, tag, true)?;
         }
@@ -326,7 +323,7 @@ fn update_config(args: &Value) -> Outcome {
 
 fn set_mode(args: &Value) -> Outcome {
     let server = load(args)?;
-    let mode = arg_str(args, "mode").unwrap_or_default();
+    let mode = str_arg(args, "mode").unwrap_or_default();
     if !["auto", "direct", "router", "legacy", "bridge"].contains(&mode) {
         return Err(ToolError::new(
             "invalid_arguments",
@@ -344,10 +341,7 @@ fn set_mode(args: &Value) -> Outcome {
 
 fn uninstall(args: &Value) -> Outcome {
     let name = name_arg(args)?;
-    let propagate = args
-        .get("propagate_to_clients")
-        .and_then(Value::as_bool)
-        .unwrap_or(true);
+    let propagate = flag_or(args, "propagate_to_clients", true);
     let mut cmd = vec!["server", "uninstall", name];
     if !propagate {
         cmd.push("--keep-clients");
@@ -357,7 +351,7 @@ fn uninstall(args: &Value) -> Outcome {
 
 fn clients_sync(args: &Value) -> Outcome {
     let mut cmd = vec!["client", "sync"];
-    if let Some(client) = arg_str(args, "client").filter(|c| !c.is_empty()) {
+    if let Some(client) = str_nonempty(args, "client") {
         if client.starts_with('-') {
             return Err(ToolError::new("invalid_arguments", "invalid client key"));
         }
@@ -409,7 +403,7 @@ fn skills_git_push(args: &Value) -> Outcome {
             format!("{} is not a git repository", repo.display()),
         ));
     }
-    let message = arg_str(args, "commit_message").unwrap_or_default();
+    let message = str_arg(args, "commit_message").unwrap_or_default();
     if message.trim().is_empty() {
         return Err(ToolError::new(
             "invalid_arguments",
@@ -458,9 +452,9 @@ fn fork_sync(args: &Value) -> Outcome {
             "source path is not a git repository",
         ));
     }
-    let remote = arg_str(args, "upstream_remote").unwrap_or("upstream");
-    let branch = arg_str(args, "upstream_branch").unwrap_or("main");
-    let mode = arg_str(args, "mode").unwrap_or("rebase");
+    let remote = str_arg(args, "upstream_remote").unwrap_or("upstream");
+    let branch = str_arg(args, "upstream_branch").unwrap_or("main");
+    let mode = str_arg(args, "mode").unwrap_or("rebase");
     for value in [remote, branch] {
         if value.is_empty() || value.starts_with('-') {
             return Err(ToolError::new(
@@ -487,7 +481,7 @@ fn fork_sync(args: &Value) -> Outcome {
     let upstream = format!("{remote}/{branch}");
     git_ok(&repo, &["fetch", "--quiet", remote])?;
     let date = crate::plus::update::now_iso()[..10].replace('-', "");
-    let target = arg_str(args, "target_branch")
+    let target = str_arg(args, "target_branch")
         .filter(|t| !t.is_empty() && !t.starts_with('-'))
         .map(String::from)
         .unwrap_or_else(|| format!("{current}-synced-{date}"));
@@ -500,7 +494,7 @@ fn fork_sync(args: &Value) -> Outcome {
             conflict_report(&repo, &target, "git rebase --continue")
         }
     } else {
-        let email = arg_str(args, "author_email").unwrap_or_default();
+        let email = str_arg(args, "author_email").unwrap_or_default();
         if email.is_empty() {
             return Err(ToolError::new(
                 "invalid_arguments",
