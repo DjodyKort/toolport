@@ -691,6 +691,7 @@ impl Probe for HttpProbe {
 pub struct CompositeProbe {
     google: GoogleRefreshProbe,
     http: HttpProbe,
+    gateway: super::gateway_state::GatewayStateProbe,
 }
 
 impl std::fmt::Debug for CompositeProbe {
@@ -698,6 +699,7 @@ impl std::fmt::Debug for CompositeProbe {
         f.debug_struct("CompositeProbe")
             .field("google", &self.google)
             .field("http", &self.http)
+            .field("gateway", &self.gateway)
             .finish()
     }
 }
@@ -707,7 +709,7 @@ impl Probe for CompositeProbe {
         match spec.kind {
             ProbeKind::GoogleRefresh => self.google.run(spec),
             ProbeKind::Http => self.http.run(spec),
-            ProbeKind::GatewayState => ProbeOutcome::TransportError,
+            ProbeKind::GatewayState => self.gateway.run(spec),
         }
     }
 }
@@ -817,6 +819,11 @@ pub fn http_registry(registry: &crate::registry::Registry) -> ProbeRegistry {
 pub fn combined_registry(registry: &crate::registry::Registry) -> ProbeRegistry {
     let mut reg = super::google::google_registry(registry);
     for spec in http_registry(registry).iter() {
+        if reg.get(&spec.server).is_none() {
+            reg.register(spec.clone());
+        }
+    }
+    for spec in super::gateway_state::gateway_registry(registry).iter() {
         if reg.get(&spec.server).is_none() {
             reg.register(spec.clone());
         }

@@ -1336,6 +1336,26 @@ fn exchange_code(
     Ok(resp.into_tokens(now_epoch_seconds()))
 }
 
+fn token_endpoint_error(error: ureq::Error, secret: &str) -> String {
+    let ureq::Error::Status(status, response) = error else {
+        return redact_secret(&error.to_string(), secret);
+    };
+    let body: serde_json::Value = response.into_json().unwrap_or_default();
+    let field = |name: &str| {
+        body.get(name)
+            .and_then(|v| v.as_str())
+            .map(|v| v.chars().take(200).collect::<String>())
+    };
+    let mut message = format!("token endpoint returned status code {status}");
+    if let Some(code) = field("error") {
+        message.push_str(&format!(": {code}"));
+        if let Some(description) = field("error_description") {
+            message.push_str(&format!(": {description}"));
+        }
+    }
+    redact_secret(&message, secret)
+}
+
 /// Exchange a refresh token for a fresh access token (non-interactive). When a
 /// `resource` is given it's sent as the RFC 8707 resource indicator, so the
 /// refreshed token stays bound to the same MCP server it was first issued for.
@@ -1361,7 +1381,7 @@ pub fn refresh(
     let resp: TokenResponse = agent_no_redirect(block_private)
         .post(token_endpoint)
         .send_form(&form)
-        .map_err(|e| e.to_string())?
+        .map_err(|e| token_endpoint_error(e, refresh_token))?
         .into_json()
         .map_err(|e| e.to_string())?;
     debug_log(&format!(

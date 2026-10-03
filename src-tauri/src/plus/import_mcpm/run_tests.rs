@@ -565,3 +565,56 @@ fn mcpm_client_names_map_to_toolport_ids() {
         assert!(clients.iter().all(|c| !c.servers.is_empty()));
     });
 }
+
+#[test]
+fn desktop_remotes_go_through_the_gateway_without_proxy_shims() {
+    with_world("desktop-remotes", |w| {
+        seed_clients(w);
+        run(&live_opts(w, false)).unwrap();
+        let desktop = read_json(&desktop_config(w));
+        let entries = desktop["mcpServers"].as_object().unwrap();
+        assert!(entries.contains_key("toolport"));
+        for (key, entry) in entries {
+            let args = entry["args"].to_string();
+            assert!(!args.contains("mcp-proxy"), "{key}");
+            assert!(entry.get("url").is_none(), "{key}");
+            assert!(!key.starts_with("mcpm_"), "{key}");
+        }
+        let reg: Value = serde_json::from_str(&w.registry_text().unwrap()).unwrap();
+        let server = |id: &str| {
+            reg["servers"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|s| s["id"] == id)
+                .unwrap_or_else(|| panic!("{id}"))
+                .clone()
+        };
+        let desktop_profile = reg["profiles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["id"] == "claude-desktop")
+            .unwrap()["enabledServerIds"]
+            .clone();
+        for id in ["figma", "clickup", "miro"] {
+            let s = server(id);
+            assert_eq!(s["transport"], "http", "{id}");
+            assert!(s["url"].as_str().unwrap().starts_with("https://"), "{id}");
+            assert!(s.get("command").is_none_or(Value::is_null), "{id}");
+            assert_eq!(s["mcpmOauth"], true, "{id}");
+            assert!(
+                desktop_profile.as_array().unwrap().contains(&json!(id)),
+                "{id}"
+            );
+            assert!(w.secrets().iter().all(|(sid, _, _)| sid != id), "{id}");
+        }
+        let slack = server("slack");
+        assert_eq!(slack["transport"], "http");
+        assert!(slack.get("mcpmOauth").is_none_or(Value::is_null));
+        assert!(w
+            .secrets()
+            .iter()
+            .any(|(sid, key, _)| sid == "slack" && key == "__http_auth__"));
+    });
+}
