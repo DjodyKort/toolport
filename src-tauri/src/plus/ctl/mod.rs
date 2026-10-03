@@ -2,6 +2,7 @@
 //! parsing, dispatch and rendering live here so they are unit-testable.
 
 mod commands;
+mod compression;
 mod output;
 
 use output::{CtlError, Envelope, Output};
@@ -53,6 +54,21 @@ pub const COMMANDS: &[Command] = &[
         handler: None,
     },
     Command {
+        path: &["compression", "status"],
+        summary: "Show the compression policy, pin and drift",
+        handler: Some(compression::status),
+    },
+    Command {
+        path: &["compression", "presets"],
+        summary: "List compression presets",
+        handler: Some(compression::presets),
+    },
+    Command {
+        path: &["compression", "run"],
+        summary: "Launch claude under the directory's policy (--plan to preview)",
+        handler: Some(compression::run),
+    },
+    Command {
         path: &["compression"],
         summary: "Compression runs",
         handler: None,
@@ -93,7 +109,12 @@ pub fn parse(args: &[String]) -> Result<Parsed, String> {
             continue;
         }
         match arg.as_str() {
-            "--" => rest_positional = true,
+            "--" => {
+                rest_positional = true;
+                if parsed.positional.first().map(String::as_str) == Some("compression") {
+                    parsed.positional.push(arg.clone());
+                }
+            }
             "--json" => parsed.json = true,
             "-h" | "--help" => parsed.help = true,
             "-V" | "--version" => parsed.version = true,
@@ -106,6 +127,9 @@ pub fn parse(args: &[String]) -> Result<Parsed, String> {
             other => match other.strip_prefix("--data-dir=") {
                 Some("") => return Err("--data-dir requires a value".into()),
                 Some(value) => parsed.data_dir = Some(value.to_string()),
+                None if parsed.positional.first().map(String::as_str) == Some("compression") => {
+                    parsed.positional.push(other.to_string())
+                }
                 None => return Err(format!("unknown option: {other}")),
             },
         }
@@ -272,5 +296,7 @@ fn emit(
     code
 }
 
+#[cfg(test)]
+mod compression_tests;
 #[cfg(test)]
 mod tests;
