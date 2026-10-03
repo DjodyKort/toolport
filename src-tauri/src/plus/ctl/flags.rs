@@ -231,6 +231,12 @@ impl Flags {
         self.switches.contains(&name)
     }
 
+    pub(super) fn entries(&self) -> impl Iterator<Item = (&'static str, Option<&str>)> + '_ {
+        let switches = self.switches.iter().map(|name| (*name, None));
+        let values = self.values.iter().map(|(name, v)| (*name, Some(v.as_str())));
+        switches.chain(values)
+    }
+
     pub(super) fn has_values(&self) -> bool {
         !self.values.is_empty()
     }

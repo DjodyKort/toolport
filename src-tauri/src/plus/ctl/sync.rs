@@ -1,6 +1,7 @@
 //! `toolportctl sync init|push|pull|diff|status|reset|rotate-passphrase|add-project|remove-project|
 //! git-sync|migrate`. Passphrases come from `--passphrase-env VAR` or `--passphrase-stdin`.
 
+use super::flags::{switch, value, Dashes, Flag, Spec};
 use super::output::{CtlError, Output};
 use crate::plus::sync::handlers as h;
 use serde_json::{json, Map, Value};
@@ -8,68 +9,85 @@ use std::io::Read;
 
 const USAGE: &str = "usage: sync <init|push|pull|diff|status|reset|rotate-passphrase|add-project|remove-project|git-sync|migrate> [options]";
 
-struct Spec {
-    bools: &'static [(&'static str, &'static str)],
-    values: &'static [(&'static str, &'static str)],
+struct Sub {
+    spec: Spec,
     positional: &'static [&'static str],
 }
 
-fn spec(sub: &str) -> Option<Spec> {
-    let s = |bools, values, positional| {
-        Some(Spec {
-            bools,
-            values,
-            positional,
-        })
-    };
-    match sub {
-        "init" => s(
-            &[("--reconfigure", "reconfigure")],
-            &[
-                ("--repo", "repo"),
-                ("--branch", "branch"),
-                ("--machine-id", "machineId"),
-            ],
-            &[],
-        ),
-        "push" => s(
-            &[
-                ("--include-projects", "includeProjects"),
-                ("--dry-run", "dryRun"),
-            ],
-            &[],
-            &[],
-        ),
-        "pull" => s(
-            &[
-                ("--include-projects", "includeProjects"),
-                ("--force", "force"),
-                ("--dry-run", "dryRun"),
-                ("--no-resolve", "noResolve"),
-                ("--run-setup", "runSetup"),
-            ],
-            &[],
-            &[],
-        ),
-        "diff" | "status" | "reset" | "rotate-passphrase" => s(&[], &[], &[]),
-        "add-project" => s(&[], &[("--name", "name"), ("--files", "files")], &["path"]),
-        "remove-project" => s(&[], &[], &["name"]),
-        "git-sync" => s(
-            &[
-                ("--auto", "auto"),
-                ("--status", "status"),
-                ("--clear", "clear"),
-            ],
-            &[("--repo", "repo"), ("--branch", "branch")],
-            &[],
-        ),
-        "migrate" => s(
-            &[("--include-projects", "includeProjects")],
-            &[],
-            &["bundleDir"],
-        ),
-        _ => None,
+const fn sub(flags: &'static [Flag], positional: &'static [&'static str]) -> Sub {
+    Sub {
+        spec: Spec {
+            flags,
+            dashes: Dashes::Any,
+            ..Spec::PLAIN
+        },
+        positional,
     }
+}
+
+const INIT: Sub = sub(
+    &[
+        switch("--reconfigure"),
+        value("--repo"),
+        value("--branch"),
+        value("--machine-id"),
+    ],
+    &[],
+);
+const PUSH: Sub = sub(&[switch("--include-projects"), switch("--dry-run")], &[]);
+const PULL: Sub = sub(
+    &[
+        switch("--include-projects"),
+        switch("--force"),
+        switch("--dry-run"),
+        switch("--no-resolve"),
+        switch("--run-setup"),
+    ],
+    &[],
+);
+const NONE: Sub = sub(&[], &[]);
+const ADD_PROJECT: Sub = sub(&[value("--name"), value("--files")], &["path"]);
+const REMOVE_PROJECT: Sub = sub(&[], &["name"]);
+const GIT_SYNC: Sub = sub(
+    &[
+        switch("--auto"),
+        switch("--status"),
+        switch("--clear"),
+        value("--repo"),
+        value("--branch"),
+    ],
+    &[],
+);
+const MIGRATE: Sub = sub(&[switch("--include-projects")], &["bundleDir"]);
+
+fn spec(name: &str) -> Option<&'static Sub> {
+    Some(match name {
+        "init" => &INIT,
+        "push" => &PUSH,
+        "pull" => &PULL,
+        "diff" | "status" | "reset" | "rotate-passphrase" => &NONE,
+        "add-project" => &ADD_PROJECT,
+        "remove-project" => &REMOVE_PROJECT,
+        "git-sync" => &GIT_SYNC,
+        "migrate" => &MIGRATE,
+        _ => return None,
+    })
+}
+
+fn camel(flag: &str) -> String {
+    let mut out = String::new();
+    let mut upper = false;
+    for c in flag.trim_start_matches('-').chars() {
+        if c == '-' {
+            upper = true;
+        } else if upper {
+            out.extend(c.to_uppercase());
+            upper = false;
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
 
 fn secret_args(rest: &[String]) -> Result<(Vec<String>, Option<String>), CtlError> {
@@ -100,39 +118,27 @@ fn secret_args(rest: &[String]) -> Result<(Vec<String>, Option<String>), CtlErro
     Ok((remaining, secret))
 }
 
-fn parse_args(sub: &str, spec: &Spec, rest: &[String]) -> Result<Map<String, Value>, CtlError> {
+fn parse_args(sub: &str, def: &Sub, rest: &[String]) -> Result<Map<String, Value>, CtlError> {
     let (rest, secret) = secret_args(rest)?;
-    let mut args = Map::new();
-    let mut positional = Vec::new();
-    let mut iter = rest.iter();
-    while let Some(arg) = iter.next() {
-        if let Some((_, key)) = spec.bools.iter().find(|(f, _)| f == arg) {
-            args.insert((*key).into(), Value::Bool(true));
-        } else if let Some((flag, key)) = spec.values.iter().find(|(f, _)| f == arg) {
-            let value = iter
-                .next()
-                .ok_or_else(|| CtlError::usage(format!("{flag} requires a value")))?;
-            let value = if *key == "files" {
-                json!(value
-                    .split(',')
-                    .map(str::trim)
-                    .filter(|f| !f.is_empty())
-                    .collect::<Vec<_>>())
-            } else {
-                Value::String(value.clone())
-            };
-            args.insert((*key).into(), value);
-        } else if arg.starts_with('-') {
-            return Err(CtlError::usage(format!("unknown option: {arg}")));
-        } else {
-            positional.push(arg.clone());
-        }
-    }
-    if positional.len() > spec.positional.len() {
+    let flags = def.spec.parse(&rest)?;
+    if flags.operands().len() > def.positional.len() {
         return Err(CtlError::usage(USAGE));
     }
-    for (name, value) in spec.positional.iter().zip(positional) {
-        args.insert((*name).into(), Value::String(value));
+    let mut args = Map::new();
+    for (flag, text) in flags.entries() {
+        let value = match text {
+            None => Value::Bool(true),
+            Some(text) if flag == "--files" => json!(text
+                .split(',')
+                .map(str::trim)
+                .filter(|f| !f.is_empty())
+                .collect::<Vec<_>>()),
+            Some(text) => Value::String(text.to_string()),
+        };
+        args.insert(camel(flag), value);
+    }
+    for (name, value) in def.positional.iter().zip(flags.operands()) {
+        args.insert((*name).into(), Value::String(value.clone()));
     }
     if let Some(secret) = secret {
         let key = if sub == "rotate-passphrase" {
@@ -221,8 +227,8 @@ fn render(sub: &str, data: &Value) -> String {
 
 pub fn run(rest: &[String]) -> Result<Output, CtlError> {
     let sub = rest.first().ok_or_else(|| CtlError::usage(USAGE))?;
-    let spec = spec(sub).ok_or_else(|| CtlError::usage(USAGE))?;
-    let args = Value::Object(parse_args(sub, &spec, &rest[1..])?);
+    let def = spec(sub).ok_or_else(|| CtlError::usage(USAGE))?;
+    let args = Value::Object(parse_args(sub, def, &rest[1..])?);
     let handler: fn(Value) -> Result<Value, String> = match sub.as_str() {
         "init" => h::init_handler,
         "push" => h::push_handler,
@@ -279,14 +285,14 @@ mod tests {
         let s = spec("add-project").unwrap();
         let args = parse_args(
             "add-project",
-            &s,
+            s,
             &strings(&["/tmp/x", "--name", "app", "--files", "A.md, B.md"]),
         )
         .unwrap();
         assert_eq!(args["path"], "/tmp/x");
         assert_eq!(args["files"], json!(["A.md", "B.md"]));
         let s = spec("pull").unwrap();
-        let args = parse_args("pull", &s, &strings(&["--force", "--no-resolve"])).unwrap();
+        let args = parse_args("pull", s, &strings(&["--force", "--no-resolve"])).unwrap();
         assert_eq!(args["force"], true);
         assert_eq!(args["noResolve"], true);
     }
@@ -297,14 +303,14 @@ mod tests {
         let s = spec("rotate-passphrase").unwrap();
         let args = parse_args(
             "rotate-passphrase",
-            &s,
+            s,
             &strings(&["--passphrase-env", "TOOLPORT_SYNC_TEST_PASS"]),
         )
         .unwrap();
         assert_eq!(args["newPassphrase"], "synthetic passphrase");
         let err = parse_args(
             "init",
-            &spec("init").unwrap(),
+            spec("init").unwrap(),
             &strings(&["--passphrase-env", "TOOLPORT_SYNC_UNSET_VAR"]),
         )
         .err()
