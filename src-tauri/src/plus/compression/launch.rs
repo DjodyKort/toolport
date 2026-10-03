@@ -11,6 +11,7 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::process::{Command, Stdio};
+use std::sync::OnceLock;
 
 pub const BASE_URL_VAR: &str = "ANTHROPIC_BASE_URL";
 
@@ -217,7 +218,8 @@ impl Probe for SystemOps {
             String::from_utf8_lossy(&out.stdout),
             String::from_utf8_lossy(&out.stderr)
         );
-        let re = Regex::new(r"(\d+\.\d+\.\d+)").ok()?;
+        static VERSION: OnceLock<Regex> = OnceLock::new();
+        let re = VERSION.get_or_init(|| Regex::new(r"(\d+\.\d+\.\d+)").expect("valid pattern"));
         re.captures(&text).map(|c| c[1].to_string())
     }
 }

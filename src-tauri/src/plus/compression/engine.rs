@@ -136,7 +136,7 @@ pub fn apply_update(
             after.as_deref().unwrap_or("?")
         )
     };
-    let live = ops.installed_version();
+    let live = after.as_deref();
     let mut notes = Vec::new();
     for (name, preset) in config.presets.iter_mut() {
         let Some(profile) = preset.savings_profile.clone() else {
@@ -144,7 +144,7 @@ pub fn apply_update(
         };
         match ops.agent_savings(&profile) {
             Ok(env) => {
-                let diff = apply_snapshot(preset, &env, live.as_deref());
+                let diff = apply_snapshot(preset, &env, live);
                 notes.push(format!(
                     "preset '{name}': +{} -{} ~{} (kept {} policy)",
                     diff.added.len(),

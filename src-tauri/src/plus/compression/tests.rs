@@ -1352,6 +1352,29 @@ fn system_probe_reads_the_version_from_a_fake_headroom() {
 
 #[cfg(unix)]
 #[test]
+fn system_probe_takes_the_first_version_from_either_stream() {
+    let _guard = SPAWN_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let cases = [
+        ("echo 'headroom 1.2.3 (build 4.5.6)'", Some("1.2.3")),
+        ("echo 'v0.31.0-rc1' >&2", Some("0.31.0")),
+        ("echo out 9.9.9; echo err 1.1.1 >&2", Some("9.9.9")),
+        ("echo 'version 12.3'", None),
+        ("exit 1", None),
+    ];
+    for (i, (script, want)) in cases.into_iter().enumerate() {
+        let tmp = Tmp::new(&format!("probe-fmt-{i}"));
+        fake_exe(tmp.path(), "headroom", script);
+        let ops = SystemOps {
+            path: Some(system_path(tmp.path())),
+        };
+        for _ in 0..2 {
+            assert_eq!(ops.headroom_version().as_deref(), want, "{script}");
+        }
+    }
+}
+
+#[cfg(unix)]
+#[test]
 fn system_launch_runs_the_fake_claude_with_the_planned_env_and_argv() {
     let _guard = SPAWN_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = Tmp::new("launch");
