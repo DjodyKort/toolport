@@ -75,7 +75,6 @@ planned_groups!(
     profile_group => "profile",
     client_group => "client",
     server_group => "server",
-    auth_group => "auth",
     secret_group => "secret",
     import_group => "import",
 );
@@ -130,7 +129,17 @@ pub const COMMANDS: &[Command] = &[
         auth::hook,
     )
     .no_options(),
-    cmd(&["auth"], "Auth health (not implemented)", auth_group).no_options(),
+    cmd(
+        &["auth", "probe"],
+        "Probe login health now (--server <id>, --force)",
+        auth::probe,
+    ),
+    cmd(
+        &["auth", "login"],
+        "Sign in to a server again (<server>, --no-open)",
+        auth::login,
+    ),
+    cmd(&["auth"], "Auth health: statusline hook probe login", auth::group).no_options(),
     cmd(&["secret", "set"], "Store a secret read from stdin or --value-env", secret::set),
     cmd(&["secret", "get"], "Check a secret (--reveal prints the value)", secret::get),
     cmd(&["secret", "rm"], "Remove a secret", secret::rm),
@@ -377,7 +386,7 @@ pub fn parse(args: &[String]) -> Result<Parsed, String> {
             other => match other.strip_prefix("--data-dir=") {
                 Some("") => return Err("--data-dir requires a value".into()),
                 Some(value) => parsed.data_dir = Some(value.to_string()),
-                None if takes_options(parsed.positional.first()) => {
+                None if takes_options(&parsed.positional) => {
                     parsed.positional.push(other.to_string())
                 }
                 None => return Err(format!("unknown option: {other}")),
@@ -387,12 +396,8 @@ pub fn parse(args: &[String]) -> Result<Parsed, String> {
     Ok(parsed)
 }
 
-fn takes_options(first: Option<&String>) -> bool {
-    first.is_some_and(|word| {
-        COMMANDS
-            .iter()
-            .any(|c| c.options && c.path[0] == word.as_str())
-    })
+fn takes_options(positional: &[String]) -> bool {
+    find_command(positional).is_some_and(|(command, _)| command.options)
 }
 
 pub fn find_command(positional: &[String]) -> Option<(&'static Command, &[String])> {
@@ -532,6 +537,8 @@ fn emit(
     code
 }
 
+#[cfg(test)]
+mod auth_tests;
 #[cfg(test)]
 mod compression_cfg_tests;
 #[cfg(test)]

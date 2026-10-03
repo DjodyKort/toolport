@@ -35,7 +35,7 @@ Global flag `--json` prints one envelope (`schemaVersion`, `command`, `data`). E
 | `server ls / search / install / uninstall / info / new / edit`          | Catalog and registry server management                             |
 | `inspect`, `profile inspect`                                            | List tools of a server or of a whole profile (connects live)       |
 | `client ls / sync`                                                      | Detect clients; sync managed client entries                        |
-| `auth statusline / hook`                                                | Auth-health JSON for a Claude Code statusline or SessionStart hook |
+| `auth statusline / hook / probe / login`                                | Auth-health JSON; probe now (`--server`, `--force`); sign in again |
 | `secret set / get / rm`                                                 | Server secrets (stdin or `--value-env`; `get --reveal` prints)     |
 | `context loads / folders / checkpoint-status / plan / apply / sync`     | What a session loads, folder profiles, checkpoint, context deploy  |
 | `compression status / presets / run / verify / ledger / proxy / update` | Compression policy and launch                                      |
@@ -67,6 +67,12 @@ Global flag `--json` prints one envelope (`schemaVersion`, `command`, `data`). E
 
 The gateway removes every `TOOLPORT_*` variable from the servers it starts. If you move the data directory with `TOOLPORT_DATA_DIR`, give the self server the same variable in its own `env`, or its tools manage the default data directory instead.
 
+## Login health
+
+`toolportctl auth probe` runs the due probes, `--force` ignores the cache and `--server <id>` limits the run to one server; it writes the same cache as the gateway due-scan. That scan runs from the registry-watch loop of every long-lived gateway mode, on its own thread, at most once a minute after a 60 second delay (`TOOLPORT_AUTH_SCAN=off` disables it), so probes never hold up requests.
+
+`toolportctl auth login <server>` is the fix the status surfaces point at. A remote OAuth server runs the gateway browser flow; a stdio server runs `<command> <args> auth` and prints the consent URL it prints (`--no-open` leaves the browser to you). A server that signs in with an API token or client credentials gets the next step instead. A stdio server joins the probes by opting in with `"plus": {"authProbe": {"kind": "stdio"}}` in its registry entry.
+
 ## Environment variables
 
 | Variable                                                                                                                                                                                                                                       | Effect                                                                                                               |
@@ -76,6 +82,7 @@ The gateway removes every `TOOLPORT_*` variable from the servers it starts. If y
 | `TOOLPORT_ALLOW_BARE_SECRET_ENV`                                                                                                                                                                                                               | Legacy: resolve secrets from bare process env names.                                                                 |
 | `TOOLPORT_CORP_TOOLS_DIR`                                                                                                                                                                                                                      | Directory of a corporate tools checkout the context engine coexists with.                                            |
 | `TOOLPORT_CLIENTS_ROOT`                                                                                                                                                                                                                        | Root directory holding client repositories for context deploy.                                                       |
+| `TOOLPORT_AUTH_SCAN`                                                                                                                                                                                                                           | `0`, `off` or `false` turns off the gateway due-scan of login health (default on).                                   |
 | `TOOLPORT_SKILL_ASSET_EXTENSIONS`                                                                                                                                                                                                              | Extra file extensions copied as skill assets.                                                                        |
 | `TOOLPORT_CLAUDE_BIN`                                                                                                                                                                                                                          | Claude binary used by `cc` list/update.                                                                              |
 | `TOOLPORT_DATA_DIR`, `TOOLPORT_REGISTRY`                                                                                                                                                                                                       | Data directory and registry path overrides.                                                                          |
