@@ -26,8 +26,25 @@ pub struct ClientSkip {
     pub reason: String,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct MappedEntry {
+    pub key: String,
+    pub server_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientEntries {
+    pub client_id: String,
+    pub profile_id: String,
+    pub mapped: Vec<MappedEntry>,
+    pub orphans: Vec<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct ClientMapping {
+    pub entries: Vec<ClientEntries>,
     pub profiles: Vec<Profile>,
     pub client_scopes: BTreeMap<String, String>,
     pub client_discovery: BTreeMap<String, String>,
@@ -132,8 +149,11 @@ pub fn map_clients(
     let mut client_scopes = BTreeMap::new();
     let mut client_discovery = BTreeMap::new();
     let mut skipped = Vec::new();
+    let mut entries = Vec::new();
     for client in clients {
         let mut ids: Vec<String> = Vec::new();
+        let mut mapped = Vec::new();
+        let mut orphans = Vec::new();
         for (key, raw) in &client.servers {
             let resolved = match raw.as_object() {
                 Some(obj) => resolve(servers, obj),
@@ -141,28 +161,45 @@ pub fn map_clients(
             };
             match resolved {
                 Resolved::Servers(found) => {
+                    mapped.push(MappedEntry {
+                        key: key.clone(),
+                        server_ids: found.clone(),
+                    });
                     for id in found {
                         if !ids.contains(&id) {
                             ids.push(id);
                         }
                     }
                 }
-                Resolved::Skip(reason) => skipped.push(ClientSkip {
-                    client_id: client.client_id.clone(),
-                    entry: key.clone(),
-                    reason: reason.into(),
-                }),
+                Resolved::Skip(reason) => {
+                    orphans.push(key.clone());
+                    skipped.push(ClientSkip {
+                        client_id: client.client_id.clone(),
+                        entry: key.clone(),
+                        reason: reason.into(),
+                    });
+                }
             }
         }
         ids.sort();
         let pid = slugify(&client.client_id);
         profiles.push(profile(&pid, &client.client_id, ids));
-        client_scopes.insert(client.client_id.clone(), pid);
-        if client.client_id == "claude-code" {
-            client_discovery.insert(client.client_id.clone(), "full".to_string());
-        }
+        client_scopes.insert(client.client_id.clone(), pid.clone());
+        let mode = if client.client_id == "claude-code" {
+            "full"
+        } else {
+            "lazy"
+        };
+        client_discovery.insert(client.client_id.clone(), mode.to_string());
+        entries.push(ClientEntries {
+            client_id: client.client_id.clone(),
+            profile_id: pid,
+            mapped,
+            orphans,
+        });
     }
     ClientMapping {
+        entries,
         profiles,
         client_scopes,
         client_discovery,

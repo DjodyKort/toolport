@@ -15,8 +15,16 @@ use serde::Serialize;
 
 use crate::registry::{ManagedEntry, ServerEntry};
 
+mod import_apply;
 mod moved;
 mod zcode;
+pub use import_apply::{apply_import, ClientApply};
+
+#[cfg(test)]
+thread_local! {
+    pub(crate) static TEST_HOME: std::cell::RefCell<Option<PathBuf>> =
+        const { std::cell::RefCell::new(None) };
+}
 
 /// One MCP server, normalized across every client format.
 #[derive(Debug, Clone, Serialize)]
@@ -185,6 +193,10 @@ pub fn detected_is_gateway(server: &McpServer) -> bool {
 }
 
 fn home() -> Option<PathBuf> {
+    #[cfg(test)]
+    if let Some(home) = TEST_HOME.with(|h| h.borrow().clone()) {
+        return Some(home);
+    }
     dirs::home_dir()
 }
 
