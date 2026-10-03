@@ -96,10 +96,13 @@ fn ping(_args: Value) -> Result<Value, String> {
     }))
 }
 
+/// Async so Tauri runs it off the main thread; handlers block on files, locks and subprocesses.
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub fn plus_invoke(command: String, args: Value) -> Result<Value, String> {
-    dispatch(&command, args)
+pub async fn plus_invoke(command: String, args: Value) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || dispatch(&command, args))
+        .await
+        .map_err(|e| format!("plus task join failed: {e}"))?
 }
 
 #[cfg(test)]
@@ -118,6 +121,29 @@ mod tests {
     fn unknown_commands_are_rejected() {
         let error = dispatch("plus.nope", json!({})).unwrap_err();
         assert!(error.contains("plus.nope"));
+    }
+
+    #[cfg(feature = "desktop")]
+    #[test]
+    fn plus_invoke_answers_like_dispatch() {
+        let run = |command: &str, args: Value| {
+            tauri::async_runtime::block_on(plus_invoke(command.into(), args))
+        };
+        assert_eq!(
+            run("plus.ping", Value::Null),
+            dispatch("plus.ping", Value::Null)
+        );
+        assert_eq!(
+            run("plus.nope", json!({})),
+            Err("unknown plus command: plus.nope".to_string())
+        );
+        let tasks: Vec<_> = (0..8)
+            .map(|_| tauri::async_runtime::spawn(plus_invoke("plus.ping".into(), Value::Null)))
+            .collect();
+        for task in tasks {
+            let value = tauri::async_runtime::block_on(task).unwrap().unwrap();
+            assert_eq!(value["name"], "toolport-plus");
+        }
     }
 
     #[test]
