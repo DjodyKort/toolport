@@ -3,7 +3,7 @@
 
 use super::json::{self, J};
 use super::parser::{
-    build_frontmatter, discover_skills_report, parse_frontmatter, parse_skill_file,
+    build_frontmatter, discover_skills_report, find_skill, parse_frontmatter, parse_skill_file,
     split_frontmatter, valid_name, Activation,
 };
 use crate::plus::randutil::{run_cases, Rng, ScratchDir};
@@ -621,6 +621,50 @@ fn discovery_survives_garbage_skill_files() {
         };
         assert_eq!(names(&report), names(&again));
     });
+}
+
+#[test]
+fn finding_a_skill_by_name_matches_the_first_discovered_one() {
+    let tmp = ScratchDir::new("skill-find");
+    let names = ["alpha", "beta", "gamma", "delta"];
+    let (mut hits, mut duplicates) = (0, 0);
+    run_cases("skills-find", 120, |_, rng| {
+        tmp.reset();
+        for i in 0..rng.range(0, 8) {
+            let base = tmp.path().join(*rng.pick(&["skills", "rules"]));
+            let dir = base.join(format!("d{}", rng.below(6)));
+            let _ = fs::remove_file(&dir);
+            fs::create_dir_all(&dir).unwrap();
+            match rng.below(6) {
+                0 => {
+                    fs::remove_dir_all(&dir).unwrap();
+                    fs::write(&dir, "not a directory").unwrap();
+                }
+                1 => {}
+                2 => fs::write(dir.join("SKILL.md"), rng.bytes(60)).unwrap(),
+                _ => {
+                    let name = *rng.pick(&names);
+                    let doc = format!("---\nname: {name}\ndescription: d{i}\n---\nbody {i}\n");
+                    fs::write(dir.join("SKILL.md"), doc).unwrap();
+                }
+            }
+        }
+        let all = discover_skills_report(tmp.path()).skills;
+        for name in names.iter().copied().chain(["", "missing"]) {
+            let expected = all.iter().find(|s| s.name() == name);
+            let got = find_skill(tmp.path(), name);
+            assert_eq!(
+                got.as_ref()
+                    .map(|s| (&s.source_path, &s.body, s.skill_type)),
+                expected.map(|s| (&s.source_path, &s.body, s.skill_type)),
+                "{name}"
+            );
+            hits += usize::from(got.is_some());
+            duplicates += usize::from(all.iter().filter(|s| s.name() == name).count() > 1);
+        }
+    });
+    assert!(hits > 100 && duplicates > 20, "{hits} {duplicates}");
+    assert!(find_skill(&tmp.path().join("no-repo"), "alpha").is_none());
 }
 
 fn json_value(rng: &mut Rng, depth: usize) -> J {

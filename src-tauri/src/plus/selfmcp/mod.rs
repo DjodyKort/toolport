@@ -161,16 +161,13 @@ fn refusal(tool: &ToolDef) -> ToolError {
 pub fn call_tool(name: &str, args: &Value) -> Result<Value, ToolError> {
     let tool = find_tool(name)
         .ok_or_else(|| ToolError::new("unknown_tool", format!("unknown tool: {name}")))?;
-    let args = if args.is_null() {
-        json!({})
-    } else {
-        args.clone()
-    };
-    validate(tool, &args)?;
-    if !gate_passes(tool, &args) {
+    let empty = json!({});
+    let args = if args.is_null() { &empty } else { args };
+    validate(tool, args)?;
+    if !gate_passes(tool, args) {
         return Err(refusal(tool));
     }
-    let value = backend::run_tool(tool, &args)?;
+    let value = backend::run_tool(tool, args)?;
     Ok(redact::scrub(value))
 }
 
@@ -212,7 +209,7 @@ fn rpc_ok(id: Value, result: Value) -> Value {
 pub fn handle_message(message: &Value) -> Option<Value> {
     let method = message.get("method").and_then(Value::as_str)?;
     let id = message.get("id").cloned()?;
-    let params = message.get("params").cloned().unwrap_or(Value::Null);
+    let params = message.get("params").unwrap_or(&Value::Null);
     Some(match method {
         "initialize" => rpc_ok(
             id,
@@ -230,8 +227,8 @@ pub fn handle_message(message: &Value) -> Option<Value> {
             let Some(name) = params.get("name").and_then(Value::as_str) else {
                 return Some(rpc_error(id, -32602, "tools/call requires a name"));
             };
-            let args = params.get("arguments").cloned().unwrap_or(Value::Null);
-            rpc_ok(id, tool_result(call_tool(name, &args)))
+            let args = params.get("arguments").unwrap_or(&Value::Null);
+            rpc_ok(id, tool_result(call_tool(name, args)))
         }
         "resources/read" => {
             let Some(uri) = params.get("uri").and_then(Value::as_str) else {

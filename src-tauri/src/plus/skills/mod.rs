@@ -31,7 +31,7 @@ pub use assets::{
 };
 pub use clock::{Clock, FixedClock, Instant, SystemClock};
 pub use lock::{load_lockfile, save_lockfile, LockEntry, LockFile, LOCKFILE_NAME};
-pub use parser::{discover_skills, parse_skill_file, Skill, SkillType};
+pub use parser::{discover_skills, find_skill, parse_skill_file, Skill, SkillType};
 pub use sync::{sync_skills, SyncOptions, SyncResult};
 pub use transpiler::{TranspileResult, Transpiler, TranspilerRegistry};
 
