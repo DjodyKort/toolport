@@ -1,13 +1,18 @@
 //! Skills core: SKILL.md parser, content hash, lockfile, stale cleanup, collision backups and the
 //! transpiler abstraction. Per-client transpilers are layered on top in later items.
 
+pub mod agents;
 pub mod assets;
+pub mod audit;
 pub mod clock;
 pub mod collisions;
 pub mod json;
+pub mod lint;
 pub mod lock;
 pub mod parser;
 pub mod pyfs;
+pub(crate) mod schema;
+pub mod styles;
 pub mod sync;
 pub mod transpilers;
 pub mod transpiler;

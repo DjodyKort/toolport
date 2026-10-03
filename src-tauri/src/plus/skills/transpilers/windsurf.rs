@@ -9,7 +9,7 @@ pub const WINDSURF_WORKSPACE_CHAR_LIMIT: usize = 12000;
 pub struct Windsurf;
 
 /// Python `s[:n]` on code points, including its negative-index behaviour.
-fn py_prefix(s: &str, n: isize) -> String {
+pub(crate) fn py_prefix(s: &str, n: isize) -> String {
     let total = s.chars().count() as isize;
     let take = if n < 0 {
         (total + n).max(0)

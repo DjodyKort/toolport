@@ -31,7 +31,7 @@ pub struct SyncResult {
     pub output_root: PathBuf,
 }
 
-fn rel_or_abs(path: &Path, root: &Path) -> String {
+pub(crate) fn rel_or_abs(path: &Path, root: &Path) -> String {
     match path.strip_prefix(root) {
         Ok(rel) => rel_string(rel),
         Err(_) => path.to_string_lossy().into_owned(),
