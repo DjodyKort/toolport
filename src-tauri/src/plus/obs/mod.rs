@@ -61,7 +61,7 @@ fn round6(v: f64) -> f64 {
     (v * 1e6).round() / 1e6
 }
 
-fn otel_summary(events: &[Event]) -> Value {
+fn otel_summary(events: impl IntoIterator<Item = Event>) -> Value {
     let mut tokens: BTreeMap<String, f64> = BTreeMap::new();
     let mut cost_by_model: BTreeMap<String, f64> = BTreeMap::new();
     let mut cost = 0.0;
@@ -69,8 +69,11 @@ fn otel_summary(events: &[Event]) -> Value {
     let mut decisions: BTreeMap<String, u64> = BTreeMap::new();
     let mut failures: BTreeMap<String, (u64, String)> = BTreeMap::new();
     let mut connections = 0u64;
+    let mut count = 0usize;
 
     for e in events {
+        count += 1;
+        let e = &e;
         match e.kind.as_str() {
             "token_usage" => {
                 *tokens.entry(attr_str(e, "type").to_string()).or_default() +=
@@ -112,7 +115,7 @@ fn otel_summary(events: &[Event]) -> Value {
         .map(|(server, (count, code))| json!({"server": server, "count": count, "lastErrorCode": code}))
         .collect();
     json!({
-        "events": events.len(),
+        "events": count,
         "tokens": tokens,
         "costUsd": round6(cost),
         "costByModel": cost_by_model.into_iter().map(|(k, v)| (k, round6(v))).collect::<BTreeMap<_, _>>(),
@@ -122,7 +125,7 @@ fn otel_summary(events: &[Event]) -> Value {
     })
 }
 
-pub fn summarize(state: &State, events: &[Event]) -> Value {
+pub fn summarize(state: &State, events: impl IntoIterator<Item = Event>) -> Value {
     let mut total = Tokens::default();
     let mut by_day: BTreeMap<&str, Tokens> = BTreeMap::new();
     let mut by_model: BTreeMap<&str, Tokens> = BTreeMap::new();
@@ -177,12 +180,11 @@ pub fn default_projects_root() -> Option<PathBuf> {
 
 pub fn run_summary(dir: &Path, root: Option<&Path>, refresh: bool) -> Result<Value, String> {
     let lock = Locked::acquire(dir)?;
-    if refresh {
-        if let Some(root) = root {
-            transcript::index(&lock, root)?;
-        }
-    }
-    let mut out = summarize(&lock.load_state(), &lock.read_events());
+    let state = match root.filter(|_| refresh) {
+        Some(root) => transcript::index_state(&lock, root)?.1,
+        None => lock.load_state(),
+    };
+    let mut out = summarize(&state, lock.events());
     if let Some(history) = lock.load_history() {
         out["mcpmHistory"] = history;
     }
@@ -317,6 +319,122 @@ mod tests {
         write_fixture(&base.join("projects"));
         let got = run_summary(&base.join("obs"), Some(&base.join("projects")), false).unwrap();
         assert_eq!(got["index"]["messages"], 0);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[cfg(unix)]
+    fn inode(path: &Path) -> u64 {
+        use std::os::unix::fs::MetadataExt;
+        std::fs::metadata(path).unwrap().ino()
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refresh_rewrites_the_state_only_when_something_changed() {
+        let base = scratch("rewrite");
+        let (obs, projects) = (base.join("obs"), base.join("projects"));
+        let state_file = obs.join("transcripts.json");
+        write_fixture(&projects);
+        let first = run_summary(&obs, Some(&projects), true).unwrap();
+        let saved = std::fs::read(&state_file).unwrap();
+        let ino = inode(&state_file);
+
+        let again = run_summary(&obs, Some(&projects), true).unwrap();
+        assert_eq!(again, first);
+        assert_eq!(inode(&state_file), ino, "unchanged state must not be rewritten");
+        assert_eq!(std::fs::read(&state_file).unwrap(), saved);
+
+        let line = assistant("m9", "s3", "2026-10-03T08:00:00Z", "claude-a", (1, 1, 1, 1), &[]);
+        std::fs::write(projects.join("s3.jsonl"), line + "\n").unwrap();
+        let grown = run_summary(&obs, Some(&projects), true).unwrap();
+        assert_eq!(grown["totals"]["messages"], 4);
+        assert_ne!(inode(&state_file), ino);
+        let ino = inode(&state_file);
+
+        std::fs::remove_file(projects.join("s3.jsonl")).unwrap();
+        let gone = run_summary(&obs, Some(&projects), true).unwrap();
+        assert_eq!(gone["totals"]["messages"], 4);
+        assert_eq!(gone["index"]["files"], 2);
+        assert_ne!(inode(&state_file), ino);
+
+        std::fs::remove_file(&state_file).unwrap();
+        let rebuilt = run_summary(&obs, Some(&projects), true).unwrap();
+        assert_eq!(rebuilt["totals"]["messages"], 3);
+        assert!(state_file.exists(), "a missing state file is written even when nothing is new");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn an_empty_root_still_writes_the_initial_state() {
+        let base = scratch("emptyroot");
+        let got = run_summary(&base.join("obs"), Some(&base.join("none")), true).unwrap();
+        assert_eq!(got["index"], json!({"files": 0, "messages": 0}));
+        assert!(base.join("obs/transcripts.json").exists());
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn the_state_handed_to_the_summary_equals_the_state_on_disk() {
+        let base = scratch("samestate");
+        write_fixture(&base.join("projects"));
+        let lock = Locked::acquire(&base.join("obs")).unwrap();
+        let (report, state) = transcript::index_state(&lock, &base.join("projects")).unwrap();
+        assert_eq!(report.messages_upserted, 4);
+        assert_eq!(
+            serde_json::to_value(&state).unwrap(),
+            serde_json::to_value(lock.load_state()).unwrap()
+        );
+        let (report, state) = transcript::index_state(&lock, &base.join("projects")).unwrap();
+        assert_eq!((report.files_skipped, report.lines_parsed), (2, 0));
+        assert_eq!(
+            serde_json::to_value(&state).unwrap(),
+            serde_json::to_value(lock.load_state()).unwrap()
+        );
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn a_large_event_log_is_summarized_as_streamed() {
+        let base = scratch("bigevents");
+        let lock = Locked::acquire(&base.join("obs")).unwrap();
+        let events: Vec<Event> = (0..20_000)
+            .map(|i| Event {
+                kind: "cost".into(),
+                ts_ms: i,
+                day: "1970-01-01".into(),
+                value: Some(0.25),
+                attrs: BTreeMap::from([("model".to_string(), json!(format!("m{}", i % 3)))]),
+            })
+            .collect();
+        lock.append_events(&events).unwrap();
+        let mut log = crate::registry::open_append_private(&base.join("obs/events.jsonl")).unwrap();
+        std::io::Write::write_all(&mut log, b"{\"kind\":\"co").unwrap();
+        drop(lock);
+        let got = run_summary(&base.join("obs"), None, false).unwrap();
+        assert_eq!(got["otel"]["events"], 20_000);
+        assert_eq!(got["otel"]["costUsd"], 5000.0);
+        assert_eq!(got["otel"]["costByModel"]["m0"], 1666.75);
+        assert_eq!(got["otel"]["costByModel"]["m1"], 1666.75);
+        assert_eq!(got["otel"]["costByModel"]["m2"], 1666.5);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn the_event_log_stops_at_the_first_unreadable_line() {
+        let base = scratch("badevents");
+        let lock = Locked::acquire(&base.join("obs")).unwrap();
+        let ev = |ts| Event {
+            kind: "cost".into(),
+            ts_ms: ts,
+            ..Event::default()
+        };
+        lock.append_events(&[ev(1)]).unwrap();
+        let mut log = crate::registry::open_append_private(&base.join("obs/events.jsonl")).unwrap();
+        std::io::Write::write_all(&mut log, b"\xff\xfe\n").unwrap();
+        drop(log);
+        lock.append_events(&[ev(2)]).unwrap();
+        assert_eq!(lock.read_events(), vec![ev(1)]);
+        assert_eq!(lock.events().count(), 1);
         let _ = std::fs::remove_dir_all(&base);
     }
 
