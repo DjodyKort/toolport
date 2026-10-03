@@ -81,4 +81,5 @@ LC_ALL=C sort "$backup/manifest.sha256" >"$tmp.want"
 if diff "$tmp.want" "$tmp.now" >/dev/null; then echo "rollback verified: restored tree matches the manifest"
 else rm -f "$tmp" "$tmp.now" "$tmp.want"; die "restored tree differs from the manifest"; fi
 rm -f "$tmp" "$tmp.now" "$tmp.want"
+echo "left alone: a Toolport registry that existed before the cutover, with your choice for the self-management MCP (enabled, disabled or uninstalled)"
 echo "manual (outside --home, not done here): uv tool install --force --editable <mcpm.sh checkout>; mcpm context sync"

@@ -6,6 +6,7 @@
 #   import mcpm <root> [--dry-run] [--short-ids f] [--home d] [--skip-clients]
 #   import rename-refs <root> --tools <f> --paths <p>... [--short-ids f] [--home d] [--dry-run]
 #   doctor
+#   mcp doctor
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -125,6 +126,7 @@ else
 fi
 
 echo "== 5/6 import (apply) and switch clients =="
+echo "(import also registers the self-management MCP and enables it in the default and every client profile, unless you opted out)"
 run_ctl "${import_args[@]}"
 if [ ${#rename_args[@]} -gt 0 ]; then
   run_ctl "${rename_args[@]}"
@@ -133,6 +135,8 @@ fi
 echo "== 6/6 verify =="
 fail=0
 if ! run_ctl doctor; then echo "verify: doctor failed" >&2; fail=1; fi
+if run_ctl mcp doctor; then echo "verify ok: self-management MCP (mcp doctor)"
+else echo "verify FAIL: mcp doctor; see the failing check above, 'toolportctl mcp install' repairs it and never overrides an opt-out" >&2; fail=1; fi
 for rel in .claude.json .config/Claude/claude_desktop_config.json \
   "Library/Application Support/Claude/claude_desktop_config.json" .cursor/mcp.json .gemini/settings.json; do
   [ -f "$home/$rel" ] || continue
