@@ -19,6 +19,7 @@ pub struct GeneratedFile {
     pub path: PathBuf,
     pub content: String,
     pub mode: u32,
+    pub note: &'static str,
 }
 
 pub fn runtime_spec(provider: ProviderName, config: &CompressionConfig) -> RuntimeSpec {
@@ -66,11 +67,13 @@ pub fn activation_artifacts(
             path: paths.env_snippet(),
             content: shell_env_snippet(&env),
             mode: 0o600,
+            note: "source from ~/.zshrc to route this shell's AI clients (active preset)",
         },
         GeneratedFile {
             path: paths.shims(),
             content: shim_snippet(ShimOptions::default()),
             mode: 0o644,
+            note: "source from ~/.zshrc for hrclaude/hrup/hrdown/hrstat (replaces headroom-aliases.zsh)",
         },
     ]
 }
