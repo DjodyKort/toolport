@@ -9,6 +9,7 @@ use super::shims::{defined_functions, SHIM_FUNCTIONS};
 use super::store::Paths;
 use serde::Serialize;
 use serde_json::Value;
+use crate::plus::cc::claude_root;
 use crate::plus::hashing::hex;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -97,12 +98,7 @@ impl Metrics {
 }
 
 pub fn transcript_root() -> PathBuf {
-    let base = std::env::var_os("CLAUDE_CONFIG_DIR")
-        .filter(|v| !v.is_empty())
-        .map(PathBuf::from)
-        .or_else(|| dirs::home_dir().map(|h| h.join(".claude")))
-        .unwrap_or_else(|| PathBuf::from(".claude"));
-    base.join("projects")
+    claude_root(None).join("projects")
 }
 
 /// `<root>/*/*.jsonl`, newest first.

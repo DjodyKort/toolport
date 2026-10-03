@@ -1,6 +1,7 @@
 use super::bundle::PortableRoots;
 use super::exec::Exec;
 use super::schema::{ServerOrigin, ServerOrigins};
+use crate::plus::update::source::find_git_root;
 use serde::Serialize;
 use serde_json::Value;
 use std::fs;
@@ -93,23 +94,16 @@ fn find_server_directory(command: &str, args: &[&str]) -> Option<PathBuf> {
     let cmd = Path::new(command);
     if cmd.is_absolute() && cmd.exists() {
         let start = cmd.parent()?;
-        return Some(repo_root(start).unwrap_or_else(|| start.to_path_buf()));
+        return Some(find_git_root(start).unwrap_or_else(|| start.to_path_buf()));
     }
     for arg in args {
         let path = Path::new(arg);
         if path.is_absolute() && path.exists() {
             let start = if path.is_file() { path.parent()? } else { path };
-            return Some(repo_root(start).unwrap_or_else(|| start.to_path_buf()));
+            return Some(find_git_root(start).unwrap_or_else(|| start.to_path_buf()));
         }
     }
     None
-}
-
-fn repo_root(start: &Path) -> Option<PathBuf> {
-    start
-        .ancestors()
-        .find(|c| c.join(".git").exists())
-        .map(Path::to_path_buf)
 }
 
 fn git_remote(exec: &dyn Exec, dir: &Path) -> Option<String> {
