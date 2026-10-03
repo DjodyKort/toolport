@@ -41,7 +41,7 @@ Global flag `--json` prints one envelope (`schemaVersion`, `command`, `data`). E
 | `compression status / presets / run / verify / ledger / proxy / update` | Compression policy and launch                                      |
 | `import mcpm / rename-refs`                                             | Import an mcpm root; rewrite tool references                       |
 | `council`                                                               | Council server install, uninstall, doctor, tools                   |
-| `skills sync / ls / lint / diff`                                        | Skills transpile, list, lint, lockfile diff                        |
+| `skills init/add/ls/lint/audit/bundle/unbundle/sync/diff`               | Skills repo init, add, list, lint, audit, bundle, sync, diff       |
 | `sync`                                                                  | Encrypted sync (init, push, pull, diff, status, reset, ...)        |
 | `cc`                                                                    | Claude Code plugins: list, update                                  |
 | `update`                                                                | Server updates (`--check`, `--apply`, `--init`, `--dry-run`)       |

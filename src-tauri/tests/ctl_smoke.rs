@@ -35,6 +35,7 @@ const NOT_READ_ONLY: &[(&str, &str)] = &[
     ("secret set", "writes the vault; round trip test"),
     ("secret rm", "writes the vault; round trip test"),
     ("compression proxy", "starts or stops a local proxy process"),
+    ("skills unbundle", "extracts into the target; bundle round trip test"),
 ];
 
 struct World {
@@ -371,6 +372,8 @@ fn version_and_usage_errors_use_the_documented_exit_codes() {
         (vec!["server", "info"], "server info"),
         (vec!["secret", "get", "only-one"], "secret get"),
         (vec!["skills", "ls", "--bogus"], "skills ls"),
+        (vec!["skills", "add"], "skills add"),
+        (vec!["skills", "unbundle"], "skills unbundle"),
     ] {
         let (run, value) = world.json(&argv);
         assert_envelope(&argv.join(" "), &run, &value, command, 2);
@@ -417,6 +420,7 @@ fn case(key: &'static str, argv: &[&str], exit: i32, check: fn(&World, &Value)) 
 
 fn read_only_cases(w: &World) -> Vec<Case> {
     let (repo, home, cwd) = (w.path(&w.repo), w.path(&w.home), w.path(&w.repo));
+    let fresh = w.path(&w.base.join("fresh-skills"));
     let (mcpm, tools, refs) = (w.path(&w.mcpm), w.path(&w.tools), w.path(&w.refs));
     let own = |parts: &[&str]| -> Vec<String> { parts.iter().map(|s| s.to_string()).collect() };
     let mut cases = vec![
@@ -692,6 +696,42 @@ fn read_only_cases(w: &World) -> Vec<Case> {
                 assert_eq!(d["new"], json!(["demo"]));
             },
         ),
+        case(
+            "skills audit",
+            &["skills", "audit", "--path", &repo],
+            0,
+            |_, d| {
+                assert_eq!(d["skillCount"], 1);
+                assert_eq!(d["clean"], true);
+            },
+        ),
+        case(
+            "skills init",
+            &["skills", "init", "--path", &fresh, "--dry-run"],
+            0,
+            |_, d| {
+                assert_eq!(d["dryRun"], true);
+                assert_eq!(d["created"].as_array().unwrap().len(), 6);
+            },
+        ),
+        case(
+            "skills add",
+            &["skills", "add", "fresh-skill", "--repo", &repo, "--dry-run"],
+            0,
+            |_, d| {
+                assert_eq!(d["dryRun"], true);
+                assert_eq!(d["files"].as_array().unwrap().len(), 1);
+            },
+        ),
+        case(
+            "skills bundle",
+            &["skills", "bundle", "--repo", &repo, "--dry-run"],
+            0,
+            |_, d| {
+                assert_eq!(d["dryRun"], true);
+                assert_eq!(d["fileCount"], 1);
+            },
+        ),
         case("sync", &["sync", "status"], 0, |_, d| {
             assert_eq!(d["configured"], false);
         }),
@@ -896,6 +936,26 @@ fn mutating_commands_round_trip_on_a_synthetic_data_dir() {
     let (run, value) = world.json(&["skills", "diff", "--repo", &repo, "--home", &home]);
     assert_envelope("skills diff after sync", &run, &value, "skills diff", 0);
     assert_eq!(value["data"]["clean"], true);
+
+    let fresh = world.path(&world.base.join("fresh-skills"));
+    let (run, value) = world.json(&["skills", "init", "--path", &fresh, "--name", "smoke"]);
+    assert_envelope("skills init", &run, &value, "skills init", 0);
+    let (run, value) = world.json(&["skills", "add", "smoke-skill", "--path", &fresh]);
+    assert_envelope("skills add", &run, &value, "skills add", 0);
+    let (run, value) = world.json(&["skills", "audit", "--path", &fresh]);
+    assert_envelope("skills audit", &run, &value, "skills audit", 0);
+    assert_eq!(value["data"]["skillCount"], 1);
+    let zip = world.path(&world.base.join("smoke.zip"));
+    let (run, value) = world.json(&["skills", "bundle", "--path", &fresh, "--output", &zip]);
+    assert_envelope("skills bundle", &run, &value, "skills bundle", 0);
+    let unpacked = world.path(&world.base.join("unpacked"));
+    let (run, value) = world.json(&["skills", "unbundle", &zip, "--path", &unpacked]);
+    assert_envelope("skills unbundle", &run, &value, "skills unbundle", 0);
+    assert_eq!(value["data"]["names"], json!(["smoke-skill"]));
+    assert_eq!(
+        std::fs::read(world.base.join("fresh-skills/skills/smoke-skill/SKILL.md")).unwrap(),
+        std::fs::read(world.base.join("unpacked/skills/smoke-skill/SKILL.md")).unwrap()
+    );
 
     let (run, value) = world.json(&["client", "sync", "--client", "cursor"]);
     assert_envelope("client sync", &run, &value, "client sync", 0);
