@@ -58,6 +58,10 @@ servers are active, because doing so would hide them. Move the servers into
 ZCode's native user config first; Toolport leaves the shared fallback file
 untouched.
 
+Disconnect also refuses to report success if ZCode would still load a Toolport
+gateway from the shared fallback file. Remove that gateway from the shared
+config manually before disconnecting.
+
 Imports support basic stdio, HTTP, and SSE entries. Imported servers start
 disabled for review. Migration and pasted imports refuse disabled ZCode
 entries. Settings that the import model cannot preserve, such as a working

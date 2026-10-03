@@ -75,22 +75,25 @@ fn fallback_path(path: &Path) -> Result<PathBuf, String> {
     Ok(home.join(".agents").join("mcp.json"))
 }
 
+fn fallback_map(path: &Path) -> Result<Map<String, Value>, String> {
+    let fallback = fallback_path(path)?;
+    let (root, _) = read_root(&fallback)?;
+    match root.get("mcpServers") {
+        None => Ok(Map::new()),
+        Some(servers) => servers
+            .as_object()
+            .cloned()
+            .ok_or_else(|| "ZCode fallback 'mcpServers' must be an object".into()),
+    }
+}
+
 fn effective_map(path: &Path) -> Result<(Map<String, Value>, bool, bool), String> {
     let (root, original) = read_root(path)?;
     let native = server_map(&root)?;
     if !native.is_empty() {
         return Ok((native, false, true));
     }
-    let fallback = fallback_path(path)?;
-    let (root, _) = read_root(&fallback)?;
-    let servers = match root.get("mcpServers") {
-        None => Map::new(),
-        Some(servers) => servers
-            .as_object()
-            .cloned()
-            .ok_or("ZCode fallback 'mcpServers' must be an object")?,
-    };
-    Ok((servers, true, original.is_some()))
+    Ok((fallback_map(path)?, true, original.is_some()))
 }
 
 fn disabled(definition: &Value) -> bool {
@@ -380,6 +383,17 @@ pub(super) fn edit_gateway(path: &Path, entry: Option<&ServerEntry>) -> Result<(
     }
     let count = servers.len();
     servers.retain(|name, definition| !gateway_definition(name, definition));
+    if entry.is_none()
+        && servers.is_empty()
+        && fallback_map(path)?
+            .iter()
+            .any(|(name, definition)| gateway_definition(name, definition))
+    {
+        return Err(format!(
+            "Cannot disconnect ZCode: {} contains a Toolport gateway that ZCode would still load. Remove that gateway from the shared config manually, then retry. Toolport never edits the shared fallback file.",
+            fallback_path(path)?.display()
+        ));
+    }
     if let Some(value) = value {
         servers.insert(GATEWAY_ENTRY_NAME.into(), value);
     } else if servers.len() == count {
@@ -626,6 +640,49 @@ mod tests {
         assert_eq!(
             std::fs::read_to_string(fixture.fallback()).unwrap(),
             original
+        );
+    }
+
+    #[test]
+    fn zcode_disconnect_refuses_a_gateway_remaining_or_reappearing_in_fallback() {
+        let fixture = Fixture::new();
+        let fallback = r#"{"mcpServers":{"toolport":{"command":"/opt/toolport-gateway"}}}"#;
+        fixture.write(&fixture.fallback(), fallback);
+        std::fs::create_dir_all(fixture.0.join(".zcode")).unwrap();
+        for native in [
+            None,
+            Some(r#"{"mcp":{"servers":{}}}"#),
+            Some(r#"{"mcp":{"servers":{"toolport":{"command":"/opt/toolport-gateway"}}}}"#),
+        ] {
+            if let Some(native) = native {
+                fixture.write(&fixture.native(), native);
+            }
+            let detected = detect(&fixture.native()).unwrap().0;
+            assert!(detected.iter().any(detected_is_gateway));
+            let error = edit_gateway(&fixture.native(), None).unwrap_err();
+            assert!(error.contains("Cannot disconnect"));
+            assert!(error.contains("shared config manually"));
+            assert_eq!(
+                std::fs::read_to_string(fixture.fallback()).unwrap(),
+                fallback
+            );
+            assert_eq!(
+                std::fs::read_to_string(fixture.native()).ok().as_deref(),
+                native
+            );
+        }
+        // A remaining native server prevents fallback activation after removal.
+        fixture.write(
+            &fixture.native(),
+            r#"{"mcp":{"servers":{"toolport":{"command":"/opt/toolport-gateway"},"local":{"command":"node"}}}}"#,
+        );
+        edit_gateway(&fixture.native(), None).unwrap();
+        let detected = detect(&fixture.native()).unwrap().0;
+        assert_eq!(detected.len(), 1);
+        assert_eq!(detected[0].name, "local");
+        assert_eq!(
+            std::fs::read_to_string(fixture.fallback()).unwrap(),
+            fallback
         );
     }
 
