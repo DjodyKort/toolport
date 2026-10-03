@@ -30,6 +30,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Cutover script tests
+        run: bash scripts/cutover/cutover.Tests.bash
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
@@ -114,6 +117,35 @@ jobs:
 
       - name: Headless gateway security smoke
         run: node scripts/smoke-headless.mjs
+
+  # cfg(windows) code (registry locks, secrets, oauth, autostart) compiles on neither Linux nor
+  # macOS. A cross `cargo check` type-checks it without a Windows runner; it runs no tests. A cold
+  # check of the whole tree took 25 s on 4 jobs locally (mingw as the C compiler for the build
+  # scripts), so it stays in the push gate.
+  windows-compile-check:
+    name: Windows compile check (cross)
+    timeout-minutes: 20
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+        with:
+          targets: x86_64-pc-windows-gnu
+
+      - name: Install the mingw cross toolchain
+        run: scripts/ci-apt-install.sh gcc-mingw-w64-x86-64
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: src-tauri
+          key: fork-windows-check
+          cache-bin: "false"
+
+      - name: Cross-check for Windows (lib, bins, tests; no desktop shell)
+        run: cargo check --locked --manifest-path src-tauri/Cargo.toml --no-default-features --target x86_64-pc-windows-gnu --lib --bins --tests
 
   # `npm run test:rust` (default features = desktop). Covers the desktop.rs tests
   # that --no-default-features skips.
