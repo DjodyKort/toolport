@@ -1,0 +1,29 @@
+{
+  "area": "findings",
+  "case": "findings/clean",
+  "comparison": "C",
+  "entry": "findings",
+  "files": {
+    "findings/audit.json": {
+      "bytes": 51,
+      "class": "C",
+      "sha256": "d307fc3741d3109825d2606bd1d0030c5374ebb3ae5e14ac7ae1a1283fac141e"
+    },
+    "findings/collisions.json": {
+      "bytes": 3,
+      "class": "C",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    "findings/lint.json": {
+      "bytes": 575,
+      "class": "C",
+      "sha256": "9e88acaa6ab426c598b55461a7d780bf7d9962fd8993de16130a9d27af39a8d4"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

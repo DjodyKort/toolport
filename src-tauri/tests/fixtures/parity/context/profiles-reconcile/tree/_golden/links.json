@@ -1,0 +1,10 @@
+{
+  "cp/commands": "<HOME>/.claude/commands",
+  "cp/skills": "<HOME>/.claude/skills",
+  "inh/commands": "<HOME>/.claude/commands",
+  "inh/rules": "<HOME>/.claude/rules",
+  "inh/skills": "<HOME>/.claude/skills",
+  "lnk/commands": "<HOME>/.claude/commands",
+  "lnk/rules/personal.md": "<HOME>/.claude/rules/personal.md",
+  "lnk/skills": "<HOME>/.claude/skills"
+}

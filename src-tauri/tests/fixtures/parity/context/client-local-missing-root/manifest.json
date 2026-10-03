@@ -1,0 +1,24 @@
+{
+  "area": "context",
+  "case": "context/client-local-missing-root",
+  "comparison": "A",
+  "entry": "context_scenario",
+  "files": {
+    ".config/mcpm/context.json": {
+      "bytes": 379,
+      "class": "B",
+      "sha256": "8849743e4b09265f2655fb210fef55cd5caa4d1733f2a829b674d498578a2245"
+    },
+    "_golden/apply.report.json": {
+      "bytes": 75,
+      "class": "B",
+      "sha256": "d8249a4c0a3d05958fa88106659d13216db1e10a33ddfc883cce8b82358ee9e5"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

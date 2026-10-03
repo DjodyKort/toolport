@@ -1,0 +1,94 @@
+{
+  "active_styles": {},
+  "agents": {},
+  "output_root": "<HOME>/repo",
+  "rules": {
+    "python-style": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:71cf527116615e90",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/rules/python-style.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "team-conventions": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:3422d58f397226a6",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/rules/team-conventions.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "scope": "project",
+  "skills": {
+    "code-review": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:e36e8219b920feb3",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/skills/code-review/SKILL.md",
+          ".claude/skills/code-review/modules/checklist.md",
+          ".claude/skills/code-review/reference/glossary.txt"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": [
+        "claude-code: shadowed by existing file at <HOME>/repo/.claude/commands/code-review.md"
+      ]
+    },
+    "db-helper": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:15e34949b32ff5ee",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/skills/db-helper/SKILL.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": [
+        "claude-code: shadowed by existing file at <HOME>/repo/.claude/agents/db-helper.md"
+      ]
+    },
+    "release-checklist": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:2d18e8c6c624a33a",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/skills/release-checklist/SKILL.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "styles": {},
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

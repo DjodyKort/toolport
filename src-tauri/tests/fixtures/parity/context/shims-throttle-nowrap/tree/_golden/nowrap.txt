@@ -1,0 +1,5 @@
+rc=0
+--- stdout
+claude-work defined: 1; claude fn defined: 0; presync defined: 0
+claude x CLAUDE_CONFIG_DIR=<HOME>/.config/mcpm/claude-profiles/work
+--- stderr

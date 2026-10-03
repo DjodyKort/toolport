@@ -1,0 +1,51 @@
+{
+  "active_styles": {},
+  "agents": {},
+  "output_root": "<HOME>/repo",
+  "rules": {},
+  "scope": "project",
+  "skills": {
+    "code-review": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:6a0aa7d5ba9ae3f8",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/skills/code-review/SKILL.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "handoff-notes": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:d2ab0c8c2d12bbd7",
+      "hooks_installed": {
+        "claude-code": [
+          "<HOME>/repo/.claude/skills/handoff-notes/scripts/precompact.sh",
+          "<HOME>/repo/.claude/skills/handoff-notes/scripts/session-start.sh",
+          "<HOME>/repo/.claude/skills/handoff-notes/scripts/session-end.sh"
+        ]
+      },
+      "output_files": {
+        "claude-code": [
+          ".claude/skills/handoff-notes/SKILL.md",
+          ".claude/skills/handoff-notes/scripts/session-end.sh",
+          ".claude/skills/handoff-notes/scripts/precompact.sh",
+          ".claude/skills/handoff-notes/scripts/session-start.sh"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "styles": {},
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

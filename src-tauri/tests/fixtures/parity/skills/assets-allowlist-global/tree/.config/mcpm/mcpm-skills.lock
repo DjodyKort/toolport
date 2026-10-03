@@ -1,0 +1,61 @@
+{
+  "active_styles": {},
+  "agents": {},
+  "output_root": "<HOME>",
+  "rules": {},
+  "scope": "global",
+  "skills": {
+    "asset-lab": {
+      "clients_synced": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "hash": "sha256:c63d3dbeb0c8b2d5",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/skills/asset-lab/SKILL.md",
+          ".claude/skills/asset-lab/modules/UPPER.MD",
+          ".claude/skills/asset-lab/modules/a.md",
+          ".claude/skills/asset-lab/modules/deep/nested/note.txt",
+          ".claude/skills/asset-lab/reference/conf.yml",
+          ".claude/skills/asset-lab/reference/data.json",
+          ".claude/skills/asset-lab/reference/conf.yaml",
+          ".claude/skills/asset-lab/templates/t.md",
+          ".claude/skills/asset-lab/templates/.hidden.md",
+          ".claude/skills/asset-lab/examples/run.sh",
+          ".claude/skills/asset-lab/examples/run.bash",
+          ".claude/skills/asset-lab/examples/e.py",
+          ".claude/skills/asset-lab/assets/pic.webp",
+          ".claude/skills/asset-lab/assets/img.jpeg",
+          ".claude/skills/asset-lab/assets/logo.svg",
+          ".claude/skills/asset-lab/scripts/helper.py"
+        ],
+        "codex-cli": [
+          ".codex/skills/asset-lab/SKILL.md",
+          ".codex/skills/asset-lab/modules/UPPER.MD",
+          ".codex/skills/asset-lab/modules/a.md",
+          ".codex/skills/asset-lab/modules/deep/nested/note.txt",
+          ".codex/skills/asset-lab/reference/conf.yml",
+          ".codex/skills/asset-lab/reference/data.json",
+          ".codex/skills/asset-lab/reference/conf.yaml",
+          ".codex/skills/asset-lab/templates/t.md",
+          ".codex/skills/asset-lab/templates/.hidden.md",
+          ".codex/skills/asset-lab/examples/run.sh",
+          ".codex/skills/asset-lab/examples/run.bash",
+          ".codex/skills/asset-lab/examples/e.py",
+          ".codex/skills/asset-lab/assets/pic.webp",
+          ".codex/skills/asset-lab/assets/img.jpeg",
+          ".codex/skills/asset-lab/assets/logo.svg",
+          ".codex/skills/asset-lab/scripts/helper.py"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "styles": {},
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

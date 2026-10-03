@@ -1,0 +1,39 @@
+{
+  "area": "styles",
+  "case": "styles/tier2-remove-project",
+  "comparison": "A",
+  "entry": "styles_tier2",
+  "files": {
+    "_cleaned.txt": {
+      "bytes": 529,
+      "class": "A",
+      "sha256": "b63b1143816f3425134d40da798e89f0a4839723fce4be788598c190b8d7337e"
+    },
+    "repo/.rules": {
+      "bytes": 34,
+      "class": "A",
+      "sha256": "29a8953749996d03f371e81b357b6e0c09b115edf2052b6d599bc90783d80684"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 646,
+      "class": "B",
+      "sha256": "942724000e777ec79cfb487f2cece509eb2f848071c3bfa991a1d4ae83b5d45e"
+    },
+    "repo/styles/concise/STYLE.md": {
+      "bytes": 124,
+      "class": "A",
+      "sha256": "3c05d526ae2e4ae39b66992377026a8e9457a5c9570eb10b765535360d222d4f"
+    },
+    "repo/styles/teacher/STYLE.md": {
+      "bytes": 114,
+      "class": "A",
+      "sha256": "ede74f954248462f7dde929077f22c773fdde54875d7836a782b8dd73bf1cece"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

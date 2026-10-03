@@ -1,0 +1,102 @@
+{
+  "active_styles": {},
+  "agents": {},
+  "output_root": "<HOME>",
+  "rules": {
+    "client-acme": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:b202dac7b46e946f",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/rules/client-acme.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "client-beta": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:90d397d9d9753c81",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/rules/client-beta.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "client-gamma": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:66134a141fa13cba",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/rules/client-gamma.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "client-v18-arp": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:a0091c5074642e11",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/rules/client-v18-arp.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "personal": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:13e79bee33d48e58",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/rules/personal.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "team-style": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:449c793566b3a807",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/rules/team-style.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "scope": "global",
+  "skills": {},
+  "styles": {},
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

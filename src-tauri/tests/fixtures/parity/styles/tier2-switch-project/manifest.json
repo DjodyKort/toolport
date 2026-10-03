@@ -1,0 +1,84 @@
+{
+  "area": "styles",
+  "case": "styles/tier2-switch-project",
+  "comparison": "A",
+  "entry": "styles_tier2",
+  "files": {
+    "repo/.agents/skills/mcpm-output-style/SKILL.md": {
+      "bytes": 141,
+      "class": "A",
+      "sha256": "8cd4d67eff5665abd6903b438faa26a7afce1e4fa9d8ccba49e535aa4abdfefe"
+    },
+    "repo/.aiassistant/rules/mcpm-output-style.md": {
+      "bytes": 180,
+      "class": "A",
+      "sha256": "a8b79e3663a084f39de4b4a4ba2049185bbc6d5b382244491eacd531eefb6803"
+    },
+    "repo/.amazonq/rules/mcpm-output-style.md": {
+      "bytes": 129,
+      "class": "A",
+      "sha256": "6aba67fb9d1bbf1781ef3772c9e9b8852486380daa4a519775c843d8c9e14c5a"
+    },
+    "repo/.clinerules/mcpm-output-style.md": {
+      "bytes": 43,
+      "class": "A",
+      "sha256": "5f011f655abea0691d979b95d2c4d120efd7a663c6f541ce680cefd2cb0dba0d"
+    },
+    "repo/.continue/rules/mcpm-output-style.md": {
+      "bytes": 135,
+      "class": "A",
+      "sha256": "26f3d308c6ecf064ad8d03657b364fab8cd677766b5faa10d05fc1f7fc4b116a"
+    },
+    "repo/.cursor/rules/mcpm-output-style/RULE.md": {
+      "bytes": 135,
+      "class": "A",
+      "sha256": "26f3d308c6ecf064ad8d03657b364fab8cd677766b5faa10d05fc1f7fc4b116a"
+    },
+    "repo/.gemini/skills/mcpm-output-style/SKILL.md": {
+      "bytes": 141,
+      "class": "A",
+      "sha256": "8cd4d67eff5665abd6903b438faa26a7afce1e4fa9d8ccba49e535aa4abdfefe"
+    },
+    "repo/.github/instructions/mcpm-output-style.instructions.md": {
+      "bytes": 43,
+      "class": "A",
+      "sha256": "5f011f655abea0691d979b95d2c4d120efd7a663c6f541ce680cefd2cb0dba0d"
+    },
+    "repo/.goose/rules/mcpm-output-style.md": {
+      "bytes": 141,
+      "class": "A",
+      "sha256": "8cd4d67eff5665abd6903b438faa26a7afce1e4fa9d8ccba49e535aa4abdfefe"
+    },
+    "repo/.mcpm/skills/mcpm-output-style/SKILL.md": {
+      "bytes": 68,
+      "class": "A",
+      "sha256": "9eb70d7089e283f08492f155ace44d1b595a1285e62effbe2b6c42075ecee99c"
+    },
+    "repo/.rules": {
+      "bytes": 121,
+      "class": "A",
+      "sha256": "5bcaa187b03063a8a37ca17ee70204915c5fb99b7f6b8c69d3508e9a684c65f3"
+    },
+    "repo/.trae/rules/mcpm-output-style.md": {
+      "bytes": 135,
+      "class": "A",
+      "sha256": "26f3d308c6ecf064ad8d03657b364fab8cd677766b5faa10d05fc1f7fc4b116a"
+    },
+    "repo/.windsurf/rules/mcpm-output-style.md": {
+      "bytes": 136,
+      "class": "A",
+      "sha256": "d533f99acce7617c092cdf2003cb3567c6bb81e649b95a3736c721a2679b69af"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 1462,
+      "class": "B",
+      "sha256": "c1dde490a4138adf07fd0ea7d5757ae7b7e9787eafd0fd2bf3e7b53e90ab779e"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

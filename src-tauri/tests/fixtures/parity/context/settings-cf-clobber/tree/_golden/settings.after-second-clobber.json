@@ -1,0 +1,42 @@
+{
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "env": {
+    "MY_ENV": "1",
+    "TEAM_ENV": "1"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "echo personal",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  },
+  "model": "opus",
+  "permissions": {
+    "allow": [
+      "mcp__codeforward-odoo__*",
+      "Read(*)",
+      "Bash(git diff:*)",
+      "WebFetch(domain:example.test)"
+    ],
+    "ask": [
+      "Bash(rm:*)",
+      "Bash(git push:*)"
+    ],
+    "deny": [
+      "Bash(curl:*)"
+    ]
+  },
+  "statusLine": {
+    "command": "echo status",
+    "type": "command"
+  }
+}

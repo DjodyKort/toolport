@@ -1,0 +1,24 @@
+{
+  "area": "skills",
+  "case": "skills/agents-md-append-existing",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    "repo/AGENTS.md": {
+      "bytes": 633,
+      "class": "A",
+      "sha256": "f73b3a395e6def3cc2e9112ca4d588cec3d860827cecbdcf27319adc0be9a08b"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 1443,
+      "class": "B",
+      "sha256": "b1e030d9b34f26048cf910f0cf6b7f03174afaa15db7765efe292d6e86e64877"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

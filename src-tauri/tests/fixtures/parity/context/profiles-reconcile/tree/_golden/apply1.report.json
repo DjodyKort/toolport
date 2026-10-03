@@ -1,0 +1,32 @@
+{
+  "actions": [
+    "wrote <HOME>/.config/mcpm/claude-profiles/inh/CLAUDE.md",
+    "linked rules/ → <HOME>/.claude/rules",
+    "linked commands/ → <HOME>/.claude/commands",
+    "linked skills/ → <HOME>/.claude/skills",
+    "skipped agents/ (source <HOME>/.claude/agents missing)",
+    "composed <HOME>/.config/mcpm/claude-profiles/inh/settings.json",
+    "reconciled <HOME>/.config/mcpm/claude-profiles/inh/.claude.json (2 MCP server(s))",
+    "wrote <HOME>/.config/mcpm/claude-profiles/cp/CLAUDE.md",
+    "rules: 1 layer(s) [copy]",
+    "linked commands/ → <HOME>/.claude/commands",
+    "linked skills/ → <HOME>/.claude/skills",
+    "skipped agents/ (source <HOME>/.claude/agents missing)",
+    "composed <HOME>/.config/mcpm/claude-profiles/cp/settings.json",
+    "reconciled <HOME>/.config/mcpm/claude-profiles/cp/.claude.json (0 MCP server(s))",
+    "wrote <HOME>/.config/mcpm/claude-profiles/lnk/CLAUDE.md",
+    "rules: 1 layer(s) [link]",
+    "linked commands/ → <HOME>/.claude/commands",
+    "linked skills/ → <HOME>/.claude/skills",
+    "composed <HOME>/.config/mcpm/claude-profiles/lnk/settings.json",
+    "reconciled <HOME>/.config/mcpm/claude-profiles/lnk/.claude.json (0 MCP server(s))",
+    "wrote shims: <HOME>/.config/mcpm/context-shims.zsh",
+    "saved config (3 profile(s))"
+  ],
+  "warnings": [
+    "layer 'client-acme' not found at <HOME>/.claude/rules/client-acme.md — run `mcpm skills sync --global`?",
+    "layer 'missing-layer' not found at <HOME>/.claude/rules/missing-layer.md — run `mcpm skills sync --global`?",
+    "server 'nope-not-registered' not in mcpm registry nor in .claude.json — skipped",
+    "orphan profile dir <HOME>/.config/mcpm/claude-profiles/stale-orphan (not in config) — `mcpm context profile remove stale-orphan --purge`"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "area": "skills",
+  "case": "skills/zed-project",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    "repo/.rules": {
+      "bytes": 444,
+      "class": "A",
+      "sha256": "5fe278821c16e7021898f3e4e29cdb88079d838985517dfb262bdbe2ebfdd3d5"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 2628,
+      "class": "B",
+      "sha256": "ae4c2add99600c311c48bb404983f2387f5a0ca24715c768e91671e3bbb5a916"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

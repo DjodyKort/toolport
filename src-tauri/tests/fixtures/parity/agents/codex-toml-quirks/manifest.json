@@ -1,0 +1,24 @@
+{
+  "area": "agents",
+  "case": "agents/codex-toml-quirks",
+  "comparison": "A",
+  "entry": "agents_sync",
+  "files": {
+    "repo/.codex/agents/quirky.toml": {
+      "bytes": 274,
+      "class": "A",
+      "sha256": "a4ac6aaafc54413380f352571051fdab37e8bfd3db9a6a22904468b351fff7f6"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 573,
+      "class": "B",
+      "sha256": "89339741e9714e70e428b8b3a2028247f81a49cf5160814acc0b1802b76ad3c9"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

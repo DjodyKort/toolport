@@ -1,0 +1,12 @@
+{
+  "actions": [
+    "deployed <HOME>/clients/acme/CLAUDE.local.md",
+    "deployed <HOME>/clients/gamma/CLAUDE.local.md",
+    "deployed <HOME>/clients/v18_arp/CLAUDE.local.md",
+    "added CLAUDE.local.md to v18_arp/.git/info/exclude",
+    "saved config (0 profile(s))"
+  ],
+  "warnings": [
+    "<HOME>/clients/delta/CLAUDE.local.md exists and is not managed \u2014 leaving it alone"
+  ]
+}

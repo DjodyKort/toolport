@@ -1,0 +1,34 @@
+{
+  "area": "agents",
+  "case": "agents/cursor-project",
+  "comparison": "A",
+  "entry": "agents_sync",
+  "files": {
+    "repo/.cursor/agents/code-reviewer.md": {
+      "bytes": 155,
+      "class": "A",
+      "sha256": "703935108b8ea78c4917508084dd0cb123e0b49d010646c13ca071afde0e8aa8"
+    },
+    "repo/.cursor/agents/doc-writer.md": {
+      "bytes": 126,
+      "class": "A",
+      "sha256": "bcfa4587a614f57120deaeb10bd722512c2f961181588d56ca70499e79e615c0"
+    },
+    "repo/.cursor/agents/minimal.md": {
+      "bytes": 76,
+      "class": "A",
+      "sha256": "d26f28d07250c044afaa2730bc3b1f7f26a6094a53feed2a67d26df69c20888c"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 1447,
+      "class": "B",
+      "sha256": "7f8538c6e8a53b330f533f0b9d23266630389aa8620ee35b29789334615db3ba"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

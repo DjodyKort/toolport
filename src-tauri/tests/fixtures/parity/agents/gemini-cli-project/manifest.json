@@ -1,0 +1,34 @@
+{
+  "area": "agents",
+  "case": "agents/gemini-cli-project",
+  "comparison": "A",
+  "entry": "agents_sync",
+  "files": {
+    "repo/.gemini/agents/code-reviewer.md": {
+      "bytes": 214,
+      "class": "A",
+      "sha256": "e684f85b2324c2db6950b2f12b2eba871bff4eada55ee9e735153c9ff0b7cfd4"
+    },
+    "repo/.gemini/agents/doc-writer.md": {
+      "bytes": 180,
+      "class": "A",
+      "sha256": "d0260c2e4dc700ed4ace046c33e81ac5fe04e6b725e2af6717c30e9039700858"
+    },
+    "repo/.gemini/agents/minimal.md": {
+      "bytes": 76,
+      "class": "A",
+      "sha256": "d26f28d07250c044afaa2730bc3b1f7f26a6094a53feed2a67d26df69c20888c"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 1368,
+      "class": "B",
+      "sha256": "58abb8aa8ef8dbdf8ab6de6603a91d66f5678e27f720a41d356c7836ba61de10"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

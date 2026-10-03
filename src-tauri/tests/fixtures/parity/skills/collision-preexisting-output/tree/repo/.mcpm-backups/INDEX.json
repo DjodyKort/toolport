@@ -1,0 +1,13 @@
+{
+  "backups": [
+    {
+      "backup_path": "<HOME>/repo/.mcpm-backups/.cursor/rules/db-helper.mdc.20260101T000000Z",
+      "client_key": "cursor",
+      "original_path": "<HOME>/repo/.cursor/rules/db-helper.mdc",
+      "reason": "collision-with-synced-skill",
+      "skill_name": "db-helper",
+      "synced_path": "<HOME>/repo/.cursor/rules/db-helper/RULE.md",
+      "timestamp": "20260101T000000Z"
+    }
+  ]
+}

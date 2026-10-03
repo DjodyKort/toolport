@@ -1,0 +1,44 @@
+{
+  "area": "skills",
+  "case": "skills/amazon-q-global",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    ".amazonq/rules/code-review.md": {
+      "bytes": 154,
+      "class": "A",
+      "sha256": "f329ecb74ffaf107aced16f333b95b5f3a74d68287333facdcffd0a853b3908e"
+    },
+    ".amazonq/rules/db-helper.md": {
+      "bytes": 117,
+      "class": "A",
+      "sha256": "b492aa1bddaa0241ea7c4076e4218294d35e04e3e463ab111b1836ea3e2d5cc0"
+    },
+    ".amazonq/rules/python-style.md": {
+      "bytes": 169,
+      "class": "A",
+      "sha256": "7e05dd9a58fda448faddb2562058ceb923247b1b26254c37272714105350337d"
+    },
+    ".amazonq/rules/release-checklist.md": {
+      "bytes": 153,
+      "class": "A",
+      "sha256": "e3fcf6dd1e78dd3612e1df97bb2e97f15849400d9cdcbabce1ee6a8fe4d57c29"
+    },
+    ".amazonq/rules/team-conventions.md": {
+      "bytes": 132,
+      "class": "A",
+      "sha256": "7abc89b85660e2bd3c43391000e2ec82296f6faf2786b5375b57af241fd16179"
+    },
+    ".config/mcpm/mcpm-skills.lock": {
+      "bytes": 2129,
+      "class": "B",
+      "sha256": "2cd7a7b90929209abd572ab26d653d3af0abfb2ab3f2f30b391aab7d52afc726"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

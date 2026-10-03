@@ -1,0 +1,6 @@
+{
+  "actions": [
+    "removed legacy MCP entries from .claude.json: custom-old"
+  ],
+  "warnings": []
+}

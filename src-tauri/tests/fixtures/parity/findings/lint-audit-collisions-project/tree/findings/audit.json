@@ -1,0 +1,89 @@
+{
+  "findings": [
+    {
+      "line": 3,
+      "message": "Data exfiltration risk: piping curl to bash",
+      "severity": "high",
+      "skill": "exfil"
+    },
+    {
+      "line": 5,
+      "message": "Data exfiltration risk: base64 encoding piped to curl",
+      "severity": "high",
+      "skill": "exfil"
+    },
+    {
+      "line": 7,
+      "message": "Suspicious: eval of fetched content",
+      "severity": "medium",
+      "skill": "exfil"
+    },
+    {
+      "line": 3,
+      "message": "Prompt injection: ignore previous instructions",
+      "severity": "high",
+      "skill": "injection"
+    },
+    {
+      "line": 4,
+      "message": "Prompt injection: disregard prior context",
+      "severity": "high",
+      "skill": "injection"
+    },
+    {
+      "line": 5,
+      "message": "Possible prompt injection: role override attempt",
+      "severity": "medium",
+      "skill": "injection"
+    },
+    {
+      "line": 6,
+      "message": "Prompt injection: safety override attempt",
+      "severity": "high",
+      "skill": "injection"
+    },
+    {
+      "line": 7,
+      "message": "Prompt injection: fake system prompt",
+      "severity": "high",
+      "skill": "injection"
+    },
+    {
+      "line": 3,
+      "message": "Dangerous command: recursive delete of system paths",
+      "severity": "high",
+      "skill": "perms"
+    },
+    {
+      "line": 4,
+      "message": "Dangerous command: recursive delete of system paths",
+      "severity": "high",
+      "skill": "perms"
+    },
+    {
+      "line": 5,
+      "message": "Suspicious: setting world-writable permissions",
+      "severity": "medium",
+      "skill": "perms"
+    },
+    {
+      "line": 6,
+      "message": "Suspicious: sudo usage in skill instructions",
+      "severity": "medium",
+      "skill": "perms"
+    },
+    {
+      "line": 7,
+      "message": "Dangerous: writing to system config directory",
+      "severity": "high",
+      "skill": "perms"
+    },
+    {
+      "line": 0,
+      "message": "Broad tool permissions: Bash, Write, Edit. Consider restricting to specific commands.",
+      "severity": "medium",
+      "skill": "perms"
+    }
+  ],
+  "has_high_severity": true
+}

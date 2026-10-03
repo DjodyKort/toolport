@@ -1,0 +1,29 @@
+{
+  "area": "styles",
+  "case": "styles/tier2-apply-selected",
+  "comparison": "A",
+  "entry": "styles_tier2",
+  "files": {
+    "repo/.cursor/rules/mcpm-output-style/RULE.md": {
+      "bytes": 114,
+      "class": "A",
+      "sha256": "443157eaac70a669e3a4e745788dee8f93d9743a46ab1fa5f497ee2b1de83521"
+    },
+    "repo/.rules": {
+      "bytes": 112,
+      "class": "A",
+      "sha256": "bd1f2a122c52014405b21021039ffd257dea9df269196f88e87516b81051a770"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 478,
+      "class": "B",
+      "sha256": "b93423bad69b5d75b7bad3b019cb254376fe1ab95163fd97238547096fec2edf"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

@@ -1,0 +1,12 @@
+repo/.agents/skills/mcpm-output-style/SKILL.md
+repo/.aiassistant/rules/mcpm-output-style.md
+repo/.amazonq/rules/mcpm-output-style.md
+repo/.clinerules/mcpm-output-style.md
+repo/.continue/rules/mcpm-output-style.md
+repo/.cursor/rules/mcpm-output-style/RULE.md
+repo/.gemini/skills/mcpm-output-style/SKILL.md
+repo/.github/instructions/mcpm-output-style.instructions.md
+repo/.goose/rules/mcpm-output-style.md
+repo/.mcpm/skills/mcpm-output-style/SKILL.md
+repo/.trae/rules/mcpm-output-style.md
+repo/.windsurf/rules/mcpm-output-style.md

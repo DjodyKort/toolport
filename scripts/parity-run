@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+if [[ $# -ge 1 ]]; then
+  [[ -d "$1" ]] || { echo "parity-run: not a directory: $1" >&2; exit 2; }
+  export PARITY_PRIVATE_DIR
+  PARITY_PRIVATE_DIR="$(cd "$1" && pwd)"
+fi
+exec cargo test --manifest-path src-tauri/Cargo.toml --no-default-features --features test-support \
+  --test parity_harness --test parity_goldens_lock "${@:2}"

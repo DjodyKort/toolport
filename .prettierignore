@@ -11,3 +11,6 @@ package-lock.json
 
 # Generated/external
 src-tauri/gen/
+
+# Byte-exact parity goldens
+src-tauri/tests/fixtures/parity/

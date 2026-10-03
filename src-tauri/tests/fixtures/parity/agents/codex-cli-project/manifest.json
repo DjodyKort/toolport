@@ -1,0 +1,34 @@
+{
+  "area": "agents",
+  "case": "agents/codex-cli-project",
+  "comparison": "A",
+  "entry": "agents_sync",
+  "files": {
+    "repo/.codex/agents/code-reviewer.toml": {
+      "bytes": 319,
+      "class": "A",
+      "sha256": "42b14aa1cff583bfe1aa3bd1ada7ea7a2472ee63652eff228702ac7e3be9587d"
+    },
+    "repo/.codex/agents/doc-writer.toml": {
+      "bytes": 339,
+      "class": "A",
+      "sha256": "605d9a2b719797c5a1926c360cb98117e3e7b18cab35f3effc396e2454ef2bc7"
+    },
+    "repo/.codex/agents/minimal.toml": {
+      "bytes": 104,
+      "class": "A",
+      "sha256": "87dcf1f4fc863a1ca5ae7852d6516548d433b6c48e8223a5cbb66698ce0b5fa5"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 1318,
+      "class": "B",
+      "sha256": "867dcb604a78598015c0b56d857ff011107375f3343443ea0e581f1c4ac77337"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

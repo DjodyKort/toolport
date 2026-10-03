@@ -1,0 +1,69 @@
+{
+  "area": "context",
+  "case": "context/settings-edge",
+  "comparison": "A",
+  "entry": "context_scenario",
+  "files": {
+    ".claude/settings.json": {
+      "bytes": 106,
+      "class": "A",
+      "sha256": "46d93976afd73c27ea3c57df3bf2742ce85688731ace108306d86aea255fbb88"
+    },
+    ".config/mcpm/context.json": {
+      "bytes": 396,
+      "class": "B",
+      "sha256": "543bf9e795c14e73c051777811c51c6a08690a0a2c715d8199993c210d245e30"
+    },
+    "_golden/apply-ask-only.report.json": {
+      "bytes": 101,
+      "class": "B",
+      "sha256": "1d7e868a08dae5f3a93353c0df1ef28d8f3aaba1258292190c9b48cab602be7c"
+    },
+    "_golden/apply-corrupt.report.json": {
+      "bytes": 38,
+      "class": "B",
+      "sha256": "2df7cd6d08ddf2369684525ffffc8a56a593e0df749d79b1639722f2b8505d15"
+    },
+    "_golden/apply-empty-policy.report.json": {
+      "bytes": 38,
+      "class": "B",
+      "sha256": "2df7cd6d08ddf2369684525ffffc8a56a593e0df749d79b1639722f2b8505d15"
+    },
+    "_golden/apply-missing-file.report.json": {
+      "bytes": 136,
+      "class": "B",
+      "sha256": "8c567e2dcec18bcccdb860350ec8e70058e45aaf8435927c85f6d2f19918e14d"
+    },
+    "_golden/doctor.corrupt.json": {
+      "bytes": 294,
+      "class": "B",
+      "sha256": "2be2525fc991edd75845ab83b584338c9818d7e80f01d7b49dbda1c40b35f8bf"
+    },
+    "_golden/pure.json": {
+      "bytes": 504,
+      "class": "B",
+      "sha256": "9ca6259f9ba80090a2a5095bf90a0bdb672e8d6c4133394fe15f91e508fb2c18"
+    },
+    "_golden/settings.ask-only.json": {
+      "bytes": 106,
+      "class": "B",
+      "sha256": "46d93976afd73c27ea3c57df3bf2742ce85688731ace108306d86aea255fbb88"
+    },
+    "_golden/settings.corrupt-untouched.txt": {
+      "bytes": 50,
+      "class": "A",
+      "sha256": "d2a0a96b2fc337232f84378edb7c260fea876abb91c337057caeddaa29c1aae8"
+    },
+    "_golden/settings.created.json": {
+      "bytes": 67,
+      "class": "B",
+      "sha256": "88c0f13251296ed9ebb9317ceff400da45574024726e9e371c76c7ee7f1e2b68"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

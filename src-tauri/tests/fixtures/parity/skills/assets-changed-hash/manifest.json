@@ -1,0 +1,29 @@
+{
+  "area": "skills",
+  "case": "skills/assets-changed-hash",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    "repo/.claude/skills/asset-lab/SKILL.md": {
+      "bytes": 122,
+      "class": "A",
+      "sha256": "2dbadc4c447160be9818d570c4a209d62e25603bc8fbf49cb31a7e43512cbadd"
+    },
+    "repo/.claude/skills/asset-lab/modules/a.md": {
+      "bytes": 9,
+      "class": "A",
+      "sha256": "45c71e5e64d6ca2468b936c03ae7192b6767aa0a3b86e9ff885c20a533c1d253"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 578,
+      "class": "B",
+      "sha256": "8e449d50237b9f002817b796f5ee36597e6216728fd704e23626ec11cbbbdfce"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "active_styles": {},
+  "agents": {},
+  "output_root": "<HOME>",
+  "rules": {
+    "team-conventions": {
+      "clients_synced": [
+        "claude-code",
+        "cursor",
+        "gemini-cli"
+      ],
+      "hash": "sha256:3422d58f397226a6",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/rules/team-conventions.md"
+        ],
+        "cursor": [
+          ".cursor/rules/team-conventions/RULE.md"
+        ],
+        "gemini-cli": [
+          ".gemini/skills/team-conventions/SKILL.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "scope": "global",
+  "skills": {
+    "db-helper": {
+      "clients_synced": [
+        "claude-code",
+        "cursor",
+        "gemini-cli"
+      ],
+      "hash": "sha256:15e34949b32ff5ee",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/skills/db-helper/SKILL.md"
+        ],
+        "cursor": [
+          ".cursor/rules/db-helper/RULE.md"
+        ],
+        "gemini-cli": [
+          ".gemini/skills/db-helper/SKILL.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "release-checklist": {
+      "clients_synced": [
+        "claude-code",
+        "cursor",
+        "gemini-cli"
+      ],
+      "hash": "sha256:2d18e8c6c624a33a",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/skills/release-checklist/SKILL.md"
+        ],
+        "cursor": [
+          ".cursor/rules/release-checklist/RULE.md"
+        ],
+        "gemini-cli": [
+          ".gemini/skills/release-checklist/SKILL.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": [
+        "gemini-cli: activation 'manual' downgraded to 'agent'"
+      ]
+    }
+  },
+  "styles": {},
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

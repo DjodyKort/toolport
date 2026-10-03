@@ -1,0 +1,20 @@
+{
+  "cf_wrapper_hash": null,
+  "clients_root": "<HOME>/does-not-exist",
+  "dedupe": {
+    "enabled": false,
+    "legacy_names": [
+      "context7",
+      "playwright",
+      "codeforward-odoo",
+      "codeforward-typst"
+    ],
+    "require_mcpm_twin": true
+  },
+  "profiles": {},
+  "settings": {
+    "ensure_allow": [],
+    "ensure_ask": []
+  },
+  "wrap_default_claude": false
+}

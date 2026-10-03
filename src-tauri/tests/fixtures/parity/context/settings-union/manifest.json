@@ -1,0 +1,24 @@
+{
+  "area": "context",
+  "case": "context/settings-union",
+  "comparison": "B",
+  "entry": "context_apply",
+  "files": {
+    ".claude/settings.json": {
+      "bytes": 307,
+      "class": "B",
+      "sha256": "faefb52a42db1084218aa8acf6afb1ae56cb155cfcf2ea1d70d451608956c29b"
+    },
+    ".config/mcpm/context.json": {
+      "bytes": 488,
+      "class": "B",
+      "sha256": "ad18bc5bbdddd6c27f53c0e4bd44f5ca5178dd33a1cba903f2133f8384da1b2c"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

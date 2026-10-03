@@ -1,0 +1,19 @@
+{
+  "area": "skills",
+  "case": "skills/append-global-skipped",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    ".config/mcpm/mcpm-skills.lock": {
+      "bytes": 1302,
+      "class": "B",
+      "sha256": "53f0e805b8edbbe2e2b5e718e4b47181c1b8619f12d12983c3a5af8c743d2b2b"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

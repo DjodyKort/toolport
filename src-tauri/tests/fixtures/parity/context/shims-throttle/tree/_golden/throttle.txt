@@ -1,0 +1,73 @@
+rc=0
+--- stdout
+## cold launch: cf sync and ctx sync both run
+rc=0
+  git -C <HOME>/.local/share/cf-dev-tools pull --quiet
+  cf-python sync_claude_files+auto_update_mcp_repos
+  mcpm context sync
+  claude one CLAUDE_CONFIG_DIR=<unset>
+caches: cf=yes ctx=yes
+## relaunch inside interval: nothing but claude
+rc=0
+  claude two CLAUDE_CONFIG_DIR=<unset>
+caches: cf=yes ctx=yes
+## interval 0: both run again
+rc=0
+  git -C <HOME>/.local/share/cf-dev-tools pull --quiet
+  cf-python sync_claude_files+auto_update_mcp_repos
+  mcpm context sync
+  claude three CLAUDE_CONFIG_DIR=<unset>
+caches: cf=yes ctx=yes
+## ctx cache missing, cf fresh: only ctx sync
+rc=0
+  mcpm context sync
+  claude four CLAUDE_CONFIG_DIR=<unset>
+caches: cf=yes ctx=yes
+## cf cache stale (epoch 1): cf runs, ctx follows
+rc=0
+  git -C <HOME>/.local/share/cf-dev-tools pull --quiet
+  cf-python sync_claude_files+auto_update_mcp_repos
+  mcpm context sync
+  claude five CLAUDE_CONFIG_DIR=<unset>
+caches: cf=yes ctx=yes
+## mcpm fails: stderr hint, ctx cache not written
+mcpm: context sync failed, retrying next launch (run 'mcpm doctor')
+rc=0
+  git -C <HOME>/.local/share/cf-dev-tools pull --quiet
+  cf-python sync_claude_files+auto_update_mcp_repos
+  mcpm context sync
+  claude six CLAUDE_CONFIG_DIR=<unset>
+caches: cf=yes ctx=no
+## retry next launch with stale ctx cache
+rc=0
+  mcpm context sync
+  claude seven CLAUDE_CONFIG_DIR=<unset>
+caches: cf=yes ctx=yes
+## huge interval: no sync
+rc=0
+  claude eight CLAUDE_CONFIG_DIR=<unset>
+caches: cf=yes ctx=yes
+## profile shim passes CLAUDE_CONFIG_DIR and presyncs
+rc=0
+  claude nine CLAUDE_CONFIG_DIR=<HOME>/.config/mcpm/claude-profiles/work
+caches: cf=yes ctx=yes
+## cf venv missing: cf skipped, ctx sync by cache age
+rc=0
+  mcpm context sync
+  claude ten CLAUDE_CONFIG_DIR=<unset>
+caches: cf=no ctx=yes
+## cf .git missing: cf skipped
+rc=0
+  mcpm context sync
+  claude eleven CLAUDE_CONFIG_DIR=<unset>
+caches: cf=no ctx=yes
+## hrclaude defined: runs compression via mcpm
+rc=0
+  mcpm context sync
+  mcpm compression run -- --flag
+caches: cf=no ctx=yes
+## claude args with spaces
+rc=0
+  claude a b c CLAUDE_CONFIG_DIR=<unset>
+caches: cf=no ctx=yes
+--- stderr

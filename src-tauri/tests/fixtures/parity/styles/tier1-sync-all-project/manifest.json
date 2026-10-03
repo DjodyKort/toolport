@@ -1,0 +1,34 @@
+{
+  "area": "styles",
+  "case": "styles/tier1-sync-all-project",
+  "comparison": "A",
+  "entry": "styles_sync",
+  "files": {
+    "repo/.claude/output-styles/concise.md": {
+      "bytes": 127,
+      "class": "A",
+      "sha256": "11c83fbc6d6a493b39aa3a941d1b6f65231bb4df80a3059e7f4b6a6283741d24"
+    },
+    "repo/.claude/output-styles/teacher.md": {
+      "bytes": 148,
+      "class": "A",
+      "sha256": "18690dcbf432d2f3587acfeac07430c16beb2110c2b88de1dbad4e37b0d16d0c"
+    },
+    "repo/.roomodes": {
+      "bytes": 1025,
+      "class": "A",
+      "sha256": "e2e586a7267e847ad44054d35acb626cabc4918327130b63d26ac98d736a2f7c"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 717,
+      "class": "B",
+      "sha256": "cdb7f006b46a3928ec7e2bca3fc94cef7092aeb0040f117c9f5525214b47bb79"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

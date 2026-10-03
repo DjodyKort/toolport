@@ -1,0 +1,56 @@
+{
+  "customModes": [
+    {
+      "slug": "style-concise",
+      "name": "Concise",
+      "roleDefinition": "Short, direct answers",
+      "customInstructions": "Answer in as few words as possible.",
+      "groups": [
+        [
+          "read",
+          {}
+        ],
+        [
+          "edit",
+          {
+            "fileRegex": ".*"
+          }
+        ],
+        [
+          "command",
+          {}
+        ],
+        [
+          "mcp",
+          {}
+        ]
+      ]
+    },
+    {
+      "slug": "style-teacher",
+      "name": "Teacher",
+      "roleDefinition": "Explain step by step",
+      "customInstructions": "Explain the reasoning behind each step.",
+      "groups": [
+        [
+          "read",
+          {}
+        ],
+        [
+          "edit",
+          {
+            "fileRegex": ".*"
+          }
+        ],
+        [
+          "command",
+          {}
+        ],
+        [
+          "mcp",
+          {}
+        ]
+      ]
+    }
+  ]
+}

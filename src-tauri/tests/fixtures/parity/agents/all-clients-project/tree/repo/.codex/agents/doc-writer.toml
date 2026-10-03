@@ -1,0 +1,14 @@
+name = "doc-writer"
+description = "Writes documentation from code"
+developer_instructions = """
+Write clear documentation.
+"""
+model = "opus"
+model_reasoning_effort = "low"
+sandbox_mode = "sandbox"
+
+[mcp_servers]
+[mcp_servers."docs"]
+# Configure via mcpm: mcpm install docs
+[mcp_servers."search"]
+# Configure via mcpm: mcpm install search

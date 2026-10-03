@@ -1,0 +1,72 @@
+{
+  "active_styles": {
+    "aider": "teacher",
+    "amazon-q": "teacher",
+    "cline": "teacher",
+    "codex-cli": "teacher",
+    "continue": "teacher",
+    "cursor": "teacher",
+    "gemini-cli": "teacher",
+    "goose": "teacher",
+    "jetbrains": "teacher",
+    "trae": "teacher",
+    "vscode-copilot": "teacher",
+    "windsurf": "teacher",
+    "zed": "teacher"
+  },
+  "agents": {},
+  "output_root": "",
+  "rules": {},
+  "scope": "",
+  "skills": {},
+  "styles": {
+    "concise": {
+      "clients_synced": [
+        "aider",
+        "amazon-q",
+        "cline",
+        "codex-cli",
+        "continue",
+        "cursor",
+        "gemini-cli",
+        "goose",
+        "jetbrains",
+        "trae",
+        "vscode-copilot",
+        "windsurf",
+        "zed"
+      ],
+      "hash": "sha256:3c05d526ae2e4ae3",
+      "hooks_installed": {},
+      "output_files": {},
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "teacher": {
+      "clients_synced": [
+        "aider",
+        "amazon-q",
+        "cline",
+        "codex-cli",
+        "continue",
+        "cursor",
+        "gemini-cli",
+        "goose",
+        "jetbrains",
+        "trae",
+        "vscode-copilot",
+        "windsurf",
+        "zed"
+      ],
+      "hash": "sha256:ede74f954248462f",
+      "hooks_installed": {},
+      "output_files": {},
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

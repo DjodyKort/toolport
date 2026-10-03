@@ -1,0 +1,20 @@
+{
+  "env": {
+    "TEAM_SETTING": "1"
+  },
+  "model": "sonnet",
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Read(*)",
+      "Bash(git diff:*)",
+      "WebFetch(domain:example.test)"
+    ],
+    "ask": [
+      "Bash(git push:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)"
+    ]
+  }
+}

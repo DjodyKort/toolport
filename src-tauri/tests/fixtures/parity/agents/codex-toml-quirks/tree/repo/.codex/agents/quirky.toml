@@ -1,0 +1,11 @@
+name = "quirky"
+description = "Says "hello" and uses C:\dir"
+developer_instructions = """
+Body with "quotes", a \\ backslash and a triple \"\"\" quote.
+"""
+model = "sonnet"
+sandbox_mode = "lenient"
+
+[mcp_servers]
+[mcp_servers."docs"]
+# Configure via mcpm: mcpm install docs

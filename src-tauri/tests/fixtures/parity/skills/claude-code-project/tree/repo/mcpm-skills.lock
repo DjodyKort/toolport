@@ -1,0 +1,82 @@
+{
+  "active_styles": {},
+  "agents": {},
+  "output_root": "<HOME>/repo",
+  "rules": {
+    "python-style": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:71cf527116615e90",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/rules/python-style.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "scope": "project",
+  "skills": {
+    "code-review": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:f0504e4b253f25e8",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/skills/code-review/SKILL.md",
+          ".claude/skills/code-review/modules/checklist.md",
+          ".claude/skills/code-review/reference/glossary.txt"
+        ]
+      },
+      "source": "local",
+      "version": "1.2.0",
+      "warnings": []
+    },
+    "handoff-notes": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:0024f74dc50f05be",
+      "hooks_installed": {
+        "claude-code": [
+          "<HOME>/repo/.claude/skills/handoff-notes/scripts/precompact.sh",
+          "<HOME>/repo/.claude/skills/handoff-notes/scripts/session-start.sh"
+        ]
+      },
+      "output_files": {
+        "claude-code": [
+          ".claude/skills/handoff-notes/SKILL.md",
+          ".claude/skills/handoff-notes/scripts/precompact.sh",
+          ".claude/skills/handoff-notes/scripts/session-start.sh"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "release-checklist": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:3dc095c1f200501e",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/skills/release-checklist/SKILL.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "styles": {},
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

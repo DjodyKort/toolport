@@ -1,0 +1,44 @@
+{
+  "area": "skills",
+  "case": "skills/continue-global",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    ".config/mcpm/mcpm-skills.lock": {
+      "bytes": 1987,
+      "class": "B",
+      "sha256": "ff94228e0e990b60e4a2600099082f25be359036119db6c1e408c8dc0f5e9b7a"
+    },
+    ".continue/rules/code-review.md": {
+      "bytes": 148,
+      "class": "A",
+      "sha256": "904c03244853955a308aaff6bd034c8c79fcdbabe0d64edb874089fbc95c2835"
+    },
+    ".continue/rules/db-helper.md": {
+      "bytes": 147,
+      "class": "A",
+      "sha256": "5f4e0f6e3cfdc0f4fe90e466a191c07038b6edd3a77930075c11ce4a3c733245"
+    },
+    ".continue/rules/python-style.md": {
+      "bytes": 214,
+      "class": "A",
+      "sha256": "9e10efba6c425ecf963a48f162d94246e8a373ab209c01ca1254825b43368192"
+    },
+    ".continue/rules/release-checklist.md": {
+      "bytes": 141,
+      "class": "A",
+      "sha256": "d879e6f1ef9a1d17eb9e265bb6e07ac13d5fb50bace82bffe213c731a284dd76"
+    },
+    ".continue/rules/team-conventions.md": {
+      "bytes": 139,
+      "class": "A",
+      "sha256": "e969691c5a23889999ae11ff8042f830ea02b05178d6dcc616eca5f9da1d0126"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

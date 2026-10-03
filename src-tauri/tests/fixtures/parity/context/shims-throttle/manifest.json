@@ -1,0 +1,54 @@
+{
+  "area": "context",
+  "case": "context/shims-throttle",
+  "comparison": "A",
+  "entry": "context_scenario",
+  "files": {
+    ".config/mcpm/claude-profiles/work/.claude.json": {
+      "bytes": 23,
+      "class": "B",
+      "sha256": "d8e397af03b5b032f21d0aa967086f0c78b33c87b76f2e9898ae0a144df7de02"
+    },
+    ".config/mcpm/claude-profiles/work/.mcpm-context-state.json": {
+      "bytes": 35,
+      "class": "B",
+      "sha256": "83ca0e3d969c4751fde63a53e0b72195821ffc39e56bd3746970a09ca2bcf68d"
+    },
+    ".config/mcpm/claude-profiles/work/CLAUDE.md": {
+      "bytes": 111,
+      "class": "A",
+      "sha256": "9d1e08e193f53cf446569d10e2156341eba787144d15cb55e2c6358b46b9445c"
+    },
+    ".config/mcpm/claude-profiles/work/settings.json": {
+      "bytes": 3,
+      "class": "B",
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    ".config/mcpm/context-shims.zsh": {
+      "bytes": 2030,
+      "class": "A",
+      "sha256": "402b3f3dd7a5ae5d37a2924a76d05adf133a7ff25a344c90d339f72f25739ff6"
+    },
+    ".config/mcpm/context.json": {
+      "bytes": 645,
+      "class": "B",
+      "sha256": "014d85ded97e83dfd11b1b47e886456f47f0fcdacbb8976704303048fd975b8b"
+    },
+    "_golden/apply.report.json": {
+      "bytes": 608,
+      "class": "B",
+      "sha256": "34ea38aaa86ecd9fcd1a3871968c82582188497f50e81ed9f21699971935b1d4"
+    },
+    "_golden/throttle.txt": {
+      "bytes": 2161,
+      "class": "A",
+      "sha256": "b7e853cf4a096a818952889d416be415118ded1736a7fbaf5d161283914bb66e"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

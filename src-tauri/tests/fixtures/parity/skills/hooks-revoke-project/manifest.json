@@ -1,0 +1,49 @@
+{
+  "area": "skills",
+  "case": "skills/hooks-revoke-project",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    "_cleaned.txt": {
+      "bytes": 256,
+      "class": "A",
+      "sha256": "56a2239b8fe86e6e8e0240e669f9ecad3a3c4658521008da14782a1243d55043"
+    },
+    "_deleted.txt": {
+      "bytes": 183,
+      "class": "A",
+      "sha256": "8e9360b8bb9cc44ef870074463e2db16cdd7c8c66c138f5f698135a936ed48eb"
+    },
+    "repo/.claude/settings.json": {
+      "bytes": 243,
+      "class": "B",
+      "sha256": "00bce9d0572cf240d4e1a153d87b7f9a30a51b5c1432755c92e8147a57cd3599"
+    },
+    "repo/.claude/skills/code-review/SKILL.md": {
+      "bytes": 191,
+      "class": "A",
+      "sha256": "eaf2cd81aae156994b6c113809ba57b4667e8625cfa7e56592a1c858f7243f78"
+    },
+    "repo/.cursor/rules/code-review/RULE.md": {
+      "bytes": 148,
+      "class": "A",
+      "sha256": "904c03244853955a308aaff6bd034c8c79fcdbabe0d64edb874089fbc95c2835"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 626,
+      "class": "B",
+      "sha256": "d579cea1212a44a8b42173424278b0e1dfbf56e310e4add7e3afe28d29423eba"
+    },
+    "repo/skills/code-review/SKILL.md": {
+      "bytes": 188,
+      "class": "A",
+      "sha256": "3d0f388cad3180fbaadda74ed0a9e542530984998573e9a426700e6083f5c2b9"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

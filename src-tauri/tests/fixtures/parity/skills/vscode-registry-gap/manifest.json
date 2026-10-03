@@ -1,0 +1,19 @@
+{
+  "area": "skills",
+  "case": "skills/vscode-registry-gap",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    "repo/mcpm-skills.lock": {
+      "bytes": 1308,
+      "class": "B",
+      "sha256": "de355881df4a4dd3c3705cd40252701f044b1723f4ced8f98c631dd0a7344476"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "active_styles": {},
+  "agents": {
+    "quirky": {
+      "clients_synced": [
+        "codex-cli"
+      ],
+      "hash": "sha256:38bf5a1266df78a4",
+      "hooks_installed": {},
+      "output_files": {
+        "codex-cli": [
+          ".codex/agents/quirky.toml"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": [
+        "codex-cli: 'tools' field not supported in agent TOML, dropped"
+      ]
+    }
+  },
+  "output_root": "",
+  "rules": {},
+  "scope": "",
+  "skills": {},
+  "styles": {},
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

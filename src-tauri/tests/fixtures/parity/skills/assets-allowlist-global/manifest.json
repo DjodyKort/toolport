@@ -1,0 +1,179 @@
+{
+  "area": "skills",
+  "case": "skills/assets-allowlist-global",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    ".claude/skills/asset-lab/SKILL.md": {
+      "bytes": 122,
+      "class": "A",
+      "sha256": "2dbadc4c447160be9818d570c4a209d62e25603bc8fbf49cb31a7e43512cbadd"
+    },
+    ".claude/skills/asset-lab/assets/img.jpeg": {
+      "bytes": 15,
+      "class": "A",
+      "sha256": "d9ead02f2c270e5a06f761efd5ebc0cfd1762076ba6bc43810b595e223544709"
+    },
+    ".claude/skills/asset-lab/assets/logo.svg": {
+      "bytes": 7,
+      "class": "A",
+      "sha256": "cd1fafe3cc7f06f55ead3f0dce39300aca7a8911793e76fcdd327799c0709ac2"
+    },
+    ".claude/skills/asset-lab/assets/pic.webp": {
+      "bytes": 15,
+      "class": "A",
+      "sha256": "c579018894cf077ef353b171af79398948c404a5f408e74c1f38808656667e8d"
+    },
+    ".claude/skills/asset-lab/examples/e.py": {
+      "bytes": 9,
+      "class": "A",
+      "sha256": "cc42155088fca5730758db72b2a5bca33112a941dfaa2d43098ec422ce4ea213"
+    },
+    ".claude/skills/asset-lab/examples/run.bash": {
+      "bytes": 7,
+      "class": "A",
+      "sha256": "03623d0eb5add7bae44b980a4b4867e6908b38385d9bb9057ae3e3d779d303f9"
+    },
+    ".claude/skills/asset-lab/examples/run.sh": {
+      "bytes": 7,
+      "class": "A",
+      "sha256": "c44090c3f318c724c480b810801ef2974b32e2b9ee7ca29ca861cedd6896f798"
+    },
+    ".claude/skills/asset-lab/modules/UPPER.MD": {
+      "bytes": 10,
+      "class": "A",
+      "sha256": "04de8e113fdbfd5f2a5bed30706502471cad89e4e93cefd70d60a001c5adefe8"
+    },
+    ".claude/skills/asset-lab/modules/a.md": {
+      "bytes": 9,
+      "class": "A",
+      "sha256": "45c71e5e64d6ca2468b936c03ae7192b6767aa0a3b86e9ff885c20a533c1d253"
+    },
+    ".claude/skills/asset-lab/modules/deep/nested/note.txt": {
+      "bytes": 7,
+      "class": "A",
+      "sha256": "370a8c04b8a65bb4494275eec227f1b694db04c76da6b0b8ae88ed1ab19790a3"
+    },
+    ".claude/skills/asset-lab/reference/conf.yaml": {
+      "bytes": 5,
+      "class": "A",
+      "sha256": "4746d1d6472bfcb56bcf75fef72889e96d9b688a766663ecedf45776aa786b9c"
+    },
+    ".claude/skills/asset-lab/reference/conf.yml": {
+      "bytes": 5,
+      "class": "A",
+      "sha256": "1462f1cde568c99ae8355f5ea1e85ea8c3df6bfbbedd49544ba44f61a3c1a9a2"
+    },
+    ".claude/skills/asset-lab/reference/data.json": {
+      "bytes": 9,
+      "class": "A",
+      "sha256": "fbf7612302afd65c06009618d5144fcb3957387bd75bd9b9d232a27293d9c072"
+    },
+    ".claude/skills/asset-lab/scripts/helper.py": {
+      "bytes": 11,
+      "class": "A",
+      "sha256": "ddfbb504f8eb447b120d4e44ad3cd0207c75aec7ffa088bb023309291b9b0263"
+    },
+    ".claude/skills/asset-lab/templates/.hidden.md": {
+      "bytes": 7,
+      "class": "A",
+      "sha256": "e084a3683ef795d1cdbf5e9b253f2ca1f783ae0d0d6e47e419acbbc4fc80bbfa"
+    },
+    ".claude/skills/asset-lab/templates/t.md": {
+      "bytes": 9,
+      "class": "A",
+      "sha256": "90d69c78fb9ef942c8ce0a0d88a7455572ada06044bc1516473472664ddd013b"
+    },
+    ".codex/skills/asset-lab/SKILL.md": {
+      "bytes": 122,
+      "class": "A",
+      "sha256": "2dbadc4c447160be9818d570c4a209d62e25603bc8fbf49cb31a7e43512cbadd"
+    },
+    ".codex/skills/asset-lab/assets/img.jpeg": {
+      "bytes": 15,
+      "class": "A",
+      "sha256": "d9ead02f2c270e5a06f761efd5ebc0cfd1762076ba6bc43810b595e223544709"
+    },
+    ".codex/skills/asset-lab/assets/logo.svg": {
+      "bytes": 7,
+      "class": "A",
+      "sha256": "cd1fafe3cc7f06f55ead3f0dce39300aca7a8911793e76fcdd327799c0709ac2"
+    },
+    ".codex/skills/asset-lab/assets/pic.webp": {
+      "bytes": 15,
+      "class": "A",
+      "sha256": "c579018894cf077ef353b171af79398948c404a5f408e74c1f38808656667e8d"
+    },
+    ".codex/skills/asset-lab/examples/e.py": {
+      "bytes": 9,
+      "class": "A",
+      "sha256": "cc42155088fca5730758db72b2a5bca33112a941dfaa2d43098ec422ce4ea213"
+    },
+    ".codex/skills/asset-lab/examples/run.bash": {
+      "bytes": 7,
+      "class": "A",
+      "sha256": "03623d0eb5add7bae44b980a4b4867e6908b38385d9bb9057ae3e3d779d303f9"
+    },
+    ".codex/skills/asset-lab/examples/run.sh": {
+      "bytes": 7,
+      "class": "A",
+      "sha256": "c44090c3f318c724c480b810801ef2974b32e2b9ee7ca29ca861cedd6896f798"
+    },
+    ".codex/skills/asset-lab/modules/UPPER.MD": {
+      "bytes": 10,
+      "class": "A",
+      "sha256": "04de8e113fdbfd5f2a5bed30706502471cad89e4e93cefd70d60a001c5adefe8"
+    },
+    ".codex/skills/asset-lab/modules/a.md": {
+      "bytes": 9,
+      "class": "A",
+      "sha256": "45c71e5e64d6ca2468b936c03ae7192b6767aa0a3b86e9ff885c20a533c1d253"
+    },
+    ".codex/skills/asset-lab/modules/deep/nested/note.txt": {
+      "bytes": 7,
+      "class": "A",
+      "sha256": "370a8c04b8a65bb4494275eec227f1b694db04c76da6b0b8ae88ed1ab19790a3"
+    },
+    ".codex/skills/asset-lab/reference/conf.yaml": {
+      "bytes": 5,
+      "class": "A",
+      "sha256": "4746d1d6472bfcb56bcf75fef72889e96d9b688a766663ecedf45776aa786b9c"
+    },
+    ".codex/skills/asset-lab/reference/conf.yml": {
+      "bytes": 5,
+      "class": "A",
+      "sha256": "1462f1cde568c99ae8355f5ea1e85ea8c3df6bfbbedd49544ba44f61a3c1a9a2"
+    },
+    ".codex/skills/asset-lab/reference/data.json": {
+      "bytes": 9,
+      "class": "A",
+      "sha256": "fbf7612302afd65c06009618d5144fcb3957387bd75bd9b9d232a27293d9c072"
+    },
+    ".codex/skills/asset-lab/scripts/helper.py": {
+      "bytes": 11,
+      "class": "A",
+      "sha256": "ddfbb504f8eb447b120d4e44ad3cd0207c75aec7ffa088bb023309291b9b0263"
+    },
+    ".codex/skills/asset-lab/templates/.hidden.md": {
+      "bytes": 7,
+      "class": "A",
+      "sha256": "e084a3683ef795d1cdbf5e9b253f2ca1f783ae0d0d6e47e419acbbc4fc80bbfa"
+    },
+    ".codex/skills/asset-lab/templates/t.md": {
+      "bytes": 9,
+      "class": "A",
+      "sha256": "90d69c78fb9ef942c8ce0a0d88a7455572ada06044bc1516473472664ddd013b"
+    },
+    ".config/mcpm/mcpm-skills.lock": {
+      "bytes": 2282,
+      "class": "B",
+      "sha256": "48521bddccea35a1bca7cc60dec60de8903c1368a1f46bf26775f26f5f73f4d9"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

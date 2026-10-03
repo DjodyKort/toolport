@@ -1,0 +1,42 @@
+{
+  "active_styles": {},
+  "agents": {
+    "code-reviewer": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:969ff45f7e299a13",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/agents/code-reviewer.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "doc-writer": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:7bc37639fc6a152a",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/agents/doc-writer.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "output_root": "",
+  "rules": {},
+  "scope": "",
+  "skills": {},
+  "styles": {},
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

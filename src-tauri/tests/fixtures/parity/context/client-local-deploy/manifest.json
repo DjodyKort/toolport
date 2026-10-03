@@ -1,0 +1,89 @@
+{
+  "area": "context",
+  "case": "context/client-local-deploy",
+  "comparison": "A",
+  "entry": "context_scenario",
+  "files": {
+    ".config/mcpm/context.json": {
+      "bytes": 372,
+      "class": "A",
+      "sha256": "4ed79a6c20acfa3590ffa895f2e467baa69a7a590582de42328564c4b39a8be1"
+    },
+    ".config/mcpm/skills_repo/rules/client-acme/SKILL.md": {
+      "bytes": 144,
+      "class": "A",
+      "sha256": "1bf4fa9a236c3a42831a63e11fb9f9be35ff4520f60b0904b273a07dbbb00290"
+    },
+    "_golden/apply1.report.json": {
+      "bytes": 389,
+      "class": "A",
+      "sha256": "cb07c7057b1fec643f631cb982da363fc3fb36bf9c002f115a3096f1f4b34cbd"
+    },
+    "_golden/apply2-idempotent.report.json": {
+      "bytes": 171,
+      "class": "A",
+      "sha256": "b9417ace978c05702e29a30555312e42112ae3ec5db0cc8f942307bbdbb50661"
+    },
+    "_golden/apply3-redeploy.report.json": {
+      "bytes": 223,
+      "class": "A",
+      "sha256": "caf2f1ac1bd876b50ce989e6fb27036d71f8560c6e3ae16b3066ecd7c33c6dd6"
+    },
+    "_golden/exclude.acme": {
+      "bytes": 33,
+      "class": "A",
+      "sha256": "64f86febee6aae71f6e0b2192b83498d41ac45d3c37573f678147a3afc3ddafb"
+    },
+    "_golden/exclude.delta": {
+      "bytes": 9,
+      "class": "A",
+      "sha256": "cf6dffdd3a8687551a0126846e094a6e1f6559dae5348c1ffc13f210b47579a6"
+    },
+    "_golden/exclude.nolayer": {
+      "bytes": 9,
+      "class": "A",
+      "sha256": "cf6dffdd3a8687551a0126846e094a6e1f6559dae5348c1ffc13f210b47579a6"
+    },
+    "_golden/exclude.v18_arp": {
+      "bytes": 22,
+      "class": "A",
+      "sha256": "1f29f0fb7f552be64a67088051fd88b74f5d33e18e21559bceeec4b2b6a5dd94"
+    },
+    "_golden/exists.json": {
+      "bytes": 132,
+      "class": "A",
+      "sha256": "3d2e82ea4587f0a07a21f9078a4f3e6ce9faf61e8dd8ce08972473fb1e741add"
+    },
+    "_golden/git-check.acme.json": {
+      "bytes": 91,
+      "class": "A",
+      "sha256": "ecb15a2572e60e0839d471fa8c9ea5c755c03a5a5ba39fde174b9c2929f94e12"
+    },
+    "_golden/git-check.v18_arp.json": {
+      "bytes": 86,
+      "class": "A",
+      "sha256": "b6b4de3309a0f514c5ab1d354b063f96b8a93e899b8987bd5a62e23b0c77c2e4"
+    },
+    "clients/acme/CLAUDE.local.md": {
+      "bytes": 171,
+      "class": "A",
+      "sha256": "c3ead09260ad0e02482172fd69227a32ed97d2595de66fe5537805cce6c495e3"
+    },
+    "clients/gamma/CLAUDE.local.md": {
+      "bytes": 185,
+      "class": "A",
+      "sha256": "2f1a97b718634e6ef0f9c459c70bf4ad7a0f1f2f5ab4c257c68e7f000de94967"
+    },
+    "clients/v18_arp/CLAUDE.local.md": {
+      "bytes": 182,
+      "class": "A",
+      "sha256": "85b7a955c36e6fbcf56813be15416742ed73c27ec9a816159be71c3be0c9dba8"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

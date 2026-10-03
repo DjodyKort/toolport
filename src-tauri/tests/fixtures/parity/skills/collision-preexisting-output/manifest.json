@@ -1,0 +1,94 @@
+{
+  "area": "skills",
+  "case": "skills/collision-preexisting-output",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    "_deleted.txt": {
+      "bytes": 33,
+      "class": "A",
+      "sha256": "6d90c6f1293fc53233008134a43acb7f5e9985db9a2f0d0478f36969e517bdb6"
+    },
+    "repo/.claude/rules/python-style.md": {
+      "bytes": 134,
+      "class": "A",
+      "sha256": "9e46fdd8a8d569ca39e72084fda10e374bb3640a9983b2420758cb3c0d44557c"
+    },
+    "repo/.claude/rules/team-conventions.md": {
+      "bytes": 41,
+      "class": "A",
+      "sha256": "94257490236ac9172fc0cce76008cc4fd9ce29953b33a8276c508764375cfc34"
+    },
+    "repo/.claude/skills/code-review/SKILL.md": {
+      "bytes": 191,
+      "class": "A",
+      "sha256": "eaf2cd81aae156994b6c113809ba57b4667e8625cfa7e56592a1c858f7243f78"
+    },
+    "repo/.claude/skills/code-review/modules/checklist.md": {
+      "bytes": 22,
+      "class": "A",
+      "sha256": "50b12757463dc7d861a115cc45369e41be09d716bee6a7470f6b50575db2ea5f"
+    },
+    "repo/.claude/skills/code-review/reference/glossary.txt": {
+      "bytes": 18,
+      "class": "A",
+      "sha256": "ca745d4e119fa0c6666acff4aaa0348ef8dbc6761e92fcdafcf0dd4165886b12"
+    },
+    "repo/.claude/skills/db-helper/SKILL.md": {
+      "bytes": 163,
+      "class": "A",
+      "sha256": "ecf751303c1d5477472ce185580f421c43ab3d2dfaf0bcb345f2836e797c7b5c"
+    },
+    "repo/.claude/skills/release-checklist/SKILL.md": {
+      "bytes": 196,
+      "class": "A",
+      "sha256": "be7b6c58720457f1bd004d42faba840cd556c145f1801aeb0c0089a6d4a5c246"
+    },
+    "repo/.cursor/rules/code-review/RULE.md": {
+      "bytes": 148,
+      "class": "A",
+      "sha256": "904c03244853955a308aaff6bd034c8c79fcdbabe0d64edb874089fbc95c2835"
+    },
+    "repo/.cursor/rules/db-helper/RULE.md": {
+      "bytes": 113,
+      "class": "A",
+      "sha256": "08a287d2a28ae869f036e8a103b055d5acd15f1ae73733f04f5142603886bc50"
+    },
+    "repo/.cursor/rules/python-style/RULE.md": {
+      "bytes": 214,
+      "class": "A",
+      "sha256": "9e10efba6c425ecf963a48f162d94246e8a373ab209c01ca1254825b43368192"
+    },
+    "repo/.cursor/rules/release-checklist/RULE.md": {
+      "bytes": 141,
+      "class": "A",
+      "sha256": "d879e6f1ef9a1d17eb9e265bb6e07ac13d5fb50bace82bffe213c731a284dd76"
+    },
+    "repo/.cursor/rules/team-conventions/RULE.md": {
+      "bytes": 139,
+      "class": "A",
+      "sha256": "e969691c5a23889999ae11ff8042f830ea02b05178d6dcc616eca5f9da1d0126"
+    },
+    "repo/.mcpm-backups/.cursor/rules/db-helper.mdc.20260101T000000Z": {
+      "bytes": 24,
+      "class": "A",
+      "sha256": "f4a060f9d4a7af7fc91beaf0de6e3b02f0bee0f1c8051d7ac8fb024665b66d55"
+    },
+    "repo/.mcpm-backups/INDEX.json": {
+      "bytes": 412,
+      "class": "B",
+      "sha256": "98a0e22cc137fe61f3d587809627fb98ded19f1a8ea8994ff213b1b1ad83b969"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 2508,
+      "class": "B",
+      "sha256": "0b23b8745040493e1089523078d197a30bed3c7654e2fd4e057826a4ca44a849"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

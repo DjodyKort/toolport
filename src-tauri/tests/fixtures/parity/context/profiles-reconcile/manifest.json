@@ -1,0 +1,124 @@
+{
+  "area": "context",
+  "case": "context/profiles-reconcile",
+  "comparison": "A",
+  "entry": "context_scenario",
+  "files": {
+    ".claude/rules/client-acme.md": {
+      "bytes": 5,
+      "class": "A",
+      "sha256": "fb5aaab08a41b991fc6d330824bbebc97d2a137d82546a1e85d74df9a26baabd"
+    },
+    ".claude/rules/other.md": {
+      "bytes": 6,
+      "class": "A",
+      "sha256": "7e4fa2eb8c7ac089739d5defc4489fad68a100d92082ca35c6b40a4524821f87"
+    },
+    ".config/mcpm/claude-profiles/cp/.claude.json": {
+      "bytes": 227,
+      "class": "B",
+      "sha256": "ff87d98de6a2ac6bdda506bbdb56f4d48ac7ba3a9741c14d356cd4fdcea7cd9d"
+    },
+    ".config/mcpm/claude-profiles/cp/.mcpm-context-state.json": {
+      "bytes": 144,
+      "class": "B",
+      "sha256": "cf64a58e541721bca0aefe2436796fb8830f0bb23a8639fcb89d8453c064787e"
+    },
+    ".config/mcpm/claude-profiles/cp/CLAUDE.md": {
+      "bytes": 117,
+      "class": "A",
+      "sha256": "850c75e24fd9a4c704e9b7ab9897fb6bc15dbd732bfa5da237d941cca300d613"
+    },
+    ".config/mcpm/claude-profiles/cp/rules/client-acme.md": {
+      "bytes": 5,
+      "class": "A",
+      "sha256": "fb5aaab08a41b991fc6d330824bbebc97d2a137d82546a1e85d74df9a26baabd"
+    },
+    ".config/mcpm/claude-profiles/cp/settings.json": {
+      "bytes": 106,
+      "class": "B",
+      "sha256": "9c768230ddb84c90cc5f37cbed71ad21d55dcc5242d45d6fbc262accfb05bb02"
+    },
+    ".config/mcpm/claude-profiles/inh/.claude.json": {
+      "bytes": 227,
+      "class": "B",
+      "sha256": "ff87d98de6a2ac6bdda506bbdb56f4d48ac7ba3a9741c14d356cd4fdcea7cd9d"
+    },
+    ".config/mcpm/claude-profiles/inh/.mcpm-context-state.json": {
+      "bytes": 97,
+      "class": "B",
+      "sha256": "73aa930886a51d892e0dd995c3cc3793ae7fd2cdfe27264f6994002d531ebee0"
+    },
+    ".config/mcpm/claude-profiles/inh/CLAUDE.md": {
+      "bytes": 111,
+      "class": "A",
+      "sha256": "9d1e08e193f53cf446569d10e2156341eba787144d15cb55e2c6358b46b9445c"
+    },
+    ".config/mcpm/claude-profiles/inh/settings.json": {
+      "bytes": 85,
+      "class": "B",
+      "sha256": "5d5cfe18d89521087bd23b4cb3a00556cf36b82fc135e0a5e500117866383c16"
+    },
+    ".config/mcpm/claude-profiles/lnk/.claude.json": {
+      "bytes": 57,
+      "class": "B",
+      "sha256": "078c68a348e4962d28104490c4545f55ca3ae35284473b6eee1081aeb2f4d7a5"
+    },
+    ".config/mcpm/claude-profiles/lnk/.mcpm-context-state.json": {
+      "bytes": 141,
+      "class": "B",
+      "sha256": "685f7a6e2503e10aabc96681d482fb3c677ec18690550d046af431674d54d937"
+    },
+    ".config/mcpm/claude-profiles/lnk/CLAUDE.md": {
+      "bytes": 135,
+      "class": "A",
+      "sha256": "9476c691c5f9c93fa7331b2a973e63e14726680ca4b293774cf2762fa05a7aed"
+    },
+    ".config/mcpm/claude-profiles/lnk/settings.json": {
+      "bytes": 85,
+      "class": "B",
+      "sha256": "5d5cfe18d89521087bd23b4cb3a00556cf36b82fc135e0a5e500117866383c16"
+    },
+    ".config/mcpm/context-shims.zsh": {
+      "bytes": 370,
+      "class": "A",
+      "sha256": "8fc57aa5e616feb2b2e27927f862c618dded73d8654af8e5bece5318b6c66557"
+    },
+    ".config/mcpm/context.json": {
+      "bytes": 933,
+      "class": "B",
+      "sha256": "68b454d9e2867e968f96d45177d157841c8edc529adafd5753e503830ca48380"
+    },
+    "_golden/apply1.report.json": {
+      "bytes": 1797,
+      "class": "B",
+      "sha256": "7547af4b21a20989c52a72fa0645967ffdb31e2c514ff5ecdfe2e484959f57d6"
+    },
+    "_golden/apply2.report.json": {
+      "bytes": 786,
+      "class": "B",
+      "sha256": "00520df5b40d3c0b5bb41e546f5c240a7fc8d5da2c9ac0b416a1156ecc46da32"
+    },
+    "_golden/doctor.json": {
+      "bytes": 425,
+      "class": "B",
+      "sha256": "ce4ca7c99afa1d94fa047c9d512bd986248c5cd65595caead697c06d9b30158b"
+    },
+    "_golden/links.json": {
+      "bytes": 361,
+      "class": "B",
+      "sha256": "5bd5f89c4e5e1ccdd3c7fc0444bf27aea666d05fca8ca7896d3fee64be31f4e5"
+    },
+    "_golden/links2.json": {
+      "bytes": 322,
+      "class": "B",
+      "sha256": "9e6d36c30321b466062f1f5fe88f9e784d8bb3b421dfa6e0090b7ba0e080c897"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

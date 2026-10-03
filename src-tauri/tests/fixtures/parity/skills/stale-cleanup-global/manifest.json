@@ -1,0 +1,69 @@
+{
+  "area": "skills",
+  "case": "skills/stale-cleanup-global",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    ".claude/rules/team-conventions.md": {
+      "bytes": 41,
+      "class": "A",
+      "sha256": "94257490236ac9172fc0cce76008cc4fd9ce29953b33a8276c508764375cfc34"
+    },
+    ".claude/skills/db-helper/SKILL.md": {
+      "bytes": 163,
+      "class": "A",
+      "sha256": "ecf751303c1d5477472ce185580f421c43ab3d2dfaf0bcb345f2836e797c7b5c"
+    },
+    ".claude/skills/release-checklist/SKILL.md": {
+      "bytes": 196,
+      "class": "A",
+      "sha256": "be7b6c58720457f1bd004d42faba840cd556c145f1801aeb0c0089a6d4a5c246"
+    },
+    ".config/mcpm/mcpm-skills.lock": {
+      "bytes": 1907,
+      "class": "B",
+      "sha256": "d9012dd5928cc562c6ada49f1e1e35710b34cef87552aa02386ad3c37fd803dc"
+    },
+    ".cursor/rules/db-helper/RULE.md": {
+      "bytes": 113,
+      "class": "A",
+      "sha256": "08a287d2a28ae869f036e8a103b055d5acd15f1ae73733f04f5142603886bc50"
+    },
+    ".cursor/rules/release-checklist/RULE.md": {
+      "bytes": 141,
+      "class": "A",
+      "sha256": "d879e6f1ef9a1d17eb9e265bb6e07ac13d5fb50bace82bffe213c731a284dd76"
+    },
+    ".cursor/rules/team-conventions/RULE.md": {
+      "bytes": 139,
+      "class": "A",
+      "sha256": "e969691c5a23889999ae11ff8042f830ea02b05178d6dcc616eca5f9da1d0126"
+    },
+    ".gemini/skills/db-helper/SKILL.md": {
+      "bytes": 129,
+      "class": "A",
+      "sha256": "f905cb1ce9ada1cf555db58462760fba87e1ab8b53f6feec925b89fc7517185c"
+    },
+    ".gemini/skills/release-checklist/SKILL.md": {
+      "bytes": 165,
+      "class": "A",
+      "sha256": "5643f1598552a81b44723fff848bc44c00deabc466bc09bc313628e7004926ed"
+    },
+    ".gemini/skills/team-conventions/SKILL.md": {
+      "bytes": 144,
+      "class": "A",
+      "sha256": "02578d8987106947e1dc0ebb6485ca3a88890d3602a648a9b3c2245dc2f7c70e"
+    },
+    "_cleaned.txt": {
+      "bytes": 404,
+      "class": "A",
+      "sha256": "29f8737451b3b846cf0cc59d0f2591483d41be0c97dbfcc74f37fbe332605eb6"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

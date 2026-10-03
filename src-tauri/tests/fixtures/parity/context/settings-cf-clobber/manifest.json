@@ -1,0 +1,94 @@
+{
+  "area": "context",
+  "case": "context/settings-cf-clobber",
+  "comparison": "B",
+  "entry": "context_scenario",
+  "files": {
+    ".claude/CLAUDE.md": {
+      "bytes": 45,
+      "class": "A",
+      "sha256": "f3dfc93bf801604885d71d8452166453fee9e4c6e21cb2f576e10f34044095a1"
+    },
+    ".claude/commands/review.md": {
+      "bytes": 19,
+      "class": "A",
+      "sha256": "3086585734693e15b8724fd7cda7cd499f01c09fd0b298e8c822f05b9900bcf2"
+    },
+    ".claude/commands/ship.md": {
+      "bytes": 17,
+      "class": "A",
+      "sha256": "8ec4f824a85a6a4130c8b8506cd40e911768ebc094a003296f9ba167532c172a"
+    },
+    ".claude/settings.json": {
+      "bytes": 751,
+      "class": "B",
+      "sha256": "b3261617656867d7e33557c8e87f34656be728b36f985dba055f0978abc5519b"
+    },
+    ".config/mcpm/context.json": {
+      "bytes": 535,
+      "class": "B",
+      "sha256": "df6f7f6bd77ec982ab3c251c63c491f6692329eba77c7c49b4986e6b21991711"
+    },
+    "_golden/apply1.report.json": {
+      "bytes": 136,
+      "class": "B",
+      "sha256": "8c567e2dcec18bcccdb860350ec8e70058e45aaf8435927c85f6d2f19918e14d"
+    },
+    "_golden/apply2-idempotent.report.json": {
+      "bytes": 75,
+      "class": "B",
+      "sha256": "d8249a4c0a3d05958fa88106659d13216db1e10a33ddfc883cce8b82358ee9e5"
+    },
+    "_golden/apply3.report.json": {
+      "bytes": 136,
+      "class": "B",
+      "sha256": "8c567e2dcec18bcccdb860350ec8e70058e45aaf8435927c85f6d2f19918e14d"
+    },
+    "_golden/backups1.json": {
+      "bytes": 22,
+      "class": "B",
+      "sha256": "3c557fb122e57a914cb7ed2ae84a985b1cc15edd67f7877493de961f5847e229"
+    },
+    "_golden/backups2.json": {
+      "bytes": 22,
+      "class": "B",
+      "sha256": "3c557fb122e57a914cb7ed2ae84a985b1cc15edd67f7877493de961f5847e229"
+    },
+    "_golden/doctor.after-apply.json": {
+      "bytes": 213,
+      "class": "B",
+      "sha256": "3cd3f21d956c0f767dd88d4a8b2dce85bb11b483c97812fd78cc7e654e82248e"
+    },
+    "_golden/doctor.after-clobber.json": {
+      "bytes": 211,
+      "class": "B",
+      "sha256": "ccacebe0f363bf5de4de9e5c362b383310a5fb7432d1d8b173309ee72b7dbcc5"
+    },
+    "_golden/settings.after-apply.json": {
+      "bytes": 751,
+      "class": "B",
+      "sha256": "b3261617656867d7e33557c8e87f34656be728b36f985dba055f0978abc5519b"
+    },
+    "_golden/settings.after-clobber.json": {
+      "bytes": 633,
+      "class": "B",
+      "sha256": "76c472edcbf589eee9275b9d76e585be8e27771da3f128b01e76c3337a273db9"
+    },
+    "_golden/settings.after-second-clobber.json": {
+      "bytes": 659,
+      "class": "B",
+      "sha256": "749ab9b0290da34414cb4b85fa0f4e5bc771155846003d1d0cf8165205ec86fe"
+    },
+    "_golden/settings.before-clobber.json": {
+      "bytes": 550,
+      "class": "B",
+      "sha256": "552871c379b122742cfa8ebbc67a13e45464db157699930ede2b1d8135a85fae"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

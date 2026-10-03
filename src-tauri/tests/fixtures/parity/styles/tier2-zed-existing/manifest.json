@@ -1,0 +1,29 @@
+{
+  "area": "styles",
+  "case": "styles/tier2-zed-existing",
+  "comparison": "A",
+  "entry": "styles_tier2",
+  "files": {
+    "repo/.mcpm/skills/mcpm-output-style/SKILL.md": {
+      "bytes": 68,
+      "class": "A",
+      "sha256": "9eb70d7089e283f08492f155ace44d1b595a1285e62effbe2b6c42075ecee99c"
+    },
+    "repo/.rules": {
+      "bytes": 197,
+      "class": "A",
+      "sha256": "ef3404ab94a57f8b30c4ba5c2b7d82d0cc7c173bbd376419a5772ecba6a49480"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 476,
+      "class": "B",
+      "sha256": "36b3ff2861bc6bddc6c520127249ceabd3dc8706656162daac00a5c873775950"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

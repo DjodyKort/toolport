@@ -1,0 +1,22 @@
+{
+  "backups": [
+    {
+      "backup_path": "<HOME>/.mcpm-backups/.claude/commands/code-review.md.20260101T000000Z",
+      "client_key": "claude-code",
+      "original_path": "<HOME>/.claude/commands/code-review.md",
+      "reason": "collision-with-synced-skill",
+      "skill_name": "code-review",
+      "synced_path": "<HOME>/.claude/skills/code-review/SKILL.md",
+      "timestamp": "20260101T000000Z"
+    },
+    {
+      "backup_path": "<HOME>/.mcpm-backups/.claude/agents/db-helper.md.20260101T000000Z",
+      "client_key": "claude-code",
+      "original_path": "<HOME>/.claude/agents/db-helper.md",
+      "reason": "collision-with-synced-skill",
+      "skill_name": "db-helper",
+      "synced_path": "<HOME>/.claude/skills/db-helper/SKILL.md",
+      "timestamp": "20260101T000000Z"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "area": "skills",
+  "case": "skills/windsurf-project",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    "repo/.windsurf/rules/long-guide.md": {
+      "bytes": 11944,
+      "class": "A",
+      "sha256": "40aedd34d7aab0d60c6b3934e8117e033e3bed94eb7345e57b797d677ac0be3d"
+    },
+    "repo/.windsurf/rules/python-style.md": {
+      "bytes": 215,
+      "class": "A",
+      "sha256": "a5a1afec0b9691f01e16274ce3ef23712d857c5aae2185d60856989eeff9d33a"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 928,
+      "class": "B",
+      "sha256": "78481064e90afeac05db03ec5e59148def7351cf04d0b4b6878388923de3e8be"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "deep_merge_union": [
+    {
+      "a": [
+        1,
+        2,
+        3
+      ],
+      "b": {
+        "c": 2,
+        "l": [
+          "x",
+          "y"
+        ]
+      },
+      "s": {
+        "k": 1
+      }
+    },
+    {
+      "a": [
+        1
+      ]
+    }
+  ],
+  "looks_secret_bearing": {
+    "Bash(FOO_SECRET=\"x\" npx:*)": true,
+    "Bash(TOKEN=abc curl:*)": true,
+    "Bash(echo SECRET)": false,
+    "Bash(my_api_key=\"1\" run)": true,
+    "Bash(npx:*)": false,
+    "Bash(x=1 y)": false
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "area": "agents",
+  "case": "agents/roomodes-project",
+  "comparison": "A",
+  "entry": "agents_sync",
+  "files": {
+    "repo/.roomodes": {
+      "bytes": 1233,
+      "class": "A",
+      "sha256": "1fb53a2f50202c46b38e63296c89547f58bf7a2dd3e634b8385f8906cb2fc9d6"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 1616,
+      "class": "B",
+      "sha256": "d164e38b699df250b9e65331d3d65a4fc5d4199d68128567b47f38dea214b345"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

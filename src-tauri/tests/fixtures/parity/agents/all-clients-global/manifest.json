@@ -1,0 +1,79 @@
+{
+  "area": "agents",
+  "case": "agents/all-clients-global",
+  "comparison": "A",
+  "entry": "agents_sync",
+  "files": {
+    ".claude/agents/code-reviewer.md": {
+      "bytes": 306,
+      "class": "A",
+      "sha256": "67019df8a02bb39436d4b5b375fd861992cf1eb363b688ddfca300056d61d3ce"
+    },
+    ".claude/agents/doc-writer.md": {
+      "bytes": 218,
+      "class": "A",
+      "sha256": "38fa53182b9345a36ce93a85b4ce9b0649da0f08b8906d02de3f5f7dec12f60e"
+    },
+    ".claude/agents/minimal.md": {
+      "bytes": 76,
+      "class": "A",
+      "sha256": "d26f28d07250c044afaa2730bc3b1f7f26a6094a53feed2a67d26df69c20888c"
+    },
+    ".codex/agents/code-reviewer.toml": {
+      "bytes": 319,
+      "class": "A",
+      "sha256": "42b14aa1cff583bfe1aa3bd1ada7ea7a2472ee63652eff228702ac7e3be9587d"
+    },
+    ".codex/agents/doc-writer.toml": {
+      "bytes": 339,
+      "class": "A",
+      "sha256": "605d9a2b719797c5a1926c360cb98117e3e7b18cab35f3effc396e2454ef2bc7"
+    },
+    ".codex/agents/minimal.toml": {
+      "bytes": 104,
+      "class": "A",
+      "sha256": "87dcf1f4fc863a1ca5ae7852d6516548d433b6c48e8223a5cbb66698ce0b5fa5"
+    },
+    ".config/mcpm/mcpm-skills.lock": {
+      "bytes": 2683,
+      "class": "B",
+      "sha256": "9fc900f64366c53a001f6f7a332997fd75820b84383f707a9e19aeab6bf01314"
+    },
+    ".cursor/agents/code-reviewer.md": {
+      "bytes": 155,
+      "class": "A",
+      "sha256": "703935108b8ea78c4917508084dd0cb123e0b49d010646c13ca071afde0e8aa8"
+    },
+    ".cursor/agents/doc-writer.md": {
+      "bytes": 126,
+      "class": "A",
+      "sha256": "bcfa4587a614f57120deaeb10bd722512c2f961181588d56ca70499e79e615c0"
+    },
+    ".cursor/agents/minimal.md": {
+      "bytes": 76,
+      "class": "A",
+      "sha256": "d26f28d07250c044afaa2730bc3b1f7f26a6094a53feed2a67d26df69c20888c"
+    },
+    ".gemini/agents/code-reviewer.md": {
+      "bytes": 214,
+      "class": "A",
+      "sha256": "e684f85b2324c2db6950b2f12b2eba871bff4eada55ee9e735153c9ff0b7cfd4"
+    },
+    ".gemini/agents/doc-writer.md": {
+      "bytes": 180,
+      "class": "A",
+      "sha256": "d0260c2e4dc700ed4ace046c33e81ac5fe04e6b725e2af6717c30e9039700858"
+    },
+    ".gemini/agents/minimal.md": {
+      "bytes": 76,
+      "class": "A",
+      "sha256": "d26f28d07250c044afaa2730bc3b1f7f26a6094a53feed2a67d26df69c20888c"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

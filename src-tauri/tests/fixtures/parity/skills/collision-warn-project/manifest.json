@@ -1,0 +1,54 @@
+{
+  "area": "skills",
+  "case": "skills/collision-warn-project",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    "repo/.claude/rules/python-style.md": {
+      "bytes": 134,
+      "class": "A",
+      "sha256": "9e46fdd8a8d569ca39e72084fda10e374bb3640a9983b2420758cb3c0d44557c"
+    },
+    "repo/.claude/rules/team-conventions.md": {
+      "bytes": 41,
+      "class": "A",
+      "sha256": "94257490236ac9172fc0cce76008cc4fd9ce29953b33a8276c508764375cfc34"
+    },
+    "repo/.claude/skills/code-review/SKILL.md": {
+      "bytes": 191,
+      "class": "A",
+      "sha256": "eaf2cd81aae156994b6c113809ba57b4667e8625cfa7e56592a1c858f7243f78"
+    },
+    "repo/.claude/skills/code-review/modules/checklist.md": {
+      "bytes": 22,
+      "class": "A",
+      "sha256": "50b12757463dc7d861a115cc45369e41be09d716bee6a7470f6b50575db2ea5f"
+    },
+    "repo/.claude/skills/code-review/reference/glossary.txt": {
+      "bytes": 18,
+      "class": "A",
+      "sha256": "ca745d4e119fa0c6666acff4aaa0348ef8dbc6761e92fcdafcf0dd4165886b12"
+    },
+    "repo/.claude/skills/db-helper/SKILL.md": {
+      "bytes": 163,
+      "class": "A",
+      "sha256": "ecf751303c1d5477472ce185580f421c43ab3d2dfaf0bcb345f2836e797c7b5c"
+    },
+    "repo/.claude/skills/release-checklist/SKILL.md": {
+      "bytes": 196,
+      "class": "A",
+      "sha256": "be7b6c58720457f1bd004d42faba840cd556c145f1801aeb0c0089a6d4a5c246"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 2225,
+      "class": "B",
+      "sha256": "dca7336ab824842c89e70c2f3283703e4dcafcc41c6492881fcfcdc9ab32eec7"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

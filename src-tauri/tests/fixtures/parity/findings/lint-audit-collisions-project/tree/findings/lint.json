@@ -1,0 +1,85 @@
+{
+  "has_errors": true,
+  "messages": [
+    {
+      "level": "info",
+      "message": "Skill has activation 'always' with globs set. Globs are ignored when activation is 'always'.",
+      "skill": "always-globs"
+    },
+    {
+      "level": "error",
+      "message": "Skill name 'dup' does not match directory name 'dup-a'",
+      "skill": "dup"
+    },
+    {
+      "level": "warning",
+      "message": "Body is empty. Add instructions for the agent.",
+      "skill": "empty-body"
+    },
+    {
+      "level": "info",
+      "message": "Glob '**/*' matches all files. Consider being more specific.",
+      "skill": "globs-bad"
+    },
+    {
+      "level": "warning",
+      "message": "Empty glob pattern found in globs field.",
+      "skill": "globs-bad"
+    },
+    {
+      "level": "warning",
+      "message": "Body is 600 lines (Agent Skills spec recommends <500). Consider moving detail to references/.",
+      "skill": "huge-body"
+    },
+    {
+      "level": "warning",
+      "message": "Body (20999 chars) exceeds Windsurf workspace limit (12000). Will be truncated during sync.",
+      "skill": "huge-body"
+    },
+    {
+      "level": "warning",
+      "message": "Description is very short (<20 chars). Add detail about when to use this skill.",
+      "skill": "placeholder"
+    },
+    {
+      "level": "warning",
+      "message": "Description is a placeholder. Fill it in before syncing.",
+      "skill": "placeholder"
+    },
+    {
+      "level": "info",
+      "message": "Description lacks 'when to use' guidance. Consider adding context for agent discovery.",
+      "skill": "placeholder"
+    },
+    {
+      "level": "warning",
+      "message": "Description is very short (<20 chars). Add detail about when to use this skill.",
+      "skill": "short-desc"
+    },
+    {
+      "level": "info",
+      "message": "Description lacks 'when to use' guidance. Consider adding context for agent discovery.",
+      "skill": "short-desc"
+    },
+    {
+      "level": "error",
+      "message": "Skill name 'other-name' does not match directory name 'wrong-dir'",
+      "skill": "other-name"
+    },
+    {
+      "level": "info",
+      "message": "Description lacks 'when to use' guidance. Consider adding context for agent discovery.",
+      "skill": "other-name"
+    },
+    {
+      "level": "error",
+      "message": "Duplicate skill name found.",
+      "skill": "dup"
+    },
+    {
+      "level": "warning",
+      "message": "Has identical globs and activation as 'globs-b'. May cause conflicts.",
+      "skill": "globs-a"
+    }
+  ]
+}
