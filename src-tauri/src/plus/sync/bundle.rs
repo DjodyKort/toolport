@@ -3,6 +3,7 @@ use super::kdf;
 use crate::plus::hashing::lock_hash;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fs;
@@ -317,23 +318,20 @@ pub fn write_bundle_with_origins(
             updated_at: now.to_string(),
             encoding: default_encoding(),
         };
-        let (plaintext, hash, encoding) = match String::from_utf8(file.bytes.clone()) {
-            Ok(text) => {
-                let text = if is_portable_json(&probe, &file.key) {
-                    roots.make_portable(&text)
-                } else {
-                    text
-                };
-                let bytes = text.into_bytes();
-                let hash = lock_hash(&bytes);
-                (bytes, hash, "utf-8")
-            }
-            Err(_) => (
-                STANDARD.encode(&file.bytes).into_bytes(),
-                lock_hash(&file.bytes),
-                "base64",
-            ),
-        };
+        let (plaintext, hash, encoding): (Cow<[u8]>, String, &str) =
+            match std::str::from_utf8(&file.bytes) {
+                Ok(text) if is_portable_json(&probe, &file.key) => {
+                    let bytes = roots.make_portable(text).into_bytes();
+                    let hash = lock_hash(&bytes);
+                    (Cow::Owned(bytes), hash, "utf-8")
+                }
+                Ok(_) => (Cow::Borrowed(&file.bytes), lock_hash(&file.bytes), "utf-8"),
+                Err(_) => (
+                    Cow::Owned(STANDARD.encode(&file.bytes).into_bytes()),
+                    lock_hash(&file.bytes),
+                    "base64",
+                ),
+            };
         let blob_name = blob_name_for(&file.key);
         let token = fernet::encrypt(&key, &plaintext)?;
         let blob_path = blobs.join(&blob_name);

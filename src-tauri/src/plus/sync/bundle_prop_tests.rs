@@ -385,6 +385,71 @@ fn bundles_round_trip_random_files() {
     assert!(clean > 40 && collisions > 15, "{clean} {collisions}");
 }
 
+fn reference_plaintext(file: &SourceFile) -> (Vec<u8>, &'static str) {
+    match String::from_utf8(file.bytes.clone()) {
+        Ok(text) if file.category == "global" && file.key.ends_with(".json") => {
+            (roots().make_portable(&text).into_bytes(), "utf-8")
+        }
+        Ok(text) => (text.into_bytes(), "utf-8"),
+        Err(_) => (
+            base64::engine::general_purpose::STANDARD
+                .encode(&file.bytes)
+                .into_bytes(),
+            "base64",
+        ),
+    }
+}
+
+#[test]
+fn blobs_hold_the_plaintext_the_manifest_hash_and_encoding_describe() {
+    let tmp = ScratchDir::new("bundle-plaintext");
+    let (mut portable, mut binary, mut plain) = (0, 0, 0);
+    run_cases("bundle-plaintext", 300, |_, rng| {
+        tmp.reset();
+        let mut sources: Vec<SourceFile> = Vec::new();
+        for _ in 0..rng.range(1, 6) {
+            let s = source(rng);
+            sources.retain(|o| o.key != s.key);
+            sources.push(s);
+        }
+        if blob_collides(&sources) {
+            return;
+        }
+        let manifest = write(tmp.path(), &sources).unwrap();
+        for s in &sources {
+            let (expected, encoding) = reference_plaintext(s);
+            let entry = &manifest.entries[&s.key];
+            assert_eq!(entry.encoding, encoding, "{}", s.key);
+            assert_eq!(
+                entry.hash,
+                crate::plus::hashing::lock_hash(if encoding == "base64" {
+                    &s.bytes
+                } else {
+                    &expected
+                }),
+                "{}",
+                s.key
+            );
+            let token = fs::read(tmp.path().join(&entry.encrypted_file)).unwrap();
+            assert_eq!(
+                fernet::decrypt(&key(), &token).unwrap(),
+                expected,
+                "{}",
+                s.key
+            );
+            match (encoding, expected == s.bytes) {
+                ("base64", _) => binary += 1,
+                (_, false) => portable += 1,
+                (_, true) => plain += 1,
+            }
+        }
+    });
+    assert!(
+        portable > 10 && binary > 30 && plain > 100,
+        "{portable} {binary} {plain}"
+    );
+}
+
 #[test]
 fn blob_name_collisions_are_refused_at_write_time() {
     let tmp = ScratchDir::new("bundle-collision");
