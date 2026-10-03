@@ -101,7 +101,7 @@ fn out(code: i32, stdout: &str) -> CmdOutput {
     }
 }
 
-fn env_with(http: &MockHttp, shell: &MockShell, git: Box<dyn GitRunner>) -> Env {
+fn env_with(http: &MockHttp, shell: &MockShell, git: Box<dyn GitRunner + Send + Sync>) -> Env {
     Env {
         git,
         shell: Box::new(shell.clone()),
@@ -1006,4 +1006,243 @@ fn handlers_and_ctl_are_wired() {
 fn now_iso_formats_known_instants() {
     assert_eq!(now_iso().len(), 20);
     assert!(now_iso().ends_with('Z'));
+}
+
+fn serial_reference(env: &Env, entries: &mut [ServerEntry], opts: &Options) -> Report {
+    let reports = entries
+        .iter_mut()
+        .filter(|e| {
+            opts.server
+                .as_ref()
+                .is_none_or(|w| &e.id == w || &e.name == w)
+        })
+        .map(|e| {
+            let (src, from_meta) = source::effective(e, env.home.as_deref());
+            check_planned(env, opts, (e, src, from_meta))
+        })
+        .collect();
+    Report::new(opts.mode, reports)
+}
+
+fn mixed_entries(release_target: &Path) -> Vec<ServerEntry> {
+    let git_meta =
+        json!({"type": "git", "path": release_target.parent().unwrap().to_str().unwrap()});
+    let pinned = |name: &str, spec: &str| {
+        entry(json!({"name": name, "id": name, "command": "npx", "args": ["-y", spec]}))
+    };
+    vec![
+        pinned("n0", "pkg0@1.0.0"),
+        entry(json!({"name": "remote", "transport": "http", "url": "https://example.invalid/mcp"})),
+        pinned("n1", "pkg1@2.0.0"),
+        entry(json!({"name": "mystery", "command": "mystery"})),
+        release_entry(release_target, "1.0.0", json!({})),
+        pinned("n2", "missing@1.0.0"),
+        entry(json!({"name": "g", "command": "node", "args": ["x.js"], "mcpmSource": git_meta})),
+        entry(
+            json!({"name": "u0", "command": "uvx", "args": ["--from", "tool==0.4.1", "tool-cli"]}),
+        ),
+        entry(json!({"name": "free", "command": "npx", "args": ["unpinned"]})),
+        pinned("n3", "pkg3@3.0.0"),
+        entry(json!({"name": "u1", "command": "uvx", "args": ["--from", "gone==1.0", "gone-cli"]})),
+        pinned("n4", "pkg4@4.0.0"),
+    ]
+}
+
+fn mixed_world(tag: &str) -> (ReleaseWorld, Env) {
+    let w = release_world(tag);
+    for (n, v) in [
+        ("pkg0", "1.1.0"),
+        ("pkg1", "2.0.0"),
+        ("pkg3", "3.0.1"),
+        ("pkg4", "5.0.0"),
+    ] {
+        w.http.text(
+            &format!("https://npm.example.invalid/{n}/latest"),
+            &format!(r#"{{"version":"{v}"}}"#),
+        );
+    }
+    w.http.text(
+        "https://pypi.example.invalid/pypi/tool/json",
+        r#"{"info":{"version":"0.5.0"}}"#,
+    );
+    w.http
+        .fail("https://pypi.example.invalid/pypi/gone/json", 500);
+    w.http
+        .text(LATEST, &release_json("1.2.0", &["tool_1.2.0_linux_amd64"]));
+    let runner = ScriptedGit(Box::new(|args| match args[0] {
+        "rev-parse" if args.contains(&"--is-inside-work-tree") => out(0, "true\n"),
+        "rev-parse" => out(0, "origin/main\n"),
+        "branch" => out(0, "main\n"),
+        "rev-list" => out(0, "0\t2\n"),
+        "log" => out(0, "a1 one\nb2 two\n"),
+        "status" | "fetch" => out(0, ""),
+        _ => out(1, ""),
+    }));
+    let env = env_with(&w.http, &w.shell, Box::new(runner));
+    (w, env)
+}
+
+fn sorted_requests(http: &MockHttp) -> Vec<String> {
+    let mut urls: Vec<String> = http
+        .requests
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|(u, _)| u.clone())
+        .collect();
+    urls.sort();
+    urls
+}
+
+#[test]
+fn parallel_checks_report_exactly_like_a_serial_pass() {
+    for mode in [Mode::Check, Mode::DryRun] {
+        let (w, env) = mixed_world("par-eq");
+        let mut serial = mixed_entries(&w.target);
+        let mut pooled = mixed_entries(&w.target);
+        let before = serde_json::to_value(&pooled).unwrap();
+        let expected = serial_reference(&env, &mut serial, &Options::new(mode));
+        let expected_requests = sorted_requests(&w.http);
+        w.http.requests.lock().unwrap().clear();
+        let got = run(&env, &mut pooled, &Options::new(mode)).unwrap();
+        assert_eq!(got.to_value(), expected.to_value(), "{mode:?}");
+        assert_eq!(sorted_requests(&w.http), expected_requests, "{mode:?}");
+        assert_eq!(serde_json::to_value(&pooled).unwrap(), before, "{mode:?}");
+        let ids: Vec<&str> = got.servers.iter().map(|s| s.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            ["n0", "remote", "n1", "mystery", "rel", "n2", "g", "u0", "free", "n3", "u1", "n4"]
+        );
+        let status = |id: &str| got.servers.iter().find(|s| s.id == id).unwrap().status;
+        assert_eq!(status("n0"), Status::UpdateAvailable);
+        assert_eq!(status("n1"), Status::UpToDate);
+        assert_eq!(status("n2"), Status::Error);
+        assert_eq!(status("g"), Status::UpdateAvailable);
+        assert_eq!(status("u1"), Status::Error);
+        assert_eq!(status("remote"), Status::Skipped);
+    }
+}
+
+#[test]
+fn server_filters_select_the_same_entries_when_checks_run_in_parallel() {
+    let (w, env) = mixed_world("par-filter");
+    for wanted in ["n3", "u0", "mystery", "pkg-none"] {
+        let mut a = mixed_entries(&w.target);
+        let mut b = mixed_entries(&w.target);
+        let mut opts = Options::new(Mode::Check);
+        opts.server = Some(wanted.into());
+        if wanted == "pkg-none" {
+            assert!(run(&env, &mut a, &opts).unwrap_err().contains(wanted));
+            continue;
+        }
+        let expected = serial_reference(&env, &mut a, &opts);
+        let got = run(&env, &mut b, &opts).unwrap();
+        assert_eq!(got.to_value(), expected.to_value());
+        assert_eq!(got.servers.len(), 1);
+    }
+    let mut twins = vec![
+        entry(json!({"name": "dup", "id": "d1", "command": "npx", "args": ["-y", "pkg0@1.0.0"]})),
+        entry(json!({"name": "other", "command": "npx", "args": ["-y", "pkg1@1.0.0"]})),
+        entry(json!({"name": "dup", "id": "d2", "command": "npx", "args": ["-y", "pkg3@1.0.0"]})),
+    ];
+    let mut opts = Options::new(Mode::Check);
+    opts.server = Some("dup".into());
+    let got = run(&env, &mut twins, &opts).unwrap();
+    let ids: Vec<&str> = got.servers.iter().map(|s| s.id.as_str()).collect();
+    assert_eq!(ids, ["d1", "d2"]);
+}
+
+#[derive(Clone, Default)]
+struct SlowHttp {
+    live: Arc<std::sync::atomic::AtomicUsize>,
+    peak: Arc<std::sync::atomic::AtomicUsize>,
+    delay_ms: u64,
+}
+
+impl HttpClient for SlowHttp {
+    fn get_text(&self, url: &str, _h: &[(String, String)]) -> Result<String, HttpError> {
+        use std::sync::atomic::Ordering::SeqCst;
+        let now = self.live.fetch_add(1, SeqCst) + 1;
+        self.peak.fetch_max(now, SeqCst);
+        std::thread::sleep(Duration::from_millis(self.delay_ms));
+        self.live.fetch_sub(1, SeqCst);
+        let name = url.rsplit('/').nth(1).unwrap_or("x");
+        Ok(format!(r#"{{"version":"9.{}.0"}}"#, name.len()))
+    }
+
+    fn download(&self, _url: &str, _dest: &Path) -> Result<String, HttpError> {
+        Err(HttpError::new(Some(404), "no mock"))
+    }
+}
+
+fn many_pinned(count: usize) -> Vec<ServerEntry> {
+    (0..count)
+        .map(|i| {
+            entry(json!({
+                "name": format!("s{i}"), "command": "npx",
+                "args": ["-y", format!("pkg{i}@1.0.0")]
+            }))
+        })
+        .collect()
+}
+
+fn slow_env(http: &SlowHttp) -> Env {
+    let mut env = env_with(
+        &MockHttp::default(),
+        &MockShell::default(),
+        Box::new(SystemGit),
+    );
+    env.http = Box::new(http.clone());
+    env
+}
+
+#[test]
+fn the_check_pool_is_bounded_keeps_order_and_overlaps_lookups() {
+    use std::sync::atomic::Ordering::SeqCst;
+    let http = SlowHttp {
+        delay_ms: 40,
+        ..Default::default()
+    };
+    let env = slow_env(&http);
+    let mut entries = many_pinned(13);
+    let started = std::time::Instant::now();
+    let report = run(&env, &mut entries, &Options::new(Mode::Check)).unwrap();
+    let took = started.elapsed();
+    let ids: Vec<String> = report.servers.iter().map(|s| s.id.clone()).collect();
+    assert_eq!(ids, (0..13).map(|i| format!("s{i}")).collect::<Vec<_>>());
+    assert!(report
+        .servers
+        .iter()
+        .all(|s| s.status == Status::UpdateAvailable));
+    let peak = http.peak.load(SeqCst);
+    assert!((2..=CHECK_WORKERS).contains(&peak), "peak {peak}");
+    assert!(took < Duration::from_millis(13 * 40), "took {took:?}");
+}
+
+#[test]
+fn apply_and_init_stay_serial_and_a_single_lookup_skips_the_pool() {
+    use std::sync::atomic::Ordering::SeqCst;
+    let http = SlowHttp {
+        delay_ms: 10,
+        ..Default::default()
+    };
+    let env = slow_env(&http);
+    let mut entries = many_pinned(6);
+    let done = run(&env, &mut entries, &Options::new(Mode::Apply)).unwrap();
+    assert!(done.servers.iter().all(|s| s.status == Status::Updated));
+    assert_eq!(http.peak.load(SeqCst), 1);
+    assert_eq!(entries[3].args[1], "pkg3@9.4.0");
+
+    let http = SlowHttp {
+        delay_ms: 10,
+        ..Default::default()
+    };
+    let env = slow_env(&http);
+    let mut one = many_pinned(1);
+    one.push(entry(
+        json!({"name": "remote", "transport": "http", "url": "https://example.invalid/mcp"}),
+    ));
+    let report = run(&env, &mut one, &Options::new(Mode::Check)).unwrap();
+    assert_eq!(report.servers.len(), 2);
+    assert_eq!(http.peak.load(SeqCst), 1);
 }
