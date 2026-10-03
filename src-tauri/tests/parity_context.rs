@@ -438,7 +438,10 @@ fn replay(case: &str, profile_case: bool) {
             || (!zsh && is_zsh_derived(rel))
             || (profile_case
                 && (rel.starts_with(".config/mcpm/claude-profiles/")
-                    || (rel.starts_with("_golden/apply") && rel.ends_with(".report.json"))))
+                    || (rel.starts_with("_golden/apply") && rel.ends_with(".report.json"))
+                    || (rel.starts_with("_golden/") && rel.contains("profiles") && rel.ends_with(".zsh"))
+                    || (rel.starts_with("_golden/") && rel.ends_with(".txt") && !rel.ends_with(".zsh-n.txt"))
+                    || rel.ends_with("context-shims.zsh")))
     };
 
     let after = snapshot(&home);

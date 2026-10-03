@@ -5,6 +5,7 @@
 //! same beat as cf's clobber. The doctor's cf-wrapper hash tripwire guards this copied contract.
 
 use super::config::ProfileSpec;
+use super::launch::launch_argv;
 use super::roots::Roots;
 use std::collections::BTreeMap;
 use std::fs;
@@ -50,6 +51,14 @@ if (( $+functions[hrclaude] )); then
 fi
 "##;
 
+pub(super) fn shell_quote(arg: &str) -> String {
+    if arg.starts_with("--") {
+        arg.to_string()
+    } else {
+        format!("'{}'", arg.replace('\'', "'\\''"))
+    }
+}
+
 pub fn shim_snippet(
     roots: &Roots,
     profiles: &BTreeMap<String, ProfileSpec>,
@@ -64,11 +73,14 @@ pub fn shim_snippet(
     } else {
         ""
     };
-    for name in profiles.keys() {
-        let dir = roots.profiles_root().join(name);
+    for (name, spec) in profiles {
+        let args: Vec<String> = launch_argv(roots, name, spec)
+            .iter()
+            .map(|a| shell_quote(a))
+            .collect();
+        let args = args.join(" ");
         lines.push(format!(
-            "claude-{name}() {{ {presync}CLAUDE_CONFIG_DIR=\"{}\" command claude \"$@\"; }}",
-            dir.display()
+            "claude-{name}() {{ {presync}command claude {args} \"$@\"; }}"
         ));
     }
     format!("{}\n", lines.join("\n"))

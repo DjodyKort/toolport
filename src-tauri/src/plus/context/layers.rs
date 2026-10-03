@@ -162,7 +162,7 @@ pub fn list_layers(roots: &Roots) -> Vec<Layer> {
     layers
 }
 
-fn body_of(path: &Path) -> String {
+pub fn body_of(path: &Path) -> String {
     let text = fs::read_to_string(path).unwrap_or_default();
     if text.starts_with("---") {
         let parts: Vec<&str> = text.splitn(3, "---").collect();

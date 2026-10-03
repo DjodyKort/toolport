@@ -1,6 +1,6 @@
 //! Context engine: layered rules, `CLAUDE.local.md` deploy, cf-dev-tools coexistence (settings
 //! permission union, legacy MCP dedupe, shims, tripwires). Port of mcpm-context's deploy side.
-//! Launch profiles (CTX-3) are not generated here; a configured profile is reported as a warning.
+//! Launch profiles (CTX-3): `--strict-mcp-config`/`--settings` argv per profile, no second login.
 //!
 //! Every operation takes explicit [`Roots`], so tests run in temp dirs and nothing reads `$HOME`.
 
@@ -8,6 +8,7 @@ pub mod backup;
 pub mod config;
 pub mod dedupe;
 pub mod doctor;
+pub mod launch;
 pub mod layers;
 pub mod roots;
 pub mod rules;
@@ -94,7 +95,7 @@ fn warn_orphans(roots: &Roots, config: &ContextConfig, report: &mut Report) {
             .unwrap_or_default();
         if !config.profiles.contains_key(&name) {
             report.warn(format!(
-                "orphan profile dir {} (not in config) — `mcpm context profile remove {name} --purge`",
+                "orphan profile dir {} (not in config) — `mcpm context profile remove {name}`",
                 dir.display()
             ));
         }
@@ -143,10 +144,8 @@ pub fn apply(
         dry,
     )?;
 
-    for name in config.profiles.keys() {
-        report.warn(format!(
-            "profile {name}: generation is not implemented in the context engine yet (launch profiles, MIG-CTX-3)"
-        ));
+    for (name, spec) in &config.profiles {
+        launch::generate_profile(roots, name, spec, &mut report, dry)?;
     }
     warn_orphans(roots, config, &mut report);
 

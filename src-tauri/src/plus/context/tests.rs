@@ -324,12 +324,13 @@ fn shim_snippet_variants() {
     assert!(!on.contains("_mcpm_context_presync"));
     assert!(on.contains("claude() { mcpm_context_presync; command claude \"$@\"; }"));
     assert!(on.contains(&format!(
-        "claude-work() {{ mcpm_context_presync; CLAUDE_CONFIG_DIR=\"{}/.config/mcpm/claude-profiles/work\" command claude \"$@\"; }}",
+        "claude-work() {{ mcpm_context_presync; command claude --strict-mcp-config --mcp-config '{0}/.config/mcpm/claude-profiles/work/mcp.json' --settings '{0}/.config/mcpm/claude-profiles/work/settings.json' \"$@\"; }}",
         h.0.display()
     )));
+    assert!(!on.contains("CLAUDE_CONFIG_DIR"));
     let off = shims::shim_snippet(&roots, &profiles, false);
     assert!(!off.contains("presync"));
-    assert!(off.contains("claude-work() { CLAUDE_CONFIG_DIR="));
+    assert!(off.contains("claude-work() { command claude --strict-mcp-config --mcp-config"));
     assert_eq!(
         shims::shim_snippet(&roots, &BTreeMap::new(), false)
             .lines()
@@ -395,4 +396,126 @@ fn handlers_plan_and_apply_against_an_explicit_home() {
     assert_eq!(applied["dryRun"], false);
     assert!(h.0.join(".claude/settings.json").exists());
     assert!(h.0.join(".config/mcpm/context.json").exists());
+}
+
+fn profile_spec(value: serde_json::Value) -> config::ProfileSpec {
+    serde_json::from_value(value).unwrap()
+}
+
+#[test]
+fn launch_argv_goldens() {
+    let h = TempHome::new();
+    let roots = h.roots();
+    let dir = format!("{}/.config/mcpm/claude-profiles/bare", h.0.display());
+    let plain = launch::launch_argv(&roots, "bare", &profile_spec(json!({})));
+    assert_eq!(
+        plain,
+        [
+            "--strict-mcp-config".to_string(),
+            "--mcp-config".to_string(),
+            format!("{dir}/mcp.json"),
+            "--settings".to_string(),
+            format!("{dir}/settings.json"),
+        ]
+    );
+    let with_rules = launch::launch_argv(&roots, "bare", &profile_spec(json!({"rules": ["personal"]})));
+    assert_eq!(&with_rules[5..], ["--append-system-prompt-file".to_string(), format!("{dir}/append-system-prompt.md")]);
+    let none_rules = launch::launch_argv(&roots, "bare", &profile_spec(json!({"rules": "none"})));
+    assert_eq!(none_rules.len(), 5);
+}
+
+#[test]
+fn shim_golden_for_launch_profile() {
+    let h = TempHome::new();
+    let roots = h.roots();
+    let mut profiles = BTreeMap::new();
+    profiles.insert("bare".to_string(), profile_spec(json!({"rules": ["personal"]})));
+    let text = shims::shim_snippet(&roots, &profiles, false);
+    let dir = format!("{}/.config/mcpm/claude-profiles/bare", h.0.display());
+    let last = text.lines().last().unwrap();
+    assert_eq!(
+        last,
+        format!(
+            "claude-bare() {{ command claude --strict-mcp-config --mcp-config '{dir}/mcp.json' --settings '{dir}/settings.json' --append-system-prompt-file '{dir}/append-system-prompt.md' \"$@\"; }}"
+        )
+    );
+}
+
+#[test]
+fn shell_quote_survives_apostrophes() {
+    assert_eq!(shims::shell_quote("/a b/it's"), "'/a b/it'\\''s'");
+}
+
+#[test]
+fn generate_profile_writes_strict_files_and_is_idempotent() {
+    let h = TempHome::new();
+    let roots = h.roots();
+    h.write(
+        ".claude.json",
+        r#"{"mcpServers":{"toolport":{"command":"toolport-gateway"},"other":{"command":"x"}}}"#,
+    );
+    h.write(".claude/settings.json", r#"{"permissions":{"allow":["Bash(ls)"]},"model":"sonnet"}"#);
+    h.write(
+        ".config/mcpm/skills_repo/rules/personal/SKILL.md",
+        "---\nname: personal\n---\n\nbe brief\n",
+    );
+    let mut config = ContextConfig::default();
+    config.profiles.insert(
+        "bare".into(),
+        profile_spec(json!({
+            "servers": ["toolport", "missing"],
+            "rules": ["personal", "nope"],
+            "org": false,
+            "settings_overrides": {"model": "opus"},
+            "skills": false
+        })),
+    );
+    let report = apply(&roots, &mut config, ApplyOptions::default()).unwrap();
+    let dir = ".config/mcpm/claude-profiles/bare";
+    let mcp = json_at(&h, &format!("{dir}/mcp.json"));
+    assert_eq!(mcp, json!({"mcpServers": {"toolport": {"command": "toolport-gateway"}}}));
+    let settings = json_at(&h, &format!("{dir}/settings.json"));
+    assert_eq!(settings["model"], "opus");
+    assert_eq!(settings["permissions"]["allow"], json!(["Bash(ls)"]));
+    assert_eq!(
+        settings["claudeMdExcludes"],
+        json!([format!("{}/.claude/CLAUDE.md", h.0.display())])
+    );
+    let append = h.read(&format!("{dir}/append-system-prompt.md"));
+    assert!(append.starts_with(launch::APPEND_HEADER));
+    assert!(append.contains("be brief"));
+    assert!(report.warnings.iter().any(|w| w.contains("server 'missing'")));
+    assert!(report.warnings.iter().any(|w| w.contains("rule layer 'nope'")));
+    assert!(report.warnings.iter().any(|w| w.contains("skills=false")));
+    assert!(report.warnings.iter().all(|w| !w.contains("not implemented")));
+    assert!(!report.actions.iter().any(|a| a.contains("removed")));
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = fs::metadata(h.0.join(dir).join("mcp.json")).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+    let before = h.read(&format!("{dir}/mcp.json"));
+    apply(&roots, &mut config, ApplyOptions::default()).unwrap();
+    assert_eq!(h.read(&format!("{dir}/mcp.json")), before);
+    let checks = doctor::run_checks(&roots, &config);
+    assert!(checks.iter().any(|(l, m)| l == "ok" && m.contains("profile 'bare' healthy")), "{checks:?}");
+}
+
+#[test]
+fn profile_selection_none_and_dry_run() {
+    let h = TempHome::new();
+    let roots = h.roots();
+    h.write(".claude.json", r#"{"mcpServers":{"a":{"command":"x"}}}"#);
+    let mut config = ContextConfig::default();
+    config.profiles.insert("empty".into(), profile_spec(json!({"servers": "none"})));
+    config.profiles.insert("all".into(), profile_spec(json!({})));
+    plan(&roots, &mut config).unwrap();
+    assert!(!h.0.join(".config/mcpm/claude-profiles").exists());
+    apply(&roots, &mut config, ApplyOptions { persist: false, dry_run: false }).unwrap();
+    let base = ".config/mcpm/claude-profiles";
+    assert_eq!(json_at(&h, &format!("{base}/empty/mcp.json")), json!({"mcpServers": {}}));
+    assert_eq!(json_at(&h, &format!("{base}/all/mcp.json"))["mcpServers"]["a"]["command"], "x");
+    config.profiles.insert("bad".into(), profile_spec(json!({"servers": 3})));
+    assert!(apply(&roots, &mut config, ApplyOptions::default()).unwrap_err().contains("servers"));
 }
