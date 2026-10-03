@@ -21,7 +21,10 @@ pub mod taps;
 pub mod transpilers;
 pub mod transpiler;
 
-pub use assets::{compute_skill_hash, discover_assets, ASSET_ALLOWLIST};
+pub use assets::{
+    compute_skill_hash, discover_assets, with_asset_policy, AssetPolicy, ASSET_ALLOWLIST,
+    EXTRA_EXTENSIONS_ENV, MCPM_ASSET_ALLOWLIST,
+};
 pub use clock::{Clock, FixedClock, Instant, SystemClock};
 pub use lock::{load_lockfile, save_lockfile, LockEntry, LockFile, LOCKFILE_NAME};
 pub use parser::{discover_skills, parse_skill_file, Skill, SkillType};

@@ -10,8 +10,8 @@ use conduit_lib::plus::skills::collisions::Resolution;
 use conduit_lib::plus::skills::parser::Activation;
 use conduit_lib::plus::skills::transpiler::TranspileResult;
 use conduit_lib::plus::skills::{
-    discover_skills, save_lockfile, sync_skills, FixedClock, Instant, Skill, SkillType,
-    SyncOptions, Transpiler, TranspilerRegistry,
+    discover_skills, save_lockfile, sync_skills, with_asset_policy, AssetPolicy, FixedClock,
+    Instant, Skill, SkillType, SyncOptions, Transpiler, TranspilerRegistry,
 };
 use serde_json::Value;
 use std::cell::RefCell;
@@ -195,7 +195,14 @@ fn run_sync_pass(
         client_keys: (!wanted.is_empty()).then_some(wanted),
         clock,
     };
-    let result = sync_skills(&discover_skills(&repo), &registry, &opts).unwrap();
+    // D-027 divergence: the goldens were recorded with mcpm's narrower allowlist (no .html/.csv/.js),
+    // so the replay pins that policy; the widened default is covered by non-golden tests in
+    // plus::skills::tests (default_allowlist_adds_html_csv_js_but_not_zip,
+    // sync_copies_templates_balie_html_to_the_client_skill_dir).
+    let result = with_asset_policy(AssetPolicy::Mcpm, || {
+        sync_skills(&discover_skills(&repo), &registry, &opts)
+    })
+    .unwrap();
     for Resolution { backup_path, .. } in &result.collisions.resolutions {
         if let Some(p) = backup_path {
             assert!(p.starts_with(&opts.output_root));
