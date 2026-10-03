@@ -13,6 +13,8 @@ pub mod shims;
 pub mod store;
 pub mod verify;
 
+#[cfg(test)] mod ledger_prop_tests;
+#[cfg(test)] mod verify_prop_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
