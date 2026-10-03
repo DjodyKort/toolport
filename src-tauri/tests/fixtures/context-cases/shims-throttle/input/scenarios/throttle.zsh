@@ -2,10 +2,10 @@ set +e
 cf=$HOME/.local/share/corp-dev-tools
 bin=$HOME/stubbin
 mkdir -p $bin $HOME/.claude $HOME/.cache/mcpm/context
-cat > $bin/mcpm <<'S'
+cat > $bin/toolportctl <<'S'
 #!/bin/sh
-echo "mcpm $*" >> $HOME/stub.log
-exit ${STUB_MCPM_RC:-0}
+echo "toolportctl $*" >> $HOME/stub.log
+exit ${STUB_CTL_RC:-0}
 S
 cat > $bin/claude <<'S'
 #!/bin/sh
@@ -42,9 +42,9 @@ launch "ctx cache missing, cf fresh: only ctx sync" claude four
 echo 1 > $cfc
 launch "cf cache stale (epoch 1): cf runs, ctx follows" claude five
 rm -f $cfc $ctc
-STUB_MCPM_RC=1 launch "mcpm fails: stderr hint, ctx cache not written" claude six
+STUB_CTL_RC=1 launch "ctl fails: stderr hint, ctx cache not written" claude six
 echo 1 > $ctc
-STUB_MCPM_RC=0 launch "retry next launch with stale ctx cache" claude seven
+STUB_CTL_RC=0 launch "retry next launch with stale ctx cache" claude seven
 CLAUDE_SYNC_INTERVAL=99999999 launch "huge interval: no sync" claude eight
 launch "profile shim passes CLAUDE_CONFIG_DIR and presyncs" claude-work nine
 rm -f $cfc $ctc
@@ -54,5 +54,5 @@ mv $cf/.venv.off $cf/.venv
 rm -rf $cf/.git $ctc
 launch "cf .git missing: cf skipped" claude eleven
 rm -f $ctc
-launch "hrclaude defined: runs compression via mcpm" hrclaude --flag
+launch "hrclaude defined: runs compression via ctl" hrclaude --flag
 launch "claude args with spaces" claude "a b" "c"

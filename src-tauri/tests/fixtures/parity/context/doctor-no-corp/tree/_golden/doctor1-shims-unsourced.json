@@ -5,7 +5,7 @@
   ],
   [
     "warn",
-    "no personal layer scaffolded — run `mcpm context init`"
+    "no personal layer scaffolded — create rules/personal/SKILL.md in the skills repo"
   ],
   [
     "warn",

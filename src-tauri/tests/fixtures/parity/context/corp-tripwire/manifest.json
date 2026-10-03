@@ -45,34 +45,34 @@
       "sha256": "8cd6cf8d847576d3973ad1247c2f47f35053ec627ac655ed589720429014eb2c"
     },
     "_golden/doctor1-unchanged.json": {
-      "bytes": 216,
+      "bytes": 242,
       "class": "B",
-      "sha256": "5585c24e7f3887ffa1d4d18755645eb50610c030d2e76ee8164285e12cc9cc43"
+      "sha256": "87c64a058b04459bd60688f2eae4582fc16f53c44c9f289a1c5ab36214a00fe7"
     },
     "_golden/doctor2-wrapper-changed.json": {
-      "bytes": 325,
+      "bytes": 358,
       "class": "B",
-      "sha256": "37a8144c189e6c23851f31bb879b0aab1ce0c297986b3924e4d0d0285c331877"
+      "sha256": "e1a1a832251e63611e590f17870d58ef3a8fb4c3cb287bc6ecd7b7291c92fe16"
     },
     "_golden/doctor2b-still-warns-after-sync.json": {
-      "bytes": 325,
+      "bytes": 358,
       "class": "B",
-      "sha256": "37a8144c189e6c23851f31bb879b0aab1ce0c297986b3924e4d0d0285c331877"
+      "sha256": "e1a1a832251e63611e590f17870d58ef3a8fb4c3cb287bc6ecd7b7291c92fe16"
     },
     "_golden/doctor2c-after-fresh-config.json": {
-      "bytes": 216,
+      "bytes": 242,
       "class": "B",
-      "sha256": "5585c24e7f3887ffa1d4d18755645eb50610c030d2e76ee8164285e12cc9cc43"
+      "sha256": "87c64a058b04459bd60688f2eae4582fc16f53c44c9f289a1c5ab36214a00fe7"
     },
     "_golden/doctor3-new-assets.json": {
-      "bytes": 339,
+      "bytes": 365,
       "class": "B",
-      "sha256": "9df7cf3b1545917ae5055546f521e31a4b8872d92076ed86d73eadac70e086b3"
+      "sha256": "ed299fd02b0eb60280c0b41220bc7b19c9de25a088de5b1826f21caca6386c74"
     },
     "_golden/doctor4-preset-mismatch.json": {
-      "bytes": 448,
+      "bytes": 481,
       "class": "B",
-      "sha256": "60e92ebea45cfadf9422ef42a9b837fe5e835b25628ffc43ca7cc785ac5bd4fc"
+      "sha256": "46710f10d11cb94062c9892a2f2096fa361c9dfd202475f42121e79295aba99c"
     }
   },
   "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",

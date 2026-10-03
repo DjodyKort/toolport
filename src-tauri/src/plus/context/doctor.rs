@@ -50,7 +50,7 @@ fn check_dupes(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
     vec![check(
         "warn",
         format!(
-            "legacy MCP duplicates present: {} — run `mcpm context sync`",
+            "legacy MCP duplicates present: {} — run `toolportctl context sync`",
             dupes.join(", ")
         ),
     )]
@@ -65,13 +65,13 @@ fn check_layers(roots: &Roots) -> Vec<Check> {
     if !canonical.exists() {
         vec![check(
             "warn",
-            "no personal layer scaffolded — run `mcpm context init`",
+            "no personal layer scaffolded — create rules/personal/SKILL.md in the skills repo",
         )]
     } else if !transpiled.exists() {
         vec![check(
             "warn",
             format!(
-                "personal layer not transpiled to {} — run `mcpm skills sync --global`",
+                "personal layer not transpiled to {} — run `toolportctl skills sync`",
                 transpiled.display()
             ),
         )]
@@ -122,7 +122,7 @@ fn check_settings_policy(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
     if missing > 0 {
         vec![check(
             "warn",
-            format!("{missing} policy permission entr(y/ies) missing (cf clobber?) — run `mcpm context sync`"),
+            format!("{missing} policy permission entr(y/ies) missing (cf clobber?) — run `toolportctl context sync`"),
         )]
     } else {
         vec![check(
@@ -153,7 +153,7 @@ fn check_profiles(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
         if !dir.is_dir() {
             checks.push(check(
                 "warn",
-                format!("profile '{name}' not generated — run `mcpm context sync`"),
+                format!("profile '{name}' not generated — run `toolportctl context sync`"),
             ));
             continue;
         }
@@ -162,7 +162,7 @@ fn check_profiles(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
             if !dir.join(file).is_file() {
                 checks.push(check(
                     "warn",
-                    format!("profile '{name}': {file} missing — run `mcpm context sync`"),
+                    format!("profile '{name}': {file} missing — run `toolportctl context sync`"),
                 ));
             }
         }
@@ -183,7 +183,7 @@ fn check_profiles(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
         }
         if let (Some(base), Some(state)) = (&base_hash, profile_state_base(&dir)) {
             if &state != base {
-                checks.push(check("warn", format!("profile '{name}': settings.json stale vs ~/.claude — run `mcpm context sync`")));
+                checks.push(check("warn", format!("profile '{name}': settings.json stale vs ~/.claude — run `toolportctl context sync`")));
             }
         }
         if checks.len() == before {
@@ -201,7 +201,7 @@ fn check_shims(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
     if !path.exists() {
         return vec![check(
             "warn",
-            "shims file missing — run `mcpm context sync`",
+            "shims file missing — run `toolportctl context sync`",
         )];
     }
     let shown = path.display().to_string();
@@ -253,7 +253,7 @@ fn check_cf_drift(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
         if sha256_file(&wrapper).as_deref() != Some(baseline) {
             checks.push(check(
                 "warn",
-                "corp-dev-tools shell-wrapper.sh CHANGED since baseline — re-verify its sync still leaves rules/ and mcpServers alone, then re-baseline via `mcpm context sync`",
+                "corp-dev-tools shell-wrapper.sh CHANGED since baseline — re-verify its sync still leaves rules/ and mcpServers alone, then re-baseline via `toolportctl context sync`",
             ));
         } else {
             checks.push(check(
