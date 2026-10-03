@@ -1,0 +1,174 @@
+//! Agents: AGENT.md parsing, per-client transpilers, sync into the shared lockfile, lint.
+
+pub mod lint;
+pub mod sync;
+pub mod transpilers;
+
+pub use sync::{sync_agents, AgentSyncOptions};
+pub use transpilers::{all_agent_transpilers, AgentTranspiler};
+
+use super::parser::parse_frontmatter;
+use super::schema::{self, Fm};
+use serde_yaml::{Mapping, Value};
+use std::path::{Path, PathBuf};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PermissionMode {
+    Default,
+    Plan,
+    FullAuto,
+}
+
+impl PermissionMode {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            PermissionMode::Default => "default",
+            PermissionMode::Plan => "plan",
+            PermissionMode::FullAuto => "full-auto",
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct AgentFrontmatter {
+    pub name: String,
+    pub description: String,
+    pub model: Option<String>,
+    pub tools: Vec<String>,
+    pub disallowed_tools: Vec<String>,
+    pub max_turns: Option<i64>,
+    pub mcp_servers: Vec<String>,
+    pub skills: Vec<String>,
+    pub permission_mode: Option<PermissionMode>,
+    pub readonly: bool,
+    pub effort: Option<String>,
+    pub color: Option<String>,
+    pub metadata: Mapping,
+    pub license: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Agent {
+    pub frontmatter: AgentFrontmatter,
+    pub body: String,
+    pub source_path: PathBuf,
+}
+
+impl Agent {
+    pub fn name(&self) -> &str {
+        &self.frontmatter.name
+    }
+
+    pub fn version(&self) -> Option<String> {
+        schema::version_of(&self.frontmatter.metadata)
+    }
+
+    /// Stand-in used only to ask a transpiler for an output path.
+    pub fn placeholder(name: &str) -> Agent {
+        Agent {
+            frontmatter: AgentFrontmatter {
+                name: name.to_string(),
+                description: "dummy".into(),
+                model: None,
+                tools: Vec::new(),
+                disallowed_tools: Vec::new(),
+                max_turns: None,
+                mcp_servers: Vec::new(),
+                skills: Vec::new(),
+                permission_mode: None,
+                readonly: false,
+                effort: None,
+                color: None,
+                metadata: Mapping::new(),
+                license: None,
+            },
+            body: String::new(),
+            source_path: PathBuf::from("dummy"),
+        }
+    }
+}
+
+fn build_frontmatter(fm: &Fm) -> Result<AgentFrontmatter, String> {
+    let (name, description) = schema::name_and_description(fm)?;
+    let permission_mode = match schema::get(fm, "permission_mode") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(s)) => Some(match s.as_str() {
+            "default" => PermissionMode::Default,
+            "plan" => PermissionMode::Plan,
+            "full-auto" => PermissionMode::FullAuto,
+            other => return Err(format!("permission_mode: invalid value {other:?}")),
+        }),
+        Some(_) => return Err("permission_mode: invalid value".into()),
+    };
+    Ok(AgentFrontmatter {
+        name,
+        description,
+        model: schema::opt_string(fm, "model")?,
+        tools: schema::string_list(fm, "tools")?,
+        disallowed_tools: schema::string_list(fm, "disallowed_tools")?,
+        max_turns: schema::lax_opt_int(fm, "max_turns")?,
+        mcp_servers: schema::string_list(fm, "mcp_servers")?,
+        skills: schema::string_list(fm, "skills")?,
+        permission_mode,
+        readonly: schema::lax_bool(fm, "readonly", false)?,
+        effort: schema::opt_string(fm, "effort")?,
+        color: schema::opt_string(fm, "color")?,
+        metadata: schema::metadata(fm)?,
+        license: schema::opt_string(fm, "license")?,
+    })
+}
+
+pub fn parse_agent_file(path: &Path) -> Result<Agent, String> {
+    if !path.exists() {
+        return Err(format!("Agent file not found: {}", path.display()));
+    }
+    let content = super::pyfs::read_text(path)?;
+    let (fm_data, body) = parse_frontmatter(&content)?;
+    if fm_data.is_empty() {
+        return Err(format!("No YAML frontmatter found in {}", path.display()));
+    }
+    Ok(Agent {
+        frontmatter: build_frontmatter(&fm_data)?,
+        body,
+        source_path: path.to_path_buf(),
+    })
+}
+
+pub fn discover_agents_report(repo: &Path) -> (Vec<Agent>, Vec<String>) {
+    let mut warnings = Vec::new();
+    let mut agents = Vec::new();
+    let dir = repo.join("agents");
+    if !dir.is_dir() {
+        return (agents, warnings);
+    }
+    let Ok(read) = std::fs::read_dir(&dir) else {
+        return (agents, warnings);
+    };
+    let mut children: Vec<PathBuf> = read.filter_map(|e| e.ok().map(|e| e.path())).collect();
+    children.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+    for agent_dir in children {
+        if !agent_dir.is_dir() {
+            continue;
+        }
+        let file = agent_dir.join("AGENT.md");
+        let dir_name = agent_dir
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        if !file.exists() {
+            warnings.push(format!(
+                "Agent directory {dir_name} has no AGENT.md, skipping"
+            ));
+            continue;
+        }
+        match parse_agent_file(&file) {
+            Ok(a) => agents.push(a),
+            Err(e) => warnings.push(format!("Failed to parse {}: {e}", file.display())),
+        }
+    }
+    (agents, warnings)
+}
+
+pub fn discover_agents(repo: &Path) -> Vec<Agent> {
+    discover_agents_report(repo).0
+}

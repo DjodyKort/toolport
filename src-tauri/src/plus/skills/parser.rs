@@ -140,7 +140,7 @@ pub fn parse_frontmatter(content: &str) -> Result<(Vec<(String, Value)>, String)
     Ok((out, body.to_string()))
 }
 
-fn scalar_to_string(v: &Value) -> Result<String, String> {
+pub(crate) fn scalar_to_string(v: &Value) -> Result<String, String> {
     match v {
         Value::String(s) => Ok(s.clone()),
         Value::Bool(b) => Ok(if *b { "True" } else { "False" }.into()),
@@ -150,18 +150,18 @@ fn scalar_to_string(v: &Value) -> Result<String, String> {
     }
 }
 
-fn field<'a>(fm: &'a [(String, Value)], key: &str) -> Option<&'a Value> {
+pub(crate) fn field<'a>(fm: &'a [(String, Value)], key: &str) -> Option<&'a Value> {
     fm.iter().find(|(k, _)| k == key).map(|(_, v)| v)
 }
 
-fn want_str(v: &Value, name: &str) -> Result<String, String> {
+pub(crate) fn want_str(v: &Value, name: &str) -> Result<String, String> {
     match v {
         Value::String(s) => Ok(s.clone()),
         _ => Err(format!("{name}: input should be a valid string")),
     }
 }
 
-fn opt_str(fm: &[(String, Value)], name: &str) -> Result<Option<String>, String> {
+pub(crate) fn opt_str(fm: &[(String, Value)], name: &str) -> Result<Option<String>, String> {
     match field(fm, name) {
         None | Some(Value::Null) => Ok(None),
         Some(v) => want_str(v, name).map(Some),
