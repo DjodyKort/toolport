@@ -2,6 +2,7 @@
 //! parsing, dispatch and rendering live here so they are unit-testable.
 
 mod auth;
+mod cc;
 mod commands;
 mod compression;
 mod council;
@@ -166,6 +167,11 @@ pub const COMMANDS: &[Command] = &[
         handler: Some(sync::run),
     },
     Command {
+        path: &["cc"],
+        summary: "Claude Code plugins: list | update [--dry-run]",
+        handler: Some(cc::run),
+    },
+    Command {
         path: &["update"],
         summary: "Check or apply server updates (--check, --apply, --init, --dry-run)",
         handler: Some(update::update),
@@ -211,7 +217,16 @@ pub fn parse(args: &[String]) -> Result<Parsed, String> {
                 Some(value) => parsed.data_dir = Some(value.to_string()),
                 None if matches!(
                     parsed.positional.first().map(String::as_str),
-                    Some("compression" | "secret" | "import" | "context" | "sync" | "update" | "council")
+                    Some(
+                        "cc" |
+                        "compression" |
+                        "context" |
+                        "council" |
+                        "import" |
+                        "secret" |
+                        "sync" |
+                        "update"
+                    )
                 ) =>
                 {
                     parsed.positional.push(other.to_string())
