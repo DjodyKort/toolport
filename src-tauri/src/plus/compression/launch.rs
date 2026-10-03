@@ -3,6 +3,7 @@
 //! `run_plan` walks a plan through an injectable [`LaunchOps`]; [`SystemOps`] is the thin
 //! process-spawning wrapper kept out of everything testable.
 
+use super::engine::{health_url, http_json};
 use super::model::*;
 use super::ops::{pin_guard, PinGuard};
 use regex::Regex;
@@ -10,7 +11,6 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::process::{Command, Stdio};
-use std::time::Duration;
 
 pub const BASE_URL_VAR: &str = "ANTHROPIC_BASE_URL";
 
@@ -223,18 +223,9 @@ impl Probe for SystemOps {
 }
 
 pub fn proxy_ready(port: u16) -> bool {
-    let url = format!("http://127.0.0.1:{port}/health");
-    let agent = ureq::AgentBuilder::new()
-        .timeout(Duration::from_secs(3))
-        .build();
-    match agent
-        .get(&url)
-        .call()
-        .and_then(|r| r.into_json::<serde_json::Value>().map_err(Into::into))
-    {
-        Ok(body) => body.get("ready").and_then(|v| v.as_bool()).unwrap_or(false),
-        Err(_) => false,
-    }
+    http_json(&health_url(port), 3)
+        .and_then(|body| body.get("ready").and_then(|v| v.as_bool()))
+        .unwrap_or(false)
 }
 
 impl LaunchOps for SystemOps {

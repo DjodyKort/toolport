@@ -3,6 +3,7 @@
 //! Diagnostic only: neither ever drops a knob from the emit path.
 
 use super::model::OrderedMap;
+use crate::plus::fswalk::collect_files;
 use regex::Regex;
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -52,25 +53,11 @@ fn read_pattern() -> &'static Regex {
     })
 }
 
-fn walk_py(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        match entry.file_type() {
-            Ok(t) if t.is_dir() => walk_py(&path, out),
-            Ok(t) if t.is_file() && path.extension().is_some_and(|e| e == "py") => out.push(path),
-            _ => {}
-        }
-    }
-}
-
 /// Every `HEADROOM_*` knob the package genuinely reads. Mentions in help text, comments
 /// and docstrings do not count: matching bare literals over-reports by about 30%.
 pub fn read_knobs(root: &Path) -> BTreeSet<String> {
     let mut files = Vec::new();
-    walk_py(root, &mut files);
+    collect_files(root, &|p| p.extension().is_some_and(|e| e == "py"), &mut files);
     let mut found = BTreeSet::new();
     for file in files {
         if let Ok(bytes) = std::fs::read(&file) {

@@ -1,6 +1,8 @@
 use super::exec::ShellRunner;
 use super::net::HttpClient;
 use super::pins::compare_versions;
+use crate::plus::compression::engine::is_executable;
+use crate::plus::fswalk::collect_files;
 use serde_json::Value;
 use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
@@ -313,34 +315,9 @@ fn extract(archive: &Path, kind: &str, dest: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn collect_files(dir: &Path, out: &mut Vec<PathBuf>) {
-    for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
-        let path = entry.path();
-        match entry.file_type() {
-            Ok(t) if t.is_dir() => collect_files(&path, out),
-            Ok(t) if t.is_file() => out.push(path),
-            _ => {}
-        }
-    }
-}
-
-fn is_executable(path: &Path) -> bool {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::metadata(path)
-            .map(|m| m.permissions().mode() & 0o111 != 0)
-            .unwrap_or(false)
-    }
-    #[cfg(not(unix))]
-    {
-        path.is_file()
-    }
-}
-
 fn pick_binary(dir: &Path, target_name: &str, repo_name: &str) -> Result<PathBuf, String> {
     let mut files = Vec::new();
-    collect_files(dir, &mut files);
+    collect_files(dir, &|_| true, &mut files);
     let mut execs: Vec<PathBuf> = files.into_iter().filter(|p| is_executable(p)).collect();
     execs.sort();
     match execs.len() {
