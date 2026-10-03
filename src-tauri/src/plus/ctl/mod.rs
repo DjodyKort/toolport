@@ -9,6 +9,7 @@ pub(crate) mod context;
 mod output;
 mod secret;
 mod sync;
+mod update;
 
 use output::{CtlError, Envelope, Output};
 
@@ -160,8 +161,8 @@ pub const COMMANDS: &[Command] = &[
     },
     Command {
         path: &["update"],
-        summary: "Update management",
-        handler: None,
+        summary: "Check or apply server updates (--check, --apply, --init, --dry-run)",
+        handler: Some(update::update),
     },
 ];
 
@@ -204,7 +205,7 @@ pub fn parse(args: &[String]) -> Result<Parsed, String> {
                 Some(value) => parsed.data_dir = Some(value.to_string()),
                 None if matches!(
                     parsed.positional.first().map(String::as_str),
-                    Some("compression" | "secret" | "import" | "context" | "sync")
+                    Some("compression" | "secret" | "import" | "context" | "sync" | "update")
                 ) =>
                 {
                     parsed.positional.push(other.to_string())

@@ -278,7 +278,6 @@ fn planned_commands_are_not_implemented() {
         &["context", "sync"][..],
         &["compression", "use", "agent"][..],
         &["skills", "sync"][..],
-        &["update"][..],
         &["server", "add"][..],
     ] {
         let (code, out, err) = run_cli(list);
