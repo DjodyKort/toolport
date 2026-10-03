@@ -24,6 +24,7 @@ use source::Source;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::sync::{mpsc, Mutex};
 use std::time::Duration;
 
 pub const GITHUB_API: &str = "https://api.github.com";
@@ -32,9 +33,9 @@ pub const PYPI_INDEX: &str = "https://pypi.org";
 const POST_UPDATE_TIMEOUT: Duration = Duration::from_secs(120);
 
 pub struct Env {
-    pub git: Box<dyn GitRunner>,
-    pub shell: Box<dyn ShellRunner>,
-    pub http: Box<dyn HttpClient>,
+    pub git: Box<dyn GitRunner + Send + Sync>,
+    pub shell: Box<dyn ShellRunner + Send + Sync>,
+    pub http: Box<dyn HttpClient + Send + Sync>,
     pub github_api: String,
     pub npm_registry: String,
     pub pypi_index: String,
@@ -599,47 +600,114 @@ fn init_one(env: &Env, opts: &Options, entry: &mut ServerEntry, rep: &mut Server
     }
 }
 
-pub fn run(env: &Env, entries: &mut [ServerEntry], opts: &Options) -> Result<Report, String> {
-    let mut reports = Vec::new();
-    let mut matched = false;
-    for entry in entries.iter_mut() {
-        if let Some(wanted) = &opts.server {
-            if &entry.id != wanted && &entry.name != wanted {
-                continue;
-            }
-        }
-        matched = true;
-        let id = entry.id.clone();
-        let mut rep = ServerReport::new(&id, "", Status::Skipped, "");
-        if opts.mode == Mode::Init {
-            init_one(env, opts, entry, &mut rep);
-            reports.push(rep);
-            continue;
-        }
-        let (src, from_meta) = source::effective(entry, env.home.as_deref());
-        rep.kind = src.kind().to_string();
-        rep.detected = !from_meta;
-        match &src {
-            Source::Git { .. } => check_git(env, opts, entry, &src, &mut rep),
-            Source::GithubRelease { .. } => check_release(env, opts, entry, &src, &mut rep),
-            Source::Npx { .. } | Source::Uvx { .. } => check_pin(env, opts, entry, &src, &mut rep),
-            Source::Remote => rep.set(Status::Skipped, "remote server, nothing to update"),
-            Source::Unknown { reason } => rep.set(
-                Status::Skipped,
-                format!("unknown source ({reason}); run update --init"),
-            ),
-        }
-        if !from_meta && rep.status != Status::Error {
-            rep.message
-                .push_str(" [no stored source; run update --init]");
-        }
-        reports.push(rep);
+const CHECK_WORKERS: usize = 4;
+
+type Planned<'a> = (&'a mut ServerEntry, Source, bool);
+
+fn check_planned(env: &Env, opts: &Options, planned: Planned) -> ServerReport {
+    let (entry, src, from_meta) = planned;
+    let id = entry.id.clone();
+    let mut rep = ServerReport::new(&id, src.kind(), Status::Skipped, "");
+    rep.detected = !from_meta;
+    match &src {
+        Source::Git { .. } => check_git(env, opts, entry, &src, &mut rep),
+        Source::GithubRelease { .. } => check_release(env, opts, entry, &src, &mut rep),
+        Source::Npx { .. } | Source::Uvx { .. } => check_pin(env, opts, entry, &src, &mut rep),
+        Source::Remote => rep.set(Status::Skipped, "remote server, nothing to update"),
+        Source::Unknown { reason } => rep.set(
+            Status::Skipped,
+            format!("unknown source ({reason}); run update --init"),
+        ),
     }
+    if !from_meta && rep.status != Status::Error {
+        rep.message
+            .push_str(" [no stored source; run update --init]");
+    }
+    rep
+}
+
+fn is_lookup(src: &Source) -> bool {
+    matches!(
+        src,
+        Source::GithubRelease { .. } | Source::Npx { .. } | Source::Uvx { .. }
+    )
+}
+
+/// Check and dry-run change nothing, so the HTTP lookups (release, npm, PyPI) of different
+/// servers run on a bounded pool while git checks stay serial on the calling thread (two
+/// servers may share a repository). Reports keep the registry order; apply stays serial because
+/// one server's update can change what the next one finds.
+fn check_all(env: &Env, opts: &Options, planned: Vec<Planned>) -> Vec<ServerReport> {
+    let (network, local): (Vec<_>, Vec<_>) = planned
+        .into_iter()
+        .enumerate()
+        .partition(|(_, (_, src, _))| is_lookup(src));
+    if !matches!(opts.mode, Mode::Check | Mode::DryRun) || network.len() < 2 {
+        let mut all: Vec<_> = network.into_iter().chain(local).collect();
+        all.sort_by_key(|(i, _)| *i);
+        return all
+            .into_iter()
+            .map(|(_, planned)| check_planned(env, opts, planned))
+            .collect();
+    }
+    let total = network.len() + local.len();
+    let workers = CHECK_WORKERS.min(network.len());
+    let queue = Mutex::new(network.into_iter());
+    let (tx, rx) = mpsc::channel();
+    std::thread::scope(|scope| {
+        for _ in 0..workers {
+            let (queue, tx) = (&queue, tx.clone());
+            scope.spawn(move || loop {
+                let next = queue.lock().unwrap_or_else(|e| e.into_inner()).next();
+                let Some((i, planned)) = next else { break };
+                let _ = tx.send((i, check_planned(env, opts, planned)));
+            });
+        }
+        for (i, planned) in local {
+            let _ = tx.send((i, check_planned(env, opts, planned)));
+        }
+    });
+    drop(tx);
+    let mut slots: Vec<Option<ServerReport>> = (0..total).map(|_| None).collect();
+    for (i, rep) in rx {
+        slots[i] = Some(rep);
+    }
+    slots.into_iter().flatten().collect()
+}
+
+pub fn run(env: &Env, entries: &mut [ServerEntry], opts: &Options) -> Result<Report, String> {
+    let mut selected: Vec<&mut ServerEntry> = entries
+        .iter_mut()
+        .filter(|entry| {
+            opts.server
+                .as_ref()
+                .is_none_or(|wanted| &entry.id == wanted || &entry.name == wanted)
+        })
+        .collect();
     if let Some(wanted) = &opts.server {
-        if !matched {
+        if selected.is_empty() {
             return Err(format!("server not found: {wanted}"));
         }
     }
+    let reports = if opts.mode == Mode::Init {
+        selected
+            .iter_mut()
+            .map(|entry| {
+                let mut rep = ServerReport::new(&entry.id.clone(), "", Status::Skipped, "");
+                init_one(env, opts, entry, &mut rep);
+                rep
+            })
+            .collect()
+    } else {
+        let planned: Vec<Planned> = selected
+            .into_iter()
+            .map(|entry| {
+                let (src, from_meta) = source::effective(entry, env.home.as_deref());
+                (entry, src, from_meta)
+            })
+            .collect();
+        check_all(env, opts, planned)
+    };
     Ok(Report::new(opts.mode, reports))
 }
 
