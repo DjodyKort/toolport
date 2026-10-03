@@ -1,0 +1,50 @@
+{
+  "active_styles": {},
+  "agents": {},
+  "output_root": "<HOME>/repo",
+  "rules": {},
+  "scope": "project",
+  "skills": {
+    "code-review": {
+      "clients_synced": [
+        "cursor",
+        "windsurf"
+      ],
+      "hash": "sha256:6a0aa7d5ba9ae3f8",
+      "hooks_installed": {},
+      "output_files": {
+        "cursor": [
+          ".cursor/rules/code-review/RULE.md"
+        ],
+        "windsurf": [
+          ".windsurf/rules/code-review.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "handoff-notes": {
+      "clients_synced": [
+        "cursor",
+        "windsurf"
+      ],
+      "hash": "sha256:d2ab0c8c2d12bbd7",
+      "hooks_installed": {},
+      "output_files": {
+        "cursor": [
+          ".cursor/rules/handoff-notes/RULE.md"
+        ],
+        "windsurf": [
+          ".windsurf/rules/handoff-notes.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "styles": {},
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

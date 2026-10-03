@@ -1,0 +1,84 @@
+{
+  "area": "context",
+  "case": "context/cf-tripwire",
+  "comparison": "B",
+  "entry": "context_scenario",
+  "files": {
+    ".config/mcpm/context.json": {
+      "bytes": 434,
+      "class": "B",
+      "sha256": "3f49f93c153a2e811e4cf98207eb11198393a0812effc9e884e7a9a996ac5b07"
+    },
+    "_golden/apply1-baseline.report.json": {
+      "bytes": 127,
+      "class": "B",
+      "sha256": "3f31489efb378f687315bdeaea6a52d6fbec328162f3908038cc83ea4697f54e"
+    },
+    "_golden/apply2-saved-config-no-rebaseline.report.json": {
+      "bytes": 75,
+      "class": "B",
+      "sha256": "d8249a4c0a3d05958fa88106659d13216db1e10a33ddfc883cce8b82358ee9e5"
+    },
+    "_golden/apply2c-fresh-config-silently-rebaselines.report.json": {
+      "bytes": 127,
+      "class": "B",
+      "sha256": "3f31489efb378f687315bdeaea6a52d6fbec328162f3908038cc83ea4697f54e"
+    },
+    "_golden/apply3-preset-hash.report.json": {
+      "bytes": 75,
+      "class": "B",
+      "sha256": "d8249a4c0a3d05958fa88106659d13216db1e10a33ddfc883cce8b82358ee9e5"
+    },
+    "_golden/context.after-baseline.json": {
+      "bytes": 434,
+      "class": "B",
+      "sha256": "995b2ef99dcd9ce12bce4c66d32a5f003d037f144246dc71e3a42178fb833f82"
+    },
+    "_golden/context.after-fresh-config.json": {
+      "bytes": 434,
+      "class": "B",
+      "sha256": "9ca18f1ae95bb9737cbdfbd87ff803511d3b263060b0c7203ba5407cd30caeed"
+    },
+    "_golden/context.after-preset.json": {
+      "bytes": 434,
+      "class": "B",
+      "sha256": "3f49f93c153a2e811e4cf98207eb11198393a0812effc9e884e7a9a996ac5b07"
+    },
+    "_golden/doctor1-unchanged.json": {
+      "bytes": 214,
+      "class": "B",
+      "sha256": "24fae088f916446a858e0ff2a901a801bc46a68bc6aa2f95f9aadcc384b1fc5b"
+    },
+    "_golden/doctor2-wrapper-changed.json": {
+      "bytes": 323,
+      "class": "B",
+      "sha256": "b9da3d82a2f567b65376b21d04387ca58cde5d5294c5d7151885b7d919136bbb"
+    },
+    "_golden/doctor2b-still-warns-after-sync.json": {
+      "bytes": 323,
+      "class": "B",
+      "sha256": "b9da3d82a2f567b65376b21d04387ca58cde5d5294c5d7151885b7d919136bbb"
+    },
+    "_golden/doctor2c-after-fresh-config.json": {
+      "bytes": 214,
+      "class": "B",
+      "sha256": "24fae088f916446a858e0ff2a901a801bc46a68bc6aa2f95f9aadcc384b1fc5b"
+    },
+    "_golden/doctor3-new-assets.json": {
+      "bytes": 335,
+      "class": "B",
+      "sha256": "e08e6ac639d73ff9e18e051468d4807aebf35dbdd4b0f313e339c0337fccdd6c"
+    },
+    "_golden/doctor4-preset-mismatch.json": {
+      "bytes": 444,
+      "class": "B",
+      "sha256": "5d34679fbec2f790823c2809b2655011ab13d2639cfdc6510feb7d99ff4626dd"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "active_styles": {},
+  "agents": {},
+  "output_root": "<HOME>",
+  "rules": {
+    "python-style": {
+      "clients_synced": [
+        "amazon-q"
+      ],
+      "hash": "sha256:71cf527116615e90",
+      "hooks_installed": {},
+      "output_files": {
+        "amazon-q": [
+          ".amazonq/rules/python-style.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "team-conventions": {
+      "clients_synced": [
+        "amazon-q"
+      ],
+      "hash": "sha256:3422d58f397226a6",
+      "hooks_installed": {},
+      "output_files": {
+        "amazon-q": [
+          ".amazonq/rules/team-conventions.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "scope": "global",
+  "skills": {
+    "code-review": {
+      "clients_synced": [
+        "amazon-q"
+      ],
+      "hash": "sha256:e36e8219b920feb3",
+      "hooks_installed": {},
+      "output_files": {
+        "amazon-q": [
+          ".amazonq/rules/code-review.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": [
+        "amazon-q: activation 'auto' downgraded to 'always' (no frontmatter support)"
+      ]
+    },
+    "db-helper": {
+      "clients_synced": [
+        "amazon-q"
+      ],
+      "hash": "sha256:15e34949b32ff5ee",
+      "hooks_installed": {},
+      "output_files": {
+        "amazon-q": [
+          ".amazonq/rules/db-helper.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": [
+        "amazon-q: activation 'agent' downgraded to 'always' (no frontmatter support)"
+      ]
+    },
+    "release-checklist": {
+      "clients_synced": [
+        "amazon-q"
+      ],
+      "hash": "sha256:2d18e8c6c624a33a",
+      "hooks_installed": {},
+      "output_files": {
+        "amazon-q": [
+          ".amazonq/rules/release-checklist.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": [
+        "amazon-q: activation 'manual' downgraded to 'always' (no frontmatter support)"
+      ]
+    }
+  },
+  "styles": {},
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

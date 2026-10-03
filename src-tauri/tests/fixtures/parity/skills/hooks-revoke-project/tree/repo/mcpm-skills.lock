@@ -1,0 +1,31 @@
+{
+  "active_styles": {},
+  "agents": {},
+  "output_root": "<HOME>/repo",
+  "rules": {},
+  "scope": "project",
+  "skills": {
+    "code-review": {
+      "clients_synced": [
+        "claude-code",
+        "cursor"
+      ],
+      "hash": "sha256:6a0aa7d5ba9ae3f8",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/skills/code-review/SKILL.md"
+        ],
+        "cursor": [
+          ".cursor/rules/code-review/RULE.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "styles": {},
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

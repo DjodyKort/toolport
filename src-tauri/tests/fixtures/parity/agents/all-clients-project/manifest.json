@@ -1,0 +1,99 @@
+{
+  "area": "agents",
+  "case": "agents/all-clients-project",
+  "comparison": "A",
+  "entry": "agents_sync",
+  "files": {
+    "repo/.claude/agents/code-reviewer.md": {
+      "bytes": 306,
+      "class": "A",
+      "sha256": "67019df8a02bb39436d4b5b375fd861992cf1eb363b688ddfca300056d61d3ce"
+    },
+    "repo/.claude/agents/doc-writer.md": {
+      "bytes": 218,
+      "class": "A",
+      "sha256": "38fa53182b9345a36ce93a85b4ce9b0649da0f08b8906d02de3f5f7dec12f60e"
+    },
+    "repo/.claude/agents/minimal.md": {
+      "bytes": 76,
+      "class": "A",
+      "sha256": "d26f28d07250c044afaa2730bc3b1f7f26a6094a53feed2a67d26df69c20888c"
+    },
+    "repo/.codex/agents/code-reviewer.toml": {
+      "bytes": 319,
+      "class": "A",
+      "sha256": "42b14aa1cff583bfe1aa3bd1ada7ea7a2472ee63652eff228702ac7e3be9587d"
+    },
+    "repo/.codex/agents/doc-writer.toml": {
+      "bytes": 339,
+      "class": "A",
+      "sha256": "605d9a2b719797c5a1926c360cb98117e3e7b18cab35f3effc396e2454ef2bc7"
+    },
+    "repo/.codex/agents/minimal.toml": {
+      "bytes": 104,
+      "class": "A",
+      "sha256": "87dcf1f4fc863a1ca5ae7852d6516548d433b6c48e8223a5cbb66698ce0b5fa5"
+    },
+    "repo/.cursor/agents/code-reviewer.md": {
+      "bytes": 155,
+      "class": "A",
+      "sha256": "703935108b8ea78c4917508084dd0cb123e0b49d010646c13ca071afde0e8aa8"
+    },
+    "repo/.cursor/agents/doc-writer.md": {
+      "bytes": 126,
+      "class": "A",
+      "sha256": "bcfa4587a614f57120deaeb10bd722512c2f961181588d56ca70499e79e615c0"
+    },
+    "repo/.cursor/agents/minimal.md": {
+      "bytes": 76,
+      "class": "A",
+      "sha256": "d26f28d07250c044afaa2730bc3b1f7f26a6094a53feed2a67d26df69c20888c"
+    },
+    "repo/.gemini/agents/code-reviewer.md": {
+      "bytes": 214,
+      "class": "A",
+      "sha256": "e684f85b2324c2db6950b2f12b2eba871bff4eada55ee9e735153c9ff0b7cfd4"
+    },
+    "repo/.gemini/agents/doc-writer.md": {
+      "bytes": 180,
+      "class": "A",
+      "sha256": "d0260c2e4dc700ed4ace046c33e81ac5fe04e6b725e2af6717c30e9039700858"
+    },
+    "repo/.gemini/agents/minimal.md": {
+      "bytes": 76,
+      "class": "A",
+      "sha256": "d26f28d07250c044afaa2730bc3b1f7f26a6094a53feed2a67d26df69c20888c"
+    },
+    "repo/.github/agents/code-reviewer.agent.md": {
+      "bytes": 201,
+      "class": "A",
+      "sha256": "3739a92ae9782c363c2d2a3e66baa55869d0ef7524ab59e386634873af86b666"
+    },
+    "repo/.github/agents/doc-writer.agent.md": {
+      "bytes": 181,
+      "class": "A",
+      "sha256": "e95c83298e3e4aa5b8eaf2cf78c637f4f0acde9209398b168b0471cd41199dd5"
+    },
+    "repo/.github/agents/minimal.agent.md": {
+      "bytes": 76,
+      "class": "A",
+      "sha256": "d26f28d07250c044afaa2730bc3b1f7f26a6094a53feed2a67d26df69c20888c"
+    },
+    "repo/.roomodes": {
+      "bytes": 1233,
+      "class": "A",
+      "sha256": "1fb53a2f50202c46b38e63296c89547f58bf7a2dd3e634b8385f8906cb2fc9d6"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 3929,
+      "class": "B",
+      "sha256": "736fa0c6529cca3742aa7b5865073802d3165ca184aaf979d72e68d8f025a0ea"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "cf_wrapper_hash": null,
+  "clients_root": "<HOME>/clients",
+  "dedupe": {
+    "enabled": false,
+    "legacy_names": [
+      "context7",
+      "playwright",
+      "codeforward-odoo",
+      "codeforward-typst"
+    ],
+    "require_mcpm_twin": true
+  },
+  "profiles": {
+    "cp": {
+      "agents": true,
+      "commands": true,
+      "copy_auth": true,
+      "link_rules": false,
+      "org": true,
+      "org_mode": "copy",
+      "rules": [
+        "client-acme"
+      ],
+      "servers": "inherit",
+      "settings_overrides": {},
+      "skills": true
+    },
+    "inh": {
+      "agents": true,
+      "commands": true,
+      "copy_auth": true,
+      "link_rules": true,
+      "org": true,
+      "org_mode": "import",
+      "rules": "none",
+      "servers": "inherit",
+      "settings_overrides": {},
+      "skills": true
+    }
+  },
+  "settings": {
+    "ensure_allow": [],
+    "ensure_ask": []
+  },
+  "wrap_default_claude": false
+}

@@ -1,0 +1,54 @@
+{
+  "area": "skills",
+  "case": "skills/aider-global",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    ".config/mcpm/mcpm-skills.lock": {
+      "bytes": 2155,
+      "class": "B",
+      "sha256": "abad5fefc322c0e7613de320ea9c9673d329f1bd98d269a5d940cf318d704275"
+    },
+    ".mcpm/skills/code-review/SKILL.md": {
+      "bytes": 77,
+      "class": "A",
+      "sha256": "b5fff344aa858beeef82c83ea43955f4a5a1eebfce2174911ff27a3fa388c766"
+    },
+    ".mcpm/skills/code-review/modules/checklist.md": {
+      "bytes": 22,
+      "class": "A",
+      "sha256": "50b12757463dc7d861a115cc45369e41be09d716bee6a7470f6b50575db2ea5f"
+    },
+    ".mcpm/skills/code-review/reference/glossary.txt": {
+      "bytes": 18,
+      "class": "A",
+      "sha256": "ca745d4e119fa0c6666acff4aaa0348ef8dbc6761e92fcdafcf0dd4165886b12"
+    },
+    ".mcpm/skills/db-helper/SKILL.md": {
+      "bytes": 55,
+      "class": "A",
+      "sha256": "48ef5d5872a341be335713cdac2403b22b8c2917e31232f8136c4d5b36632588"
+    },
+    ".mcpm/skills/python-style/SKILL.md": {
+      "bytes": 101,
+      "class": "A",
+      "sha256": "55692982f9bc2c1b1fa1975f8a56d568f0826655cfaf6647fa9bdc8c5de07e5a"
+    },
+    ".mcpm/skills/release-checklist/SKILL.md": {
+      "bytes": 83,
+      "class": "A",
+      "sha256": "cbf23de4303a564d75b476a44e14957aa8c02207fa0a500430cc6c110c7e1654"
+    },
+    ".mcpm/skills/team-conventions/SKILL.md": {
+      "bytes": 61,
+      "class": "A",
+      "sha256": "eb7a97df0aa62d8e4ea169b9950305537e75e0654cd1458d0fd30925b4f0b7ec"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

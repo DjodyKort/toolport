@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": "not-a-list-but-str",
+    "ask": [
+      "Bash(git push:*)"
+    ]
+  }
+}

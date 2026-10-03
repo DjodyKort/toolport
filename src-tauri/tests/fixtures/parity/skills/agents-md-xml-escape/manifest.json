@@ -1,0 +1,24 @@
+{
+  "area": "skills",
+  "case": "skills/agents-md-xml-escape",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    "repo/AGENTS.md": {
+      "bytes": 198,
+      "class": "A",
+      "sha256": "c78222f56246e53665fb9af1b93a5bd24b5044e282c4a64845737984dbba292d"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 438,
+      "class": "B",
+      "sha256": "c5ff6c9706aa41201a1c025280fd046f19fefe732a9fa5071dd4f6eb499f6be0"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "area": "skills",
+  "case": "skills/trae-project",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    "repo/.trae/rules/code-review.md": {
+      "bytes": 148,
+      "class": "A",
+      "sha256": "904c03244853955a308aaff6bd034c8c79fcdbabe0d64edb874089fbc95c2835"
+    },
+    "repo/.trae/rules/db-helper.md": {
+      "bytes": 147,
+      "class": "A",
+      "sha256": "5f4e0f6e3cfdc0f4fe90e466a191c07038b6edd3a77930075c11ce4a3c733245"
+    },
+    "repo/.trae/rules/python-style.md": {
+      "bytes": 214,
+      "class": "A",
+      "sha256": "9e10efba6c425ecf963a48f162d94246e8a373ab209c01ca1254825b43368192"
+    },
+    "repo/.trae/rules/release-checklist.md": {
+      "bytes": 141,
+      "class": "A",
+      "sha256": "d879e6f1ef9a1d17eb9e265bb6e07ac13d5fb50bace82bffe213c731a284dd76"
+    },
+    "repo/.trae/rules/team-conventions.md": {
+      "bytes": 139,
+      "class": "A",
+      "sha256": "e969691c5a23889999ae11ff8042f830ea02b05178d6dcc616eca5f9da1d0126"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 1925,
+      "class": "B",
+      "sha256": "8f98759ae17c59430809d4a1fa29facb74483371778752368312fda5646ea29e"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

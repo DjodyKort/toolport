@@ -1,0 +1,5 @@
+.claude/skills/handoff-notes/SKILL.md
+.claude/skills/handoff-notes/scripts/precompact.sh
+.claude/skills/handoff-notes/scripts/session-end.sh
+.claude/skills/handoff-notes/scripts/session-start.sh
+.cursor/rules/handoff-notes/RULE.md

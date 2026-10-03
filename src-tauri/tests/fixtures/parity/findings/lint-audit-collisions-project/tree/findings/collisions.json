@@ -1,0 +1,16 @@
+[
+  {
+    "client": "claude-code",
+    "collision_path": "<HOME>/repo/.claude/commands/good-one.md",
+    "skill": "good-one",
+    "synced_content_len": 0,
+    "synced_path": "<HOME>/repo/.claude/skills/good-one/SKILL.md"
+  },
+  {
+    "client": "claude-code",
+    "collision_path": "<HOME>/repo/.claude/agents/short-desc.md",
+    "skill": "short-desc",
+    "synced_content_len": 0,
+    "synced_path": "<HOME>/repo/.claude/skills/short-desc/SKILL.md"
+  }
+]

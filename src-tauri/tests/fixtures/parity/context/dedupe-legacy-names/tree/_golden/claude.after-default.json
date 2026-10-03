@@ -1,0 +1,39 @@
+{
+  "mcpServers": {
+    "codeforward-typst": {
+      "command": "typst-legacy",
+      "type": "stdio"
+    },
+    "custom-old": {
+      "command": "x"
+    },
+    "keepme": {
+      "command": "z"
+    },
+    "mcpm_codeforward-odoo": {
+      "type": "http",
+      "url": "https://example.test/gw"
+    },
+    "mcpm_context7": {
+      "command": "mcpm-ctx7",
+      "type": "stdio"
+    },
+    "mcpm_custom-old": {
+      "command": "y"
+    },
+    "playwright": {
+      "command": "legacy-pw",
+      "type": "stdio"
+    }
+  },
+  "numStartups": 7,
+  "oauthAccount": {
+    "emailAddress": "user@example.test"
+  },
+  "projects": {
+    "/p": {
+      "allowedTools": []
+    }
+  },
+  "theme": "dark"
+}

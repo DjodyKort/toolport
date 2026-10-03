@@ -1,0 +1,64 @@
+{
+  "active_styles": {},
+  "agents": {
+    "code-reviewer": {
+      "clients_synced": [
+        "cursor"
+      ],
+      "hash": "sha256:969ff45f7e299a13",
+      "hooks_installed": {},
+      "output_files": {
+        "cursor": [
+          ".cursor/agents/code-reviewer.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": [
+        "cursor: 'tools' field not supported, dropped",
+        "cursor: 'mcp-servers' field not supported, dropped",
+        "cursor: 'max-turns' field not supported, dropped"
+      ]
+    },
+    "doc-writer": {
+      "clients_synced": [
+        "cursor"
+      ],
+      "hash": "sha256:0442360205b242f1",
+      "hooks_installed": {},
+      "output_files": {
+        "cursor": [
+          ".cursor/agents/doc-writer.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": [
+        "cursor: 'tools' field not supported, dropped",
+        "cursor: 'mcp-servers' field not supported, dropped"
+      ]
+    },
+    "minimal": {
+      "clients_synced": [
+        "cursor"
+      ],
+      "hash": "sha256:dff0a596ea9ee09a",
+      "hooks_installed": {},
+      "output_files": {
+        "cursor": [
+          ".cursor/agents/minimal.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "output_root": "",
+  "rules": {},
+  "scope": "",
+  "skills": {},
+  "styles": {},
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

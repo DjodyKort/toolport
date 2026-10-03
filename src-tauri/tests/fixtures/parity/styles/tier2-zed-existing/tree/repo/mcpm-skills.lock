@@ -1,0 +1,27 @@
+{
+  "active_styles": {
+    "aider": "teacher",
+    "zed": "teacher"
+  },
+  "agents": {},
+  "output_root": "",
+  "rules": {},
+  "scope": "",
+  "skills": {},
+  "styles": {
+    "teacher": {
+      "clients_synced": [
+        "aider",
+        "zed"
+      ],
+      "hash": "sha256:ede74f954248462f",
+      "hooks_installed": {},
+      "output_files": {},
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

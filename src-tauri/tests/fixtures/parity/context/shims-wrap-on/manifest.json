@@ -1,0 +1,104 @@
+{
+  "area": "context",
+  "case": "context/shims-wrap-on",
+  "comparison": "A",
+  "entry": "context_scenario",
+  "files": {
+    ".config/mcpm/claude-profiles/bare/.claude.json": {
+      "bytes": 23,
+      "class": "B",
+      "sha256": "d8e397af03b5b032f21d0aa967086f0c78b33c87b76f2e9898ae0a144df7de02"
+    },
+    ".config/mcpm/claude-profiles/bare/.mcpm-context-state.json": {
+      "bytes": 35,
+      "class": "B",
+      "sha256": "83ca0e3d969c4751fde63a53e0b72195821ffc39e56bd3746970a09ca2bcf68d"
+    },
+    ".config/mcpm/claude-profiles/bare/CLAUDE.md": {
+      "bytes": 135,
+      "class": "A",
+      "sha256": "9476c691c5f9c93fa7331b2a973e63e14726680ca4b293774cf2762fa05a7aed"
+    },
+    ".config/mcpm/claude-profiles/bare/settings.json": {
+      "bytes": 3,
+      "class": "B",
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    ".config/mcpm/claude-profiles/work/.claude.json": {
+      "bytes": 23,
+      "class": "B",
+      "sha256": "d8e397af03b5b032f21d0aa967086f0c78b33c87b76f2e9898ae0a144df7de02"
+    },
+    ".config/mcpm/claude-profiles/work/.mcpm-context-state.json": {
+      "bytes": 35,
+      "class": "B",
+      "sha256": "83ca0e3d969c4751fde63a53e0b72195821ffc39e56bd3746970a09ca2bcf68d"
+    },
+    ".config/mcpm/claude-profiles/work/CLAUDE.md": {
+      "bytes": 111,
+      "class": "A",
+      "sha256": "9d1e08e193f53cf446569d10e2156341eba787144d15cb55e2c6358b46b9445c"
+    },
+    ".config/mcpm/claude-profiles/work/settings.json": {
+      "bytes": 3,
+      "class": "B",
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    ".config/mcpm/context-shims.zsh": {
+      "bytes": 1908,
+      "class": "A",
+      "sha256": "f24527c9cb8ddf8af4d8a17cde6a46a90f292d2e8b33099cac655b73df24a006"
+    },
+    ".config/mcpm/context.json": {
+      "bytes": 371,
+      "class": "B",
+      "sha256": "0d559a97e1fa9fad76525401b181290a56d35a83013353f6a331be9d04889c0a"
+    },
+    "_golden/apply1.report.json": {
+      "bytes": 805,
+      "class": "B",
+      "sha256": "c5217b0ede9e58c6c3c5553344820796c9875776abe6157e71b38a53970a45fb"
+    },
+    "_golden/apply2-wrap-only.report.json": {
+      "bytes": 395,
+      "class": "B",
+      "sha256": "5ccace78df73f77a9d0bf73170b61b4a9dafdd73aaa074fd819e78d198cb2bf8"
+    },
+    "_golden/context-shims.zsh-n.txt": {
+      "bytes": 5,
+      "class": "A",
+      "sha256": "93ff7811a209e2a8479230bbb9b6bc19f7f311d3af383ec350c1db2a7e7d5494"
+    },
+    "_golden/shims.wrap-only.zsh": {
+      "bytes": 1908,
+      "class": "A",
+      "sha256": "f24527c9cb8ddf8af4d8a17cde6a46a90f292d2e8b33099cac655b73df24a006"
+    },
+    "_golden/snippet.wrap-on.no-profiles.zsh": {
+      "bytes": 1908,
+      "class": "A",
+      "sha256": "f24527c9cb8ddf8af4d8a17cde6a46a90f292d2e8b33099cac655b73df24a006"
+    },
+    "_golden/snippet.wrap-on.no-profiles.zsh-n.txt": {
+      "bytes": 5,
+      "class": "A",
+      "sha256": "93ff7811a209e2a8479230bbb9b6bc19f7f311d3af383ec350c1db2a7e7d5494"
+    },
+    "_golden/snippet.wrap-on.profiles.zsh": {
+      "bytes": 2152,
+      "class": "A",
+      "sha256": "ed71072ee11643c51ad55d33ea1875bb52364b0ce2bb73b719e079575f156cfc"
+    },
+    "_golden/snippet.wrap-on.profiles.zsh-n.txt": {
+      "bytes": 5,
+      "class": "A",
+      "sha256": "93ff7811a209e2a8479230bbb9b6bc19f7f311d3af383ec350c1db2a7e7d5494"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

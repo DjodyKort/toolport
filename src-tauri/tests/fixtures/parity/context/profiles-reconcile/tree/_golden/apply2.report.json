@@ -1,0 +1,16 @@
+{
+  "actions": [
+    "removed stale rule personal.md from profile",
+    "rules: 1 layer(s) [copy]",
+    "skipped agents/ (source <HOME>/.claude/agents missing)",
+    "reconciled <HOME>/.config/mcpm/claude-profiles/cp/.claude.json (2 MCP server(s))",
+    "removed rules from profile (<HOME>/.config/mcpm/claude-profiles/inh/rules)",
+    "skipped agents/ (source <HOME>/.claude/agents missing)",
+    "wrote shims: <HOME>/.config/mcpm/context-shims.zsh",
+    "saved config (2 profile(s))"
+  ],
+  "warnings": [
+    "orphan profile dir <HOME>/.config/mcpm/claude-profiles/stale-orphan (not in config) — `mcpm context profile remove stale-orphan --purge`",
+    "orphan profile dir <HOME>/.config/mcpm/claude-profiles/lnk (not in config) — `mcpm context profile remove lnk --purge`"
+  ]
+}

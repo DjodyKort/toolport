@@ -1,0 +1,20 @@
+{
+  "has_errors": false,
+  "messages": [
+    {
+      "level": "info",
+      "message": "Description lacks 'when to use' guidance. Consider adding context for agent discovery.",
+      "skill": "team-conventions"
+    },
+    {
+      "level": "info",
+      "message": "Description lacks 'when to use' guidance. Consider adding context for agent discovery.",
+      "skill": "python-style"
+    },
+    {
+      "level": "info",
+      "message": "Skill has activation 'always' with globs set. Globs are ignored when activation is 'always'.",
+      "skill": "python-style"
+    }
+  ]
+}

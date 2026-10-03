@@ -1,0 +1,34 @@
+{
+  "area": "agents",
+  "case": "agents/vscode-project",
+  "comparison": "A",
+  "entry": "agents_sync",
+  "files": {
+    "repo/.github/agents/code-reviewer.agent.md": {
+      "bytes": 201,
+      "class": "A",
+      "sha256": "3739a92ae9782c363c2d2a3e66baa55869d0ef7524ab59e386634873af86b666"
+    },
+    "repo/.github/agents/doc-writer.agent.md": {
+      "bytes": 181,
+      "class": "A",
+      "sha256": "e95c83298e3e4aa5b8eaf2cf78c637f4f0acde9209398b168b0471cd41199dd5"
+    },
+    "repo/.github/agents/minimal.agent.md": {
+      "bytes": 76,
+      "class": "A",
+      "sha256": "d26f28d07250c044afaa2730bc3b1f7f26a6094a53feed2a67d26df69c20888c"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 1404,
+      "class": "B",
+      "sha256": "ba130b162361e082829e418e04022d263d4b1e63dd2433b2b61aa485f24ce2ca"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

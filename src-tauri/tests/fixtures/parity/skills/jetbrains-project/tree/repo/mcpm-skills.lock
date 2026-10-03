@@ -1,0 +1,88 @@
+{
+  "active_styles": {},
+  "agents": {},
+  "output_root": "<HOME>/repo",
+  "rules": {
+    "python-style": {
+      "clients_synced": [
+        "jetbrains"
+      ],
+      "hash": "sha256:71cf527116615e90",
+      "hooks_installed": {},
+      "output_files": {
+        "jetbrains": [
+          ".aiassistant/rules/python-style.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "team-conventions": {
+      "clients_synced": [
+        "jetbrains"
+      ],
+      "hash": "sha256:3422d58f397226a6",
+      "hooks_installed": {},
+      "output_files": {
+        "jetbrains": [
+          ".aiassistant/rules/team-conventions.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "scope": "project",
+  "skills": {
+    "code-review": {
+      "clients_synced": [
+        "jetbrains"
+      ],
+      "hash": "sha256:e36e8219b920feb3",
+      "hooks_installed": {},
+      "output_files": {
+        "jetbrains": [
+          ".aiassistant/rules/code-review.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "db-helper": {
+      "clients_synced": [
+        "jetbrains"
+      ],
+      "hash": "sha256:15e34949b32ff5ee",
+      "hooks_installed": {},
+      "output_files": {
+        "jetbrains": [
+          ".aiassistant/rules/db-helper.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "release-checklist": {
+      "clients_synced": [
+        "jetbrains"
+      ],
+      "hash": "sha256:2d18e8c6c624a33a",
+      "hooks_installed": {},
+      "output_files": {
+        "jetbrains": [
+          ".aiassistant/rules/release-checklist.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "styles": {},
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

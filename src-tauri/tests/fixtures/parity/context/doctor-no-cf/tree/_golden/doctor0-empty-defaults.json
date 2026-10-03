@@ -1,0 +1,18 @@
+[
+  [
+    "ok",
+    "no legacy MCP duplicates"
+  ],
+  [
+    "warn",
+    "no personal layer scaffolded — run `mcpm context init`"
+  ],
+  [
+    "warn",
+    "shims file missing — run `mcpm context sync`"
+  ],
+  [
+    "ok",
+    "cf-dev-tools not installed — no coexistence constraints"
+  ]
+]

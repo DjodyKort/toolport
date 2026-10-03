@@ -1,0 +1,14 @@
+{
+  "actions": [
+    "wrote <HOME>/.config/mcpm/claude-profiles/work/CLAUDE.md",
+    "skipped rules/ (source <HOME>/.claude/rules missing)",
+    "skipped commands/ (source <HOME>/.claude/commands missing)",
+    "skipped skills/ (source <HOME>/.claude/skills missing)",
+    "skipped agents/ (source <HOME>/.claude/agents missing)",
+    "composed <HOME>/.config/mcpm/claude-profiles/work/settings.json",
+    "reconciled <HOME>/.config/mcpm/claude-profiles/work/.claude.json (0 MCP server(s))",
+    "wrote shims: <HOME>/.config/mcpm/context-shims.zsh",
+    "saved config (1 profile(s))"
+  ],
+  "warnings": []
+}

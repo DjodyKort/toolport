@@ -1,0 +1,5 @@
+repo/.claude/skills/handoff-notes/SKILL.md
+repo/.claude/skills/handoff-notes/scripts/precompact.sh
+repo/.claude/skills/handoff-notes/scripts/session-end.sh
+repo/.claude/skills/handoff-notes/scripts/session-start.sh
+repo/.cursor/rules/handoff-notes/RULE.md

@@ -1,0 +1,5 @@
+{
+  "clients/gamma/.git/info/exclude": false,
+  "clients/gamma/CLAUDE.local.md": true,
+  "clients/nolayer/CLAUDE.local.md": false
+}

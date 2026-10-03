@@ -1,0 +1,49 @@
+{
+  "area": "skills",
+  "case": "skills/hooks-revoke-global",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    ".claude/settings.json": {
+      "bytes": 243,
+      "class": "B",
+      "sha256": "00bce9d0572cf240d4e1a153d87b7f9a30a51b5c1432755c92e8147a57cd3599"
+    },
+    ".claude/skills/code-review/SKILL.md": {
+      "bytes": 191,
+      "class": "A",
+      "sha256": "eaf2cd81aae156994b6c113809ba57b4667e8625cfa7e56592a1c858f7243f78"
+    },
+    ".config/mcpm/mcpm-skills.lock": {
+      "bytes": 620,
+      "class": "B",
+      "sha256": "cdfb83b3dd1e4cddc71e4036d441a4ef0473edae199acc1b5687ffbb58f26749"
+    },
+    ".cursor/rules/code-review/RULE.md": {
+      "bytes": 148,
+      "class": "A",
+      "sha256": "904c03244853955a308aaff6bd034c8c79fcdbabe0d64edb874089fbc95c2835"
+    },
+    "_cleaned.txt": {
+      "bytes": 231,
+      "class": "A",
+      "sha256": "9ca39ea2398daafaf2813a24338dd92cc96d7485c4cda256e395425371ecbcf0"
+    },
+    "_deleted.txt": {
+      "bytes": 183,
+      "class": "A",
+      "sha256": "8e9360b8bb9cc44ef870074463e2db16cdd7c8c66c138f5f698135a936ed48eb"
+    },
+    "repo/skills/code-review/SKILL.md": {
+      "bytes": 188,
+      "class": "A",
+      "sha256": "3d0f388cad3180fbaadda74ed0a9e542530984998573e9a426700e6083f5c2b9"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

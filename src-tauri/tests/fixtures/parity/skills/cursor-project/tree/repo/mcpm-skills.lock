@@ -1,0 +1,73 @@
+{
+  "active_styles": {},
+  "agents": {},
+  "output_root": "<HOME>/repo",
+  "rules": {
+    "python-style": {
+      "clients_synced": [
+        "cursor"
+      ],
+      "hash": "sha256:71cf527116615e90",
+      "hooks_installed": {},
+      "output_files": {
+        "cursor": [
+          ".cursor/rules/python-style/RULE.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "scope": "project",
+  "skills": {
+    "code-review": {
+      "clients_synced": [
+        "cursor"
+      ],
+      "hash": "sha256:f0504e4b253f25e8",
+      "hooks_installed": {},
+      "output_files": {
+        "cursor": [
+          ".cursor/rules/code-review/RULE.md"
+        ]
+      },
+      "source": "local",
+      "version": "1.2.0",
+      "warnings": []
+    },
+    "db-helper": {
+      "clients_synced": [
+        "cursor"
+      ],
+      "hash": "sha256:1020ca53f199f853",
+      "hooks_installed": {},
+      "output_files": {
+        "cursor": [
+          ".cursor/rules/db-helper/RULE.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "release-checklist": {
+      "clients_synced": [
+        "cursor"
+      ],
+      "hash": "sha256:3dc095c1f200501e",
+      "hooks_installed": {},
+      "output_files": {
+        "cursor": [
+          ".cursor/rules/release-checklist/RULE.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "styles": {},
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

@@ -1,0 +1,54 @@
+{
+  "area": "skills",
+  "case": "skills/vscode-direct-import",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    "repo/.github/instructions/python-style.instructions.md": {
+      "bytes": 130,
+      "class": "A",
+      "sha256": "8ed721c7acd2883ebd5cfb7c8cd1b4b55d912ad66ca5e313c0924f04ea7119f5"
+    },
+    "repo/.github/instructions/team-conventions.instructions.md": {
+      "bytes": 41,
+      "class": "A",
+      "sha256": "94257490236ac9172fc0cce76008cc4fd9ce29953b33a8276c508764375cfc34"
+    },
+    "repo/.github/skills/code-review/SKILL.md": {
+      "bytes": 191,
+      "class": "A",
+      "sha256": "eaf2cd81aae156994b6c113809ba57b4667e8625cfa7e56592a1c858f7243f78"
+    },
+    "repo/.github/skills/code-review/modules/checklist.md": {
+      "bytes": 22,
+      "class": "A",
+      "sha256": "50b12757463dc7d861a115cc45369e41be09d716bee6a7470f6b50575db2ea5f"
+    },
+    "repo/.github/skills/code-review/reference/glossary.txt": {
+      "bytes": 18,
+      "class": "A",
+      "sha256": "ca745d4e119fa0c6666acff4aaa0348ef8dbc6761e92fcdafcf0dd4165886b12"
+    },
+    "repo/.github/skills/db-helper/SKILL.md": {
+      "bytes": 129,
+      "class": "A",
+      "sha256": "f905cb1ce9ada1cf555db58462760fba87e1ab8b53f6feec925b89fc7517185c"
+    },
+    "repo/.github/skills/release-checklist/SKILL.md": {
+      "bytes": 165,
+      "class": "A",
+      "sha256": "5643f1598552a81b44723fff848bc44c00deabc466bc09bc313628e7004926ed"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 2144,
+      "class": "B",
+      "sha256": "3dbc1b3e5edc0ffbbf481a914de02f54ab5affa6cab98882094b25c627e5caae"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

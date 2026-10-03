@@ -1,0 +1,59 @@
+{
+  "area": "skills",
+  "case": "skills/claude-code-global",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    ".claude/rules/python-style.md": {
+      "bytes": 134,
+      "class": "A",
+      "sha256": "9e46fdd8a8d569ca39e72084fda10e374bb3640a9983b2420758cb3c0d44557c"
+    },
+    ".claude/settings.json": {
+      "bytes": 499,
+      "class": "B",
+      "sha256": "b66967e24d3745055189d3472374659eacba5c8e202902f088f4a56547f0d43d"
+    },
+    ".claude/skills/code-review/SKILL.md": {
+      "bytes": 259,
+      "class": "A",
+      "sha256": "bdd7311c72bac0abaa6ff186a6fce2634d6b97e60ecb2b60cb5d561ee43bdc61"
+    },
+    ".claude/skills/code-review/modules/checklist.md": {
+      "bytes": 50,
+      "class": "A",
+      "sha256": "b5c2350c95e52248241b712943f28c84e9db2afe1d726d83046af363633459c6"
+    },
+    ".claude/skills/code-review/reference/glossary.txt": {
+      "bytes": 23,
+      "class": "A",
+      "sha256": "fe5482831770d9f5b11a45408ed761a924014d1a1b898e29341bee54fc7ef44a"
+    },
+    ".claude/skills/handoff-notes/SKILL.md": {
+      "bytes": 162,
+      "class": "A",
+      "sha256": "fa3b81939127f6ff97a78a1f898136ef244dd6a4be0a83fd6b36bd8da7394c6c"
+    },
+    ".claude/skills/handoff-notes/scripts/precompact.sh": {
+      "bytes": 26,
+      "class": "A",
+      "sha256": "6dbb705943397b2b58debb9e1d4d3ffff60ef568e471f8c4c0073e86eb4814c7"
+    },
+    ".claude/skills/handoff-notes/scripts/session-start.sh": {
+      "bytes": 21,
+      "class": "A",
+      "sha256": "bdd721eb0b2bed9c258b194af295c438c0847ef564c92f9a0f384e9a6a41239d"
+    },
+    ".config/mcpm/mcpm-skills.lock": {
+      "bytes": 1650,
+      "class": "B",
+      "sha256": "680b195630a7fd5b02c43107a3b716e2fd626418176cae1fa45ee91a593dbc9b"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

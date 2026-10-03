@@ -1,0 +1,54 @@
+{
+  "area": "skills",
+  "case": "skills/codex-cli-global",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    ".codex/skills/code-review/SKILL.md": {
+      "bytes": 191,
+      "class": "A",
+      "sha256": "eaf2cd81aae156994b6c113809ba57b4667e8625cfa7e56592a1c858f7243f78"
+    },
+    ".codex/skills/code-review/modules/checklist.md": {
+      "bytes": 22,
+      "class": "A",
+      "sha256": "50b12757463dc7d861a115cc45369e41be09d716bee6a7470f6b50575db2ea5f"
+    },
+    ".codex/skills/code-review/reference/glossary.txt": {
+      "bytes": 18,
+      "class": "A",
+      "sha256": "ca745d4e119fa0c6666acff4aaa0348ef8dbc6761e92fcdafcf0dd4165886b12"
+    },
+    ".codex/skills/db-helper/SKILL.md": {
+      "bytes": 129,
+      "class": "A",
+      "sha256": "f905cb1ce9ada1cf555db58462760fba87e1ab8b53f6feec925b89fc7517185c"
+    },
+    ".codex/skills/python-style/SKILL.md": {
+      "bytes": 181,
+      "class": "A",
+      "sha256": "c7b07ea21d048b38086e2e10cdcc6e10c340bd261e7cbfe68e81cf994575c4ab"
+    },
+    ".codex/skills/release-checklist/SKILL.md": {
+      "bytes": 165,
+      "class": "A",
+      "sha256": "5643f1598552a81b44723fff848bc44c00deabc466bc09bc313628e7004926ed"
+    },
+    ".codex/skills/team-conventions/SKILL.md": {
+      "bytes": 144,
+      "class": "A",
+      "sha256": "02578d8987106947e1dc0ebb6485ca3a88890d3602a648a9b3c2245dc2f7c70e"
+    },
+    ".config/mcpm/mcpm-skills.lock": {
+      "bytes": 2074,
+      "class": "B",
+      "sha256": "5f1d078222b6b46b4bbffaee458eef948c097ed052bd251a0412db2ce35511ca"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

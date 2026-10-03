@@ -1,0 +1,39 @@
+{
+  "area": "skills",
+  "case": "skills/hooks-unsupported-client",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    "repo/.cursor/rules/code-review/RULE.md": {
+      "bytes": 148,
+      "class": "A",
+      "sha256": "904c03244853955a308aaff6bd034c8c79fcdbabe0d64edb874089fbc95c2835"
+    },
+    "repo/.cursor/rules/handoff-notes/RULE.md": {
+      "bytes": 142,
+      "class": "A",
+      "sha256": "4d9b940f7c199bbaf667732ad1036c691ed4dde3de60e52c85b8b10960ef51fc"
+    },
+    "repo/.windsurf/rules/code-review.md": {
+      "bytes": 172,
+      "class": "A",
+      "sha256": "a8877719798df2009d0dda2537b036904117775b845fbb5af0ba2976edfce1c1"
+    },
+    "repo/.windsurf/rules/handoff-notes.md": {
+      "bytes": 166,
+      "class": "A",
+      "sha256": "08be3187a6221e95e0246dba8a229ada3669725456ddd45703ddaafc8b10c0b3"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 1045,
+      "class": "B",
+      "sha256": "80c42033510c012a0fe2839d60f058bc9d9096178d04526288e98892390803d1"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

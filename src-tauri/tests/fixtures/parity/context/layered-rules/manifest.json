@@ -1,0 +1,84 @@
+{
+  "area": "context",
+  "case": "context/layered-rules",
+  "comparison": "A",
+  "entry": "context_scenario",
+  "files": {
+    ".claude/rules/client-acme.md": {
+      "bytes": 216,
+      "class": "A",
+      "sha256": "71cc600a4f79284695b97996f4f3b376bf82146bf486772c30bf325ed2c75352"
+    },
+    ".claude/rules/client-beta.md": {
+      "bytes": 83,
+      "class": "A",
+      "sha256": "5274a474f230c0f5e677fdf61e181772ea11cfd97caab9f63aab97a3561ed286"
+    },
+    ".claude/rules/client-gamma.md": {
+      "bytes": 40,
+      "class": "A",
+      "sha256": "d2f308984dad0ad7342024cf59485ed7d347abf290a964a9f5c39b403e236b09"
+    },
+    ".claude/rules/client-v18-arp.md": {
+      "bytes": 249,
+      "class": "A",
+      "sha256": "c3e08830deaa283c9e02f675860a284dbbe51767a18760474f977600613cdfef"
+    },
+    ".claude/rules/personal.md": {
+      "bytes": 75,
+      "class": "A",
+      "sha256": "087753b17f181a87240194fa3d7a9c22cc447521cd9137b6f717407a4d555cf8"
+    },
+    ".claude/rules/team-style.md": {
+      "bytes": 10,
+      "class": "A",
+      "sha256": "ebfe7e0e449659b7ba31fc80ea8833aace353d52d4ddf917fde6933b1f46fd3b"
+    },
+    ".config/mcpm/context.json": {
+      "bytes": 372,
+      "class": "B",
+      "sha256": "1a70c8c16321d964f8caf558c2413dda05cfc8ab473f7523fc226afbb90e8f0b"
+    },
+    ".config/mcpm/mcpm-skills.lock": {
+      "bytes": 2183,
+      "class": "B",
+      "sha256": "b31fe294f2ec9a8eb25b2271f22c32c634e3ba4629391eb097f88ecef0658ca7"
+    },
+    ".config/mcpm/skills_repo/rules/client-acme/SKILL.md": {
+      "bytes": 287,
+      "class": "A",
+      "sha256": "1d6ed3ae7a599bcebc06b7b30c68751a8d6524bc72ed0f5a3a36f616793ce842"
+    },
+    ".config/mcpm/skills_repo/rules/client-v18-arp/SKILL.md": {
+      "bytes": 324,
+      "class": "A",
+      "sha256": "226f99d6f6285872af49ad467f358d9d56a91b738c9b7c8deee976799c12bb09"
+    },
+    ".config/mcpm/skills_repo/rules/personal/SKILL.md": {
+      "bytes": 186,
+      "class": "A",
+      "sha256": "14f965d187e6be39d8d21898e771910c0898d3379fc05670729bf24026a3e0e9"
+    },
+    "_golden/apply.report.json": {
+      "bytes": 75,
+      "class": "B",
+      "sha256": "d8249a4c0a3d05958fa88106659d13216db1e10a33ddfc883cce8b82358ee9e5"
+    },
+    "_golden/personal.rule.md": {
+      "bytes": 75,
+      "class": "A",
+      "sha256": "087753b17f181a87240194fa3d7a9c22cc447521cd9137b6f717407a4d555cf8"
+    },
+    "_golden/scaffold.json": {
+      "bytes": 151,
+      "class": "B",
+      "sha256": "a7a201c8581795723ce8ae2d32bd9aaa05ba274504b0221d9f0193a718a9813a"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

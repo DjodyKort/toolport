@@ -1,0 +1,27 @@
+{
+  "active_styles": {
+    "cursor": "concise",
+    "zed": "concise"
+  },
+  "agents": {},
+  "output_root": "",
+  "rules": {},
+  "scope": "",
+  "skills": {},
+  "styles": {
+    "concise": {
+      "clients_synced": [
+        "cursor",
+        "zed"
+      ],
+      "hash": "sha256:3c05d526ae2e4ae3",
+      "hooks_installed": {},
+      "output_files": {},
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

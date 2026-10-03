@@ -1,0 +1,36 @@
+{
+  "active_styles": {},
+  "agents": {},
+  "output_root": "",
+  "rules": {},
+  "scope": "",
+  "skills": {},
+  "styles": {
+    "concise": {
+      "clients_synced": [
+        "claude-code",
+        "roomodes-style"
+      ],
+      "hash": "sha256:3c05d526ae2e4ae3",
+      "hooks_installed": {},
+      "output_files": {},
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "teacher": {
+      "clients_synced": [
+        "claude-code",
+        "roomodes-style"
+      ],
+      "hash": "sha256:d66e7e32fed5ea8e",
+      "hooks_installed": {},
+      "output_files": {},
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

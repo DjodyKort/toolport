@@ -1,0 +1,18 @@
+[
+  [
+    "ok",
+    "no legacy MCP duplicates"
+  ],
+  [
+    "warn",
+    "no personal layer scaffolded — run `mcpm context init`"
+  ],
+  [
+    "warn",
+    "context-shims sourced BEFORE shell-wrapper.sh in ~/.zshrc — move our source line below it"
+  ],
+  [
+    "ok",
+    "cf-dev-tools not installed — no coexistence constraints"
+  ]
+]

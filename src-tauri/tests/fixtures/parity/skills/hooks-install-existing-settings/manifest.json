@@ -1,0 +1,49 @@
+{
+  "area": "skills",
+  "case": "skills/hooks-install-existing-settings",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    "repo/.claude/settings.json": {
+      "bytes": 946,
+      "class": "B",
+      "sha256": "6c0ac7244173808a565316483aad96f7be924ddede33b8b174823b5c5a8ae52f"
+    },
+    "repo/.claude/skills/code-review/SKILL.md": {
+      "bytes": 191,
+      "class": "A",
+      "sha256": "eaf2cd81aae156994b6c113809ba57b4667e8625cfa7e56592a1c858f7243f78"
+    },
+    "repo/.claude/skills/handoff-notes/SKILL.md": {
+      "bytes": 162,
+      "class": "A",
+      "sha256": "fa3b81939127f6ff97a78a1f898136ef244dd6a4be0a83fd6b36bd8da7394c6c"
+    },
+    "repo/.claude/skills/handoff-notes/scripts/precompact.sh": {
+      "bytes": 26,
+      "class": "A",
+      "sha256": "6dbb705943397b2b58debb9e1d4d3ffff60ef568e471f8c4c0073e86eb4814c7"
+    },
+    "repo/.claude/skills/handoff-notes/scripts/session-end.sh": {
+      "bytes": 19,
+      "class": "A",
+      "sha256": "f3b67d150d05478e378634b7f6bb585e107658a293f8b83e35bbb27071cbb44d"
+    },
+    "repo/.claude/skills/handoff-notes/scripts/session-start.sh": {
+      "bytes": 21,
+      "class": "A",
+      "sha256": "bdd721eb0b2bed9c258b194af295c438c0847ef564c92f9a0f384e9a6a41239d"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 1344,
+      "class": "B",
+      "sha256": "af2d56381d8bcb568f2da7449b7814a736238e015516ca38804f457ba385e4b3"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

@@ -1,0 +1,10 @@
+repo/.claude/rules/python-style.md
+repo/.claude/skills/code-review/SKILL.md
+repo/.claude/skills/code-review/modules/checklist.md
+repo/.claude/skills/code-review/reference/glossary.txt
+repo/.cursor/rules/code-review/RULE.md
+repo/.cursor/rules/python-style/RULE.md
+repo/.gemini/skills/code-review/SKILL.md
+repo/.gemini/skills/code-review/modules/checklist.md
+repo/.gemini/skills/code-review/reference/glossary.txt
+repo/.gemini/skills/python-style/SKILL.md

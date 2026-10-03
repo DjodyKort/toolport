@@ -1,0 +1,44 @@
+{
+  "area": "skills",
+  "case": "skills/cline-project",
+  "comparison": "A",
+  "entry": "skills_sync",
+  "files": {
+    "repo/.clinerules/code-review.md": {
+      "bytes": 62,
+      "class": "A",
+      "sha256": "74d8d8c723396998899ac87ff4157516efd49ae766a0aa0347a2e15c66ad53df"
+    },
+    "repo/.clinerules/db-helper.md": {
+      "bytes": 85,
+      "class": "A",
+      "sha256": "272b85762f9c908cafbfa8498324d0082ebc770d397b4960ba06ade630d982dd"
+    },
+    "repo/.clinerules/python-style.md": {
+      "bytes": 128,
+      "class": "A",
+      "sha256": "4d9f654a042166ce8bc006e69c2fa7e3713538db5df85cf4d6b304f9f37cf257"
+    },
+    "repo/.clinerules/release-checklist.md": {
+      "bytes": 62,
+      "class": "A",
+      "sha256": "73c6ac4fd4bc5dca2b3ab4ae40fceebc6e5eb5cb9c2515fe2a8c2f56bc39e0be"
+    },
+    "repo/.clinerules/team-conventions.md": {
+      "bytes": 41,
+      "class": "A",
+      "sha256": "94257490236ac9172fc0cce76008cc4fd9ce29953b33a8276c508764375cfc34"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 1953,
+      "class": "B",
+      "sha256": "aa90df175456474ac8e6ecd48701c9ceee0e6d13c584da8012cd260d2c3b87cc"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

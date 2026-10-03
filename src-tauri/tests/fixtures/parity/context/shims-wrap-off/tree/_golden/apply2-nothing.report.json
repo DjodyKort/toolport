@@ -1,0 +1,9 @@
+{
+  "actions": [
+    "removed shims (no profiles, wrapper disabled)",
+    "saved config (0 profile(s))"
+  ],
+  "warnings": [
+    "orphan profile dir <HOME>/.config/mcpm/claude-profiles/work (not in config) — `mcpm context profile remove work --purge`"
+  ]
+}

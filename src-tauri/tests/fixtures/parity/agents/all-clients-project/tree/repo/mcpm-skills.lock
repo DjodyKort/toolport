@@ -1,0 +1,140 @@
+{
+  "active_styles": {},
+  "agents": {
+    "code-reviewer": {
+      "clients_synced": [
+        "claude-code",
+        "codex-cli",
+        "cursor",
+        "gemini-cli",
+        "vscode",
+        "roomodes"
+      ],
+      "hash": "sha256:969ff45f7e299a13",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/agents/code-reviewer.md"
+        ],
+        "codex-cli": [
+          ".codex/agents/code-reviewer.toml"
+        ],
+        "cursor": [
+          ".cursor/agents/code-reviewer.md"
+        ],
+        "gemini-cli": [
+          ".gemini/agents/code-reviewer.md"
+        ],
+        "roomodes": [
+          ".roomodes"
+        ],
+        "vscode": [
+          ".github/agents/code-reviewer.agent.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": [
+        "codex-cli: 'tools' field not supported in agent TOML, dropped",
+        "cursor: 'tools' field not supported, dropped",
+        "cursor: 'mcp-servers' field not supported, dropped",
+        "cursor: 'max-turns' field not supported, dropped",
+        "gemini-cli: 'disallowed-tools' not supported, dropped",
+        "gemini-cli: 'permission-mode' not supported, dropped",
+        "vscode: 'disallowed-tools' not supported, dropped",
+        "vscode: 'max-turns' not supported, dropped",
+        "vscode: 'permission-mode' not supported, dropped",
+        "roomodes: 'model' not directly supported, included in customInstructions",
+        "roomodes: 'model' not directly supported, included in customInstructions"
+      ]
+    },
+    "doc-writer": {
+      "clients_synced": [
+        "claude-code",
+        "codex-cli",
+        "cursor",
+        "gemini-cli",
+        "vscode",
+        "roomodes"
+      ],
+      "hash": "sha256:0442360205b242f1",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/agents/doc-writer.md"
+        ],
+        "codex-cli": [
+          ".codex/agents/doc-writer.toml"
+        ],
+        "cursor": [
+          ".cursor/agents/doc-writer.md"
+        ],
+        "gemini-cli": [
+          ".gemini/agents/doc-writer.md"
+        ],
+        "roomodes": [
+          ".roomodes"
+        ],
+        "vscode": [
+          ".github/agents/doc-writer.agent.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": [
+        "codex-cli: 'tools' field not supported in agent TOML, dropped",
+        "cursor: 'tools' field not supported, dropped",
+        "cursor: 'mcp-servers' field not supported, dropped",
+        "gemini-cli: 'permission-mode' not supported, dropped",
+        "vscode: 'permission-mode' not supported, dropped",
+        "roomodes: 'model' not directly supported, included in customInstructions",
+        "roomodes: 'model' not directly supported, included in customInstructions"
+      ]
+    },
+    "minimal": {
+      "clients_synced": [
+        "claude-code",
+        "codex-cli",
+        "cursor",
+        "gemini-cli",
+        "vscode",
+        "roomodes"
+      ],
+      "hash": "sha256:dff0a596ea9ee09a",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/agents/minimal.md"
+        ],
+        "codex-cli": [
+          ".codex/agents/minimal.toml"
+        ],
+        "cursor": [
+          ".cursor/agents/minimal.md"
+        ],
+        "gemini-cli": [
+          ".gemini/agents/minimal.md"
+        ],
+        "roomodes": [
+          ".roomodes"
+        ],
+        "vscode": [
+          ".github/agents/minimal.agent.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": [
+        "roomodes: 'model' not directly supported, included in customInstructions",
+        "roomodes: 'model' not directly supported, included in customInstructions"
+      ]
+    }
+  },
+  "output_root": "",
+  "rules": {},
+  "scope": "",
+  "skills": {},
+  "styles": {},
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

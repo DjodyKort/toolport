@@ -1,0 +1,68 @@
+{
+  "customModes": [
+    {
+      "slug": "code-reviewer",
+      "name": "Code Reviewer",
+      "roleDefinition": "Reviews diffs and reports findings",
+      "customInstructions": "You are a careful code reviewer. Report findings by severity.",
+      "groups": [
+        [
+          "read",
+          {}
+        ]
+      ]
+    },
+    {
+      "slug": "doc-writer",
+      "name": "Doc Writer",
+      "roleDefinition": "Writes documentation from code",
+      "customInstructions": "Write clear documentation.",
+      "groups": [
+        [
+          "browser",
+          {}
+        ],
+        [
+          "command",
+          {}
+        ],
+        [
+          "edit",
+          {
+            "fileRegex": ".*"
+          }
+        ],
+        [
+          "read",
+          {}
+        ]
+      ]
+    },
+    {
+      "slug": "minimal",
+      "name": "Minimal",
+      "roleDefinition": "Smallest possible agent",
+      "customInstructions": "Do the thing.",
+      "groups": [
+        [
+          "read",
+          {}
+        ],
+        [
+          "edit",
+          {
+            "fileRegex": ".*"
+          }
+        ],
+        [
+          "command",
+          {}
+        ],
+        [
+          "mcp",
+          {}
+        ]
+      ]
+    }
+  ]
+}

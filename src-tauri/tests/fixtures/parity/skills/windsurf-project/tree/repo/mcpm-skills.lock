@@ -1,0 +1,45 @@
+{
+  "active_styles": {},
+  "agents": {},
+  "output_root": "<HOME>/repo",
+  "rules": {
+    "python-style": {
+      "clients_synced": [
+        "windsurf"
+      ],
+      "hash": "sha256:71cf527116615e90",
+      "hooks_installed": {},
+      "output_files": {
+        "windsurf": [
+          ".windsurf/rules/python-style.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "scope": "project",
+  "skills": {
+    "long-guide": {
+      "clients_synced": [
+        "windsurf"
+      ],
+      "hash": "sha256:64aeda880b023ea9",
+      "hooks_installed": {},
+      "output_files": {
+        "windsurf": [
+          ".windsurf/rules/long-guide.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": [
+        "windsurf: body truncated from 14093 to fit 12000 char limit"
+      ]
+    }
+  },
+  "styles": {},
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

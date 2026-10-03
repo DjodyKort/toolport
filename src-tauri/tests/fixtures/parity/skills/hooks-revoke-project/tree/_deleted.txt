@@ -1,0 +1,4 @@
+repo/skills/handoff-notes/SKILL.md
+repo/skills/handoff-notes/scripts/precompact.sh
+repo/skills/handoff-notes/scripts/session-end.sh
+repo/skills/handoff-notes/scripts/session-start.sh

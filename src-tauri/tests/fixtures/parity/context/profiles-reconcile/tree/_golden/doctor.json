@@ -1,0 +1,26 @@
+[
+  [
+    "ok",
+    "no legacy MCP duplicates"
+  ],
+  [
+    "warn",
+    "no personal layer scaffolded — run `mcpm context init`"
+  ],
+  [
+    "ok",
+    "profile 'cp' healthy"
+  ],
+  [
+    "ok",
+    "profile 'inh' healthy"
+  ],
+  [
+    "warn",
+    "shims not sourced — add to ~/.zshrc:  source <HOME>/.config/mcpm/context-shims.zsh"
+  ],
+  [
+    "ok",
+    "cf-dev-tools not installed — no coexistence constraints"
+  ]
+]

@@ -1,0 +1,29 @@
+{
+  "area": "agents",
+  "case": "agents/claude-code-project",
+  "comparison": "A",
+  "entry": "agents_sync",
+  "files": {
+    "repo/.claude/agents/code-reviewer.md": {
+      "bytes": 306,
+      "class": "A",
+      "sha256": "67019df8a02bb39436d4b5b375fd861992cf1eb363b688ddfca300056d61d3ce"
+    },
+    "repo/.claude/agents/doc-writer.md": {
+      "bytes": 124,
+      "class": "A",
+      "sha256": "89248b5f5a8ec2da4c2eeb1a669356a208bb00be2dd927ff9fb2ed09a78ce784"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 843,
+      "class": "B",
+      "sha256": "50b230f6bd0fe61636f6d21e90c3c2f5b8f7bf33f603dc15145eda2533186dc9"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

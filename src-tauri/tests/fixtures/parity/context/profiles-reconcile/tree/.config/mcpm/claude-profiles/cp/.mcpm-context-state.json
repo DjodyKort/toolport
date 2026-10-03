@@ -1,0 +1,6 @@
+{
+  "rules_managed": [
+    "client-acme.md"
+  ],
+  "settings_base_sha256": "fd46733fe5dcd4b577f719836fed81962644d9301a16fc71b6cd3ef2c63653fd"
+}

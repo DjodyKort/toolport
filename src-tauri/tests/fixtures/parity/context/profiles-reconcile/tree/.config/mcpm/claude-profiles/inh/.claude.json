@@ -1,0 +1,15 @@
+{
+  "hasCompletedOnboarding": true,
+  "mcpServers": {
+    "foo": {
+      "command": "f"
+    },
+    "mcpm_a": {
+      "command": "a"
+    }
+  },
+  "oauthAccount": {
+    "emailAddress": "user@example.test"
+  },
+  "userID": "u1"
+}

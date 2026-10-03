@@ -1,0 +1,10 @@
+{
+  "actions": [
+    "wrote shims: <HOME>/.config/mcpm/context-shims.zsh",
+    "saved config (0 profile(s))"
+  ],
+  "warnings": [
+    "orphan profile dir <HOME>/.config/mcpm/claude-profiles/bare (not in config) — `mcpm context profile remove bare --purge`",
+    "orphan profile dir <HOME>/.config/mcpm/claude-profiles/work (not in config) — `mcpm context profile remove work --purge`"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "actions": [
+    "wrote <HOME>/.config/mcpm/claude-profiles/work/CLAUDE.md",
+    "linked rules/ → <HOME>/.claude/rules",
+    "linked commands/ → <HOME>/.claude/commands",
+    "skipped skills/ (source <HOME>/.claude/skills missing)",
+    "skipped agents/ (source <HOME>/.claude/agents missing)",
+    "composed <HOME>/.config/mcpm/claude-profiles/work/settings.json",
+    "reconciled <HOME>/.config/mcpm/claude-profiles/work/.claude.json (0 MCP server(s))",
+    "wrote <HOME>/.config/mcpm/claude-profiles/bare/CLAUDE.md",
+    "composed <HOME>/.config/mcpm/claude-profiles/bare/settings.json",
+    "reconciled <HOME>/.config/mcpm/claude-profiles/bare/.claude.json (0 MCP server(s))",
+    "wrote shims: <HOME>/.config/mcpm/context-shims.zsh",
+    "saved config (2 profile(s))"
+  ],
+  "warnings": []
+}

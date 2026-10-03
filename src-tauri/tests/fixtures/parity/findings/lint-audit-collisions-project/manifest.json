@@ -1,0 +1,29 @@
+{
+  "area": "findings",
+  "case": "findings/lint-audit-collisions-project",
+  "comparison": "C",
+  "entry": "findings",
+  "files": {
+    "findings/audit.json": {
+      "bytes": 2147,
+      "class": "C",
+      "sha256": "3a585ea672e1599b3788d799e48b144e65d76b77bbb34f41c1d3774b26ddd7a0"
+    },
+    "findings/collisions.json": {
+      "bytes": 455,
+      "class": "C",
+      "sha256": "4431404ec6ae14497b24809eb8a3ea8f996d41fe304b5016229c45db9cebad84"
+    },
+    "findings/lint.json": {
+      "bytes": 2525,
+      "class": "C",
+      "sha256": "6eab0ebf12a1dde3d160a78397bc4b463daa821401b0cf790b9226a931906485"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

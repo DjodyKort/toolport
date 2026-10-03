@@ -1,0 +1,28 @@
+{
+  "active_styles": {},
+  "agents": {},
+  "output_root": "<HOME>/repo",
+  "rules": {},
+  "scope": "project",
+  "skills": {
+    "asset-lab": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:6f0d8097b48c3c19",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/skills/asset-lab/SKILL.md",
+          ".claude/skills/asset-lab/modules/a.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "styles": {},
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

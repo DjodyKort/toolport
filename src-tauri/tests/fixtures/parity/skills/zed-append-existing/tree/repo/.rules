@@ -1,0 +1,50 @@
+# My own Zed rules
+
+Keep answers short.
+
+<!-- mcpm:start -->
+## code-review
+
+# Code review
+
+Read the diff and report findings by severity.
+
+---
+
+## db-helper
+
+# DB helper
+
+Explain table relationships.
+
+---
+
+## release-checklist
+
+# Release checklist
+
+1. Bump the version.
+2. Tag the release.
+
+---
+
+## team-conventions
+
+# Team conventions
+
+Write small commits.
+
+---
+
+## python-style
+
+# Python style
+
+Use type hints on public functions.
+Prefer `pathlib` over `os.path`.
+<!-- mcpm:end -->
+
+## Footer
+
+Kept after the block.
+

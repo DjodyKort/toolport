@@ -1,0 +1,35 @@
+{
+  "active_styles": {},
+  "agents": {},
+  "output_root": "",
+  "rules": {},
+  "scope": "",
+  "skills": {},
+  "styles": {
+    "concise": {
+      "clients_synced": [
+        "aider",
+        "amazon-q",
+        "cline",
+        "codex-cli",
+        "continue",
+        "cursor",
+        "gemini-cli",
+        "goose",
+        "jetbrains",
+        "trae",
+        "vscode-copilot",
+        "windsurf",
+        "zed"
+      ],
+      "hash": "sha256:3c05d526ae2e4ae3",
+      "hooks_installed": {},
+      "output_files": {},
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

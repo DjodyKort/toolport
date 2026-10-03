@@ -1,0 +1,23 @@
+{
+  "active_styles": {},
+  "agents": {},
+  "output_root": "<HOME>/repo",
+  "rules": {},
+  "scope": "project",
+  "skills": {
+    "quote-test": {
+      "clients_synced": [
+        "agents-md"
+      ],
+      "hash": "sha256:e3eda527fb89437f",
+      "hooks_installed": {},
+      "output_files": {},
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "styles": {},
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

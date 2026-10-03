@@ -1,0 +1,22 @@
+{
+  "cf_wrapper_hash": null,
+  "clients_root": "<HOME>/clients",
+  "dedupe": {
+    "enabled": false,
+    "legacy_names": [
+      "context7",
+      "playwright",
+      "codeforward-odoo",
+      "codeforward-typst"
+    ],
+    "require_mcpm_twin": true
+  },
+  "profiles": {},
+  "settings": {
+    "ensure_allow": [
+      "Bash(ls:*)"
+    ],
+    "ensure_ask": []
+  },
+  "wrap_default_claude": false
+}

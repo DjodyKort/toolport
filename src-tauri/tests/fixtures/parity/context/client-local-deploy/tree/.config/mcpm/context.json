@@ -1,0 +1,20 @@
+{
+  "profiles": {},
+  "wrap_default_claude": false,
+  "dedupe": {
+    "enabled": false,
+    "legacy_names": [
+      "context7",
+      "playwright",
+      "codeforward-odoo",
+      "codeforward-typst"
+    ],
+    "require_mcpm_twin": true
+  },
+  "settings": {
+    "ensure_allow": [],
+    "ensure_ask": []
+  },
+  "clients_root": "<HOME>/clients",
+  "cf_wrapper_hash": null
+}

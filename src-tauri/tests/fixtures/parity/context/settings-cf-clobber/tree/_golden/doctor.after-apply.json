@@ -1,0 +1,14 @@
+[
+  [
+    "ok",
+    "no legacy MCP duplicates"
+  ],
+  [
+    "warn",
+    "no personal layer scaffolded — run `mcpm context init`"
+  ],
+  [
+    "ok",
+    "policy permission entries present in settings.json"
+  ]
+]
