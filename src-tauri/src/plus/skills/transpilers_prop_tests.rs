@@ -506,6 +506,28 @@ fn codex_agent_output_is_valid_toml_and_carries_the_body() {
 }
 
 #[test]
+fn codex_agent_mcp_server_hint_names_an_existing_toolportctl_command() {
+    let tmp = ScratchDir::new("codex-agent-hint");
+    let all = all_agent_transpilers();
+    let codex = all.iter().find(|t| t.client_key() == "codex-cli").unwrap();
+    let (command, _) =
+        crate::plus::ctl::find_command(&["server".to_string(), "install".to_string()])
+            .expect("ctl server install");
+    assert!(command.handler.is_some());
+    run_cases("agents-codex-hint", 20, |_, rng| {
+        let mut a = agent(rng, true);
+        a.frontmatter.mcp_servers = vec!["docs".into(), "search".into()];
+        let out = codex.transpile(&a, tmp.path()).unwrap();
+        for server in ["docs", "search"] {
+            let hint =
+                format!("# Configure via toolportctl: toolportctl server install {server}\n");
+            assert!(out.content.contains(&hint), "{}", out.content);
+        }
+        assert!(!out.content.contains("mcpm install"), "{}", out.content);
+    });
+}
+
+#[test]
 fn markdown_agent_outputs_re_parse_to_the_same_name_and_description() {
     let tmp = ScratchDir::new("md-agent");
     let all = all_agent_transpilers();

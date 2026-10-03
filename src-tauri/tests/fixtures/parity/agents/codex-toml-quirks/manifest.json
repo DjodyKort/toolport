@@ -5,9 +5,9 @@
   "entry": "agents_sync",
   "files": {
     "repo/.codex/agents/quirky.toml": {
-      "bytes": 274,
+      "bytes": 295,
       "class": "A",
-      "sha256": "a4ac6aaafc54413380f352571051fdab37e8bfd3db9a6a22904468b351fff7f6"
+      "sha256": "fb420a4ab36638b8d10b5e76f0454fc5006813db8c77e5ccd12e71030c7a702b"
     },
     "repo/mcpm-skills.lock": {
       "bytes": 573,
