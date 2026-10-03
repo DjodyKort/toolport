@@ -30,6 +30,7 @@ const HANDLERS: &[(&str, Handler)] = &[
     ("plus.context.plan", context::plan_handler),
     ("plus.context.apply", context::apply_handler),
     ("plus.import_mcpm.run", import_mcpm::run_handler),
+    ("plus.import_mcpm.nameMap", import_mcpm::name_map_handler),
     ("plus.context.whatLoads", context::what_loads_handler),
     ("plus.sync.init", sync::handlers::init_handler),
     ("plus.sync.push", sync::handlers::push_handler),

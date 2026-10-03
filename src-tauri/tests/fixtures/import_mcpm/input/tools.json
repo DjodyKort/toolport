@@ -1,0 +1,46 @@
+{
+  "context7": ["resolve-library-id", "get-library-docs"],
+  "drawio": ["create-item", "drawio-status", "get_item", "list-items", "search"],
+  "clickup": ["clickup-status", "create-item", "get_item", "list-items", "search"],
+  "scihub": ["create-item", "get_item", "list-items", "scihub-status", "search"],
+  "anna-mcp": ["anna_mcp-status", "create-item", "get_item", "list-items", "search"],
+  "org-odoo": ["create-item", "get_item", "list-items", "org_odoo-status", "search"],
+  "org-typst": ["create-item", "get_item", "list-items", "org_typst-status", "search"],
+  "google-docs-mcp": [
+    "create-item",
+    "get_item",
+    "google_docs_mcp-status",
+    "list-items",
+    "search"
+  ],
+  "stitch": ["create-item", "get_item", "list-items", "search", "stitch-status"],
+  "figma": ["create-item", "figma-status", "get_item", "list-items", "search"],
+  "framelink": ["create-item", "framelink-status", "get_item", "list-items", "search"],
+  "dev-odoo": ["create-item", "dev_odoo-status", "get_item", "list-items", "search"],
+  "slack": ["create-item", "get_item", "list-items", "search", "slack-status"],
+  "serena": ["create-item", "get_item", "list-items", "search", "serena-status"],
+  "miro": ["create-item", "get_item", "list-items", "miro-status", "search"],
+  "miro-community": [
+    "create-item",
+    "get_item",
+    "list-items",
+    "miro_community-status",
+    "search"
+  ],
+  "google-docs-a": [
+    "create-item",
+    "get_item",
+    "google_docs_a-status",
+    "list-items",
+    "search"
+  ],
+  "google-docs-b": [
+    "create-item",
+    "get_item",
+    "google_docs_b-status",
+    "list-items",
+    "search"
+  ],
+  "moodle-mcp": ["create-item", "get_item", "list-items", "moodle_mcp-status", "search"],
+  "lib": ["create-item", "get_item", "lib-status", "list-items", "search"]
+}

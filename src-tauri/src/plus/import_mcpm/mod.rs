@@ -2,6 +2,9 @@
 
 mod clients;
 mod ids;
+mod name_map;
+#[cfg(test)]
+mod name_map_tests;
 mod run;
 #[cfg(test)]
 mod run_tests;
@@ -13,6 +16,9 @@ pub use clients::{
     map_clients, ClientConfig, ClientEntries, ClientMapping, ClientProfile, ClientSkip, MappedEntry,
 };
 pub use ids::{exposed_prefix, short_id, tool_name_fits, MAX_TOOL_NAME_LEN, TOOL_NAME_PREFIX};
+pub use name_map::{
+    build_name_map, name_map, name_map_handler, NameMap, NameMapError, ToolManifest,
+};
 pub use run::{load_input, run, run_handler, Action, Change, ClientChange, Plan, RunOptions};
 pub use servers::{map_servers, MappedServer, McpmInput, SecretWrite, Warning, IMPORT_SOURCE};
 
