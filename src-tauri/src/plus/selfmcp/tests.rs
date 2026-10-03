@@ -440,8 +440,6 @@ fn json_rpc_surface_lists_calls_and_reads() {
 }
 
 #[test]
-fn server_definition_points_at_the_binary() {
-    let def = server_definition();
-    assert!(def["command"].as_str().unwrap().contains(BINARY_NAME));
-    assert_eq!(def["transport"], "stdio");
+fn binary_path_points_at_the_selfmcp_binary() {
+    assert!(register::binary_path().contains(BINARY_NAME));
 }

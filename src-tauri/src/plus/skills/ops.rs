@@ -4,14 +4,21 @@
 
 use super::agents::AgentTranspiler;
 use super::assets::compute_skill_hash;
+#[cfg(test)]
 use super::clock::Clock;
+#[cfg(test)]
 use super::collisions::{
     detect_collisions, resolve_collisions, resolve_mode, Collision, CollisionSummary,
 };
 use super::json;
-use super::lock::{get_entry, lockfile_path, LockFile, OrderedMap};
-use super::parser::{valid_name, Skill, SkillType};
+#[cfg(test)]
+use super::lock::lockfile_path;
+use super::lock::{get_entry, LockFile, OrderedMap};
+use super::parser::{valid_name, Skill};
+#[cfg(test)]
+use super::parser::SkillType;
 use super::styles::{all_style_transpilers, Tier};
+#[cfg(test)]
 use super::transpiler::{
     Transpiler, TranspilerRegistry, APPEND_MODE_TRANSPILERS, PROJECT_ONLY_TRANSPILERS,
 };
@@ -112,11 +119,13 @@ pub struct StatusRow {
     pub present: bool,
 }
 
+#[cfg(test)]
 pub fn has_drift(rows: &[StatusRow]) -> bool {
     rows.iter().any(|r| !r.present)
 }
 
 /// Per skill and synced client: does the primary output file still exist?
+#[cfg(test)]
 pub fn skills_status(
     lock: &LockFile,
     registry: &TranspilerRegistry,
@@ -213,6 +222,7 @@ pub struct CleanOutcome {
 
 /// `mcpm skills clean`: every transpiler (or one `client`) removes what the lock says it wrote;
 /// the lockfile itself goes away only on a full clean.
+#[cfg(test)]
 pub fn clean_skills(
     lock_dir: &Path,
     clean_root: &Path,
@@ -308,6 +318,7 @@ pub fn clean_styles(root: &Path, lock: Option<&mut LockFile>) -> CleanOutcome {
     out
 }
 
+#[cfg(test)]
 pub struct ResolveRequest<'a> {
     pub client: Option<&'a str>,
     pub global_mode: bool,
@@ -318,6 +329,7 @@ pub struct ResolveRequest<'a> {
 }
 
 /// `mcpm skills resolve`: per-file clients only, project-only clients dropped in global mode.
+#[cfg(test)]
 pub fn resolve_skill_collisions(
     skills: &[Skill],
     registry: &TranspilerRegistry,

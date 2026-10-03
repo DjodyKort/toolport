@@ -3,7 +3,6 @@ use crate::plus::skills::parser::{Activation, Skill};
 use crate::plus::skills::transpiler::{TranspileResult, Transpiler};
 use std::path::{Path, PathBuf};
 
-pub const WINDSURF_GLOBAL_CHAR_LIMIT: usize = 6000;
 pub const WINDSURF_WORKSPACE_CHAR_LIMIT: usize = 12000;
 
 pub struct Windsurf;

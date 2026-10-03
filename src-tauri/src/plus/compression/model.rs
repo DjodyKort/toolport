@@ -281,6 +281,7 @@ impl KnobSpec {
         }
     }
 
+    #[cfg(test)]
     pub fn applies_to(mut self, spec: &str) -> Self {
         self.applies = spec.into();
         self
@@ -410,6 +411,7 @@ impl Default for CompressionConfig {
 }
 
 impl CompressionConfig {
+    #[cfg(test)]
     pub fn with_provider(provider: ProviderName) -> Self {
         Self {
             provider,
@@ -417,6 +419,7 @@ impl CompressionConfig {
         }
     }
 
+    #[cfg(test)]
     pub fn legacy_port(&self) -> u16 {
         match self.options.get("port") {
             Some(Value::Number(n)) => n.as_u64().and_then(|p| u16::try_from(p).ok()),
@@ -460,6 +463,7 @@ impl CompressionConfig {
         (self.provider, self.active_preset.clone())
     }
 
+    #[cfg(test)]
     pub fn resolved_provider(&self, cwd: &str) -> ProviderName {
         self.resolve(cwd).0
     }
