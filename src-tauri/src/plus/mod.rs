@@ -14,6 +14,7 @@ pub type Handler = fn(Value) -> Result<Value, String>;
 const HANDLERS: &[(&str, Handler)] = &[
     ("plus.ping", ping),
     ("plus.obs.summary", obs::summary_handler),
+    ("plus.auth.status", auth::status_handler),
 ];
 
 pub fn dispatch(command: &str, args: Value) -> Result<Value, String> {

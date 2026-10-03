@@ -81,7 +81,7 @@ pub struct Locked {
     _lock: File,
 }
 
-fn open_private(path: &Path) -> std::io::Result<File> {
+pub(crate) fn open_private(path: &Path) -> std::io::Result<File> {
     let mut opts = OpenOptions::new();
     opts.create(true).read(true).write(true);
     #[cfg(unix)]
