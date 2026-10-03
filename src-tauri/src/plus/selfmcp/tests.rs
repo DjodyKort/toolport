@@ -72,21 +72,23 @@ const EXPECTED_RESOURCES: &[&str] = &[
 ];
 
 pub(super) struct Fixture {
-    pub(super) dir: PathBuf,
+    base: crate::plus::testutil::DataDirFx,
     pub(super) home: PathBuf,
     pub(super) repo: PathBuf,
-    // fields drop in order: the override must go before the lock is released
-    _override: crate::registry::DataDirOverride,
-    _lock: std::sync::MutexGuard<'static, ()>,
+}
+
+impl std::ops::Deref for Fixture {
+    type Target = crate::plus::testutil::DataDirFx;
+    fn deref(&self) -> &Self::Target {
+        &self.base
+    }
 }
 
 impl Fixture {
     pub(super) fn new(tag: &str) -> Self {
-        let lock = crate::registry::data_dir_test_lock();
-        let dir = std::env::temp_dir().join(format!("selfmcp-{tag}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        let registry = json!({
+        let base = crate::plus::testutil::DataDirFx::new("selfmcp", tag);
+        let dir = base.dir.clone();
+        base.write_registry(&json!({
             "version": 1,
             "servers": [
                 {
@@ -99,9 +101,7 @@ impl Fixture {
             ],
             "profiles": [{"id": "default", "name": "Default", "enabledServerIds": ["srv-alpha"]}],
             "activeProfileId": "default"
-        });
-        std::fs::write(dir.join("registry.json"), registry.to_string()).unwrap();
-        let guard = crate::registry::DataDirOverride::set(&dir);
+        }));
         let home = dir.join("home");
         let repo = dir.join("skills-repo");
         for (rel, text) in [
@@ -125,13 +125,7 @@ impl Fixture {
         std::fs::create_dir_all(&home).unwrap();
         crate::clients::TEST_HOME.with(|h| *h.borrow_mut() = Some(home.clone()));
         backend::TEST_REPO.with(|r| *r.borrow_mut() = Some(repo.clone()));
-        Self {
-            dir,
-            home,
-            repo,
-            _override: guard,
-            _lock: lock,
-        }
+        Self { base, home, repo }
     }
 }
 
@@ -139,7 +133,6 @@ impl Drop for Fixture {
     fn drop(&mut self) {
         crate::clients::TEST_HOME.with(|h| *h.borrow_mut() = None);
         backend::TEST_REPO.with(|r| *r.borrow_mut() = None);
-        let _ = std::fs::remove_dir_all(&self.dir);
     }
 }
 
