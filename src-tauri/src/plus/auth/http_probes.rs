@@ -19,6 +19,7 @@ use super::google::{
 };
 use super::probe::{Clock, Probe, ProbeKind, ProbeRegistry, ProbeSpec, SystemClock};
 use super::types::ProbeOutcome;
+use crate::plus::compression::ledger;
 
 pub const PARAM_SERVICE: &str = "service";
 pub const PARAM_TOKEN_KEY: &str = "token_key";
@@ -631,42 +632,14 @@ fn parse_instant(value: &Value) -> Option<i64> {
 }
 
 fn parse_rfc3339(text: &str) -> Option<i64> {
-    let b = text.as_bytes();
-    if b.len() < 20 || b[4] != b'-' || b[7] != b'-' || !matches!(b[10], b'T' | b't' | b' ') {
+    let tail = text.get(19..)?;
+    let zone = tail.strip_prefix('.').map_or(tail, |frac| {
+        frac.trim_start_matches(|c: char| c.is_ascii_digit())
+    });
+    if zone.is_empty() {
         return None;
     }
-    let num = |range: std::ops::Range<usize>| text.get(range)?.parse::<i64>().ok();
-    let (year, month, day) = (num(0..4)?, num(5..7)?, num(8..10)?);
-    let (hour, minute, second) = (num(11..13)?, num(14..16)?, num(17..19)?);
-    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
-        return None;
-    }
-    let mut rest = &text[19..];
-    if let Some(stripped) = rest.strip_prefix('.') {
-        rest = stripped.trim_start_matches(|c: char| c.is_ascii_digit());
-    }
-    let offset = match rest {
-        "Z" | "z" => 0,
-        tz if tz.len() == 6 && (tz.starts_with('+') || tz.starts_with('-')) => {
-            let h = tz.get(1..3)?.parse::<i64>().ok()?;
-            let m = tz.get(4..6)?.parse::<i64>().ok()?;
-            let secs = h * 3600 + m * 60;
-            if tz.starts_with('-') {
-                -secs
-            } else {
-                secs
-            }
-        }
-        _ => return None,
-    };
-    let y = if month <= 2 { year - 1 } else { year };
-    let era = y.div_euclid(400);
-    let yoe = y - era * 400;
-    let mp = (month + 9) % 12;
-    let doy = (153 * mp + 2) / 5 + day - 1;
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    let days = era * 146_097 + doe - 719_468;
-    Some(days * 86_400 + hour * 3600 + minute * 60 + second - offset)
+    ledger::parse_ts(text).map(|ms| ms.div_euclid(1000))
 }
 
 impl Probe for HttpProbe {

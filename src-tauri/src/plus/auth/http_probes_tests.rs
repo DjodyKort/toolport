@@ -377,6 +377,18 @@ fn miro_expiry_drives_expiring_then_reauth() {
         matches!(out, ProbeOutcome::TokenTtl { secs } if secs < 0),
         "{out:?}"
     );
+
+    for zoneless in ["2001-09-09T03:46:40", "2001-09-09T03:46:40.250", "2001-09-09 03:46:40."] {
+        let m = fixed(200, &json!({"expires_at": zoneless}).to_string());
+        assert_eq!(
+            run(Service::MiroCommunity, &m.url),
+            ProbeOutcome::Success,
+            "{zoneless}"
+        );
+    }
+    let m = fixed(200, r#"{"expires_at":"2001-09-09T03:46:40.250Z"}"#);
+    let out = run(Service::MiroCommunity, &m.url);
+    assert!(matches!(out, ProbeOutcome::TokenTtl { .. }), "{out:?}");
 }
 
 #[test]

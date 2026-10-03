@@ -1,10 +1,10 @@
 //! Timestamped file snapshots under `<cache>/backups/<YYYYMMDD-HHMMSS>/`.
 
 use super::roots::Roots;
+use crate::plus::skills::clock::now_unix_secs;
 use crate::usage_report::civil_from_days;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn stamp_for(unix_secs: i64) -> String {
     let (y, m, d) = civil_from_days(unix_secs.div_euclid(86_400));
@@ -18,11 +18,7 @@ pub fn stamp_for(unix_secs: i64) -> String {
 }
 
 fn now_stamp() -> String {
-    let secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0);
-    stamp_for(secs)
+    stamp_for(now_unix_secs())
 }
 
 /// Copies `path` into a timestamped backup dir; `None` when it does not exist.

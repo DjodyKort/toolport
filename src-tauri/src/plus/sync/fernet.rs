@@ -1,10 +1,10 @@
+use crate::plus::skills::clock::now_unix_secs;
 use aes::Aes128;
 use base64::{engine::general_purpose::URL_SAFE, Engine};
 use cbc::cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use std::fmt;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 type HmacSha256 = Hmac<Sha256>;
 type Enc = cbc::Encryptor<Aes128>;
@@ -64,10 +64,7 @@ impl FernetKey {
 pub fn encrypt(key: &FernetKey, plaintext: &[u8]) -> Result<Vec<u8>, FernetError> {
     let mut iv = [0u8; 16];
     getrandom::getrandom(&mut iv).map_err(|_| FernetError::Entropy)?;
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
+    let now = now_unix_secs().max(0) as u64;
     Ok(encrypt_at(key, plaintext, now, iv))
 }
 

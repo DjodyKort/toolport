@@ -24,6 +24,10 @@ impl Clock for SystemClock {
     }
 }
 
+pub fn now_unix_secs() -> i64 {
+    SystemClock.now().unix_secs
+}
+
 pub struct FixedClock(pub Instant);
 
 impl Clock for FixedClock {
@@ -49,6 +53,12 @@ impl Instant {
             format!(".{:06}", self.micros)
         };
         format!("{y:04}-{mo:02}-{d:02}T{h:02}:{mi:02}:{s:02}{frac}+00:00")
+    }
+
+    /// `%Y-%m-%dT%H:%M:%SZ`.
+    pub fn zulu(&self) -> String {
+        let (y, mo, d, h, mi, s) = self.parts();
+        format!("{y:04}-{mo:02}-{d:02}T{h:02}:{mi:02}:{s:02}Z")
     }
 
     /// `%Y%m%dT%H%M%SZ`, the suffix of collision backups.
