@@ -1,6 +1,7 @@
 //! `toolportctl compression status|presets|run|verify|ledger|proxy|update`. `run` launches
 //! `claude` and records the launch; `proxy` and `update` act on the engine; the rest only read.
 
+use super::flags::{switch, value, Dashes, Flag, Inline, Spec};
 use super::output::{no_args, CtlError, Output};
 use crate::plus::compression::engine::{self, EngineOps};
 use crate::plus::compression::launch::{
@@ -230,60 +231,30 @@ pub fn run(rest: &[String]) -> Result<Output, CtlError> {
     std::process::exit(outcome.exit_code);
 }
 
-#[derive(Default)]
-struct Flags {
-    values: std::collections::HashMap<String, String>,
-    bools: std::collections::HashSet<String>,
-    positional: Vec<String>,
-}
-
-impl Flags {
-    fn parse(rest: &[String], bools: &[&str], values: &[&str]) -> Result<Flags, CtlError> {
-        let mut out = Flags::default();
-        let mut i = 0;
-        while i < rest.len() {
-            let arg = rest[i].as_str();
-            if let Some(name) = arg.strip_prefix("--") {
-                let (name, inline) = match name.split_once('=') {
-                    Some((n, v)) => (n, Some(v.to_string())),
-                    None => (name, None),
-                };
-                if bools.contains(&name) && inline.is_none() {
-                    out.bools.insert(name.to_string());
-                } else if values.contains(&name) {
-                    let value = match inline {
-                        Some(v) => v,
-                        None => {
-                            i += 1;
-                            rest.get(i)
-                                .ok_or_else(|| {
-                                    CtlError::usage(format!("--{name} requires a value"))
-                                })?
-                                .clone()
-                        }
-                    };
-                    out.values.insert(name.to_string(), value);
-                } else {
-                    return Err(CtlError::usage(format!("unknown option: --{name}")));
-                }
-            } else {
-                out.positional.push(arg.to_string());
-            }
-            i += 1;
-        }
-        Ok(out)
-    }
-
-    fn number<T: std::str::FromStr>(&self, name: &str) -> Result<Option<T>, CtlError> {
-        self.values
-            .get(name)
-            .map(|v| {
-                v.parse::<T>()
-                    .map_err(|_| CtlError::usage(format!("--{name} needs a whole number")))
-            })
-            .transpose()
+const fn spec(flags: &'static [Flag]) -> Spec {
+    Spec {
+        flags,
+        inline: Inline::Value,
+        dashes: Dashes::Long,
+        ..Spec::PLAIN
     }
 }
+
+const VERIFY: Spec = spec(&[
+    switch("--by-pin"),
+    value("--limit"),
+    value("--min-turns"),
+    value("--transcripts"),
+]);
+const LEDGER_RECORD: Spec = spec(&[
+    value("--provider"),
+    value("--before"),
+    value("--after"),
+    value("--source"),
+    value("--session"),
+]);
+const LEDGER_SUMMARY: Spec = spec(&[value("--provider"), value("--since")]);
+const UPDATE: Spec = spec(&[switch("--latest"), switch("--accept"), value("--to")]);
 
 fn pct(value: Option<f64>) -> String {
     value.map_or("-".into(), |v| format!("{:.1}%", v * 100.0))
@@ -307,12 +278,11 @@ fn metrics_json(m: &verify::Metrics) -> Value {
 }
 
 pub fn verify(rest: &[String]) -> Result<Output, CtlError> {
-    let flags = Flags::parse(rest, &["by-pin"], &["limit", "min-turns", "transcripts"])?;
-    no_args(&flags.positional)?;
+    let flags = VERIFY.parse(rest)?;
+    no_args(flags.operands())?;
     let (paths, loaded) = load()?;
     let root = flags
-        .values
-        .get("transcripts")
+        .one("--transcripts")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(verify::transcript_root);
     verify_with(
@@ -320,11 +290,11 @@ pub fn verify(rest: &[String]) -> Result<Output, CtlError> {
         &loaded.config,
         &SystemOps::new(),
         &root,
-        flags.number::<usize>("limit")?,
+        flags.number::<usize>("--limit")?,
         flags
-            .number::<usize>("min-turns")?
+            .number::<usize>("--min-turns")?
             .unwrap_or(verify::MIN_TURNS),
-        flags.bools.contains("by-pin"),
+        flags.on("--by-pin"),
     )
 }
 
@@ -489,20 +459,12 @@ pub fn ledger_cmd(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub(super) fn ledger_record(paths: &Paths, rest: &[String]) -> Result<Output, CtlError> {
-    let flags = Flags::parse(
-        rest,
-        &[],
-        &["provider", "before", "after", "source", "session"],
-    )?;
-    no_args(&flags.positional)?;
-    let need = |name: &str| {
-        flags
-            .values
-            .get(name)
-            .cloned()
-            .ok_or_else(|| CtlError::usage(format!("--{name} is required")))
-    };
-    let provider = need("provider")?;
+    let flags = LEDGER_RECORD.parse(rest)?;
+    no_args(flags.operands())?;
+    let provider = flags
+        .one("--provider")
+        .map(String::from)
+        .ok_or_else(|| CtlError::usage("--provider is required"))?;
     if ProviderName::parse(&provider).is_none() {
         return Err(CtlError::usage(format!(
             "unknown provider {provider:?} (have: {})",
@@ -512,13 +474,13 @@ pub(super) fn ledger_record(paths: &Paths, rest: &[String]) -> Result<Output, Ct
     let entry = SavingsEntry {
         ts: ledger::format_ts(ledger::now_ms()),
         provider,
-        source: flags.values.get("source").cloned().unwrap_or_default(),
-        session: flags.values.get("session").cloned(),
+        source: flags.one("--source").unwrap_or_default().to_string(),
+        session: flags.one("--session").map(String::from),
         tokens_before: flags
-            .number::<u64>("before")?
+            .number::<u64>("--before")?
             .ok_or_else(|| CtlError::usage("--before is required"))?,
         tokens_after: flags
-            .number::<u64>("after")?
+            .number::<u64>("--after")?
             .ok_or_else(|| CtlError::usage("--after is required"))?,
     };
     ledger::append_savings(paths, &entry).map_err(|e| CtlError::new("ledger_write", e))?;
@@ -538,15 +500,15 @@ pub(super) fn ledger_record(paths: &Paths, rest: &[String]) -> Result<Output, Ct
 }
 
 pub(super) fn ledger_summary(paths: &Paths, rest: &[String]) -> Result<Output, CtlError> {
-    let flags = Flags::parse(rest, &[], &["provider", "since"])?;
-    no_args(&flags.positional)?;
-    let since = match flags.values.get("since") {
+    let flags = LEDGER_SUMMARY.parse(rest)?;
+    no_args(flags.operands())?;
+    let since = match flags.one("--since") {
         Some(text) => Some(ledger::parse_ts(text).ok_or_else(|| {
             CtlError::usage("--since needs an RFC 3339 timestamp, e.g. 2026-01-31T00:00:00Z")
         })?),
         None => None,
     };
-    let provider = flags.values.get("provider").map(String::as_str);
+    let provider = flags.one("--provider");
     let rows = ledger::summarize(
         &ledger::read_launches(paths),
         &ledger::read_savings(paths),
@@ -628,16 +590,16 @@ pub(super) fn proxy_with(
 }
 
 pub fn update(rest: &[String]) -> Result<Output, CtlError> {
-    let flags = Flags::parse(rest, &["latest", "accept"], &["to"])?;
-    no_args(&flags.positional)?;
+    let flags = UPDATE.parse(rest)?;
+    no_args(flags.operands())?;
     let (paths, loaded) = load()?;
     update_with(
         &paths,
         loaded.config,
         &mut SystemOps::new(),
-        flags.values.get("to").map(String::as_str),
-        flags.bools.contains("latest"),
-        flags.bools.contains("accept"),
+        flags.one("--to"),
+        flags.on("--latest"),
+        flags.on("--accept"),
     )
 }
 
