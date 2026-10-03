@@ -4,6 +4,7 @@
 mod commands;
 mod compression;
 mod output;
+mod secret;
 
 use output::{CtlError, Envelope, Output};
 
@@ -42,6 +43,21 @@ pub const COMMANDS: &[Command] = &[
         path: &["server"],
         summary: "Manage servers (mutations)",
         handler: None,
+    },
+    Command {
+        path: &["secret", "set"],
+        summary: "Store a secret read from stdin or --value-env",
+        handler: Some(secret::set),
+    },
+    Command {
+        path: &["secret", "get"],
+        summary: "Check a secret (--reveal prints the value)",
+        handler: Some(secret::get),
+    },
+    Command {
+        path: &["secret", "rm"],
+        summary: "Remove a secret",
+        handler: Some(secret::rm),
     },
     Command {
         path: &["secret"],
@@ -127,7 +143,11 @@ pub fn parse(args: &[String]) -> Result<Parsed, String> {
             other => match other.strip_prefix("--data-dir=") {
                 Some("") => return Err("--data-dir requires a value".into()),
                 Some(value) => parsed.data_dir = Some(value.to_string()),
-                None if parsed.positional.first().map(String::as_str) == Some("compression") => {
+                None if matches!(
+                    parsed.positional.first().map(String::as_str),
+                    Some("compression" | "secret")
+                ) =>
+                {
                     parsed.positional.push(other.to_string())
                 }
                 None => return Err(format!("unknown option: {other}")),
