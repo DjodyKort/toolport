@@ -1,0 +1,114 @@
+{
+  "area": "context",
+  "entry": "context_scenario",
+  "args": {
+    "steps": [
+      {
+        "op": "apply",
+        "label": "apply1-default.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": true
+          },
+          "clients_root": "{HOME}/clients"
+        },
+        "persist": false
+      },
+      {
+        "op": "snapshot_file",
+        "src": ".claude.json",
+        "label": "claude.after-default.json"
+      },
+      {
+        "op": "list_backups",
+        "label": "backups1"
+      },
+      {
+        "op": "apply",
+        "label": "apply2-idempotent.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": true
+          },
+          "clients_root": "{HOME}/clients"
+        },
+        "persist": false
+      },
+      {
+        "op": "apply",
+        "label": "apply3-custom-names.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": true,
+            "legacy_names": [
+              "custom-old",
+              "playwright",
+              "absent"
+            ]
+          },
+          "clients_root": "{HOME}/clients"
+        },
+        "persist": false
+      },
+      {
+        "op": "snapshot_file",
+        "src": ".claude.json",
+        "label": "claude.after-custom.json"
+      },
+      {
+        "op": "apply",
+        "label": "apply4-no-twin-required.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": true,
+            "require_mcpm_twin": false
+          },
+          "clients_root": "{HOME}/clients"
+        },
+        "persist": true
+      },
+      {
+        "op": "snapshot_file",
+        "src": ".claude.json",
+        "label": "claude.after-no-twin.json"
+      },
+      {
+        "op": "apply",
+        "label": "apply5-disabled.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": false
+          },
+          "clients_root": "{HOME}/clients"
+        }
+      }
+    ]
+  },
+  "comparison": "B",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ],
+  "env": {
+    "MCPM_CONFIG_DIR": "{HOME}/.config/mcpm",
+    "MCPM_CONTEXT_CLAUDE_HOME": "{HOME}/.claude",
+    "MCPM_CONTEXT_CLAUDE_JSON": "{HOME}/.claude.json",
+    "MCPM_CONTEXT_CACHE_DIR": "{HOME}/.cache/mcpm/context",
+    "MCPM_CONTEXT_CF_DIR": "{HOME}/.local/share/cf-dev-tools"
+  },
+  "exclude": [
+    ".cache/*",
+    ".git/*",
+    "*/.git/*"
+  ],
+  "overrides": {
+    "*.json": "B",
+    "*.report": "B"
+  }
+}

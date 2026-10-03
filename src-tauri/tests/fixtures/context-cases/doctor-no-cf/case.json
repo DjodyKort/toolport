@@ -1,0 +1,59 @@
+{
+  "area": "context",
+  "entry": "context_scenario",
+  "args": {
+    "steps": [
+      {
+        "op": "doctor",
+        "label": "doctor0-empty-defaults"
+      },
+      {
+        "op": "apply",
+        "label": "apply.report",
+        "config": {
+          "wrap_default_claude": true,
+          "dedupe": {
+            "enabled": false
+          },
+          "clients_root": "{HOME}/clients"
+        }
+      },
+      {
+        "op": "doctor",
+        "label": "doctor1-shims-unsourced"
+      },
+      {
+        "op": "write_file",
+        "path": ".zshrc",
+        "content": "source {HOME}/.config/mcpm/context-shims.zsh\nsource {HOME}/.local/share/cf-dev-tools/claude/shell-wrapper.sh\n"
+      },
+      {
+        "op": "doctor",
+        "label": "doctor2-sourced"
+      }
+    ]
+  },
+  "comparison": "A",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ],
+  "env": {
+    "MCPM_CONFIG_DIR": "{HOME}/.config/mcpm",
+    "MCPM_CONTEXT_CLAUDE_HOME": "{HOME}/.claude",
+    "MCPM_CONTEXT_CLAUDE_JSON": "{HOME}/.claude.json",
+    "MCPM_CONTEXT_CACHE_DIR": "{HOME}/.cache/mcpm/context",
+    "MCPM_CONTEXT_CF_DIR": "{HOME}/.local/share/cf-dev-tools"
+  },
+  "exclude": [
+    ".cache/*",
+    ".git/*",
+    "*/.git/*"
+  ],
+  "overrides": {
+    "*.json": "B",
+    "*/.mcpm-context-state.json": "B",
+    "*.report": "B"
+  }
+}

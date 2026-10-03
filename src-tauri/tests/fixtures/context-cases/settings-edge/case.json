@@ -1,0 +1,182 @@
+{
+  "area": "context",
+  "entry": "context_scenario",
+  "args": {
+    "steps": [
+      {
+        "op": "apply",
+        "label": "apply-missing-file.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": false
+          },
+          "clients_root": "{HOME}/clients",
+          "settings": {
+            "ensure_allow": [
+              "Bash(ls:*)"
+            ],
+            "ensure_ask": []
+          }
+        }
+      },
+      {
+        "op": "snapshot_file",
+        "src": ".claude/settings.json",
+        "label": "settings.created.json"
+      },
+      {
+        "op": "write_file",
+        "path": ".claude/settings.json",
+        "content": "{\"permissions\": {\"allow\": [\"Bash(ls:*)\"]},\n  \"x\": "
+      },
+      {
+        "op": "apply",
+        "label": "apply-corrupt.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": false
+          },
+          "clients_root": "{HOME}/clients",
+          "settings": {
+            "ensure_allow": [
+              "Bash(ls:*)",
+              "Read(*)"
+            ]
+          }
+        },
+        "persist": false
+      },
+      {
+        "op": "snapshot_file",
+        "src": ".claude/settings.json",
+        "label": "settings.corrupt-untouched.txt"
+      },
+      {
+        "op": "doctor",
+        "label": "doctor.corrupt"
+      },
+      {
+        "op": "write_file",
+        "path": ".claude/settings.json",
+        "content": "{\"permissions\": {\"allow\": \"not-a-list-but-str\", \"ask\": []}}"
+      },
+      {
+        "op": "apply",
+        "label": "apply-ask-only.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": false
+          },
+          "clients_root": "{HOME}/clients",
+          "settings": {
+            "ensure_allow": [],
+            "ensure_ask": [
+              "Bash(git push:*)"
+            ]
+          }
+        },
+        "persist": false
+      },
+      {
+        "op": "snapshot_file",
+        "src": ".claude/settings.json",
+        "label": "settings.ask-only.json"
+      },
+      {
+        "op": "apply",
+        "label": "apply-empty-policy.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": false
+          },
+          "clients_root": "{HOME}/clients"
+        },
+        "persist": false
+      },
+      {
+        "op": "pure_calls",
+        "label": "pure",
+        "secret_entries": [
+          "Bash(FOO_SECRET=\"x\" npx:*)",
+          "Bash(npx:*)",
+          "Bash(TOKEN=abc curl:*)",
+          "Bash(my_api_key=\"1\" run)",
+          "Bash(echo SECRET)",
+          "Bash(x=1 y)"
+        ],
+        "merges": [
+          [
+            {
+              "a": [
+                1,
+                2
+              ],
+              "b": {
+                "c": 1,
+                "l": [
+                  "x"
+                ]
+              },
+              "s": 1
+            },
+            {
+              "a": [
+                2,
+                3
+              ],
+              "b": {
+                "c": 2,
+                "l": [
+                  "x",
+                  "y"
+                ]
+              },
+              "s": {
+                "k": 1
+              }
+            }
+          ],
+          [
+            {
+              "a": {
+                "k": 1
+              }
+            },
+            {
+              "a": [
+                1
+              ]
+            }
+          ]
+        ]
+      }
+    ]
+  },
+  "comparison": "A",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ],
+  "env": {
+    "MCPM_CONFIG_DIR": "{HOME}/.config/mcpm",
+    "MCPM_CONTEXT_CLAUDE_HOME": "{HOME}/.claude",
+    "MCPM_CONTEXT_CLAUDE_JSON": "{HOME}/.claude.json",
+    "MCPM_CONTEXT_CACHE_DIR": "{HOME}/.cache/mcpm/context",
+    "MCPM_CONTEXT_CF_DIR": "{HOME}/.local/share/cf-dev-tools"
+  },
+  "exclude": [
+    ".cache/*",
+    ".git/*",
+    "*/.git/*"
+  ],
+  "overrides": {
+    ".claude/settings.json": "A",
+    "*.json": "B",
+    "*.report": "B"
+  }
+}

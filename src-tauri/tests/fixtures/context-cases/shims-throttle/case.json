@@ -1,0 +1,53 @@
+{
+  "area": "context",
+  "entry": "context_scenario",
+  "args": {
+    "steps": [
+      {
+        "op": "apply",
+        "label": "apply.report",
+        "config": {
+          "wrap_default_claude": true,
+          "dedupe": {
+            "enabled": false
+          },
+          "clients_root": "{HOME}/clients",
+          "profiles": {
+            "work": {}
+          }
+        }
+      },
+      {
+        "op": "zsh_script",
+        "script": "scenarios/throttle.zsh",
+        "label": "throttle"
+      }
+    ]
+  },
+  "comparison": "A",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ],
+  "env": {
+    "MCPM_CONFIG_DIR": "{HOME}/.config/mcpm",
+    "MCPM_CONTEXT_CLAUDE_HOME": "{HOME}/.claude",
+    "MCPM_CONTEXT_CLAUDE_JSON": "{HOME}/.claude.json",
+    "MCPM_CONTEXT_CACHE_DIR": "{HOME}/.cache/mcpm/context",
+    "MCPM_CONTEXT_CF_DIR": "{HOME}/.local/share/cf-dev-tools"
+  },
+  "exclude": [
+    ".cache/*",
+    ".git/*",
+    "*/.git/*",
+    "stubbin/*",
+    ".local/*",
+    "stub.log"
+  ],
+  "overrides": {
+    "*.json": "B",
+    "*/.mcpm-context-state.json": "B",
+    "*.report": "B"
+  }
+}

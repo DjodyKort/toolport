@@ -1,0 +1,178 @@
+//! Declarative context config (`context.json`), compatible with mcpm-context's pydantic schema.
+
+use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
+use std::collections::BTreeMap;
+use std::fs;
+use std::path::Path;
+
+pub const CF_LEGACY_SERVER_NAMES: [&str; 4] = [
+    "context7",
+    "playwright",
+    "codeforward-odoo",
+    "codeforward-typst",
+];
+
+fn yes() -> bool {
+    true
+}
+
+fn inherit() -> Value {
+    Value::String("inherit".into())
+}
+
+fn import() -> String {
+    "import".into()
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProfileSpec {
+    #[serde(default = "yes")]
+    pub org: bool,
+    #[serde(default = "import")]
+    pub org_mode: String,
+    #[serde(default = "inherit")]
+    pub rules: Value,
+    #[serde(default = "yes")]
+    pub commands: bool,
+    #[serde(default = "yes")]
+    pub skills: bool,
+    #[serde(default = "yes")]
+    pub agents: bool,
+    #[serde(default = "inherit")]
+    pub servers: Value,
+    #[serde(default)]
+    pub settings_overrides: Map<String, Value>,
+    #[serde(default = "yes")]
+    pub copy_auth: bool,
+    #[serde(default = "yes")]
+    pub link_rules: bool,
+}
+
+impl Default for ProfileSpec {
+    fn default() -> Self {
+        serde_json::from_value(Value::Object(Map::new())).expect("defaults")
+    }
+}
+
+fn default_legacy_names() -> Vec<String> {
+    CF_LEGACY_SERVER_NAMES
+        .iter()
+        .map(|s| s.to_string())
+        .collect()
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DedupePolicy {
+    #[serde(default = "yes")]
+    pub enabled: bool,
+    #[serde(default = "default_legacy_names")]
+    pub legacy_names: Vec<String>,
+    #[serde(default = "yes")]
+    pub require_mcpm_twin: bool,
+}
+
+impl Default for DedupePolicy {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            legacy_names: default_legacy_names(),
+            require_mcpm_twin: true,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct SettingsPolicy {
+    #[serde(default)]
+    pub ensure_allow: Vec<String>,
+    #[serde(default)]
+    pub ensure_ask: Vec<String>,
+}
+
+fn default_clients_root() -> String {
+    "~/Documents/GitHub/OdooDevHeaven/clients".into()
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ContextConfig {
+    #[serde(default)]
+    pub profiles: BTreeMap<String, ProfileSpec>,
+    #[serde(default = "yes")]
+    pub wrap_default_claude: bool,
+    #[serde(default)]
+    pub dedupe: DedupePolicy,
+    #[serde(default)]
+    pub settings: SettingsPolicy,
+    #[serde(default = "default_clients_root")]
+    pub clients_root: String,
+    #[serde(default)]
+    pub cf_wrapper_hash: Option<String>,
+}
+
+impl Default for ContextConfig {
+    fn default() -> Self {
+        Self {
+            profiles: BTreeMap::new(),
+            wrap_default_claude: true,
+            dedupe: DedupePolicy::default(),
+            settings: SettingsPolicy::default(),
+            clients_root: default_clients_root(),
+            cf_wrapper_hash: None,
+        }
+    }
+}
+
+fn valid_profile_name(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    if bytes.is_empty() || bytes.len() > 64 {
+        return false;
+    }
+    let alnum = |b: u8| b.is_ascii_lowercase() || b.is_ascii_digit();
+    alnum(bytes[0]) && bytes.iter().all(|&b| alnum(b) || b == b'-')
+}
+
+impl ContextConfig {
+    /// Profile names become zsh function names, so anything outside `[a-z0-9][a-z0-9-]*` is refused.
+    pub fn validate(&self) -> Result<(), String> {
+        for name in self.profiles.keys() {
+            if !valid_profile_name(name) {
+                return Err(format!(
+                    "profile name {name:?} must match [a-z0-9][a-z0-9-]* (it becomes a shell function)"
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn from_value(value: Value) -> Result<Self, String> {
+        let config: Self =
+            serde_json::from_value(value).map_err(|e| format!("invalid context config: {e}"))?;
+        config.validate()?;
+        Ok(config)
+    }
+
+    pub fn to_json_text(&self) -> String {
+        let text = serde_json::to_string(self).expect("config serializes");
+        let tree = crate::plus::skills::json::parse(&text).expect("round trip");
+        format!("{}\n", tree.dumps())
+    }
+}
+
+/// A corrupt or old config falls back to defaults rather than failing, like mcpm.
+pub fn load_config(path: &Path) -> ContextConfig {
+    let Ok(text) = fs::read_to_string(path) else {
+        return ContextConfig::default();
+    };
+    serde_json::from_str::<Value>(&text)
+        .ok()
+        .and_then(|v| ContextConfig::from_value(v).ok())
+        .unwrap_or_default()
+}
+
+pub fn save_config(path: &Path, config: &ContextConfig) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
+    }
+    fs::write(path, config.to_json_text()).map_err(|e| format!("{}: {e}", path.display()))
+}

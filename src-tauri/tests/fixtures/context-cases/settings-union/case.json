@@ -1,0 +1,39 @@
+{
+  "area": "context",
+  "entry": "context_apply",
+  "args": {
+    "config": {
+      "wrap_default_claude": false,
+      "dedupe": {
+        "enabled": false
+      },
+      "clients_root": "{HOME}/clients",
+      "settings": {
+        "ensure_allow": [
+          "Bash(git diff:*)",
+          "Read(*)",
+          "WebFetch(domain:example.test)"
+        ],
+        "ensure_ask": [
+          "Bash(git push:*)"
+        ]
+      }
+    }
+  },
+  "comparison": "B",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ],
+  "env": {
+    "MCPM_CONFIG_DIR": "{HOME}/.config/mcpm",
+    "MCPM_CONTEXT_CLAUDE_HOME": "{HOME}/.claude",
+    "MCPM_CONTEXT_CLAUDE_JSON": "{HOME}/.claude.json",
+    "MCPM_CONTEXT_CACHE_DIR": "{HOME}/.cache/mcpm/context",
+    "MCPM_CONTEXT_CF_DIR": "{HOME}/.local/share/cf-dev-tools"
+  },
+  "exclude": [
+    ".cache/*"
+  ]
+}

@@ -1,0 +1,142 @@
+{
+  "area": "context",
+  "entry": "context_scenario",
+  "args": {
+    "steps": [
+      {
+        "op": "git_init",
+        "path": "clients/acme"
+      },
+      {
+        "op": "git_init",
+        "path": "clients/v18_arp"
+      },
+      {
+        "op": "git_init",
+        "path": "clients/delta"
+      },
+      {
+        "op": "git_init",
+        "path": "clients/nolayer"
+      },
+      {
+        "op": "write_file",
+        "path": "clients/v18_arp/.git/info/exclude",
+        "content": "*.log"
+      },
+      {
+        "op": "write_file",
+        "path": "clients/acme/.git/info/exclude",
+        "content": "# comment\nbuild/\nCLAUDE.local.md\n"
+      },
+      {
+        "op": "apply",
+        "label": "apply1.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": false
+          },
+          "clients_root": "{HOME}/clients"
+        }
+      },
+      {
+        "op": "apply",
+        "label": "apply2-idempotent.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": false
+          },
+          "clients_root": "{HOME}/clients"
+        }
+      },
+      {
+        "op": "snapshot_file",
+        "src": "clients/v18_arp/.git/info/exclude",
+        "label": "exclude.v18_arp"
+      },
+      {
+        "op": "snapshot_file",
+        "src": "clients/acme/.git/info/exclude",
+        "label": "exclude.acme"
+      },
+      {
+        "op": "snapshot_file",
+        "src": "clients/delta/.git/info/exclude",
+        "label": "exclude.delta"
+      },
+      {
+        "op": "snapshot_file",
+        "src": "clients/nolayer/.git/info/exclude",
+        "label": "exclude.nolayer"
+      },
+      {
+        "op": "git_check",
+        "path": "clients/acme",
+        "files": [
+          "CLAUDE.local.md",
+          "README.md"
+        ],
+        "label": "git-check.acme"
+      },
+      {
+        "op": "git_check",
+        "path": "clients/v18_arp",
+        "files": [
+          "CLAUDE.local.md",
+          "x.log"
+        ],
+        "label": "git-check.v18_arp"
+      },
+      {
+        "op": "write_file",
+        "path": "clients/acme/CLAUDE.local.md",
+        "content": "<!-- Managed by `mcpm context` \u2014 edit the canonical layer (skills_repo/rules/client-*/SKILL.md); `mcpm context sync` regenerates. -->\n\nstale hand edit\n"
+      },
+      {
+        "op": "write_file",
+        "path": ".config/mcpm/skills_repo/rules/client-acme/SKILL.md",
+        "content": "---\nname: client-acme\ndescription: \"Client context: acme\"\nactivation: always\nglobs: \"**/clients/acme/**\"\n---\n## acme\n\nUpdated acme layer body.\n\n"
+      },
+      {
+        "op": "apply",
+        "label": "apply3-redeploy.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": false
+          },
+          "clients_root": "{HOME}/clients"
+        }
+      },
+      {
+        "op": "exists",
+        "label": "exists",
+        "paths": [
+          "clients/gamma/CLAUDE.local.md",
+          "clients/nolayer/CLAUDE.local.md",
+          "clients/gamma/.git/info/exclude"
+        ]
+      }
+    ]
+  },
+  "comparison": "A",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ],
+  "env": {
+    "MCPM_CONFIG_DIR": "{HOME}/.config/mcpm",
+    "MCPM_CONTEXT_CLAUDE_HOME": "{HOME}/.claude",
+    "MCPM_CONTEXT_CLAUDE_JSON": "{HOME}/.claude.json",
+    "MCPM_CONTEXT_CACHE_DIR": "{HOME}/.cache/mcpm/context",
+    "MCPM_CONTEXT_CF_DIR": "{HOME}/.local/share/cf-dev-tools"
+  },
+  "exclude": [
+    ".cache/*",
+    ".git/*",
+    "*/.git/*"
+  ]
+}
