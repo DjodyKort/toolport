@@ -1,7 +1,7 @@
 //! Seeded randomized and edge-case tests for `compression verify`: transcript parsing, the cache
 //! metrics and verdict, the engine fingerprint, version specs, context globs and shim scanning.
 
-use super::ledger::{format_ts, LaunchRecord};
+use super::ledger::{format_ts, parse_ts, LaunchRecord};
 use super::model::{fnmatch, spec_matches, version_tuple, CompressionConfig, ProviderName};
 use super::shims::{defined_functions, shim_snippet, ShimOptions, SHIM_FUNCTIONS};
 use super::store::Paths;
@@ -813,4 +813,182 @@ fn shim_scanning_follows_a_line_model_and_sees_every_shim() {
         }
         assert_eq!(defined.iter().any(|d| d == "claude"), route_claude);
     }
+}
+
+mod whole_file_reference {
+    use super::super::ledger::parse_ts;
+    use serde_json::Value;
+    use std::path::Path;
+
+    pub fn records(path: &Path) -> Vec<Value> {
+        let Ok(bytes) = std::fs::read(path) else {
+            return Vec::new();
+        };
+        String::from_utf8_lossy(&bytes)
+            .lines()
+            .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+            .filter(Value::is_object)
+            .collect()
+    }
+
+    pub fn usage_blocks(path: &Path) -> Vec<Value> {
+        records(path)
+            .into_iter()
+            .filter_map(|r| r.get("message")?.get("usage").cloned())
+            .filter(Value::is_object)
+            .collect()
+    }
+
+    pub fn session_origin(path: &Path) -> (Option<i64>, Option<String>) {
+        for rec in records(path) {
+            let ts = rec
+                .get("timestamp")
+                .and_then(Value::as_str)
+                .and_then(parse_ts);
+            let cwd = rec
+                .get("cwd")
+                .and_then(Value::as_str)
+                .filter(|c| !c.is_empty());
+            if let (Some(ts), Some(cwd)) = (ts, cwd) {
+                return (Some(ts), Some(cwd.to_string()));
+            }
+        }
+        (None, None)
+    }
+}
+
+fn noisy_file(rng: &mut Rng) -> Vec<u8> {
+    let usage = |rng: &mut Rng| {
+        let mut u = Map::new();
+        for key in KEYS {
+            if let (Some(v), _) = token_field(rng) {
+                u.insert(key.to_string(), v);
+            }
+        }
+        Value::Object(u)
+    };
+    let eol: &[u8] = if rng.chance(30) { b"\r\n" } else { b"\n" };
+    let mut bytes = Vec::new();
+    for _ in 0..rng.range(0, 14) {
+        let line: Vec<u8> = match rng.below(14) {
+            0 => rng.garbage(40).replace('\n', " ").into_bytes(),
+            1 => Vec::new(),
+            2 => format!(
+                r#"{{"message":{{"{b}u0075sage":{{"cache_read_input_tokens":7,"output_tokens":3}}}}}}"#,
+                b = '\\'
+            )
+            .into_bytes(),
+            3 => format!(
+                r#"{{"message":{{"usag{b}u0065":{{"cache_creation_input_tokens":4}}}}}}"#,
+                b = '\\'
+            )
+            .into_bytes(),
+            4 => json!({"type": "user", "text": "the word usage in prose"})
+                .to_string()
+                .into_bytes(),
+            5 => {
+                let pad = "x".repeat(rng.range(5_000, 40_000));
+                json!({"message": {"usage": usage(rng)}, "pad": pad})
+                    .to_string()
+                    .into_bytes()
+            }
+            6 => {
+                let mut v = br#"{"message":{"usage":{"input_tokens":2}},"note":"a"#.to_vec();
+                v.extend_from_slice(&[0xff, 0xfe, 0xc3]);
+                v.extend_from_slice(br#"b"}"#);
+                v
+            }
+            7 => br#"{"message":{"usage":{"input_tokens":1}},"message":{"usage":{"input_tokens":9}}}"#
+                .to_vec(),
+            8 => br#"[{"message":{"usage":{"input_tokens":1}}}]"#.to_vec(),
+            9 => origin_record(rng).0.into_bytes(),
+            _ => {
+                let mut rec = json!({"message": {"usage": usage(rng)}});
+                if rng.chance(50) {
+                    rec["cwd"] = json!(*rng.pick(&["/work/a", "/work/b"]));
+                    rec["timestamp"] = json!(format_ts(1_800_000_000_000 + rng.below(1000) as i64));
+                }
+                rec.to_string().into_bytes()
+            }
+        };
+        bytes.extend_from_slice(&line);
+        bytes.extend_from_slice(eol);
+    }
+    if rng.chance(40) {
+        bytes.truncate(bytes.len().saturating_sub(rng.below(3)));
+    }
+    bytes
+}
+
+#[test]
+fn streaming_reads_match_the_whole_file_implementation() {
+    let dir = ScratchDir::new("verify-stream-diff");
+    let (mut with_usage, mut escaped) = (0, 0);
+    run_cases("verify-stream-diff", 1500, |_, rng| {
+        dir.reset();
+        let paths: Vec<PathBuf> = (0..rng.range(1, 3))
+            .map(|i| {
+                let path = dir.path().join(format!("s{i}.jsonl"));
+                fs::write(&path, noisy_file(rng)).unwrap();
+                path
+            })
+            .chain([dir.path().join("missing.jsonl")])
+            .collect();
+        for path in &paths {
+            assert_eq!(
+                session_origin(path),
+                whole_file_reference::session_origin(path),
+                "{path:?}"
+            );
+            let blocks = whole_file_reference::usage_blocks(path);
+            let sum = |key: &str| -> u64 {
+                blocks.iter().fold(0, |a, u| {
+                    a.saturating_add(u.get(key).and_then(Value::as_u64).unwrap_or(0))
+                })
+            };
+            let got = measure(std::slice::from_ref(path), 0);
+            if blocks.is_empty() {
+                assert_eq!(got, Metrics::default(), "{path:?}");
+            } else if sum("cache_read_input_tokens") + sum("cache_creation_input_tokens") > 0 {
+                with_usage += 1;
+                assert_eq!(got.turns, blocks.len() as u64, "{path:?}");
+                assert_eq!(got.cache_read, sum("cache_read_input_tokens"));
+                assert_eq!(got.cache_create, sum("cache_creation_input_tokens"));
+                assert_eq!(got.input_tokens, sum("input_tokens"));
+                assert_eq!(got.output_tokens, sum("output_tokens"));
+            }
+            if std::fs::read(path).is_ok_and(|b| b.windows(7).any(|w| w == b"u0075sa")) {
+                escaped += 1;
+            }
+        }
+        let want_schema = paths
+            .iter()
+            .find_map(|p| whole_file_reference::usage_blocks(p).into_iter().next())
+            .is_some_and(|u| {
+                u.get("cache_read_input_tokens").is_some()
+                    || u.get("cache_creation_input_tokens").is_some()
+            });
+        assert_eq!(schema_ok(&paths), want_schema);
+    });
+    assert!(with_usage > 300 && escaped > 30, "{with_usage} {escaped}");
+}
+
+#[test]
+fn transcripts_with_crlf_split_lines_and_a_torn_tail_read_like_lines() {
+    let dir = ScratchDir::new("verify-stream-edges");
+    let path = dir.path().join("s.jsonl");
+    let long = "y".repeat(100_000);
+    let text = format!(
+        "{{\"note\":\"{long}\"}}\r\n\
+         {{\"cwd\":\"/work/a\",\"timestamp\":\"2026-01-01T00:00:00.000Z\",\"message\":{{\"usage\":{{\"cache_read_input_tokens\":10}}}}}}\r\n\
+         {{\"message\":{{\"usage\":{{\"cache_creation_input_tokens\":2,\"input_tokens\":1}}}}}}\n\
+         {{\"message\":{{\"usage\":{{\"cache_read_inp"
+    );
+    fs::write(&path, text).unwrap();
+    let (start, cwd) = session_origin(&path);
+    assert_eq!(start, parse_ts("2026-01-01T00:00:00.000Z"));
+    assert_eq!(cwd.as_deref(), Some("/work/a"));
+    let m = measure(std::slice::from_ref(&path), 0);
+    assert_eq!((m.turns, m.cache_read, m.cache_create, m.input_tokens), (2, 10, 2, 1));
+    assert!(schema_ok(&[path]));
 }

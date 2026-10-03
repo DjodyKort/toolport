@@ -13,6 +13,7 @@ use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 pub const MIN_TURNS: usize = 5;
@@ -126,24 +127,39 @@ pub fn iter_transcripts(root: &Path) -> Vec<PathBuf> {
     found.into_iter().map(|(_, p)| p).collect()
 }
 
-/// Transcripts are appended to live, so the last record may be half written.
-fn records(path: &Path) -> Vec<Value> {
-    let Ok(bytes) = std::fs::read(path) else {
-        return Vec::new();
+/// Transcripts are appended to live, so the last line may be half written; `each` returns false
+/// to stop reading early.
+fn scan_lines(path: &Path, mut each: impl FnMut(&str) -> bool) {
+    let Ok(file) = std::fs::File::open(path) else {
+        return;
     };
-    String::from_utf8_lossy(&bytes)
-        .lines()
-        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
-        .filter(Value::is_object)
-        .collect()
+    let mut reader = BufReader::new(file);
+    let mut buf = Vec::new();
+    loop {
+        buf.clear();
+        if !matches!(reader.read_until(b'\n', &mut buf), Ok(n) if n > 0) {
+            return;
+        }
+        let text = String::from_utf8_lossy(&buf);
+        let line = match text.strip_suffix('\n') {
+            Some(line) => line.strip_suffix('\r').unwrap_or(line),
+            None => &text,
+        };
+        if !each(line) {
+            return;
+        }
+    }
 }
 
-fn usage_blocks(path: &Path) -> Vec<Value> {
-    records(path)
-        .into_iter()
-        .filter_map(|r| r.get("message")?.get("usage").cloned())
+fn parse_record(line: &str) -> Option<Value> {
+    serde_json::from_str::<Value>(line)
+        .ok()
         .filter(Value::is_object)
-        .collect()
+}
+
+/// A `usage` key is spelled literally unless a character of it is `\u`-escaped.
+fn may_hold_usage(line: &str) -> bool {
+    line.contains("usage") || line.contains("\\u")
 }
 
 fn tokens(usage: &Value, key: &str) -> u64 {
@@ -153,7 +169,11 @@ fn tokens(usage: &Value, key: &str) -> u64 {
 /// (start ms, cwd) from the first record carrying both: the launch identity matched
 /// against the ledger.
 pub fn session_origin(path: &Path) -> (Option<i64>, Option<String>) {
-    for rec in records(path) {
+    let mut origin = (None, None);
+    scan_lines(path, |line| {
+        let Some(rec) = parse_record(line) else {
+            return true;
+        };
         let ts = rec
             .get("timestamp")
             .and_then(Value::as_str)
@@ -162,24 +182,45 @@ pub fn session_origin(path: &Path) -> (Option<i64>, Option<String>) {
             .get("cwd")
             .and_then(Value::as_str)
             .filter(|c| !c.is_empty());
-        if let (Some(ts), Some(cwd)) = (ts, cwd) {
-            return (Some(ts), Some(cwd.to_string()));
+        match (ts, cwd) {
+            (Some(ts), Some(cwd)) => {
+                origin = (Some(ts), Some(cwd.to_string()));
+                false
+            }
+            _ => true,
         }
-    }
-    (None, None)
+    });
+    origin
+}
+
+fn scan_usage(path: &Path, mut each: impl FnMut(&Value) -> bool) {
+    scan_lines(path, |line| {
+        if !may_hold_usage(line) {
+            return true;
+        }
+        match parse_record(line)
+            .as_ref()
+            .and_then(|r| r.get("message")?.get("usage"))
+            .filter(|u| u.is_object())
+        {
+            Some(usage) => each(usage),
+            None => true,
+        }
+    });
 }
 
 pub fn measure(paths: &[PathBuf], min_turns: usize) -> Metrics {
     let mut m = Metrics::default();
     for path in paths {
         let (mut rd, mut cw, mut inp, mut out, mut turns) = (0u64, 0u64, 0u64, 0u64, 0usize);
-        for u in usage_blocks(path) {
-            rd = rd.saturating_add(tokens(&u, "cache_read_input_tokens"));
-            cw = cw.saturating_add(tokens(&u, "cache_creation_input_tokens"));
-            inp = inp.saturating_add(tokens(&u, "input_tokens"));
-            out = out.saturating_add(tokens(&u, "output_tokens"));
+        scan_usage(path, |u| {
+            rd = rd.saturating_add(tokens(u, "cache_read_input_tokens"));
+            cw = cw.saturating_add(tokens(u, "cache_creation_input_tokens"));
+            inp = inp.saturating_add(tokens(u, "input_tokens"));
+            out = out.saturating_add(tokens(u, "output_tokens"));
             turns += 1;
-        }
+            true
+        });
         if turns < min_turns || (rd == 0 && cw == 0) {
             continue;
         }
@@ -241,13 +282,20 @@ pub fn compare(a: &Metrics, b: &Metrics) -> Option<f64> {
 
 /// If Claude Code stops writing the cache fields, zeros would read as a total collapse.
 pub fn schema_ok(paths: &[PathBuf]) -> bool {
-    paths
-        .iter()
-        .find_map(|p| usage_blocks(p).into_iter().next())
-        .is_some_and(|u| {
-            u.get("cache_read_input_tokens").is_some()
-                || u.get("cache_creation_input_tokens").is_some()
-        })
+    for path in paths {
+        let mut first = None;
+        scan_usage(path, |u| {
+            first = Some(
+                u.get("cache_read_input_tokens").is_some()
+                    || u.get("cache_creation_input_tokens").is_some(),
+            );
+            false
+        });
+        if let Some(found) = first {
+            return found;
+        }
+    }
+    false
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
