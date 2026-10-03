@@ -333,13 +333,15 @@ fn with_world(test: impl FnOnce()) {
     crate::secrets::tests::with_isolated_vault(|| {
         let bin = std::env::temp_dir().join(format!("gateway-e2e-bin-{}", std::process::id()));
         std::fs::create_dir_all(&bin).unwrap();
-        let script = bin.join("xdg-open");
-        std::fs::write(
-            &script,
-            "#!/bin/sh\ncurl -s -o /dev/null -L --max-time 10 \"$1\" &\n",
-        )
-        .unwrap();
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        for opener in ["xdg-open", "open"] {
+            let script = bin.join(opener);
+            std::fs::write(
+                &script,
+                "#!/bin/sh\ncurl -s -o /dev/null -L --max-time 10 \"$1\" &\n",
+            )
+            .unwrap();
+            std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
         let old = std::env::var_os("PATH");
         let _restore = PathGuard(old.clone());
         let mut paths = vec![bin.clone()];
