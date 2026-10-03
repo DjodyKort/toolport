@@ -640,8 +640,8 @@ de355881df4a4dd3c3705cd40252701f044b1723f4ced8f98c631dd0a7344476  skills/vscode-
 40aedd34d7aab0d60c6b3934e8117e033e3bed94eb7345e57b797d677ac0be3d  skills/windsurf-project/tree/repo/.windsurf/rules/long-guide.md
 a5a1afec0b9691f01e16274ce3ef23712d857c5aae2185d60856989eeff9d33a  skills/windsurf-project/tree/repo/.windsurf/rules/python-style.md
 78481064e90afeac05db03ec5e59148def7351cf04d0b4b6878388923de3e8be  skills/windsurf-project/tree/repo/mcpm-skills.lock
-e746fe00b3b1522e5e5b3836b1c39cb4abe28b6d1fb71fc284be4e7027e91378  skills/zed-append-existing/manifest.json
-fc5e3dcadd4991ec4c6e7aa74657240a730249a5bc44e04187f6a426a3f1709a  skills/zed-append-existing/tree/repo/.rules
+0aaf87743b88bd1e364950d8b90c4178cce21d5f5a4ae44a1ffc1fa1c643f73b  skills/zed-append-existing/manifest.json
+f2decc4dd7049becc8362bf724d9b5930d1ec29b0cdbb440bfb491ecffb5b359  skills/zed-append-existing/tree/repo/.rules
 ae4c2add99600c311c48bb404983f2387f5a0ca24715c768e91671e3bbb5a916  skills/zed-append-existing/tree/repo/mcpm-skills.lock
 7c7e46cfa1592c5d62ede0b296005344012dcd7380eb500078b9a12b59093dc9  skills/zed-project/manifest.json
 5fe278821c16e7021898f3e4e29cdb88079d838985517dfb262bdbe2ebfdd3d5  skills/zed-project/tree/repo/.rules
