@@ -1,6 +1,6 @@
 use super::backend::GitBackend;
 use super::bundle::{
-    destination_for, import_bundle, read_bundle, read_manifest, safe_relative,
+    destination_for, import_bundle, io as io_err, read_bundle, read_manifest, safe_relative,
     write_bundle_with_origins, write_salt, write_synced_file, Credential, ImportReport,
     ImportTargets, Manifest, PortableRoots, SourceFile, SyncError, SERVER_ORIGINS_KEY,
 };
@@ -83,10 +83,6 @@ impl SyncContext<'_> {
     }
 }
 
-fn io_err(path: &Path, e: std::io::Error) -> SyncError {
-    super::bundle::io(path, e)
-}
-
 fn cfg_err(message: &str) -> SyncError {
     SyncError::Config(message.to_string())
 }
@@ -128,8 +124,20 @@ fn load_keyfile(ctx: &SyncContext<'_>) -> Result<String, SyncError> {
         .map_err(|_| cfg_err("sync key file missing; run init first"))
 }
 
+fn load_configured(ctx: &SyncContext<'_>) -> Result<SyncConfig, SyncError> {
+    load_config(ctx).ok_or_else(|| cfg_err("sync is not configured; run init first"))
+}
+
+fn require_cloned(git: &GitBackend<'_>) -> Result<(), SyncError> {
+    if git.is_cloned() {
+        Ok(())
+    } else {
+        Err(cfg_err("sync repo is not initialized; run init first"))
+    }
+}
+
 fn require_config(ctx: &SyncContext<'_>) -> Result<(SyncConfig, String), SyncError> {
-    let cfg = load_config(ctx).ok_or_else(|| cfg_err("sync is not configured; run init first"))?;
+    let cfg = load_configured(ctx)?;
     if cfg.backend != "git" {
         return Err(SyncError::Config(format!(
             "unsupported sync backend {:?}; only git is supported",
@@ -187,10 +195,6 @@ fn copy_dir(from: &Path, to: &Path) -> Result<(), SyncError> {
         fs::copy(entry.path(), &target).map_err(|e| io_err(&target, e))?;
     }
     Ok(())
-}
-
-fn derive(passphrase: &str, salt: &[u8]) -> String {
-    kdf::derive_key(passphrase, salt)
 }
 
 fn check_passphrase(passphrase: &str) -> Result<(), SyncError> {
@@ -372,7 +376,7 @@ pub fn init(ctx: &SyncContext<'_>, opts: &InitOptions<'_>) -> Result<InitReport,
     git.init()?;
     let (key, salt, fresh) = match git.load_salt() {
         Some(salt) => {
-            let key = derive(opts.passphrase, &salt);
+            let key = kdf::derive_key(opts.passphrase, &salt);
             if let Some(manifest) = git.manifest() {
                 if let Some(blob) = sample_entry_blob(&repo_dir, &manifest) {
                     if !key_decrypts(&key, &blob)? {
@@ -386,7 +390,7 @@ pub fn init(ctx: &SyncContext<'_>, opts: &InitOptions<'_>) -> Result<InitReport,
         }
         None => {
             let salt = random_salt()?.to_vec();
-            (derive(opts.passphrase, &salt), salt, true)
+            (kdf::derive_key(opts.passphrase, &salt), salt, true)
         }
     };
     if fresh {
@@ -450,9 +454,7 @@ pub fn push(ctx: &SyncContext<'_>, opts: &PushOptions) -> Result<PushReport, Syn
         return Ok(report);
     }
     let git = backend(ctx, &cfg)?;
-    if !git.is_cloned() {
-        return Err(cfg_err("sync repo is not initialized; run init first"));
-    }
+    require_cloned(&git)?;
     git.pull();
     if git.load_salt().is_none() {
         return Err(cfg_err(
@@ -616,9 +618,7 @@ fn remote_sibling(path: &Path) -> PathBuf {
 pub fn pull(ctx: &SyncContext<'_>, opts: &PullOptions) -> Result<PullReport, SyncError> {
     let (cfg, key) = require_config(ctx)?;
     let git = backend(ctx, &cfg)?;
-    if !git.is_cloned() {
-        return Err(cfg_err("sync repo is not initialized; run init first"));
-    }
+    require_cloned(&git)?;
     git.pull();
     let repo = ctx.repo_path();
     let Some(manifest) = git.manifest() else {
@@ -675,11 +675,11 @@ pub fn pull(ctx: &SyncContext<'_>, opts: &PullOptions) -> Result<PullReport, Syn
         if !opts.force {
             if let (Ok(local), Some(prev)) = (fs::read(&path), state.entries.get(&file.key)) {
                 let local_hash = lock_hash(&local);
-                if local_hash != prev.local_hash_at_sync && entry.hash == prev.remote_hash_at_sync {
-                    report.kept_local.push(file.key.clone());
-                    continue;
-                }
-                if local_hash != prev.local_hash_at_sync && entry.hash != prev.remote_hash_at_sync {
+                if local_hash != prev.local_hash_at_sync {
+                    if entry.hash == prev.remote_hash_at_sync {
+                        report.kept_local.push(file.key.clone());
+                        continue;
+                    }
                     let saved = remote_sibling(&path);
                     fs::write(&saved, &file.bytes).map_err(|e| io_err(&saved, e))?;
                     report.conflicts.push(ConflictInfo {
@@ -832,7 +832,7 @@ pub fn rotate_passphrase(
     }
     let old = FernetKey::parse(&old_key)?;
     let salt = random_salt()?;
-    let new_key = derive(new_passphrase, &salt);
+    let new_key = kdf::derive_key(new_passphrase, &salt);
     let new = FernetKey::parse(&new_key)?;
     let mut staged = Vec::new();
     let mut skipped = Vec::new();
@@ -885,8 +885,7 @@ pub fn add_project(
     files: &[String],
 ) -> Result<bool, SyncError> {
     check_project_name(name)?;
-    let mut cfg =
-        load_config(ctx).ok_or_else(|| cfg_err("sync is not configured; run init first"))?;
+    let mut cfg = load_configured(ctx)?;
     let resolved = fs::canonicalize(path).map_err(|e| io_err(path, e))?;
     let files: Vec<String> = if files.is_empty() {
         vec!["CLAUDE.md".into()]
