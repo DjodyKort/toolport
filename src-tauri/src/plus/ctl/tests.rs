@@ -363,3 +363,12 @@ fn command_table_paths_are_unique() {
         assert!(seen.insert(command.path), "{:?}", command.path);
     }
 }
+
+#[test]
+fn context_loads_rejects_unknown_arguments() {
+    let _fx = Fixture::new("ctx-loads", Some(sample_registry()));
+    let (code, _, err) = run_cli(&["context", "loads", "--bogus"]);
+    assert_eq!(code, 2, "{err}");
+    let (code, _, _) = run_cli(&["context", "loads", "--profile"]);
+    assert_eq!(code, 2);
+}

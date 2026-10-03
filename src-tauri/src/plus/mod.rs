@@ -25,6 +25,7 @@ const HANDLERS: &[(&str, Handler)] = &[
     ("plus.context.plan", context::plan_handler),
     ("plus.context.apply", context::apply_handler),
     ("plus.import_mcpm.run", import_mcpm::run_handler),
+    ("plus.context.whatLoads", context::what_loads_handler),
 ];
 
 pub fn dispatch(command: &str, args: Value) -> Result<Value, String> {

@@ -4,6 +4,7 @@
 mod commands;
 mod compression;
 mod import;
+mod context;
 mod output;
 mod secret;
 
@@ -64,6 +65,11 @@ pub const COMMANDS: &[Command] = &[
         path: &["secret"],
         summary: "Manage server secrets",
         handler: None,
+    },
+    Command {
+        path: &["context", "loads"],
+        summary: "Show what a claude session loads, with token cost (--profile, --cwd)",
+        handler: Some(context::loads),
     },
     Command {
         path: &["context"],
@@ -176,7 +182,7 @@ pub fn parse(args: &[String]) -> Result<Parsed, String> {
                 Some(value) => parsed.data_dir = Some(value.to_string()),
                 None if matches!(
                     parsed.positional.first().map(String::as_str),
-                    Some("compression" | "secret" | "import")
+                    Some("compression" | "secret" | "import" | "context")
                 ) =>
                 {
                     parsed.positional.push(other.to_string())
