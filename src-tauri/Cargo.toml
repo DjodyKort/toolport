@@ -100,7 +100,7 @@ fs2 = "0.4"
 rusqlite = { version = "0.32", features = ["bundled"] }
 chacha20poly1305 = "0.10"
 aes = "0.8"
-cbc = "0.1"
+cbc = { version = "0.1", features = ["alloc", "block-padding"] }
 urlencoding = "2"
 # file:// URI -> path decoding for the ${ROOT} cwd token (issue #239); already in
 # the tree transitively, promoted to a direct dep for url::Url::to_file_path.
