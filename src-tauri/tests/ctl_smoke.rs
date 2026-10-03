@@ -908,9 +908,10 @@ fn bare_groups_report_usage_or_not_implemented() {
             continue;
         }
         let (run, value) = world.json(command.path);
-        let (exit, code) = match command.handler {
-            None => (1, "not_implemented"),
-            Some(_) => (2, "usage"),
+        let (exit, code) = if command.planned() {
+            (1, "not_implemented")
+        } else {
+            (2, "usage")
         };
         assert_envelope(&key, &run, &value, &key, exit);
         assert_eq!(value["error"]["code"], code, "{key}");

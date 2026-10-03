@@ -21,10 +21,7 @@ pub(super) fn ctl(path: &[&str]) -> Result<Value, ToolError> {
     let positional: Vec<String> = path.iter().map(|s| s.to_string()).collect();
     let (command, rest) = crate::plus::ctl::find_command(&positional)
         .ok_or_else(|| ToolError::new("internal", "ctl command missing"))?;
-    let handler = command
-        .handler
-        .ok_or_else(|| ToolError::not_implemented(&path.join(" ")))?;
-    handler(rest)
+    (command.handler)(rest)
         .map(|out| out.data)
         .map_err(|e| {
             let kind = match e.code.as_str() {
