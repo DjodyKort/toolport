@@ -55,14 +55,14 @@
       "sha256": "3c557fb122e57a914cb7ed2ae84a985b1cc15edd67f7877493de961f5847e229"
     },
     "_golden/doctor.after-apply.json": {
-      "bytes": 213,
+      "bytes": 239,
       "class": "B",
-      "sha256": "3cd3f21d956c0f767dd88d4a8b2dce85bb11b483c97812fd78cc7e654e82248e"
+      "sha256": "e115dcb26f3926b20115346eab6e7880eca28268eb4100bec10b8b4d9e75cf0f"
     },
     "_golden/doctor.after-clobber.json": {
-      "bytes": 211,
+      "bytes": 244,
       "class": "B",
-      "sha256": "ccacebe0f363bf5de4de9e5c362b383310a5fb7432d1d8b173309ee72b7dbcc5"
+      "sha256": "617fa8b81d042d75ba13cfeb83c66cfc0cd013b298294992bd19774d58555ba4"
     },
     "_golden/settings.after-apply.json": {
       "bytes": 751,

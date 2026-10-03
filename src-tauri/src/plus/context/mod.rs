@@ -25,6 +25,8 @@ mod tests;
 #[cfg(test)]
 mod tests_compact;
 #[cfg(test)]
+mod tests_ctl_hints;
+#[cfg(test)]
 mod tests_folders;
 #[cfg(test)]
 mod tests_hardening;
@@ -105,7 +107,7 @@ fn warn_orphans(roots: &Roots, config: &ContextConfig, report: &mut Report) {
             .unwrap_or_default();
         if !config.profiles.contains_key(&name) {
             report.warn(format!(
-                "orphan profile dir {} (not in config) — `mcpm context profile remove {name}`",
+                "orphan profile dir {} (not in config) — delete the directory or add the profile to context.json",
                 dir.display()
             ));
         }

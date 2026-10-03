@@ -11,7 +11,7 @@ use crate::plus::skills::pyfs::write_text;
 use std::collections::BTreeMap;
 use std::fs;
 
-const HEADER: &str = "# Managed by `mcpm context` — do not edit by hand.\n# Source from ~/.zshrc AFTER cf's shell-wrapper.sh and compression-shims.zsh:\n#   source ~/.config/mcpm/context-shims.zsh\n";
+const HEADER: &str = "# Managed by `toolportctl context` — do not edit by hand.\n# Source from ~/.zshrc AFTER cf's shell-wrapper.sh and compression-shims.zsh:\n#   source ~/.config/mcpm/context-shims.zsh\n";
 
 const PRESYNC: &str = r##"mcpm_context_presync() {
     local now; now=$(date +%s)
@@ -33,11 +33,11 @@ const PRESYNC: &str = r##"mcpm_context_presync() {
     local ctx_last=0
     [[ -f "$ctx_cache" ]] && ctx_last=$(cat "$ctx_cache" 2>/dev/null || echo 0)
     if (( cf_ran )) || (( now - ctx_last >= interval )); then
-        if command mcpm context sync >/dev/null 2>&1; then
+        if command toolportctl context sync >/dev/null 2>&1; then
             mkdir -p "$(dirname "$ctx_cache")" 2>/dev/null
             echo "$now" > "$ctx_cache"
         else
-            print -u2 "mcpm: context sync failed, retrying next launch (run 'mcpm doctor')"
+            print -u2 "toolportctl: context sync failed, retrying next launch (run 'toolportctl doctor')"
         fi
     fi
 }
@@ -45,10 +45,10 @@ const PRESYNC: &str = r##"mcpm_context_presync() {
 # Default claude = examplecorp mode (org CLAUDE.md + personal/client layers).
 claude() { mcpm_context_presync; command claude "$@"; }
 
-# hrclaude launches the claude BINARY via `mcpm compression run` (it never hits
+# hrclaude launches the claude BINARY via `toolportctl compression run` (it never hits
 # shell functions), so give daily hrclaude use the same freshness path.
 if (( $+functions[hrclaude] )); then
-    hrclaude() { mcpm_context_presync; command mcpm compression run -- "$@"; }
+    hrclaude() { mcpm_context_presync; command toolportctl compression run -- "$@"; }
 fi
 "##;
 

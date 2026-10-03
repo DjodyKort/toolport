@@ -15,9 +15,9 @@
       "sha256": "83ca0e3d969c4751fde63a53e0b72195821ffc39e56bd3746970a09ca2bcf68d"
     },
     ".config/mcpm/claude-profiles/work/CLAUDE.md": {
-      "bytes": 111,
+      "bytes": 125,
       "class": "A",
-      "sha256": "9d1e08e193f53cf446569d10e2156341eba787144d15cb55e2c6358b46b9445c"
+      "sha256": "fe15fc3382d6e37feac589152ac16dbbaba6f31782b1d0cea56a9b2fcc787fb6"
     },
     ".config/mcpm/claude-profiles/work/settings.json": {
       "bytes": 3,
@@ -25,9 +25,9 @@
       "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
     },
     ".config/mcpm/context-shims.zsh": {
-      "bytes": 276,
+      "bytes": 283,
       "class": "A",
-      "sha256": "6479c0d6df721cbe3d4747e60a4aa2d699ab263be486fdc580dad62b36d6f20e"
+      "sha256": "bb4ddacccfb5b2b647cd1ce124bd11c24830d81645768d904aaaa07fe666a9e5"
     },
     ".config/mcpm/context.json": {
       "bytes": 646,

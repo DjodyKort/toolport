@@ -5,10 +5,10 @@
   ],
   [
     "warn",
-    "no personal layer scaffolded — run `mcpm context init`"
+    "no personal layer scaffolded — create rules/personal/SKILL.md in the skills repo"
   ],
   [
     "warn",
-    "corp-dev-tools shell-wrapper.sh CHANGED since baseline — re-verify its sync still leaves rules/ and mcpServers alone, then re-baseline via `mcpm context sync`"
+    "corp-dev-tools shell-wrapper.sh CHANGED since baseline — re-verify its sync still leaves rules/ and mcpServers alone, then re-baseline via `toolportctl context sync`"
   ]
 ]

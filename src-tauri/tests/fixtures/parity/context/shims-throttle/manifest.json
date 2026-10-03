@@ -15,9 +15,9 @@
       "sha256": "83ca0e3d969c4751fde63a53e0b72195821ffc39e56bd3746970a09ca2bcf68d"
     },
     ".config/mcpm/claude-profiles/work/CLAUDE.md": {
-      "bytes": 111,
+      "bytes": 125,
       "class": "A",
-      "sha256": "9d1e08e193f53cf446569d10e2156341eba787144d15cb55e2c6358b46b9445c"
+      "sha256": "fe15fc3382d6e37feac589152ac16dbbaba6f31782b1d0cea56a9b2fcc787fb6"
     },
     ".config/mcpm/claude-profiles/work/settings.json": {
       "bytes": 3,
@@ -25,9 +25,9 @@
       "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
     },
     ".config/mcpm/context-shims.zsh": {
-      "bytes": 2032,
+      "bytes": 2074,
       "class": "A",
-      "sha256": "01cee876a7f498d71552542e4bfc56d0b652831729b5e1c8f7d3d20aea360c7d"
+      "sha256": "dfbef4943d2628dfca5b6fab53272b8cf57fc05b01221a3563b313d0dfb96a44"
     },
     ".config/mcpm/context.json": {
       "bytes": 645,
@@ -40,9 +40,9 @@
       "sha256": "34ea38aaa86ecd9fcd1a3871968c82582188497f50e81ed9f21699971935b1d4"
     },
     "_golden/throttle.txt": {
-      "bytes": 2177,
+      "bytes": 2259,
       "class": "A",
-      "sha256": "a37ecbae318608adbbed0b223acd4849e1238055646d1f394aab7dda8f082dda"
+      "sha256": "453ed465028a4224a3291e71aca5341ee30b96f3908609e04634a0a48dd2e4d3"
     }
   },
   "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",

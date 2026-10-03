@@ -10,7 +10,7 @@
     "saved config (2 profile(s))"
   ],
   "warnings": [
-    "orphan profile dir <HOME>/.config/mcpm/claude-profiles/stale-orphan (not in config) — `mcpm context profile remove stale-orphan --purge`",
-    "orphan profile dir <HOME>/.config/mcpm/claude-profiles/lnk (not in config) — `mcpm context profile remove lnk --purge`"
+    "orphan profile dir <HOME>/.config/mcpm/claude-profiles/stale-orphan (not in config) — delete the directory or add the profile to context.json",
+    "orphan profile dir <HOME>/.config/mcpm/claude-profiles/lnk (not in config) — delete the directory or add the profile to context.json"
   ]
 }

@@ -11,7 +11,14 @@ use std::path::{Path, PathBuf};
 
 pub const PERSONAL_RULE_NAME: &str = "personal";
 
-pub const MANAGED_LOCAL_HEADER: &str = "<!-- Managed by `mcpm context` — edit the canonical layer (skills_repo/rules/client-*/SKILL.md); `mcpm context sync` regenerates. -->";
+pub const MANAGED_LOCAL_HEADER: &str = "<!-- Managed by `toolportctl context` — edit the canonical layer (skills_repo/rules/client-*/SKILL.md); `toolportctl context sync` regenerates. -->";
+
+/// Header mcpm wrote before the port; files carrying it are still ours and get rewritten.
+const LEGACY_MANAGED_LOCAL_HEADER: &str = "<!-- Managed by `mcpm context` — edit the canonical layer (skills_repo/rules/client-*/SKILL.md); `mcpm context sync` regenerates. -->";
+
+pub fn is_managed_local(text: &str) -> bool {
+    text.contains(MANAGED_LOCAL_HEADER) || text.contains(LEGACY_MANAGED_LOCAL_HEADER)
+}
 
 const PERSONAL_TEMPLATE: &str = "---\nname: personal\ndescription: \"Personal always-on layer on top of the org CLAUDE.md\"\nactivation: always\n---\n\n## Personal preferences\n\n<!-- Your personal layer. Survives corp-dev-tools syncs (it never touches rules/).\n     Keep it additive to the org CLAUDE.md — rules load after user memory. -->\n";
 
@@ -217,7 +224,7 @@ pub fn deploy_client_locals(
             .as_ref()
             .map(|b| String::from_utf8_lossy(b).into_owned());
         if let Some(text) = &existing_text {
-            if !text.contains(MANAGED_LOCAL_HEADER) {
+            if !is_managed_local(text) {
                 report.warn(format!(
                     "{} exists and is not managed — leaving it alone",
                     target.display()

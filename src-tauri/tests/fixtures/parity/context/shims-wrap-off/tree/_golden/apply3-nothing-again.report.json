@@ -3,6 +3,6 @@
     "saved config (0 profile(s))"
   ],
   "warnings": [
-    "orphan profile dir <HOME>/.config/mcpm/claude-profiles/work (not in config) — `mcpm context profile remove work --purge`"
+    "orphan profile dir <HOME>/.config/mcpm/claude-profiles/work (not in config) — delete the directory or add the profile to context.json"
   ]
 }

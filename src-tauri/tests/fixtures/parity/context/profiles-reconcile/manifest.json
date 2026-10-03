@@ -25,9 +25,9 @@
       "sha256": "cf64a58e541721bca0aefe2436796fb8830f0bb23a8639fcb89d8453c064787e"
     },
     ".config/mcpm/claude-profiles/cp/CLAUDE.md": {
-      "bytes": 117,
+      "bytes": 131,
       "class": "A",
-      "sha256": "850c75e24fd9a4c704e9b7ab9897fb6bc15dbd732bfa5da237d941cca300d613"
+      "sha256": "b1b4070e936cdd4103065d2300f06322017d198c0cba1b96fb6308535fd122c5"
     },
     ".config/mcpm/claude-profiles/cp/rules/client-acme.md": {
       "bytes": 5,
@@ -50,9 +50,9 @@
       "sha256": "73aa930886a51d892e0dd995c3cc3793ae7fd2cdfe27264f6994002d531ebee0"
     },
     ".config/mcpm/claude-profiles/inh/CLAUDE.md": {
-      "bytes": 111,
+      "bytes": 125,
       "class": "A",
-      "sha256": "9d1e08e193f53cf446569d10e2156341eba787144d15cb55e2c6358b46b9445c"
+      "sha256": "fe15fc3382d6e37feac589152ac16dbbaba6f31782b1d0cea56a9b2fcc787fb6"
     },
     ".config/mcpm/claude-profiles/inh/settings.json": {
       "bytes": 85,
@@ -70,9 +70,9 @@
       "sha256": "685f7a6e2503e10aabc96681d482fb3c677ec18690550d046af431674d54d937"
     },
     ".config/mcpm/claude-profiles/lnk/CLAUDE.md": {
-      "bytes": 135,
+      "bytes": 149,
       "class": "A",
-      "sha256": "9476c691c5f9c93fa7331b2a973e63e14726680ca4b293774cf2762fa05a7aed"
+      "sha256": "8cbace4204be22133b083d40bd477bdc2412684f9a4ef3dfef5c5f4498ed2c71"
     },
     ".config/mcpm/claude-profiles/lnk/settings.json": {
       "bytes": 85,
@@ -80,9 +80,9 @@
       "sha256": "5d5cfe18d89521087bd23b4cb3a00556cf36b82fc135e0a5e500117866383c16"
     },
     ".config/mcpm/context-shims.zsh": {
-      "bytes": 370,
+      "bytes": 377,
       "class": "A",
-      "sha256": "8fc57aa5e616feb2b2e27927f862c618dded73d8654af8e5bece5318b6c66557"
+      "sha256": "dc38806db255b808c14ac181353121bac8856ec53f1d9bf9afd8116ff05faec9"
     },
     ".config/mcpm/context.json": {
       "bytes": 933,
@@ -90,19 +90,19 @@
       "sha256": "b83ed72107b6148e07baa1777bc5f0ba70ab0a980f5968fff97da2c4a39f6341"
     },
     "_golden/apply1.report.json": {
-      "bytes": 1797,
+      "bytes": 1798,
       "class": "B",
-      "sha256": "7547af4b21a20989c52a72fa0645967ffdb31e2c514ff5ecdfe2e484959f57d6"
+      "sha256": "e2dfe2ffb435a1e74241e3d1a5d07fdd95d0a97affca96224554102da6b5866f"
     },
     "_golden/apply2.report.json": {
-      "bytes": 786,
+      "bytes": 805,
       "class": "B",
-      "sha256": "00520df5b40d3c0b5bb41e546f5c240a7fc8d5da2c9ac0b416a1156ecc46da32"
+      "sha256": "d917dcc6928c6cfa9d6bc10f398fe16ea90a63a9e5fdfe07112e041175cb1daf"
     },
     "_golden/doctor.json": {
-      "bytes": 427,
+      "bytes": 453,
       "class": "B",
-      "sha256": "b10854d2e1d5a233ac8e2a6230d8894541ff0cb18f1ea6cc942c66347062c3f8"
+      "sha256": "fc14c26d054d183ddc678c9750e2788208935f84ba883cf58bd00e1ac8c191fb"
     },
     "_golden/links.json": {
       "bytes": 361,

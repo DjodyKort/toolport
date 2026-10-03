@@ -4,7 +4,7 @@
 
 use super::config::{ContextConfig, ProfileSpec};
 use super::launch::{parse_selection, read_json_object as read_json, Selection};
-use super::layers::{body_of, frontmatter, list_layers, yaml_text, MANAGED_LOCAL_HEADER};
+use super::layers::{body_of, frontmatter, is_managed_local, list_layers, yaml_text};
 use super::roots::Roots;
 use crate::savings::estimated_tokens;
 use serde::Serialize;
@@ -85,7 +85,7 @@ fn show(path: &Path) -> String {
 }
 
 fn memory_source(text: &str) -> &'static str {
-    if text.contains(MANAGED_LOCAL_HEADER) {
+    if is_managed_local(text) {
         "client-layer"
     } else {
         "project-local"
