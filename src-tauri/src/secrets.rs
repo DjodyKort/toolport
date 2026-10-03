@@ -1079,6 +1079,10 @@ mod file {
     /// team-scoped shared access group (`platform`), which keeps keys off disk and
     /// lets the separately-signed gateway read them with no prompt.
     ///
+    /// Opt-in exception (D-009): `TOOLPORT_SECRETS_BACKEND=login-keychain` or a
+    /// `secrets-backend` marker file in the data dir selects the login-keychain
+    /// master key via `resolve_key`.
+    ///
     /// We deliberately do NOT derive the key from a keychain master item on
     /// desktop. Doing so would activate `secrets.enc` on disk and shadow the
     /// data-protection keychain — the "keys never on disk" property we sell — and
@@ -1093,8 +1097,60 @@ mod file {
         Some(key)
     }
 
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub(super) const BACKEND_ENV: &str = "TOOLPORT_SECRETS_BACKEND";
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub(super) const BACKEND_MARKER: &str = "secrets-backend";
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    const LOGIN_KEYCHAIN: &str = "login-keychain";
+
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub(super) fn login_keychain_requested(env: Option<&str>, marker: Option<&str>) -> bool {
+        [env, marker]
+            .into_iter()
+            .flatten()
+            .any(|v| v.trim().eq_ignore_ascii_case(LOGIN_KEYCHAIN))
+    }
+
+    #[cfg(target_os = "macos")]
+    fn login_keychain_enabled() -> bool {
+        let env = std::env::var(BACKEND_ENV).ok();
+        let marker = crate::registry::conduit_dir()
+            .and_then(|d| std::fs::read_to_string(d.join(BACKEND_MARKER)).ok());
+        login_keychain_requested(env.as_deref(), marker.as_deref())
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn login_keychain_enabled() -> bool {
+        false
+    }
+
+    /// Resolve the 32-byte file key. The env passphrase wins; otherwise, in
+    /// login-keychain mode on macOS, the master key from the login keychain
+    /// (legacy ACL, no access-group entitlement). Only writers create it.
+    fn resolve_key(create: bool) -> Result<Option<[u8; 32]>, String> {
+        if let Some(key) = key_material() {
+            return Ok(Some(key));
+        }
+        if !login_keychain_enabled() {
+            return Ok(None);
+        }
+        #[cfg(target_os = "macos")]
+        {
+            if create {
+                return super::platform::ensure_master_key().map(Some);
+            }
+            return super::platform::read_master_key();
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = create;
+            Ok(None)
+        }
+    }
+
     pub fn active() -> bool {
-        key_material().is_some()
+        key_material().is_some() || login_keychain_enabled()
     }
 
     fn path() -> Result<PathBuf, String> {
@@ -1133,19 +1189,20 @@ mod file {
     }
 
     fn load() -> Result<Store, String> {
-        let key =
-            key_material().ok_or("TOOLPORT_SECRET_KEY (legacy CONDUIT_SECRET_KEY) is not set")?;
         let encoded = match std::fs::read_to_string(path()?) {
             Ok(s) => s,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Store::new()),
             Err(e) => return Err(e.to_string()),
         };
+        let key = resolve_key(false)?.ok_or(
+            "TOOLPORT_SECRET_KEY (legacy CONDUIT_SECRET_KEY) is not set and no login-keychain master key exists",
+        )?;
         serde_json::from_slice(&open(&key, &encoded)?).map_err(|e| e.to_string())
     }
 
     fn save(store: &Store) -> Result<(), String> {
-        let key =
-            key_material().ok_or("TOOLPORT_SECRET_KEY (legacy CONDUIT_SECRET_KEY) is not set")?;
+        let key = resolve_key(true)?
+            .ok_or("TOOLPORT_SECRET_KEY (legacy CONDUIT_SECRET_KEY) is not set")?;
         let plain = serde_json::to_vec(store).map_err(|e| e.to_string())?;
         crate::registry::atomic_write(&path()?, &seal(&key, &plain)?)
     }
@@ -1986,6 +2043,90 @@ pub(crate) mod tests {
         );
         if let Some(v) = prev {
             std::env::set_var("CONDUIT_SECRET_KEY", v);
+        }
+    }
+
+    #[test]
+    fn login_keychain_mode_is_requested_by_env_or_marker() {
+        assert!(!file::login_keychain_requested(None, None));
+        assert!(!file::login_keychain_requested(Some(""), Some("other")));
+        assert!(file::login_keychain_requested(Some("login-keychain"), None));
+        assert!(file::login_keychain_requested(None, Some(" Login-Keychain\n")));
+    }
+
+    #[test]
+    fn fork_entitlements_carry_no_keychain_access_group() {
+        let plist = include_str!("../Fork.entitlements.plist");
+        assert!(!plist.contains("keychain-access-groups"));
+        assert!(!plist.contains("application-identifier"));
+        assert!(plist.contains("com.apple.security.cs.allow-jit"));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn login_keychain_mode_activates_the_file_backend_on_macos() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _data = crate::registry::data_dir_test_lock();
+        let dir = std::env::temp_dir().join(format!(
+            "toolport-loginkc-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let _override = crate::registry::DataDirOverride::set(&dir);
+        let prev_key = (
+            std::env::var_os("TOOLPORT_SECRET_KEY"),
+            std::env::var_os("CONDUIT_SECRET_KEY"),
+            std::env::var_os(file::BACKEND_ENV),
+        );
+        std::env::remove_var("TOOLPORT_SECRET_KEY");
+        std::env::remove_var("CONDUIT_SECRET_KEY");
+        std::env::remove_var(file::BACKEND_ENV);
+
+        assert!(!file::active(), "default macOS stays on the keychain backends");
+        std::fs::write(dir.join(file::BACKEND_MARKER), "login-keychain\n").unwrap();
+        assert!(file::active(), "marker file selects the login-keychain mode");
+        std::fs::remove_file(dir.join(file::BACKEND_MARKER)).unwrap();
+        assert!(!file::active());
+        std::env::set_var(file::BACKEND_ENV, "login-keychain");
+        assert!(file::active(), "env switch selects the login-keychain mode");
+
+        for (name, value) in [
+            ("TOOLPORT_SECRET_KEY", prev_key.0),
+            ("CONDUIT_SECRET_KEY", prev_key.1),
+            (file::BACKEND_ENV, prev_key.2),
+        ] {
+            match value {
+                Some(v) => std::env::set_var(name, v),
+                None => std::env::remove_var(name),
+            }
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn login_keychain_mode_is_inert_off_macos() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let prev = std::env::var_os("TOOLPORT_SECRET_KEY");
+        let prev_legacy = std::env::var_os("CONDUIT_SECRET_KEY");
+        let prev_mode = std::env::var_os(file::BACKEND_ENV);
+        std::env::remove_var("TOOLPORT_SECRET_KEY");
+        std::env::remove_var("CONDUIT_SECRET_KEY");
+        std::env::set_var(file::BACKEND_ENV, "login-keychain");
+        assert!(!file::active());
+        for (name, value) in [
+            ("TOOLPORT_SECRET_KEY", prev),
+            ("CONDUIT_SECRET_KEY", prev_legacy),
+            (file::BACKEND_ENV, prev_mode),
+        ] {
+            match value {
+                Some(v) => std::env::set_var(name, v),
+                None => std::env::remove_var(name),
+            }
         }
     }
 
