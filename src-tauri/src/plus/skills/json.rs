@@ -276,13 +276,18 @@ impl Parser<'_> {
                         't' => out.push('\t'),
                         'u' => {
                             let hi = self.hex4()?;
-                            let cp = if (0xd800..0xdc00).contains(&hi) && self.eat("\\u") {
+                            if (0xd800..0xdc00).contains(&hi) && self.eat("\\u") {
                                 let lo = self.hex4()?;
-                                0x10000 + ((hi - 0xd800) << 10) + lo.wrapping_sub(0xdc00)
+                                if (0xdc00..0xe000).contains(&lo) {
+                                    let cp = 0x10000 + ((hi - 0xd800) << 10) + (lo - 0xdc00);
+                                    out.push(char::from_u32(cp).unwrap_or('\u{fffd}'));
+                                } else {
+                                    out.push('\u{fffd}');
+                                    out.push(char::from_u32(lo).unwrap_or('\u{fffd}'));
+                                }
                             } else {
-                                hi
-                            };
-                            out.push(char::from_u32(cp).unwrap_or('\u{fffd}'));
+                                out.push(char::from_u32(hi).unwrap_or('\u{fffd}'));
+                            }
                         }
                         other => return Err(format!("bad escape \\{other}")),
                     }
