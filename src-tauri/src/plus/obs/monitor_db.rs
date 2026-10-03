@@ -43,7 +43,7 @@ struct Row {
     success: bool,
 }
 
-fn read_rows(path: &Path) -> Result<Vec<Row>, String> {
+fn for_each_row(path: &Path, mut each: impl FnMut(Row)) -> Result<(), String> {
     let conn = Connection::open_with_flags(
         path,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
@@ -71,14 +71,14 @@ fn read_rows(path: &Path) -> Result<Vec<Row>, String> {
                 success: r.get::<_, i64>(8)? != 0,
             })
         })
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
-    Ok(rows)
+    for row in rows {
+        each(row.map_err(|e| e.to_string())?);
+    }
+    Ok(())
 }
 
 pub fn aggregate(path: &Path) -> Result<Value, String> {
-    let rows = read_rows(path)?;
     let mut total = Agg::default();
     let mut by_day: BTreeMap<String, Agg> = BTreeMap::new();
     let mut by_server: BTreeMap<String, Agg> = BTreeMap::new();
@@ -87,11 +87,13 @@ pub fn aggregate(path: &Path) -> Result<Value, String> {
     let mut sessions: BTreeSet<String> = BTreeSet::new();
     let (mut first, mut last) = (String::new(), String::new());
     let mut skipped = 0u64;
+    let mut row_count = 0usize;
 
-    for r in &rows {
+    for_each_row(path, |r| {
+        row_count += 1;
         let Some(day) = day_from_iso(&r.ts) else {
             skipped += 1;
-            continue;
+            return;
         };
         if first.is_empty() || r.ts < first {
             first = r.ts.clone();
@@ -130,11 +132,11 @@ pub fn aggregate(path: &Path) -> Result<Value, String> {
                 .or_default()
                 .add(r.success, r.duration, r.req, r.resp);
         }
-    }
+    })?;
 
     Ok(json!({
         "source": path.to_string_lossy(),
-        "rows": rows.len(),
+        "rows": row_count,
         "skippedRows": skipped,
         "sessions": sessions.len(),
         "firstTs": first,
@@ -225,6 +227,97 @@ mod tests {
             got["byClient"],
             json!({"claude-code": agg(2, 1, 150, 15, 220), "cursor": agg(1, 0, 30, 1, 2)})
         );
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn a_large_db_aggregates_every_row_like_an_independent_tally() {
+        let base = scratch("large");
+        let db = base.join("monitor.db");
+        let c = Connection::open(&db).unwrap();
+        c.execute_batch(
+            "CREATE TABLE monitor_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT, server_id TEXT,
+                resource_id TEXT, session_id TEXT, client_id TEXT, timestamp DATETIME,
+                duration_ms INTEGER, request_size INTEGER, response_size INTEGER,
+                success BOOLEAN);
+             BEGIN;",
+        )
+        .unwrap();
+        let mut insert = c
+            .prepare(
+                "INSERT INTO monitor_events (event_type,server_id,session_id,client_id,timestamp,duration_ms,request_size,response_size,success)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+            )
+            .unwrap();
+        let mut want: BTreeMap<String, [u64; 5]> = BTreeMap::new();
+        let (mut calls, mut failures, mut skipped) = (0u64, 0u64, 0u64);
+        let (mut first, mut last) = (String::from("~"), String::new());
+        let n = 30_000u64;
+        for i in 0..n {
+            let day = 1 + i % 28;
+            let ts = if i % 1000 == 999 {
+                "garbage".to_string()
+            } else {
+                format!("2026-09-{day:02}T10:{:02}:{:02}", i % 60, (i / 60) % 60)
+            };
+            let kind = if i % 2 == 0 { "TOOL_INVOCATION" } else { "RESOURCE_ACCESS" };
+            let client = (i % 3 != 0).then(|| format!("c{}", i % 3));
+            let ok = i % 5 != 0;
+            insert
+                .execute(rusqlite::params![
+                    kind,
+                    format!("s{}", i % 7),
+                    format!("sess{}", i % 50),
+                    client,
+                    ts,
+                    (i % 100) as i64,
+                    (i % 10) as i64,
+                    (i % 20) as i64,
+                    ok
+                ])
+                .unwrap();
+            if ts == "garbage" {
+                skipped += 1;
+                continue;
+            }
+            calls += 1;
+            failures += u64::from(!ok);
+            first = first.min(ts.clone());
+            last = last.max(ts.clone());
+            let slot = want.entry(format!("2026-09-{day:02}")).or_default();
+            slot[0] += 1;
+            slot[1] += u64::from(!ok);
+            slot[2] += i % 100;
+            slot[3] += i % 10;
+            slot[4] += i % 20;
+        }
+        drop(insert);
+        c.execute_batch("COMMIT").unwrap();
+        drop(c);
+
+        let got = aggregate(&db).unwrap();
+        let tally = |v: &Value| {
+            ["calls", "failures", "durationMs", "requestBytes", "responseBytes"]
+                .map(|key| v[key].as_u64().unwrap())
+        };
+        assert_eq!(got["rows"], n);
+        assert_eq!(got["skippedRows"], skipped);
+        assert_eq!(got["sessions"], 50);
+        assert_eq!(got["firstTs"], first);
+        assert_eq!(got["lastTs"], last);
+        assert_eq!(tally(&got["totals"])[..2], [calls, failures]);
+        let by_day = got["byDay"].as_object().unwrap();
+        assert_eq!(by_day.len(), want.len());
+        for (day, expected) in &want {
+            assert_eq!(tally(&by_day[day]), *expected, "{day}");
+        }
+        let calls_of = |group: &str| -> u64 {
+            got[group].as_object().unwrap().values().map(|a| a["calls"].as_u64().unwrap()).sum()
+        };
+        assert_eq!(calls_of("byServer"), calls);
+        assert_eq!(calls_of("byEventType"), calls);
+        assert!(calls_of("byClient") < calls);
         let _ = std::fs::remove_dir_all(&base);
     }
 
