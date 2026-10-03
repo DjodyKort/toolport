@@ -377,8 +377,10 @@ fn norm_cwd_is_idempotent_and_tolerates_anything() {
     let dir = ScratchDir::new("ledger-cwd");
     let real = dir.path().join("real");
     fs::create_dir_all(&real).unwrap();
+    #[cfg(unix)]
     std::os::unix::fs::symlink(&real, dir.path().join("link")).unwrap();
     let want = norm_cwd(real.to_str().unwrap());
+    #[cfg(unix)]
     assert_eq!(norm_cwd(dir.path().join("link").to_str().unwrap()), want);
     assert_eq!(norm_cwd(&format!("{}/", real.display())), want);
     assert_eq!(norm_cwd("/"), "/");
