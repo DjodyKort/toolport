@@ -10,7 +10,7 @@ use super::collisions::{
 };
 use super::json;
 use super::lock::{get_entry, lockfile_path, LockFile, OrderedMap};
-use super::parser::{Skill, SkillType};
+use super::parser::{valid_name, Skill, SkillType};
 use super::styles::{all_style_transpilers, Tier};
 use super::transpiler::{
     Transpiler, TranspilerRegistry, APPEND_MODE_TRANSPILERS, PROJECT_ONLY_TRANSPILERS,
@@ -229,6 +229,7 @@ pub fn clean_skills(
         .iter()
         .chain(lock.rules.iter())
         .map(|(k, _)| k.clone())
+        .filter(|k| valid_name(k).is_ok())
         .collect();
     if managed.is_empty() {
         return out;
@@ -260,7 +261,12 @@ pub fn clean_agents(
     let Some(lock) = lock else {
         return out;
     };
-    let managed: Vec<String> = lock.agents.iter().map(|(k, _)| k.clone()).collect();
+    let managed: Vec<String> = lock
+        .agents
+        .iter()
+        .map(|(k, _)| k.clone())
+        .filter(|k| valid_name(k).is_ok())
+        .collect();
     if managed.is_empty() {
         return out;
     }
@@ -281,7 +287,13 @@ pub fn clean_styles(root: &Path, lock: Option<&mut LockFile>) -> CleanOutcome {
     let mut out = CleanOutcome::default();
     let managed: Vec<String> = lock
         .as_ref()
-        .map(|l| l.styles.iter().map(|(k, _)| k.clone()).collect())
+        .map(|l| {
+            l.styles
+                .iter()
+                .map(|(k, _)| k.clone())
+                .filter(|k| valid_name(k).is_ok())
+                .collect()
+        })
         .unwrap_or_default();
     for t in all_style_transpilers() {
         match t.clean(root, &managed) {
