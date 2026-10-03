@@ -5,9 +5,10 @@ mod auth;
 mod cc;
 mod client;
 mod commands;
-mod compression;
+pub(crate) mod compression;
 mod council;
 mod import;
+mod skills;
 pub(crate) mod context;
 mod output;
 mod secret;
@@ -159,9 +160,24 @@ pub const COMMANDS: &[Command] = &[
         handler: Some(context::checkpoint_status),
     },
     Command {
+        path: &["context", "plan"],
+        summary: "Preview the context deploy (--home <dir>, --rules)",
+        handler: Some(context::plan),
+    },
+    Command {
+        path: &["context", "apply"],
+        summary: "Apply the context deploy (--home <dir>, --rules, --no-persist, --dry-run)",
+        handler: Some(context::apply),
+    },
+    Command {
+        path: &["context", "sync"],
+        summary: "Plan then apply the context deploy (--home <dir>, --rules, --dry-run)",
+        handler: Some(context::sync),
+    },
+    Command {
         path: &["context"],
-        summary: "Context sync",
-        handler: None,
+        summary: "Context: loads checkpoint-status plan apply sync",
+        handler: Some(context::group),
     },
     Command {
         path: &["compression", "status"],
@@ -224,9 +240,29 @@ pub const COMMANDS: &[Command] = &[
         handler: Some(council::run),
     },
     Command {
+        path: &["skills", "sync"],
+        summary: "Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)",
+        handler: Some(skills::sync),
+    },
+    Command {
+        path: &["skills", "ls"],
+        summary: "List skills and rules (--repo <dir>, --home <dir>)",
+        handler: Some(skills::ls),
+    },
+    Command {
+        path: &["skills", "lint"],
+        summary: "Lint skills; exits 1 on errors (--repo, --home, --name <skill>)",
+        handler: Some(skills::lint),
+    },
+    Command {
+        path: &["skills", "diff"],
+        summary: "Compare skills with the lockfile; exits 1 on changes (--repo, --home)",
+        handler: Some(skills::diff),
+    },
+    Command {
         path: &["skills"],
-        summary: "Skills sync",
-        handler: None,
+        summary: "Skills: sync ls lint diff",
+        handler: Some(skills::group),
     },
     Command {
         path: &["sync"],
@@ -295,6 +331,7 @@ pub fn parse(args: &[String]) -> Result<Parsed, String> {
                         "profile" |
                         "secret" |
                         "server" |
+                        "skills" |
                         "sync" |
                         "update"
                     )
@@ -478,3 +515,6 @@ mod server_tests;
 
 #[cfg(test)]
 mod import_tests;
+
+#[cfg(test)]
+mod skills_tests;

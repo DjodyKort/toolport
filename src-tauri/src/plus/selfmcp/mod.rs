@@ -180,6 +180,10 @@ pub fn call_tool(name: &str, args: &Value) -> Result<Value, ToolError> {
     Ok(redact::scrub(value))
 }
 
+pub fn skills_diff(args: &Value) -> Result<Value, ToolError> {
+    content::skills_diff(args)
+}
+
 pub fn read_resource(uri: &str) -> Result<(String, &'static str), ToolError> {
     let def = find_resource(uri)
         .ok_or_else(|| ToolError::new("unknown_resource", format!("unknown resource: {uri}")))?;

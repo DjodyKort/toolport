@@ -138,3 +138,93 @@ pub fn checkpoint_status(rest: &[String]) -> Result<Output, CtlError> {
     compact::apply_env(&mut roots);
     checkpoint_status_from(rest, &mut std::io::stdin().lock(), &roots)
 }
+
+const GROUP_USAGE: &str = "usage: context loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--dry-run])";
+
+struct DeployFlags {
+    args: serde_json::Value,
+    dry_run: bool,
+}
+
+fn parse_deploy(rest: &[String], allow_dry_run: bool) -> Result<DeployFlags, CtlError> {
+    let mut args = serde_json::json!({});
+    let mut dry_run = false;
+    let mut iter = rest.iter();
+    while let Some(arg) = iter.next() {
+        let (key, inline) = match arg.split_once('=') {
+            Some((k, v)) => (k, Some(v.to_string())),
+            None => (arg.as_str(), None),
+        };
+        match key {
+            "--home" => {
+                let value = inline
+                    .or_else(|| iter.next().cloned())
+                    .ok_or_else(|| CtlError::usage("--home requires a value"))?;
+                args["home"] = serde_json::json!(value);
+            }
+            "--rules" if inline.is_none() => args["rules"] = serde_json::json!(true),
+            "--no-persist" if inline.is_none() => args["persist"] = serde_json::json!(false),
+            "--dry-run" if allow_dry_run && inline.is_none() => dry_run = true,
+            _ => return Err(CtlError::usage(format!("unexpected argument: {arg}"))),
+        }
+    }
+    Ok(DeployFlags { args, dry_run })
+}
+
+fn render(data: &serde_json::Value) -> String {
+    let mut human = String::new();
+    for key in ["actions", "warnings"] {
+        for line in data[key].as_array().into_iter().flatten() {
+            let prefix = if key == "warnings" { "warning: " } else { "" };
+            human.push_str(&format!("{prefix}{}\n", line.as_str().unwrap_or("")));
+        }
+    }
+    let checks = data["checks"].as_array().map_or(0, Vec::len);
+    human.push_str(&format!("{checks} doctor check(s)"));
+    human
+}
+
+fn deploy(command: &str, args: serde_json::Value) -> Result<serde_json::Value, CtlError> {
+    crate::plus::dispatch(command, args).map_err(|e| CtlError::new("context_invalid", e))
+}
+
+pub fn group(_rest: &[String]) -> Result<Output, CtlError> {
+    Err(CtlError::usage(GROUP_USAGE))
+}
+
+pub fn plan(rest: &[String]) -> Result<Output, CtlError> {
+    let flags = parse_deploy(rest, false)?;
+    let data = deploy("plus.context.plan", flags.args)?;
+    let human = render(&data);
+    Ok(Output::new(data, human))
+}
+
+pub fn apply(rest: &[String]) -> Result<Output, CtlError> {
+    let flags = parse_deploy(rest, true)?;
+    let command = if flags.dry_run {
+        "plus.context.plan"
+    } else {
+        "plus.context.apply"
+    };
+    let data = deploy(command, flags.args)?;
+    let human = render(&data);
+    Ok(Output::new(data, human))
+}
+
+pub fn sync(rest: &[String]) -> Result<Output, CtlError> {
+    let flags = parse_deploy(rest, true)?;
+    let plan = deploy("plus.context.plan", flags.args.clone())?;
+    if flags.dry_run {
+        let human = render(&plan);
+        return Ok(Output::new(
+            serde_json::json!({"dryRun": true, "plan": plan, "apply": null}),
+            human,
+        ));
+    }
+    let applied = deploy("plus.context.apply", flags.args)?;
+    let human = format!("plan:\n{}\napply:\n{}", render(&plan), render(&applied));
+    Ok(Output::new(
+        serde_json::json!({"dryRun": false, "plan": plan, "apply": applied}),
+        human,
+    ))
+}

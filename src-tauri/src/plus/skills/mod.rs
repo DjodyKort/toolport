@@ -8,6 +8,7 @@ pub mod bundle;
 pub mod clock;
 pub mod collisions;
 pub mod git;
+pub mod handlers;
 pub mod json;
 pub mod lint;
 pub mod lock;

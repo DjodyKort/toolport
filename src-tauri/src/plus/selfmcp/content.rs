@@ -5,6 +5,7 @@ use crate::plus::skills::agents::{
     all_agent_transpilers, discover_agents, parse_agent_file, sync_agents, Agent, AgentSyncOptions,
 };
 use crate::plus::skills::assets::compute_skill_hash;
+use crate::plus::skills::ops::diff_skills;
 use crate::plus::skills::lock::{get_entry, load_lockfile, save_lockfile, LockFile};
 use crate::plus::skills::parser::{
     build_frontmatter, discover_skills, parse_frontmatter, parse_skill_file, Skill, SkillType,
@@ -318,6 +319,22 @@ pub(super) fn run(name: &str, args: &Value) -> Option<Outcome> {
         "styles_remove" => styles_remove(args),
         _ => return None,
     })
+}
+
+pub(super) fn skills_diff(args: &Value) -> Outcome {
+    let repo = skills_repo(args)?;
+    let lock = lock_for_read(&repo);
+    let skills = discover_skills(&repo);
+    let report = diff_skills(&skills, lock.as_ref()).map_err(|e| ToolError::new("backend_error", e))?;
+    Ok(json!({
+        "repo": repo.to_string_lossy(),
+        "noLockfile": report.no_lockfile,
+        "clean": report.is_clean(),
+        "new": report.new,
+        "modified": report.modified,
+        "removed": report.removed,
+        "unchanged": report.unchanged,
+    }))
 }
 
 fn skills_status(args: &Value) -> Outcome {
