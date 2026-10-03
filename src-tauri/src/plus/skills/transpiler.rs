@@ -123,21 +123,25 @@ impl TranspilerRegistry {
     }
 }
 
-/// Replaces the managed block when both delimiters exist, otherwise appends it; whitespace
-/// around the block is renormalised exactly like mcpm's `inject_managed_block`.
+/// Replaces the managed block when both delimiters exist, otherwise appends it. Whitespace
+/// around the block is normalised so repeated syncs yield identical bytes; unlike mcpm, text
+/// after the block is trimmed at both ends and a block-only file gets no leading blank lines.
 pub fn inject_managed_block(existing: &str, block: &str) -> String {
     let managed = format!("{MCPM_BLOCK_START}\n{block}\n{MCPM_BLOCK_END}");
-    if let (Some(start), Some(end)) = (
-        existing.find(MCPM_BLOCK_START),
-        existing.find(MCPM_BLOCK_END),
-    ) {
-        let before = existing[..start].trim_end();
-        let after = existing[end + MCPM_BLOCK_END.len()..].trim_start();
-        let mut parts = vec![before, managed.as_str()];
-        if !after.is_empty() {
-            parts.push(after);
+    if let Some(start) = existing.find(MCPM_BLOCK_START) {
+        if let Some(end) = existing[start..].find(MCPM_BLOCK_END) {
+            let before = existing[..start].trim_end();
+            let after = existing[start + end + MCPM_BLOCK_END.len()..].trim();
+            let mut parts = Vec::with_capacity(3);
+            if !before.is_empty() {
+                parts.push(before);
+            }
+            parts.push(managed.as_str());
+            if !after.is_empty() {
+                parts.push(after);
+            }
+            return format!("{}\n", parts.join("\n\n"));
         }
-        return format!("{}\n", parts.join("\n\n"));
     }
     if !existing.trim().is_empty() {
         return format!("{}\n\n{managed}\n", existing.trim_end());

@@ -756,7 +756,7 @@ fn resolve_mode_never_prompts() {
 }
 
 #[test]
-fn managed_block_injection_matches_mcpm() {
+fn managed_block_injection_normalises_the_whitespace_around_the_block() {
     assert_eq!(
         inject_managed_block("", "x"),
         "<!-- mcpm:start -->\nx\n<!-- mcpm:end -->\n"
@@ -769,6 +769,7 @@ fn managed_block_injection_matches_mcpm() {
     let twice = inject_managed_block(&format!("{once}tail\n"), "new");
     assert_eq!(
         twice,
-        "head\n\n<!-- mcpm:start -->\nnew\n<!-- mcpm:end -->\n\ntail\n\n"
+        "head\n\n<!-- mcpm:start -->\nnew\n<!-- mcpm:end -->\n\ntail\n"
     );
+    assert_eq!(inject_managed_block(&twice, "new"), twice);
 }

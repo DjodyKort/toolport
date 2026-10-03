@@ -339,27 +339,115 @@ fn managed_block_injection_is_idempotent_after_foreign_text_when_nothing_follows
 }
 
 #[test]
-fn a_block_only_file_gets_leading_blank_lines_once_like_mcpm() {
+fn a_block_only_file_gets_no_leading_blank_lines() {
     run_cases("skills-inject-block-only", 300, |_, rng| {
         let block = rng.garbage(30);
         let blank = rng.string(" \n\t", 4);
         let first = inject_managed_block(&blank, &block);
         assert!(first.starts_with(MCPM_BLOCK_START));
-        let second = inject_managed_block(&first, &block);
-        assert_eq!(second, format!("\n\n{first}"));
-        assert_eq!(inject_managed_block(&second, &block), second);
+        assert_eq!(inject_managed_block(&first, &block), first);
+        assert_eq!(
+            inject_managed_block(&format!("{blank}{first}"), &block),
+            first
+        );
     });
 }
 
 #[test]
-fn text_after_the_managed_block_gains_a_newline_per_injection_like_mcpm() {
+fn text_after_the_managed_block_keeps_one_trailing_newline_across_injections() {
     let block = "b";
     let once = inject_managed_block(
         &format!("{MCPM_BLOCK_START}\nold\n{MCPM_BLOCK_END}\nafter\n"),
         block,
     );
-    let twice = inject_managed_block(&once, block);
-    assert_eq!(twice, format!("{once}\n"));
+    assert_eq!(
+        once,
+        format!("{MCPM_BLOCK_START}\nb\n{MCPM_BLOCK_END}\n\nafter\n")
+    );
+    let mut text = once.clone();
+    for _ in 0..5 {
+        text = inject_managed_block(&text, block);
+        assert_eq!(text, once);
+    }
+}
+
+fn user_text(rng: &mut Rng) -> String {
+    const VOCAB: &[&str] = &[
+        "text",
+        "# Title\n",
+        "- item",
+        "\n",
+        "\n\n",
+        "\r\n",
+        " ",
+        "\t",
+        "é",
+        "<!-- note -->",
+    ];
+    let text = if rng.chance(50) {
+        rng.tokens(VOCAB, 8)
+    } else {
+        rng.garbage(60)
+    };
+    text.replace("mcpm:", "m:")
+}
+
+#[test]
+fn repeated_injection_is_byte_stable_and_keeps_the_text_around_the_block() {
+    run_cases("skills-inject-stable", 6000, |_, rng| {
+        let before = user_text(rng);
+        let after = user_text(rng);
+        let old = user_text(rng);
+        let block = user_text(rng);
+        let managed = format!("{MCPM_BLOCK_START}\n{block}\n{MCPM_BLOCK_END}");
+        let with_block = rng.chance(70);
+        let existing = if with_block {
+            let inner = format!("{MCPM_BLOCK_START}\n{old}\n{MCPM_BLOCK_END}");
+            format!("{before}{inner}{after}")
+        } else {
+            before.clone()
+        };
+        let after = if with_block { after.as_str() } else { "" };
+        let mut expected = String::new();
+        if !before.trim_end().is_empty() {
+            expected.push_str(before.trim_end());
+            expected.push_str("\n\n");
+        }
+        expected.push_str(&managed);
+        if !after.trim().is_empty() {
+            expected.push_str("\n\n");
+            expected.push_str(after.trim());
+        }
+        expected.push('\n');
+        let first = inject_managed_block(&existing, &block);
+        assert_eq!(first, expected, "{existing:?}");
+        let mut text = first.clone();
+        for round in 0..rng.range(1, 6) {
+            text = inject_managed_block(&text, &block);
+            assert_eq!(text, first, "round {round}");
+        }
+    });
+}
+
+#[test]
+fn injection_settles_after_two_rounds_whatever_markers_the_text_holds() {
+    run_cases("skills-inject-settles", 4000, |_, rng| {
+        let existing = block_text(rng);
+        let block = rng.garbage(30).replace("mcpm:", "m:");
+        let first = inject_managed_block(&existing, &block);
+        let second = inject_managed_block(&first, &block);
+        assert_eq!(
+            inject_managed_block(&second, &block),
+            second,
+            "{existing:?}"
+        );
+        let matched = existing
+            .find(MCPM_BLOCK_START)
+            .is_none_or(|s| existing[s..].contains(MCPM_BLOCK_END));
+        if matched {
+            assert_eq!(second, first, "{existing:?}");
+        }
+    });
 }
 
 fn rewrite_append_mode(t: &dyn Transpiler, skills: &[Skill], root: &Path) -> String {
@@ -396,11 +484,8 @@ fn append_mode_skill_files_are_stable_and_clean_restores_foreign_text() {
             let first = rewrite_append_mode(t, &skills, tmp.path());
             assert_eq!(first.matches(MCPM_BLOCK_START).count(), 1);
             let second = rewrite_append_mode(t, &skills, tmp.path());
-            if foreign.trim().is_empty() {
-                assert_eq!(rewrite_append_mode(t, &skills, tmp.path()), second, "{key}");
-            } else {
-                assert_eq!(second, first, "{key} idempotent");
-            }
+            assert_eq!(second, first, "{key} idempotent");
+            assert_eq!(rewrite_append_mode(t, &skills, tmp.path()), first, "{key}");
             let removed = t.clean(tmp.path(), &[]).unwrap();
             assert_eq!(removed.len(), 1);
             let expected = universal_newlines(&foreign);
