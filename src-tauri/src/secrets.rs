@@ -1176,7 +1176,7 @@ mod file {
     pub(super) fn open(key: &[u8; 32], encoded: &str) -> Result<Vec<u8>, String> {
         let blob = base64::engine::general_purpose::STANDARD
             .decode(encoded.trim())
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| format!("secrets.enc is corrupt (not valid base64): {e}"))?;
         if blob.len() < NONCE_LEN {
             return Err("secrets.enc is truncated or corrupt".to_string());
         }
@@ -1192,7 +1192,7 @@ mod file {
         let encoded = match std::fs::read_to_string(path()?) {
             Ok(s) => s,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Store::new()),
-            Err(e) => return Err(e.to_string()),
+            Err(e) => return Err(format!("cannot read secrets.enc: {e}")),
         };
         let key = resolve_key(false)?.ok_or(
             "TOOLPORT_SECRET_KEY (legacy CONDUIT_SECRET_KEY) is not set and no login-keychain master key exists",
