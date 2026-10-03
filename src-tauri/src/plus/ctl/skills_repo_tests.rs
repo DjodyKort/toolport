@@ -30,6 +30,12 @@ impl Fx {
         self.path(rel).to_string_lossy().into_owned()
     }
 
+    fn resolved(&self, rel: &str) -> String {
+        crate::plus::skills::repo::resolve_path(&self.path(rel))
+            .to_string_lossy()
+            .into_owned()
+    }
+
     fn put(&self, rel: &str, bytes: &[u8]) {
         let path = self.path(rel);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -406,7 +412,7 @@ fn bundle_then_unbundle_is_byte_identical() {
     let (code, v, err) = cli(&["skills", "bundle", "--path", &repo, "--output", &zip]);
     assert_eq!(code, 0, "{err}");
     assert_eq!(v["data"]["dryRun"], false);
-    assert_eq!(v["data"]["output"], json!(zip));
+    assert_eq!(v["data"]["output"], json!(fx.resolved("out/sample.zip")));
     assert_eq!(v["data"]["fileCount"], 6);
     assert!(v["data"]["bundleBytes"].as_u64().unwrap() > 512);
     assert!(fx.path("out/sample.zip").is_file());
@@ -447,7 +453,10 @@ fn bundle_filters_skills_and_defaults_the_output_to_the_repo_name() {
         "alpha, gamma",
     ]);
     assert_eq!(code, 0, "{err}");
-    assert_eq!(v["data"]["output"], json!(fx.arg("repo/sample-bundle.zip")));
+    assert_eq!(
+        v["data"]["output"],
+        json!(fx.resolved("repo/sample-bundle.zip"))
+    );
     let rows: Vec<&str> = v["data"]["skills"]
         .as_array()
         .unwrap()
