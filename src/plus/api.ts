@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { FolderProfile } from "@/lib/types";
 
 export interface PlusPing {
   name: string;
@@ -99,7 +100,7 @@ export interface FolderProfileRow {
 
 export interface FolderProfiles {
   enabled: boolean;
-  mappings: { path: string; profile: string }[];
+  mappings: FolderProfile[];
   folders: FolderProfileRow[];
 }
 
