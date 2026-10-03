@@ -659,6 +659,22 @@ fn malformed_clauses_never_match() {
     assert!(spec_matches(Some("1.2"), "<1.2.0"));
 }
 
+#[test]
+fn a_spec_of_only_commas_holds_no_clause_and_matches_nothing() {
+    for spec in [",", " , ", ",,,", "\t,\n"] {
+        for version in [Some("1.2.3"), Some("0.0.0"), None] {
+            assert!(!spec_matches(version, spec), "{version:?} {spec:?}");
+        }
+    }
+    for spec in ["*,", ", *", ",*,", "*, ,", ">=1.0.0,", " ,>=1.0.0"] {
+        assert!(spec_matches(Some("1.2.3"), spec), "{spec:?}");
+    }
+    assert!(!spec_matches(Some("1.2.3"), ",>=2.0.0"));
+    for spec in ["", " ", "*", " * "] {
+        assert!(spec_matches(Some("1.2.3"), spec) && spec_matches(None, spec));
+    }
+}
+
 fn esc(c: char) -> String {
     format!("\\x{{{:x}}}", c as u32)
 }
