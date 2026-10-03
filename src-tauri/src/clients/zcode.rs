@@ -739,4 +739,24 @@ mod tests {
                 .contains("not a regular file"));
         }
     }
+
+    #[cfg(unix)]
+    #[test]
+    fn zcode_unreadable_install_directory_is_an_error_not_an_absent_client() {
+        use std::os::unix::fs::PermissionsExt;
+
+        if unsafe { libc::geteuid() } == 0 {
+            return;
+        }
+        let fixture = Fixture::new();
+        fixture.write(&fixture.native(), r#"{"mcp":{"servers":{}}}"#);
+        let marker = fixture.0.join(".zcode");
+        std::fs::set_permissions(&marker, std::fs::Permissions::from_mode(0o000)).unwrap();
+        let detected = detect(&fixture.native());
+        // Restore access before asserting so even a failure can clean the fixture.
+        std::fs::set_permissions(&marker, std::fs::Permissions::from_mode(0o700)).unwrap();
+        assert!(detected
+            .unwrap_err()
+            .contains("Could not read ZCode config"));
+    }
 }
