@@ -1,4 +1,5 @@
 use super::commands::snapshot;
+use super::flags::{switch, value, Inline, Operands, Spec, Unknown};
 use super::output::{no_args, CtlError, Output};
 use crate::clients::{self, DetectedClient, GatewayEntryState};
 use crate::registry::{self, Registry};
@@ -128,33 +129,16 @@ fn gateway_state(client: &DetectedClient) -> &'static str {
     }
 }
 
-struct SyncOptions {
-    ids: Vec<String>,
-    dry_run: bool,
-    keep_orphans: bool,
-}
-
-fn parse_sync(rest: &[String]) -> Result<SyncOptions, CtlError> {
-    let mut opts = SyncOptions {
-        ids: Vec::new(),
-        dry_run: false,
-        keep_orphans: false,
-    };
-    let mut iter = rest.iter();
-    while let Some(arg) = iter.next() {
-        match arg.as_str() {
-            "--dry-run" => opts.dry_run = true,
-            "--keep-orphans" => opts.keep_orphans = true,
-            "--client" => opts.ids.push(
-                iter.next()
-                    .ok_or_else(|| CtlError::usage("--client requires an id"))?
-                    .clone(),
-            ),
-            _ => return Err(CtlError::usage(SYNC_USAGE)),
-        }
-    }
-    Ok(opts)
-}
+const SYNC: Spec = Spec {
+    flags: &[
+        value("--client").needs("an id"),
+        switch("--dry-run"),
+        switch("--keep-orphans"),
+    ],
+    inline: Inline::Off,
+    unknown: Unknown::Usage(SYNC_USAGE),
+    operands: Operands::Reject,
+};
 
 fn is_registered(reg: &Registry, name: &str) -> bool {
     reg.servers
@@ -163,22 +147,23 @@ fn is_registered(reg: &Registry, name: &str) -> bool {
 }
 
 pub fn sync(rest: &[String]) -> Result<Output, CtlError> {
-    let opts = parse_sync(rest)?;
+    let flags = SYNC.parse(rest)?;
+    let (ids, dry_run) = (flags.all("--client"), flags.on("--dry-run"));
     let snap = snapshot();
     if let Some(error) = snap.registry_error {
         return Err(CtlError::new("registry_error", error));
     }
     let reg = snap.registry.unwrap_or_default();
     let detected = clients::detect_clients();
-    let mut targets: Vec<String> = if opts.ids.is_empty() {
+    let mut targets: Vec<String> = if ids.is_empty() {
         let mut ids: Vec<String> = reg.client_managed_entries.keys().cloned().collect();
         ids.sort();
         ids
     } else {
-        opts.ids.clone()
+        ids.clone()
     };
     targets.dedup();
-    for id in &opts.ids {
+    for id in &ids {
         if !detected.iter().any(|c| &c.id == id) {
             return Err(CtlError::new("not_found", format!("unknown client '{id}'")));
         }
@@ -207,7 +192,7 @@ pub fn sync(rest: &[String]) -> Result<Output, CtlError> {
         let mut error: Option<String> = None;
         match client.entry_state {
             GatewayEntryState::Absent => {
-                if opts.dry_run {
+                if dry_run {
                     row["gateway"] = json!("would-install");
                 } else {
                     let scope = reg.client_scopes.get(id).filter(|s| !s.is_empty());
@@ -234,7 +219,7 @@ pub fn sync(rest: &[String]) -> Result<Output, CtlError> {
             for name in direct_entries(client) {
                 if is_registered(&reg, name) {
                     removals.push((name.to_string(), "redundant"));
-                } else if opts.keep_orphans {
+                } else if flags.on("--keep-orphans") {
                     kept.push(name.to_string());
                 } else {
                     removals.push((name.to_string(), "orphan"));
@@ -242,7 +227,7 @@ pub fn sync(rest: &[String]) -> Result<Output, CtlError> {
             }
             let names: Vec<String> = removals.iter().map(|(n, _)| n.clone()).collect();
             if !names.is_empty() {
-                let done = prune_one(id, &names, opts.dry_run);
+                let done = prune_one(id, &names, dry_run);
                 backups.extend(done.backup);
                 error = done.error;
                 if error.is_none() {
@@ -274,11 +259,11 @@ pub fn sync(rest: &[String]) -> Result<Output, CtlError> {
         "No managed clients to sync.".to_string()
     } else {
         rows.iter()
-            .map(sync_line(opts.dry_run))
+            .map(sync_line(dry_run))
             .collect::<Vec<_>>()
             .join("\n")
     };
-    let mut output = Output::new(json!({"dryRun": opts.dry_run, "clients": rows}), human);
+    let mut output = Output::new(json!({"dryRun": dry_run, "clients": rows}), human);
     output.failed = failed;
     Ok(output)
 }
