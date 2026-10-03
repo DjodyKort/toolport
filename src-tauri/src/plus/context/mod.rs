@@ -119,6 +119,7 @@ pub fn apply(
     opts: ApplyOptions,
 ) -> Result<Report, String> {
     config.validate()?;
+    let roots = &roots.resolved(config);
     let mut report = Report::default();
     let dry = opts.dry_run;
 
@@ -148,7 +149,7 @@ pub fn apply(
 
     layers::deploy_client_locals(
         roots,
-        &roots.expand_user(&config.clients_root),
+        &roots.resolve_clients_root(config),
         &mut report,
         dry,
     )?;
@@ -209,6 +210,7 @@ fn roots_from_args(args: &Value) -> Result<Roots, String> {
     if let Some(p) = over("cfDir") {
         roots.cf_dir = p;
     }
+    roots.read_env();
     roots.env_claude_config_dir = std::env::var("CLAUDE_CONFIG_DIR").ok();
     compact::apply_env(&mut roots);
     Ok(roots)

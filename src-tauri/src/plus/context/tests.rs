@@ -630,3 +630,82 @@ mod loads_tests {
         assert!(out["total_tokens"].as_u64().unwrap() > 0);
     }
 }
+
+#[test]
+fn corp_tools_dir_and_clients_root_default_config_env_precedence() {
+    let h = TempHome::new();
+    let mut roots = h.roots();
+    let mut cfg = config(json!({}));
+    assert_eq!(roots.resolve_corp_tools_dir(&cfg), h.0.join(".local/share/corp-dev-tools"));
+    assert_eq!(
+        roots.resolve_clients_root(&cfg),
+        h.0.join("Documents/GitHub/ExampleWorkspace/clients")
+    );
+    cfg.corp_tools_dir = Some("~/tools/from-config".into());
+    cfg.clients_root = "~/work/from-config".into();
+    assert_eq!(roots.resolve_corp_tools_dir(&cfg), h.0.join("tools/from-config"));
+    assert_eq!(roots.resolve_clients_root(&cfg), h.0.join("work/from-config"));
+    roots.env_corp_tools_dir = Some("~/tools/from-env".into());
+    roots.env_clients_root = Some(h.0.join("work/from-env").to_string_lossy().into_owned());
+    assert_eq!(roots.resolve_corp_tools_dir(&cfg), h.0.join("tools/from-env"));
+    assert_eq!(roots.resolve_clients_root(&cfg), h.0.join("work/from-env"));
+    roots.env_corp_tools_dir = Some(String::new());
+    assert_eq!(roots.resolve_corp_tools_dir(&cfg), h.0.join("tools/from-config"));
+}
+
+#[test]
+fn process_env_feeds_the_resolver() {
+    let _lock = crate::clients::env_test_lock();
+    let h = TempHome::new();
+    let tools = h.0.join("env-tools");
+    let clients = h.0.join("env-clients");
+    let _a = crate::clients::EnvRestore::set(roots::ENV_CORP_TOOLS_DIR, &tools);
+    let _b = crate::clients::EnvRestore::set(roots::ENV_CLIENTS_ROOT, &clients);
+    let mut roots = h.roots();
+    roots.read_env();
+    let cfg = config(json!({"clients_root": "~/ignored", "corp_tools_dir": "~/ignored"}));
+    assert_eq!(roots.resolve_corp_tools_dir(&cfg), tools);
+    assert_eq!(roots.resolve_clients_root(&cfg), clients);
+}
+
+#[test]
+fn doctor_and_shims_use_the_configured_corp_tools_dir() {
+    let h = TempHome::new();
+    h.write("custom/tools/claude/shell-wrapper.sh", "v1\n");
+    let roots = h.roots();
+    let mut cfg = config(json!({
+        "wrap_default_claude": true,
+        "corp_tools_dir": h.0.join("custom/tools").to_string_lossy(),
+    }));
+    let r = run(&roots, &mut cfg);
+    assert!(r.actions.iter().any(|a| a.contains("baseline")));
+    assert!(cfg.cf_wrapper_hash.is_some());
+    let checks = doctor::run_checks(&roots, &cfg);
+    assert!(checks.iter().any(|c| c.1.contains("unchanged since baseline")));
+    h.write("custom/tools/claude/extra-asset.json", "{}");
+    assert!(doctor::run_checks(&roots, &cfg)
+        .iter()
+        .any(|c| c.1.contains("extra-asset.json")));
+    let shims = h.read(".config/mcpm/context-shims.zsh");
+    assert!(shims.contains(&format!(
+        "local cf_dir='{}'",
+        h.0.join("custom/tools").display()
+    )));
+    assert!(!shims.contains("${HOME}/.local/share/corp-dev-tools"));
+}
+
+#[test]
+fn imported_context_json_values_are_honored() {
+    let h = TempHome::new();
+    h.write(
+        ".config/mcpm/context.json",
+        &format!(
+            r#"{{"clients_root":"{0}/c","corp_tools_dir":"{0}/t"}}"#,
+            h.0.display()
+        ),
+    );
+    let roots = h.roots();
+    let cfg = load_config(&roots.context_config_path());
+    assert_eq!(roots.resolve_clients_root(&cfg), h.0.join("c"));
+    assert_eq!(roots.resolve_corp_tools_dir(&cfg), h.0.join("t"));
+}

@@ -243,7 +243,7 @@ fn check_env(roots: &Roots) -> Vec<Check> {
 }
 
 fn check_cf_drift(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
-    let cf = &roots.cf_dir;
+    let cf = &roots.resolve_corp_tools_dir(config);
     if !cf.exists() {
         return vec![check(
             "ok",
