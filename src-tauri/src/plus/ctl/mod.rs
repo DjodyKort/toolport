@@ -9,6 +9,7 @@ pub(crate) mod compression;
 mod council;
 mod import;
 mod skills;
+mod skills_repo;
 pub(crate) mod context;
 mod folders;
 mod output;
@@ -266,8 +267,33 @@ pub const COMMANDS: &[Command] = &[
         handler: Some(skills::diff),
     },
     Command {
+        path: &["skills", "init"],
+        summary: "Create a skills repository (--path <dir>, --name <name>, --dry-run)",
+        handler: Some(skills_repo::init),
+    },
+    Command {
+        path: &["skills", "add"],
+        summary: "Create a skill or rule from a template (<name>, --type, --path, --with-progressive, --dry-run)",
+        handler: Some(skills_repo::add),
+    },
+    Command {
+        path: &["skills", "audit"],
+        summary: "Scan skills for prompt injection and risky commands; exits 1 on high findings (--path <dir>)",
+        handler: Some(skills_repo::audit),
+    },
+    Command {
+        path: &["skills", "bundle"],
+        summary: "Pack skills into a portable zip (--output <zip>, --path <dir>, --skills <a,b>, --dry-run)",
+        handler: Some(skills_repo::bundle),
+    },
+    Command {
+        path: &["skills", "unbundle"],
+        summary: "Extract a skills bundle (<bundle.zip>, --path <dir>, --dry-run)",
+        handler: Some(skills_repo::unbundle),
+    },
+    Command {
         path: &["skills"],
-        summary: "Skills: sync ls lint diff",
+        summary: "Skills: init add ls lint audit bundle unbundle sync diff",
         handler: Some(skills::group),
     },
     Command {

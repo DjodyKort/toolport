@@ -160,6 +160,9 @@ impl World {
         let s = |list: &[&str]| list.iter().map(|x| x.to_string()).collect::<Vec<_>>();
         let home = self.sb.home.to_string_lossy().into_owned();
         let work = self.sb.work.to_string_lossy().into_owned();
+        let fresh = format!("{work}/fresh-skills");
+        let zip = format!("{work}/skills.zip");
+        let unpacked = format!("{work}/unpacked-skills");
         vec![
             s(&["status"]),
             s(&["doctor"]),
@@ -259,6 +262,13 @@ impl World {
                 "claude-code",
             ]),
             s(&["skills", "diff", "--repo", &self.repo]),
+            s(&["skills", "audit", "--repo", &self.repo]),
+            s(&["skills", "init", "--path", &fresh, "--name", "fresh"]),
+            s(&["skills", "add", "fresh-skill", "--path", &fresh]),
+            s(&["skills", "bundle", "--repo", &self.repo, "--dry-run"]),
+            s(&["skills", "bundle", "--repo", &self.repo, "--output", &zip]),
+            s(&["skills", "unbundle", &zip, "--path", &unpacked, "--dry-run"]),
+            s(&["skills", "unbundle", &zip, "--path", &unpacked]),
             s(&["skills"]),
             s(&[
                 "sync",

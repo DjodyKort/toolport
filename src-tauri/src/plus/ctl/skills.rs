@@ -1,10 +1,15 @@
 //! `toolportctl skills sync|ls|lint|diff`: thin renderers over the `plus.skills.*` handlers.
+//! `init|add|audit|bundle|unbundle` live in `skills_repo.rs`.
 
 use super::output::{CtlError, Output};
 use serde_json::{json, Value};
 
-const USAGE: &str = "usage: skills sync|ls|lint|diff [--repo <dir>] [--home <dir>] \
-     (sync: [--client <key>]... [--project] [--dry-run]; lint: [--name <skill>]...)";
+const USAGE: &str = "usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|diff \
+     (sync|ls|lint|diff: [--repo <dir>] [--home <dir>]; sync: [--client <key>]... [--project] \
+     [--dry-run]; lint: [--name <skill>]...; init: [--path <dir>] [--name <name>] [--dry-run]; \
+     add: <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]; \
+     audit: [--path <dir>]; bundle: [--output <zip>] [--path <dir>] [--skills <a,b>] [--dry-run]; \
+     unbundle: <bundle.zip> [--path <dir>] [--dry-run])";
 
 #[derive(Default)]
 struct Flags {
