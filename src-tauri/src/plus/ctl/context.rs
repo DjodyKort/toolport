@@ -10,6 +10,7 @@ const LOADS: Spec = Spec {
     inline: Inline::Value,
     unknown: Unknown::ArgumentKey,
     operands: Operands::Reject,
+    ..Spec::PLAIN
 };
 
 pub fn loads(rest: &[String]) -> Result<Output, CtlError> {
@@ -119,6 +120,7 @@ const DEPLOY: Spec = Spec {
     inline: Inline::Value,
     unknown: Unknown::Argument,
     operands: Operands::Reject,
+    ..Spec::PLAIN
 };
 const DEPLOY_DRY: Spec = Spec {
     flags: &[

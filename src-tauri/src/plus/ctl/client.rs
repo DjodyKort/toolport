@@ -138,6 +138,7 @@ const SYNC: Spec = Spec {
     inline: Inline::Off,
     unknown: Unknown::Usage(SYNC_USAGE),
     operands: Operands::Reject,
+    ..Spec::PLAIN
 };
 
 fn is_registered(reg: &Registry, name: &str) -> bool {

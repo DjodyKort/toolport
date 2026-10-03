@@ -7,6 +7,7 @@ use super::output::CtlError;
 enum Kind {
     Switch,
     Value,
+    Greedy,
 }
 
 #[derive(Clone, Copy)]
@@ -24,6 +25,10 @@ pub(super) const fn switch(name: &'static str) -> Flag {
 
 pub(super) const fn value(name: &'static str) -> Flag {
     Flag::new(name, Kind::Value)
+}
+
+pub(super) const fn greedy(name: &'static str) -> Flag {
+    Flag::new(name, Kind::Greedy)
 }
 
 impl Flag {
@@ -57,8 +62,6 @@ impl Flag {
     }
 }
 
-/// Whether `--flag=value` is understood. `Strict` also rejects a value on a switch with
-/// "takes no value"; the others treat that token as unknown.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Inline {
     Off,
@@ -66,7 +69,6 @@ pub(super) enum Inline {
     Strict,
 }
 
-/// The error for a token the spec does not declare.
 #[derive(Clone, Copy)]
 pub(super) enum Unknown {
     Option,
@@ -81,6 +83,14 @@ pub(super) enum Unknown {
 pub(super) enum Operands {
     Collect,
     Reject,
+    Max(usize, &'static str),
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Dashes {
+    NotBare,
+    Any,
+    Long,
 }
 
 #[derive(Clone, Copy)]
@@ -89,6 +99,7 @@ pub(super) struct Spec {
     pub inline: Inline,
     pub unknown: Unknown,
     pub operands: Operands,
+    pub dashes: Dashes,
 }
 
 #[derive(Default)]
@@ -104,6 +115,7 @@ impl Spec {
         inline: Inline::Off,
         unknown: Unknown::Option,
         operands: Operands::Collect,
+        dashes: Dashes::NotBare,
     };
 
     fn unknown(&self, arg: &str, key: &str) -> CtlError {
@@ -119,16 +131,27 @@ impl Spec {
 
     pub(super) fn parse(&self, rest: &[String]) -> Result<Flags, CtlError> {
         let mut out = Flags::default();
-        let mut iter = rest.iter();
+        let mut iter = rest.iter().peekable();
         while let Some(arg) = iter.next() {
             let (key, inline) = match arg.split_once('=') {
                 Some((key, value)) if self.inline != Inline::Off => (key, Some(value)),
                 _ => (arg.as_str(), None),
             };
-            if !arg.starts_with('-') || arg == "-" {
+            let flaglike = match self.dashes {
+                Dashes::NotBare => arg.starts_with('-') && arg != "-",
+                Dashes::Any => arg.starts_with('-'),
+                Dashes::Long => arg.starts_with("--"),
+            };
+            if !flaglike {
                 match self.operands {
                     Operands::Collect => out.operands.push(arg.clone()),
                     Operands::Reject => return Err(self.unknown(arg, key)),
+                    Operands::Max(max, usage) => {
+                        if out.operands.len() == max {
+                            return Err(CtlError::usage(usage));
+                        }
+                        out.operands.push(arg.clone());
+                    }
                 }
                 continue;
             }
@@ -142,6 +165,18 @@ impl Spec {
                         return Err(CtlError::usage(format!("{} takes no value", flag.name)))
                     }
                     (Some(_), _) => return Err(self.unknown(arg, key)),
+                }
+                continue;
+            }
+            if flag.kind == Kind::Greedy && inline.is_none() {
+                while let Some(next) = iter.next_if(|next| !next.starts_with("--")) {
+                    out.values.push((flag.name, next.clone()));
+                }
+                if !out.values.iter().any(|(k, _)| *k == flag.name) {
+                    return Err(CtlError::usage(format!(
+                        "{} requires {}",
+                        flag.name, flag.needs
+                    )));
                 }
                 continue;
             }
@@ -173,6 +208,15 @@ impl Flags {
 
     pub(super) fn count(&self, name: &str) -> Option<u64> {
         self.one(name).and_then(|v| v.parse().ok())
+    }
+
+    pub(super) fn number<T: std::str::FromStr>(&self, name: &str) -> Result<Option<T>, CtlError> {
+        self.one(name)
+            .map(|v| {
+                v.parse::<T>()
+                    .map_err(|_| CtlError::usage(format!("{name} needs a whole number")))
+            })
+            .transpose()
     }
 
     pub(super) fn all(&self, name: &str) -> Vec<String> {

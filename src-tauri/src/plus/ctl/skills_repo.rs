@@ -2,7 +2,7 @@
 //! `plus.skills.*` handlers. `--path` is the repository root; `--repo` is accepted as its alias
 //! to match `skills ls|lint|diff|sync`.
 
-use super::flags::{switch, value, Flag, Flags, Inline, Operands, Spec, Unknown};
+use super::flags::{switch, value, Flag, Flags, Inline, Spec, Unknown};
 use super::output::{CtlError, Output};
 use serde_json::{json, Value};
 
@@ -21,7 +21,7 @@ pub(super) const fn spec(flags: &'static [Flag], usage: &'static str) -> Spec {
         flags,
         inline: Inline::Strict,
         unknown: Unknown::ArgumentUsage(usage),
-        operands: Operands::Collect,
+        ..Spec::PLAIN
     }
 }
 
