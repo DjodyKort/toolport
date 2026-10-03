@@ -513,7 +513,7 @@ fn codex_agent_mcp_server_hint_names_an_existing_toolportctl_command() {
     let (command, _) =
         crate::plus::ctl::find_command(&["server".to_string(), "install".to_string()])
             .expect("ctl server install");
-    assert!(command.handler.is_some());
+    assert!(!command.planned());
     run_cases("agents-codex-hint", 20, |_, rng| {
         let mut a = agent(rng, true);
         a.frontmatter.mcp_servers = vec!["docs".into(), "search".into()];

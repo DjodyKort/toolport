@@ -77,7 +77,7 @@ fn every_toolportctl_command_in_the_context_sources_exists() {
             let (resolved, _) = ctl::find_command(&words)
                 .unwrap_or_else(|| panic!("{file}: no ctl command for `toolportctl{}`", &found[1]));
             assert!(
-                resolved.handler.is_some(),
+                !resolved.planned(),
                 "{file}: `toolportctl{}` is only a planned command",
                 &found[1]
             );

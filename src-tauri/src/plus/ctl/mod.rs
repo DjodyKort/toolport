@@ -31,320 +31,261 @@ pub const EXIT_USAGE: i32 = 2;
 
 pub type Handler = fn(&[String]) -> Result<Output, CtlError>;
 
-/// One row per command path. `None` marks a planned command that later items
-/// fill in by swapping the handler; matching prefers the longest path.
 pub struct Command {
     pub path: &'static [&'static str],
     pub summary: &'static str,
-    pub handler: Option<Handler>,
+    pub handler: Handler,
+    pub options: bool,
 }
 
+const fn cmd(path: &'static [&'static str], summary: &'static str, handler: Handler) -> Command {
+    Command {
+        path,
+        summary,
+        handler,
+        options: true,
+    }
+}
+
+impl Command {
+    pub fn planned(&self) -> bool {
+        self.summary.ends_with("(not implemented)")
+    }
+
+    const fn no_options(self) -> Self {
+        Self {
+            options: false,
+            ..self
+        }
+    }
+}
+
+macro_rules! planned_groups {
+    ($($name:ident => $label:literal),* $(,)?) => {$(
+        fn $name(_: &[String]) -> Result<Output, CtlError> {
+            Err(CtlError::new(
+                "not_implemented",
+                concat!($label, ": not implemented"),
+            ))
+        }
+    )*};
+}
+
+planned_groups!(
+    profile_group => "profile",
+    client_group => "client",
+    server_group => "server",
+    auth_group => "auth",
+    secret_group => "secret",
+    compression_group => "compression",
+    import_group => "import",
+);
+
 pub const COMMANDS: &[Command] = &[
-    Command {
-        path: &["status"],
-        summary: "Show registry, profile, secrets backend and gateway state",
-        handler: Some(commands::status),
-    },
-    Command {
-        path: &["doctor"],
-        summary: "Run read-only health checks",
-        handler: Some(commands::doctor),
-    },
-    Command {
-        path: &["server", "ls"],
-        summary: "List servers and whether the active profile enables them",
-        handler: Some(commands::server_ls),
-    },
-    Command {
-        path: &["server", "search"],
-        summary: "Search the catalog (--offline, --limit <n>)",
-        handler: Some(server::search),
-    },
-    Command {
-        path: &["server", "install"],
-        summary: "Install a catalog server by name",
-        handler: Some(server::install),
-    },
-    Command {
-        path: &["server", "uninstall"],
-        summary: "Remove a server and its client entries (--dry-run)",
-        handler: Some(server::uninstall),
-    },
-    Command {
-        path: &["server", "info"],
-        summary: "Show one server's definition and profiles",
-        handler: Some(server::info),
-    },
-    Command {
-        path: &["server", "new"],
-        summary: "Add a custom server (--command or --url)",
-        handler: Some(server::new),
-    },
-    Command {
-        path: &["server", "edit"],
-        summary: "Edit a server's name, command, args, url or cwd",
-        handler: Some(server::edit),
-    },
-    Command {
-        path: &["inspect"],
-        summary: "List the tools a server exposes (connects live)",
-        handler: Some(server::inspect),
-    },
-    Command {
-        path: &["profile", "inspect"],
-        summary: "List the tools of every server in a profile (connects live)",
-        handler: Some(server::profile_inspect),
-    },
-    Command {
-        path: &["profile"],
-        summary: "Profiles",
-        handler: None,
-    },
-    Command {
-        path: &["client", "ls"],
-        summary: "List detected clients and their direct entries",
-        handler: Some(client::ls),
-    },
-    Command {
-        path: &["client", "sync"],
-        summary: "Sync managed clients (--client <id>, --dry-run, --keep-orphans)",
-        handler: Some(client::sync),
-    },
-    Command {
-        path: &["client"],
-        summary: "Client configs",
-        handler: None,
-    },
-    Command {
-        path: &["server"],
-        summary: "Manage servers (mutations)",
-        handler: None,
-    },
-    Command {
-        path: &["auth", "statusline"],
-        summary: "Compact auth-health JSON for a Claude Code statusline",
-        handler: Some(auth::statusline),
-    },
-    Command {
-        path: &["auth", "hook"],
-        summary: "Auth-health JSON for a Claude Code SessionStart hook",
-        handler: Some(auth::hook),
-    },
-    Command {
-        path: &["auth"],
-        summary: "Auth health",
-        handler: None,
-    },
-    Command {
-        path: &["secret", "set"],
-        summary: "Store a secret read from stdin or --value-env",
-        handler: Some(secret::set),
-    },
-    Command {
-        path: &["secret", "get"],
-        summary: "Check a secret (--reveal prints the value)",
-        handler: Some(secret::get),
-    },
-    Command {
-        path: &["secret", "rm"],
-        summary: "Remove a secret",
-        handler: Some(secret::rm),
-    },
-    Command {
-        path: &["secret"],
-        summary: "Manage server secrets",
-        handler: None,
-    },
-    Command {
-        path: &["context", "loads"],
-        summary: "Show what a claude session loads, with token cost (--profile, --cwd)",
-        handler: Some(context::loads),
-    },
-    Command {
-        path: &["context", "folders"],
-        summary: "Show the active profile per folder (--cwd, --enable, --disable)",
-        handler: Some(folders::folders),
-    },
-    Command {
-        path: &["context", "checkpoint-status"],
-        summary: "Report used tokens vs the checkpoint point from statusline JSON on stdin",
-        handler: Some(context::checkpoint_status),
-    },
-    Command {
-        path: &["context", "plan"],
-        summary: "Preview the context deploy (--home <dir>, --rules)",
-        handler: Some(context::plan),
-    },
-    Command {
-        path: &["context", "apply"],
-        summary: "Apply the context deploy (--home <dir>, --rules, --no-persist, --dry-run)",
-        handler: Some(context::apply),
-    },
-    Command {
-        path: &["context", "sync"],
-        summary: "Plan then apply the context deploy (--home <dir>, --rules, --dry-run)",
-        handler: Some(context::sync),
-    },
-    Command {
-        path: &["context"],
-        summary: "Context: loads checkpoint-status plan apply sync",
-        handler: Some(context::group),
-    },
-    Command {
-        path: &["compression", "status"],
-        summary: "Show the compression policy, pin and drift",
-        handler: Some(compression::status),
-    },
-    Command {
-        path: &["compression", "presets"],
-        summary: "List compression presets",
-        handler: Some(compression::presets),
-    },
-    Command {
-        path: &["compression", "run"],
-        summary: "Launch claude under the directory's policy (--plan to preview)",
-        handler: Some(compression::run),
-    },
-    Command {
-        path: &["compression", "verify"],
-        summary: "Check provider health, pin, shims and measure cache behaviour",
-        handler: Some(compression::verify),
-    },
-    Command {
-        path: &["compression", "ledger"],
-        summary: "Launch and token-savings ledger (summary | record)",
-        handler: Some(compression::ledger_cmd),
-    },
-    Command {
-        path: &["compression", "proxy"],
-        summary: "Proxy lifecycle: up, down, restart",
-        handler: Some(compression::proxy),
-    },
-    Command {
-        path: &["compression", "update"],
-        summary: "Move the engine pin (--to V | --latest, --accept to apply)",
-        handler: Some(compression::update),
-    },
-    Command {
-        path: &["compression"],
-        summary: "Compression runs",
-        handler: None,
-    },
-    Command {
-        path: &["import", "mcpm"],
-        summary: "Import an mcpm config root (--dry-run prints the plan)",
-        handler: Some(import::mcpm),
-    },
-    Command {
-        path: &["import", "rename-refs"],
-        summary: "Rewrite mcp__mcpm_ tool references under --paths (--tools F, --dry-run)",
-        handler: Some(import::rename_refs_cmd),
-    },
-    Command {
-        path: &["import"],
-        summary: "Import data from other tools",
-        handler: None,
-    },
-    Command {
-        path: &["council"],
-        summary: "Council server: install uninstall doctor tools",
-        handler: Some(council::run),
-    },
-    Command {
-        path: &["mcp"],
-        summary: "Self-management server: install [--profile <id>] uninstall doctor tools",
-        handler: Some(mcp::run),
-    },
-    Command {
-        path: &["skills", "sync"],
-        summary: "Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)",
-        handler: Some(skills::sync),
-    },
-    Command {
-        path: &["skills", "ls"],
-        summary: "List skills and rules (--repo <dir>, --home <dir>)",
-        handler: Some(skills::ls),
-    },
-    Command {
-        path: &["skills", "lint"],
-        summary: "Lint skills; exits 1 on errors (--repo, --home, --name <skill>)",
-        handler: Some(skills::lint),
-    },
-    Command {
-        path: &["skills", "diff"],
-        summary: "Compare skills with the lockfile; exits 1 on changes (--repo, --home)",
-        handler: Some(skills::diff),
-    },
-    Command {
-        path: &["skills", "init"],
-        summary: "Create a skills repository (--path <dir>, --name <name>, --dry-run)",
-        handler: Some(skills_repo::init),
-    },
-    Command {
-        path: &["skills", "add"],
-        summary: "Create a skill or rule from a template (<name>, --type, --path, --with-progressive, --dry-run)",
-        handler: Some(skills_repo::add),
-    },
-    Command {
-        path: &["skills", "audit"],
-        summary: "Scan skills for prompt injection and risky commands; exits 1 on high findings (--path <dir>)",
-        handler: Some(skills_repo::audit),
-    },
-    Command {
-        path: &["skills", "bundle"],
-        summary: "Pack skills into a portable zip (--output <zip>, --path <dir>, --skills <a,b>, --dry-run)",
-        handler: Some(skills_repo::bundle),
-    },
-    Command {
-        path: &["skills", "unbundle"],
-        summary: "Extract a skills bundle (<bundle.zip>, --path <dir>, --dry-run)",
-        handler: Some(skills_repo::unbundle),
-    },
-    Command {
-        path: &["skills", "status"],
-        summary: "Show whether synced outputs still exist; --strict exits 1 on drift (--repo, --home, --client <key>)",
-        handler: Some(skills_state::status),
-    },
-    Command {
-        path: &["skills", "clean"],
-        summary: "Remove synced outputs and the lockfile (--repo, --home, --client <key>, --project, --dry-run)",
-        handler: Some(skills_state::clean),
-    },
-    Command {
-        path: &["skills", "uninstall"],
-        summary: "Remove a skill, its outputs and its lock entry (<name>, --repo, --home, --project, --dry-run)",
-        handler: Some(skills_state::uninstall),
-    },
-    Command {
-        path: &["skills", "resolve"],
-        summary: "Find files shadowing synced skills; --migrate backs them up (--repo, --home, --client <key>, --project, --dry-run)",
-        handler: Some(skills_state::resolve),
-    },
-    Command {
-        path: &["skills"],
-        summary: "Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve",
-        handler: Some(skills::group),
-    },
-    Command {
-        path: &["sync"],
-        summary: "Encrypted sync: init push pull diff status reset ...",
-        handler: Some(sync::run),
-    },
-    Command {
-        path: &["cc"],
-        summary: "Claude Code plugins: list | update [--dry-run]",
-        handler: Some(cc::run),
-    },
-    Command {
-        path: &["update"],
-        summary: "Check or apply server updates (--check, --apply, --init, --dry-run)",
-        handler: Some(update::update),
-    },
-    Command {
-        path: &["usage"],
-        summary: "Token and MCP usage from Claude Code transcripts (--root <dir>, --no-refresh)",
-        handler: Some(usage::run),
-    },
+    cmd(
+        &["status"],
+        "Show registry, profile, secrets backend and gateway state",
+        commands::status,
+    )
+    .no_options(),
+    cmd(&["doctor"], "Run read-only health checks", commands::doctor).no_options(),
+    cmd(
+        &["server", "ls"],
+        "List servers and whether the active profile enables them",
+        commands::server_ls,
+    ),
+    cmd(&["server", "search"], "Search the catalog (--offline, --limit <n>)", server::search),
+    cmd(&["server", "install"], "Install a catalog server by name", server::install),
+    cmd(
+        &["server", "uninstall"],
+        "Remove a server and its client entries (--dry-run)",
+        server::uninstall,
+    ),
+    cmd(&["server", "info"], "Show one server's definition and profiles", server::info),
+    cmd(&["server", "new"], "Add a custom server (--command or --url)", server::new),
+    cmd(&["server", "edit"], "Edit a server's name, command, args, url or cwd", server::edit),
+    cmd(&["inspect"], "List the tools a server exposes (connects live)", server::inspect),
+    cmd(
+        &["profile", "inspect"],
+        "List the tools of every server in a profile (connects live)",
+        server::profile_inspect,
+    ),
+    cmd(&["profile"], "Profiles (not implemented)", profile_group),
+    cmd(&["client", "ls"], "List detected clients and their direct entries", client::ls),
+    cmd(
+        &["client", "sync"],
+        "Sync managed clients (--client <id>, --dry-run, --keep-orphans)",
+        client::sync,
+    ),
+    cmd(&["client"], "Client configs (not implemented)", client_group),
+    cmd(&["server"], "Manage servers (mutations) (not implemented)", server_group),
+    cmd(
+        &["auth", "statusline"],
+        "Compact auth-health JSON for a Claude Code statusline",
+        auth::statusline,
+    )
+    .no_options(),
+    cmd(
+        &["auth", "hook"],
+        "Auth-health JSON for a Claude Code SessionStart hook",
+        auth::hook,
+    )
+    .no_options(),
+    cmd(&["auth"], "Auth health (not implemented)", auth_group).no_options(),
+    cmd(&["secret", "set"], "Store a secret read from stdin or --value-env", secret::set),
+    cmd(&["secret", "get"], "Check a secret (--reveal prints the value)", secret::get),
+    cmd(&["secret", "rm"], "Remove a secret", secret::rm),
+    cmd(&["secret"], "Manage server secrets (not implemented)", secret_group),
+    cmd(
+        &["context", "loads"],
+        "Show what a claude session loads, with token cost (--profile, --cwd)",
+        context::loads,
+    ),
+    cmd(
+        &["context", "folders"],
+        "Show the active profile per folder (--cwd, --enable, --disable)",
+        folders::folders,
+    ),
+    cmd(
+        &["context", "checkpoint-status"],
+        "Report used tokens vs the checkpoint point from statusline JSON on stdin",
+        context::checkpoint_status,
+    ),
+    cmd(&["context", "plan"], "Preview the context deploy (--home <dir>, --rules)", context::plan),
+    cmd(
+        &["context", "apply"],
+        "Apply the context deploy (--home <dir>, --rules, --no-persist, --dry-run)",
+        context::apply,
+    ),
+    cmd(
+        &["context", "sync"],
+        "Plan then apply the context deploy (--home <dir>, --rules, --dry-run)",
+        context::sync,
+    ),
+    cmd(&["context"], "Context: loads checkpoint-status plan apply sync", context::group),
+    cmd(
+        &["compression", "status"],
+        "Show the compression policy, pin and drift",
+        compression::status,
+    ),
+    cmd(&["compression", "presets"], "List compression presets", compression::presets),
+    cmd(
+        &["compression", "run"],
+        "Launch claude under the directory's policy (--plan to preview)",
+        compression::run,
+    ),
+    cmd(
+        &["compression", "verify"],
+        "Check provider health, pin, shims and measure cache behaviour",
+        compression::verify,
+    ),
+    cmd(
+        &["compression", "ledger"],
+        "Launch and token-savings ledger (summary | record)",
+        compression::ledger_cmd,
+    ),
+    cmd(&["compression", "proxy"], "Proxy lifecycle: up, down, restart", compression::proxy),
+    cmd(
+        &["compression", "update"],
+        "Move the engine pin (--to V | --latest, --accept to apply)",
+        compression::update,
+    ),
+    cmd(&["compression"], "Compression runs (not implemented)", compression_group),
+    cmd(
+        &["import", "mcpm"],
+        "Import an mcpm config root (--dry-run prints the plan)",
+        import::mcpm,
+    ),
+    cmd(
+        &["import", "rename-refs"],
+        "Rewrite mcp__mcpm_ tool references under --paths (--tools F, --dry-run)",
+        import::rename_refs_cmd,
+    ),
+    cmd(&["import"], "Import data from other tools (not implemented)", import_group),
+    cmd(&["council"], "Council server: install uninstall doctor tools", council::run),
+    cmd(
+        &["mcp"],
+        "Self-management server: install [--profile <id>] uninstall doctor tools",
+        mcp::run,
+    ),
+    cmd(
+        &["skills", "sync"],
+        "Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)",
+        skills::sync,
+    ),
+    cmd(&["skills", "ls"], "List skills and rules (--repo <dir>, --home <dir>)", skills::ls),
+    cmd(
+        &["skills", "lint"],
+        "Lint skills; exits 1 on errors (--repo, --home, --name <skill>)",
+        skills::lint,
+    ),
+    cmd(
+        &["skills", "diff"],
+        "Compare skills with the lockfile; exits 1 on changes (--repo, --home)",
+        skills::diff,
+    ),
+    cmd(
+        &["skills", "init"],
+        "Create a skills repository (--path <dir>, --name <name>, --dry-run)",
+        skills_repo::init,
+    ),
+    cmd(
+        &["skills", "add"],
+        "Create a skill or rule from a template (<name>, --type, --path, --with-progressive, --dry-run)",
+        skills_repo::add,
+    ),
+    cmd(
+        &["skills", "audit"],
+        "Scan skills for prompt injection and risky commands; exits 1 on high findings (--path <dir>)",
+        skills_repo::audit,
+    ),
+    cmd(
+        &["skills", "bundle"],
+        "Pack skills into a portable zip (--output <zip>, --path <dir>, --skills <a,b>, --dry-run)",
+        skills_repo::bundle,
+    ),
+    cmd(
+        &["skills", "unbundle"],
+        "Extract a skills bundle (<bundle.zip>, --path <dir>, --dry-run)",
+        skills_repo::unbundle,
+    ),
+    cmd(
+        &["skills", "status"],
+        "Show whether synced outputs still exist; --strict exits 1 on drift (--repo, --home, --client <key>)",
+        skills_state::status,
+    ),
+    cmd(
+        &["skills", "clean"],
+        "Remove synced outputs and the lockfile (--repo, --home, --client <key>, --project, --dry-run)",
+        skills_state::clean,
+    ),
+    cmd(
+        &["skills", "uninstall"],
+        "Remove a skill, its outputs and its lock entry (<name>, --repo, --home, --project, --dry-run)",
+        skills_state::uninstall,
+    ),
+    cmd(
+        &["skills", "resolve"],
+        "Find files shadowing synced skills; --migrate backs them up (--repo, --home, --client <key>, --project, --dry-run)",
+        skills_state::resolve,
+    ),
+    cmd(
+        &["skills"],
+        "Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve",
+        skills::group,
+    ),
+    cmd(&["sync"], "Encrypted sync: init push pull diff status reset ...", sync::run),
+    cmd(&["cc"], "Claude Code plugins: list | update [--dry-run]", cc::run),
+    cmd(
+        &["update"],
+        "Check or apply server updates (--check, --apply, --init, --dry-run)",
+        update::update,
+    ),
+    cmd(
+        &["usage"],
+        "Token and MCP usage from Claude Code transcripts (--root <dir>, --no-refresh)",
+        usage::run,
+    ),
 ];
 
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -384,27 +325,7 @@ pub fn parse(args: &[String]) -> Result<Parsed, String> {
             other => match other.strip_prefix("--data-dir=") {
                 Some("") => return Err("--data-dir requires a value".into()),
                 Some(value) => parsed.data_dir = Some(value.to_string()),
-                None if matches!(
-                    parsed.positional.first().map(String::as_str),
-                    Some(
-                        "cc" |
-                        "client" |
-                        "compression" |
-                        "context" |
-                        "council" |
-                        "import" |
-                        "inspect" |
-                        "mcp" |
-                        "profile" |
-                        "secret" |
-                        "server" |
-                        "skills" |
-                        "sync" |
-                        "update" |
-                        "usage"
-                    )
-                ) =>
-                {
+                None if takes_options(parsed.positional.first()) => {
                     parsed.positional.push(other.to_string())
                 }
                 None => return Err(format!("unknown option: {other}")),
@@ -412,6 +333,14 @@ pub fn parse(args: &[String]) -> Result<Parsed, String> {
         }
     }
     Ok(parsed)
+}
+
+fn takes_options(first: Option<&String>) -> bool {
+    first.is_some_and(|word| {
+        COMMANDS
+            .iter()
+            .any(|c| c.options && c.path[0] == word.as_str())
+    })
 }
 
 pub fn find_command<'a>(positional: &'a [String]) -> Option<(&'static Command, &'a [String])> {
@@ -433,12 +362,7 @@ pub fn usage() -> String {
     );
     for command in COMMANDS {
         let name = command.path.join(" ");
-        let suffix = if command.handler.is_none() {
-            " (not implemented)"
-        } else {
-            ""
-        };
-        text.push_str(&format!("  {name:<14} {}{suffix}\n", command.summary));
+        text.push_str(&format!("  {name:<14} {}\n", command.summary));
     }
     text.push_str(
         "\nOptions:\n  --json             Machine-readable envelope on stdout\n  \
@@ -493,23 +417,11 @@ pub fn run_with(
         );
     };
     let command_name = command.path.join(" ");
-    let Some(handler) = command.handler else {
-        return emit(
-            parsed.json,
-            &command_name,
-            Err(CtlError::new(
-                "not_implemented",
-                format!("{command_name}: not implemented"),
-            )),
-            out,
-            err,
-        );
-    };
     if let Some(dir) = &parsed.data_dir {
         // Must precede the first data-dir lookup, which is memoized.
         std::env::set_var("TOOLPORT_DATA_DIR", dir);
     }
-    emit(parsed.json, &command_name, handler(rest), out, err)
+    emit(parsed.json, &command_name, (command.handler)(rest), out, err)
 }
 
 fn emit_usage(
