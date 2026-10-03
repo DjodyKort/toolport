@@ -9,6 +9,7 @@ pub mod net;
 pub mod pins;
 pub mod release;
 pub mod source;
+#[cfg(test)] mod release_prop_tests;
 #[cfg(test)]
 mod tests;
 
