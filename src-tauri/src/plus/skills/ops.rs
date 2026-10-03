@@ -4,24 +4,18 @@
 
 use super::agents::AgentTranspiler;
 use super::assets::compute_skill_hash;
-#[cfg(test)]
 use super::clock::Clock;
-#[cfg(test)]
 use super::collisions::{
     detect_collisions, resolve_collisions, resolve_mode, Collision, CollisionSummary,
 };
 use super::json;
-#[cfg(test)]
-use super::lock::lockfile_path;
-use super::lock::{get_entry, LockFile, OrderedMap};
-use super::parser::{valid_name, Skill};
-#[cfg(test)]
-use super::parser::SkillType;
+use super::lock::{get_entry, load_lockfile, lockfile_path, save_lockfile, LockFile, OrderedMap};
+use super::parser::{valid_name, Skill, SkillType};
 use super::styles::{all_style_transpilers, Tier};
-#[cfg(test)]
 use super::transpiler::{
     Transpiler, TranspilerRegistry, APPEND_MODE_TRANSPILERS, PROJECT_ONLY_TRANSPILERS,
 };
+use crate::registry;
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -60,6 +54,62 @@ pub fn find_skills_repo(start: Option<&Path>, cwd: &Path, config_dir: &Path) -> 
     let doc = json::parse(&text).ok()?;
     let local = PathBuf::from(doc.get("local_path")?.as_str()?);
     local.exists().then_some(local)
+}
+
+/// Where a sync keeps its lock and writes its outputs: user level (the lock beside the registry,
+/// outputs under `~/`) or inside the repository.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Scope {
+    pub lock_dir: PathBuf,
+    pub output_root: PathBuf,
+}
+
+pub fn lock_dir(global: bool, repo: &Path) -> PathBuf {
+    if global {
+        registry::conduit_dir().unwrap_or_else(|| repo.to_path_buf())
+    } else {
+        repo.to_path_buf()
+    }
+}
+
+impl Scope {
+    pub fn new(global: bool, repo: &Path) -> Result<Self, String> {
+        let output_root = if global {
+            crate::clients::home().ok_or("home directory unknown")?
+        } else {
+            repo.to_path_buf()
+        };
+        Ok(Self {
+            lock_dir: lock_dir(global, repo),
+            output_root,
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LockSource {
+    Repo,
+    UserLevel,
+}
+
+/// The lock a read-only command sees: the repository's own (project sync), else the user-level
+/// one beside the registry (global sync).
+pub fn read_lock(repo: &Path) -> Option<(LockFile, LockSource)> {
+    if let Some(lock) = load_lockfile(repo) {
+        return Some((lock, LockSource::Repo));
+    }
+    let lock = load_lockfile(&registry::conduit_dir()?)?;
+    Some((lock, LockSource::UserLevel))
+}
+
+/// The root a lock's output files were written under.
+pub fn lock_output_root(source: LockSource, repo: &Path) -> Result<PathBuf, String> {
+    match source {
+        LockSource::Repo => Ok(repo.to_path_buf()),
+        LockSource::UserLevel => {
+            crate::clients::home().ok_or_else(|| "home directory unknown".to_string())
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -119,13 +169,11 @@ pub struct StatusRow {
     pub present: bool,
 }
 
-#[cfg(test)]
 pub fn has_drift(rows: &[StatusRow]) -> bool {
     rows.iter().any(|r| !r.present)
 }
 
 /// Per skill and synced client: does the primary output file still exist?
-#[cfg(test)]
 pub fn skills_status(
     lock: &LockFile,
     registry: &TranspilerRegistry,
@@ -215,32 +263,45 @@ pub fn styles_status(lock: &LockFile) -> StyleStatus {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CleanOutcome {
+    pub managed: Vec<String>,
     pub removed: Vec<PathBuf>,
     pub lockfile_removed: bool,
     pub skipped: Vec<(String, String)>,
+    /// Lock entries whose names are not valid skill names; they never reach a transpiler.
+    pub ignored: Vec<String>,
+}
+
+fn managed_names<'a>(names: impl Iterator<Item = &'a String>) -> (Vec<String>, Vec<String>) {
+    let (valid, ignored): (Vec<&String>, Vec<&String>) =
+        names.partition(|name| valid_name(name).is_ok());
+    let mut managed: Vec<String> = Vec::new();
+    for name in valid {
+        if !managed.contains(name) {
+            managed.push(name.clone());
+        }
+    }
+    (managed, ignored.into_iter().cloned().collect())
 }
 
 /// `mcpm skills clean`: every transpiler (or one `client`) removes what the lock says it wrote;
-/// the lockfile itself goes away only on a full clean.
-#[cfg(test)]
+/// the lockfile itself goes away only on a full clean. A dry run reports the same paths and
+/// leaves the disk alone.
 pub fn clean_skills(
     lock_dir: &Path,
     clean_root: &Path,
     registry: &TranspilerRegistry,
     client: Option<&str>,
     lock: Option<&LockFile>,
+    dry_run: bool,
 ) -> CleanOutcome {
     let mut out = CleanOutcome::default();
     let Some(lock) = lock else {
         return out;
     };
-    let managed: Vec<String> = lock
-        .skills
-        .iter()
-        .chain(lock.rules.iter())
-        .map(|(k, _)| k.clone())
-        .filter(|k| valid_name(k).is_ok())
-        .collect();
+    let (managed, ignored) =
+        managed_names(lock.skills.iter().chain(lock.rules.iter()).map(|(k, _)| k));
+    out.ignored = ignored;
+    out.managed = managed.clone();
     if managed.is_empty() {
         return out;
     }
@@ -248,13 +309,17 @@ pub fn clean_skills(
         .all()
         .filter(|t| client.is_none_or(|c| c == t.client_key()))
     {
+        if dry_run {
+            out.removed.extend(t.clean_targets(clean_root, &managed));
+            continue;
+        }
         match t.clean(clean_root, &managed) {
             Ok(removed) => out.removed.extend(removed),
             Err(e) => out.skipped.push((t.client_key().to_string(), e)),
         }
     }
     let path = lockfile_path(lock_dir);
-    if client.is_none() && path.exists() && fs::remove_file(&path).is_ok() {
+    if client.is_none() && path.exists() && (dry_run || fs::remove_file(&path).is_ok()) {
         out.lockfile_removed = true;
     }
     out
@@ -271,12 +336,9 @@ pub fn clean_agents(
     let Some(lock) = lock else {
         return out;
     };
-    let managed: Vec<String> = lock
-        .agents
-        .iter()
-        .map(|(k, _)| k.clone())
-        .filter(|k| valid_name(k).is_ok())
-        .collect();
+    let (managed, ignored) = managed_names(lock.agents.iter().map(|(k, _)| k));
+    out.ignored = ignored;
+    out.managed = managed.clone();
     if managed.is_empty() {
         return out;
     }
@@ -295,16 +357,13 @@ pub fn clean_agents(
 /// `mcpm styles clean`: every style transpiler cleans, then the lock forgets styles entirely.
 pub fn clean_styles(root: &Path, lock: Option<&mut LockFile>) -> CleanOutcome {
     let mut out = CleanOutcome::default();
-    let managed: Vec<String> = lock
-        .as_ref()
-        .map(|l| {
-            l.styles
-                .iter()
-                .map(|(k, _)| k.clone())
-                .filter(|k| valid_name(k).is_ok())
-                .collect()
-        })
-        .unwrap_or_default();
+    let (managed, ignored) = managed_names(
+        lock.as_ref()
+            .into_iter()
+            .flat_map(|l| l.styles.iter().map(|(k, _)| k)),
+    );
+    out.ignored = ignored;
+    out.managed = managed.clone();
     for t in all_style_transpilers() {
         match t.clean(root, &managed) {
             Ok(removed) => out.removed.extend(removed),
@@ -318,7 +377,68 @@ pub fn clean_styles(root: &Path, lock: Option<&mut LockFile>) -> CleanOutcome {
     out
 }
 
-#[cfg(test)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UninstallOutcome {
+    pub source: PathBuf,
+    pub outputs: Vec<PathBuf>,
+    pub lock_updated: bool,
+}
+
+/// `mcpm skills uninstall`: every transpiler drops its outputs for `name`, the source directory
+/// goes away and the lock forgets the entry. Names that are not valid skill names and source
+/// directories that resolve outside the repository are refused before anything is touched.
+pub fn uninstall_skill(
+    repo: &Path,
+    name: &str,
+    scope: &Scope,
+    registry: &TranspilerRegistry,
+    dry_run: bool,
+) -> Result<UninstallOutcome, String> {
+    valid_name(name).map_err(|e| format!("Invalid skill name '{name}': {e}"))?;
+    let source = ["skills", "rules"]
+        .iter()
+        .map(|dir| repo.join(dir).join(name))
+        .find(|path| path.is_dir())
+        .ok_or_else(|| format!("Skill '{name}' not found."))?;
+    let inside = match (source.canonicalize(), repo.canonicalize()) {
+        (Ok(dir), Ok(root)) => dir != root && dir.starts_with(&root),
+        _ => false,
+    };
+    if !inside {
+        return Err(format!("'{name}' resolves outside the repository"));
+    }
+    let managed = [name.to_string()];
+    let mut outputs = Vec::new();
+    for t in registry.all() {
+        if dry_run {
+            outputs.extend(t.clean_targets(&scope.output_root, &managed));
+        } else {
+            let removed = t
+                .clean(&scope.output_root, &managed)
+                .map_err(|e| format!("{}: {e}", t.client_key()))?;
+            outputs.extend(removed);
+        }
+    }
+    if !dry_run {
+        fs::remove_dir_all(&source).map_err(|e| format!("{}: {e}", source.display()))?;
+    }
+    let mut lock_updated = false;
+    if let Some(mut lock) = load_lockfile(&scope.lock_dir) {
+        let before = lock.skills.len() + lock.rules.len();
+        lock.skills.retain(|(k, _)| k != name);
+        lock.rules.retain(|(k, _)| k != name);
+        lock_updated = lock.skills.len() + lock.rules.len() != before;
+        if lock_updated && !dry_run {
+            save_lockfile(&scope.lock_dir, &lock)?;
+        }
+    }
+    Ok(UninstallOutcome {
+        source,
+        outputs,
+        lock_updated,
+    })
+}
+
 pub struct ResolveRequest<'a> {
     pub client: Option<&'a str>,
     pub global_mode: bool,
@@ -329,7 +449,6 @@ pub struct ResolveRequest<'a> {
 }
 
 /// `mcpm skills resolve`: per-file clients only, project-only clients dropped in global mode.
-#[cfg(test)]
 pub fn resolve_skill_collisions(
     skills: &[Skill],
     registry: &TranspilerRegistry,

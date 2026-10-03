@@ -49,16 +49,24 @@ pub trait Transpiler {
         Ok(Vec::new())
     }
 
+    /// The paths [`Transpiler::clean`] would remove; nothing is touched.
+    fn clean_targets(&self, root: &Path, managed: &[String]) -> Vec<PathBuf> {
+        let mut targets: Vec<PathBuf> = Vec::new();
+        for name in managed {
+            let dummy = Skill::placeholder(name, SkillType::Skill);
+            let path = self.get_output_path(&dummy, root);
+            if path.exists() && !targets.contains(&path) {
+                targets.push(path);
+            }
+        }
+        targets
+    }
+
     /// Removes the primary output of each managed skill and one now-empty parent directory.
     /// Append-mode clients override this to strip their managed block instead.
     fn clean(&self, root: &Path, managed: &[String]) -> Result<Vec<PathBuf>, String> {
         let mut removed = Vec::new();
-        for name in managed {
-            let dummy = Skill::placeholder(name, SkillType::Skill);
-            let path = self.get_output_path(&dummy, root);
-            if !path.exists() {
-                continue;
-            }
+        for path in self.clean_targets(root, managed) {
             std::fs::remove_file(&path).map_err(|e| format!("{}: {e}", path.display()))?;
             if let Some(parent) = path.parent() {
                 if parent.is_dir()

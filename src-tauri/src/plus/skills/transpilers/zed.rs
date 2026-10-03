@@ -41,6 +41,10 @@ impl Transpiler for Zed {
         root.join(".rules")
     }
 
+    fn clean_targets(&self, root: &Path, _managed: &[String]) -> Vec<PathBuf> {
+        clean_target(root).into_iter().collect()
+    }
+
     fn clean(&self, root: &Path, _managed: &[String]) -> Result<Vec<PathBuf>, String> {
         clean(root)
     }
@@ -67,6 +71,13 @@ impl Zed {
             warnings,
         })
     }
+}
+
+/// The file `clean` rewrites: present and still carrying the managed block.
+fn clean_target(root: &Path) -> Option<PathBuf> {
+    let path = root.join(".rules");
+    let content = read_text(&path).ok()?;
+    (content.contains(MCPM_BLOCK_START) && content.contains(MCPM_BLOCK_END)).then_some(path)
 }
 
 /// Removes the managed block from `.rules`; deletes the file when nothing else remains.
