@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "servers": {
+    "demo": {
+      "server_name": "demo",
+      "origin_type": "manual",
+      "git_url": null,
+      "git_branch": "main",
+      "github_repo": null,
+      "asset_pattern": null,
+      "install_path": null,
+      "setup_command": null
+    }
+  }
+}

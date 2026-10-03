@@ -12,6 +12,7 @@ pub mod context;
 pub mod import_mcpm;
 pub mod obs;
 pub mod skills;
+pub mod sync;
 
 pub type Handler = fn(Value) -> Result<Value, String>;
 

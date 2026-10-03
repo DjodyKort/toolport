@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "machine_id": "synthetic-machine",
+  "pushed_at": "2026-10-03T13:21:26.520237+00:00",
+  "entries": {
+    "global/servers.json": {
+      "hash": "sha256:524af6034dbf7123",
+      "encrypted_file": "blobs/global__servers.json.enc",
+      "category": "global",
+      "project_name": null,
+      "updated_at": "2026-10-03T13:21:26.521168+00:00",
+      "encoding": "utf-8"
+    },
+    "global/sources.json": {
+      "hash": "sha256:0f882b8a19cb14e5",
+      "encrypted_file": "blobs/global__sources.json.enc",
+      "category": "global",
+      "project_name": null,
+      "updated_at": "2026-10-03T13:21:26.521278+00:00",
+      "encoding": "utf-8"
+    },
+    "skills_repo/skills/demo/blob.bin": {
+      "hash": "sha256:1001fdad51f06efb",
+      "encrypted_file": "blobs/skills_repo__skills__demo__blob.bin.enc",
+      "category": "global",
+      "project_name": null,
+      "updated_at": "2026-10-03T13:21:26.521333+00:00",
+      "encoding": "base64"
+    },
+    "skills_repo/skills/demo/SKILL.md": {
+      "hash": "sha256:9255103d323bdbb0",
+      "encrypted_file": "blobs/skills_repo__skills__demo__SKILL.md.enc",
+      "category": "global",
+      "project_name": null,
+      "updated_at": "2026-10-03T13:21:26.521389+00:00",
+      "encoding": "utf-8"
+    },
+    "skills_repo/agents/helper.md": {
+      "hash": "sha256:b2c266ac97f016df",
+      "encrypted_file": "blobs/skills_repo__agents__helper.md.enc",
+      "category": "global",
+      "project_name": null,
+      "updated_at": "2026-10-03T13:21:26.521430+00:00",
+      "encoding": "utf-8"
+    },
+    "skills_repo/mcpm-skills.yaml": {
+      "hash": "sha256:09bfcc6a14b83e21",
+      "encrypted_file": "blobs/skills_repo__mcpm-skills.yaml.enc",
+      "category": "global",
+      "project_name": null,
+      "updated_at": "2026-10-03T13:21:26.521476+00:00",
+      "encoding": "utf-8"
+    },
+    "global/server_origins.json": {
+      "hash": "sha256:091184f05e6aaf7b",
+      "encrypted_file": "blobs/global__server_origins.json",
+      "category": "global",
+      "project_name": null,
+      "updated_at": "2026-10-03T13:21:26.521601+00:00",
+      "encoding": "utf-8"
+    }
+  }
+}
