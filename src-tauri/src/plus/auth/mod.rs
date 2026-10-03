@@ -8,6 +8,7 @@ mod issues;
 mod machine;
 mod prober;
 mod probe;
+pub mod surfaces;
 mod types;
 
 pub use cache::{AuthStore, EdgeEvent, ServerEntry, StatusFile};
@@ -22,6 +23,7 @@ pub use machine::{
 pub use probe::{
     Clock, FakeClock, MockProbe, Probe, ProbeKind, ProbeRegistry, ProbeSpec, SystemClock,
 };
+pub use surfaces::rows_handler;
 pub use prober::{backoff_delay, probe_due, status_handler, AuthProber, ProbeReport, Trigger};
 pub use types::{AuthState, ProbeOutcome, Tracked, TransientRun};
 
@@ -36,3 +38,6 @@ mod google_tests;
 
 #[cfg(test)]
 mod http_probes_tests;
+
+#[cfg(test)]
+mod surfaces_tests;
