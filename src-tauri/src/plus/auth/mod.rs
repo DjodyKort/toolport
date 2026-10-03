@@ -3,6 +3,7 @@
 mod cache;
 mod flight;
 mod google;
+mod http_probes;
 mod issues;
 mod machine;
 mod prober;
@@ -12,6 +13,7 @@ mod types;
 pub use cache::{AuthStore, EdgeEvent, ServerEntry, StatusFile};
 pub use flight::SingleFlight;
 pub use google::{probe_handler, GoogleRefreshProbe};
+pub use http_probes::{combined_registry, http_registry, CompositeProbe, HttpProbe};
 pub use issues::{compute_issues, AuthIssue};
 pub use machine::{
     classify, step, Classification, EXPIRING_WINDOW_SECS, UNREACHABLE_MIN_FAILURES,
@@ -31,3 +33,6 @@ mod probe_tests;
 
 #[cfg(test)]
 mod google_tests;
+
+#[cfg(test)]
+mod http_probes_tests;

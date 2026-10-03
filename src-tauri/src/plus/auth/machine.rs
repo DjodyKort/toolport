@@ -46,6 +46,18 @@ fn classify_oauth(code: &str, description: &str) -> Classification {
         }
         "no_token_file" => needs_reauth("no_token_file"),
         "bad_token_file" => needs_reauth("bad_token_file"),
+        "invalid_auth" => needs_reauth("invalid_auth"),
+        "not_authed" => needs_reauth("not_authed"),
+        "token_expired" => needs_reauth("token_expired"),
+        "token_revoked" => revoked("token_revoked"),
+        "account_inactive" => revoked("account_inactive"),
+        "access_denied" => needs_reauth("access_denied"),
+        "invalidtoken" => needs_reauth("invalidtoken"),
+        "unauthorized" => needs_reauth("unauthorized"),
+        "no_token" => needs_reauth("no_token"),
+        "accessexception" => misconfigured("accessexception"),
+        "missing_config" => misconfigured("missing_config"),
+        "bad_endpoint" => misconfigured("bad_endpoint"),
         "invalid_client" => misconfigured("invalid_client"),
         "deleted_client" => misconfigured("deleted_client"),
         "unauthorized_client" => misconfigured("unauthorized_client"),
@@ -56,6 +68,13 @@ fn classify_oauth(code: &str, description: &str) -> Classification {
 fn needs_reauth(reason: &'static str) -> Classification {
     Classification::Definitive {
         state: AuthState::NeedsReauth,
+        reason,
+    }
+}
+
+fn revoked(reason: &'static str) -> Classification {
+    Classification::Definitive {
+        state: AuthState::Revoked,
         reason,
     }
 }
