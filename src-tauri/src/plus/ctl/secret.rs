@@ -1,6 +1,5 @@
 use super::output::{CtlError, Output};
 use crate::plus::registry_ro;
-use crate::registry;
 use serde_json::json;
 use std::io::{IsTerminal, Read};
 
@@ -176,6 +175,7 @@ pub fn rm(rest: &[String]) -> Result<Output, CtlError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::registry;
     use std::io::Cursor;
 
     const FAKE: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";

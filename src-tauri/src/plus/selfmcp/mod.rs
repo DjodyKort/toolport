@@ -50,17 +50,6 @@ impl ToolError {
     }
 }
 
-pub fn server_definition() -> Value {
-    json!({
-        "name": SERVER_NAME,
-        "transport": "stdio",
-        "command": register::binary_path(),
-        "args": [],
-        "env": [],
-        "source": "plus:selfmcp",
-    })
-}
-
 pub fn tools_list() -> Value {
     Value::Array(TOOLS.iter().map(catalog::tool_descriptor).collect())
 }
