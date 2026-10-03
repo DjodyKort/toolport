@@ -187,7 +187,7 @@ pub fn attribute<'a>(
         .filter(|rec| norm_cwd(&rec.cwd) == target)
         .filter_map(|rec| parse_ts(&rec.ts).map(|ts| (ts, rec)))
         .filter(|(ts, _)| (0..=MATCH_WINDOW_MS).contains(&(start - ts)))
-        .max_by_key(|(ts, _)| *ts)
+        .min_by_key(|(ts, _)| std::cmp::Reverse(*ts))
         .map(|(_, rec)| rec)
 }
 
