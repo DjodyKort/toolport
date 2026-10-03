@@ -152,8 +152,12 @@ pub fn check(
         .ok_or("release has no tag_name")?
         .to_string();
     let version = tag.trim_start_matches('v').to_string();
-    match compare_versions(current.unwrap_or("0.0.0"), &version) {
-        None => return Err(format!("could not parse version '{tag}'")),
+    let current = current.unwrap_or("0.0.0");
+    match compare_versions(current, &version) {
+        None if compare_versions(&version, &version).is_none() => {
+            return Err(format!("could not parse version '{tag}'"))
+        }
+        None => return Err(format!("could not parse current version '{current}'")),
         Some(Ordering::Less) => {}
         Some(_) => return Ok(Checked::UpToDate { latest: version }),
     }
