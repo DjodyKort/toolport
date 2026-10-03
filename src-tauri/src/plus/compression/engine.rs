@@ -24,7 +24,7 @@ pub trait EngineOps {
     ) -> Result<(), String>;
     fn listening_pids(&self, port: u16) -> Vec<u32>;
     fn terminate(&mut self, pid: u32) -> Result<(), String>;
-    fn sleep(&mut self, seconds: u64);
+    fn sleep(&mut self, millis: u64);
     fn installed_version(&self) -> Option<String>;
     fn latest_version(&self, package: &str) -> Option<String>;
     /// Installs an exact requirement; returns (version before, version after).
@@ -40,8 +40,10 @@ fn is_ready(health: &Option<Value>) -> bool {
         .unwrap_or(false)
 }
 
+const POLL_MS: u64 = 200;
+
 /// Reuses a healthy proxy (mode is a cold-start setting, so a running one is kept as is);
-/// otherwise spawns one and polls `/health` for up to `wait` seconds.
+/// otherwise spawns one and polls `/health` every [`POLL_MS`] for up to `wait` seconds.
 pub fn proxy_up(
     ops: &mut dyn EngineOps,
     port: u16,
@@ -57,8 +59,8 @@ pub fn proxy_up(
         .unwrap_or_else(|| "cache".into());
     let env: BTreeMap<String, String> = env.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
     ops.spawn_proxy(port, &mode, &env)?;
-    for _ in 0..wait {
-        ops.sleep(1);
+    for _ in 0..wait.saturating_mul(1000 / POLL_MS) {
+        ops.sleep(POLL_MS);
         if is_ready(&ops.proxy_health(port)) {
             return Ok(format!("started proxy on :{port} (mode={mode})"));
         }
@@ -288,8 +290,8 @@ impl EngineOps for SystemOps {
         }
     }
 
-    fn sleep(&mut self, seconds: u64) {
-        std::thread::sleep(Duration::from_secs(seconds));
+    fn sleep(&mut self, millis: u64) {
+        std::thread::sleep(Duration::from_millis(millis));
     }
 
     fn installed_version(&self) -> Option<String> {
