@@ -106,7 +106,8 @@ const LEGACY_POLICY: &str = r#"{
 }"#;
 
 fn import_world(tag: &str, legacy: Option<&str>) -> (crate::plus::testutil::DataDirFx, PathBuf) {
-    let fx = crate::plus::testutil::DataDirFx::with_data_subdir("ctl-import-adopt", tag, "data");
+    let fx = crate::plus::testutil::DataDirFx::with_data_subdir("ctl-import-adopt", tag, "data")
+        .with_secret_key("test-secret-key-for-import-adopt");
     let root = fx.dir.join("mcpm");
     std::fs::create_dir_all(&root).unwrap();
     for entry in std::fs::read_dir(fixture_root()).unwrap() {
