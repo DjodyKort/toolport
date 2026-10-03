@@ -49,6 +49,24 @@ Global flag `--json` prints one envelope (`schemaVersion`, `command`, `data`). E
 | `update`                                                                | Server updates (`--check`, `--apply`, `--init`, `--dry-run`)       |
 | `usage`                                                                 | Token and MCP usage from Claude Code transcripts                   |
 
+## Self-management MCP server
+
+`toolport-plus-self` is the `toolport-selfmcp` binary registered as a stdio server: 49 tools and 11 `mcpm://` resources for skills, agents, styles, servers, clients and sync. `import mcpm`, `toolportctl mcp install` and `plus.selfmcp.ensure` register it and switch it on in the active (default) profile and in the profile of every connected client (`clientScopes`), so every client connected through the gateway sees its tools. A profile created later (a new client) gets it the next time one of those runs. The binary must sit next to `toolportctl` or in `<data dir>/bin`; `toolportctl mcp doctor` checks it.
+
+**What it costs.** The 49 tool definitions are about 20 KB of JSON, roughly 5,000 tokens, in every client that lists all tools (full discovery, which import sets for Claude Code). A client in lazy discovery (the import default for every other client) lists none of them and pays only when it searches with `toolport_search_tools`. Exposed names are at most 46 characters (`toolport_plus_self__servers_remove_profile_tag`), which keeps `mcp__toolport__...` inside the 64 character limit of Claude Code. Tier 3 and tier 4 tools refuse unless `confirm` is true.
+
+**Turning it off.**
+
+- Everywhere: `toolportctl mcp uninstall` removes the server and records the opt-out. Import and `plus.selfmcp.ensure` never add it again; `toolportctl mcp install` does.
+- In one profile: switch the server off in that profile (the profile toggle in the app). A profile Toolport already switched it on in is never switched on again by import or `install`; `toolportctl mcp install --profile <id>` switches it on there on purpose.
+- One client only: set that client to lazy discovery, or scope it to a profile without the server.
+
+**Where the choice lives.** `registry.json`, top level: `"plus": {"selfmcp": {"enabledIn": ["default", ...], "optOut": true}}`. `enabledIn` lists the profiles it was switched on in once; `optOut` is written by `mcp uninstall`. Deleting the server in the app counts as an opt-out too.
+
+`toolportctl mcp doctor` reports the state: `enabled`, `disabled` (switched off on purpose in a profile, healthy), `opted-out` (uninstalled, healthy), `not-enabled` and `missing` (both fail with exit code 1, and `toolportctl mcp install` repairs them).
+
+The gateway removes every `TOOLPORT_*` variable from the servers it starts. If you move the data directory with `TOOLPORT_DATA_DIR`, give the self server the same variable in its own `env`, or its tools manage the default data directory instead.
+
 ## Environment variables
 
 | Variable                                                                                                                                                                                                                                       | Effect                                                                                                               |
