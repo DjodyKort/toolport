@@ -483,7 +483,17 @@ fn client_apply_is_idempotent_and_dry_run_writes_nothing() {
             .collect();
         let registry = w.registry_text().unwrap();
         let second = run(&live_opts(w, false)).unwrap();
-        assert!(!second.changed(), "{}", second.summary());
+        let detail = {
+            let reg: Value = serde_json::from_str(&w.registry_text().unwrap()).unwrap();
+            let live = read_json(&w.home.join(".claude.json"));
+            format!(
+                "{}\n{}\n{}",
+                json!(second.clients),
+                reg["clientManagedEntries"]["claude-code"],
+                live["mcpServers"]["toolport"]
+            )
+        };
+        assert!(!second.changed(), "{}\n{detail}", second.summary());
         assert!(second.clients.iter().all(|c| c.action == Action::Unchanged));
         let again: Vec<String> = client_files(w)
             .iter()
