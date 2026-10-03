@@ -1,0 +1,19 @@
+{
+  "hasCompletedOnboarding": true,
+  "oauthAccount": {
+    "emailAddress": "user@example.test"
+  },
+  "userID": "u1",
+  "numStartups": 3,
+  "mcpServers": {
+    "context7": {
+      "command": "legacy"
+    },
+    "mcpm_a": {
+      "command": "a"
+    },
+    "foo": {
+      "command": "f"
+    }
+  }
+}

@@ -7,6 +7,7 @@ pub mod ctl;
 use serde_json::{json, Value};
 
 pub mod auth;
+pub mod context;
 pub mod obs;
 pub mod skills;
 
@@ -17,6 +18,8 @@ const HANDLERS: &[(&str, Handler)] = &[
     ("plus.obs.summary", obs::summary_handler),
     ("plus.auth.status", auth::status_handler),
     ("plus.auth.probe", auth::probe_handler),
+    ("plus.context.plan", context::plan_handler),
+    ("plus.context.apply", context::apply_handler),
 ];
 
 pub fn dispatch(command: &str, args: Value) -> Result<Value, String> {

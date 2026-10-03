@@ -1,0 +1,15 @@
+{
+  "model": "sonnet",
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Read(*)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)"
+    ]
+  },
+  "env": {
+    "TEAM_SETTING": "1"
+  }
+}

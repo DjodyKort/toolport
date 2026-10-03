@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+!src-tauri/tests/fixtures/context-cases/**/.local/
 
 # Rust build output
 /src-tauri/target/
@@ -32,6 +33,7 @@ dist-ssr
 # Editor directories and files
 .claude/
 !src-tauri/tests/fixtures/skills-core/**/.claude/
+!src-tauri/tests/fixtures/context-cases/**/.claude/
 .vscode/*
 !.vscode/extensions.json
 .idea

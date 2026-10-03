@@ -1,0 +1,107 @@
+{
+  "area": "context",
+  "entry": "context_scenario",
+  "args": {
+    "steps": [
+      {
+        "op": "shim_snippet",
+        "label": "snippet.wrap-off.profiles",
+        "wrap_default": false,
+        "profiles": {
+          "work": {
+            "org_mode": "import",
+            "rules": "inherit",
+            "servers": "inherit"
+          },
+          "bare": {
+            "org": false,
+            "rules": "none",
+            "commands": false,
+            "skills": false,
+            "agents": false,
+            "servers": "none",
+            "copy_auth": false
+          }
+        }
+      },
+      {
+        "op": "shim_snippet",
+        "label": "snippet.wrap-off.no-profiles",
+        "wrap_default": false
+      },
+      {
+        "op": "apply",
+        "label": "apply1-profiles-nowrap.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": false
+          },
+          "clients_root": "{HOME}/clients",
+          "profiles": {
+            "work": {
+              "org_mode": "import"
+            }
+          }
+        }
+      },
+      {
+        "op": "snapshot_file",
+        "src": ".config/mcpm/context-shims.zsh",
+        "label": "shims.nowrap-profiles.zsh"
+      },
+      {
+        "op": "apply",
+        "label": "apply2-nothing.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": false
+          },
+          "clients_root": "{HOME}/clients"
+        }
+      },
+      {
+        "op": "exists",
+        "label": "exists.after-removal",
+        "paths": [
+          ".config/mcpm/context-shims.zsh"
+        ]
+      },
+      {
+        "op": "apply",
+        "label": "apply3-nothing-again.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": false
+          },
+          "clients_root": "{HOME}/clients"
+        }
+      }
+    ]
+  },
+  "comparison": "A",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ],
+  "env": {
+    "MCPM_CONFIG_DIR": "{HOME}/.config/mcpm",
+    "MCPM_CONTEXT_CLAUDE_HOME": "{HOME}/.claude",
+    "MCPM_CONTEXT_CLAUDE_JSON": "{HOME}/.claude.json",
+    "MCPM_CONTEXT_CACHE_DIR": "{HOME}/.cache/mcpm/context",
+    "MCPM_CONTEXT_CF_DIR": "{HOME}/.local/share/cf-dev-tools"
+  },
+  "exclude": [
+    ".cache/*",
+    ".git/*",
+    "*/.git/*"
+  ],
+  "overrides": {
+    "*.json": "B",
+    "*/.mcpm-context-state.json": "B",
+    "*.report": "B"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "numStartups": 7,
+  "theme": "dark",
+  "projects": {
+    "/p": {
+      "allowedTools": []
+    }
+  },
+  "oauthAccount": {
+    "emailAddress": "user@example.test"
+  },
+  "mcpServers": {
+    "context7": {
+      "type": "stdio",
+      "command": "legacy-ctx7"
+    },
+    "mcpm_context7": {
+      "type": "stdio",
+      "command": "mcpm-ctx7"
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "legacy-pw"
+    },
+    "codeforward-odoo": {
+      "type": "http",
+      "url": "https://example.test/mcp"
+    },
+    "mcpm_codeforward-odoo": {
+      "type": "http",
+      "url": "https://example.test/gw"
+    },
+    "codeforward-typst": {
+      "type": "stdio",
+      "command": "typst-legacy"
+    },
+    "custom-old": {
+      "command": "x"
+    },
+    "mcpm_custom-old": {
+      "command": "y"
+    },
+    "keepme": {
+      "command": "z"
+    }
+  }
+}
