@@ -34,8 +34,8 @@ mod tests_hooks;
 pub use config::{load_config, preserve_unreadable, save_config, ContextConfig};
 pub use roots::Roots;
 
+use doctor::sha256_file;
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::PathBuf;
 
@@ -78,14 +78,10 @@ impl Default for ApplyOptions {
 /// while unset, so a saved config never re-baselines (recorded quirk).
 fn record_cf_baseline(roots: &Roots, config: &mut ContextConfig, report: &mut Report) {
     let wrapper = roots.cf_dir.join("claude").join("shell-wrapper.sh");
-    let Ok(bytes) = fs::read(wrapper) else {
+    let Some(digest) = sha256_file(&wrapper) else {
         return;
     };
     if config.cf_wrapper_hash.is_none() {
-        let digest: String = Sha256::digest(&bytes)
-            .iter()
-            .map(|b| format!("{b:02x}"))
-            .collect();
         config.cf_wrapper_hash = Some(digest);
         report.add("recorded corp-dev-tools shell-wrapper baseline");
     }

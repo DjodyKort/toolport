@@ -23,7 +23,7 @@ use crate::plus::skills::{sync_skills, SyncOptions, SystemClock};
 use crate::registry;
 use serde_json::{json, Value};
 use serde_yaml::{Mapping, Value as Yaml};
-use sha2::{Digest, Sha256};
+use crate::plus::hashing::lock_hash;
 use std::path::{Path, PathBuf};
 
 type Outcome = Result<Value, ToolError>;
@@ -153,11 +153,7 @@ fn find_style(repo: &Path, name: &str) -> Result<Style, ToolError> {
 
 fn file_hash(path: &Path) -> Result<String, ToolError> {
     let bytes = std::fs::read(path).map_err(|e| ToolError::new("backend_error", e.to_string()))?;
-    let hex: String = Sha256::digest(bytes)
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect();
-    Ok(format!("sha256:{}", &hex[..16]))
+    Ok(lock_hash(bytes))
 }
 
 fn fence(line: &str) -> bool {

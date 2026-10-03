@@ -7,7 +7,7 @@ use super::launch;
 use super::layers::PERSONAL_RULE_NAME;
 use super::roots::Roots;
 use crate::plus::skills::json::{parse, J};
-use sha2::{Digest, Sha256};
+use crate::plus::hashing::sha256_hex;
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
@@ -133,13 +133,7 @@ fn check_settings_policy(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
 }
 
 pub fn sha256_file(path: &Path) -> Option<String> {
-    let bytes = fs::read(path).ok()?;
-    Some(
-        Sha256::digest(&bytes)
-            .iter()
-            .map(|b| format!("{b:02x}"))
-            .collect(),
-    )
+    Some(sha256_hex(fs::read(path).ok()?))
 }
 
 fn profile_state_base(dir: &Path) -> Option<String> {

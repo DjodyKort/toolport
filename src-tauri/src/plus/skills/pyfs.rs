@@ -1,6 +1,6 @@
 //! Python text-I/O behaviours that parity depends on.
 
-use sha2::{Digest, Sha256};
+use crate::plus::hashing::lock_hash;
 use std::fs;
 use std::path::Path;
 
@@ -20,12 +20,7 @@ pub fn universal_newlines(text: &str) -> String {
 
 /// `"sha256:" + sha256(read_text()).hexdigest()[:16]`, the hash agents and styles lock.
 pub fn text_hash(path: &Path) -> Result<String, String> {
-    let text = read_text(path)?;
-    let hex: String = Sha256::digest(text.as_bytes())
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect();
-    Ok(format!("sha256:{}", &hex[..16]))
+    Ok(lock_hash(read_text(path)?))
 }
 
 /// Python `str.title()` for the lowercase-ASCII names mcpm feeds it: the first letter of every

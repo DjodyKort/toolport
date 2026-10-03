@@ -61,7 +61,7 @@ impl HttpClient for MockHttp {
             .cloned()
             .ok_or_else(|| HttpError::new(Some(404), "no mock"))?;
         std::fs::write(dest, &bytes).unwrap();
-        Ok(super::net::hex(&Sha256::digest(&bytes)))
+        Ok(crate::plus::hashing::hex(&Sha256::digest(&bytes)))
     }
 }
 
@@ -476,7 +476,7 @@ fn release_json(version: &str, assets: &[&str]) -> String {
 }
 
 fn sha_hex(bytes: &[u8]) -> String {
-    super::net::hex(&Sha256::digest(bytes))
+    crate::plus::hashing::hex(&Sha256::digest(bytes))
 }
 
 const LATEST: &str = "https://api.example.invalid/repos/owner/tool/releases/latest";
