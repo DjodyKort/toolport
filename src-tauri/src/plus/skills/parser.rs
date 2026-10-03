@@ -384,8 +384,8 @@ pub struct Discovery {
 }
 
 /// `skills/` first, then `rules/`; each directory's children in byte order of their names.
-pub fn discover_skills_report(repo: &Path) -> Discovery {
-    let mut out = Discovery::default();
+fn skill_dirs(repo: &Path) -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
     for search in ["skills", "rules"] {
         let dir = repo.join(search);
         if !dir.is_dir() {
@@ -396,27 +396,42 @@ pub fn discover_skills_report(repo: &Path) -> Discovery {
         };
         let mut children: Vec<PathBuf> = read.filter_map(|e| e.ok().map(|e| e.path())).collect();
         children.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
-        for skill_dir in children {
-            if !skill_dir.is_dir() {
-                continue;
-            }
-            let skill_file = skill_dir.join("SKILL.md");
-            if !skill_file.exists() {
-                out.warnings.push(format!(
-                    "Skill directory {} has no SKILL.md, skipping",
-                    file_name(&skill_dir)
-                ));
-                continue;
-            }
-            match parse_skill_file(&skill_file) {
-                Ok(skill) => out.skills.push(skill),
-                Err(e) => out
-                    .warnings
-                    .push(format!("Failed to parse {}: {e}", skill_file.display())),
-            }
+        dirs.extend(children);
+    }
+    dirs
+}
+
+pub fn discover_skills_report(repo: &Path) -> Discovery {
+    let mut out = Discovery::default();
+    for skill_dir in skill_dirs(repo) {
+        if !skill_dir.is_dir() {
+            continue;
+        }
+        let skill_file = skill_dir.join("SKILL.md");
+        if !skill_file.exists() {
+            out.warnings.push(format!(
+                "Skill directory {} has no SKILL.md, skipping",
+                file_name(&skill_dir)
+            ));
+            continue;
+        }
+        match parse_skill_file(&skill_file) {
+            Ok(skill) => out.skills.push(skill),
+            Err(e) => out
+                .warnings
+                .push(format!("Failed to parse {}: {e}", skill_file.display())),
         }
     }
     out
+}
+
+/// The first skill `discover_skills` would list under `name`, without parsing the ones after it.
+pub fn find_skill(repo: &Path, name: &str) -> Option<Skill> {
+    skill_dirs(repo)
+        .into_iter()
+        .filter(|dir| dir.is_dir())
+        .filter_map(|dir| parse_skill_file(&dir.join("SKILL.md")).ok())
+        .find(|skill| skill.name() == name)
 }
 
 pub fn discover_skills(repo: &Path) -> Vec<Skill> {

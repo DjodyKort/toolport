@@ -6,7 +6,7 @@ use crate::plus::ctl::ErrorKind;
 use crate::plus::registry_ro;
 use crate::plus::skills::lint::{lint_skills, LintResult};
 use crate::plus::skills::ops::find_skills_repo;
-use crate::plus::skills::parser::{discover_skills, Skill};
+use crate::plus::skills::parser::{discover_skills, find_skill, Skill};
 use crate::plus::skills::transpiler::TranspilerRegistry;
 use crate::plus::skills::transpilers;
 use crate::registry::{self, Registry};
@@ -112,13 +112,11 @@ pub fn run_tool(tool: &ToolDef, args: &Value) -> Result<Value, ToolError> {
         }
         "skills_get" => {
             let name = str_arg(args, "name").unwrap_or_default();
-            let (_, skills) = load_skills(args)?;
-            let skill = skills
-                .iter()
-                .find(|s| s.name() == name)
+            let repo = skills_repo(args)?;
+            let skill = find_skill(&repo, &name)
                 .ok_or_else(|| ToolError::new("not_found", format!("skill not found: {name}")))?;
-            let mut row = skill_row(skill);
-            row["body"] = json!(skill.body);
+            let mut row = skill_row(&skill);
+            row["body"] = Value::String(skill.body);
             Ok(row)
         }
         "skills_lint" => {

@@ -399,6 +399,76 @@ fn skills_tools_read_a_synthetic_repository() {
 }
 
 #[test]
+fn skills_get_returns_the_first_skill_of_a_name_and_skips_unreadable_ones() {
+    let _fixture = Fixture::new("skills-first");
+    let repo = std::env::temp_dir().join(format!("selfmcp-first-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&repo);
+    let write = |dir: &str, text: &str| {
+        let dir = repo.join(dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("SKILL.md"), text).unwrap();
+    };
+    write("skills/a-broken", "no frontmatter at all");
+    write(
+        "skills/b-first",
+        "---\nname: demo\ndescription: d\n---\nfirst body\n",
+    );
+    write(
+        "skills/c-second",
+        "---\nname: demo\ndescription: d\n---\nsecond body\n",
+    );
+    write(
+        "rules/d-rule",
+        "---\nname: demo\ndescription: d\n---\nrule body\n",
+    );
+    write(
+        "rules/e-other",
+        "---\nname: other\ndescription: o\n---\nother body\n",
+    );
+    std::fs::create_dir_all(repo.join("skills/f-empty")).unwrap();
+    let path = repo.to_string_lossy().to_string();
+    let get = |name: &str| call_tool("skills_get", &json!({"name": name, "repo_path": path}));
+    let first = get("demo").unwrap();
+    assert_eq!(first["body"], "first body");
+    assert!(first["path"]
+        .as_str()
+        .unwrap()
+        .ends_with("skills/b-first/SKILL.md"));
+    assert_eq!(first["type"], "skill");
+    let other = get("other").unwrap();
+    assert_eq!(other["body"], "other body");
+    assert_eq!(other["type"], "rule");
+    assert_eq!(err_kind(get("a-broken")), "not_found");
+    let listed = call_tool("skills_list", &json!({"repo_path": path})).unwrap();
+    assert_eq!(listed["skills"].as_array().unwrap().len(), 4);
+    let _ = std::fs::remove_dir_all(&repo);
+}
+
+#[test]
+fn absent_null_and_empty_arguments_call_a_tool_the_same_way() {
+    let _fixture = Fixture::new("rpc-args");
+    let call = |params: Value| {
+        let mut message = json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call"});
+        message["params"] = params;
+        handle_message(&message).unwrap()
+    };
+    let bare = call(json!({"name": "servers_list"}));
+    assert_eq!(bare["result"]["isError"], false);
+    assert_eq!(
+        call(json!({"name": "servers_list", "arguments": null})),
+        bare
+    );
+    assert_eq!(call(json!({"name": "servers_list", "arguments": {}})), bare);
+    let missing =
+        handle_message(&json!({"jsonrpc": "2.0", "id": 2, "method": "tools/call"})).unwrap();
+    assert_eq!(missing["error"]["code"], -32602);
+    assert_eq!(
+        call_tool("servers_list", &Value::Null).unwrap(),
+        call_tool("servers_list", &json!({})).unwrap()
+    );
+}
+
+#[test]
 fn json_rpc_surface_lists_calls_and_reads() {
     let _fixture = Fixture::new("rpc");
     let call = |message: Value| handle_message(&message).unwrap();
