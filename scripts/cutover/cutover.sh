@@ -106,9 +106,15 @@ if [ -f "$ctxfile" ]; then
   python3 - "$ctxfile" <<'PY'
 import json, sys
 p = sys.argv[1]
-d = json.load(open(p))
+try:
+    d = json.load(open(p))
+except ValueError as e:
+    sys.exit("error: %s is not valid JSON (%s); fix or move it aside, then rerun" % (p, e))
 d["wrap_default_claude"] = False
-d["ensure_allow"] = []
+if "ensure_allow" in d:
+    d["ensure_allow"] = []
+if isinstance(d.get("settings"), dict):
+    d["settings"]["ensure_allow"] = []
 with open(p, "w") as f:
     json.dump(d, f, indent=2)
     f.write("\n")
