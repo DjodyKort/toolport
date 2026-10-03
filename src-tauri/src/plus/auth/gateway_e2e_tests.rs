@@ -663,3 +663,104 @@ fn only_remote_servers_get_a_gateway_state_probe() {
     let combined = combined_registry(&registry);
     assert_eq!(combined.get("figma").unwrap().kind, ProbeKind::GatewayState);
 }
+
+fn write_remote(server: &ServerEntry) {
+    super::testkit::write_registry(
+        vec![json!({
+            "id": server.id,
+            "name": server.name,
+            "transport": "http",
+            "url": server.url,
+        })],
+        &[],
+    );
+}
+
+fn collect_urls() -> (Arc<Mutex<Vec<String>>>, super::login::UrlSink) {
+    let seen: Arc<Mutex<Vec<String>>> = Arc::default();
+    let sink: super::login::UrlSink = {
+        let seen = Arc::clone(&seen);
+        Arc::new(move |url| seen.lock().unwrap().push(url.to_string()))
+    };
+    (seen, sink)
+}
+
+#[test]
+fn auth_login_runs_the_oauth_flow_and_hands_out_the_consent_url() {
+    use super::login::{login, LoginOptions};
+    with_world(|| {
+        let mock = Mock::start(30 * 86_400, true, &[]);
+        let server = remote("figma", &mock.mcp_url);
+        write_remote(&server);
+        assert_eq!(tracked(&probe("figma")).state, AuthState::NeedsReauth);
+
+        let (seen, sink) = collect_urls();
+        let report = login("figma", LoginOptions { open_browser: true }, sink).unwrap();
+        assert_eq!(report.flow, "browser");
+        assert!(report.signed_in);
+        let urls = seen.lock().unwrap().clone();
+        assert_eq!(urls.len(), 1, "{urls:?}");
+        assert_eq!(report.consent_url.as_deref(), Some(urls[0].as_str()));
+        assert!(
+            urls[0].starts_with(&format!("{}/", mock.origin)),
+            "{}",
+            urls[0]
+        );
+        assert!(urls[0].contains("code_challenge="), "{}", urls[0]);
+
+        assert_eq!(mock.state.lock().unwrap().authorize_hits, 1);
+        assert_eq!(
+            vaulted("figma", "__http_auth__").as_deref(),
+            Some("FAKE-access-1")
+        );
+        let shown = format!("{report:?}{}", json!(report));
+        assert!(!shown.contains("FAKE-access-1") && !shown.contains("FAKE-refresh-1"));
+        assert_not_on_disk(&["FAKE-access-1", "FAKE-refresh-1"]);
+
+        let prober = super::scan::default_prober().unwrap();
+        let run = super::scan::run(
+            &prober,
+            &super::scan::Selector::One("figma".into()),
+            true,
+            1,
+        )
+        .unwrap();
+        assert_eq!(run.reports[0].tracked.state, AuthState::Ok);
+    });
+}
+
+#[test]
+fn auth_login_without_a_browser_leaves_the_consent_url_to_the_caller() {
+    use super::login::{login, LoginOptions};
+    with_world(|| {
+        let mock = Mock::start(30 * 86_400, true, &[]);
+        write_remote(&remote("figma", &mock.mcp_url));
+        let visited: Arc<Mutex<Vec<String>>> = Arc::default();
+        let sink: super::login::UrlSink = {
+            let visited = Arc::clone(&visited);
+            Arc::new(move |url| {
+                visited.lock().unwrap().push(url.to_string());
+                let url = url.to_string();
+                std::thread::spawn(move || {
+                    let _ = ureq::get(&url).timeout(Duration::from_secs(10)).call();
+                });
+            })
+        };
+        let report = login(
+            "figma",
+            LoginOptions {
+                open_browser: false,
+            },
+            sink,
+        )
+        .unwrap();
+        assert!(report.signed_in);
+        assert_eq!(visited.lock().unwrap().len(), 1);
+        assert_eq!(
+            mock.state.lock().unwrap().authorize_hits,
+            1,
+            "only the caller opened the URL"
+        );
+        assert!(vaulted("figma", "__oauth_state__").is_some());
+    });
+}
