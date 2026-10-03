@@ -157,8 +157,9 @@ pub fn apply(
         dry,
     )?;
 
+    let sources = launch::Sources::new(roots);
     for (name, spec) in &config.profiles {
-        launch::generate_profile(roots, name, spec, &mut report, dry)?;
+        launch::generate_profile_with(&sources, name, spec, &mut report, dry)?;
     }
     warn_orphans(roots, config, &mut report);
 
