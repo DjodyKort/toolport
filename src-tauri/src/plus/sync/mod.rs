@@ -14,6 +14,7 @@ pub use bundle::{
     Manifest, ManifestEntry, PortableRoots, SourceFile, SyncError,
 };
 
+#[cfg(test)] mod bundle_prop_tests;
 #[cfg(test)]
 mod engine_tests;
 #[cfg(test)]
