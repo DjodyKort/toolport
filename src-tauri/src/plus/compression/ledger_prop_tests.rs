@@ -122,21 +122,38 @@ fn parsing_matches_a_loop_based_calendar_model() {
 }
 
 #[test]
-fn lenient_acceptance_is_recorded_not_endorsed() {
+fn parse_ts_rejects_out_of_range_fields_and_garbled_offsets() {
     assert_eq!(parse_ts("2026-01-01T00:00:00.Z"), Some(1_767_225_600_000));
+    assert_eq!(parse_ts("2024-02-29T12:34:56Z"), Some(1_709_210_096_000));
     assert_eq!(
-        parse_ts("2026-02-31T00:00:00Z"),
-        parse_ts("2026-03-03T00:00:00Z"),
-        "day 31 of February rolls over"
+        parse_ts("2026-01-01T23:59:59-23:59"),
+        parse_ts("2026-01-02T23:58:59Z")
     );
+    for bad in [
+        "2026-02-31T00:00:00Z",
+        "2026-02-29T00:00:00Z",
+        "2100-02-29T00:00:00Z",
+        "2026-04-31T00:00:00Z",
+        "2026-06-31T00:00:00Z",
+        "2026-01-01T24:00:00Z",
+        "2026-01-01T99:99:99Z",
+        "2026-01-01T00:60:00Z",
+        "2026-01-01T00:00:60Z",
+        "2026-01-01T+5:00:00Z",
+        "2026-01-01T-1:00:00Z",
+        "+026-01-01T00:00:00Z",
+        "2026-01-01T00:00:00+05x30",
+        "2026-01-01T00:00:00+24:00",
+        "2026-01-01T00:00:00+05:60",
+        "2026-01-01T00:00:00+0x:30",
+        "2026-01-01T00:00:00+-5:30",
+    ] {
+        assert_eq!(parse_ts(bad), None, "{bad:?}");
+    }
     assert_eq!(
-        parse_ts("2026-01-01T24:00:00Z"),
-        parse_ts("2026-01-02T00:00:00Z")
-    );
-    assert!(parse_ts("2026-01-01T99:99:99Z").is_some());
-    assert_eq!(
-        parse_ts("2026-01-01T00:00:00+05x30"),
-        parse_ts("2026-01-01T00:00:00+05:30")
+        parse_ts("2000-02-29T00:00:00Z"),
+        Some(951_782_400_000),
+        "400-year leap day"
     );
     for bad in [
         "",
@@ -155,6 +172,24 @@ fn lenient_acceptance_is_recorded_not_endorsed() {
     ] {
         assert_eq!(parse_ts(bad), None, "{bad:?}");
     }
+}
+
+#[test]
+fn parse_ts_rejects_every_field_past_its_range() {
+    run_cases("ledger-ts-out-of-range", 3000, |_, rng| {
+        let year = 1900 + rng.below(301) as i64;
+        let month = 1 + rng.below(12) as i64;
+        let dim = days_in_month(year, month);
+        let (mut day, mut hour, mut minute, mut second) = (1, 0, 0, 0);
+        match rng.below(4) {
+            0 => day = dim + 1 + rng.below((99 - dim) as usize) as i64,
+            1 => hour = 24 + rng.below(76) as i64,
+            2 => minute = 60 + rng.below(40) as i64,
+            _ => second = 60 + rng.below(40) as i64,
+        }
+        let text = format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}Z");
+        assert_eq!(parse_ts(&text), None, "{text}");
+    });
 }
 
 #[test]

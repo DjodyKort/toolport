@@ -34,16 +34,38 @@ pub fn format_ts(ms: i64) -> String {
     )
 }
 
-/// Epoch milliseconds for an RFC 3339 timestamp; a missing zone means UTC.
+fn digits(text: &str) -> Option<i64> {
+    if text.is_empty() || !text.bytes().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    text.parse().ok()
+}
+
+fn days_in_month(year: i64, month: i64) -> i64 {
+    match month {
+        2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
+        2 => 28,
+        4 | 6 | 9 | 11 => 30,
+        _ => 31,
+    }
+}
+
+/// Epoch milliseconds for an RFC 3339 timestamp; a missing zone means UTC. Fields out of
+/// range (February 31, hour 24, minute 60) are rejected the way Python's `fromisoformat` does.
 pub fn parse_ts(text: &str) -> Option<i64> {
     let b = text.as_bytes();
     if b.len() < 19 || b[4] != b'-' || b[7] != b'-' || !matches!(b[10], b'T' | b't' | b' ') {
         return None;
     }
-    let num = |range: std::ops::Range<usize>| text.get(range)?.parse::<i64>().ok();
+    let num = |range: std::ops::Range<usize>| digits(text.get(range)?);
     let (year, month, day) = (num(0..4)?, num(5..7)?, num(8..10)?);
     let (hour, minute, second) = (num(11..13)?, num(14..16)?, num(17..19)?);
-    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+    if !(1..=12).contains(&month)
+        || !(1..=days_in_month(year, month)).contains(&day)
+        || hour > 23
+        || minute > 59
+        || second > 59
+    {
         return None;
     }
     let mut rest = &text[19..];
@@ -56,9 +78,15 @@ pub fn parse_ts(text: &str) -> Option<i64> {
     }
     let offset = match rest {
         "" | "Z" | "z" => 0,
-        tz if tz.len() == 6 && (tz.starts_with('+') || tz.starts_with('-')) => {
-            let secs =
-                tz.get(1..3)?.parse::<i64>().ok()? * 3600 + tz.get(4..6)?.parse::<i64>().ok()? * 60;
+        tz if tz.len() == 6
+            && matches!(tz.as_bytes()[0], b'+' | b'-')
+            && tz.as_bytes()[3] == b':' =>
+        {
+            let (hours, minutes) = (digits(tz.get(1..3)?)?, digits(tz.get(4..6)?)?);
+            if hours > 23 || minutes > 59 {
+                return None;
+            }
+            let secs = hours * 3600 + minutes * 60;
             if tz.starts_with('-') {
                 -secs
             } else {
