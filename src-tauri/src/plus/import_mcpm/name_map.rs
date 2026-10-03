@@ -80,11 +80,11 @@ impl NameMap {
     }
 }
 
-pub fn old_tool_name(mcpm_server: &str, tool: &str) -> String {
+pub(super) fn old_tool_name(mcpm_server: &str, tool: &str) -> String {
     format!("mcp__mcpm_{mcpm_server}__{tool}")
 }
 
-pub fn exposed_tool_name(id: &str, tool: &str) -> String {
+pub(super) fn exposed_tool_name(id: &str, tool: &str) -> String {
     format!("{}{}", exposed_prefix(id), sanitize_segment(tool))
 }
 
