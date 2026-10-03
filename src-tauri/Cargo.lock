@@ -841,9 +841,11 @@ dependencies = [
 name = "conduit"
 version = "1.23.4"
 dependencies = [
+ "aes",
  "base64 0.22.1",
  "boa_engine",
  "boa_gc",
+ "cbc",
  "chacha20poly1305",
  "core-foundation 0.10.1",
  "dirs 5.0.1",
