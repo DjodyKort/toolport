@@ -2,10 +2,11 @@ name: Fork CI
 
 # Toolport+ fork pipeline. Upstream ci.yml is pinned by
 # src/test/ci-required-checks.test.ts and only runs on PRs and main, so the fork
-# gets its own workflow for mig/* and djody/main. No secrets, no signing, no release.
+# gets its own workflow. It runs on djody/main pushes and by workflow_dispatch for mig/*
+# branches (D-039: workers verify locally). No secrets, no signing, no release.
 on:
   push:
-    branches: ["mig/**", djody/main]
+    branches: [djody/main]
   workflow_dispatch:
 
 concurrency:
