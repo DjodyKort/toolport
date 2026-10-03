@@ -334,9 +334,14 @@ impl EngineOps for SystemOps {
     }
 
     fn agent_savings(&self, profile: &str) -> Result<Vec<(String, String)>, String> {
+        if path_lookup("headroom", self.path.as_deref()).is_none() {
+            return Err("headroom is not on PATH: cannot snapshot profile env. \
+                        Install the pinned build: toolportctl compression pin --install"
+                .into());
+        }
         let out = self
             .command("headroom")
-            .args(["agent-savings", "--profile", profile])
+            .args(["agent-savings", "--profile", profile, "--format", "json"])
             .stdin(Stdio::null())
             .output()
             .map_err(|e| e.to_string())?;
@@ -345,13 +350,13 @@ impl EngineOps for SystemOps {
             let tail = text.lines().last().unwrap_or("(no output)");
             return Err(format!("agent-savings --profile {profile}: {tail}"));
         }
-        let map: serde_json::Map<String, Value> =
+        let map: OrderedMap<Value> =
             serde_json::from_slice(&out.stdout).map_err(|e| e.to_string())?;
         Ok(map
-            .into_iter()
+            .iter()
             .map(|(k, v)| match v {
-                Value::String(s) => (k, s),
-                other => (k, other.to_string()),
+                Value::String(s) => (k.clone(), s.clone()),
+                other => (k.clone(), other.to_string()),
             })
             .collect())
     }

@@ -1375,6 +1375,38 @@ fn system_probe_takes_the_first_version_from_either_stream() {
 
 #[cfg(unix)]
 #[test]
+fn system_agent_savings_asks_for_json_and_keeps_the_engine_key_order() {
+    use super::engine::EngineOps;
+    let _guard = SPAWN_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = Tmp::new("savings");
+    fake_exe(
+        tmp.path(),
+        "headroom",
+        "[ \"$*\" = 'agent-savings --profile balanced --format json' ] || { echo \"bad args: $*\" >&2; exit 3; }\n\
+         echo '{\"HEADROOM_Z\": \"1\", \"HEADROOM_A\": 2}'",
+    );
+    let ops = SystemOps {
+        path: Some(system_path(tmp.path())),
+    };
+    assert_eq!(
+        ops.agent_savings("balanced").unwrap(),
+        [
+            ("HEADROOM_Z".to_string(), "1".to_string()),
+            ("HEADROOM_A".to_string(), "2".to_string())
+        ]
+    );
+    let err = ops.agent_savings("other").unwrap_err();
+    assert!(err.contains("bad args"), "{err}");
+    let empty = Tmp::new("savings-none");
+    let none = SystemOps {
+        path: Some(empty.path().into()),
+    };
+    let err = none.agent_savings("balanced").unwrap_err();
+    assert!(err.starts_with("headroom is not on PATH"), "{err}");
+}
+
+#[cfg(unix)]
+#[test]
 fn system_launch_runs_the_fake_claude_with_the_planned_env_and_argv() {
     let _guard = SPAWN_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = Tmp::new("launch");
