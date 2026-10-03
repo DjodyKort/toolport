@@ -1,6 +1,5 @@
-use super::bundle::{read_manifest, Manifest, SyncError, MANIFEST_FILE, SALT_FILE};
+use super::bundle::{read_manifest, read_salt, Manifest, SyncError, MANIFEST_FILE};
 use super::exec::Exec;
-use base64::{engine::general_purpose::STANDARD, Engine};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -98,8 +97,7 @@ impl<'a> GitBackend<'a> {
     }
 
     pub fn load_salt(&self) -> Option<Vec<u8>> {
-        let text = fs::read_to_string(self.local.join(SALT_FILE)).ok()?;
-        STANDARD.decode(text.trim()).ok()
+        read_salt(&self.local).ok()
     }
 
     pub fn commit_and_push(&self, message: &str) -> Result<bool, SyncError> {

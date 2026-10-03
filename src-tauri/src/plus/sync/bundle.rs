@@ -176,6 +176,11 @@ pub(crate) fn read_salt(dir: &Path) -> Result<Vec<u8>, SyncError> {
         .map_err(|_| SyncError::Format("salt.txt is not base64".into()))
 }
 
+pub(crate) fn write_salt(dir: &Path, salt: &[u8]) -> Result<(), SyncError> {
+    let path = dir.join(SALT_FILE);
+    fs::write(&path, STANDARD.encode(salt)).map_err(|e| io(&path, e))
+}
+
 fn blob_name_for(key: &str) -> String {
     format!("{}.enc", key.replace(['/', '\\'], "__"))
 }
@@ -293,8 +298,7 @@ pub fn write_bundle_with_origins(
     let blobs = out_dir.join("blobs");
     fs::create_dir_all(&blobs).map_err(|e| io(&blobs, e))?;
     if let Some(salt) = salt {
-        let path = out_dir.join(SALT_FILE);
-        fs::write(&path, STANDARD.encode(salt)).map_err(|e| io(&path, e))?;
+        write_salt(out_dir, salt)?;
     }
     let mut manifest = Manifest {
         version: 1,
