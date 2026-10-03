@@ -87,7 +87,7 @@
     ".config/mcpm/context.json": {
       "bytes": 933,
       "class": "B",
-      "sha256": "68b454d9e2867e968f96d45177d157841c8edc529adafd5753e503830ca48380"
+      "sha256": "b83ed72107b6148e07baa1777bc5f0ba70ab0a980f5968fff97da2c4a39f6341"
     },
     "_golden/apply1.report.json": {
       "bytes": 1797,
@@ -100,9 +100,9 @@
       "sha256": "00520df5b40d3c0b5bb41e546f5c240a7fc8d5da2c9ac0b416a1156ecc46da32"
     },
     "_golden/doctor.json": {
-      "bytes": 425,
+      "bytes": 427,
       "class": "B",
-      "sha256": "ce4ca7c99afa1d94fa047c9d512bd986248c5cd65595caead697c06d9b30158b"
+      "sha256": "b10854d2e1d5a233ac8e2a6230d8894541ff0cb18f1ea6cc942c66347062c3f8"
     },
     "_golden/links.json": {
       "bytes": 361,

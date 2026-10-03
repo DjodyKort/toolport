@@ -5,7 +5,7 @@
 mcpm_context_presync() {
     local now; now=$(date +%s)
     local interval="${CLAUDE_SYNC_INTERVAL:-14400}"
-    local cf_dir="${HOME}/.local/share/cf-dev-tools"
+    local cf_dir="${HOME}/.local/share/corp-dev-tools"
     local cf_cache="${HOME}/.claude/.last_auto_sync"
     local cf_ran=0
     if [[ -d "${cf_dir}/.git" && -x "${cf_dir}/.venv/bin/python" ]]; then
@@ -31,7 +31,7 @@ mcpm_context_presync() {
     fi
 }
 
-# Default claude = codeforward mode (org CLAUDE.md + personal/client layers).
+# Default claude = examplecorp mode (org CLAUDE.md + personal/client layers).
 claude() { mcpm_context_presync; command claude "$@"; }
 
 # hrclaude launches the claude BINARY via `mcpm compression run` (it never hits

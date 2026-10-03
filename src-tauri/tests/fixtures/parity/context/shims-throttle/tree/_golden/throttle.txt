@@ -2,8 +2,8 @@ rc=0
 --- stdout
 ## cold launch: cf sync and ctx sync both run
 rc=0
-  git -C <HOME>/.local/share/cf-dev-tools pull --quiet
-  cf-python sync_claude_files+auto_update_mcp_repos
+  git -C <HOME>/.local/share/corp-dev-tools pull --quiet
+  corp-python sync_claude_files+auto_update_mcp_repos
   mcpm context sync
   claude one CLAUDE_CONFIG_DIR=<unset>
 caches: cf=yes ctx=yes
@@ -13,8 +13,8 @@ rc=0
 caches: cf=yes ctx=yes
 ## interval 0: both run again
 rc=0
-  git -C <HOME>/.local/share/cf-dev-tools pull --quiet
-  cf-python sync_claude_files+auto_update_mcp_repos
+  git -C <HOME>/.local/share/corp-dev-tools pull --quiet
+  corp-python sync_claude_files+auto_update_mcp_repos
   mcpm context sync
   claude three CLAUDE_CONFIG_DIR=<unset>
 caches: cf=yes ctx=yes
@@ -25,16 +25,16 @@ rc=0
 caches: cf=yes ctx=yes
 ## cf cache stale (epoch 1): cf runs, ctx follows
 rc=0
-  git -C <HOME>/.local/share/cf-dev-tools pull --quiet
-  cf-python sync_claude_files+auto_update_mcp_repos
+  git -C <HOME>/.local/share/corp-dev-tools pull --quiet
+  corp-python sync_claude_files+auto_update_mcp_repos
   mcpm context sync
   claude five CLAUDE_CONFIG_DIR=<unset>
 caches: cf=yes ctx=yes
 ## mcpm fails: stderr hint, ctx cache not written
 mcpm: context sync failed, retrying next launch (run 'mcpm doctor')
 rc=0
-  git -C <HOME>/.local/share/cf-dev-tools pull --quiet
-  cf-python sync_claude_files+auto_update_mcp_repos
+  git -C <HOME>/.local/share/corp-dev-tools pull --quiet
+  corp-python sync_claude_files+auto_update_mcp_repos
   mcpm context sync
   claude six CLAUDE_CONFIG_DIR=<unset>
 caches: cf=yes ctx=no

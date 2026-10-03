@@ -1,0 +1,20 @@
+{
+  "cf_wrapper_hash": "ad6ff03de3e1d4c76bb5d9109f1cf323b6b7b3fb29c705689e3fdca3345c0dbb",
+  "clients_root": "<HOME>/clients",
+  "dedupe": {
+    "enabled": false,
+    "legacy_names": [
+      "context7",
+      "playwright",
+      "examplecorp-odoo",
+      "examplecorp-typst"
+    ],
+    "require_mcpm_twin": true
+  },
+  "profiles": {},
+  "settings": {
+    "ensure_allow": [],
+    "ensure_ask": []
+  },
+  "wrap_default_claude": false
+}

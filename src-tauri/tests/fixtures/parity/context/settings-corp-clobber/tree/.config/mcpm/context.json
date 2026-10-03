@@ -1,0 +1,28 @@
+{
+  "cf_wrapper_hash": null,
+  "clients_root": "<HOME>/clients",
+  "dedupe": {
+    "enabled": false,
+    "legacy_names": [
+      "context7",
+      "playwright",
+      "examplecorp-odoo",
+      "examplecorp-typst"
+    ],
+    "require_mcpm_twin": true
+  },
+  "profiles": {},
+  "settings": {
+    "ensure_allow": [
+      "Bash(git status:*)",
+      "Bash(ls:*)",
+      "mcp__mcpm_examplecorp-odoo__search",
+      "Read(*)"
+    ],
+    "ensure_ask": [
+      "Bash(rm:*)",
+      "Bash(git push:*)"
+    ]
+  },
+  "wrap_default_claude": false
+}

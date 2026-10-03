@@ -1,6 +1,6 @@
 {
   "actions": [
-    "removed legacy MCP entries from .claude.json: context7, codeforward-odoo"
+    "removed legacy MCP entries from .claude.json: context7, examplecorp-odoo"
   ],
   "warnings": []
 }

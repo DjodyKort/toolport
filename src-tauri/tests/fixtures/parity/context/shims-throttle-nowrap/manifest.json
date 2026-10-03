@@ -32,7 +32,7 @@
     ".config/mcpm/context.json": {
       "bytes": 646,
       "class": "B",
-      "sha256": "10fea82ebbe7b1372128654419a7116f14b09f1167129bf11b6021cb5d70a5b8"
+      "sha256": "ec09be711c4185c1c6a8b23c77f05bb984b9dc56baed1e015eacf05ab6625f64"
     },
     "_golden/apply.report.json": {
       "bytes": 608,

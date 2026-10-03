@@ -7,17 +7,17 @@
     ".claude.json": {
       "bytes": 471,
       "class": "B",
-      "sha256": "4866a0437114ab2497dc50f304f22549c72af7f53aa6c933334576b05eb5fc50"
+      "sha256": "8c5a6708889588f7d2af8420ca3e6f1a6bdf1710925db501d14b33ed4609dde1"
     },
     ".config/mcpm/context.json": {
       "bytes": 372,
       "class": "B",
-      "sha256": "1a70c8c16321d964f8caf558c2413dda05cfc8ab473f7523fc226afbb90e8f0b"
+      "sha256": "1424b406713dde8b737bf526324278003736d1ab2db90359e4e35f29442f86db"
     },
     "_golden/apply1-default.report.json": {
       "bytes": 120,
       "class": "B",
-      "sha256": "4867e92ac4ac589da1e97d317ab7d60cc230937fdf423e1b162b86d2e90714c7"
+      "sha256": "7fa1d5b37287e4b90a8f3a3ee226fd6e2d56a78a9af4c9a5e171ec1a81ffd150"
     },
     "_golden/apply2-idempotent.report.json": {
       "bytes": 38,
@@ -32,7 +32,7 @@
     "_golden/apply4-no-twin-required.report.json": {
       "bytes": 158,
       "class": "B",
-      "sha256": "0213f2543e90527dca336439bffaaa926bc7e11884374837e6cf98803f94ebfa"
+      "sha256": "7f926deb3726ac0eb3fd9cbdeb25ba745e0d6660b18b12b6d653514b4478fd96"
     },
     "_golden/apply5-disabled.report.json": {
       "bytes": 75,
@@ -47,17 +47,17 @@
     "_golden/claude.after-custom.json": {
       "bytes": 639,
       "class": "B",
-      "sha256": "93b229a08e819976ccaca1734292e0b2e4e86d0d6550f1b3696193ae1aab5838"
+      "sha256": "ef3d96cbac6cdc4ddb597208a39d177e0e4179379ba9c76f304cedf2592e17cb"
     },
     "_golden/claude.after-default.json": {
       "bytes": 687,
       "class": "B",
-      "sha256": "5eb07e9f20d615bae46ef8415b18c0b26088b141ec1531ad60214f9775d5ee13"
+      "sha256": "9842dfc2fd2397156009b2d32da8902c6d3881bc1b359f86564673a9c4d2b13b"
     },
     "_golden/claude.after-no-twin.json": {
       "bytes": 471,
       "class": "B",
-      "sha256": "4866a0437114ab2497dc50f304f22549c72af7f53aa6c933334576b05eb5fc50"
+      "sha256": "8c5a6708889588f7d2af8420ca3e6f1a6bdf1710925db501d14b33ed4609dde1"
     }
   },
   "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",

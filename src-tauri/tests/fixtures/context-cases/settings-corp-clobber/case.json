@@ -1,0 +1,142 @@
+{
+  "area": "context",
+  "entry": "context_scenario",
+  "args": {
+    "steps": [
+      {
+        "op": "snapshot_file",
+        "src": ".claude/settings.json",
+        "label": "settings.before-clobber.json"
+      },
+      {
+        "op": "cf_clobber"
+      },
+      {
+        "op": "snapshot_file",
+        "src": ".claude/settings.json",
+        "label": "settings.after-clobber.json"
+      },
+      {
+        "op": "doctor",
+        "label": "doctor.after-clobber"
+      },
+      {
+        "op": "apply",
+        "label": "apply1.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": false
+          },
+          "clients_root": "{HOME}/clients",
+          "settings": {
+            "ensure_allow": [
+              "Bash(git status:*)",
+              "Bash(ls:*)",
+              "mcp__mcpm_examplecorp-odoo__search",
+              "Read(*)"
+            ],
+            "ensure_ask": [
+              "Bash(rm:*)",
+              "Bash(git push:*)"
+            ]
+          }
+        }
+      },
+      {
+        "op": "snapshot_file",
+        "src": ".claude/settings.json",
+        "label": "settings.after-apply.json"
+      },
+      {
+        "op": "list_backups",
+        "label": "backups1"
+      },
+      {
+        "op": "apply",
+        "label": "apply2-idempotent.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": false
+          },
+          "clients_root": "{HOME}/clients",
+          "settings": {
+            "ensure_allow": [
+              "Bash(git status:*)",
+              "Bash(ls:*)",
+              "mcp__mcpm_examplecorp-odoo__search",
+              "Read(*)"
+            ],
+            "ensure_ask": [
+              "Bash(rm:*)",
+              "Bash(git push:*)"
+            ]
+          }
+        }
+      },
+      {
+        "op": "list_backups",
+        "label": "backups2"
+      },
+      {
+        "op": "doctor",
+        "label": "doctor.after-apply"
+      },
+      {
+        "op": "cf_clobber"
+      },
+      {
+        "op": "snapshot_file",
+        "src": ".claude/settings.json",
+        "label": "settings.after-second-clobber.json"
+      },
+      {
+        "op": "apply",
+        "label": "apply3.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": false
+          },
+          "clients_root": "{HOME}/clients",
+          "settings": {
+            "ensure_allow": [
+              "Bash(git status:*)",
+              "Bash(ls:*)",
+              "mcp__mcpm_examplecorp-odoo__search",
+              "Read(*)"
+            ],
+            "ensure_ask": [
+              "Bash(rm:*)",
+              "Bash(git push:*)"
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "comparison": "B",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ],
+  "env": {
+    "MCPM_CONFIG_DIR": "{HOME}/.config/mcpm",
+    "MCPM_CONTEXT_CLAUDE_HOME": "{HOME}/.claude",
+    "MCPM_CONTEXT_CLAUDE_JSON": "{HOME}/.claude.json",
+    "MCPM_CONTEXT_CACHE_DIR": "{HOME}/.cache/mcpm/context",
+    "MCPM_CONTEXT_CF_DIR": "{HOME}/.local/share/corp-dev-tools"
+  },
+  "exclude": [
+    ".cache/*",
+    ".git/*",
+    "*/.git/*"
+  ],
+  "overrides": {
+    "*.json": "B",
+    "*.md": "A",
+    "*.report": "B"
+  }
+}

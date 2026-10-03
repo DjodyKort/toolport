@@ -1,0 +1,125 @@
+{
+  "area": "context",
+  "entry": "context_scenario",
+  "args": {
+    "steps": [
+      {
+        "op": "apply",
+        "label": "apply1-baseline.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": false
+          },
+          "clients_root": "{HOME}/clients"
+        }
+      },
+      {
+        "op": "snapshot_file",
+        "src": ".config/mcpm/context.json",
+        "label": "context.after-baseline.json"
+      },
+      {
+        "op": "doctor",
+        "label": "doctor1-unchanged"
+      },
+      {
+        "op": "write_file",
+        "path": ".local/share/corp-dev-tools/claude/shell-wrapper.sh",
+        "content": "#!/bin/zsh\n# synthetic cf shell-wrapper v1\nclaude() { echo cf; }\n# changed upstream\n"
+      },
+      {
+        "op": "doctor",
+        "label": "doctor2-wrapper-changed"
+      },
+      {
+        "op": "apply",
+        "label": "apply2-saved-config-no-rebaseline.report",
+        "saved": true
+      },
+      {
+        "op": "doctor",
+        "label": "doctor2b-still-warns-after-sync"
+      },
+      {
+        "op": "apply",
+        "label": "apply2c-fresh-config-silently-rebaselines.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": false
+          },
+          "clients_root": "{HOME}/clients",
+          "cf_wrapper_hash": null
+        }
+      },
+      {
+        "op": "doctor",
+        "label": "doctor2c-after-fresh-config"
+      },
+      {
+        "op": "snapshot_file",
+        "src": ".config/mcpm/context.json",
+        "label": "context.after-fresh-config.json"
+      },
+      {
+        "op": "write_file",
+        "path": ".local/share/corp-dev-tools/claude/hooks.json",
+        "content": "{}"
+      },
+      {
+        "op": "write_file",
+        "path": ".local/share/corp-dev-tools/claude/extras/x.txt",
+        "content": "x"
+      },
+      {
+        "op": "doctor",
+        "label": "doctor3-new-assets"
+      },
+      {
+        "op": "apply",
+        "label": "apply3-preset-hash.report",
+        "config": {
+          "wrap_default_claude": false,
+          "dedupe": {
+            "enabled": false
+          },
+          "clients_root": "{HOME}/clients",
+          "cf_wrapper_hash": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      },
+      {
+        "op": "snapshot_file",
+        "src": ".config/mcpm/context.json",
+        "label": "context.after-preset.json"
+      },
+      {
+        "op": "doctor",
+        "label": "doctor4-preset-mismatch"
+      }
+    ]
+  },
+  "comparison": "B",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ],
+  "env": {
+    "MCPM_CONFIG_DIR": "{HOME}/.config/mcpm",
+    "MCPM_CONTEXT_CLAUDE_HOME": "{HOME}/.claude",
+    "MCPM_CONTEXT_CLAUDE_JSON": "{HOME}/.claude.json",
+    "MCPM_CONTEXT_CACHE_DIR": "{HOME}/.cache/mcpm/context",
+    "MCPM_CONTEXT_CF_DIR": "{HOME}/.local/share/corp-dev-tools"
+  },
+  "exclude": [
+    ".cache/*",
+    ".git/*",
+    "*/.git/*",
+    ".local/*"
+  ],
+  "overrides": {
+    "*.json": "B",
+    "*.report": "B"
+  }
+}
