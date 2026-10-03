@@ -5,6 +5,7 @@
 //! Every operation takes explicit [`Roots`], so tests run in temp dirs and nothing reads `$HOME`.
 
 pub mod backup;
+pub mod compact;
 pub mod config;
 pub mod dedupe;
 pub mod doctor;
@@ -18,6 +19,8 @@ pub mod shims;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_compact;
 
 pub use config::{load_config, save_config, ContextConfig};
 pub use roots::Roots;
@@ -202,6 +205,7 @@ fn roots_from_args(args: &Value) -> Result<Roots, String> {
         roots.cf_dir = p;
     }
     roots.env_claude_config_dir = std::env::var("CLAUDE_CONFIG_DIR").ok();
+    compact::apply_env(&mut roots);
     Ok(roots)
 }
 
