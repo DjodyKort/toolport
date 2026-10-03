@@ -17,6 +17,7 @@ use crate::registry::{self, ServerEntry};
 use exec::{GitRunner, ShellRunner};
 use net::HttpClient;
 use serde::Serialize;
+use crate::plus::args::{flag, str_nonempty};
 use serde_json::{json, Map, Value};
 use source::Source;
 use std::cmp::Ordering;
@@ -712,17 +713,9 @@ pub fn execute(opts: &Options) -> Result<Report, String> {
     execute_with(&Env::system(), opts)
 }
 
-fn flag(args: &Value, key: &str) -> bool {
-    args.get(key).and_then(Value::as_bool).unwrap_or(false)
-}
-
 fn options_from(args: &Value, mode: Mode) -> Options {
     let mut opts = Options::new(mode);
-    opts.server = args
-        .get("server")
-        .and_then(Value::as_str)
-        .filter(|s| !s.is_empty())
-        .map(String::from);
+    opts.server = str_nonempty(args, "server").map(String::from);
     opts.allow_commands = flag(args, "allowCommands");
     opts.allow_unverified = flag(args, "allowUnverified");
     opts.force = flag(args, "force");

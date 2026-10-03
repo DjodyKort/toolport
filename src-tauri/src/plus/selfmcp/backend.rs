@@ -1,6 +1,7 @@
 use super::catalog::{ResourceDef, ToolDef};
 use super::{content, docs, servers};
 use super::ToolError;
+use crate::plus::args::{list, str_arg};
 use crate::plus::skills::lint::{lint_skills, LintResult};
 use crate::plus::skills::ops::find_skills_repo;
 use crate::plus::skills::parser::{discover_skills, Skill};
@@ -35,10 +36,6 @@ pub(super) fn ctl(path: &[&str]) -> Result<Value, ToolError> {
         })
 }
 
-pub(super) fn arg_str<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
-    args.get(key).and_then(Value::as_str)
-}
-
 #[cfg(test)]
 thread_local! {
     pub(super) static TEST_REPO: std::cell::RefCell<Option<PathBuf>> =
@@ -46,7 +43,7 @@ thread_local! {
 }
 
 pub(super) fn skills_repo(args: &Value) -> Result<PathBuf, ToolError> {
-    let start = arg_str(args, "repo_path").map(PathBuf::from);
+    let start = str_arg(args, "repo_path").map(PathBuf::from);
     #[cfg(test)]
     if start.is_none() {
         if let Some(repo) = TEST_REPO.with(|r| r.borrow().clone()) {
@@ -126,7 +123,7 @@ pub fn run_tool(tool: &ToolDef, args: &Value) -> Result<Value, ToolError> {
             )
         }
         "skills_get" => {
-            let name = arg_str(args, "name").unwrap_or_default();
+            let name = str_arg(args, "name").unwrap_or_default();
             let (_, skills) = load_skills(args)?;
             let skill = skills
                 .iter()
@@ -138,7 +135,7 @@ pub fn run_tool(tool: &ToolDef, args: &Value) -> Result<Value, ToolError> {
         }
         "skills_lint" => {
             let (_, mut skills) = load_skills(args)?;
-            if let Some(names) = args.get("names").and_then(Value::as_array) {
+            if let Some(names) = list(args, "names") {
                 skills.retain(|s| names.iter().any(|n| n.as_str() == Some(s.name())));
             }
             Ok(lint_value(&lint_skills(&skills)))
@@ -153,7 +150,7 @@ pub fn run_tool(tool: &ToolDef, args: &Value) -> Result<Value, ToolError> {
             }))
         }
         "servers_get" => {
-            let name = arg_str(args, "name").unwrap_or_default();
+            let name = str_arg(args, "name").unwrap_or_default();
             let reg = read_registry()?;
             let active = reg.active_profile_id();
             let server = reg

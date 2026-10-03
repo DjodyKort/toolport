@@ -18,6 +18,7 @@ pub mod skills;
 pub mod sync;
 pub mod update;
 
+pub(crate) mod args;
 pub(crate) mod hashing;
 pub(crate) mod jsonfs;
 

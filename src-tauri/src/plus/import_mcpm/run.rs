@@ -4,6 +4,7 @@ use super::{
 use crate::clients;
 use crate::registry::{self, ManagedEntry, Profile, Registry, ServerEntry};
 use serde::Serialize;
+use crate::plus::args::{flag, flag_or, str_arg};
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -574,26 +575,14 @@ pub fn run(opts: &RunOptions) -> Result<Plan, String> {
 }
 
 pub fn run_handler(args: Value) -> Result<Value, String> {
-    let root = args
-        .get("root")
-        .and_then(Value::as_str)
-        .ok_or("root is required")?;
+    let root = str_arg(&args, "root").ok_or("root is required")?;
     let opts = RunOptions {
         root: PathBuf::from(root),
-        short_ids_path: args
-            .get("shortIds")
-            .and_then(Value::as_str)
-            .map(PathBuf::from),
-        home: args.get("home").and_then(Value::as_str).map(String::from),
-        dry_run: args.get("dryRun").and_then(Value::as_bool).unwrap_or(false),
-        write_clients: args
-            .get("writeClients")
-            .and_then(Value::as_bool)
-            .unwrap_or(true),
-        prune_orphans: args
-            .get("pruneOrphans")
-            .and_then(Value::as_bool)
-            .unwrap_or(false),
+        short_ids_path: str_arg(&args, "shortIds").map(PathBuf::from),
+        home: str_arg(&args, "home").map(String::from),
+        dry_run: flag(&args, "dryRun"),
+        write_clients: flag_or(&args, "writeClients", true),
+        prune_orphans: flag(&args, "pruneOrphans"),
     };
     run(&opts).map(|p| p.to_value())
 }

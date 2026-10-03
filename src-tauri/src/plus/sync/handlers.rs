@@ -2,20 +2,11 @@ use super::bundle::{Credential, PortableRoots};
 use super::engine::{self, InitOptions, PullOptions, PushOptions, SyncContext};
 use super::exec::SystemExec;
 use super::gitsync::{git_sync, GitSyncOptions};
+use crate::plus::args::{flag, list, str_nonempty as str_arg};
 use crate::plus::skills::clock::SystemClock;
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::path::PathBuf;
-
-fn str_arg<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
-    args.get(key)
-        .and_then(Value::as_str)
-        .filter(|s| !s.is_empty())
-}
-
-fn flag(args: &Value, key: &str) -> bool {
-    args.get(key).and_then(Value::as_bool).unwrap_or(false)
-}
 
 fn dirs(args: &Value) -> Result<(PathBuf, PathBuf), String> {
     let base =
@@ -126,9 +117,7 @@ pub fn rotate_handler(args: Value) -> Result<Value, String> {
 pub fn add_project_handler(args: Value) -> Result<Value, String> {
     let name = required(&args, "name")?;
     let path = required(&args, "path")?;
-    let files: Vec<String> = args
-        .get("files")
-        .and_then(Value::as_array)
+    let files: Vec<String> = list(&args, "files")
         .map(|a| {
             a.iter()
                 .filter_map(Value::as_str)
