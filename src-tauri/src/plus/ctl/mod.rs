@@ -10,6 +10,7 @@ mod council;
 mod import;
 mod skills;
 mod skills_repo;
+mod skills_state;
 pub(crate) mod context;
 mod folders;
 mod output;
@@ -292,8 +293,28 @@ pub const COMMANDS: &[Command] = &[
         handler: Some(skills_repo::unbundle),
     },
     Command {
+        path: &["skills", "status"],
+        summary: "Show whether synced outputs still exist; --strict exits 1 on drift (--repo, --home, --client <key>)",
+        handler: Some(skills_state::status),
+    },
+    Command {
+        path: &["skills", "clean"],
+        summary: "Remove synced outputs and the lockfile (--repo, --home, --client <key>, --project, --dry-run)",
+        handler: Some(skills_state::clean),
+    },
+    Command {
+        path: &["skills", "uninstall"],
+        summary: "Remove a skill, its outputs and its lock entry (<name>, --repo, --home, --project, --dry-run)",
+        handler: Some(skills_state::uninstall),
+    },
+    Command {
+        path: &["skills", "resolve"],
+        summary: "Find files shadowing synced skills; --migrate backs them up (--repo, --home, --client <key>, --project, --dry-run)",
+        handler: Some(skills_state::resolve),
+    },
+    Command {
         path: &["skills"],
-        summary: "Skills: init add ls lint audit bundle unbundle sync diff",
+        summary: "Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve",
         handler: Some(skills::group),
     },
     Command {

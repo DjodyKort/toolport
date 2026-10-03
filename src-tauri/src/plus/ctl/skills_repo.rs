@@ -14,14 +14,14 @@ const BUNDLE_USAGE: &str =
 const UNBUNDLE_USAGE: &str = "usage: skills unbundle <bundle.zip> [--path <dir>] [--dry-run]";
 
 #[derive(Default)]
-struct Args {
+pub(super) struct Args {
     values: Vec<(String, String)>,
     switches: Vec<String>,
     operands: Vec<String>,
 }
 
 impl Args {
-    fn parse(
+    pub(super) fn parse(
         rest: &[String],
         valued: &[&str],
         switches: &[&str],
@@ -58,7 +58,7 @@ impl Args {
         Ok(args)
     }
 
-    fn one(&self, key: &str) -> Option<&str> {
+    pub(super) fn one(&self, key: &str) -> Option<&str> {
         self.values
             .iter()
             .rev()
@@ -66,7 +66,7 @@ impl Args {
             .map(|(_, v)| v.as_str())
     }
 
-    fn all(&self, key: &str) -> Vec<String> {
+    pub(super) fn all(&self, key: &str) -> Vec<String> {
         self.values
             .iter()
             .filter(|(k, _)| k == key)
@@ -74,11 +74,11 @@ impl Args {
             .collect()
     }
 
-    fn on(&self, key: &str) -> bool {
+    pub(super) fn on(&self, key: &str) -> bool {
         self.switches.iter().any(|s| s == key)
     }
 
-    fn no_operands(&self, usage: &str) -> Result<(), CtlError> {
+    pub(super) fn no_operands(&self, usage: &str) -> Result<(), CtlError> {
         match self.operands.first() {
             Some(extra) => Err(CtlError::usage(format!(
                 "unexpected argument: {extra}\n{usage}"
@@ -87,7 +87,7 @@ impl Args {
         }
     }
 
-    fn operand(&self, what: &str, usage: &str) -> Result<&str, CtlError> {
+    pub(super) fn operand(&self, what: &str, usage: &str) -> Result<&str, CtlError> {
         match self.operands.as_slice() {
             [one] => Ok(one),
             [] => Err(CtlError::usage(format!("missing {what}\n{usage}"))),
@@ -97,7 +97,7 @@ impl Args {
         }
     }
 
-    fn with_path(&self, mut args: Value) -> Value {
+    pub(super) fn with_path(&self, mut args: Value) -> Value {
         if let Some(path) = self.one("--path") {
             args["repo_path"] = json!(path);
         }
@@ -105,11 +105,11 @@ impl Args {
     }
 }
 
-fn call(command: &str, args: Value) -> Result<Value, CtlError> {
+pub(super) fn call(command: &str, args: Value) -> Result<Value, CtlError> {
     crate::plus::dispatch(command, args).map_err(|e| CtlError::new("skills", e))
 }
 
-fn strings(data: &Value, key: &str) -> Vec<String> {
+pub(super) fn strings(data: &Value, key: &str) -> Vec<String> {
     data[key]
         .as_array()
         .into_iter()
@@ -118,7 +118,7 @@ fn strings(data: &Value, key: &str) -> Vec<String> {
         .collect()
 }
 
-fn str_of<'a>(data: &'a Value, key: &str) -> &'a str {
+pub(super) fn str_of<'a>(data: &'a Value, key: &str) -> &'a str {
     data[key].as_str().unwrap_or("")
 }
 
