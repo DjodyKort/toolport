@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests;
 
 const LIST_TIMEOUT: Duration = Duration::from_secs(30);

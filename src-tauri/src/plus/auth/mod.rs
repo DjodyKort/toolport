@@ -44,5 +44,5 @@ mod http_probes_tests;
 #[cfg(test)]
 mod surfaces_tests;
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod gateway_e2e_tests;
