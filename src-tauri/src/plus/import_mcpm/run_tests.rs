@@ -359,13 +359,19 @@ fn missing_root_is_an_error() {
     });
 }
 
+fn desktop_config(w: &World) -> PathBuf {
+    if cfg!(target_os = "macos") {
+        w.home
+            .join("Library/Application Support/Claude/claude_desktop_config.json")
+    } else {
+        w.home.join(".config/Claude/claude_desktop_config.json")
+    }
+}
+
 fn client_files(w: &World) -> Vec<(&'static str, PathBuf)> {
     vec![
         ("claude-code", w.home.join(".claude.json")),
-        (
-            "claude-desktop",
-            w.home.join(".config/Claude/claude_desktop_config.json"),
-        ),
+        ("claude-desktop", desktop_config(w)),
         ("cursor", w.home.join(".cursor/mcp.json")),
         ("gemini-cli", w.home.join(".gemini/settings.json")),
     ]
@@ -427,7 +433,7 @@ fn clients_get_one_toolport_entry_bound_to_their_profile() {
             .collect();
         assert_eq!(keys.len(), 2, "{keys:?}");
         assert!(keys.contains(&"mcpm-mcp"));
-        let desktop = read_json(&w.home.join(".config/Claude/claude_desktop_config.json"));
+        let desktop = read_json(&desktop_config(w));
         assert!(desktop["mcpServers"]["context7"].is_object());
         assert!(desktop["mcpServers"]["playwright"].is_object());
         let profiles = reg["profiles"].as_array().unwrap();
@@ -501,7 +507,7 @@ fn prune_orphans_removes_unmanaged_entries() {
         let code = read_json(&w.home.join(".claude.json"));
         let keys: Vec<&String> = code["mcpServers"].as_object().unwrap().keys().collect();
         assert_eq!(keys, ["toolport"]);
-        let desktop = read_json(&w.home.join(".config/Claude/claude_desktop_config.json"));
+        let desktop = read_json(&desktop_config(w));
         assert_eq!(desktop["mcpServers"].as_object().unwrap().len(), 1);
     });
 }
