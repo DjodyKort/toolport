@@ -10,6 +10,7 @@ mod machine;
 mod prober;
 mod probe;
 pub mod scan;
+pub mod stdio;
 pub mod surfaces;
 mod types;
 
@@ -70,7 +71,11 @@ mod surfaces_tests;
 #[cfg(all(test, unix))]
 mod gateway_e2e_tests;
 
+#[cfg(test)]
+pub(crate) mod testkit;
 
+#[cfg(test)]
+mod stdio_tests;
 
 #[cfg(test)]
 mod scan_tests;
