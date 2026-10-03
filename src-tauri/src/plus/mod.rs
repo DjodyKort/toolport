@@ -8,6 +8,7 @@ use serde_json::{json, Value};
 
 pub mod auth;
 pub mod obs;
+pub mod skills;
 
 pub type Handler = fn(Value) -> Result<Value, String>;
 
