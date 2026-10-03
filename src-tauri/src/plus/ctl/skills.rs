@@ -2,6 +2,7 @@
 //! `init|add|audit|bundle|unbundle` live in `skills_repo.rs`, `status|clean|uninstall|resolve` in
 //! `skills_state.rs`.
 
+use super::flags::{switch, value, Flags, Inline, Operands, Spec, Unknown};
 use super::output::{CtlError, Output};
 use serde_json::{json, Value};
 
@@ -16,51 +17,31 @@ const USAGE: &str = "usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|d
      uninstall: <name> [--repo <dir>] [--project] [--dry-run]; \
      resolve: [--repo <dir>] [--client <key>] [--project] [--dry-run] [--migrate|--no-migrate])";
 
-#[derive(Default)]
-struct Flags {
-    repo: Option<String>,
-    home: Option<String>,
-    clients: Vec<String>,
-    names: Vec<String>,
-    project: bool,
-    global: bool,
-    dry_run: bool,
-}
-
-fn parse(rest: &[String], allowed: &[&str]) -> Result<Flags, CtlError> {
-    let mut flags = Flags::default();
-    let mut iter = rest.iter();
-    while let Some(arg) = iter.next() {
-        let (key, inline) = match arg.split_once('=') {
-            Some((k, v)) => (k, Some(v.to_string())),
-            None => (arg.as_str(), None),
-        };
-        if !allowed.contains(&key) {
-            return Err(CtlError::usage(format!("unexpected argument: {arg}")));
-        }
-        if matches!(key, "--project" | "--global" | "--dry-run") {
-            if inline.is_some() {
-                return Err(CtlError::usage(format!("{key} takes no value")));
-            }
-            match key {
-                "--project" => flags.project = true,
-                "--global" => flags.global = true,
-                _ => flags.dry_run = true,
-            }
-            continue;
-        }
-        let value = inline
-            .or_else(|| iter.next().cloned())
-            .ok_or_else(|| CtlError::usage(format!("{key} requires a value")))?;
-        match key {
-            "--repo" => flags.repo = Some(value),
-            "--home" => flags.home = Some(value),
-            "--client" => flags.clients.push(value),
-            _ => flags.names.push(value),
-        }
-    }
-    Ok(flags)
-}
+const BASE: Spec = Spec {
+    flags: &[],
+    inline: Inline::Strict,
+    unknown: Unknown::Argument,
+    operands: Operands::Reject,
+};
+const SYNC: Spec = Spec {
+    flags: &[
+        value("--repo"),
+        value("--home"),
+        value("--client"),
+        switch("--project"),
+        switch("--global"),
+        switch("--dry-run"),
+    ],
+    ..BASE
+};
+const LS: Spec = Spec {
+    flags: &[value("--repo"), value("--home")],
+    ..BASE
+};
+const LINT: Spec = Spec {
+    flags: &[value("--repo"), value("--home"), value("--name")],
+    ..BASE
+};
 
 pub(super) fn apply_home(home: Option<&str>) {
     if let Some(home) = home {
@@ -69,18 +50,12 @@ pub(super) fn apply_home(home: Option<&str>) {
     }
 }
 
-impl Flags {
-    fn apply_home(&self) {
-        apply_home(self.home.as_deref());
+fn repo_args(flags: &Flags) -> Value {
+    let mut args = json!({});
+    if let Some(repo) = flags.one("--repo") {
+        args["repo_path"] = json!(repo);
     }
-
-    fn args(&self) -> Value {
-        let mut args = json!({});
-        if let Some(repo) = &self.repo {
-            args["repo_path"] = json!(repo);
-        }
-        args
-    }
+    args
 }
 
 fn call(command: &str, args: Value) -> Result<Value, CtlError> {
@@ -92,32 +67,23 @@ pub fn group(_rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn sync(rest: &[String]) -> Result<Output, CtlError> {
-    let flags = parse(
-        rest,
-        &[
-            "--repo",
-            "--home",
-            "--client",
-            "--project",
-            "--global",
-            "--dry-run",
-        ],
-    )?;
-    if flags.project && flags.global {
+    let flags = SYNC.parse(rest)?;
+    if flags.on("--project") && flags.on("--global") {
         return Err(CtlError::usage("--global and --project are mutually exclusive"));
     }
-    flags.apply_home();
-    let mut args = flags.args();
-    args["dry_run"] = json!(flags.dry_run);
-    args["global_mode"] = json!(!flags.project);
-    if !flags.clients.is_empty() {
-        args["client_keys"] = json!(flags.clients);
+    apply_home(flags.one("--home"));
+    let mut args = repo_args(&flags);
+    args["dry_run"] = json!(flags.on("--dry-run"));
+    args["global_mode"] = json!(!flags.on("--project"));
+    let clients = flags.all("--client");
+    if !clients.is_empty() {
+        args["client_keys"] = json!(clients);
     }
     let data = call("plus.skills.sync", args)?;
     let cleaned = data["cleaned"].as_array().map_or(0, Vec::len);
     let human = format!(
         "{} {} skill(s), {} rule(s) into {} ({} stale removed)",
-        if flags.dry_run {
+        if flags.on("--dry-run") {
             "would sync"
         } else {
             "synced"
@@ -131,9 +97,9 @@ pub fn sync(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn ls(rest: &[String]) -> Result<Output, CtlError> {
-    let flags = parse(rest, &["--repo", "--home"])?;
-    flags.apply_home();
-    let data = call("plus.skills.list", flags.args())?;
+    let flags = LS.parse(rest)?;
+    apply_home(flags.one("--home"));
+    let data = call("plus.skills.list", repo_args(&flags))?;
     let mut human = String::new();
     for row in data["skills"].as_array().into_iter().flatten() {
         human.push_str(&format!(
@@ -150,11 +116,12 @@ pub fn ls(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn lint(rest: &[String]) -> Result<Output, CtlError> {
-    let flags = parse(rest, &["--repo", "--home", "--name"])?;
-    flags.apply_home();
-    let mut args = flags.args();
-    if !flags.names.is_empty() {
-        args["names"] = json!(flags.names);
+    let flags = LINT.parse(rest)?;
+    apply_home(flags.one("--home"));
+    let mut args = repo_args(&flags);
+    let names = flags.all("--name");
+    if !names.is_empty() {
+        args["names"] = json!(names);
     }
     let data = call("plus.skills.lint", args)?;
     let mut human = String::new();
@@ -176,9 +143,9 @@ pub fn lint(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn diff(rest: &[String]) -> Result<Output, CtlError> {
-    let flags = parse(rest, &["--repo", "--home"])?;
-    flags.apply_home();
-    let data = call("plus.skills.diff", flags.args())?;
+    let flags = LS.parse(rest)?;
+    apply_home(flags.one("--home"));
+    let data = call("plus.skills.diff", repo_args(&flags))?;
     let mut human = String::new();
     for (key, mark) in [("new", "+"), ("modified", "~"), ("removed", "-")] {
         for name in data[key].as_array().into_iter().flatten() {
