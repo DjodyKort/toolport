@@ -36,3 +36,6 @@ pub use transpiler::{TranspileResult, Transpiler, TranspilerRegistry};
 mod tests;
 #[cfg(test)]
 mod tests_features;
+#[cfg(test)] mod lock_sync_prop_tests;
+#[cfg(test)] mod parser_prop_tests;
+#[cfg(test)] mod transpilers_prop_tests;
