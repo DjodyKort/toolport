@@ -2,7 +2,7 @@
 
 use super::output::{CtlError, Output};
 use crate::plus::council as c;
-use crate::registry;
+use crate::plus::registry_ro;
 use serde_json::json;
 
 const USAGE: &str =
@@ -84,8 +84,7 @@ fn doctor(args: &[String]) -> Result<Output, CtlError> {
     if let Some(extra) = args.first() {
         return Err(CtlError::usage(format!("unknown argument: {extra}")));
     }
-    let reg = registry::registry_path()
-        .and_then(|p| crate::plus::jsonfs::read_json::<registry::Registry>(&p));
+    let reg = registry_ro::read_opt();
     let checks = c::doctor(reg.as_ref());
     let failed = checks.iter().any(|k| !k.ok);
     let mut human = String::new();
