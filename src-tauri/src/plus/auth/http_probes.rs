@@ -93,6 +93,16 @@ impl Service {
         }
     }
 
+    fn default_base(self) -> Option<&'static str> {
+        match self {
+            Service::Slack => Some(SLACK_BASE),
+            Service::Stitch => Some(STITCH_BASE),
+            Service::Framelink => Some(FIGMA_BASE),
+            Service::MiroCommunity => Some(MIRO_BASE),
+            Service::Odoo | Service::Moodle => None,
+        }
+    }
+
     fn needs_base_url(self) -> bool {
         matches!(self, Service::Odoo | Service::Moodle)
     }
@@ -104,6 +114,8 @@ const SLACK_TOKEN_KEYS: [&str; 4] = [
     "SLACK_MCP_XOXP_TOKEN",
     "SLACK_MCP_XOXB_TOKEN",
 ];
+
+type Probed = Result<ProbeOutcome, ProbeOutcome>;
 
 fn fail(code: &str) -> ProbeOutcome {
     ProbeOutcome::OauthError {
@@ -120,6 +132,14 @@ struct Reply {
 impl Reply {
     fn json(&self) -> Option<Value> {
         serde_json::from_slice(&self.body).ok()
+    }
+
+    fn ok_status(&self) -> Result<(), ProbeOutcome> {
+        if (200..300).contains(&self.status) {
+            Ok(())
+        } else {
+            Err(status_outcome(self.status))
+        }
     }
 }
 
@@ -213,17 +233,10 @@ impl HttpProbe {
         let chosen = if service.needs_base_url() {
             spec.params.get(PARAM_BASE_URL).cloned()
         } else {
-            self.bases.get(service.name()).cloned().or_else(|| {
-                Some(
-                    match service {
-                        Service::Slack => SLACK_BASE,
-                        Service::Stitch => STITCH_BASE,
-                        Service::Framelink => FIGMA_BASE,
-                        _ => MIRO_BASE,
-                    }
-                    .to_string(),
-                )
-            })
+            self.bases
+                .get(service.name())
+                .cloned()
+                .or_else(|| service.default_base().map(str::to_string))
         };
         match chosen {
             Some(url) if endpoint_allowed(&url) => Ok(base_of(&url)),
@@ -242,6 +255,14 @@ impl HttpProbe {
             .get(&spec.server, key)
             .filter(|t| !t.is_empty())
             .ok_or_else(|| fail("no_token"))
+    }
+
+    fn creds(
+        &self,
+        service: Service,
+        spec: &ProbeSpec,
+    ) -> Result<(String, String), ProbeOutcome> {
+        Ok((self.base(service, spec)?, self.token(service, spec)?))
     }
 
     fn send(
@@ -269,197 +290,165 @@ impl HttpProbe {
         Ok(Reply { status, body })
     }
 
-    fn slack(&self, spec: &ProbeSpec) -> ProbeOutcome {
-        let run = || -> Result<ProbeOutcome, ProbeOutcome> {
-            let base = self.base(Service::Slack, spec)?;
-            let token = self.token(Service::Slack, spec)?;
-            let reply = self.send(
-                "POST",
-                &format!("{base}/auth.test"),
-                &[("Authorization", format!("Bearer {token}"))],
-                Body::Empty,
-            )?;
-            if reply.status == 429 {
-                return Ok(ProbeOutcome::HttpStatus { status: 429 });
-            }
-            let Some(body) = reply.json() else {
-                return Ok(non_json(reply.status));
-            };
-            Ok(match body.get("ok").and_then(Value::as_bool) {
-                Some(true) => ProbeOutcome::Success,
-                Some(false) => match body.get("error").and_then(Value::as_str) {
-                    Some(code) => fail(&sanitize_code(code)),
-                    None => ProbeOutcome::TransportError,
-                },
+    fn slack(&self, spec: &ProbeSpec) -> Probed {
+        let (base, token) = self.creds(Service::Slack, spec)?;
+        let reply = self.send(
+            "POST",
+            &format!("{base}/auth.test"),
+            &[("Authorization", format!("Bearer {token}"))],
+            Body::Empty,
+        )?;
+        if reply.status == 429 {
+            return Ok(ProbeOutcome::HttpStatus { status: 429 });
+        }
+        let Some(body) = reply.json() else {
+            return Ok(non_json(reply.status));
+        };
+        Ok(match body.get("ok").and_then(Value::as_bool) {
+            Some(true) => ProbeOutcome::Success,
+            Some(false) => match body.get("error").and_then(Value::as_str) {
+                Some(code) => fail(&sanitize_code(code)),
                 None => ProbeOutcome::TransportError,
-            })
-        };
-        run().unwrap_or_else(|o| o)
+            },
+            None => ProbeOutcome::TransportError,
+        })
     }
 
-    fn moodle(&self, spec: &ProbeSpec) -> ProbeOutcome {
-        let run = || -> Result<ProbeOutcome, ProbeOutcome> {
-            let base = self.base(Service::Moodle, spec)?;
-            let token = self.token(Service::Moodle, spec)?;
-            let reply = self.send(
-                "POST",
-                &format!("{base}/webservice/rest/server.php"),
-                &[],
-                Body::Form(&[
-                    ("wstoken", &token),
-                    ("wsfunction", "core_webservice_get_site_info"),
-                    ("moodlewsrestformat", "json"),
-                ]),
-            )?;
-            if !(200..300).contains(&reply.status) {
-                return Ok(status_outcome(reply.status));
-            }
-            let Some(body) = reply.json() else {
-                return Ok(ProbeOutcome::TransportError);
-            };
-            if let Some(code) = body.get("errorcode").and_then(Value::as_str) {
-                return Ok(fail(&sanitize_code(&code.to_ascii_lowercase())));
-            }
-            let looks_right = ["sitename", "userid", "username"]
-                .iter()
-                .any(|k| body.get(k).is_some());
-            Ok(if looks_right {
+    fn moodle(&self, spec: &ProbeSpec) -> Probed {
+        let (base, token) = self.creds(Service::Moodle, spec)?;
+        let reply = self.send(
+            "POST",
+            &format!("{base}/webservice/rest/server.php"),
+            &[],
+            Body::Form(&[
+                ("wstoken", &token),
+                ("wsfunction", "core_webservice_get_site_info"),
+                ("moodlewsrestformat", "json"),
+            ]),
+        )?;
+        reply.ok_status()?;
+        let Some(body) = reply.json() else {
+            return Ok(ProbeOutcome::TransportError);
+        };
+        if let Some(code) = body.get("errorcode").and_then(Value::as_str) {
+            return Ok(fail(&sanitize_code(&code.to_ascii_lowercase())));
+        }
+        let looks_right = ["sitename", "userid", "username"]
+            .iter()
+            .any(|k| body.get(k).is_some());
+        Ok(if looks_right {
+            ProbeOutcome::Success
+        } else {
+            ProbeOutcome::TransportError
+        })
+    }
+
+    fn stitch(&self, spec: &ProbeSpec) -> Probed {
+        let (base, token) = self.creds(Service::Stitch, spec)?;
+        let reply = self.send(
+            "POST",
+            &format!("{base}/mcp"),
+            &[
+                ("X-Goog-Api-Key", token),
+                ("Accept", "application/json, text/event-stream".to_string()),
+            ],
+            Body::Json(json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "list_projects", "arguments": {}},
+            })),
+        )?;
+        reply.ok_status()?;
+        let text = String::from_utf8_lossy(&reply.body);
+        let trimmed = text.trim_start();
+        Ok(match reply.json() {
+            Some(body) if body.get("error").is_none() && body.get("result").is_some() => {
                 ProbeOutcome::Success
-            } else {
-                ProbeOutcome::TransportError
-            })
-        };
-        run().unwrap_or_else(|o| o)
+            }
+            None if trimmed.starts_with("event:") || trimmed.starts_with("data:") => {
+                ProbeOutcome::Success
+            }
+            _ => ProbeOutcome::TransportError,
+        })
     }
 
-    fn stitch(&self, spec: &ProbeSpec) -> ProbeOutcome {
-        let run = || -> Result<ProbeOutcome, ProbeOutcome> {
-            let base = self.base(Service::Stitch, spec)?;
-            let token = self.token(Service::Stitch, spec)?;
-            let reply = self.send(
-                "POST",
-                &format!("{base}/mcp"),
-                &[
-                    ("X-Goog-Api-Key", token),
-                    ("Accept", "application/json, text/event-stream".to_string()),
-                ],
-                Body::Json(json!({
-                    "jsonrpc": "2.0",
-                    "id": 1,
-                    "method": "tools/call",
-                    "params": {"name": "list_projects", "arguments": {}},
-                })),
-            )?;
-            if !(200..300).contains(&reply.status) {
-                return Ok(status_outcome(reply.status));
-            }
-            let text = String::from_utf8_lossy(&reply.body);
-            let trimmed = text.trim_start();
-            Ok(match reply.json() {
-                Some(body) if body.get("error").is_none() && body.get("result").is_some() => {
-                    ProbeOutcome::Success
-                }
-                None if trimmed.starts_with("event:") || trimmed.starts_with("data:") => {
-                    ProbeOutcome::Success
-                }
-                _ => ProbeOutcome::TransportError,
-            })
-        };
-        run().unwrap_or_else(|o| o)
+    fn framelink(&self, spec: &ProbeSpec) -> Probed {
+        let (base, token) = self.creds(Service::Framelink, spec)?;
+        let reply = self.send(
+            "GET",
+            &format!("{base}/v1/me"),
+            &[("X-Figma-Token", token)],
+            Body::Empty,
+        )?;
+        reply.ok_status()?;
+        Ok(match reply.json() {
+            Some(body) if body.get("id").is_some() => ProbeOutcome::Success,
+            _ => ProbeOutcome::TransportError,
+        })
     }
 
-    fn framelink(&self, spec: &ProbeSpec) -> ProbeOutcome {
-        let run = || -> Result<ProbeOutcome, ProbeOutcome> {
-            let base = self.base(Service::Framelink, spec)?;
-            let token = self.token(Service::Framelink, spec)?;
-            let reply = self.send(
-                "GET",
-                &format!("{base}/v1/me"),
-                &[("X-Figma-Token", token)],
-                Body::Empty,
-            )?;
-            if !(200..300).contains(&reply.status) {
-                return Ok(status_outcome(reply.status));
-            }
-            Ok(match reply.json() {
-                Some(body) if body.get("id").is_some() => ProbeOutcome::Success,
-                _ => ProbeOutcome::TransportError,
-            })
+    fn miro(&self, spec: &ProbeSpec) -> Probed {
+        let (base, token) = self.creds(Service::MiroCommunity, spec)?;
+        let reply = self.send(
+            "GET",
+            &format!("{base}/v1/oauth-token"),
+            &[("Authorization", format!("Bearer {token}"))],
+            Body::Empty,
+        )?;
+        reply.ok_status()?;
+        let Some(body) = reply.json().filter(Value::is_object) else {
+            return Ok(ProbeOutcome::TransportError);
         };
-        run().unwrap_or_else(|o| o)
+        let expires = ["expires_at", "expiresAt"]
+            .iter()
+            .find_map(|k| body.get(k))
+            .and_then(parse_instant);
+        Ok(match expires {
+            Some(at) => ProbeOutcome::TokenTtl {
+                secs: at - self.clock.now(),
+            },
+            None => ProbeOutcome::Success,
+        })
     }
 
-    fn miro(&self, spec: &ProbeSpec) -> ProbeOutcome {
-        let run = || -> Result<ProbeOutcome, ProbeOutcome> {
-            let base = self.base(Service::MiroCommunity, spec)?;
-            let token = self.token(Service::MiroCommunity, spec)?;
-            let reply = self.send(
-                "GET",
-                &format!("{base}/v1/oauth-token"),
-                &[("Authorization", format!("Bearer {token}"))],
-                Body::Empty,
-            )?;
-            if !(200..300).contains(&reply.status) {
-                return Ok(status_outcome(reply.status));
-            }
-            let Some(body) = reply.json().filter(Value::is_object) else {
-                return Ok(ProbeOutcome::TransportError);
-            };
-            let expires = ["expires_at", "expiresAt"]
-                .iter()
-                .find_map(|k| body.get(k))
-                .and_then(parse_instant);
-            Ok(match expires {
-                Some(at) => ProbeOutcome::TokenTtl {
-                    secs: at - self.clock.now(),
-                },
-                None => ProbeOutcome::Success,
-            })
+    fn odoo(&self, spec: &ProbeSpec) -> Probed {
+        let (base, key) = self.creds(Service::Odoo, spec)?;
+        let fingerprint = fingerprint(&key);
+        let now = self.clock.now();
+        if let Some(held) = self.cooled_down(&spec.server, fingerprint, now) {
+            return Ok(held);
+        }
+        let health = self.send("GET", &format!("{base}/web/health"), &[], Body::Empty)?;
+        if health.status != 200 {
+            return Ok(ProbeOutcome::HttpStatus {
+                status: health.status,
+            });
+        }
+        let db = spec
+            .params
+            .get(PARAM_DB)
+            .filter(|v| !v.is_empty())
+            .ok_or_else(|| fail("missing_config"))?;
+        let uid = match self.odoo_uid(spec, &base, db, &key)? {
+            Some(uid) => uid,
+            None => return Ok(self.deny(&spec.server, fingerprint, now)),
         };
-        run().unwrap_or_else(|o| o)
-    }
-
-    fn odoo(&self, spec: &ProbeSpec) -> ProbeOutcome {
-        let run = || -> Result<ProbeOutcome, ProbeOutcome> {
-            let base = self.base(Service::Odoo, spec)?;
-            let key = self.token(Service::Odoo, spec)?;
-            let fingerprint = fingerprint(&key);
-            let now = self.clock.now();
-            if let Some(held) = self.cooled_down(&spec.server, fingerprint, now) {
-                return Ok(held);
+        let reply = jsonrpc(
+            self,
+            &base,
+            "object",
+            "execute_kw",
+            json!([db, uid, key, "res.users", "read", [[uid]], {"fields": ["id"]}]),
+        )?;
+        Ok(match odoo_result(&reply) {
+            OdooReply::Ok(Value::Array(rows)) if !rows.is_empty() => {
+                self.clear_cooldown(&spec.server);
+                ProbeOutcome::Success
             }
-            let health = self.send("GET", &format!("{base}/web/health"), &[], Body::Empty)?;
-            if health.status != 200 {
-                return Ok(ProbeOutcome::HttpStatus {
-                    status: health.status,
-                });
-            }
-            let db = spec
-                .params
-                .get(PARAM_DB)
-                .filter(|v| !v.is_empty())
-                .ok_or_else(|| fail("missing_config"))?;
-            let uid = match self.odoo_uid(spec, &base, db, &key)? {
-                Some(uid) => uid,
-                None => return Ok(self.deny(&spec.server, fingerprint, now)),
-            };
-            let reply = jsonrpc(
-                self,
-                &base,
-                "object",
-                "execute_kw",
-                json!([db, uid, key, "res.users", "read", [[uid]], {"fields": ["id"]}]),
-            )?;
-            Ok(match odoo_result(&reply) {
-                OdooReply::Ok(Value::Array(rows)) if !rows.is_empty() => {
-                    self.clear_cooldown(&spec.server);
-                    ProbeOutcome::Success
-                }
-                OdooReply::Denied => self.deny(&spec.server, fingerprint, now),
-                _ => ProbeOutcome::TransportError,
-            })
-        };
-        run().unwrap_or_else(|o| o)
+            OdooReply::Denied => self.deny(&spec.server, fingerprint, now),
+            _ => ProbeOutcome::TransportError,
+        })
     }
 
     fn odoo_uid(
@@ -634,7 +623,7 @@ fn parse_rfc3339(text: &str) -> Option<i64> {
 
 impl Probe for HttpProbe {
     fn run(&self, spec: &ProbeSpec) -> ProbeOutcome {
-        match spec
+        let probed = match spec
             .params
             .get(PARAM_SERVICE)
             .and_then(|s| Service::parse(s))
@@ -645,26 +634,17 @@ impl Probe for HttpProbe {
             Some(Service::Stitch) => self.stitch(spec),
             Some(Service::Framelink) => self.framelink(spec),
             Some(Service::MiroCommunity) => self.miro(spec),
-            None => fail("missing_config"),
-        }
+            None => Err(fail("missing_config")),
+        };
+        probed.unwrap_or_else(|outcome| outcome)
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct CompositeProbe {
     google: GoogleRefreshProbe,
     http: HttpProbe,
     gateway: super::gateway_state::GatewayStateProbe,
-}
-
-impl std::fmt::Debug for CompositeProbe {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CompositeProbe")
-            .field("google", &self.google)
-            .field("http", &self.http)
-            .field("gateway", &self.gateway)
-            .finish()
-    }
 }
 
 impl Probe for CompositeProbe {
@@ -781,15 +761,15 @@ pub fn http_registry(registry: &crate::registry::Registry) -> ProbeRegistry {
 
 pub fn combined_registry(registry: &crate::registry::Registry) -> ProbeRegistry {
     let mut reg = super::google::google_registry(registry);
-    for spec in http_registry(registry).iter() {
-        if reg.get(&spec.server).is_none() {
-            reg.register(spec.clone());
-        }
-    }
-    for spec in super::gateway_state::gateway_registry(registry).iter() {
-        if reg.get(&spec.server).is_none() {
-            reg.register(spec.clone());
-        }
-    }
+    merge_missing(&mut reg, &http_registry(registry));
+    merge_missing(&mut reg, &super::gateway_state::gateway_registry(registry));
     reg
+}
+
+fn merge_missing(reg: &mut ProbeRegistry, extra: &ProbeRegistry) {
+    for spec in extra.iter() {
+        if reg.get(&spec.server).is_none() {
+            reg.register(spec.clone());
+        }
+    }
 }
