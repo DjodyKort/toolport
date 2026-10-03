@@ -1,0 +1,657 @@
+{
+  "clientDiscovery": {
+    "claude-code": "full"
+  },
+  "clientScopes": {
+    "claude-code": "claude-code",
+    "claude-desktop": "claude-desktop",
+    "cursor": "cursor",
+    "gemini-cli": "gemini-cli"
+  },
+  "profiles": [
+    {
+      "enabledServerIds": ["miro", "miro-community"],
+      "id": "miro-stack",
+      "name": "miro-stack"
+    },
+    {
+      "enabledServerIds": ["gdocs-a"],
+      "id": "profile-a",
+      "name": "profile-a"
+    },
+    {
+      "enabledServerIds": ["gdocs-b"],
+      "id": "profile-b",
+      "name": "profile-b"
+    },
+    {
+      "enabledServerIds": [
+        "anna",
+        "context7",
+        "dev-odoo",
+        "drawio",
+        "figma",
+        "framelink",
+        "gdocs",
+        "gdocs-a",
+        "gdocs-b",
+        "lib",
+        "miro",
+        "miro-community",
+        "moodle",
+        "org-odoo",
+        "org-typst",
+        "scihub",
+        "serena",
+        "stitch"
+      ],
+      "id": "claude-code",
+      "name": "claude-code"
+    },
+    {
+      "enabledServerIds": [
+        "anna",
+        "clickup",
+        "context7",
+        "dev-odoo",
+        "drawio",
+        "figma",
+        "framelink",
+        "gdocs-a",
+        "miro",
+        "miro-community",
+        "moodle",
+        "org-odoo",
+        "org-typst",
+        "scihub",
+        "slack",
+        "stitch"
+      ],
+      "id": "claude-desktop",
+      "name": "claude-desktop"
+    },
+    {
+      "enabledServerIds": ["miro", "miro-community"],
+      "id": "cursor",
+      "name": "cursor"
+    },
+    {
+      "enabledServerIds": [
+        "anna",
+        "clickup",
+        "context7",
+        "drawio",
+        "figma",
+        "gdocs",
+        "miro",
+        "miro-community",
+        "moodle",
+        "org-odoo",
+        "org-typst",
+        "scihub",
+        "stitch"
+      ],
+      "id": "gemini-cli",
+      "name": "gemini-cli"
+    }
+  ],
+  "servers": [
+    {
+      "entry": {
+        "args": ["mcp"],
+        "command": "{{HOME}}/.claude/mcp-servers/annas-mcp/annas-mcp",
+        "env": [
+          {
+            "key": "ANNAS_DOWNLOAD_PATH",
+            "secret": false,
+            "value": "CANARY_7bfd9f7d"
+          },
+          {
+            "key": "ANNAS_SECRET_KEY",
+            "secret": true
+          }
+        ],
+        "id": "anna",
+        "mcpmSource": {
+          "asset_pattern": "REDACTED",
+          "current_version": "REDACTED",
+          "include_prerelease": false,
+          "last_checked": "REDACTED",
+          "path": "REDACTED",
+          "repo": "REDACTED",
+          "type": "github-release"
+        },
+        "name": "anna-mcp",
+        "source": "imported:mcpm",
+        "transport": "stdio"
+      },
+      "oauthViaGateway": false,
+      "vaultKeys": ["anna::ANNAS_SECRET_KEY"]
+    },
+    {
+      "entry": {
+        "args": [],
+        "env": [],
+        "id": "clickup",
+        "mcpmOauth": true,
+        "mcpmSource": {
+          "type": "remote"
+        },
+        "name": "clickup",
+        "source": "imported:mcpm",
+        "transport": "http",
+        "url": "https://mcp.clickup.com/mcp"
+      },
+      "oauthViaGateway": true,
+      "vaultKeys": []
+    },
+    {
+      "entry": {
+        "args": ["-y", "@upstash/context7-mcp@latest"],
+        "command": "npx",
+        "env": [],
+        "id": "context7",
+        "mcpmSource": {
+          "package": "REDACTED",
+          "type": "npx"
+        },
+        "name": "context7",
+        "source": "imported:mcpm",
+        "transport": "stdio"
+      },
+      "oauthViaGateway": false,
+      "vaultKeys": []
+    },
+    {
+      "entry": {
+        "args": [
+          "run",
+          "--directory",
+          "{{HOME}}/Documents/GitHub/dev-odoo-repo/mcp-server",
+          "python",
+          "-m",
+          "dev_odoo_mcp"
+        ],
+        "command": "uv",
+        "env": [],
+        "id": "dev-odoo",
+        "mcpmSource": {
+          "path": "REDACTED",
+          "type": "git"
+        },
+        "name": "dev-odoo",
+        "source": "imported:mcpm",
+        "transport": "stdio"
+      },
+      "oauthViaGateway": false,
+      "vaultKeys": []
+    },
+    {
+      "entry": {
+        "args": ["@drawio/mcp"],
+        "command": "npx",
+        "env": [],
+        "id": "drawio",
+        "mcpmSource": {
+          "package": "REDACTED",
+          "type": "npx"
+        },
+        "name": "drawio",
+        "source": "imported:mcpm",
+        "transport": "stdio"
+      },
+      "oauthViaGateway": false,
+      "vaultKeys": []
+    },
+    {
+      "entry": {
+        "args": [],
+        "env": [],
+        "id": "figma",
+        "mcpmOauth": true,
+        "mcpmSource": {
+          "type": "remote"
+        },
+        "name": "figma",
+        "source": "imported:mcpm",
+        "transport": "http",
+        "url": "https://mcp.figma.com/mcp"
+      },
+      "oauthViaGateway": true,
+      "vaultKeys": []
+    },
+    {
+      "entry": {
+        "args": ["-y", "figma-developer-mcp@^0.12.0", "--stdio"],
+        "command": "npx",
+        "env": [
+          {
+            "key": "FIGMA_API_KEY",
+            "secret": true
+          },
+          {
+            "key": "FRAMELINK_TELEMETRY",
+            "secret": false,
+            "value": "CANARY_13b66500"
+          },
+          {
+            "key": "IMAGE_DIR",
+            "secret": false,
+            "value": "CANARY_e3c4bd80"
+          }
+        ],
+        "id": "framelink",
+        "name": "framelink",
+        "source": "imported:mcpm",
+        "transport": "stdio"
+      },
+      "oauthViaGateway": false,
+      "vaultKeys": ["framelink::FIGMA_API_KEY"]
+    },
+    {
+      "entry": {
+        "args": ["{{HOME}}/google-docs-mcp/dist/index.js"],
+        "command": "node",
+        "env": [
+          {
+            "key": "GOOGLE_CLIENT_ID",
+            "secret": true
+          },
+          {
+            "key": "GOOGLE_CLIENT_SECRET",
+            "secret": true
+          },
+          {
+            "key": "GOOGLE_MCP_PROFILE",
+            "secret": false,
+            "value": "CANARY_c1e35446"
+          }
+        ],
+        "id": "gdocs-a",
+        "mcpmSource": {
+          "path": "REDACTED",
+          "type": "git"
+        },
+        "mcpmTags": ["profile-a"],
+        "name": "google-docs-a",
+        "source": "imported:mcpm",
+        "transport": "stdio"
+      },
+      "oauthViaGateway": false,
+      "vaultKeys": ["gdocs-a::GOOGLE_CLIENT_ID", "gdocs-a::GOOGLE_CLIENT_SECRET"]
+    },
+    {
+      "entry": {
+        "args": ["{{HOME}}/google-docs-mcp/dist/index.js"],
+        "command": "node",
+        "env": [
+          {
+            "key": "GOOGLE_CLIENT_ID",
+            "secret": true
+          },
+          {
+            "key": "GOOGLE_CLIENT_SECRET",
+            "secret": true
+          },
+          {
+            "key": "GOOGLE_MCP_PROFILE",
+            "secret": false,
+            "value": "CANARY_51dd6bb9"
+          }
+        ],
+        "id": "gdocs-b",
+        "mcpmSource": {
+          "path": "REDACTED",
+          "type": "git"
+        },
+        "mcpmTags": ["profile-b"],
+        "name": "google-docs-b",
+        "source": "imported:mcpm",
+        "transport": "stdio"
+      },
+      "oauthViaGateway": false,
+      "vaultKeys": ["gdocs-b::GOOGLE_CLIENT_ID", "gdocs-b::GOOGLE_CLIENT_SECRET"]
+    },
+    {
+      "entry": {
+        "args": ["{{HOME}}/google-docs-mcp/dist/index.js"],
+        "command": "node",
+        "env": [
+          {
+            "key": "GOOGLE_CLIENT_ID",
+            "secret": true
+          },
+          {
+            "key": "GOOGLE_CLIENT_SECRET",
+            "secret": true
+          }
+        ],
+        "id": "gdocs",
+        "mcpmSource": {
+          "branch": "REDACTED",
+          "last_checked": "REDACTED",
+          "path": "REDACTED",
+          "post_update": "REDACTED",
+          "remote_url": "REDACTED",
+          "type": "git"
+        },
+        "name": "google-docs-mcp",
+        "source": "imported:mcpm",
+        "transport": "stdio"
+      },
+      "oauthViaGateway": false,
+      "vaultKeys": ["gdocs::GOOGLE_CLIENT_ID", "gdocs::GOOGLE_CLIENT_SECRET"]
+    },
+    {
+      "entry": {
+        "args": [
+          "--env-file={{HOME}}/Documents/GitHub/lib-mcp/.env",
+          "{{HOME}}/Documents/GitHub/lib-mcp/dist/index.js"
+        ],
+        "command": "node",
+        "env": [],
+        "id": "lib",
+        "mcpmSource": {
+          "reason": "REDACTED",
+          "type": "unknown"
+        },
+        "name": "lib",
+        "source": "imported:mcpm",
+        "transport": "stdio"
+      },
+      "oauthViaGateway": false,
+      "vaultKeys": []
+    },
+    {
+      "entry": {
+        "args": [],
+        "env": [],
+        "id": "miro",
+        "mcpmOauth": true,
+        "mcpmSource": {
+          "type": "remote"
+        },
+        "mcpmTags": ["miro-stack"],
+        "name": "miro",
+        "source": "imported:mcpm",
+        "transport": "http",
+        "url": "https://mcp.miro.com"
+      },
+      "oauthViaGateway": true,
+      "vaultKeys": []
+    },
+    {
+      "entry": {
+        "args": [],
+        "command": "{{HOME}}/.config/mcpm/bin/miro-community-run.sh",
+        "env": [
+          {
+            "key": "MIRO_ACCESS_TOKEN",
+            "secret": true
+          },
+          {
+            "key": "MIRO_TOOLS_PROFILE",
+            "secret": false,
+            "value": "CANARY_5482b712"
+          }
+        ],
+        "id": "miro-community",
+        "mcpmSource": {
+          "reason": "REDACTED",
+          "type": "unknown"
+        },
+        "mcpmTags": ["miro-stack"],
+        "name": "miro-community",
+        "source": "imported:mcpm",
+        "transport": "stdio"
+      },
+      "oauthViaGateway": false,
+      "vaultKeys": ["miro-community::MIRO_ACCESS_TOKEN"]
+    },
+    {
+      "entry": {
+        "args": [
+          "run",
+          "--directory",
+          "{{HOME}}/.claude/servers/moodle-mcp",
+          "python",
+          "-m",
+          "moodle_mcp"
+        ],
+        "command": "uv",
+        "env": [
+          {
+            "key": "MOODLE_TOKEN",
+            "secret": true
+          },
+          {
+            "key": "MOODLE_URL",
+            "secret": false,
+            "value": "CANARY_f5d522fe"
+          }
+        ],
+        "id": "moodle",
+        "mcpmSource": {
+          "last_checked": "REDACTED",
+          "path": "REDACTED",
+          "type": "git"
+        },
+        "name": "moodle-mcp",
+        "source": "imported:mcpm",
+        "transport": "stdio"
+      },
+      "oauthViaGateway": false,
+      "vaultKeys": ["moodle::MOODLE_TOKEN"]
+    },
+    {
+      "entry": {
+        "args": [
+          "run",
+          "--directory",
+          "{{HOME}}/.claude/servers/org-odoo-mcp",
+          "python",
+          "-m",
+          "org_odoo_mcp"
+        ],
+        "command": "uv",
+        "env": [
+          {
+            "key": "ODOO_API_KEY",
+            "secret": true
+          },
+          {
+            "key": "ODOO_DB",
+            "secret": false,
+            "value": "CANARY_3f269474"
+          },
+          {
+            "key": "ODOO_URL",
+            "secret": false,
+            "value": "CANARY_912beb18"
+          },
+          {
+            "key": "ODOO_USER",
+            "secret": false,
+            "value": "CANARY_3344d3a7"
+          }
+        ],
+        "id": "org-odoo",
+        "mcpmSource": {
+          "branch": "REDACTED",
+          "last_checked": "REDACTED",
+          "path": "REDACTED",
+          "post_update": "REDACTED",
+          "remote_url": "REDACTED",
+          "type": "git"
+        },
+        "name": "org-odoo",
+        "source": "imported:mcpm",
+        "transport": "stdio"
+      },
+      "oauthViaGateway": false,
+      "vaultKeys": ["org-odoo::ODOO_API_KEY"]
+    },
+    {
+      "entry": {
+        "args": [
+          "run",
+          "--directory",
+          "{{HOME}}/.claude/servers/org-typst-mcp",
+          "python",
+          "-m",
+          "org_typst_mcp"
+        ],
+        "command": "uv",
+        "env": [],
+        "id": "org-typst",
+        "mcpmSource": {
+          "branch": "REDACTED",
+          "last_checked": "REDACTED",
+          "path": "REDACTED",
+          "post_update": "REDACTED",
+          "remote_url": "REDACTED",
+          "type": "git"
+        },
+        "name": "org-typst",
+        "source": "imported:mcpm",
+        "transport": "stdio"
+      },
+      "oauthViaGateway": false,
+      "vaultKeys": []
+    },
+    {
+      "entry": {
+        "args": ["{{HOME}}/.claude/mcp-servers/Sci-Hub-MCP-Server/sci_hub_server.py"],
+        "command": "{{HOME}}/.claude/mcp-servers/Sci-Hub-MCP-Server/.venv/bin/python",
+        "env": [],
+        "id": "scihub",
+        "mcpmSource": {
+          "branch": "REDACTED",
+          "last_checked": "REDACTED",
+          "path": "REDACTED",
+          "remote_url": "CANARY_519e017e",
+          "type": "git"
+        },
+        "name": "scihub",
+        "source": "imported:mcpm",
+        "transport": "stdio"
+      },
+      "oauthViaGateway": false,
+      "vaultKeys": []
+    },
+    {
+      "entry": {
+        "args": [
+          "--from",
+          "git+https://github.com/oraios/serena",
+          "serena",
+          "start-mcp-server",
+          "--project-from-cwd",
+          "--context",
+          "claude-code",
+          "--open-web-dashboard",
+          "False"
+        ],
+        "command": "uvx",
+        "env": [],
+        "id": "serena",
+        "mcpmSource": {
+          "package": "REDACTED",
+          "type": "uvx"
+        },
+        "name": "serena",
+        "source": "imported:mcpm",
+        "transport": "stdio"
+      },
+      "oauthViaGateway": false,
+      "vaultKeys": []
+    },
+    {
+      "entry": {
+        "args": [],
+        "env": [],
+        "id": "slack",
+        "mcpmSource": {
+          "type": "remote"
+        },
+        "name": "slack",
+        "source": "imported:mcpm",
+        "transport": "http",
+        "url": "https://mcp.slack.com/mcp"
+      },
+      "oauthViaGateway": false,
+      "vaultKeys": ["slack::__http_auth__"]
+    },
+    {
+      "entry": {
+        "args": ["-y", "@_davideast/stitch-mcp", "proxy"],
+        "command": "npx",
+        "env": [
+          {
+            "key": "GOOGLE_CLOUD_PROJECT",
+            "secret": false,
+            "value": "CANARY_877af8ae"
+          },
+          {
+            "key": "STITCH_API_KEY",
+            "secret": true
+          },
+          {
+            "key": "STITCH_USE_SYSTEM_GCLOUD",
+            "secret": false,
+            "value": "CANARY_6cb6fe73"
+          }
+        ],
+        "id": "stitch",
+        "mcpmSource": {
+          "package": "REDACTED",
+          "type": "npx"
+        },
+        "name": "stitch",
+        "source": "imported:mcpm",
+        "transport": "stdio"
+      },
+      "oauthViaGateway": false,
+      "vaultKeys": ["stitch::STITCH_API_KEY"]
+    }
+  ],
+  "skippedClients": [
+    {
+      "clientId": "claude-code",
+      "entry": "mcpm-mcp",
+      "reason": "unmanaged-command"
+    },
+    {
+      "clientId": "claude-desktop",
+      "entry": "context7",
+      "reason": "unmanaged-command"
+    },
+    {
+      "clientId": "claude-desktop",
+      "entry": "playwright",
+      "reason": "unmanaged-command"
+    }
+  ],
+  "warnings": [
+    {
+      "detail": "{{HOME}}/.claude/mcp-servers/annas-mcp/annas-mcp",
+      "kind": "relocate-path",
+      "server": "anna"
+    },
+    {
+      "detail": "{{HOME}}/.config/mcpm/bin/miro-community-run.sh",
+      "kind": "relocate-path",
+      "server": "miro-community"
+    },
+    {
+      "detail": "{{HOME}}/.claude/mcp-servers/Sci-Hub-MCP-Server/.venv/bin/python",
+      "kind": "relocate-path",
+      "server": "scihub"
+    },
+    {
+      "detail": "{{HOME}}/.claude/mcp-servers/Sci-Hub-MCP-Server/sci_hub_server.py",
+      "kind": "relocate-path",
+      "server": "scihub"
+    }
+  ]
+}

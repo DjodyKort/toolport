@@ -1,0 +1,274 @@
+{
+  "context7": {
+    "name": "context7",
+    "profile_tags": [],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "command": "npx",
+    "args": ["-y", "@upstash/context7-mcp@latest"],
+    "env": {}
+  },
+  "drawio": {
+    "name": "drawio",
+    "profile_tags": [],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "command": "npx",
+    "args": ["@drawio/mcp"],
+    "env": {}
+  },
+  "clickup": {
+    "name": "clickup",
+    "profile_tags": [],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "url": "https://mcp.clickup.com/mcp",
+    "headers": {}
+  },
+  "scihub": {
+    "name": "scihub",
+    "profile_tags": [],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "command": "{{HOME}}/.claude/mcp-servers/Sci-Hub-MCP-Server/.venv/bin/python",
+    "args": ["{{HOME}}/.claude/mcp-servers/Sci-Hub-MCP-Server/sci_hub_server.py"],
+    "env": {}
+  },
+  "anna-mcp": {
+    "name": "anna-mcp",
+    "profile_tags": [],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "command": "{{HOME}}/.claude/mcp-servers/annas-mcp/annas-mcp",
+    "args": ["mcp"],
+    "env": {
+      "ANNAS_SECRET_KEY": "CANARY_5bda9096",
+      "ANNAS_DOWNLOAD_PATH": "CANARY_7bfd9f7d"
+    }
+  },
+  "org-odoo": {
+    "name": "org-odoo",
+    "profile_tags": [],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "command": "uv",
+    "args": [
+      "run",
+      "--directory",
+      "{{HOME}}/.claude/servers/org-odoo-mcp",
+      "python",
+      "-m",
+      "org_odoo_mcp"
+    ],
+    "env": {
+      "ODOO_URL": "CANARY_912beb18",
+      "ODOO_DB": "CANARY_3f269474",
+      "ODOO_USER": "CANARY_3344d3a7",
+      "ODOO_API_KEY": "CANARY_ad4b077e"
+    }
+  },
+  "org-typst": {
+    "name": "org-typst",
+    "profile_tags": [],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "command": "uv",
+    "args": [
+      "run",
+      "--directory",
+      "{{HOME}}/.claude/servers/org-typst-mcp",
+      "python",
+      "-m",
+      "org_typst_mcp"
+    ],
+    "env": {}
+  },
+  "google-docs-mcp": {
+    "name": "google-docs-mcp",
+    "profile_tags": [],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "command": "node",
+    "args": ["{{HOME}}/google-docs-mcp/dist/index.js"],
+    "env": {
+      "GOOGLE_CLIENT_ID": "CANARY_47267741",
+      "GOOGLE_CLIENT_SECRET": "CANARY_1faf428b"
+    }
+  },
+  "stitch": {
+    "name": "stitch",
+    "profile_tags": [],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "command": "npx",
+    "args": ["-y", "@_davideast/stitch-mcp", "proxy"],
+    "env": {
+      "GOOGLE_CLOUD_PROJECT": "CANARY_877af8ae",
+      "STITCH_USE_SYSTEM_GCLOUD": "CANARY_6cb6fe73",
+      "STITCH_API_KEY": "CANARY_2711560a"
+    }
+  },
+  "figma": {
+    "name": "figma",
+    "profile_tags": [],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "url": "https://mcp.figma.com/mcp",
+    "headers": {}
+  },
+  "framelink": {
+    "name": "framelink",
+    "profile_tags": [],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "command": "npx",
+    "args": ["-y", "figma-developer-mcp@^0.12.0", "--stdio"],
+    "env": {
+      "FIGMA_API_KEY": "CANARY_71d6d0a6",
+      "FRAMELINK_TELEMETRY": "CANARY_13b66500",
+      "IMAGE_DIR": "CANARY_e3c4bd80"
+    }
+  },
+  "dev-odoo": {
+    "name": "dev-odoo",
+    "profile_tags": [],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "command": "uv",
+    "args": [
+      "run",
+      "--directory",
+      "{{HOME}}/Documents/GitHub/dev-odoo-repo/mcp-server",
+      "python",
+      "-m",
+      "dev_odoo_mcp"
+    ],
+    "env": {}
+  },
+  "slack": {
+    "name": "slack",
+    "profile_tags": [],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "url": "https://mcp.slack.com/mcp",
+    "headers": {
+      "Authorization": "CANARY_e3af4d38"
+    }
+  },
+  "serena": {
+    "name": "serena",
+    "profile_tags": [],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "command": "uvx",
+    "args": [
+      "--from",
+      "git+https://github.com/oraios/serena",
+      "serena",
+      "start-mcp-server",
+      "--project-from-cwd",
+      "--context",
+      "claude-code",
+      "--open-web-dashboard",
+      "False"
+    ],
+    "env": {}
+  },
+  "miro": {
+    "name": "miro",
+    "profile_tags": ["miro-stack"],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "url": "https://mcp.miro.com",
+    "headers": {}
+  },
+  "miro-community": {
+    "name": "miro-community",
+    "profile_tags": ["miro-stack"],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "command": "{{HOME}}/.config/mcpm/bin/miro-community-run.sh",
+    "args": [],
+    "env": {
+      "MIRO_ACCESS_TOKEN": "CANARY_7b366ad5",
+      "MIRO_TOOLS_PROFILE": "CANARY_5482b712"
+    }
+  },
+  "google-docs-a": {
+    "name": "google-docs-a",
+    "profile_tags": ["profile-a"],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "command": "node",
+    "args": ["{{HOME}}/google-docs-mcp/dist/index.js"],
+    "env": {
+      "GOOGLE_CLIENT_ID": "CANARY_fafed31c",
+      "GOOGLE_CLIENT_SECRET": "CANARY_1ddb84cf",
+      "GOOGLE_MCP_PROFILE": "CANARY_c1e35446"
+    }
+  },
+  "google-docs-b": {
+    "name": "google-docs-b",
+    "profile_tags": ["profile-b"],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "command": "node",
+    "args": ["{{HOME}}/google-docs-mcp/dist/index.js"],
+    "env": {
+      "GOOGLE_CLIENT_ID": "CANARY_fafed31c",
+      "GOOGLE_CLIENT_SECRET": "CANARY_1ddb84cf",
+      "GOOGLE_MCP_PROFILE": "CANARY_51dd6bb9"
+    }
+  },
+  "moodle-mcp": {
+    "name": "moodle-mcp",
+    "profile_tags": [],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "command": "uv",
+    "args": [
+      "run",
+      "--directory",
+      "{{HOME}}/.claude/servers/moodle-mcp",
+      "python",
+      "-m",
+      "moodle_mcp"
+    ],
+    "env": {
+      "MOODLE_URL": "CANARY_f5d522fe",
+      "MOODLE_TOKEN": "CANARY_f6362a76"
+    }
+  },
+  "lib": {
+    "name": "lib",
+    "profile_tags": [],
+    "proxy_mode": "REDACTED",
+    "requires_session_pinning": false,
+    "enabled": null,
+    "command": "node",
+    "args": [
+      "--env-file={{HOME}}/Documents/GitHub/lib-mcp/.env",
+      "{{HOME}}/Documents/GitHub/lib-mcp/dist/index.js"
+    ],
+    "env": {}
+  }
+}

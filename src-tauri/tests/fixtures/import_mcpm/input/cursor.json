@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "mcpm_miro-community": {
+      "command": "mcpm",
+      "args": ["run", "miro-community"]
+    },
+    "mcpm_miro": {
+      "type": "http",
+      "url": "https://mcp.miro.com"
+    }
+  }
+}
