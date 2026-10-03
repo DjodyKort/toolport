@@ -46,6 +46,7 @@ Global flag `--json` prints one envelope (`schemaVersion`, `command`, `data`). E
 | `sync`                                                                  | Encrypted sync (init, push, pull, diff, status, reset, ...)        |
 | `cc`                                                                    | Claude Code plugins: list, update                                  |
 | `update`                                                                | Server updates (`--check`, `--apply`, `--init`, `--dry-run`)       |
+| `usage`                                                                 | Token and MCP usage from Claude Code transcripts                   |
 
 ## Environment variables
 

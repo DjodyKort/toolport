@@ -304,6 +304,8 @@ impl World {
             s(&["cc", "update", "--dry-run"]),
             s(&["update", "--check"]),
             s(&["update", "--dry-run"]),
+            s(&["usage", "--root", &work]),
+            s(&["usage", "--no-refresh", "--root", &work]),
         ]
     }
 
