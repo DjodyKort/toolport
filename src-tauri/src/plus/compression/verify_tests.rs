@@ -602,7 +602,7 @@ fn stale_snapshots_and_a_bad_pin_fail_the_pin_checks() {
 
 #[derive(Default)]
 struct FakeEngine {
-    health_after_spawns: Option<usize>,
+    health_after_ms: Option<u64>,
     health: Option<Value>,
     spawned: Vec<(u16, String, BTreeMap<String, String>)>,
     pids: Vec<u32>,
@@ -619,9 +619,9 @@ struct FakeEngine {
 
 impl EngineOps for FakeEngine {
     fn proxy_health(&self, _port: u16) -> Option<Value> {
-        match self.health_after_spawns {
+        match self.health_after_ms {
             Some(0) => self.health.clone(),
-            Some(n) if self.slept >= n as u64 && !self.spawned.is_empty() => self.health.clone(),
+            Some(n) if self.slept >= n && !self.spawned.is_empty() => self.health.clone(),
             Some(_) => None,
             None => self.health.clone(),
         }
@@ -649,8 +649,8 @@ impl EngineOps for FakeEngine {
         Ok(())
     }
 
-    fn sleep(&mut self, seconds: u64) {
-        self.slept += seconds;
+    fn sleep(&mut self, millis: u64) {
+        self.slept += millis;
     }
 
     fn installed_version(&self) -> Option<String> {
@@ -699,12 +699,12 @@ fn proxy_up_spawns_with_the_preset_env_and_waits_for_health() {
     let cfg = headroom_cfg();
     let mut ops = FakeEngine {
         health: Some(healthy("0.29.0")),
-        health_after_spawns: Some(2),
+        health_after_ms: Some(2000),
         ..FakeEngine::default()
     };
     let msg = proxy_up(&mut ops, 8787, &env_for(&cfg), 5).unwrap();
     assert!(msg.starts_with("started proxy on :8787 (mode="), "{msg}");
-    assert_eq!(ops.slept, 2);
+    assert_eq!(ops.slept, 2000);
     let (port, mode, env) = &ops.spawned[0];
     assert_eq!(*port, 8787);
     assert_eq!(mode, &env["HEADROOM_MODE"]);
@@ -715,11 +715,12 @@ fn proxy_up_spawns_with_the_preset_env_and_waits_for_health() {
 fn proxy_up_times_out_and_surfaces_spawn_errors() {
     let cfg = headroom_cfg();
     let mut never = FakeEngine {
-        health_after_spawns: Some(1000),
+        health_after_ms: Some(1_000_000),
         ..FakeEngine::default()
     };
     let err = proxy_up(&mut never, 8787, &env_for(&cfg), 3).unwrap_err();
     assert!(err.contains("did not become ready in 3s"), "{err}");
+    assert_eq!(never.slept, 3000, "the deadline stays the requested seconds");
     let mut broken = FakeEngine {
         spawn_error: Some("headroom not on PATH".into()),
         ..FakeEngine::default()
@@ -728,6 +729,33 @@ fn proxy_up_times_out_and_surfaces_spawn_errors() {
         proxy_up(&mut broken, 8787, &env_for(&cfg), 3).unwrap_err(),
         "headroom not on PATH"
     );
+}
+
+#[test]
+fn proxy_up_notices_a_proxy_that_is_ready_between_whole_seconds() {
+    let cfg = headroom_cfg();
+    let mut ops = FakeEngine {
+        health: Some(healthy("0.29.0")),
+        health_after_ms: Some(300),
+        ..FakeEngine::default()
+    };
+    let msg = proxy_up(&mut ops, 8787, &env_for(&cfg), 5).unwrap();
+    assert!(msg.starts_with("started proxy on :8787 (mode="), "{msg}");
+    assert_eq!(ops.slept, 400);
+    let mut instant = FakeEngine {
+        health: Some(healthy("0.29.0")),
+        health_after_ms: Some(1),
+        ..FakeEngine::default()
+    };
+    proxy_up(&mut instant, 8787, &env_for(&cfg), 0).unwrap_err();
+    assert_eq!(instant.slept, 0, "a zero wait never sleeps");
+    let mut unbounded = FakeEngine {
+        health_after_ms: Some(u64::MAX),
+        ..FakeEngine::default()
+    };
+    let err = proxy_up(&mut unbounded, 8787, &env_for(&cfg), 1).unwrap_err();
+    assert_eq!(err, "proxy on :8787 did not become ready in 1s");
+    assert_eq!(unbounded.slept, 1000);
 }
 
 #[test]
