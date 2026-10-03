@@ -4,6 +4,7 @@ use super::{
 use crate::clients;
 use crate::plus::args::{flag, flag_or, str_arg};
 use crate::plus::registry_ro;
+use crate::plus::selfmcp::register;
 use crate::registry::{self, ManagedEntry, Profile, Registry, ServerEntry};
 use serde::Serialize;
 use serde_json::{json, Map, Value};
@@ -282,12 +283,22 @@ fn merge_registry(reg: &mut Registry, mapping: &Mapping) -> RegistryChanges {
             action,
         });
     }
+    let self_id = register::find_self(reg).map(|s| s.id.clone());
     let profiles = mapping
         .profiles
         .iter()
         .map(|p| {
             let mut p = p.clone();
             p.enabled_server_ids.retain(|id| !skipped.contains(id));
+            if let Some(id) = &self_id {
+                let kept = reg
+                    .profiles
+                    .iter()
+                    .any(|old| old.id == p.id && old.enabled_server_ids.contains(id));
+                if kept && !p.enabled_server_ids.contains(id) {
+                    p.enabled_server_ids.push(id.clone());
+                }
+            }
             Change {
                 id: p.id.clone(),
                 action: upsert_profile(reg, &p),
@@ -530,7 +541,7 @@ pub fn run(opts: &RunOptions) -> Result<Plan, String> {
     };
 
     if !opts.dry_run {
-        crate::plus::selfmcp::register::ensure_self_server()?;
+        register::ensure_self_server()?;
     }
 
     let mut client_changes = Vec::new();

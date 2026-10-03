@@ -444,14 +444,23 @@ fn clients_get_one_toolport_entry_bound_to_their_profile() {
         assert!(desktop["mcpServers"]["context7"].is_object());
         assert!(desktop["mcpServers"]["playwright"].is_object());
         let profiles = reg["profiles"].as_array().unwrap();
-        let count = |id: &str| {
+        let ids = |id: &str| -> Vec<Value> {
             profiles.iter().find(|p| p["id"] == id).unwrap()["enabledServerIds"]
                 .as_array()
                 .unwrap()
-                .len()
+                .clone()
+        };
+        let count = |id: &str| {
+            ids(id)
+                .iter()
+                .filter(|s| *s != "toolport-plus-self")
+                .count()
         };
         assert_eq!(count("claude-code"), 18);
         assert_eq!(count("claude-desktop"), 16);
+        for id in ["claude-code", "claude-desktop"] {
+            assert!(ids(id).contains(&json!("toolport-plus-self")), "{id}");
+        }
         assert_eq!(reg["clientDiscovery"]["claude-code"], "full");
         assert_eq!(reg["clientDiscovery"]["claude-desktop"], "lazy");
         assert_eq!(reg["clientDiscovery"]["cursor"], "lazy");

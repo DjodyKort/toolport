@@ -6,6 +6,8 @@ mod backend;
 mod catalog;
 mod content;
 mod docs;
+#[cfg(test)]
+mod enable_tests;
 mod redact;
 pub mod register;
 mod servers;
