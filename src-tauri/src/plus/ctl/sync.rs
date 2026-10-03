@@ -72,7 +72,7 @@ fn spec(sub: &str) -> Option<Spec> {
     }
 }
 
-fn secret_args(rest: &[String], target: &str) -> Result<(Vec<String>, Option<String>), CtlError> {
+fn secret_args(rest: &[String]) -> Result<(Vec<String>, Option<String>), CtlError> {
     let mut remaining = Vec::new();
     let mut secret = None;
     let mut iter = rest.iter();
@@ -97,12 +97,11 @@ fn secret_args(rest: &[String], target: &str) -> Result<(Vec<String>, Option<Str
             _ => remaining.push(arg.clone()),
         }
     }
-    let _ = target;
     Ok((remaining, secret))
 }
 
 fn parse_args(sub: &str, spec: &Spec, rest: &[String]) -> Result<Map<String, Value>, CtlError> {
-    let (rest, secret) = secret_args(rest, sub)?;
+    let (rest, secret) = secret_args(rest)?;
     let mut args = Map::new();
     let mut positional = Vec::new();
     let mut iter = rest.iter();

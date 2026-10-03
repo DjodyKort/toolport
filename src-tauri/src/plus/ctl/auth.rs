@@ -1,4 +1,4 @@
-use super::output::{CtlError, Output};
+use super::output::{no_args, CtlError, Output};
 use crate::plus::auth::surfaces;
 use crate::plus::auth::{Clock, SystemClock};
 use serde_json::Value;
@@ -7,9 +7,7 @@ fn render(
     rest: &[String],
     build: fn(&crate::plus::auth::StatusFile, i64) -> Value,
 ) -> Result<Output, CtlError> {
-    if let Some(extra) = rest.first() {
-        return Err(CtlError::usage(format!("unexpected argument: {extra}")));
-    }
+    no_args(rest)?;
     let status = match surfaces::auth_dir() {
         Some(dir) => surfaces::read_status(&dir),
         None => Default::default(),

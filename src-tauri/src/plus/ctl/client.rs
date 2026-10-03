@@ -1,5 +1,5 @@
 use super::commands::snapshot;
-use super::output::{CtlError, Output};
+use super::output::{no_args, CtlError, Output};
 use crate::clients::{self, DetectedClient, GatewayEntryState};
 use crate::registry::{self, Registry};
 use serde_json::{json, Value};
@@ -84,9 +84,7 @@ fn prune_one(client_id: &str, names: &[String], dry_run: bool) -> Prune {
 }
 
 pub fn ls(rest: &[String]) -> Result<Output, CtlError> {
-    if let Some(extra) = rest.first() {
-        return Err(CtlError::usage(format!("unexpected argument: {extra}")));
-    }
+    no_args(rest)?;
     let snap = snapshot();
     let reg = snap.registry.unwrap_or_default();
     let rows: Vec<Value> = clients::detect_clients()

@@ -1,4 +1,4 @@
-use super::output::{CtlError, Output};
+use super::output::{no_args, CtlError, Output};
 use crate::plus::registry_ro;
 use crate::registry::{self, Registry};
 use serde_json::{json, Value};
@@ -11,13 +11,6 @@ pub(super) struct Snapshot {
     registry_path: Option<PathBuf>,
     pub(super) registry: Option<Registry>,
     pub(super) registry_error: Option<String>,
-}
-
-fn no_args(rest: &[String]) -> Result<(), CtlError> {
-    match rest.first() {
-        Some(extra) => Err(CtlError::usage(format!("unexpected argument: {extra}"))),
-        None => Ok(()),
-    }
 }
 
 /// Reads the registry without any of the loader's recovery or migration

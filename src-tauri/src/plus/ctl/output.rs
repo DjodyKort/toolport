@@ -19,6 +19,13 @@ impl CtlError {
     }
 }
 
+pub(super) fn no_args(rest: &[String]) -> Result<(), CtlError> {
+    match rest.first() {
+        Some(extra) => Err(CtlError::usage(format!("unexpected argument: {extra}"))),
+        None => Ok(()),
+    }
+}
+
 /// A successful command result: structured data for `--json` and the text
 /// rendering for humans. `failed` keeps the data but exits 1 (doctor).
 pub struct Output {

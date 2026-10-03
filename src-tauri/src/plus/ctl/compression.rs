@@ -1,7 +1,7 @@
 //! `toolportctl compression status|presets|run|verify|ledger|proxy|update`. `run` launches
 //! `claude` and records the launch; `proxy` and `update` act on the engine; the rest only read.
 
-use super::output::{CtlError, Output};
+use super::output::{no_args, CtlError, Output};
 use crate::plus::compression::engine::{self, EngineOps};
 use crate::plus::compression::launch::{
     plan_launch, run_plan, LaunchOps, LaunchPlan, LedgerEntry, Probe, ProxySpec, SystemOps,
@@ -17,13 +17,6 @@ fn load() -> Result<(Paths, Loaded), CtlError> {
         .ok_or_else(|| CtlError::new("no_data_dir", "data directory could not be resolved"))?;
     let loaded = store::read(&paths).map_err(|e| CtlError::new("config_invalid", e))?;
     Ok((paths, loaded))
-}
-
-fn no_args(rest: &[String]) -> Result<(), CtlError> {
-    match rest.first() {
-        Some(extra) => Err(CtlError::usage(format!("unexpected argument: {extra}"))),
-        None => Ok(()),
-    }
 }
 
 fn preset_json(name: &str, config: &CompressionConfig) -> Value {
@@ -315,9 +308,7 @@ fn metrics_json(m: &verify::Metrics) -> Value {
 
 pub fn verify(rest: &[String]) -> Result<Output, CtlError> {
     let flags = Flags::parse(rest, &["by-pin"], &["limit", "min-turns", "transcripts"])?;
-    if let Some(extra) = flags.positional.first() {
-        return Err(CtlError::usage(format!("unexpected argument: {extra}")));
-    }
+    no_args(&flags.positional)?;
     let (paths, loaded) = load()?;
     let root = flags
         .values
@@ -509,9 +500,7 @@ pub(super) fn ledger_record(paths: &Paths, rest: &[String]) -> Result<Output, Ct
         &[],
         &["provider", "before", "after", "source", "session"],
     )?;
-    if let Some(extra) = flags.positional.first() {
-        return Err(CtlError::usage(format!("unexpected argument: {extra}")));
-    }
+    no_args(&flags.positional)?;
     let need = |name: &str| {
         flags
             .values
@@ -556,9 +545,7 @@ pub(super) fn ledger_record(paths: &Paths, rest: &[String]) -> Result<Output, Ct
 
 pub(super) fn ledger_summary(paths: &Paths, rest: &[String]) -> Result<Output, CtlError> {
     let flags = Flags::parse(rest, &[], &["provider", "since"])?;
-    if let Some(extra) = flags.positional.first() {
-        return Err(CtlError::usage(format!("unexpected argument: {extra}")));
-    }
+    no_args(&flags.positional)?;
     let since = match flags.values.get("since") {
         Some(text) => Some(ledger::parse_ts(text).ok_or_else(|| {
             CtlError::usage("--since needs an RFC 3339 timestamp, e.g. 2026-01-31T00:00:00Z")
@@ -648,9 +635,7 @@ pub(super) fn proxy_with(
 
 pub fn update(rest: &[String]) -> Result<Output, CtlError> {
     let flags = Flags::parse(rest, &["latest", "accept"], &["to"])?;
-    if let Some(extra) = flags.positional.first() {
-        return Err(CtlError::usage(format!("unexpected argument: {extra}")));
-    }
+    no_args(&flags.positional)?;
     let (paths, loaded) = load()?;
     update_with(
         &paths,
