@@ -679,6 +679,34 @@ mod loads_tests {
     }
 
     #[test]
+    fn named_rule_layers_classify_user_rules_and_add_append_items() {
+        let h = fixture();
+        h.write(
+            ".config/mcpm/skills_repo/rules/client-acme/SKILL.md",
+            "---\nname: client-acme\nactivation: always\n---\n\nacme body\n",
+        );
+        h.write(".claude/rules/client-acme.md", &word(60));
+        h.write(".claude/rules/paths-scoped.md", "---\nglobs: \"a/**\"\n---\n\nbody\n");
+        h.write(".claude/rules/plain-fm.md", "---\ndescription: x\n---\n\nbody\n");
+        let cfg = config(json!({"profiles": {"named": {
+            "rules": ["personal", "client-acme", "nope"], "servers": "none"
+        }}}));
+        let cwd = h.0.join("work/app");
+        let r = what_loads(&h.roots(), &cfg, Some("named"), &cwd).unwrap();
+        let rule = |name: &str| r.items.iter().find(|i| i.kind == "rule" && i.name == name).unwrap();
+        assert_eq!((rule("personal").source, rule("personal").loaded), ("personal", true));
+        assert_eq!(rule("client-acme").source, "client-layer");
+        assert_eq!(rule("org-style").source, "org");
+        assert!(!rule("scoped").loaded && !rule("paths-scoped").loaded);
+        assert!(rule("plain-fm").loaded);
+        let appended = rule("personal (append-system-prompt)");
+        assert_eq!((appended.source, appended.tokens), ("personal", text_tokens_of("mine")));
+        assert_eq!(rule("client-acme (append-system-prompt)").source, "client-layer");
+        assert!(r.notes.iter().any(|n| n == "profile rule layer 'nope' not found"));
+        assert_eq!(r.items.iter().filter(|i| i.name.ends_with("(append-system-prompt)")).count(), 2);
+    }
+
+    #[test]
     fn what_loads_handler_serializes_report() {
         let h = fixture();
         let out = crate::plus::dispatch(
