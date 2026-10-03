@@ -143,6 +143,25 @@ cp -a "$work/backup.pristine" "$newest"
 expect "pristine backup restores after a refusal" "$SCRIPT_DIR/rollback.sh" --home "$home" --backup "$newest" >/dev/null
 expect "second rollback is byte-identical" diff "$before" <(tree_digest "$home")
 
+# user files added after the cutover must survive rollback; cutover-created files must not
+"$SCRIPT_DIR/cutover.sh" --home "$home" --tools "$work/tools.json" >/dev/null
+created="$(echo "$home"/.toolport-cutover-backups/*/created.list | tr ' ' '\n' | tail -1)"
+expect "created.list records the cutover registry" grep -q "\.config/toolport/registry.json" "$created"
+expect_not "created.list does not record backed-up files" grep -q "claude_desktop_config.json" "$created"
+mkdir -p "$home/.config/user-tool" "$home/.claude/extras"
+echo 'FAKE-user-file' >"$home/.config/user-tool/settings.toml"
+echo 'FAKE-user-file-2' >"$home/.config/toolport/user-added.txt"
+echo 'FAKE-user-file-3' >"$home/.claude/extras/keep.md"
+"$SCRIPT_DIR/rollback.sh" --home "$home" >/dev/null
+expect "user file in a new watched dir survives rollback" grep -q FAKE-user-file "$home/.config/user-tool/settings.toml"
+expect "user file added under a cutover-created dir survives rollback" test -f "$home/.config/toolport/user-added.txt"
+expect "user file under .claude survives rollback" test -f "$home/.claude/extras/keep.md"
+expect_not "cutover-created file is removed on rollback" test -e "$home/.config/toolport/registry.json"
+expect "backed-up files are byte-identical after rollback" diff -q "$work/home.orig/.claude.json" "$home/.claude.json"
+expect "backed-up config tree is byte-identical" diff -r "$work/home.orig/.config/mcpm" "$home/.config/mcpm"
+rm -rf "$home/.config/user-tool" "$home/.config/toolport" "$home/.claude/extras"
+expect "tree is byte-identical once user files are removed" diff "$before" <(tree_digest "$home")
+
 expect_not "cutover refuses a missing --home" "$SCRIPT_DIR/cutover.sh" --home "$work/none" 2>/dev/null
 
 if [ "$failures" -ne 0 ]; then echo "$failures failure(s)"; exit 1; fi

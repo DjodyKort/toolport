@@ -29,7 +29,7 @@ fi
 [ -d "$backup" ] || die "backup directory missing: $backup"
 backup="$(cd "$backup" && pwd -P)"
 case "$backup" in "$home"/*) ;; *) die "backup must live under --home" ;; esac
-for f in manifest.sha256 scope.list pre.files pre.dirs; do
+for f in manifest.sha256 scope.list pre.files pre.dirs created.list; do
   [ -f "$backup/$f" ] || die "backup incomplete, missing $f"
 done
 [ -d "$backup/files" ] || die "backup incomplete, missing files/"
@@ -59,22 +59,16 @@ for root in "${SCOPE_ROOTS[@]}"; do
   fi
 done
 
-cur_files="$(mktemp)"
-cur_dirs="$(mktemp)"
-for w in "${WATCH_DIRS[@]}"; do
-  list_entries "$home" "$w" >>"$cur_files"
-  list_dirs "$home" "$w" >>"$cur_dirs"
-done
-LC_ALL=C sort -o "$cur_files" "$cur_files"
-LC_ALL=C sort -o "$cur_dirs" "$cur_dirs"
-LC_ALL=C comm -23 "$cur_files" "$backup/pre.files" | while IFS= read -r rel; do
-  rm -f "${home:?}/$rel"
-  echo "removed (created by cutover): $rel"
-done
-LC_ALL=C comm -23 "$cur_dirs" "$backup/pre.dirs" | LC_ALL=C sort -r | while IFS= read -r rel; do
+while IFS=$'\t' read -r kind rel; do
+  case "$rel" in ""|/*|*..*) die "unsafe created.list entry in backup" ;; esac
+  if [ "$kind" = f ] && { [ -e "$home/$rel" ] || [ -L "$home/$rel" ]; }; then
+    rm -f "${home:?}/$rel"
+    echo "removed (created by cutover): $rel"
+  fi
+done <"$backup/created.list"
+awk -F'\t' '$1 == "d" { print $2 }' "$backup/created.list" | LC_ALL=C sort -r | while IFS= read -r rel; do
   rmdir "$home/$rel" 2>/dev/null && echo "removed dir: $rel" || true
 done
-rm -f "$cur_files" "$cur_dirs"
 
 tmp="$(mktemp)"
 while IFS= read -r root; do

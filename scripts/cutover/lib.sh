@@ -51,6 +51,22 @@ list_dirs() {
   (cd "$base" && find "$root" -type d -print)
 }
 
+# Prints "f<TAB>rel" / "d<TAB>rel" for every watched entry that is not in the backup's pre.* lists.
+record_created_list() {
+  local base="$1" backup="$2" w cur_files cur_dirs
+  cur_files="$(mktemp)"
+  cur_dirs="$(mktemp)"
+  for w in "${WATCH_DIRS[@]}"; do
+    list_entries "$base" "$w" >>"$cur_files"
+    list_dirs "$base" "$w" >>"$cur_dirs"
+  done
+  LC_ALL=C sort -o "$cur_files" "$cur_files"
+  LC_ALL=C sort -o "$cur_dirs" "$cur_dirs"
+  LC_ALL=C comm -23 "$cur_files" "$backup/pre.files" | while IFS= read -r rel; do printf 'f\t%s\n' "$rel"; done
+  LC_ALL=C comm -23 "$cur_dirs" "$backup/pre.dirs" | while IFS= read -r rel; do printf 'd\t%s\n' "$rel"; done
+  rm -f "$cur_files" "$cur_dirs"
+}
+
 write_hashes() {
   local base="$1" out="$2"
   : >"$out"
