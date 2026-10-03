@@ -676,3 +676,78 @@ fn summaries_of_nothing_are_empty() {
     let value: Value = serde_json::to_value(ProviderSummary::default()).unwrap();
     assert_eq!(value["savingsEntries"], 0);
 }
+
+fn reference_attribute<'a>(
+    start: Option<i64>,
+    cwd: Option<&str>,
+    launches: &'a [LaunchRecord],
+) -> Option<&'a LaunchRecord> {
+    let (start, cwd) = (start?, cwd.filter(|c| !c.is_empty())?);
+    let target = norm_cwd(cwd);
+    let mut best: Option<(i64, &LaunchRecord)> = None;
+    for rec in launches {
+        if norm_cwd(&rec.cwd) != target {
+            continue;
+        }
+        let Some(ts) = parse_ts(&rec.ts) else {
+            continue;
+        };
+        if (0..=MATCH_WINDOW_MS).contains(&(start - ts)) && best.is_none_or(|(b, _)| ts > b) {
+            best = Some((ts, rec));
+        }
+    }
+    best.map(|(_, rec)| rec)
+}
+
+#[cfg(unix)]
+#[test]
+fn one_attributor_serves_many_sessions_like_independent_lookups() {
+    let dir = ScratchDir::new("ledger-attributor");
+    let real = dir.path().join("real");
+    fs::create_dir_all(&real).unwrap();
+    std::os::unix::fs::symlink(&real, dir.path().join("link")).unwrap();
+    let spellings: Vec<String> = ["real", "link", "real/", "link/", "gone", "gone/"]
+        .iter()
+        .map(|rel| format!("{}/{rel}", dir.path().display()))
+        .chain(["/work/a", "/work/a/", "/", ""].map(String::from))
+        .collect();
+    let (mut hits, mut sessions) = (0, 0);
+    run_cases("ledger-attributor", 400, |_, rng| {
+        let base = 1_800_000_000_000i64;
+        let mut launches = Vec::new();
+        for i in 0..rng.range(0, 30) {
+            let ts = base + rng.below(400_000) as i64;
+            let rec = launch_at(ts, rng.pick(&spellings), rng.chance(50), &format!("p{i}"));
+            launches.push(if rng.chance(5) {
+                LaunchRecord {
+                    ts: rng.garbage(6),
+                    ..rec
+                }
+            } else {
+                rec
+            });
+        }
+        let mut attributor = Attributor::new(&launches);
+        for _ in 0..40 {
+            let start = rng.chance(95).then(|| base + rng.below(500_000) as i64);
+            let cwd = rng.chance(95).then(|| rng.pick(&spellings).clone());
+            let got = attributor.attribute(start, cwd.as_deref());
+            let want = reference_attribute(start, cwd.as_deref(), &launches);
+            assert_eq!(got.map(|r| &r.preset), want.map(|r| &r.preset), "{start:?} {cwd:?}");
+            sessions += 1;
+            hits += usize::from(got.is_some());
+        }
+    });
+    assert!(hits > 300 && sessions - hits > 300, "{hits} {sessions}");
+}
+
+#[test]
+fn attributor_handles_missing_origins_and_empty_launch_lists() {
+    let launches = [launch_at(1_800_000_000_000, "/work/a", true, "x")];
+    let mut attributor = Attributor::new(&launches);
+    assert!(attributor.attribute(None, Some("/work/a")).is_none());
+    assert!(attributor.attribute(Some(1_800_000_000_000), Some("")).is_none());
+    assert!(attributor.attribute(Some(1_800_000_000_000), None).is_none());
+    assert!(attributor.attribute(Some(1_800_000_000_000), Some("/work/a")).is_some());
+    assert!(Attributor::new(&[]).attribute(Some(1), Some("/work/a")).is_none());
+}

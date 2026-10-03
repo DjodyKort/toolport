@@ -7,7 +7,7 @@ use super::store::Paths;
 use crate::registry;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::io::Write;
 use std::path::Path;
 
@@ -213,15 +213,49 @@ pub fn attribute<'a>(
     cwd: Option<&str>,
     launches: &'a [LaunchRecord],
 ) -> Option<&'a LaunchRecord> {
-    let (start, cwd) = (start_ms?, cwd.filter(|c| !c.is_empty())?);
-    let target = norm_cwd(cwd);
-    launches
-        .iter()
-        .filter(|rec| norm_cwd(&rec.cwd) == target)
-        .filter_map(|rec| parse_ts(&rec.ts).map(|ts| (ts, rec)))
-        .filter(|(ts, _)| (0..=MATCH_WINDOW_MS).contains(&(start - ts)))
-        .min_by_key(|(ts, _)| std::cmp::Reverse(*ts))
-        .map(|(_, rec)| rec)
+    Attributor::new(launches).attribute(start_ms, cwd)
+}
+
+/// [`attribute`] over many sessions: launch directories are normalized once and grouped,
+/// and each distinct session directory is normalized once.
+pub struct Attributor<'a> {
+    launches: &'a [LaunchRecord],
+    by_cwd: Option<HashMap<String, Vec<(i64, &'a LaunchRecord)>>>,
+    targets: HashMap<String, String>,
+}
+
+impl<'a> Attributor<'a> {
+    pub fn new(launches: &'a [LaunchRecord]) -> Self {
+        Attributor {
+            launches,
+            by_cwd: None,
+            targets: HashMap::new(),
+        }
+    }
+
+    pub fn attribute(&mut self, start_ms: Option<i64>, cwd: Option<&str>) -> Option<&'a LaunchRecord> {
+        let (start, cwd) = (start_ms?, cwd.filter(|c| !c.is_empty())?);
+        let launches = self.launches;
+        let by_cwd = self.by_cwd.get_or_insert_with(|| {
+            let mut index: HashMap<String, Vec<(i64, &LaunchRecord)>> = HashMap::new();
+            for rec in launches {
+                if let Some(ts) = parse_ts(&rec.ts) {
+                    index.entry(norm_cwd(&rec.cwd)).or_default().push((ts, rec));
+                }
+            }
+            index
+        });
+        let target = self
+            .targets
+            .entry(cwd.to_string())
+            .or_insert_with(|| norm_cwd(cwd));
+        by_cwd
+            .get(target.as_str())?
+            .iter()
+            .filter(|(ts, _)| (0..=MATCH_WINDOW_MS).contains(&(start - ts)))
+            .min_by_key(|(ts, _)| std::cmp::Reverse(*ts))
+            .map(|(_, rec)| *rec)
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
