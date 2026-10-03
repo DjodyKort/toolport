@@ -39,8 +39,8 @@ pub(crate) fn rel_or_abs(path: &Path, root: &Path) -> String {
 }
 
 /// Files a previous sync recorded under skills/rules that the new lock no longer lists.
-/// Only the lock's own relative entries are honoured; `..` segments are refused so a tampered
-/// lock cannot reach outside the output root.
+/// Only the lock's own relative entries are honoured; `..` segments and absolute paths are
+/// refused so a tampered lock cannot reach outside the output root.
 pub fn collect_stale_files(
     previous: &LockFile,
     new_lock: &LockFile,
@@ -59,7 +59,7 @@ pub fn collect_stale_files(
                 for rel in rels {
                     if Path::new(rel)
                         .components()
-                        .any(|c| matches!(c, Component::ParentDir))
+                        .any(|c| !matches!(c, Component::Normal(_) | Component::CurDir))
                     {
                         continue;
                     }
