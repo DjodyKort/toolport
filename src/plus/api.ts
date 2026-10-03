@@ -51,3 +51,37 @@ export interface AuthRows {
 export function plusAuthRows(): Promise<AuthRows> {
   return plusInvoke<AuthRows>("plus.auth.rows");
 }
+
+export interface LoadItem {
+  kind: string;
+  name: string;
+  path: string | null;
+  source: string;
+  loaded: boolean;
+  reason: string;
+  tokens: number;
+}
+
+export interface Clobber {
+  kind: string;
+  key: string;
+  winner: string;
+  overridden: string[];
+  relation: string;
+}
+
+export interface WhatLoads {
+  profile: string | null;
+  cwd: string;
+  items: LoadItem[];
+  clobbers: Clobber[];
+  tokens_by_kind: Record<string, number>;
+  total_tokens: number;
+  notes: string[];
+}
+
+export function plusWhatLoads(
+  args: { profile?: string; cwd?: string } = {},
+): Promise<WhatLoads> {
+  return plusInvoke<WhatLoads>("plus.context.whatLoads", args);
+}

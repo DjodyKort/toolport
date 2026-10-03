@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { ClientLogo } from "@/components/ClientLogo";
 import { ServerLogo } from "@/components/ServerLogo";
 import type { Registry, SavingsSummary, ServerEntry } from "@/lib/types";
+import { plusWhatLoadsFixture } from "@/plus/fixtures/whatLoads";
 import "../index.css";
 
 if (!import.meta.env.DEV) throw new Error("Fixtures require the development server");
@@ -56,7 +57,7 @@ Object.assign(window, { toolportFixture: { calls, missing } });
 localStorage.setItem("toolport.onboarded", "1");
 
 mockIPC(
-  (command) => {
+  (command, args) => {
     calls[command] = (calls[command] ?? 0) + 1;
     switch (command) {
       case "get_registry":
@@ -101,6 +102,12 @@ mockIPC(
         return auditRows;
       case "audit_stats":
         return { total: 200, errors: 0, errorRate: 0, servers: [] };
+      case "is_launch_at_login_enabled":
+        return false;
+      case "http_bridge_status":
+        return { running: false, port: null, url: null, token: null };
+      case "clients_needing_restart":
+      case "list_allowed_tools":
       case "list_quarantined":
       case "list_pending_approvals":
       case "list_routine_suggestions":
@@ -110,6 +117,11 @@ mockIPC(
       case "list_tool_identities":
         return [];
       case "plus_invoke":
+        if (
+          (args as { command?: string } | undefined)?.command === "plus.context.whatLoads"
+        ) {
+          return plusWhatLoadsFixture;
+        }
         return {
           name: "toolport-plus",
           version: "0.0.0-fixture",

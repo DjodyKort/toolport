@@ -21,6 +21,8 @@ pub mod shims;
 mod tests;
 #[cfg(test)]
 mod tests_compact;
+#[cfg(test)]
+mod tests_hooks;
 
 pub use config::{load_config, save_config, ContextConfig};
 pub use roots::Roots;

@@ -60,6 +60,11 @@ try {
     page.getByText("Tool definitions kept out of your agent's context"),
   ).toBeVisible();
   await page.screenshot({ path: path.join(output, "activity.png") });
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const whatLoads = page.getByRole("region", { name: "What loads" });
+  await expect(whatLoads.getByText("~1738 tokens")).toBeVisible();
+  await whatLoads.scrollIntoViewIfNeeded();
+  await whatLoads.screenshot({ path: path.join(output, "what-loads.png") });
   const fixture = await page.evaluate(() => window.toolportFixture);
   expect(fixture.missing).toEqual([]);
   expect(errors).toEqual([]);
