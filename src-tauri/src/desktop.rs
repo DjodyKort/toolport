@@ -4353,6 +4353,7 @@ pub fn run() {
         .manage(PendingTrayApprovals::default())
         .manage(RestartAdvice::default())
         .invoke_handler(tauri::generate_handler![
+            crate::plus::plus_invoke,
             detect_clients,
             get_registry,
             take_registry_recovery_notice,

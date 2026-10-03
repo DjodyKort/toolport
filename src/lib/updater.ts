@@ -2,6 +2,7 @@ import { BundleType, getBundleType } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { check, type DownloadEvent, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { forkEgressDisabled } from "@/lib/fork";
 
 /** Outcome of an update check. `error` is distinct from `current` so the UI can
  * tell "you're up to date" apart from "couldn't reach the update server". */
@@ -176,6 +177,7 @@ export function releasePageUrl(version: string): string {
 /** Check for a newer release via the Tauri updater. Never throws; failures
  * (dev build, offline, or no manifest published yet) come back as `error`. */
 export async function checkForUpdate(): Promise<UpdateCheck> {
+  if (forkEgressDisabled()) return { kind: "current" };
   try {
     const u = await check();
     if (!u?.available) return { kind: "current" };

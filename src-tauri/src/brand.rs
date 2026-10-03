@@ -124,8 +124,63 @@ pub fn windows_roaming_base(home: &Path) -> PathBuf {
     home.join("AppData").join("Roaming")
 }
 
+/// Fork switch: the Toolport+ fork never talks to the upstream product's
+/// hosted services (share links, hosted Teams, release pages). The OAuth CIMD
+/// document is fetched by authorization servers, not by this app, and stays.
+pub const FORK_EGRESS_DISABLED: bool = true;
+
+pub fn is_upstream_egress_url(url: &str) -> bool {
+    let Ok(parsed) = url::Url::parse(url.trim()) else {
+        return false;
+    };
+    let host = parsed.host_str().unwrap_or("").to_ascii_lowercase();
+    host == "toolport.app"
+        || host.ends_with(".toolport.app")
+        || (host == "github.com"
+            && parsed
+                .path()
+                .trim_start_matches('/')
+                .to_ascii_lowercase()
+                .starts_with("btsouth/"))
+}
+
+pub fn refuse_upstream_egress(url: &str) -> Result<(), String> {
+    if FORK_EGRESS_DISABLED && is_upstream_egress_url(url) {
+        return Err("upstream hosted services are disabled in this fork".to_string());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn fork_blocks_upstream_hosted_urls_only() {
+        assert!(FORK_EGRESS_DISABLED);
+        for blocked in [
+            "https://toolport.app/api/share?id=abc",
+            "https://teams.toolport.app/",
+            "https://TOOLPORT.APP/teams#pricing",
+            "https://github.com/btsouth/toolport/releases/latest",
+        ] {
+            assert!(refuse_upstream_egress(blocked).is_err(), "{blocked}");
+        }
+        for allowed in [
+            "https://github.com/DjodyKort/toolport/releases",
+            "https://teams.example.com",
+            "https://notoolport.app/",
+            "not a url",
+        ] {
+            assert!(refuse_upstream_egress(allowed).is_ok(), "{allowed}");
+        }
+    }
+
+    #[test]
+    fn share_service_is_unreachable_in_the_fork() {
+        assert!(crate::sharing_controller::share_setup("{}").is_err());
+        assert!(crate::sharing_controller::fetch_shared_setup("abc123").is_err());
+        assert!(crate::oauth::open_web_url("https://toolport.app/teams").is_err());
+    }
+
     use super::*;
     use std::fs;
     use std::sync::Mutex;

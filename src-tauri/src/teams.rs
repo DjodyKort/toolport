@@ -39,6 +39,7 @@ fn base(server_url: &str) -> String {
 
 /// Team bearer tokens must not ride over cleartext except to a local dev server.
 fn require_secure_team_url(server_url: &str) -> Result<(), String> {
+    crate::brand::refuse_upstream_egress(server_url)?;
     let lower = server_url.trim().to_ascii_lowercase();
     if lower.starts_with("https://") {
         return Ok(());

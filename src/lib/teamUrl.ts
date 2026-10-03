@@ -1,3 +1,5 @@
+import { forkEgressDisabled, isUpstreamEgressUrl } from "@/lib/fork";
+
 /** The hosted Toolport Teams **app**, prefilled as the default server URL. Self-hosters
  * replace it with their own server. */
 export const HOSTED_TEAMS_URL = "https://teams.toolport.app";
@@ -43,6 +45,9 @@ export function teamUrlError(raw: string): string | null {
     return "Team server URL must start with https://.";
   }
 
+  if (forkEgressDisabled() && isUpstreamEgressUrl(value)) {
+    return "Upstream hosted services are disabled in this fork.";
+  }
   if (url.protocol === "https:") return null;
   if (url.protocol !== "http:") return "Team server URL must start with https://.";
 

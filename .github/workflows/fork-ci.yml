@@ -184,7 +184,7 @@ jobs:
         run: >-
           npx tauri build
           --config src-tauri/tauri.bundle.conf.json
-          --config '{"bundle":{"createUpdaterArtifacts":false}}'
+          --config src-tauri/tauri.fork.conf.json
           --bundles app
           --target aarch64-apple-darwin
         env:

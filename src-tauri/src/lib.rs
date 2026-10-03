@@ -35,6 +35,7 @@ mod oauth_controller;
 pub mod observability_controller;
 pub mod pii;
 pub mod playground;
+pub mod plus;
 pub mod rate_limits;
 pub mod registry;
 pub mod registry_controller;
