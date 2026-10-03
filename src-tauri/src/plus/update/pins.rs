@@ -26,32 +26,50 @@ fn split_spec(raw: &str, uvx: bool) -> (String, Option<String>, &'static str) {
     }
 }
 
+fn spec_at(raw: &str, arg_index: usize, uvx: bool) -> Option<PinSpec> {
+    let (name, version, separator) = split_spec(raw, uvx);
+    if name.is_empty() || name == "@" || name.starts_with('-') {
+        return None;
+    }
+    Some(PinSpec {
+        arg_index,
+        name,
+        version,
+        separator,
+    })
+}
+
+fn is_switch(arg: &str) -> bool {
+    if let Some((flag, _)) = arg.split_once('=') {
+        return !matches!(flag, "--from" | "--package" | "-p");
+    }
+    matches!(
+        arg,
+        "-y" | "--yes"
+            | "-q"
+            | "--quiet"
+            | "--no-install"
+            | "--isolated"
+            | "--no-cache"
+            | "--offline"
+            | "--refresh"
+    )
+}
+
+/// Finds the package argument. A flag that is neither a known switch nor a package flag may
+/// take a value of its own, so nothing past it is guessed and the spec stays unresolved.
 pub fn parse_spec(args: &[String], uvx: bool) -> Option<PinSpec> {
-    let mut i = 0;
-    while i < args.len() {
-        let arg = args[i].as_str();
-        let takes_value = matches!(arg, "--from" | "--package" | "-p");
-        if takes_value {
-            let idx = i + 1;
-            let raw = args.get(idx)?;
-            let (name, version, separator) = split_spec(raw, uvx);
-            return Some(PinSpec {
-                arg_index: idx,
-                name,
-                version,
-                separator,
-            });
+    for (i, arg) in args.iter().enumerate() {
+        let arg = arg.as_str();
+        if matches!(arg, "--from" | "--package") || (arg == "-p" && !uvx) {
+            return spec_at(args.get(i + 1)?, i + 1, uvx);
         }
         if !arg.starts_with('-') {
-            let (name, version, separator) = split_spec(arg, uvx);
-            return Some(PinSpec {
-                arg_index: i,
-                name,
-                version,
-                separator,
-            });
+            return spec_at(arg, i, uvx);
         }
-        i += 1;
+        if !is_switch(arg) {
+            return None;
+        }
     }
     None
 }

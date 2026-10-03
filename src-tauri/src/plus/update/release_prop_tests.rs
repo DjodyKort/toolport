@@ -208,24 +208,65 @@ fn pin_args(rng: &mut Rng) -> Vec<String> {
         "pkg@",
         "a==b==c",
         "-",
+        "--python",
+        "3.12",
+        "--registry=https://registry.example.invalid",
+        "--from=pkg",
+        "--isolated",
+        "-q",
+        "==1.0",
+        "@@1",
     ];
     (0..rng.range(0, 5))
         .map(|_| rng.pick(&vocab).to_string())
         .collect()
 }
 
+const SWITCHES: &[&str] = &[
+    "-y",
+    "--yes",
+    "-q",
+    "--quiet",
+    "--no-install",
+    "--isolated",
+    "--no-cache",
+    "--offline",
+    "--refresh",
+];
+
+fn model_name(raw: &str, uvx: bool) -> String {
+    if uvx {
+        if let Some(at) = raw.find("==") {
+            return raw[..at].to_string();
+        }
+    }
+    let skip = usize::from(raw.starts_with('@'));
+    match raw[skip..].find('@') {
+        Some(at) => raw[..skip + at].to_string(),
+        None => raw.to_string(),
+    }
+}
+
 fn model_spec(args: &[String], uvx: bool) -> Option<(usize, String)> {
-    let mut i = 0;
-    while i < args.len() {
-        let arg = args[i].as_str();
-        if ["--from", "--package", "-p"].contains(&arg) {
-            return args.get(i + 1).map(|_| (i + 1, args[i + 1].clone()));
+    let usable = |i: usize| {
+        let name = model_name(&args[i], uvx);
+        (!name.is_empty() && name != "@" && !name.starts_with('-')).then(|| (i, args[i].clone()))
+    };
+    for (i, arg) in args.iter().enumerate() {
+        let arg = arg.as_str();
+        if ["--from", "--package"].contains(&arg) || (arg == "-p" && !uvx) {
+            return (i + 1 < args.len()).then(|| usable(i + 1)).flatten();
         }
         if !arg.starts_with('-') {
-            let _ = uvx;
-            return Some((i, args[i].clone()));
+            return usable(i);
         }
-        i += 1;
+        let switch = match arg.split_once('=') {
+            Some((flag, _)) => !["--from", "--package", "-p"].contains(&flag),
+            None => SWITCHES.contains(&arg),
+        };
+        if !switch {
+            return None;
+        }
     }
     None
 }
@@ -279,14 +320,7 @@ fn pin_specs_locate_the_package_argument_and_rewrite_it_cleanly() {
         );
         let again = parse_spec(&changed, uvx).unwrap();
         assert_eq!(again.arg_index, spec.arg_index);
-        if spec.name.is_empty() && spec.separator == "@" {
-            assert_eq!(
-                again.name,
-                format!("@{new_version}"),
-                "an empty name turns scoped"
-            );
-            return;
-        }
+        assert!(!spec.name.is_empty());
         assert_eq!(
             again.version.as_deref(),
             Some(new_version),
@@ -294,7 +328,7 @@ fn pin_specs_locate_the_package_argument_and_rewrite_it_cleanly() {
         );
         assert_eq!(again.name, spec.name);
     });
-    assert!(found > 3000 && versions > 1000, "{found} {versions}");
+    assert!(found > 2000 && versions > 800, "{found} {versions}");
 }
 
 #[test]
@@ -322,7 +356,6 @@ fn pin_spec_edge_cases() {
         (npx.name.as_str(), npx.version.as_deref()),
         ("tool==2.0", None)
     );
-    assert_eq!(spec(&["@"], false).unwrap().name, "@");
     assert_eq!(spec(&["pkg@"], false).unwrap().version.as_deref(), Some(""));
     let mut short = vec!["only".to_string()];
     let stale = PinSpec {
@@ -339,6 +372,65 @@ fn pin_spec_edge_cases() {
     for fixed in ["1.2.3", "Latest", " ", "^1.0.0"] {
         assert!(!is_floating(fixed));
     }
+}
+
+#[test]
+fn an_unknown_flag_leaves_the_package_unresolved_instead_of_taking_its_value() {
+    let args = |items: &[&str]| items.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    let spec = |items: &[&str], uvx| parse_spec(&args(items), uvx);
+    for uvx in [false, true] {
+        assert_eq!(
+            spec(
+                &["--registry", "https://r.example.invalid", "pkg@1.0.0"],
+                uvx
+            ),
+            None
+        );
+        assert_eq!(spec(&["-y", "--python", "3.12", "pkg"], uvx), None);
+        assert_eq!(spec(&["--unheard-of", "pkg"], uvx), None);
+        assert_eq!(spec(&["--"], uvx), None);
+        assert_eq!(spec(&["--from", "--registry", "pkg"], uvx), None);
+        assert_eq!(spec(&["--from=pkg", "cmd"], uvx), None);
+        assert_eq!(spec(&["--package=pkg", "cmd"], uvx), None);
+        let known = spec(
+            &["--isolated", "-q", "--yes", "--no-cache", "pkg@1.0.0"],
+            uvx,
+        )
+        .unwrap();
+        assert_eq!((known.arg_index, known.name.as_str()), (4, "pkg"));
+        let inline = spec(&["--registry=https://r.example.invalid", "pkg@1.0.0"], uvx).unwrap();
+        assert_eq!((inline.arg_index, inline.name.as_str()), (1, "pkg"));
+        let after = spec(&["pkg@1.0.0", "--registry", "x"], uvx).unwrap();
+        assert_eq!(after.arg_index, 0);
+    }
+    let python = spec(&["-p", "3.12", "pkg"], true);
+    assert_eq!(python, None, "uvx -p is the interpreter, not the package");
+    let package = spec(&["-p", "pkg@1.0.0"], false).unwrap();
+    assert_eq!((package.arg_index, package.name.as_str()), (1, "pkg"));
+}
+
+#[test]
+fn an_empty_package_is_unresolved_and_never_rewritten_to_a_scope() {
+    let args = |items: &[&str]| items.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    for uvx in [false, true] {
+        for items in [
+            &[""][..],
+            &["-y", ""],
+            &["--from", ""],
+            &["--package", "@"],
+            &["@"],
+            &["@@1.0.0"],
+            &["--from", "-y"],
+        ] {
+            assert_eq!(parse_spec(&args(items), uvx), None, "{items:?}");
+        }
+    }
+    assert_eq!(parse_spec(&args(&["==1.0.0"]), true), None);
+    assert_eq!(parse_spec(&args(&["--from", "==1.0.0"]), true), None);
+    assert_eq!(
+        parse_spec(&args(&["==1.0.0"]), false).unwrap().name,
+        "==1.0.0"
+    );
 }
 
 #[test]
