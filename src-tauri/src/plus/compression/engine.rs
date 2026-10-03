@@ -30,6 +30,10 @@ pub trait EngineOps {
     /// Installs an exact requirement; returns (version before, version after).
     fn install(&mut self, requirement: &str) -> Result<(Option<String>, Option<String>), String>;
     fn agent_savings(&self, profile: &str) -> Result<Vec<(String, String)>, String>;
+    /// Runs one engine subcommand; `Ok` carries the last output line, `Err` the failure.
+    fn run_headroom(&mut self, _args: &[&str]) -> Result<String, String> {
+        Err("headroom not on PATH".into())
+    }
 }
 
 fn is_ready(health: &Option<Value>) -> bool {
@@ -359,5 +363,27 @@ impl EngineOps for SystemOps {
                 other => (k.clone(), other.to_string()),
             })
             .collect())
+    }
+
+    fn run_headroom(&mut self, args: &[&str]) -> Result<String, String> {
+        if path_lookup("headroom", self.path.as_deref()).is_none() {
+            return Err("headroom not on PATH".into());
+        }
+        let out = self
+            .command("headroom")
+            .args(args)
+            .stdin(Stdio::null())
+            .output()
+            .map_err(|e| e.to_string())?;
+        let text = match String::from_utf8_lossy(&out.stdout).trim() {
+            "" => String::from_utf8_lossy(&out.stderr).trim().to_string(),
+            stdout => stdout.to_string(),
+        };
+        let last = text.lines().last().unwrap_or("ok").to_string();
+        if out.status.success() {
+            Ok(last)
+        } else {
+            Err(last)
+        }
     }
 }

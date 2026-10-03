@@ -14,7 +14,7 @@ pub struct EnableOpts {
 
 fn unknown_preset(config: &CompressionConfig, name: &str) -> String {
     let have: Vec<&str> = config.presets.keys().map(String::as_str).collect();
-    format!("unknown preset {name:?} (have: {})", have.join(", "))
+    format!("unknown preset '{name}' (have: {})", have.join(", "))
 }
 
 /// Load-merge semantics: contexts, clients, scope, presets and unrelated options survive.

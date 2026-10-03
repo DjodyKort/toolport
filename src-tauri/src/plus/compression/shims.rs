@@ -47,7 +47,7 @@ pub fn shim_snippet(opts: ShimOptions) -> String {
     text
 }
 
-fn escape_double_quoted(value: &str) -> String {
+pub fn escape_double_quoted(value: &str) -> String {
     let mut out = String::with_capacity(value.len());
     for c in value.chars() {
         if matches!(c, '\\' | '"' | '$' | '`') {
