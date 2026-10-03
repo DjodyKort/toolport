@@ -9,13 +9,14 @@ mod issues;
 mod machine;
 mod prober;
 mod probe;
+pub mod scan;
 pub mod surfaces;
 mod types;
 
 pub use cache::{AuthStore, EdgeEvent, ServerEntry, StatusFile};
 pub use flight::SingleFlight;
 pub use gateway_state::{gateway_registry, GatewayStateProbe};
-pub use google::{probe_handler, GoogleRefreshProbe};
+pub use google::GoogleRefreshProbe;
 pub use http_probes::{combined_registry, http_registry, CompositeProbe, HttpProbe};
 pub use issues::{compute_issues, AuthIssue};
 pub use machine::{
@@ -26,7 +27,10 @@ pub use probe::{
     Clock, FakeClock, MockProbe, Probe, ProbeKind, ProbeRegistry, ProbeSpec, SystemClock,
 };
 pub use surfaces::rows_handler;
-pub use prober::{backoff_delay, probe_due, status_handler, AuthProber, ProbeReport, Trigger};
+pub use prober::{
+    backoff_delay, probe_all, probe_due, status_handler, AuthProber, ProbeReport, Trigger,
+};
+pub use scan::probe_handler;
 pub use types::{AuthState, ProbeOutcome, Tracked, TransientRun};
 
 const MAX_BODY_BYTES: u64 = 64 * 1024;
@@ -65,3 +69,10 @@ mod surfaces_tests;
 
 #[cfg(all(test, unix))]
 mod gateway_e2e_tests;
+
+
+
+#[cfg(test)]
+mod scan_tests;
+
+

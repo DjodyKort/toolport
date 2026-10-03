@@ -8,7 +8,6 @@ use serde_json::Value;
 use super::probe::{Probe, ProbeSpec};
 use super::types::ProbeOutcome;
 use super::{agent, read_capped};
-use crate::plus::args::flag;
 
 pub const DEFAULT_TOKEN_ENDPOINT: &str = "https://oauth2.googleapis.com/token";
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -292,37 +291,4 @@ pub fn google_registry(registry: &crate::registry::Registry) -> super::ProbeRegi
         }
     }
     reg
-}
-
-pub fn probe_handler(args: Value) -> Result<Value, String> {
-    use std::sync::{Arc, OnceLock};
-
-    static PROBE: OnceLock<Arc<super::http_probes::CompositeProbe>> = OnceLock::new();
-
-    let server = args
-        .get("server")
-        .and_then(Value::as_str)
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| "server is required".to_string())?;
-    let force = flag(&args, "force");
-    let dir = crate::registry::conduit_dir()
-        .ok_or_else(|| "data directory unavailable".to_string())?
-        .join("auth");
-    let registry = super::http_probes::combined_registry(&crate::registry::load()?);
-    let probe = PROBE
-        .get_or_init(|| Arc::new(super::http_probes::CompositeProbe::default()))
-        .clone();
-    let prober = super::AuthProber::new(
-        super::AuthStore::new(&dir),
-        registry,
-        probe,
-        Arc::new(super::SystemClock),
-    );
-    let trigger = if force {
-        super::Trigger::UserForce
-    } else {
-        super::Trigger::Scheduled
-    };
-    let report = prober.request(server, trigger)?;
-    serde_json::to_value(report).map_err(|e| e.to_string())
 }

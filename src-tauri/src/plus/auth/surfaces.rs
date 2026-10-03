@@ -139,6 +139,12 @@ pub fn rows(status: &StatusFile, now: i64) -> Vec<AuthRow> {
     rows.into_iter().map(|(_, row)| row).collect()
 }
 
+pub fn rows_for(status: &StatusFile, now: i64, servers: &[String]) -> Vec<AuthRow> {
+    let mut rows = rows(status, now);
+    rows.retain(|row| servers.contains(&row.server));
+    rows
+}
+
 pub fn counts(rows: &[AuthRow]) -> AuthCounts {
     let mut counts = AuthCounts::default();
     for row in rows {
