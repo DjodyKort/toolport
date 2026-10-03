@@ -74,7 +74,12 @@ fn sync_pass(home: &Path, args: &Value, clock: &FixedClock) {
         client_keys: (!wanted.is_empty()).then_some(wanted),
         clock,
     };
-    let result = sync_skills(&discover_skills(&repo), &registry, &opts).unwrap();
+    // D-027 divergence: goldens use mcpm's narrower asset allowlist; see parity_skills_core.rs.
+    let result = conduit_lib::plus::skills::with_asset_policy(
+        conduit_lib::plus::skills::AssetPolicy::Mcpm,
+        || sync_skills(&discover_skills(&repo), &registry, &opts),
+    )
+    .unwrap();
     save_lockfile(&lock_dir, &result.lockfile).unwrap();
 }
 

@@ -225,7 +225,7 @@ fn asset_allowlist_matches_mcpm_quirks() {
     ] {
         put(&d, rel, "x");
     }
-    let found: Vec<String> = discover_assets(&d)
+    let found: Vec<String> = with_asset_policy(AssetPolicy::Mcpm, || discover_assets(&d))
         .iter()
         .map(|p| assets::rel_string(p))
         .collect();
@@ -244,6 +244,63 @@ fn asset_allowlist_matches_mcpm_quirks() {
 }
 
 #[test]
+fn default_allowlist_adds_html_csv_js_but_not_zip() {
+    let t = Tmp::new("assets-d027");
+    let d = t.0.join("skills/lab");
+    for rel in [
+        "templates/balie.html",
+        "reference/t.CSV",
+        "scripts/app.js",
+        "modules/bundle.zip",
+        "modules/x.rb",
+    ] {
+        put(&d, rel, "x");
+    }
+    let found: Vec<String> = discover_assets(&d)
+        .iter()
+        .map(|p| assets::rel_string(p))
+        .collect();
+    assert_eq!(
+        found,
+        ["reference/t.CSV", "scripts/app.js", "templates/balie.html"]
+    );
+}
+
+#[test]
+fn extra_extensions_are_user_configurable() {
+    assert_eq!(
+        assets::parse_extensions(" ZIP, .Rb ,,. pdf\t.toml"),
+        [".zip", ".rb", ".pdf", ".toml"]
+    );
+    let t = Tmp::new("assets-extra");
+    let d = t.0.join("skills/lab");
+    for rel in ["modules/bundle.zip", "modules/x.rb", "modules/a.md"] {
+        put(&d, rel, "x");
+    }
+    let found = with_asset_policy(AssetPolicy::Extra(assets::parse_extensions("zip")), || {
+        discover_assets(&d)
+    });
+    let found: Vec<String> = found.iter().map(|p| assets::rel_string(p)).collect();
+    assert_eq!(found, ["modules/a.md", "modules/bundle.zip"]);
+}
+
+#[test]
+fn sync_copies_templates_balie_html_to_the_client_skill_dir() {
+    let t = Tmp::new("balie");
+    put(&t.0, "skills/reviewbalie/SKILL.md", &skill_md("reviewbalie", ""));
+    put(&t.0, "skills/reviewbalie/templates/balie.html", "<html></html>");
+    let clock = clock();
+    let res = sync_skills(&discover_skills(&t.0), &registry(), &opts(&t.0, &clock)).unwrap();
+    assert_eq!(
+        fs::read_to_string(t.0.join(".identity/skills/reviewbalie/templates/balie.html")).unwrap(),
+        "<html></html>"
+    );
+    assert!(res.lockfile.skills[0].1.output_files[0]
+        .1
+        .contains(&".identity/skills/reviewbalie/templates/balie.html".to_string()));
+}
+
+#[test]
 fn hash_covers_skill_md_then_sorted_assets() {
     let t = Tmp::new("hash");
     put(&t.0, "skills/h/SKILL.md", &skill_md("h", ""));
@@ -253,7 +310,7 @@ fn hash_covers_skill_md_then_sorted_assets() {
     put(&t.0, "skills/h/modules/a.md", "one");
     let with_asset = compute_skill_hash(&load()).unwrap();
     assert_ne!(base, with_asset);
-    put(&t.0, "skills/h/modules/page.html", "ignored");
+    put(&t.0, "skills/h/modules/page.rb", "ignored");
     assert_eq!(with_asset, compute_skill_hash(&load()).unwrap());
     put(&t.0, "skills/h/modules/a.md", "two");
     assert_ne!(with_asset, compute_skill_hash(&load()).unwrap());
@@ -438,14 +495,14 @@ fn sync_writes_outputs_assets_and_lock_entries() {
         &skill_md("a", "metadata:\n  version: '2.0'\n"),
     );
     put(&t.0, "skills/a/modules/m.md", "m");
-    put(&t.0, "skills/a/modules/skip.html", "x");
+    put(&t.0, "skills/a/modules/skip.rb", "x");
     put(&t.0, "rules/r/SKILL.md", &skill_md("r", ""));
     let skills = discover_skills(&t.0);
     let clock = clock();
     let res = sync_skills(&skills, &registry(), &opts(&t.0, &clock)).unwrap();
     assert!(t.0.join(".identity/skills/a/SKILL.md").is_file());
     assert!(t.0.join(".identity/skills/a/modules/m.md").is_file());
-    assert!(!t.0.join(".identity/skills/a/modules/skip.html").exists());
+    assert!(!t.0.join(".identity/skills/a/modules/skip.rb").exists());
     assert!(t.0.join(".identity/rules/r.md").is_file());
     let a = &res.lockfile.skills[0].1;
     assert_eq!(a.version.as_deref(), Some("2.0"));

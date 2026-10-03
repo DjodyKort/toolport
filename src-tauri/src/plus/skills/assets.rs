@@ -5,27 +5,82 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Replicates mcpm's current allowlist (`SKILL_ASSET_DIRS` / `SKILL_ASSET_EXTENSIONS`);
-/// Q-ASSETS may widen it, so every consumer goes through this constant.
 pub struct AssetAllowlist {
     pub dirs: &'static [&'static str],
     pub extensions: &'static [&'static str],
 }
 
-pub const ASSET_ALLOWLIST: AssetAllowlist = AssetAllowlist {
-    dirs: &[
-        "modules",
-        "reference",
-        "templates",
-        "examples",
-        "assets",
-        "scripts",
-    ],
+const ASSET_DIRS: &[&str] = &[
+    "modules",
+    "reference",
+    "templates",
+    "examples",
+    "assets",
+    "scripts",
+];
+
+pub const MCPM_ASSET_ALLOWLIST: AssetAllowlist = AssetAllowlist {
+    dirs: ASSET_DIRS,
     extensions: &[
         ".md", ".txt", ".json", ".yaml", ".yml", ".png", ".svg", ".jpg", ".jpeg", ".webp", ".sh",
         ".bash", ".py",
     ],
 };
+
+/// mcpm's list widened by D-027; `.zip` stays out unless a user adds it via
+/// `TOOLPORT_SKILL_ASSET_EXTENSIONS`.
+pub const ASSET_ALLOWLIST: AssetAllowlist = AssetAllowlist {
+    dirs: ASSET_DIRS,
+    extensions: &[
+        ".md", ".txt", ".json", ".yaml", ".yml", ".png", ".svg", ".jpg", ".jpeg", ".webp", ".sh",
+        ".bash", ".py", ".html", ".csv", ".js",
+    ],
+};
+
+pub const EXTRA_EXTENSIONS_ENV: &str = "TOOLPORT_SKILL_ASSET_EXTENSIONS";
+
+#[derive(Clone, Debug)]
+pub enum AssetPolicy {
+    Mcpm,
+    Extra(Vec<String>),
+}
+
+thread_local! {
+    static POLICY: std::cell::RefCell<Option<AssetPolicy>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Runs `f` with the asset policy pinned on this thread (parity replays use `Mcpm`).
+pub fn with_asset_policy<R>(policy: AssetPolicy, f: impl FnOnce() -> R) -> R {
+    let prev = POLICY.with(|p| p.borrow_mut().replace(policy));
+    let out = f();
+    POLICY.with(|p| *p.borrow_mut() = prev);
+    out
+}
+
+/// Normalizes a comma/space separated list: lowercase, leading dot, empties dropped.
+pub fn parse_extensions(raw: &str) -> Vec<String> {
+    raw.split(|c: char| c == ',' || c.is_whitespace())
+        .map(str::trim)
+        .filter(|e| !e.is_empty() && *e != ".")
+        .map(|e| {
+            let e = e.to_lowercase();
+            if e.starts_with('.') {
+                e
+            } else {
+                format!(".{e}")
+            }
+        })
+        .collect()
+}
+
+fn policy() -> AssetPolicy {
+    if let Some(p) = POLICY.with(|p| p.borrow().clone()) {
+        return p;
+    }
+    AssetPolicy::Extra(parse_extensions(
+        &std::env::var(EXTRA_EXTENSIONS_ENV).unwrap_or_default(),
+    ))
+}
 
 /// Python `Path.suffix.lower()`: text after the last dot of the final component, unless the dot
 /// is the first character (so `.hidden` has no suffix but `.hidden.md` has `.md`) or the last.
@@ -36,12 +91,12 @@ fn suffix_lower(name: &str) -> String {
     }
 }
 
-fn allowed(allow: &AssetAllowlist, name: &str) -> bool {
+fn allowed(allow: &AssetAllowlist, extra: &[String], name: &str) -> bool {
     let suffix = suffix_lower(name);
-    allow.extensions.contains(&suffix.as_str())
+    allow.extensions.contains(&suffix.as_str()) || extra.iter().any(|e| *e == suffix)
 }
 
-fn walk(dir: &Path, base: &Path, allow: &AssetAllowlist, out: &mut Vec<PathBuf>) {
+fn walk(dir: &Path, base: &Path, allow: &AssetAllowlist, extra: &[String], out: &mut Vec<PathBuf>) {
     let Ok(read) = fs::read_dir(dir) else {
         return;
     };
@@ -49,14 +104,14 @@ fn walk(dir: &Path, base: &Path, allow: &AssetAllowlist, out: &mut Vec<PathBuf>)
         let path = entry.path();
         let is_real_dir = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
         if is_real_dir {
-            walk(&path, base, allow, out);
+            walk(&path, base, allow, extra, out);
             continue;
         }
         if !path.is_file() {
             continue;
         }
         let name = entry.file_name().to_string_lossy().into_owned();
-        if allowed(allow, &name) {
+        if allowed(allow, extra, &name) {
             if let Ok(rel) = path.strip_prefix(base) {
                 out.push(rel.to_path_buf());
             }
@@ -72,12 +127,16 @@ pub fn rel_string(rel: &Path) -> String {
 }
 
 /// Allowed asset files relative to `src_dir`, sorted by their `/`-joined relative path.
-pub fn discover_assets_with(src_dir: &Path, allow: &AssetAllowlist) -> Vec<PathBuf> {
+pub fn discover_assets_with(
+    src_dir: &Path,
+    allow: &AssetAllowlist,
+    extra: &[String],
+) -> Vec<PathBuf> {
     let mut out = Vec::new();
     for sub in allow.dirs {
         let dir = src_dir.join(sub);
         if dir.is_dir() {
-            walk(&dir, src_dir, allow, &mut out);
+            walk(&dir, src_dir, allow, extra, &mut out);
         }
     }
     out.sort_by_key(|p| rel_string(p));
@@ -85,7 +144,10 @@ pub fn discover_assets_with(src_dir: &Path, allow: &AssetAllowlist) -> Vec<PathB
 }
 
 pub fn discover_assets(src_dir: &Path) -> Vec<PathBuf> {
-    discover_assets_with(src_dir, &ASSET_ALLOWLIST)
+    match policy() {
+        AssetPolicy::Mcpm => discover_assets_with(src_dir, &MCPM_ASSET_ALLOWLIST, &[]),
+        AssetPolicy::Extra(extra) => discover_assets_with(src_dir, &ASSET_ALLOWLIST, &extra),
+    }
 }
 
 /// `sha256:` plus the first 16 hex digits over `SKILL.md\n<bytes>\n---\n` followed by
