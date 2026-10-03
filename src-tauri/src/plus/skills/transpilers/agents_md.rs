@@ -1,4 +1,5 @@
 use crate::plus::skills::parser::Skill;
+use crate::plus::skills::pyfs::read_text;
 use crate::plus::skills::transpiler::{
     inject_managed_block, TranspileResult, Transpiler, MCPM_BLOCK_END, MCPM_BLOCK_START,
 };
@@ -58,9 +59,9 @@ impl Transpiler for AgentsMd {
         lines.push("</available_skills>".into());
         let path = root.join("AGENTS.md");
         let existing = if path.exists() {
-            match fs::read_to_string(&path) {
+            match read_text(&path) {
                 Ok(s) => s,
-                Err(e) => return Some(Err(format!("{}: {e}", path.display()))),
+                Err(e) => return Some(Err(e)),
             }
         } else {
             String::new()
@@ -71,6 +72,10 @@ impl Transpiler for AgentsMd {
             warnings: Vec::new(),
         }))
     }
+
+    fn clean(&self, root: &Path, _managed: &[String]) -> Result<Vec<PathBuf>, String> {
+        clean(root)
+    }
 }
 
 /// Removes the managed block from AGENTS.md; deletes the file when nothing else remains.
@@ -79,7 +84,7 @@ pub fn clean(root: &Path) -> Result<Vec<PathBuf>, String> {
     if !path.exists() {
         return Ok(Vec::new());
     }
-    let content = fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let content = read_text(&path)?;
     let (Some(start), Some(end)) = (content.find(MCPM_BLOCK_START), content.find(MCPM_BLOCK_END))
     else {
         return Ok(Vec::new());

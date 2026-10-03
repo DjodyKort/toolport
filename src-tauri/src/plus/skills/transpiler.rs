@@ -1,6 +1,6 @@
 //! Transpiler abstraction and registry; concrete per-client transpilers live in later items.
 
-use super::parser::Skill;
+use super::parser::{Skill, SkillType};
 use std::path::{Path, PathBuf};
 
 pub const MCPM_BLOCK_START: &str = "<!-- mcpm:start -->";
@@ -47,6 +47,29 @@ pub trait Transpiler {
 
     fn uninstall_hooks(&self, _output_root: &Path, _ids: &[String]) -> Result<Vec<String>, String> {
         Ok(Vec::new())
+    }
+
+    /// Removes the primary output of each managed skill and one now-empty parent directory.
+    /// Append-mode clients override this to strip their managed block instead.
+    fn clean(&self, root: &Path, managed: &[String]) -> Result<Vec<PathBuf>, String> {
+        let mut removed = Vec::new();
+        for name in managed {
+            let dummy = Skill::placeholder(name, SkillType::Skill);
+            let path = self.get_output_path(&dummy, root);
+            if !path.exists() {
+                continue;
+            }
+            std::fs::remove_file(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+            if let Some(parent) = path.parent() {
+                if parent.is_dir()
+                    && std::fs::read_dir(parent).is_ok_and(|mut r| r.next().is_none())
+                {
+                    std::fs::remove_dir(parent).map_err(|e| e.to_string())?;
+                }
+            }
+            removed.push(path);
+        }
+        Ok(removed)
     }
 }
 

@@ -1,0 +1,16 @@
+{
+  "area": "styles",
+  "entry": "styles_sync",
+  "args": {
+    "repo": "repo"
+  },
+  "comparison": "A",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ],
+  "overrides": {
+    "*mcpm-skills.lock": "B"
+  }
+}
