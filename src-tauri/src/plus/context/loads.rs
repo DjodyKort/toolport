@@ -25,6 +25,35 @@ pub struct LoadItem {
     pub tokens: u64,
 }
 
+impl LoadItem {
+    fn new(
+        kind: &'static str,
+        name: impl Into<String>,
+        path: String,
+        source: &'static str,
+        reason: impl Into<String>,
+        tokens: u64,
+    ) -> Self {
+        LoadItem {
+            kind,
+            name: name.into(),
+            path: Some(path),
+            source,
+            loaded: true,
+            reason: reason.into(),
+            tokens,
+        }
+    }
+
+    fn unless(mut self, skip: bool, reason: &str) -> Self {
+        if skip {
+            self.loaded = false;
+            self.reason = reason.into();
+        }
+        self
+    }
+}
+
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub struct Clobber {
     pub kind: &'static str,
@@ -51,8 +80,8 @@ fn text_tokens(text: &str) -> u64 {
     estimated_tokens(text.len() as u64)
 }
 
-fn show(path: &Path) -> Option<String> {
-    Some(path.display().to_string())
+fn show(path: &Path) -> String {
+    path.display().to_string()
 }
 
 fn memory_source(text: &str) -> &'static str {
@@ -93,6 +122,28 @@ impl Ctx<'_> {
         self.items.push(item);
     }
 
+    fn clobber(
+        &mut self,
+        kind: &'static str,
+        key: &str,
+        winner: &str,
+        overridden: &str,
+        relation: &'static str,
+    ) {
+        self.clobbers.push(Clobber {
+            kind,
+            key: key.to_string(),
+            winner: winner.to_string(),
+            overridden: vec![overridden.to_string()],
+            relation,
+        });
+    }
+
+    fn override_item(&mut self, index: usize, winner: &str) {
+        self.items[index].loaded = false;
+        self.items[index].reason = format!("overridden by {winner}");
+    }
+
     fn org_enabled(&self) -> bool {
         self.spec.map(|s| s.org).unwrap_or(true)
     }
@@ -102,19 +153,17 @@ fn memory(ctx: &mut Ctx, effective_settings: &Map<String, Value>) {
     let user_md = ctx.roots.claude_home.join("CLAUDE.md");
     if let Ok(text) = fs::read_to_string(&user_md) {
         let off = !ctx.org_enabled() || excluded(effective_settings, &user_md);
-        ctx.push(LoadItem {
-            kind: "memory",
-            name: "CLAUDE.md".into(),
-            path: show(&user_md),
-            source: "org",
-            loaded: !off,
-            reason: if off {
-                "excluded by claudeMdExcludes".into()
-            } else {
-                "user memory".into()
-            },
-            tokens: text_tokens(&text),
-        });
+        ctx.push(
+            LoadItem::new(
+                "memory",
+                "CLAUDE.md",
+                show(&user_md),
+                "org",
+                "user memory",
+                text_tokens(&text),
+            )
+            .unless(off, "excluded by claudeMdExcludes"),
+        );
     }
     for dir in ancestors(ctx.cwd) {
         for (rel, local) in [
@@ -130,23 +179,22 @@ fn memory(ctx: &mut Ctx, effective_settings: &Map<String, Value>) {
                 continue;
             };
             let off = excluded(effective_settings, &path);
-            ctx.push(LoadItem {
-                kind: "memory",
-                name: rel.into(),
-                path: show(&path),
-                source: if local {
-                    memory_source(&text)
-                } else {
-                    "project"
-                },
-                loaded: !off,
-                reason: if off {
-                    "excluded by claudeMdExcludes".into()
-                } else {
-                    "directory walk to cwd".into()
-                },
-                tokens: text_tokens(&text),
-            });
+            let source = if local {
+                memory_source(&text)
+            } else {
+                "project"
+            };
+            ctx.push(
+                LoadItem::new(
+                    "memory",
+                    rel,
+                    show(&path),
+                    source,
+                    "directory walk to cwd",
+                    text_tokens(&text),
+                )
+                .unless(off, "excluded by claudeMdExcludes"),
+            );
         }
     }
 }
@@ -200,28 +248,20 @@ fn rules(ctx: &mut Ctx) {
             };
             let label = path.display().to_string();
             if let Some(prev) = seen.get(&name) {
-                ctx.clobbers.push(Clobber {
-                    kind: "rule",
-                    key: name.clone(),
-                    winner: label.clone(),
-                    overridden: vec![prev.clone()],
-                    relation: "overrides",
-                });
+                ctx.clobber("rule", &name, &label, prev, "overrides");
             }
             seen.insert(name.clone(), label);
-            ctx.push(LoadItem {
-                kind: "rule",
-                name,
-                path: show(&path),
-                source,
-                loaded: !scoped,
-                reason: if scoped {
-                    "path-scoped: loads when a matching file is read".into()
-                } else {
-                    "always on".into()
-                },
-                tokens: text_tokens(&text),
-            });
+            ctx.push(
+                LoadItem::new(
+                    "rule",
+                    name,
+                    show(&path),
+                    source,
+                    "always on",
+                    text_tokens(&text),
+                )
+                .unless(scoped, "path-scoped: loads when a matching file is read"),
+            );
         }
     }
     if let Some(spec) = ctx.spec {
@@ -234,19 +274,19 @@ fn rules(ctx: &mut Ctx) {
                     continue;
                 };
                 let body = body_of(&layer.path);
-                ctx.push(LoadItem {
-                    kind: "rule",
-                    name: format!("{rule} (append-system-prompt)"),
-                    path: show(&layer.path),
-                    source: if rule.starts_with("client-") {
-                        "client-layer"
-                    } else {
-                        "personal"
-                    },
-                    loaded: true,
-                    reason: "profile --append-system-prompt-file".into(),
-                    tokens: text_tokens(body.trim()),
-                });
+                let source = if rule.starts_with("client-") {
+                    "client-layer"
+                } else {
+                    "personal"
+                };
+                ctx.push(LoadItem::new(
+                    "rule",
+                    format!("{rule} (append-system-prompt)"),
+                    show(&layer.path),
+                    source,
+                    "profile --append-system-prompt-file",
+                    text_tokens(body.trim()),
+                ));
             }
         }
     }
@@ -294,28 +334,22 @@ fn settings(ctx: &mut Ctx) -> Map<String, Value> {
     let mut owner: BTreeMap<String, (String, Value)> = BTreeMap::new();
     for (label, source, map) in &layers {
         if label.ends_with("settings.json") || label.ends_with("settings.local.json") {
-            ctx.items.push(LoadItem {
-                kind: "settings",
-                name: label.rsplit('/').next().unwrap_or(label).to_string(),
-                path: Some(label.clone()),
+            ctx.push(LoadItem::new(
+                "settings",
+                label.rsplit('/').next().unwrap_or(label),
+                label.clone(),
                 source,
-                loaded: true,
-                reason: "configuration only, no prompt tokens".into(),
-                tokens: 0,
-            });
+                "configuration only, no prompt tokens",
+                0,
+            ));
         }
         for (key, value) in map {
             if let Some((prev_label, prev)) = owner.get(key) {
                 let merged = (prev.is_array() && value.is_array())
                     || (prev.is_object() && value.is_object());
                 if merged || prev != value {
-                    ctx.clobbers.push(Clobber {
-                        kind: "settings",
-                        key: key.clone(),
-                        winner: label.clone(),
-                        overridden: vec![prev_label.clone()],
-                        relation: if merged { "merges" } else { "overrides" },
-                    });
+                    let relation = if merged { "merges" } else { "overrides" };
+                    ctx.clobber("settings", key, label, prev_label, relation);
                 }
             }
             owner.insert(key.clone(), (label.clone(), value.clone()));
@@ -397,36 +431,24 @@ fn mcp(ctx: &mut Ctx, legacy_names: &[String]) {
             }
         }
     }
-    let mut winner: BTreeMap<String, String> = BTreeMap::new();
-    let mut index: BTreeMap<String, usize> = BTreeMap::new();
+    let mut winner: BTreeMap<String, (String, usize)> = BTreeMap::new();
     for (label, source, servers) in scopes {
         for (name, entry) in servers {
             let text = serde_json::to_string(&entry).unwrap_or_default();
-            if let Some(prev) = winner.get(&name) {
-                ctx.clobbers.push(Clobber {
-                    kind: "mcp",
-                    key: name.clone(),
-                    winner: label.clone(),
-                    overridden: vec![prev.clone()],
-                    relation: "overrides",
-                });
-                if let Some(i) = index.get(&name) {
-                    ctx.items[*i].loaded = false;
-                    ctx.items[*i].reason = format!("overridden by {label}");
-                }
+            if let Some((prev, i)) = winner.get(&name).cloned() {
+                ctx.clobber("mcp", &name, &label, &prev, "overrides");
+                ctx.override_item(i, &label);
             }
-            winner.insert(name.clone(), label.clone());
-            index.insert(name.clone(), ctx.items.len());
+            winner.insert(name.clone(), (label.clone(), ctx.items.len()));
             let org = legacy_names.contains(&name);
-            ctx.push(LoadItem {
-                kind: "mcp",
+            ctx.push(LoadItem::new(
+                "mcp",
                 name,
-                path: Some(label.clone()),
-                source: if org { "org" } else { source },
-                loaded: true,
-                reason: "server definition; tool schemas are not included in the estimate".into(),
-                tokens: text_tokens(&text),
-            });
+                label.clone(),
+                if org { "org" } else { source },
+                "server definition; tool schemas are not included in the estimate",
+                text_tokens(&text),
+            ));
         }
     }
 }
@@ -464,33 +486,27 @@ fn skills(ctx: &mut Ctx) {
             let description = get("description").unwrap_or_default();
             let label = path.display().to_string();
             if let Some((prev, i)) = winner.get(&name).cloned() {
-                ctx.clobbers.push(Clobber {
-                    kind: "skill",
-                    key: name.clone(),
-                    winner: label.clone(),
-                    overridden: vec![prev],
-                    relation: "overrides",
-                });
-                ctx.items[i].loaded = false;
-                ctx.items[i].reason = format!("overridden by {label}");
+                ctx.clobber("skill", &name, &label, &prev, "overrides");
+                ctx.override_item(i, &label);
             }
             winner.insert(name.clone(), (label, ctx.items.len()));
             let managed = scope == "user" && canonical_root.join("skills").join(&name).is_dir();
-            ctx.push(LoadItem {
-                kind: "skill",
-                tokens: text_tokens(&format!("{name}: {description}")),
+            let source = if scope == "project" {
+                "project"
+            } else if managed {
+                "personal"
+            } else {
+                "org"
+            };
+            let tokens = text_tokens(&format!("{name}: {description}"));
+            ctx.push(LoadItem::new(
+                "skill",
                 name,
-                path: show(&skill_md),
-                source: if scope == "project" {
-                    "project"
-                } else if managed {
-                    "personal"
-                } else {
-                    "org"
-                },
-                loaded: true,
-                reason: "name and description load at start; body on demand".into(),
-            });
+                show(&skill_md),
+                source,
+                "name and description load at start; body on demand",
+                tokens,
+            ));
         }
     }
 }
