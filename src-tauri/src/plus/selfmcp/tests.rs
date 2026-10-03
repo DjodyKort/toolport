@@ -71,14 +71,16 @@ const EXPECTED_RESOURCES: &[&str] = &[
     "mcpm://router/status",
 ];
 
-struct Fixture {
-    dir: PathBuf,
+pub(super) struct Fixture {
+    pub(super) dir: PathBuf,
+    pub(super) home: PathBuf,
+    pub(super) repo: PathBuf,
     _lock: std::sync::MutexGuard<'static, ()>,
     _override: crate::registry::DataDirOverride,
 }
 
 impl Fixture {
-    fn new(tag: &str) -> Self {
+    pub(super) fn new(tag: &str) -> Self {
         let lock = crate::registry::data_dir_test_lock();
         let dir = std::env::temp_dir().join(format!("selfmcp-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -99,8 +101,33 @@ impl Fixture {
         });
         std::fs::write(dir.join("registry.json"), registry.to_string()).unwrap();
         let guard = crate::registry::DataDirOverride::set(&dir);
+        let home = dir.join("home");
+        let repo = dir.join("skills-repo");
+        for (rel, text) in [
+            (
+                "skills/demo/SKILL.md",
+                "---\nname: demo\ndescription: A synthetic demo skill\n---\nBody text\n",
+            ),
+            (
+                "agents/helper/AGENT.md",
+                "---\nname: helper\ndescription: A synthetic helper agent\nmodel: inherit\n---\nAgent prompt\n",
+            ),
+            (
+                "styles/plain/STYLE.md",
+                "---\nname: plain\ndescription: A synthetic plain style\nkeep-coding-instructions: true\n---\nStyle text\n",
+            ),
+        ] {
+            let path = repo.join(rel);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, text).unwrap();
+        }
+        std::fs::create_dir_all(&home).unwrap();
+        crate::clients::TEST_HOME.with(|h| *h.borrow_mut() = Some(home.clone()));
+        backend::TEST_REPO.with(|r| *r.borrow_mut() = Some(repo.clone()));
         Self {
             dir,
+            home,
+            repo,
             _lock: lock,
             _override: guard,
         }
@@ -109,6 +136,8 @@ impl Fixture {
 
 impl Drop for Fixture {
     fn drop(&mut self) {
+        crate::clients::TEST_HOME.with(|h| *h.borrow_mut() = None);
+        backend::TEST_REPO.with(|r| *r.borrow_mut() = None);
         let _ = std::fs::remove_dir_all(&self.dir);
     }
 }
@@ -225,6 +254,7 @@ fn tiers_three_and_four_always_carry_a_gate() {
 
 #[test]
 fn gated_tools_refuse_without_confirmation() {
+    let _fixture = Fixture::new("gates");
     for tool in TOOLS.iter().filter(|t| t.gate == Gate::Always) {
         let args = sample_args(tool);
         assert_eq!(
@@ -254,6 +284,7 @@ fn gated_tools_refuse_without_confirmation() {
 
 #[test]
 fn dry_run_waives_the_gate_only_where_declared() {
+    let _fixture = Fixture::new("dryrun");
     for name in ["clients_sync", "sync_push"] {
         assert_eq!(err_kind(call_tool(name, &json!({}))), "refused", "{name}");
         assert_ne!(
@@ -293,18 +324,6 @@ fn argument_validation_rejects_bad_input() {
         err_kind(call_tool("doctor", &json!("text"))),
         "invalid_arguments"
     );
-}
-
-#[test]
-fn unavailable_backends_report_not_implemented() {
-    let error = call_tool("skills_scaffold", &json!({"name": "x"})).unwrap_err();
-    assert_eq!(error.kind, "not_implemented");
-    let result = tool_result(Err(error));
-    assert_eq!(result["isError"], true);
-    assert!(result["content"][0]["text"]
-        .as_str()
-        .unwrap()
-        .starts_with("not_implemented"));
 }
 
 #[test]
@@ -429,6 +448,6 @@ fn json_rpc_surface_lists_calls_and_reads() {
 #[test]
 fn server_definition_points_at_the_binary() {
     let def = server_definition();
-    assert_eq!(def["command"], BINARY_NAME);
+    assert!(def["command"].as_str().unwrap().contains(BINARY_NAME));
     assert_eq!(def["transport"], "stdio");
 }

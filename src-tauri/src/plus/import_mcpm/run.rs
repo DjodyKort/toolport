@@ -529,6 +529,10 @@ pub fn run(opts: &RunOptions) -> Result<Plan, String> {
         changes
     };
 
+    if !opts.dry_run {
+        crate::plus::selfmcp::register::ensure_self_server()?;
+    }
+
     let mut client_changes = Vec::new();
     if opts.write_clients {
         let managed = read_registry()?.client_managed_entries;

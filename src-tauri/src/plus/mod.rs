@@ -46,6 +46,7 @@ const HANDLERS: &[(&str, Handler)] = &[
     ("plus.sync.migrate", sync::handlers::migrate_handler),
     ("plus.cc.list", cc::list_handler),
     ("plus.cc.update", cc::update_handler),
+    ("plus.selfmcp.ensure", selfmcp::register::ensure_handler),
     ("plus.update.check", update::check_handler),
     ("plus.update.apply", update::apply_handler),
 ];

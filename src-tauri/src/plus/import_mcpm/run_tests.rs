@@ -205,7 +205,14 @@ fn real_run_writes_registry_and_vault_only_secrets() {
         assert!(!plan.dry_run);
         assert!(plan.changed());
         let reg: Value = serde_json::from_str(&w.registry_text().unwrap()).unwrap();
-        assert_eq!(reg["servers"].as_array().unwrap().len(), 20);
+        let servers = reg["servers"].as_array().unwrap();
+        assert_eq!(servers.len(), 21);
+        let selfmcp: Vec<&Value> = servers
+            .iter()
+            .filter(|s| s["source"] == crate::plus::selfmcp::register::SELF_SOURCE)
+            .collect();
+        assert_eq!(selfmcp.len(), 1);
+        assert_eq!(selfmcp[0]["name"], crate::plus::selfmcp::SERVER_NAME);
         assert_eq!(reg["secretsGeneration"], 1);
         assert!(!reg["clientScopes"].as_object().unwrap().is_empty());
         for (id, key, value) in &secrets {

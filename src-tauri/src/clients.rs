@@ -188,7 +188,7 @@ pub fn detected_is_gateway(server: &McpServer) -> bool {
     gateway_identity_matches(&server.name, &server.name, server.command.as_deref())
 }
 
-fn home() -> Option<PathBuf> {
+pub(crate) fn home() -> Option<PathBuf> {
     #[cfg(test)]
     if let Some(home) = TEST_HOME.with(|h| h.borrow().clone()) {
         return Some(home);

@@ -1,6 +1,7 @@
 use super::catalog::{ResourceDef, ToolDef};
+use super::{content, docs, servers};
 use super::ToolError;
-use crate::plus::skills::lint::lint_skills;
+use crate::plus::skills::lint::{lint_skills, LintResult};
 use crate::plus::skills::ops::find_skills_repo;
 use crate::plus::skills::parser::{discover_skills, Skill};
 use crate::plus::skills::transpiler::TranspilerRegistry;
@@ -14,7 +15,7 @@ canonical skills repository -> transpilers -> per-client outputs\n\
 registry (servers, profiles) -> gateway -> every client\n\
 encrypted sync bundle <-> remote (push and pull)\n";
 
-fn ctl(path: &[&str]) -> Result<Value, ToolError> {
+pub(super) fn ctl(path: &[&str]) -> Result<Value, ToolError> {
     let positional: Vec<String> = path.iter().map(|s| s.to_string()).collect();
     let (command, rest) = crate::plus::ctl::find_command(&positional)
         .ok_or_else(|| ToolError::new("internal", "ctl command missing"))?;
@@ -23,15 +24,35 @@ fn ctl(path: &[&str]) -> Result<Value, ToolError> {
         .ok_or_else(|| ToolError::not_implemented(&path.join(" ")))?;
     handler(rest)
         .map(|out| out.data)
-        .map_err(|e| ToolError::new("backend_error", e.message))
+        .map_err(|e| {
+            let kind = match e.code.as_str() {
+                "not_found" => "not_found",
+                "conflict" => "conflict",
+                "usage" => "invalid_arguments",
+                _ => "backend_error",
+            };
+            ToolError::new(kind, e.message)
+        })
 }
 
-fn arg_str<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
+pub(super) fn arg_str<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
     args.get(key).and_then(Value::as_str)
 }
 
-fn skills_repo(args: &Value) -> Result<PathBuf, ToolError> {
+#[cfg(test)]
+thread_local! {
+    pub(super) static TEST_REPO: std::cell::RefCell<Option<PathBuf>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+pub(super) fn skills_repo(args: &Value) -> Result<PathBuf, ToolError> {
     let start = arg_str(args, "repo_path").map(PathBuf::from);
+    #[cfg(test)]
+    if start.is_none() {
+        if let Some(repo) = TEST_REPO.with(|r| r.borrow().clone()) {
+            return Ok(repo);
+        }
+    }
     let cwd = std::env::current_dir().unwrap_or_default();
     let config = registry::conduit_dir().unwrap_or_else(|| cwd.clone());
     find_skills_repo(start.as_deref(), &cwd, &config)
@@ -44,7 +65,7 @@ fn load_skills(args: &Value) -> Result<(PathBuf, Vec<Skill>), ToolError> {
     Ok((repo, skills))
 }
 
-fn skill_row(skill: &Skill) -> Value {
+pub(super) fn skill_row(skill: &Skill) -> Value {
     json!({
         "name": skill.name(),
         "description": skill.frontmatter.description,
@@ -54,7 +75,7 @@ fn skill_row(skill: &Skill) -> Value {
     })
 }
 
-fn read_registry() -> Result<Registry, ToolError> {
+pub(super) fn read_registry() -> Result<Registry, ToolError> {
     let Some(path) = registry::registry_path() else {
         return Ok(Registry::default());
     };
@@ -86,7 +107,18 @@ fn transpiler_keys() -> Vec<String> {
     reg.all().map(|t| t.client_key().to_string()).collect()
 }
 
+pub(super) fn lint_value(result: &LintResult) -> Value {
+    json!({
+        "errors": result.errors().count(),
+        "warnings": result.warnings().count(),
+        "messages": result.messages.iter().map(|m| json!({"level": m.level, "name": m.name, "message": m.message})).collect::<Vec<_>>(),
+    })
+}
+
 pub fn run_tool(tool: &ToolDef, args: &Value) -> Result<Value, ToolError> {
+    if let Some(outcome) = content::run(tool.name, args).or_else(|| servers::run(tool.name, args)) {
+        return outcome;
+    }
     match tool.name {
         "skills_list" => {
             let (repo, skills) = load_skills(args)?;
@@ -110,12 +142,7 @@ pub fn run_tool(tool: &ToolDef, args: &Value) -> Result<Value, ToolError> {
             if let Some(names) = args.get("names").and_then(Value::as_array) {
                 skills.retain(|s| names.iter().any(|n| n.as_str() == Some(s.name())));
             }
-            let result = lint_skills(&skills);
-            Ok(json!({
-                "errors": result.errors().count(),
-                "warnings": result.warnings().count(),
-                "messages": result.messages.iter().map(|m| json!({"level": m.level, "name": m.name, "message": m.message})).collect::<Vec<_>>(),
-            }))
+            Ok(lint_value(&lint_skills(&skills)))
         }
         "skills_list_transpilers" => Ok(json!({"transpilers": transpiler_keys()})),
         "servers_list" => {
@@ -207,7 +234,12 @@ pub fn read_resource(def: &ResourceDef) -> Result<String, ToolError> {
                 .collect::<Vec<_>>()
                 .join("\n"))
         }
+        "mcpm://inventory/agents" => content::inventory("agents"),
+        "mcpm://inventory/styles" => content::inventory("styles"),
         "mcpm://clients" => Ok(as_text(json!({"clients": detected_clients()}))),
+        "mcpm://architecture" => Ok(docs::ARCHITECTURE.to_string()),
+        "mcpm://workflows" => Ok(docs::WORKFLOWS.to_string()),
+        "mcpm://router/status" => Ok(as_text(docs::router_status())),
         other => Err(ToolError::not_implemented(other)),
     }
 }
