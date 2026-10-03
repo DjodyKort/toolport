@@ -39,7 +39,7 @@ impl std::fmt::Display for HttpError {
 
 pub fn host_of(url: &str) -> Option<String> {
     let rest = url.split_once("://")?.1;
-    let authority = rest.split(['/', '?', '#']).next()?;
+    let authority = rest.split(['/', '\\', '?', '#']).next()?;
     let authority = authority.rsplit_once('@').map_or(authority, |(_, h)| h);
     let host = if let Some(stripped) = authority.strip_prefix('[') {
         stripped.split(']').next()?.to_string()
