@@ -121,9 +121,14 @@ pub struct SavingsEntry {
     pub tokens_after: u64,
 }
 
+fn token_gap(before: u64, after: u64) -> i64 {
+    (i128::from(before) - i128::from(after)).clamp(i128::from(i64::MIN), i128::from(i64::MAX))
+        as i64
+}
+
 impl SavingsEntry {
     pub fn saved(&self) -> i64 {
-        self.tokens_before as i64 - self.tokens_after as i64
+        token_gap(self.tokens_before, self.tokens_after)
     }
 }
 
@@ -205,7 +210,7 @@ pub struct ProviderSummary {
 
 impl ProviderSummary {
     pub fn saved(&self) -> i64 {
-        self.tokens_before as i64 - self.tokens_after as i64
+        token_gap(self.tokens_before, self.tokens_after)
     }
 
     pub fn saved_percent(&self) -> Option<f64> {
@@ -246,8 +251,8 @@ pub fn summarize(
     for entry in savings.iter().filter(|e| keep(&e.ts, &e.provider)) {
         let s = slot(&mut rows, &entry.provider);
         s.savings_entries += 1;
-        s.tokens_before += entry.tokens_before;
-        s.tokens_after += entry.tokens_after;
+        s.tokens_before = s.tokens_before.saturating_add(entry.tokens_before);
+        s.tokens_after = s.tokens_after.saturating_add(entry.tokens_after);
     }
     rows.into_values().collect()
 }
