@@ -1,0 +1,98 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "/opt/homebrew/bin/npx",
+      "args": ["-y", "@upstash/context7-mcp"],
+      "env": {}
+    },
+    "playwright": {
+      "command": "/opt/homebrew/bin/npx",
+      "args": ["-y", "@playwright/mcp"],
+      "env": {}
+    },
+    "mcpm_profile_profile-a": {
+      "command": "mcpm",
+      "args": ["profile", "run", "profile-a"]
+    },
+    "mcpm_profile_miro-stack": {
+      "command": "mcpm",
+      "args": ["profile", "run", "miro-stack"]
+    },
+    "mcpm_anna-mcp": {
+      "command": "mcpm",
+      "args": ["run", "anna-mcp"]
+    },
+    "mcpm_clickup": {
+      "command": "uvx",
+      "args": [
+        "--with",
+        "mcp<2",
+        "mcp-proxy",
+        "--transport",
+        "streamablehttp",
+        "https://mcp.clickup.com/mcp"
+      ]
+    },
+    "mcpm_org-odoo": {
+      "command": "mcpm",
+      "args": ["run", "org-odoo"]
+    },
+    "mcpm_org-typst": {
+      "command": "mcpm",
+      "args": ["run", "org-typst"]
+    },
+    "mcpm_context7": {
+      "command": "mcpm",
+      "args": ["run", "context7"]
+    },
+    "mcpm_drawio": {
+      "command": "mcpm",
+      "args": ["run", "drawio"]
+    },
+    "mcpm_figma": {
+      "command": "uvx",
+      "args": [
+        "--with",
+        "mcp<2",
+        "mcp-proxy",
+        "--transport",
+        "streamablehttp",
+        "https://mcp.figma.com/mcp"
+      ]
+    },
+    "mcpm_framelink": {
+      "command": "mcpm",
+      "args": ["run", "framelink"]
+    },
+    "mcpm_moodle-mcp": {
+      "command": "mcpm",
+      "args": ["run", "moodle-mcp"]
+    },
+    "mcpm_odh": {
+      "command": "mcpm",
+      "args": ["run", "dev-odoo"]
+    },
+    "mcpm_scihub": {
+      "command": "mcpm",
+      "args": ["run", "scihub"]
+    },
+    "mcpm_slack": {
+      "command": "uvx",
+      "args": [
+        "--with",
+        "mcp<2",
+        "mcp-proxy",
+        "--transport",
+        "streamablehttp",
+        "https://mcp.slack.com/mcp",
+        "--headers",
+        "Authorization",
+        "Bearer CANARY_e6756f3a"
+      ]
+    },
+    "mcpm_stitch": {
+      "command": "mcpm",
+      "args": ["run", "stitch"]
+    }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "mcpServers": {
+    "mcpm_anna-mcp": {
+      "command": "mcpm",
+      "args": ["run", "anna-mcp"]
+    },
+    "mcpm_clickup": {
+      "type": "http",
+      "url": "https://mcp.clickup.com/mcp"
+    },
+    "mcpm_org-odoo": {
+      "command": "mcpm",
+      "args": ["run", "org-odoo"]
+    },
+    "mcpm_org-typst": {
+      "command": "mcpm",
+      "args": ["run", "org-typst"]
+    },
+    "mcpm_context7": {
+      "command": "mcpm",
+      "args": ["run", "context7"]
+    },
+    "mcpm_drawio": {
+      "command": "mcpm",
+      "args": ["run", "drawio"]
+    },
+    "mcpm_figma": {
+      "type": "http",
+      "url": "https://mcp.figma.com/mcp"
+    },
+    "mcpm_google-docs-mcp": {
+      "command": "mcpm",
+      "args": ["run", "google-docs-mcp"]
+    },
+    "mcpm_moodle-mcp": {
+      "command": "mcpm",
+      "args": ["run", "moodle-mcp"]
+    },
+    "mcpm_scihub": {
+      "command": "mcpm",
+      "args": ["run", "scihub"]
+    },
+    "mcpm_stitch": {
+      "command": "mcpm",
+      "args": ["run", "stitch"]
+    },
+    "mcpm_miro": {
+      "type": "http",
+      "url": "https://mcp.miro.com"
+    },
+    "mcpm_miro-community": {
+      "command": "mcpm",
+      "args": ["run", "miro-community"]
+    }
+  }
+}

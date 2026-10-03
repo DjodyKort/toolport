@@ -9,6 +9,7 @@ use serde_json::{json, Value};
 pub mod auth;
 pub mod compression;
 pub mod context;
+pub mod import_mcpm;
 pub mod obs;
 pub mod skills;
 

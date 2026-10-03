@@ -1,0 +1,98 @@
+{
+  "mcpServers": {
+    "mcpm-mcp": {
+      "command": "{{HOME}}/.local/share/uv/tools/mcpm/bin/python",
+      "args": ["-m", "mcpm_mcp"]
+    },
+    "mcpm_profile_profile-a": {
+      "command": "mcpm",
+      "args": ["profile", "run", "profile-a"]
+    },
+    "mcpm_profile_profile-b": {
+      "command": "mcpm",
+      "args": ["profile", "run", "profile-b"]
+    },
+    "mcpm_profile_miro-stack": {
+      "command": "mcpm",
+      "args": ["profile", "run", "miro-stack"]
+    },
+    "mcpm_anna-mcp": {
+      "command": "mcpm",
+      "args": ["run", "anna-mcp"]
+    },
+    "mcpm_lib": {
+      "command": "mcpm",
+      "args": ["run", "lib"]
+    },
+    "mcpm_org-odoo": {
+      "command": "mcpm",
+      "args": ["run", "org-odoo"]
+    },
+    "mcpm_org-typst": {
+      "command": "mcpm",
+      "args": ["run", "org-typst"]
+    },
+    "mcpm_context7": {
+      "command": "mcpm",
+      "args": ["run", "context7"]
+    },
+    "mcpm_drawio": {
+      "command": "mcpm",
+      "args": ["run", "drawio"]
+    },
+    "mcpm_figma": {
+      "type": "http",
+      "url": "https://mcp.figma.com/mcp"
+    },
+    "mcpm_framelink": {
+      "command": "mcpm",
+      "args": ["run", "framelink"]
+    },
+    "mcpm_google-docs-mcp": {
+      "command": "mcpm",
+      "args": ["run", "google-docs-mcp"]
+    },
+    "mcpm_moodle-mcp": {
+      "command": "mcpm",
+      "args": ["run", "moodle-mcp"]
+    },
+    "mcpm_odh": {
+      "command": "mcpm",
+      "args": ["run", "dev-odoo"]
+    },
+    "mcpm_scihub": {
+      "command": "mcpm",
+      "args": ["run", "scihub"]
+    },
+    "mcpm_serena": {
+      "command": "mcpm",
+      "args": ["run", "serena"]
+    },
+    "mcpm_stitch": {
+      "command": "mcpm",
+      "args": ["run", "stitch"]
+    }
+  },
+  "projects": {
+    "{{HOME}}/project-1": {
+      "mcpServers": {
+        "balsamiq-oauth": {
+          "type": "http",
+          "url": "https://bais.balsamiq.com/mcp"
+        }
+      }
+    },
+    "{{HOME}}/project-2": {
+      "mcpServers": {
+        "google-docs-mcp": {
+          "command": "npx",
+          "args": ["-y", "google-docs-mcp"],
+          "env": {
+            "GOOGLE_CLIENT_ID": "CANARY_95fd2389",
+            "GOOGLE_CLIENT_SECRET": "CANARY_2a9dd349"
+          }
+        }
+      }
+    }
+  }
+}

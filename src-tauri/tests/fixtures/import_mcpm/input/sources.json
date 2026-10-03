@@ -1,0 +1,117 @@
+{
+  "context7": {
+    "type": "npx",
+    "package": "REDACTED"
+  },
+  "drawio": {
+    "type": "npx",
+    "package": "REDACTED"
+  },
+  "clickup": {
+    "type": "remote"
+  },
+  "scihub": {
+    "type": "git",
+    "path": "REDACTED",
+    "remote_url": "CANARY_519e017e",
+    "branch": "REDACTED",
+    "last_checked": "REDACTED"
+  },
+  "anna-mcp": {
+    "type": "github-release",
+    "path": "REDACTED",
+    "repo": "REDACTED",
+    "current_version": "REDACTED",
+    "asset_pattern": "REDACTED",
+    "include_prerelease": false,
+    "last_checked": "REDACTED"
+  },
+  "org-odoo": {
+    "type": "git",
+    "path": "REDACTED",
+    "remote_url": "REDACTED",
+    "branch": "REDACTED",
+    "post_update": "REDACTED",
+    "last_checked": "REDACTED"
+  },
+  "org-typst": {
+    "type": "git",
+    "path": "REDACTED",
+    "remote_url": "REDACTED",
+    "branch": "REDACTED",
+    "post_update": "REDACTED",
+    "last_checked": "REDACTED"
+  },
+  "google-docs-mcp": {
+    "type": "git",
+    "path": "REDACTED",
+    "remote_url": "REDACTED",
+    "branch": "REDACTED",
+    "post_update": "REDACTED",
+    "last_checked": "REDACTED"
+  },
+  "stitch": {
+    "type": "npx",
+    "package": "REDACTED"
+  },
+  "figma": {
+    "type": "remote"
+  },
+  "moodle-mcp": {
+    "type": "git",
+    "path": "REDACTED",
+    "last_checked": "REDACTED"
+  },
+  "test": {
+    "type": "npx",
+    "package": "REDACTED"
+  },
+  "test-missing-arg": {
+    "type": "npx",
+    "package": "REDACTED"
+  },
+  "test-empty-args": {
+    "type": "npx",
+    "package": "REDACTED"
+  },
+  "github": {
+    "type": "remote"
+  },
+  "api-server": {
+    "type": "remote"
+  },
+  "existing-server": {
+    "type": "unknown",
+    "reason": "REDACTED"
+  },
+  "dev-odoo": {
+    "type": "git",
+    "path": "REDACTED"
+  },
+  "slack": {
+    "type": "remote"
+  },
+  "serena": {
+    "type": "uvx",
+    "package": "REDACTED"
+  },
+  "miro": {
+    "type": "remote"
+  },
+  "miro-community": {
+    "type": "unknown",
+    "reason": "REDACTED"
+  },
+  "google-docs-a": {
+    "type": "git",
+    "path": "REDACTED"
+  },
+  "google-docs-b": {
+    "type": "git",
+    "path": "REDACTED"
+  },
+  "lib": {
+    "type": "unknown",
+    "reason": "REDACTED"
+  }
+}
