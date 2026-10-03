@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
@@ -7,12 +6,12 @@ use std::time::{Duration, SystemTime};
 use serde_json::Value;
 
 use super::probe::{Probe, ProbeSpec};
+use super::{agent, read_capped};
 use super::types::ProbeOutcome;
 
 pub const DEFAULT_TOKEN_ENDPOINT: &str = "https://oauth2.googleapis.com/token";
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
 pub const PARAM_CONFIG_DIR: &str = "config_dir";
-const MAX_BODY_BYTES: u64 = 64 * 1024;
 const VAULT_CLIENT_ID: &str = "GOOGLE_CLIENT_ID";
 const VAULT_CLIENT_SECRET: &str = "GOOGLE_CLIENT_SECRET";
 
@@ -204,11 +203,7 @@ impl GoogleRefreshProbe {
         let (Some(client_id), Some(client_secret)) = (client_id, client_secret) else {
             return oauth_failure("invalid_client", "");
         };
-        let agent = ureq::AgentBuilder::new()
-            .redirects(0)
-            .timeout(self.timeout)
-            .build();
-        let result = agent.post(&self.endpoint).send_form(&[
+        let result = agent(self.timeout).post(&self.endpoint).send_form(&[
             ("grant_type", "refresh_token"),
             ("refresh_token", &creds.refresh_token),
             ("client_id", &client_id),
@@ -238,13 +233,7 @@ impl GoogleRefreshProbe {
 }
 
 fn read_json(response: ureq::Response) -> Option<Value> {
-    let mut buf = Vec::new();
-    response
-        .into_reader()
-        .take(MAX_BODY_BYTES)
-        .read_to_end(&mut buf)
-        .ok()?;
-    serde_json::from_slice(&buf).ok()
+    serde_json::from_slice(&read_capped(response).ok()?).ok()
 }
 
 fn on_status(status: u16, response: ureq::Response) -> ProbeOutcome {

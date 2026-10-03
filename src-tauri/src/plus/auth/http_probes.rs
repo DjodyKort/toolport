@@ -8,7 +8,6 @@
 //! `<serverId>::<KEY>`; outcomes carry fixed codes, never tokens or response bodies.
 
 use std::collections::BTreeMap;
-use std::io::Read;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -18,6 +17,7 @@ use super::google::{
     endpoint_allowed, sanitize_code, ClientVault, GoogleRefreshProbe, SecretsVault,
 };
 use super::probe::{Clock, Probe, ProbeKind, ProbeRegistry, ProbeSpec, SystemClock};
+use super::{agent, read_capped};
 use super::types::ProbeOutcome;
 use crate::plus::compression::ledger;
 
@@ -33,7 +33,6 @@ pub const ODOO_COOLDOWN_SECS: i64 = 6 * 60 * 60;
 const ODOO_MIN_INTERVAL_SECS: i64 = 6 * 60 * 60;
 const SLOW_MIN_INTERVAL_SECS: i64 = 30 * 60;
 const FAST_MIN_INTERVAL_SECS: i64 = 10 * 60;
-const MAX_BODY_BYTES: u64 = 64 * 1024;
 
 const SLACK_BASE: &str = "https://slack.com/api";
 const STITCH_BASE: &str = "https://stitch.googleapis.com";
@@ -252,11 +251,7 @@ impl HttpProbe {
         headers: &[(&str, String)],
         body: Body,
     ) -> Result<Reply, ProbeOutcome> {
-        let agent = ureq::AgentBuilder::new()
-            .redirects(0)
-            .timeout(self.timeout)
-            .build();
-        let mut request = agent.request(method, url);
+        let mut request = agent(self.timeout).request(method, url);
         for (name, value) in headers {
             request = request.set(name, value);
         }
@@ -270,13 +265,8 @@ impl HttpProbe {
             Err(ureq::Error::Transport(_)) => return Err(ProbeOutcome::TransportError),
         };
         let status = response.status();
-        let mut buf = Vec::new();
-        response
-            .into_reader()
-            .take(MAX_BODY_BYTES)
-            .read_to_end(&mut buf)
-            .map_err(|_| ProbeOutcome::TransportError)?;
-        Ok(Reply { status, body: buf })
+        let body = read_capped(response).map_err(|_| ProbeOutcome::TransportError)?;
+        Ok(Reply { status, body })
     }
 
     fn slack(&self, spec: &ProbeSpec) -> ProbeOutcome {

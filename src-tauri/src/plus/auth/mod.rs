@@ -29,6 +29,25 @@ pub use surfaces::rows_handler;
 pub use prober::{backoff_delay, probe_due, status_handler, AuthProber, ProbeReport, Trigger};
 pub use types::{AuthState, ProbeOutcome, Tracked, TransientRun};
 
+const MAX_BODY_BYTES: u64 = 64 * 1024;
+
+fn agent(timeout: std::time::Duration) -> ureq::Agent {
+    ureq::AgentBuilder::new()
+        .redirects(0)
+        .timeout(timeout)
+        .build()
+}
+
+fn read_capped(response: ureq::Response) -> std::io::Result<Vec<u8>> {
+    use std::io::Read;
+    let mut buf = Vec::new();
+    response
+        .into_reader()
+        .take(MAX_BODY_BYTES)
+        .read_to_end(&mut buf)?;
+    Ok(buf)
+}
+
 #[cfg(test)]
 mod tests;
 
