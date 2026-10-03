@@ -428,6 +428,14 @@ fn norm_cwd_is_idempotent_and_tolerates_anything() {
     });
 }
 
+#[test]
+fn norm_cwd_keeps_dot_segments_and_relative_spelling_for_missing_directories() {
+    assert_eq!(norm_cwd("/no/such/dir/../other"), "/no/such/dir/../other");
+    assert_eq!(norm_cwd("/no/such/./dir/"), "/no/such/./dir");
+    assert_eq!(norm_cwd("no/such/dir/"), "no/such/dir");
+    assert_eq!(norm_cwd(""), "");
+}
+
 fn launch_at(ts: i64, cwd: &str, routed: bool, tag: &str) -> LaunchRecord {
     LaunchRecord {
         ts: format_ts(ts),

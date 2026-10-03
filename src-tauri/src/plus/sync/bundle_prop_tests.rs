@@ -571,7 +571,6 @@ fn manifest_files_that_are_not_bundles_are_format_errors() {
         (r#"{"entries": []}"#, false),
         (r#"{"entries": {"a": 1}}"#, false),
         (r#"{"entries": {"a": {"hash": "h"}}}"#, false),
-        ("[]", true),
         ("[\"x\"]", false),
         ("null", false),
         ("", false),
@@ -584,6 +583,17 @@ fn manifest_files_that_are_not_bundles_are_format_errors() {
     assert!(read(tmp.path()).is_err());
     assert!(read(&tmp.path().join("missing")).is_err());
     assert!(read_bundle(tmp.path(), Credential::Passphrase("pw"), &roots()).is_err());
+}
+
+#[test]
+fn an_empty_json_array_manifest_reads_as_an_empty_bundle() {
+    let tmp = ScratchDir::new("bundle-manifest-array");
+    fs::write(tmp.path().join("sync_manifest.json"), "[]").unwrap();
+    assert!(read(tmp.path()).unwrap().is_empty());
+    let manifest = super::bundle::read_manifest(tmp.path()).unwrap();
+    assert!(manifest.entries.is_empty());
+    assert!(manifest.machine_id.is_empty() && manifest.pushed_at.is_empty());
+    assert_eq!(manifest.version, 1);
 }
 
 const UNSAFE_KEYS: &[&str] = &[
