@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "machine_id": "synthetic-machine",
+  "pushed_at": "2026-10-03T12:00:00+00:00",
+  "entries": {
+    "bin/tool": {
+      "hash": "sha256:bf664cf84f00f6ed",
+      "encrypted_file": "blobs/bin__tool.enc",
+      "category": "global",
+      "project_name": null,
+      "updated_at": "2026-10-03T12:00:00+00:00",
+      "encoding": "utf-8"
+    },
+    "global/server_origins.json": {
+      "hash": "sha256:7263b2e9b8713ce9",
+      "encrypted_file": "blobs/global__server_origins.json",
+      "category": "global",
+      "project_name": null,
+      "updated_at": "2026-10-03T12:00:00+00:00",
+      "encoding": "utf-8"
+    },
+    "global/servers.json": {
+      "hash": "sha256:39a8b5647355b046",
+      "encrypted_file": "blobs/global__servers.json.enc",
+      "category": "global",
+      "project_name": null,
+      "updated_at": "2026-10-03T12:00:00+00:00",
+      "encoding": "utf-8"
+    },
+    "projects/app/CLAUDE.md": {
+      "hash": "sha256:45e8b7f1b7818478",
+      "encrypted_file": "blobs/projects__app__CLAUDE.md.enc",
+      "category": "project",
+      "project_name": "app",
+      "updated_at": "2026-10-03T12:00:00+00:00",
+      "encoding": "utf-8"
+    },
+    "skills_repo/lib/helper.py": {
+      "hash": "sha256:563dc12104e1ffc4",
+      "encrypted_file": "blobs/skills_repo__lib__helper.py.enc",
+      "category": "global",
+      "project_name": null,
+      "updated_at": "2026-10-03T12:00:00+00:00",
+      "encoding": "utf-8"
+    },
+    "skills_repo/skills/demo/blob.bin": {
+      "hash": "sha256:1001fdad51f06efb",
+      "encrypted_file": "blobs/skills_repo__skills__demo__blob.bin.enc",
+      "category": "global",
+      "project_name": null,
+      "updated_at": "2026-10-03T12:00:00+00:00",
+      "encoding": "base64"
+    }
+  }
+}

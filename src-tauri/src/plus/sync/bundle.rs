@@ -8,8 +8,8 @@ use std::fmt;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-const MANIFEST_FILE: &str = "sync_manifest.json";
-const SALT_FILE: &str = "salt.txt";
+pub(crate) const MANIFEST_FILE: &str = "sync_manifest.json";
+pub(crate) const SALT_FILE: &str = "salt.txt";
 pub const SERVER_ORIGINS_KEY: &str = "global/server_origins.json";
 
 #[derive(Debug)]
@@ -19,6 +19,8 @@ pub enum SyncError {
     Crypto(FernetError),
     UnsafePath(String),
     HashMismatch(String),
+    Config(String),
+    Git(String),
 }
 
 impl fmt::Display for SyncError {
@@ -29,6 +31,8 @@ impl fmt::Display for SyncError {
             SyncError::Crypto(e) => write!(f, "{e}"),
             SyncError::UnsafePath(p) => write!(f, "refusing unsafe bundle path: {p}"),
             SyncError::HashMismatch(k) => write!(f, "content hash mismatch for {k}"),
+            SyncError::Config(m) => write!(f, "{m}"),
+            SyncError::Git(m) => write!(f, "{m}"),
         }
     }
 }
@@ -41,7 +45,7 @@ impl From<FernetError> for SyncError {
     }
 }
 
-fn io(path: &Path, e: std::io::Error) -> SyncError {
+pub(crate) fn io(path: &Path, e: std::io::Error) -> SyncError {
     SyncError::Io(format!("{}: {e}", path.display()))
 }
 
@@ -91,12 +95,12 @@ pub struct PortableRoots {
 }
 
 impl PortableRoots {
-    fn resolve(&self, text: &str) -> String {
+    pub fn resolve(&self, text: &str) -> String {
         text.replace("${MCPM_HOME}", &self.mcpm_home.replace('\\', "/"))
             .replace("${HOME}", &self.home.replace('\\', "/"))
     }
 
-    fn make_portable(&self, text: &str) -> String {
+    pub fn make_portable(&self, text: &str) -> String {
         let mut out = text.to_string();
         for (original, token) in [(&self.mcpm_home, "${MCPM_HOME}"), (&self.home, "${HOME}")] {
             if original.is_empty() {
@@ -128,13 +132,13 @@ pub struct SourceFile {
     pub bytes: Vec<u8>,
 }
 
-fn content_hash(bytes: &[u8]) -> String {
+pub fn content_hash(bytes: &[u8]) -> String {
     let digest = Sha256::digest(bytes);
     let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
     format!("sha256:{}", &hex[..16])
 }
 
-fn safe_relative(raw: &str) -> Result<PathBuf, SyncError> {
+pub(crate) fn safe_relative(raw: &str) -> Result<PathBuf, SyncError> {
     let path = Path::new(raw);
     let mut out = PathBuf::new();
     for component in path.components() {
@@ -160,7 +164,7 @@ fn reject_secret_keys(key: &str) -> Result<(), SyncError> {
     Ok(())
 }
 
-fn resolve_key(cred: Credential<'_>, dir: &Path) -> Result<FernetKey, SyncError> {
+pub(crate) fn resolve_key(cred: Credential<'_>, dir: &Path) -> Result<FernetKey, SyncError> {
     match cred {
         Credential::Key(encoded) => Ok(FernetKey::parse(encoded)?),
         Credential::Passphrase(passphrase) => {
@@ -170,7 +174,7 @@ fn resolve_key(cred: Credential<'_>, dir: &Path) -> Result<FernetKey, SyncError>
     }
 }
 
-fn read_salt(dir: &Path) -> Result<Vec<u8>, SyncError> {
+pub(crate) fn read_salt(dir: &Path) -> Result<Vec<u8>, SyncError> {
     let path = dir.join(SALT_FILE);
     let text = fs::read_to_string(&path).map_err(|e| io(&path, e))?;
     STANDARD
@@ -255,6 +259,20 @@ pub fn write_bundle(
     files: &[SourceFile],
     roots: &PortableRoots,
 ) -> Result<Manifest, SyncError> {
+    write_bundle_with_origins(out_dir, cred, salt, machine_id, now, files, roots, None)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn write_bundle_with_origins(
+    out_dir: &Path,
+    cred: Credential<'_>,
+    salt: Option<&[u8]>,
+    machine_id: &str,
+    now: &str,
+    files: &[SourceFile],
+    roots: &PortableRoots,
+    origins_json: Option<&str>,
+) -> Result<Manifest, SyncError> {
     let key = match (cred, salt) {
         (Credential::Key(encoded), _) => FernetKey::parse(encoded)?,
         (Credential::Passphrase(p), Some(s)) => FernetKey::parse(&kdf::derive_key(p, s))?,
@@ -316,11 +334,42 @@ pub fn write_bundle(
             },
         );
     }
+    if let Some(origins) = origins_json {
+        let blob_name = "global__server_origins.json";
+        let blob_path = blobs.join(blob_name);
+        fs::write(&blob_path, origins).map_err(|e| io(&blob_path, e))?;
+        manifest.entries.insert(
+            SERVER_ORIGINS_KEY.to_string(),
+            ManifestEntry {
+                hash: content_hash(origins.as_bytes()),
+                encrypted_file: format!("blobs/{blob_name}"),
+                category: "global".into(),
+                project_name: None,
+                updated_at: now.to_string(),
+                encoding: default_encoding(),
+            },
+        );
+    }
     let path = out_dir.join(MANIFEST_FILE);
     let json =
         serde_json::to_string_pretty(&manifest).map_err(|e| SyncError::Format(e.to_string()))?;
     fs::write(&path, json).map_err(|e| io(&path, e))?;
     Ok(manifest)
+}
+
+pub(crate) fn write_synced_file(path: &Path, key: &str, bytes: &[u8]) -> Result<(), SyncError> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| io(parent, e))?;
+    }
+    fs::write(path, bytes).map_err(|e| io(path, e))?;
+    #[cfg(unix)]
+    if key.starts_with("bin/") {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o755)).map_err(|e| io(path, e))?;
+    }
+    #[cfg(not(unix))]
+    let _ = key;
+    Ok(())
 }
 
 pub struct ImportTargets {
@@ -337,18 +386,25 @@ pub struct ImportReport {
 }
 
 fn destination(file: &BundleFile, targets: &ImportTargets) -> Result<Option<PathBuf>, SyncError> {
-    let key = file.key.as_str();
+    destination_for(&file.key, &file.category, targets)
+}
+
+pub(crate) fn destination_for(
+    key: &str,
+    category: &str,
+    targets: &ImportTargets,
+) -> Result<Option<PathBuf>, SyncError> {
     let rest_after_first = |k: &str| k.split_once('/').map(|(_, rest)| rest.to_string());
     let dest = if let Some(rest) = key.strip_prefix("skills_repo/") {
         targets.skills_repo_dir.join(safe_relative(rest)?)
     } else if let Some(rest) = key.strip_prefix("bin/") {
         targets.config_dir.join("bin").join(safe_relative(rest)?)
-    } else if file.category == "global" {
+    } else if category == "global" {
         match rest_after_first(key) {
             Some(rest) => targets.config_dir.join(safe_relative(&rest)?),
             None => return Ok(None),
         }
-    } else if file.category == "project" {
+    } else if category == "project" {
         let mut parts = key.splitn(3, '/');
         let (_, name, rest) = (parts.next(), parts.next(), parts.next());
         match (name, rest) {
@@ -392,7 +448,7 @@ pub fn import_bundle(
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|e| io(parent, e))?;
         }
-        fs::write(&path, &file.bytes).map_err(|e| io(&path, e))?;
+        write_synced_file(&path, &file.key, &file.bytes)?;
         report.written.push(file.key.clone());
     }
     Ok(report)
