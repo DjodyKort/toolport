@@ -194,8 +194,10 @@ fn summary_text(counts: &AuthCounts, worst: &[String]) -> String {
 
 pub fn statusline(status: &StatusFile, now: i64) -> Value {
     let rows = rows(status, now);
-    let counts = counts(&rows);
-    let worst = worst(&rows);
+    statusline_from(&counts(&rows), &worst(&rows))
+}
+
+fn statusline_from(counts: &AuthCounts, worst: &[String]) -> Value {
     json!({
         "auth": {
             "ok": counts.ok,
@@ -205,7 +207,7 @@ pub fn statusline(status: &StatusFile, now: i64) -> Value {
             "misconfigured": counts.misconfigured,
             "unreachable": counts.unreachable,
             "worst": worst,
-            "text": summary_text(&counts, &worst),
+            "text": summary_text(counts, worst),
         }
     })
 }
@@ -214,7 +216,7 @@ pub fn hook(status: &StatusFile, now: i64) -> Value {
     let rows = rows(status, now);
     let counts = counts(&rows);
     let worst = worst(&rows);
-    let mut value = statusline(status, now);
+    let mut value = statusline_from(&counts, &worst);
     let issues = rows.iter().any(|r| r.fix.is_some());
     if issues {
         let lines: Vec<String> = rows
