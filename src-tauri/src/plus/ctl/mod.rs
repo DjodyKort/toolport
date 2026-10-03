@@ -8,6 +8,7 @@ mod import;
 mod context;
 mod output;
 mod secret;
+mod sync;
 
 use output::{CtlError, Envelope, Output};
 
@@ -149,8 +150,8 @@ pub const COMMANDS: &[Command] = &[
     },
     Command {
         path: &["sync"],
-        summary: "Registry sync push/pull",
-        handler: None,
+        summary: "Encrypted sync: init push pull diff status reset ...",
+        handler: Some(sync::run),
     },
     Command {
         path: &["update"],
@@ -198,7 +199,7 @@ pub fn parse(args: &[String]) -> Result<Parsed, String> {
                 Some(value) => parsed.data_dir = Some(value.to_string()),
                 None if matches!(
                     parsed.positional.first().map(String::as_str),
-                    Some("compression" | "secret" | "import" | "context")
+                    Some("compression" | "secret" | "import" | "context" | "sync")
                 ) =>
                 {
                     parsed.positional.push(other.to_string())

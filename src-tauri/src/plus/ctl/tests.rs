@@ -278,7 +278,6 @@ fn planned_commands_are_not_implemented() {
         &["context", "sync"][..],
         &["compression", "use", "agent"][..],
         &["skills", "sync"][..],
-        &["sync", "push"][..],
         &["update"][..],
         &["server", "add"][..],
     ] {

@@ -28,6 +28,17 @@ const HANDLERS: &[(&str, Handler)] = &[
     ("plus.context.apply", context::apply_handler),
     ("plus.import_mcpm.run", import_mcpm::run_handler),
     ("plus.context.whatLoads", context::what_loads_handler),
+    ("plus.sync.init", sync::handlers::init_handler),
+    ("plus.sync.push", sync::handlers::push_handler),
+    ("plus.sync.pull", sync::handlers::pull_handler),
+    ("plus.sync.diff", sync::handlers::diff_handler),
+    ("plus.sync.status", sync::handlers::status_handler),
+    ("plus.sync.reset", sync::handlers::reset_handler),
+    ("plus.sync.rotatePassphrase", sync::handlers::rotate_handler),
+    ("plus.sync.addProject", sync::handlers::add_project_handler),
+    ("plus.sync.removeProject", sync::handlers::remove_project_handler),
+    ("plus.sync.gitSync", sync::handlers::git_sync_handler),
+    ("plus.sync.migrate", sync::handlers::migrate_handler),
 ];
 
 pub fn dispatch(command: &str, args: Value) -> Result<Value, String> {
