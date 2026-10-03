@@ -6,6 +6,8 @@ use std::time::{Duration, Instant};
 const NOT_FOUND_PREFIX: &str = "could not start (not found)";
 const SPAWN_RETRIES: u32 = 3;
 const SPAWN_RETRY_DELAY: Duration = Duration::from_millis(20);
+const FIRST_POLL: Duration = Duration::from_millis(1);
+const MAX_POLL: Duration = Duration::from_millis(10);
 
 /// Spawn, retrying a few times when the kernel answers `ETXTBSY`.
 ///
@@ -87,6 +89,7 @@ pub fn run_command(mut cmd: Command, timeout: Duration) -> Result<CmdOutput, Str
     let out_thread = drain(child.stdout.take());
     let err_thread = drain(child.stderr.take());
     let started = Instant::now();
+    let mut nap = FIRST_POLL;
     let status = loop {
         match child.try_wait() {
             Ok(Some(status)) => break status,
@@ -95,7 +98,10 @@ pub fn run_command(mut cmd: Command, timeout: Duration) -> Result<CmdOutput, Str
                 let _ = child.wait();
                 return Err(format!("timed out after {}s", timeout.as_secs()));
             }
-            Ok(None) => std::thread::sleep(Duration::from_millis(10)),
+            Ok(None) => {
+                std::thread::sleep(nap);
+                nap = (nap * 2).min(MAX_POLL);
+            }
             Err(e) => return Err(format!("wait failed: {e}")),
         }
     };
@@ -159,6 +165,46 @@ mod tests {
         cmd.arg("-c").arg("sleep 30");
         let err = run_command(cmd, Duration::from_millis(100)).unwrap_err();
         assert!(err.starts_with("timed out after"), "{err}");
+    }
+
+    #[test]
+    fn waits_out_a_command_that_finishes_between_polls() {
+        for delay in ["0", "0.003", "0.02", "0.05", "0.15"] {
+            let mut cmd = Command::new("sh");
+            cmd.arg("-c").arg(format!(
+                "sleep {delay}; printf done; printf warn >&2; exit 7"
+            ));
+            let out = run_command(cmd, Duration::from_secs(20)).unwrap();
+            assert_eq!(
+                (out.code, out.stdout.as_str(), out.stderr.as_str()),
+                (7, "done", "warn"),
+                "{delay}"
+            );
+        }
+    }
+
+    #[test]
+    fn drains_output_larger_than_a_pipe_while_waiting() {
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c").arg(
+            "head -c 300000 /dev/zero | tr '\\0' a; head -c 200000 /dev/zero | tr '\\0' b >&2",
+        );
+        let out = run_command(cmd, Duration::from_secs(20)).unwrap();
+        assert_eq!((out.stdout.len(), out.stderr.len()), (300_000, 200_000));
+        assert!(out.stdout.bytes().all(|b| b == b'a'));
+        assert!(out.stderr.bytes().all(|b| b == b'b'));
+    }
+
+    #[test]
+    fn a_timeout_is_reported_whole_seconds_and_stops_the_command_promptly() {
+        for millis in [0u64, 1, 30, 250] {
+            let mut cmd = Command::new("sh");
+            cmd.arg("-c").arg("sleep 30");
+            let started = Instant::now();
+            let err = run_command(cmd, Duration::from_millis(millis)).unwrap_err();
+            assert_eq!(err, "timed out after 0s", "{millis}");
+            assert!(started.elapsed() < Duration::from_secs(5), "{millis}");
+        }
     }
 
     #[test]
