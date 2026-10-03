@@ -483,6 +483,41 @@ mod tests {
     }
 
     #[test]
+    fn zcode_snippet_detection_preserves_other_clients_server_named_servers() {
+        for (definition, transport) in [
+            (
+                serde_json::json!({"command":"node","args":["server.js"]}),
+                "stdio",
+            ),
+            (
+                serde_json::json!({"type":"http","url":"https://example.test/mcp"}),
+                "http",
+            ),
+            (
+                serde_json::json!({"type":"local","command":["node","server.js"]}),
+                "stdio",
+            ),
+            (
+                serde_json::json!({"type":"remote","url":"https://example.test/mcp"}),
+                "http",
+            ),
+        ] {
+            let content = serde_json::json!({"mcp":{"servers":definition}}).to_string();
+            let parsed = super::super::parse_snippet(&content).unwrap();
+            assert_eq!(parsed.len(), 1);
+            assert_eq!(parsed[0].name, "servers");
+            assert_eq!(parsed[0].transport, transport);
+        }
+        // Transport field names can also be names inside ZCode's nested map.
+        let parsed = super::super::parse_snippet(
+            r#"{"mcp":{"servers":{"command":{"command":"node"},"type":{"type":"http","url":"https://example.test/mcp"}}}}"#,
+        ).unwrap();
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0].name, "command");
+        assert_eq!(parsed[1].name, "type");
+    }
+
+    #[test]
     fn zcode_inventory_parses_transports_and_aliases_without_leaking_values() {
         let servers = parse(r#"{"mcp":{"servers":{
             "local":{"command":"node","args":["server.js"],"environment":{"TOKEN":"secret"}},

@@ -2118,9 +2118,21 @@ fn parse_json_snippet(
 
     // ZCode wraps the map one level deeper than Crush and OpenCode. Recognize
     // it before their entry heuristics so unsupported settings cannot disappear.
+    // A Crush/OpenCode server can itself be named `servers`; its definition
+    // has direct transport fields rather than a map of server definitions.
     if value
         .get("mcp")
-        .is_some_and(|mcp| mcp.get("servers").is_some())
+        .and_then(|mcp| mcp.get("servers"))
+        .is_some_and(|servers| {
+            !servers
+                .get("command")
+                .is_some_and(|command| command.is_string() || command.is_array())
+                && !servers.get("url").is_some_and(serde_json::Value::is_string)
+                && !servers.get("type").is_some_and(serde_json::Value::is_string)
+                && !servers
+                    .get("enabled")
+                    .is_some_and(serde_json::Value::is_boolean)
+        })
     {
         return zcode::parse_snippet(content);
     }
