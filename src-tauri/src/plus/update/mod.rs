@@ -256,6 +256,15 @@ fn describe_post_update(cmd: &str, allowed: bool) -> String {
     }
 }
 
+fn mark_updated(env: &Env, entry: &mut ServerEntry, first: Option<(&str, Value)>) {
+    let mut fields = Map::new();
+    if let Some((key, value)) = first {
+        fields.insert(key.into(), value);
+    }
+    fields.insert("last_updated".into(), json!((env.now)()));
+    source::set_meta_fields(entry, fields);
+}
+
 fn check_git(
     env: &Env,
     opts: &Options,
@@ -317,43 +326,28 @@ fn check_git(
         format!("{} new commit(s)", status.behind),
     );
     rep.changed = true;
-    let mut fields = Map::new();
-    fields.insert("last_updated".into(), json!((env.now)()));
-    source::set_meta_fields(entry, fields);
+    mark_updated(env, entry, None);
     let mut message = format!("updated ({} new commit(s))", status.behind);
     if let Some(cmd) = post_update {
         if opts.allow_commands {
-            match env.shell.run(cmd, &repo, POST_UPDATE_TIMEOUT) {
-                Ok(out) if out.ok() => rep.step("post_update", true, cmd.clone()),
-                Ok(out) => {
-                    rep.step(
-                        "post_update",
-                        false,
-                        format!(
-                            "`{cmd}` failed (exit {}): {}",
-                            out.code,
-                            out.first_error_line()
-                        ),
-                    );
-                    rep.set(
-                        Status::Error,
-                        format!(
-                            "git updated but post_update failed; run manually: cd {path} && {cmd}"
-                        ),
-                    );
-                    return;
-                }
-                Err(e) => {
-                    rep.step("post_update", false, format!("`{cmd}` failed: {e}"));
-                    rep.set(
-                        Status::Error,
-                        format!(
-                            "git updated but post_update failed; run manually: cd {path} && {cmd}"
-                        ),
-                    );
-                    return;
-                }
+            let failure = match env.shell.run(cmd, &repo, POST_UPDATE_TIMEOUT) {
+                Ok(out) if out.ok() => None,
+                Ok(out) => Some(format!(
+                    "`{cmd}` failed (exit {}): {}",
+                    out.code,
+                    out.first_error_line()
+                )),
+                Err(e) => Some(format!("`{cmd}` failed: {e}")),
+            };
+            if let Some(detail) = failure {
+                rep.step("post_update", false, detail);
+                rep.set(
+                    Status::Error,
+                    format!("git updated but post_update failed; run manually: cd {path} && {cmd}"),
+                );
+                return;
             }
+            rep.step("post_update", true, cmd.clone());
         } else {
             rep.step(
                 "post_update",
@@ -456,10 +450,7 @@ fn check_release(
             for note in &done.notes {
                 rep.step("note", true, note.clone());
             }
-            let mut fields = Map::new();
-            fields.insert("current_version".into(), json!(done.version));
-            fields.insert("last_updated".into(), json!((env.now)()));
-            source::set_meta_fields(entry, fields);
+            mark_updated(env, entry, Some(("current_version", json!(done.version))));
             rep.changed = true;
             rep.set(Status::Updated, format!("updated to {}", done.version));
         }
@@ -524,9 +515,7 @@ fn check_pin(
                 format!("pinned {pinned}, latest {latest}"),
             );
             if opts.mode == Mode::Apply && pins::rewrite(&mut entry.args, &spec, &latest) {
-                let mut fields = Map::new();
-                fields.insert("last_updated".into(), json!((env.now)()));
-                source::set_meta_fields(entry, fields);
+                mark_updated(env, entry, None);
                 rep.step("pin", true, format!("{pinned} -> {latest}"));
                 rep.changed = true;
                 rep.set(Status::Updated, format!("pin moved {pinned} -> {latest}"));
