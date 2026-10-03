@@ -17,6 +17,7 @@ pub(super) struct Flag {
     kind: Kind,
     needs: &'static str,
     count: Option<&'static str>,
+    nonempty: bool,
 }
 
 pub(super) const fn switch(name: &'static str) -> Flag {
@@ -39,6 +40,7 @@ impl Flag {
             kind,
             needs: "a value",
             count: None,
+            nonempty: false,
         }
     }
 
@@ -53,6 +55,13 @@ impl Flag {
     pub(super) const fn count(self, bad: &'static str) -> Self {
         Self {
             count: Some(bad),
+            ..self
+        }
+    }
+
+    pub(super) const fn nonempty(self) -> Self {
+        Self {
+            nonempty: true,
             ..self
         }
     }
@@ -76,6 +85,7 @@ pub(super) enum Unknown {
     ArgumentKey,
     ArgumentUsage(&'static str),
     Named,
+    NamedUsage(&'static str),
     Usage(&'static str),
 }
 
@@ -110,6 +120,13 @@ pub(super) struct Flags {
 }
 
 impl Spec {
+    pub(super) const NONE: Spec = Spec {
+        flags: &[],
+        unknown: Unknown::Named,
+        operands: Operands::Reject,
+        ..Spec::PLAIN
+    };
+
     pub(super) const PLAIN: Spec = Spec {
         flags: &[],
         inline: Inline::Off,
@@ -125,6 +142,7 @@ impl Spec {
             Unknown::ArgumentKey => format!("unexpected argument: {key}"),
             Unknown::ArgumentUsage(usage) => format!("unexpected argument: {arg}\n{usage}"),
             Unknown::Named => format!("unknown argument: {arg}"),
+            Unknown::NamedUsage(usage) => format!("unknown argument: {arg}\n{usage}"),
             Unknown::Usage(usage) => usage.to_string(),
         })
     }
@@ -181,6 +199,12 @@ impl Spec {
                 continue;
             }
             let value = match inline {
+                Some("") if flag.nonempty => {
+                    return Err(CtlError::usage(format!(
+                        "{} requires {}",
+                        flag.name, flag.needs
+                    )))
+                }
                 Some(value) => value.to_string(),
                 None => iter.next().cloned().ok_or_else(|| {
                     CtlError::usage(format!("{} requires {}", flag.name, flag.needs))

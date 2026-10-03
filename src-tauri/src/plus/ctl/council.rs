@@ -1,6 +1,6 @@
 //! `toolportctl council install|uninstall|doctor|tools`.
 
-use super::flags::{switch, value, Operands, Spec, Unknown};
+use super::flags::{switch, value, Spec};
 use super::output::{CtlError, Output};
 use crate::plus::council as c;
 use crate::plus::registry_ro;
@@ -11,17 +11,11 @@ const USAGE: &str =
 
 const INSTALL: Spec = Spec {
     flags: &[value("--api-key-env").needs("a variable name")],
-    unknown: Unknown::Named,
-    operands: Operands::Reject,
-    ..Spec::PLAIN
+    ..Spec::NONE
 };
 const UNINSTALL: Spec = Spec {
     flags: &[switch("--purge-key")],
-    ..INSTALL
-};
-const NONE: Spec = Spec {
-    flags: &[],
-    ..INSTALL
+    ..Spec::NONE
 };
 
 pub fn run(rest: &[String]) -> Result<Output, CtlError> {
@@ -79,7 +73,7 @@ fn uninstall(args: &[String]) -> Result<Output, CtlError> {
 }
 
 fn doctor(args: &[String]) -> Result<Output, CtlError> {
-    NONE.parse(args)?;
+    Spec::NONE.parse(args)?;
     let reg = registry_ro::read_opt();
     let checks = c::doctor(reg.as_ref());
     let failed = checks.iter().any(|k| !k.ok);
@@ -101,7 +95,7 @@ fn doctor(args: &[String]) -> Result<Output, CtlError> {
 }
 
 fn tools(args: &[String]) -> Result<Output, CtlError> {
-    NONE.parse(args)?;
+    Spec::NONE.parse(args)?;
     let mut human = String::from("tools\n");
     for t in c::TOOLS {
         human.push_str(&format!(

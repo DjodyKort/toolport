@@ -1,5 +1,6 @@
 //! `toolportctl mcp install|uninstall|doctor|tools`: lifecycle of the self-management server.
 
+use super::flags::{value, Spec};
 use super::output::{CtlError, Output};
 use crate::plus::registry_ro;
 use crate::plus::selfmcp::{self, register, Gate, RESOURCES, TOOLS};
@@ -14,35 +15,21 @@ pub fn run(rest: &[String]) -> Result<Output, CtlError> {
     };
     match sub.as_str() {
         "install" => install(args),
-        "uninstall" => no_extra(args).and_then(|_| uninstall()),
-        "doctor" => no_extra(args).and_then(|_| doctor()),
-        "tools" => no_extra(args).and_then(|_| tools()),
+        "uninstall" => Spec::NONE.parse(args).and_then(|_| uninstall()),
+        "doctor" => Spec::NONE.parse(args).and_then(|_| doctor()),
+        "tools" => Spec::NONE.parse(args).and_then(|_| tools()),
         _ => Err(CtlError::usage(USAGE)),
     }
 }
 
-fn no_extra(args: &[String]) -> Result<(), CtlError> {
-    match args.first() {
-        Some(extra) => Err(CtlError::usage(format!("unknown argument: {extra}"))),
-        None => Ok(()),
-    }
-}
+const INSTALL: Spec = Spec {
+    flags: &[value("--profile").needs("a profile id")],
+    ..Spec::NONE
+};
 
 fn install(args: &[String]) -> Result<Output, CtlError> {
-    let mut profile: Option<String> = None;
-    let mut iter = args.iter();
-    while let Some(arg) = iter.next() {
-        match arg.as_str() {
-            "--profile" => {
-                profile = Some(
-                    iter.next()
-                        .cloned()
-                        .ok_or_else(|| CtlError::usage("--profile requires a profile id"))?,
-                )
-            }
-            other => return Err(CtlError::usage(format!("unknown argument: {other}"))),
-        }
-    }
+    let flags = INSTALL.parse(args)?;
+    let profile = flags.one("--profile").map(String::from);
     let (id, outcome) =
         register::install_self_server(profile.as_deref()).map_err(|e| CtlError::failed("mcp", e))?;
     let action = format!("{outcome:?}").to_lowercase();

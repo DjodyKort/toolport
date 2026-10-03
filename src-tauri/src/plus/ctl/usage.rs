@@ -1,39 +1,28 @@
 //! `toolportctl usage`: token and MCP usage from the Claude Code transcript index.
 
+use super::flags::{switch, value, Inline, Operands, Spec, Unknown};
 use super::output::{CtlError, Output};
 use crate::plus::dispatch;
 use serde_json::{json, Value};
 
 const USAGE: &str = "usage: usage [--root <projects dir>] [--no-refresh]";
 
+const SPEC: Spec = Spec {
+    flags: &[
+        switch("--no-refresh"),
+        value("--root").needs("a directory").nonempty(),
+    ],
+    inline: Inline::Value,
+    unknown: Unknown::NamedUsage(USAGE),
+    operands: Operands::Reject,
+    ..Spec::PLAIN
+};
+
 pub fn run(rest: &[String]) -> Result<Output, CtlError> {
-    let mut root: Option<String> = None;
-    let mut refresh = true;
-    let mut iter = rest.iter();
-    while let Some(arg) = iter.next() {
-        match arg.as_str() {
-            "--no-refresh" => refresh = false,
-            "--root" => {
-                root = Some(
-                    iter.next()
-                        .cloned()
-                        .ok_or_else(|| CtlError::usage("--root requires a directory"))?,
-                )
-            }
-            other => match other.strip_prefix("--root=") {
-                Some("") => return Err(CtlError::usage("--root requires a directory")),
-                Some(v) => root = Some(v.to_string()),
-                None => {
-                    return Err(CtlError::usage(format!(
-                        "unknown argument: {other}\n{USAGE}"
-                    )))
-                }
-            },
-        }
-    }
-    let mut args = json!({"refresh": refresh});
-    if let Some(root) = root {
-        args["root"] = Value::String(root);
+    let flags = SPEC.parse(rest)?;
+    let mut args = json!({"refresh": !flags.on("--no-refresh")});
+    if let Some(root) = flags.one("--root") {
+        args["root"] = Value::String(root.to_string());
     }
     let data = dispatch("plus.obs.summary", args).map_err(CtlError::usage)?;
     let human = render(&data);
