@@ -57,7 +57,7 @@ impl Default for GoogleRefreshProbe {
     }
 }
 
-fn endpoint_allowed(endpoint: &str) -> bool {
+pub(super) fn endpoint_allowed(endpoint: &str) -> bool {
     let Ok(url) = url::Url::parse(endpoint) else {
         return false;
     };
@@ -97,7 +97,7 @@ fn oauth_failure(code: &str, description: &str) -> ProbeOutcome {
     }
 }
 
-fn sanitize_code(code: &str) -> String {
+pub(super) fn sanitize_code(code: &str) -> String {
     let ok = !code.is_empty()
         && code.len() <= 40
         && code
@@ -307,7 +307,7 @@ pub fn google_registry(registry: &crate::registry::Registry) -> super::ProbeRegi
 pub fn probe_handler(args: Value) -> Result<Value, String> {
     use std::sync::{Arc, OnceLock};
 
-    static PROBE: OnceLock<Arc<GoogleRefreshProbe>> = OnceLock::new();
+    static PROBE: OnceLock<Arc<super::http_probes::CompositeProbe>> = OnceLock::new();
 
     let server = args
         .get("server")
@@ -318,9 +318,9 @@ pub fn probe_handler(args: Value) -> Result<Value, String> {
     let dir = crate::registry::conduit_dir()
         .ok_or_else(|| "data directory unavailable".to_string())?
         .join("auth");
-    let registry = google_registry(&crate::registry::load()?);
+    let registry = super::http_probes::combined_registry(&crate::registry::load()?);
     let probe = PROBE
-        .get_or_init(|| Arc::new(GoogleRefreshProbe::new()))
+        .get_or_init(|| Arc::new(super::http_probes::CompositeProbe::default()))
         .clone();
     let prober = super::AuthProber::new(
         super::AuthStore::new(&dir),
