@@ -1,0 +1,7 @@
+  ✓ saved config (provider=headroom)
+  ✓ registered MCP server 'headroom' in mcpm servers.json
+  ✓ removed artifact <DATA>/compression-env.sh
+  ✓ wrote <DATA>/compression-env.sh  (source from ~/.zshrc to route this shell's AI clients (active preset))
+  ✓ wrote <DATA>/compression-shims.zsh  (source from ~/.zshrc for hrclaude/hrup/hrdown/hrstat (replaces headroom-aliases.zsh))
+  ! no installed target clients to propagate to (clients=['claude-code'])
+[exit 0]

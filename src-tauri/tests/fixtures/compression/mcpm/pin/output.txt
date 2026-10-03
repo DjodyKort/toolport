@@ -1,0 +1,4 @@
+pin          0.29.0
+requirement  headroom-ai[proxy,code,ml]==0.29.0
+installed    0.29.0
+[exit 0]

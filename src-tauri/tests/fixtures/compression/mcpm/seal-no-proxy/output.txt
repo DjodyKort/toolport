@@ -1,0 +1,2 @@
+  ✗ no proxy on :8787 — start one first (mcpm compression proxy up). /health is the only truthful source for what a build actually runs.
+[exit 1]

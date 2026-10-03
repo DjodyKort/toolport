@@ -1,0 +1,6 @@
+Enabling compression: rtk-only (preset interactive, mode cache)
+  ✓ saved config (provider=rtk-only)
+
+Next steps:
+  • verify: mcpm compression status / doctor   (MCP presence already propagated)
+[exit 0]

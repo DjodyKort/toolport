@@ -1,0 +1,6 @@
+Switching provider → rtk-only
+  ✓ saved config (provider=rtk-only)
+  ✓ removed MCP server 'headroom' from mcpm servers.json
+  ✓ removed artifact <DATA>/compression-env.sh
+  Then mcpm client sync.
+[exit 0]

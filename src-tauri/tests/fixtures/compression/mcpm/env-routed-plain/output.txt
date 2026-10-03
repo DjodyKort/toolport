@@ -1,0 +1,2 @@
+HRCOMPRESS_LAUNCH=plain
+[exit 0]

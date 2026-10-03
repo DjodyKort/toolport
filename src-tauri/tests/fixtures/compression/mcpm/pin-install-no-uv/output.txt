@@ -1,0 +1,7 @@
+pin          0.29.0
+requirement  headroom-ai[proxy,code,ml]==0.29.0
+installed    0.29.0
+
+Installing headroom-ai[proxy,code,ml]==0.29.0
+  ✗ uv not on PATH — install headroom manually
+[exit 1]

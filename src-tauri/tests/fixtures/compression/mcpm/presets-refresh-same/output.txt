@@ -1,0 +1,6 @@
+  ✓ preset knobs already match 0.29.0
+    preset       mode   savings   port  knobs  snapshot
+ ●  interactive  cache  —         8787  0      unknown
+    agent        token  agent-90  8788  4      0.29.0
+    balanced     token  balanced  8787  3      0.29.0
+[exit 0]

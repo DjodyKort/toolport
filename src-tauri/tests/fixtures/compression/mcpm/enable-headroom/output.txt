@@ -1,0 +1,14 @@
+Enabling compression: headroom (preset interactive, mode cache)
+  ✓ snapshot preset 'agent' knobs from headroom 0.29.0 (profile 'agent-90')
+  ✓ snapshot preset 'balanced' knobs from headroom 0.29.0 (profile 'balanced')
+  ✓ saved config (provider=headroom)
+  ✓ registered MCP server 'headroom' in mcpm servers.json
+  ✓ wrote <DATA>/compression-env.sh  (source from ~/.zshrc to route this shell's AI clients (active preset))
+  ✓ wrote <DATA>/compression-shims.zsh  (source from ~/.zshrc for hrclaude/hrup/hrdown/hrstat (replaces headroom-aliases.zsh))
+  ! no installed target clients to propagate to (clients=['claude-code'])
+
+Next steps:
+  • add to ~/.zshrc: source <DATA>/compression-shims.zsh  (hrclaude/hrup/hrdown — replaces headroom-aliases.zsh)
+  • or launch directly: mcpm compression run -- <claude args>  (resolves the per-dir preset, ensures the proxy, execs claude)
+  • verify: mcpm compression status / doctor   (MCP presence already propagated)
+[exit 0]

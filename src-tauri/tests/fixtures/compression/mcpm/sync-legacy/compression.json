@@ -1,0 +1,34 @@
+{
+  "provider": "rtk-only",
+  "runtime": "hook",
+  "provider_version": {
+    "package": "headroom-ai",
+    "pin": "0.29.0",
+    "extras": ["proxy", "code", "ml"]
+  },
+  "scope": ["default"],
+  "clients": ["claude-code"],
+  "contexts": [],
+  "presets": {
+    "agent": {
+      "mode": "token",
+      "savings_profile": "agent-90",
+      "knobs": {
+        "HEADROOM_MODE": {
+          "value": "token",
+          "applies": "*",
+          "source": "profile"
+        },
+        "HEADROOM_CODE_AWARE_ENABLED": {
+          "value": "0",
+          "applies": "*",
+          "source": "policy"
+        }
+      },
+      "snapshot_version": null,
+      "port": 8788
+    }
+  },
+  "active_preset": "agent",
+  "options": {}
+}

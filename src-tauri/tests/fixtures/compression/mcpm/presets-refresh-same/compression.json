@@ -1,0 +1,74 @@
+{
+  "provider": "headroom",
+  "runtime": "proxy",
+  "provider_version": {
+    "package": "headroom-ai",
+    "pin": "0.29.0",
+    "extras": ["proxy", "code", "ml"]
+  },
+  "scope": ["default"],
+  "clients": ["claude-code"],
+  "contexts": [],
+  "presets": {
+    "interactive": {
+      "mode": "cache",
+      "savings_profile": null,
+      "knobs": {},
+      "snapshot_version": null,
+      "port": 8787
+    },
+    "agent": {
+      "mode": "token",
+      "savings_profile": "agent-90",
+      "knobs": {
+        "HEADROOM_MODE": {
+          "value": "token",
+          "applies": "*",
+          "source": "profile"
+        },
+        "HEADROOM_SAVINGS_PROFILE": {
+          "value": "agent-90",
+          "applies": "*",
+          "source": "profile"
+        },
+        "HEADROOM_MAX_ITEMS": {
+          "value": "30",
+          "applies": "*",
+          "source": "profile"
+        },
+        "HEADROOM_FORCE_KOMPRESS": {
+          "value": "1",
+          "applies": "*",
+          "source": "profile"
+        }
+      },
+      "snapshot_version": "0.29.0",
+      "port": 8788
+    },
+    "balanced": {
+      "mode": "token",
+      "savings_profile": "balanced",
+      "knobs": {
+        "HEADROOM_MODE": {
+          "value": "token",
+          "applies": "*",
+          "source": "profile"
+        },
+        "HEADROOM_SAVINGS_PROFILE": {
+          "value": "balanced",
+          "applies": "*",
+          "source": "profile"
+        },
+        "HEADROOM_MAX_ITEMS": {
+          "value": "60",
+          "applies": "*",
+          "source": "profile"
+        }
+      },
+      "snapshot_version": "0.29.0",
+      "port": 8787
+    }
+  },
+  "active_preset": "interactive",
+  "options": {}
+}

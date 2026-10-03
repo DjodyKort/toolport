@@ -535,6 +535,8 @@ fn emit(
 #[cfg(test)]
 mod compression_cfg_tests;
 #[cfg(test)]
+mod compression_golden_tests;
+#[cfg(test)]
 mod compression_tests;
 #[cfg(test)]
 mod tests;
