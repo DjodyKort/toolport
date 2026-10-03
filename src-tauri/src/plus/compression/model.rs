@@ -6,7 +6,7 @@ use serde::de::{MapAccess, Visitor};
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Map, Value};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::marker::PhantomData;
 
@@ -499,28 +499,35 @@ pub fn fnmatch(pattern: &str, text: &str) -> bool {
         }
         false
     }
-    fn go(p: &[char], t: &[char]) -> bool {
-        let Some(&first) = p.first() else {
-            return t.is_empty();
-        };
-        match first {
-            '*' => (0..=t.len()).any(|skip| go(&p[1..], &t[skip..])),
-            '?' => !t.is_empty() && go(&p[1..], &t[1..]),
-            '[' => match class_end(p, 0) {
-                Some(end) => {
-                    let Some(&c) = t.first() else { return false };
-                    let (negate, set) = match p[1] {
-                        '!' => (true, &p[2..end]),
-                        _ => (false, &p[1..end]),
-                    };
-                    class_has(set, c) != negate && go(&p[end + 1..], &t[1..])
-                }
-                None => t.first() == Some(&'[') && go(&p[1..], &t[1..]),
-            },
-            c => t.first() == Some(&c) && go(&p[1..], &t[1..]),
+    fn go(p: &[char], t: &[char], failed: &mut HashSet<(usize, usize)>) -> bool {
+        if failed.contains(&(p.len(), t.len())) {
+            return false;
         }
+        let matched = match p.first() {
+            None => t.is_empty(),
+            Some(&first) => match first {
+                '*' => (0..=t.len()).any(|skip| go(&p[1..], &t[skip..], failed)),
+                '?' => !t.is_empty() && go(&p[1..], &t[1..], failed),
+                '[' => match class_end(p, 0) {
+                    Some(end) => {
+                        let Some(&c) = t.first() else { return false };
+                        let (negate, set) = match p[1] {
+                            '!' => (true, &p[2..end]),
+                            _ => (false, &p[1..end]),
+                        };
+                        class_has(set, c) != negate && go(&p[end + 1..], &t[1..], failed)
+                    }
+                    None => t.first() == Some(&'[') && go(&p[1..], &t[1..], failed),
+                },
+                c => t.first() == Some(&c) && go(&p[1..], &t[1..], failed),
+            },
+        };
+        if !matched {
+            failed.insert((p.len(), t.len()));
+        }
+        matched
     }
-    go(&p, &t)
+    go(&p, &t, &mut HashSet::new())
 }
 
 /// `X.Y.Z` to a comparable tuple; empty for unknown or unparseable.
