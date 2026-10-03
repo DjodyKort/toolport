@@ -177,7 +177,7 @@ fn path_lookup(name: &str, path: Option<&OsStr>) -> Option<PathBuf> {
         .find(|candidate| is_executable(candidate))
 }
 
-fn is_executable(path: &std::path::Path) -> bool {
+pub(crate) fn is_executable(path: &std::path::Path) -> bool {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -190,11 +190,11 @@ fn is_executable(path: &std::path::Path) -> bool {
     }
 }
 
-fn health_url(port: u16) -> String {
+pub(super) fn health_url(port: u16) -> String {
     format!("http://127.0.0.1:{port}/health")
 }
 
-fn http_json(url: &str, secs: u64) -> Option<Value> {
+pub(super) fn http_json(url: &str, secs: u64) -> Option<Value> {
     ureq::AgentBuilder::new()
         .timeout(Duration::from_secs(secs))
         .build()

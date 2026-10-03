@@ -1,4 +1,5 @@
 use super::store::{day_from_iso, FileState, Locked, McpFailure, MsgRecord, State};
+use crate::plus::fswalk::collect_files;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -112,24 +113,10 @@ pub fn parse_line(line: &str, file_stem: &str, anon_key: &str) -> Option<Parsed>
 }
 
 fn collect_jsonl(root: &Path, out: &mut Vec<PathBuf>) {
-    let Ok(meta) = std::fs::metadata(root) else {
-        return;
-    };
-    if meta.is_file() {
-        out.push(root.to_path_buf());
-        return;
-    }
-    let Ok(rd) = std::fs::read_dir(root) else {
-        return;
-    };
-    for entry in rd.flatten() {
-        let path = entry.path();
-        let Ok(ft) = entry.file_type() else { continue };
-        if ft.is_dir() {
-            collect_jsonl(&path, out);
-        } else if ft.is_file() && path.extension().is_some_and(|e| e == "jsonl") {
-            out.push(path);
-        }
+    match std::fs::metadata(root) {
+        Ok(meta) if meta.is_file() => out.push(root.to_path_buf()),
+        Ok(_) => collect_files(root, &|p| p.extension().is_some_and(|e| e == "jsonl"), out),
+        Err(_) => {}
     }
 }
 
