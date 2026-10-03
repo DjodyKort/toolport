@@ -776,20 +776,41 @@ fn compat_for(dir: &Path) -> CompatKey {
     CompatKey::new(env!("CARGO_PKG_VERSION"), dir.display().to_string())
 }
 
-/// Live daemon processes for this build. Counting a delta around a case makes
-/// the number immune to daemons leaked by other runs on the same machine.
-fn daemon_process_count() -> usize {
+/// Every spelling of a Cargo-built binary's path that can appear in a process
+/// command line. A daemon re-executes `current_exe()`, which the OS resolves
+/// through symlinks, so a symlinked `CARGO_TARGET_DIR` shows up under two names.
+fn exe_spellings(built: &str) -> Vec<String> {
+    let mut spellings = vec![built.to_string()];
+    if let Ok(real) = std::fs::canonicalize(built) {
+        let real = real.display().to_string();
+        if !spellings.contains(&real) {
+            spellings.push(real);
+        }
+    }
+    spellings
+}
+
+/// Command lines of running processes whose executable is one of `exe`'s
+/// spellings. Matching the full path of this build's binary, not its file name,
+/// keeps another checkout's or target dir's gateways and mock servers, which
+/// run the same file names, out of the counts.
+fn process_count_of(exe: &str, also: &str) -> usize {
+    let spellings = exe_spellings(exe);
     process_command_lines()
         .iter()
-        .filter(|line| line.contains("toolport-gateway") && line.contains("--daemon"))
+        .filter(|line| spellings.iter().any(|spelling| line.contains(spelling)))
+        .filter(|line| line.contains(also))
         .count()
 }
 
+/// Live daemon processes of this build. Counting a delta around a case makes
+/// the number immune to daemons leaked by earlier runs of the same build.
+fn daemon_process_count() -> usize {
+    process_count_of(env!("CARGO_BIN_EXE_toolport-gateway"), "--daemon")
+}
+
 fn mock_child_process_count() -> usize {
-    process_command_lines()
-        .iter()
-        .filter(|line| line.contains("mock-mcp-server"))
-        .count()
+    process_count_of(env!("CARGO_BIN_EXE_mock-mcp-server"), "")
 }
 
 /// Full process-table lines (pid, parent, age, command) matching `needle`.
@@ -828,7 +849,7 @@ fn process_report(needle: &str) -> Vec<String> {
 #[cfg(unix)]
 fn process_command_lines() -> Vec<String> {
     let output = Command::new("ps")
-        .args(["-axo", "command="])
+        .args(["-ww", "-axo", "command="])
         .output()
         .expect("run ps");
     String::from_utf8_lossy(&output.stdout)
