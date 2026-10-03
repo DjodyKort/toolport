@@ -59,15 +59,15 @@ pub fn status(rest: &[String]) -> Result<Output, CtlError> {
         },
         "shims": {"path": paths.shims().to_string_lossy(), "exists": paths.shims().exists()},
     });
-    let p = &data["preset"];
+    let preset = config.preset_for(None);
     let mut human = format!(
         "provider  {}\nruntime   {}\npreset    {} (mode={}, profile={}, port={})\npin       {} ({})",
         config.provider.as_str(),
-        data["runtime"].as_str().unwrap_or(""),
+        config.runtime.as_str(),
         config.active_preset,
-        p["mode"].as_str().unwrap_or(""),
-        p["savingsProfile"].as_str().unwrap_or("-"),
-        p["port"],
+        preset.mode.as_str(),
+        preset.savings_profile.as_deref().unwrap_or("-"),
+        preset.port,
         pv.pin,
         pv.requirement(),
     );
@@ -358,29 +358,23 @@ pub(super) fn verify_with(
         "checks": checks,
         "transcripts": {"root": root.to_string_lossy(), "count": transcripts.len()},
     });
-    if transcripts.is_empty() {
-        failed = true;
-        human.push_str(
-            "  FAIL transcripts           no Claude Code transcripts found - nothing to measure\n",
-        );
-        data["buckets"] = Value::Null;
-        return Ok(Output {
-            data,
-            human: human.trim_end().into(),
-            failed,
-        });
-    }
-    if !verify::schema_ok(&transcripts) {
-        failed = true;
-        human.push_str(
+    let unusable = if transcripts.is_empty() {
+        Some("  FAIL transcripts           no Claude Code transcripts found - nothing to measure\n")
+    } else if !verify::schema_ok(&transcripts) {
+        Some(
             "  FAIL transcripts           no cache_* usage fields - the transcript format may \
              have changed; refusing to report a number\n",
-        );
+        )
+    } else {
+        None
+    };
+    if let Some(line) = unusable {
+        human.push_str(line);
         data["buckets"] = Value::Null;
         return Ok(Output {
             data,
             human: human.trim_end().into(),
-            failed,
+            failed: true,
         });
     }
 
