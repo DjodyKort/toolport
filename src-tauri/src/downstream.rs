@@ -3289,7 +3289,10 @@ fn apply_process_group_isolation(cmd: &mut Command) {
     }
 }
 
-fn strip_gateway_control_env(cmd: &mut Command, configured: &std::collections::HashSet<&str>) {
+pub(crate) fn strip_gateway_control_env(
+    cmd: &mut Command,
+    configured: &std::collections::HashSet<&str>,
+) {
     for (key, _) in std::env::vars_os() {
         let Some(k) = key.to_str() else { continue };
         let is_control = k.starts_with("TOOLPORT_") || k.starts_with("CONDUIT_");
