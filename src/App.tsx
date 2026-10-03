@@ -117,6 +117,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { WhatLoadsPanel } from "@/plus/WhatLoads";
 import { useTheme } from "@/lib/theme";
 import { fmtTs } from "@/lib/utils";
 import { createSingleFlight } from "@/lib/singleFlight";
@@ -1008,10 +1009,13 @@ function App() {
                       onRegistryChange={applyRegistryChange}
                     />
                   ) : view === "settings" ? (
-                    <SettingsView
-                      registry={registry}
-                      onRegistryChange={applyRegistryChange}
-                    />
+                    <>
+                      <SettingsView
+                        registry={registry}
+                        onRegistryChange={applyRegistryChange}
+                      />
+                      <WhatLoadsPanel />
+                    </>
                   ) : loading && registry === null ? (
                     <div className="flex flex-col gap-2">
                       {Array.from({ length: 6 }).map((_, i) => (
