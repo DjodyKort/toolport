@@ -1,41 +1,26 @@
 use super::*;
 use serde_json::{json, Value};
-use std::path::PathBuf;
 
 const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 
 struct Fixture {
-    dir: PathBuf,
-    // fields drop in order: the override must go before the lock is released
-    _override: crate::registry::DataDirOverride,
-    _lock: std::sync::MutexGuard<'static, ()>,
+    base: crate::plus::testutil::DataDirFx,
+}
+
+impl std::ops::Deref for Fixture {
+    type Target = crate::plus::testutil::DataDirFx;
+    fn deref(&self) -> &Self::Target {
+        &self.base
+    }
 }
 
 impl Fixture {
     fn new(tag: &str, registry: Option<Value>) -> Self {
-        let lock = crate::registry::data_dir_test_lock();
-        let dir = std::env::temp_dir().join(format!("toolportctl-{tag}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
+        let base = crate::plus::testutil::DataDirFx::new("toolportctl", tag);
         if let Some(registry) = registry {
-            std::fs::write(
-                dir.join("registry.json"),
-                serde_json::to_string_pretty(&registry).unwrap(),
-            )
-            .unwrap();
+            base.write_registry(&registry);
         }
-        let guard = crate::registry::DataDirOverride::set(&dir);
-        Self {
-            dir,
-            _override: guard,
-            _lock: lock,
-        }
-    }
-}
-
-impl Drop for Fixture {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.dir);
+        Self { base }
     }
 }
 

@@ -3,22 +3,23 @@ use serde_json::Value;
 use std::path::{Path, PathBuf};
 
 struct Fx {
-    dir: PathBuf,
+    base: crate::plus::testutil::DataDirFx,
     home: PathBuf,
     repo: PathBuf,
-    _override: crate::registry::DataDirOverride,
-    _lock: std::sync::MutexGuard<'static, ()>,
+}
+
+impl std::ops::Deref for Fx {
+    type Target = crate::plus::testutil::DataDirFx;
+    fn deref(&self) -> &Self::Target {
+        &self.base
+    }
 }
 
 impl Fx {
     fn new(tag: &str) -> Self {
-        let lock = crate::registry::data_dir_test_lock();
-        let dir = std::env::temp_dir().join(format!("ctl-skills-{tag}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        let (home, repo, data) = (dir.join("home"), dir.join("repo"), dir.join("data"));
-        for d in [&home, &data] {
-            std::fs::create_dir_all(d).unwrap();
-        }
+        let base = crate::plus::testutil::DataDirFx::with_data_subdir("ctl-skills", tag, "data");
+        let (home, repo) = (base.dir.join("home"), base.dir.join("repo"));
+        std::fs::create_dir_all(&home).unwrap();
         for (rel, text) in [
             (
                 "skills/demo/SKILL.md",
@@ -33,15 +34,8 @@ impl Fx {
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, text).unwrap();
         }
-        let guard = crate::registry::DataDirOverride::set(&data);
         crate::clients::TEST_HOME.with(|h| *h.borrow_mut() = Some(home.clone()));
-        Self {
-            dir,
-            home,
-            repo,
-            _lock: lock,
-            _override: guard,
-        }
+        Self { base, home, repo }
     }
 
     fn repo(&self) -> String {
@@ -69,7 +63,6 @@ impl Fx {
 impl Drop for Fx {
     fn drop(&mut self) {
         crate::clients::TEST_HOME.with(|h| *h.borrow_mut() = None);
-        let _ = std::fs::remove_dir_all(&self.dir);
     }
 }
 

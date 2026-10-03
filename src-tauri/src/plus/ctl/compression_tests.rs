@@ -2,37 +2,25 @@ use super::*;
 use crate::plus::compression::model::{CompressionConfig, ProviderName};
 use crate::plus::compression::store::{self, Paths};
 use serde_json::{json, Value};
-use std::path::PathBuf;
 
 struct Fx {
-    dir: PathBuf,
-    // fields drop in order: the override must go before the lock is released
-    _override: crate::registry::DataDirOverride,
-    _lock: std::sync::MutexGuard<'static, ()>,
+    base: crate::plus::testutil::DataDirFx,
+}
+
+impl std::ops::Deref for Fx {
+    type Target = crate::plus::testutil::DataDirFx;
+    fn deref(&self) -> &Self::Target {
+        &self.base
+    }
 }
 
 impl Fx {
     fn new(tag: &str, config: Option<CompressionConfig>) -> Self {
-        let lock = crate::registry::data_dir_test_lock();
-        let dir =
-            std::env::temp_dir().join(format!("toolportctl-cmp-{tag}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
+        let base = crate::plus::testutil::DataDirFx::new("toolportctl-cmp", tag);
         if let Some(config) = config {
-            store::save(&Paths::new(&dir), &config).unwrap();
+            store::save(&Paths::new(&base.dir), &config).unwrap();
         }
-        let guard = crate::registry::DataDirOverride::set(&dir);
-        Self {
-            dir,
-            _override: guard,
-            _lock: lock,
-        }
-    }
-}
-
-impl Drop for Fx {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.dir);
+        Self { base }
     }
 }
 

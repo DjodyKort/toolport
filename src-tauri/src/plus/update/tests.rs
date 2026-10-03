@@ -919,41 +919,19 @@ fn unknown_server_filter_is_an_error() {
 }
 
 struct Fixture {
-    dir: PathBuf,
-    // fields drop in order: the override must go before the lock is released
-    _override: crate::registry::DataDirOverride,
-    _lock: std::sync::MutexGuard<'static, ()>,
+    base: crate::plus::testutil::DataDirFx,
 }
 
 impl Fixture {
     fn new(tag: &str, servers: Value) -> Self {
-        let lock = crate::registry::data_dir_test_lock();
-        let dir =
-            std::env::temp_dir().join(format!("plus-update-reg-{tag}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(
-            dir.join("registry.json"),
-            serde_json::to_string_pretty(&json!({"version": 1, "servers": servers, "profiles": [{"id": "default", "name": "Default", "enabledServerIds": []}], "activeProfileId": "default"})).unwrap(),
-        )
-        .unwrap();
-        let guard = crate::registry::DataDirOverride::set(&dir);
-        Self {
-            dir,
-            _override: guard,
-            _lock: lock,
-        }
+        let base = crate::plus::testutil::DataDirFx::new("plus-update-reg", tag);
+        base.write_registry(&json!({"version": 1, "servers": servers, "profiles": [{"id": "default", "name": "Default", "enabledServerIds": []}], "activeProfileId": "default"}));
+        Self { base }
     }
 
     fn servers(&self) -> Value {
-        let text = std::fs::read_to_string(self.dir.join("registry.json")).unwrap();
+        let text = std::fs::read_to_string(self.base.dir.join("registry.json")).unwrap();
         serde_json::from_str::<Value>(&text).unwrap()["servers"].clone()
-    }
-}
-
-impl Drop for Fixture {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.dir);
     }
 }
 

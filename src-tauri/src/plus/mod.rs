@@ -18,6 +18,9 @@ pub mod skills;
 pub mod sync;
 pub mod update;
 
+#[cfg(test)]
+pub(crate) mod testutil;
+
 pub type Handler = fn(Value) -> Result<Value, String>;
 
 const HANDLERS: &[(&str, Handler)] = &[
