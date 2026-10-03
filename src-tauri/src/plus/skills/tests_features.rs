@@ -503,8 +503,8 @@ fn bundle_roundtrips_and_the_zip_is_valid() {
         assert!(status.success());
     }
     let target = t.0.join("out");
-    let names = extract_bundle(&out, &target).unwrap();
-    assert_eq!(names, ["a", "r"]);
+    let report = extract_bundle(&out, &target, false).unwrap();
+    assert_eq!(report.names, ["a", "r"]);
     assert_eq!(
         fs::read_to_string(target.join("skills/a/modules/m.md")).unwrap(),
         "module\n"
@@ -528,7 +528,7 @@ fn bundle_roundtrips_and_the_zip_is_valid() {
 fn extract_rejects_foreign_zips_and_skips_unsafe_names() {
     let t = Tmp::new("bundle-bad");
     put(&t.0, "plain.zip", "not a zip");
-    assert!(extract_bundle(&t.0.join("plain.zip"), &t.0.join("o")).is_err());
+    assert!(extract_bundle(&t.0.join("plain.zip"), &t.0.join("o"), false).is_err());
 }
 
 #[test]

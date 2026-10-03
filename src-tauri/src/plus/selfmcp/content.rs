@@ -11,6 +11,7 @@ use crate::plus::skills::parser::{
     build_frontmatter, discover_skills, parse_frontmatter, parse_skill_file, Skill, SkillType,
 };
 use crate::plus::skills::pyfs::write_text;
+use crate::plus::skills::repo::{skill_bucket, skill_template};
 use crate::plus::skills::styles::lint::lint_styles;
 use crate::plus::skills::styles::{
     all_style_transpilers, apply_style, discover_styles, parse_style_file, remove_style,
@@ -383,19 +384,11 @@ fn skills_scaffold(args: &Value) -> Outcome {
         ));
     }
     let repo = skills_repo(args)?;
-    let (bucket, activation) = if skill_type == "rule" {
-        ("rules", "always")
-    } else {
-        ("skills", "auto")
-    };
-    let content = format!(
-        "---\nname: {name}\ndescription: \"TODO: Describe what this {skill_type} does and when to use it.\"\nactivation: {activation}\n---\n\nTODO: Add {skill_type} instructions here.\n"
-    );
     scaffold(
-        repo.join(bucket).join(name).join("SKILL.md"),
+        repo.join(skill_bucket(skill_type)).join(name).join("SKILL.md"),
         skill_type,
         name,
-        content,
+        skill_template(name, skill_type),
     )
 }
 
