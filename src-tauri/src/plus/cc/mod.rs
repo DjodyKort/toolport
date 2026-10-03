@@ -1,3 +1,4 @@
+use crate::plus::jsonfs::read_json;
 use crate::plus::update::exec::{run_command, CmdOutput};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -162,10 +163,6 @@ pub fn claude_root(over: Option<&Path>) -> PathBuf {
     dirs::home_dir().unwrap_or_default().join(".claude")
 }
 
-fn read_json(path: &Path) -> Option<Value> {
-    serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()
-}
-
 fn entry_version(entry: &Value) -> Option<String> {
     if let Some(v) = entry.get("version").filter(|v| !v.is_null()) {
         let s = v
@@ -193,7 +190,7 @@ fn catalog_versions(root: &Path) -> BTreeMap<(String, String), Option<String>> {
         let Some(loc) = meta.get("installLocation").and_then(Value::as_str) else {
             continue;
         };
-        let Some(catalog) = read_json(&Path::new(loc).join(".claude-plugin/marketplace.json"))
+        let Some(catalog) = read_json::<Value>(&Path::new(loc).join(".claude-plugin/marketplace.json"))
         else {
             continue;
         };
@@ -212,7 +209,7 @@ fn catalog_versions(root: &Path) -> BTreeMap<(String, String), Option<String>> {
 }
 
 fn enabled_plugins(root: &Path) -> BTreeMap<String, bool> {
-    read_json(&root.join("settings.json"))
+    read_json::<Value>(&root.join("settings.json"))
         .and_then(|v| v.get("enabledPlugins").cloned())
         .and_then(|v| v.as_object().cloned())
         .map(|o| {
@@ -224,7 +221,7 @@ fn enabled_plugins(root: &Path) -> BTreeMap<String, bool> {
 }
 
 fn blocked_plugins(root: &Path) -> BTreeSet<String> {
-    read_json(&root.join("plugins/blocklist.json"))
+    read_json::<Value>(&root.join("plugins/blocklist.json"))
         .and_then(|v| v.get("plugins").cloned())
         .and_then(|v| v.as_array().cloned())
         .map(|a| {

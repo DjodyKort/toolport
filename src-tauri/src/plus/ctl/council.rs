@@ -85,8 +85,7 @@ fn doctor(args: &[String]) -> Result<Output, CtlError> {
         return Err(CtlError::usage(format!("unknown argument: {extra}")));
     }
     let reg = registry::registry_path()
-        .and_then(|p| std::fs::read_to_string(p).ok())
-        .and_then(|t| serde_json::from_str::<registry::Registry>(&t).ok());
+        .and_then(|p| crate::plus::jsonfs::read_json::<registry::Registry>(&p));
     let checks = c::doctor(reg.as_ref());
     let failed = checks.iter().any(|k| !k.ok);
     let mut human = String::new();

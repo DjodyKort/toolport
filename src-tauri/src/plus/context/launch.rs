@@ -77,15 +77,8 @@ pub fn launch_argv(roots: &Roots, name: &str, spec: &ProfileSpec) -> Vec<String>
     argv
 }
 
-fn read_json_object(path: &Path) -> Map<String, Value> {
-    fs::read_to_string(path)
-        .ok()
-        .and_then(|t| serde_json::from_str::<Value>(&t).ok())
-        .and_then(|v| match v {
-            Value::Object(m) => Some(m),
-            _ => None,
-        })
-        .unwrap_or_default()
+pub(super) fn read_json_object(path: &Path) -> Map<String, Value> {
+    crate::plus::jsonfs::read_json(path).unwrap_or_default()
 }
 
 pub fn build_mcp_config(

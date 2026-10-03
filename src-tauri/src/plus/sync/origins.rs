@@ -19,10 +19,7 @@ pub fn detect_origins(
     let Ok(Value::Object(servers)) = serde_json::from_str::<Value>(&text) else {
         return origins;
     };
-    let sources: Value = fs::read_to_string(sources_json)
-        .ok()
-        .and_then(|t| serde_json::from_str(&t).ok())
-        .unwrap_or(Value::Null);
+    let sources: Value = crate::plus::jsonfs::read_json(sources_json).unwrap_or(Value::Null);
     for (name, config) in &servers {
         if config.is_object() {
             origins.servers.insert(

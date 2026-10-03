@@ -294,9 +294,7 @@ pub fn plan_notifications(
 /// Lock-free and write-free: `status.json` is replaced atomically, so inspection
 /// surfaces never create the auth directory or quarantine a bad file.
 pub fn read_status(dir: &Path) -> StatusFile {
-    std::fs::read_to_string(dir.join("status.json"))
-        .ok()
-        .and_then(|text| serde_json::from_str::<StatusFile>(&text).ok())
+    crate::plus::jsonfs::read_json::<StatusFile>(&dir.join("status.json"))
         .filter(|status| status.version == STATUS_VERSION)
         .unwrap_or_default()
 }

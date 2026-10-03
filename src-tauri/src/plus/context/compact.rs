@@ -6,7 +6,6 @@ use super::roots::Roots;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::PathBuf;
 
 pub const MIN_WINDOW: u64 = 100_000;
@@ -165,9 +164,7 @@ pub fn warnings(roots: &Roots, name: &str, spec: &ProfileSpec) -> Vec<String> {
     }
     if spec.auto_compact_window.is_some() || !spec.model_windows.is_empty() {
         if let Some(path) = &roots.managed_settings {
-            let managed = fs::read_to_string(path)
-                .ok()
-                .and_then(|t| serde_json::from_str::<Value>(&t).ok());
+            let managed = crate::plus::jsonfs::read_json::<Value>(path);
             let sets = managed
                 .as_ref()
                 .is_some_and(|m| m.get("autoCompactWindow").is_some());
