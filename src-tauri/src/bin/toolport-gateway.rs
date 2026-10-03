@@ -11335,6 +11335,8 @@ fn watch_registry(
             &mut state,
             &host,
         );
+        // Hands the login-health scan to its own thread at most once a minute; never waits.
+        conduit_lib::plus::auth::scheduler::tick();
     }
 }
 
