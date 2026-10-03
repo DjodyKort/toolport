@@ -1,15 +1,20 @@
 //! `toolportctl skills sync|ls|lint|diff`: thin renderers over the `plus.skills.*` handlers.
-//! `init|add|audit|bundle|unbundle` live in `skills_repo.rs`.
+//! `init|add|audit|bundle|unbundle` live in `skills_repo.rs`, `status|clean|uninstall|resolve` in
+//! `skills_state.rs`.
 
 use super::output::{CtlError, Output};
 use serde_json::{json, Value};
 
-const USAGE: &str = "usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|diff \
+const USAGE: &str = "usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|diff|status|clean|uninstall|resolve \
      (sync|ls|lint|diff: [--repo <dir>] [--home <dir>]; sync: [--client <key>]... [--project] \
      [--dry-run]; lint: [--name <skill>]...; init: [--path <dir>] [--name <name>] [--dry-run]; \
      add: <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]; \
      audit: [--path <dir>]; bundle: [--output <zip>] [--path <dir>] [--skills <a,b>] [--dry-run]; \
-     unbundle: <bundle.zip> [--path <dir>] [--dry-run])";
+     unbundle: <bundle.zip> [--path <dir>] [--dry-run]; \
+     status: [--repo <dir>] [--client <key>]... [--strict]; \
+     clean: [--repo <dir>] [--client <key>] [--project] [--dry-run]; \
+     uninstall: <name> [--repo <dir>] [--project] [--dry-run]; \
+     resolve: [--repo <dir>] [--client <key>] [--project] [--dry-run] [--migrate|--no-migrate])";
 
 #[derive(Default)]
 struct Flags {
@@ -18,6 +23,7 @@ struct Flags {
     clients: Vec<String>,
     names: Vec<String>,
     project: bool,
+    global: bool,
     dry_run: bool,
 }
 
@@ -32,14 +38,14 @@ fn parse(rest: &[String], allowed: &[&str]) -> Result<Flags, CtlError> {
         if !allowed.contains(&key) {
             return Err(CtlError::usage(format!("unexpected argument: {arg}")));
         }
-        if matches!(key, "--project" | "--dry-run") {
+        if matches!(key, "--project" | "--global" | "--dry-run") {
             if inline.is_some() {
                 return Err(CtlError::usage(format!("{key} takes no value")));
             }
-            if key == "--project" {
-                flags.project = true;
-            } else {
-                flags.dry_run = true;
+            match key {
+                "--project" => flags.project = true,
+                "--global" => flags.global = true,
+                _ => flags.dry_run = true,
             }
             continue;
         }
@@ -56,12 +62,16 @@ fn parse(rest: &[String], allowed: &[&str]) -> Result<Flags, CtlError> {
     Ok(flags)
 }
 
+pub(super) fn apply_home(home: Option<&str>) {
+    if let Some(home) = home {
+        std::env::set_var("HOME", home);
+        std::env::set_var("USERPROFILE", home);
+    }
+}
+
 impl Flags {
     fn apply_home(&self) {
-        if let Some(home) = &self.home {
-            std::env::set_var("HOME", home);
-            std::env::set_var("USERPROFILE", home);
-        }
+        apply_home(self.home.as_deref());
     }
 
     fn args(&self) -> Value {
@@ -84,8 +94,18 @@ pub fn group(_rest: &[String]) -> Result<Output, CtlError> {
 pub fn sync(rest: &[String]) -> Result<Output, CtlError> {
     let flags = parse(
         rest,
-        &["--repo", "--home", "--client", "--project", "--dry-run"],
+        &[
+            "--repo",
+            "--home",
+            "--client",
+            "--project",
+            "--global",
+            "--dry-run",
+        ],
     )?;
+    if flags.project && flags.global {
+        return Err(CtlError::usage("--global and --project are mutually exclusive"));
+    }
     flags.apply_home();
     let mut args = flags.args();
     args["dry_run"] = json!(flags.dry_run);

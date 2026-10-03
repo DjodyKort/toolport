@@ -26,6 +26,42 @@ pub(super) fn no_args(rest: &[String]) -> Result<(), CtlError> {
     }
 }
 
+/// A box-drawn table in the layout rich prints for mcpm's skills tables.
+pub(super) fn table(headers: &[&str], rows: &[Vec<String>]) -> String {
+    let widths: Vec<usize> = headers
+        .iter()
+        .enumerate()
+        .map(|(i, h)| {
+            rows.iter()
+                .map(|r| r[i].chars().count())
+                .fold(h.chars().count(), usize::max)
+        })
+        .collect();
+    let rule = |left: &str, mid: &str, right: &str, fill: &str| {
+        let cells: Vec<String> = widths.iter().map(|w| fill.repeat(w + 2)).collect();
+        format!("{left}{}{right}", cells.join(mid))
+    };
+    let line = |bar: &str, cells: &[&str]| {
+        let padded: Vec<String> = cells
+            .iter()
+            .zip(&widths)
+            .map(|(c, w)| format!(" {c}{} ", " ".repeat(w - c.chars().count())))
+            .collect();
+        format!("{bar}{}{bar}", padded.join(bar))
+    };
+    let mut lines = vec![
+        rule("┏", "┳", "┓", "━"),
+        line("┃", headers),
+        rule("┡", "╇", "┩", "━"),
+    ];
+    for row in rows {
+        let cells: Vec<&str> = row.iter().map(String::as_str).collect();
+        lines.push(line("│", &cells));
+    }
+    lines.push(rule("└", "┴", "┘", "─"));
+    lines.join("\n")
+}
+
 /// A successful command result: structured data for `--json` and the text
 /// rendering for humans. `failed` keeps the data but exits 1 (doctor).
 pub struct Output {

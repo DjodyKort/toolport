@@ -732,6 +732,55 @@ fn read_only_cases(w: &World) -> Vec<Case> {
                 assert_eq!(d["fileCount"], 1);
             },
         ),
+        case(
+            "skills status",
+            &["skills", "status", "--repo", &repo, "--home", &home],
+            0,
+            |_, d| {
+                assert_eq!(d["lockfilePresent"], false);
+                assert_eq!(d["drift"], false);
+            },
+        ),
+        case(
+            "skills clean",
+            &["skills", "clean", "--repo", &repo, "--home", &home, "--dry-run"],
+            0,
+            |_, d| {
+                assert_eq!(d["dryRun"], true);
+                assert_eq!(d["lockfilePresent"], false);
+                assert_eq!(d["removed"], json!([]));
+            },
+        ),
+        case(
+            "skills uninstall",
+            &[
+                "skills",
+                "uninstall",
+                "demo",
+                "--repo",
+                &repo,
+                "--home",
+                &home,
+                "--dry-run",
+            ],
+            0,
+            |w, d| {
+                assert_eq!(d["dryRun"], true);
+                assert_eq!(d["name"], "demo");
+                assert_eq!(d["lockUpdated"], false);
+                same_path(&d["sourcePath"], &w.repo.join("skills/demo"));
+            },
+        ),
+        case(
+            "skills resolve",
+            &["skills", "resolve", "--repo", &repo, "--home", &home, "--dry-run"],
+            0,
+            |_, d| {
+                assert_eq!(d["dryRun"], true);
+                assert_eq!(d["skillCount"], 1);
+                assert_eq!(d["collisions"], json!([]));
+            },
+        ),
         case("sync", &["sync", "status"], 0, |_, d| {
             assert_eq!(d["configured"], false);
         }),
@@ -937,6 +986,44 @@ fn mutating_commands_round_trip_on_a_synthetic_data_dir() {
     assert_envelope("skills diff after sync", &run, &value, "skills diff", 0);
     assert_eq!(value["data"]["clean"], true);
 
+    let (run, value) = world.json(&["skills", "status", "--repo", &repo, "--home", &home]);
+    assert_envelope("skills status", &run, &value, "skills status", 0);
+    assert_eq!(value["data"]["lockfilePresent"], true);
+    assert_eq!(value["data"]["lockedCount"], 1);
+    assert_eq!(value["data"]["drift"], false);
+    let output = world.home.join(".claude/skills/demo/SKILL.md");
+    std::fs::remove_file(&output).unwrap();
+    let (run, value) = world.json(&[
+        "skills", "status", "--repo", &repo, "--home", &home, "--strict",
+    ]);
+    assert_envelope("skills status drift", &run, &value, "skills status", 1);
+    assert_eq!(value["data"]["drift"], true);
+    let (run, value) = world.json(&["skills", "sync", "--repo", &repo, "--home", &home]);
+    assert_envelope("skills resync", &run, &value, "skills sync", 0);
+    assert!(output.is_file());
+
+    let before = world.snapshot();
+    let (run, value) = world.json(&[
+        "skills",
+        "clean",
+        "--repo",
+        &repo,
+        "--home",
+        &home,
+        "--dry-run",
+    ]);
+    assert_envelope("skills clean dry", &run, &value, "skills clean", 0);
+    assert_eq!(value["data"]["dryRun"], true);
+    assert!(!value["data"]["removed"].as_array().unwrap().is_empty());
+    assert_eq!(world.snapshot(), before, "a clean dry run writes nothing");
+    let (run, value) = world.json(&["skills", "clean", "--repo", &repo, "--home", &home]);
+    assert_envelope("skills clean", &run, &value, "skills clean", 0);
+    assert_eq!(value["data"]["lockfileRemoved"], true);
+    assert!(!output.exists());
+    let (run, value) = world.json(&["skills", "status", "--repo", &repo, "--home", &home]);
+    assert_envelope("skills status after clean", &run, &value, "skills status", 0);
+    assert_eq!(value["data"]["lockfilePresent"], false);
+
     let fresh = world.path(&world.base.join("fresh-skills"));
     let (run, value) = world.json(&["skills", "init", "--path", &fresh, "--name", "smoke"]);
     assert_envelope("skills init", &run, &value, "skills init", 0);
@@ -956,6 +1043,50 @@ fn mutating_commands_round_trip_on_a_synthetic_data_dir() {
         std::fs::read(world.base.join("fresh-skills/skills/smoke-skill/SKILL.md")).unwrap(),
         std::fs::read(world.base.join("unpacked/skills/smoke-skill/SKILL.md")).unwrap()
     );
+
+    let (run, value) = world.json(&[
+        "skills", "sync", "--repo", &fresh, "--home", &home, "--client", "claude-code",
+    ]);
+    assert_envelope("skills sync fresh", &run, &value, "skills sync", 0);
+    let installed = world.home.join(".claude/skills/smoke-skill/SKILL.md");
+    assert!(installed.is_file());
+    let before = world.snapshot();
+    let (run, value) = world.json(&[
+        "skills",
+        "uninstall",
+        "smoke-skill",
+        "--repo",
+        &fresh,
+        "--home",
+        &home,
+        "--dry-run",
+    ]);
+    assert_envelope("skills uninstall dry", &run, &value, "skills uninstall", 0);
+    assert_eq!(value["data"]["dryRun"], true);
+    assert_eq!(world.snapshot(), before, "an uninstall dry run writes nothing");
+    let (run, value) = world.json(&[
+        "skills",
+        "uninstall",
+        "smoke-skill",
+        "--repo",
+        &fresh,
+        "--home",
+        &home,
+    ]);
+    assert_envelope("skills uninstall", &run, &value, "skills uninstall", 0);
+    assert_eq!(value["data"]["lockUpdated"], true);
+    assert!(!installed.exists());
+    assert!(!world.base.join("fresh-skills/skills/smoke-skill").exists());
+    let (run, value) = world.json(&[
+        "skills",
+        "uninstall",
+        "../escape",
+        "--repo",
+        &fresh,
+        "--home",
+        &home,
+    ]);
+    assert_envelope("skills uninstall refused", &run, &value, "skills uninstall", 1);
 
     let (run, value) = world.json(&["client", "sync", "--client", "cursor"]);
     assert_envelope("client sync", &run, &value, "client sync", 0);
