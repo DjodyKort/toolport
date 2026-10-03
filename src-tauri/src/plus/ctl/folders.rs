@@ -1,29 +1,20 @@
 //! `toolportctl context folders`: active gateway profile per folder and the folder-profiles switch.
 
+use super::flags::{switch, value, Inline, Operands, Spec, Unknown};
 use super::output::{CtlError, Output};
 use crate::plus::dispatch;
 use serde_json::{json, Value};
 
+const FOLDERS: Spec = Spec {
+    flags: &[switch("--enable"), switch("--disable"), value("--cwd")],
+    inline: Inline::Value,
+    unknown: Unknown::Argument,
+    operands: Operands::Reject,
+};
+
 pub fn folders(rest: &[String]) -> Result<Output, CtlError> {
-    let (mut cwd, mut enable, mut disable) = (None, false, false);
-    let mut iter = rest.iter();
-    while let Some(arg) = iter.next() {
-        match arg.as_str() {
-            "--enable" => enable = true,
-            "--disable" => disable = true,
-            "--cwd" => {
-                cwd = Some(
-                    iter.next()
-                        .cloned()
-                        .ok_or_else(|| CtlError::usage("--cwd requires a value"))?,
-                )
-            }
-            other => match other.strip_prefix("--cwd=") {
-                Some(v) => cwd = Some(v.to_string()),
-                None => return Err(CtlError::usage(format!("unexpected argument: {other}"))),
-            },
-        }
-    }
+    let flags = FOLDERS.parse(rest)?;
+    let (enable, disable) = (flags.on("--enable"), flags.on("--disable"));
     if enable && disable {
         return Err(CtlError::usage("--enable and --disable are exclusive"));
     }
@@ -31,8 +22,8 @@ pub fn folders(rest: &[String]) -> Result<Output, CtlError> {
         dispatch("plus.context.folderProfilesSet", json!({"enabled": enable}))
             .map_err(|e| CtlError::new("folders_set", e))?;
     }
-    let cwd = match cwd {
-        Some(c) => c,
+    let cwd = match flags.one("--cwd") {
+        Some(c) => c.to_string(),
         None => std::env::current_dir()
             .map(|p| p.display().to_string())
             .unwrap_or_default(),

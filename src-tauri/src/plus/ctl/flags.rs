@@ -15,6 +15,7 @@ pub(super) struct Flag {
     aliases: &'static [&'static str],
     kind: Kind,
     needs: &'static str,
+    count: Option<&'static str>,
 }
 
 pub(super) const fn switch(name: &'static str) -> Flag {
@@ -32,6 +33,7 @@ impl Flag {
             aliases: &[],
             kind,
             needs: "a value",
+            count: None,
         }
     }
 
@@ -41,6 +43,13 @@ impl Flag {
 
     pub(super) const fn needs(self, what: &'static str) -> Self {
         Self { needs: what, ..self }
+    }
+
+    pub(super) const fn count(self, bad: &'static str) -> Self {
+        Self {
+            count: Some(bad),
+            ..self
+        }
     }
 
     fn matches(&self, key: &str) -> bool {
@@ -62,6 +71,7 @@ pub(super) enum Inline {
 pub(super) enum Unknown {
     Option,
     Argument,
+    ArgumentKey,
     ArgumentUsage(&'static str),
 }
 
@@ -98,6 +108,7 @@ impl Spec {
         CtlError::usage(match self.unknown {
             Unknown::Option => format!("unknown option: {key}"),
             Unknown::Argument => format!("unexpected argument: {arg}"),
+            Unknown::ArgumentKey => format!("unexpected argument: {key}"),
             Unknown::ArgumentUsage(usage) => format!("unexpected argument: {arg}\n{usage}"),
         })
     }
@@ -106,17 +117,17 @@ impl Spec {
         let mut out = Flags::default();
         let mut iter = rest.iter();
         while let Some(arg) = iter.next() {
-            if !arg.starts_with('-') || arg == "-" {
-                match self.operands {
-                    Operands::Collect => out.operands.push(arg.clone()),
-                    Operands::Reject => return Err(self.unknown(arg, arg)),
-                }
-                continue;
-            }
             let (key, inline) = match arg.split_once('=') {
                 Some((key, value)) if self.inline != Inline::Off => (key, Some(value)),
                 _ => (arg.as_str(), None),
             };
+            if !arg.starts_with('-') || arg == "-" {
+                match self.operands {
+                    Operands::Collect => out.operands.push(arg.clone()),
+                    Operands::Reject => return Err(self.unknown(arg, key)),
+                }
+                continue;
+            }
             let Some(flag) = self.flags.iter().find(|f| f.matches(key)) else {
                 return Err(self.unknown(arg, key));
             };
@@ -136,6 +147,11 @@ impl Spec {
                     CtlError::usage(format!("{} requires {}", flag.name, flag.needs))
                 })?,
             };
+            if let Some(bad) = flag.count {
+                if value.parse::<u64>().is_err() {
+                    return Err(CtlError::usage(format!("{} {bad}", flag.name)));
+                }
+            }
             out.values.push((flag.name, value));
         }
         Ok(out)
@@ -149,6 +165,10 @@ impl Flags {
             .rev()
             .find(|(k, _)| *k == name)
             .map(|(_, v)| v.as_str())
+    }
+
+    pub(super) fn count(&self, name: &str) -> Option<u64> {
+        self.one(name).and_then(|v| v.parse().ok())
     }
 
     pub(super) fn all(&self, name: &str) -> Vec<String> {
