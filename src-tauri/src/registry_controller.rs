@@ -436,8 +436,8 @@ pub(crate) fn selected_servers_to_import(
     detected: &[clients::DetectedClient],
     existing: &Registry,
     selected: Option<&std::collections::HashSet<String>>,
-) -> Vec<ServerEntry> {
-    servers_to_import(detected, existing)
+) -> Result<Vec<ServerEntry>, String> {
+    let picked = servers_to_import(detected, existing)
         .into_iter()
         .filter(|server| {
             selected.is_none_or(|keys| {
@@ -448,7 +448,19 @@ pub(crate) fn selected_servers_to_import(
                 ))
             })
         })
-        .collect()
+        .collect::<Vec<_>>();
+    for client in detected {
+        let source = format!("imported:{}", client.id);
+        let names = picked
+            .iter()
+            .filter(|server| server.source.as_deref() == Some(source.as_str()))
+            .map(|server| server.name.clone())
+            .collect::<Vec<_>>();
+        if !names.is_empty() {
+            clients::validate_client_import(client, &names, false)?;
+        }
+    }
+    Ok(picked)
 }
 
 pub fn preview_client_imports() -> Result<Vec<ClientImportCandidate>, String> {
@@ -473,7 +485,7 @@ pub fn import_client_servers(selected: Vec<String>) -> Result<(Registry, usize),
         .into_iter()
         .collect::<std::collections::HashSet<_>>();
     registry::update(|registry| {
-        let servers = selected_servers_to_import(&detected, registry, Some(&selected));
+        let servers = selected_servers_to_import(&detected, registry, Some(&selected))?;
         let added = servers.len();
         for server in servers {
             apply_add_entry(registry, server);
@@ -1166,7 +1178,14 @@ pub struct MigrateOutcome {
 pub(crate) fn import_client_servers_for_migration(
     registry: &mut Registry,
     client: &clients::DetectedClient,
-) -> (usize, Vec<String>) {
+) -> Result<(usize, Vec<String>), String> {
+    let names = client
+        .servers
+        .iter()
+        .filter(|server| !clients::detected_is_gateway(server))
+        .map(|server| server.name.clone())
+        .collect::<Vec<_>>();
+    clients::validate_client_import(client, &names, true)?;
     let mut imported = 0;
     let mut moved = Vec::new();
     for server in &client.servers {
@@ -1183,7 +1202,7 @@ pub(crate) fn import_client_servers_for_migration(
             imported += 1;
         }
     }
-    (imported, moved)
+    Ok((imported, moved))
 }
 
 /// Migrate a client to Toolport: import its directly-configured servers into the
@@ -1215,7 +1234,7 @@ pub fn migrate_client(
 
     // Import the client's servers under the lock (a fresh load-modify-save).
     let (_, (imported, moved)) =
-        registry::update(|registry| Ok(import_client_servers_for_migration(registry, &client)))?;
+        registry::update(|registry| import_client_servers_for_migration(registry, &client))?;
 
     let profile = profile.map(str::trim).filter(|profile| !profile.is_empty());
     let outcome = match shared_http_url {
@@ -1940,6 +1959,185 @@ mod tests {
     }
     use super::*;
     use crate::registry::ServerEntry;
+
+    struct ZCodeImportFixture {
+        root: PathBuf,
+        client: clients::DetectedClient,
+    }
+
+    impl ZCodeImportFixture {
+        fn new(servers: serde_json::Value) -> Self {
+            let root = test_path("zcode-import");
+            let path = root.join(".zcode/cli/config.json");
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(
+                &path,
+                serde_json::json!({"mcp":{"servers":servers}}).to_string(),
+            )
+            .unwrap();
+            let inventory = servers
+                .as_object()
+                .unwrap()
+                .iter()
+                .map(|(name, definition)| clients::McpServer {
+                    name: name.clone(),
+                    transport: definition
+                        .get("type")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("stdio")
+                        .into(),
+                    command: definition
+                        .get("command")
+                        .and_then(serde_json::Value::as_str)
+                        .map(str::to_string),
+                    args: Vec::new(),
+                    env_keys: Vec::new(),
+                    url: definition
+                        .get("url")
+                        .and_then(serde_json::Value::as_str)
+                        .map(str::to_string),
+                })
+                .collect();
+            Self {
+                root,
+                client: clients::DetectedClient {
+                    id: "zcode".into(),
+                    name: "ZCode".into(),
+                    uses_connectors: false,
+                    config_path: path.display().to_string(),
+                    config_exists: true,
+                    app_present: true,
+                    servers: inventory,
+                    plugin_servers: Vec::new(),
+                    gateway_installed: false,
+                    entry_state: GatewayEntryState::Absent,
+                    error: None,
+                },
+            }
+        }
+    }
+
+    impl Drop for ZCodeImportFixture {
+        fn drop(&mut self) {
+            std::fs::remove_dir_all(&self.root).ok();
+        }
+    }
+
+    #[test]
+    fn zcode_import_preview_stays_available_and_selected_safe_servers_can_import() {
+        let fixture = ZCodeImportFixture::new(serde_json::json!({
+            "unsupported":{"command":"node", "cwd":"/srv/work"},
+            "supported":{"command":"node"}
+        }));
+        let mut unrelated = fixture.client.clone();
+        unrelated.id = "cursor".into();
+        unrelated.servers.truncate(1);
+        unrelated.servers[0].name = "other-client".into();
+        let detected = [fixture.client.clone(), unrelated];
+        let mut registry = Registry::default();
+        assert_eq!(servers_to_import(&detected, &registry).len(), 3);
+        assert!(selected_servers_to_import(&detected, &registry, None)
+            .unwrap_err()
+            .contains("'cwd'"));
+        assert!(registry.servers.is_empty());
+        let selected =
+            std::collections::HashSet::from(["name:supported".into(), "name:other-client".into()]);
+        let servers = selected_servers_to_import(&detected, &registry, Some(&selected)).unwrap();
+        assert_eq!(servers.len(), 2);
+        for entry in servers {
+            registry.add_server(entry);
+        }
+        assert_eq!(registry.servers.len(), 2);
+        assert!(registry.enabled_servers().is_empty());
+    }
+
+    #[test]
+    fn zcode_client_import_keeps_disabled_entries_disabled_including_legacy_false() {
+        let fixture = ZCodeImportFixture::new(serde_json::json!({
+            "disabled":{"command":"node", "enabled":false, "enable":true},
+            "legacy-disabled":{"command":"node", "enabled":true, "enable":false}
+        }));
+        let mut registry = Registry::default();
+        for entry in selected_servers_to_import(&[fixture.client.clone()], &registry, None).unwrap()
+        {
+            registry.add_server(entry);
+        }
+        assert_eq!(registry.servers.len(), 2);
+        assert!(registry.enabled_servers().is_empty());
+        let mut migration_registry = Registry::default();
+        let error = import_client_servers_for_migration(&mut migration_registry, &fixture.client)
+            .unwrap_err();
+        assert!(error.contains("disabled"));
+        assert!(migration_registry.servers.is_empty());
+    }
+
+    #[test]
+    fn zcode_unsupported_metadata_refuses_import_and_migration_before_mutation() {
+        for (field, value) in [
+            ("cwd", serde_json::json!("/srv/work")),
+            ("timeoutMs", serde_json::json!(4500)),
+            ("protocolVersion", serde_json::json!("auto")),
+            ("protocolVersion", serde_json::json!("legacy")),
+            ("protocolVersion", serde_json::json!("2026-07-28")),
+            (
+                "oauth",
+                serde_json::json!({"type":"client_credentials", "clientId":"test", "clientSecret":"do-not-print"}),
+            ),
+        ] {
+            let mut definition = if field == "oauth" {
+                serde_json::json!({"type":"http", "url":"https://example.test/mcp"})
+            } else {
+                serde_json::json!({"command":"node"})
+            };
+            definition[field] = value;
+            let fixture = ZCodeImportFixture::new(serde_json::json!({"affected":definition}));
+            let mut registry = Registry::default();
+            let error =
+                selected_servers_to_import(&[fixture.client.clone()], &registry, None).unwrap_err();
+            assert!(error.contains(field), "{error}");
+            assert!(!error.contains("do-not-print"));
+            let error =
+                import_client_servers_for_migration(&mut registry, &fixture.client).unwrap_err();
+            assert!(error.contains(field), "{error}");
+            assert!(registry.servers.is_empty());
+        }
+    }
+
+    #[test]
+    fn zcode_supported_migration_imports_once_without_enabling_and_skips_gateway() {
+        let fixture = ZCodeImportFixture::new(serde_json::json!({
+            "supported":{"command":"node"},
+            "events":{"type":"sse", "url":"https://example.test/sse"},
+            "conduit":{"command":"/old/conduit-gateway"}
+        }));
+        let mut registry = Registry::default();
+        let (imported, moved) =
+            import_client_servers_for_migration(&mut registry, &fixture.client).unwrap();
+        assert_eq!(imported, 2);
+        assert_eq!(moved, ["events", "supported"]);
+        assert!(registry.enabled_servers().is_empty());
+        let (imported, _) =
+            import_client_servers_for_migration(&mut registry, &fixture.client).unwrap();
+        assert_eq!(imported, 0);
+        assert_eq!(registry.servers.len(), 2);
+    }
+
+    #[test]
+    fn zcode_fallback_migration_is_refused_before_registry_changes() {
+        let mut fixture = ZCodeImportFixture::new(serde_json::json!({"shared":{"command":"node"}}));
+        std::fs::remove_file(&fixture.client.config_path).unwrap();
+        fixture.client.config_exists = false;
+        let fallback = fixture.root.join(".agents/mcp.json");
+        std::fs::create_dir_all(fallback.parent().unwrap()).unwrap();
+        let original = r#"{"mcpServers":{"shared":{"command":"node"}}}"#;
+        std::fs::write(&fallback, original).unwrap();
+        let mut registry = Registry::default();
+        let error =
+            import_client_servers_for_migration(&mut registry, &fixture.client).unwrap_err();
+        assert!(error.contains("would hide"));
+        assert!(registry.servers.is_empty());
+        assert_eq!(std::fs::read_to_string(fallback).unwrap(), original);
+    }
 
     /// Every self-hosted catalog entry must be rejected by the one-click add,
     /// because it has no endpoint yet. Both shells route these to the server
