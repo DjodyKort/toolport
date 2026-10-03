@@ -578,6 +578,9 @@ mod compression_tests;
 mod tests;
 
 #[cfg(test)]
+mod usage_pins_tests;
+
+#[cfg(test)]
 mod server_tests;
 
 #[cfg(test)]
