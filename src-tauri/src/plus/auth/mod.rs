@@ -2,6 +2,7 @@
 
 mod cache;
 mod flight;
+mod gateway_state;
 mod google;
 mod http_probes;
 mod issues;
@@ -13,6 +14,7 @@ mod types;
 
 pub use cache::{AuthStore, EdgeEvent, ServerEntry, StatusFile};
 pub use flight::SingleFlight;
+pub use gateway_state::{gateway_registry, GatewayStateProbe};
 pub use google::{probe_handler, GoogleRefreshProbe};
 pub use http_probes::{combined_registry, http_registry, CompositeProbe, HttpProbe};
 pub use issues::{compute_issues, AuthIssue};
@@ -41,3 +43,6 @@ mod http_probes_tests;
 
 #[cfg(test)]
 mod surfaces_tests;
+
+#[cfg(test)]
+mod gateway_e2e_tests;

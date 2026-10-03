@@ -789,10 +789,13 @@ fn composite_routes_by_kind() {
     let composite = CompositeProbe::default();
     let out = composite.run(&ProbeSpec::new("x", ProbeKind::Http));
     assert_state(&out, "misconfigured", "missing_config");
-    assert_eq!(
-        composite.run(&ProbeSpec::new("x", ProbeKind::GatewayState)),
-        ProbeOutcome::TransportError
-    );
+    crate::secrets::tests::with_isolated_vault(|| {
+        assert_state(
+            &composite.run(&ProbeSpec::new("x", ProbeKind::GatewayState)),
+            "needs_reauth",
+            "no_token",
+        );
+    });
 }
 
 fn tree_text(dir: &std::path::Path) -> String {
