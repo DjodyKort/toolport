@@ -1,0 +1,206 @@
+name: Fork CI
+
+# Toolport+ fork pipeline. Upstream ci.yml is pinned by
+# src/test/ci-required-checks.test.ts and only runs on PRs and main, so the fork
+# gets its own workflow for mig/* and djody/main. No secrets, no signing, no release.
+on:
+  push:
+    branches: ["mig/**", djody/main]
+  workflow_dispatch:
+
+concurrency:
+  group: fork-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  # Mirrors scripts/verify.mjs (frontend + headless) on the same runner as upstream build-test.
+  verify:
+    name: Verify (Linux)
+    timeout-minutes: 45
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+
+      - name: Install Linux build dependencies
+        run: scripts/ci-apt-install.sh build-essential libssl-dev pkg-config libdbus-1-dev
+
+      - name: Cache cargo + target
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-fork-verify-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-fork-verify-cargo-
+
+      - run: npm ci
+
+      - name: Production dependency audit
+        run: npm run audit:prod
+
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run test
+      - run: npm run bench:bundle
+
+      - name: Install browser for offline UI smoke
+        run: npx playwright install --with-deps chromium
+
+      - run: npm run smoke:browser
+
+      - name: Keep browser failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: browser-smoke-diagnostics
+          path: .verify/browser-*/
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+      - name: Rust tests (headless)
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml --no-default-features --lib --bins --tests
+
+      - run: npm run build:gateway
+      - run: npm run smoke:headless
+
+  # cfg(target_os = "macos") code (secrets.rs, ...) never compiles on Linux.
+  rust-macos:
+    name: Headless Rust tests (macOS)
+    timeout-minutes: 30
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: src-tauri
+          key: fork-headless
+          cache-bin: "false"
+
+      - name: Rust tests (lib + binaries + integration, no desktop)
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml --no-default-features --lib --bins --tests
+
+      - name: Build headless gateway
+        run: cargo build --locked --manifest-path src-tauri/Cargo.toml --bin toolport-gateway --bin mock-mcp-server --no-default-features
+
+      - name: Headless gateway security smoke
+        run: node scripts/smoke-headless.mjs
+
+  # `npm run test:rust` (default features = desktop). Covers the desktop.rs tests
+  # that --no-default-features skips.
+  rust-desktop-tests:
+    name: Desktop Rust tests (Linux)
+    timeout-minutes: 45
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+
+      - name: Install Linux build dependencies
+        run: scripts/ci-apt-install.sh libwebkit2gtk-4.1-dev libsoup-3.0-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf pkg-config libdbus-1-dev
+
+      - name: Give the runner headroom (a cold build links WebKitGTK)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/share/swift 2>/dev/null || true
+          sudo fallocate -l 8G /mnt/ci-swap && sudo chmod 600 /mnt/ci-swap && sudo mkswap /mnt/ci-swap && sudo swapon /mnt/ci-swap || true
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: src-tauri
+          key: fork-desktop
+          cache-bin: "false"
+
+      - run: npm ci
+
+      # tauri-build expects dist/ when compiling the desktop feature.
+      - run: npm run build
+
+      - name: Rust tests (default features, including desktop.rs)
+        run: npm run test:rust
+
+  # Unsigned arm64 .app. Updater artifacts are disabled because no signing key
+  # exists in CI; --bundles app skips the dmg step. The workflow does not sign.
+  mac-app:
+    name: Unsigned macOS app (arm64)
+    timeout-minutes: 60
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+
+      - name: Add the macOS Rust target
+        run: rustup target add aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: src-tauri
+          key: fork-mac-app
+          cache-bin: "false"
+
+      - run: npm ci
+
+      - name: Build unsigned app bundle
+        run: >-
+          npx tauri build
+          --config src-tauri/tauri.bundle.conf.json
+          --config '{"bundle":{"createUpdaterArtifacts":false}}'
+          --bundles app
+          --target aarch64-apple-darwin
+        env:
+          CONDUIT_SIDECAR_TARGET: aarch64-apple-darwin
+
+      - name: Archive the app bundle
+        run: |
+          set -euo pipefail
+          app="$(ls -d src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app | head -n1)"
+          mkdir -p out
+          ditto -c -k --sequesterRsrc --keepParent "$app" out/Toolport-arm64-unsigned.app.zip
+          ls -lh out
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: toolport-app-arm64-unsigned
+          path: out/Toolport-arm64-unsigned.app.zip
+          if-no-files-found: error
+          retention-days: 14
