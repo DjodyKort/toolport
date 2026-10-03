@@ -618,3 +618,73 @@ fn desktop_remotes_go_through_the_gateway_without_proxy_shims() {
             .any(|(sid, key, _)| sid == "slack" && key == "__http_auth__"));
     });
 }
+
+fn launch_world(w: &World) -> RunOptions {
+    let bin = w.home.join(".config/mcpm/bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    std::fs::write(bin.join("helper.sh"), "#!/bin/sh\nexit 0\n").unwrap();
+    let home = w.home.to_string_lossy().into_owned();
+    std::fs::write(
+        w.root.join("servers.json"),
+        json!({
+            "helper": {"name": "helper", "command": "bash",
+                       "args": [format!("{home}/.config/mcpm/bin/helper.sh")]},
+            "ghost": {"name": "ghost", "command": "bash",
+                      "args": [format!("{home}/.config/mcpm/bin/absent.sh")]},
+            "wrapped": {"name": "wrapped", "command": "sudo", "args": ["true"]},
+            "plain": {"name": "plain", "command": "node", "args": ["/srv/plain/index.js"]}
+        })
+        .to_string(),
+    )
+    .unwrap();
+    for entry in std::fs::read_dir(&w.root).unwrap() {
+        let path = entry.unwrap().path();
+        if path.file_name().unwrap() != "servers.json" {
+            std::fs::remove_file(path).unwrap();
+        }
+    }
+    RunOptions {
+        root: w.root.clone(),
+        short_ids_path: None,
+        home: Some(home),
+        dry_run: false,
+        write_clients: false,
+        prune_orphans: false,
+    }
+}
+
+#[test]
+fn launch_specs_are_relocated_screened_and_scripts_copied() {
+    with_world("launch", |w| {
+        let opts = launch_world(w);
+        let plan = run(&opts).unwrap();
+        assert_eq!(plan.rejects.len(), 1, "{:?}", plan.rejects);
+        assert_eq!(plan.rejects[0].id, "wrapped");
+        let ids: Vec<&str> = plan.servers.iter().map(|c| c.id.as_str()).collect();
+        assert!(!ids.contains(&"wrapped"));
+        assert!(ids.contains(&"plain"));
+        let copied = w.data().join("imported-scripts/config_mcpm_bin/helper.sh");
+        assert!(copied.is_file());
+        assert_eq!(plan.scripts.len(), 2);
+        let text = w.registry_text().unwrap();
+        assert!(text.contains("imported-scripts"));
+        assert!(!text.contains(".config/mcpm/bin/helper.sh\""));
+        assert!(!text.contains("\"wrapped\""));
+        assert!(plan.summary().contains("rejected wrapped"));
+        let warnings = plan.warnings.to_string();
+        assert!(warnings.contains("script-missing"));
+        assert!(warnings.contains("rejected-launch"));
+    });
+}
+
+#[test]
+fn dry_run_plans_scripts_without_copying() {
+    with_world("launch-dry", |w| {
+        let mut opts = launch_world(w);
+        opts.dry_run = true;
+        let plan = run(&opts).unwrap();
+        assert_eq!(plan.rejects.len(), 1);
+        assert!(!w.data().join("imported-scripts").exists());
+        assert!(w.registry_text().is_none());
+    });
+}

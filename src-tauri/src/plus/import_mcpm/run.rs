@@ -1,4 +1,6 @@
-use super::{map_all, ClientConfig, Mapping, McpmInput, IMPORT_SOURCE};
+use super::{
+    map_all, relocate_entry, screen_entry, ClientConfig, Mapping, McpmInput, Warning, IMPORT_SOURCE,
+};
 use crate::clients;
 use crate::registry::{self, ManagedEntry, Profile, Registry, ServerEntry};
 use serde::Serialize;
@@ -50,10 +52,19 @@ pub struct ClientChange {
     pub error: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct Reject {
+    pub id: String,
+    pub reason: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Plan {
     pub dry_run: bool,
+    pub rejects: Vec<Reject>,
+    pub scripts: Vec<String>,
     pub servers: Vec<Change>,
     pub profiles: Vec<Change>,
     pub client_scopes: Vec<Change>,
@@ -109,6 +120,9 @@ impl Plan {
             for c in changes.iter().filter(|c| c.action != Action::Unchanged) {
                 lines.push(format!("  {label} {} {:?}", c.id, c.action).to_lowercase());
             }
+        }
+        for r in &self.rejects {
+            lines.push(format!("  rejected {}: {}", r.id, r.reason));
         }
         lines.join("\n")
     }
@@ -286,6 +300,64 @@ fn merge_registry(reg: &mut Registry, mapping: &Mapping) -> RegistryChanges {
     }
 }
 
+fn prepare_launch(
+    mapping: &mut Mapping,
+    home: &str,
+    data_dir: &Path,
+) -> (Vec<Reject>, Vec<(PathBuf, PathBuf)>) {
+    let mut rejects = Vec::new();
+    let mut moves = Vec::new();
+    for s in mapping.servers.iter_mut() {
+        for (from, to) in relocate_entry(&mut s.entry, home, data_dir) {
+            moves.push((PathBuf::from(from), to));
+        }
+    }
+    let mut kept = Vec::new();
+    for s in std::mem::take(&mut mapping.servers) {
+        match screen_entry(&s.entry) {
+            Ok(()) => kept.push(s),
+            Err(reason) => rejects.push(Reject {
+                id: s.entry.id.clone(),
+                reason,
+            }),
+        }
+    }
+    mapping.servers = kept;
+    let gone: Vec<&str> = rejects.iter().map(|r| r.id.as_str()).collect();
+    for p in mapping.profiles.iter_mut() {
+        p.enabled_server_ids
+            .retain(|id| !gone.contains(&id.as_str()));
+    }
+    for r in &rejects {
+        mapping.warnings.push(Warning {
+            server: r.id.clone(),
+            kind: "rejected-launch".into(),
+            detail: r.reason.clone(),
+        });
+    }
+    (rejects, moves)
+}
+
+fn copy_scripts(moves: &[(PathBuf, PathBuf)], warnings: &mut Vec<Warning>) -> Result<(), String> {
+    for (from, to) in moves {
+        if !from.is_file() {
+            warnings.push(Warning {
+                server: String::new(),
+                kind: "script-missing".into(),
+                detail: from.display().to_string(),
+            });
+            continue;
+        }
+        if let Some(parent) = to.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("cannot create {}: {e}", parent.display()))?;
+        }
+        std::fs::copy(from, to)
+            .map_err(|e| format!("cannot copy {} to {}: {e}", from.display(), to.display()))?;
+    }
+    Ok(())
+}
+
 fn read_registry() -> Result<Registry, String> {
     let path = registry::registry_path().ok_or("Could not resolve registry path")?;
     match std::fs::read_to_string(&path) {
@@ -407,7 +479,9 @@ fn apply_clients(
 
 pub fn run(opts: &RunOptions) -> Result<Plan, String> {
     let (input, clients) = load_input(opts)?;
-    let mapping = map_all(&input, &clients);
+    let mut mapping = map_all(&input, &clients);
+    let data_dir = registry::conduit_dir().ok_or("Could not resolve data directory")?;
+    let (rejects, moves) = prepare_launch(&mut mapping, &input.home, &data_dir);
     let mut preview = read_registry()?;
     let preview_changes = merge_registry(&mut preview, &mapping);
     let skipped: Vec<String> = preview_changes
@@ -415,6 +489,11 @@ pub fn run(opts: &RunOptions) -> Result<Plan, String> {
         .iter()
         .filter(|c| c.action == Action::Conflict)
         .map(|c| c.id.clone())
+        .collect();
+    let blocked: Vec<String> = skipped
+        .iter()
+        .cloned()
+        .chain(rejects.iter().map(|r| r.id.clone()))
         .collect();
     let (secret_changes, pending) = plan_secrets(&mapping, &skipped)?;
 
@@ -432,6 +511,7 @@ pub fn run(opts: &RunOptions) -> Result<Plan, String> {
     let changes = if opts.dry_run || (!registry_dirty && pending.is_empty()) {
         preview_changes
     } else {
+        copy_scripts(&moves, &mut mapping.warnings)?;
         let writes = mapping.secret_writes();
         for index in &pending {
             let s = writes[*index];
@@ -452,7 +532,7 @@ pub fn run(opts: &RunOptions) -> Result<Plan, String> {
     let mut client_changes = Vec::new();
     if opts.write_clients {
         let managed = read_registry()?.client_managed_entries;
-        let (applied, records) = apply_clients(&mapping, opts, &skipped, &managed);
+        let (applied, records) = apply_clients(&mapping, opts, &blocked, &managed);
         client_changes = applied;
         if !opts.dry_run && !records.is_empty() {
             registry::update(|reg| {
@@ -466,6 +546,11 @@ pub fn run(opts: &RunOptions) -> Result<Plan, String> {
 
     let mut plan = Plan {
         dry_run: opts.dry_run,
+        rejects,
+        scripts: moves
+            .iter()
+            .map(|(_, to)| to.to_string_lossy().into_owned())
+            .collect(),
         servers: changes.servers,
         profiles: changes.profiles,
         client_scopes: changes.client_scopes,

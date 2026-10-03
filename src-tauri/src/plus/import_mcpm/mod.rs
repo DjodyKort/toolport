@@ -29,7 +29,9 @@ pub use name_map::{
 pub use rename_refs::{
     rename_refs, rename_refs_handler, rewrite_text, FileRewrite, Orphan, RenameReport,
 };
-pub use run::{load_input, run, run_handler, Action, Change, ClientChange, Plan, RunOptions};
+pub use run::{
+    load_input, run, run_handler, Action, Change, ClientChange, Plan, Reject, RunOptions,
+};
 pub use servers::{map_servers, MappedServer, McpmInput, SecretWrite, Warning, IMPORT_SOURCE};
 
 use crate::registry::{Profile, ServerEntry};
