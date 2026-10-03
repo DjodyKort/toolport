@@ -1,4 +1,5 @@
 use super::NameMap;
+use crate::plus::args::flag_or;
 use crate::registry::atomic_write;
 use regex::Regex;
 use serde::Serialize;
@@ -199,7 +200,7 @@ pub fn rename_refs_handler(args: Value) -> Result<Value, String> {
         })
         .filter(|p: &Vec<PathBuf>| !p.is_empty())
         .ok_or("paths is required")?;
-    let dry_run = args.get("dryRun").and_then(Value::as_bool).unwrap_or(true);
+    let dry_run = flag_or(&args, "dryRun", true);
     let opts = super::RunOptions {
         root: PathBuf::from(root),
         short_ids_path: args

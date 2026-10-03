@@ -5,6 +5,7 @@ pub mod otel;
 pub mod store;
 pub mod transcript;
 
+use crate::plus::args::flag_or;
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -196,7 +197,7 @@ pub fn summary_handler(args: Value) -> Result<Value, String> {
         Some(p) => Some(PathBuf::from(p)),
         None => default_projects_root(),
     };
-    let refresh = args.get("refresh").and_then(Value::as_bool).unwrap_or(true);
+    let refresh = flag_or(&args, "refresh", true);
     run_summary(&dir, root.as_deref(), refresh)
 }
 
