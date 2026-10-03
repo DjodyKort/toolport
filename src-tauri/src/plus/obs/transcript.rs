@@ -3,7 +3,7 @@ use crate::plus::fswalk::collect_files;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::BTreeMap;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Default, Serialize, PartialEq)]
@@ -33,6 +33,30 @@ fn u64_of(v: &Value, key: &str) -> u64 {
 }
 
 pub fn parse_line(line: &str, file_stem: &str, anon_key: &str) -> Option<Parsed> {
+    parse_line_with(line, file_stem, || anon_key.to_string())
+}
+
+/// Only usage and deferred-tools records parse to something; `\u` could spell either key.
+fn may_parse(line: &str) -> bool {
+    line.contains("usage") || line.contains("deferred_tools_delta") || line.contains("\\u")
+}
+
+fn parse_line_with(
+    line: &str,
+    file_stem: &str,
+    anon_key: impl FnOnce() -> String,
+) -> Option<Parsed> {
+    if !may_parse(line) {
+        return None;
+    }
+    parse_value_line(line, file_stem, anon_key)
+}
+
+fn parse_value_line(
+    line: &str,
+    file_stem: &str,
+    anon_key: impl FnOnce() -> String,
+) -> Option<Parsed> {
     let v: Value = serde_json::from_str(line.trim()).ok()?;
     let session = v
         .get("sessionId")
@@ -75,7 +99,7 @@ pub fn parse_line(line: &str, file_stem: &str, anon_key: &str) -> Option<Parsed>
         .get("id")
         .and_then(Value::as_str)
         .map(str::to_string)
-        .unwrap_or_else(|| anon_key.to_string());
+        .unwrap_or_else(anon_key);
 
     let mut tools = BTreeMap::new();
     if let Some(blocks) = msg.get("content").and_then(Value::as_array) {
@@ -140,12 +164,17 @@ fn mtime_ms(meta: &std::fs::Metadata) -> i64 {
 }
 
 fn upsert(state: &mut State, id: String, mut record: MsgRecord) {
-    if let Some(prev) = state.messages.get(&id) {
-        let mut tools = prev.tools.clone();
-        tools.extend(std::mem::take(&mut record.tools));
-        record.tools = tools;
+    match state.messages.get_mut(&id) {
+        Some(prev) => {
+            let mut tools = std::mem::take(&mut prev.tools);
+            tools.extend(std::mem::take(&mut record.tools));
+            record.tools = tools;
+            *prev = record;
+        }
+        None => {
+            state.messages.insert(id, record);
+        }
     }
-    state.messages.insert(id, record);
 }
 
 fn index_file(state: &mut State, path: &Path, report: &mut IndexReport) -> Result<(), String> {
@@ -167,27 +196,27 @@ fn index_file(state: &mut State, path: &Path, report: &mut IndexReport) -> Resul
         }
     }
 
-    let mut file = std::fs::File::open(path).map_err(|e| e.to_string())?;
-    file.seek(SeekFrom::Start(start))
+    let mut reader =
+        BufReader::new(std::fs::File::open(path).map_err(|e| e.to_string())?);
+    reader
+        .seek(SeekFrom::Start(start))
         .map_err(|e| e.to_string())?;
-    let mut bytes = Vec::new();
-    file.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
-    let consumed = bytes.iter().rposition(|b| *b == b'\n').map_or(0, |i| i + 1);
-
     let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-    let mut line_start = 0usize;
-    for (i, b) in bytes[..consumed].iter().enumerate() {
-        if *b != b'\n' {
-            continue;
+    let mut offset = start;
+    let mut buf = Vec::new();
+    loop {
+        buf.clear();
+        let read = reader.read_until(b'\n', &mut buf).map_err(|e| e.to_string())?;
+        if buf.last() != Some(&b'\n') {
+            break;
         }
-        let raw = &bytes[line_start..i];
-        let anon = format!("anon:{key}:{}", start as usize + line_start);
-        line_start = i + 1;
-        let Ok(line) = std::str::from_utf8(raw) else {
+        let line_start = offset;
+        offset += read as u64;
+        let Ok(line) = std::str::from_utf8(&buf[..read - 1]) else {
             continue;
         };
         report.lines_parsed += 1;
-        match parse_line(line, stem, &anon) {
+        match parse_line_with(line, stem, || format!("anon:{key}:{line_start}")) {
             Some(Parsed::Message { id, record }) => {
                 report.messages_upserted += 1;
                 upsert(state, id, record);
@@ -206,7 +235,7 @@ fn index_file(state: &mut State, path: &Path, report: &mut IndexReport) -> Resul
     state.files.insert(
         key,
         FileState {
-            offset: start + consumed as u64,
+            offset,
             size,
             mtime_ms: mtime,
             inode,
@@ -495,5 +524,122 @@ mod tests {
         let no_usage =
             r#"{"type":"assistant","message":{"id":"m","role":"assistant","content":[]}}"#;
         assert!(parse_line(no_usage, "s", "x").is_none());
+    }
+
+    fn shape(parsed: Option<Parsed>) -> Option<Value> {
+        parsed.map(|p| match p {
+            Parsed::Message { id, record } => serde_json::json!({"id": id, "record": record}),
+            Parsed::FailedMcp(list) => serde_json::json!({"failed": list}),
+        })
+    }
+
+    #[test]
+    fn the_prefilter_never_changes_what_a_line_parses_to() {
+        use crate::plus::randutil::{run_cases, Rng};
+        let backslash = '\\';
+        let escaped_usage = format!(
+            r#"{{"type":"assistant","message":{{"id":"e1","role":"assistant","model":"m","{backslash}u0075sage":{{"input_tokens":4}}}}}}"#
+        );
+        let escaped_delta = format!(
+            r#"{{"type":"attachment","attachment":{{"type":"deferred_tools_{backslash}u0064elta","failedMcpServers":["figma"]}}}}"#
+        );
+        let fixed = [
+            escaped_usage,
+            escaped_delta,
+            assistant("a1", "s", "2026-10-01T10:00:00Z", "m", (1, 2, 3, 4), &[]),
+            assistant("a2", "s", "2026-10-01T10:00:00Z", "<synthetic>", (1, 2, 3, 4), &[]),
+            r#"{"type":"user","message":{"role":"user","content":"usage in prose"}}"#.into(),
+            r#"{"type":"assistant","message":{"id":"n","role":"assistant","content":[]}}"#.into(),
+            r#"{"type":"attachment","sessionId":"s","attachment":{"type":"deferred_tools_delta","failedMcpServers":["x"]}}"#.into(),
+            r#"{"type":"attachment","attachment":{"type":"other","failedMcpServers":["x"]}}"#.into(),
+            String::new(),
+            "   ".into(),
+        ];
+        let (mut parsed, mut skipped) = (0, 0);
+        let mut check = |line: &str| {
+            let want = shape(parse_value_line(line, "stem", || "anon".into()));
+            let got = shape(parse_line_with(line, "stem", || "anon".into()));
+            assert_eq!(got, want, "{line}");
+            if want.is_some() {
+                parsed += 1;
+            } else {
+                skipped += 1;
+            }
+        };
+        for line in &fixed {
+            check(line);
+        }
+        run_cases("obs-prefilter", 1500, |_, rng: &mut Rng| {
+            let mut line = rng.pick(&fixed).clone();
+            if rng.chance(10) {
+                let cut = rng.below(line.len() + 1);
+                line = line.chars().take(cut).collect();
+            }
+            if rng.chance(10) {
+                line.push_str(&rng.garbage(12).replace('\n', " "));
+            }
+            check(&line);
+            check(&rng.garbage(60).replace('\n', " "));
+        });
+        assert!(parsed > 300 && skipped > 300, "{parsed} {skipped}");
+    }
+
+    #[test]
+    fn the_anonymous_key_is_only_built_for_a_message_without_an_id() {
+        let built = std::cell::Cell::new(0);
+        let anon = || {
+            built.set(built.get() + 1);
+            "anon:k".to_string()
+        };
+        let with_id = assistant("m1", "s", "2026-10-01T10:00:00Z", "m", (1, 1, 1, 1), &[]);
+        assert!(parse_line_with(&with_id, "s", anon).is_some());
+        assert!(parse_line_with(r#"{"type":"user"}"#, "s", anon).is_none());
+        assert_eq!(built.get(), 0);
+        let no_id = r#"{"type":"assistant","message":{"role":"assistant","usage":{"input_tokens":1}}}"#;
+        match parse_line_with(no_id, "s", anon) {
+            Some(Parsed::Message { id, .. }) => assert_eq!(id, "anon:k"),
+            _ => panic!("expected a message"),
+        }
+        assert_eq!(built.get(), 1);
+    }
+
+    #[test]
+    fn streamed_indexing_keeps_offsets_anonymous_keys_and_the_torn_tail() {
+        let base = scratch("stream");
+        let proj = base.join("p");
+        std::fs::create_dir_all(&proj).unwrap();
+        let t = proj.join("s.jsonl");
+        let anon_line = |text: &str| {
+            format!(
+                r#"{{"type":"assistant","message":{{"role":"assistant","content":[{{"type":"text","text":"{text}"}}],"usage":{{"input_tokens":1}}}}}}"#
+            )
+        };
+        let long = "q".repeat(70_000);
+        let first = anon_line("a") + "\r\n";
+        let mut bytes = first.clone().into_bytes();
+        bytes.extend_from_slice(b"\xff\xfe not utf8\n");
+        let third_at = bytes.len();
+        bytes.extend_from_slice((anon_line(&long) + "\n").as_bytes());
+        let complete = bytes.len();
+        bytes.extend_from_slice(anon_line("tail").as_bytes());
+        std::fs::write(&t, &bytes).unwrap();
+
+        let lock = Locked::acquire(&base.join("data")).unwrap();
+        let report = index(&lock, &proj).unwrap();
+        assert_eq!((report.lines_parsed, report.messages_upserted), (2, 2));
+        let state = lock.load_state();
+        let key = t.to_string_lossy();
+        let mut ids: Vec<&String> = state.messages.keys().collect();
+        ids.sort();
+        assert_eq!(ids, [&format!("anon:{key}:0"), &format!("anon:{key}:{third_at}")]);
+        assert_eq!(state.files[key.as_ref()].offset, complete as u64);
+
+        append(&t, "\n");
+        let report = index(&lock, &proj).unwrap();
+        assert_eq!((report.lines_parsed, report.messages_upserted), (1, 1));
+        let state = lock.load_state();
+        assert!(state.messages.contains_key(&format!("anon:{key}:{complete}")));
+        assert_eq!(state.files[key.as_ref()].offset, std::fs::metadata(&t).unwrap().len());
+        let _ = std::fs::remove_dir_all(&base);
     }
 }
