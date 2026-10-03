@@ -1,7 +1,39 @@
 use std::io::Read;
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
+
+const NOT_FOUND_PREFIX: &str = "could not start (not found)";
+const SPAWN_RETRIES: u32 = 3;
+const SPAWN_RETRY_DELAY: Duration = Duration::from_millis(20);
+
+/// Spawn, retrying a few times when the kernel answers `ETXTBSY`.
+///
+/// A script written moments ago can still be open for writing in a process that
+/// forked concurrently, until that child reaches its own `exec`; the kernel
+/// refuses to execute the file for that long.
+fn spawn_retrying(cmd: &mut Command) -> std::io::Result<Child> {
+    let mut retries = 0;
+    loop {
+        match cmd.spawn() {
+            Err(e) if is_text_busy(&e) && retries < SPAWN_RETRIES => {
+                retries += 1;
+                std::thread::sleep(SPAWN_RETRY_DELAY);
+            }
+            other => return other,
+        }
+    }
+}
+
+fn is_text_busy(error: &std::io::Error) -> bool {
+    error.kind() == std::io::ErrorKind::ExecutableFileBusy
+}
+
+/// True when `error` came from [`run_command`] failing because the program does
+/// not exist, as opposed to any other reason it could not start.
+pub fn is_not_found(error: &str) -> bool {
+    error.starts_with(NOT_FOUND_PREFIX)
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct CmdOutput {
@@ -43,7 +75,13 @@ pub fn run_command(mut cmd: Command, timeout: Duration) -> Result<CmdOutput, Str
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    let mut child = cmd.spawn().map_err(|e| format!("could not start: {e}"))?;
+    let mut child = spawn_retrying(&mut cmd).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            format!("{NOT_FOUND_PREFIX}: {e}")
+        } else {
+            format!("could not start: {e}")
+        }
+    })?;
     let mut stdout = child.stdout.take();
     let mut stderr = child.stderr.take();
     let out_thread = std::thread::spawn(move || {
@@ -90,7 +128,7 @@ impl GitRunner for SystemGit {
             .args(args)
             .env("GIT_TERMINAL_PROMPT", "0");
         run_command(cmd, timeout).map_err(|e| {
-            if e.starts_with("could not start") {
+            if is_not_found(&e) {
                 "git not found on PATH".to_string()
             } else {
                 e

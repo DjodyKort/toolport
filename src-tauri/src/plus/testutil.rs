@@ -1,5 +1,9 @@
 use std::path::PathBuf;
 
+#[cfg(unix)]
+#[path = "../../tests/common/exec.rs"]
+pub(crate) mod exec;
+
 pub(crate) struct DataDirFx {
     pub dir: PathBuf,
     // fields drop in order: the override must go before the lock is released

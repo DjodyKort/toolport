@@ -1322,10 +1322,8 @@ fn plan_serializes_camel_case_without_the_parent_environment() {
 
 #[cfg(unix)]
 fn fake_exe(dir: &Path, name: &str, body: &str) {
-    use std::os::unix::fs::PermissionsExt;
     let path = dir.join(name);
-    std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    crate::plus::testutil::exec::write_executable(&path, &format!("#!/bin/sh\n{body}\n"));
 }
 
 #[cfg(unix)]

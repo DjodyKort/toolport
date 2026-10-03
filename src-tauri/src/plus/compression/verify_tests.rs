@@ -833,12 +833,10 @@ fn system_probe_finds_binaries_on_the_overridden_path_and_reads_health() {
     let bin = tmp.0.join("bin");
     std::fs::create_dir_all(&bin).unwrap();
     let tool = bin.join("rtk");
-    std::fs::write(&tool, "#!/bin/sh\necho rtk\n").unwrap();
     #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&tool, std::fs::Permissions::from_mode(0o755)).unwrap();
-    }
+    crate::plus::testutil::exec::write_executable(&tool, "#!/bin/sh\necho rtk\n");
+    #[cfg(not(unix))]
+    std::fs::write(&tool, "#!/bin/sh\necho rtk\n").unwrap();
     let ops = SystemOps {
         path: Some(bin.clone().into_os_string()),
     };

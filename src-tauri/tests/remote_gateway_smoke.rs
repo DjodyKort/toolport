@@ -12,7 +12,6 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::io::{BufRead, BufReader, Read, Write};
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -23,6 +22,9 @@ use base64::Engine;
 use conduit_lib::registry;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+
+#[path = "common/exec.rs"]
+mod exec_fixture;
 
 const SERVER_ID: &str = "remote-mock";
 const LOCAL_ID: &str = "alpha-mock";
@@ -415,12 +417,10 @@ impl World {
         std::fs::create_dir_all(&bin).unwrap();
         for name in ["xdg-open", "open"] {
             let opener = bin.join(name);
-            std::fs::write(
+            exec_fixture::write_executable(
                 &opener,
                 "#!/bin/sh\ncurl -s -o /dev/null -L --max-time 10 \"$1\" &\n",
-            )
-            .unwrap();
-            std::fs::set_permissions(&opener, std::fs::Permissions::from_mode(0o755)).unwrap();
+            );
         }
         let old = std::env::var_os("PATH");
         let _restore = PathGuard(old.clone());

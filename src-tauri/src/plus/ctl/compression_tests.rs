@@ -162,25 +162,24 @@ fn run_plan_without_separator_treats_the_first_unknown_token_as_claude_args() {
 #[cfg(unix)]
 #[test]
 fn run_plan_routes_headroom_only_when_the_installed_build_matches_the_pin() {
-    use std::os::unix::fs::PermissionsExt;
+    use crate::plus::testutil::exec::write_executable;
     let mut cfg = config_with(ProviderName::Headroom);
     cfg.provider_version.pin = "0.29.0".into();
     let fx = Fx::new("plan-headroom", Some(cfg));
     let bin = fx.dir.join("bin");
     std::fs::create_dir_all(&bin).unwrap();
     let exe = bin.join("headroom");
-    std::fs::write(&exe, "#!/bin/sh\necho 'headroom 0.31.0'\n").unwrap();
-    std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
+    write_executable(&exe, "#!/bin/sh\necho 'headroom 0.31.0'\n");
     let original = std::env::var_os("PATH").unwrap_or_default();
     let mut parts = vec![bin.clone()];
     parts.extend(std::env::split_paths(&original));
     std::env::set_var("PATH", std::env::join_paths(parts).unwrap());
 
     let (_, drifted) = json_of(&["--json", "compression", "run", "--plan", "--cwd", "/w"]);
-    std::fs::write(&exe, "#!/bin/sh\necho 'headroom 0.29.0'\n").unwrap();
+    write_executable(&exe, "#!/bin/sh\necho 'headroom 0.29.0'\n");
     let (_, matched) = json_of(&["--json", "compression", "run", "--plan", "--cwd", "/w"]);
     let (_, forced) = {
-        std::fs::write(&exe, "#!/bin/sh\necho 'headroom 0.31.0'\n").unwrap();
+        write_executable(&exe, "#!/bin/sh\necho 'headroom 0.31.0'\n");
         json_of(&[
             "--json",
             "compression",

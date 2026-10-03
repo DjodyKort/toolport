@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 use std::io::Read;
-use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -335,12 +334,10 @@ fn with_world(test: impl FnOnce()) {
         std::fs::create_dir_all(&bin).unwrap();
         for opener in ["xdg-open", "open"] {
             let script = bin.join(opener);
-            std::fs::write(
+            crate::plus::testutil::exec::write_executable(
                 &script,
                 "#!/bin/sh\ncurl -s -o /dev/null -L --max-time 10 \"$1\" &\n",
-            )
-            .unwrap();
-            std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+            );
         }
         let old = std::env::var_os("PATH");
         let _restore = PathGuard(old.clone());
