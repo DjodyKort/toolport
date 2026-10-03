@@ -810,6 +810,7 @@ pub fn validate_web_url(url: &str) -> Result<url::Url, String> {
 /// link.
 pub fn open_web_url(url: &str) -> Result<(), String> {
     let parsed = validate_web_url(url)?;
+    crate::brand::refuse_upstream_egress(parsed.as_str())?;
     open_browser(parsed.as_str());
     Ok(())
 }

@@ -248,6 +248,7 @@ pub fn fetch_shared_setup(id: &str) -> Result<String, String> {
         return Err("invalid share id".to_string());
     }
     let url = format!("{SHARE_ENDPOINT}?id={id}");
+    crate::brand::refuse_upstream_egress(&url)?;
     use std::io::Read as _;
     let response = ureq::get(&url)
         .timeout(std::time::Duration::from_secs(20))
@@ -263,6 +264,7 @@ pub fn fetch_shared_setup(id: &str) -> Result<String, String> {
 }
 
 pub fn share_setup(setup_json: &str) -> Result<String, String> {
+    crate::brand::refuse_upstream_egress(SHARE_ENDPOINT)?;
     use std::io::Read as _;
     let response = ureq::post(SHARE_ENDPOINT)
         .timeout(std::time::Duration::from_secs(20))

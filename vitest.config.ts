@@ -10,6 +10,7 @@ export default defineConfig({
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   test: {
+    env: { VITE_TOOLPORT_UPSTREAM_EGRESS: "1" },
     // Keep local verification usable alongside a desktop and a Rust build.
     // Override with --maxWorkers when the machine is dedicated to tests.
     maxWorkers: 2,

@@ -109,6 +109,12 @@ mockIPC(
       case "get_inspect_log":
       case "list_tool_identities":
         return [];
+      case "plus_invoke":
+        return {
+          name: "toolport-plus",
+          version: "0.0.0-fixture",
+          forkEgressDisabled: true,
+        };
       default:
         missing.push(command);
         throw new Error(`Unimplemented fixture command: ${command}`);

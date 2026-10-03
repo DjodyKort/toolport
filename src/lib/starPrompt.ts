@@ -16,6 +16,8 @@
  * Deliberately in-app only: no OS notification, no toast that steals focus.
  */
 
+import { forkEgressDisabled } from "@/lib/fork";
+
 export const STAR_PROMPT_KEY = "toolport.starPrompt";
 export const STAR_REPO_URL = "https://github.com/btsouth/toolport";
 
@@ -93,6 +95,7 @@ function onboardedAlready(): boolean {
 
 /** Resolve the stage to start this session at. */
 export function readStarStage(): StarStage {
+  if (forkEgressDisabled()) return "done";
   const raw = readRaw(STAR_PROMPT_KEY);
   if (storageBroken || raw === "done") return "done";
   // Every remaining stage can still put something on screen, and showing it is
