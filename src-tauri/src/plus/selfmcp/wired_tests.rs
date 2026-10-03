@@ -140,6 +140,28 @@ fn skills_scaffold_sync_and_status_round_trip() {
         .unwrap();
     assert_eq!(demo["drifted"], false);
     assert_eq!(demo["clientsSynced"], json!(["claude-code"]));
+    assert_eq!(status["lockedCount"], 3);
+    assert_eq!(status["drift"], false);
+    assert_eq!(
+        std::fs::canonicalize(status["outputRoot"].as_str().unwrap()).unwrap(),
+        std::fs::canonicalize(&fixture.home).unwrap()
+    );
+    let present = |status: &Value| {
+        status["outputs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|o| o["name"] == "demo" && o["client"] == "claude-code")
+            .map(|o| o["present"].clone())
+    };
+    assert_eq!(present(&status), Some(json!(true)));
+    let only_cursor = call("skills_status", json!({"client_keys": ["cursor"]})).unwrap();
+    assert_eq!(present(&only_cursor), None);
+    std::fs::remove_file(fixture.home.join(".claude/skills/demo/SKILL.md")).unwrap();
+    let missing = call("skills_status", json!({})).unwrap();
+    assert_eq!(missing["drift"], true);
+    assert_eq!(present(&missing), Some(json!(false)));
+    call("skills_sync", json!({"client_keys": ["claude-code"]})).unwrap();
 
     call(
         "skills_edit_body",

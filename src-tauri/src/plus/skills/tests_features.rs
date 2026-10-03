@@ -414,13 +414,55 @@ fn diff_status_and_clean_work_over_lock_and_tree() {
     );
 
     let loaded = load_lockfile(&t.0);
-    let out = ops::clean_skills(&t.0, &t.0, &reg, Some("cursor"), loaded.as_ref());
+    let out = ops::clean_skills(&t.0, &t.0, &reg, Some("cursor"), loaded.as_ref(), false);
     assert_eq!(out.removed.len(), 2);
     assert!(!out.lockfile_removed);
-    let out = ops::clean_skills(&t.0, &t.0, &reg, None, loaded.as_ref());
+    let out = ops::clean_skills(&t.0, &t.0, &reg, None, loaded.as_ref(), false);
     assert!(out.lockfile_removed);
     assert!(!t.0.join("mcpm-skills.lock").exists());
     assert!(!t.0.join(".claude/skills/b").exists());
+}
+
+#[test]
+fn clean_targets_plan_exactly_what_clean_removes_for_every_transpiler() {
+    let t = Tmp::new("clean-plan");
+    put(&t.0, "skills/a/SKILL.md", &simple_skill("a"));
+    put(&t.0, "skills/b/SKILL.md", &simple_skill("b"));
+    put(
+        &t.0,
+        "rules/r/SKILL.md",
+        "---\nname: r\ndescription: Use when a rule is needed\nactivation: always\n---\nRule\n",
+    );
+    let reg = full_registry(&t.0);
+    let c = clock();
+    let lock = sync_all(&t.0, &t.0, &reg, &c);
+    let managed = ["a".to_string(), "b".to_string(), "r".to_string()];
+    let mut planned_total = 0;
+    for transpiler in reg.all() {
+        let planned = transpiler.clean_targets(&t.0, &managed);
+        let before = ops_tree(&t.0);
+        assert_eq!(transpiler.clean_targets(&t.0, &managed), planned);
+        assert_eq!(ops_tree(&t.0), before, "{} planned a write", transpiler.client_key());
+        let removed = transpiler.clean(&t.0, &managed).unwrap();
+        assert_eq!(planned, removed, "{}", transpiler.client_key());
+        planned_total += planned.len();
+        assert!(transpiler.clean_targets(&t.0, &managed).is_empty());
+    }
+    assert!(planned_total >= 30, "{planned_total}");
+
+    sync_all(&t.0, &t.0, &reg, &c);
+    let before = ops_tree(&t.0);
+    let plan = ops::clean_skills(&t.0, &t.0, &reg, None, Some(&lock), true);
+    assert_eq!(ops_tree(&t.0), before);
+    assert!(plan.lockfile_removed);
+    let real = ops::clean_skills(&t.0, &t.0, &reg, None, Some(&lock), false);
+    assert_eq!(plan.removed, real.removed);
+    assert_eq!(plan.managed, ["a", "b", "r"]);
+    assert!(real.lockfile_removed);
+}
+
+fn ops_tree(root: &Path) -> std::collections::BTreeMap<String, Option<Vec<u8>>> {
+    crate::plus::testutil::tree_snapshot(root)
 }
 
 #[test]
