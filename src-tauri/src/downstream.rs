@@ -1513,7 +1513,7 @@ fn cwd_validation_error(dir: &str, expanded: &Path, empty_variables: &[String]) 
     message
 }
 
-fn validate_cwd(dir: &str) -> Result<std::path::PathBuf, String> {
+pub(crate) fn validate_cwd(dir: &str) -> Result<std::path::PathBuf, String> {
     let expanded = expand_cwd(dir);
     if expanded.is_dir() {
         return Ok(expanded);

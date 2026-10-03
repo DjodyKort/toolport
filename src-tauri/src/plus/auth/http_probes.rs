@@ -645,6 +645,7 @@ pub struct CompositeProbe {
     google: GoogleRefreshProbe,
     http: HttpProbe,
     gateway: super::gateway_state::GatewayStateProbe,
+    stdio: super::stdio::StdioProbe,
 }
 
 impl Probe for CompositeProbe {
@@ -653,6 +654,7 @@ impl Probe for CompositeProbe {
             ProbeKind::GoogleRefresh => self.google.run(spec),
             ProbeKind::Http => self.http.run(spec),
             ProbeKind::GatewayState => self.gateway.run(spec),
+            ProbeKind::Stdio => self.stdio.run(spec),
         }
     }
 }
@@ -687,7 +689,9 @@ fn infer(server: &crate::registry::ServerEntry) -> Option<(Service, String)> {
     })
 }
 
-fn hint(server: &crate::registry::ServerEntry) -> Option<&serde_json::Map<String, Value>> {
+pub(super) fn hint(
+    server: &crate::registry::ServerEntry,
+) -> Option<&serde_json::Map<String, Value>> {
     server
         .unknown_fields
         .get("plus")?
@@ -695,7 +699,7 @@ fn hint(server: &crate::registry::ServerEntry) -> Option<&serde_json::Map<String
         .as_object()
 }
 
-fn hint_str<'a>(hint: &'a serde_json::Map<String, Value>, key: &str) -> Option<&'a str> {
+pub(super) fn hint_str<'a>(hint: &'a serde_json::Map<String, Value>, key: &str) -> Option<&'a str> {
     hint.get(key)
         .and_then(Value::as_str)
         .filter(|v| !v.is_empty())
@@ -760,7 +764,8 @@ pub fn http_registry(registry: &crate::registry::Registry) -> ProbeRegistry {
 }
 
 pub fn combined_registry(registry: &crate::registry::Registry) -> ProbeRegistry {
-    let mut reg = super::google::google_registry(registry);
+    let mut reg = super::stdio::stdio_registry(registry);
+    merge_missing(&mut reg, &super::google::google_registry(registry));
     merge_missing(&mut reg, &http_registry(registry));
     merge_missing(&mut reg, &super::gateway_state::gateway_registry(registry));
     reg

@@ -6,6 +6,7 @@ use super::types::ProbeOutcome;
 
 pub const GOOGLE_REFRESH_MIN_INTERVAL_SECS: i64 = 6 * 60 * 60;
 pub const HTTP_MIN_INTERVAL_SECS: i64 = 10 * 60;
+pub const STDIO_MIN_INTERVAL_SECS: i64 = 30 * 60;
 pub const BACKOFF_CAP_SECS: i64 = 6 * 60 * 60;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -13,6 +14,7 @@ pub enum ProbeKind {
     GoogleRefresh,
     Http,
     GatewayState,
+    Stdio,
 }
 
 impl ProbeKind {
@@ -20,6 +22,7 @@ impl ProbeKind {
         match self {
             ProbeKind::GoogleRefresh => GOOGLE_REFRESH_MIN_INTERVAL_SECS,
             ProbeKind::Http | ProbeKind::GatewayState => HTTP_MIN_INTERVAL_SECS,
+            ProbeKind::Stdio => STDIO_MIN_INTERVAL_SECS,
         }
     }
 }
