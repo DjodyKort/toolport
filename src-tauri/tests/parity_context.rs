@@ -341,9 +341,9 @@ impl Scenario {
         }
     }
 
-    /// Models cf-dev-tools' `sync_claude_files` from its fake install dir (A6).
+    /// Models corp-dev-tools' `sync_claude_files` from its fake install dir (A6).
     fn cf_clobber(&self) {
-        let cf = self.p(".local/share/cf-dev-tools/claude");
+        let cf = self.p(".local/share/corp-dev-tools/claude");
         let ch = self.p(".claude");
         fs::create_dir_all(&ch).unwrap();
         if cf.join("CLAUDE.md").exists() {
@@ -503,7 +503,7 @@ fn client_local_deploy_matches_golden() {
 
 #[test]
 fn settings_union_and_cf_clobber_match_golden() {
-    for case in ["settings-union", "settings-cf-clobber", "settings-edge"] {
+    for case in ["settings-union", "settings-corp-clobber", "settings-edge"] {
         replay(case, false);
     }
 }
@@ -515,7 +515,7 @@ fn dedupe_matches_golden() {
 
 #[test]
 fn doctor_and_tripwire_match_golden() {
-    for case in ["cf-tripwire", "cf-no-wrapper", "doctor-no-cf"] {
+    for case in ["corp-tripwire", "corp-no-wrapper", "doctor-no-corp"] {
         replay(case, false);
     }
 }
@@ -531,8 +531,8 @@ fn shim_generation_matches_golden() {
 fn every_declared_case_has_vendored_inputs_and_a_golden() {
     let all = [
         "layered-rules", "client-local-deploy", "client-local-missing-root", "settings-union",
-        "settings-cf-clobber", "settings-edge", "dedupe-legacy-names", "cf-tripwire", "cf-no-wrapper",
-        "doctor-no-cf", "shims-wrap-on", "shims-wrap-off", "shims-throttle", "shims-throttle-nowrap",
+        "settings-corp-clobber", "settings-edge", "dedupe-legacy-names", "corp-tripwire", "corp-no-wrapper",
+        "doctor-no-corp", "shims-wrap-on", "shims-wrap-off", "shims-throttle", "shims-throttle-nowrap",
         "profiles-reconcile",
     ];
     for case in all {

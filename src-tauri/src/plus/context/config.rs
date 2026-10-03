@@ -9,8 +9,8 @@ use std::path::Path;
 pub const CF_LEGACY_SERVER_NAMES: [&str; 4] = [
     "context7",
     "playwright",
-    "codeforward-odoo",
-    "codeforward-typst",
+    "examplecorp-odoo",
+    "examplecorp-typst",
 ];
 
 fn yes() -> bool {
@@ -103,7 +103,7 @@ pub struct SettingsPolicy {
 }
 
 fn default_clients_root() -> String {
-    "~/Documents/GitHub/OdooDevHeaven/clients".into()
+    "~/Documents/GitHub/ExampleWorkspace/clients".into()
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

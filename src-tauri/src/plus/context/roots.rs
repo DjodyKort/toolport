@@ -24,7 +24,7 @@ impl Roots {
             claude_json: home.join(".claude.json"),
             config_dir: home.join(".config/mcpm"),
             cache_dir: home.join(".cache/mcpm/context"),
-            cf_dir: home.join(".local/share/cf-dev-tools"),
+            cf_dir: home.join(".local/share/corp-dev-tools"),
             env_claude_config_dir: None,
             env_auto_compact_window: None,
             managed_settings: None,

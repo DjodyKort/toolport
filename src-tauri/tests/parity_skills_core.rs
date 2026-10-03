@@ -198,7 +198,7 @@ fn run_sync_pass(
     // D-027 divergence: the goldens were recorded with mcpm's narrower allowlist (no .html/.csv/.js),
     // so the replay pins that policy; the widened default is covered by non-golden tests in
     // plus::skills::tests (default_allowlist_adds_html_csv_js_but_not_zip,
-    // sync_copies_templates_balie_html_to_the_client_skill_dir).
+    // sync_copies_templates_desk_html_to_the_client_skill_dir).
     let result = with_asset_policy(AssetPolicy::Mcpm, || {
         sync_skills(&discover_skills(&repo), &registry, &opts)
     })

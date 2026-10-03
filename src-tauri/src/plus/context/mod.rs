@@ -1,4 +1,4 @@
-//! Context engine: layered rules, `CLAUDE.local.md` deploy, cf-dev-tools coexistence (settings
+//! Context engine: layered rules, `CLAUDE.local.md` deploy, corp-dev-tools coexistence (settings
 //! permission union, legacy MCP dedupe, shims, tripwires). Port of mcpm-context's deploy side.
 //! Launch profiles (CTX-3): `--strict-mcp-config`/`--settings` argv per profile, no second login.
 //!
@@ -70,7 +70,7 @@ impl Default for ApplyOptions {
     }
 }
 
-/// Doctor tripwire baseline: hash of cf-dev-tools' shell wrapper. Like mcpm it is only recorded
+/// Doctor tripwire baseline: hash of corp-dev-tools' shell wrapper. Like mcpm it is only recorded
 /// while unset, so a saved config never re-baselines (recorded quirk).
 fn record_cf_baseline(roots: &Roots, config: &mut ContextConfig, report: &mut Report) {
     let wrapper = roots.cf_dir.join("claude").join("shell-wrapper.sh");
@@ -83,7 +83,7 @@ fn record_cf_baseline(roots: &Roots, config: &mut ContextConfig, report: &mut Re
             .map(|b| format!("{b:02x}"))
             .collect();
         config.cf_wrapper_hash = Some(digest);
-        report.add("recorded cf-dev-tools shell-wrapper baseline");
+        report.add("recorded corp-dev-tools shell-wrapper baseline");
     }
 }
 

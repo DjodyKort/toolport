@@ -1,4 +1,4 @@
-//! Settings composition that survives cf-dev-tools' `jq -s '.[0] * .[1]'` merge.
+//! Settings composition that survives corp-dev-tools' `jq -s '.[0] * .[1]'` merge.
 //!
 //! jq replaces arrays wholesale, so personal `permissions.allow` entries vanish on every org sync.
 //! `ensure_policy` re-unions the policy-declared entries (additive only; team entries stay).

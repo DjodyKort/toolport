@@ -1,4 +1,4 @@
-//! Removes cf-dev-tools' legacy bare-name MCP entries from a Claude Code config file.
+//! Removes corp-dev-tools' legacy bare-name MCP entries from a Claude Code config file.
 //!
 //! cf registers `context7`/`playwright`/... under their bare names; the same servers live as
 //! `mcpm_<name>` entries, so the bare ones are dead duplicates. Only keys under `mcpServers`

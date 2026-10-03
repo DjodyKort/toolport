@@ -248,7 +248,7 @@ fn default_allowlist_adds_html_csv_js_but_not_zip() {
     let t = Tmp::new("assets-d027");
     let d = t.0.join("skills/lab");
     for rel in [
-        "templates/balie.html",
+        "templates/desk.html",
         "reference/t.CSV",
         "scripts/app.js",
         "modules/bundle.zip",
@@ -262,7 +262,7 @@ fn default_allowlist_adds_html_csv_js_but_not_zip() {
         .collect();
     assert_eq!(
         found,
-        ["reference/t.CSV", "scripts/app.js", "templates/balie.html"]
+        ["reference/t.CSV", "scripts/app.js", "templates/desk.html"]
     );
 }
 
@@ -285,19 +285,19 @@ fn extra_extensions_are_user_configurable() {
 }
 
 #[test]
-fn sync_copies_templates_balie_html_to_the_client_skill_dir() {
-    let t = Tmp::new("balie");
-    put(&t.0, "skills/reviewbalie/SKILL.md", &skill_md("reviewbalie", ""));
-    put(&t.0, "skills/reviewbalie/templates/balie.html", "<html></html>");
+fn sync_copies_templates_desk_html_to_the_client_skill_dir() {
+    let t = Tmp::new("desk");
+    put(&t.0, "skills/reviewdesk/SKILL.md", &skill_md("reviewdesk", ""));
+    put(&t.0, "skills/reviewdesk/templates/desk.html", "<html></html>");
     let clock = clock();
     let res = sync_skills(&discover_skills(&t.0), &registry(), &opts(&t.0, &clock)).unwrap();
     assert_eq!(
-        fs::read_to_string(t.0.join(".identity/skills/reviewbalie/templates/balie.html")).unwrap(),
+        fs::read_to_string(t.0.join(".identity/skills/reviewdesk/templates/desk.html")).unwrap(),
         "<html></html>"
     );
     assert!(res.lockfile.skills[0].1.output_files[0]
         .1
-        .contains(&".identity/skills/reviewbalie/templates/balie.html".to_string()));
+        .contains(&".identity/skills/reviewdesk/templates/desk.html".to_string()));
 }
 
 #[test]
