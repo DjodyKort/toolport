@@ -3,6 +3,7 @@
 
 mod auth;
 mod cc;
+mod client;
 mod commands;
 mod compression;
 mod council;
@@ -10,6 +11,7 @@ mod import;
 pub(crate) mod context;
 mod output;
 mod secret;
+mod server;
 mod sync;
 mod update;
 
@@ -45,6 +47,66 @@ pub const COMMANDS: &[Command] = &[
         path: &["server", "ls"],
         summary: "List servers and whether the active profile enables them",
         handler: Some(commands::server_ls),
+    },
+    Command {
+        path: &["server", "search"],
+        summary: "Search the catalog (--offline, --limit <n>)",
+        handler: Some(server::search),
+    },
+    Command {
+        path: &["server", "install"],
+        summary: "Install a catalog server by name",
+        handler: Some(server::install),
+    },
+    Command {
+        path: &["server", "uninstall"],
+        summary: "Remove a server and its client entries (--dry-run)",
+        handler: Some(server::uninstall),
+    },
+    Command {
+        path: &["server", "info"],
+        summary: "Show one server's definition and profiles",
+        handler: Some(server::info),
+    },
+    Command {
+        path: &["server", "new"],
+        summary: "Add a custom server (--command or --url)",
+        handler: Some(server::new),
+    },
+    Command {
+        path: &["server", "edit"],
+        summary: "Edit a server's name, command, args, url or cwd",
+        handler: Some(server::edit),
+    },
+    Command {
+        path: &["inspect"],
+        summary: "List the tools a server exposes (connects live)",
+        handler: Some(server::inspect),
+    },
+    Command {
+        path: &["profile", "inspect"],
+        summary: "List the tools of every server in a profile (connects live)",
+        handler: Some(server::profile_inspect),
+    },
+    Command {
+        path: &["profile"],
+        summary: "Profiles",
+        handler: None,
+    },
+    Command {
+        path: &["client", "ls"],
+        summary: "List detected clients and their direct entries",
+        handler: Some(client::ls),
+    },
+    Command {
+        path: &["client", "sync"],
+        summary: "Sync managed clients (--client <id>, --dry-run, --keep-orphans)",
+        handler: Some(client::sync),
+    },
+    Command {
+        path: &["client"],
+        summary: "Client configs",
+        handler: None,
     },
     Command {
         path: &["server"],
@@ -219,11 +281,15 @@ pub fn parse(args: &[String]) -> Result<Parsed, String> {
                     parsed.positional.first().map(String::as_str),
                     Some(
                         "cc" |
+                        "client" |
                         "compression" |
                         "context" |
                         "council" |
                         "import" |
+                        "inspect" |
+                        "profile" |
                         "secret" |
+                        "server" |
                         "sync" |
                         "update"
                     )
@@ -401,3 +467,6 @@ fn emit(
 mod compression_tests;
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod server_tests;
