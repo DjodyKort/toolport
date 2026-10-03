@@ -1204,7 +1204,25 @@ mod file {
         let key = resolve_key(true)?
             .ok_or("TOOLPORT_SECRET_KEY (legacy CONDUIT_SECRET_KEY) is not set")?;
         let plain = serde_json::to_vec(store).map_err(|e| e.to_string())?;
-        crate::registry::atomic_write(&path()?, &seal(&key, &plain)?)
+        let path = path()?;
+        keep_previous_generation(&path);
+        crate::registry::atomic_write(&path, &seal(&key, &plain)?)
+    }
+
+    pub(super) fn backup_path(path: &std::path::Path) -> PathBuf {
+        let mut name = path.as_os_str().to_owned();
+        name.push(".bak");
+        PathBuf::from(name)
+    }
+
+    // Only reached after `load` opened the current file, so the copy is a decryptable
+    // generation; failing to copy must not block the write it protects.
+    fn keep_previous_generation(path: &std::path::Path) {
+        if let Ok(previous) = std::fs::read_to_string(path) {
+            if !previous.trim().is_empty() {
+                let _ = crate::registry::atomic_write(&backup_path(path), &previous);
+            }
+        }
     }
 
     pub fn set_secret(server_id: &str, key: &str, value: &str) -> Result<(), String> {
@@ -2204,6 +2222,81 @@ pub(crate) mod tests {
             None => std::env::remove_var("TOOLPORT_SECRET_KEY"),
         }
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn vault_and_bak() -> (std::path::PathBuf, std::path::PathBuf) {
+        let vault = crate::registry::conduit_dir().unwrap().join("secrets.enc");
+        let bak = file::backup_path(&vault);
+        (vault, bak)
+    }
+
+    #[test]
+    fn vault_bak_is_written_before_each_replace_and_holds_the_previous_generation() {
+        with_isolated_vault(|| {
+            let (vault, bak) = vault_and_bak();
+            set_secret("srv", "ONE", "synthetic-first").unwrap();
+            assert!(!bak.exists(), "the first write has no previous generation");
+            let first = std::fs::read(&vault).unwrap();
+
+            set_secret("srv", "TWO", "synthetic-second").unwrap();
+            let second = std::fs::read(&vault).unwrap();
+            assert_ne!(second, first);
+            assert_eq!(std::fs::read(&bak).unwrap(), first);
+
+            delete_secret("srv", "ONE").unwrap();
+            assert_eq!(
+                std::fs::read(&bak).unwrap(),
+                second,
+                "the backup rolls forward with every replace"
+            );
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn vault_bak_is_owner_only_and_never_holds_plaintext() {
+        use std::os::unix::fs::PermissionsExt;
+        with_isolated_vault(|| {
+            let (_, bak) = vault_and_bak();
+            set_secret("srv", "ONE", "synthetic-plaintext-marker-first").unwrap();
+            set_secret("srv", "TWO", "synthetic-plaintext-marker-second").unwrap();
+            let mode = std::fs::metadata(&bak).unwrap().permissions().mode();
+            assert_eq!(mode & 0o777, 0o600, "mode {mode:o}");
+            let text = std::fs::read_to_string(&bak).unwrap();
+            assert!(!text.contains("synthetic-plaintext-marker"), "{text}");
+        });
+    }
+
+    #[test]
+    fn vault_is_restored_by_copying_the_bak_back() {
+        with_isolated_vault(|| {
+            let (vault, bak) = vault_and_bak();
+            set_secret("srv", "ONE", "synthetic-first").unwrap();
+            set_secret("srv", "TWO", "synthetic-second").unwrap();
+            assert_eq!(
+                get_secret("srv", "TWO").as_deref(),
+                Some("synthetic-second")
+            );
+
+            std::fs::copy(&bak, &vault).unwrap();
+            assert_eq!(get_secret("srv", "ONE").as_deref(), Some("synthetic-first"));
+            assert_eq!(get_secret("srv", "TWO"), None);
+        });
+    }
+
+    #[test]
+    fn a_damaged_vault_is_not_rolled_into_the_bak() {
+        with_isolated_vault(|| {
+            let (vault, bak) = vault_and_bak();
+            set_secret("srv", "ONE", "synthetic-first").unwrap();
+            set_secret("srv", "TWO", "synthetic-second").unwrap();
+            let good_bak = std::fs::read(&bak).unwrap();
+
+            std::fs::write(&vault, "@@@ damaged @@@").unwrap();
+            assert!(set_secret("srv", "THREE", "synthetic-third").is_err());
+            assert_eq!(std::fs::read(&bak).unwrap(), good_bak);
+            assert_eq!(std::fs::read(&vault).unwrap(), b"@@@ damaged @@@");
+        });
     }
 
     /// The data-protection keychain round-trips a per-server secret: write via
