@@ -10,6 +10,7 @@ pub mod dedupe;
 pub mod doctor;
 pub mod launch;
 pub mod layers;
+pub mod loads;
 pub mod roots;
 pub mod rules;
 pub mod settings;
@@ -238,4 +239,19 @@ pub fn plan_handler(args: Value) -> Result<Value, String> {
 /// saving `context.json`.
 pub fn apply_handler(args: Value) -> Result<Value, String> {
     run(&args, false)
+}
+
+/// `plus.context.whatLoads`: takes the `plan` root overrides plus optional `profile` and `cwd`
+/// (default the home directory) and returns [`loads::WhatLoads`] as JSON. Read-only.
+pub fn what_loads_handler(args: Value) -> Result<Value, String> {
+    let roots = roots_from_args(&args)?;
+    let config = config_from_args(&roots, &args)?;
+    let cwd = args
+        .get("cwd")
+        .and_then(Value::as_str)
+        .map(PathBuf::from)
+        .unwrap_or_else(|| roots.home.clone());
+    let profile = args.get("profile").and_then(Value::as_str);
+    let report = loads::what_loads(&roots, &config, profile, &cwd)?;
+    serde_json::to_value(report).map_err(|e| e.to_string())
 }

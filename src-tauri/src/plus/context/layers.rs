@@ -91,7 +91,7 @@ pub fn scaffold_client_rule(
     Ok(Some(target))
 }
 
-fn frontmatter(path: &Path) -> serde_yaml::Mapping {
+pub(super) fn frontmatter(path: &Path) -> serde_yaml::Mapping {
     let Ok(text) = fs::read_to_string(path) else {
         return Default::default();
     };
@@ -108,7 +108,7 @@ fn frontmatter(path: &Path) -> serde_yaml::Mapping {
     }
 }
 
-fn yaml_text(value: &Yaml) -> String {
+pub(super) fn yaml_text(value: &Yaml) -> String {
     match value {
         Yaml::String(s) => s.clone(),
         Yaml::Number(n) => n.to_string(),

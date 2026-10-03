@@ -519,3 +519,114 @@ fn profile_selection_none_and_dry_run() {
     config.profiles.insert("bad".into(), profile_spec(json!({"servers": 3})));
     assert!(apply(&roots, &mut config, ApplyOptions::default()).unwrap_err().contains("servers"));
 }
+
+mod loads_tests {
+    use super::*;
+    use crate::plus::context::layers::MANAGED_LOCAL_HEADER;
+    use crate::plus::context::loads::what_loads;
+
+    fn word(n: usize) -> String {
+        "x".repeat(n)
+    }
+
+    fn fixture() -> TempHome {
+        let h = TempHome::new();
+        h.write(".claude/CLAUDE.md", &word(400));
+        h.write(".claude/rules/org-style.md", &word(40));
+        h.write(".claude/rules/scoped.md", "---\npaths: [\"src/**\"]\n---\n\nbody\n");
+        h.write(
+            ".config/mcpm/skills_repo/rules/personal/SKILL.md",
+            "---\nname: personal\nactivation: always\n---\n\nmine\n",
+        );
+        h.write(".claude/rules/personal.md", &word(80));
+        h.write(
+            ".claude/settings.json",
+            r#"{"model":"a","permissions":{"allow":["x"]},"env":{"A":"1"}}"#,
+        );
+        h.write(
+            ".claude.json",
+            r#"{"mcpServers":{"alpha":{"command":"a"},"beta":{"command":"b"},"context7":{"command":"c"}}}"#,
+        );
+        h.write(".claude/skills/one/SKILL.md", "---\nname: one\ndescription: user skill\n---\nbody");
+        h.write("work/app/CLAUDE.md", &word(200));
+        h.write("work/app/CLAUDE.local.md", &format!("{MANAGED_LOCAL_HEADER}\n\nlayer\n"));
+        h.write("work/app/.claude/settings.json", r#"{"model":"b","permissions":{"allow":["y"]}}"#);
+        h.write("work/app/.claude/settings.local.json", r#"{"model":"c"}"#);
+        h.write("work/app/.claude/rules/org-style.md", &word(20));
+        h.write("work/app/.mcp.json", r#"{"mcpServers":{"alpha":{"command":"proj"}}}"#);
+        h.write(
+            "work/app/.claude/skills/one/SKILL.md",
+            "---\nname: one\ndescription: project skill\n---\nbody",
+        );
+        h
+    }
+
+    fn cfg_with_profile() -> ContextConfig {
+        config(json!({"profiles": {"lean": {
+            "org": false, "rules": "none", "servers": ["alpha"],
+            "settings_overrides": {"model": "p"}
+        }}}))
+    }
+
+    #[test]
+    fn plain_launch_counts_layers_and_reports_clobbers() {
+        let h = fixture();
+        let cwd = h.0.join("work/app");
+        let r = what_loads(&h.roots(), &config(json!({})), None, &cwd).unwrap();
+        let org = r.items.iter().find(|i| i.name == "CLAUDE.md" && i.source == "org").unwrap();
+        assert_eq!((org.tokens, org.loaded), (100, true));
+        let local = r.items.iter().find(|i| i.name == "CLAUDE.local.md").unwrap();
+        assert_eq!(local.source, "client-layer");
+        let scoped = r.items.iter().find(|i| i.name == "scoped").unwrap();
+        assert!(!scoped.loaded);
+        let personal = r.items.iter().find(|i| i.name == "personal").unwrap();
+        assert_eq!(personal.source, "personal");
+        let k = |kind: &str, key: &str| {
+            r.clobbers.iter().rfind(|c| c.kind == kind && c.key == key).cloned()
+        };
+        let model = k("settings", "model").unwrap();
+        assert!(model.winner.ends_with("settings.local.json"));
+        assert_eq!(k("settings", "permissions").unwrap().relation, "merges");
+        assert!(k("settings", "env").is_none());
+        assert!(k("rule", "org-style").unwrap().winner.contains("work/app"));
+        assert!(k("mcp", "alpha").unwrap().winner.ends_with(".mcp.json"));
+        assert!(k("skill", "one").unwrap().winner.contains("work/app"));
+        let shadowed = r.items.iter().filter(|i| i.kind == "mcp" && i.name == "alpha").collect::<Vec<_>>();
+        assert_eq!(shadowed.iter().filter(|i| i.loaded).count(), 1);
+        let ctx7 = r.items.iter().find(|i| i.name == "context7").unwrap();
+        assert_eq!(ctx7.source, "org");
+        let sum: u64 = r.items.iter().filter(|i| i.loaded).map(|i| i.tokens).sum();
+        assert_eq!(r.total_tokens, sum);
+        assert_eq!(r.tokens_by_kind["memory"], 100 + 50 + text_tokens_of(&format!("{MANAGED_LOCAL_HEADER}\n\nlayer\n")));
+    }
+
+    fn text_tokens_of(s: &str) -> u64 {
+        crate::savings::estimated_tokens(s.len() as u64)
+    }
+
+    #[test]
+    fn strict_profile_drops_org_and_project_servers() {
+        let h = fixture();
+        let cwd = h.0.join("work/app");
+        let r = what_loads(&h.roots(), &cfg_with_profile(), Some("lean"), &cwd).unwrap();
+        let org = r.items.iter().find(|i| i.source == "org" && i.kind == "memory").unwrap();
+        assert!(!org.loaded);
+        let servers: Vec<_> = r.items.iter().filter(|i| i.kind == "mcp").map(|i| i.name.as_str()).collect();
+        assert_eq!(servers, ["alpha"]);
+        assert!(r.notes.iter().any(|n| n.contains("strict-mcp-config")));
+        let model = r.clobbers.iter().rfind(|c| c.key == "model").unwrap();
+        assert_eq!(model.winner, "profile settings_overrides");
+        assert!(what_loads(&h.roots(), &cfg_with_profile(), Some("nope"), &cwd).is_err());
+    }
+
+    #[test]
+    fn what_loads_handler_serializes_report() {
+        let h = fixture();
+        let out = crate::plus::dispatch(
+            "plus.context.whatLoads",
+            json!({"home": h.0.display().to_string(), "cwd": h.0.join("work/app").display().to_string()}),
+        )
+        .unwrap();
+        assert!(out["total_tokens"].as_u64().unwrap() > 0);
+    }
+}
