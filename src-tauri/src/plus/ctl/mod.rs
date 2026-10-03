@@ -6,6 +6,7 @@ mod cc;
 mod client;
 mod commands;
 pub(crate) mod compression;
+mod compression_cfg;
 mod council;
 mod import;
 mod skills;
@@ -76,7 +77,6 @@ planned_groups!(
     server_group => "server",
     auth_group => "auth",
     secret_group => "secret",
-    compression_group => "compression",
     import_group => "import",
 );
 
@@ -167,7 +167,56 @@ pub const COMMANDS: &[Command] = &[
         "Show the compression policy, pin and drift",
         compression::status,
     ),
-    cmd(&["compression", "presets"], "List compression presets", compression::presets),
+    cmd(
+        &["compression", "presets"],
+        "List presets (--refresh re-snapshots knobs, --dry-run)",
+        compression::presets,
+    ),
+    cmd(
+        &["compression", "enable"],
+        "Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)",
+        compression_cfg::enable,
+    ),
+    cmd(
+        &["compression", "disable"],
+        "Disable compression (--teardown, --dry-run)",
+        compression_cfg::disable,
+    ),
+    cmd(
+        &["compression", "set-provider"],
+        "Swap the active provider and re-apply (--dry-run)",
+        compression_cfg::set_provider,
+    ),
+    cmd(
+        &["compression", "use"],
+        "Switch the active preset and re-apply (--dry-run)",
+        compression_cfg::use_preset,
+    ),
+    cmd(
+        &["compression", "sync"],
+        "Re-apply the policy: shims, env snippet, MCP entry (--mcpm-root, --dry-run)",
+        compression_cfg::sync,
+    ),
+    cmd(
+        &["compression", "pin"],
+        "Show or set the exact engine pin (--install, --refresh, --dry-run)",
+        compression_cfg::pin,
+    ),
+    cmd(
+        &["compression", "seal"],
+        "Declare the live proxy posture as policy (--apply, --dry-run)",
+        compression_cfg::seal,
+    ),
+    cmd(
+        &["compression", "env"],
+        "Print the proxy env for a directory, for eval (--cwd)",
+        compression_cfg::env,
+    ),
+    cmd(
+        &["compression", "doctor"],
+        "Run the compression health checks",
+        compression_cfg::doctor,
+    ),
     cmd(
         &["compression", "run"],
         "Launch claude under the directory's policy (--plan to preview)",
@@ -189,7 +238,11 @@ pub const COMMANDS: &[Command] = &[
         "Move the engine pin (--to V | --latest, --accept to apply)",
         compression::update,
     ),
-    cmd(&["compression"], "Compression runs (not implemented)", compression_group),
+    cmd(
+        &["compression"],
+        "Compression: status presets enable disable set-provider use sync pin seal env doctor run verify ledger proxy update",
+        compression_cfg::group,
+    ),
     cmd(
         &["import", "mcpm"],
         "Import an mcpm config root (--dry-run prints the plan)",
@@ -479,6 +532,8 @@ fn emit(
     code
 }
 
+#[cfg(test)]
+mod compression_cfg_tests;
 #[cfg(test)]
 mod compression_tests;
 #[cfg(test)]
