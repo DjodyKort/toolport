@@ -10,6 +10,7 @@ const FOLDERS: Spec = Spec {
     inline: Inline::Value,
     unknown: Unknown::Argument,
     operands: Operands::Reject,
+    ..Spec::PLAIN
 };
 
 pub fn folders(rest: &[String]) -> Result<Output, CtlError> {

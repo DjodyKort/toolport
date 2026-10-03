@@ -22,6 +22,7 @@ const BASE: Spec = Spec {
     inline: Inline::Strict,
     unknown: Unknown::Argument,
     operands: Operands::Reject,
+    ..Spec::PLAIN
 };
 const SYNC: Spec = Spec {
     flags: &[

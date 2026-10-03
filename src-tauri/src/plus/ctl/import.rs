@@ -1,3 +1,4 @@
+use super::flags::{greedy, switch, value, Dashes, Flag, Flags, Operands, Spec};
 use super::output::{CtlError, Output};
 use crate::plus::import_mcpm::{name_map, rename_refs, run, RunOptions};
 use std::path::PathBuf;
@@ -8,103 +9,79 @@ const USAGE: &str =
 const RENAME_USAGE: &str =
     "usage: import rename-refs <config-root> --tools <file> --paths <path>... [--short-ids <file>] [--home <dir>] [--dry-run]";
 
+const TOOLS: Flag = value("--tools").needs("a file");
+const SHORT_IDS: Flag = value("--short-ids").needs("a file");
+const HOME: Flag = value("--home").needs("a directory");
+
+const MCPM: Spec = Spec {
+    flags: &[
+        switch("--dry-run"),
+        switch("--skip-clients"),
+        switch("--prune-orphans"),
+        switch("--name-map"),
+        TOOLS,
+        SHORT_IDS,
+        HOME,
+    ],
+    operands: Operands::Max(1, USAGE),
+    dashes: Dashes::Any,
+    ..Spec::PLAIN
+};
+
+const RENAME: Spec = Spec {
+    flags: &[
+        switch("--dry-run"),
+        TOOLS,
+        SHORT_IDS,
+        HOME,
+        greedy("--paths").needs("at least one path"),
+    ],
+    operands: Operands::Max(1, RENAME_USAGE),
+    ..MCPM
+};
+
+fn run_options(flags: &Flags, usage: &str) -> Result<RunOptions, CtlError> {
+    let root = flags
+        .operands()
+        .first()
+        .ok_or_else(|| CtlError::usage(usage))?;
+    Ok(RunOptions {
+        root: PathBuf::from(root),
+        short_ids_path: flags.one("--short-ids").map(PathBuf::from),
+        home: flags.one("--home").map(String::from),
+        ..RunOptions::default()
+    })
+}
+
 pub fn rename_refs_cmd(rest: &[String]) -> Result<Output, CtlError> {
-    let mut opts = RunOptions::default();
-    let mut root: Option<PathBuf> = None;
-    let mut tools: Option<PathBuf> = None;
-    let mut paths: Vec<PathBuf> = Vec::new();
-    let mut dry_run = false;
-    let mut iter = rest.iter().peekable();
-    while let Some(arg) = iter.next() {
-        match arg.as_str() {
-            "--dry-run" => dry_run = true,
-            "--tools" => {
-                let v = iter
-                    .next()
-                    .ok_or_else(|| CtlError::usage("--tools requires a file"))?;
-                tools = Some(PathBuf::from(v));
-            }
-            "--short-ids" => {
-                let v = iter
-                    .next()
-                    .ok_or_else(|| CtlError::usage("--short-ids requires a file"))?;
-                opts.short_ids_path = Some(PathBuf::from(v));
-            }
-            "--home" => {
-                let v = iter
-                    .next()
-                    .ok_or_else(|| CtlError::usage("--home requires a directory"))?;
-                opts.home = Some(v.clone());
-            }
-            "--paths" => {
-                while let Some(p) = iter.next_if(|p| !p.starts_with("--")) {
-                    paths.push(PathBuf::from(p));
-                }
-                if paths.is_empty() {
-                    return Err(CtlError::usage("--paths requires at least one path"));
-                }
-            }
-            flag if flag.starts_with('-') => {
-                return Err(CtlError::usage(format!("unknown option: {flag}")))
-            }
-            _ if root.is_none() => root = Some(PathBuf::from(arg)),
-            _ => return Err(CtlError::usage(RENAME_USAGE)),
-        }
-    }
-    opts.root = root.ok_or_else(|| CtlError::usage(RENAME_USAGE))?;
-    let tools = tools.ok_or_else(|| CtlError::usage("--tools is required"))?;
+    let flags = RENAME.parse(rest)?;
+    let opts = run_options(&flags, RENAME_USAGE)?;
+    let tools = flags
+        .one("--tools")
+        .ok_or_else(|| CtlError::usage("--tools is required"))?;
+    let paths: Vec<PathBuf> = flags.all("--paths").into_iter().map(PathBuf::from).collect();
     if paths.is_empty() {
         return Err(CtlError::usage("--paths is required"));
     }
-    let map = name_map(&opts, &tools).map_err(|e| CtlError::new("import", e))?;
-    let report = rename_refs(&paths, &map, dry_run).map_err(|e| CtlError::new("import", e))?;
+    let map = name_map(&opts, &PathBuf::from(tools)).map_err(|e| CtlError::new("import", e))?;
+    let report = rename_refs(&paths, &map, flags.on("--dry-run"))
+        .map_err(|e| CtlError::new("import", e))?;
     Ok(Output::new(report.to_value(), report.summary()))
 }
 
 pub fn mcpm(rest: &[String]) -> Result<Output, CtlError> {
-    let mut opts = RunOptions {
-        write_clients: true,
-        ..RunOptions::default()
+    let flags = MCPM.parse(rest)?;
+    let opts = RunOptions {
+        dry_run: flags.on("--dry-run"),
+        write_clients: !flags.on("--skip-clients"),
+        prune_orphans: flags.on("--prune-orphans"),
+        ..run_options(&flags, USAGE)?
     };
-    let mut root: Option<PathBuf> = None;
-    let mut want_map = false;
-    let mut tools: Option<PathBuf> = None;
-    let mut iter = rest.iter();
-    while let Some(arg) = iter.next() {
-        match arg.as_str() {
-            "--dry-run" => opts.dry_run = true,
-            "--skip-clients" => opts.write_clients = false,
-            "--prune-orphans" => opts.prune_orphans = true,
-            "--name-map" => want_map = true,
-            "--tools" => {
-                let v = iter
-                    .next()
-                    .ok_or_else(|| CtlError::usage("--tools requires a file"))?;
-                tools = Some(PathBuf::from(v));
-            }
-            "--short-ids" => {
-                let v = iter
-                    .next()
-                    .ok_or_else(|| CtlError::usage("--short-ids requires a file"))?;
-                opts.short_ids_path = Some(PathBuf::from(v));
-            }
-            "--home" => {
-                let v = iter
-                    .next()
-                    .ok_or_else(|| CtlError::usage("--home requires a directory"))?;
-                opts.home = Some(v.clone());
-            }
-            flag if flag.starts_with('-') => {
-                return Err(CtlError::usage(format!("unknown option: {flag}")))
-            }
-            _ if root.is_none() => root = Some(PathBuf::from(arg)),
-            _ => return Err(CtlError::usage(USAGE)),
-        }
-    }
-    opts.root = root.ok_or_else(|| CtlError::usage(USAGE))?;
-    if want_map {
-        let tools = tools.ok_or_else(|| CtlError::usage("--name-map requires --tools <file>"))?;
-        let map = name_map(&opts, &tools).map_err(|e| CtlError::new("import", e))?;
+    if flags.on("--name-map") {
+        let tools = flags
+            .one("--tools")
+            .ok_or_else(|| CtlError::usage("--name-map requires --tools <file>"))?;
+        let map = name_map(&opts, &PathBuf::from(tools)).map_err(|e| CtlError::new("import", e))?;
         let summary = format!("{} tool names mapped", map.map.len());
         return Ok(Output::new(map.to_value(), summary));
     }
