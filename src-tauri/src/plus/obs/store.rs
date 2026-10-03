@@ -1,3 +1,4 @@
+use crate::plus::jsonfs::read_json;
 use crate::usage_report::civil_from_days;
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
@@ -117,8 +118,7 @@ impl Locked {
     }
 
     pub fn load_history(&self) -> Option<Value> {
-        let text = std::fs::read_to_string(self.history_path()).ok()?;
-        serde_json::from_str(&text).ok()
+        read_json(&self.history_path())
     }
 
     pub fn save_history(&self, history: &Value) -> Result<(), String> {
@@ -127,13 +127,9 @@ impl Locked {
     }
 
     pub fn load_state(&self) -> State {
-        let Ok(text) = std::fs::read_to_string(self.state_path()) else {
-            return State::default();
-        };
-        match serde_json::from_str::<State>(&text) {
-            Ok(state) if state.version == STATE_VERSION => state,
-            _ => State::default(),
-        }
+        read_json::<State>(&self.state_path())
+            .filter(|state| state.version == STATE_VERSION)
+            .unwrap_or_default()
     }
 
     pub fn save_state(&self, state: &State) -> Result<(), String> {

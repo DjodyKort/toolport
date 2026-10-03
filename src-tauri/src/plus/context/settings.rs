@@ -7,6 +7,7 @@ use super::backup::snapshot;
 use super::config::SettingsPolicy;
 use super::roots::Roots;
 use crate::plus::skills::json::{parse, J};
+use crate::plus::skills::pyfs::write_text;
 use std::fs;
 use std::path::Path;
 
@@ -135,10 +136,6 @@ pub fn ensure_policy(
     if backup {
         snapshot(roots, settings_path)?;
     }
-    if let Some(parent) = settings_path.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
-    }
-    fs::write(settings_path, format!("{}\n", data.dumps()))
-        .map_err(|e| format!("{}: {e}", settings_path.display()))?;
+    write_text(settings_path, &format!("{}\n", data.dumps()))?;
     Ok(PolicyOutcome::Changed)
 }
