@@ -1,0 +1,15 @@
+{
+  "area": "findings",
+  "entry": "findings",
+  "args": {
+    "repo": "repo",
+    "out": "findings"
+  },
+  "comparison": "C",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ],
+  "overrides": {}
+}

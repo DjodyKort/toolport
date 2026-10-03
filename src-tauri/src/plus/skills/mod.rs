@@ -7,6 +7,7 @@ pub mod collisions;
 pub mod json;
 pub mod lock;
 pub mod parser;
+pub mod pyfs;
 pub mod sync;
 pub mod transpilers;
 pub mod transpiler;

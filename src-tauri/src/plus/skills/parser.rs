@@ -71,6 +71,28 @@ impl Skill {
         &self.frontmatter.name
     }
 
+    /// Stand-in used only to ask a transpiler for an output path, like mcpm's `dummy` configs.
+    pub fn placeholder(name: &str, skill_type: SkillType) -> Skill {
+        Skill {
+            frontmatter: SkillFrontmatter {
+                name: name.to_string(),
+                description: "dummy".into(),
+                license: None,
+                compatibility: None,
+                allowed_tools: None,
+                metadata: Mapping::new(),
+                hooks: None,
+                globs: None,
+                activation: Activation::Auto,
+                priority: 0,
+                dependencies: None,
+            },
+            body: String::new(),
+            source_path: PathBuf::from("dummy"),
+            skill_type,
+        }
+    }
+
     pub fn source_dir(&self) -> &Path {
         self.source_path.parent().unwrap_or_else(|| Path::new(""))
     }
@@ -154,7 +176,7 @@ fn str_list(v: Option<&Value>, name: &str) -> Result<Vec<String>, String> {
     }
 }
 
-fn valid_name(v: &str) -> Result<(), String> {
+pub(crate) fn valid_name(v: &str) -> Result<(), String> {
     let len = v.chars().count();
     if len == 0 || len > 64 {
         return Err("name must be 1-64 characters".into());

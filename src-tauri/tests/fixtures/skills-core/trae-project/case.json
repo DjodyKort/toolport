@@ -1,0 +1,20 @@
+{
+  "area": "skills",
+  "entry": "skills_sync",
+  "args": {
+    "repo": "repo",
+    "clients": [
+      "trae"
+    ]
+  },
+  "comparison": "A",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ],
+  "overrides": {
+    "*mcpm-skills.lock": "B"
+  },
+  "input_from": "_shared/skills-basic"
+}
