@@ -35,6 +35,12 @@ const NOT_READ_ONLY: &[(&str, &str)] = &[
     ("secret set", "writes the vault; round trip test"),
     ("secret rm", "writes the vault; round trip test"),
     ("compression proxy", "starts or stops a local proxy process"),
+    ("compression enable", "writes the policy, shims and registry entry; compression round trip test"),
+    ("compression disable", "writes the policy and removes artifacts; compression round trip test"),
+    ("compression set-provider", "writes the policy, artifacts and registry; compression round trip test"),
+    ("compression use", "writes the policy and artifacts; compression round trip test"),
+    ("compression sync", "reconciles artifacts and registry; compression round trip test"),
+    ("compression seal", "reads a live proxy /health; stub engine tests in ctl::compression_cfg_tests"),
     ("skills unbundle", "extracts into the target; bundle round trip test"),
     ("usage", "indexes transcripts into the data dir; ctl::usage unit tests"),
 ];
@@ -584,6 +590,28 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             },
         ),
         case(
+            "compression env",
+            &["compression", "env", "--cwd", &home],
+            0,
+            |_, d| {
+                assert_eq!(d["launch"], "plain");
+                assert_eq!(d["lines"], json!(["HRCOMPRESS_LAUNCH=plain"]));
+            },
+        ),
+        case("compression pin", &["compression", "pin"], 0, |_, d| {
+            assert_eq!(d["pin"], "0.29.0");
+            assert_eq!(d["set"], false);
+            assert!(d["install"].is_null());
+        }),
+        case(
+            "compression doctor",
+            &["compression", "doctor"],
+            0,
+            |_, d| {
+                assert!(!d["checks"].as_array().unwrap().is_empty());
+            },
+        ),
+        case(
             "compression ledger",
             &["compression", "ledger", "summary"],
             0,
@@ -916,6 +944,119 @@ fn bare_groups_report_usage_or_not_implemented() {
         assert_envelope(&key, &run, &value, &key, exit);
         assert_eq!(value["error"]["code"], code, "{key}");
     }
+}
+
+#[test]
+fn compression_config_commands_round_trip_on_a_synthetic_data_dir() {
+    let world = World::new("compression-cfg");
+    let before = world.snapshot();
+    for argv in [
+        vec!["compression", "enable", "--provider", "rtk-only", "--dry-run"],
+        vec!["compression", "use", "agent", "--dry-run"],
+        vec!["compression", "set-provider", "headroom", "--dry-run"],
+        vec!["compression", "disable", "--teardown", "--dry-run"],
+        vec!["compression", "sync", "--dry-run"],
+    ] {
+        let (run, value) = world.json(&argv);
+        assert_envelope(&argv.join(" "), &run, &value, &argv[..2].join(" "), 0);
+        assert_eq!(value["data"]["dryRun"], true, "{argv:?}");
+        assert_eq!(world.snapshot(), before, "{argv:?} must write nothing");
+    }
+
+    let (run, value) = world.json(&["compression", "enable", "--provider", "rtk-only"]);
+    assert_envelope("compression enable", &run, &value, "compression enable", 0);
+    assert_eq!(value["data"]["provider"], "rtk-only");
+    let policy = world.data.join("compression.json");
+    assert!(policy.is_file());
+    assert!(!world.data.join("compression-env.sh").exists());
+    use std::os::unix::fs::PermissionsExt;
+    let mode = |p: &Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
+    assert_eq!(mode(&policy), 0o600);
+
+    let (run, value) = world.json(&["compression", "use", "agent"]);
+    assert_envelope("compression use", &run, &value, "compression use", 0);
+    assert_eq!(value["data"]["preset"]["name"], "agent");
+    let (_, status) = world.json(&["compression", "status"]);
+    assert_eq!(status["data"]["preset"]["name"], "agent");
+
+    let (run, value) = world.json(&["compression", "set-provider", "headroom"]);
+    assert_envelope("compression set-provider", &run, &value, "compression set-provider", 0);
+    let shims = world.data.join("compression-shims.zsh");
+    let env = world.data.join("compression-env.sh");
+    assert_eq!(mode(&shims), 0o644);
+    assert_eq!(mode(&env), 0o600);
+    let warnings = value["data"]["warnings"].as_array().unwrap();
+    assert!(
+        warnings.iter().any(|w| w.as_str().unwrap().contains("not on PATH")),
+        "no engine is installed here: {warnings:?}"
+    );
+    let registry: Value =
+        serde_json::from_str(&std::fs::read_to_string(world.data.join("registry.json")).unwrap())
+            .unwrap();
+    let headroom = registry["servers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["name"] == "headroom")
+        .expect("the engine's MCP server is registered");
+    assert_eq!(headroom["command"], "headroom");
+    assert_eq!(headroom["source"], "plus:compression");
+    assert!(registry["profiles"][0]["enabledServerIds"]
+        .as_array()
+        .unwrap()
+        .contains(&headroom["id"]));
+
+    let (run, first) = world.json(&["compression", "sync"]);
+    assert_envelope("compression sync", &run, &first, "compression sync", 0);
+    let after_first = world.snapshot();
+    let (_, second) = world.json(&["compression", "sync"]);
+    assert_eq!(first["data"]["actions"], second["data"]["actions"]);
+    assert_eq!(world.snapshot(), after_first, "a second sync changes nothing");
+
+    let (_, value) = world.json(&["compression", "set-provider", "none"]);
+    assert_eq!(value["data"]["provider"], "none");
+    assert!(!env.exists());
+    assert!(shims.is_file(), "the shims stay, as in mcpm");
+    let registry: Value =
+        serde_json::from_str(&std::fs::read_to_string(world.data.join("registry.json")).unwrap())
+            .unwrap();
+    assert!(registry["servers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|s| s["name"] != "headroom"));
+
+    let (run, value) = world.json(&["compression", "disable"]);
+    assert_envelope("compression disable", &run, &value, "compression disable", 0);
+    let (_, status) = world.json(&["compression", "status"]);
+    assert_eq!(status["data"]["provider"], "none");
+    assert_eq!(status["data"]["preset"]["name"], "agent", "disable keeps the policy");
+}
+
+#[test]
+fn compression_sync_adopts_an_mcpm_policy_from_the_given_root_once() {
+    let world = World::new("compression-legacy");
+    let legacy = world.mcpm.join("compression.json");
+    std::fs::write(
+        &legacy,
+        r#"{"provider": "rtk-only", "runtime": "hook", "active_preset": "agent"}"#,
+    )
+    .unwrap();
+    let root = world.path(&world.mcpm);
+    let (run, value) = world.json(&["compression", "sync", "--mcpm-root", &root]);
+    assert_envelope("compression sync", &run, &value, "compression sync", 0);
+    assert_eq!(value["data"]["provider"], "rtk-only");
+    same_path(&value["data"]["adopted"]["from"], &legacy);
+    assert!(
+        world.data.join("compression.json").is_file(),
+        "the adopted policy is saved in the data dir"
+    );
+    let (_, again) = world.json(&["compression", "sync", "--mcpm-root", &root]);
+    assert!(again["data"]["adopted"].is_null());
+    assert!(
+        std::fs::read_to_string(&legacy).unwrap().contains("rtk-only"),
+        "the mcpm file is only read"
+    );
 }
 
 #[test]

@@ -286,6 +286,48 @@ fn context_sync_second_run_changes_nothing() {
 }
 
 #[test]
+fn compression_sync_second_run_changes_nothing() {
+    let sb = Sandbox::new("idem-compression");
+    std::fs::create_dir_all(sb.work.join("bin")).unwrap();
+    sb.script(
+        "bin/headroom",
+        "case \"$1\" in\n  --version) echo 'headroom 0.29.0' ;;\n  agent-savings) echo '{\"HEADROOM_MODE\": \"token\", \"HEADROOM_MAX_ITEMS\": \"30\"}' ;;\n  *) exit 2 ;;\nesac",
+    );
+    let path = format!(
+        "{}:/usr/bin:/bin",
+        sb.work.join("bin").to_string_lossy()
+    );
+    sb.set_env("PATH", &path);
+    write(
+        &sb.home.join(".config/mcpm/compression.json"),
+        &json!({"provider": "headroom", "runtime": "proxy", "active_preset": "agent"}).to_string(),
+    );
+    let args = ["--json", "compression", "sync"];
+
+    let first = sb.ctl(&args);
+    first.assert_ok();
+    assert_eq!(first.data()["provider"], "headroom", "{}", first.describe());
+    assert!(first.data()["adopted"].is_object(), "{}", first.describe());
+    let after_first = sb.tree();
+    for file in ["compression.json", "compression-shims.zsh", "compression-env.sh"] {
+        assert!(
+            after_first.contains_key(&format!("data/{file}")),
+            "{file}: {:?}",
+            after_first.keys().collect::<Vec<_>>()
+        );
+    }
+    let registry = String::from_utf8_lossy(&after_first["data/registry.json"]).into_owned();
+    assert!(registry.contains("plus:compression"), "{registry}");
+
+    let second = sb.ctl(&args);
+    second.assert_ok();
+    assert!(second.data()["adopted"].is_null(), "{}", second.describe());
+    assert_same("compression sync", &after_first, &sb);
+    let raw = tree_diff(&after_first, &sb.tree());
+    assert!(raw.is_empty(), "{raw:?}");
+}
+
+#[test]
 fn skills_sync_second_run_changes_nothing() {
     let sb = Sandbox::new("idem-skills");
     let repo = sb.skills_repo().to_string_lossy().into_owned();
