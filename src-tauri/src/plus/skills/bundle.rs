@@ -4,7 +4,7 @@
 
 use super::clock::Clock;
 use super::json::{self, J};
-use super::parser::{discover_skills, SkillType};
+use super::parser::{discover_skills, Skill, SkillType};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -46,7 +46,12 @@ fn walk_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-pub fn create_bundle(repo: &Path, opts: &BundleOptions<'_>) -> Result<PathBuf, String> {
+pub struct BundlePlan {
+    pub output: PathBuf,
+    pub skills: Vec<Skill>,
+}
+
+pub fn plan_bundle(repo: &Path, opts: &BundleOptions<'_>) -> Result<BundlePlan, String> {
     let mut skills = discover_skills(repo);
     if let Some(names) = opts.skill_names.as_ref().filter(|n| !n.is_empty()) {
         skills.retain(|s| names.iter().any(|n| n == s.name()));
@@ -58,28 +63,44 @@ pub fn create_bundle(repo: &Path, opts: &BundleOptions<'_>) -> Result<PathBuf, S
         .output
         .clone()
         .unwrap_or_else(|| repo.join(format!("{}-bundle.zip", repo_name(repo))));
+    Ok(BundlePlan { output, skills })
+}
+
+/// Archive name and source path of every file of one skill, in archive order.
+pub fn skill_files(skill: &Skill) -> Result<Vec<(String, PathBuf)>, String> {
+    let dir = skill.source_dir();
+    let base = if skill.skill_type == SkillType::Rule {
+        "rules"
+    } else {
+        "skills"
+    };
+    let mut files = Vec::new();
+    walk_files(dir, &mut files);
+    files.sort();
+    files
+        .into_iter()
+        .map(|file| {
+            let rel = file.strip_prefix(dir).map_err(|e| e.to_string())?;
+            let rel: Vec<String> = rel
+                .components()
+                .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                .collect();
+            Ok((format!("{base}/{}/{}", skill.name(), rel.join("/")), file))
+        })
+        .collect()
+}
+
+pub fn create_bundle(repo: &Path, opts: &BundleOptions<'_>) -> Result<PathBuf, String> {
+    let BundlePlan { output, skills } = plan_bundle(repo, opts)?;
 
     let mut zip = ZipWriter::default();
     let mut skill_entries = Vec::new();
     let mut rule_entries = Vec::new();
     for skill in &skills {
         let dir = skill.source_dir();
-        let base = if skill.skill_type == SkillType::Rule {
-            "rules"
-        } else {
-            "skills"
-        };
-        let mut files = Vec::new();
-        walk_files(dir, &mut files);
-        files.sort();
-        for file in files {
-            let rel = file.strip_prefix(dir).map_err(|e| e.to_string())?;
-            let rel: Vec<String> = rel
-                .components()
-                .map(|c| c.as_os_str().to_string_lossy().into_owned())
-                .collect();
+        for (arcname, file) in skill_files(skill)? {
             let data = fs::read(&file).map_err(|e| format!("{}: {e}", file.display()))?;
-            zip.add(&format!("{base}/{}/{}", skill.name(), rel.join("/")), &data);
+            zip.add(&arcname, &data);
         }
         let mut entry = vec![
             ("name".to_string(), J::str(skill.name())),
@@ -126,8 +147,21 @@ pub fn create_bundle(repo: &Path, opts: &BundleOptions<'_>) -> Result<PathBuf, S
     Ok(output)
 }
 
-/// Extracts every file except the bundle manifest and returns the skill and rule names it lists.
-pub fn extract_bundle(bundle: &Path, target: &Path) -> Result<Vec<String>, String> {
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct ExtractReport {
+    pub names: Vec<String>,
+    pub files: Vec<String>,
+    pub overwritten: Vec<String>,
+    pub skipped: Vec<String>,
+}
+
+fn unsafe_entry(name: &str) -> bool {
+    name.starts_with('/') || name.contains("..") || Path::new(name).is_absolute()
+}
+
+/// Extracts every file except the bundle manifest (nothing is written on `dry_run`) and returns
+/// the skill and rule names it lists.
+pub fn extract_bundle(bundle: &Path, target: &Path, dry_run: bool) -> Result<ExtractReport, String> {
     let bytes = fs::read(bundle).map_err(|e| format!("{}: {e}", bundle.display()))?;
     let entries = read_zip(&bytes)?;
     let manifest = entries
@@ -139,20 +173,28 @@ pub fn extract_bundle(bundle: &Path, target: &Path) -> Result<Vec<String>, Strin
     if doc.get("format").and_then(J::as_str) != Some(BUNDLE_FORMAT) {
         return Err("Not a valid mcpm skills bundle".into());
     }
+    let mut report = ExtractReport::default();
     for entry in &entries {
         if entry.name == BUNDLE_MANIFEST || entry.name.ends_with('/') {
             continue;
         }
-        if entry.name.starts_with('/') || entry.name.contains("..") {
+        if unsafe_entry(&entry.name) {
+            report.skipped.push(entry.name.clone());
             continue;
         }
         let dest = target.join(&entry.name);
+        if dest.exists() {
+            report.overwritten.push(entry.name.clone());
+        }
+        report.files.push(entry.name.clone());
+        if dry_run {
+            continue;
+        }
         if let Some(parent) = dest.parent() {
             fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
         }
         fs::write(&dest, &entry.data).map_err(|e| format!("{}: {e}", dest.display()))?;
     }
-    let mut names = Vec::new();
     for key in ["skills", "rules"] {
         if let Some(J::Arr(items)) = doc.get(key) {
             for item in items {
@@ -160,11 +202,11 @@ pub fn extract_bundle(bundle: &Path, target: &Path) -> Result<Vec<String>, Strin
                     .get("name")
                     .and_then(J::as_str)
                     .ok_or("Invalid bundle: entry without a name")?;
-                names.push(name.to_string());
+                report.names.push(name.to_string());
             }
         }
     }
-    Ok(names)
+    Ok(report)
 }
 
 fn crc32(data: &[u8]) -> u32 {
@@ -530,6 +572,37 @@ mod tests {
     #[test]
     fn crc32_matches_the_reference_value() {
         assert_eq!(crc32(b"123456789"), 0xCBF4_3926);
+    }
+
+    #[test]
+    fn extract_skips_unsafe_names_and_writes_nothing_on_dry_run() {
+        let dir = std::env::temp_dir().join(format!("bundle-unsafe-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let mut zip = ZipWriter::default();
+        zip.add(
+            BUNDLE_MANIFEST,
+            br#"{"format": "mcpm-skills-bundle", "version": 1, "skills": [{"name": "a"}], "rules": []}"#,
+        );
+        zip.add("skills/a/SKILL.md", b"ok");
+        zip.add("../escape.txt", b"no");
+        zip.add("/abs.txt", b"no");
+        let bundle = dir.join("b.zip");
+        fs::write(&bundle, zip.finish()).unwrap();
+        let target = dir.join("t");
+
+        let plan = extract_bundle(&bundle, &target, true).unwrap();
+        assert_eq!(plan.names, ["a"]);
+        assert_eq!(plan.files, ["skills/a/SKILL.md"]);
+        assert_eq!(plan.skipped, ["../escape.txt", "/abs.txt"]);
+        assert!(!target.exists());
+
+        extract_bundle(&bundle, &target, false).unwrap();
+        assert_eq!(fs::read(target.join("skills/a/SKILL.md")).unwrap(), b"ok");
+        assert!(!dir.join("escape.txt").exists());
+        let again = extract_bundle(&bundle, &target, true).unwrap();
+        assert_eq!(again.overwritten, ["skills/a/SKILL.md"]);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

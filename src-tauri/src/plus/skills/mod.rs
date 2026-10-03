@@ -15,6 +15,8 @@ pub mod lock;
 pub mod ops;
 pub mod parser;
 pub mod pyfs;
+pub mod repo;
+pub mod repo_handlers;
 pub(crate) mod schema;
 pub mod styles;
 pub mod sync;
