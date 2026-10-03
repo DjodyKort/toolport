@@ -126,9 +126,14 @@ pub fn install(api_key: Option<&str>) -> Result<Installed, String> {
         let profile = reg.active_profile_id();
         reg.set_server_enabled(&profile, &id, true)?;
         if let Some(key) = api_key {
-            crate::secrets::set_secret(&id, API_KEY_ENV, key)
-                .map_err(|e| format!("vault write failed for {id}::{API_KEY_ENV}: {e}"))?;
-            reg.secrets_generation += 1;
+            let stored = crate::secrets::get_secret_result(&id, API_KEY_ENV)
+                .ok()
+                .flatten();
+            if stored.as_deref() != Some(key) {
+                crate::secrets::set_secret(&id, API_KEY_ENV, key)
+                    .map_err(|e| format!("vault write failed for {id}::{API_KEY_ENV}: {e}"))?;
+                reg.secrets_generation += 1;
+            }
             key_stored = true;
         }
         Ok((id, created))
