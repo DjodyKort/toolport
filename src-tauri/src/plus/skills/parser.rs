@@ -107,15 +107,34 @@ impl Skill {
     }
 }
 
-fn frontmatter_re() -> &'static Regex {
-    static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"(?s)\A---\s*\n(.*?)---\s*\n?(.*)").unwrap())
+/// A fence is a line holding only `---` plus trailing whitespace; a `---` inside a value never is.
+pub(crate) fn is_fence_line(line: &str) -> bool {
+    line.starts_with("---") && line.trim() == "---"
 }
 
-/// Python `str.strip()` trims Unicode whitespace, which is what `trim` does too.
+/// Byte offset of the first fence line starting at or after `from`, which must be a line start.
+pub(crate) fn find_fence_line(text: &str, from: usize) -> Option<usize> {
+    let mut offset = from;
+    for line in text[from..].split_inclusive('\n') {
+        if is_fence_line(line) {
+            return Some(offset);
+        }
+        offset += line.len();
+    }
+    None
+}
+
+/// Splits `---` fenced YAML from the body, trimmed like Python's `str.strip()`; both fences
+/// must sit on their own line.
 pub fn split_frontmatter(content: &str) -> Option<(&str, &str)> {
-    let caps = frontmatter_re().captures(content)?;
-    Some((caps.get(1)?.as_str(), caps.get(2)?.as_str().trim()))
+    let yaml_start = content.find('\n')? + 1;
+    if !is_fence_line(&content[..yaml_start]) {
+        return None;
+    }
+    let close = find_fence_line(content, yaml_start)?;
+    let after = &content[close..];
+    let body = after.find('\n').map_or("", |i| &after[i + 1..]);
+    Some((&content[yaml_start..close], body.trim()))
 }
 
 /// Frontmatter keys with top-level hyphens normalised to underscores, in document order.

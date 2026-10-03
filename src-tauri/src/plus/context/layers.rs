@@ -4,6 +4,7 @@
 
 use super::roots::Roots;
 use super::Report;
+use crate::plus::skills::parser::find_fence_line;
 use crate::plus::skills::pyfs::write_text;
 use serde_yaml::Value as Yaml;
 use std::fs;
@@ -117,18 +118,25 @@ pub fn scaffold_client_rule(
     Ok(Some(target))
 }
 
+/// The text between the opening `---` and the next fence line, and what follows that fence's
+/// dashes; a `---` inside a value does not close the frontmatter.
+fn split_fenced(text: &str) -> Option<(&str, &str)> {
+    if !text.starts_with("---") {
+        return None;
+    }
+    let from = text.find('\n').map_or(text.len(), |i| i + 1);
+    let close = find_fence_line(text, from)?;
+    Some((&text[3..close], &text[close + 3..]))
+}
+
 pub(super) fn frontmatter(path: &Path) -> serde_yaml::Mapping {
     let Ok(text) = fs::read_to_string(path) else {
         return Default::default();
     };
-    if !text.starts_with("---") {
+    let Some((yaml, _)) = split_fenced(&text) else {
         return Default::default();
-    }
-    let parts: Vec<&str> = text.splitn(3, "---").collect();
-    if parts.len() < 3 {
-        return Default::default();
-    }
-    match serde_yaml::from_str::<Yaml>(parts[1]) {
+    };
+    match serde_yaml::from_str::<Yaml>(yaml) {
         Ok(Yaml::Mapping(m)) => m,
         _ => Default::default(),
     }
@@ -190,13 +198,10 @@ pub fn list_layers(roots: &Roots) -> Vec<Layer> {
 
 pub fn body_of(path: &Path) -> String {
     let text = fs::read_to_string(path).unwrap_or_default();
-    if text.starts_with("---") {
-        let parts: Vec<&str> = text.splitn(3, "---").collect();
-        if parts.len() == 3 {
-            return parts[2].to_string();
-        }
+    match split_fenced(&text) {
+        Some((_, after)) => after.to_string(),
+        None => text,
     }
-    text
 }
 
 /// Deploys client layers as `CLAUDE.local.md` into their client repos.
