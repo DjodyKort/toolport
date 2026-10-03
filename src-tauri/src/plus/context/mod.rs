@@ -18,6 +18,8 @@ pub mod rules;
 pub mod settings;
 pub mod shims;
 
+#[cfg(test)] mod layers_prop_tests;
+#[cfg(test)] mod settings_prop_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
