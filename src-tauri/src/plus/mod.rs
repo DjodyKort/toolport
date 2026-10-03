@@ -18,6 +18,8 @@ pub mod skills;
 pub mod sync;
 pub mod update;
 
+pub(crate) mod jsonfs;
+
 #[cfg(test)]
 pub(crate) mod testutil;
 

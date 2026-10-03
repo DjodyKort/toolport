@@ -92,7 +92,7 @@ fn cfg_err(message: &str) -> SyncError {
 }
 
 pub fn load_config(ctx: &SyncContext<'_>) -> Option<SyncConfig> {
-    serde_json::from_str(&fs::read_to_string(ctx.config_path()).ok()?).ok()
+    crate::plus::jsonfs::read_json(&ctx.config_path())
 }
 
 pub fn save_config(ctx: &SyncContext<'_>, cfg: &SyncConfig) -> Result<(), SyncError> {
@@ -100,10 +100,7 @@ pub fn save_config(ctx: &SyncContext<'_>, cfg: &SyncConfig) -> Result<(), SyncEr
 }
 
 pub fn load_state(ctx: &SyncContext<'_>) -> SyncState {
-    fs::read_to_string(ctx.state_path())
-        .ok()
-        .and_then(|t| serde_json::from_str(&t).ok())
-        .unwrap_or_default()
+    crate::plus::jsonfs::read_json(&ctx.state_path()).unwrap_or_default()
 }
 
 fn save_state(ctx: &SyncContext<'_>, state: &SyncState) -> Result<(), SyncError> {

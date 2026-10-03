@@ -31,10 +31,7 @@ pub struct GitSyncReport {
 }
 
 fn load(ctx: &SyncContext<'_>) -> Value {
-    fs::read_to_string(ctx.config_dir.join(CONFIG_FILE))
-        .ok()
-        .and_then(|t| serde_json::from_str(&t).ok())
-        .unwrap_or(Value::Null)
+    crate::plus::jsonfs::read_json(&ctx.config_dir.join(CONFIG_FILE)).unwrap_or(Value::Null)
 }
 
 fn bad(value: &str) -> bool {

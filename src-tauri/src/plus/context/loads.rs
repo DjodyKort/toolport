@@ -3,7 +3,7 @@
 //! override ("clobber") relations between layers. Pure: it only reads files under [`Roots`].
 
 use super::config::{ContextConfig, ProfileSpec};
-use super::launch::{parse_selection, Selection};
+use super::launch::{parse_selection, read_json_object as read_json, Selection};
 use super::layers::{body_of, frontmatter, list_layers, yaml_text, MANAGED_LOCAL_HEADER};
 use super::roots::Roots;
 use crate::savings::estimated_tokens;
@@ -49,17 +49,6 @@ pub struct WhatLoads {
 
 fn text_tokens(text: &str) -> u64 {
     estimated_tokens(text.len() as u64)
-}
-
-fn read_json(path: &Path) -> Map<String, Value> {
-    fs::read_to_string(path)
-        .ok()
-        .and_then(|t| serde_json::from_str::<Value>(&t).ok())
-        .and_then(|v| match v {
-            Value::Object(m) => Some(m),
-            _ => None,
-        })
-        .unwrap_or_default()
 }
 
 fn show(path: &Path) -> Option<String> {
