@@ -1,0 +1,16 @@
+{
+  "theme": "dark",
+  "hooks": {
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/local/bin/user-hook.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

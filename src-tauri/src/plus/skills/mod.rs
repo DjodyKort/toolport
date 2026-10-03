@@ -8,6 +8,7 @@ pub mod json;
 pub mod lock;
 pub mod parser;
 pub mod sync;
+pub mod transpilers;
 pub mod transpiler;
 
 pub use assets::{compute_skill_hash, discover_assets, ASSET_ALLOWLIST};
