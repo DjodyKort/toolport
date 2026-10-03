@@ -9,6 +9,6 @@ sandbox_mode = "sandbox"
 
 [mcp_servers]
 [mcp_servers."docs"]
-# Configure via mcpm: mcpm install docs
+# Configure via toolportctl: toolportctl server install docs
 [mcp_servers."search"]
-# Configure via mcpm: mcpm install search
+# Configure via toolportctl: toolportctl server install search

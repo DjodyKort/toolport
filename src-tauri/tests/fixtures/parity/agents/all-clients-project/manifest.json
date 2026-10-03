@@ -20,14 +20,14 @@
       "sha256": "d26f28d07250c044afaa2730bc3b1f7f26a6094a53feed2a67d26df69c20888c"
     },
     "repo/.codex/agents/code-reviewer.toml": {
-      "bytes": 319,
+      "bytes": 340,
       "class": "A",
-      "sha256": "42b14aa1cff583bfe1aa3bd1ada7ea7a2472ee63652eff228702ac7e3be9587d"
+      "sha256": "879b84bd72ca10b1cbdc469f392251632798f6845945dd8705de2bc4751c8071"
     },
     "repo/.codex/agents/doc-writer.toml": {
-      "bytes": 339,
+      "bytes": 381,
       "class": "A",
-      "sha256": "605d9a2b719797c5a1926c360cb98117e3e7b18cab35f3effc396e2454ef2bc7"
+      "sha256": "86e34f971a2328f500d642dd6624f678c1b3905061c9ef0f1fff972fb879e8f2"
     },
     "repo/.codex/agents/minimal.toml": {
       "bytes": 104,
