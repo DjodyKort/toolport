@@ -122,6 +122,27 @@ mockIPC(
         ) {
           return plusWhatLoadsFixture;
         }
+        if (
+          (args as { command?: string } | undefined)?.command ===
+          "plus.context.folderProfiles"
+        ) {
+          return {
+            enabled: false,
+            mappings: [{ path: "/proj/work", profile: "Work" }],
+            folders: [
+              {
+                root: "/proj/work/app",
+                applies: false,
+                profile: null,
+                wouldApply: "Work",
+                rule: "/proj/work",
+                reason: "mapping /proj/work matches but folder profiles are disabled",
+                launchProfile: null,
+                tokens: 120,
+              },
+            ],
+          };
+        }
         return {
           name: "toolport-plus",
           version: "0.0.0-fixture",

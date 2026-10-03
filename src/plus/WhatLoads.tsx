@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { plusWhatLoads } from "./api";
+import { FolderProfilesSection } from "./FolderProfiles";
 import type { LoadItem, WhatLoads as WhatLoadsData } from "./api";
 
 const kindLabel: Record<string, string> = {
@@ -82,5 +83,10 @@ export function WhatLoadsPanel() {
       alive = false;
     };
   }, []);
-  return data ? <WhatLoads data={data} /> : null;
+  return data ? (
+    <div className="flex flex-col gap-4">
+      <WhatLoads data={data} />
+      <FolderProfilesSection />
+    </div>
+  ) : null;
 }

@@ -41,6 +41,8 @@ const HANDLERS: &[(&str, Handler)] = &[
     ("plus.import_mcpm.nameMap", import_mcpm::name_map_handler),
     ("plus.import_mcpm.renameRefs", import_mcpm::rename_refs_handler),
     ("plus.context.whatLoads", context::what_loads_handler),
+    ("plus.context.folderProfiles", context::folders::folder_profiles_handler),
+    ("plus.context.folderProfilesSet", context::folders::folder_profiles_set_handler),
     ("plus.sync.init", sync::handlers::init_handler),
     ("plus.sync.push", sync::handlers::push_handler),
     ("plus.sync.pull", sync::handlers::pull_handler),
