@@ -93,6 +93,11 @@ done
 LC_ALL=C sort -o "$backup/pre.files" "$backup/pre.files"
 LC_ALL=C sort -o "$backup/pre.dirs" "$backup/pre.dirs"
 write_hashes "$backup/files" "$backup/manifest.sha256"
+: >"$backup/created.list"
+record_created() {
+  record_created_list "$home" "$backup" >"$backup/created.list.tmp" && mv "$backup/created.list.tmp" "$backup/created.list"
+}
+trap record_created EXIT
 echo "backup: $backup ($(wc -l <"$backup/manifest.sha256" | tr -d ' ') files, manifest.sha256)"
 
 echo "== 4/6 neutralize mcpm context re-sync =="
