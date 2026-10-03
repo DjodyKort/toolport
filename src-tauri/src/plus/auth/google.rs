@@ -8,6 +8,7 @@ use serde_json::Value;
 use super::probe::{Probe, ProbeSpec};
 use super::types::ProbeOutcome;
 use super::{agent, read_capped};
+use crate::plus::args::flag;
 
 pub const DEFAULT_TOKEN_ENDPOINT: &str = "https://oauth2.googleapis.com/token";
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -303,7 +304,7 @@ pub fn probe_handler(args: Value) -> Result<Value, String> {
         .and_then(Value::as_str)
         .filter(|s| !s.is_empty())
         .ok_or_else(|| "server is required".to_string())?;
-    let force = args.get("force").and_then(Value::as_bool).unwrap_or(false);
+    let force = flag(&args, "force");
     let dir = crate::registry::conduit_dir()
         .ok_or_else(|| "data directory unavailable".to_string())?
         .join("auth");

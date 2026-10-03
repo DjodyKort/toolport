@@ -1,3 +1,4 @@
+use crate::plus::args::flag;
 use crate::plus::jsonfs::read_json;
 use crate::plus::update::exec::{is_not_found, run_command, CmdOutput};
 use serde_json::{json, Value};
@@ -446,7 +447,7 @@ fn options_from(args: &Value) -> Options {
     Options {
         plugin: s("plugin"),
         marketplace: s("marketplace"),
-        dry_run: args.get("dryRun").and_then(Value::as_bool).unwrap_or(false),
+        dry_run: flag(args, "dryRun"),
         refresh: false,
         claude_root: s("claudeRoot").map(PathBuf::from),
     }

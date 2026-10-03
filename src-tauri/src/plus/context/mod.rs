@@ -34,6 +34,7 @@ mod tests_hooks;
 pub use config::{load_config, preserve_unreadable, save_config, ContextConfig};
 pub use roots::Roots;
 
+use crate::plus::args::{flag, flag_or};
 use doctor::sha256_file;
 use serde_json::{json, Value};
 use std::fs;
@@ -251,9 +252,9 @@ fn run(args: &Value, dry_run: bool) -> Result<Value, String> {
     let roots = roots_from_args(args)?;
     let _lock = lock_real_run(&roots, dry_run)?;
     let mut config = config_from_args(&roots, args)?;
-    let persist = args.get("persist").and_then(Value::as_bool).unwrap_or(true);
+    let persist = flag_or(args, "persist", true);
     let mut report = apply(&roots, &mut config, ApplyOptions { persist, dry_run })?;
-    if args.get("rules").and_then(Value::as_bool).unwrap_or(false) {
+    if flag(args, "rules") {
         for path in rules::deploy_rules_now(&roots, dry_run)? {
             report.add(format!("deployed rule {}", path.display()));
         }
