@@ -133,7 +133,11 @@ pub(super) fn frontmatter(path: &Path) -> serde_yaml::Mapping {
     let Ok(text) = fs::read_to_string(path) else {
         return Default::default();
     };
-    let Some((yaml, _)) = split_fenced(&text) else {
+    frontmatter_of(&text)
+}
+
+pub(super) fn frontmatter_of(text: &str) -> serde_yaml::Mapping {
+    let Some((yaml, _)) = split_fenced(text) else {
         return Default::default();
     };
     match serde_yaml::from_str::<Yaml>(yaml) {

@@ -2,7 +2,7 @@
 //! frontmatter extraction and the `CLAUDE.local.md` deploy into client repos.
 
 use super::layers::{
-    body_of, deploy_client_locals, frontmatter, list_layers, scaffold_client_rule,
+    body_of, deploy_client_locals, frontmatter, frontmatter_of, list_layers, scaffold_client_rule,
     scaffold_personal_rule, slug, MANAGED_LOCAL_HEADER,
 };
 use super::{Report, Roots};
@@ -808,4 +808,27 @@ fn expand_user_and_skills_repo_resolution_never_panic() {
         }
         assert_eq!(roots.rules_dir(), repo.join("rules"));
     });
+}
+
+#[test]
+fn frontmatter_of_text_equals_frontmatter_of_the_file() {
+    let home = ScratchDir::new("layers-fm-text");
+    let path = home.path().join("SKILL.md");
+    let texts = [
+        "",
+        "---",
+        "---\n---\n",
+        "---\nname: a\n",
+        "\n---\nname: a\n---\n",
+        "---\n- a\n- b\n---\n",
+        "---\nname: a: b\n---\n",
+        "---\nname: a\npaths: [x]\n---\nbody --- more\n---\n",
+        "---\nglobs: \"a/**\"\n---",
+        "plain --- text",
+    ];
+    for text in texts {
+        fs::write(&path, text).unwrap();
+        assert_eq!(frontmatter_of(text), frontmatter(&path), "{text:?}");
+    }
+    assert!(frontmatter(&home.path().join("missing")).is_empty());
 }

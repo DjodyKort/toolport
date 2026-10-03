@@ -4,7 +4,9 @@
 
 use super::config::{ContextConfig, ProfileSpec};
 use super::launch::{parse_selection, read_json_object as read_json, Selection};
-use super::layers::{body_of, frontmatter, is_managed_local, list_layers, yaml_text};
+use super::layers::{
+    body_of, frontmatter, frontmatter_of, is_managed_local, list_layers, yaml_text,
+};
 use super::roots::Roots;
 use crate::savings::estimated_tokens;
 use serde::Serialize;
@@ -216,13 +218,13 @@ fn rule_files(dir: &Path) -> Vec<(String, PathBuf)> {
     files
 }
 
-fn has_paths(path: &Path) -> bool {
-    let fm = frontmatter(path);
+fn has_paths(text: &str) -> bool {
+    let fm = frontmatter_of(text);
     fm.contains_key(Yaml::String("paths".into())) || fm.contains_key(Yaml::String("globs".into()))
 }
 
 fn rules(ctx: &mut Ctx) {
-    let canonical: Vec<String> = list_layers(ctx.roots).into_iter().map(|l| l.name).collect();
+    let layers = list_layers(ctx.roots);
     let mut seen: BTreeMap<String, String> = BTreeMap::new();
     let mut scopes: Vec<(&'static str, PathBuf)> =
         vec![("user", ctx.roots.claude_home.join("rules"))];
@@ -234,10 +236,10 @@ fn rules(ctx: &mut Ctx) {
     for (scope, dir) in scopes {
         for (name, path) in rule_files(&dir) {
             let text = fs::read_to_string(&path).unwrap_or_default();
-            let scoped = has_paths(&path);
+            let scoped = has_paths(&text);
             let source = if scope == "project" {
                 "project"
-            } else if canonical.contains(&name) {
+            } else if layers.iter().any(|l| l.name == name) {
                 if name.starts_with("client-") {
                     "client-layer"
                 } else {
@@ -266,7 +268,6 @@ fn rules(ctx: &mut Ctx) {
     }
     if let Some(spec) = ctx.spec {
         if let Ok(Selection::Named(names)) = parse_selection(&spec.rules, "rules") {
-            let layers = list_layers(ctx.roots);
             for rule in names {
                 let Some(layer) = layers.iter().find(|l| l.name == rule) else {
                     ctx.notes
