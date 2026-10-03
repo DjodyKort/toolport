@@ -1,0 +1,2818 @@
+=== []
+exit 2
+--- stdout
+toolportctl: manage Toolport+ from the command line
+
+Usage: toolportctl [--json] [--data-dir <dir>] <command> [args]
+
+Commands:
+  status         Show registry, profile, secrets backend and gateway state
+  doctor         Run read-only health checks
+  server ls      List servers and whether the active profile enables them
+  server search  Search the catalog (--offline, --limit <n>)
+  server install Install a catalog server by name
+  server uninstall Remove a server and its client entries (--dry-run)
+  server info    Show one server's definition and profiles
+  server new     Add a custom server (--command or --url)
+  server edit    Edit a server's name, command, args, url or cwd
+  inspect        List the tools a server exposes (connects live)
+  profile inspect List the tools of every server in a profile (connects live)
+  profile        Profiles (not implemented)
+  client ls      List detected clients and their direct entries
+  client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
+  client         Client configs (not implemented)
+  server         Manage servers (mutations) (not implemented)
+  auth statusline Compact auth-health JSON for a Claude Code statusline
+  auth hook      Auth-health JSON for a Claude Code SessionStart hook
+  auth           Auth health (not implemented)
+  secret set     Store a secret read from stdin or --value-env
+  secret get     Check a secret (--reveal prints the value)
+  secret rm      Remove a secret
+  secret         Manage server secrets (not implemented)
+  context loads  Show what a claude session loads, with token cost (--profile, --cwd)
+  context folders Show the active profile per folder (--cwd, --enable, --disable)
+  context checkpoint-status Report used tokens vs the checkpoint point from statusline JSON on stdin
+  context plan   Preview the context deploy (--home <dir>, --rules)
+  context apply  Apply the context deploy (--home <dir>, --rules, --no-persist, --dry-run)
+  context sync   Plan then apply the context deploy (--home <dir>, --rules, --dry-run)
+  context        Context: loads checkpoint-status plan apply sync
+  compression status Show the compression policy, pin and drift
+  compression presets List compression presets
+  compression run Launch claude under the directory's policy (--plan to preview)
+  compression verify Check provider health, pin, shims and measure cache behaviour
+  compression ledger Launch and token-savings ledger (summary | record)
+  compression proxy Proxy lifecycle: up, down, restart
+  compression update Move the engine pin (--to V | --latest, --accept to apply)
+  compression    Compression runs (not implemented)
+  import mcpm    Import an mcpm config root (--dry-run prints the plan)
+  import rename-refs Rewrite mcp__mcpm_ tool references under --paths (--tools F, --dry-run)
+  import         Import data from other tools (not implemented)
+  council        Council server: install uninstall doctor tools
+  mcp            Self-management server: install [--profile <id>] uninstall doctor tools
+  skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
+  skills ls      List skills and rules (--repo <dir>, --home <dir>)
+  skills lint    Lint skills; exits 1 on errors (--repo, --home, --name <skill>)
+  skills diff    Compare skills with the lockfile; exits 1 on changes (--repo, --home)
+  skills init    Create a skills repository (--path <dir>, --name <name>, --dry-run)
+  skills add     Create a skill or rule from a template (<name>, --type, --path, --with-progressive, --dry-run)
+  skills audit   Scan skills for prompt injection and risky commands; exits 1 on high findings (--path <dir>)
+  skills bundle  Pack skills into a portable zip (--output <zip>, --path <dir>, --skills <a,b>, --dry-run)
+  skills unbundle Extract a skills bundle (<bundle.zip>, --path <dir>, --dry-run)
+  skills status  Show whether synced outputs still exist; --strict exits 1 on drift (--repo, --home, --client <key>)
+  skills clean   Remove synced outputs and the lockfile (--repo, --home, --client <key>, --project, --dry-run)
+  skills uninstall Remove a skill, its outputs and its lock entry (<name>, --repo, --home, --project, --dry-run)
+  skills resolve Find files shadowing synced skills; --migrate backs them up (--repo, --home, --client <key>, --project, --dry-run)
+  skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve
+  sync           Encrypted sync: init push pull diff status reset ...
+  cc             Claude Code plugins: list | update [--dry-run]
+  update         Check or apply server updates (--check, --apply, --init, --dry-run)
+  usage          Token and MCP usage from Claude Code transcripts (--root <dir>, --no-refresh)
+
+Options:
+  --json             Machine-readable envelope on stdout
+  --data-dir <dir>   Override the data directory (default: TOOLPORT_DATA_DIR)
+  -h, --help         Show this help
+  -V, --version      Show the version
+
+Exit codes: 0 ok, 1 error, 2 usage
+--- stderr
+=== ["--help"]
+exit 0
+--- stdout
+toolportctl: manage Toolport+ from the command line
+
+Usage: toolportctl [--json] [--data-dir <dir>] <command> [args]
+
+Commands:
+  status         Show registry, profile, secrets backend and gateway state
+  doctor         Run read-only health checks
+  server ls      List servers and whether the active profile enables them
+  server search  Search the catalog (--offline, --limit <n>)
+  server install Install a catalog server by name
+  server uninstall Remove a server and its client entries (--dry-run)
+  server info    Show one server's definition and profiles
+  server new     Add a custom server (--command or --url)
+  server edit    Edit a server's name, command, args, url or cwd
+  inspect        List the tools a server exposes (connects live)
+  profile inspect List the tools of every server in a profile (connects live)
+  profile        Profiles (not implemented)
+  client ls      List detected clients and their direct entries
+  client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
+  client         Client configs (not implemented)
+  server         Manage servers (mutations) (not implemented)
+  auth statusline Compact auth-health JSON for a Claude Code statusline
+  auth hook      Auth-health JSON for a Claude Code SessionStart hook
+  auth           Auth health (not implemented)
+  secret set     Store a secret read from stdin or --value-env
+  secret get     Check a secret (--reveal prints the value)
+  secret rm      Remove a secret
+  secret         Manage server secrets (not implemented)
+  context loads  Show what a claude session loads, with token cost (--profile, --cwd)
+  context folders Show the active profile per folder (--cwd, --enable, --disable)
+  context checkpoint-status Report used tokens vs the checkpoint point from statusline JSON on stdin
+  context plan   Preview the context deploy (--home <dir>, --rules)
+  context apply  Apply the context deploy (--home <dir>, --rules, --no-persist, --dry-run)
+  context sync   Plan then apply the context deploy (--home <dir>, --rules, --dry-run)
+  context        Context: loads checkpoint-status plan apply sync
+  compression status Show the compression policy, pin and drift
+  compression presets List compression presets
+  compression run Launch claude under the directory's policy (--plan to preview)
+  compression verify Check provider health, pin, shims and measure cache behaviour
+  compression ledger Launch and token-savings ledger (summary | record)
+  compression proxy Proxy lifecycle: up, down, restart
+  compression update Move the engine pin (--to V | --latest, --accept to apply)
+  compression    Compression runs (not implemented)
+  import mcpm    Import an mcpm config root (--dry-run prints the plan)
+  import rename-refs Rewrite mcp__mcpm_ tool references under --paths (--tools F, --dry-run)
+  import         Import data from other tools (not implemented)
+  council        Council server: install uninstall doctor tools
+  mcp            Self-management server: install [--profile <id>] uninstall doctor tools
+  skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
+  skills ls      List skills and rules (--repo <dir>, --home <dir>)
+  skills lint    Lint skills; exits 1 on errors (--repo, --home, --name <skill>)
+  skills diff    Compare skills with the lockfile; exits 1 on changes (--repo, --home)
+  skills init    Create a skills repository (--path <dir>, --name <name>, --dry-run)
+  skills add     Create a skill or rule from a template (<name>, --type, --path, --with-progressive, --dry-run)
+  skills audit   Scan skills for prompt injection and risky commands; exits 1 on high findings (--path <dir>)
+  skills bundle  Pack skills into a portable zip (--output <zip>, --path <dir>, --skills <a,b>, --dry-run)
+  skills unbundle Extract a skills bundle (<bundle.zip>, --path <dir>, --dry-run)
+  skills status  Show whether synced outputs still exist; --strict exits 1 on drift (--repo, --home, --client <key>)
+  skills clean   Remove synced outputs and the lockfile (--repo, --home, --client <key>, --project, --dry-run)
+  skills uninstall Remove a skill, its outputs and its lock entry (<name>, --repo, --home, --project, --dry-run)
+  skills resolve Find files shadowing synced skills; --migrate backs them up (--repo, --home, --client <key>, --project, --dry-run)
+  skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve
+  sync           Encrypted sync: init push pull diff status reset ...
+  cc             Claude Code plugins: list | update [--dry-run]
+  update         Check or apply server updates (--check, --apply, --init, --dry-run)
+  usage          Token and MCP usage from Claude Code transcripts (--root <dir>, --no-refresh)
+
+Options:
+  --json             Machine-readable envelope on stdout
+  --data-dir <dir>   Override the data directory (default: TOOLPORT_DATA_DIR)
+  -h, --help         Show this help
+  -V, --version      Show the version
+
+Exit codes: 0 ok, 1 error, 2 usage
+--- stderr
+=== ["-h"]
+exit 0
+--- stdout
+toolportctl: manage Toolport+ from the command line
+
+Usage: toolportctl [--json] [--data-dir <dir>] <command> [args]
+
+Commands:
+  status         Show registry, profile, secrets backend and gateway state
+  doctor         Run read-only health checks
+  server ls      List servers and whether the active profile enables them
+  server search  Search the catalog (--offline, --limit <n>)
+  server install Install a catalog server by name
+  server uninstall Remove a server and its client entries (--dry-run)
+  server info    Show one server's definition and profiles
+  server new     Add a custom server (--command or --url)
+  server edit    Edit a server's name, command, args, url or cwd
+  inspect        List the tools a server exposes (connects live)
+  profile inspect List the tools of every server in a profile (connects live)
+  profile        Profiles (not implemented)
+  client ls      List detected clients and their direct entries
+  client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
+  client         Client configs (not implemented)
+  server         Manage servers (mutations) (not implemented)
+  auth statusline Compact auth-health JSON for a Claude Code statusline
+  auth hook      Auth-health JSON for a Claude Code SessionStart hook
+  auth           Auth health (not implemented)
+  secret set     Store a secret read from stdin or --value-env
+  secret get     Check a secret (--reveal prints the value)
+  secret rm      Remove a secret
+  secret         Manage server secrets (not implemented)
+  context loads  Show what a claude session loads, with token cost (--profile, --cwd)
+  context folders Show the active profile per folder (--cwd, --enable, --disable)
+  context checkpoint-status Report used tokens vs the checkpoint point from statusline JSON on stdin
+  context plan   Preview the context deploy (--home <dir>, --rules)
+  context apply  Apply the context deploy (--home <dir>, --rules, --no-persist, --dry-run)
+  context sync   Plan then apply the context deploy (--home <dir>, --rules, --dry-run)
+  context        Context: loads checkpoint-status plan apply sync
+  compression status Show the compression policy, pin and drift
+  compression presets List compression presets
+  compression run Launch claude under the directory's policy (--plan to preview)
+  compression verify Check provider health, pin, shims and measure cache behaviour
+  compression ledger Launch and token-savings ledger (summary | record)
+  compression proxy Proxy lifecycle: up, down, restart
+  compression update Move the engine pin (--to V | --latest, --accept to apply)
+  compression    Compression runs (not implemented)
+  import mcpm    Import an mcpm config root (--dry-run prints the plan)
+  import rename-refs Rewrite mcp__mcpm_ tool references under --paths (--tools F, --dry-run)
+  import         Import data from other tools (not implemented)
+  council        Council server: install uninstall doctor tools
+  mcp            Self-management server: install [--profile <id>] uninstall doctor tools
+  skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
+  skills ls      List skills and rules (--repo <dir>, --home <dir>)
+  skills lint    Lint skills; exits 1 on errors (--repo, --home, --name <skill>)
+  skills diff    Compare skills with the lockfile; exits 1 on changes (--repo, --home)
+  skills init    Create a skills repository (--path <dir>, --name <name>, --dry-run)
+  skills add     Create a skill or rule from a template (<name>, --type, --path, --with-progressive, --dry-run)
+  skills audit   Scan skills for prompt injection and risky commands; exits 1 on high findings (--path <dir>)
+  skills bundle  Pack skills into a portable zip (--output <zip>, --path <dir>, --skills <a,b>, --dry-run)
+  skills unbundle Extract a skills bundle (<bundle.zip>, --path <dir>, --dry-run)
+  skills status  Show whether synced outputs still exist; --strict exits 1 on drift (--repo, --home, --client <key>)
+  skills clean   Remove synced outputs and the lockfile (--repo, --home, --client <key>, --project, --dry-run)
+  skills uninstall Remove a skill, its outputs and its lock entry (<name>, --repo, --home, --project, --dry-run)
+  skills resolve Find files shadowing synced skills; --migrate backs them up (--repo, --home, --client <key>, --project, --dry-run)
+  skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve
+  sync           Encrypted sync: init push pull diff status reset ...
+  cc             Claude Code plugins: list | update [--dry-run]
+  update         Check or apply server updates (--check, --apply, --init, --dry-run)
+  usage          Token and MCP usage from Claude Code transcripts (--root <dir>, --no-refresh)
+
+Options:
+  --json             Machine-readable envelope on stdout
+  --data-dir <dir>   Override the data directory (default: TOOLPORT_DATA_DIR)
+  -h, --help         Show this help
+  -V, --version      Show the version
+
+Exit codes: 0 ok, 1 error, 2 usage
+--- stderr
+=== ["--json"]
+exit 2
+--- stdout
+toolportctl: manage Toolport+ from the command line
+
+Usage: toolportctl [--json] [--data-dir <dir>] <command> [args]
+
+Commands:
+  status         Show registry, profile, secrets backend and gateway state
+  doctor         Run read-only health checks
+  server ls      List servers and whether the active profile enables them
+  server search  Search the catalog (--offline, --limit <n>)
+  server install Install a catalog server by name
+  server uninstall Remove a server and its client entries (--dry-run)
+  server info    Show one server's definition and profiles
+  server new     Add a custom server (--command or --url)
+  server edit    Edit a server's name, command, args, url or cwd
+  inspect        List the tools a server exposes (connects live)
+  profile inspect List the tools of every server in a profile (connects live)
+  profile        Profiles (not implemented)
+  client ls      List detected clients and their direct entries
+  client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
+  client         Client configs (not implemented)
+  server         Manage servers (mutations) (not implemented)
+  auth statusline Compact auth-health JSON for a Claude Code statusline
+  auth hook      Auth-health JSON for a Claude Code SessionStart hook
+  auth           Auth health (not implemented)
+  secret set     Store a secret read from stdin or --value-env
+  secret get     Check a secret (--reveal prints the value)
+  secret rm      Remove a secret
+  secret         Manage server secrets (not implemented)
+  context loads  Show what a claude session loads, with token cost (--profile, --cwd)
+  context folders Show the active profile per folder (--cwd, --enable, --disable)
+  context checkpoint-status Report used tokens vs the checkpoint point from statusline JSON on stdin
+  context plan   Preview the context deploy (--home <dir>, --rules)
+  context apply  Apply the context deploy (--home <dir>, --rules, --no-persist, --dry-run)
+  context sync   Plan then apply the context deploy (--home <dir>, --rules, --dry-run)
+  context        Context: loads checkpoint-status plan apply sync
+  compression status Show the compression policy, pin and drift
+  compression presets List compression presets
+  compression run Launch claude under the directory's policy (--plan to preview)
+  compression verify Check provider health, pin, shims and measure cache behaviour
+  compression ledger Launch and token-savings ledger (summary | record)
+  compression proxy Proxy lifecycle: up, down, restart
+  compression update Move the engine pin (--to V | --latest, --accept to apply)
+  compression    Compression runs (not implemented)
+  import mcpm    Import an mcpm config root (--dry-run prints the plan)
+  import rename-refs Rewrite mcp__mcpm_ tool references under --paths (--tools F, --dry-run)
+  import         Import data from other tools (not implemented)
+  council        Council server: install uninstall doctor tools
+  mcp            Self-management server: install [--profile <id>] uninstall doctor tools
+  skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
+  skills ls      List skills and rules (--repo <dir>, --home <dir>)
+  skills lint    Lint skills; exits 1 on errors (--repo, --home, --name <skill>)
+  skills diff    Compare skills with the lockfile; exits 1 on changes (--repo, --home)
+  skills init    Create a skills repository (--path <dir>, --name <name>, --dry-run)
+  skills add     Create a skill or rule from a template (<name>, --type, --path, --with-progressive, --dry-run)
+  skills audit   Scan skills for prompt injection and risky commands; exits 1 on high findings (--path <dir>)
+  skills bundle  Pack skills into a portable zip (--output <zip>, --path <dir>, --skills <a,b>, --dry-run)
+  skills unbundle Extract a skills bundle (<bundle.zip>, --path <dir>, --dry-run)
+  skills status  Show whether synced outputs still exist; --strict exits 1 on drift (--repo, --home, --client <key>)
+  skills clean   Remove synced outputs and the lockfile (--repo, --home, --client <key>, --project, --dry-run)
+  skills uninstall Remove a skill, its outputs and its lock entry (<name>, --repo, --home, --project, --dry-run)
+  skills resolve Find files shadowing synced skills; --migrate backs them up (--repo, --home, --client <key>, --project, --dry-run)
+  skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve
+  sync           Encrypted sync: init push pull diff status reset ...
+  cc             Claude Code plugins: list | update [--dry-run]
+  update         Check or apply server updates (--check, --apply, --init, --dry-run)
+  usage          Token and MCP usage from Claude Code transcripts (--root <dir>, --no-refresh)
+
+Options:
+  --json             Machine-readable envelope on stdout
+  --data-dir <dir>   Override the data directory (default: TOOLPORT_DATA_DIR)
+  -h, --help         Show this help
+  -V, --version      Show the version
+
+Exit codes: 0 ok, 1 error, 2 usage
+--- stderr
+=== ["--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["--json","--bogus","status"]
+exit 2
+--- stdout
+{"command":"","error":{"code":"usage","message":"unknown option: --bogus"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["--data-dir"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --data-dir requires a value
+Run `toolportctl --help` for usage.
+=== ["--data-dir="]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --data-dir requires a value
+Run `toolportctl --help` for usage.
+=== ["--json","--data-dir"]
+exit 2
+--- stdout
+{"command":"","error":{"code":"usage","message":"--data-dir requires a value"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["frobnicate"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown command: frobnicate
+Run `toolportctl --help` for usage.
+=== ["--json","frobnicate"]
+exit 2
+--- stdout
+{"command":"frobnicate","error":{"code":"usage","message":"unknown command: frobnicate"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["status","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["--json","status","extra"]
+exit 2
+--- stdout
+{"command":"status","error":{"code":"usage","message":"unexpected argument: extra"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["status","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["--json","status","--bogus"]
+exit 2
+--- stdout
+{"command":"","error":{"code":"usage","message":"unknown option: --bogus"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["doctor","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["--json","doctor","--bogus"]
+exit 2
+--- stdout
+{"command":"","error":{"code":"usage","message":"unknown option: --bogus"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["doctor","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["auth","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["--json","auth","--bogus"]
+exit 2
+--- stdout
+{"command":"","error":{"code":"usage","message":"unknown option: --bogus"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["auth","statusline","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["auth","statusline","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["auth","hook","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["--json","auth","hook","extra"]
+exit 2
+--- stdout
+{"command":"auth hook","error":{"code":"usage","message":"unexpected argument: extra"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["auth"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: auth: not implemented
+=== ["--json","auth"]
+exit 1
+--- stdout
+{"command":"auth","error":{"code":"not_implemented","message":"auth: not implemented"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["auth","nope"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: auth: not implemented
+=== ["status","--","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: x
+Run `toolportctl --help` for usage.
+=== ["server","ls","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["server","ls","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["server","ls","--"]
+exit 0
+--- stdout
+alpha                    stdio  enabled   srv-alpha
+beta                     http   disabled  srv-beta
+--- stderr
+=== ["--json","server","ls","extra"]
+exit 2
+--- stdout
+{"command":"server ls","error":{"code":"usage","message":"unexpected argument: extra"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["server"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: server: not implemented
+=== ["--json","server"]
+exit 1
+--- stdout
+{"command":"server","error":{"code":"not_implemented","message":"server: not implemented"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["server","add"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: server: not implemented
+=== ["server","--bogus"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: server: not implemented
+=== ["server","--"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: server: not implemented
+=== ["server","search","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["server","search","--limit"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --limit requires a value
+Run `toolportctl --help` for usage.
+=== ["server","search","--limit","abc"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: server search [<query>] [--offline] [--limit <n>]
+Run `toolportctl --help` for usage.
+=== ["server","search","--limit=3"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --limit=3
+Run `toolportctl --help` for usage.
+=== ["server","search","--offline=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --offline=1
+Run `toolportctl --help` for usage.
+=== ["server","search","--offline","--limit","x1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: server search [<query>] [--offline] [--limit <n>]
+Run `toolportctl --help` for usage.
+=== ["server","install"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: server install <catalog name> [--offline]
+Run `toolportctl --help` for usage.
+=== ["server","install","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: server install <catalog name> [--offline]
+Run `toolportctl --help` for usage.
+=== ["server","install","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["server","install","--offline"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: server install <catalog name> [--offline]
+Run `toolportctl --help` for usage.
+=== ["server","install","-x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: -x
+Run `toolportctl --help` for usage.
+=== ["server","install","nope","--offline"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: no catalog entry named 'nope'
+=== ["--json","server","install","nope","--offline"]
+exit 1
+--- stdout
+{"command":"server install","error":{"code":"not_found","message":"no catalog entry named 'nope'"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["server","uninstall"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: server uninstall <id|name> [--dry-run] [--keep-clients] [--keep-secrets]
+Run `toolportctl --help` for usage.
+=== ["server","uninstall","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["server","uninstall","a","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --dry-run=1
+Run `toolportctl --help` for usage.
+=== ["server","uninstall","--keep-clients"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: server uninstall <id|name> [--dry-run] [--keep-clients] [--keep-secrets]
+Run `toolportctl --help` for usage.
+=== ["server","uninstall","nope","--dry-run"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: no server 'nope'
+=== ["--json","server","uninstall","nope"]
+exit 1
+--- stdout
+{"command":"server uninstall","error":{"code":"not_found","message":"no server 'nope'"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["server","info"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: server info <id|name>
+Run `toolportctl --help` for usage.
+=== ["server","info","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: server info <id|name>
+Run `toolportctl --help` for usage.
+=== ["server","info","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["server","info","nope"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: no server 'nope'
+=== ["--json","server","info","nope"]
+exit 1
+--- stdout
+{"command":"server info","error":{"code":"not_found","message":"no server 'nope'"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["server","new"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: server new <name> (--command <cmd> [--arg <a>]... | --url <url> [--transport http|sse]) [--cwd <dir>]
+Run `toolportctl --help` for usage.
+=== ["server","new","a"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: server new <name> (--command <cmd> [--arg <a>]... | --url <url> [--transport http|sse]) [--cwd <dir>]
+Run `toolportctl --help` for usage.
+=== ["server","new","a","--command"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --command requires a value
+Run `toolportctl --help` for usage.
+=== ["server","new","a","--url"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --url requires a value
+Run `toolportctl --help` for usage.
+=== ["server","new","a","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["server","new","a","b","--command","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: server new <name> (--command <cmd> [--arg <a>]... | --url <url> [--transport http|sse]) [--cwd <dir>]
+Run `toolportctl --help` for usage.
+=== ["server","new","--command","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: server new <name> (--command <cmd> [--arg <a>]... | --url <url> [--transport http|sse]) [--cwd <dir>]
+Run `toolportctl --help` for usage.
+=== ["server","new","a","--name","b","--command","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --name
+Run `toolportctl --help` for usage.
+=== ["server","new","alpha","--command","x"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: server 'alpha' already exists
+=== ["--json","server","new","alpha","--command","x"]
+exit 1
+--- stdout
+{"command":"server new","error":{"code":"conflict","message":"server 'alpha' already exists"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["server","edit"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--url <url>] [--transport <t>] [--cwd <dir>]
+Run `toolportctl --help` for usage.
+=== ["server","edit","a"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--url <url>] [--transport <t>] [--cwd <dir>]
+Run `toolportctl --help` for usage.
+=== ["server","edit","a","--name"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --name requires a value
+Run `toolportctl --help` for usage.
+=== ["server","edit","a","--arg"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --arg requires a value
+Run `toolportctl --help` for usage.
+=== ["server","edit","a","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["server","edit","a","b","--name","c"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--url <url>] [--transport <t>] [--cwd <dir>]
+Run `toolportctl --help` for usage.
+=== ["server","edit","nope","--name","x"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: no server 'nope'
+=== ["--json","server","edit","nope","--name","x"]
+exit 1
+--- stdout
+{"command":"server edit","error":{"code":"not_found","message":"no server 'nope'"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["inspect"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: inspect <server id|name>
+Run `toolportctl --help` for usage.
+=== ["inspect","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: inspect <server id|name>
+Run `toolportctl --help` for usage.
+=== ["inspect","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["--json","inspect","--bogus"]
+exit 2
+--- stdout
+{"command":"inspect","error":{"code":"usage","message":"unknown option: --bogus"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["inspect","-"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: no server '-'
+=== ["inspect","nope"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: no server 'nope'
+=== ["--json","inspect","nope"]
+exit 1
+--- stdout
+{"command":"inspect","error":{"code":"not_found","message":"no server 'nope'"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["profile"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: profile: not implemented
+=== ["--json","profile"]
+exit 1
+--- stdout
+{"command":"profile","error":{"code":"not_implemented","message":"profile: not implemented"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["profile","--bogus"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: profile: not implemented
+=== ["profile","inspect","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: profile inspect [<profile id>]
+Run `toolportctl --help` for usage.
+=== ["profile","inspect","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["profile","inspect","nope"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: no profile 'nope'
+=== ["--json","profile","inspect","nope"]
+exit 1
+--- stdout
+{"command":"profile inspect","error":{"code":"not_found","message":"no profile 'nope'"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["client"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: client: not implemented
+=== ["--json","client"]
+exit 1
+--- stdout
+{"command":"client","error":{"code":"not_implemented","message":"client: not implemented"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["client","--bogus"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: client: not implemented
+=== ["client","ls","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["client","ls","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["client","sync","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: client sync [--client <id>]... [--dry-run] [--keep-orphans]
+Run `toolportctl --help` for usage.
+=== ["client","sync","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: client sync [--client <id>]... [--dry-run] [--keep-orphans]
+Run `toolportctl --help` for usage.
+=== ["client","sync","--client"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --client requires an id
+Run `toolportctl --help` for usage.
+=== ["client","sync","--client","x","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: client sync [--client <id>]... [--dry-run] [--keep-orphans]
+Run `toolportctl --help` for usage.
+=== ["client","sync","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: client sync [--client <id>]... [--dry-run] [--keep-orphans]
+Run `toolportctl --help` for usage.
+=== ["client","sync","--client=x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: client sync [--client <id>]... [--dry-run] [--keep-orphans]
+Run `toolportctl --help` for usage.
+=== ["--json","client","sync","--bogus"]
+exit 2
+--- stdout
+{"command":"client sync","error":{"code":"usage","message":"usage: client sync [--client <id>]... [--dry-run] [--keep-orphans]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["secret"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: secret: not implemented
+=== ["--json","secret"]
+exit 1
+--- stdout
+{"command":"secret","error":{"code":"not_implemented","message":"secret: not implemented"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["secret","ls"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: secret: not implemented
+=== ["secret","--bogus"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: secret: not implemented
+=== ["secret","set"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: secret set <server> <KEY> [--value-env <VAR>] (value on stdin)
+Run `toolportctl --help` for usage.
+=== ["secret","set","a"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: secret set <server> <KEY> [--value-env <VAR>] (value on stdin)
+Run `toolportctl --help` for usage.
+=== ["secret","set","a","b","c"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: secret set <server> <KEY> [--value-env <VAR>] (value on stdin)
+Run `toolportctl --help` for usage.
+=== ["secret","set","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["secret","set","a","b","--value-env"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --value-env requires a variable name
+Run `toolportctl --help` for usage.
+=== ["secret","set","a","b","--reveal"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --reveal
+Run `toolportctl --help` for usage.
+=== ["secret","set","a","b","--value-env=X"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --value-env=X
+Run `toolportctl --help` for usage.
+=== ["secret","set","nope","KEY"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: unknown server: nope
+=== ["--json","secret","set","nope","KEY"]
+exit 1
+--- stdout
+{"command":"secret set","error":{"code":"not_found","message":"unknown server: nope"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["secret","set","alpha","a::b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: invalid secret key: a::b
+Run `toolportctl --help` for usage.
+=== ["secret","set","alpha","__x__"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: invalid secret key: __x__
+Run `toolportctl --help` for usage.
+=== ["secret","get"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: secret get <server> <KEY> [--reveal]
+Run `toolportctl --help` for usage.
+=== ["secret","get","a"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: secret get <server> <KEY> [--reveal]
+Run `toolportctl --help` for usage.
+=== ["secret","get","a","b","--reveal=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --reveal=1
+Run `toolportctl --help` for usage.
+=== ["secret","get","a","b","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["secret","get","a","b","--value-env","X"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --value-env
+Run `toolportctl --help` for usage.
+=== ["secret","get","alpha",""]
+exit 2
+--- stdout
+--- stderr
+toolportctl: invalid secret key: 
+Run `toolportctl --help` for usage.
+=== ["secret","rm"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: secret rm <server> <KEY>
+Run `toolportctl --help` for usage.
+=== ["secret","rm","a"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: secret rm <server> <KEY>
+Run `toolportctl --help` for usage.
+=== ["secret","rm","a","b","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["secret","rm","a","b","--reveal"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --reveal
+Run `toolportctl --help` for usage.
+=== ["secret","rm","alpha","a::b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: invalid secret key: a::b
+Run `toolportctl --help` for usage.
+=== ["context"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: context loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["--json","context"]
+exit 2
+--- stdout
+{"command":"context","error":{"code":"usage","message":"usage: context loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--dry-run])"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["context","nope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: context loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["context","loads","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["context","loads","--bogus=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["context","loads","--profile"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --profile requires a value
+Run `toolportctl --help` for usage.
+=== ["context","loads","--cwd"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --cwd requires a value
+Run `toolportctl --help` for usage.
+=== ["context","loads","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["context","loads","foo=bar"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: foo
+Run `toolportctl --help` for usage.
+=== ["context","loads","--profile","x","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["--json","context","loads","--bogus"]
+exit 2
+--- stdout
+{"command":"context loads","error":{"code":"usage","message":"unexpected argument: --bogus"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["context","checkpoint-status","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["context","checkpoint-status","--profile"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --profile requires a value
+Run `toolportctl --help` for usage.
+=== ["context","checkpoint-status","--window"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --window requires a value
+Run `toolportctl --help` for usage.
+=== ["context","checkpoint-status","--window","abc"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --window requires a token count
+Run `toolportctl --help` for usage.
+=== ["context","checkpoint-status","--window=abc"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --window requires a token count
+Run `toolportctl --help` for usage.
+=== ["context","checkpoint-status","--checkpoint-at","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --checkpoint-at requires a token count
+Run `toolportctl --help` for usage.
+=== ["context","checkpoint-status","--window","abc","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --window requires a token count
+Run `toolportctl --help` for usage.
+=== ["context","checkpoint-status","--bogus","--window","abc"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["context","checkpoint-status","--window","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --window requires a token count
+Run `toolportctl --help` for usage.
+=== ["context","checkpoint-status","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["context","checkpoint-status","--window=1=2"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --window requires a token count
+Run `toolportctl --help` for usage.
+=== ["context","plan","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["context","plan","--dry-run"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --dry-run
+Run `toolportctl --help` for usage.
+=== ["context","plan","--home"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --home requires a value
+Run `toolportctl --help` for usage.
+=== ["context","plan","--rules=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --rules=1
+Run `toolportctl --help` for usage.
+=== ["context","plan","--no-persist=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --no-persist=1
+Run `toolportctl --help` for usage.
+=== ["context","plan","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["context","plan","--home","/x","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["context","apply","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["context","apply","--home"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --home requires a value
+Run `toolportctl --help` for usage.
+=== ["context","apply","--rules=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --rules=1
+Run `toolportctl --help` for usage.
+=== ["context","apply","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --dry-run=1
+Run `toolportctl --help` for usage.
+=== ["context","apply","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["context","sync","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["context","sync","--no-persist=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --no-persist=1
+Run `toolportctl --help` for usage.
+=== ["context","sync","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --dry-run=1
+Run `toolportctl --help` for usage.
+=== ["context","sync","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["--json","context","plan","--bogus"]
+exit 2
+--- stdout
+{"command":"context plan","error":{"code":"usage","message":"unexpected argument: --bogus"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["context","folders","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["context","folders","--cwd"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --cwd requires a value
+Run `toolportctl --help` for usage.
+=== ["context","folders","--enable=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --enable=1
+Run `toolportctl --help` for usage.
+=== ["context","folders","--disable=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --disable=1
+Run `toolportctl --help` for usage.
+=== ["context","folders","--enable","--disable"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --enable and --disable are exclusive
+Run `toolportctl --help` for usage.
+=== ["context","folders","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["context","folders","--cwd","/x","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["context","folders","--bogus","--cwd"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["--json","context","folders","--enable","--disable"]
+exit 2
+--- stdout
+{"command":"context folders","error":{"code":"usage","message":"--enable and --disable are exclusive"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["compression"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: compression: not implemented
+=== ["--json","compression"]
+exit 1
+--- stdout
+{"command":"compression","error":{"code":"not_implemented","message":"compression: not implemented"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["compression","use","agent"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: compression: not implemented
+=== ["compression","--bogus"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: compression: not implemented
+=== ["compression","status","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["compression","status","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["compression","presets","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["compression","verify","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["compression","verify","--limit"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --limit requires a value
+Run `toolportctl --help` for usage.
+=== ["compression","verify","--limit","abc"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --limit needs a whole number
+Run `toolportctl --help` for usage.
+=== ["compression","verify","--limit=abc"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --limit needs a whole number
+Run `toolportctl --help` for usage.
+=== ["compression","verify","--limit","abc","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["compression","verify","--min-turns","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --min-turns needs a whole number
+Run `toolportctl --help` for usage.
+=== ["compression","verify","--transcripts"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --transcripts requires a value
+Run `toolportctl --help` for usage.
+=== ["compression","verify","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["compression","verify","-x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: -x
+Run `toolportctl --help` for usage.
+=== ["compression","verify","--by-pin=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --by-pin
+Run `toolportctl --help` for usage.
+=== ["compression","verify","--bogus=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["compression","verify","--"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --
+Run `toolportctl --help` for usage.
+=== ["compression","verify","--limit","1","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["--json","compression","verify","--bogus"]
+exit 2
+--- stdout
+{"command":"compression verify","error":{"code":"usage","message":"unknown option: --bogus"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["compression","ledger","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["compression","ledger","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["compression","ledger","summary","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["compression","ledger","summary","--provider"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --provider requires a value
+Run `toolportctl --help` for usage.
+=== ["compression","ledger","summary","--since","bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --since needs an RFC 3339 timestamp, e.g. 2026-01-31T00:00:00Z
+Run `toolportctl --help` for usage.
+=== ["compression","ledger","summary","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["compression","ledger","record"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --provider is required
+Run `toolportctl --help` for usage.
+=== ["compression","ledger","record","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["compression","ledger","record","--provider"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --provider requires a value
+Run `toolportctl --help` for usage.
+=== ["compression","ledger","record","--provider","bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown provider "bogus" (have: headroom, rtk-only, parsec, none)
+Run `toolportctl --help` for usage.
+=== ["compression","ledger","record","--provider","none"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --before is required
+Run `toolportctl --help` for usage.
+=== ["compression","ledger","record","--provider","none","--before","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --before needs a whole number
+Run `toolportctl --help` for usage.
+=== ["compression","ledger","record","--provider","none","--before","1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --after is required
+Run `toolportctl --help` for usage.
+=== ["compression","ledger","record","--provider","none","--after","1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --before is required
+Run `toolportctl --help` for usage.
+=== ["compression","ledger","record","--provider","none","--before","1","--after","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --after needs a whole number
+Run `toolportctl --help` for usage.
+=== ["compression","ledger","record","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["--json","compression","ledger","record"]
+exit 2
+--- stdout
+{"command":"compression ledger","error":{"code":"usage","message":"--provider is required"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["compression","proxy"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: proxy needs up, down or restart
+Run `toolportctl --help` for usage.
+=== ["compression","proxy","sideways"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown proxy action: sideways (up, down, restart)
+Run `toolportctl --help` for usage.
+=== ["compression","proxy","up","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown proxy action: up (up, down, restart)
+Run `toolportctl --help` for usage.
+=== ["--json","compression","proxy"]
+exit 2
+--- stdout
+{"command":"compression proxy","error":{"code":"usage","message":"proxy needs up, down or restart"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["compression","update","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["compression","update","--to"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --to requires a value
+Run `toolportctl --help` for usage.
+=== ["compression","update","--latest=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --latest
+Run `toolportctl --help` for usage.
+=== ["compression","update","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["compression","update","--latest","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["import"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: import: not implemented
+=== ["--json","import"]
+exit 1
+--- stdout
+{"command":"import","error":{"code":"not_implemented","message":"import: not implemented"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["import","--bogus"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: import: not implemented
+=== ["import","nope"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: import: not implemented
+=== ["import","mcpm"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: import mcpm <config-root> [--dry-run] [--short-ids <file>] [--home <dir>] [--skip-clients] [--prune-orphans] [--name-map --tools <file>]
+Run `toolportctl --help` for usage.
+=== ["import","mcpm","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: import mcpm <config-root> [--dry-run] [--short-ids <file>] [--home <dir>] [--skip-clients] [--prune-orphans] [--name-map --tools <file>]
+Run `toolportctl --help` for usage.
+=== ["import","mcpm","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["import","mcpm","-"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: -
+Run `toolportctl --help` for usage.
+=== ["import","mcpm","a","--tools"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --tools requires a file
+Run `toolportctl --help` for usage.
+=== ["import","mcpm","a","--home"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --home requires a directory
+Run `toolportctl --help` for usage.
+=== ["import","mcpm","a","--short-ids"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --short-ids requires a file
+Run `toolportctl --help` for usage.
+=== ["import","mcpm","a","--name-map"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --name-map requires --tools <file>
+Run `toolportctl --help` for usage.
+=== ["import","mcpm","a","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --dry-run=1
+Run `toolportctl --help` for usage.
+=== ["import","mcpm","--dry-run"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: import mcpm <config-root> [--dry-run] [--short-ids <file>] [--home <dir>] [--skip-clients] [--prune-orphans] [--name-map --tools <file>]
+Run `toolportctl --help` for usage.
+=== ["import","mcpm","a","--tools=t"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --tools=t
+Run `toolportctl --help` for usage.
+=== ["--json","import","mcpm"]
+exit 2
+--- stdout
+{"command":"import mcpm","error":{"code":"usage","message":"usage: import mcpm <config-root> [--dry-run] [--short-ids <file>] [--home <dir>] [--skip-clients] [--prune-orphans] [--name-map --tools <file>]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["import","rename-refs"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: import rename-refs <config-root> --tools <file> --paths <path>... [--short-ids <file>] [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["import","rename-refs","a"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --tools is required
+Run `toolportctl --help` for usage.
+=== ["import","rename-refs","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: import rename-refs <config-root> --tools <file> --paths <path>... [--short-ids <file>] [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["import","rename-refs","a","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["import","rename-refs","a","--tools"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --tools requires a file
+Run `toolportctl --help` for usage.
+=== ["import","rename-refs","a","--tools","t"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --paths is required
+Run `toolportctl --help` for usage.
+=== ["import","rename-refs","a","--tools","t","--paths"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --paths requires at least one path
+Run `toolportctl --help` for usage.
+=== ["import","rename-refs","a","--tools","t","--paths","--dry-run"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --paths requires at least one path
+Run `toolportctl --help` for usage.
+=== ["import","rename-refs","--paths","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: import rename-refs <config-root> --tools <file> --paths <path>... [--short-ids <file>] [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["import","rename-refs","a","--paths","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --tools is required
+Run `toolportctl --help` for usage.
+=== ["import","rename-refs","a","--paths","x","y","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["import","rename-refs","a","--paths","x","--paths","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["import","rename-refs","a","--home"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --home requires a directory
+Run `toolportctl --help` for usage.
+=== ["import","rename-refs","a","--short-ids"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --short-ids requires a file
+Run `toolportctl --help` for usage.
+=== ["council"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: council <install [--api-key-env VAR] | uninstall [--purge-key] | doctor | tools>
+Run `toolportctl --help` for usage.
+=== ["--json","council"]
+exit 2
+--- stdout
+{"command":"council","error":{"code":"usage","message":"usage: council <install [--api-key-env VAR] | uninstall [--purge-key] | doctor | tools>"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["council","nope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: council <install [--api-key-env VAR] | uninstall [--purge-key] | doctor | tools>
+Run `toolportctl --help` for usage.
+=== ["council","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: council <install [--api-key-env VAR] | uninstall [--purge-key] | doctor | tools>
+Run `toolportctl --help` for usage.
+=== ["council","install","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["council","install","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: extra
+Run `toolportctl --help` for usage.
+=== ["council","install","--api-key-env"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --api-key-env requires a variable name
+Run `toolportctl --help` for usage.
+=== ["council","install","--api-key-env","CTL_PIN_UNSET_VAR"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: CTL_PIN_UNSET_VAR is not set or empty
+=== ["--json","council","install","--api-key-env","CTL_PIN_UNSET_VAR"]
+exit 1
+--- stdout
+{"command":"council","error":{"code":"input","message":"CTL_PIN_UNSET_VAR is not set or empty"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["council","install","--api-key-env=X"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: --api-key-env=X
+Run `toolportctl --help` for usage.
+=== ["council","uninstall","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["council","uninstall","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: extra
+Run `toolportctl --help` for usage.
+=== ["council","doctor","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: extra
+Run `toolportctl --help` for usage.
+=== ["council","doctor","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["council","tools","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown argument: extra
+Run `toolportctl --help` for usage.
+=== ["--json","council","tools","--bogus"]
+exit 2
+--- stdout
+{"command":"council","error":{"code":"usage","message":"unknown argument: --bogus"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["skills"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|diff|status|clean|uninstall|resolve (sync|ls|lint|diff: [--repo <dir>] [--home <dir>]; sync: [--client <key>]... [--project] [--dry-run]; lint: [--name <skill>]...; init: [--path <dir>] [--name <name>] [--dry-run]; add: <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]; audit: [--path <dir>]; bundle: [--output <zip>] [--path <dir>] [--skills <a,b>] [--dry-run]; unbundle: <bundle.zip> [--path <dir>] [--dry-run]; status: [--repo <dir>] [--client <key>]... [--strict]; clean: [--repo <dir>] [--client <key>] [--project] [--dry-run]; uninstall: <name> [--repo <dir>] [--project] [--dry-run]; resolve: [--repo <dir>] [--client <key>] [--project] [--dry-run] [--migrate|--no-migrate])
+Run `toolportctl --help` for usage.
+=== ["--json","skills"]
+exit 2
+--- stdout
+{"command":"skills","error":{"code":"usage","message":"usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|diff|status|clean|uninstall|resolve (sync|ls|lint|diff: [--repo <dir>] [--home <dir>]; sync: [--client <key>]... [--project] [--dry-run]; lint: [--name <skill>]...; init: [--path <dir>] [--name <name>] [--dry-run]; add: <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]; audit: [--path <dir>]; bundle: [--output <zip>] [--path <dir>] [--skills <a,b>] [--dry-run]; unbundle: <bundle.zip> [--path <dir>] [--dry-run]; status: [--repo <dir>] [--client <key>]... [--strict]; clean: [--repo <dir>] [--client <key>] [--project] [--dry-run]; uninstall: <name> [--repo <dir>] [--project] [--dry-run]; resolve: [--repo <dir>] [--client <key>] [--project] [--dry-run] [--migrate|--no-migrate])"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["skills","nope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|diff|status|clean|uninstall|resolve (sync|ls|lint|diff: [--repo <dir>] [--home <dir>]; sync: [--client <key>]... [--project] [--dry-run]; lint: [--name <skill>]...; init: [--path <dir>] [--name <name>] [--dry-run]; add: <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]; audit: [--path <dir>]; bundle: [--output <zip>] [--path <dir>] [--skills <a,b>] [--dry-run]; unbundle: <bundle.zip> [--path <dir>] [--dry-run]; status: [--repo <dir>] [--client <key>]... [--strict]; clean: [--repo <dir>] [--client <key>] [--project] [--dry-run]; uninstall: <name> [--repo <dir>] [--project] [--dry-run]; resolve: [--repo <dir>] [--client <key>] [--project] [--dry-run] [--migrate|--no-migrate])
+Run `toolportctl --help` for usage.
+=== ["skills","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|diff|status|clean|uninstall|resolve (sync|ls|lint|diff: [--repo <dir>] [--home <dir>]; sync: [--client <key>]... [--project] [--dry-run]; lint: [--name <skill>]...; init: [--path <dir>] [--name <name>] [--dry-run]; add: <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]; audit: [--path <dir>]; bundle: [--output <zip>] [--path <dir>] [--skills <a,b>] [--dry-run]; unbundle: <bundle.zip> [--path <dir>] [--dry-run]; status: [--repo <dir>] [--client <key>]... [--strict]; clean: [--repo <dir>] [--client <key>] [--project] [--dry-run]; uninstall: <name> [--repo <dir>] [--project] [--dry-run]; resolve: [--repo <dir>] [--client <key>] [--project] [--dry-run] [--migrate|--no-migrate])
+Run `toolportctl --help` for usage.
+=== ["skills","sync","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["skills","sync","--repo"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --repo requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","sync","--home"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --home requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","sync","--client"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --client requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","sync","--project=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --project takes no value
+Run `toolportctl --help` for usage.
+=== ["skills","sync","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --dry-run takes no value
+Run `toolportctl --help` for usage.
+=== ["skills","sync","--bogus=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus=1
+Run `toolportctl --help` for usage.
+=== ["skills","sync","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["skills","sync","foo=bar"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: foo=bar
+Run `toolportctl --help` for usage.
+=== ["skills","sync","-"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: -
+Run `toolportctl --help` for usage.
+=== ["skills","sync","--global","--project"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --global and --project are mutually exclusive
+Run `toolportctl --help` for usage.
+=== ["skills","sync","--repo=","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["skills","sync","--path","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --path
+Run `toolportctl --help` for usage.
+=== ["--json","skills","sync","--bogus"]
+exit 2
+--- stdout
+{"command":"skills sync","error":{"code":"usage","message":"unexpected argument: --bogus"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["skills","ls","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["skills","ls","--client","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --client
+Run `toolportctl --help` for usage.
+=== ["skills","ls","--repo"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --repo requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","ls","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["skills","lint","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["skills","lint","--name"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --name requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","lint","--name=x","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["skills","lint","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["skills","diff","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["skills","diff","--project"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --project
+Run `toolportctl --help` for usage.
+=== ["skills","diff","--dry-run"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --dry-run
+Run `toolportctl --help` for usage.
+=== ["skills","diff","--home"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --home requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","init","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: skills init [--path <dir>] [--name <name>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","init","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: skills init [--path <dir>] [--name <name>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","init","--path"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --path requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","init","--repo"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --path requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","init","--name"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --name requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","init","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --dry-run takes no value
+Run `toolportctl --help` for usage.
+=== ["skills","init","--bogus=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus=1
+usage: skills init [--path <dir>] [--name <name>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","init","-"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: -
+usage: skills init [--path <dir>] [--name <name>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["--json","skills","init","--bogus"]
+exit 2
+--- stdout
+{"command":"skills init","error":{"code":"usage","message":"unexpected argument: --bogus\nusage: skills init [--path <dir>] [--name <name>] [--dry-run]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["skills","add"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing skill name
+usage: skills add <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","add","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: skills add <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","add","--type"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --type requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","add","a","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: skills add <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","add","a","--with-progressive=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --with-progressive takes no value
+Run `toolportctl --help` for usage.
+=== ["skills","add","--dry-run"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing skill name
+usage: skills add <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","audit","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: skills audit [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["skills","audit","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: skills audit [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["skills","audit","--path"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --path requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","audit","--dry-run"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --dry-run
+usage: skills audit [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["skills","bundle","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: skills bundle [--output <zip>] [--path <dir>] [--skills <a,b>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","bundle","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: skills bundle [--output <zip>] [--path <dir>] [--skills <a,b>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","bundle","--output"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --output requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","bundle","--skills"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --skills requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","bundle","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --dry-run takes no value
+Run `toolportctl --help` for usage.
+=== ["skills","unbundle"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing bundle path
+usage: skills unbundle <bundle.zip> [--path <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","unbundle","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: skills unbundle <bundle.zip> [--path <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","unbundle","--path"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --path requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","unbundle","a","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: skills unbundle <bundle.zip> [--path <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","unbundle","--dry-run"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing bundle path
+usage: skills unbundle <bundle.zip> [--path <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["--json","skills","unbundle"]
+exit 2
+--- stdout
+{"command":"skills unbundle","error":{"code":"usage","message":"missing bundle path\nusage: skills unbundle <bundle.zip> [--path <dir>] [--dry-run]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["skills","status","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: skills status [--repo <dir>] [--home <dir>] [--client <key>]... [--strict]
+Run `toolportctl --help` for usage.
+=== ["skills","status","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: skills status [--repo <dir>] [--home <dir>] [--client <key>]... [--strict]
+Run `toolportctl --help` for usage.
+=== ["skills","status","--strict=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --strict takes no value
+Run `toolportctl --help` for usage.
+=== ["skills","status","--client"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --client requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","status","--home"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --home requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","status","--repo"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --path requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","status","--project"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --project
+usage: skills status [--repo <dir>] [--home <dir>] [--client <key>]... [--strict]
+Run `toolportctl --help` for usage.
+=== ["skills","clean","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: skills clean [--repo <dir>] [--home <dir>] [--client <key>] [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","clean","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: skills clean [--repo <dir>] [--home <dir>] [--client <key>] [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","clean","--client"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --client requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","clean","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --dry-run takes no value
+Run `toolportctl --help` for usage.
+=== ["skills","clean","--global","--project"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --global and --project are mutually exclusive
+Run `toolportctl --help` for usage.
+=== ["--json","skills","clean","--global","--project"]
+exit 2
+--- stdout
+{"command":"skills clean","error":{"code":"usage","message":"--global and --project are mutually exclusive"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["skills","uninstall"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing skill name
+usage: skills uninstall <name> [--repo <dir>] [--home <dir>] [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","uninstall","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: skills uninstall <name> [--repo <dir>] [--home <dir>] [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","uninstall","a","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: skills uninstall <name> [--repo <dir>] [--home <dir>] [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","uninstall","a","--global","--project"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --global and --project are mutually exclusive
+Run `toolportctl --help` for usage.
+=== ["skills","uninstall","a","--client","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --client
+usage: skills uninstall <name> [--repo <dir>] [--home <dir>] [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","uninstall","--repo"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --path requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","resolve","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: skills resolve [--repo <dir>] [--home <dir>] [--client <key>] [--project] [--dry-run] [--migrate|--no-migrate]
+Run `toolportctl --help` for usage.
+=== ["skills","resolve","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: skills resolve [--repo <dir>] [--home <dir>] [--client <key>] [--project] [--dry-run] [--migrate|--no-migrate]
+Run `toolportctl --help` for usage.
+=== ["skills","resolve","--migrate","--no-migrate"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --migrate and --no-migrate are mutually exclusive
+Run `toolportctl --help` for usage.
+=== ["skills","resolve","--global","--project"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --global and --project are mutually exclusive
+Run `toolportctl --help` for usage.
+=== ["skills","resolve","--migrate=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --migrate takes no value
+Run `toolportctl --help` for usage.
+=== ["skills","resolve","--client"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --client requires a value
+Run `toolportctl --help` for usage.
+=== ["sync"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sync <init|push|pull|diff|status|reset|rotate-passphrase|add-project|remove-project|git-sync|migrate> [options]
+Run `toolportctl --help` for usage.
+=== ["--json","sync"]
+exit 2
+--- stdout
+{"command":"sync","error":{"code":"usage","message":"usage: sync <init|push|pull|diff|status|reset|rotate-passphrase|add-project|remove-project|git-sync|migrate> [options]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["sync","nope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sync <init|push|pull|diff|status|reset|rotate-passphrase|add-project|remove-project|git-sync|migrate> [options]
+Run `toolportctl --help` for usage.
+=== ["sync","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sync <init|push|pull|diff|status|reset|rotate-passphrase|add-project|remove-project|git-sync|migrate> [options]
+Run `toolportctl --help` for usage.
+=== ["sync","push","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["sync","push","-"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: -
+Run `toolportctl --help` for usage.
+=== ["sync","push","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sync <init|push|pull|diff|status|reset|rotate-passphrase|add-project|remove-project|git-sync|migrate> [options]
+Run `toolportctl --help` for usage.
+=== ["sync","push","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --dry-run=1
+Run `toolportctl --help` for usage.
+=== ["sync","push","--force"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --force
+Run `toolportctl --help` for usage.
+=== ["sync","pull","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["sync","pull","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sync <init|push|pull|diff|status|reset|rotate-passphrase|add-project|remove-project|git-sync|migrate> [options]
+Run `toolportctl --help` for usage.
+=== ["sync","diff","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sync <init|push|pull|diff|status|reset|rotate-passphrase|add-project|remove-project|git-sync|migrate> [options]
+Run `toolportctl --help` for usage.
+=== ["sync","status","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["sync","reset","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sync <init|push|pull|diff|status|reset|rotate-passphrase|add-project|remove-project|git-sync|migrate> [options]
+Run `toolportctl --help` for usage.
+=== ["sync","init"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing argument: repo
+Run `toolportctl --help` for usage.
+=== ["--json","sync","init"]
+exit 2
+--- stdout
+{"command":"sync","error":{"code":"usage","message":"missing argument: repo"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["sync","init","--repo"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --repo requires a value
+Run `toolportctl --help` for usage.
+=== ["sync","init","--branch"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --branch requires a value
+Run `toolportctl --help` for usage.
+=== ["sync","init","--machine-id"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --machine-id requires a value
+Run `toolportctl --help` for usage.
+=== ["sync","init","--repo","r"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing argument: passphrase
+Run `toolportctl --help` for usage.
+=== ["sync","init","--reconfigure=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --reconfigure=1
+Run `toolportctl --help` for usage.
+=== ["sync","init","--passphrase-env"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --passphrase-env requires a variable name
+Run `toolportctl --help` for usage.
+=== ["sync","init","--passphrase-env","CTL_PIN_UNSET_VAR"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: environment variable CTL_PIN_UNSET_VAR is not set
+Run `toolportctl --help` for usage.
+=== ["--json","sync","init","--passphrase-env","CTL_PIN_UNSET_VAR"]
+exit 2
+--- stdout
+{"command":"sync","error":{"code":"usage","message":"environment variable CTL_PIN_UNSET_VAR is not set"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["sync","init","--passphrase-env","CTL_PIN_UNSET_VAR","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: environment variable CTL_PIN_UNSET_VAR is not set
+Run `toolportctl --help` for usage.
+=== ["sync","init","--bogus","--passphrase-env","CTL_PIN_UNSET_VAR"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: environment variable CTL_PIN_UNSET_VAR is not set
+Run `toolportctl --help` for usage.
+=== ["sync","rotate-passphrase"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing argument: newPassphrase
+Run `toolportctl --help` for usage.
+=== ["sync","rotate-passphrase","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sync <init|push|pull|diff|status|reset|rotate-passphrase|add-project|remove-project|git-sync|migrate> [options]
+Run `toolportctl --help` for usage.
+=== ["sync","add-project"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing argument: name
+Run `toolportctl --help` for usage.
+=== ["sync","add-project","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing argument: name
+Run `toolportctl --help` for usage.
+=== ["sync","add-project","x","--name"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --name requires a value
+Run `toolportctl --help` for usage.
+=== ["sync","add-project","x","--files"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --files requires a value
+Run `toolportctl --help` for usage.
+=== ["sync","add-project","a","b","--name","n"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sync <init|push|pull|diff|status|reset|rotate-passphrase|add-project|remove-project|git-sync|migrate> [options]
+Run `toolportctl --help` for usage.
+=== ["sync","add-project","a","b","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["sync","add-project","x","--name","n","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["sync","remove-project"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing argument: name
+Run `toolportctl --help` for usage.
+=== ["sync","remove-project","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sync <init|push|pull|diff|status|reset|rotate-passphrase|add-project|remove-project|git-sync|migrate> [options]
+Run `toolportctl --help` for usage.
+=== ["sync","git-sync","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["sync","git-sync","--repo"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --repo requires a value
+Run `toolportctl --help` for usage.
+=== ["sync","git-sync","--branch"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --branch requires a value
+Run `toolportctl --help` for usage.
+=== ["sync","git-sync","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sync <init|push|pull|diff|status|reset|rotate-passphrase|add-project|remove-project|git-sync|migrate> [options]
+Run `toolportctl --help` for usage.
+=== ["sync","migrate"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing argument: bundleDir
+Run `toolportctl --help` for usage.
+=== ["sync","migrate","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sync <init|push|pull|diff|status|reset|rotate-passphrase|add-project|remove-project|git-sync|migrate> [options]
+Run `toolportctl --help` for usage.
+=== ["sync","migrate","d"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing argument: passphrase
+Run `toolportctl --help` for usage.
+=== ["sync","migrate","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["cc"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: cc list|update [plugin] [--marketplace M] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["--json","cc"]
+exit 2
+--- stdout
+{"command":"cc","error":{"code":"usage","message":"usage: cc list|update [plugin] [--marketplace M] [--dry-run]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["cc","nope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: cc list|update [plugin] [--marketplace M] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["cc","nope","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["cc","list","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["cc","list","-"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: -
+Run `toolportctl --help` for usage.
+=== ["cc","list","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: cc list|update [plugin] [--marketplace M] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["cc","list","--marketplace"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --marketplace requires a name
+Run `toolportctl --help` for usage.
+=== ["cc","list","-m"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --marketplace requires a name
+Run `toolportctl --help` for usage.
+=== ["cc","update","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --dry-run=1
+Run `toolportctl --help` for usage.
+=== ["cc","update","--marketplace=x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --marketplace=x
+Run `toolportctl --help` for usage.
+=== ["cc","update","-c=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: -c=1
+Run `toolportctl --help` for usage.
+=== ["cc","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: cc list|update [plugin] [--marketplace M] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["--json","cc","list","--bogus"]
+exit 2
+--- stdout
+{"command":"cc","error":{"code":"usage","message":"unknown option: --bogus"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["update","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["update","-"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: -
+Run `toolportctl --help` for usage.
+=== ["update","-x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: -x
+Run `toolportctl --help` for usage.
+=== ["update","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: update [server] [--check|--apply|--init|--dry-run] [--allow-commands] [--allow-unverified] [--force] [--repo owner/repo]
+Run `toolportctl --help` for usage.
+=== ["update","a","b","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: update [server] [--check|--apply|--init|--dry-run] [--allow-commands] [--allow-unverified] [--force] [--repo owner/repo]
+Run `toolportctl --help` for usage.
+=== ["update","--repo"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --repo requires owner/repo
+Run `toolportctl --help` for usage.
+=== ["update","--check","--apply"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --check, --apply and --init are mutually exclusive
+Run `toolportctl --help` for usage.
+=== ["update","--apply","--init"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --check, --apply and --init are mutually exclusive
+Run `toolportctl --help` for usage.
+=== ["update","-c","--init"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --check, --apply and --init are mutually exclusive
+Run `toolportctl --help` for usage.
+=== ["update","--check","--init","--apply"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --check, --apply and --init are mutually exclusive
+Run `toolportctl --help` for usage.
+=== ["update","--check=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --check=1
+Run `toolportctl --help` for usage.
+=== ["update","--repo=x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --repo=x
+Run `toolportctl --help` for usage.
+=== ["--json","update","--bogus"]
+exit 2
+--- stdout
+{"command":"update","error":{"code":"usage","message":"unknown option: --bogus"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["--json","update","--check","--apply"]
+exit 2
+--- stdout
+{"command":"update","error":{"code":"usage","message":"--check, --apply and --init are mutually exclusive"},"ok":false,"schemaVersion":1}
+--- stderr
