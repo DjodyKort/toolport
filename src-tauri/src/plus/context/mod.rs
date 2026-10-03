@@ -27,6 +27,8 @@ mod tests_compact;
 #[cfg(test)]
 mod tests_folders;
 #[cfg(test)]
+mod tests_hardening;
+#[cfg(test)]
 mod tests_hooks;
 
 pub use config::{load_config, preserve_unreadable, save_config, ContextConfig};
@@ -163,9 +165,11 @@ pub fn apply(
 
     if !config.profiles.is_empty() || config.wrap_default_claude {
         let path = shims::write_shims(roots, &config.profiles, config.wrap_default_claude, dry)?;
-        report.add(format!("wrote shims: {path}"));
+        let verb = if dry { "would write" } else { "wrote" };
+        report.add(format!("{verb} shims: {path}"));
     } else if shims::remove_shims(roots, dry)? {
-        report.add("removed shims (no profiles, wrapper disabled)");
+        let verb = if dry { "would remove" } else { "removed" };
+        report.add(format!("{verb} shims (no profiles, wrapper disabled)"));
     }
 
     record_cf_baseline(roots, config, &mut report);
@@ -231,8 +235,25 @@ fn config_from_args(roots: &Roots, args: &Value) -> Result<ContextConfig, String
     }
 }
 
+/// Serializes real runs, which the shell wrapper starts once per `claude`, so two of them never
+/// interleave their writes. A dry run only reads and stays lock-free. The lock is taken here and
+/// not in `apply`: `apply` is also the engine the parity harness drives against a golden home
+/// tree, where a `context.json.lock` sibling would be an unexpected file.
+fn lock_real_run(
+    roots: &Roots,
+    dry_run: bool,
+) -> Result<Option<crate::registry::FileLock>, String> {
+    if dry_run {
+        return Ok(None);
+    }
+    crate::registry::lock_at(&roots.context_config_path())
+        .map(Some)
+        .map_err(|e| format!("context sync: {e}"))
+}
+
 fn run(args: &Value, dry_run: bool) -> Result<Value, String> {
     let roots = roots_from_args(args)?;
+    let _lock = lock_real_run(&roots, dry_run)?;
     let mut config = config_from_args(&roots, args)?;
     let persist = args.get("persist").and_then(Value::as_bool).unwrap_or(true);
     let mut report = apply(&roots, &mut config, ApplyOptions { persist, dry_run })?;
