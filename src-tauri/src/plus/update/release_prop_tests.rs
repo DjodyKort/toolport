@@ -1172,6 +1172,31 @@ fn url_policy_edge_cases() {
     assert_eq!(host_of("nonsense"), None);
 }
 
+#[test]
+fn host_of_keeps_tabs_and_newlines_so_such_hosts_are_never_loopback() {
+    assert_eq!(
+        host_of("http://local\thost/").as_deref(),
+        Some("local\thost")
+    );
+    assert_eq!(
+        host_of("https://exa\nmple.com/").as_deref(),
+        Some("exa\nmple.com")
+    );
+    for refused in [
+        "http://local\thost/",
+        "http://127.0.0.1\t/",
+        "http://\nlocalhost/",
+        "http://localhost\r/",
+    ] {
+        assert!(url_allowed(refused).is_err(), "{refused:?}");
+    }
+    assert!(url_allowed("https://exa\tmple.com/").is_ok());
+    assert_ne!(
+        host_of("https://api.example.com/"),
+        host_of("https://api.exa\tmple.com/")
+    );
+}
+
 fn some_text(rng: &mut Rng) -> String {
     let mut text = rng.garbage(10);
     if text.is_empty() {
