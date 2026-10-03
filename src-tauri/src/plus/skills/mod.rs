@@ -4,16 +4,20 @@
 pub mod agents;
 pub mod assets;
 pub mod audit;
+pub mod bundle;
 pub mod clock;
 pub mod collisions;
+pub mod git;
 pub mod json;
 pub mod lint;
 pub mod lock;
+pub mod ops;
 pub mod parser;
 pub mod pyfs;
 pub(crate) mod schema;
 pub mod styles;
 pub mod sync;
+pub mod taps;
 pub mod transpilers;
 pub mod transpiler;
 
@@ -26,3 +30,5 @@ pub use transpiler::{TranspileResult, Transpiler, TranspilerRegistry};
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_features;
