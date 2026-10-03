@@ -1,0 +1,34 @@
+{
+  "area": "context",
+  "case": "context/corp-no-wrapper",
+  "comparison": "B",
+  "entry": "context_scenario",
+  "files": {
+    ".config/mcpm/context.json": {
+      "bytes": 372,
+      "class": "B",
+      "sha256": "1424b406713dde8b737bf526324278003736d1ab2db90359e4e35f29442f86db"
+    },
+    "_golden/apply.report.json": {
+      "bytes": 75,
+      "class": "B",
+      "sha256": "d8249a4c0a3d05958fa88106659d13216db1e10a33ddfc883cce8b82358ee9e5"
+    },
+    "_golden/doctor.json": {
+      "bytes": 137,
+      "class": "B",
+      "sha256": "67e02a3f386f6aec6ebd0e21d1e822bfef3fc4c4efa4d4bbdede0127ff315834"
+    },
+    "_golden/exists.json": {
+      "bytes": 40,
+      "class": "B",
+      "sha256": "d8e02c626073d93c119ffa391dfcb6ec2170c645cadab3349b273c69f17bbba3"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

@@ -22,15 +22,15 @@
       "type": "stdio",
       "command": "legacy-pw"
     },
-    "codeforward-odoo": {
+    "examplecorp-odoo": {
       "type": "http",
       "url": "https://example.test/mcp"
     },
-    "mcpm_codeforward-odoo": {
+    "mcpm_examplecorp-odoo": {
       "type": "http",
       "url": "https://example.test/gw"
     },
-    "codeforward-typst": {
+    "examplecorp-typst": {
       "type": "stdio",
       "command": "typst-legacy"
     },

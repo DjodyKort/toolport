@@ -1,0 +1,18 @@
+[
+  [
+    "ok",
+    "no legacy MCP duplicates"
+  ],
+  [
+    "warn",
+    "no personal layer scaffolded — run `mcpm context init`"
+  ],
+  [
+    "ok",
+    "corp-dev-tools shell-wrapper unchanged since baseline"
+  ],
+  [
+    "warn",
+    "corp-dev-tools claude/ grew new assets: extras, hooks.json — its sync scope may have expanded"
+  ]
+]

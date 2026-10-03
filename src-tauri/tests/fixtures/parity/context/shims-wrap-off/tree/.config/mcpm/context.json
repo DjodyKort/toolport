@@ -6,8 +6,8 @@
     "legacy_names": [
       "context7",
       "playwright",
-      "codeforward-odoo",
-      "codeforward-typst"
+      "examplecorp-odoo",
+      "examplecorp-typst"
     ],
     "require_mcpm_twin": true
   },

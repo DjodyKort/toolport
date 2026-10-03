@@ -45,14 +45,14 @@
       "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
     },
     ".config/mcpm/context-shims.zsh": {
-      "bytes": 1908,
+      "bytes": 1910,
       "class": "A",
-      "sha256": "f24527c9cb8ddf8af4d8a17cde6a46a90f292d2e8b33099cac655b73df24a006"
+      "sha256": "4c6aa8c75a44ca1839c9d1281ff93b668e1b319ba5830ebd0b1e87642da2b6cc"
     },
     ".config/mcpm/context.json": {
       "bytes": 371,
       "class": "B",
-      "sha256": "0d559a97e1fa9fad76525401b181290a56d35a83013353f6a331be9d04889c0a"
+      "sha256": "0ea2d2c6e0e02afe14d8105301183b949f914419fe304fc18b9d0f823258bd9d"
     },
     "_golden/apply1.report.json": {
       "bytes": 805,
@@ -70,14 +70,14 @@
       "sha256": "93ff7811a209e2a8479230bbb9b6bc19f7f311d3af383ec350c1db2a7e7d5494"
     },
     "_golden/shims.wrap-only.zsh": {
-      "bytes": 1908,
+      "bytes": 1910,
       "class": "A",
-      "sha256": "f24527c9cb8ddf8af4d8a17cde6a46a90f292d2e8b33099cac655b73df24a006"
+      "sha256": "4c6aa8c75a44ca1839c9d1281ff93b668e1b319ba5830ebd0b1e87642da2b6cc"
     },
     "_golden/snippet.wrap-on.no-profiles.zsh": {
-      "bytes": 1908,
+      "bytes": 1910,
       "class": "A",
-      "sha256": "f24527c9cb8ddf8af4d8a17cde6a46a90f292d2e8b33099cac655b73df24a006"
+      "sha256": "4c6aa8c75a44ca1839c9d1281ff93b668e1b319ba5830ebd0b1e87642da2b6cc"
     },
     "_golden/snippet.wrap-on.no-profiles.zsh-n.txt": {
       "bytes": 5,
@@ -85,9 +85,9 @@
       "sha256": "93ff7811a209e2a8479230bbb9b6bc19f7f311d3af383ec350c1db2a7e7d5494"
     },
     "_golden/snippet.wrap-on.profiles.zsh": {
-      "bytes": 2152,
+      "bytes": 2154,
       "class": "A",
-      "sha256": "ed71072ee11643c51ad55d33ea1875bb52364b0ce2bb73b719e079575f156cfc"
+      "sha256": "58c3d9a758e462d625797d4f2db5b66985a83fc6f4e6ac1d1f4c4ed7983b13a4"
     },
     "_golden/snippet.wrap-on.profiles.zsh-n.txt": {
       "bytes": 5,

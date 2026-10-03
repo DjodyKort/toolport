@@ -1,0 +1,49 @@
+{
+  "area": "context",
+  "case": "context/doctor-no-corp",
+  "comparison": "A",
+  "entry": "context_scenario",
+  "files": {
+    ".config/mcpm/context-shims.zsh": {
+      "bytes": 1910,
+      "class": "A",
+      "sha256": "4c6aa8c75a44ca1839c9d1281ff93b668e1b319ba5830ebd0b1e87642da2b6cc"
+    },
+    ".config/mcpm/context.json": {
+      "bytes": 371,
+      "class": "B",
+      "sha256": "0ea2d2c6e0e02afe14d8105301183b949f914419fe304fc18b9d0f823258bd9d"
+    },
+    ".zshrc": {
+      "bytes": 111,
+      "class": "A",
+      "sha256": "6c31723ed4d1ae9ffb19f90a69954053d8d9178afd9791e924c2b33c07881689"
+    },
+    "_golden/apply.report.json": {
+      "bytes": 133,
+      "class": "B",
+      "sha256": "21ed898970cc6d8aa6f5873f86360b619518a019d117cbed2df7124c6e2863e6"
+    },
+    "_golden/doctor0-empty-defaults.json": {
+      "bytes": 296,
+      "class": "B",
+      "sha256": "ca2e4a212a0a6fb712d1b186f0b557f0cdbd8e1e0943cef24e1fb498b882b922"
+    },
+    "_golden/doctor1-shims-unsourced.json": {
+      "bytes": 334,
+      "class": "B",
+      "sha256": "49b98a0394aaa41e57713c7a46d206ddbe77407710f4f1118da9d8c43e8c10ab"
+    },
+    "_golden/doctor2-sourced.json": {
+      "bytes": 341,
+      "class": "B",
+      "sha256": "0a6f2087dd235a691dbf2b51296c2131fd8ae2d9b6fbecb52bc8e0f5e0aeb150"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

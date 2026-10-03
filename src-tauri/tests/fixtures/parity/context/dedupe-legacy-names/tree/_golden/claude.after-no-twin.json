@@ -3,16 +3,16 @@
     "keepme": {
       "command": "z"
     },
-    "mcpm_codeforward-odoo": {
-      "type": "http",
-      "url": "https://example.test/gw"
-    },
     "mcpm_context7": {
       "command": "mcpm-ctx7",
       "type": "stdio"
     },
     "mcpm_custom-old": {
       "command": "y"
+    },
+    "mcpm_examplecorp-odoo": {
+      "type": "http",
+      "url": "https://example.test/gw"
     }
   },
   "numStartups": 7,

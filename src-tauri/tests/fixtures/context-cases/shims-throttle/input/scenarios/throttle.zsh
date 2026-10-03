@@ -1,5 +1,5 @@
 set +e
-cf=$HOME/.local/share/cf-dev-tools
+cf=$HOME/.local/share/corp-dev-tools
 bin=$HOME/stubbin
 mkdir -p $bin $HOME/.claude $HOME/.cache/mcpm/context
 cat > $bin/mcpm <<'S'
@@ -18,7 +18,7 @@ S
 mkdir -p $cf/.git $cf/.venv/bin
 cat > $cf/.venv/bin/python <<'S'
 #!/bin/sh
-echo "cf-python sync_claude_files+auto_update_mcp_repos" >> $HOME/stub.log
+echo "corp-python sync_claude_files+auto_update_mcp_repos" >> $HOME/stub.log
 S
 chmod +x $bin/* $cf/.venv/bin/python
 export PATH=$bin:/usr/bin:/bin

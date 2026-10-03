@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__examplecorp-odoo__*",
+      "Read(*)",
+      "Bash(git diff:*)",
+      "WebFetch(domain:example.test)"
+    ],
+    "deny": [
+      "Bash(curl:*)"
+    ]
+  },
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "env": {
+    "TEAM_ENV": "1"
+  }
+}

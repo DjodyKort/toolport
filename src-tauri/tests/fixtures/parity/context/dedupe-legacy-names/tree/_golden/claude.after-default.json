@@ -1,18 +1,14 @@
 {
   "mcpServers": {
-    "codeforward-typst": {
-      "command": "typst-legacy",
-      "type": "stdio"
-    },
     "custom-old": {
       "command": "x"
     },
+    "examplecorp-typst": {
+      "command": "typst-legacy",
+      "type": "stdio"
+    },
     "keepme": {
       "command": "z"
-    },
-    "mcpm_codeforward-odoo": {
-      "type": "http",
-      "url": "https://example.test/gw"
     },
     "mcpm_context7": {
       "command": "mcpm-ctx7",
@@ -20,6 +16,10 @@
     },
     "mcpm_custom-old": {
       "command": "y"
+    },
+    "mcpm_examplecorp-odoo": {
+      "type": "http",
+      "url": "https://example.test/gw"
     },
     "playwright": {
       "command": "legacy-pw",

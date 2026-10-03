@@ -12,7 +12,7 @@
     ".config/mcpm/context.json": {
       "bytes": 396,
       "class": "B",
-      "sha256": "543bf9e795c14e73c051777811c51c6a08690a0a2c715d8199993c210d245e30"
+      "sha256": "81a6a78e25fe9aba40928e9ed46560706ea16cbba3108c157fd60de44611b953"
     },
     "_golden/apply-ask-only.report.json": {
       "bytes": 101,
@@ -35,9 +35,9 @@
       "sha256": "8c567e2dcec18bcccdb860350ec8e70058e45aaf8435927c85f6d2f19918e14d"
     },
     "_golden/doctor.corrupt.json": {
-      "bytes": 294,
+      "bytes": 296,
       "class": "B",
-      "sha256": "2be2525fc991edd75845ab83b584338c9818d7e80f01d7b49dbda1c40b35f8bf"
+      "sha256": "717a904f400f483f3f148501a19a7970dbd5c7bd8e3282e54e92f12faa604d16"
     },
     "_golden/pure.json": {
       "bytes": 504,

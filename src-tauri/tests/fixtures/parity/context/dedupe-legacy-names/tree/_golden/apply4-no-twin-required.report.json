@@ -1,6 +1,6 @@
 {
   "actions": [
-    "removed legacy MCP entries from .claude.json: playwright, codeforward-typst",
+    "removed legacy MCP entries from .claude.json: playwright, examplecorp-typst",
     "saved config (0 profile(s))"
   ],
   "warnings": []

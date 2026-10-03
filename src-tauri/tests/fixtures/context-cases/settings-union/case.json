@@ -31,7 +31,7 @@
     "MCPM_CONTEXT_CLAUDE_HOME": "{HOME}/.claude",
     "MCPM_CONTEXT_CLAUDE_JSON": "{HOME}/.claude.json",
     "MCPM_CONTEXT_CACHE_DIR": "{HOME}/.cache/mcpm/context",
-    "MCPM_CONTEXT_CF_DIR": "{HOME}/.local/share/cf-dev-tools"
+    "MCPM_CONTEXT_CF_DIR": "{HOME}/.local/share/corp-dev-tools"
   },
   "exclude": [
     ".cache/*"

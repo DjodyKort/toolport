@@ -1,0 +1,36 @@
+{
+  "env": {
+    "MY_ENV": "1"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "echo personal",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  },
+  "model": "opus",
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Read(*)",
+      "Bash(ls:*)",
+      "mcp__mcpm_examplecorp-odoo__search"
+    ],
+    "ask": [
+      "Bash(rm:*)"
+    ],
+    "deny": [
+      "Bash(sudo:*)"
+    ]
+  },
+  "statusLine": {
+    "command": "echo status",
+    "type": "command"
+  }
+}
