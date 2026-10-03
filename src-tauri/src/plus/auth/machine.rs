@@ -44,10 +44,19 @@ fn classify_oauth(code: &str, description: &str) -> Classification {
                 }
             }
         }
+        "no_token_file" => needs_reauth("no_token_file"),
+        "bad_token_file" => needs_reauth("bad_token_file"),
         "invalid_client" => misconfigured("invalid_client"),
         "deleted_client" => misconfigured("deleted_client"),
         "unauthorized_client" => misconfigured("unauthorized_client"),
         _ => Classification::Transient,
+    }
+}
+
+fn needs_reauth(reason: &'static str) -> Classification {
+    Classification::Definitive {
+        state: AuthState::NeedsReauth,
+        reason,
     }
 }
 
