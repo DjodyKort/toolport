@@ -711,8 +711,12 @@ fn model_check(
         .ok_or("release has no tag_name")?
         .to_string();
     let version = tag.trim_start_matches('v').to_string();
-    match model_compare(current.unwrap_or("0.0.0"), &version) {
-        None => return Err(format!("could not parse version '{tag}'")),
+    let current = current.unwrap_or("0.0.0");
+    match model_compare(current, &version) {
+        None if model_compare(&version, &version).is_none() => {
+            return Err(format!("could not parse version '{tag}'"))
+        }
+        None => return Err(format!("could not parse current version '{current}'")),
         Some(Ordering::Less) => {}
         Some(_) => return Ok(Checked::UpToDate { latest: version }),
     }
@@ -988,20 +992,41 @@ fn release_selection_prefers_the_shortest_matching_name() {
 }
 
 #[test]
-fn an_unparseable_current_version_is_reported_against_the_tag() {
-    let http = Canned::ok(json!({"tag_name": "v1.2.3", "assets": []}).to_string());
+fn an_unparseable_current_version_is_reported_as_the_current_version() {
     let platform = ("linux".to_string(), "amd64".to_string());
-    let err = check(
-        &http,
-        "https://api.example.invalid",
-        None,
-        "o/tool",
-        Some("garbage"),
-        Some(PATTERN),
-        &platform,
-    )
-    .unwrap_err();
-    assert_eq!(err, "could not parse version 'v1.2.3'");
+    let outcome = |tag: &str, current: Option<&str>| {
+        let http = Canned::ok(json!({"tag_name": tag, "assets": []}).to_string());
+        check(
+            &http,
+            "https://api.example.invalid",
+            None,
+            "o/tool",
+            current,
+            Some(PATTERN),
+            &platform,
+        )
+        .unwrap_err()
+    };
+    assert_eq!(
+        outcome("v1.2.3", Some("garbage")),
+        "could not parse current version 'garbage'"
+    );
+    assert_eq!(
+        outcome("v1.2.3", Some("")),
+        "could not parse current version ''"
+    );
+    assert_eq!(
+        outcome("nightly", Some("1.0.0")),
+        "could not parse version 'nightly'"
+    );
+    assert_eq!(
+        outcome("nightly", Some("garbage")),
+        "could not parse version 'nightly'"
+    );
+    assert_eq!(
+        outcome("nightly", None),
+        "could not parse version 'nightly'"
+    );
 }
 
 fn url_text(rng: &mut Rng) -> String {
