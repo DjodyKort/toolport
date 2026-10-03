@@ -2,6 +2,7 @@
 //! `plus.skills.*` handlers. `--path` is the repository root; `--repo` is accepted as its alias
 //! to match `skills ls|lint|diff|sync`.
 
+use super::flags::{switch, value, Flag, Flags, Inline, Operands, Spec, Unknown};
 use super::output::{CtlError, Output};
 use serde_json::{json, Value};
 
@@ -13,96 +14,58 @@ const BUNDLE_USAGE: &str =
     "usage: skills bundle [--output <zip>] [--path <dir>] [--skills <a,b>] [--dry-run]";
 const UNBUNDLE_USAGE: &str = "usage: skills unbundle <bundle.zip> [--path <dir>] [--dry-run]";
 
-#[derive(Default)]
-pub(super) struct Args {
-    values: Vec<(String, String)>,
-    switches: Vec<String>,
-    operands: Vec<String>,
+pub(super) const PATH: Flag = value("--path").alias(&["--repo"]);
+
+pub(super) const fn spec(flags: &'static [Flag], usage: &'static str) -> Spec {
+    Spec {
+        flags,
+        inline: Inline::Strict,
+        unknown: Unknown::ArgumentUsage(usage),
+        operands: Operands::Collect,
+    }
 }
 
-impl Args {
-    pub(super) fn parse(
-        rest: &[String],
-        valued: &[&str],
-        switches: &[&str],
-        usage: &str,
-    ) -> Result<Self, CtlError> {
-        let mut args = Args::default();
-        let mut iter = rest.iter();
-        while let Some(arg) = iter.next() {
-            if !arg.starts_with('-') || arg == "-" {
-                args.operands.push(arg.clone());
-                continue;
-            }
-            let (key, inline) = match arg.split_once('=') {
-                Some((k, v)) => (k, Some(v.to_string())),
-                None => (arg.as_str(), None),
-            };
-            let key = if key == "--repo" { "--path" } else { key };
-            if switches.contains(&key) {
-                if inline.is_some() {
-                    return Err(CtlError::usage(format!("{key} takes no value")));
-                }
-                args.switches.push(key.to_string());
-            } else if valued.contains(&key) {
-                let value = inline
-                    .or_else(|| iter.next().cloned())
-                    .ok_or_else(|| CtlError::usage(format!("{key} requires a value")))?;
-                args.values.push((key.to_string(), value));
-            } else {
-                return Err(CtlError::usage(format!(
-                    "unexpected argument: {arg}\n{usage}"
-                )));
-            }
-        }
-        Ok(args)
-    }
+const INIT: Spec = spec(&[PATH, value("--name"), switch("--dry-run")], INIT_USAGE);
+const ADD: Spec = spec(
+    &[
+        PATH,
+        value("--type"),
+        switch("--with-progressive"),
+        switch("--dry-run"),
+    ],
+    ADD_USAGE,
+);
+const AUDIT: Spec = spec(&[PATH], AUDIT_USAGE);
+const BUNDLE: Spec = spec(
+    &[PATH, value("--output"), value("--skills"), switch("--dry-run")],
+    BUNDLE_USAGE,
+);
+const UNBUNDLE: Spec = spec(&[PATH, switch("--dry-run")], UNBUNDLE_USAGE);
 
-    pub(super) fn one(&self, key: &str) -> Option<&str> {
-        self.values
-            .iter()
-            .rev()
-            .find(|(k, _)| k == key)
-            .map(|(_, v)| v.as_str())
+pub(super) fn no_operands(flags: &Flags, usage: &str) -> Result<(), CtlError> {
+    match flags.operands().first() {
+        Some(extra) => Err(CtlError::usage(format!(
+            "unexpected argument: {extra}\n{usage}"
+        ))),
+        None => Ok(()),
     }
+}
 
-    pub(super) fn all(&self, key: &str) -> Vec<String> {
-        self.values
-            .iter()
-            .filter(|(k, _)| k == key)
-            .map(|(_, v)| v.clone())
-            .collect()
+pub(super) fn operand<'a>(flags: &'a Flags, what: &str, usage: &str) -> Result<&'a str, CtlError> {
+    match flags.operands() {
+        [one] => Ok(one),
+        [] => Err(CtlError::usage(format!("missing {what}\n{usage}"))),
+        [_, extra, ..] => Err(CtlError::usage(format!(
+            "unexpected argument: {extra}\n{usage}"
+        ))),
     }
+}
 
-    pub(super) fn on(&self, key: &str) -> bool {
-        self.switches.iter().any(|s| s == key)
+pub(super) fn with_path(flags: &Flags, mut args: Value) -> Value {
+    if let Some(path) = flags.one("--path") {
+        args["repo_path"] = json!(path);
     }
-
-    pub(super) fn no_operands(&self, usage: &str) -> Result<(), CtlError> {
-        match self.operands.first() {
-            Some(extra) => Err(CtlError::usage(format!(
-                "unexpected argument: {extra}\n{usage}"
-            ))),
-            None => Ok(()),
-        }
-    }
-
-    pub(super) fn operand(&self, what: &str, usage: &str) -> Result<&str, CtlError> {
-        match self.operands.as_slice() {
-            [one] => Ok(one),
-            [] => Err(CtlError::usage(format!("missing {what}\n{usage}"))),
-            [_, extra, ..] => Err(CtlError::usage(format!(
-                "unexpected argument: {extra}\n{usage}"
-            ))),
-        }
-    }
-
-    pub(super) fn with_path(&self, mut args: Value) -> Value {
-        if let Some(path) = self.one("--path") {
-            args["repo_path"] = json!(path);
-        }
-        args
-    }
+    args
 }
 
 pub(super) fn call(command: &str, args: Value) -> Result<Value, CtlError> {
@@ -123,9 +86,9 @@ pub(super) fn str_of<'a>(data: &'a Value, key: &str) -> &'a str {
 }
 
 pub fn init(rest: &[String]) -> Result<Output, CtlError> {
-    let args = Args::parse(rest, &["--path", "--name"], &["--dry-run"], INIT_USAGE)?;
-    args.no_operands(INIT_USAGE)?;
-    let mut request = args.with_path(json!({"dry_run": args.on("--dry-run")}));
+    let args = INIT.parse(rest)?;
+    no_operands(&args, INIT_USAGE)?;
+    let mut request = with_path(&args, json!({"dry_run": args.on("--dry-run")}));
     if let Some(name) = args.one("--name") {
         request["name"] = json!(name);
     }
@@ -150,18 +113,16 @@ pub fn init(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn add(rest: &[String]) -> Result<Output, CtlError> {
-    let args = Args::parse(
-        rest,
-        &["--path", "--type"],
-        &["--with-progressive", "--dry-run"],
-        ADD_USAGE,
-    )?;
-    let name = args.operand("skill name", ADD_USAGE)?;
-    let mut request = args.with_path(json!({
-        "name": name,
-        "dry_run": args.on("--dry-run"),
-        "with_progressive": args.on("--with-progressive"),
-    }));
+    let args = ADD.parse(rest)?;
+    let name = operand(&args, "skill name", ADD_USAGE)?;
+    let mut request = with_path(
+        &args,
+        json!({
+            "name": name,
+            "dry_run": args.on("--dry-run"),
+            "with_progressive": args.on("--with-progressive"),
+        }),
+    );
     if let Some(kind) = args.one("--type") {
         request["skill_type"] = json!(kind);
     }
@@ -189,9 +150,9 @@ pub fn add(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn audit(rest: &[String]) -> Result<Output, CtlError> {
-    let args = Args::parse(rest, &["--path"], &[], AUDIT_USAGE)?;
-    args.no_operands(AUDIT_USAGE)?;
-    let data = call("plus.skills.audit", args.with_path(json!({})))?;
+    let args = AUDIT.parse(rest)?;
+    no_operands(&args, AUDIT_USAGE)?;
+    let data = call("plus.skills.audit", with_path(&args, json!({})))?;
     let mut human = String::new();
     if data["skillCount"] == json!(0) {
         human.push_str("No skills found to audit.");
@@ -230,14 +191,9 @@ pub fn audit(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn bundle(rest: &[String]) -> Result<Output, CtlError> {
-    let args = Args::parse(
-        rest,
-        &["--path", "--output", "--skills"],
-        &["--dry-run"],
-        BUNDLE_USAGE,
-    )?;
-    args.no_operands(BUNDLE_USAGE)?;
-    let mut request = args.with_path(json!({"dry_run": args.on("--dry-run")}));
+    let args = BUNDLE.parse(rest)?;
+    no_operands(&args, BUNDLE_USAGE)?;
+    let mut request = with_path(&args, json!({"dry_run": args.on("--dry-run")}));
     if let Some(output) = args.one("--output") {
         request["output"] = json!(output);
     }
@@ -275,12 +231,15 @@ pub fn bundle(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn unbundle(rest: &[String]) -> Result<Output, CtlError> {
-    let args = Args::parse(rest, &["--path"], &["--dry-run"], UNBUNDLE_USAGE)?;
-    let bundle = args.operand("bundle path", UNBUNDLE_USAGE)?;
-    let request = args.with_path(json!({
-        "bundle_path": bundle,
-        "dry_run": args.on("--dry-run"),
-    }));
+    let args = UNBUNDLE.parse(rest)?;
+    let bundle = operand(&args, "bundle path", UNBUNDLE_USAGE)?;
+    let request = with_path(
+        &args,
+        json!({
+            "bundle_path": bundle,
+            "dry_run": args.on("--dry-run"),
+        }),
+    );
     let data = call("plus.skills.unbundle", request)?;
     let names = strings(&data, "names");
     let mut human = if args.on("--dry-run") {
