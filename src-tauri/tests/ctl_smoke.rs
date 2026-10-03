@@ -36,6 +36,7 @@ const NOT_READ_ONLY: &[(&str, &str)] = &[
     ("secret rm", "writes the vault; round trip test"),
     ("compression proxy", "starts or stops a local proxy process"),
     ("skills unbundle", "extracts into the target; bundle round trip test"),
+    ("usage", "indexes transcripts into the data dir; ctl::usage unit tests"),
 ];
 
 struct World {

@@ -18,6 +18,7 @@ mod secret;
 mod server;
 mod sync;
 mod update;
+mod usage;
 
 use output::{CtlError, Envelope, Output};
 
@@ -332,6 +333,11 @@ pub const COMMANDS: &[Command] = &[
         summary: "Check or apply server updates (--check, --apply, --init, --dry-run)",
         handler: Some(update::update),
     },
+    Command {
+        path: &["usage"],
+        summary: "Token and MCP usage from Claude Code transcripts (--root <dir>, --no-refresh)",
+        handler: Some(usage::run),
+    },
 ];
 
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -386,7 +392,8 @@ pub fn parse(args: &[String]) -> Result<Parsed, String> {
                         "server" |
                         "skills" |
                         "sync" |
-                        "update"
+                        "update" |
+                        "usage"
                     )
                 ) =>
                 {
