@@ -69,3 +69,13 @@ pub fn prepare(paths: &Paths, root: Option<&Path>) -> Result<Prepared, String> {
     }
     Ok(out)
 }
+
+/// The import's share of the migration: a data directory without a policy takes mcpm's and
+/// persists it, a dry run only reports what it would take.
+pub fn adopt(paths: &Paths, root: &Path, dry_run: bool) -> Result<Prepared, String> {
+    let prepared = prepare(paths, Some(root))?;
+    if !dry_run && prepared.adoption.is_some() {
+        store::save(paths, &prepared.config)?;
+    }
+    Ok(prepared)
+}
