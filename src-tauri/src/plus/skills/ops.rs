@@ -12,7 +12,7 @@ use super::json;
 use super::lock::{get_entry, load_lockfile, lockfile_path, save_lockfile, LockFile, OrderedMap};
 use super::parser::{valid_name, Skill, SkillType};
 use super::pyfs::text_hash;
-use super::styles::{all_style_transpilers, Tier};
+use super::styles::{all_style_transpilers, Style, Tier};
 use super::transpiler::{
     Transpiler, TranspilerRegistry, APPEND_MODE_TRANSPILERS, PROJECT_ONLY_TRANSPILERS,
 };
@@ -193,6 +193,36 @@ pub fn diff_agents(agents: &[Agent], lock: Option<&LockFile>) -> Result<DiffRepo
     Ok(report)
 }
 
+/// `mcpm styles diff`: the styles' names and file hashes against the lock's styles section. Without
+/// a lock every style is new, listed in discovery order.
+pub fn diff_styles(styles: &[Style], lock: Option<&LockFile>) -> Result<DiffReport, String> {
+    let Some(lock) = lock else {
+        return Ok(DiffReport {
+            no_lockfile: true,
+            new: styles.iter().map(|s| s.name().to_string()).collect(),
+            ..DiffReport::default()
+        });
+    };
+    let current: BTreeSet<&str> = styles.iter().map(Style::name).collect();
+    let locked: BTreeSet<&str> = lock.styles.iter().map(|(k, _)| k.as_str()).collect();
+    let mut report = DiffReport {
+        new: current.difference(&locked).map(|s| s.to_string()).collect(),
+        removed: locked.difference(&current).map(|s| s.to_string()).collect(),
+        ..DiffReport::default()
+    };
+    let mut modified = BTreeSet::new();
+    for style in styles {
+        if let Some(entry) = get_entry(&lock.styles, style.name()) {
+            if text_hash(&style.source_path)? != entry.hash {
+                modified.insert(style.name().to_string());
+            }
+        }
+    }
+    report.unchanged = current.intersection(&locked).count() - modified.len();
+    report.modified = modified.into_iter().collect();
+    Ok(report)
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StatusRow {
     pub name: String,
@@ -254,12 +284,26 @@ pub fn agents_status(
     rows
 }
 
+/// A tier-1 client and the styles the lock says were synced to it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NativeStyleRow {
+    pub client: String,
+    pub display_name: String,
+    pub styles: Vec<String>,
+}
+
+/// A tier-2 client and its active style, if any.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ActiveStyleRow {
+    pub client: String,
+    pub display_name: String,
+    pub active: Option<String>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StyleStatus {
-    /// Tier-1 client key and the styles the lock says were synced to it.
-    pub native: Vec<(String, Vec<String>)>,
-    /// Tier-2 client key and its active style, if any.
-    pub active: Vec<(String, Option<String>)>,
+    pub native: Vec<NativeStyleRow>,
+    pub active: Vec<ActiveStyleRow>,
 }
 
 pub fn styles_status(lock: &LockFile) -> StyleStatus {
@@ -268,24 +312,33 @@ pub fn styles_status(lock: &LockFile) -> StyleStatus {
         active: Vec::new(),
     };
     for t in all_style_transpilers() {
-        let key = t.client_key().to_string();
+        let client = t.client_key().to_string();
+        let display_name = t.display_name().to_string();
         match t.tier() {
             Tier::Native => {
-                let synced = lock
+                let styles = lock
                     .styles
                     .iter()
-                    .filter(|(_, e)| e.clients_synced.contains(&key))
+                    .filter(|(_, e)| e.clients_synced.contains(&client))
                     .map(|(n, _)| n.clone())
                     .collect();
-                status.native.push((key, synced));
+                status.native.push(NativeStyleRow {
+                    client,
+                    display_name,
+                    styles,
+                });
             }
             Tier::ApplyRemove => {
                 let active = lock
                     .active_styles
                     .iter()
-                    .find(|(k, _)| *k == key)
+                    .find(|(k, _)| *k == client)
                     .map(|(_, v)| v.clone());
-                status.active.push((key, active));
+                status.active.push(ActiveStyleRow {
+                    client,
+                    display_name,
+                    active,
+                });
             }
         }
     }
@@ -391,8 +444,9 @@ pub fn clean_agents(
     out
 }
 
-/// `mcpm styles clean`: every style transpiler cleans, then the lock forgets styles entirely.
-pub fn clean_styles(root: &Path, lock: Option<&mut LockFile>) -> CleanOutcome {
+/// `mcpm styles clean`: every style transpiler cleans, then the lock forgets styles entirely. A
+/// dry run reports the same paths and leaves the disk and the lock alone.
+pub fn clean_styles(root: &Path, lock: Option<&mut LockFile>, dry_run: bool) -> CleanOutcome {
     let mut out = CleanOutcome::default();
     let (managed, ignored) = managed_names(
         lock.as_ref()
@@ -402,12 +456,16 @@ pub fn clean_styles(root: &Path, lock: Option<&mut LockFile>) -> CleanOutcome {
     out.ignored = ignored;
     out.managed = managed.clone();
     for t in all_style_transpilers() {
+        if dry_run {
+            out.removed.extend(t.clean_targets(root, &managed));
+            continue;
+        }
         match t.clean(root, &managed) {
             Ok(removed) => out.removed.extend(removed),
             Err(e) => out.skipped.push((t.client_key().to_string(), e)),
         }
     }
-    if let Some(lock) = lock {
+    if let Some(lock) = lock.filter(|_| !dry_run) {
         lock.styles = OrderedMap::new();
         lock.active_styles = OrderedMap::new();
     }

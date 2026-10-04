@@ -10,16 +10,18 @@ use crate::plus::skills::assets::compute_skill_hash;
 use crate::plus::skills::ops::{
     diff_skills, has_drift, lock_dir, lock_output_root, read_lock, skills_status as output_rows,
 };
-use crate::plus::skills::lock::{get_entry, load_lockfile, save_lockfile, LockFile};
+use crate::plus::skills::lock::{get_entry, save_lockfile, LockFile};
 use crate::plus::skills::parser::{
     build_frontmatter, discover_skills, parse_frontmatter, parse_skill_file, Skill, SkillType,
 };
 use crate::plus::skills::pyfs::write_text;
 use crate::plus::skills::repo::{skill_bucket, skill_template};
 use crate::plus::skills::styles::lint::lint_styles;
+use crate::plus::skills::styles::manage::{
+    apply_scoped, remove_scoped, style_template, sync_scoped as sync_styles_scoped,
+};
 use crate::plus::skills::styles::{
-    all_style_transpilers, apply_style, discover_styles, parse_style_file, remove_style,
-    sync_styles, Style, StyleOptions, Tier,
+    all_style_transpilers, discover_styles, parse_style_file, Style, Tier,
 };
 use crate::plus::skills::sync_report::sync_report;
 use crate::plus::skills::transpiler::TranspilerRegistry;
@@ -559,38 +561,26 @@ fn styles_transpilers() -> Value {
 fn styles_scaffold(args: &Value) -> Outcome {
     let name = kebab(str_arg(args, "name").unwrap_or_default())?;
     let repo = skills_repo(args)?;
-    let content = format!(
-        "---\nname: {name}\ndescription: \"TODO: Describe the tone, verbosity, and persona of this output style.\"\nkeep-coding-instructions: true\n---\n\nTODO: Add style instructions here.\n"
-    );
     scaffold(
         repo.join("styles").join(name).join("STYLE.md"),
         "style",
         name,
-        content,
+        style_template(name),
     )
-}
-
-fn style_options(args: &Value) -> StyleOptions<'static> {
-    StyleOptions {
-        client_keys: client_keys(args),
-        dry_run: dry_run(args),
-        clock: &SystemClock,
-    }
 }
 
 fn styles_sync_tier1(args: &Value) -> Outcome {
     let repo = skills_repo(args)?;
     let styles = discover_styles(&repo);
-    let dir = lock_dir(true, &repo);
-    let opts = style_options(args);
-    let lock = sync_styles(&styles, &home()?, load_lockfile(&dir), &opts)
+    home()?;
+    let dry = dry_run(args);
+    let synced = sync_styles_scoped(&repo, &styles, true, dry, client_keys(args), &SystemClock)
         .map_err(ToolError::backend)?;
-    persist(&dir, &lock, opts.dry_run)?;
     Ok(json!({
         "repo": repo.to_string_lossy(),
-        "dryRun": opts.dry_run,
-        "syncedAt": lock.synced_at,
-        "styleCount": lock.styles.len(),
+        "dryRun": dry,
+        "syncedAt": synced.lock.synced_at,
+        "styleCount": synced.lock.styles.len(),
     }))
 }
 
@@ -598,27 +588,25 @@ fn styles_apply(args: &Value) -> Outcome {
     let name = name_arg(args)?;
     let repo = skills_repo(args)?;
     let style = find_style(&repo, name)?;
-    let dir = lock_dir(true, &repo);
-    let opts = style_options(args);
-    let lock = apply_style(&style, &home()?, load_lockfile(&dir), &opts)
+    home()?;
+    let dry = dry_run(args);
+    let applied = apply_scoped(&repo, &style, true, dry, client_keys(args), &SystemClock)
         .map_err(ToolError::backend)?;
-    persist(&dir, &lock, opts.dry_run)?;
     Ok(json!({
         "applied": name,
-        "dryRun": opts.dry_run,
-        "activeStyles": active_styles(Some(&lock)),
+        "dryRun": dry,
+        "activeStyles": active_styles(Some(&applied.lock)),
     }))
 }
 
 fn styles_remove(args: &Value) -> Outcome {
     let repo = skills_repo(args)?;
-    let dir = lock_dir(true, &repo);
-    let opts = style_options(args);
-    let lock = remove_style(&home()?, load_lockfile(&dir), &opts)
+    home()?;
+    let dry = dry_run(args);
+    let removed = remove_scoped(&repo, true, dry, client_keys(args), &SystemClock)
         .map_err(ToolError::backend)?;
-    persist(&dir, &lock, opts.dry_run)?;
     Ok(json!({
-        "dryRun": opts.dry_run,
-        "activeStyles": active_styles(Some(&lock)),
+        "dryRun": dry,
+        "activeStyles": active_styles(removed.lock.as_ref()),
     }))
 }

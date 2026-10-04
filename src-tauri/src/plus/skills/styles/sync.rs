@@ -13,7 +13,7 @@ pub struct StyleOptions<'a> {
     pub clock: &'a dyn Clock,
 }
 
-fn pick(tier: Tier, keys: &Option<Vec<String>>) -> Vec<Box<dyn StyleTranspiler>> {
+pub(super) fn pick(tier: Tier, keys: &Option<Vec<String>>) -> Vec<Box<dyn StyleTranspiler>> {
     all_style_transpilers()
         .into_iter()
         .filter(|t| t.tier() == tier)
