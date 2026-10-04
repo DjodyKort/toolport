@@ -17,14 +17,14 @@ pub(crate) fn read_at(path: &Path) -> Result<Option<Registry>, String> {
 
 /// A missing registry file, or an unresolvable data directory, reads as empty.
 pub(crate) fn read() -> Result<Registry, String> {
-    match registry::registry_path() {
+    match registry::resolved_path() {
         Some(path) => Ok(read_at(&path)?.unwrap_or_default()),
         None => Ok(Registry::default()),
     }
 }
 
 pub(crate) fn read_opt() -> Option<Registry> {
-    read_at(&registry::registry_path()?).ok().flatten()
+    read_at(&registry::resolved_path()?).ok().flatten()
 }
 
 #[cfg(test)]
@@ -49,5 +49,21 @@ mod tests {
         std::fs::write(&path, serde_json::to_string(&Registry::default()).unwrap()).unwrap();
         assert!(read_at(&path).unwrap().is_some());
         assert!(read_opt().is_some());
+    }
+
+    #[test]
+    fn reads_follow_toolport_registry_like_the_loader() {
+        let _env = crate::clients::env_test_lock();
+        let fx = DataDirFx::new("registry-ro", "override");
+        let elsewhere = fx.dir.join("elsewhere.json");
+        let mut other = Registry::default();
+        other.deny_destructive = true;
+        std::fs::write(&elsewhere, serde_json::to_string(&other).unwrap()).unwrap();
+
+        assert!(!read().unwrap().deny_destructive);
+        assert!(read_opt().is_none());
+        let _restore = crate::clients::EnvRestore::set("TOOLPORT_REGISTRY", &elsewhere);
+        assert!(read().unwrap().deny_destructive);
+        assert!(read_opt().unwrap().deny_destructive);
     }
 }
