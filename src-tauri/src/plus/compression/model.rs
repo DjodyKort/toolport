@@ -59,11 +59,6 @@ impl<T> OrderedMap<T> {
         }
     }
 
-    pub fn remove(&mut self, key: &str) -> Option<T> {
-        let at = self.0.iter().position(|(k, _)| k == key)?;
-        Some(self.0.remove(at).1)
-    }
-
     pub fn iter(&self) -> impl Iterator<Item = (&String, &T)> {
         self.0.iter().map(|(k, v)| (k, v))
     }
@@ -370,6 +365,7 @@ pub struct ContextRule {
 }
 
 impl ContextRule {
+    #[cfg(test)]
     pub fn new(pattern: &str, provider: Option<ProviderName>, preset: Option<&str>) -> Self {
         Self {
             pattern: pattern.into(),

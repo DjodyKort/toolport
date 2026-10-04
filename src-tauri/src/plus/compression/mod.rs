@@ -26,5 +26,3 @@ mod tests;
 pub(crate) mod manage_tests;
 #[cfg(test)]
 mod verify_tests;
-
-pub use model::{CompressionConfig, ProviderName};
