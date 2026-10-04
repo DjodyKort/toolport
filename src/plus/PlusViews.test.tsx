@@ -55,7 +55,8 @@ function Harness({ start }: { start: PlusView }) {
 describe("PlusViews", () => {
   it.each(
     PLUS_VIEWS.filter(
-      (view) => view !== "commands" &&
+      (view) =>
+        view !== "commands" &&
         view !== "control" &&
         view !== "logins" &&
         view !== "library",

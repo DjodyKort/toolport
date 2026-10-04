@@ -228,12 +228,12 @@ MIG-GUI-1 edits:
 | `src/plus/fixtures/plusCtl.ts`             | the `status` and `commands` rows come from `fixtures/servers.ts`; a `FixtureFailure` makes a failed envelope                                                                                                                     |
 | `scripts/browser-smoke.mjs`                | `serversScreen` opens the Servers entry, walks the tabs and dialogs, writes the `gui-servers-*` shots and checks the Classic view round trip                                                                                     |
 | `scripts/screenshots.mjs`                  | the `gui-servers-*` page shots are checked for size                                                                                                                                                                              |
-| `src/plus/PlusViews.tsx` (library)   | `library` renders the lazy `LibraryScreen`: the Skills tab, a placeholder for the tabs not built yet                                                         |
-| `src/plus/NotBuilt.tsx`              | `Placeholder` is exported as `NotBuiltPanel` for the Library tabs that are not built yet                                                                     |
-| `src/plus/fixtures/plusCtl.ts`       | spreads `skillsBrowserFixtures` (the stateful skills world); a function row is called; `commands` is `commandsWithSkills`                                    |
-| `plus/fixtures/commandsRegistry.ts`  | exports `command`, `flag` and `DRY_RUN` for `skills/commandRows.ts`                                                                                          |
-| `scripts/browser-smoke.mjs` (skills) | Library opens on Skills and Plugins is the not-built tab; the Skills walk in both themes; `screenshots.mjs` lists its eight shots                            |
-| `src/plus/gui-parity.json` (library) | the `library` route and its 19 actions are `built`; 19 skills commands and 18 skills tools point at them                                                     |
+| `src/plus/PlusViews.tsx` (library)         | `library` renders the lazy `LibraryScreen`: the Skills tab, a placeholder for the tabs not built yet                                                                                                                             |
+| `src/plus/NotBuilt.tsx`                    | `Placeholder` is exported as `NotBuiltPanel` for the Library tabs that are not built yet                                                                                                                                         |
+| `src/plus/fixtures/plusCtl.ts`             | spreads `skillsBrowserFixtures` (the stateful skills world); a function row is called; `commands` is `commandsWithSkills`                                                                                                        |
+| `plus/fixtures/commandsRegistry.ts`        | exports `command`, `flag` and `DRY_RUN` for `skills/commandRows.ts`                                                                                                                                                              |
+| `scripts/browser-smoke.mjs` (skills)       | Library opens on Skills and Plugins is the not-built tab; the Skills walk in both themes; `screenshots.mjs` lists its eight shots                                                                                                |
+| `src/plus/gui-parity.json` (library)       | the `library` route and its 19 actions are `built`; 19 skills commands and 18 skills tools point at them                                                                                                                         |
 
 ## Sources
 
