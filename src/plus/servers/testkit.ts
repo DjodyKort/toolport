@@ -1,5 +1,6 @@
 import type { CtlResult } from "../bridge/ctl";
-import { FixtureFailure, ctlFailure } from "../fixtures/servers";
+import { CtlReplyFailure } from "../fixtures/ctlReply";
+import { ctlFailure } from "../fixtures/servers";
 import { plusCtlFixtures } from "../fixtures/plusCtl";
 
 export { ctlFailure };
@@ -83,7 +84,7 @@ export function createBridge() {
             truncated: false,
           } satisfies CtlResult;
         }
-        const failure = value instanceof FixtureFailure ? value : null;
+        const failure = value instanceof CtlReplyFailure ? value : null;
         const wasCancelled = cancelled.includes(call.job);
         return {
           job: call.job,

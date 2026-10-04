@@ -31,7 +31,8 @@ import {
   serverSearchData,
 } from "../types/server";
 import { buildServerViews, gatewayServers } from "../servers/model";
-import { FixtureFailure, serversCtlFixtures, serversWorld } from "./servers";
+import { CtlReplyFailure } from "./ctlReply";
+import { serversCtlFixtures, serversWorld } from "./servers";
 
 const SHAPES: Array<[RegExp, Shape<unknown>]> = [
   [/^commands$/, commandsData],
@@ -63,7 +64,7 @@ describe("the Servers screen fixtures", () => {
   it("have the shape of the real toolportctl output, for every key", () => {
     const unchecked: string[] = [];
     for (const [key, reply] of serversCtlFixtures) {
-      if (reply instanceof FixtureFailure) continue;
+      if (reply instanceof CtlReplyFailure) continue;
       if (key === "status") {
         const { directEntries, ...rest } = reply as Record<string, unknown>;
         expect(typeof directEntries).toBe("number");
@@ -116,8 +117,8 @@ describe("the Servers screen fixtures", () => {
       "login",
     ]);
     const failing = serversCtlFixtures.get("inspect srv-issues");
-    expect(failing).toBeInstanceOf(FixtureFailure);
-    expect((failing as FixtureFailure).message).toMatch(/401/);
+    expect(failing).toBeInstanceOf(CtlReplyFailure);
+    expect((failing as CtlReplyFailure).message).toMatch(/401/);
   });
 
   it("never carry the value of a secret: environment rows are a key and a flag", () => {
