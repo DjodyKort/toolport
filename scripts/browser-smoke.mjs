@@ -24,6 +24,7 @@ const server = await createServer({
 });
 // `npm run screenshots:gui` sets TOOLPORT_SCREENSHOT_DIR so the screens of the app that
 // docs and reviews cite (docs/assets/gui-<screen>.png) come from this run, not from a hand copy.
+// The shell and the All commands page are taken at 1280x800 in both themes.
 const screenshotDir = process.env.TOOLPORT_SCREENSHOT_DIR;
 async function guiShot(target, screen, options = {}) {
   const file = `gui-${screen}.png`;
@@ -48,18 +49,21 @@ try {
   });
   context = await browser.newContext({ viewport: { width: 1240, height: 900 } });
   await context.tracing.start({ screenshots: true, snapshots: true });
+  const watch = async (target) => {
+    target.on("pageerror", (error) => errors.push(error.message));
+    target.on("response", (response) => {
+      if (response.status() >= 400)
+        errors.push(`HTTP ${response.status()}: ${response.url()}`);
+    });
+    // Fixtures must stay offline even if an application path starts using fetch.
+    await target.route("**/*", (route) => {
+      if (new URL(route.request().url()).origin === baseURL) return route.continue();
+      errors.push(`Unexpected external request: ${route.request().url()}`);
+      return route.abort();
+    });
+  };
   page = await context.newPage();
-  page.on("pageerror", (error) => errors.push(error.message));
-  page.on("response", (response) => {
-    if (response.status() >= 400)
-      errors.push(`HTTP ${response.status()}: ${response.url()}`);
-  });
-  // Fixtures must stay offline even if an application path starts using fetch.
-  await page.route("**/*", (route) => {
-    if (new URL(route.request().url()).origin === baseURL) return route.continue();
-    errors.push(`Unexpected external request: ${route.request().url()}`);
-    return route.abort();
-  });
+  await watch(page);
   await page.goto(`${baseURL}/fixtures/`);
   await expect(page.getByText("GitHub", { exact: true })).toBeVisible();
   await expect(page.getByText("≈41.1k tokens saved")).toBeVisible();
@@ -83,8 +87,69 @@ try {
   await expect(whatLoads.getByText("~1738 tokens")).toBeVisible();
   await whatLoads.scrollIntoViewIfNeeded();
   await guiShot(whatLoads, "what-loads");
+  const nav = page.getByRole("navigation", { name: "Views" });
+  await expect(nav.getByRole("group")).toHaveCount(4);
+  await expect(nav.getByRole("button", { name: /^Attention/ })).toContainText("3");
+  await nav.getByRole("button", { name: "Library", exact: true }).click();
+  await expect(page.getByText("Not built yet")).toBeVisible();
+  await expect(page.getByText(/built by MIG-GUI-3/)).toBeVisible();
+  await nav.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Open All commands" }).click();
+  await expect(page.getByRole("heading", { name: "All commands" })).toBeVisible();
+  await page.getByRole("button", { name: /^status/ }).click();
+  await page
+    .getByRole("region", { name: "status" })
+    .getByRole("button", { name: "Run" })
+    .click();
+  await expect(page.getByText("encrypted-file")).toBeVisible();
   const fixture = await page.evaluate(() => window.toolportFixture);
   expect(fixture.missing).toEqual([]);
+  expect(errors).toEqual([]);
+  for (const theme of ["light", "dark"]) {
+    const shot = await context.newPage();
+    await shot.addInitScript((choice) => {
+      localStorage.setItem("toolport-theme", choice);
+    }, theme);
+    await shot.setViewportSize({ width: 1280, height: 800 });
+    await watch(shot);
+    await shot.goto(`${baseURL}/fixtures/`);
+    await expect(shot.getByText("GitHub", { exact: true })).toBeVisible();
+    await expect(
+      shot.getByRole("button", { name: /^Attention/ }).getByLabel("3 need you"),
+    ).toBeVisible();
+    await expect(shot.locator("html")).toHaveClass(
+      theme === "dark" ? /dark/ : /^(?!.*dark)/,
+    );
+    await shot.evaluate(() => document.fonts.ready);
+    await guiShot(shot, `shell-${theme}`);
+    await shot.getByRole("button", { name: "Settings", exact: true }).click();
+    await shot.getByRole("button", { name: "Open All commands" }).click();
+    await expect(shot.getByRole("list", { name: "Commands" })).toBeVisible();
+    await shot.getByRole("button", { name: /^server uninstall/ }).click();
+    const panel = shot.getByRole("region", { name: "server uninstall" });
+    await panel.getByRole("textbox", { name: "server" }).fill("acme-erp");
+    await expect(panel.getByLabel("Command line")).toContainText(
+      "toolportctl server uninstall acme-erp",
+    );
+    await shot.evaluate(() => document.fonts.ready);
+    await guiShot(shot, `all-commands-${theme}`);
+    if (theme === "light") {
+      await panel.getByRole("button", { name: "Preview changes" }).click();
+      const dialog = shot.getByRole("dialog", { name: "Apply server uninstall?" });
+      await expect(dialog.getByRole("region", { name: "Preview" })).toBeVisible();
+      await dialog
+        .getByRole("textbox", { name: /type acme-erp to confirm/i })
+        .fill("acme");
+      await guiShot(shot, "plan-confirm-light");
+      await dialog.getByRole("button", { name: "Cancel" }).click();
+      await shot.getByRole("button", { name: "Settings", exact: true }).click();
+      await shot.getByRole("button", { name: "Library", exact: true }).click();
+      await expect(shot.getByRole("tablist", { name: "Library sections" })).toBeVisible();
+      await guiShot(shot, "library-light");
+    }
+    expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
+    await shot.close();
+  }
   expect(errors).toEqual([]);
   await page.goto(`${baseURL}/fixtures/?logos`);
   await expect(page.getByText("Dark logo fixture")).toBeVisible();
