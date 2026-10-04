@@ -31,7 +31,7 @@ const open = async (name: string | RegExp) => {
 };
 
 describe("Compression tab: enable, disable, sync", () => {
-  it("enables with the form's options, previews with --dry-run and applies on confirm", async () => {
+  it("compression.enable: enables with the form's options, previews with --dry-run and applies on confirm", async () => {
     bridge.set(
       "compression enable --provider rtk-only --mode token --port 8800 --dry-run",
       goldenData("compression-enable.preview"),
@@ -60,7 +60,7 @@ describe("Compression tab: enable, disable, sync", () => {
     );
   });
 
-  it("refuses a port that is not a number", async () => {
+  it("compression.enable: refuses a port that is not a number", async () => {
     const user = await open("Enable…");
     const form = await screen.findByRole("dialog", { name: "Enable compression" });
     await user.type(within(form).getByLabelText("Port"), "80x");
@@ -70,7 +70,7 @@ describe("Compression tab: enable, disable, sync", () => {
     );
   });
 
-  it("disables with a typed confirmation and --teardown as the checkbox says", async () => {
+  it("compression.disable: disables with a typed confirmation and --teardown as the checkbox says", async () => {
     bridge.set(
       "compression disable --teardown --dry-run",
       goldenData("compression-disable.preview"),
@@ -95,7 +95,7 @@ describe("Compression tab: enable, disable, sync", () => {
     await waitFor(() => expect(bridge.ran()).toContain("compression disable --teardown"));
   });
 
-  it("syncs: preview, then apply", async () => {
+  it("compression.sync: syncs: preview, then apply", async () => {
     bridge.set("compression sync --dry-run", goldenData("compression-sync.preview"));
     bridge.set("compression sync", goldenData("compression-sync.apply"));
     const user = await open("Sync…");
@@ -114,7 +114,7 @@ describe("Compression tab: enable, disable, sync", () => {
 });
 
 describe("Compression tab: engine pin", () => {
-  it("shows the pin, the requirement and that nothing is installed", async () => {
+  it("compression.pin: shows the pin, the requirement and that nothing is installed", async () => {
     render(<CompressionTab />);
     const card = await screen.findByRole("region", { name: "Engine pin" });
     expect(
@@ -123,7 +123,7 @@ describe("Compression tab: engine pin", () => {
     expect(within(card).getByText("Not installed")).toBeInTheDocument();
   });
 
-  it("installs with a network notice after a dry run", async () => {
+  it("compression.pin: installs with a network notice after a dry run", async () => {
     const pin = goldenData("compression-pin");
     bridge.set("compression pin --install --dry-run", {
       ...pin,
@@ -154,7 +154,7 @@ describe("Compression tab: engine pin", () => {
     ).toBeInTheDocument();
   });
 
-  it("sets a pin from a validated version", async () => {
+  it("compression.pin: sets a pin from a validated version", async () => {
     const pin = goldenData("compression-pin");
     bridge.set("compression pin 0.30.0 --dry-run", {
       ...pin,
@@ -177,7 +177,7 @@ describe("Compression tab: engine pin", () => {
     ).toBeInTheDocument();
   });
 
-  it("refreshes the preset knobs from the pin and from the presets list", async () => {
+  it("compression.presets: refreshes the preset knobs from the pin and from the presets list", async () => {
     const refresh = {
       version: "0.29.0",
       presets: [
@@ -210,7 +210,7 @@ describe("Compression tab: engine pin", () => {
     expect(bridge.ran()).not.toContain("compression presets --refresh");
   });
 
-  it("updates in two steps: the preview has no --accept, the apply has", async () => {
+  it("compression.update: updates in two steps: the preview has no --accept, the apply has", async () => {
     bridge.set(
       "compression update --to 0.30.0",
       goldenData("compression-update.preview"),
@@ -240,7 +240,7 @@ describe("Compression tab: engine pin", () => {
     );
   });
 
-  it("updates to the latest build with --latest", async () => {
+  it("compression.update: updates to the latest build with --latest", async () => {
     bridge.set("compression update --latest", goldenData("compression-update.preview"));
     const user = await open("Update…");
     const form = await screen.findByRole("dialog", { name: "Update the engine" });
@@ -253,7 +253,7 @@ describe("Compression tab: engine pin", () => {
     expect(bridge.ran()).toContain("compression update --latest");
   });
 
-  it("shows an error with Retry when the pin cannot be read", async () => {
+  it("compression.pin: shows an error with Retry when the pin cannot be read", async () => {
     const user = userEvent.setup();
     bridge.set(
       "compression pin",
@@ -271,7 +271,7 @@ describe("Compression tab: engine pin", () => {
 });
 
 describe("Compression tab: seal and proxy", () => {
-  it("previews the declarable knobs with --dry-run and seals with --apply", async () => {
+  it("compression.seal: previews the declarable knobs with --dry-run and seals with --apply", async () => {
     bridge.set("compression seal --dry-run", goldenData("compression-seal.preview"));
     bridge.set("compression seal --apply", goldenData("compression-seal.apply"));
     const user = await open("Seal…");
@@ -289,7 +289,7 @@ describe("Compression tab: seal and proxy", () => {
     ).toBeInTheDocument();
   });
 
-  it("says to start the proxy first when there is none to seal", async () => {
+  it("compression.seal: says to start the proxy first when there is none to seal", async () => {
     bridge.set("compression seal --dry-run", failureOf("compression-seal.no-proxy"));
     await open("Seal…");
     expect(await screen.findByText(/no proxy on :49213/)).toBeInTheDocument();
@@ -299,7 +299,7 @@ describe("Compression tab: seal and proxy", () => {
     expect(bridge.ran()).not.toContain("compression seal --apply");
   });
 
-  it("starts the proxy after a confirmation, with no preview, and explains a failure", async () => {
+  it("compression.proxy: starts the proxy after a confirmation, with no preview, and explains a failure", async () => {
     bridge.set("compression proxy up", failureOf("compression-proxy-up.no-engine"));
     const user = await open("Start");
     const confirm = await screen.findByRole("dialog", {
@@ -312,7 +312,7 @@ describe("Compression tab: seal and proxy", () => {
     expect(screen.getByText(/engine \(headroom\) is not installed/)).toBeInTheDocument();
   });
 
-  it("stops the proxy and reports that none is running", async () => {
+  it("compression.proxy: stops the proxy and reports that none is running", async () => {
     bridge.set("compression proxy down", failureOf("compression-proxy-down.no-proxy"));
     const user = await open("Stop");
     await user.click(
@@ -323,7 +323,7 @@ describe("Compression tab: seal and proxy", () => {
     expect(await screen.findByText("no proxy listening on :49213")).toBeInTheDocument();
   });
 
-  it("restarts the proxy", async () => {
+  it("compression.proxy: restarts the proxy", async () => {
     bridge.set("compression proxy restart", { restarted: true });
     const user = await open("Restart");
     await user.click(
@@ -336,7 +336,7 @@ describe("Compression tab: seal and proxy", () => {
 });
 
 describe("Compression tab: health", () => {
-  it("lists the doctor checks and re-runs them on Run doctor", async () => {
+  it("compression.doctor: lists the doctor checks and re-runs them on Run doctor", async () => {
     const user = userEvent.setup();
     render(<CompressionTab />);
     const card = await screen.findByRole("region", { name: "Health checks" });
@@ -348,7 +348,7 @@ describe("Compression tab: health", () => {
     await waitFor(() => expect(bridge.count("compression doctor")).toBe(2));
   });
 
-  it("shows the failed checks of a doctor that exits 1", async () => {
+  it("compression.doctor: shows the failed checks of a doctor that exits 1", async () => {
     const doctor = goldenData("compression-doctor");
     bridge.set(
       "compression doctor",
@@ -370,7 +370,7 @@ describe("Compression tab: health", () => {
     expect(within(card).queryByRole("alert")).toBeNull();
   });
 
-  it("says the health checks are offline when toolportctl cannot be reached", async () => {
+  it("compression.doctor: says the health checks are offline when toolportctl cannot be reached", async () => {
     bridge.set("compression doctor", () => {
       throw new Error("toolportctl could not be started");
     });
@@ -381,7 +381,7 @@ describe("Compression tab: health", () => {
     );
   });
 
-  it("verifies local transcripts and says it makes no model requests", async () => {
+  it("compression.verify: verifies local transcripts and says it makes no model requests", async () => {
     bridge.set(
       "compression verify --min-turns 1",
       goldenData("compression-verify.measured"),
@@ -405,7 +405,7 @@ describe("Compression tab: health", () => {
     expect(within(dialog).getByText(/1 transcript read from/)).toBeInTheDocument();
   });
 
-  it("shows the checks and a hint when there are no transcripts to measure", async () => {
+  it("compression.verify: shows the checks and a hint when there are no transcripts to measure", async () => {
     bridge.set(
       "compression verify --transcripts /work/none",
       failureOf("compression-verify.no-transcripts"),
@@ -424,13 +424,13 @@ describe("Compression tab: health", () => {
 });
 
 describe("Compression tab: ledger", () => {
-  it("shows the empty state before any launch", async () => {
+  it("compression.ledger: shows the empty state before any launch", async () => {
     render(<CompressionTab />);
     const card = await screen.findByRole("region", { name: "Savings ledger" });
     expect(await within(card).findByText("No launches recorded yet")).toBeInTheDocument();
   });
 
-  it("charts before and after per provider and repeats the numbers in a table", async () => {
+  it("compression.ledger: charts before and after per provider and repeats the numbers in a table", async () => {
     bridge.set("compression ledger summary", ledgerData());
     render(<CompressionTab />);
     const card = await screen.findByRole("region", { name: "Savings ledger" });
@@ -445,7 +445,7 @@ describe("Compression tab: ledger", () => {
     expect(within(card).getByText("6,600")).toBeInTheDocument();
   });
 
-  it("records a savings entry through a direct confirmation, then reads the ledger again", async () => {
+  it("compression.ledger: records a savings entry through a direct confirmation, then reads the ledger again", async () => {
     bridge.set(
       "compression ledger record --provider rtk-only --before 1000 --after 400 --source contract --session s1",
       goldenData("compression-ledger-record.apply"),
@@ -467,7 +467,7 @@ describe("Compression tab: ledger", () => {
     expect(bridge.ran().filter((argv) => argv.includes("--dry-run"))).toEqual([]);
   });
 
-  it("shows an error with Retry when the ledger cannot be read", async () => {
+  it("compression.ledger: shows an error with Retry when the ledger cannot be read", async () => {
     bridge.set(
       "compression ledger summary",
       failure("ledger_read", "the ledger file is unreadable"),
@@ -484,7 +484,7 @@ describe("Compression tab: ledger", () => {
 describe("Compression tab: run and env", () => {
   const dir = "/work/acme";
 
-  it("always shows the terminal command, copy-only, with Open in Terminal off", async () => {
+  it("compression.run: always shows the terminal command, copy-only, with Open in Terminal off", async () => {
     render(<CompressionTab />);
     const card = await screen.findByRole("region", {
       name: "Run Claude under this policy",
@@ -497,7 +497,7 @@ describe("Compression tab: run and env", () => {
     expect(bridge.ran().filter((argv) => argv.startsWith("compression run"))).toEqual([]);
   });
 
-  it("plans the launch and prints the env for a folder, and never runs Claude", async () => {
+  it("compression.run, compression.env: plans the launch and prints the env for a folder, and never runs Claude", async () => {
     bridge.set(`compression run --plan --cwd ${dir} claude`, {
       ...goldenData("compression-run.plan"),
       cwd: dir,
@@ -535,7 +535,7 @@ describe("Compression tab: run and env", () => {
     expect(bridge.ran()).not.toContain(`compression run --cwd ${dir} -- claude`);
   });
 
-  it("shows the CLI's error when the plan cannot be made", async () => {
+  it("compression.env: shows the CLI's error when the plan cannot be made", async () => {
     bridge.set(
       `compression run --plan --cwd ${dir} claude`,
       failure("usage", "no such folder"),
@@ -551,7 +551,7 @@ describe("Compression tab: run and env", () => {
     expect(await within(card).findByRole("alert")).toHaveTextContent("no such folder");
   });
 
-  it("leaks no credential from a launch env into the page or the copy text", async () => {
+  it("compression.env: leaks no credential from a launch env into the page or the copy text", async () => {
     const canary = "canary-TOOLPORT_SECRET_KEY-9f3a1c";
     bridge.set(`compression run --plan --cwd ${dir} claude`, {
       ...goldenData("compression-run.plan"),
