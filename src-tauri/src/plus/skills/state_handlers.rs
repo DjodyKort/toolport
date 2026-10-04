@@ -3,11 +3,12 @@
 //! `clean` and `uninstall` take `repo_path` literally (default: the working directory), as mcpm does.
 
 use super::clock::SystemClock;
-use super::collisions::{Action, CollisionSummary, BACKUP_DIR_NAME};
+use super::collisions::{CollisionSummary, BACKUP_DIR_NAME};
 use super::lock::load_lockfile;
 use super::ops::{self, ResolveRequest, Scope};
 use super::parser::discover_skills;
 use super::repo::{find_repo, resolve_path};
+use super::sync_report::collision_rows;
 use super::transpilers::registry_with_home;
 use crate::plus::args::{flag, flag_or, str_nonempty};
 use serde_json::{json, Value};
@@ -86,14 +87,6 @@ pub fn uninstall_handler(args: Value) -> Result<Value, String> {
     }))
 }
 
-fn action_name(action: &Action) -> &'static str {
-    match action {
-        Action::Replaced => "replaced",
-        Action::Kept => "kept",
-        Action::SkippedDryRun => "skipped-dry-run",
-    }
-}
-
 pub fn resolve_handler(args: Value) -> Result<Value, String> {
     let global = flag_or(&args, "global_mode", true);
     let dry_run = flag(&args, "dry_run");
@@ -126,17 +119,6 @@ pub fn resolve_handler(args: Value) -> Result<Value, String> {
         "skillCount": skills.len(),
         "replaced": summary.replaced().count(),
         "kept": summary.kept().count(),
-        "collisions": summary
-            .resolutions
-            .iter()
-            .map(|r| json!({
-                "skill": r.collision.skill_name,
-                "client": r.collision.client_key,
-                "collisionPath": display(&r.collision.collision_path),
-                "syncedPath": display(&r.collision.synced_path),
-                "action": action_name(&r.action),
-                "backupPath": r.backup_path.as_deref().map(display),
-            }))
-            .collect::<Vec<_>>(),
+        "collisions": collision_rows(&summary),
     }))
 }

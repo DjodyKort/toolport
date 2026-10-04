@@ -1,0 +1,10 @@
+home/.claude/rules/python-style.md
+home/.claude/skills/code-review/SKILL.md
+home/.claude/skills/db-helper/SKILL.md
+home/.config/mcpm/mcpm-skills.lock
+home/.mcpm-backups/.claude/agents/db-helper.md.<stamp>
+home/.mcpm-backups/.claude/commands/code-review.md.<stamp>
+home/.mcpm-backups/INDEX.json
+repo/rules/python-style/SKILL.md
+repo/skills/code-review/SKILL.md
+repo/skills/db-helper/SKILL.md

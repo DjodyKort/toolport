@@ -125,6 +125,12 @@ pub const TOOLS: &[ToolDef] = &[
                 Ty::Bool,
                 false,
                 "Write to user-level locations"
+            ),
+            p(
+                "migrate",
+                Ty::Bool,
+                false,
+                "Back up and replace files that shadow a synced skill; otherwise they are only reported"
             )
         ]
     ),

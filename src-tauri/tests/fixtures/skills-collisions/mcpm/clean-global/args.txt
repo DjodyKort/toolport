@@ -1,0 +1,6 @@
+sync
+--path
+{repo}
+--client
+claude-code
+--global

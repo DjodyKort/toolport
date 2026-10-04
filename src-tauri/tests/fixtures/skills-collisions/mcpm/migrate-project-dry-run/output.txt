@@ -1,0 +1,14 @@
+Dry run -- no files will be written.
+
+  (dry run) would replace <root>/repo/.claude/commands/code-review.md (skill: code-review)
+  (dry run) would replace <root>/repo/.claude/agents/db-helper.md (skill: db-helper)
+
+(dry run) Synced 3 skill(s) to 1 client(s).
+
+┏━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━┓
+┃ Skill        ┃ Type  ┃ Clients synced ┃ Warnings ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━┩
+│ code-review  │ skill │ claude-code    │ --       │
+│ db-helper    │ skill │ claude-code    │ --       │
+│ python-style │ rule  │ claude-code    │ --       │
+└──────────────┴───────┴────────────────┴──────────┘

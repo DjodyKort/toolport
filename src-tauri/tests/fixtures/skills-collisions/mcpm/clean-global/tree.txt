@@ -1,0 +1,7 @@
+home/.claude/rules/python-style.md
+home/.claude/skills/code-review/SKILL.md
+home/.claude/skills/db-helper/SKILL.md
+home/.config/mcpm/mcpm-skills.lock
+repo/rules/python-style/SKILL.md
+repo/skills/code-review/SKILL.md
+repo/skills/db-helper/SKILL.md

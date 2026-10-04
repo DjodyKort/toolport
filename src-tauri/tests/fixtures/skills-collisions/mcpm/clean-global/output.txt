@@ -1,0 +1,12 @@
+Global mode -- writing to user-level paths.
+
+
+Synced 3 skill(s) to 1 client(s).
+
+┏━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━┓
+┃ Skill        ┃ Type  ┃ Clients synced ┃ Warnings ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━┩
+│ code-review  │ skill │ claude-code    │ --       │
+│ db-helper    │ skill │ claude-code    │ --       │
+│ python-style │ rule  │ claude-code    │ --       │
+└──────────────┴───────┴────────────────┴──────────┘

@@ -714,3 +714,5 @@ mod skills_tests;
 mod profile_golden_tests;
 #[cfg(test)]
 mod profile_tests;
+#[cfg(test)]
+mod skills_collisions_tests;

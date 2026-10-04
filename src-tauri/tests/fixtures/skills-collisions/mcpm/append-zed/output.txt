@@ -1,0 +1,11 @@
+
+Synced 3 skill(s) to 1 client(s).
+
+┏━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Skill        ┃ Type  ┃ Clients synced ┃ Warnings                                                                                                                                                                                                   ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ code-review  │ skill │ zed            │ zed: activation 'auto' downgraded to 'always' (single .rules file); zed: activation 'auto' downgraded to 'always' (single .rules file); zed: activation 'auto' downgraded to 'always' (single .rules file) │
+│ db-helper    │ skill │ zed            │ zed: activation 'auto' downgraded to 'always' (single .rules file); zed: activation 'auto' downgraded to 'always' (single .rules file); zed: activation 'auto' downgraded to 'always' (single .rules file) │
+│ python-style │ rule  │ zed            │ zed: activation 'auto' downgraded to 'always' (single .rules file); zed: activation 'auto' downgraded to 'always' (single .rules file); zed: activation 'auto' downgraded to 'always' (single .rules file) │
+└──────────────┴───────┴────────────────┴────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Updated .rules with concatenated skills for Zed.

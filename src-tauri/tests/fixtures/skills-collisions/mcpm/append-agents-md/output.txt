@@ -1,0 +1,12 @@
+
+Synced 3 skill(s) to 1 client(s).
+
+┏━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━┓
+┃ Skill        ┃ Type  ┃ Clients synced ┃ Warnings ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━┩
+│ code-review  │ skill │ agents-md      │ --       │
+│ db-helper    │ skill │ agents-md      │ --       │
+│ python-style │ rule  │ agents-md      │ --       │
+└──────────────┴───────┴────────────────┴──────────┘
+
+Updated AGENTS.md with <available_skills> block.

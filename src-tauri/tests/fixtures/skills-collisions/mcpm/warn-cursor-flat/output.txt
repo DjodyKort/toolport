@@ -1,0 +1,13 @@
+  ! collision: db-helper (cursor) — existing file at <root>/repo/.cursor/rules/db-helper.md shadows synced skill
+
+Synced 3 skill(s) to 1 client(s).
+
+┏━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Skill        ┃ Type  ┃ Clients synced ┃ Warnings                                                                                                        ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ code-review  │ skill │ cursor         │ --                                                                                                              │
+│ db-helper    │ skill │ cursor         │ cursor: shadowed by existing file at <root>/repo/.cursor/rules/db-helper.md │
+│ python-style │ rule  │ cursor         │ --                                                                                                              │
+└──────────────┴───────┴────────────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+1 unresolved collision(s). Run mcpm skills resolve to handle them, or re-run with --migrate to auto-replace.

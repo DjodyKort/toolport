@@ -21,6 +21,7 @@ use crate::plus::skills::styles::{
     all_style_transpilers, apply_style, discover_styles, parse_style_file, remove_style,
     sync_styles, Style, StyleOptions, Tier,
 };
+use crate::plus::skills::sync_report::sync_report;
 use crate::plus::skills::transpiler::TranspilerRegistry;
 use crate::plus::skills::transpilers::registry_with_home;
 use crate::plus::skills::{sync_skills, SyncOptions, SystemClock};
@@ -401,14 +402,14 @@ fn skills_sync(args: &Value) -> Outcome {
         lock_dir: dir.clone(),
         global_mode: global,
         dry_run: dry_run(args),
-        migrate: None,
+        migrate: args.get("migrate").and_then(Value::as_bool),
         client_keys: client_keys(args),
         clock: &SystemClock,
     };
     let result = sync_skills(&skills, &registry_for_skills()?, &opts)
         .map_err(ToolError::backend)?;
     persist(&dir, &result.lockfile, opts.dry_run)?;
-    Ok(json!({
+    let mut data = json!({
         "repo": repo.to_string_lossy(),
         "dryRun": opts.dry_run,
         "globalMode": global,
@@ -417,7 +418,11 @@ fn skills_sync(args: &Value) -> Outcome {
         "skillCount": result.lockfile.skills.len(),
         "ruleCount": result.lockfile.rules.len(),
         "cleaned": result.cleaned.iter().map(|p| p.to_string_lossy().into_owned()).collect::<Vec<_>>(),
-    }))
+    });
+    if let Some(fields) = data.as_object_mut() {
+        fields.extend(sync_report(&result));
+    }
+    Ok(data)
 }
 
 fn edit_body(args: &Value, kind: &str) -> Outcome {

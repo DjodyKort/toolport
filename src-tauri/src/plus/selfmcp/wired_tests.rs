@@ -749,3 +749,53 @@ fn ensure_self_server_persists_and_never_duplicates() {
     assert!(got["command"].as_str().unwrap().contains(BINARY_NAME));
     drop(fixture);
 }
+
+#[test]
+fn skills_sync_reports_and_migrates_files_that_shadow_a_skill() {
+    let fixture = Fixture::new("wired-collisions");
+    let shadow = fixture.home.join(".claude/commands/demo.md");
+    std::fs::create_dir_all(shadow.parent().unwrap()).unwrap();
+    std::fs::write(&shadow, "hand written").unwrap();
+    let same = |path: &Value, expected: &Path| {
+        std::fs::canonicalize(path.as_str().unwrap()).unwrap()
+            == std::fs::canonicalize(expected).unwrap()
+    };
+
+    let kept = call("skills_sync", json!({"client_keys": ["claude-code"]})).unwrap();
+    assert_eq!(kept["kept"], 1);
+    assert_eq!(kept["replaced"], 0);
+    assert_eq!(kept["collisions"][0]["skill"], "demo");
+    assert_eq!(kept["collisions"][0]["action"], "kept");
+    assert!(same(&kept["collisions"][0]["collisionPath"], &shadow));
+    assert_eq!(kept["entries"][0]["name"], "demo");
+    assert_eq!(kept["entries"][0]["warnings"].as_array().unwrap().len(), 1);
+    assert_eq!(kept["clientCount"], 1);
+    assert!(shadow.exists());
+
+    let dry = call(
+        "skills_sync",
+        json!({"client_keys": ["claude-code"], "migrate": true, "dry_run": true}),
+    )
+    .unwrap();
+    assert_eq!(dry["collisions"][0]["action"], "skipped-dry-run");
+    assert_eq!((dry["replaced"].clone(), dry["kept"].clone()), (json!(0), json!(0)));
+    assert!(shadow.exists());
+
+    let moved = call(
+        "skills_sync",
+        json!({"client_keys": ["claude-code"], "migrate": true}),
+    )
+    .unwrap();
+    assert_eq!(moved["replaced"], 1);
+    assert_eq!(moved["collisions"][0]["action"], "replaced");
+    let backup = Path::new(moved["collisions"][0]["backupPath"].as_str().unwrap());
+    assert_eq!(std::fs::read_to_string(backup).unwrap(), "hand written");
+    assert!(!shadow.exists());
+
+    let clean = call("skills_sync", json!({"client_keys": ["claude-code"]})).unwrap();
+    assert_eq!(clean["collisions"], json!([]));
+    assert_eq!(
+        kind(call("skills_sync", json!({"migrate": "yes"}))),
+        "invalid_arguments"
+    );
+}
