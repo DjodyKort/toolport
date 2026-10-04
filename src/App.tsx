@@ -117,6 +117,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthPanel } from "@/plus/AuthRows";
 import { WhatLoadsPanel } from "@/plus/WhatLoads";
 import { useTheme } from "@/lib/theme";
 import { fmtTs } from "@/lib/utils";
@@ -1014,7 +1015,10 @@ function App() {
                         registry={registry}
                         onRegistryChange={applyRegistryChange}
                       />
-                      <WhatLoadsPanel />
+                      <div className="mt-6 flex flex-col gap-6 empty:hidden">
+                        <AuthPanel />
+                        <WhatLoadsPanel />
+                      </div>
                     </>
                   ) : loading && registry === null ? (
                     <div className="flex flex-col gap-2">

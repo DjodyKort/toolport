@@ -1,19 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { FolderProfile } from "@/lib/types";
 
-export interface PlusPing {
-  name: string;
-  version: string;
-  forkEgressDisabled: boolean;
-}
-
 /** Single IPC entry for every Toolport+ extension command (see `src-tauri/src/plus`). */
 export function plusInvoke<T>(command: string, args: unknown = {}): Promise<T> {
   return invoke<T>("plus_invoke", { command, args });
-}
-
-export function plusPing(): Promise<PlusPing> {
-  return plusInvoke<PlusPing>("plus.ping");
 }
 
 export type AuthStateName =
@@ -51,6 +41,36 @@ export interface AuthRows {
 
 export function plusAuthRows(): Promise<AuthRows> {
   return plusInvoke<AuthRows>("plus.auth.rows");
+}
+
+export interface AuthLogin {
+  server: string;
+  name: string;
+  flow: "browser" | "stdio";
+  consentUrl: string | null;
+  signedIn: boolean;
+  message: string;
+}
+
+/** True when a click can do something; `fix_config` only has a label to read. */
+export function fixIsActionable(fix: AuthFixAction): boolean {
+  return fix.ipc !== null || fix.action === "reauth" || fix.action === "reconsent";
+}
+
+/** Runs the fix a row offers and returns the sentence to show the user. */
+export async function plusAuthFix(fix: AuthFixAction): Promise<string> {
+  if (fix.ipc !== null) {
+    if (!fix.ipc.command.startsWith("plus.auth.")) {
+      throw new Error(`unsupported fix route: ${fix.ipc.command}`);
+    }
+    await plusInvoke(fix.ipc.command, fix.ipc.args);
+    return `Checked ${fix.server} again.`;
+  }
+  if (fix.action === "reauth" || fix.action === "reconsent") {
+    const login = await plusInvoke<AuthLogin>("plus.auth.login", { server: fix.server });
+    return login.message;
+  }
+  throw new Error(`${fix.server} has no one-click fix`);
 }
 
 export interface LoadItem {
