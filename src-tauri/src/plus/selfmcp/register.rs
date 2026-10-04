@@ -57,10 +57,6 @@ impl Standing {
             Standing::Disabled => "disabled",
         }
     }
-
-    pub fn healthy(self) -> bool {
-        !matches!(self, Standing::Missing | Standing::NotEnabled)
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -320,11 +316,6 @@ pub fn install(profile: Option<&str>, intent: Intent) -> Result<Installed, Strin
 
 pub fn ensure_self_server() -> Result<(String, Ensured), String> {
     install(None, Intent::Ensure).map(|i| (i.id, i.outcome))
-}
-
-/// With a profile, the registry write is all-or-nothing: an unknown profile registers nothing.
-pub fn install_self_server(profile: Option<&str>) -> Result<(String, Ensured), String> {
-    install(profile, Intent::Install).map(|i| (i.id, i.outcome))
 }
 
 /// Removes the entry and records the opt-out, so import and `ensure` leave it out.
