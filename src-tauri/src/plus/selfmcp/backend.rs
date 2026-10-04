@@ -3,6 +3,7 @@ use super::ToolError;
 use super::{content, docs, servers};
 use crate::plus::args::{list, str_arg};
 use crate::plus::ctl::ErrorKind;
+use crate::plus::profiles;
 use crate::plus::registry_ro;
 use crate::plus::skills::lint::{lint_skills, LintResult};
 use crate::plus::skills::ops::find_skills_repo;
@@ -161,7 +162,11 @@ pub fn run_tool(tool: &ToolDef, args: &Value) -> Result<Value, ToolError> {
             let reg = read_registry()?;
             Ok(json!({
                 "activeProfile": reg.active_profile_id(),
-                "profiles": reg.profiles.iter().map(|p| json!({"id": p.id, "name": p.name, "enabledServerIds": p.enabled_server_ids})).collect::<Vec<_>>(),
+                "profiles": profiles::rows(&reg).iter().map(|p| json!({
+                    "id": p.id,
+                    "name": p.name,
+                    "enabledServerIds": p.servers.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(),
+                })).collect::<Vec<_>>(),
             }))
         }
         "clients_list" => Ok(json!({"clients": detected_clients()})),
