@@ -4,7 +4,7 @@ import {
   plusSourcesItemsFixture,
   plusSourcesRootFixture,
 } from "./sources";
-import { commandsFixture } from "./commandsRegistry";
+import { FixtureFailure, serversCtlFixtures } from "./servers";
 
 /** Envelope `data` the dev browser fixture returns per `toolportctl` argv (joined with spaces).
  * A command a screen runs needs a row here or the fixture rejects it as unimplemented. */
@@ -37,23 +37,12 @@ const uninstallPlan = {
 };
 
 export const plusCtlFixtures = new Map<string, unknown>([
-  [
-    "status",
-    {
-      version: "0.0.0-fixture",
-      dataDir: "/fixture/data",
-      serverCount: 3,
-      profileCount: 1,
-      activeProfile: "local",
-      secretsBackend: "encrypted-file",
-    },
-  ],
   ["sources ls", plusSourcesFixture],
   ["sources ls --items", plusSourcesItemsFixture],
   ["sources root ls", plusSourcesRootFixture],
-  ["commands", commandsFixture],
   ["server uninstall acme-erp --dry-run", uninstallPlan],
   ["attention ls", { counts: { needsYou: 3, look: 2, fyi: 0 }, items: [] }],
+  ...serversCtlFixtures,
 ]);
 
 const jobs = new Map<string, string>();
@@ -72,15 +61,20 @@ export function plusCtlResult(job: string): CtlResult {
   const key = jobs.get(job);
   if (key === undefined) throw new Error(`unknown job: ${job}`);
   jobs.delete(job);
-  const envelope: CtlEnvelope = {
-    ok: true,
-    command: key.split(" --")[0],
-    schemaVersion: 1,
-    data: plusCtlFixtures.get(key),
-  };
+  const reply = plusCtlFixtures.get(key);
+  const failure = reply instanceof FixtureFailure ? reply : null;
+  const envelope: CtlEnvelope = failure
+    ? {
+        ok: false,
+        command: key.split(" --")[0],
+        schemaVersion: 1,
+        data: failure.data,
+        error: { code: failure.code, message: failure.message },
+      }
+    : { ok: true, command: key.split(" --")[0], schemaVersion: 1, data: reply };
   return {
     job,
-    exitCode: 0,
+    exitCode: failure ? 1 : 0,
     signal: null,
     cancelled: false,
     envelope,

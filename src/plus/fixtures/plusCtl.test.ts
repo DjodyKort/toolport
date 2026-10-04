@@ -3,6 +3,7 @@ import { commandsData, sourcesLsData, sourcesRootLsData } from "../bridge/data";
 import { planOf } from "../ui/plan";
 import { check } from "../bridge/shape";
 import { commandsFixture, commandsFixtureWithMcpCall } from "./commandsRegistry";
+import { commandsServed } from "./servers";
 import { plusCtlCancel, plusCtlFixtures, plusCtlResult, plusCtlStart } from "./plusCtl";
 
 describe("plus_ctl browser fixtures", () => {
@@ -58,7 +59,7 @@ describe("plus_ctl browser fixtures", () => {
     const data = plusCtlResult(plusCtlStart(["commands"])).envelope?.data;
     expect(check(commandsData, data)).toEqual([]);
     expect(check(commandsData, commandsFixtureWithMcpCall)).toEqual([]);
-    expect(data).toEqual(commandsFixture);
+    expect(data).toEqual(commandsServed);
   });
 
   it("keeps the registry counts true and every tool's command real", () => {
