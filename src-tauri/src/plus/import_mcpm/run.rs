@@ -27,13 +27,25 @@ pub const CLIENT_FILES: &[(&str, &str)] = &[
     ("goose-cli", "goose"),
 ];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+/// Variants stay in the order of their wire names: `Plan::counts` serializes in this order.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Action {
-    Created,
-    Updated,
-    Unchanged,
     Conflict,
+    Created,
+    Unchanged,
+    Updated,
+}
+
+impl Action {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Action::Conflict => "conflict",
+            Action::Created => "created",
+            Action::Unchanged => "unchanged",
+            Action::Updated => "updated",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -76,13 +88,12 @@ pub struct Plan {
     pub secrets: Vec<Change>,
     pub skipped_clients: Value,
     pub warnings: Value,
-    pub counts: BTreeMap<String, usize>,
+    pub counts: BTreeMap<Action, usize>,
 }
 
 impl Plan {
     pub fn changed(&self) -> bool {
-        self.counts.get("created").copied().unwrap_or(0) > 0
-            || self.counts.get("updated").copied().unwrap_or(0) > 0
+        self.count(Action::Created) > 0 || self.count(Action::Updated) > 0
     }
 
     pub fn to_value(&self) -> Value {
@@ -93,17 +104,17 @@ impl Plan {
         let mut lines = vec![format!(
             "{}: {} created, {} updated, {} unchanged, {} conflicts",
             if self.dry_run { "dry run" } else { "import" },
-            self.count("created"),
-            self.count("updated"),
-            self.count("unchanged"),
-            self.count("conflict"),
+            self.count(Action::Created),
+            self.count(Action::Updated),
+            self.count(Action::Unchanged),
+            self.count(Action::Conflict),
         )];
         for c in self
             .clients
             .iter()
             .filter(|c| c.action != Action::Unchanged)
         {
-            let mut line = format!("  client {} {:?}", c.id, c.action).to_lowercase();
+            let mut line = format!("  client {} {}", c.id.to_lowercase(), c.action.as_str());
             if !c.removed.is_empty() {
                 line.push_str(&format!(" (removed {})", c.removed.join(", ")));
             }
@@ -121,7 +132,11 @@ impl Plan {
         ];
         for (label, changes) in groups {
             for c in changes.iter().filter(|c| c.action != Action::Unchanged) {
-                lines.push(format!("  {label} {} {:?}", c.id, c.action).to_lowercase());
+                lines.push(format!(
+                    "  {label} {} {}",
+                    c.id.to_lowercase(),
+                    c.action.as_str()
+                ));
             }
         }
         for r in &self.rejects {
@@ -130,8 +145,8 @@ impl Plan {
         lines.join("\n")
     }
 
-    fn count(&self, key: &str) -> usize {
-        self.counts.get(key).copied().unwrap_or(0)
+    fn count(&self, action: Action) -> usize {
+        self.counts.get(&action).copied().unwrap_or(0)
     }
 }
 
@@ -403,7 +418,7 @@ fn plan_secrets(
     Ok((changes, pending))
 }
 
-fn counts(plan: &Plan) -> BTreeMap<String, usize> {
+fn counts(plan: &Plan) -> BTreeMap<Action, usize> {
     let mut out = BTreeMap::new();
     let all = plan
         .servers
@@ -415,11 +430,7 @@ fn counts(plan: &Plan) -> BTreeMap<String, usize> {
         .map(|c| c.action)
         .chain(plan.clients.iter().map(|c| c.action));
     for action in all {
-        let key = serde_json::to_value(action)
-            .ok()
-            .and_then(|v| v.as_str().map(String::from))
-            .unwrap_or_default();
-        *out.entry(key).or_insert(0) += 1;
+        *out.entry(action).or_insert(0) += 1;
     }
     out
 }
