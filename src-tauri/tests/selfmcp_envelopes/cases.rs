@@ -4,7 +4,8 @@
 //! `setup` calls build the state a tool acts on and record no golden.
 
 use crate::ctl_fixtures::{
-    fork_back_to_main, fork_world, git_world, health_proxy, skills_repo_remote_world, sync_setup,
+    fork_back_to_main, fork_world, git_world, health_proxy, measure_home, skills_repo_remote_world,
+    sync_setup,
 };
 
 use super::{case, fails, hook, prepared, read, refused, setup, write, Case};
@@ -24,6 +25,8 @@ const GAMMA: &str = r#"{"name":"gamma","config":{"command":"gamma-mcp","args":["
 const GAMMA_APPLY: &str =
     r#"{"name":"gamma","config":{"command":"gamma-mcp","args":["--flag"]},"confirm":true}"#;
 const BUNDLE: &str = r#"{"bundle_path":"{repo}/skills-repo-bundle.zip"}"#;
+const MEASURE: &str =
+    r#"{"cwd":"{home}/work/erp/clients/acme-erp","without":["plugin:kit@market"]}"#;
 const ENABLE_PROXY_PORT: &str =
     r#"{"provider":"headroom","port":49214,"dry_run":false,"confirm":true}"#;
 const ENABLE_OFF_PORT: &str =
@@ -52,6 +55,26 @@ pub const ALL: &[Case] = &[
                 "invalid_arguments",
                 "sources_ls",
                 r#"{"kind":"widget"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "context_measure",
+        measure_home,
+        &[
+            read("measured", "context_measure", MEASURE),
+            read("cached", "context_measure", MEASURE),
+            fails(
+                "no_folder",
+                "invalid_arguments",
+                "context_measure",
+                r#"{"cwd":"{home}/absent"}"#,
+            ),
+            fails(
+                "bad_variant",
+                "invalid_arguments",
+                "context_measure",
+                r#"{"cwd":"{home}/work/erp/clients/acme-erp","without":["kit"]}"#,
             ),
         ],
     ),

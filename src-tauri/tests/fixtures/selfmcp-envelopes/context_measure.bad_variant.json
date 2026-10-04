@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/work/erp/clients/acme-erp",
+    "without": ["kit"]
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "--without takes plugin:<id> or skill:<name>, not kit"
+    }
+  },
+  "text": "invalid_arguments: --without takes plugin:<id> or skill:<name>, not kit",
+  "tool": "context_measure"
+}

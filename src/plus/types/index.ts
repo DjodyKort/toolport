@@ -39,6 +39,7 @@ export * from "./usage";
 export * from "./selfmcp-agents";
 export * from "./selfmcp-clients";
 export * from "./selfmcp-compression";
+export * from "./selfmcp-context";
 export * from "./selfmcp-core";
 export * from "./selfmcp-servers";
 export * from "./selfmcp-skills";

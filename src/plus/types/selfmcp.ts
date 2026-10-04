@@ -12,6 +12,7 @@ import {
 import { agentsToolShapes } from "./selfmcp-agents";
 import { clientsToolShapes } from "./selfmcp-clients";
 import { compressionToolShapes } from "./selfmcp-compression";
+import { contextToolShapes } from "./selfmcp-context";
 import { coreToolShapes } from "./selfmcp-core";
 import { serversToolShapes } from "./selfmcp-servers";
 import { skillsToolShapes } from "./selfmcp-skills";
@@ -60,6 +61,7 @@ export const selfmcpToolShapes: Record<string, Shape<unknown>> = {
   ...agentsToolShapes,
   ...clientsToolShapes,
   ...compressionToolShapes,
+  ...contextToolShapes,
   ...coreToolShapes,
   ...serversToolShapes,
   ...skillsToolShapes,

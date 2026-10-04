@@ -1,0 +1,183 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/work/erp/clients/acme-erp",
+    "without": ["plugin:kit@market"]
+  },
+  "isError": false,
+  "result": {
+    "cached": true,
+    "claudeCodeVersion": "2.1.289",
+    "cwd": "<WORLD>/home/work/erp/clients/acme-erp",
+    "deltas": [
+      {
+        "label": "without plugin:kit@market",
+        "percent": -12.6,
+        "tokens": -8651
+      }
+    ],
+    "invisibleSkills": [
+      {
+        "name": "handoff",
+        "reason": "Claude Code does not list this skill: line 4 continues a quoted multi-line value without indentation: for the next session\""
+      }
+    ],
+    "measuredAt": "<TIME>",
+    "model": "claude-haiku-4-5-20251001",
+    "notes": [],
+    "runs": [
+      {
+        "agentNames": ["reviewer", "kit:kit-agent"],
+        "agents": 2,
+        "durationMs": 0,
+        "label": "as is",
+        "mcpServers": [
+          {
+            "name": "docs-search",
+            "status": "connected"
+          },
+          {
+            "name": "plugin:kit:kit-devtools",
+            "status": "connected"
+          }
+        ],
+        "parts": {
+          "cacheCreation": 54639,
+          "cacheRead": 13796,
+          "input": 10
+        },
+        "plugins": [
+          {
+            "name": "kit",
+            "source": "kit@market"
+          }
+        ],
+        "skillNames": [
+          "skill-01",
+          "skill-02",
+          "skill-03",
+          "skill-04",
+          "skill-05",
+          "skill-06",
+          "skill-07",
+          "skill-08",
+          "skill-09",
+          "skill-10",
+          "skill-11",
+          "skill-12",
+          "skill-13",
+          "skill-14",
+          "skill-15",
+          "skill-16",
+          "skill-17",
+          "skill-18",
+          "skill-19",
+          "skill-20",
+          "skill-21",
+          "skill-22",
+          "skill-23",
+          "skill-24",
+          "skill-25",
+          "skill-26",
+          "skill-27",
+          "skill-28",
+          "skill-29",
+          "skill-30",
+          "kit:kit-build",
+          "kit:kit-test"
+        ],
+        "skills": 32,
+        "slashCommands": 42,
+        "total": 68445
+      },
+      {
+        "agentNames": ["reviewer"],
+        "agents": 1,
+        "durationMs": 0,
+        "label": "without plugin:kit@market",
+        "mcpServers": [
+          {
+            "name": "docs-search",
+            "status": "connected"
+          }
+        ],
+        "parts": {
+          "cacheCreation": 42002,
+          "cacheRead": 17782,
+          "input": 10
+        },
+        "plugins": [],
+        "skillNames": [
+          "skill-01",
+          "skill-02",
+          "skill-03",
+          "skill-04",
+          "skill-05",
+          "skill-06",
+          "skill-07",
+          "skill-08",
+          "skill-09",
+          "skill-10",
+          "skill-11",
+          "skill-12",
+          "skill-13",
+          "skill-14",
+          "skill-15",
+          "skill-16",
+          "skill-17",
+          "skill-18",
+          "skill-19",
+          "skill-20",
+          "skill-21",
+          "skill-22",
+          "skill-23",
+          "skill-24",
+          "skill-25",
+          "skill-26",
+          "skill-27",
+          "skill-28",
+          "skill-29",
+          "skill-30"
+        ],
+        "skills": 30,
+        "slashCommands": 38,
+        "total": 59794
+      }
+    ],
+    "stale": false,
+    "visibleSkills": [
+      "skill-01",
+      "skill-02",
+      "skill-03",
+      "skill-04",
+      "skill-05",
+      "skill-06",
+      "skill-07",
+      "skill-08",
+      "skill-09",
+      "skill-10",
+      "skill-11",
+      "skill-12",
+      "skill-13",
+      "skill-14",
+      "skill-15",
+      "skill-16",
+      "skill-17",
+      "skill-18",
+      "skill-19",
+      "skill-20",
+      "skill-21",
+      "skill-22",
+      "skill-23",
+      "skill-24",
+      "skill-25",
+      "skill-26",
+      "skill-27",
+      "skill-28",
+      "skill-29",
+      "skill-30",
+      "kit:kit-build",
+      "kit:kit-test"
+    ]
+  },
+  "tool": "context_measure"
+}
