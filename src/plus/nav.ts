@@ -137,7 +137,7 @@ export const PLUS_SCREENS: Record<PlusView, PlusScreen> = {
   },
   agents: {
     title: "Agents & styles",
-    subtitle: "One AGENT.md or STYLE.md, written in the format each client reads",
+    subtitle: "Sub-agents and output styles, written once and synced to every client",
     builtBy: "MIG-GUI-4",
   },
   attention: {
