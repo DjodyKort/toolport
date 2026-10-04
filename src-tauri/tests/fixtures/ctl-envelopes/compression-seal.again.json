@@ -7,7 +7,7 @@
       "complete": false,
       "declarable": [],
       "dryRun": false,
-      "port": 49214,
+      "port": 29214,
       "preset": "interactive",
       "sealed": 0,
       "unset": ["HEADROOM_PROTECT_RECENT"],

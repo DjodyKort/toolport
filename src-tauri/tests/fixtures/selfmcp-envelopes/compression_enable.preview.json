@@ -1,7 +1,7 @@
 {
   "arguments": {
     "mode": "cache",
-    "port": 49213,
+    "port": 29213,
     "provider": "rtk-only"
   },
   "isError": false,
@@ -15,7 +15,7 @@
     "preset": {
       "mode": "cache",
       "name": "interactive",
-      "port": 49213,
+      "port": 29213,
       "savingsProfile": null
     },
     "provider": "rtk-only",

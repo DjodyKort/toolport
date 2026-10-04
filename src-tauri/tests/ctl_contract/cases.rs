@@ -32,7 +32,7 @@ const OFF_PORT_PROXY: &[&str] = &[
     "--provider",
     "headroom",
     "--port",
-    "49213",
+    "29213",
 ];
 
 const PUSH_ALL: &[&str] = &["sync", "push", "--include-projects"];
@@ -581,7 +581,7 @@ pub const MORE: &[Case] = &[
     // that answers like the proxy, so a proxy of the machine that runs the test is never touched
     prepared(
         "compression seal",
-        |_| health_proxy(49214),
+        |_| health_proxy(29214),
         &[
             setup("setup", OFF_PORT_PROXY),
             read("no-proxy", &["compression", "seal"]).exit(1),
@@ -593,7 +593,7 @@ pub const MORE: &[Case] = &[
                     "--provider",
                     "headroom",
                     "--port",
-                    "49214",
+                    "29214",
                 ],
             ),
             read("preview", &["compression", "seal", "--dry-run"]),

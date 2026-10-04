@@ -4,7 +4,7 @@
     "command": "compression seal",
     "error": {
       "code": "no_proxy",
-      "message": "no proxy on :49213 — start one first (toolportctl compression proxy up). /health is the only truthful source for what a build actually runs."
+      "message": "no proxy on :29213 — start one first (toolportctl compression proxy up). /health is the only truthful source for what a build actually runs."
     },
     "ok": false,
     "schemaVersion": 1

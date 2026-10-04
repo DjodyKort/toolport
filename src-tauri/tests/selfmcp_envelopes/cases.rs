@@ -28,12 +28,12 @@ const BUNDLE: &str = r#"{"bundle_path":"{repo}/skills-repo-bundle.zip"}"#;
 const MEASURE: &str =
     r#"{"cwd":"{home}/work/erp/clients/acme-erp","without":["plugin:kit@market"]}"#;
 const ENABLE_PROXY_PORT: &str =
-    r#"{"provider":"headroom","port":49214,"dry_run":false,"confirm":true}"#;
+    r#"{"provider":"headroom","port":29214,"dry_run":false,"confirm":true}"#;
 const ENABLE_OFF_PORT: &str =
-    r#"{"provider":"headroom","port":49213,"dry_run":false,"confirm":true}"#;
+    r#"{"provider":"headroom","port":29213,"dry_run":false,"confirm":true}"#;
 
 fn proxy_world(_: &crate::CtlWorld) {
-    health_proxy(49214);
+    health_proxy(29214);
 }
 
 fn plugins_home(world: &crate::CtlWorld) {
@@ -678,12 +678,12 @@ pub const ALL: &[Case] = &[
             read(
                 "preview",
                 "compression_enable",
-                r#"{"provider":"rtk-only","port":49213,"mode":"cache"}"#,
+                r#"{"provider":"rtk-only","port":29213,"mode":"cache"}"#,
             ),
             refused(
                 "refused",
                 "compression_enable",
-                r#"{"provider":"rtk-only","port":49213,"mode":"cache","dry_run":false}"#,
+                r#"{"provider":"rtk-only","port":29213,"mode":"cache","dry_run":false}"#,
             ),
             fails(
                 "unknown_provider",
@@ -695,12 +695,12 @@ pub const ALL: &[Case] = &[
                 "port_not_a_number",
                 "invalid_arguments",
                 "compression_enable",
-                r#"{"port":"49213","dry_run":false,"confirm":true}"#,
+                r#"{"port":"29213","dry_run":false,"confirm":true}"#,
             ),
             write(
                 "apply",
                 "compression_enable",
-                r#"{"provider":"rtk-only","port":49213,"mode":"cache","dry_run":false,"confirm":true}"#,
+                r#"{"provider":"rtk-only","port":29213,"mode":"cache","dry_run":false,"confirm":true}"#,
             ),
         ],
     ),
