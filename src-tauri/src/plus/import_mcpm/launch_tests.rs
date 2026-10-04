@@ -107,7 +107,7 @@ fn all_twenty_pass_after_relocation() {
     let (mut servers, _) = map_servers(&input());
     let mut moved = 0;
     for s in &mut servers {
-        moved += relocate_entry(&mut s.entry, HOME, &tmp).len();
+        moved += relocate_entry(&mut s.entry, HOME, &tmp).moves.len();
         screen_entry(&s.entry).unwrap_or_else(|e| panic!("{}: {e}", s.entry.id));
     }
     assert_eq!(moved, 3);

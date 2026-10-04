@@ -51,17 +51,17 @@ impl Drop for HomeGuard {
     }
 }
 
-struct World {
-    home: PathBuf,
-    base: PathBuf,
-    root: PathBuf,
-    short_ids: PathBuf,
+pub(super) struct World {
+    pub(super) home: PathBuf,
+    pub(super) base: PathBuf,
+    pub(super) root: PathBuf,
+    pub(super) short_ids: PathBuf,
     _dir: crate::registry::DataDirOverride,
     _home: HomeGuard,
 }
 
 impl World {
-    fn new(tag: &str) -> Self {
+    pub(super) fn new(tag: &str) -> Self {
         let base = std::env::temp_dir().join(format!("import-mcpm-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
         let root = base.join("mcpm");
@@ -95,7 +95,7 @@ impl World {
         }
     }
 
-    fn opts(&self, dry_run: bool) -> RunOptions {
+    pub(super) fn opts(&self, dry_run: bool) -> RunOptions {
         RunOptions {
             root: self.root.clone(),
             short_ids_path: Some(self.short_ids.clone()),
@@ -106,11 +106,11 @@ impl World {
         }
     }
 
-    fn data(&self) -> PathBuf {
+    pub(super) fn data(&self) -> PathBuf {
         self.base.join("data")
     }
 
-    fn registry_text(&self) -> Option<String> {
+    pub(super) fn registry_text(&self) -> Option<String> {
         std::fs::read_to_string(self.data().join("registry.json")).ok()
     }
 
@@ -124,7 +124,7 @@ impl World {
     }
 }
 
-fn with_world(tag: &str, test: impl FnOnce(&World)) {
+pub(super) fn with_world(tag: &str, test: impl FnOnce(&World)) {
     let _env = crate::clients::env_test_lock();
     crate::secrets::tests::with_isolated_vault(|| {
         let world = World::new(tag);
@@ -437,7 +437,7 @@ fn seed_clients(w: &World) {
     }
 }
 
-fn read_json(path: &Path) -> Value {
+pub(super) fn read_json(path: &Path) -> Value {
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 
