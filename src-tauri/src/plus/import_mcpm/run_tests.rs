@@ -241,7 +241,7 @@ fn rerun_changes_nothing() {
         let second = run(&w.opts(false)).unwrap();
         assert!(!second.changed());
         assert_eq!(
-            second.counts.get("unchanged").copied().unwrap_or(0) > 0,
+            second.counts.get(&Action::Unchanged).copied().unwrap_or(0) > 0,
             true
         );
         assert_eq!(w.registry_text().unwrap(), before);
@@ -705,4 +705,22 @@ fn dry_run_plans_scripts_without_copying() {
         assert!(!w.data().join("imported-scripts").exists());
         assert!(w.registry_text().is_none());
     });
+}
+
+#[test]
+fn action_names_match_as_str_and_counts_serialize_in_name_order() {
+    let all = [
+        Action::Created,
+        Action::Updated,
+        Action::Unchanged,
+        Action::Conflict,
+    ];
+    for action in all {
+        assert_eq!(serde_json::to_value(action).unwrap(), action.as_str());
+    }
+    let counts: BTreeMap<Action, usize> = all.into_iter().map(|a| (a, 1)).collect();
+    assert_eq!(
+        serde_json::to_string(&counts).unwrap(),
+        r#"{"conflict":1,"created":1,"unchanged":1,"updated":1}"#
+    );
 }

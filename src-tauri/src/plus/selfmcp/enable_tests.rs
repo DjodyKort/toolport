@@ -2,7 +2,7 @@
 
 use super::register::{self, Ensured, Intent, Standing};
 use crate::plus::ctl::run_with;
-use crate::plus::import_mcpm::{run, Plan, RunOptions};
+use crate::plus::import_mcpm::{run, Action, Plan, RunOptions};
 use crate::plus::registry_ro;
 use crate::plus::testutil::DataDirFx;
 use crate::registry::{self, Registry};
@@ -147,7 +147,7 @@ fn second_import_changes_nothing_and_keeps_the_membership() {
     let first = w.registry_text();
     let again = w.import();
     assert!(!again.changed(), "{:?}", again.counts);
-    assert_eq!(again.counts.get("updated").copied().unwrap_or(0), 0);
+    assert_eq!(again.counts.get(&Action::Updated).copied().unwrap_or(0), 0);
     assert_eq!(w.registry_text(), first);
     assert_eq!(self_entries(&w.reg()), 1);
     for profile in [ACTIVE, "claude-code", "cursor"] {
