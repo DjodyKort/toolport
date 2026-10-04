@@ -332,6 +332,12 @@ fn text_of(result: &Value) -> String {
         .unwrap_or_default()
 }
 
+fn first_text(result: &Value) -> &str {
+    result["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap_or_default()
+}
+
 #[test]
 fn the_gateway_advertises_what_it_serves_and_declares_nothing_downstream() {
     let scratch = Scratch::new("handshake");
@@ -669,7 +675,7 @@ fn a_server_elicitation_is_refused_when_the_client_never_declared_the_capability
 }
 
 #[test]
-fn a_slow_elicitation_answer_is_charged_to_the_call_deadline() {
+fn a_slow_elicitation_answer_is_not_charged_to_the_call_deadline() {
     let scratch = Scratch::new("elicit-slow");
     let mut entry = mock_entry(&scratch);
     entry.request_timeout_ms = Some(1_500);
@@ -679,21 +685,23 @@ fn a_slow_elicitation_answer_is_charged_to_the_call_deadline() {
     client.initialize("2025-06-18", json!({"elicitation": {}}));
     client.wait_for_tool("odh__legacy_elicitation");
 
+    let started = Instant::now();
     let reply = client.call("odh__legacy_elicitation", json!({}), None);
+    let took = started.elapsed();
     assert_eq!(
         client.server_requests.lock().unwrap().len(),
         1,
         "the question reached the client"
     );
-    assert_eq!(reply["result"]["isError"], true, "{reply}");
+    assert_eq!(text_of(&reply), "legacy confirmed", "{reply}");
     assert!(
-        text_of(&reply).contains("timed out waiting for 'tools/call' response"),
-        "time spent waiting for the human is not excluded from requestTimeoutMs: {reply}"
+        took >= Duration::from_millis(2_400),
+        "the human took longer than requestTimeoutMs and the call still finished: {took:?}"
     );
 }
 
 #[test]
-fn a_call_past_request_timeout_ms_fails_even_while_progress_keeps_arriving() {
+fn a_call_without_progress_fails_at_request_timeout_ms_with_the_unchanged_text() {
     let scratch = Scratch::new("deadline");
     let mut entry = mock_entry(&scratch);
     entry.request_timeout_ms = Some(1_500);
@@ -707,27 +715,175 @@ fn a_call_past_request_timeout_ms_fails_even_while_progress_keeps_arriving() {
     assert_eq!(text_of(&quick), "slow done", "{quick}");
     assert!(started.elapsed() < Duration::from_millis(1_400));
 
+    for meta in [None, Some(json!({"progressToken": "FAKE-silent-token"}))] {
+        let started = Instant::now();
+        let slow = client.call("odh__odoo_slow", json!({"delayMs": 4_000}), meta);
+        let took = started.elapsed();
+        assert_eq!(slow["result"]["isError"], true, "{slow}");
+        assert_eq!(
+            first_text(&slow),
+            "timed out waiting for 'tools/call' response",
+            "{slow}"
+        );
+        assert!(
+            took >= Duration::from_millis(1_400) && took < Duration::from_millis(3_000),
+            "the deadline fires near requestTimeoutMs, not when the 4 s call would have ended: {took:?}"
+        );
+        std::thread::sleep(Duration::from_millis(3_000));
+    }
+}
+
+#[test]
+fn progress_keeps_a_call_alive_past_request_timeout_ms() {
+    let scratch = Scratch::new("progress-alive");
+    let mut entry = mock_entry(&scratch);
+    entry.request_timeout_ms = Some(1_500);
+    write_registry(&scratch, entry, |_| {});
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", json!({}));
+    client.wait_for_tool("odh__odoo_slow");
+
     let started = Instant::now();
     let slow = client.call(
         "odh__odoo_slow",
-        json!({"delayMs": 4_000, "progressEveryMs": 300}),
+        json!({"delayMs": 3_600, "progressEveryMs": 300}),
         Some(json!({"progressToken": "FAKE-slow-token"})),
     );
     let took = started.elapsed();
-    assert_eq!(slow["result"]["isError"], true, "{slow}");
+    assert_eq!(text_of(&slow), "slow done", "{slow}");
     assert!(
-        text_of(&slow).contains("timed out waiting for 'tools/call' response"),
-        "{slow}"
-    );
-    assert!(
-        took >= Duration::from_millis(1_400) && took < Duration::from_millis(3_500),
-        "the deadline fires near requestTimeoutMs, not when the 4 s call would have ended: {took:?}"
+        took >= Duration::from_millis(3_500),
+        "the call outlived requestTimeoutMs by more than a full deadline: {took:?}"
     );
     let progress = client.wait_for_notifications("notifications/progress", 3);
     assert!(
         progress.len() >= 3,
-        "progress kept flowing for the whole wait and did not extend it: {progress:?}"
+        "a call kept alive for 3.5 s past a 1.5 s deadline saw progress at least that often: {progress:?}"
     );
+    assert!(progress
+        .iter()
+        .all(|note| note["params"]["progressToken"] == "FAKE-slow-token"));
+}
+
+#[test]
+fn the_absolute_cap_still_ends_a_call_that_keeps_reporting_progress() {
+    let scratch = Scratch::new("progress-cap");
+    let mut entry = mock_entry(&scratch);
+    entry.request_timeout_ms = Some(1_500);
+    entry.max_request_timeout_ms = Some(3_000);
+    write_registry(&scratch, entry, |_| {});
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", json!({}));
+    client.wait_for_tool("odh__odoo_slow");
+
+    let started = Instant::now();
+    let slow = client.call(
+        "odh__odoo_slow",
+        json!({"delayMs": 8_000, "progressEveryMs": 300}),
+        Some(json!({"progressToken": "FAKE-endless-token"})),
+    );
+    let took = started.elapsed();
+    assert_eq!(slow["result"]["isError"], true, "{slow}");
+    let text = first_text(&slow);
+    assert!(
+        text.starts_with("timed out waiting for 'tools/call' response: ")
+            && text.contains("3s absolute cap (maxRequestTimeoutMs)"),
+        "{slow}"
+    );
+    assert!(
+        took >= Duration::from_millis(2_900) && took < Duration::from_millis(5_000),
+        "the cap, not the 8 s call, ends the wait: {took:?}"
+    );
+}
+
+#[test]
+fn a_progress_kept_call_does_not_count_toward_the_breaker_and_a_timeout_still_does() {
+    let scratch = Scratch::new("breaker-progress");
+    let mut entry = mock_entry(&scratch);
+    entry.request_timeout_ms = Some(1_000);
+    write_registry(&scratch, entry, |_| {});
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", json!({}));
+    client.wait_for_tool("odh__odoo_slow");
+
+    let time_out = |client: &mut Client, tag: &str| {
+        let reply = client.call(
+            "odh__odoo_slow",
+            json!({"delayMs": 1_500, "tag": tag}),
+            None,
+        );
+        assert_eq!(
+            first_text(&reply),
+            "timed out waiting for 'tools/call' response",
+            "{tag}: {reply}"
+        );
+        std::thread::sleep(Duration::from_millis(700));
+    };
+    time_out(&mut client, "t1");
+    time_out(&mut client, "t2");
+    let kept = client.call(
+        "odh__odoo_slow",
+        json!({"delayMs": 2_400, "progressEveryMs": 200}),
+        Some(json!({"progressToken": "FAKE-kept-token"})),
+    );
+    assert_eq!(text_of(&kept), "slow done", "{kept}");
+    time_out(&mut client, "t3");
+    time_out(&mut client, "t4");
+    let open = client.call(
+        "odh__odoo_slow",
+        json!({"delayMs": 10, "tag": "open"}),
+        None,
+    );
+    assert_eq!(
+        text_of(&open),
+        "slow done",
+        "two timeouts after a success leave the circuit closed: {open}"
+    );
+
+    time_out(&mut client, "t5");
+    time_out(&mut client, "t6");
+    time_out(&mut client, "t7");
+    let shed = client.call(
+        "odh__odoo_slow",
+        json!({"delayMs": 10, "tag": "shed"}),
+        None,
+    );
+    assert!(
+        text_of(&shed).contains("temporarily unavailable"),
+        "three consecutive deadline timeouts open the circuit as before: {shed}"
+    );
+    assert_eq!(call_count(&scratch.transcript(), "shed"), 0);
+}
+
+#[test]
+fn a_call_ended_by_the_cap_counts_toward_the_breaker() {
+    let scratch = Scratch::new("breaker-cap");
+    let mut entry = mock_entry(&scratch);
+    entry.request_timeout_ms = Some(500);
+    entry.max_request_timeout_ms = Some(1_000);
+    write_registry(&scratch, entry, |_| {});
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", json!({}));
+    client.wait_for_tool("odh__odoo_slow");
+
+    for round in 0..3 {
+        let reply = client.call(
+            "odh__odoo_slow",
+            json!({"delayMs": 1_400, "progressEveryMs": 100, "tag": format!("cap-{round}")}),
+            Some(json!({"progressToken": format!("FAKE-cap-token-{round}")})),
+        );
+        assert!(
+            text_of(&reply).contains("absolute cap (maxRequestTimeoutMs)"),
+            "{reply}"
+        );
+        std::thread::sleep(Duration::from_millis(600));
+    }
+    let shed = client.call(
+        "odh__odoo_slow",
+        json!({"delayMs": 10, "tag": "shed"}),
+        None,
+    );
+    assert!(text_of(&shed).contains("temporarily unavailable"), "{shed}");
 }
 
 #[test]
