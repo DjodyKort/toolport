@@ -1,0 +1,7 @@
+{
+  "acme-empty": {
+    "repo": "acme/empty",
+    "url": "https://github.com/acme/empty.git",
+    "path": "<root>/home/.config/mcpm/taps/acme-empty"
+  }
+}

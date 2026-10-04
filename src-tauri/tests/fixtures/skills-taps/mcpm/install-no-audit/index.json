@@ -1,0 +1,7 @@
+{
+  "acme-audit": {
+    "repo": "acme/audit",
+    "url": "https://github.com/acme/audit.git",
+    "path": "<root>/home/.config/mcpm/taps/acme-audit"
+  }
+}

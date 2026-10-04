@@ -1,0 +1,12 @@
+{
+  "acme-skills": {
+    "repo": "acme/skills",
+    "url": "https://github.com/acme/skills.git",
+    "path": "<root>/home/.config/mcpm/taps/acme-skills"
+  },
+  "extra": {
+    "repo": "acme/extras",
+    "url": "https://github.com/acme/extras.git",
+    "path": "<root>/home/.config/mcpm/taps/extra"
+  }
+}

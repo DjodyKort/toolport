@@ -1,0 +1,8 @@
+Resolving @acme/audit...
+Found 2 skill(s)
+
+Security audit found high-severity issues:
+
+  HIGH injector: Prompt injection: ignore previous instructions
+
+Use --no-audit to skip security checks.

@@ -1,0 +1,4 @@
+install
+@acme/skills/code-review
+--path
+{target}

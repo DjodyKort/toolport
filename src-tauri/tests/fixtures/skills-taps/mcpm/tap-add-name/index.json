@@ -1,0 +1,7 @@
+{
+  "team": {
+    "repo": "acme/skills",
+    "url": "https://github.com/acme/skills.git",
+    "path": "<root>/home/.config/mcpm/taps/team"
+  }
+}

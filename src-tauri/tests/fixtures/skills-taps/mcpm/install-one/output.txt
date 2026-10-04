@@ -1,0 +1,9 @@
+Resolving @acme/skills/code-review...
+Failed to parse <root>/home/.config/mcpm/taps/acme-skills/skills/escape/SKILL.md: 1 validation error for SkillFrontmatter
+name
+  Value error, name must be lowercase alphanumeric + hyphens, cannot start/end with hyphen [type=value_error, input_value='../escape', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/value_error
+Found 1 skill(s)
+  Installed code-review (skill)
+
+Installed 1 skill(s). Run 'mcpm skills sync' to transpile to clients.
