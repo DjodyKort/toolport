@@ -12,7 +12,7 @@ Toolport+ additions (D-010). Full overview: `docs/toolport-plus.md`.
 - `profiles/`: shared core under `toolportctl profile ls|create|edit|rm`, `client edit|import`, the `plus.profile.*` and `plus.client.edit|import` handlers and the selfmcp profile tools (`mutate` plans on a read-only copy, so a rejected edit or a dry run writes nothing).
 - `sync/`: encrypted cross-machine sync.
 - `import_mcpm/`: mcpm to registry mapping and tool-reference rewrite.
-- `selfmcp/`: self-management MCP server.
+- `selfmcp/`: self-management MCP server: 80 tools and 11 resources. `state` (skills, agents and styles lifecycle) and `compression` are thin adapters over the `plus.*` handlers and `compression::manage` cores that the ctl commands run; a writing tool there defaults `dry_run` to true and a tier 3 or 4 one needs `confirm` only to apply.
 - `update/`: server update checks and apply.
 - `obs/`: transcript indexer, loopback OTLP receiver (`receiver`, hosted by the gateway through `otel_host`), `otel_setup` (the `obs otel` enable, disable and status core) and `combine` (OTel and transcript dedupe).
 - `cc/`: Claude Code plugin list and update.

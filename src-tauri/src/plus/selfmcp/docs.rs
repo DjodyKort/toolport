@@ -94,6 +94,22 @@ Read `mcpm://architecture` first for the model behind these recipes.
 1. `styles_list`, then `styles_sync_tier1` for clients with a native toggle.
 2. `styles_apply` for tier 2 clients; `styles_remove` clears it.
 
+## Clean up synced content
+
+1. `skills_diff`, `agents_diff` and `styles_diff` show what changed since the last sync;
+   `skills_audit` and `agents_audit` scan for risky content.
+2. `skills_clean`, `agents_clean` or `styles_clean` removes the synced client outputs;
+   `skills_uninstall` and `agents_uninstall` also delete one skill or agent from the repository.
+   Each previews until you pass `dry_run=false` and `confirm=true`.
+
+## Switch compression on
+
+1. `compression_status` for the provider and preset in force.
+2. `compression_enable` with a `provider` (dry run by default; `dry_run=false` and
+   `confirm=true` apply it). `compression_use` and `compression_set_provider` change one setting
+   later, `compression_disable` switches it off.
+3. With a proxy running, `compression_seal` records its live settings into the preset.
+
 ## Hand off to another machine
 
 1. `sync_push` with `dry_run=true` to list what would be published.
