@@ -245,40 +245,43 @@ pub(super) fn inventory(kind: &str) -> Result<String, ToolError> {
     Ok(rows.join("\n"))
 }
 
-pub(super) fn run(name: &str, args: &Value) -> Option<Outcome> {
-    Some(match name {
-        "skills_scaffold" => skills_scaffold(args),
-        "skills_tap_list" => tapped(taps::tap_list_value(args)),
-        "skills_search" => tapped(taps::search_value(args)),
-        "skills_tap_add" => tap_add(args),
-        "skills_tap_remove" => tap_remove(args),
-        "skills_tap_update" => tap_update(args),
-        "skills_install" => skills_install(args),
-        "skills_edit_body" => edit_body(args, "skill"),
-        "skills_edit_frontmatter" => skills_edit_frontmatter(args),
-        "skills_delete" => skills_delete(args),
-        "agents_list" => agents_list(args),
-        "agents_get" => agents_get(args),
-        "agents_lint" => skills_repo(args).map(|r| lint_json(&lint_agents(&discover_agents(&r)))),
-        "agents_list_transpilers" => Ok(json!({"transpilers": all_agent_transpilers()
-            .iter()
-            .map(|t| t.client_key().to_string())
-            .collect::<Vec<_>>()})),
-        "agents_scaffold" => agents_scaffold(args),
-        "agents_sync" => agents_sync(args),
-        "agents_edit_body" => edit_body(args, "agent"),
-        "styles_list" => styles_list(args),
-        "styles_get" => styles_get(args),
-        "styles_lint" => skills_repo(args).map(|r| lint_json(&lint_styles(&discover_styles(&r)))),
-        "styles_active" => styles_active(args),
-        "styles_list_transpilers" => Ok(styles_transpilers()),
-        "styles_scaffold" => styles_scaffold(args),
-        "styles_sync_tier1" => styles_sync_tier1(args),
-        "styles_apply" => styles_apply(args),
-        "styles_edit_body" => edit_body(args, "style"),
-        "styles_remove" => styles_remove(args),
-        _ => return None,
-    })
+pub(super) fn skills_tap_list(args: &Value) -> Outcome {
+    tapped(taps::tap_list_value(args))
+}
+
+pub(super) fn skills_search(args: &Value) -> Outcome {
+    tapped(taps::search_value(args))
+}
+
+pub(super) fn skills_edit_body(args: &Value) -> Outcome {
+    edit_body(args, "skill")
+}
+
+pub(super) fn agents_edit_body(args: &Value) -> Outcome {
+    edit_body(args, "agent")
+}
+
+pub(super) fn styles_edit_body(args: &Value) -> Outcome {
+    edit_body(args, "style")
+}
+
+pub(super) fn agents_lint(args: &Value) -> Outcome {
+    skills_repo(args).map(|r| lint_json(&lint_agents(&discover_agents(&r))))
+}
+
+pub(super) fn styles_lint(args: &Value) -> Outcome {
+    skills_repo(args).map(|r| lint_json(&lint_styles(&discover_styles(&r))))
+}
+
+pub(super) fn agents_list_transpilers(_: &Value) -> Outcome {
+    Ok(json!({"transpilers": all_agent_transpilers()
+        .iter()
+        .map(|t| t.client_key().to_string())
+        .collect::<Vec<_>>()}))
+}
+
+pub(super) fn styles_list_transpilers(_: &Value) -> Outcome {
+    Ok(styles_transpilers())
 }
 
 fn tapped(outcome: Result<Value, TapError>) -> Outcome {
@@ -298,7 +301,7 @@ fn applies(args: &Value) -> bool {
     !flag_or(args, "dry_run", true)
 }
 
-fn tap_add(args: &Value) -> Outcome {
+pub(super) fn skills_tap_add(args: &Value) -> Outcome {
     tapped(taps::tap_add_value(&json!({
         "repo": str_arg(args, "repo"),
         "name": str_arg(args, "name"),
@@ -306,14 +309,14 @@ fn tap_add(args: &Value) -> Outcome {
     })))
 }
 
-fn tap_remove(args: &Value) -> Outcome {
+pub(super) fn skills_tap_remove(args: &Value) -> Outcome {
     tapped(taps::tap_remove_value(&json!({
         "name": str_arg(args, "name"),
         "dry_run": !applies(args),
     })))
 }
 
-fn tap_update(args: &Value) -> Outcome {
+pub(super) fn skills_tap_update(args: &Value) -> Outcome {
     tapped(taps::tap_update_value(&json!({
         "name": str_arg(args, "name"),
         "dry_run": !applies(args),
@@ -322,7 +325,7 @@ fn tap_update(args: &Value) -> Outcome {
 
 /// Installs into the discovered skills repository, never into the working directory, and always
 /// with the audit on.
-fn skills_install(args: &Value) -> Outcome {
+pub(super) fn skills_install(args: &Value) -> Outcome {
     let repo = skills_repo(args)?;
     tapped(taps::install_value(&json!({
         "spec": str_arg(args, "spec"),
@@ -332,7 +335,7 @@ fn skills_install(args: &Value) -> Outcome {
     })))
 }
 
-fn skills_scaffold(args: &Value) -> Outcome {
+pub(super) fn skills_scaffold(args: &Value) -> Outcome {
     let name = kebab(str_arg(args, "name").unwrap_or_default())?;
     let skill_type = str_arg(args, "skill_type").unwrap_or("skill");
     if !["skill", "rule"].contains(&skill_type) {
@@ -363,7 +366,7 @@ fn edit_body(args: &Value, kind: &str) -> Outcome {
     Ok(json!({"sourcePath": path.to_string_lossy(), "newHash": hash}))
 }
 
-fn skills_edit_frontmatter(args: &Value) -> Outcome {
+pub(super) fn skills_edit_frontmatter(args: &Value) -> Outcome {
     let name = name_arg(args)?;
     let repo = skills_repo(args)?;
     let skill = find_skill(&repo, name)?;
@@ -372,7 +375,7 @@ fn skills_edit_frontmatter(args: &Value) -> Outcome {
     Ok(json!({"sourcePath": skill.source_path.to_string_lossy(), "newHash": hash}))
 }
 
-fn skills_delete(args: &Value) -> Outcome {
+pub(super) fn skills_delete(args: &Value) -> Outcome {
     let name = name_arg(args)?;
     let repo = skills_repo(args)?;
     let skill = find_skill(&repo, name)?;
@@ -391,7 +394,7 @@ fn skills_delete(args: &Value) -> Outcome {
     Ok(json!({"removedPath": dir.to_string_lossy()}))
 }
 
-fn agents_list(args: &Value) -> Outcome {
+pub(super) fn agents_list(args: &Value) -> Outcome {
     let repo = skills_repo(args)?;
     let agents = discover_agents(&repo);
     Ok(json!({
@@ -400,14 +403,14 @@ fn agents_list(args: &Value) -> Outcome {
     }))
 }
 
-fn agents_get(args: &Value) -> Outcome {
+pub(super) fn agents_get(args: &Value) -> Outcome {
     let agent = find_agent(&skills_repo(args)?, name_arg(args)?)?;
     let mut row = agent_row(&agent);
     row["body"] = json!(agent.body);
     Ok(row)
 }
 
-fn agents_scaffold(args: &Value) -> Outcome {
+pub(super) fn agents_scaffold(args: &Value) -> Outcome {
     let name = kebab(str_arg(args, "name").unwrap_or_default())?;
     let model = str_arg(args, "model").unwrap_or("inherit");
     if model.contains(['\n', '\r']) {
@@ -425,7 +428,7 @@ fn agents_scaffold(args: &Value) -> Outcome {
     )
 }
 
-fn agents_sync(args: &Value) -> Outcome {
+pub(super) fn agents_sync(args: &Value) -> Outcome {
     let repo = skills_repo(args)?;
     let agents = discover_agents(&repo);
     let global = global_mode(args);
@@ -444,7 +447,7 @@ fn agents_sync(args: &Value) -> Outcome {
     }))
 }
 
-fn styles_list(args: &Value) -> Outcome {
+pub(super) fn styles_list(args: &Value) -> Outcome {
     let repo = skills_repo(args)?;
     let styles = discover_styles(&repo);
     Ok(json!({
@@ -453,14 +456,14 @@ fn styles_list(args: &Value) -> Outcome {
     }))
 }
 
-fn styles_get(args: &Value) -> Outcome {
+pub(super) fn styles_get(args: &Value) -> Outcome {
     let style = find_style(&skills_repo(args)?, name_arg(args)?)?;
     let mut row = style_row(&style);
     row["body"] = json!(style.body);
     Ok(row)
 }
 
-fn styles_active(args: &Value) -> Outcome {
+pub(super) fn styles_active(args: &Value) -> Outcome {
     let repo = skills_repo(args)?;
     let lock = lock_for_read(&repo);
     Ok(json!({
@@ -481,7 +484,7 @@ fn styles_transpilers() -> Value {
     json!({"tier1": keys(Tier::Native), "tier2": keys(Tier::ApplyRemove)})
 }
 
-fn styles_scaffold(args: &Value) -> Outcome {
+pub(super) fn styles_scaffold(args: &Value) -> Outcome {
     let name = kebab(str_arg(args, "name").unwrap_or_default())?;
     let repo = skills_repo(args)?;
     scaffold(
@@ -492,7 +495,7 @@ fn styles_scaffold(args: &Value) -> Outcome {
     )
 }
 
-fn styles_sync_tier1(args: &Value) -> Outcome {
+pub(super) fn styles_sync_tier1(args: &Value) -> Outcome {
     let repo = skills_repo(args)?;
     let styles = discover_styles(&repo);
     home()?;
@@ -507,7 +510,7 @@ fn styles_sync_tier1(args: &Value) -> Outcome {
     }))
 }
 
-fn styles_apply(args: &Value) -> Outcome {
+pub(super) fn styles_apply(args: &Value) -> Outcome {
     let name = name_arg(args)?;
     let repo = skills_repo(args)?;
     let style = find_style(&repo, name)?;
@@ -522,7 +525,7 @@ fn styles_apply(args: &Value) -> Outcome {
     }))
 }
 
-fn styles_remove(args: &Value) -> Outcome {
+pub(super) fn styles_remove(args: &Value) -> Outcome {
     let repo = skills_repo(args)?;
     home()?;
     let dry = dry_run(args);
