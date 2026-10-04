@@ -103,6 +103,10 @@ impl CtlWorld {
             ("TOOLPORT_DATA_DIR", self.path(&self.data)),
             ("TOOLPORT_SECRET_KEY", SECRET_KEY.to_string()),
             ("TOOLPORT_CLAUDE_BIN", self.path(&self.claude)),
+            (
+                "TOOLPORT_CLAUDE_MANAGED_SETTINGS",
+                self.path(&self.base.join("managed-settings.json")),
+            ),
             ("TOOLPORT_SOURCES_TIME_SCALE", "20".to_string()),
         ]
     }

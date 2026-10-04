@@ -1,0 +1,25 @@
+{
+  "name": "ecc",
+  "version": "2.2.0",
+  "description": "Synthetic engineering toolkit: review skills, agents, commands and a hook runner.",
+  "userConfig": {
+    "hook_profile": {
+      "type": "string",
+      "title": "Hook profile",
+      "description": "How strict the hook runner is: minimal, standard or strict.",
+      "default": "standard"
+    },
+    "hooks_enabled": {
+      "type": "boolean",
+      "title": "Hooks",
+      "description": "Run the plugin hooks at all.",
+      "default": true
+    },
+    "api_token": {
+      "type": "string",
+      "title": "Service token",
+      "description": "Token for the optional remote service.",
+      "sensitive": true
+    }
+  }
+}

@@ -1,0 +1,243 @@
+{
+  "description": "Synthetic hook runner entries.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:bash:dispatcher scripts/hooks/pre-bash-dispatcher.js standard,strict",
+            "timeout": 30
+          }
+        ],
+        "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:write:doc-warning scripts/hooks/doc-file-warning.js standard,strict",
+            "timeout": 30
+          }
+        ],
+        "matcher": "Write"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:edit-write:suggest-compact scripts/hooks/suggest-compact.js standard,strict",
+            "timeout": 30
+          }
+        ],
+        "matcher": "Edit|Write"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:observe scripts/hooks/observe.js standard,strict",
+            "timeout": 10,
+            "async": true
+          }
+        ],
+        "matcher": "*"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:governance-capture scripts/hooks/governance-capture.js standard,strict",
+            "timeout": 30
+          }
+        ],
+        "matcher": "Bash|Write|Edit|MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:config-protection scripts/hooks/config-protection.js standard,strict",
+            "timeout": 30
+          }
+        ],
+        "matcher": "Write|Edit|MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:mcp-health-check scripts/hooks/mcp-health-check.js standard,strict",
+            "timeout": 30
+          }
+        ],
+        "matcher": ".*"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:edit-write:gateguard-fact-force scripts/hooks/gateguard-fact-force.js standard,strict",
+            "timeout": 30
+          }
+        ],
+        "matcher": "Edit|Write|MultiEdit"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" post:observe scripts/hooks/observe.js standard,strict",
+            "timeout": 10,
+            "async": true
+          }
+        ],
+        "matcher": "*"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" post:quality-gate scripts/hooks/quality-gate.js standard,strict",
+            "timeout": 30
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:compact scripts/hooks/pre-compact.js standard,strict",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" session:start scripts/hooks/session-start.js minimal,standard,strict",
+            "timeout": 30
+          }
+        ],
+        "matcher": "*"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" session:context-load scripts/hooks/context-load.js standard,strict",
+            "timeout": 30
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" post:failure-capture scripts/hooks/failure-capture.js standard,strict",
+            "timeout": 30
+          }
+        ],
+        "matcher": "*"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" post:mcp-health-failure scripts/hooks/mcp-health-failure.js standard,strict",
+            "timeout": 30
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" stop:format-typecheck scripts/hooks/format-typecheck.js standard,strict",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" stop:check-console-log scripts/hooks/check-console-log.js standard,strict",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" stop:session-end scripts/hooks/session-end.js standard,strict",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" stop:evaluate-session scripts/hooks/evaluate-session.js standard,strict",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" stop:cost-tracker scripts/hooks/cost-tracker.js standard,strict",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" stop:desktop-notify scripts/hooks/desktop-notify.js standard,strict",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" stop:ledger-flush scripts/hooks/ledger-flush.js standard,strict",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" session:end-marker scripts/hooks/session-end-marker.js minimal,standard,strict",
+            "timeout": 30
+          }
+        ],
+        "matcher": "*"
+      }
+    ]
+  }
+}
