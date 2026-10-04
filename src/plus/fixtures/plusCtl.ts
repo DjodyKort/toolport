@@ -9,6 +9,7 @@ import {
 } from "./sources";
 import { serversCtlFixtures } from "./servers";
 import { skillsBrowserFixtures } from "../skills/browserFixtures";
+import { compressionBrowserFixtures } from "../compression/browserFixtures";
 import { createAgentsWorld } from "./agentsWorld";
 
 /** Envelope `data` the dev browser fixture returns per `toolportctl` argv (joined with spaces).
@@ -53,6 +54,7 @@ export const plusCtlFixtures = new Map<string, unknown>([
   // The Library screen drives a stateful skills world, so its commands win over the static Health fixtures.
   ...skillsBrowserFixtures,
   ...createAgentsWorld(),
+  ...compressionBrowserFixtures,
 ]);
 
 const jobs = new Map<string, string>();
