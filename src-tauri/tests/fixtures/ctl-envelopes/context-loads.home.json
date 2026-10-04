@@ -1,19 +1,11 @@
 {
-  "argv": ["context", "loads", "--cwd", "{home}/work/erp/clients/acme-erp", "--measured"],
+  "argv": ["context", "loads", "--cwd", "{home}"],
   "envelope": {
     "command": "context loads",
     "data": {
       "basis": "estimate",
-      "clobbers": [
-        {
-          "key": "permissions",
-          "kind": "settings",
-          "overridden": ["<WORLD>/home/.claude/settings.json"],
-          "relation": "merges",
-          "winner": "<WORLD>/home/work/erp/clients/acme-erp/.claude/settings.json"
-        }
-      ],
-      "cwd": "<WORLD>/home/work/erp/clients/acme-erp",
+      "clobbers": [],
+      "cwd": "<WORLD>/home",
       "items": [
         {
           "basis": "estimate",
@@ -36,25 +28,6 @@
         },
         {
           "basis": "estimate",
-          "kind": "settings",
-          "lazy": false,
-          "loaded": true,
-          "name": "settings.json",
-          "origin": {
-            "kind": "client",
-            "name": "acme-erp"
-          },
-          "path": "<WORLD>/home/work/erp/clients/acme-erp/.claude/settings.json",
-          "reason": "configuration only, no prompt tokens",
-          "scope": "always",
-          "source": "project",
-          "tokens": 0,
-          "via": [],
-          "visible": null,
-          "writable": false
-        },
-        {
-          "basis": "estimate",
           "kind": "memory",
           "lazy": false,
           "loaded": true,
@@ -68,127 +41,6 @@
           "scope": "always",
           "source": "org",
           "tokens": 10070,
-          "via": [],
-          "visible": null,
-          "writable": false
-        },
-        {
-          "basis": "estimate",
-          "kind": "memory",
-          "lazy": false,
-          "loaded": true,
-          "name": "CLAUDE.md",
-          "origin": {
-            "kind": "repo",
-            "name": "erp"
-          },
-          "path": "<WORLD>/home/work/erp/CLAUDE.md",
-          "reason": "directory walk to cwd",
-          "scope": "always",
-          "source": "project",
-          "tokens": 5610,
-          "via": [],
-          "visible": null,
-          "writable": false
-        },
-        {
-          "basis": "estimate",
-          "kind": "import",
-          "lazy": false,
-          "loaded": true,
-          "name": "docs/conventions.md",
-          "origin": {
-            "kind": "repo",
-            "name": "erp"
-          },
-          "path": "<WORLD>/home/work/erp/docs/conventions.md",
-          "reason": "@import, hop 1",
-          "scope": "always",
-          "source": "project",
-          "tokens": 100,
-          "via": ["<WORLD>/home/work/erp/CLAUDE.md"],
-          "visible": null,
-          "writable": false
-        },
-        {
-          "basis": "estimate",
-          "kind": "import",
-          "lazy": false,
-          "loaded": true,
-          "name": "naming.md",
-          "origin": {
-            "kind": "repo",
-            "name": "erp"
-          },
-          "path": "<WORLD>/home/work/erp/docs/naming.md",
-          "reason": "@import, hop 2",
-          "scope": "always",
-          "source": "project",
-          "tokens": 75,
-          "via": [
-            "<WORLD>/home/work/erp/CLAUDE.md",
-            "<WORLD>/home/work/erp/docs/conventions.md"
-          ],
-          "visible": null,
-          "writable": false
-        },
-        {
-          "basis": "estimate",
-          "kind": "import",
-          "lazy": false,
-          "loaded": true,
-          "name": "glossary.md",
-          "origin": {
-            "kind": "repo",
-            "name": "erp"
-          },
-          "path": "<WORLD>/home/work/erp/docs/glossary.md",
-          "reason": "@import, hop 3",
-          "scope": "always",
-          "source": "project",
-          "tokens": 50,
-          "via": [
-            "<WORLD>/home/work/erp/CLAUDE.md",
-            "<WORLD>/home/work/erp/docs/conventions.md",
-            "<WORLD>/home/work/erp/docs/naming.md"
-          ],
-          "visible": null,
-          "writable": false
-        },
-        {
-          "basis": "estimate",
-          "kind": "memory",
-          "lazy": false,
-          "loaded": true,
-          "name": "CLAUDE.local.md",
-          "origin": {
-            "kind": "managed",
-            "name": "toolportctl"
-          },
-          "path": "<WORLD>/home/work/erp/clients/acme-erp/CLAUDE.local.md",
-          "reason": "directory walk to cwd",
-          "scope": "always",
-          "source": "client-layer",
-          "tokens": 83,
-          "via": [],
-          "visible": null,
-          "writable": false
-        },
-        {
-          "basis": "estimate",
-          "kind": "memory-index",
-          "lazy": false,
-          "loaded": true,
-          "name": "MEMORY.md",
-          "origin": {
-            "kind": "user",
-            "name": "~/.claude"
-          },
-          "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-work-erp-clients-acme-erp/memory/MEMORY.md",
-          "reason": "first 200 of 300 lines (Claude Code loads at most 200 lines or 25 KB)",
-          "scope": "always",
-          "source": "user",
-          "tokens": 1823,
           "via": [],
           "visible": null,
           "writable": false
@@ -248,25 +100,6 @@
           "tokens": 40,
           "via": [],
           "visible": null,
-          "writable": true
-        },
-        {
-          "basis": "estimate",
-          "kind": "skill",
-          "lazy": false,
-          "loaded": false,
-          "name": "handoff",
-          "origin": {
-            "kind": "loose",
-            "name": "~/.claude"
-          },
-          "path": "<WORLD>/home/.claude/skills/handoff/SKILL.md",
-          "reason": "Claude Code does not list this skill: line 4 continues a quoted multi-line value without indentation: for the next session\"",
-          "scope": "always",
-          "source": "loose",
-          "tokens": 12,
-          "via": [],
-          "visible": false,
           "writable": true
         },
         {
@@ -955,25 +788,6 @@
         },
         {
           "basis": "estimate",
-          "kind": "command",
-          "lazy": false,
-          "loaded": true,
-          "name": "local-only",
-          "origin": {
-            "kind": "client",
-            "name": "acme-erp"
-          },
-          "path": "<WORLD>/home/work/erp/clients/acme-erp/.claude/commands/local-only.md",
-          "reason": "description loads at start; body when the command runs",
-          "scope": "always",
-          "source": "project",
-          "tokens": 8,
-          "via": [],
-          "visible": null,
-          "writable": false
-        },
-        {
-          "basis": "estimate",
           "kind": "plugin",
           "lazy": false,
           "loaded": false,
@@ -1015,129 +829,23 @@
           "kind": "memory",
           "lazy": true,
           "loaded": false,
-          "name": "addons/billing/CLAUDE.md",
+          "name": "work/erp/CLAUDE.md",
           "origin": {
-            "kind": "client",
-            "name": "acme-erp"
+            "kind": "repo",
+            "name": "erp"
           },
-          "path": "<WORLD>/home/work/erp/clients/acme-erp/addons/billing/CLAUDE.md",
-          "reason": "loads when Claude reads a file in addons/billing",
+          "path": "<WORLD>/home/work/erp/CLAUDE.md",
+          "reason": "loads when Claude reads a file in work/erp",
           "scope": "always",
           "source": "project",
-          "tokens": 100,
-          "via": [],
-          "visible": null,
-          "writable": false
-        },
-        {
-          "basis": "estimate",
-          "kind": "skill",
-          "lazy": true,
-          "loaded": false,
-          "name": "refund",
-          "origin": {
-            "kind": "client",
-            "name": "acme-erp"
-          },
-          "path": "<WORLD>/home/work/erp/clients/acme-erp/addons/billing/.claude/skills/refund/SKILL.md",
-          "reason": "loads when Claude reads a file in addons/billing",
-          "scope": "always",
-          "source": "project",
-          "tokens": 6,
-          "via": [],
-          "visible": true,
-          "writable": false
-        },
-        {
-          "basis": "estimate",
-          "kind": "memory",
-          "lazy": false,
-          "loaded": false,
-          "name": "excluded-notes/CLAUDE.md",
-          "origin": {
-            "kind": "client",
-            "name": "acme-erp"
-          },
-          "path": "<WORLD>/home/work/erp/clients/acme-erp/excluded-notes/CLAUDE.md",
-          "reason": "excluded by claudeMdExcludes",
-          "scope": "always",
-          "source": "project",
-          "tokens": 30,
+          "tokens": 5610,
           "via": [],
           "visible": null,
           "writable": false
         }
       ],
-      "measured": {
-        "agentNames": ["reviewer", "kit:kit-agent"],
-        "agents": 2,
-        "durationMs": 0,
-        "label": "as is",
-        "mcpServers": [
-          {
-            "name": "docs-search",
-            "status": "connected"
-          },
-          {
-            "name": "plugin:kit:kit-devtools",
-            "status": "connected"
-          }
-        ],
-        "parts": {
-          "cacheCreation": 54639,
-          "cacheRead": 13796,
-          "input": 10
-        },
-        "plugins": [
-          {
-            "name": "kit",
-            "source": "kit@market"
-          }
-        ],
-        "skillNames": [
-          "skill-01",
-          "skill-02",
-          "skill-03",
-          "skill-04",
-          "skill-05",
-          "skill-06",
-          "skill-07",
-          "skill-08",
-          "skill-09",
-          "skill-10",
-          "skill-11",
-          "skill-12",
-          "skill-13",
-          "skill-14",
-          "skill-15",
-          "skill-16",
-          "skill-17",
-          "skill-18",
-          "skill-19",
-          "skill-20",
-          "skill-21",
-          "skill-22",
-          "skill-23",
-          "skill-24",
-          "skill-25",
-          "skill-26",
-          "skill-27",
-          "skill-28",
-          "skill-29",
-          "skill-30",
-          "kit:kit-build",
-          "kit:kit-test"
-        ],
-        "skills": 32,
-        "slashCommands": 42,
-        "total": 68445
-      },
-      "measured_info": {
-        "claudeCodeVersion": "2.1.289",
-        "measuredAt": "<TIME>",
-        "model": "claude-haiku-4-5-20251001",
-        "stale": false
-      },
+      "measured": null,
+      "measured_info": null,
       "notes": [
         "the skill list is over its budget (1998 of 2000 tokens): 17 skills lose their description; which ones is a guess until `context measure` counts them"
       ],
@@ -1170,18 +878,16 @@
       },
       "tokens_by_kind": {
         "agent": 6,
-        "command": 20,
-        "import": 225,
+        "command": 12,
         "mcp": 40,
-        "memory": 15763,
-        "memory-index": 1823,
+        "memory": 10070,
         "plugin": 30,
         "rule": 47,
         "settings": 0,
         "skill": 3657
       },
-      "tokens_lazy": 162,
-      "total_tokens": 21611
+      "tokens_lazy": 5666,
+      "total_tokens": 13862
     },
     "ok": true,
     "schemaVersion": 1

@@ -15,6 +15,31 @@ use crate::ctl_world::{read_json, write_json, CtlWorld};
 
 pub const PASSPHRASE: &str = "FAKE-sync-passphrase-31d8";
 
+/// The client-folder home of `common/loads_world.rs` (`context loads`).
+pub fn loads_home(world: &CtlWorld) {
+    crate::loads_world::build_in(
+        &world.base,
+        conduit_lib::plus::context::layers::MANAGED_LOCAL_HEADER,
+    );
+}
+
+/// The same home with a `claude` that is the stream-json stub (`fixtures/loads/claude-stub.sh`)
+/// and a user skill Claude Code does not list (`context measure`).
+pub fn measure_home(world: &CtlWorld) {
+    let loaded = crate::loads_world::build_in(
+        &world.base,
+        conduit_lib::plus::context::layers::MANAGED_LOCAL_HEADER,
+    );
+    crate::claude_stub::ClaudeStub::install(&world.claude, &world.base);
+    let unlisted = loaded.claude.join("skills/handoff/SKILL.md");
+    std::fs::create_dir_all(unlisted.parent().unwrap()).unwrap();
+    std::fs::write(
+        unlisted,
+        "---\nname: handoff\ndescription: \"Write a handoff\nfor the next session\"\n---\nBody\n",
+    )
+    .unwrap();
+}
+
 pub fn git(dir: &Path, home: &Path, args: &[&str]) {
     let status = Command::new("git")
         .args(args)

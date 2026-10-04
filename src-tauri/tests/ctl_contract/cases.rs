@@ -4,12 +4,11 @@
 //! (`direct run`, `auth login`, `compression proxy`, `compression run`) records what it prints
 //! without a terminal, a browser or an engine, and says so next to its case.
 
-use crate::ctl_fixtures::{git_world, health_proxy, import_world, transcripts_world};
-
-use super::{
-    apply, case, loads_home, measure_home, prepared, read, setup, usage, Case, COUNCIL_KEY,
-    PASSPHRASE, VAULTED,
+use crate::ctl_fixtures::{
+    git_world, health_proxy, import_world, loads_home, measure_home, transcripts_world,
 };
+
+use super::{apply, case, prepared, read, setup, usage, Case, COUNCIL_KEY, PASSPHRASE, VAULTED};
 
 const NEW_PASSPHRASE: &str = "FAKE-sync-passphrase-31d8-rotated";
 const STATUSLINE: &str = r#"{"context_window":{"context_window_size":200000,"current_usage":{"input_tokens":1000,"cache_read_input_tokens":500,"cache_creation_input_tokens":0}},"model":{"id":"claude-sonnet-5"}}"#;
@@ -279,9 +278,9 @@ pub const MORE: &[Case] = &[
         "context loads",
         loads_home,
         &[
-            // the walk up from the folder reads project settings of every ancestor, so the
-            // golden starts at the filesystem root instead of the machine's temp directory
-            read("root", &["context", "loads", "--cwd", "/"]),
+            // the folder itself, not `/`: the search for nested CLAUDE.md files walks down from
+            // it, and below `/` it would list the machine's own files
+            read("home", &["context", "loads", "--cwd", "{home}"]),
             read(
                 "profile",
                 &["context", "loads", "--profile", "no-such-profile"],

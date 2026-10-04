@@ -9,6 +9,7 @@ import {
   type Infer,
   type Shape,
 } from "../bridge/shape";
+import { loadsData, type LoadsData } from "../bridge/data";
 
 /** `data` of the context commands, checked against the golden envelopes by `data.test.ts`. */
 
@@ -98,28 +99,9 @@ export const contextInitData = obj({
 });
 export type ContextInitData = Infer<typeof contextInitData>;
 
-export const contextLoadsData = obj({
-  clobbers: arr(any),
-  cwd: str,
-  items: arr(
-    obj({
-      kind: str,
-      loaded: bool,
-      name: str,
-      path: str,
-      reason: str,
-      source: str,
-      tokens: num,
-    }),
-  ),
-  notes: arr(any),
-  profile: nullable(str),
-  tokens_by_kind: obj({
-    settings: num,
-  }),
-  total_tokens: num,
-});
-export type ContextLoadsData = Infer<typeof contextLoadsData>;
+/** `context loads` is described once, in `bridge/data.ts`, which the GUI parses. */
+export const contextLoadsData = loadsData;
+export type ContextLoadsData = LoadsData;
 
 export const contextPlanData = obj({
   actions: arr(str),
@@ -217,7 +199,7 @@ export const contextShapes: Record<string, Shape<unknown>> = {
   "context-folders": contextFoldersData,
   "context-init.apply": contextInitData,
   "context-init.preview": contextInitData,
-  "context-loads.root": contextLoadsData,
+  "context-loads.home": contextLoadsData,
   "context-plan": contextPlanData,
   "context-profile-add.apply": contextProfileAddData,
   "context-profile-add.preview": contextProfileAddData,
