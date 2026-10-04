@@ -199,6 +199,7 @@ impl World {
             .env("TOOLPORT_DATA_DIR", &self.data)
             .env("TOOLPORT_SECRET_KEY", "ab".repeat(32))
             .env("TOOLPORT_CLAUDE_BIN", &self.claude)
+            .env("TOOLPORT_CLAUDE_MANAGED_SETTINGS", "")
             .stdin(if stdin.is_some() {
                 Stdio::piped()
             } else {
@@ -405,6 +406,9 @@ fn version_and_usage_errors_use_the_documented_exit_codes() {
         (vec!["styles", "ls", "--bogus"], "styles ls"),
         (vec!["styles", "add"], "styles add"),
         (vec!["styles", "apply"], "styles apply"),
+        (vec!["plugins", "show"], "plugins show"),
+        (vec!["plugins", "ls", "extra"], "plugins ls"),
+        (vec!["hooks", "ls", "--tool", "Grep"], "hooks ls"),
     ] {
         let (run, value) = world.json(&argv);
         assert_envelope(&argv.join(" "), &run, &value, command, 2);
@@ -466,7 +470,7 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert!(d["checks"].as_array().unwrap().len() >= 4);
         }),
         case("commands", &["commands"], 0, |_, d| {
-            assert_eq!(d["counts"]["tools"], 82);
+            assert_eq!(d["counts"]["tools"], 85);
             let rows = d["commands"].as_array().unwrap();
             assert!(rows.iter().any(|r| r["id"] == "profile edit" && r["tier"] == "write"));
             assert!(rows.iter().any(|r| r["id"] == "sync push" && r["parent"] == "sync"));
@@ -783,7 +787,7 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert!(!d["checks"].as_array().unwrap().is_empty());
         }),
         case("mcp", &["mcp", "tools"], 0, |_, d| {
-            assert_eq!(d["tools"].as_array().unwrap().len(), 82);
+            assert_eq!(d["tools"].as_array().unwrap().len(), 85);
             assert_eq!(d["resources"].as_array().unwrap().len(), 11);
         }),
         case(
@@ -829,6 +833,25 @@ fn read_only_cases(w: &World) -> Vec<Case> {
         ),
         case("sources root ls", &["sources", "root", "ls"], 0, |_, d| {
             assert!(d["roots"].is_array());
+        }),
+        case("plugins ls", &["plugins", "ls"], 0, |_, d| {
+            let rows = d["plugins"].as_array().unwrap();
+            assert_eq!(rows.len(), 1, "{d}");
+            assert_eq!(rows[0]["name"], "demo-plugin");
+            assert_eq!(rows[0]["from"], "claude-cli");
+        }),
+        case(
+            "plugins show",
+            &["plugins", "show", "demo-plugin@fake-market"],
+            0,
+            |_, d| {
+                assert_eq!(d["name"], "demo-plugin");
+                assert!(d["hooks"].is_array());
+            },
+        ),
+        case("hooks ls", &["hooks", "ls"], 0, |_, d| {
+            assert!(d["hooks"].as_array().unwrap().is_empty(), "{d}");
+            assert_eq!(d["disabledAll"], false);
         }),
         case(
             "skills lint",

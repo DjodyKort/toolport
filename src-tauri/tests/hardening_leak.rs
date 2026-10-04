@@ -4,9 +4,46 @@
 
 mod hardening_support;
 
+#[path = "common/exec.rs"]
+mod exec;
+#[path = "common/plugins_world.rs"]
+mod plugins_world;
+
 use conduit_lib::plus::ctl::COMMANDS;
 use hardening_support::{find_leaks, scan_tree, Canary, Run, Sandbox};
 use serde_json::{json, Value};
+
+fn plant_plugin_canaries(plugins: &plugins_world::PluginsWorld, canary: &Canary) {
+    let settings_path = plugins.claude_home.join("settings.json");
+    let mut settings: Value =
+        serde_json::from_str(&std::fs::read_to_string(&settings_path).unwrap()).unwrap();
+    settings["pluginConfigs"]["ecc@ecc"]["options"]["api_token"] = json!(canary.val("plugin-option"));
+    settings["hooks"]["PreToolUse"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"matcher": "Bash", "hooks": [{
+            "type": "command",
+            "command": format!(
+                "SERVICE_TOKEN={} ./check.sh --api-key={}",
+                canary.val("hook-env"),
+                canary.val("hook-arg")
+            )
+        }]}));
+    std::fs::write(&settings_path, settings.to_string()).unwrap();
+
+    let mcp_path = plugins.plugin.join(".mcp.json");
+    let mut mcp: Value = serde_json::from_str(&std::fs::read_to_string(&mcp_path).unwrap()).unwrap();
+    mcp["mcpServers"]["keyed"] = json!({
+        "command": "node",
+        "args": ["server.js", format!("--api-key={}", canary.val("mcp-arg"))],
+        "env": {"SERVICE_KEY": canary.val("mcp-env")}
+    });
+    mcp["mcpServers"]["remote"] = json!({
+        "url": format!("https://svc.example.invalid/mcp?token={}", canary.val("mcp-url")),
+        "headers": {"Authorization": format!("Bearer {}", canary.val("mcp-header"))}
+    });
+    std::fs::write(&mcp_path, mcp.to_string()).unwrap();
+}
 
 struct World {
     sb: Sandbox,
@@ -18,6 +55,7 @@ struct World {
     tools_file: String,
     refs_file: String,
     bundle_dir: String,
+    project: String,
 }
 
 impl World {
@@ -48,8 +86,12 @@ impl World {
             leaky("DELTA_TOKEN"),
         );
         let quiet = sb.script("quiet.sh", "exit 1");
-        let claude = sb.script("claude-stub.sh", "echo '[]'");
+        let claude = sb.work.join("claude-stub.sh");
+        let plugins = plugins_world::build_in(&sb.input.join("plugins-world"), &claude);
+        plant_plugin_canaries(&plugins, &canary);
         sb.set_env("TOOLPORT_CLAUDE_BIN", &claude.to_string_lossy());
+        sb.set_env("CLAUDE_CONFIG_DIR", &plugins.claude_home.to_string_lossy());
+        sb.set_env("TOOLPORT_CLAUDE_MANAGED_SETTINGS", "");
         sb.write_registry(&json!({
             "version": 1,
             "servers": [
@@ -112,6 +154,7 @@ impl World {
             tools_file: tools_file.to_string_lossy().into_owned(),
             refs_file: refs_file.to_string_lossy().into_owned(),
             bundle_dir: bundle_dir.to_string_lossy().into_owned(),
+            project: plugins.side.to_string_lossy().into_owned(),
             sb,
             canary,
         }
@@ -326,6 +369,17 @@ impl World {
             s(&["sources", "root", "rm", &work]),
             s(&["sources", "root"]),
             s(&["sources"]),
+            s(&["plugins", "ls"]),
+            s(&["plugins", "ls", "--refresh"]),
+            s(&["plugins", "ls", "--cwd", &self.project]),
+            s(&["plugins", "show", "ecc@ecc"]),
+            s(&["plugins", "show", "ecc", "--cwd", &self.project]),
+            s(&["plugins", "show", "missing@nowhere"]),
+            s(&["plugins"]),
+            s(&["hooks", "ls"]),
+            s(&["hooks", "ls", "--cwd", &self.project]),
+            s(&["hooks", "ls", "--tool", "Bash", "--owner", "user"]),
+            s(&["hooks"]),
             s(&["skills", "lint", "--repo", &self.repo]),
             s(&["skills", "diff", "--repo", &self.repo]),
             s(&["skills", "sync", "--repo", &self.repo, "--dry-run"]),
@@ -827,6 +881,15 @@ fn selfmcp_tools_and_resources_never_return_or_store_a_canary() {
         assert!(called.iter().any(|c| c == name), "{name} was never called");
     }
     let repo = json!(world.repo);
+    for (name, args) in [
+        ("plugins_ls", json!({"cwd": world.project})),
+        ("plugins_show", json!({"id": "ecc@ecc", "cwd": world.project})),
+        ("hooks_ls", json!({"cwd": world.project})),
+        ("hooks_ls", json!({"tool": "Bash"})),
+    ] {
+        let reply = session.call(name, args.clone());
+        assert_eq!(reply["result"]["isError"], false, "{name} {args} -> {reply}");
+    }
     for (name, args) in [
         ("skills_scaffold", json!({"name": "throwaway", "repo_path": repo})),
         (
