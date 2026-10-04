@@ -13,6 +13,7 @@ pub mod council;
 pub mod context;
 pub mod import_mcpm;
 pub mod obs;
+pub mod profiles;
 pub mod selfmcp;
 pub mod skills;
 pub mod sync;
@@ -103,6 +104,12 @@ const HANDLERS: &[(&str, Handler)] = &[
     ("plus.sync.removeProject", sync::handlers::remove_project_handler),
     ("plus.sync.gitSync", sync::handlers::git_sync_handler),
     ("plus.sync.migrate", sync::handlers::migrate_handler),
+    ("plus.profile.list", profiles::handlers::list_handler),
+    ("plus.profile.create", profiles::handlers::create_handler),
+    ("plus.profile.edit", profiles::handlers::edit_handler),
+    ("plus.profile.remove", profiles::handlers::remove_handler),
+    ("plus.client.edit", profiles::handlers::client_edit_handler),
+    ("plus.client.import", profiles::handlers::client_import_handler),
     ("plus.cc.list", cc::list_handler),
     ("plus.cc.update", cc::update_handler),
     ("plus.selfmcp.ensure", selfmcp::register::ensure_handler),
