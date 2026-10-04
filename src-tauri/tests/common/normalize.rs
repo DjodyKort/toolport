@@ -46,6 +46,13 @@ fn mask(value: &mut Value) {
     }
 }
 
+/// How Claude Code spells a folder in the name of a directory it keeps per project.
+fn slugged(path: &str) -> String {
+    path.chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect()
+}
+
 pub fn world_roots(world: &CtlWorld) -> Vec<String> {
     let mut roots = Vec::new();
     if let Ok(real) = std::fs::canonicalize(&world.base) {
@@ -75,6 +82,9 @@ pub fn normalize(world: &CtlWorld, envelope: &Value) -> Value {
     let mut text = serde_json::to_string(envelope).unwrap();
     for root in world_roots(world) {
         text = text.replace(&root, "<WORLD>");
+    }
+    for root in world_roots(world) {
+        text = text.replace(&slugged(&root), "<WORLD-SLUG>");
     }
     text = text.replace(&world.mock, "<MOCK>");
     for dir in bin_dirs() {

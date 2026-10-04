@@ -42,6 +42,8 @@ mod tests_loads;
 #[cfg(test)]
 mod tests_loads_f0;
 #[cfg(test)]
+mod tests_loads_baseline;
+#[cfg(test)]
 mod tests_manage;
 #[cfg(test)]
 mod tests_zshrc;

@@ -6,7 +6,9 @@
 
 use crate::ctl_fixtures::{git_world, health_proxy, import_world, transcripts_world};
 
-use super::{apply, case, prepared, read, setup, usage, Case, COUNCIL_KEY, PASSPHRASE, VAULTED};
+use super::{
+    apply, case, loads_home, prepared, read, setup, usage, Case, COUNCIL_KEY, PASSPHRASE, VAULTED,
+};
 
 const NEW_PASSPHRASE: &str = "FAKE-sync-passphrase-31d8-rotated";
 const STATUSLINE: &str = r#"{"context_window":{"context_window_size":200000,"current_usage":{"input_tokens":1000,"cache_read_input_tokens":500,"cache_creation_input_tokens":0}},"model":{"id":"claude-sonnet-5"}}"#;
@@ -272,8 +274,9 @@ pub const MORE: &[Case] = &[
         ],
     ),
     // context
-    case(
+    prepared(
         "context loads",
+        loads_home,
         &[
             // the walk up from the folder reads project settings of every ancestor, so the
             // golden starts at the filesystem root instead of the machine's temp directory
@@ -283,6 +286,20 @@ pub const MORE: &[Case] = &[
                 &["context", "loads", "--profile", "no-such-profile"],
             )
             .exit(1),
+            read(
+                "folder",
+                &["context", "loads", "--cwd", "{home}/work/erp/clients/acme-erp"],
+            ),
+            read(
+                "no-lazy",
+                &[
+                    "context",
+                    "loads",
+                    "--cwd",
+                    "{home}/work/erp/clients/acme-erp",
+                    "--no-lazy",
+                ],
+            ),
         ],
     ),
     case(

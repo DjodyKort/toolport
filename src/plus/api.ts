@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { FolderProfile } from "@/lib/types";
+import type { LoadItem as LoadItemData, LoadsData } from "./bridge/data";
 
 /** Single IPC entry for every Toolport+ extension command (see `src-tauri/src/plus`). */
 export function plusInvoke<T>(command: string, args: unknown = {}): Promise<T> {
@@ -88,33 +89,9 @@ export async function plusAuthFix(fix: AuthFixAction): Promise<string> {
   throw new Error(`${fix.server} has no one-click fix`);
 }
 
-export interface LoadItem {
-  kind: string;
-  name: string;
-  path: string | null;
-  source: string;
-  loaded: boolean;
-  reason: string;
-  tokens: number;
-}
-
-export interface Clobber {
-  kind: string;
-  key: string;
-  winner: string;
-  overridden: string[];
-  relation: string;
-}
-
-export interface WhatLoads {
-  profile: string | null;
-  cwd: string;
-  items: LoadItem[];
-  clobbers: Clobber[];
-  tokens_by_kind: Record<string, number>;
-  total_tokens: number;
-  notes: string[];
-}
+export type LoadItem = LoadItemData;
+export type Clobber = LoadsData["clobbers"][number];
+export type WhatLoads = LoadsData;
 
 export function plusWhatLoads(
   args: { profile?: string; cwd?: string } = {},
