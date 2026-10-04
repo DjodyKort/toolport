@@ -12,6 +12,9 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
 vi.mock("./skills/SkillsTab", () => ({ SkillsTab: () => <p>Skills panel</p> }));
+vi.mock("./compression/CompressionTab", () => ({
+  CompressionTab: () => <p>Compression panel</p>,
+}));
 
 import { PlusViews } from "./PlusViews";
 import { createBridge } from "./servers/testkit";
@@ -59,7 +62,8 @@ describe("PlusViews", () => {
         view !== "commands" &&
         view !== "control" &&
         view !== "logins" &&
-        view !== "library",
+        view !== "library" &&
+        view !== "tokens",
     ),
   )("marks %s as not built yet and names the item that builds it", async (view) => {
     render(<Harness start={view} />);
@@ -96,6 +100,20 @@ describe("PlusViews", () => {
     expect(await screen.findByText("Skills panel")).toBeInTheDocument();
     await user.click(within(tabs).getByRole("tab", { name: "Plugins" }));
     expect(screen.getByText(/built by MIG-GUI-12\b/)).toBeInTheDocument();
+  });
+
+  it("shows the Tokens screen: Usage as a placeholder, the Compression panel built", async () => {
+    const user = userEvent.setup();
+    render(<Harness start="tokens" />);
+    const tabs = await screen.findByRole("tablist", { name: "Tokens sections" });
+    expect(
+      within(tabs)
+        .getAllByRole("tab")
+        .map((tab) => tab.textContent),
+    ).toEqual(["Usage", "Compression"]);
+    expect(screen.getByText(/built by MIG-GUI-7\b/)).toBeInTheDocument();
+    await user.click(within(tabs).getByRole("tab", { name: "Compression" }));
+    expect(await screen.findByText("Compression panel")).toBeInTheDocument();
   });
 
   it("opens the All commands page on the group of the tab it was left from", async () => {
