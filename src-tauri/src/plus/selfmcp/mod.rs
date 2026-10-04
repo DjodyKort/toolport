@@ -35,7 +35,7 @@ mod tests;
 #[cfg(test)]
 mod wired_tests;
 
-pub use catalog::{find_resource, find_tool, Gate, ResourceDef, ToolDef, RESOURCES, TOOLS};
+pub use catalog::{find_resource, find_tool, Gate, ToolDef, RESOURCES, TOOLS};
 
 use crate::plus::args::{flag, flag_or};
 use crate::plus::op::{ErrorKind, OpError};
