@@ -24,6 +24,7 @@ mod effect_tests;
 #[cfg(test)]
 mod enable_tests;
 pub mod register;
+mod plugins;
 mod servers;
 mod skills;
 mod sources;

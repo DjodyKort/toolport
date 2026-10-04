@@ -22,9 +22,11 @@ pub(crate) mod context;
 mod context_manage;
 mod flags;
 mod folders;
+mod hooks;
 mod mcp;
 mod obs;
 mod output;
+mod plugins;
 mod policy;
 mod profile;
 mod secret;
@@ -426,6 +428,23 @@ pub const COMMANDS: &[Command] = &[
         sources::root_group,
     ),
     cmd(&["sources"], "Sources: ls root", sources::group),
+    cmd(
+        &["plugins", "ls"],
+        "List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)",
+        plugins::ls,
+    ),
+    cmd(
+        &["plugins", "show"],
+        "Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)",
+        plugins::show,
+    ),
+    cmd(&["plugins"], "Plugins: ls show", plugins::group),
+    cmd(
+        &["hooks", "ls"],
+        "List every hook Claude Code would start in a folder, from files (--cwd, --tool, --event, --owner)",
+        hooks::ls,
+    ),
+    cmd(&["hooks"], "Hooks: ls", hooks::group),
     cmd(
         &["skills", "sync"],
         "Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)",
