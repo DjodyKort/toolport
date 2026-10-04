@@ -11,6 +11,7 @@ pub mod bundle_io;
 pub mod bundle_json;
 pub mod bundle_ledger;
 pub mod bundle_store;
+pub mod bundle_use;
 pub mod compact;
 pub mod config;
 pub mod dedupe;
@@ -38,6 +39,8 @@ mod tests;
 mod tests_bundle;
 #[cfg(test)]
 mod tests_bundle_apply;
+#[cfg(test)]
+mod tests_bundle_use;
 #[cfg(test)]
 mod tests_compact;
 #[cfg(test)]

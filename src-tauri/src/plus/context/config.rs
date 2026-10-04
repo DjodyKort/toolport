@@ -136,6 +136,12 @@ pub struct ContextConfig {
         skip_serializing_if = "Vec::is_empty"
     )]
     pub inert_patterns: Vec<String>,
+    #[serde(
+        default,
+        rename = "bundleAutoApply",
+        skip_serializing_if = "std::ops::Not::not"
+    )]
+    pub bundle_auto_apply: bool,
 }
 
 impl Default for ContextConfig {
@@ -150,6 +156,7 @@ impl Default for ContextConfig {
             cf_wrapper_hash: None,
             source_roots: Vec::new(),
             inert_patterns: Vec::new(),
+            bundle_auto_apply: false,
         }
     }
 }
