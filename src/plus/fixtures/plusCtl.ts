@@ -1,10 +1,13 @@
-import type { CtlEnvelope, CtlResult } from "../bridge/ctl";
+import { emit } from "@tauri-apps/api/event";
+import { PLUS_CTL_EVENT, type CtlEnvelope, type CtlResult } from "../bridge/ctl";
+import { CtlReplyFailure, CtlReplyHeld } from "./ctlReply";
+import { loginsCtlFixtures } from "./logins";
 import {
   plusSourcesFixture,
   plusSourcesItemsFixture,
   plusSourcesRootFixture,
 } from "./sources";
-import { FixtureFailure, serversCtlFixtures } from "./servers";
+import { serversCtlFixtures } from "./servers";
 
 /** Envelope `data` the dev browser fixture returns per `toolportctl` argv (joined with spaces).
  * A command a screen runs needs a row here or the fixture rejects it as unimplemented. */
@@ -43,9 +46,11 @@ export const plusCtlFixtures = new Map<string, unknown>([
   ["server uninstall acme-erp --dry-run", uninstallPlan],
   ["attention ls", { counts: { needsYou: 3, look: 2, fyi: 0 }, items: [] }],
   ...serversCtlFixtures,
+  ...loginsCtlFixtures,
 ]);
 
 const jobs = new Map<string, string>();
+const held = new Map<string, (result: CtlResult) => void>();
 let counter = 0;
 
 export function plusCtlStart(argv: string[]): string {
@@ -54,15 +59,19 @@ export function plusCtlStart(argv: string[]): string {
     throw new Error(`Unimplemented fixture command: plus_ctl ${key}`);
   const job = `fixture-job-${++counter}`;
   jobs.set(job, key);
+  const reply = plusCtlFixtures.get(key);
+  if (reply instanceof CtlReplyHeld) {
+    reply.lines.forEach((line, index) => {
+      void emit(PLUS_CTL_EVENT, { job, seq: index + 1, kind: "stderr", line }).catch(
+        () => {},
+      );
+    });
+  }
   return job;
 }
 
-export function plusCtlResult(job: string): CtlResult {
-  const key = jobs.get(job);
-  if (key === undefined) throw new Error(`unknown job: ${job}`);
-  jobs.delete(job);
-  const reply = plusCtlFixtures.get(key);
-  const failure = reply instanceof FixtureFailure ? reply : null;
+function resultFor(job: string, key: string, reply: unknown): CtlResult {
+  const failure = reply instanceof CtlReplyFailure ? reply : null;
   const envelope: CtlEnvelope = failure
     ? {
         ok: false,
@@ -71,7 +80,12 @@ export function plusCtlResult(job: string): CtlResult {
         data: failure.data,
         error: { code: failure.code, message: failure.message },
       }
-    : { ok: true, command: key.split(" --")[0], schemaVersion: 1, data: reply };
+    : {
+        ok: true,
+        command: key.split(" --")[0],
+        schemaVersion: 1,
+        data: reply instanceof CtlReplyHeld ? reply.data : reply,
+      };
   return {
     job,
     exitCode: failure ? 1 : 0,
@@ -84,7 +98,34 @@ export function plusCtlResult(job: string): CtlResult {
   };
 }
 
+export function plusCtlResult(job: string): CtlResult {
+  const key = jobs.get(job);
+  if (key === undefined) throw new Error(`unknown job: ${job}`);
+  jobs.delete(job);
+  return resultFor(job, key, plusCtlFixtures.get(key));
+}
+
+/** A run that waits (a sign-in waiting for the browser) answers only once it is cancelled. */
+export function plusCtlHeld(job: string): Promise<CtlResult> | null {
+  const key = jobs.get(job);
+  if (key === undefined || !(plusCtlFixtures.get(key) instanceof CtlReplyHeld))
+    return null;
+  jobs.delete(job);
+  return new Promise((resolve) => held.set(job, resolve));
+}
+
 export function plusCtlCancel(job: string): null {
   jobs.delete(job);
+  held.get(job)?.({
+    job,
+    exitCode: null,
+    signal: null,
+    cancelled: true,
+    envelope: null,
+    parseError: null,
+    stderr: [],
+    truncated: false,
+  });
+  held.delete(job);
   return null;
 }

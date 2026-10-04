@@ -4,7 +4,12 @@ import { createRoot } from "react-dom/client";
 import { ClientLogo } from "@/components/ClientLogo";
 import { ServerLogo } from "@/components/ServerLogo";
 import type { Registry, SavingsSummary, ServerEntry } from "@/lib/types";
-import { plusCtlCancel, plusCtlResult, plusCtlStart } from "@/plus/fixtures/plusCtl";
+import {
+  plusCtlCancel,
+  plusCtlHeld,
+  plusCtlResult,
+  plusCtlStart,
+} from "@/plus/fixtures/plusCtl";
 import { plusInvokeFixtures } from "@/plus/fixtures/plusInvoke";
 import "../index.css";
 
@@ -134,8 +139,10 @@ mockIPC(
           throw error;
         }
       }
-      case "plus_ctl_result":
-        return plusCtlResult((args as { job: string }).job);
+      case "plus_ctl_result": {
+        const job = (args as { job: string }).job;
+        return plusCtlHeld(job) ?? plusCtlResult(job);
+      }
       case "plus_ctl_cancel":
         return plusCtlCancel((args as { job: string }).job);
       default:

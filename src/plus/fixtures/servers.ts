@@ -19,6 +19,7 @@ import type { ProfileInspectData } from "../types/profile";
 import type { ServerSearchData } from "../types/server";
 import type { StatusDoc } from "../servers/model";
 import { commandsFixture } from "./commandsRegistry";
+import { CtlReplyFailure } from "./ctlReply";
 import golden from "../../../src-tauri/tests/fixtures/ctl-envelopes/commands.json";
 
 /** A registry with every case of the Servers screen: servers that are connected, one that
@@ -26,17 +27,8 @@ import golden from "../../../src-tauri/tests/fixtures/ctl-envelopes/commands.jso
  * four clients, one of them with an orphan entry. The names are made up. Everything here has
  * the shape of the real `toolportctl --json` output (see `servers.test.ts`). */
 
-/** An answer the fixture gives as a failed envelope. */
-export class FixtureFailure {
-  constructor(
-    readonly code: string,
-    readonly message: string,
-    readonly data?: unknown,
-  ) {}
-}
-
 export const ctlFailure = (code: string, message: string, data?: unknown) =>
-  new FixtureFailure(code, message, data);
+  new CtlReplyFailure(code, message, data);
 
 export const commandsGolden = (golden as { envelope: { data: unknown } }).envelope
   .data as CommandsData;
