@@ -111,8 +111,10 @@ pub fn assert_golden(case: &str, actual: &Value) {
         )
     });
     if let Some(difference) = first_difference(&expected, actual) {
+        let shown: String = actual.to_string().chars().take(3000).collect();
         panic!(
             "envelope of `{case}` drifted from {}: {difference}\n\
+             actual: {shown}\n\
              a deliberate contract change: rerun with {BLESS_VAR}=1, review the diff, update the TS type",
             path_of(case).display()
         );
