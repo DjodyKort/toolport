@@ -605,6 +605,13 @@ impl Breaker {
             self.open_until = Some(now + BREAKER_COOLDOWN);
         }
     }
+
+    /// A fresh connection replaced the failed one without being tried. The next call
+    /// goes straight to it, and one more failure trips the circuit again.
+    fn replaced_connection(&mut self) {
+        self.consecutive_failures = BREAKER_FAILURE_THRESHOLD - 1;
+        self.open_until = None;
+    }
 }
 
 /// Why connecting a server failed, as the background retry needs it.
@@ -2124,6 +2131,8 @@ impl Router {
                         // that the plain breaker would otherwise fast-fail forever (its
                         // self-heal only fires when EVERY server is dead). Gated on the
                         // probe so a live server is never re-spawned on a transient blip.
+                        // A call that must not be replayed still gets the re-spawn but
+                        // returns its error, so the next caller finds a fresh connection.
                         if is_probe {
                             if cancel.is_some_and(CancelContext::is_cancelled) {
                                 return Err(
@@ -3746,6 +3755,153 @@ mod tests {
             BREAKER_FAILURE_THRESHOLD
         );
         cancellations.finish_client_request("uncertain-cancel");
+    }
+
+    /// Counts every `tools/call` and `resources/read` that reaches it; when `timing_out`
+    /// each one fails the way a read that outlived `requestTimeoutMs` does.
+    struct CountingTransport {
+        seen: Arc<AtomicU32>,
+        timing_out: bool,
+    }
+
+    impl Transport for CountingTransport {
+        fn request(&mut self, method: &str, _params: Value) -> Result<Value, TransportError> {
+            match method {
+                "initialize" => Ok(json!({
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": { "resources": {} }
+                })),
+                "tools/list" => Ok(json!({ "tools": [{ "name": "write" }] })),
+                "resources/list" => {
+                    Ok(json!({ "resources": [{ "uri": "probe://report", "name": "report" }] }))
+                }
+                "tools/call" | "resources/read" => {
+                    self.seen.fetch_add(1, Ordering::SeqCst);
+                    if self.timing_out {
+                        return Err(TransportError::Unavailable(
+                            "timed out waiting for 'tools/call' response".into(),
+                        ));
+                    }
+                    Ok(json!({
+                        "content": [{ "type": "text", "text": "written" }],
+                        "contents": [{ "uri": "probe://report", "text": "body" }]
+                    }))
+                }
+                _ => Ok(json!({})),
+            }
+        }
+
+        fn notify(&mut self, _method: &str, _params: Value) -> Result<(), TransportError> {
+            Ok(())
+        }
+    }
+
+    fn counting_server(seen: &Arc<AtomicU32>, timing_out: bool) -> DownstreamServer {
+        let mut server = DownstreamServer::connect(
+            "odh".into(),
+            Box::new(CountingTransport {
+                seen: Arc::clone(seen),
+                timing_out,
+            }),
+        )
+        .unwrap();
+        server.load_resources_prompts();
+        server
+    }
+
+    /// A router whose only server times out on every call, behind a breaker whose
+    /// cooldown has elapsed: the next call is the half-open probe. `respawn` is what
+    /// the reconnect factory hands back: its counter and whether it times out too, or
+    /// `None` for a re-spawn that fails.
+    fn probing_router(
+        seen_old: &Arc<AtomicU32>,
+        respawn: Option<(&Arc<AtomicU32>, bool)>,
+    ) -> (Router, Arc<AtomicU32>) {
+        let respawns = Arc::new(AtomicU32::new(0));
+        let counted = Arc::clone(&respawns);
+        let respawn = respawn.map(|(seen, timing_out)| (Arc::clone(seen), timing_out));
+        let reconnect: Reconnect = Box::new(move || {
+            counted.fetch_add(1, Ordering::SeqCst);
+            respawn
+                .as_ref()
+                .map(|(seen, timing_out)| counting_server(seen, *timing_out))
+        });
+        let mut router = Router::new();
+        router.add_with_reconnect(counting_server(seen_old, true), Some(reconnect));
+        let mut breaker = router.servers[0].breaker.lock().unwrap();
+        breaker.consecutive_failures = BREAKER_FAILURE_THRESHOLD;
+        breaker.open_until = None;
+        drop(breaker);
+        (router, respawns)
+    }
+
+    #[test]
+    fn a_probe_that_times_out_respawns_the_server_but_never_replays_the_tool_call() {
+        let (old, fresh) = (Arc::new(AtomicU32::new(0)), Arc::new(AtomicU32::new(0)));
+        let (router, respawns) = probing_router(&old, Some((&fresh, false)));
+
+        let err = router.route_call("odh__write", json!({})).unwrap_err();
+        assert!(err.contains("timed out"), "the caller gets the error: {err}");
+        assert_eq!(old.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            fresh.load(Ordering::SeqCst),
+            0,
+            "the re-spawned server must not receive the call again"
+        );
+        assert_eq!(respawns.load(Ordering::SeqCst), 1, "the server is still re-spawned");
+
+        let ok = router.route_call("odh__write", json!({})).unwrap();
+        assert_eq!(ok["content"][0]["text"], "written");
+        assert_eq!(fresh.load(Ordering::SeqCst), 1, "the next call uses the fresh server");
+        assert_eq!(old.load(Ordering::SeqCst), 1);
+        let mut breaker = router.servers[0].breaker.lock().unwrap();
+        assert_eq!(breaker.consecutive_failures, 0);
+        assert!(breaker.open_remaining(Instant::now()).is_none());
+    }
+
+    #[test]
+    fn a_failed_respawn_without_replay_leaves_the_circuit_open() {
+        let old = Arc::new(AtomicU32::new(0));
+        let (router, respawns) = probing_router(&old, None);
+
+        let err = router.route_call("odh__write", json!({})).unwrap_err();
+        assert!(err.contains("timed out"), "{err}");
+        assert_eq!(respawns.load(Ordering::SeqCst), 1);
+        assert_eq!(old.load(Ordering::SeqCst), 1);
+        let again = router.route_call("odh__write", json!({})).unwrap_err();
+        assert!(again.contains("temporarily unavailable"), "{again}");
+        assert_eq!(old.load(Ordering::SeqCst), 1, "fast-failed, not sent");
+    }
+
+    #[test]
+    fn a_probe_that_times_out_still_replays_a_resource_read_on_the_respawned_server() {
+        let (old, fresh) = (Arc::new(AtomicU32::new(0)), Arc::new(AtomicU32::new(0)));
+        let (router, respawns) = probing_router(&old, Some((&fresh, false)));
+
+        let read = router.read_resource("probe://report").unwrap();
+        assert_eq!(read["contents"][0]["text"], "body");
+        assert_eq!(old.load(Ordering::SeqCst), 1);
+        assert_eq!(fresh.load(Ordering::SeqCst), 1);
+        assert_eq!(respawns.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn a_replaced_connection_gets_exactly_one_failure_before_the_circuit_reopens() {
+        let t0 = Instant::now();
+        let mut breaker = Breaker::default();
+        for _ in 0..BREAKER_FAILURE_THRESHOLD {
+            breaker.record_failure(t0);
+        }
+        breaker.replaced_connection();
+        assert!(breaker.open_remaining(t0).is_none());
+        assert!(breaker.consecutive_failures < BREAKER_FAILURE_THRESHOLD);
+        breaker.record_failure(t0);
+        assert!(breaker.open_remaining(t0).is_some());
+
+        breaker.replaced_connection();
+        breaker.record_success();
+        breaker.record_failure(t0);
+        assert!(breaker.open_remaining(t0).is_none());
     }
 
     #[test]
