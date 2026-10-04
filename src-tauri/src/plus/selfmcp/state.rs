@@ -7,6 +7,8 @@ use super::backend::skills_repo;
 use super::content::path_safe;
 use super::ToolError;
 use crate::plus::args::{flag_or, list, str_arg, str_nonempty};
+use crate::plus::skills::agents::handlers as agent_handlers;
+use crate::plus::skills::styles::handlers as style_handlers;
 use crate::plus::skills::{repo_handlers, state_handlers};
 use serde_json::{json, Map, Value};
 use std::path::Path;
@@ -65,8 +67,32 @@ fn has_zip_extension(path: &Path) -> bool {
         .is_some_and(|ext| ext.eq_ignore_ascii_case("zip"))
 }
 
+fn read(args: &Value, handler: Handler) -> Outcome {
+    handler(Value::Object(request(args)?)).map_err(failed)
+}
+
 pub(super) fn skills_audit(args: &Value) -> Outcome {
-    repo_handlers::audit_handler(Value::Object(request(args)?)).map_err(failed)
+    read(args, repo_handlers::audit_handler)
+}
+
+pub(super) fn agents_audit(args: &Value) -> Outcome {
+    read(args, agent_handlers::audit_handler)
+}
+
+pub(super) fn agents_diff(args: &Value) -> Outcome {
+    read(args, agent_handlers::diff_handler)
+}
+
+pub(super) fn agents_status(args: &Value) -> Outcome {
+    read(args, agent_handlers::status_handler)
+}
+
+pub(super) fn styles_diff(args: &Value) -> Outcome {
+    read(args, style_handlers::diff_handler)
+}
+
+pub(super) fn styles_status(args: &Value) -> Outcome {
+    read(args, style_handlers::status_handler)
 }
 
 /// A bundle is only ever a new `.zip` in an existing directory; the core would overwrite any
@@ -174,4 +200,16 @@ pub(super) fn skills_resolve(args: &Value) -> Outcome {
         .into_iter()
         .collect();
     scoped(args, state_handlers::resolve_handler, &migrate)
+}
+
+pub(super) fn agents_clean(args: &Value) -> Outcome {
+    scoped(args, agent_handlers::clean_handler, &[])
+}
+
+pub(super) fn agents_uninstall(args: &Value) -> Outcome {
+    named(args, agent_handlers::uninstall_handler)
+}
+
+pub(super) fn styles_clean(args: &Value) -> Outcome {
+    scoped(args, style_handlers::clean_handler, &[])
 }

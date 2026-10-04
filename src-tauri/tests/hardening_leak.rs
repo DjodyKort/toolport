@@ -714,7 +714,9 @@ fn tool_args(name: &str, schema: &Value, world: &World) -> Value {
             &mut args,
             &[("bundle_path", json!(leak_bundle(world))), ("dry_run", json!(false))],
         ),
-        "skills_clean" | "skills_resolve" => set(&mut args, &[("dry_run", json!(false))]),
+        "skills_clean" | "skills_resolve" | "agents_clean" | "styles_clean" => {
+            set(&mut args, &[("dry_run", json!(false))])
+        }
         "skills_delete" => set(&mut args, &[("name", json!("fresh"))]),
         "agents_scaffold" => set(&mut args, &[("name", json!("fresh-agent"))]),
         "styles_scaffold" => set(&mut args, &[("name", json!("fresh-style"))]),
@@ -799,13 +801,18 @@ fn selfmcp_tools_and_resources_never_return_or_store_a_canary() {
             "skills_uninstall",
             json!({"name": "throwaway", "repo_path": repo, "dry_run": false, "confirm": true}),
         ),
+        ("agents_scaffold", json!({"name": "throwaway", "repo_path": repo})),
+        (
+            "agents_uninstall",
+            json!({"name": "throwaway", "repo_path": repo, "dry_run": false, "confirm": true}),
+        ),
     ] {
         let reply = session.call(name, args.clone());
         assert_eq!(reply["result"]["isError"], false, "{name} {args} -> {reply}");
     }
-    assert!(!std::path::Path::new(&world.repo)
-        .join("skills/throwaway")
-        .exists());
+    for tree in ["skills/throwaway", "agents/throwaway"] {
+        assert!(!std::path::Path::new(&world.repo).join(tree).exists());
+    }
     let resources = session.request("resources/list", json!({}));
     for resource in resources["result"]["resources"].as_array().unwrap() {
         let uri = resource["uri"].as_str().unwrap();

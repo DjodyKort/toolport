@@ -366,6 +366,46 @@ pub const TOOLS: &[ToolDef] = &[
         ]
     ),
     tool!(
+        "agents_diff",
+        1,
+        None,
+        "Compare the agents with the lockfile: new, modified, removed and unchanged",
+        [REPO],
+        state::agents_diff
+    ),
+    tool!(
+        "agents_audit",
+        1,
+        None,
+        "Scan agents for prompt injection and risky commands",
+        [REPO],
+        state::agents_audit
+    ),
+    tool!(
+        "agents_status",
+        1,
+        None,
+        "Show which synced agent outputs are present for each client",
+        [REPO],
+        state::agents_status
+    ),
+    tool!(
+        "agents_clean",
+        4,
+        UnlessDryRun,
+        "Remove the synced agent outputs; the lockfile stays; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [REPO, CLIENT, GLOBAL, DRY_ON],
+        state::agents_clean
+    ),
+    tool!(
+        "agents_uninstall",
+        4,
+        UnlessDryRun,
+        "Delete one agent from the repository with its synced outputs and lock entry; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [NAME, REPO, GLOBAL, DRY_ON],
+        state::agents_uninstall
+    ),
+    tool!(
         "agents_edit_body",
         3,
         Always,
@@ -415,6 +455,30 @@ pub const TOOLS: &[ToolDef] = &[
         Always,
         "Apply a style to tier-2 clients",
         [NAME, REPO, CLIENTS, DRY]
+    ),
+    tool!(
+        "styles_diff",
+        1,
+        None,
+        "Compare the styles with the lockfile: new, modified, removed and unchanged",
+        [REPO],
+        state::styles_diff
+    ),
+    tool!(
+        "styles_status",
+        1,
+        None,
+        "Show the styles synced to native clients and the applied style per client",
+        [REPO],
+        state::styles_status
+    ),
+    tool!(
+        "styles_clean",
+        4,
+        UnlessDryRun,
+        "Remove the synced style outputs and clear the applied styles; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [REPO, GLOBAL, DRY_ON],
+        state::styles_clean
     ),
     tool!(
         "styles_edit_body",

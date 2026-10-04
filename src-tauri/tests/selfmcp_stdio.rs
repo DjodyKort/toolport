@@ -20,7 +20,7 @@ use serde_json::{json, Value};
 
 const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
-const TOOL_COUNT: usize = 65;
+const TOOL_COUNT: usize = 73;
 const RESOURCE_COUNT: usize = 11;
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -486,10 +486,15 @@ fn tier_one_calls() -> BTreeMap<&'static str, Value> {
         ("skills_tap_list", json!({})),
         ("skills_search", json!({"query": "review"})),
         ("agents_list", json!({})),
+        ("agents_diff", json!({})),
+        ("agents_audit", json!({})),
+        ("agents_status", json!({})),
         ("agents_get", json!({"name": "helper"})),
         ("agents_lint", json!({})),
         ("agents_list_transpilers", json!({})),
         ("styles_list", json!({})),
+        ("styles_diff", json!({})),
+        ("styles_status", json!({})),
         ("styles_get", json!({"name": "plain"})),
         ("styles_lint", json!({})),
         ("styles_active", json!({})),
@@ -548,6 +553,11 @@ fn tier_one_tools_read_without_confirm_and_never_write() {
     assert_eq!(results["skills_search"]["tapCount"], 0);
     assert_eq!(results["skills_search"]["results"], json!([]));
     assert_eq!(results["agents_list"]["agents"][0]["name"], "helper");
+    assert_eq!(results["agents_diff"]["new"], json!(["helper"]));
+    assert_eq!(results["agents_audit"]["clean"], true);
+    assert_eq!(results["agents_status"]["lockfilePresent"], false);
+    assert_eq!(results["styles_diff"]["new"], json!(["plain"]));
+    assert_eq!(results["styles_status"]["lockfilePresent"], false);
     assert_eq!(results["styles_list"]["styles"][0]["name"], "plain");
     assert!(results["skills_list_transpilers"]["transpilers"]
         .as_array()
@@ -901,6 +911,70 @@ fn the_destructive_skills_tools_plan_by_default_and_apply_only_when_confirmed() 
     assert_eq!(cleaned.ok()["dryRun"], false);
     assert!(!output.exists() && !lockfile.exists());
     assert_eq!(std::fs::read(world.skill_file()).unwrap(), original);
+    assert!(client.close().success());
+}
+
+#[test]
+fn the_agent_and_style_clean_and_uninstall_tools_plan_by_default_and_apply_when_confirmed() {
+    let world = World::new("agent-style");
+    let mut client = Client::spawn(&world);
+    client.handshake();
+    let listed = listed_tools(&mut client);
+    for name in ["agents_clean", "agents_uninstall", "styles_clean"] {
+        let tool = listed.iter().find(|t| t["name"] == name).unwrap();
+        assert_eq!(
+            tool["inputSchema"]["properties"]["dry_run"]["default"], true,
+            "{name}"
+        );
+        assert!(
+            tool["description"]
+                .as_str()
+                .unwrap()
+                .contains("dry_run is on by default"),
+            "{name}"
+        );
+    }
+    client
+        .call("agents_sync", json!({"client_keys": ["claude-code"]}))
+        .ok();
+    client.call("styles_sync_tier1", json!({})).ok();
+    let agent_output = world.home.join(".claude/agents/helper.md");
+    let style_output = world.home.join(".claude/output-styles/plain.md");
+    assert!(agent_output.is_file() && style_output.is_file());
+
+    let before = world.snapshot();
+    for (name, args) in [
+        ("agents_clean", json!({})),
+        ("agents_uninstall", json!({"name": "helper"})),
+        ("styles_clean", json!({})),
+    ] {
+        assert_eq!(client.call(name, args.clone()).ok()["dryRun"], true, "{name}");
+        let mut apply = args;
+        apply["dry_run"] = json!(false);
+        assert_eq!(client.call(name, apply).error_kind(), "refused", "{name}");
+        assert_eq!(world.snapshot(), before, "{name} must not write by default");
+    }
+    let tampered = client.call(
+        "agents_uninstall",
+        json!({"name": "../skills/demo", "dry_run": false, "confirm": true}),
+    );
+    assert_eq!(tampered.error_kind(), "invalid_arguments");
+    assert_eq!(world.snapshot(), before);
+
+    let cleaned = client.call("styles_clean", json!({"dry_run": false, "confirm": true}));
+    assert_eq!(cleaned.ok()["dryRun"], false);
+    assert!(!style_output.exists() && agent_output.is_file());
+    let cleaned = client.call("agents_clean", json!({"dry_run": false, "confirm": true}));
+    assert_eq!(cleaned.ok()["dryRun"], false);
+    assert!(!agent_output.exists());
+    assert!(world.repo.join("agents/helper/AGENT.md").is_file());
+    let gone = client.call(
+        "agents_uninstall",
+        json!({"name": "helper", "dry_run": false, "confirm": true}),
+    );
+    assert_eq!(gone.ok()["dryRun"], false);
+    assert!(!world.repo.join("agents/helper").exists());
+    assert!(world.skill_file().is_file());
     assert!(client.close().success());
 }
 

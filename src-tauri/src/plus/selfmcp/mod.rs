@@ -16,6 +16,8 @@ pub mod register;
 mod servers;
 mod state;
 #[cfg(test)]
+mod state_agent_style_tests;
+#[cfg(test)]
 mod state_tests;
 #[cfg(test)]
 mod tap_tools_tests;

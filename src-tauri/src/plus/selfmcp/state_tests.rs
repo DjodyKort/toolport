@@ -4,24 +4,24 @@ use crate::plus::skills::LOCKFILE_NAME;
 use crate::plus::testutil::tree_snapshot;
 use serde_json::{json, Value};
 
-fn call(name: &str, args: Value) -> Result<Value, ToolError> {
+pub(super) fn call(name: &str, args: Value) -> Result<Value, ToolError> {
     call_tool(name, &args)
 }
 
-fn kind(result: Result<Value, ToolError>) -> &'static str {
+pub(super) fn kind(result: Result<Value, ToolError>) -> &'static str {
     match result {
         Ok(_) => "ok",
         Err(e) => e.kind,
     }
 }
 
-fn apply(name: &str, mut args: Value) -> Result<Value, ToolError> {
+pub(super) fn apply(name: &str, mut args: Value) -> Result<Value, ToolError> {
     args["dry_run"] = json!(false);
     args["confirm"] = json!(true);
     call(name, args)
 }
 
-fn without_confirm(name: &str, mut args: Value) -> Result<Value, ToolError> {
+pub(super) fn without_confirm(name: &str, mut args: Value) -> Result<Value, ToolError> {
     args["dry_run"] = json!(false);
     call(name, args)
 }
@@ -34,7 +34,7 @@ fn lockfile(fixture: &Fixture) -> std::path::PathBuf {
     fixture.dir.join(LOCKFILE_NAME)
 }
 
-fn strings(value: &Value) -> Vec<String> {
+pub(super) fn strings(value: &Value) -> Vec<String> {
     value
         .as_array()
         .unwrap()
