@@ -147,13 +147,14 @@ pub fn scan(
 ) -> ScanReport {
     let started = Instant::now();
     let scale = if opts.deep { 2 } else { 1 };
+    let time_scale = scale * budget::time_scale();
     let cache = match data_dir {
         Some(dir) => Cache::open(cache::path_in(dir), opts.refresh),
         None => Cache::memory(),
     };
     let now = fsx::now_zulu();
     let probe = Budget::new(
-        budget::DETECTOR_TIME * scale,
+        budget::DETECTOR_TIME * time_scale,
         budget::MAX_DEPTH * scale as usize,
         None,
     );
@@ -169,13 +170,13 @@ pub fn scan(
             }
         }
         let elapsed = started.elapsed();
-        let total = budget::TOTAL_TIME * scale;
+        let total = budget::TOTAL_TIME * time_scale;
         let own = opts
             .budgets_ms
             .iter()
             .find(|(name, _)| name == id)
             .map(|(_, ms)| Duration::from_millis(*ms))
-            .unwrap_or(budget::DETECTOR_TIME * scale);
+            .unwrap_or(budget::DETECTOR_TIME * time_scale);
         let allowed = own.min(total.saturating_sub(elapsed));
         let budget = Budget::new(
             allowed,

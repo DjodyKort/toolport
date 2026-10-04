@@ -8,6 +8,19 @@ pub const DETECTOR_TIME: Duration = Duration::from_secs(2);
 pub const TOTAL_TIME: Duration = Duration::from_secs(10);
 pub const MAX_DEPTH: usize = 4;
 
+/// Multiplies every detector's time allowance. Tests on slow shared runners set it so a cold
+/// `git` start-up never turns a golden into a timing check; nobody else needs it.
+pub fn time_scale() -> u32 {
+    if cfg!(test) {
+        return 20;
+    }
+    std::env::var("TOOLPORT_SOURCES_TIME_SCALE")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .filter(|n| *n >= 1)
+        .unwrap_or(1)
+}
+
 pub struct Budget {
     deadline: Instant,
     max_depth: usize,

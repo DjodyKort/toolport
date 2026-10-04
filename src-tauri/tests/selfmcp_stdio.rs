@@ -165,6 +165,7 @@ impl Client {
             .env("XDG_CACHE_HOME", world.home.join(".cache"))
             .env("TOOLPORT_DATA_DIR", &world.data)
             .env("TOOLPORT_SECRET_KEY", "ab".repeat(32))
+            .env("TOOLPORT_SOURCES_TIME_SCALE", "20")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
