@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,13 +47,19 @@ function DeploySection({
   write,
   flags,
   setFlags,
+  version,
 }: {
   write: WriteControl;
   flags: DeployFlags;
   setFlags: (flags: DeployFlags) => void;
+  version: number;
 }) {
   const extra = deployArgv(flags);
   const plan = useRead<ContextPlanData>(["context", "plan", ...extra]);
+  const { reload } = plan;
+  useEffect(() => {
+    if (version > 0) reload();
+  }, [version, reload]);
   const apply = (verb: "apply" | "sync") =>
     write.begin({
       command: `context ${verb}`,
@@ -560,7 +566,7 @@ export function LaunchTab() {
   useRestoreFocus();
   return (
     <div className="flex flex-col gap-4">
-      <DeploySection write={write} flags={flags} setFlags={setFlags} />
+      <DeploySection write={write} flags={flags} setFlags={setFlags} version={version} />
       <ProfilesSection
         write={write}
         profiles={profiles}
