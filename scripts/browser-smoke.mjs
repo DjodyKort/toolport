@@ -220,6 +220,47 @@ try {
       await expect(shot.getByRole("tablist", { name: "Library sections" })).toBeVisible();
       await guiShot(shot, "library-light");
     }
+    await shot.getByRole("button", { name: "Settings", exact: true }).click();
+    await shot.getByRole("button", { name: "Open Logins & secrets" }).click();
+    await expect(shot.getByRole("table", { name: "Logins" })).toBeVisible();
+    await expect(shot.getByText("Login needed").first()).toBeVisible();
+    await shot.evaluate(() => document.fonts.ready);
+    await guiShot(shot, `logins-${theme}`);
+    if (theme === "light") {
+      await shot.getByRole("button", { name: "Sign in to issue-tracker" }).click();
+      const signIn = shot.getByRole("dialog", { name: "Sign in to issue-tracker" });
+      await expect(signIn.getByRole("button", { name: "Copy address" })).toBeVisible();
+      await guiShot(shot, "logins-signin-light");
+      await signIn.getByRole("button", { name: "Cancel" }).click();
+      await expect(
+        signIn.getByText("Cancelled. Nothing more was started."),
+      ).toBeVisible();
+      await signIn.getByRole("button", { name: "Close", exact: true }).last().click();
+      await shot.getByRole("tab", { name: "Secrets" }).click();
+      await expect(shot.getByRole("list", { name: "Secrets" })).toBeVisible();
+      await expect(shot.getByText("unset", { exact: true })).toBeVisible();
+      await guiShot(shot, "secrets-light");
+      await shot
+        .getByRole("button", { name: "Set ERP_WEBHOOK_SECRET of acme-erp" })
+        .click();
+      const setDialog = shot.getByRole("dialog", { name: "Set ERP_WEBHOOK_SECRET" });
+      await expect(setDialog.getByLabel("New value")).toBeVisible();
+      await guiShot(shot, "secrets-set-light");
+      await setDialog.getByRole("button", { name: "Cancel" }).click();
+      await shot.getByRole("button", { name: "Reveal ERP_API_KEY of acme-erp" }).click();
+      const reveal = shot.getByRole("dialog", { name: "Reveal ERP_API_KEY?" });
+      await expect(
+        reveal.getByRole("button", { name: "Reveal for 10 seconds" }),
+      ).toBeVisible();
+      await expect(shot.getByText("fixture-vaulted-value")).toHaveCount(0);
+      await guiShot(shot, "secrets-reveal-light");
+      await reveal.getByRole("button", { name: "Cancel" }).click();
+      await shot.getByRole("tab", { name: "Integrations" }).click();
+      await expect(shot.getByRole("region", { name: "Statusline output" })).toBeVisible();
+      await expect(shot.getByRole("region", { name: "Hook output" })).toBeVisible();
+      await shot.evaluate(() => document.fonts.ready);
+      await guiShot(shot, "integrations-light");
+    }
     expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
     await shot.close();
   }
