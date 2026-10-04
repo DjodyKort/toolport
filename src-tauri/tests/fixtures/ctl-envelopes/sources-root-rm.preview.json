@@ -1,0 +1,31 @@
+{
+  "argv": ["sources", "root", "rm", "{home}/dups", "--dry-run"],
+  "envelope": {
+    "command": "sources root rm",
+    "data": {
+      "dryRun": true,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "remove <WORLD>/home/dups from sourceRoots",
+            "diff": {
+              "after": "[]",
+              "before": "[\"~/dups\"]"
+            },
+            "keys": ["sourceRoots"],
+            "op": "merge",
+            "path": "<WORLD>/home/.config/mcpm/context.json"
+          }
+        ],
+        "summary": "remove source root <WORLD>/home/dups",
+        "undo": "toolportctl sources root add <WORLD>/home/dups",
+        "warnings": []
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

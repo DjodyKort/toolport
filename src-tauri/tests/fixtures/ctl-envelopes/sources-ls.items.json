@@ -1,0 +1,1067 @@
+{
+  "argv": ["sources", "ls", "--items"],
+  "envelope": {
+    "command": "sources ls",
+    "data": {
+      "generatedAt": "<TIME>",
+      "items": [
+        {
+          "audit": "clean",
+          "kind": "skill",
+          "lazy": true,
+          "name": "odh",
+          "origin": {
+            "kind": "repo",
+            "name": "odh"
+          },
+          "path": "origin/main:.claude/skills/odh/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "repo:odh",
+          "tokens": {
+            "basis": "estimate",
+            "value": 6
+          },
+          "writable": false
+        },
+        {
+          "audit": "clean",
+          "kind": "skill",
+          "lazy": true,
+          "name": "odh-develop",
+          "origin": {
+            "kind": "repo",
+            "name": "odh"
+          },
+          "path": "origin/main:.claude/skills/odh-develop/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "repo:odh",
+          "tokens": {
+            "basis": "estimate",
+            "value": 10
+          },
+          "writable": false
+        },
+        {
+          "audit": "clean",
+          "kind": "skill",
+          "lazy": true,
+          "name": "v18-local",
+          "origin": {
+            "kind": "repo",
+            "name": "odh"
+          },
+          "path": "<WORLD>/home/work/odh/.claude/skills/v18-local/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "repo:odh",
+          "tokens": {
+            "basis": "estimate",
+            "value": 9
+          },
+          "writable": false
+        },
+        {
+          "audit": "clean",
+          "kind": "memory",
+          "lazy": false,
+          "name": "CLAUDE.md",
+          "origin": {
+            "kind": "repo",
+            "name": "odh"
+          },
+          "path": "<WORLD>/home/work/odh/CLAUDE.md",
+          "shadowedBy": null,
+          "sourceId": "repo:odh",
+          "tokens": {
+            "basis": "estimate",
+            "value": 7
+          },
+          "writable": false
+        },
+        {
+          "audit": "clean",
+          "kind": "skill",
+          "lazy": true,
+          "name": "acme-skill",
+          "origin": {
+            "kind": "client",
+            "name": "acme"
+          },
+          "path": "<WORLD>/home/work/odh/clients/acme/.claude/skills/acme-skill/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "client:acme",
+          "tokens": {
+            "basis": "estimate",
+            "value": 7
+          },
+          "writable": false
+        },
+        {
+          "audit": "high",
+          "kind": "skill",
+          "lazy": true,
+          "name": "risky",
+          "origin": {
+            "kind": "client",
+            "name": "acme"
+          },
+          "path": "<WORLD>/home/work/odh/clients/acme/.claude/skills/risky/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "client:acme",
+          "tokens": {
+            "basis": "estimate",
+            "value": 7
+          },
+          "writable": false
+        },
+        {
+          "audit": "clean",
+          "kind": "command",
+          "lazy": true,
+          "name": "acme-cmd",
+          "origin": {
+            "kind": "client",
+            "name": "acme"
+          },
+          "path": "<WORLD>/home/work/odh/clients/acme/.claude/commands/acme-cmd.md",
+          "shadowedBy": null,
+          "sourceId": "client:acme",
+          "tokens": {
+            "basis": "estimate",
+            "value": 5
+          },
+          "writable": false
+        },
+        {
+          "audit": "clean",
+          "kind": "memory",
+          "lazy": false,
+          "name": "CLAUDE.md",
+          "origin": {
+            "kind": "client",
+            "name": "acme"
+          },
+          "path": "<WORLD>/home/work/odh/clients/acme/CLAUDE.md",
+          "shadowedBy": null,
+          "sourceId": "client:acme",
+          "tokens": {
+            "basis": "estimate",
+            "value": 9
+          },
+          "writable": false
+        },
+        {
+          "audit": "unchecked",
+          "kind": "skill",
+          "lazy": true,
+          "name": "odoo-api",
+          "origin": {
+            "kind": "vendored",
+            "name": "repos/core/odoo-20.0/skills"
+          },
+          "path": "<WORLD>/home/work/odh/repos/core/odoo-20.0/skills/odoo-api/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "vendored:repos/core/odoo-20.0/skills",
+          "tokens": {
+            "basis": "estimate",
+            "value": 6
+          },
+          "writable": false
+        },
+        {
+          "audit": "unchecked",
+          "kind": "skill",
+          "lazy": true,
+          "name": "odoo-orm",
+          "origin": {
+            "kind": "vendored",
+            "name": "repos/core/odoo-20.0/skills"
+          },
+          "path": "<WORLD>/home/work/odh/repos/core/odoo-20.0/skills/odoo-orm/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "vendored:repos/core/odoo-20.0/skills",
+          "tokens": {
+            "basis": "estimate",
+            "value": 6
+          },
+          "writable": false
+        },
+        {
+          "audit": "unchecked",
+          "kind": "skill",
+          "lazy": true,
+          "name": "stub-gen",
+          "origin": {
+            "kind": "vendored",
+            "name": "repos/vve-stubs/skills"
+          },
+          "path": "<WORLD>/home/work/odh/repos/vve-stubs/skills/stub-gen/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "vendored:repos/vve-stubs/skills",
+          "tokens": {
+            "basis": "estimate",
+            "value": 6
+          },
+          "writable": false
+        },
+        {
+          "audit": "unchecked",
+          "kind": "skill",
+          "lazy": true,
+          "name": "ext-skill",
+          "origin": {
+            "kind": "vendored",
+            "name": "vendor/ext-skills/skills"
+          },
+          "path": "<WORLD>/home/work/odh/vendor/ext-skills/skills/ext-skill/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "vendored:vendor/ext-skills/skills",
+          "tokens": {
+            "basis": "estimate",
+            "value": 6
+          },
+          "writable": false
+        },
+        {
+          "audit": "unchecked",
+          "kind": "skill",
+          "lazy": true,
+          "name": "alpha-skill",
+          "origin": {
+            "kind": "plugin",
+            "name": "alpha@market"
+          },
+          "path": "<WORLD>/home/.claude/plugins/cache/market/alpha/1.0.0/skills/alpha-skill/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "plugin:alpha@market",
+          "tokens": {
+            "basis": "estimate",
+            "value": 8
+          },
+          "writable": false
+        },
+        {
+          "audit": "unchecked",
+          "kind": "command",
+          "lazy": true,
+          "name": "alpha-cmd",
+          "origin": {
+            "kind": "plugin",
+            "name": "alpha@market"
+          },
+          "path": "<WORLD>/home/.claude/plugins/cache/market/alpha/1.0.0/commands/alpha-cmd.md",
+          "shadowedBy": null,
+          "sourceId": "plugin:alpha@market",
+          "tokens": {
+            "basis": "estimate",
+            "value": 6
+          },
+          "writable": false
+        },
+        {
+          "audit": "unchecked",
+          "kind": "agent",
+          "lazy": true,
+          "name": "alpha-agent",
+          "origin": {
+            "kind": "plugin",
+            "name": "alpha@market"
+          },
+          "path": "<WORLD>/home/.claude/plugins/cache/market/alpha/1.0.0/agents/alpha-agent.md",
+          "shadowedBy": null,
+          "sourceId": "plugin:alpha@market",
+          "tokens": {
+            "basis": "estimate",
+            "value": 6
+          },
+          "writable": false
+        },
+        {
+          "audit": "unchecked",
+          "kind": "skill",
+          "lazy": true,
+          "name": "beta-skill",
+          "origin": {
+            "kind": "plugin",
+            "name": "beta@market"
+          },
+          "path": "<WORLD>/home/.claude/plugins/cache/market/beta/2.0.0/skills/beta-skill/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "plugin:beta@market",
+          "tokens": {
+            "basis": "estimate",
+            "value": 7
+          },
+          "writable": false
+        },
+        {
+          "audit": "unchecked",
+          "kind": "command",
+          "lazy": true,
+          "name": "odoo-upgrade",
+          "origin": {
+            "kind": "org",
+            "name": "corp-tools"
+          },
+          "path": "<WORLD>/home/.claude/commands/odoo-upgrade.md",
+          "shadowedBy": null,
+          "sourceId": "org",
+          "tokens": {
+            "basis": "estimate",
+            "value": 5
+          },
+          "writable": false
+        },
+        {
+          "audit": "unchecked",
+          "kind": "command",
+          "lazy": true,
+          "name": "ship",
+          "origin": {
+            "kind": "org",
+            "name": "corp-tools"
+          },
+          "path": "<WORLD>/home/.claude/commands/ship.md",
+          "shadowedBy": null,
+          "sourceId": "org",
+          "tokens": {
+            "basis": "estimate",
+            "value": 2
+          },
+          "writable": false
+        },
+        {
+          "audit": "unchecked",
+          "kind": "memory",
+          "lazy": false,
+          "name": "CLAUDE.md",
+          "origin": {
+            "kind": "org",
+            "name": "corp-tools"
+          },
+          "path": "<WORLD>/home/.claude/CLAUDE.md",
+          "shadowedBy": null,
+          "sourceId": "org",
+          "tokens": {
+            "basis": "estimate",
+            "value": 9
+          },
+          "writable": false
+        },
+        {
+          "audit": "unchecked",
+          "kind": "skill",
+          "lazy": true,
+          "name": "docx",
+          "origin": {
+            "kind": "account",
+            "name": "account"
+          },
+          "path": "<WORLD>/home/.claude/skills/synced/0f8e2c5a-1b34-4c6d-9a7e-5d2b8c1f3e90/manifest.json",
+          "shadowedBy": null,
+          "sourceId": "account",
+          "tokens": {
+            "basis": "estimate",
+            "value": 6
+          },
+          "writable": false
+        },
+        {
+          "audit": "unchecked",
+          "kind": "skill",
+          "lazy": true,
+          "name": "pdf",
+          "origin": {
+            "kind": "account",
+            "name": "account"
+          },
+          "path": "<WORLD>/home/.claude/skills/synced/0f8e2c5a-1b34-4c6d-9a7e-5d2b8c1f3e90/skills/pdf/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "account",
+          "tokens": {
+            "basis": "estimate",
+            "value": 6
+          },
+          "writable": false
+        },
+        {
+          "audit": "unchecked",
+          "kind": "skill",
+          "lazy": true,
+          "name": "new-local",
+          "origin": {
+            "kind": "library",
+            "name": "ai-skills"
+          },
+          "path": "<WORLD>/home/lib/ai-skills/skills/new-local/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "library",
+          "tokens": {
+            "basis": "estimate",
+            "value": 6
+          },
+          "writable": true
+        },
+        {
+          "audit": "unchecked",
+          "kind": "skill",
+          "lazy": true,
+          "name": "odoo-upgrade",
+          "origin": {
+            "kind": "library",
+            "name": "ai-skills"
+          },
+          "path": "<WORLD>/home/lib/ai-skills/skills/odoo-upgrade/SKILL.md",
+          "shadowedBy": "org:command:odoo-upgrade",
+          "sourceId": "library",
+          "tokens": {
+            "basis": "estimate",
+            "value": 13
+          },
+          "writable": true
+        },
+        {
+          "audit": "unchecked",
+          "kind": "skill",
+          "lazy": true,
+          "name": "old-style",
+          "origin": {
+            "kind": "library",
+            "name": "ai-skills"
+          },
+          "path": "<WORLD>/home/lib/ai-skills/skills/old-style/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "library",
+          "tokens": {
+            "basis": "estimate",
+            "value": 11
+          },
+          "writable": true
+        },
+        {
+          "audit": "unchecked",
+          "kind": "skill",
+          "lazy": true,
+          "name": "review",
+          "origin": {
+            "kind": "library",
+            "name": "ai-skills"
+          },
+          "path": "<WORLD>/home/lib/ai-skills/skills/review/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "library",
+          "tokens": {
+            "basis": "estimate",
+            "value": 9
+          },
+          "writable": true
+        },
+        {
+          "audit": "unchecked",
+          "kind": "agent",
+          "lazy": true,
+          "name": "helper",
+          "origin": {
+            "kind": "library",
+            "name": "ai-skills"
+          },
+          "path": "<WORLD>/home/lib/ai-skills/agents/helper/AGENT.md",
+          "shadowedBy": null,
+          "sourceId": "library",
+          "tokens": {
+            "basis": "estimate",
+            "value": 5
+          },
+          "writable": true
+        },
+        {
+          "audit": "unchecked",
+          "kind": "rule",
+          "lazy": false,
+          "name": "style",
+          "origin": {
+            "kind": "library",
+            "name": "ai-skills"
+          },
+          "path": "<WORLD>/home/lib/ai-skills/rules/style/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "library",
+          "tokens": {
+            "basis": "estimate",
+            "value": 21
+          },
+          "writable": true
+        },
+        {
+          "audit": "unchecked",
+          "kind": "skill",
+          "lazy": true,
+          "name": "tap-skill",
+          "origin": {
+            "kind": "tap",
+            "name": "acme-tools"
+          },
+          "path": "<WORLD>/data/taps/acme-tools/skills/tap-skill/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "tap:acme-tools",
+          "tokens": {
+            "basis": "estimate",
+            "value": 7
+          },
+          "writable": false
+        },
+        {
+          "audit": "unchecked",
+          "kind": "skill",
+          "lazy": true,
+          "name": "hoot-test",
+          "origin": {
+            "kind": "loose",
+            "name": "~/.claude"
+          },
+          "path": "<WORLD>/home/.claude/skills/hoot-test/SKILL.md",
+          "shadowedBy": null,
+          "sourceId": "loose",
+          "tokens": {
+            "basis": "estimate",
+            "value": 7
+          },
+          "writable": true
+        },
+        {
+          "audit": "unchecked",
+          "kind": "command",
+          "lazy": true,
+          "name": "moodle-token",
+          "origin": {
+            "kind": "loose",
+            "name": "~/.claude"
+          },
+          "path": "<WORLD>/home/.claude/commands/moodle-token.md",
+          "shadowedBy": null,
+          "sourceId": "loose",
+          "tokens": {
+            "basis": "estimate",
+            "value": 6
+          },
+          "writable": true
+        },
+        {
+          "audit": "unchecked",
+          "kind": "agent",
+          "lazy": true,
+          "name": "scratch",
+          "origin": {
+            "kind": "loose",
+            "name": "~/.claude"
+          },
+          "path": "<WORLD>/home/.claude/agents/scratch.md",
+          "shadowedBy": null,
+          "sourceId": "loose",
+          "tokens": {
+            "basis": "estimate",
+            "value": 6
+          },
+          "writable": true
+        },
+        {
+          "audit": "unchecked",
+          "kind": "memory",
+          "lazy": false,
+          "name": "CLAUDE.md",
+          "origin": {
+            "kind": "inert",
+            "name": "_claude"
+          },
+          "path": "<WORLD>/home/work/odh/clients/acme/_claude/CLAUDE.md",
+          "shadowedBy": null,
+          "sourceId": "inert",
+          "tokens": {
+            "basis": "estimate",
+            "value": 9
+          },
+          "writable": false
+        }
+      ],
+      "partial": false,
+      "skipped": [],
+      "sources": [
+        {
+          "counts": {
+            "agent": 0,
+            "command": 0,
+            "memory": 1,
+            "rule": 0,
+            "skill": 3
+          },
+          "detector": "repo",
+          "freshness": {
+            "ahead": 0,
+            "behind": 114,
+            "inCheckout": false,
+            "lastSync": "<TIME>",
+            "ref": "origin/main"
+          },
+          "id": "repo:odh",
+          "managedBy": null,
+          "origin": {
+            "kind": "repo",
+            "name": "odh"
+          },
+          "owner": "project",
+          "root": "<WORLD>/home/work/odh",
+          "status": {
+            "checkedAt": "<TIME>",
+            "detail": "114 commit(s) behind origin/main; 2 item(s) only on origin/main",
+            "state": "behind"
+          },
+          "tokens": {
+            "basis": "estimate",
+            "value": 32
+          },
+          "visible": {
+            "skill": 3,
+            "skillTotal": 3
+          },
+          "warnings": ["2 item(s) exist only on the remote branch, not in the checkout"],
+          "writable": false
+        },
+        {
+          "counts": {
+            "agent": 0,
+            "command": 1,
+            "memory": 1,
+            "rule": 0,
+            "skill": 2
+          },
+          "detector": "client",
+          "freshness": null,
+          "id": "client:acme",
+          "managedBy": null,
+          "origin": {
+            "kind": "client",
+            "name": "acme"
+          },
+          "owner": "project",
+          "root": "<WORLD>/home/work/odh/clients/acme",
+          "status": {
+            "checkedAt": "<TIME>",
+            "detail": "no remote branch to compare with",
+            "state": "ok"
+          },
+          "tokens": {
+            "basis": "estimate",
+            "value": 28
+          },
+          "visible": {
+            "skill": 2,
+            "skillTotal": 2
+          },
+          "warnings": [
+            "1 item(s) with high-severity audit findings; nothing was changed"
+          ],
+          "writable": false
+        },
+        {
+          "counts": {
+            "agent": 0,
+            "command": 0,
+            "memory": 0,
+            "rule": 0,
+            "skill": 2
+          },
+          "detector": "vendored",
+          "freshness": null,
+          "id": "vendored:repos/core/odoo-20.0/skills",
+          "managedBy": null,
+          "origin": {
+            "kind": "vendored",
+            "name": "repos/core/odoo-20.0/skills"
+          },
+          "owner": "third-party",
+          "root": "<WORLD>/home/work/odh/repos/core/odoo-20.0/skills",
+          "status": {
+            "checkedAt": "<TIME>",
+            "detail": "2 skill folder(s) under repos/core/odoo-20.0/skills",
+            "state": "ok"
+          },
+          "tokens": {
+            "basis": "estimate",
+            "value": 12
+          },
+          "visible": {
+            "skill": 2,
+            "skillTotal": 2
+          },
+          "warnings": [],
+          "writable": false
+        },
+        {
+          "counts": {
+            "agent": 0,
+            "command": 0,
+            "memory": 0,
+            "rule": 0,
+            "skill": 1
+          },
+          "detector": "vendored",
+          "freshness": null,
+          "id": "vendored:repos/vve-stubs/skills",
+          "managedBy": null,
+          "origin": {
+            "kind": "vendored",
+            "name": "repos/vve-stubs/skills"
+          },
+          "owner": "third-party",
+          "root": "<WORLD>/home/work/odh/repos/vve-stubs/skills",
+          "status": {
+            "checkedAt": "<TIME>",
+            "detail": "1 skill folder(s) under repos/vve-stubs/skills",
+            "state": "ok"
+          },
+          "tokens": {
+            "basis": "estimate",
+            "value": 6
+          },
+          "visible": {
+            "skill": 1,
+            "skillTotal": 1
+          },
+          "warnings": [],
+          "writable": false
+        },
+        {
+          "counts": {
+            "agent": 0,
+            "command": 0,
+            "memory": 0,
+            "rule": 0,
+            "skill": 1
+          },
+          "detector": "vendored",
+          "freshness": null,
+          "id": "vendored:vendor/ext-skills/skills",
+          "managedBy": null,
+          "origin": {
+            "kind": "vendored",
+            "name": "vendor/ext-skills/skills"
+          },
+          "owner": "third-party",
+          "root": "<WORLD>/home/work/odh/vendor/ext-skills/skills",
+          "status": {
+            "checkedAt": "<TIME>",
+            "detail": "1 skill folder(s) under vendor/ext-skills/skills",
+            "state": "ok"
+          },
+          "tokens": {
+            "basis": "estimate",
+            "value": 6
+          },
+          "visible": {
+            "skill": 1,
+            "skillTotal": 1
+          },
+          "warnings": [],
+          "writable": false
+        },
+        {
+          "counts": {
+            "agent": 1,
+            "command": 1,
+            "memory": 0,
+            "rule": 0,
+            "skill": 1
+          },
+          "detector": "plugin",
+          "enabled": true,
+          "freshness": null,
+          "id": "plugin:alpha@market",
+          "managedBy": "marketplace",
+          "origin": {
+            "kind": "plugin",
+            "name": "alpha@market"
+          },
+          "owner": "third-party",
+          "root": "<WORLD>/home/.claude/plugins/cache/market/alpha/1.0.0",
+          "status": {
+            "checkedAt": "<TIME>",
+            "detail": "1.0.0; enabled in user settings",
+            "state": "ok"
+          },
+          "tokens": {
+            "basis": "estimate",
+            "value": 20
+          },
+          "visible": {
+            "skill": 1,
+            "skillTotal": 1
+          },
+          "warnings": [],
+          "writable": false
+        },
+        {
+          "counts": {
+            "agent": 0,
+            "command": 0,
+            "memory": 0,
+            "rule": 0,
+            "skill": 1
+          },
+          "detector": "plugin",
+          "enabled": false,
+          "freshness": null,
+          "id": "plugin:beta@market",
+          "managedBy": "marketplace",
+          "origin": {
+            "kind": "plugin",
+            "name": "beta@market"
+          },
+          "owner": "third-party",
+          "root": "<WORLD>/home/.claude/plugins/cache/market/beta/2.0.0",
+          "status": {
+            "checkedAt": "<TIME>",
+            "detail": "2.0.0; off (user)",
+            "state": "ok"
+          },
+          "tokens": {
+            "basis": "estimate",
+            "value": 7
+          },
+          "visible": {
+            "skill": 1,
+            "skillTotal": 1
+          },
+          "warnings": [],
+          "writable": false
+        },
+        {
+          "counts": {
+            "agent": 0,
+            "command": 2,
+            "memory": 1,
+            "rule": 0,
+            "skill": 0
+          },
+          "detector": "org",
+          "freshness": {
+            "ahead": 0,
+            "behind": 1,
+            "inCheckout": true,
+            "lastSync": "<TIME>",
+            "ref": "origin/main"
+          },
+          "id": "org",
+          "managedBy": "corp-tools sync (about every 4 h)",
+          "origin": {
+            "kind": "org",
+            "name": "corp-tools"
+          },
+          "owner": "org",
+          "root": "<WORLD>/home/.local/share/corp-tools",
+          "status": {
+            "checkedAt": "<TIME>",
+            "detail": "1 file(s) differ from the clone; the clone is 1 commit(s) behind origin/main; 1 clone command(s) are not deployed",
+            "state": "stale"
+          },
+          "tokens": {
+            "basis": "estimate",
+            "value": 16
+          },
+          "visible": {
+            "skill": 0,
+            "skillTotal": 0
+          },
+          "warnings": [
+            "command ship differs from the clone (not synced yet, or edited by hand)",
+            "shell-wrapper.sh changed since the hash recorded in context.json",
+            "command odoo-upgrade shadows the library skill of the same name; both are left alone"
+          ],
+          "writable": false
+        },
+        {
+          "counts": {
+            "agent": 0,
+            "command": 0,
+            "memory": 0,
+            "rule": 0,
+            "skill": 2
+          },
+          "detector": "account",
+          "freshness": null,
+          "id": "account",
+          "managedBy": "Claude account sync",
+          "origin": {
+            "kind": "account",
+            "name": "account"
+          },
+          "owner": "anthropic",
+          "root": "<WORLD>/home/.claude/skills/synced",
+          "status": {
+            "checkedAt": "<TIME>",
+            "detail": "2 skill(s) from 1 account folder(s)",
+            "state": "ok"
+          },
+          "tokens": {
+            "basis": "estimate",
+            "value": 12
+          },
+          "visible": {
+            "skill": 2,
+            "skillTotal": 2
+          },
+          "warnings": [],
+          "writable": false
+        },
+        {
+          "counts": {
+            "agent": 1,
+            "command": 0,
+            "memory": 0,
+            "rule": 1,
+            "skill": 4
+          },
+          "detector": "library",
+          "freshness": {
+            "ahead": 1,
+            "behind": 0,
+            "inCheckout": true,
+            "lastSync": "<TIME>",
+            "ref": "origin/main"
+          },
+          "id": "library",
+          "managedBy": null,
+          "origin": {
+            "kind": "library",
+            "name": "ai-skills"
+          },
+          "owner": "me",
+          "root": "<WORLD>/home/lib/ai-skills",
+          "status": {
+            "checkedAt": "<TIME>",
+            "detail": "1 other clone(s) of the same remote",
+            "state": "duplicate"
+          },
+          "tokens": {
+            "basis": "estimate",
+            "value": 65
+          },
+          "visible": {
+            "skill": 3,
+            "skillTotal": 4
+          },
+          "warnings": [
+            "1 skill(s) are hidden from Claude Code; see the item reasons",
+            "1 commit(s) not pushed",
+            "another clone of the same remote at <WORLD>/home/dups/ai-skills-copy",
+            "skill odoo-upgrade is shadowed by the org command of the same name"
+          ],
+          "writable": true
+        },
+        {
+          "counts": {
+            "agent": 0,
+            "command": 0,
+            "memory": 0,
+            "rule": 0,
+            "skill": 1
+          },
+          "detector": "tap",
+          "freshness": null,
+          "id": "tap:acme-tools",
+          "managedBy": "toolportctl skills tap",
+          "origin": {
+            "kind": "tap",
+            "name": "acme-tools"
+          },
+          "owner": "third-party",
+          "root": "<WORLD>/data/taps/acme-tools",
+          "status": {
+            "checkedAt": "<TIME>",
+            "detail": "1 item(s) from acme/tools",
+            "state": "ok"
+          },
+          "tokens": {
+            "basis": "estimate",
+            "value": 7
+          },
+          "visible": {
+            "skill": 1,
+            "skillTotal": 1
+          },
+          "warnings": [],
+          "writable": false
+        },
+        {
+          "counts": {
+            "agent": 1,
+            "command": 1,
+            "memory": 0,
+            "rule": 0,
+            "skill": 1
+          },
+          "detector": "loose",
+          "freshness": null,
+          "id": "loose",
+          "managedBy": null,
+          "origin": {
+            "kind": "loose",
+            "name": "~/.claude"
+          },
+          "owner": "me",
+          "root": "<WORLD>/home/.claude",
+          "status": {
+            "checkedAt": "<TIME>",
+            "detail": "3 file(s) no other source owns; 1 managed by toolportctl, not counted; 1 retired backup file(s) ignored",
+            "state": "ok"
+          },
+          "tokens": {
+            "basis": "estimate",
+            "value": 19
+          },
+          "visible": {
+            "skill": 1,
+            "skillTotal": 1
+          },
+          "warnings": [],
+          "writable": true
+        },
+        {
+          "counts": {
+            "agent": 0,
+            "command": 0,
+            "memory": 1,
+            "rule": 0,
+            "skill": 0
+          },
+          "detector": "inert",
+          "freshness": null,
+          "id": "inert",
+          "managedBy": null,
+          "origin": {
+            "kind": "inert",
+            "name": "_claude"
+          },
+          "owner": "project",
+          "root": null,
+          "status": {
+            "checkedAt": "<TIME>",
+            "detail": "1 file(s) under _claude that no load rule reaches",
+            "state": "ok"
+          },
+          "tokens": {
+            "basis": "estimate",
+            "value": 9
+          },
+          "visible": {
+            "skill": 0,
+            "skillTotal": 0
+          },
+          "warnings": [],
+          "writable": false
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

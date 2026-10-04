@@ -172,13 +172,163 @@ export type SecretSetData = Infer<typeof secretSetData>;
 export const secretGetData = obj({ key: str, server: str, set: bool });
 export type SecretGetData = Infer<typeof secretGetData>;
 
-export const skillsLsData = obj({
-  repo: str,
-  skills: arr(
-    obj({ activation: str, description: str, name: str, path: str, type: str }),
+const tokenBasis = lit("estimate", "measured", "projected");
+export const tokens = obj({ value: num, basis: tokenBasis });
+export type Tokens = Infer<typeof tokens>;
+
+export const origin = obj({
+  kind: lit(
+    "library",
+    "org",
+    "plugin",
+    "account",
+    "repo",
+    "client",
+    "vendored",
+    "tap",
+    "loose",
+    "managed",
+    "user",
+    "project",
+    "inert",
+    "remote-library",
   ),
+  name: str,
+});
+export type Origin = Infer<typeof origin>;
+
+export const planV1 = obj({
+  summary: str,
+  steps: arr(
+    obj({
+      op: lit("create", "merge", "update", "delete", "exec", "note"),
+      path: opt(str),
+      detail: str,
+      keys: opt(arr(str)),
+      diff: opt(obj({ before: str, after: str })),
+    }),
+  ),
+  effects: obj({
+    tokens: opt(obj({ before: num, after: num, basis: tokenBasis })),
+  }),
+  warnings: arr(str),
+  undo: str,
+});
+export type PlanV1 = Infer<typeof planV1>;
+
+export const resultV1 = obj({
+  applied: bool,
+  changed: arr(str),
+  undo: str,
+  backups: arr(str),
+});
+export type ResultV1 = Infer<typeof resultV1>;
+
+export const skillsLsData = obj({
+  repo: nullable(str),
+  skills: arr(
+    obj({
+      activation: str,
+      description: str,
+      invisibleReason: nullable(str),
+      name: str,
+      origin,
+      path: str,
+      type: str,
+      visible: bool,
+      writable: bool,
+    }),
+  ),
+  partial: opt(bool),
+  skipped: opt(arr(obj({ detector: str, reason: str }))),
 });
 export type SkillsLsData = Infer<typeof skillsLsData>;
+
+const sourceKind = lit("skill", "command", "agent", "rule", "memory");
+
+export const sourceItem = obj({
+  kind: sourceKind,
+  name: str,
+  path: str,
+  sourceId: str,
+  origin,
+  writable: bool,
+  lazy: bool,
+  shadowedBy: nullable(str),
+  audit: lit("clean", "warn", "high", "unchecked"),
+  tokens,
+});
+export type SourceItem = Infer<typeof sourceItem>;
+
+export const sourceRow = obj({
+  id: str,
+  origin,
+  detector: lit(
+    "library",
+    "org",
+    "plugin",
+    "account",
+    "loose",
+    "repo",
+    "client",
+    "vendored",
+    "tap",
+    "remote-library",
+    "inert",
+  ),
+  root: nullable(str),
+  owner: lit("me", "org", "third-party", "anthropic", "project"),
+  writable: bool,
+  managedBy: nullable(str),
+  status: obj({
+    state: lit("ok", "stale", "behind", "unreachable", "duplicate", "partial"),
+    detail: str,
+    checkedAt: str,
+  }),
+  freshness: nullable(
+    obj({
+      ref: str,
+      behind: num,
+      ahead: num,
+      inCheckout: bool,
+      lastSync: nullable(str),
+    }),
+  ),
+  counts: obj({ skill: num, command: num, agent: num, rule: num, memory: num }),
+  tokens,
+  visible: obj({ skill: num, skillTotal: num }),
+  warnings: arr(str),
+  enabled: opt(bool),
+});
+export type SourceRow = Infer<typeof sourceRow>;
+
+export const sourcesLsData = obj({
+  generatedAt: str,
+  partial: bool,
+  skipped: arr(obj({ detector: str, reason: str })),
+  sources: arr(sourceRow),
+  items: opt(arr(sourceItem)),
+});
+export type SourcesLsData = Infer<typeof sourcesLsData>;
+
+export const sourcesRootLsData = obj({
+  roots: arr(
+    obj({
+      path: str,
+      origin: lit("default", "config"),
+      exists: bool,
+      repo: bool,
+    }),
+  ),
+});
+export type SourcesRootLsData = Infer<typeof sourcesRootLsData>;
+
+export const sourcesRootChangeData = obj({
+  dryRun: bool,
+  plan: planV1,
+  result: nullable(resultV1),
+});
+export type SourcesRootChangeData = Infer<typeof sourcesRootChangeData>;
 
 export const skillsLintData = obj({
   errors: num,
@@ -399,7 +549,18 @@ export const ctlShapes: Record<string, Shape<unknown>> = {
   "client-sync.apply": clientSyncData,
   "secret-set.apply": secretSetData,
   "secret-set.get": secretGetData,
-  "skills-ls": skillsLsData,
+  "skills-ls.repo": skillsLsData,
+  "skills-ls.library": skillsLsData,
+  "skills-ls.source": skillsLsData,
+  "sources-ls.summary": sourcesLsData,
+  "sources-ls.items": sourcesLsData,
+  "sources-ls.partial": sourcesLsData,
+  "sources-ls.org": sourcesLsData,
+  "sources-root-ls": sourcesRootLsData,
+  "sources-root-add.preview": sourcesRootChangeData,
+  "sources-root-add.apply": sourcesRootChangeData,
+  "sources-root-rm.preview": sourcesRootChangeData,
+  "sources-root-rm.apply": sourcesRootChangeData,
   "skills-lint": skillsLintData,
   "skills-sync.preview": skillsSyncData,
   "skills-sync.apply": skillsSyncData,

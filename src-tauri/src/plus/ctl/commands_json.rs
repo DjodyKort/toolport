@@ -136,6 +136,13 @@ pub(super) const GLOBAL: &[Meta] = &[
     m("--before", Int, "Tokens before compression"),
     m("--branch", Str, "Git branch"),
     m(
+        "--budget",
+        Str,
+        "Test seam: <detector>=<milliseconds> time budget for one detector",
+    )
+    .hidden()
+    .repeats(),
+    m(
         "--by-pin",
         Bool,
         "Group the measured sessions by engine pin",
@@ -158,6 +165,11 @@ pub(super) const GLOBAL: &[Meta] = &[
         "--declare-client-capabilities",
         ON_OFF,
         "Declare the client's capabilities to the server",
+    ),
+    m(
+        "--deep",
+        Bool,
+        "Double the time and depth budget of every detector",
     ),
     m("--disable", Bool, "Turn folder profiles off"),
     m("--disabled", Str, REFUSED).hidden(),
@@ -204,6 +216,11 @@ pub(super) const GLOBAL: &[Meta] = &[
     ),
     m("--install", Bool, "Install the pinned engine version"),
     m(
+        "--items",
+        Bool,
+        "Also list every item (skill, command, agent, rule, memory), not only the sources",
+    ),
+    m(
         "--keep-clients",
         Bool,
         "Keep the client entries that point at the server",
@@ -217,6 +234,11 @@ pub(super) const GLOBAL: &[Meta] = &[
         "--keep-secrets",
         Bool,
         "Keep the server's secrets in the vault",
+    ),
+    m(
+        "--kind",
+        Ty::Choice(&["skill", "command", "agent", "rule", "memory"]),
+        "Only items of this kind",
     ),
     m("--latest", Bool, "Move to the latest release"),
     m("--limit", Int, "Show at most this many results"),
@@ -562,6 +584,39 @@ pub(super) const OVERRIDES: &[(&str, Meta)] = &[
     ("skills lint", m("--repo", Path, SKILLS_REPO)),
     ("skills sync", m("--repo", Path, SKILLS_REPO)),
     ("skills ls", m("--repo", Path, SKILLS_REPO)),
+    (
+        "skills ls",
+        m(
+            "--source",
+            Str,
+            "Only the items of this source (library, repo:odh, plugin:ecc@ecc)",
+        ),
+    ),
+    (
+        "sources ls",
+        m(
+            "--source",
+            Str,
+            "Only this source or detector (library, plugin, repo:odh)",
+        ),
+    ),
+    (
+        "sources ls",
+        m(
+            "--refresh",
+            Bool,
+            "Ignore the scan cache and read everything again",
+        ),
+    ),
+    (
+        "sources ls",
+        m(
+            "--root",
+            Path,
+            "Also look for checkouts in this folder (repeatable)",
+        )
+        .repeats(),
+    ),
     ("skills diff", m("--repo", Path, SKILLS_REPO)),
     ("server edit", m("--name", Str, "New name for the server")),
     ("skills status", m("--client", Str, CLIENT_KEYS).repeats()),

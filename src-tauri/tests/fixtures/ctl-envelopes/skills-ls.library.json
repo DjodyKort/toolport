@@ -1,0 +1,84 @@
+{
+  "argv": ["skills", "ls", "--source", "library"],
+  "envelope": {
+    "command": "skills ls",
+    "data": {
+      "repo": "<WORLD>/home/lib/ai-skills",
+      "skills": [
+        {
+          "activation": "auto",
+          "description": "Not pushed yet",
+          "invisibleReason": null,
+          "name": "new-local",
+          "origin": {
+            "kind": "library",
+            "name": "ai-skills"
+          },
+          "path": "<WORLD>/home/lib/ai-skills/skills/new-local/SKILL.md",
+          "type": "skill",
+          "visible": true,
+          "writable": true
+        },
+        {
+          "activation": "auto",
+          "description": "Upgrade an Odoo module between versions",
+          "invisibleReason": null,
+          "name": "odoo-upgrade",
+          "origin": {
+            "kind": "library",
+            "name": "ai-skills"
+          },
+          "path": "<WORLD>/home/lib/ai-skills/skills/odoo-upgrade/SKILL.md",
+          "type": "skill",
+          "visible": true,
+          "writable": true
+        },
+        {
+          "activation": "auto",
+          "description": "Deployed before the frontmatter fix",
+          "invisibleReason": "the deployed copy is rejected: line 4 continues a quoted multi-line value without indentation: the frontmatter fix\"",
+          "name": "old-style",
+          "origin": {
+            "kind": "library",
+            "name": "ai-skills"
+          },
+          "path": "<WORLD>/home/lib/ai-skills/skills/old-style/SKILL.md",
+          "type": "skill",
+          "visible": false,
+          "writable": true
+        },
+        {
+          "activation": "auto",
+          "description": "Review a change before merging",
+          "invisibleReason": null,
+          "name": "review",
+          "origin": {
+            "kind": "library",
+            "name": "ai-skills"
+          },
+          "path": "<WORLD>/home/lib/ai-skills/skills/review/SKILL.md",
+          "type": "skill",
+          "visible": true,
+          "writable": true
+        },
+        {
+          "activation": "always",
+          "description": "House style",
+          "invisibleReason": null,
+          "name": "style",
+          "origin": {
+            "kind": "library",
+            "name": "ai-skills"
+          },
+          "path": "<WORLD>/home/lib/ai-skills/rules/style/SKILL.md",
+          "type": "rule",
+          "visible": true,
+          "writable": true
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

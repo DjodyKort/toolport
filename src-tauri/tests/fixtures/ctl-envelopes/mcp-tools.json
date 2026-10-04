@@ -80,6 +80,12 @@
           "tier": 1
         },
         {
+          "description": "List where skills, commands, agents, rules and CLAUDE.md files come from: repos, clients, plugins, the org sync, the library and loose files",
+          "gate": "none",
+          "name": "sources_ls",
+          "tier": 1
+        },
+        {
           "description": "Read one skill including its body",
           "gate": "none",
           "name": "skills_get",

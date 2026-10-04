@@ -48,6 +48,8 @@ const NOT_READ_ONLY: &[(&str, &str)] = &[
     ("compression sync", "reconciles artifacts and registry; compression round trip test"),
     ("compression seal", "reads a live proxy /health; stub engine tests in ctl::compression_cfg_tests"),
     ("skills unbundle", "extracts into the target; bundle round trip test"),
+    ("sources root add", "edits sourceRoots in context.json; tests/ctl_contract.rs and plus::sources::tests"),
+    ("sources root rm", "edits sourceRoots in context.json; tests/ctl_contract.rs and plus::sources::tests"),
     ("usage", "indexes transcripts into the data dir; ctl::usage unit tests"),
     ("obs otel enable", "writes the Claude settings and the receiver config; obs::otel_e2e_tests round trip"),
     ("obs otel disable", "removes what enable wrote; obs::otel_e2e_tests round trip"),
@@ -276,7 +278,9 @@ fn collect(dir: &Path, into: &mut BTreeMap<PathBuf, Vec<u8>>) {
     for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
         let path = entry.path();
         if path.is_dir() {
-            collect(&path, into);
+            if !path.ends_with("plus/cache") {
+                collect(&path, into);
+            }
         } else if path.file_name().and_then(|n| n.to_str()) != Some("registry.json.lock") {
             // flock sentinel that a read path may create next to the registry
             into.insert(path.clone(), std::fs::read(&path).unwrap_or_default());
@@ -461,7 +465,7 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert!(d["checks"].as_array().unwrap().len() >= 4);
         }),
         case("commands", &["commands"], 0, |_, d| {
-            assert_eq!(d["counts"]["tools"], 80);
+            assert_eq!(d["counts"]["tools"], 81);
             let rows = d["commands"].as_array().unwrap();
             assert!(rows.iter().any(|r| r["id"] == "profile edit" && r["tier"] == "write"));
             assert!(rows.iter().any(|r| r["id"] == "sync push" && r["parent"] == "sync"));
@@ -778,7 +782,7 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert!(!d["checks"].as_array().unwrap().is_empty());
         }),
         case("mcp", &["mcp", "tools"], 0, |_, d| {
-            assert_eq!(d["tools"].as_array().unwrap().len(), 80);
+            assert_eq!(d["tools"].as_array().unwrap().len(), 81);
             assert_eq!(d["resources"].as_array().unwrap().len(), 11);
         }),
         case(
@@ -806,6 +810,25 @@ fn read_only_cases(w: &World) -> Vec<Case> {
                 assert_eq!(d["skills"][0]["name"], "demo");
             },
         ),
+        case(
+            "sources ls",
+            &["sources", "ls", "--items", "--kind", "skill"],
+            0,
+            |_, d| {
+                assert_eq!(d["partial"], false);
+                let ids: Vec<&str> = d["sources"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .filter_map(|s| s["id"].as_str())
+                    .collect();
+                assert!(ids.contains(&"library") || ids.is_empty(), "{ids:?}");
+                assert!(d["items"].is_array());
+            },
+        ),
+        case("sources root ls", &["sources", "root", "ls"], 0, |_, d| {
+            assert!(d["roots"].is_array());
+        }),
         case(
             "skills lint",
             &["skills", "lint", "--repo", &repo, "--home", &home],

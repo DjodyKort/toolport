@@ -83,8 +83,14 @@ Commands:
   import         Import data from other tools (not implemented)
   council        Council server: install uninstall doctor tools
   mcp            Self-management server: install [--profile <id>] uninstall doctor tools
+  sources ls     List where skills, commands, agents, rules and CLAUDE.md come from (--source, --kind, --items, --cwd, --root, --deep, --refresh)
+  sources root ls List the folders searched for repo checkouts
+  sources root add Search a folder for repo checkouts (<dir>, --dry-run)
+  sources root rm Stop searching a folder (<dir>, --dry-run)
+  sources root   Search folders: ls add rm
+  sources        Sources: ls root
   skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
-  skills ls      List skills and rules (--repo <dir>, --home <dir>)
+  skills ls      List skills and rules (--repo <dir>, --home <dir>, --source <id>)
   skills lint    Lint skills; exits 1 on errors (--repo, --home, --name <skill>)
   skills diff    Compare skills with the lockfile; exits 1 on changes (--repo, --home)
   skills init    Create a skills repository (--path <dir>, --name <name>, --dry-run)
@@ -227,8 +233,14 @@ Commands:
   import         Import data from other tools (not implemented)
   council        Council server: install uninstall doctor tools
   mcp            Self-management server: install [--profile <id>] uninstall doctor tools
+  sources ls     List where skills, commands, agents, rules and CLAUDE.md come from (--source, --kind, --items, --cwd, --root, --deep, --refresh)
+  sources root ls List the folders searched for repo checkouts
+  sources root add Search a folder for repo checkouts (<dir>, --dry-run)
+  sources root rm Stop searching a folder (<dir>, --dry-run)
+  sources root   Search folders: ls add rm
+  sources        Sources: ls root
   skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
-  skills ls      List skills and rules (--repo <dir>, --home <dir>)
+  skills ls      List skills and rules (--repo <dir>, --home <dir>, --source <id>)
   skills lint    Lint skills; exits 1 on errors (--repo, --home, --name <skill>)
   skills diff    Compare skills with the lockfile; exits 1 on changes (--repo, --home)
   skills init    Create a skills repository (--path <dir>, --name <name>, --dry-run)
@@ -371,8 +383,14 @@ Commands:
   import         Import data from other tools (not implemented)
   council        Council server: install uninstall doctor tools
   mcp            Self-management server: install [--profile <id>] uninstall doctor tools
+  sources ls     List where skills, commands, agents, rules and CLAUDE.md come from (--source, --kind, --items, --cwd, --root, --deep, --refresh)
+  sources root ls List the folders searched for repo checkouts
+  sources root add Search a folder for repo checkouts (<dir>, --dry-run)
+  sources root rm Stop searching a folder (<dir>, --dry-run)
+  sources root   Search folders: ls add rm
+  sources        Sources: ls root
   skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
-  skills ls      List skills and rules (--repo <dir>, --home <dir>)
+  skills ls      List skills and rules (--repo <dir>, --home <dir>, --source <id>)
   skills lint    Lint skills; exits 1 on errors (--repo, --home, --name <skill>)
   skills diff    Compare skills with the lockfile; exits 1 on changes (--repo, --home)
   skills init    Create a skills repository (--path <dir>, --name <name>, --dry-run)
@@ -515,8 +533,14 @@ Commands:
   import         Import data from other tools (not implemented)
   council        Council server: install uninstall doctor tools
   mcp            Self-management server: install [--profile <id>] uninstall doctor tools
+  sources ls     List where skills, commands, agents, rules and CLAUDE.md come from (--source, --kind, --items, --cwd, --root, --deep, --refresh)
+  sources root ls List the folders searched for repo checkouts
+  sources root add Search a folder for repo checkouts (<dir>, --dry-run)
+  sources root rm Stop searching a folder (<dir>, --dry-run)
+  sources root   Search folders: ls add rm
+  sources        Sources: ls root
   skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
-  skills ls      List skills and rules (--repo <dir>, --home <dir>)
+  skills ls      List skills and rules (--repo <dir>, --home <dir>, --source <id>)
   skills lint    Lint skills; exits 1 on errors (--repo, --home, --name <skill>)
   skills diff    Compare skills with the lockfile; exits 1 on changes (--repo, --home)
   skills init    Create a skills repository (--path <dir>, --name <name>, --dry-run)
@@ -3630,6 +3654,133 @@ exit 2
 --- stdout
 --- stderr
 toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["skills","ls","--source"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --source requires a value
+Run `toolportctl --help` for usage.
+=== ["sources"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sources ls|root (ls: [--source <id>] [--kind skill|command|agent|rule|memory] [--items] [--cwd <dir>] [--root <dir>]... [--deep] [--refresh]; root: ls | add <dir> [--dry-run] | rm <dir> [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["--json","sources"]
+exit 2
+--- stdout
+{"command":"sources","error":{"code":"usage","message":"usage: sources ls|root (ls: [--source <id>] [--kind skill|command|agent|rule|memory] [--items] [--cwd <dir>] [--root <dir>]... [--deep] [--refresh]; root: ls | add <dir> [--dry-run] | rm <dir> [--dry-run])"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["sources","nope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sources ls|root (ls: [--source <id>] [--kind skill|command|agent|rule|memory] [--items] [--cwd <dir>] [--root <dir>]... [--deep] [--refresh]; root: ls | add <dir> [--dry-run] | rm <dir> [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["sources","ls","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["--json","sources","ls","--bogus"]
+exit 2
+--- stdout
+{"command":"sources ls","error":{"code":"usage","message":"unexpected argument: --bogus"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["sources","ls","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["sources","ls","--source"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --source requires a value
+Run `toolportctl --help` for usage.
+=== ["sources","ls","--kind","nope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --kind must be one of skill, command, agent, rule, memory
+Run `toolportctl --help` for usage.
+=== ["--json","sources","ls","--kind","nope"]
+exit 2
+--- stdout
+{"command":"sources ls","error":{"code":"usage","message":"--kind must be one of skill, command, agent, rule, memory"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["sources","ls","--budget","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --budget needs <detector>=<milliseconds>
+Run `toolportctl --help` for usage.
+=== ["sources","ls","--items=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --items takes no value
+Run `toolportctl --help` for usage.
+=== ["sources","root"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sources root ls|add|rm (add|rm: <dir> [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["--json","sources","root"]
+exit 2
+--- stdout
+{"command":"sources root","error":{"code":"usage","message":"usage: sources root ls|add|rm (add|rm: <dir> [--dry-run])"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["sources","root","nope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sources root ls|add|rm (add|rm: <dir> [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["sources","root","ls","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["sources","root","add"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sources root add|rm <dir> [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["--json","sources","root","add"]
+exit 2
+--- stdout
+{"command":"sources root add","error":{"code":"usage","message":"usage: sources root add|rm <dir> [--dry-run]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["sources","root","add","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sources root add|rm <dir> [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["sources","root","add","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["sources","root","rm"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sources root add|rm <dir> [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["sources","root","rm","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: sources root add|rm <dir> [--dry-run]
 Run `toolportctl --help` for usage.
 === ["skills","lint","--bogus"]
 exit 2

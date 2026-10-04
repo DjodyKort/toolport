@@ -1,4 +1,4 @@
-use super::{backend, compression, content, direct, servers, skills, state, ToolError};
+use super::{backend, compression, content, direct, servers, skills, sources, state, ToolError};
 use serde_json::{json, Map, Value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -101,6 +101,21 @@ pub const TOOLS: &[ToolDef] = &[
         "List skills and rules in the repository",
         [REPO],
         skills::list
+    ),
+    tool!(
+        "sources_ls",
+        1,
+        None,
+        "List where skills, commands, agents, rules and CLAUDE.md files come from: repos, clients, plugins, the org sync, the library and loose files",
+        [
+            p("source", Ty::Str, false, "Only this source id, detector or origin kind"),
+            p("kind", Ty::Str, false, "Only items of this kind: skill, command, agent, rule or memory"),
+            p("items", Ty::Bool, false, "Include the items of every source"),
+            p("cwd", Ty::Str, false, "Add the repository around this directory to the scan"),
+            p("deep", Ty::Bool, false, "Double the depth and time budgets"),
+            p("refresh", Ty::Bool, false, "Ignore the scan cache")
+        ],
+        sources::ls
     ),
     tool!(
         "skills_get",

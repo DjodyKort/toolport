@@ -46,7 +46,8 @@
     "cc": "MIG-GUI-8",
     "council": "MIG-GUI-8",
     "import": "MIG-GUI-8",
-    "mcp": "MIG-GUI-8"
+    "mcp": "MIG-GUI-8",
+    "sources": "MIG-GUI-10"
   },
   "commands": {
     "agents add": {
@@ -579,6 +580,26 @@
       "action": "all-commands.run",
       "surface": "screen"
     },
+    "sources ls": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "sources root add": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "sources root ls": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "sources root rm": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
     "status": {
       "route": "all-commands",
       "action": "all-commands.run",
@@ -1019,6 +1040,11 @@
     "skills_uninstall": {
       "route": "all-commands",
       "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "sources_ls": {
+      "route": "all-commands",
+      "action": "all-commands.tool",
       "surface": "screen"
     },
     "styles_active": {
