@@ -73,9 +73,12 @@ function DeploySection({
       confirmLabel: verb === "sync" ? "Sync" : "Apply",
       phrase: verb,
     });
-  const shown: PlanV1 | null = plan.data
-    ? contextPlan("context plan", plan.data, false)
-    : null;
+  const checkTexts = new Set(checksOf(plan.data?.checks).map(([, text]) => text));
+  const planned = plan.data ? contextPlan("context plan", plan.data, false) : null;
+  const shown: PlanV1 | null = planned && {
+    ...planned,
+    warnings: planned.warnings.filter((warning) => !checkTexts.has(warning)),
+  };
   return (
     <QuerySection
       title="Deploy"
