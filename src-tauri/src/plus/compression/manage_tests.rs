@@ -967,6 +967,23 @@ fn doctor_lists_the_checks_and_the_migration_notes() {
     assert!(data["healthy"].is_boolean());
 }
 
+#[test]
+fn status_compares_the_pin_with_the_installed_engine() {
+    let mut w = World::new("status");
+    let fresh = w.run(|cx| status(cx)).unwrap();
+    assert!(!fresh.existed);
+    assert_eq!(fresh.data["configExists"], false);
+    let config = CompressionConfig::with_provider(ProviderName::Headroom);
+    store::save(&w.paths(), &config).unwrap();
+    let report = w.run(|cx| status(cx)).unwrap();
+    assert!(report.existed);
+    assert_eq!(report.installed.as_deref(), Some("0.29.0"));
+    let drifted = report.config.provider_version.pin != "0.29.0";
+    assert_eq!(report.drift, Some(drifted));
+    assert_eq!(report.data["pin"]["installed"], "0.29.0");
+    assert_eq!(report.data["pin"]["drift"], drifted);
+}
+
 fn registry_with_default_profile(fx: &DataDirFx) {
     fx.write_registry(&json!({
         "version": 1,

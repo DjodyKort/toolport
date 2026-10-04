@@ -1,4 +1,4 @@
-//! `plus.compression.{enable,disable,setProvider,use,sync,pin,seal,env,doctor}`: the JSON
+//! `plus.compression.{status,enable,disable,setProvider,use,sync,pin,seal,env,doctor}`: the JSON
 //! entry points over [`manage`]. Arguments use camelCase keys; every result is the same JSON
 //! `toolportctl --json` prints as `data`.
 
@@ -112,4 +112,8 @@ pub fn env_handler(args: Value) -> Result<Value, String> {
 
 pub fn doctor_handler(_args: Value) -> Result<Value, String> {
     answer(with_system(|cx| doctor(cx, &SystemOps::new())))
+}
+
+pub fn status_handler(_args: Value) -> Result<Value, String> {
+    answer(with_system(|cx| status(cx).map(|report| report.data)))
 }

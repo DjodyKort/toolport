@@ -10,8 +10,7 @@ use crate::plus::compression::manage::{
     self, parse_mode, parse_provider, parse_telemetry, with_system, CmdError, EnableReq, Kind,
     SealReq,
 };
-use crate::plus::ctl::compression::status_handler;
-use serde_json::{json, Value};
+use serde_json::Value;
 
 type Outcome = Result<Value, ToolError>;
 
@@ -46,7 +45,7 @@ fn port(args: &Value) -> Result<Option<u16>, ToolError> {
 }
 
 pub(super) fn status(_args: &Value) -> Outcome {
-    status_handler(json!({})).map_err(ToolError::backend)
+    with_system(|cx| Ok(manage::status(cx)?.data))
 }
 
 pub(super) fn enable(args: &Value) -> Outcome {
