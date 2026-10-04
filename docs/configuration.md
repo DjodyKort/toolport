@@ -49,6 +49,15 @@ uses an in-process gateway only when the operating system proves daemon launch
 failed. An ambiguous startup failure or a failure after the session opens
 returns an error rather than starting or replaying against a second gateway.
 
+**Cold start.** A gateway connects its servers in the background after it starts.
+A client in `full` discovery that lists tools while that build is still running
+waits for it, so a client that asks once starts with its whole catalog. The wait
+is bounded by `"coldStartWaitMs"` in `registry.json` (default `20000`, at most
+`300000`; `0` never waits). After the bound the client gets the servers that are
+connected so far and a `notifications/tools/list_changed` as the rest join. The
+gateway log says that it waited and why it stopped, and
+`toolportctl status --json` reports the build under `gateway.build`.
+
 **Discovery mode per HTTP client.** The stdio gateway resolves one discovery mode for
 the client that spawned it. The headless HTTP/OpenAPI bridge serves several clients at
 once, so it also honors `clientDiscovery[<http-client-id>]` for the client its bearer

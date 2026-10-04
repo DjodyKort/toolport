@@ -43,6 +43,7 @@ use conduit_lib::handshake;
 use conduit_lib::inspect;
 use conduit_lib::integrity;
 use conduit_lib::pii;
+use conduit_lib::plus::gateway_build::BuildTracker;
 use conduit_lib::registry::{self, Registry, ServerEntry};
 use conduit_lib::remote;
 use conduit_lib::resource_links;
@@ -9341,6 +9342,76 @@ fn build_router(
     daemon_mode: bool,
     dirty: &Arc<AtomicU8>,
     server_handler: ServerRequestHandler,
+    root: Option<&str>,
+    resource_updated: Option<ResourceUpdatedDispatch>,
+    resource_subs: Option<Arc<Mutex<ResourceSubscriptionTable>>>,
+    previous_quarantine: Option<PriorQuarantine>,
+) -> Router {
+    build_router_observed(
+        reg,
+        profile,
+        http_mode,
+        daemon_mode,
+        dirty,
+        server_handler,
+        root,
+        resource_updated,
+        resource_subs,
+        previous_quarantine,
+        None,
+    )
+}
+
+/// Closes the startup build's progress record even when the build thread unwinds, so the app
+/// never shows a build that can no longer finish.
+struct FinishBuildOnDrop(Arc<BuildTracker>);
+
+impl Drop for FinishBuildOnDrop {
+    fn drop(&mut self) {
+        if self.0.is_building() {
+            let tools = self.0.snapshot().tools_so_far;
+            self.0.finish(tools);
+        }
+    }
+}
+
+/// Servers that connect after a client got a partial catalog are announced at most this often.
+const PARTIAL_CATALOG_ANNOUNCE_INTERVAL: Duration = Duration::from_secs(1);
+
+/// How often a build that is still waiting on servers calls its observer, so it can flush
+/// notifications that are due without a connect event to carry them.
+const BUILD_OBSERVER_TICK: Duration = Duration::from_millis(500);
+
+/// What the startup build reports while it connects its servers.
+enum BuildEvent<'a> {
+    /// The servers about to be connected, in registry order.
+    Planned(&'a [String]),
+    /// A server finished connecting. `partial` indexes every server connected so far.
+    Connected {
+        id: &'a str,
+        tools: usize,
+        partial: Router,
+    },
+    Failed {
+        id: &'a str,
+    },
+    /// No server finished since the last event.
+    Waiting,
+}
+
+type BuildObserver<'a> = &'a mut dyn FnMut(BuildEvent<'_>);
+
+/// [`build_router`] that reports each server as its connect resolves. With an `observer` the
+/// caller can publish a partial router while the slow servers are still connecting; the router
+/// returned at the end indexes the servers in registry order, as it always has.
+#[allow(clippy::too_many_arguments)] // SBS-871 adds the pre-rebuild quarantine set.
+fn build_router_observed(
+    reg: &Registry,
+    profile: Option<&str>,
+    http_mode: bool,
+    daemon_mode: bool,
+    dirty: &Arc<AtomicU8>,
+    server_handler: ServerRequestHandler,
     // The upstream client's project root for the ${ROOT} cwd token (issue #239),
     // already decoded to a filesystem path. `None` in HTTP mode and before the
     // client's roots are known; `${ROOT}` servers then fall back to the gateway cwd.
@@ -9352,6 +9423,7 @@ fn build_router(
     resource_subs: Option<Arc<Mutex<ResourceSubscriptionTable>>>,
     // Pre-rebuild live quarantine set. `None` is a genuine cold start (SBS-871).
     previous_quarantine: Option<PriorQuarantine>,
+    mut observer: Option<BuildObserver<'_>>,
 ) -> Router {
     // In HTTP mode one process serves every registered client, so connect the
     // union of all their profiles (per-request filtering scopes each one down).
@@ -9476,56 +9548,96 @@ fn build_router(
     // Owned copy so each connect thread and each reconnect factory (both 'static)
     // can carry the root without borrowing.
     let root_owned = root.map(str::to_owned);
-    let handles: Vec<_> = servers
-        .into_iter()
-        .map(|server| {
-            let dirty = Arc::clone(dirty);
-            let handler = Arc::clone(&server_handler);
-            let root_t = root_owned.clone();
-            let resource_updated = resource_updated.clone();
-            std::thread::spawn(move || {
-                let ds = connect_one(
-                    &server,
-                    &dirty,
-                    handler,
-                    root_t.as_deref(),
-                    resource_updated.clone(),
-                );
-                (server, dirty, resource_updated, ds)
-            })
-        })
-        .collect();
+    let ids: Vec<String> = servers.iter().map(|server| server.id.clone()).collect();
+    if let Some(observer) = observer.as_mut() {
+        observer(BuildEvent::Planned(&ids));
+    }
+    let (resolved, results) = std::sync::mpsc::channel();
+    for (index, server) in servers.into_iter().enumerate() {
+        let dirty = Arc::clone(dirty);
+        let handler = Arc::clone(&server_handler);
+        let root_t = root_owned.clone();
+        let resource_updated = resource_updated.clone();
+        let resolved = resolved.clone();
+        std::thread::spawn(move || {
+            let ds = connect_one(
+                &server,
+                &dirty,
+                handler,
+                root_t.as_deref(),
+                resource_updated.clone(),
+            );
+            let _ = resolved.send((index, server, dirty, resource_updated, ds));
+        });
+    }
+    drop(resolved);
 
-    let mut router = Router::with_policy(policy);
-    // Per-tool exposure overrides (rename / re-describe) must be set before indexing,
-    // since they're applied as each server's tools are added.
-    router.set_overrides(reg.tool_overrides.clone());
-    for handle in handles {
-        if let Ok((server, dirty, resource_updated, Some(ds))) = handle.join() {
-            // The same `connect_one` used for the initial spawn is the reconnect
-            // factory, so a re-spawn re-injects keychain secrets and re-handshakes
-            // exactly like a fresh connect, then re-issues resource subscriptions
-            // this server still owns.
-            let handler = Arc::clone(&server_handler);
-            let root_c = root_owned.clone();
-            let subs = resource_subs.clone();
-            let server_id = server.id.clone();
-            let reconnect: Reconnect = Box::new(move || {
-                let mut ds = connect_one(
-                    &server,
-                    &dirty,
-                    Arc::clone(&handler),
-                    root_c.as_deref(),
-                    resource_updated.clone(),
-                )?;
-                if let Some(ref table) = subs {
-                    resubscribe_server_resources(&mut ds, &server_id, table);
+    // Slots by registry position: the router below indexes them in that order, whatever order
+    // the connects finish in.
+    let mut slots: Vec<Option<SharedServerSlot>> = vec![None; ids.len()];
+    let mut reported = vec![false; ids.len()];
+    loop {
+        let (index, server, dirty, resource_updated, ds) =
+            match results.recv_timeout(BUILD_OBSERVER_TICK) {
+                Ok(resolved) => resolved,
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                    if let Some(observer) = observer.as_mut() {
+                        observer(BuildEvent::Waiting);
+                    }
+                    continue;
                 }
-                Some(ds)
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+            };
+        reported[index] = true;
+        let Some(ds) = ds else {
+            if let Some(observer) = observer.as_mut() {
+                observer(BuildEvent::Failed { id: &ids[index] });
+            }
+            continue;
+        };
+        let tools = ds.tools.len();
+        // The same `connect_one` used for the initial spawn is the reconnect
+        // factory, so a re-spawn re-injects keychain secrets and re-handshakes
+        // exactly like a fresh connect, then re-issues resource subscriptions
+        // this server still owns.
+        let handler = Arc::clone(&server_handler);
+        let root_c = root_owned.clone();
+        let subs = resource_subs.clone();
+        let server_id = server.id.clone();
+        let reconnect: Reconnect = Box::new(move || {
+            let mut ds = connect_one(
+                &server,
+                &dirty,
+                Arc::clone(&handler),
+                root_c.as_deref(),
+                resource_updated.clone(),
+            )?;
+            if let Some(ref table) = subs {
+                resubscribe_server_resources(&mut ds, &server_id, table);
+            }
+            Some(ds)
+        });
+        slots[index] = Some(SharedServerSlot::new(ds, Some(reconnect)));
+        if let Some(observer) = observer.as_mut() {
+            let connected: Vec<SharedServerSlot> = slots.iter().flatten().cloned().collect();
+            observer(BuildEvent::Connected {
+                id: &ids[index],
+                tools,
+                partial: Router::from_slots(policy.clone(), reg.tool_overrides.clone(), &connected),
             });
-            router.add_with_reconnect(ds, Some(reconnect));
         }
     }
+    if let Some(observer) = observer.as_mut() {
+        // A connect thread that died without answering is a failed server, not a pending one.
+        for (index, _) in reported.iter().enumerate().filter(|(_, done)| !**done) {
+            observer(BuildEvent::Failed { id: &ids[index] });
+        }
+    }
+
+    // Per-tool exposure overrides (rename / re-describe) are applied as each server's tools
+    // are indexed.
+    let connected: Vec<SharedServerSlot> = slots.into_iter().flatten().collect();
+    let router = Router::from_slots(policy, reg.tool_overrides.clone(), &connected);
     // A client may have declared its capabilities while the servers connected.
     router.redeclare_client_capabilities(&handshake::client_capability_declaration());
     router
@@ -11589,7 +11701,14 @@ fn watch_tick(
             .clone();
         live.expired_cache_kinds() | host.rooted_cache_expired_kinds()
     };
-    let downstream_changed = downstream_notified | cache_expired;
+    // While the startup build is still connecting servers, the live router is a partial one:
+    // refreshing it in place would persist a partial catalog. The build reads each server's
+    // tools when it connects, so nothing is lost by leaving the signal for what follows.
+    let downstream_changed = if host.ready.load(Ordering::SeqCst) {
+        downstream_notified | cache_expired
+    } else {
+        0
+    };
     let current_routines_mtime = routines::routines_path().and_then(|path| mtime(&path));
     let routine_catalog_changed = current_routines_mtime != state.last_routines_mtime;
     if routine_catalog_changed {
@@ -12055,6 +12174,9 @@ struct HostState {
     routine_candidates: CandidateRegistry,
     routine_advisor: AdvisorLedger,
     ready: Arc<AtomicBool>,
+    /// Progress of the startup build: what the app shows while a cold start is running, and what
+    /// the first `tools/list` of a full-discovery client reports when it stops waiting.
+    build_progress: Arc<BuildTracker>,
     downstream_dirty: Arc<AtomicU8>,
     /// Serializes every full `build_router` + router swap: startup background build,
     /// empty-router self-heal, `${ROOT}` rebuild, and registry-watcher full rebuild
@@ -14331,6 +14453,110 @@ fn declare_client_capabilities_downstream(
     let _ = finished.recv_timeout(deadline.saturating_duration_since(Instant::now()));
 }
 
+/// How a `tools/list` waits for the gateway's startup build.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CatalogWait {
+    /// Answer from what is there.
+    None,
+    /// A cold cache: the long-standing wait for the whole build.
+    Build,
+    /// A full-discovery client's list: wait up to the bound, then answer with the servers
+    /// connected so far and announce the rest when it arrives.
+    Bounded(Duration),
+}
+
+/// `serves_live_catalog` is true when the answer is built from the live router: the cache is
+/// empty, or the caller is a daemon adapter, whose catalog is always its profile's view of the
+/// router. A catalog served from a warm cache is complete and never waits. Lazy and grouped
+/// clients keep the whole-build wait they always had.
+fn tools_list_wait(
+    mode: DiscoveryMode,
+    ready: bool,
+    serves_live_catalog: bool,
+    cache_empty: bool,
+    bound: Duration,
+) -> CatalogWait {
+    if ready {
+        CatalogWait::None
+    } else if mode == DiscoveryMode::Full && serves_live_catalog {
+        CatalogWait::Bounded(bound)
+    } else if cache_empty {
+        CatalogWait::Build
+    } else {
+        CatalogWait::None
+    }
+}
+
+fn cold_start_wait(state: &GatewayState) -> Duration {
+    let configured = state
+        .registry
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .cold_start_wait();
+    configured.unwrap_or_else(|error| {
+        glog(&format!(
+            "cold start: {error}; waiting {} ms instead",
+            registry::DEFAULT_COLD_START_WAIT_MS
+        ));
+        Duration::from_millis(registry::DEFAULT_COLD_START_WAIT_MS)
+    })
+}
+
+/// Hold a full-discovery client's `tools/list` while the startup build is still connecting
+/// servers, so a client that lists once starts with its whole catalog. Stops at the bound at
+/// the latest; the caller then answers with what is connected.
+fn wait_for_initial_build(state: &GatewayState, bound: Duration) {
+    let progress = &state.build_progress;
+    let started = Instant::now();
+    let describe = || {
+        let build = progress.snapshot();
+        format!(
+            "{}/{} servers connected, {} failed, {} tools",
+            build.servers_connected, build.servers_total, build.servers_failed, build.tools_so_far
+        )
+    };
+    glog(&format!(
+        "cold start: tools/list waiting up to {} ms for the initial catalog build ({})",
+        bound.as_millis(),
+        describe()
+    ));
+    let deadline = started + bound;
+    while !state.ready.load(Ordering::SeqCst) && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    let completed = state.ready.load(Ordering::SeqCst);
+    if !completed {
+        progress.note_partial_served();
+    }
+    glog(&format!(
+        "cold start: tools/list waited {} ms for the initial catalog build and stopped because {} ({})",
+        started.elapsed().as_millis(),
+        if completed {
+            "the build completed".to_string()
+        } else {
+            format!(
+                "the {} ms bound was reached; answering with the partial catalog and announcing the rest with tools/list_changed",
+                bound.as_millis()
+            )
+        },
+        describe()
+    ));
+}
+
+/// Whether `tools/call` names a tool the live router can already route.
+fn call_routes_now(state: &GatewayState, req: &Value) -> bool {
+    req.pointer("/params/name")
+        .and_then(Value::as_str)
+        .is_some_and(|name| {
+            state
+                .router
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .route_of(name)
+                .is_some()
+        })
+}
+
 const UPSTREAM_RPC_TIMEOUT: Duration = Duration::from_secs(30);
 const UPSTREAM_INTERACTIVE_TIMEOUT: Duration = Duration::from_secs(120);
 
@@ -15137,13 +15363,32 @@ fn process_request(
         }
     }
 
-    let wait = match method {
-        "tools/list" => state
-            .cached_tools
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .tools
-            .is_empty(),
+    let mut wait = match method {
+        "tools/list" => {
+            let cache_empty = state
+                .cached_tools
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .tools
+                .is_empty();
+            let serves_live_catalog = cache_empty
+                || (state.daemon_mode.load(Ordering::SeqCst) && adapter_profile.is_some());
+            let policy = tools_list_wait(
+                discovery,
+                state.ready.load(Ordering::SeqCst),
+                serves_live_catalog,
+                cache_empty,
+                if discovery == DiscoveryMode::Full {
+                    cold_start_wait(state)
+                } else {
+                    Duration::ZERO
+                },
+            );
+            if let CatalogWait::Bounded(bound) = policy {
+                wait_for_initial_build(state, bound);
+            }
+            policy == CatalogWait::Build
+        }
         "tools/call"
         | "resources/list"
         | "resources/templates/list"
@@ -15155,6 +15400,13 @@ fn process_request(
         | "completion/complete" => true,
         _ => false,
     };
+    // A full-discovery client calls tools by their listed names, and a partial catalog lists
+    // only the servers that are up: those calls do not have to wait for the rest.
+    let routes_now =
+        method == "tools/call" && discovery == DiscoveryMode::Full && call_routes_now(state, req);
+    if routes_now {
+        wait = false;
+    }
     if wait {
         let deadline = Instant::now() + Duration::from_secs(30);
         while !state.ready.load(Ordering::SeqCst) && Instant::now() < deadline {
@@ -15173,13 +15425,16 @@ fn process_request(
     // Self-heal: a call with no live downstream servers means the startup read
     // found none (transient) or a server was authed after we built. Reload and
     // rebuild once so the call can route instead of failing.
+    // While the startup build still runs, a call that has no route yet waits on the build's
+    // lock rather than failing against the partial router.
     if method == "tools/call"
-        && state
+        && (state
             .router
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .server_count()
             == 0
+            || (!routes_now && !state.ready.load(Ordering::SeqCst)))
         && !(state.daemon_mode.load(Ordering::SeqCst) && {
             let reg = state
                 .registry
@@ -19154,6 +19409,16 @@ fn main() {
         routine_candidates: CandidateRegistry::default(),
         routine_advisor: AdvisorLedger::default(),
         ready: Arc::clone(&ready),
+        build_progress: Arc::new(BuildTracker::new(
+            if daemon_mode {
+                "daemon"
+            } else if http_mode {
+                "http"
+            } else {
+                "stdio"
+            },
+            registry::conduit_dir(),
+        )),
         downstream_dirty: Arc::clone(&downstream_dirty),
         rebuild_lock,
         http: http_mode,
@@ -19223,7 +19488,45 @@ fn main() {
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .clone();
-            let built = build_router(
+            let progress = Arc::clone(&host_for_build.build_progress);
+            let _finish = FinishBuildOnDrop(Arc::clone(&progress));
+            let mut announced_at = Instant::now();
+            let mut announcement_due = false;
+            let mut observe = |event: BuildEvent<'_>| {
+                match event {
+                    BuildEvent::Planned(ids) => {
+                        progress.plan(ids);
+                        glog(&format!(
+                            "background build: connecting {} servers",
+                            ids.len()
+                        ));
+                    }
+                    BuildEvent::Connected { id, tools, partial } => {
+                        progress.server_connected(id, tools, partial.aggregated_tools().len());
+                        // Calls to the servers that are already up route now; the final
+                        // router below replaces this one over the same connections.
+                        *router
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner) = Arc::new(partial);
+                        host_for_build.invalidate_root_views();
+                        host_for_build.invalidate_tool_scope_views();
+                        announcement_due = true;
+                    }
+                    BuildEvent::Failed { id } => progress.server_failed(id),
+                    BuildEvent::Waiting => {}
+                }
+                // Only a client that was answered with a partial catalog has to be told about
+                // the servers that join; the end of the build announces itself below.
+                if announcement_due
+                    && progress.partial_served()
+                    && announced_at.elapsed() >= PARTIAL_CATALOG_ANNOUNCE_INTERVAL
+                {
+                    announced_at = Instant::now();
+                    announcement_due = false;
+                    notify_tools_changed(&stdio, Some(&mcp_sessions));
+                }
+            };
+            let built = build_router_observed(
                 &reg,
                 p.as_deref(),
                 http_mode,
@@ -19237,11 +19540,13 @@ fn main() {
                 Some(resource_subs_for_build),
                 // Genuine cold start: no prior live set to keep (SBS-871).
                 None,
+                Some(&mut observe),
             );
             let tools = built.aggregated_tools();
             // Read before the router is moved below: a fail-closed build must clear
             // the cache instead of being treated as a transient empty one (SBS-871).
             let fail_closed = built.catalog_fail_closed();
+            let built_tools = tools.len();
             glog(&format!(
                 "background build: {} tools from {} servers",
                 tools.len(),
@@ -19293,6 +19598,7 @@ fn main() {
             } else {
                 glog("background build was empty; keeping previous tool cache");
             }
+            progress.finish(built_tools);
             ready.store(true, Ordering::SeqCst);
             notify_tools_changed(&stdio, Some(&mcp_sessions));
         });
@@ -25406,6 +25712,7 @@ mod tests {
             routine_candidates: CandidateRegistry::default(),
             routine_advisor: AdvisorLedger::default(),
             ready: Arc::new(AtomicBool::new(true)),
+            build_progress: Arc::new(BuildTracker::new("http", None)),
             downstream_dirty,
             rebuild_lock,
             http: true,
@@ -25457,6 +25764,7 @@ mod tests {
                 routine_candidates: CandidateRegistry::default(),
                 routine_advisor: AdvisorLedger::default(),
                 ready: Arc::new(AtomicBool::new(true)),
+                build_progress: Arc::new(BuildTracker::new("http", None)),
                 downstream_dirty: Arc::new(AtomicU8::new(0)),
                 rebuild_lock: Arc::new(Mutex::new(())),
                 http: true,
@@ -30892,6 +31200,217 @@ done
         assert_eq!(handshake(&state), Some(json!("Media only.")));
         *state.profile.lock().unwrap() = Some("postgres".into());
         assert_eq!(handshake(&state), None);
+    }
+
+    #[test]
+    fn the_bounded_cold_start_wait_is_for_full_discovery_that_reads_the_live_router() {
+        let bound = Duration::from_secs(7);
+        let wait =
+            |mode, ready, live, cache_empty| tools_list_wait(mode, ready, live, cache_empty, bound);
+
+        assert_eq!(
+            wait(DiscoveryMode::Full, false, true, true),
+            CatalogWait::Bounded(bound),
+            "a cold cache"
+        );
+        assert_eq!(
+            wait(DiscoveryMode::Full, false, true, false),
+            CatalogWait::Bounded(bound),
+            "a daemon adapter reads its view of the router even when the host cache is warm"
+        );
+        assert_eq!(
+            wait(DiscoveryMode::Full, false, false, false),
+            CatalogWait::None
+        );
+        assert_eq!(
+            wait(DiscoveryMode::Full, true, true, true),
+            CatalogWait::None
+        );
+
+        for mode in [DiscoveryMode::Lazy, DiscoveryMode::Grouped] {
+            assert_eq!(
+                wait(mode, false, true, true),
+                CatalogWait::Build,
+                "{mode:?} keeps the whole-build wait of a cold cache"
+            );
+            assert_eq!(wait(mode, false, true, false), CatalogWait::None);
+            assert_eq!(wait(mode, true, true, true), CatalogWait::None);
+        }
+    }
+
+    fn cold_start_dir(tag: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "toolport-cold-start-{tag}-{}",
+            routines::generate_id().unwrap()
+        ))
+    }
+
+    fn full_tools_list(state: &GatewayState) -> Option<Value> {
+        process_request(
+            state,
+            &json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/list" }),
+            &SearchGuard::default(),
+            &ConfirmGuard::new(),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            DiscoveryMode::Full,
+        )
+    }
+
+    fn listed_names(response: &Value) -> Vec<String> {
+        response["result"]["tools"]
+            .as_array()
+            .unwrap_or_else(|| panic!("a tools array in {response}"))
+            .iter()
+            .filter_map(|tool| tool["name"].as_str().map(str::to_string))
+            .filter(|name| !name.starts_with("toolport_"))
+            .collect()
+    }
+
+    /// Runs `work` on its own thread so a wait that never ends fails the test instead of
+    /// hanging it. The deadline is a ceiling, not a timing assertion.
+    fn within_deadline<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) -> T {
+        let (done, result) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = done.send(work());
+        });
+        result
+            .recv_timeout(Duration::from_secs(25))
+            .expect("the request was answered within the deadline")
+    }
+
+    #[test]
+    fn a_full_discovery_list_waits_for_the_build_and_answers_with_the_whole_catalog() {
+        let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _lock = registry::data_dir_test_lock();
+        let dir = cold_start_dir("complete");
+        let _data = registry::DataDirOverride::set(&dir);
+        let state = http_state(false);
+        state.ready.store(false, Ordering::SeqCst);
+        state.registry.lock().unwrap().cold_start_wait_ms = Some(120_000);
+
+        let build = state.clone();
+        let log_path = dir.join("gateway.log");
+        let finisher = std::thread::spawn(move || {
+            let waiting = |log_path: &Path| {
+                std::fs::read_to_string(log_path).is_ok_and(|log| log.contains("waiting up to"))
+            };
+            while !waiting(&log_path) {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            swap_router(&build, routed_router("late", "tool"));
+            build.build_progress.finish(1);
+            build.ready.store(true, Ordering::SeqCst);
+        });
+        let asking = state.clone();
+        let response = within_deadline(move || full_tools_list(&asking)).expect("answered");
+        finisher.join().unwrap();
+
+        assert_eq!(listed_names(&response), ["late__tool"]);
+        assert!(
+            !state.build_progress.partial_served(),
+            "a complete answer is not a partial one"
+        );
+        let log = std::fs::read_to_string(dir.join("gateway.log")).unwrap_or_default();
+        assert!(log.contains("tools/list waiting up to 120000 ms"), "{log}");
+        assert!(log.contains("stopped because the build completed"), "{log}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_full_discovery_list_answers_with_the_partial_catalog_once_the_bound_passes() {
+        let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _lock = registry::data_dir_test_lock();
+        let dir = cold_start_dir("bound");
+        let _data = registry::DataDirOverride::set(&dir);
+        let state = http_state(false);
+        state.ready.store(false, Ordering::SeqCst);
+        state.registry.lock().unwrap().cold_start_wait_ms = Some(150);
+        swap_router(&state, routed_router("early", "tool"));
+
+        let asking = state.clone();
+        let response = within_deadline(move || full_tools_list(&asking)).expect("answered");
+
+        assert_eq!(listed_names(&response), ["early__tool"]);
+        assert!(
+            !state.ready.load(Ordering::SeqCst),
+            "the build is still running"
+        );
+        assert!(
+            state.build_progress.partial_served(),
+            "the build now announces the servers that join"
+        );
+        let log = std::fs::read_to_string(dir.join("gateway.log")).unwrap_or_default();
+        assert!(log.contains("tools/list waiting up to 150 ms"), "{log}");
+        assert!(log.contains("the 150 ms bound was reached"), "{log}");
+        assert!(log.contains("partial catalog"), "{log}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_cold_start_wait_of_zero_answers_at_once_and_an_invalid_one_falls_back() {
+        let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _lock = registry::data_dir_test_lock();
+        let dir = cold_start_dir("zero");
+        let _data = registry::DataDirOverride::set(&dir);
+        let state = http_state(false);
+        state.ready.store(false, Ordering::SeqCst);
+        swap_router(&state, routed_router("early", "tool"));
+
+        state.registry.lock().unwrap().cold_start_wait_ms = Some(0);
+        let asking = state.clone();
+        let response = within_deadline(move || full_tools_list(&asking)).expect("answered");
+        assert_eq!(listed_names(&response), ["early__tool"]);
+        assert!(state.build_progress.partial_served());
+
+        state.registry.lock().unwrap().cold_start_wait_ms = Some(u64::MAX);
+        assert_eq!(
+            cold_start_wait(&state),
+            Duration::from_millis(registry::DEFAULT_COLD_START_WAIT_MS)
+        );
+        let log = std::fs::read_to_string(dir.join("gateway.log")).unwrap_or_default();
+        assert!(log.contains("coldStartWaitMs must not exceed"), "{log}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_full_discovery_call_to_a_tool_that_already_routes_does_not_wait_for_the_build() {
+        let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _lock = registry::data_dir_test_lock();
+        let dir = cold_start_dir("call");
+        let _data = registry::DataDirOverride::set(&dir);
+        let state = http_state(false);
+        state.ready.store(false, Ordering::SeqCst);
+        swap_router(&state, routed_router("early", "tool"));
+
+        let calling = state.clone();
+        let response = within_deadline(move || {
+            process_request(
+                &calling,
+                &json!({
+                    "jsonrpc": "2.0", "id": 3, "method": "tools/call",
+                    "params": { "name": "early__tool", "arguments": {} }
+                }),
+                &SearchGuard::default(),
+                &ConfirmGuard::new(),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                DiscoveryMode::Full,
+            )
+        })
+        .expect("answered");
+
+        assert!(response.get("result").is_some(), "{response}");
+        assert!(!state.ready.load(Ordering::SeqCst));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
