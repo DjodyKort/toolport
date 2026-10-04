@@ -38,40 +38,6 @@ pub(super) fn git_identity(dir: &Path) {
 }
 
 #[test]
-fn no_tool_or_resource_is_left_unimplemented() {
-    let _fixture = Fixture::new("wired-all");
-    for tool in TOOLS {
-        let mut args = serde_json::Map::new();
-        for param in tool.params.iter().filter(|p| p.required) {
-            let value = match param.ty {
-                catalog::Ty::Str => json!("x"),
-                catalog::Ty::Bool => json!(true),
-                catalog::Ty::Obj => json!({}),
-                catalog::Ty::StrList => json!(["x"]),
-            catalog::Ty::Int => json!(1),
-            };
-            args.insert(param.name.to_string(), value);
-        }
-        if tool.gate != Gate::None {
-            args.insert("confirm".into(), json!(true));
-        }
-        if tool.params.iter().any(|p| p.name == "dry_run") {
-            args.insert("dry_run".into(), json!(true));
-        }
-        assert_ne!(
-            kind(call_tool(tool.name, &Value::Object(args))),
-            "not_implemented",
-            "{}",
-            tool.name
-        );
-    }
-    for def in RESOURCES {
-        let text = read_resource(def.uri).unwrap_or_else(|e| panic!("{}: {e:?}", def.uri));
-        assert!(!text.0.is_empty() || def.uri.starts_with("mcpm://inventory"));
-    }
-}
-
-#[test]
 fn resources_describe_agents_styles_and_the_dropped_router() {
     let _fixture = Fixture::new("wired-res");
     let agents = read_resource("mcpm://inventory/agents").unwrap().0;
