@@ -6,7 +6,7 @@ pub mod manage;
 pub mod sync;
 pub mod transpilers;
 
-pub use sync::{sync_agents, sync_scoped, AgentSyncOptions, ScopedSync};
+pub use sync::{sync_agents, sync_scoped, AgentSyncOptions};
 pub use transpilers::{all_agent_transpilers, AgentTranspiler};
 
 use super::kind::{discover, discover_report, read_document, ContentKind};

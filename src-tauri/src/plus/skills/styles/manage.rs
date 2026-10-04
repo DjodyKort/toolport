@@ -89,7 +89,6 @@ pub fn sync_outputs(
 
 pub struct ScopedSync {
     pub lock: LockFile,
-    pub scope: Scope,
     pub outputs: Vec<PathBuf>,
 }
 
@@ -114,11 +113,7 @@ pub fn sync_scoped(
         save_lockfile(&scope.lock_dir, &lock)?;
     }
     let outputs = sync_outputs(styles, &scope.output_root, &client_keys);
-    Ok(ScopedSync {
-        lock,
-        scope,
-        outputs,
-    })
+    Ok(ScopedSync { lock, outputs })
 }
 
 pub struct ScopedApply {

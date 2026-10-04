@@ -1,7 +1,8 @@
-//! Git access behind a trait so taps and the skills-repo sync can be tested without a network:
-//! `SystemGit` shells out to the `git` binary, `MockGit` records calls and replays canned results.
+//! Git access behind a trait so taps can be tested without a network: `SystemGit` shells out to
+//! the `git` binary, and tests use `MockGit`, which records calls and replays canned results.
 
 use crate::plus::exec::git_stdout;
+#[cfg(test)]
 use std::cell::RefCell;
 use std::path::Path;
 use std::time::Duration;
@@ -70,6 +71,7 @@ impl GitRunner for SystemGit {
     }
 }
 
+#[cfg(test)]
 #[derive(Default)]
 pub struct MockGit {
     pub calls: RefCell<Vec<String>>,
@@ -77,6 +79,7 @@ pub struct MockGit {
     pub head_sha: RefCell<String>,
 }
 
+#[cfg(test)]
 impl MockGit {
     pub fn with_head(sha: &str) -> Self {
         Self {
@@ -94,6 +97,7 @@ impl MockGit {
     }
 }
 
+#[cfg(test)]
 impl GitRunner for MockGit {
     fn clone_repo(&self, url: &str, dest: &Path) -> Result<(), String> {
         self.record(format!("clone {url} {}", dest.display()))?;
