@@ -8,6 +8,8 @@ const AllCommandsPage = lazy(() =>
 );
 const ServersScreen = lazy(() =>
   import("./servers/ServersScreen").then((m) => ({ default: m.ServersScreen })),
+const LoginsScreen = lazy(() =>
+  import("./logins/LoginsScreen").then((m) => ({ default: m.LoginsScreen })),
 );
 const NotBuilt = lazy(() => import("./NotBuilt").then((m) => ({ default: m.NotBuilt })));
 
@@ -35,6 +37,8 @@ export function PlusViews({
           onOpenCommands={openCommands}
           onOpenClassic={() => onSelectView("servers")}
         />
+      ) : view === "logins" ? (
+        <LoginsScreen onOpenCommands={openCommands} />
       ) : (
         <NotBuilt view={view} onOpenCommands={openCommands} />
       )}

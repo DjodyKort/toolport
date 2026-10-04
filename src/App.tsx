@@ -1024,7 +1024,7 @@ function App() {
                         onRegistryChange={applyRegistryChange}
                       />
                       <div className="mt-6 flex flex-col gap-6 empty:hidden">
-                        <AuthPanel />
+                        <AuthPanel onOpenLogins={() => selectView("logins")} />
                         <WhatLoadsPanel />
                       </div>
                       <AllCommandsLink onOpen={() => selectView("commands")} />
@@ -1149,7 +1149,7 @@ function App() {
       {/* Quarantine has no global signal otherwise: the first sign used to be an agent
           call failing, with the only fix buried in Settings (SOU-293). */}
       <QuarantineAlert onReview={() => selectView("settings")} />
-      <AuthNotifier onReview={() => selectView("settings")} />
+      <AuthNotifier onReview={() => selectView("logins")} />
       <ConfirmDialog
         open={confirmDisableAll}
         onOpenChange={setConfirmDisableAll}

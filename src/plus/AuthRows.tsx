@@ -61,7 +61,7 @@ export function AuthRows({
   );
 }
 
-export function AuthPanel() {
+export function AuthPanel({ onOpenLogins }: { onOpenLogins?: () => void } = {}) {
   const [data, setData] = useState<AuthRowsData | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -104,6 +104,15 @@ export function AuthPanel() {
             ? "All signed in"
             : `${attention} ${attention === 1 ? "needs" : "need"} attention`}
         </span>
+        {onOpenLogins && (
+          <button
+            type="button"
+            className="ml-auto text-xs underline"
+            onClick={onOpenLogins}
+          >
+            Open Logins &amp; secrets
+          </button>
+        )}
       </header>
       <AuthRows rows={data.rows} onFix={fix} busy={busy} />
     </section>
