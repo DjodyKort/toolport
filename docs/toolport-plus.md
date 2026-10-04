@@ -22,7 +22,7 @@ Toolport+ is a fork of Toolport. Everything the fork adds lives under `src-tauri
 | `jsonfs.rs`                    | Tolerant JSON file read shared by the modules above.                                                                                                       |
 | `testutil.rs`                  | Test-only fixtures (see Test conventions).                                                                                                                 |
 
-Frontend (`src/plus/`): `api.ts` (`plusInvoke` wrapper), `AuthRows`, `FolderProfiles`, `WhatLoads`, with fixtures under `src/plus/fixtures/`. New IPC commands must be registered in `src/test/browser-fixture.tsx`.
+Frontend (`src/plus/`): `api.ts` (`plusInvoke` wrapper), `AuthRows` and `AuthNotifier`, `FolderProfiles`, `WhatLoads`, with fixtures under `src/plus/fixtures/`. New IPC commands must be registered in `src/test/browser-fixture.tsx`.
 
 ## toolportctl commands
 
@@ -93,6 +93,8 @@ The gateway removes every `TOOLPORT_*` variable from the servers it starts. If y
 `toolportctl auth probe` runs the due probes, `--force` ignores the cache and `--server <id>` limits the run to one server; it writes the same cache as the gateway due-scan. That scan runs from the registry-watch loop of every long-lived gateway mode, on its own thread, at most once a minute after a 60 second delay (`TOOLPORT_AUTH_SCAN=off` disables it), so probes never hold up requests.
 
 `toolportctl auth login <server>` is the fix the status surfaces point at. A remote OAuth server runs the gateway browser flow; a stdio server runs `<command> <args> auth` and prints the consent URL it prints (`--no-open` leaves the browser to you). A server that signs in with an API token or client credentials gets the next step instead. A stdio server joins the probes by opting in with `"plus": {"authProbe": {"kind": "stdio"}}` in its registry entry.
+
+The app shows the same rows under Settings as "Sign-in health" (`plus.auth.rows`). A reauth or reconsent row signs in through `plus.auth.login`, the same core as `toolportctl auth login` and it opens the browser; a retry row runs the `plus.auth.probe` route it carries; a misconfigured row only names what to check. Each fix reloads the rows. While the window is visible, `AuthNotifier` asks `plus.auth.notifications` once a minute and raises a toast for each login that just moved to needs-reauth or expiring and is still in that state. A login is announced once per six hours; what was announced lives in `auth/notified.json` next to `status.json`. There is no operating-system notification yet.
 
 ## Environment variables
 
