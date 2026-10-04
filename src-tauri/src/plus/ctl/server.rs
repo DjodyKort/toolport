@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 const SEARCH_USAGE: &str = "usage: server search [<query>] [--offline] [--limit <n>]";
 const INSTALL_USAGE: &str = "usage: server install <catalog name> [--offline]";
 const NEW_USAGE: &str = "usage: server new <name> (--command <cmd> [--arg <a>]... | --url <url> [--transport http|sse]) [--cwd <dir>]";
-const EDIT_USAGE: &str = "usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--url <url>] [--transport <t>] [--cwd <dir>]";
+const EDIT_USAGE: &str = "usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--url <url>] [--transport <t>] [--cwd <dir>] [--declare-client-capabilities on|off] [--forward-instructions on|off]";
 const INFO_USAGE: &str = "usage: server info <id|name>";
 const UNINSTALL_USAGE: &str =
     "usage: server uninstall <id|name> [--dry-run] [--keep-clients] [--keep-secrets]";
@@ -42,6 +42,8 @@ const EDIT: Spec = Spec {
         value("--url"),
         value("--transport"),
         value("--cwd"),
+        value("--declare-client-capabilities"),
+        value("--forward-instructions"),
     ],
     ..Spec::PLAIN
 };
@@ -162,16 +164,25 @@ pub fn install(rest: &[String]) -> Result<Output, CtlError> {
     ))
 }
 
-fn patch_from(flags: &Flags, name: Option<&str>) -> Patch {
+fn switch_flag(flags: &Flags, flag: &str) -> Result<Option<bool>, CtlError> {
+    flags
+        .one(flag)
+        .map(|raw| servers::parse_switch(raw).map_err(|e| CtlError::usage(format!("{flag}: {e}"))))
+        .transpose()
+}
+
+fn patch_from(flags: &Flags, name: Option<&str>) -> Result<Patch, CtlError> {
     let own = |flag| flags.one(flag).map(String::from);
-    Patch {
+    Ok(Patch {
         name: name.map(String::from).or_else(|| own("--name")),
         transport: own("--transport"),
         command: own("--command"),
         args: Some(flags.all("--arg")).filter(|given| !given.is_empty()),
         url: own("--url"),
         cwd: own("--cwd"),
-    }
+        declare_client_capabilities: switch_flag(flags, "--declare-client-capabilities")?,
+        forward_instructions: switch_flag(flags, "--forward-instructions")?,
+    })
 }
 
 pub fn new(rest: &[String]) -> Result<Output, CtlError> {
@@ -180,7 +191,7 @@ pub fn new(rest: &[String]) -> Result<Output, CtlError> {
     if flags.one("--command").is_none() && flags.one("--url").is_none() {
         return Err(CtlError::usage(NEW_USAGE));
     }
-    let fields = servers::fields_from(patch_from(&flags, Some(&name)), None);
+    let fields = servers::fields_from(patch_from(&flags, Some(&name))?, None);
     require_readable()?;
     let added = servers::add_returning_id(fields).map_err(|e| match e {
         AddError::Exists => CtlError::conflict(format!("server '{name}' already exists")),
@@ -198,10 +209,11 @@ pub fn edit(rest: &[String]) -> Result<Output, CtlError> {
     if !flags.has_values() {
         return Err(CtlError::usage(EDIT_USAGE));
     }
+    let patch = patch_from(&flags, None)?;
     let reg = load_registry()?;
     let server = resolve(&reg, key)?;
     let id = server.id.clone();
-    let fields = servers::fields_from(patch_from(&flags, None), Some(server));
+    let fields = servers::fields_from(patch, Some(server));
     let changed: Vec<&str> = [
         ("name", fields.name != server.name),
         ("transport", fields.transport != server.transport),
@@ -209,6 +221,18 @@ pub fn edit(rest: &[String]) -> Result<Output, CtlError> {
         ("args", fields.args != server.args),
         ("url", fields.url != server.url),
         ("cwd", fields.cwd != server.cwd),
+        (
+            "declareClientCapabilities",
+            fields
+                .declare_client_capabilities
+                .is_some_and(|on| on != server.declare_client_capabilities),
+        ),
+        (
+            "forwardInstructions",
+            fields
+                .forward_instructions
+                .is_some_and(|on| on != server.forward_instructions),
+        ),
     ]
     .iter()
     .filter(|(_, differs)| *differs)
@@ -253,6 +277,8 @@ pub fn info(rest: &[String]) -> Result<Output, CtlError> {
         "source": s.source,
         "env": env,
         "disabledTools": s.disabled_tools,
+        "declareClientCapabilities": s.declare_client_capabilities,
+        "forwardInstructions": s.forward_instructions,
         "profiles": profiles,
     });
     let target = s
@@ -267,7 +293,7 @@ pub fn info(rest: &[String]) -> Result<Output, CtlError> {
             })
         })
         .unwrap_or_default();
-    let human = format!(
+    let mut human = format!(
         "{}\nId:         {}\nTransport:  {}\nTarget:     {}\nSource:     {}\nEnv keys:   {}\nProfiles:   {}",
         s.name,
         s.id,
@@ -285,6 +311,12 @@ pub fn info(rest: &[String]) -> Result<Output, CtlError> {
         },
         if profiles.is_empty() { "-".to_string() } else { profiles.join(", ") },
     );
+    if s.declare_client_capabilities {
+        human.push_str("\nDeclares:   client capabilities");
+    }
+    if s.forward_instructions {
+        human.push_str("\nForwards:   instructions");
+    }
     Ok(Output::new(data, human))
 }
 

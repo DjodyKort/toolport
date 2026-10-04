@@ -154,6 +154,8 @@ pub fn run_tool(tool: &ToolDef, args: &Value) -> Result<Value, ToolError> {
             row["url"] = json!(server.url);
             row["cwd"] = json!(server.cwd);
             row["disabledTools"] = json!(server.disabled_tools);
+            row["declareClientCapabilities"] = json!(server.declare_client_capabilities);
+            row["forwardInstructions"] = json!(server.forward_instructions);
             row["env"] = json!(server
                 .env
                 .iter()

@@ -233,6 +233,9 @@ fn upsert_server(reg: &mut Registry, mut entry: ServerEntry) -> Action {
     entry.disabled_tools = existing.disabled_tools.clone();
     entry.client_credentials = existing.client_credentials.clone();
     entry.request_timeout_ms = existing.request_timeout_ms;
+    entry.max_request_timeout_ms = existing.max_request_timeout_ms;
+    entry.declare_client_capabilities = existing.declare_client_capabilities;
+    entry.forward_instructions = existing.forward_instructions;
     entry.initialize_timeout_ms = existing.initialize_timeout_ms;
     if *existing == entry {
         return Action::Unchanged;

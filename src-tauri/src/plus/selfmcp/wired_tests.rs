@@ -511,6 +511,62 @@ fn server_mutations_follow_their_tiers() {
         "invalid_arguments"
     );
 
+    assert_eq!(got["declareClientCapabilities"], false);
+    assert_eq!(got["forwardInstructions"], false);
+    let switched = call(
+        "servers_update_config",
+        json!({"name": "gamma", "patch": {"declareClientCapabilities": true, "forwardInstructions": true}, "confirm": true}),
+    )
+    .unwrap();
+    let updated = switched["updatedKeys"].to_string();
+    assert!(updated.contains("declareClientCapabilities"), "{updated}");
+    assert!(updated.contains("forwardInstructions"), "{updated}");
+    let got = call("servers_get", json!({"name": "gamma"})).unwrap();
+    assert_eq!(got["declareClientCapabilities"], true);
+    assert_eq!(got["forwardInstructions"], true);
+    assert_eq!(got["command"], "gamma2-mcp", "other fields are kept");
+    for bad in [json!("on"), json!(1), json!([true])] {
+        assert_eq!(
+            kind(call(
+                "servers_update_config",
+                json!({"name": "gamma", "patch": {"forwardInstructions": bad}, "confirm": true})
+            )),
+            "invalid_arguments"
+        );
+    }
+    call(
+        "servers_update_config",
+        json!({"name": "gamma", "patch": {"declareClientCapabilities": false}, "confirm": true}),
+    )
+    .unwrap();
+    let got = call("servers_get", json!({"name": "gamma"})).unwrap();
+    assert_eq!(got["declareClientCapabilities"], false);
+    assert_eq!(
+        got["forwardInstructions"], true,
+        "an edit keeps what it does not name"
+    );
+
+    call(
+        "servers_install",
+        json!({"name": "epsilon", "config": {"command": "epsilon-mcp", "forwardInstructions": true}, "confirm": true}),
+    )
+    .unwrap();
+    let got = call("servers_get", json!({"name": "epsilon"})).unwrap();
+    assert_eq!(got["forwardInstructions"], true);
+    assert_eq!(got["declareClientCapabilities"], false);
+    assert_eq!(
+        kind(call(
+            "servers_install",
+            json!({"name": "zeta", "config": {"command": "z", "declareClientCapabilities": "yes"}, "confirm": true})
+        )),
+        "invalid_arguments"
+    );
+    call(
+        "servers_uninstall",
+        json!({"name": "epsilon", "confirm": true}),
+    )
+    .unwrap();
+
     let mode = call(
         "servers_set_mode",
         json!({"name": "gamma", "mode": "router", "confirm": true}),

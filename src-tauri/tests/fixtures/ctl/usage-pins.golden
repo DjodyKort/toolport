@@ -1017,13 +1017,13 @@ exit 1
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--url <url>] [--transport <t>] [--cwd <dir>]
+toolportctl: usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--url <url>] [--transport <t>] [--cwd <dir>] [--declare-client-capabilities on|off] [--forward-instructions on|off]
 Run `toolportctl --help` for usage.
 === ["server","edit","a"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--url <url>] [--transport <t>] [--cwd <dir>]
+toolportctl: usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--url <url>] [--transport <t>] [--cwd <dir>] [--declare-client-capabilities on|off] [--forward-instructions on|off]
 Run `toolportctl --help` for usage.
 === ["server","edit","a","--name"]
 exit 2
@@ -1037,6 +1037,18 @@ exit 2
 --- stderr
 toolportctl: --arg requires a value
 Run `toolportctl --help` for usage.
+=== ["server","edit","a","--forward-instructions"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --forward-instructions requires a value
+Run `toolportctl --help` for usage.
+=== ["server","edit","alpha","--forward-instructions","maybe"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --forward-instructions: 'maybe' is not on or off
+Run `toolportctl --help` for usage.
 === ["server","edit","a","--bogus"]
 exit 2
 --- stdout
@@ -1047,7 +1059,7 @@ Run `toolportctl --help` for usage.
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--url <url>] [--transport <t>] [--cwd <dir>]
+toolportctl: usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--url <url>] [--transport <t>] [--cwd <dir>] [--declare-client-capabilities on|off] [--forward-instructions on|off]
 Run `toolportctl --help` for usage.
 === ["server","edit","nope","--name","x"]
 exit 1

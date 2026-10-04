@@ -34,6 +34,18 @@ pub(crate) struct Patch {
     pub args: Option<Vec<String>>,
     pub url: Option<String>,
     pub cwd: Option<String>,
+    pub declare_client_capabilities: Option<bool>,
+    pub forward_instructions: Option<bool>,
+}
+
+/// The value of an `on`/`off` switch given as text: `on`, `true`, `yes`, `1` and
+/// their opposites.
+pub(crate) fn parse_switch(raw: &str) -> Result<bool, String> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "on" | "true" | "yes" | "1" => Ok(true),
+        "off" | "false" | "no" | "0" => Ok(false),
+        _ => Err(format!("'{raw}' is not on or off")),
+    }
 }
 
 /// Without an explicit transport, a given command means stdio and a given url means http (sse
@@ -65,6 +77,8 @@ pub(crate) fn fields_from(patch: Patch, base: Option<&ServerEntry>) -> ServerFie
             .unwrap_or_default(),
         url: patch.url.or_else(|| base.and_then(|b| b.url.clone())),
         cwd: patch.cwd.or_else(|| base.and_then(|b| b.cwd.clone())),
+        declare_client_capabilities: patch.declare_client_capabilities,
+        forward_instructions: patch.forward_instructions,
     }
 }
 
@@ -119,6 +133,8 @@ pub(crate) fn stdio_entry(name: &str, command: Option<String>, source: &str) -> 
         client_credentials: None,
         request_timeout_ms: None,
         max_request_timeout_ms: None,
+        declare_client_capabilities: false,
+        forward_instructions: false,
         initialize_timeout_ms: None,
         unknown_fields: Default::default(),
     }
@@ -159,6 +175,19 @@ mod tests {
             },
             None,
         )
+    }
+
+    #[test]
+    fn a_switch_reads_on_and_off_spellings_and_nothing_else() {
+        for on in ["on", "ON", "true", "Yes", "1", " on "] {
+            assert_eq!(parse_switch(on), Ok(true), "{on}");
+        }
+        for off in ["off", "Off", "false", "no", "0"] {
+            assert_eq!(parse_switch(off), Ok(false), "{off}");
+        }
+        for bad in ["", "maybe", "2", "enable"] {
+            assert_eq!(parse_switch(bad), Err(format!("'{bad}' is not on or off")));
+        }
     }
 
     #[test]
@@ -231,6 +260,8 @@ mod tests {
                 args: vec!["--base".into()],
                 url: None,
                 cwd: Some("/base".into()),
+                declare_client_capabilities: None,
+                forward_instructions: None,
             }
         );
         let changed = fields_from(

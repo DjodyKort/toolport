@@ -98,6 +98,8 @@ fn odh_entry(command: &str, args: Vec<String>, transcript: &Path) -> ServerEntry
         client_credentials: None,
         request_timeout_ms: None,
         max_request_timeout_ms: None,
+        declare_client_capabilities: false,
+        forward_instructions: false,
         initialize_timeout_ms: None,
         launch: None,
         unknown_fields: serde_json::Map::new(),

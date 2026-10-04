@@ -166,6 +166,10 @@ pub struct ServerFields {
     pub args: Vec<String>,
     pub url: Option<String>,
     pub cwd: Option<String>,
+    /// `None` keeps the server's current setting (off for a new one).
+    pub declare_client_capabilities: Option<bool>,
+    /// `None` keeps the server's current setting (off for a new one).
+    pub forward_instructions: Option<bool>,
 }
 
 #[derive(Debug)]
@@ -366,6 +370,8 @@ pub fn apply_add_server(registry: &mut Registry, fields: ServerFields) -> Result
             client_credentials: None,
             request_timeout_ms: None,
             max_request_timeout_ms: None,
+            declare_client_capabilities: fields.declare_client_capabilities.unwrap_or(false),
+            forward_instructions: fields.forward_instructions.unwrap_or(false),
             initialize_timeout_ms: None,
             launch: None,
             unknown_fields: serde_json::Map::new(),
@@ -400,6 +406,8 @@ pub(crate) fn server_from_detected(server: &clients::McpServer, client_id: &str)
         client_credentials: None,
         request_timeout_ms: None,
         max_request_timeout_ms: None,
+        declare_client_capabilities: false,
+        forward_instructions: false,
         initialize_timeout_ms: None,
         launch: None,
         unknown_fields: serde_json::Map::new(),
@@ -518,6 +526,12 @@ pub fn apply_update_server_fields(
     server.args = fields.args;
     server.url = fields.url;
     server.cwd = fields.cwd;
+    if let Some(declare) = fields.declare_client_capabilities {
+        server.declare_client_capabilities = declare;
+    }
+    if let Some(forward) = fields.forward_instructions {
+        server.forward_instructions = forward;
+    }
     Ok(())
 }
 
@@ -622,6 +636,8 @@ fn catalog_server(entry: crate::catalog::CatalogEntry) -> ServerEntry {
         client_credentials: None,
         request_timeout_ms: None,
         max_request_timeout_ms: None,
+        declare_client_capabilities: false,
+        forward_instructions: false,
         initialize_timeout_ms: None,
         launch: entry.launch,
         unknown_fields: serde_json::Map::new(),
@@ -706,6 +722,8 @@ pub fn server_entry_for_probe(
                 client_credentials: None,
                 request_timeout_ms: None,
                 max_request_timeout_ms: None,
+                declare_client_capabilities: fields.declare_client_capabilities.unwrap_or(false),
+                forward_instructions: fields.forward_instructions.unwrap_or(false),
                 initialize_timeout_ms: None,
                 launch: None,
                 unknown_fields: serde_json::Map::new(),
@@ -1995,6 +2013,8 @@ mod tests {
             client_credentials: None,
             request_timeout_ms: None,
             max_request_timeout_ms: None,
+            declare_client_capabilities: false,
+            forward_instructions: false,
             initialize_timeout_ms: None,
             launch: None,
             unknown_fields: serde_json::Map::new(),
@@ -2009,6 +2029,8 @@ mod tests {
             args: vec!["-y".into(), "example-server".into()],
             url: (transport != "stdio").then(|| "https://example.com/mcp".into()),
             cwd: (transport == "stdio").then(|| " /tmp/project ".into()),
+            declare_client_capabilities: None,
+            forward_instructions: None,
         }
     }
 
@@ -2229,6 +2251,41 @@ mod tests {
     }
 
     #[test]
+    fn a_field_edit_sets_the_handshake_switches_only_when_it_carries_them() {
+        let mut registry = Registry::default();
+        let mut existing = server("one");
+        existing.declare_client_capabilities = true;
+        existing.forward_instructions = true;
+        registry.servers.push(existing);
+
+        apply_update_server_fields(&mut registry, "one", fields("One", "stdio")).unwrap();
+        assert!(
+            registry.servers[0].declare_client_capabilities
+                && registry.servers[0].forward_instructions,
+            "an edit that says nothing about them keeps them"
+        );
+
+        let mut off = fields("One", "stdio");
+        off.forward_instructions = Some(false);
+        apply_update_server_fields(&mut registry, "one", off).unwrap();
+        assert!(registry.servers[0].declare_client_capabilities);
+        assert!(!registry.servers[0].forward_instructions);
+
+        let mut on = fields("Two", "stdio");
+        on.forward_instructions = Some(true);
+        on.declare_client_capabilities = Some(false);
+        apply_update_server_fields(&mut registry, "one", on).unwrap();
+        assert!(!registry.servers[0].declare_client_capabilities);
+        assert!(registry.servers[0].forward_instructions);
+
+        let mut added = fields("Added", "stdio");
+        added.declare_client_capabilities = Some(true);
+        let id = apply_add_server(&mut registry, added).unwrap();
+        let added = registry.servers.iter().find(|s| s.id == id).unwrap();
+        assert!(added.declare_client_capabilities && !added.forward_instructions);
+    }
+
+    #[test]
     fn native_field_edit_keeps_or_clears_generated_binding_explicitly() {
         let mut registry = Registry::default();
         let mut existing = server("one");
@@ -2257,6 +2314,8 @@ mod tests {
             args: vec!["-y".into(), "pkg".into(), "<launch-input>".into()],
             url: None,
             cwd: None,
+            declare_client_capabilities: None,
+            forward_instructions: None,
         };
         apply_update_server_fields(&mut registry, "one", same.clone()).unwrap();
         assert_eq!(
@@ -2298,6 +2357,8 @@ mod tests {
                     args: Vec::new(),
                     url: Some("file:///tmp/not-an-mcp-server".into()),
                     cwd: None,
+                    declare_client_capabilities: None,
+                    forward_instructions: None,
                 },
             )
         });

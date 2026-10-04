@@ -199,6 +199,93 @@ fn server_install_from_catalog_then_conflict() {
 }
 
 #[test]
+fn the_handshake_switches_are_set_through_server_edit_and_shown_by_info() {
+    world(|w| {
+        let (_, info) = cli_json(&["server", "info", "alpha"]);
+        assert_eq!(info["data"]["declareClientCapabilities"], false);
+        assert_eq!(info["data"]["forwardInstructions"], false);
+        let (_, text, _) = cli(&["server", "info", "alpha"]);
+        assert!(
+            !text.contains("Declares:") && !text.contains("Forwards:"),
+            "{text}"
+        );
+
+        let (code, value) = cli_json(&[
+            "server",
+            "edit",
+            "alpha",
+            "--declare-client-capabilities",
+            "on",
+            "--forward-instructions",
+            "yes",
+        ]);
+        assert_eq!(code, 0, "{value}");
+        assert_eq!(
+            value["data"],
+            json!({"id": "alpha", "changed": ["declareClientCapabilities", "forwardInstructions"]})
+        );
+        let raw: Value =
+            serde_json::from_str(&std::fs::read_to_string(w.data.join("registry.json")).unwrap())
+                .unwrap();
+        assert_eq!(raw["servers"][0]["declareClientCapabilities"], true);
+        assert_eq!(raw["servers"][0]["forwardInstructions"], true);
+        assert_eq!(
+            raw["servers"][0]["command"], "alpha-mcp",
+            "the rest of the entry is untouched"
+        );
+        let (_, info) = cli_json(&["server", "info", "alpha"]);
+        assert_eq!(info["data"]["declareClientCapabilities"], true);
+        assert_eq!(info["data"]["forwardInstructions"], true);
+        let (_, text, _) = cli(&["server", "info", "alpha"]);
+        assert!(
+            text.contains("\nDeclares:   client capabilities\nForwards:   instructions"),
+            "{text}"
+        );
+
+        let (_, same) = cli_json(&["server", "edit", "alpha", "--forward-instructions", "on"]);
+        assert_eq!(same["data"]["changed"], json!([]));
+
+        let (_, one) = cli_json(&["server", "edit", "alpha", "--forward-instructions", "off"]);
+        assert_eq!(one["data"]["changed"], json!(["forwardInstructions"]));
+        let (_, info) = cli_json(&["server", "info", "alpha"]);
+        assert_eq!(info["data"]["declareClientCapabilities"], true);
+        assert_eq!(info["data"]["forwardInstructions"], false);
+
+        let (_, off) = cli_json(&[
+            "server",
+            "edit",
+            "alpha",
+            "--declare-client-capabilities",
+            "off",
+        ]);
+        assert_eq!(off["data"]["changed"], json!(["declareClientCapabilities"]));
+        let raw = std::fs::read_to_string(w.data.join("registry.json")).unwrap();
+        assert!(
+            !raw.contains("declareClientCapabilities") && !raw.contains("forwardInstructions"),
+            "off leaves no field behind: {raw}"
+        );
+
+        let before = std::fs::read(w.data.join("registry.json")).unwrap();
+        for bad in ["maybe", "", "2"] {
+            let (code, value) =
+                cli_json(&["server", "edit", "alpha", "--forward-instructions", bad]);
+            assert_eq!(
+                (code, value["error"]["code"].as_str()),
+                (2, Some("usage")),
+                "{bad:?}: {value}"
+            );
+            assert_eq!(
+                value["error"]["message"],
+                format!("--forward-instructions: '{bad}' is not on or off")
+            );
+        }
+        let (code, _) = cli_json(&["server", "edit", "alpha", "--forward-instructions"]);
+        assert_eq!(code, 2, "a switch without a value is a usage error");
+        assert_eq!(std::fs::read(w.data.join("registry.json")).unwrap(), before);
+    });
+}
+
+#[test]
 fn server_new_info_edit_goldens() {
     world(|_| {
         let (code, value) = cli_json(&[

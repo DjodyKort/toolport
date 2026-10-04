@@ -19,7 +19,15 @@ type Outcome = Result<Value, ToolError>;
 
 const GIT_TIMEOUT: Duration = Duration::from_secs(120);
 const AUTH_WAIT: Duration = Duration::from_secs(20);
-const CONFIG_KEYS: [&str; 5] = ["command", "args", "url", "transport", "cwd"];
+const CONFIG_KEYS: [&str; 7] = [
+    "command",
+    "args",
+    "url",
+    "transport",
+    "cwd",
+    "declareClientCapabilities",
+    "forwardInstructions",
+];
 
 fn safe_token(value: &str) -> bool {
     !value.is_empty() && !value.starts_with('-')
@@ -150,6 +158,20 @@ fn config_strings(
     }
 }
 
+fn config_switch(
+    cfg: &serde_json::Map<String, Value>,
+    key: &str,
+) -> Result<Option<bool>, ToolError> {
+    match cfg.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Bool(on)) => Ok(Some(*on)),
+        Some(_) => Err(ToolError::new(
+            "invalid_arguments",
+            format!("{key} must be true or false"),
+        )),
+    }
+}
+
 fn check_config(cfg: &serde_json::Map<String, Value>) -> Result<(), ToolError> {
     if cfg.contains_key("env") {
         return Err(ToolError::new(
@@ -202,6 +224,8 @@ fn fields_from(
         args,
         url,
         cwd: config_strings(cfg, "cwd")?,
+        declare_client_capabilities: config_switch(cfg, "declareClientCapabilities")?,
+        forward_instructions: config_switch(cfg, "forwardInstructions")?,
     };
     Ok(servers::fields_from(patch, base))
 }

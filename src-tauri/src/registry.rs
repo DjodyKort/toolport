@@ -661,6 +661,18 @@ pub struct ServerEntry {
     /// HTTP/SSE servers.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_request_timeout_ms: Option<u64>,
+    /// Declare to this server, in its legacy `initialize`, the `roots`, `sampling`
+    /// and `elicitation` capabilities its client declared, so a server that asks
+    /// only when the client can answer will ask. Off keeps the historical empty
+    /// declaration and is not written to the registry.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub declare_client_capabilities: bool,
+    /// Include this server's own `instructions` in the gateway's `initialize` and
+    /// `server/discover` instructions, after the configured text, under a heading
+    /// with the server name and capped at `MAX_FORWARDED_INSTRUCTIONS_CHARS`. Off
+    /// keeps them out and is not written to the registry.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub forward_instructions: bool,
     /// Deadline for the initial MCP `initialize` request, in milliseconds.
     /// Unset preserves the transport default: 120 seconds for download launchers,
     /// 10 seconds for other stdio commands, and the HTTP request timeout for
@@ -4679,6 +4691,8 @@ mod tests {
             client_credentials: None,
             request_timeout_ms: None,
             max_request_timeout_ms: None,
+            declare_client_capabilities: false,
+            forward_instructions: false,
             initialize_timeout_ms: None,
             launch: None,
             unknown_fields: serde_json::Map::new(),
@@ -5573,6 +5587,41 @@ mod tests {
             capped.max_request_timeout(),
             Duration::from_millis(MAX_REQUEST_TIMEOUT_MS)
         );
+    }
+
+    #[test]
+    fn the_handshake_switches_default_off_stay_out_of_the_file_and_round_trip() {
+        let server = sample_server("local");
+        assert!(!server.declare_client_capabilities && !server.forward_instructions);
+        let json = serde_json::to_value(&server).unwrap();
+        for key in ["declareClientCapabilities", "forwardInstructions"] {
+            assert!(
+                json.get(key).is_none(),
+                "an unset {key} must not add a registry field"
+            );
+        }
+
+        let mut on = server.clone();
+        on.declare_client_capabilities = true;
+        on.forward_instructions = true;
+        let json = serde_json::to_value(&on).unwrap();
+        assert_eq!(json["declareClientCapabilities"], true);
+        assert_eq!(json["forwardInstructions"], true);
+        let loaded: ServerEntry = serde_json::from_value(json).unwrap();
+        assert!(loaded.declare_client_capabilities && loaded.forward_instructions);
+        assert!(
+            loaded.unknown_fields.is_empty(),
+            "both are known fields now, not carried as unknown ones"
+        );
+
+        let mut written = serde_json::to_value(&server).unwrap();
+        written["declareClientCapabilities"] = serde_json::json!(false);
+        written["forwardInstructions"] = serde_json::json!(false);
+        let off: ServerEntry = serde_json::from_value(written).unwrap();
+        assert_eq!(off, server);
+        let rewritten = serde_json::to_value(&off).unwrap();
+        assert!(rewritten.get("declareClientCapabilities").is_none());
+        assert!(rewritten.get("forwardInstructions").is_none());
     }
 
     #[test]
@@ -6702,6 +6751,8 @@ mod tests {
             client_credentials: None,
             request_timeout_ms: None,
             max_request_timeout_ms: None,
+            declare_client_capabilities: false,
+            forward_instructions: false,
             initialize_timeout_ms: None,
             launch: None,
             unknown_fields: serde_json::Map::new(),

@@ -72,6 +72,8 @@ fn registry_add_path_stores_the_form_unchanged_and_launch_resolution_accepts_it(
             args: odh_argv(),
             url: None,
             cwd: None,
+            declare_client_capabilities: None,
+            forward_instructions: None,
         },
     )
     .expect("the add path accepts the form");
