@@ -8,7 +8,7 @@ use super::skills_repo::{str_of, strings};
 use super::skills_state::{collision_line, shown};
 use serde_json::{json, Value};
 
-const USAGE: &str = "usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|diff|status|clean|uninstall|resolve \
+const USAGE: &str = "usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|diff|status|clean|uninstall|resolve|tap|search|install \
      (sync|ls|lint|diff: [--repo <dir>] [--home <dir>]; sync: [--client <key>]... [--project] \
      [--dry-run] [--migrate|--no-migrate]; lint: [--name <skill>]...; init: [--path <dir>] [--name <name>] [--dry-run]; \
      add: <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]; \
@@ -17,7 +17,10 @@ const USAGE: &str = "usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|d
      status: [--repo <dir>] [--client <key>]... [--strict]; \
      clean: [--repo <dir>] [--client <key>] [--project] [--dry-run]; \
      uninstall: <name> [--repo <dir>] [--project] [--dry-run]; \
-     resolve: [--repo <dir>] [--client <key>] [--project] [--dry-run] [--migrate|--no-migrate])";
+     resolve: [--repo <dir>] [--client <key>] [--project] [--dry-run] [--migrate|--no-migrate]; \
+     tap: add <user/repo|url> [--name <alias>] [--dry-run] | ls | remove <name> [--dry-run] | \
+     update [<name>] [--dry-run]; search: <query>; \
+     install: <@user/repo[/skill][@version]> [--path <dir>] [--no-audit] [--dry-run])";
 
 const BASE: Spec = Spec {
     flags: &[],
