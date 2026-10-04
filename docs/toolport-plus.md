@@ -250,6 +250,9 @@ MIG-GUI-1 edits:
 | `src/plus/types/compression.ts`            | the ledger provider shape (`savedPercent` is null without a before total) and `ledger record` `session` is nullable, as the CLI prints them                                                                                      |
 | `scripts/browser-smoke.mjs` (tokens)       | `tokensScreen` walks the Compression tab in both themes; `screenshots.mjs` lists the seven `gui-tokens-*` shots                                                                                                                  |
 | `src/plus/gui-parity.json` (tokens)        | the `tokens` route and its 16 `compression.*` actions are `built`; the 19 compression commands and 7 compression tools point at them; `all-commands.terminal` is gone because `compression run` was its last user                |
+| `src/plus/fixtures/plusCtl.ts` (context)   | spreads `contextBrowserFixtures` after the agents world: the rows are `createContextWorld().rows()`, each reading the live world                                                                                                 |
+| `scripts/browser-smoke.mjs` (context)      | `contextScreen` opens the Context entry and walks Launch & shell in both themes; `screenshots.mjs` lists its six shots                                                                                                           |
+| `src/plus/gui-parity.json` (context)       | the `context` route and its 14 actions are `built`; the 14 context commands point at them (`context measure` and its tool stay on All commands until MIG-GUI-10)                                                                 |
 
 ## Sources
 
@@ -396,6 +399,26 @@ Screenshots (1280x800, from `npm run screenshots:gui`): `docs/assets/gui-agents-
 - Tests: `testkit.ts` is a fake `plus_ctl` bridge over the golden envelopes; `createBridge({ world: true })` and the dev browser fixture use `world.ts` instead, where an applied write changes the next read (a provider switch changes the status strip and the doctor, an install changes the engine and the pin, a recorded entry grows the ledger) and a preview never does. `CompressionTab.e2e.test.tsx` walks the real screen through that world, one test per parity action id; `world.test.ts` checks the world against the golden shapes.
 
 Screenshots (1280x800, from `npm run screenshots:gui`): `docs/assets/gui-tokens-light.png` and `gui-tokens-dark.png` (the status strip, the providers and the presets), `gui-tokens-provider-plan-light.png` (the plan of a switch to headroom), `gui-tokens-health-light.png` (the checks of a provider whose engine is not installed), `gui-tokens-ledger-empty-light.png` and `gui-tokens-ledger-light.png` (the ledger before and after two recorded entries) and `gui-tokens-disable-light.png` (the typed confirmation of a disable).
+
+## Context: Launch & shell
+
+`src/plus/context/` builds the screen of the approved mockup nav item "Context" (layout B). `ContextScreen` has the five tabs of the mockup; `PANELS` in it lists the tabs that are built (today `launch`, the default), the others stay the marked placeholder of `NOT_BUILT_TABS` until MIG-GUI-10 and MIG-GUI-12 add their panels. `PlusViews` lazy-loads the screen.
+
+| Section         | Reads                                                                                | Writes (policy tier from `toolportctl commands`)                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Deploy          | `context plan [--rules] [--rewrite-zshrc]`                                           | `context apply [--no-persist]`, `context sync` (write, preview with `--dry-run`)                                                                       |
+| Launch profiles | `context profile list`                                                               | `context profile add <name> [...]` (write), `context profile remove <name> [--purge]` (destructive: the name is typed), Regenerate runs `context sync` |
+| Shell shims     | `context status` (file, old shell lines, dead aliases), the checks of `context plan` | Move... is `context sync --rewrite-zshrc`; `context disable [--purge-profiles]` (destructive: `disable` is typed)                                      |
+| Layers          | `context client list`, `context status`                                              | `context init --yes` (write), `context client add <name> [--glob]` (write)                                                                             |
+| What loads      | `context loads [--profile] [--cwd]`                                                  | none; read again after every applied write                                                                                                             |
+| Folder routing  | `context folders`                                                                    | `context folders --enable` or `--disable` (write, no preview: the confirmation shows the exact command line)                                           |
+| Checkpoint      | `context checkpoint-status [--profile] [--window] [--checkpoint-at]`                 | none; the statusline JSON goes to stdin through the bridge (`stdinSecret`) and is never in an argument or on screen                                    |
+
+- Every write is the D-059 flow: the command's own `--dry-run`, a plan worded from its answer (`plans.ts` turns the `actions` lines and the `zshrc` diff into a `PlanV1`), the confirmation (typed when the tier is destructive), the apply in `JobProgress`, then every read of the tab runs again. `--home` is never sent.
+- A section that cannot read shows the CLI's error with Retry; while the command list is missing a Retry reads it again, so the writes work once `toolportctl` is back.
+- Tests: `testkit.ts` is a fake `plus_ctl` bridge over `fixtures.ts` and the real goldens. `createBridge({ world: true })` and the dev browser fixture use `world.ts` instead, a small pure-TS home where an applied sync, profile add or remove, init, client add, disable or folders flag changes the next read and a preview never does (`createContextWorld({ fresh: true })` starts with nothing set up). `ContextScreen.e2e.test.tsx` walks the real screen through that world, one test per parity action id, with Escape, the typed confirmations, the bridge down and the leak canary for the statusline JSON; `world.test.ts` checks every world reply against the golden shapes.
+
+Screenshots (1280x800, from `npm run screenshots:gui`): `docs/assets/gui-context-light.png` and `gui-context-dark.png` (deploy, launch profile, shims), `gui-context-plan-light.png` (the sync plan with the shell diff), `gui-context-remove-light.png` (the typed removal of a launch profile), `gui-context-move-light.png` (moving the old shell lines) and `gui-context-loads-light.png` (tokens per layer).
 
 ## Login health
 
