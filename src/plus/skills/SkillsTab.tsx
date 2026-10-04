@@ -14,8 +14,12 @@ import type {
   SkillsResolveData,
   SkillsStatusData,
 } from "../types/skills";
-import { ErrorState, ScreenSkeleton } from "../ui";
-import { NewDialog, SyncDialog } from "./dialogs";
+import { ErrorState, errorText, ScreenSkeleton, Tabs } from "../ui";
+import { BundlesPanel } from "./bundles";
+import { InitDialog, NewDialog, SyncDialog } from "./dialogs";
+import { ScopeBar } from "./fields";
+import { InstallPanel } from "./install";
+import { TapsPanel } from "./taps";
 import { useRead, useRegistryRows, useWrite, type WriteControl } from "./hooks";
 import {
   byClient,
@@ -24,13 +28,17 @@ import {
   isLibrary,
   plural,
   rowKey,
+  scopeArgs,
   SKILL_CLIENTS,
+  TOOLS_WITHOUT_CLI,
+  USER_SCOPE,
   type AuditFinding,
   type Collision,
   type LintMessage,
   type Rejected,
   type SkillRow,
   type StatusOutput,
+  type WriteScope,
 } from "./model";
 import {
   Card,
@@ -121,11 +129,13 @@ function SkillDetail({
   status,
   audit,
   write,
+  writeScope,
 }: {
   row: SkillRow;
   status: SkillsStatusData | null;
   audit: SkillsAuditData | null;
   write: WriteControl;
+  writeScope: WriteScope;
 }) {
   const own = isLibrary(row);
   const findings = ((audit?.findings ?? []) as AuditFinding[]).filter(
@@ -236,7 +246,7 @@ function SkillDetail({
               write.begin({
                 command: "skills uninstall",
                 title: `Uninstall skill ${row.name}`,
-                argv: ["skills", "uninstall", row.name],
+                argv: ["skills", "uninstall", row.name, ...scopeArgs(writeScope)],
                 confirmLabel: "Uninstall",
                 phrase: row.name,
               })
@@ -258,9 +268,11 @@ function SkillDetail({
 function Collisions({
   query,
   write,
+  writeScope,
 }: {
   query: ReturnType<typeof useRead<SkillsResolveData>>;
   write: WriteControl;
+  writeScope: WriteScope;
 }) {
   const collisions = (query.data?.collisions ?? []) as Collision[];
   if (query.status === "error")
@@ -309,7 +321,7 @@ function Collisions({
                 write.begin({
                   command: "skills resolve",
                   title: "Resolve command collisions",
-                  argv: ["skills", "resolve", "--migrate"],
+                  argv: ["skills", "resolve", "--migrate", ...scopeArgs(writeScope)],
                   confirmLabel: "Resolve",
                   phrase: "resolve",
                 })
@@ -394,11 +406,13 @@ interface Scope {
   setFilter: (id: string) => void;
   selected: string | null;
   setSelected: (key: string) => void;
+  writeScope: WriteScope;
+  setWriteScope: (scope: WriteScope) => void;
 }
 
 function Body({ write, scope }: { write: WriteControl; scope: Scope }) {
-  const { filter, setFilter, selected, setSelected } = scope;
-  const [dialog, setDialog] = useState<"sync" | "new" | null>(null);
+  const { filter, setFilter, selected, setSelected, writeScope, setWriteScope } = scope;
+  const [dialog, setDialog] = useState<"sync" | "new" | "init" | null>(null);
   const lib = useRead<SkillsLsData>(["skills", "ls"]);
   const sources = useRead<SourcesLsData>(["sources", "ls"]);
   const status = useRead<SkillsStatusData>(["skills", "status"]);
@@ -454,7 +468,12 @@ function Body({ write, scope }: { write: WriteControl; scope: Scope }) {
             write.begin({
               command: "skills sync",
               title: `Sync skills to ${plural(clients.length, "client")}`,
-              argv: ["skills", "sync", ...clients.flatMap((c) => ["--client", c])],
+              argv: [
+                "skills",
+                "sync",
+                ...scopeArgs(writeScope),
+                ...clients.flatMap((c) => ["--client", c]),
+              ],
               confirmLabel: "Sync",
               phrase: "sync",
             });
@@ -483,6 +502,26 @@ function Body({ write, scope }: { write: WriteControl; scope: Scope }) {
           }}
         />
       )}
+      {dialog === "init" && (
+        <InitDialog
+          onClose={() => setDialog(null)}
+          onSubmit={(path, name) => {
+            setDialog(null);
+            write.begin({
+              command: "skills init",
+              title: "Create the skills repository",
+              argv: [
+                "skills",
+                "init",
+                ...(path ? ["--path", path] : []),
+                ...(name ? ["--name", name] : []),
+              ],
+              confirmLabel: "Create",
+              phrase: "create",
+            });
+          }}
+        />
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="max-w-prose text-sm text-muted-foreground">
           Everything Claude Code can load on this Mac, and where each item comes from.
@@ -507,7 +546,7 @@ function Body({ write, scope }: { write: WriteControl; scope: Scope }) {
               write.begin({
                 command: "skills clean",
                 title: "Remove synced skill files",
-                argv: ["skills", "clean"],
+                argv: ["skills", "clean", ...scopeArgs(writeScope)],
                 confirmLabel: "Remove",
                 phrase: "clean skills",
               })
@@ -517,6 +556,7 @@ function Body({ write, scope }: { write: WriteControl; scope: Scope }) {
           </Button>
         </div>
       </div>
+      <ScopeBar scope={writeScope} onChange={setWriteScope} />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
           label="Library"
@@ -586,11 +626,24 @@ function Body({ write, scope }: { write: WriteControl; scope: Scope }) {
         {list.status === "loading" ? (
           <ScreenSkeleton label="Loading skills" />
         ) : list.status === "error" ? (
-          <ErrorState
-            error={lib.error}
-            title="Couldn't list skills"
-            onRetry={list.reload}
-          />
+          /no skills repository/i.test(errorText(lib.error).message) ? (
+            <EmptyState
+              icon={<BookOpen />}
+              title="No skills repository yet"
+              description="Toolport keeps your skills, rules, agents and styles in one git-friendly folder. Create it to start."
+              action={
+                <Button onClick={() => setDialog("init")}>
+                  <Plus /> Create repository…
+                </Button>
+              }
+            />
+          ) : (
+            <ErrorState
+              error={lib.error}
+              title="Couldn't list skills"
+              onRetry={list.reload}
+            />
+          )
         ) : list.rows.length === 0 ? (
           <EmptyState
             icon={<BookOpen />}
@@ -646,9 +699,10 @@ function Body({ write, scope }: { write: WriteControl; scope: Scope }) {
                   status={status.data}
                   audit={audit.data}
                   write={write}
+                  writeScope={writeScope}
                 />
               )}
-              <Collisions query={collisions} write={write} />
+              <Collisions query={collisions} write={write} writeScope={writeScope} />
             </div>
           </div>
         )}
@@ -684,9 +738,34 @@ function Body({ write, scope }: { write: WriteControl; scope: Scope }) {
           </Card>
         </div>
       </Section>
+      <Section title="More library actions">
+        <p className="text-xs text-muted-foreground">
+          These exist only as self-MCP tools today and have no command of their own. They
+          switch on when the app can run them through `mcp call`.
+        </p>
+        <ul aria-label="Actions not available yet" className="flex flex-col gap-2">
+          {TOOLS_WITHOUT_CLI.map((tool) => (
+            <li key={tool.tool} className="flex flex-wrap items-center gap-3 text-sm">
+              <Button size="sm" variant="outline" disabled title={tool.reason}>
+                {tool.label}
+              </Button>
+              <span className="min-w-0 flex-1 text-xs text-muted-foreground">
+                {tool.reason}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </Section>
     </>
   );
 }
+
+const SECTIONS = [
+  { id: "installed", label: "Installed" },
+  { id: "taps", label: "Taps" },
+  { id: "install", label: "Find and install" },
+  { id: "bundles", label: "Bundles" },
+];
 
 /** The Skills panel: every skill and rule with its source, the sync state per client, drift,
  * lint and audit, collisions and the writes that go with them. Every write is previewed. */
@@ -695,15 +774,40 @@ export function SkillsTab() {
   const [epoch, setEpoch] = useState(0);
   const [filter, setFilter] = useState("library");
   const [selected, setSelected] = useState<string | null>(null);
+  const [section, setSection] = useState("installed");
+  const [writeScope, setWriteScope] = useState<WriteScope>(USER_SCOPE);
   const write = useWrite(rows, () => setEpoch((n) => n + 1));
   return (
     <div className="flex flex-col gap-6">
       <WriteDialogs write={write} />
-      <Body
-        key={epoch}
-        write={write}
-        scope={{ filter, setFilter, selected, setSelected }}
-      />
+      <Tabs
+        items={SECTIONS}
+        value={section}
+        onValueChange={setSection}
+        label="Skills sections"
+      >
+        <div key={epoch} className="flex flex-col gap-6">
+          {section === "taps" ? (
+            <TapsPanel write={write} />
+          ) : section === "install" ? (
+            <InstallPanel write={write} />
+          ) : section === "bundles" ? (
+            <BundlesPanel write={write} />
+          ) : (
+            <Body
+              write={write}
+              scope={{
+                filter,
+                setFilter,
+                selected,
+                setSelected,
+                writeScope,
+                setWriteScope,
+              }}
+            />
+          )}
+        </div>
+      </Tabs>
     </div>
   );
 }
