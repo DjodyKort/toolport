@@ -235,15 +235,18 @@ export function planOfSyncInit(args: {
 
 export function planOfSyncReset(repoUrl: string | null): PlanV1 {
   return {
-    summary: "Remove the remote sync data and the local sync state",
+    summary: "Remove the local sync setup",
     steps: [
-      ...(repoUrl
-        ? [{ op: "delete", path: repoUrl, detail: "Remote sync data" } as PlanStep]
-        : []),
       {
         op: "delete",
         path: "sync/",
         detail: "Local sync settings, key file and repository clone",
+      },
+      {
+        op: "note",
+        detail: repoUrl
+          ? `The encrypted bundle in ${repoUrl} is not touched`
+          : "The encrypted bundle in the remote repository is not touched",
       },
       {
         op: "note",
