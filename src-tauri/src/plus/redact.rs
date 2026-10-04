@@ -13,7 +13,7 @@ const SENSITIVE_KEYS: &[&str] = &[
     "private_key",
     "passphrase",
 ];
-const EXEMPT_KEYS: &[&str] = &["secretsbackend"];
+const EXEMPT_KEYS: &[&str] = &["secretsbackend", "tokens"];
 const MASK: &str = "[redacted]";
 
 fn sensitive_key(key: &str) -> bool {
@@ -76,6 +76,17 @@ fn scrub_with(value: Value, secrets: &[String]) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_token_count_object_is_not_a_secret_but_a_token_inside_it_still_is() {
+        let scrubbed = scrub(serde_json::json!({
+            "tokens": {"value": 12, "basis": "estimate", "accessToken": "abc"},
+            "token": "abc",
+        }));
+        assert_eq!(scrubbed["tokens"]["value"], 12);
+        assert_eq!(scrubbed["tokens"]["accessToken"], MASK);
+        assert_eq!(scrubbed["token"], MASK);
+    }
 
     #[test]
     fn both_secret_key_names_and_the_http_token_are_scrubbed() {
