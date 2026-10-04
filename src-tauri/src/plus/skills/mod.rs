@@ -8,6 +8,7 @@ pub mod audit;
 pub mod bundle;
 pub mod clock;
 pub mod collisions;
+pub mod frontmatter;
 pub mod git;
 pub mod handlers;
 pub mod json;
@@ -32,6 +33,7 @@ pub mod transpiler;
 
 pub use assets::{with_asset_policy, AssetPolicy};
 pub use clock::{Clock, FixedClock, Instant, SystemClock};
+pub use frontmatter::{frontmatter_accepted, Reason};
 pub use lock::{load_lockfile, save_lockfile, LOCKFILE_NAME};
 pub use parser::{discover_skills, Skill, SkillType};
 pub use sync::{sync_skills, SyncOptions};
@@ -44,6 +46,8 @@ pub use {assets::{compute_skill_hash, discover_assets}, transpiler::TranspileRes
 pub(crate) mod tap_fixtures;
 #[cfg(test)]
 mod tap_ops_tests;
+#[cfg(test)]
+mod frontmatter_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

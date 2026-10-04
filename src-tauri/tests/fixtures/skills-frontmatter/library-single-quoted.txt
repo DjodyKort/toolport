@@ -1,0 +1,14 @@
+---
+name: handoff-notes
+description: 'Write a handoff note at the end of a session.
+
+  Use when the user says "wrap up" or "stop for today".
+
+
+  Also use before the context is compacted.'
+allowed-tools: Read, Write
+---
+
+# Handoff notes
+
+Summarise what is in flight and what is blocked.
