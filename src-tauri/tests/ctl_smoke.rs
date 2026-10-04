@@ -32,6 +32,9 @@ const NOT_READ_ONLY: &[(&str, &str)] = &[
     ("server install", "adds a catalog server; round trip test"),
     ("server new", "adds a server; round trip test"),
     ("server edit", "changes a server; round trip test"),
+    ("client direct add", "writes the client config and the registry record; tests/direct_launcher.rs"),
+    ("client direct rm", "writes the client config and the registry record; tests/direct_launcher.rs"),
+    ("direct run", "replaces itself with the server process; tests/direct_launcher.rs"),
     ("profile rm", "deletes a profile and disconnects the clients scoped to it; ctl::profile_tests"),
     ("secret set", "writes the vault; round trip test"),
     ("secret rm", "writes the vault; round trip test"),
@@ -506,6 +509,9 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert_eq!(cursor["entries"], json!(["direct-one"]));
             assert_eq!(cursor["gateway"], "absent");
         }),
+        case("client direct ls", &["client", "direct", "ls"], 0, |_, d| {
+            assert_eq!(d["entries"], json!([]));
+        }),
         case(
             "client sync",
             &["client", "sync", "--dry-run"],
@@ -766,7 +772,7 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert!(!d["checks"].as_array().unwrap().is_empty());
         }),
         case("mcp", &["mcp", "tools"], 0, |_, d| {
-            assert_eq!(d["tools"].as_array().unwrap().len(), 55);
+            assert_eq!(d["tools"].as_array().unwrap().len(), 58);
             assert_eq!(d["resources"].as_array().unwrap().len(), 11);
         }),
         case(

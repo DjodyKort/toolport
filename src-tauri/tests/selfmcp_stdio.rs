@@ -20,7 +20,7 @@ use serde_json::{json, Value};
 
 const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
-const TOOL_COUNT: usize = 55;
+const TOOL_COUNT: usize = 58;
 const RESOURCE_COUNT: usize = 11;
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -496,6 +496,7 @@ fn tier_one_calls() -> BTreeMap<&'static str, Value> {
         ("servers_git_status", json!({"name": "alpha"})),
         ("servers_check_updates", json!({})),
         ("clients_list", json!({})),
+        ("client_direct_ls", json!({})),
         ("where_am_i", json!({})),
         ("doctor", json!({})),
         ("flow_diagram", json!({})),
@@ -554,6 +555,7 @@ fn tier_one_tools_read_without_confirm_and_never_write() {
         json!([{"key": "API_KEY", "secret": true}, {"key": "PLAIN", "secret": false}])
     );
     assert_eq!(results["servers_list_profiles"]["activeProfile"], "default");
+    assert_eq!(results["client_direct_ls"]["entries"], json!([]));
     assert_eq!(results["servers_git_status"]["isGit"], false);
     same_path(&results["where_am_i"]["dataDir"], &world.data);
     assert_eq!(results["where_am_i"]["serverCount"], 2);
@@ -704,6 +706,77 @@ fn the_tap_tools_that_write_default_to_a_dry_run() {
         "invalid_arguments"
     );
     assert_eq!(world.snapshot(), before, "a default call must not write");
+    assert!(client.close().success());
+}
+
+#[test]
+fn the_direct_tools_plan_by_default_and_apply_on_request() {
+    let world = World::new("direct");
+    let config = world.home.join(".claude.json");
+    std::fs::write(&config, "{\"mcpServers\": {}}\n").unwrap();
+    let mut client = Client::spawn(&world);
+    client.handshake();
+    let listed = listed_tools(&mut client);
+    for name in ["client_direct_add", "client_direct_rm"] {
+        let tool = listed.iter().find(|t| t["name"] == name).unwrap();
+        assert_eq!(
+            tool["inputSchema"]["properties"]["dry_run"]["default"], true,
+            "{name}"
+        );
+    }
+    let before = world.snapshot();
+
+    let args = json!({"server": "alpha", "client": "claude-code"});
+    let planned = client.call("client_direct_add", args.clone());
+    assert_eq!(planned.ok()["dryRun"], true);
+    assert_eq!(planned.ok()["action"], "added");
+    assert!(planned.ok()["launcher"]["command"]
+        .as_str()
+        .unwrap()
+        .contains("toolportctl"));
+    assert_eq!(planned.ok()["launcher"]["args"], json!(["direct", "run", "srv-alpha"]));
+    assert_eq!(world.snapshot(), before, "a default call must not write");
+
+    let mut apply = args.clone();
+    apply["dry_run"] = json!(false);
+    let added = client.call("client_direct_add", apply.clone());
+    assert_eq!(added.ok()["action"], "added");
+    assert_eq!(added.ok()["dryRun"], false);
+    let text = std::fs::read_to_string(&config).unwrap();
+    assert!(text.contains("\"alpha\""), "{text}");
+    assert!(text.contains("srv-alpha"), "{text}");
+    assert!(!text.contains(FAKE_SECRET), "a client file must hold no secret");
+    assert_eq!(
+        client.call("client_direct_add", apply.clone()).ok()["action"],
+        "unchanged"
+    );
+
+    let listed = client.call("client_direct_ls", json!({"client": "claude-code"}));
+    assert_eq!(listed.ok()["entries"][0]["server"], "srv-alpha");
+    assert_eq!(listed.ok()["entries"][0]["state"], "ok");
+
+    let kept = client.call("client_direct_rm", args.clone());
+    assert_eq!(kept.ok()["dryRun"], true);
+    assert!(std::fs::read_to_string(&config).unwrap().contains("srv-alpha"));
+    let removed = client.call("client_direct_rm", apply);
+    assert_eq!(removed.ok()["action"], "removed");
+    assert!(!std::fs::read_to_string(&config).unwrap().contains("srv-alpha"));
+
+    assert_eq!(
+        client
+            .call(
+                "client_direct_add",
+                json!({"server": "beta", "client": "claude-code", "dry_run": false})
+            )
+            .error_kind(),
+        "invalid_arguments"
+    );
+    assert_eq!(
+        client
+            .call("client_direct_add", json!({"server": "alpha"}))
+            .error_kind(),
+        "invalid_arguments"
+    );
     assert!(client.close().success());
 }
 

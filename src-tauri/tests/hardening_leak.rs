@@ -174,6 +174,17 @@ impl World {
             s(&["server", "info", "import-bearer"]),
             s(&["server", "new", "newsrv", "--command", &self.quiet]),
             s(&["server", "edit", "newsrv", "--arg", "x"]),
+            s(&["client", "direct", "add", "newsrv", "--client", "cursor", "--dry-run"]),
+            s(&["client", "direct", "add", "newsrv", "--client", "cursor"]),
+            s(&["client", "direct", "add", "alpha", "--client", "cursor"]),
+            s(&["client", "direct", "ls"]),
+            s(&["client", "direct", "ls", "--client", "cursor"]),
+            s(&["direct", "run", "newsrv"]),
+            s(&["client", "direct", "rm", "alpha", "--client", "cursor", "--dry-run"]),
+            s(&["client", "direct", "rm", "alpha", "--client", "cursor"]),
+            s(&["client", "direct", "rm", "newsrv", "--client", "cursor"]),
+            s(&["client", "direct"]),
+            s(&["direct"]),
             s(&["server", "uninstall", "newsrv", "--dry-run"]),
             s(&["server", "uninstall", "newsrv"]),
             s(&["server"]),
@@ -494,7 +505,9 @@ fn ctl_commands_never_print_or_store_a_canary() {
                 None => world.sb.ctl(&args),
             };
             world.assert_clean(&run, &case.join(" "));
-            if json_mode {
+            let launcher = case.first().map(String::as_str) == Some("direct")
+                && case.get(1).map(String::as_str) == Some("run");
+            if json_mode && !launcher {
                 let envelope = run.envelope();
                 assert!(
                     envelope["schemaVersion"].is_number() && envelope["command"].is_string(),
@@ -513,6 +526,64 @@ fn ctl_commands_never_print_or_store_a_canary() {
         .arg(&sync_clone)
         .output();
 
+    let leaks = scan_tree(&world.sb.tree(), &world.canary.all());
+    assert!(leaks.is_empty(), "canary reached the disk: {leaks:#?}");
+}
+
+#[test]
+fn a_direct_client_entry_holds_no_secret_and_the_launcher_hands_none_of_ours_to_the_child() {
+    let world = World::new();
+    world.seed_vault();
+    let cursor = world.sb.home.join(".cursor");
+    std::fs::create_dir_all(&cursor).unwrap();
+    let config = cursor.join("mcp.json");
+    std::fs::write(&config, "{\"mcpServers\": {}}\n").unwrap();
+    for case in [
+        &["client", "direct", "add", "alpha", "--client", "cursor", "--dry-run"][..],
+        &["client", "direct", "add", "alpha", "--client", "cursor"],
+        &["client", "direct", "add", "alpha", "--client", "cursor"],
+        &["client", "direct", "ls"],
+    ] {
+        for json_mode in [true, false] {
+            let mut args: Vec<&str> = Vec::new();
+            if json_mode {
+                args.push("--json");
+            }
+            args.extend(case);
+            let run = world.sb.ctl(&args);
+            run.assert_ok();
+            world.assert_clean(&run, &case.join(" "));
+        }
+    }
+    let written = std::fs::read_to_string(&config).unwrap();
+    let entry: Value = serde_json::from_str(&written).unwrap();
+    assert_eq!(entry["mcpServers"]["alpha"]["args"], json!(["direct", "run", "alpha"]));
+    let leaks = find_leaks("cursor config", written.as_bytes(), &world.canary.all());
+    assert!(leaks.is_empty(), "{leaks:?}\n{written}");
+
+    let run = world.sb.ctl(&["direct", "run", "alpha"]);
+    run.assert_failed();
+    assert!(
+        run.stdout.is_empty(),
+        "a launcher prints nothing of its own on stdout: {}",
+        run.describe()
+    );
+    let ours = [
+        world.canary.val("vault-key"),
+        world.canary.val("http-token"),
+        world.canary.val("env-override"),
+    ];
+    let log = std::fs::read_to_string(world.sb.work.join("child-env.log")).unwrap();
+    for canary in &ours {
+        assert!(!log.contains(canary.as_str()), "the child saw {canary}: {log}");
+    }
+    assert!(
+        run.stderr.contains(&world.canary.val("alpha-vault")),
+        "the vault value must reach the child: {}",
+        run.describe()
+    );
+    let leaks = find_leaks("launcher stdout", run.stdout.as_bytes(), &world.canary.all());
+    assert!(leaks.is_empty(), "{leaks:?}");
     let leaks = scan_tree(&world.sb.tree(), &world.canary.all());
     assert!(leaks.is_empty(), "canary reached the disk: {leaks:#?}");
 }
@@ -660,6 +731,14 @@ fn tool_args(name: &str, schema: &Value, world: &World) -> Value {
             set(&mut args, &[("profile_tag", json!("default"))])
         }
         "servers_uninstall" => set(&mut args, &[("name", json!("delta"))]),
+        "client_direct_add" | "client_direct_rm" => set(
+            &mut args,
+            &[
+                ("server", json!("alpha")),
+                ("client", json!("cursor")),
+                ("dry_run", json!(false)),
+            ],
+        ),
         "servers_check_updates" => {
             args.remove("name");
         }
@@ -672,6 +751,9 @@ fn tool_args(name: &str, schema: &Value, world: &World) -> Value {
 fn selfmcp_tools_and_resources_never_return_or_store_a_canary() {
     let world = World::new();
     world.seed_vault();
+    let cursor = world.sb.home.join(".cursor");
+    std::fs::create_dir_all(&cursor).unwrap();
+    std::fs::write(cursor.join("mcp.json"), "{\"mcpServers\": {}}\n").unwrap();
     let mut session = world.sb.selfmcp();
     let listed = session.request("tools/list", json!({}));
     let tools = listed["result"]["tools"].as_array().unwrap().clone();

@@ -12,7 +12,7 @@ pub mod launcher;
 pub mod record;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 use crate::clients::{self, DetectedClient, McpServer};
 use crate::plus::profiles::{registry_error, Error};
