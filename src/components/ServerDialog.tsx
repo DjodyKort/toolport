@@ -251,6 +251,9 @@ export function ServerDialog({
   function buildEntry(withSecretValues: boolean): ServerEntry {
     const declared = envRows.filter((r) => r.key.trim());
     return {
+      // An edit replaces the whole registry entry, so what this form has no
+      // control for (gateway timeouts, handshake switches, disabled tools) rides along.
+      ...(editing ? initial : undefined),
       id: currentEditId ?? "",
       name: form.name.trim(),
       transport: form.transport,
