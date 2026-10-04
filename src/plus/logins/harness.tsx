@@ -30,9 +30,14 @@ export function wire(mocks: Mocks, bridge: Bridge) {
 
 const tabs = { logins: LoginsTab, secrets: SecretsTab, integrations: IntegrationsTab };
 
-export function renderTab(id: LoginTabId, options: { pollMs?: number } = {}) {
+export function renderTab(
+  id: LoginTabId,
+  options: { pollMs?: number; fakeTimers?: boolean } = {},
+) {
   const onOpenCommands = vi.fn();
-  const user = userEvent.setup();
+  const user = userEvent.setup(
+    options.fakeTimers ? { advanceTimers: vi.advanceTimersByTime } : undefined,
+  );
   const Tab = tabs[id];
   const view = render(
     <Tab onOpenCommands={onOpenCommands} pollMs={options.pollMs ?? 0} />,
