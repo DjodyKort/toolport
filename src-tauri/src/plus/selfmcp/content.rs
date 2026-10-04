@@ -113,7 +113,7 @@ fn find_style(repo: &Path, name: &str) -> Result<Style, ToolError> {
 }
 
 fn file_hash(path: &Path) -> Result<String, ToolError> {
-    let bytes = std::fs::read(path).map_err(|e| ToolError::backend(e.to_string()))?;
+    let bytes = std::fs::read(path)?;
     Ok(lock_hash(bytes))
 }
 
@@ -122,8 +122,7 @@ fn fence(line: &str) -> bool {
 }
 
 fn rewrite_body(path: &Path, new_body: &str) -> Result<String, ToolError> {
-    let raw = std::fs::read_to_string(path)
-        .map_err(|e| ToolError::backend(e.to_string()))?;
+    let raw = std::fs::read_to_string(path)?;
     let mut lines = raw.split_inclusive('\n');
     let first_ok = lines.next().is_some_and(fence);
     let mut yaml = String::new();
@@ -149,8 +148,7 @@ fn rewrite_body(path: &Path, new_body: &str) -> Result<String, ToolError> {
 }
 
 fn rewrite_frontmatter(path: &Path, patch: &Value, skill: bool) -> Result<String, ToolError> {
-    let raw = std::fs::read_to_string(path)
-        .map_err(|e| ToolError::backend(e.to_string()))?;
+    let raw = std::fs::read_to_string(path)?;
     let (mut fm, body) = parse_frontmatter(&raw).map_err(|e| ToolError::new("invalid_input", e))?;
     if fm.is_empty() {
         return Err(ToolError::new(
@@ -389,7 +387,7 @@ fn skills_delete(args: &Value) -> Outcome {
             "skill directory is outside the repository",
         ));
     }
-    std::fs::remove_dir_all(&dir).map_err(|e| ToolError::backend(e.to_string()))?;
+    std::fs::remove_dir_all(&dir)?;
     Ok(json!({"removedPath": dir.to_string_lossy()}))
 }
 
