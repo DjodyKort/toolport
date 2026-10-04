@@ -8,7 +8,7 @@ import {
   plusSourcesRootFixture,
 } from "./sources";
 import { serversCtlFixtures } from "./servers";
-import { skillsBrowserFixtures } from "../skills/fixtures";
+import { skillsBrowserFixtures } from "../skills/browserFixtures";
 
 /** Envelope `data` the dev browser fixture returns per `toolportctl` argv (joined with spaces).
  * A command a screen runs needs a row here or the fixture rejects it as unimplemented. */

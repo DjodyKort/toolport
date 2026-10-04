@@ -127,3 +127,66 @@ export function isLibrary(row: SkillRow): boolean {
 
 export const EDITOR_REASON =
   "Editing the body and the frontmatter needs `mcp call skills_get`, `skills_edit_body` and `skills_edit_frontmatter` (MIG-GUI-14). Open the file above in your editor for now.";
+
+/** Where the writes of the screen go: the user level, or the project folder (`--project`, whose
+ * skills repository is `--repo <dir>`; empty means the configured repository). */
+export interface WriteScope {
+  project: boolean;
+  dir: string;
+}
+
+export const USER_SCOPE: WriteScope = { project: false, dir: "" };
+
+export const scopeArgs = (scope: WriteScope): string[] =>
+  scope.project
+    ? ["--project", ...(scope.dir.trim() ? ["--repo", scope.dir.trim()] : [])]
+    : [];
+
+const GITHUB = /^[\w.-]+\/[\w.-]+$/;
+
+/** The `@user/repo/skill` spec of a search hit, or null when its tap is not a GitHub repository
+ * (a local folder, another host) and the spec has to be typed. */
+export function installSpec(hit: { repo: string; name: string }): string | null {
+  const repo = hit.repo
+    .replace(/^https:\/\/github\.com\//, "")
+    .replace(/\.git$/, "")
+    .replace(/^@/, "");
+  return GITHUB.test(repo) ? `@${repo}/${hit.name}` : null;
+}
+
+const SPEC = /^@[\w.-]+\/[\w.-]+(\/[a-z0-9][a-z0-9_-]*)?(@\S+)?$/;
+
+/** Why an install spec cannot be one, or null. The CLI has the last word. */
+export function specProblem(spec: string): string | null {
+  if (spec === "") return "Type the spec of a tap or one of its skills";
+  return SPEC.test(spec)
+    ? null
+    : "Use @user/repo, @user/repo/skill or @user/repo/skill@version";
+}
+
+export const TOOLS_WITHOUT_CLI = [
+  {
+    tool: "skills_edit_body",
+    label: "Edit SKILL.md body",
+    reason:
+      "Needs `mcp call skills_get` and `skills_edit_body` (MIG-GUI-14). Open the file in your editor for now.",
+  },
+  {
+    tool: "skills_edit_frontmatter",
+    label: "Edit frontmatter",
+    reason:
+      "Needs `mcp call skills_edit_frontmatter` (MIG-GUI-14). Open the file in your editor for now.",
+  },
+  {
+    tool: "skills_scaffold",
+    label: "Scaffold with progressive files",
+    reason:
+      "Needs `mcp call skills_scaffold` (MIG-GUI-14). New skill... (skills add) already creates a skill from the template, with progressive files if you tick the box.",
+  },
+  {
+    tool: "skills_git_push",
+    label: "Push the library",
+    reason:
+      "Needs `mcp call skills_git_push` (MIG-GUI-14). Pushing is a destructive action: it will ask for a typed confirmation after the audit, the commits and the gitleaks result are shown.",
+  },
+] as const;

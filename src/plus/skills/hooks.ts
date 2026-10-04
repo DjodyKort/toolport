@@ -74,6 +74,15 @@ export interface WriteSpec {
   confirmLabel?: string;
   /** What is typed to confirm a destructive tier. */
   phrase: string;
+  /** Forces the typed confirmation although the policy tier of the command is lower. */
+  typed?: boolean;
+  /** Reads the preview: a reason refuses the apply and may offer another write instead. */
+  gate?: (preview: unknown) => Gate | null;
+}
+
+export interface Gate {
+  reason: string;
+  override?: WriteSpec;
 }
 
 export interface WriteControl {
@@ -118,7 +127,7 @@ export function useWrite(rows: CommandRow[] | null, onApplied: () => void): Writ
       beginFlow({
         title: next.title,
         line: commandLine(next.argv),
-        tier: policy.tier,
+        tier: next.typed ? "destructive" : policy.tier,
         phrase: next.phrase,
         mode: policy.previewFlag ? "preview" : "direct",
         confirmFirst: false,
