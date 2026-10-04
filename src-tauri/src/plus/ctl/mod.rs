@@ -41,6 +41,13 @@ pub const EXIT_USAGE: i32 = 2;
 
 pub type Handler = fn(&[String]) -> Result<Output, CtlError>;
 
+fn exit_code(kind: ErrorKind) -> i32 {
+    match kind {
+        ErrorKind::Usage => EXIT_USAGE,
+        _ => EXIT_ERROR,
+    }
+}
+
 pub struct Command {
     pub path: &'static [&'static str],
     pub summary: &'static str,
@@ -761,7 +768,7 @@ fn emit(
             (code, envelope, output.human)
         }
         Err(error) => {
-            let code = error.kind.exit_code();
+            let code = exit_code(error.kind);
             let human = if error.kind == ErrorKind::Usage {
                 format!(
                     "toolportctl: {}\nRun `toolportctl --help` for usage.",

@@ -2,7 +2,6 @@ use super::catalog::{ResourceDef, ToolDef};
 use super::ToolError;
 use super::{content, docs};
 use crate::plus::args::{list, str_arg};
-use crate::plus::ctl::ErrorKind;
 use crate::plus::profiles;
 use crate::plus::registry_ro;
 use crate::plus::skills::lint::{lint_skills, LintResult};
@@ -25,15 +24,7 @@ pub(super) fn ctl(path: &[&str]) -> Result<Value, ToolError> {
         .ok_or_else(|| ToolError::new("internal", "ctl command missing"))?;
     (command.handler)(rest)
         .map(|out| out.data)
-        .map_err(|e| {
-            let kind = match e.kind {
-                ErrorKind::NotFound => "not_found",
-                ErrorKind::Conflict => "conflict",
-                ErrorKind::Usage => "invalid_arguments",
-                _ => "backend_error",
-            };
-            ToolError::new(kind, e.message)
-        })
+        .map_err(ToolError::from)
 }
 
 #[cfg(test)]
