@@ -12844,10 +12844,22 @@ impl HostState {
             ));
         }
 
+        let base_is_live = Arc::ptr_eq(
+            &self
+                .router
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .clone(),
+            &base,
+        );
         let mut pool = self
             .root_launch_pool
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
+        // The reaper clears an empty pool's base while its first launch connects.
+        if pool.base.is_none() && base_is_live {
+            pool.base = Some(Arc::clone(&base));
+        }
         if pool.specs != daemon_root_servers(reg)
             || pool.secrets_generation != reg.secrets_generation
             || !pool
