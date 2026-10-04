@@ -29574,6 +29574,111 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
+    fn mock_server_binary() -> PathBuf {
+        let path = std::env::current_exe()
+            .unwrap()
+            .parent()
+            .and_then(Path::parent)
+            .unwrap()
+            .join(format!("mock-mcp-server{}", std::env::consts::EXE_SUFFIX));
+        assert!(path.exists(), "build the fixture first: {}", path.display());
+        path
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_reap_while_the_first_root_launch_connects_does_not_discard_it() {
+        let _env = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let dir = std::env::temp_dir().join(format!(
+            "toolport-root-reap-{}",
+            routines::generate_id().unwrap()
+        ));
+        let root = dir.join("project");
+        std::fs::create_dir_all(&root).unwrap();
+        let _data_dir = conduit_lib::registry::DataDirOverride::set(&dir);
+        let gate = dir.join("start-gate");
+        let started = dir.join("start-gate.started");
+        let transcript = dir.join("downstream.jsonl");
+        let mut server = stub_server("mock", "Mock");
+        server.command = Some(mock_server_binary().display().to_string());
+        server.cwd = Some("${ROOT}".to_string());
+        server.env = [
+            ("MOCK_MCP_TRANSCRIPT", &transcript),
+            ("MOCK_MCP_START_GATE", &gate),
+        ]
+        .into_iter()
+        .map(|(key, path)| registry::EnvVar {
+            key: key.to_string(),
+            value: Some(path.display().to_string()),
+            secret: false,
+        })
+        .collect();
+        let mut reg = Registry::default();
+        reg.set_lazy_discovery(false);
+        reg.servers = vec![server];
+        let active = reg.active_profile_id();
+        reg.profiles
+            .iter_mut()
+            .find(|profile| profile.id == active)
+            .unwrap()
+            .enabled_server_ids = vec!["mock".to_string()];
+        let host = dispatch_host(false);
+        host.daemon_mode.store(true, Ordering::SeqCst);
+        *host.registry.lock().unwrap() = reg.clone();
+        let base = host.router.lock().unwrap().clone();
+        let root_arg = root.display().to_string();
+
+        let launch = {
+            let (host, reg, base, root) = (
+                Arc::clone(&host),
+                reg.clone(),
+                Arc::clone(&base),
+                root_arg.clone(),
+            );
+            std::thread::spawn(move || host.router_for_root(base, &reg, Some(&root), None))
+        };
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while std::fs::read_to_string(&started).map_or(true, |pids| pids.trim().is_empty()) {
+            assert!(Instant::now() < deadline, "the launch never started");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        host.reap_root_launches();
+        std::fs::write(&gate, "").unwrap();
+        let view = launch.join().unwrap();
+        let again = host.router_for_root(Arc::clone(&base), &reg, Some(&root_arg), None);
+
+        let initializes = std::fs::read_to_string(&transcript)
+            .unwrap_or_default()
+            .lines()
+            .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+            .filter(|entry| entry["method"] == "initialize")
+            .count();
+        assert_eq!(initializes, 1, "the reaped launch was spawned again");
+        let pids = std::fs::read_to_string(&started).unwrap();
+        let pids: Vec<&str> = pids.lines().collect();
+        assert_eq!(pids.len(), 1, "one root must start one child: {pids:?}");
+        assert!(
+            std::process::Command::new("kill")
+                .args(["-0", pids[0]])
+                .status()
+                .unwrap()
+                .success(),
+            "the pooled child is not running"
+        );
+        assert_eq!(host.root_launch_pool.lock().unwrap().launches.len(), 1);
+        for router in [&view, &again] {
+            assert!(
+                router
+                    .aggregated_tools()
+                    .iter()
+                    .any(|tool| tool["name"] == "mock__pwd"),
+                "the rooted catalog is missing from the view"
+            );
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn rooted_subscriptions_consume_the_process_wide_capacity() {
         let state = http_state(false);

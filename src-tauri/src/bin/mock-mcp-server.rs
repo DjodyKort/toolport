@@ -30,6 +30,9 @@
 //!   object per line. This is what lets a test assert exactly what bytes the
 //!   gateway sent downstream, which is the regression net for the envelope
 //!   transparency work (SOU-444).
+//! - `MOCK_MCP_START_GATE` — path of a gate file. On start the server appends its
+//!   pid to `<path>.started`, then waits for `<path>` to exist before it serves,
+//!   so a test decides exactly how long the gateway's launch stays in flight.
 //!
 //! The default configuration (no env set) is byte-identical to the pre-SOU-443
 //! fixture apart from the added `echo_meta` tool, so `list_changed`,
@@ -945,8 +948,27 @@ fn serve_http(cfg: &Config) {
     }
 }
 
+fn wait_for_start_gate(gate: &str) {
+    if let Ok(mut started) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(format!("{gate}.started"))
+    {
+        let _ = writeln!(started, "{}", std::process::id());
+    }
+    while !std::path::Path::new(gate).exists() {
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+}
+
 fn main() {
     let cfg = Config::from_env();
+    if let Some(gate) = std::env::var("MOCK_MCP_START_GATE")
+        .ok()
+        .filter(|gate| !gate.is_empty())
+    {
+        wait_for_start_gate(&gate);
+    }
     if std::env::var("MOCK_MCP_HTTP").as_deref() == Ok("1") {
         serve_http(&cfg);
         return;
