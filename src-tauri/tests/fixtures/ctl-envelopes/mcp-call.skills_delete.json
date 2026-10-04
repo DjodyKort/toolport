@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "mcp",
+    "call",
+    "skills_delete",
+    "--args",
+    "{\"name\":\"demo\",\"repo_path\":\"{repo}\",\"confirm\":true}"
+  ],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "removedPath": "<WORLD>/skills-repo/skills/demo"
+      },
+      "tier": 3,
+      "tool": "skills_delete"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

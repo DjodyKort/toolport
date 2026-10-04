@@ -1,0 +1,26 @@
+{
+  "argv": [
+    "mcp",
+    "call",
+    "servers_fork_sync",
+    "--args",
+    "{\"name\":\"forked\",\"target_branch\":\"main-synced\",\"confirm\":true}"
+  ],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "branch": "main-synced",
+        "mode": "rebase",
+        "previousBranch": "main",
+        "synced": true
+      },
+      "tier": 3,
+      "tool": "servers_fork_sync"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

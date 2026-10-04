@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "mcp",
+    "call",
+    "skills_get",
+    "--args",
+    "{\"name\":\"nope\",\"repo_path\":\"{repo}\"}"
+  ],
+  "envelope": {
+    "command": "mcp",
+    "error": {
+      "code": "not_found",
+      "message": "skill not found: nope"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

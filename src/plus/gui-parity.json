@@ -816,6 +816,11 @@
       "action": "servers.inspect",
       "surface": "screen"
     },
+    "mcp call": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
     "mcp doctor": {
       "route": "all-commands",
       "action": "all-commands.run",

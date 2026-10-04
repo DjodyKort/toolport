@@ -1,0 +1,32 @@
+{
+  "argv": ["mcp", "call", "styles_list_transpilers"],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "tier1": ["claude-code", "roomodes-style"],
+        "tier2": [
+          "aider",
+          "amazon-q",
+          "cline",
+          "codex-cli",
+          "continue",
+          "cursor",
+          "gemini-cli",
+          "goose",
+          "jetbrains",
+          "trae",
+          "vscode-copilot",
+          "windsurf",
+          "zed"
+        ]
+      },
+      "tier": 1,
+      "tool": "styles_list_transpilers"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

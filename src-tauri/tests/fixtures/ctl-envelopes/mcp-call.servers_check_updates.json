@@ -1,0 +1,29 @@
+{
+  "argv": ["mcp", "call", "servers_check_updates", "--args", "{\"name\":\"alpha\"}"],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "counts": {
+          "skipped": 1
+        },
+        "mode": "check",
+        "servers": [
+          {
+            "detected": false,
+            "id": "srv-alpha",
+            "kind": "unknown",
+            "message": "unknown source (synthetic fixture); run update --init",
+            "status": "skipped"
+          }
+        ]
+      },
+      "tier": 1,
+      "tool": "servers_check_updates"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

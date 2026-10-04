@@ -1,0 +1,24 @@
+{
+  "argv": ["mcp", "call", "agents_list_transpilers"],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "transpilers": [
+          "claude-code",
+          "codex-cli",
+          "cursor",
+          "gemini-cli",
+          "roomodes",
+          "vscode"
+        ]
+      },
+      "tier": 1,
+      "tool": "agents_list_transpilers"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

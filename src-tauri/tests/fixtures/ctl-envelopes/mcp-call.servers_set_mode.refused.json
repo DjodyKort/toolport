@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "mcp",
+    "call",
+    "servers_set_mode",
+    "--args",
+    "{\"name\":\"alpha\",\"mode\":\"direct\"}"
+  ],
+  "envelope": {
+    "command": "mcp",
+    "error": {
+      "code": "refused",
+      "message": "Refused: servers_set_mode (tier 3). Pass confirm=true to proceed."
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

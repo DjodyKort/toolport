@@ -48,8 +48,17 @@ export const mcpToolsData = obj({
   tools: arr(
     obj({
       description: str,
+      dryRunDefault: bool,
       gate: str,
       name: str,
+      params: arr(
+        obj({
+          description: str,
+          name: str,
+          required: bool,
+          type: str,
+        }),
+      ),
       tier: num,
     }),
   ),

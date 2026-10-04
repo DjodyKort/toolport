@@ -1,0 +1,28 @@
+{
+  "argv": [
+    "mcp",
+    "call",
+    "skills_get",
+    "--args",
+    "{\"name\":\"demo\",\"repo_path\":\"{repo}\"}"
+  ],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "activation": "auto",
+        "body": "Body text",
+        "description": "A synthetic demo skill",
+        "name": "demo",
+        "path": "<WORLD>/skills-repo/skills/demo/SKILL.md",
+        "type": "skill"
+      },
+      "tier": 1,
+      "tool": "skills_get"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

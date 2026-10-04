@@ -1,0 +1,24 @@
+{
+  "argv": [
+    "mcp",
+    "call",
+    "agents_edit_body",
+    "--args",
+    "{\"name\":\"helper\",\"new_body\":\"Changed prompt\\n\",\"repo_path\":\"{repo}\",\"confirm\":true}"
+  ],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "newHash": "sha256:6fe761ba0c9cd0a4",
+        "sourcePath": "<WORLD>/skills-repo/agents/helper/AGENT.md"
+      },
+      "tier": 3,
+      "tool": "agents_edit_body"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

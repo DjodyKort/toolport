@@ -4217,7 +4217,7 @@
           "path": ["mcp"],
           "planned": false,
           "preview": null,
-          "summary": "Self-management server: install [--profile <id>] uninstall doctor tools",
+          "summary": "Self-management server: install [--profile <id>] uninstall doctor tools call <tool> [--args <json> | --args-stdin]",
           "surface": null,
           "tier": null,
           "tools": []
@@ -4332,6 +4332,60 @@
           "summary": "List the self-management tools and resources",
           "surface": "screen",
           "tier": "read",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "The tool's arguments as one JSON object, for values that are not secret",
+              "escalates": false,
+              "hidden": false,
+              "name": "--args",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Read the tool's arguments as one JSON object from stdin; nothing reaches argv",
+              "escalates": false,
+              "hidden": false,
+              "name": "--args-stdin",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "mcp",
+          "id": "mcp call",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "tool",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "mcp",
+          "path": ["mcp", "call"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Run one self-management tool in-process (<tool>, --args, --args-stdin)",
+          "surface": "screen",
+          "tier": "write",
           "tools": []
         },
         {
@@ -8279,9 +8333,9 @@
         }
       ],
       "counts": {
-        "commands": 137,
+        "commands": 138,
         "groups": 28,
-        "rows": 165,
+        "rows": 166,
         "tools": 85
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],

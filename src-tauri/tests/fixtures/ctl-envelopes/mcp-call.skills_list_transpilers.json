@@ -1,0 +1,33 @@
+{
+  "argv": ["mcp", "call", "skills_list_transpilers"],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "transpilers": [
+          "agents-md",
+          "aider",
+          "amazon-q",
+          "claude-code",
+          "cline",
+          "codex-cli",
+          "continue",
+          "cursor",
+          "gemini-cli",
+          "goose-cli",
+          "jetbrains",
+          "roo-code",
+          "trae",
+          "windsurf",
+          "zed"
+        ]
+      },
+      "tier": 1,
+      "tool": "skills_list_transpilers"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

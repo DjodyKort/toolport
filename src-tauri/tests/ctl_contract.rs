@@ -647,7 +647,7 @@ fn every_case_names_a_command_and_every_golden_belongs_to_a_case() {
                         case.id, step.label
                     )
                 });
-            if step.writes || step.exit == 2 {
+            if step.writes || step.exit == 2 || command["id"] == "mcp call" {
                 continue;
             }
             let flag = command["preview"]["flag"].as_str().unwrap_or("");

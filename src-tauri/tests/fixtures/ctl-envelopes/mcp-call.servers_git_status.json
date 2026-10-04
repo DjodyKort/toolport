@@ -1,0 +1,25 @@
+{
+  "argv": ["mcp", "call", "servers_git_status", "--args", "{\"name\":\"forked\"}"],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "ahead": 1,
+        "behind": 1,
+        "branch": "main",
+        "dirty": false,
+        "isGit": true,
+        "name": "forked",
+        "path": "<WORLD>/fork-work",
+        "remoteRef": "origin/main",
+        "summaries": ["6a4a877 upstream change"]
+      },
+      "tier": 1,
+      "tool": "servers_git_status"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

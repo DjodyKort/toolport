@@ -1,0 +1,24 @@
+{
+  "argv": [
+    "mcp",
+    "call",
+    "skills_edit_frontmatter",
+    "--args",
+    "{\"name\":\"demo\",\"patch\":{\"description\":\"Edited description\"},\"repo_path\":\"{repo}\",\"confirm\":true}"
+  ],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "newHash": "sha256:15bc7e1b32f86753",
+        "sourcePath": "<WORLD>/skills-repo/skills/demo/SKILL.md"
+      },
+      "tier": 3,
+      "tool": "skills_edit_frontmatter"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}
