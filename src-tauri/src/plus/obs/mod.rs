@@ -1,5 +1,6 @@
 //! Observability: Claude Code transcript indexer and local OTel sink (OBS).
 
+pub mod combine;
 pub mod monitor_db;
 pub mod otel;
 pub mod otel_host;
@@ -9,6 +10,8 @@ pub mod store;
 pub mod transcript;
 
 #[cfg(test)]
+mod otel_e2e_tests;
+#[cfg(test)]
 mod otel_setup_tests;
 #[cfg(test)]
 mod receiver_tests;
@@ -16,7 +19,7 @@ mod receiver_tests;
 use crate::plus::args::flag_or;
 use serde::Serialize;
 use serde_json::{json, Value};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 use store::{Event, Locked, State};
 
@@ -69,7 +72,7 @@ fn round6(v: f64) -> f64 {
     (v * 1e6).round() / 1e6
 }
 
-fn otel_summary(events: impl IntoIterator<Item = Event>) -> Value {
+fn otel_summary(events: impl IntoIterator<Item = Event>) -> (Value, Vec<combine::Request>) {
     let mut tokens: BTreeMap<String, f64> = BTreeMap::new();
     let mut cost_by_model: BTreeMap<String, f64> = BTreeMap::new();
     let mut cost = 0.0;
@@ -78,6 +81,8 @@ fn otel_summary(events: impl IntoIterator<Item = Event>) -> Value {
     let mut failures: BTreeMap<String, (u64, String)> = BTreeMap::new();
     let mut connections = 0u64;
     let mut count = 0usize;
+    let mut seen_requests: HashSet<String> = HashSet::new();
+    let mut requests = Vec::new();
 
     for e in events {
         count += 1;
@@ -95,6 +100,11 @@ fn otel_summary(events: impl IntoIterator<Item = Event>) -> Value {
                     .or_default() += v;
             }
             "api_request" => {
+                let id = attr_str(e, "request_id");
+                if !id.is_empty() && !seen_requests.insert(id.to_string()) {
+                    continue;
+                }
+                requests.extend(combine::request_of(e));
                 api_count += 1;
                 api_cost += attr_f64(e, "cost_usd");
                 api_ms += attr_f64(e, "duration_ms");
@@ -122,7 +132,7 @@ fn otel_summary(events: impl IntoIterator<Item = Event>) -> Value {
         .into_iter()
         .map(|(server, (count, code))| json!({"server": server, "count": count, "lastErrorCode": code}))
         .collect();
-    json!({
+    let summary = json!({
         "events": count,
         "tokens": tokens,
         "costUsd": round6(cost),
@@ -130,17 +140,20 @@ fn otel_summary(events: impl IntoIterator<Item = Event>) -> Value {
         "apiRequests": {"count": api_count, "costUsd": round6(api_cost), "durationMs": api_ms},
         "toolDecisions": decisions,
         "mcpConnections": {"total": connections, "failures": failure_list},
-    })
+    });
+    (summary, requests)
 }
 
 pub fn summarize(state: &State, events: impl IntoIterator<Item = Event>) -> Value {
+    let (otel, requests) = otel_summary(events);
+    let otel_only = combine::only_in_otel(&state.messages, &requests);
     let mut total = Tokens::default();
     let mut by_day: BTreeMap<&str, Tokens> = BTreeMap::new();
     let mut by_model: BTreeMap<&str, Tokens> = BTreeMap::new();
     let mut by_session: BTreeMap<&str, SessionAgg> = BTreeMap::new();
     let mut by_mcp: BTreeMap<String, McpAgg> = BTreeMap::new();
 
-    for r in state.messages.values() {
+    for r in state.messages.values().chain(&otel_only) {
         total.add(r);
         by_day.entry(&r.day).or_default().add(r);
         by_model.entry(&r.model).or_default().add(r);
@@ -177,7 +190,12 @@ pub fn summarize(state: &State, events: impl IntoIterator<Item = Event>) -> Valu
         "bySession": by_session,
         "byMcpServer": by_mcp,
         "mcpFailures": failures,
-        "otel": otel_summary(events),
+        "otel": otel,
+        "sources": {
+            "transcriptMessages": state.messages.len(),
+            "otelRequests": requests.len(),
+            "otelOnly": otel_only.len(),
+        },
         "index": {"files": state.files.len(), "messages": state.messages.len()},
     })
 }
@@ -286,18 +304,19 @@ mod tests {
         assert_eq!(got, again);
         let tok = |m, i, o, cc, cr| json!({"messages": m, "input": i, "output": o, "cacheCreation": cc, "cacheRead": cr});
         let expected = json!({
-            "totals": tok(3, 14, 46, 503, 7104),
+            "totals": tok(4, 24, 46, 503, 7104),
             "byDay": {
+                "2025-10-03": tok(1, 10, 0, 0, 0),
                 "2026-10-01": tok(1, 10, 40, 500, 7000),
                 "2026-10-02": tok(2, 4, 6, 3, 104)
             },
             "byModel": {
-                "claude-a": tok(2, 11, 42, 503, 7004),
+                "claude-a": tok(3, 21, 42, 503, 7004),
                 "claude-b": tok(1, 3, 4, 0, 100)
             },
             "bySession": {
-                "s1": {"messages": 2, "input": 13, "output": 44, "cacheCreation": 500, "cacheRead": 7100,
-                       "cwd": "/work/demo", "firstTs": "2026-10-01T10:00:02Z", "lastTs": "2026-10-02T09:00:00Z"},
+                "s1": {"messages": 3, "input": 23, "output": 44, "cacheCreation": 500, "cacheRead": 7100,
+                       "cwd": "/work/demo", "firstTs": "2025-10-03T12:00:01Z", "lastTs": "2026-10-02T09:00:00Z"},
                 "s2": {"messages": 1, "input": 1, "output": 2, "cacheCreation": 3, "cacheRead": 4,
                        "cwd": "/work/demo", "firstTs": "2026-10-02T11:00:00Z", "lastTs": "2026-10-02T11:00:00Z"}
             },
@@ -315,6 +334,7 @@ mod tests {
                 "toolDecisions": {"accept": 1, "reject": 1},
                 "mcpConnections": {"total": 2, "failures": [{"server": "figma", "count": 1, "lastErrorCode": "ECONNREFUSED"}]}
             },
+            "sources": {"transcriptMessages": 3, "otelRequests": 1, "otelOnly": 1},
             "index": {"files": 2, "messages": 3}
         });
         assert_eq!(got, expected);
