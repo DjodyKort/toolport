@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { commandsData, sourcesLsData, sourcesRootLsData } from "../bridge/data";
+import { planOf } from "../ui/plan";
 import { check } from "../bridge/shape";
 import { commandsFixture, commandsFixtureWithMcpCall } from "./commandsRegistry";
 import { plusCtlCancel, plusCtlFixtures, plusCtlResult, plusCtlStart } from "./plusCtl";
@@ -68,5 +69,16 @@ describe("plus_ctl browser fixtures", () => {
     const ids = new Set(commands.map((row) => row.id));
     for (const tool of tools) if (tool.command) expect(ids.has(tool.command)).toBe(true);
     expect(ids.size).toBe(commands.length);
+  });
+
+  it("serves a plan the plan preview can read for the dry run of server uninstall", () => {
+    const data = plusCtlResult(
+      plusCtlStart(["server", "uninstall", "acme-erp", "--dry-run"]),
+    ).envelope?.data;
+    expect(planOf(data)?.steps.map((step) => step.op)).toEqual([
+      "delete",
+      "update",
+      "note",
+    ]);
   });
 });

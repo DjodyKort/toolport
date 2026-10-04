@@ -8,6 +8,34 @@ import { commandsFixture } from "./commandsRegistry";
 
 /** Envelope `data` the dev browser fixture returns per `toolportctl` argv (joined with spaces).
  * A command a screen runs needs a row here or the fixture rejects it as unimplemented. */
+const uninstallPlan = {
+  dryRun: true,
+  plan: {
+    summary: "Remove acme-erp and the entries that point at it",
+    steps: [
+      {
+        op: "delete",
+        path: "registry.json",
+        detail: "Remove the server acme-erp from the registry",
+        keys: ["servers.acme-erp"],
+        diff: { before: '"acme-erp": { "command": "acme-erp-mcp" }', after: "" },
+      },
+      {
+        op: "update",
+        path: "~/.config/client-a/mcp.json",
+        detail: "Remove the acme-erp entry from client-a",
+        keys: ["mcpServers.acme-erp"],
+      },
+      { op: "note", detail: "Its secrets stay in the vault (--keep-secrets)" },
+    ],
+    effects: {
+      tokens: { before: 5200, after: 3900, basis: "estimated from tool definitions" },
+    },
+    warnings: ["client-a is running and reads its config only at start"],
+    undo: "toolportctl server new acme-erp --command acme-erp-mcp",
+  },
+};
+
 export const plusCtlFixtures = new Map<string, unknown>([
   [
     "status",
@@ -24,6 +52,7 @@ export const plusCtlFixtures = new Map<string, unknown>([
   ["sources ls --items", plusSourcesItemsFixture],
   ["sources root ls", plusSourcesRootFixture],
   ["commands", commandsFixture],
+  ["server uninstall acme-erp --dry-run", uninstallPlan],
   ["attention ls", { counts: { needsYou: 3, worthALook: 2 }, items: [] }],
 ]);
 
