@@ -15,9 +15,11 @@ use serde::Serialize;
 
 use crate::registry::{ManagedEntry, ServerEntry};
 
+mod direct_entry;
 mod import_apply;
 mod moved;
 mod zcode;
+pub use direct_entry::{set_direct_entry, EntryWrite};
 pub use import_apply::{apply_import, prune_entries, ClientApply, ClientPrune};
 
 #[cfg(test)]
