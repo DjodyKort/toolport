@@ -23,6 +23,11 @@
       "title": "Library",
       "status": "built",
       "component": "src/plus/skills/LibraryScreen.tsx"
+    },
+    "agents": {
+      "title": "Agents & styles",
+      "status": "built",
+      "component": "src/plus/agents/AgentsScreen.tsx"
     }
   },
   "actions": {
@@ -336,6 +341,114 @@
       "status": "built",
       "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
       "summary": "Install from a tap: the preview shows the audit findings, a high finding blocks it, and only a typed --no-audit goes past"
+    },
+    "agents.list": {
+      "route": "agents",
+      "status": "built",
+      "test": "src/plus/agents/AgentsTab.e2e.test.tsx",
+      "summary": "List the agents of the skills repository with model, tools and file, and a row per client with the fields that client drops"
+    },
+    "agents.lint": {
+      "route": "agents",
+      "status": "built",
+      "test": "src/plus/agents/AgentsTab.e2e.test.tsx",
+      "summary": "Lint the agents; an exit-1 report still shows its messages"
+    },
+    "agents.audit": {
+      "route": "agents",
+      "status": "built",
+      "test": "src/plus/agents/AgentsTab.e2e.test.tsx",
+      "summary": "Scan the agents for prompt injection and risky commands; findings listed by severity"
+    },
+    "agents.diff": {
+      "route": "agents",
+      "status": "built",
+      "test": "src/plus/agents/AgentsTab.e2e.test.tsx",
+      "summary": "Show new, modified and removed agents since the last sync"
+    },
+    "agents.status": {
+      "route": "agents",
+      "status": "built",
+      "test": "src/plus/agents/AgentsTab.e2e.test.tsx",
+      "summary": "Show whether synced agent outputs still exist: in sync, missing or not written, and the drift verdict"
+    },
+    "agents.add": {
+      "route": "agents",
+      "status": "built",
+      "test": "src/plus/agents/AgentsTab.e2e.test.tsx",
+      "summary": "Create an agent from the template: name check, preview, confirm"
+    },
+    "agents.sync": {
+      "route": "agents",
+      "status": "built",
+      "test": "src/plus/agents/AgentsTab.e2e.test.tsx",
+      "summary": "Sync agents to every client or one client: preview with the dropped-field warnings, confirm, apply"
+    },
+    "agents.clean": {
+      "route": "agents",
+      "status": "built",
+      "test": "src/plus/agents/AgentsTab.e2e.test.tsx",
+      "summary": "Remove synced agent outputs after a preview and a typed confirmation, keeping the lockfile"
+    },
+    "agents.uninstall": {
+      "route": "agents",
+      "status": "built",
+      "test": "src/plus/agents/AgentsTab.e2e.test.tsx",
+      "summary": "Uninstall an agent with its outputs after a preview and typing its name"
+    },
+    "styles.list": {
+      "route": "agents",
+      "status": "built",
+      "test": "src/plus/agents/StylesTab.e2e.test.tsx",
+      "summary": "List output styles with where each is synced and always on; empty state with one action"
+    },
+    "styles.lint": {
+      "route": "agents",
+      "status": "built",
+      "test": "src/plus/agents/StylesTab.e2e.test.tsx",
+      "summary": "Lint the output styles"
+    },
+    "styles.diff": {
+      "route": "agents",
+      "status": "built",
+      "test": "src/plus/agents/StylesTab.e2e.test.tsx",
+      "summary": "Show new, modified and removed styles since the last sync"
+    },
+    "styles.status": {
+      "route": "agents",
+      "status": "built",
+      "test": "src/plus/agents/StylesTab.e2e.test.tsx",
+      "summary": "Show the styles per client: switchable styles of native clients and the always-on style of the others"
+    },
+    "styles.add": {
+      "route": "agents",
+      "status": "built",
+      "test": "src/plus/agents/StylesTab.e2e.test.tsx",
+      "summary": "Create a style from the template: name check, preview, confirm"
+    },
+    "styles.sync": {
+      "route": "agents",
+      "status": "built",
+      "test": "src/plus/agents/StylesTab.e2e.test.tsx",
+      "summary": "Write every style to the native-toggle clients after a preview and a confirmation"
+    },
+    "styles.apply": {
+      "route": "agents",
+      "status": "built",
+      "test": "src/plus/agents/StylesTab.e2e.test.tsx",
+      "summary": "Apply one style as an always-on rule to the other clients after a preview and a confirmation"
+    },
+    "styles.remove": {
+      "route": "agents",
+      "status": "built",
+      "test": "src/plus/agents/StylesTab.e2e.test.tsx",
+      "summary": "Remove the active style from the other clients after a preview and a typed confirmation"
+    },
+    "styles.clean": {
+      "route": "agents",
+      "status": "built",
+      "test": "src/plus/agents/StylesTab.e2e.test.tsx",
+      "summary": "Remove every synced and applied style file after a preview and a typed confirmation"
     }
   },
   "owners": {
@@ -368,48 +481,48 @@
   },
   "commands": {
     "agents add": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "agents.add",
       "surface": "screen"
     },
     "agents audit": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "agents.audit",
       "surface": "screen"
     },
     "agents clean": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "agents.clean",
       "surface": "screen"
     },
     "agents diff": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "agents.diff",
       "surface": "screen"
     },
     "agents lint": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "agents.lint",
       "surface": "screen"
     },
     "agents ls": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "agents.list",
       "surface": "screen"
     },
     "agents status": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "agents.status",
       "surface": "screen"
     },
     "agents sync": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "agents.sync",
       "surface": "screen"
     },
     "agents uninstall": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "agents.uninstall",
       "surface": "screen"
     },
     "auth hook": {
@@ -943,48 +1056,48 @@
       "surface": "screen"
     },
     "styles add": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "styles.add",
       "surface": "screen"
     },
     "styles apply": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "styles.apply",
       "surface": "screen"
     },
     "styles clean": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "styles.clean",
       "surface": "screen"
     },
     "styles diff": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "styles.diff",
       "surface": "screen"
     },
     "styles lint": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "styles.lint",
       "surface": "screen"
     },
     "styles ls": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "styles.list",
       "surface": "screen"
     },
     "styles remove": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "styles.remove",
       "surface": "screen"
     },
     "styles status": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "styles.status",
       "surface": "screen"
     },
     "styles sync": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "styles.sync",
       "surface": "screen"
     },
     "sync add-project": {
