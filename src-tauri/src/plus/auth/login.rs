@@ -14,6 +14,7 @@ use super::stdio;
 use super::surfaces::{self, AuthRow};
 use super::SystemClock;
 use crate::plus::args::{flag_or, str_nonempty};
+use crate::plus::servers;
 use crate::registry::{Registry, ServerEntry};
 
 pub type UrlSink = Arc<dyn Fn(&str) + Send + Sync>;
@@ -53,15 +54,6 @@ pub struct RemoteFacts {
     pub oauth_state: bool,
     pub static_token: bool,
     pub detected: String,
-}
-
-pub fn resolve<'a>(registry: &'a Registry, key: &str) -> Option<&'a ServerEntry> {
-    registry.servers.iter().find(|s| s.id == key).or_else(|| {
-        registry
-            .servers
-            .iter()
-            .find(|s| s.name.eq_ignore_ascii_case(key))
-    })
 }
 
 fn reprobe(id: &str) -> String {
@@ -266,7 +258,7 @@ pub fn review_gate(registry: &Registry, server: &ServerEntry) -> Option<Plan> {
 
 pub fn login(key: &str, opts: LoginOptions, sink: UrlSink) -> Result<LoginReport, LoginError> {
     let registry = super::scan::read_registry().map_err(LoginError::Failed)?;
-    let server = resolve(&registry, key)
+    let server = servers::find(&registry, key)
         .ok_or_else(|| LoginError::NotFound(format!("unknown server: {key}")))?;
     let probes = combined_registry(&registry);
     let chosen = review_gate(&registry, server)
