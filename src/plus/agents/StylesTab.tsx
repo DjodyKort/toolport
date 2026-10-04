@@ -7,13 +7,7 @@ import type { StylesLsData } from "../bridge/data";
 import type { StylesDiffData, StylesLintData, StylesStatusData } from "../types/styles";
 import { AsyncView } from "../ui";
 import { useRead, useRegistryRows, useWrite, type WriteControl } from "./hooks";
-import {
-  byClient,
-  clientName,
-  type ActiveRow,
-  type ClientStyle,
-  type NativeRow,
-} from "./model";
+import { byClient, clientName, type ActiveRow, type NativeRow } from "./model";
 import { NewDialog } from "./NewDialog";
 import { Card, Chips, DiffBody, Discovery, LintBody, PathLine, Section } from "./parts";
 import { WriteDialogs } from "./WriteDialogs";
@@ -26,7 +20,7 @@ function StyleCard({
   write,
 }: {
   style: Style;
-  active: ClientStyle[];
+  active: StylesLsData["active"];
   write: WriteControl;
 }) {
   const on = active.filter((a) => a.style === style.name).map((a) => a.client);
@@ -221,7 +215,7 @@ function Styles({ write, onNew }: { write: WriteControl; onNew: () => void }) {
                   <StyleCard
                     key={style.name}
                     style={style}
-                    active={data.active as unknown as ClientStyle[]}
+                    active={data.active}
                     write={write}
                   />
                 ))}

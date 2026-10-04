@@ -476,7 +476,7 @@ export const agentsLsData = obj({
 export type AgentsLsData = Infer<typeof agentsLsData>;
 
 export const stylesLsData = obj({
-  active: arr(str),
+  active: arr(obj({ client: str, style: str })),
   discoveryWarnings: arr(str),
   lockfilePresent: bool,
   repo: str,
