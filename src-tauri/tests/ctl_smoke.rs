@@ -460,6 +460,12 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert_eq!(d["healthy"], true);
             assert!(d["checks"].as_array().unwrap().len() >= 4);
         }),
+        case("commands", &["commands"], 0, |_, d| {
+            assert_eq!(d["counts"]["tools"], 80);
+            let rows = d["commands"].as_array().unwrap();
+            assert!(rows.iter().any(|r| r["id"] == "profile edit" && r["tier"] == "write"));
+            assert!(rows.iter().any(|r| r["id"] == "sync push" && r["parent"] == "sync"));
+        }),
         case("server ls", &["server", "ls"], 0, |_, d| {
             let names: Vec<&str> = d["servers"]
                 .as_array()

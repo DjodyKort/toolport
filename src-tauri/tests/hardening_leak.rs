@@ -167,6 +167,7 @@ impl World {
         vec![
             s(&["status"]),
             s(&["doctor"]),
+            s(&["commands"]),
             s(&["server", "ls"]),
             s(&["server", "search", "--offline", "--limit", "3"]),
             s(&["server", "install", "GitHub", "--offline"]),

@@ -20,7 +20,7 @@ pub const GROUP_USAGE: &str =
      [--select <a,b> | --all] [--profile <name>] [--dry-run]; sync: [--client <id>] [--dry-run] \
      [--keep-orphans]; direct: add|rm|ls)";
 
-const EDIT: Spec = spec(
+pub(super) const EDIT: Spec = spec(
     &[
         value("--add-profile"),
         value("--remove-profile"),
@@ -36,7 +36,7 @@ const EDIT: Spec = spec(
     ],
     EDIT_USAGE,
 );
-const IMPORT: Spec = spec(
+pub(super) const IMPORT: Spec = spec(
     &[
         value("--select"),
         value("--profile"),

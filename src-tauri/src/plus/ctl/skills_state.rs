@@ -20,11 +20,11 @@ const UNINSTALL_USAGE: &str =
 const RESOLVE_USAGE: &str = "usage: skills resolve [--repo <dir>] [--home <dir>] [--client <key>] \
      [--project] [--dry-run] [--migrate|--no-migrate]";
 
-const STATUS: Spec = spec(
+pub(super) const STATUS: Spec = spec(
     &[PATH, value("--home"), value("--client"), switch("--strict")],
     STATUS_USAGE,
 );
-const CLEAN: Spec = spec(
+pub(super) const CLEAN: Spec = spec(
     &[
         PATH,
         value("--home"),
@@ -35,7 +35,7 @@ const CLEAN: Spec = spec(
     ],
     CLEAN_USAGE,
 );
-const UNINSTALL: Spec = spec(
+pub(super) const UNINSTALL: Spec = spec(
     &[
         PATH,
         value("--home"),
@@ -45,7 +45,7 @@ const UNINSTALL: Spec = spec(
     ],
     UNINSTALL_USAGE,
 );
-const RESOLVE: Spec = spec(
+pub(super) const RESOLVE: Spec = spec(
     &[
         PATH,
         value("--home"),

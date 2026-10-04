@@ -13,7 +13,7 @@ const PROBE_USAGE: &str = "usage: auth probe [--server <id>] [--force]";
 const LOGIN_USAGE: &str = "usage: auth login <server> [--no-open]";
 pub const GROUP_USAGE: &str = "usage: auth statusline|hook|probe|login (probe: [--server <id>] [--force]; login: <server> [--no-open])";
 
-const PROBE: Spec = Spec {
+pub(super) const PROBE: Spec = Spec {
     flags: &[
         value("--server").needs("a server id").nonempty(),
         switch("--force"),
@@ -24,7 +24,7 @@ const PROBE: Spec = Spec {
     ..Spec::PLAIN
 };
 
-const LOGIN: Spec = Spec {
+pub(super) const LOGIN: Spec = Spec {
     flags: &[switch("--no-open")],
     inline: Inline::Value,
     unknown: Unknown::ArgumentUsage(LOGIN_USAGE),

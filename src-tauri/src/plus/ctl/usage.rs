@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 
 const USAGE: &str = "usage: usage [--root <projects dir>] [--no-refresh]";
 
-const SPEC: Spec = Spec {
+pub(super) const SPEC: Spec = Spec {
     flags: &[
         switch("--no-refresh"),
         value("--root").needs("a directory").nonempty(),

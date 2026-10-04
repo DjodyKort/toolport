@@ -4,7 +4,7 @@ use crate::plus::cc::{list, update, Options, SystemClaude};
 
 const USAGE: &str = "usage: cc list|update [plugin] [--marketplace M] [--dry-run]";
 
-const SPEC: Spec = Spec {
+pub(super) const SPEC: Spec = Spec {
     flags: &[
         switch("--dry-run").alias(&["--check"]),
         value("--marketplace").alias(&["-m"]).needs("a name"),

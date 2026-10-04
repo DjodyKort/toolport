@@ -74,6 +74,10 @@ fn spec(name: &str) -> Option<&'static Sub> {
     })
 }
 
+pub(super) fn describe(name: &str) -> Option<(&'static Spec, &'static [&'static str])> {
+    spec(name).map(|sub| (&sub.spec, sub.positional))
+}
+
 fn camel(flag: &str) -> String {
     let mut out = String::new();
     let mut upper = false;

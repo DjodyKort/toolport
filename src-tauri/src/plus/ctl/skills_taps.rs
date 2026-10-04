@@ -19,12 +19,12 @@ const TAP_USAGE: &str = "usage: skills tap add|ls|remove|update \
      (add: <user/repo|url> [--name <alias>] [--dry-run]; ls; remove: <name> [--dry-run]; \
      update: [<name>] [--dry-run])";
 
-const TAP_ADD: Spec = spec(&[value("--name"), switch("--dry-run")], TAP_ADD_USAGE);
-const TAP_LS: Spec = spec(&[], TAP_LS_USAGE);
-const TAP_REMOVE: Spec = spec(&[switch("--dry-run")], TAP_REMOVE_USAGE);
-const TAP_UPDATE: Spec = spec(&[switch("--dry-run")], TAP_UPDATE_USAGE);
-const SEARCH: Spec = spec(&[], SEARCH_USAGE);
-const INSTALL: Spec = spec(
+pub(super) const TAP_ADD: Spec = spec(&[value("--name"), switch("--dry-run")], TAP_ADD_USAGE);
+pub(super) const TAP_LS: Spec = spec(&[], TAP_LS_USAGE);
+pub(super) const TAP_REMOVE: Spec = spec(&[switch("--dry-run")], TAP_REMOVE_USAGE);
+pub(super) const TAP_UPDATE: Spec = spec(&[switch("--dry-run")], TAP_UPDATE_USAGE);
+pub(super) const SEARCH: Spec = spec(&[], SEARCH_USAGE);
+pub(super) const INSTALL: Spec = spec(
     &[PATH, switch("--no-audit"), switch("--dry-run")],
     INSTALL_USAGE,
 );

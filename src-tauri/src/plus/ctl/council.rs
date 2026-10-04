@@ -9,11 +9,11 @@ use serde_json::json;
 const USAGE: &str =
     "usage: council <install [--api-key-env VAR] | uninstall [--purge-key] | doctor | tools>";
 
-const INSTALL: Spec = Spec {
+pub(super) const INSTALL: Spec = Spec {
     flags: &[value("--api-key-env").needs("a variable name")],
     ..Spec::NONE
 };
-const UNINSTALL: Spec = Spec {
+pub(super) const UNINSTALL: Spec = Spec {
     flags: &[switch("--purge-key")],
     ..Spec::NONE
 };

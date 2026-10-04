@@ -29,13 +29,13 @@ const USAGE: &str = "usage: agents add|ls|lint|audit|diff|status|clean|uninstall
      uninstall: <name> [--path <dir>] [--home <dir>] [--project] [--dry-run]; \
      sync: [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run])";
 
-const ADD: Spec = spec(&[PATH, switch("--dry-run")], ADD_USAGE);
-const LS: Spec = spec(&[PATH], LS_USAGE);
-const LINT: Spec = spec(&[PATH], LINT_USAGE);
-const AUDIT: Spec = spec(&[PATH], AUDIT_USAGE);
-const DIFF: Spec = spec(&[PATH], DIFF_USAGE);
-const STATUS: Spec = spec(&[PATH, value("--home"), switch("--strict")], STATUS_USAGE);
-const CLEAN: Spec = spec(
+pub(super) const ADD: Spec = spec(&[PATH, switch("--dry-run")], ADD_USAGE);
+pub(super) const LS: Spec = spec(&[PATH], LS_USAGE);
+pub(super) const LINT: Spec = spec(&[PATH], LINT_USAGE);
+pub(super) const AUDIT: Spec = spec(&[PATH], AUDIT_USAGE);
+pub(super) const DIFF: Spec = spec(&[PATH], DIFF_USAGE);
+pub(super) const STATUS: Spec = spec(&[PATH, value("--home"), switch("--strict")], STATUS_USAGE);
+pub(super) const CLEAN: Spec = spec(
     &[
         PATH,
         value("--home"),
@@ -46,7 +46,7 @@ const CLEAN: Spec = spec(
     ],
     CLEAN_USAGE,
 );
-const UNINSTALL: Spec = spec(
+pub(super) const UNINSTALL: Spec = spec(
     &[
         PATH,
         value("--home"),
@@ -56,7 +56,7 @@ const UNINSTALL: Spec = spec(
     ],
     UNINSTALL_USAGE,
 );
-const SYNC: Spec = spec(
+pub(super) const SYNC: Spec = spec(
     &[
         PATH,
         value("--home"),

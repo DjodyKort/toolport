@@ -11,11 +11,11 @@ struct Target {
     key: String,
 }
 
-const SET: Spec = Spec {
+pub(super) const SET: Spec = Spec {
     flags: &[value("--value-env").needs("a variable name")],
     ..Spec::PLAIN
 };
-const GET: Spec = Spec {
+pub(super) const GET: Spec = Spec {
     flags: &[switch("--reveal")],
     ..Spec::PLAIN
 };

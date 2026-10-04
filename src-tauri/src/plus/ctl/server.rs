@@ -15,15 +15,15 @@ const INFO_USAGE: &str = "usage: server info <id|name>";
 const UNINSTALL_USAGE: &str =
     "usage: server uninstall <id|name> [--dry-run] [--keep-clients] [--keep-secrets]";
 
-const SEARCH: Spec = Spec {
+pub(super) const SEARCH: Spec = Spec {
     flags: &[value("--limit"), switch("--offline")],
     ..Spec::PLAIN
 };
-const INSTALL: Spec = Spec {
+pub(super) const INSTALL: Spec = Spec {
     flags: &[switch("--offline")],
     ..Spec::PLAIN
 };
-const NEW: Spec = Spec {
+pub(super) const NEW: Spec = Spec {
     flags: &[
         value("--command"),
         value("--arg"),
@@ -33,7 +33,7 @@ const NEW: Spec = Spec {
     ],
     ..Spec::PLAIN
 };
-const EDIT: Spec = Spec {
+pub(super) const EDIT: Spec = Spec {
     flags: &[
         value("--name"),
         value("--command"),
@@ -46,7 +46,7 @@ const EDIT: Spec = Spec {
     ],
     ..Spec::PLAIN
 };
-const UNINSTALL: Spec = Spec {
+pub(super) const UNINSTALL: Spec = Spec {
     flags: &[
         switch("--dry-run"),
         switch("--keep-clients"),

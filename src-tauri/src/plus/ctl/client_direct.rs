@@ -17,16 +17,16 @@ pub const GROUP_USAGE: &str = "usage: client direct add|rm|ls (add, rm: <server>
 pub const RUN_GROUP_USAGE: &str = "usage: direct run <server id> (the stdio launcher a direct \
      client entry starts; added with `client direct add`)";
 
-const ADD: Spec = spec(
+pub(super) const ADD: Spec = spec(
     &[value("--client"), switch("--force"), switch("--dry-run")],
     ADD_USAGE,
 );
-const RM: Spec = spec(
+pub(super) const RM: Spec = spec(
     &[value("--client"), switch("--force"), switch("--dry-run")],
     RM_USAGE,
 );
-const LS: Spec = spec(&[value("--client")], LS_USAGE);
-const RUN: Spec = spec(&[], RUN_USAGE);
+pub(super) const LS: Spec = spec(&[value("--client")], LS_USAGE);
+pub(super) const RUN: Spec = spec(&[], RUN_USAGE);
 
 pub fn group(_rest: &[String]) -> Result<Output, CtlError> {
     Err(CtlError::usage(GROUP_USAGE))

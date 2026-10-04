@@ -29,17 +29,17 @@ pub const PROFILE_GROUP_USAGE: &str = "usage: context profile add|list|remove (a
      [--servers inherit|none|<a,b>] [--no-commands] [--no-skills] [--home <dir>] [--dry-run]; \
      list: [--home <dir>]; remove: <name> [--purge] [--home <dir>] [--dry-run])";
 
-const INIT: Spec = spec(
+pub(super) const INIT: Spec = spec(
     &[value("--home"), switch("--dry-run"), switch("--yes")],
     INIT_USAGE,
 );
-const STATUS: Spec = spec(&[value("--home")], STATUS_USAGE);
-const CLIENT_ADD: Spec = spec(
+pub(super) const STATUS: Spec = spec(&[value("--home")], STATUS_USAGE);
+pub(super) const CLIENT_ADD: Spec = spec(
     &[value("--home"), value("--glob"), switch("--dry-run")],
     CLIENT_ADD_USAGE,
 );
-const CLIENT_LIST: Spec = spec(&[value("--home")], CLIENT_LIST_USAGE);
-const PROFILE_ADD: Spec = spec(
+pub(super) const CLIENT_LIST: Spec = spec(&[value("--home")], CLIENT_LIST_USAGE);
+pub(super) const PROFILE_ADD: Spec = spec(
     &[
         value("--home"),
         value("--org-mode"),
@@ -52,12 +52,12 @@ const PROFILE_ADD: Spec = spec(
     ],
     PROFILE_ADD_USAGE,
 );
-const PROFILE_LIST: Spec = spec(&[value("--home")], PROFILE_LIST_USAGE);
-const PROFILE_REMOVE: Spec = spec(
+pub(super) const PROFILE_LIST: Spec = spec(&[value("--home")], PROFILE_LIST_USAGE);
+pub(super) const PROFILE_REMOVE: Spec = spec(
     &[value("--home"), switch("--purge"), switch("--dry-run")],
     PROFILE_REMOVE_USAGE,
 );
-const DISABLE: Spec = spec(
+pub(super) const DISABLE: Spec = spec(
     &[
         value("--home"),
         switch("--purge-profiles"),

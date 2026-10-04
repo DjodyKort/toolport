@@ -129,6 +129,9 @@ pub fn validate_argv(argv: &[String]) -> Result<(), BridgeError> {
             return Err(BridgeError::Forbidden(key.to_string()));
         }
     }
+    if let Some(reason) = crate::plus::ctl::terminal_only(argv) {
+        return Err(BridgeError::Forbidden(reason));
+    }
     Ok(())
 }
 
@@ -282,6 +285,24 @@ mod tests {
         assert!(validate_argv(&argv(&["skills", "ls", "--repo", "/tmp/x"])).is_ok());
         assert!(validate_argv(&argv(&["server", "info", "--homepage"])).is_ok());
         assert!(matches!(validate_argv(&[]), Err(BridgeError::Usage(_))));
+    }
+
+    #[test]
+    fn terminal_only_commands_are_refused_unless_they_only_plan() {
+        for bad in [
+            argv(&["direct", "run", "claude"]),
+            argv(&["--json", "direct", "run", "claude", "--", "-p", "x"]),
+            argv(&["compression", "run", "claude"]),
+            argv(&["compression", "run", "claude", "--", "--plan"]),
+        ] {
+            assert!(
+                matches!(validate_argv(&bad), Err(BridgeError::Forbidden(_))),
+                "{bad:?}"
+            );
+        }
+        assert!(validate_argv(&argv(&["compression", "run", "--plan", "claude"])).is_ok());
+        assert!(validate_argv(&argv(&["compression", "status"])).is_ok());
+        assert!(validate_argv(&argv(&["direct", "status"])).is_ok());
     }
 
     #[test]

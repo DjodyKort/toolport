@@ -27,14 +27,14 @@ const USAGE: &str = "usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|d
      update [<name>] [--dry-run]; search: <query>; \
      install: <@user/repo[/skill][@version]> [--path <dir>] [--no-audit] [--dry-run])";
 
-const BASE: Spec = Spec {
+pub(super) const BASE: Spec = Spec {
     flags: &[],
     inline: Inline::Strict,
     unknown: Unknown::Argument,
     operands: Operands::Reject,
     ..Spec::PLAIN
 };
-const SYNC: Spec = Spec {
+pub(super) const SYNC: Spec = Spec {
     flags: &[
         value("--repo"),
         value("--home"),
@@ -47,11 +47,11 @@ const SYNC: Spec = Spec {
     ],
     ..BASE
 };
-const LS: Spec = Spec {
+pub(super) const LS: Spec = Spec {
     flags: &[value("--repo"), value("--home")],
     ..BASE
 };
-const LINT: Spec = Spec {
+pub(super) const LINT: Spec = Spec {
     flags: &[value("--repo"), value("--home"), value("--name")],
     ..BASE
 };

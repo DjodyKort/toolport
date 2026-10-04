@@ -11,7 +11,7 @@ const ENABLE_USAGE: &str = "usage: obs otel enable [--port <n>] [--home <dir>] [
 const DISABLE_USAGE: &str = "usage: obs otel disable [--home <dir>] [--dry-run]";
 const STATUS_USAGE: &str = "usage: obs otel status [--home <dir>]";
 
-const ENABLE: Spec = Spec {
+pub(super) const ENABLE: Spec = Spec {
     flags: &[
         value("--port").needs("a port number").nonempty(),
         value("--home").needs("a directory").nonempty(),
@@ -23,13 +23,13 @@ const ENABLE: Spec = Spec {
     ..Spec::PLAIN
 };
 
-const DISABLE: Spec = Spec {
+pub(super) const DISABLE: Spec = Spec {
     flags: &[value("--home").needs("a directory").nonempty(), switch("--dry-run")],
     unknown: Unknown::ArgumentUsage(DISABLE_USAGE),
     ..ENABLE
 };
 
-const STATUS: Spec = Spec {
+pub(super) const STATUS: Spec = Spec {
     flags: &[value("--home").needs("a directory").nonempty()],
     unknown: Unknown::ArgumentUsage(STATUS_USAGE),
     ..ENABLE
