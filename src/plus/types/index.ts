@@ -36,6 +36,16 @@ export * from "./skills";
 export * from "./styles";
 export * from "./sync";
 export * from "./usage";
+export * from "./selfmcp-agents";
+export * from "./selfmcp-clients";
+export * from "./selfmcp-compression";
+export * from "./selfmcp-core";
+export * from "./selfmcp-servers";
+export * from "./selfmcp-skills";
+export * from "./selfmcp-styles";
+export * from "./selfmcp-sync";
+export * from "./selfmcp-resources";
+export * from "./selfmcp";
 
 /** Every ctl golden stem that `bridge/data.ts` does not describe, to the shape of its `data`. */
 export const ctlTypeShapes: Record<string, Shape<unknown>> = {
