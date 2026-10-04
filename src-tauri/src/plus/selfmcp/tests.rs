@@ -8,6 +8,7 @@ pub(super) const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 const EXPECTED_TOOLS: &[&str] = &[
     "skills_list",
     "sources_ls",
+    "context_measure",
     "skills_get",
     "skills_lint",
     "skills_status",
@@ -206,9 +207,9 @@ fn err_kind(result: Result<Value, ToolError>) -> &'static str {
 }
 
 #[test]
-fn registry_has_all_81_tools_and_11_resources() {
+fn registry_has_all_82_tools_and_11_resources() {
     let names: Vec<&str> = TOOLS.iter().map(|t| t.name).collect();
-    assert_eq!(names.len(), 81);
+    assert_eq!(names.len(), 82);
     assert_eq!(
         names.iter().copied().collect::<BTreeSet<_>>(),
         EXPECTED_TOOLS.iter().copied().collect::<BTreeSet<_>>()
@@ -232,6 +233,7 @@ fn module_counts_match_the_parity_matrix() {
     assert_eq!(count("clients_"), 2);
     assert_eq!(count("client_direct_"), 3);
     assert_eq!(count("sources_"), 1);
+    assert_eq!(count("context_"), 1);
 }
 
 #[test]
@@ -634,7 +636,7 @@ fn json_rpc_surface_lists_calls_and_reads() {
         handle_message(&json!({"jsonrpc": "2.0", "method": "notifications/initialized"})).is_none()
     );
     let tools = call(json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}));
-    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 81);
+    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 82);
     let resources = call(json!({"jsonrpc": "2.0", "id": 3, "method": "resources/list"}));
     assert_eq!(
         resources["result"]["resources"].as_array().unwrap().len(),

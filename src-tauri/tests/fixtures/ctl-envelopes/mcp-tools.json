@@ -86,6 +86,12 @@
           "tier": 1
         },
         {
+          "description": "Measure what a folder really loads, in tokens, by asking Claude Code itself: one request per variant, which spends model tokens and is cached per Claude Code version, model and settings. Returns the as-is total, the signed deltas of each without, and the skills the model is not offered",
+          "gate": "none",
+          "name": "context_measure",
+          "tier": 2
+        },
+        {
           "description": "Read one skill including its body",
           "gate": "none",
           "name": "skills_get",

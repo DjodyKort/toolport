@@ -417,11 +417,19 @@ fn a_tool_that_maps_to_a_command_agrees_with_it() {
                 tool.name
             )
         });
-        assert_eq!(
-            row.tier, tool.tier,
-            "{} ({command}): the tool and the command differ in tier",
-            tool.name
-        );
+        if row.cost {
+            assert!(
+                tool.tier > row.tier,
+                "{} ({command}): a tool that spends model tokens needs a higher tier than the command, whose --yes it replaces",
+                tool.name
+            );
+        } else {
+            assert_eq!(
+                row.tier, tool.tier,
+                "{} ({command}): the tool and the command differ in tier",
+                tool.name
+            );
+        }
         if tool.preview == ToolPreview::DefaultOn {
             assert!(
                 row.preview != Preview::None,

@@ -4,6 +4,7 @@ use std::collections::BTreeSet;
 const SOURCES: &[(&str, &str)] = &[
     ("apply_update_tests.rs", include_str!("apply_update_tests.rs")),
     ("compression_tests.rs", include_str!("compression_tests.rs")),
+    ("context_tests.rs", include_str!("context_tests.rs")),
     ("direct_tests.rs", include_str!("direct_tests.rs")),
     ("effect_tests.rs", include_str!("effect_tests.rs")),
     (
@@ -26,6 +27,11 @@ const SYNC_DRY_RUN: &str =
 const DIRECT_APPLY: &str = "add_ls_and_rm_apply_only_with_dry_run_false";
 
 const SIDE_EFFECT_TESTS: &[(&str, &str, &str)] = &[
+    (
+        "context_measure",
+        "context_tests.rs",
+        "a_call_measures_the_variants_and_a_second_call_is_answered_from_the_cache",
+    ),
     ("skills_scaffold", "wired_tests.rs", SKILLS_ROUND_TRIP),
     ("skills_sync", "wired_tests.rs", SKILLS_ROUND_TRIP),
     ("skills_tap_add", "tap_tools_tests.rs", TAPS_APPLY),

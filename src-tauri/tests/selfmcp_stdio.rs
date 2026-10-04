@@ -18,12 +18,16 @@ use std::time::{Duration, Instant};
 use conduit_lib::plus::selfmcp::{Gate, RESOURCES, TOOLS};
 use serde_json::{json, Value};
 
+#[path = "common/claude_stub.rs"]
+mod claude_stub;
+#[path = "common/exec.rs"]
+mod exec;
 #[path = "common/sources_world.rs"]
 mod sources_world;
 
 const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
-const TOOL_COUNT: usize = 81;
+const TOOL_COUNT: usize = 82;
 const RESOURCE_COUNT: usize = 11;
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -155,6 +159,10 @@ struct Client {
 
 impl Client {
     fn spawn(world: &World) -> Self {
+        Self::spawn_with(world, &[])
+    }
+
+    fn spawn_with(world: &World, env: &[(&str, &Path)]) -> Self {
         let mut child = Command::new(env!("CARGO_BIN_EXE_toolport-selfmcp"))
             .current_dir(&world.repo)
             .env_clear()
@@ -166,6 +174,7 @@ impl Client {
             .env("TOOLPORT_DATA_DIR", &world.data)
             .env("TOOLPORT_SECRET_KEY", "ab".repeat(32))
             .env("TOOLPORT_SOURCES_TIME_SCALE", "20")
+            .envs(env.iter().copied())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -1303,5 +1312,51 @@ fn sources_ls_maps_the_fixture_home_and_filters_by_source_and_kind() {
     assert_eq!(bad.error_kind(), "invalid_arguments");
     assert_eq!(world.snapshot(), before, "sources_ls writes nothing but its cache");
     assert!(fixture.library.starts_with(&world.home));
+    assert!(client.close().success());
+}
+
+#[test]
+fn context_measure_measures_through_the_stub_and_answers_the_second_call_from_the_cache() {
+    let world = World::new("measure");
+    let cwd = world.home.join("work/client-repo");
+    std::fs::create_dir_all(cwd.join(".git")).unwrap();
+    let stub = claude_stub::ClaudeStub::install(&world.base.join("claude"), &world.base);
+    let mut client = Client::spawn_with(&world, &[("TOOLPORT_CLAUDE_BIN", stub.bin.as_path())]);
+    client.handshake();
+    let before = world.snapshot();
+    let args = json!({"cwd": cwd, "without": ["skill:skill-1*"]});
+
+    let first = client.call("context_measure", args.clone());
+    let first = first.ok();
+    assert_eq!(first["cached"], false);
+    assert_eq!(first["runs"][0]["total"], 68_445);
+    assert_eq!(first["runs"][0]["parts"]["cacheCreation"], 54_639);
+    assert_eq!(first["runs"][1]["label"], "without skill:skill-1*");
+    let saved = first["deltas"][0]["tokens"]
+        .as_i64()
+        .expect("deltas[].tokens is a number, not a redacted secret");
+    assert!(saved < 0, "{first}");
+    assert_eq!(stub.requests().len(), 2);
+
+    let second = client.call("context_measure", args);
+    assert_eq!(second.ok()["cached"], true);
+    assert_eq!(second.ok()["deltas"][0]["tokens"], saved);
+    assert_eq!(stub.requests().len(), 2, "the cache answers without a request");
+
+    let bad = client.call("context_measure", json!({"cwd": world.home.join("absent")}));
+    assert_eq!(bad.error_kind(), "invalid_arguments");
+    let unknown = client.call("context_measure", json!({"cwd": cwd, "yes": true}));
+    assert_eq!(unknown.error_kind(), "invalid_arguments");
+    assert_eq!(stub.requests().len(), 2);
+
+    let log = world.base.join("claude-stub.log");
+    let without_cache = |mut files: BTreeMap<PathBuf, Vec<u8>>| {
+        files.retain(|path, _| !path.starts_with(world.data.join("plus")) && path != &log);
+        files
+    };
+    let after = without_cache(world.snapshot());
+    let expected = without_cache(before);
+    assert_eq!(after, expected, "a measurement writes nothing but its cache");
+    assert!(world.data.join("plus/cache/measure").is_dir());
     assert!(client.close().success());
 }

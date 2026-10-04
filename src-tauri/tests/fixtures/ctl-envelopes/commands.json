@@ -1933,7 +1933,7 @@
           "summary": "Measure what a folder really loads, in tokens, with Claude Code (--cwd, --without, --bundle, --model, --force, --yes)",
           "surface": "screen",
           "tier": "read",
-          "tools": []
+          "tools": ["context_measure"]
         },
         {
           "baseTier": "read",
@@ -8067,7 +8067,7 @@
         "commands": 134,
         "groups": 26,
         "rows": 160,
-        "tools": 81
+        "tools": 82
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
       "tiers": ["read", "write", "destructive"],
@@ -8085,6 +8085,13 @@
           "name": "sources_ls",
           "tier": "read",
           "toolTier": 1
+        },
+        {
+          "command": "context measure",
+          "dryRun": "none",
+          "name": "context_measure",
+          "tier": "write",
+          "toolTier": 2
         },
         {
           "command": null,

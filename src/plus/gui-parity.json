@@ -845,6 +845,11 @@
       "action": "all-commands.run",
       "surface": "screen"
     },
+    "context_measure": {
+      "route": "all-commands",
+      "action": "all-commands.tool",
+      "surface": "screen"
+    },
     "doctor": {
       "route": "all-commands",
       "action": "all-commands.run",
