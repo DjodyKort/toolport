@@ -26,7 +26,13 @@ Commands:
   client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
   client edit    Point a client at a profile (<client>, --add-profile, --remove-profile, --set-profiles, --force, --dry-run)
   client import  Import a client's direct entries into the registry (<client>, --select, --all, --profile, --dry-run)
-  client         Client configs: ls edit import sync
+  client direct add Give a client one server as its own direct entry (<server>, --client <id>, --force, --dry-run)
+  client direct rm Remove a direct entry Toolport wrote (<server>, --client <id>, --force, --dry-run)
+  client direct ls List the direct launcher entries and their state (--client <id>)
+  client direct  Direct entries: add rm ls
+  client         Client configs: ls edit import sync direct
+  direct run     Start a server over stdio for a direct client entry (<server id>)
+  direct         Direct launchers: run
   server         Manage servers (mutations) (not implemented)
   auth statusline Compact auth-health JSON for a Claude Code statusline
   auth hook      Auth-health JSON for a Claude Code SessionStart hook
@@ -163,7 +169,13 @@ Commands:
   client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
   client edit    Point a client at a profile (<client>, --add-profile, --remove-profile, --set-profiles, --force, --dry-run)
   client import  Import a client's direct entries into the registry (<client>, --select, --all, --profile, --dry-run)
-  client         Client configs: ls edit import sync
+  client direct add Give a client one server as its own direct entry (<server>, --client <id>, --force, --dry-run)
+  client direct rm Remove a direct entry Toolport wrote (<server>, --client <id>, --force, --dry-run)
+  client direct ls List the direct launcher entries and their state (--client <id>)
+  client direct  Direct entries: add rm ls
+  client         Client configs: ls edit import sync direct
+  direct run     Start a server over stdio for a direct client entry (<server id>)
+  direct         Direct launchers: run
   server         Manage servers (mutations) (not implemented)
   auth statusline Compact auth-health JSON for a Claude Code statusline
   auth hook      Auth-health JSON for a Claude Code SessionStart hook
@@ -300,7 +312,13 @@ Commands:
   client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
   client edit    Point a client at a profile (<client>, --add-profile, --remove-profile, --set-profiles, --force, --dry-run)
   client import  Import a client's direct entries into the registry (<client>, --select, --all, --profile, --dry-run)
-  client         Client configs: ls edit import sync
+  client direct add Give a client one server as its own direct entry (<server>, --client <id>, --force, --dry-run)
+  client direct rm Remove a direct entry Toolport wrote (<server>, --client <id>, --force, --dry-run)
+  client direct ls List the direct launcher entries and their state (--client <id>)
+  client direct  Direct entries: add rm ls
+  client         Client configs: ls edit import sync direct
+  direct run     Start a server over stdio for a direct client entry (<server id>)
+  direct         Direct launchers: run
   server         Manage servers (mutations) (not implemented)
   auth statusline Compact auth-health JSON for a Claude Code statusline
   auth hook      Auth-health JSON for a Claude Code SessionStart hook
@@ -437,7 +455,13 @@ Commands:
   client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
   client edit    Point a client at a profile (<client>, --add-profile, --remove-profile, --set-profiles, --force, --dry-run)
   client import  Import a client's direct entries into the registry (<client>, --select, --all, --profile, --dry-run)
-  client         Client configs: ls edit import sync
+  client direct add Give a client one server as its own direct entry (<server>, --client <id>, --force, --dry-run)
+  client direct rm Remove a direct entry Toolport wrote (<server>, --client <id>, --force, --dry-run)
+  client direct ls List the direct launcher entries and their state (--client <id>)
+  client direct  Direct entries: add rm ls
+  client         Client configs: ls edit import sync direct
+  direct run     Start a server over stdio for a direct client entry (<server id>)
+  direct         Direct launchers: run
   server         Manage servers (mutations) (not implemented)
   auth statusline Compact auth-health JSON for a Claude Code statusline
   auth hook      Auth-health JSON for a Claude Code SessionStart hook
@@ -1426,18 +1450,18 @@ exit 0
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: client ls|edit|import|sync (edit: <client> [--add-profile <p>] [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]; import: <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]; sync: [--client <id>] [--dry-run] [--keep-orphans])
+toolportctl: usage: client ls|edit|import|sync|direct (edit: <client> [--add-profile <p>] [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]; import: <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]; sync: [--client <id>] [--dry-run] [--keep-orphans]; direct: add|rm|ls)
 Run `toolportctl --help` for usage.
 === ["--json","client"]
 exit 2
 --- stdout
-{"command":"client","error":{"code":"usage","message":"usage: client ls|edit|import|sync (edit: <client> [--add-profile <p>] [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]; import: <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]; sync: [--client <id>] [--dry-run] [--keep-orphans])"},"ok":false,"schemaVersion":1}
+{"command":"client","error":{"code":"usage","message":"usage: client ls|edit|import|sync|direct (edit: <client> [--add-profile <p>] [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]; import: <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]; sync: [--client <id>] [--dry-run] [--keep-orphans]; direct: add|rm|ls)"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["client","--bogus"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: client ls|edit|import|sync (edit: <client> [--add-profile <p>] [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]; import: <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]; sync: [--client <id>] [--dry-run] [--keep-orphans])
+toolportctl: usage: client ls|edit|import|sync|direct (edit: <client> [--add-profile <p>] [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]; import: <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]; sync: [--client <id>] [--dry-run] [--keep-orphans]; direct: add|rm|ls)
 Run `toolportctl --help` for usage.
 === ["client","ls","--bogus"]
 exit 2
@@ -1604,6 +1628,154 @@ exit 2
 toolportctl: --select needs at least one server name
 usage: client import <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]
 Run `toolportctl --help` for usage.
+=== ["client","direct"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: client direct add|rm|ls (add, rm: <server> --client <id> [--force] [--dry-run]; ls: [--client <id>])
+Run `toolportctl --help` for usage.
+=== ["--json","client","direct"]
+exit 2
+--- stdout
+{"command":"client direct","error":{"code":"usage","message":"usage: client direct add|rm|ls (add, rm: <server> --client <id> [--force] [--dry-run]; ls: [--client <id>])"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["client","direct","add"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing server
+usage: client direct add <server> --client <id> [--force] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["client","direct","add","a"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing --client <id>
+usage: client direct add <server> --client <id> [--force] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["client","direct","add","--client","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing server
+usage: client direct add <server> --client <id> [--force] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["client","direct","add","a","b","--client","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: client direct add <server> --client <id> [--force] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["client","direct","add","a","--client"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --client requires a value
+Run `toolportctl --help` for usage.
+=== ["client","direct","add","a","--client","x","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: client direct add <server> --client <id> [--force] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["client","direct","add","a","--client","x","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --dry-run takes no value
+Run `toolportctl --help` for usage.
+=== ["client","direct","add","nope","--client","x","--dry-run"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: Server 'nope' not found
+=== ["--json","client","direct","add","nope","--client","x"]
+exit 1
+--- stdout
+{"command":"client direct add","error":{"code":"not_found","message":"Server 'nope' not found"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["client","direct","rm"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing server
+usage: client direct rm <server> --client <id> [--force] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["client","direct","rm","a"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing --client <id>
+usage: client direct rm <server> --client <id> [--force] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["client","direct","rm","nope","--client","x"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: Server 'nope' not found
+=== ["client","direct","ls","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: client direct ls [--client <id>]
+Run `toolportctl --help` for usage.
+=== ["client","direct","ls","--client"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --client requires a value
+Run `toolportctl --help` for usage.
+=== ["client","direct","ls","--client","nope"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: Client 'nope' is not supported.
+Available clients: claude-desktop, cursor, droid, crush, anythingllm, vscode, amp, windsurf, devin-cli, opencode, kilo-code, grok, codex, github-copilot-cli, antigravity, claude-code, gemini-cli, qwen-code, junie, cline, roo-code, warp, amazon-q, kiro, kimi-code, zed, lm-studio, jan, boltai, pi, omp, goose, hermes, continue, witsy
+=== ["direct"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: direct run <server id> (the stdio launcher a direct client entry starts; added with `client direct add`)
+Run `toolportctl --help` for usage.
+=== ["--json","direct"]
+exit 2
+--- stdout
+{"command":"direct","error":{"code":"usage","message":"usage: direct run <server id> (the stdio launcher a direct client entry starts; added with `client direct add`)"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["direct","run"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing server
+usage: direct run <server id>
+Run `toolportctl --help` for usage.
+=== ["direct","run","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: direct run <server id>
+Run `toolportctl --help` for usage.
+=== ["direct","run","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: direct run <server id>
+Run `toolportctl --help` for usage.
+=== ["direct","run","nope"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: server 'nope' is not in the registry; remove the client entry with `toolportctl client direct rm nope --client <id>`
+=== ["--json","direct","run","nope"]
+exit 1
+--- stdout
+{"command":"direct run","error":{"code":"direct_run","message":"server 'nope' is not in the registry; remove the client entry with `toolportctl client direct rm nope --client <id>`"},"ok":false,"schemaVersion":1}
+--- stderr
 === ["secret"]
 exit 1
 --- stdout
