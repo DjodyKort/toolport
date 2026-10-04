@@ -14,11 +14,14 @@ pub mod bundle_ledger;
 pub mod bundle_store;
 pub mod bundle_use;
 pub mod compact;
+pub mod compose;
 pub mod config;
 pub mod dedupe;
 pub mod doctor;
 pub mod folders;
 pub mod launch;
+pub mod layer_manage;
+pub mod layer_spec;
 pub mod layers;
 pub mod loads;
 pub mod manage;
@@ -50,6 +53,8 @@ mod tests_ctl_hints;
 mod tests_folders;
 #[cfg(test)]
 mod tests_hardening;
+#[cfg(test)]
+mod tests_layers;
 #[cfg(test)]
 mod tests_hooks;
 #[cfg(test)]

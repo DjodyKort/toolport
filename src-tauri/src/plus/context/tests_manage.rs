@@ -296,7 +296,13 @@ fn client_list_and_status_report_layers_profiles_and_the_shims_file() {
     assert_eq!(list["layers"][1]["globs"], json!([]));
 
     let status = fx.ok("status", json!({}));
-    assert_eq!(status["layers"], list["layers"]);
+    let base: Vec<Value> = list["layers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| json!({"name": l["name"], "path": l["path"], "globs": l["globs"], "description": l["description"]}))
+        .collect();
+    assert_eq!(status["layers"], json!(base));
     assert_eq!(status["legacyDupes"], json!(["context7"]));
     assert_eq!(status["shims"]["exists"], true);
     assert_eq!(status["config"]["exists"], true);

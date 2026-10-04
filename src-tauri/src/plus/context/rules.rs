@@ -34,9 +34,11 @@ impl Transpiler for ClaudeRuleTranspiler {
             return Err("only rules are transpiled by the context deployer".into());
         }
         let globs = skill.frontmatter.globs.as_deref().filter(|g| !g.is_empty());
+        let body = super::layer_spec::rule_body(output_root, &skill.source_path)
+            .unwrap_or_else(|| skill.body.clone());
         let content = match globs {
-            Some(g) => format!("---\npaths: {}\n---\n\n{}\n", paths_list(g), skill.body),
-            None => format!("{}\n", skill.body),
+            Some(g) => format!("---\npaths: {}\n---\n\n{body}\n", paths_list(g)),
+            None => format!("{body}\n"),
         };
         Ok(TranspileResult {
             output_path: self.get_output_path(skill, output_root),
