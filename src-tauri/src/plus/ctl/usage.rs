@@ -73,6 +73,14 @@ fn render(data: &Value) -> String {
     if failures > 0 {
         human.push_str(&format!("mcp connection failures: {failures}\n"));
     }
+    let sources = &data["sources"];
+    if count(sources, "otelRequests") > 0 {
+        human.push_str(&format!(
+            "otel: {} api requests, {} not in the transcripts (counted in the totals)\n",
+            count(sources, "otelRequests"),
+            count(sources, "otelOnly")
+        ));
+    }
     human
 }
 
