@@ -14,6 +14,7 @@ pub mod launch;
 pub mod layers;
 pub mod loads;
 pub mod manage;
+pub mod measure;
 pub mod roots;
 pub mod rules;
 pub mod settings;
@@ -45,6 +46,8 @@ mod tests_loads_f0;
 mod tests_loads_baseline;
 #[cfg(test)]
 mod tests_manage;
+#[cfg(test)]
+mod tests_measure;
 #[cfg(test)]
 mod tests_zshrc;
 

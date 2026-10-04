@@ -2,11 +2,20 @@
 
 use super::flags::{switch, value, Flags, Inline, Operands, Spec, Unknown};
 use super::output::{CtlError, Output};
+use crate::plus::context::measure::{
+    self, Env, Launcher, MeasureError, MeasureReport, ProcessLauncher, Request,
+};
 use crate::plus::context::{compact, load_config, loads, Roots};
+use std::io::{BufRead, IsTerminal, Write};
 use std::path::PathBuf;
 
 pub(super) const LOADS: Spec = Spec {
-    flags: &[value("--profile"), value("--cwd"), switch("--no-lazy")],
+    flags: &[
+        value("--profile"),
+        value("--cwd"),
+        switch("--no-lazy"),
+        switch("--measured"),
+    ],
     inline: Inline::Value,
     unknown: Unknown::ArgumentKey,
     operands: Operands::Reject,
@@ -26,12 +35,25 @@ pub fn loads(rest: &[String]) -> Result<Output, CtlError> {
         Some(c) => PathBuf::from(c),
         None => std::env::current_dir().unwrap_or_else(|_| home.clone()),
     };
+    let cached = if flags.on("--measured") {
+        crate::registry::conduit_dir().and_then(|dir| {
+            let version = ProcessLauncher::from_env().version().ok();
+            measure::cached_as_is(&dir, &cwd, version.as_deref())
+        })
+    } else {
+        None
+    };
     let options = loads::LoadsOptions {
         no_lazy: flags.on("--no-lazy"),
-        ..Default::default()
+        context_window: cached.as_ref().map(|(_, info)| info.context_window),
     };
-    let report = loads::what_loads_with(&roots, &config, flags.one("--profile"), &cwd, &options)
-        .map_err(|e| CtlError::failed("context_invalid", e))?;
+    let mut report =
+        loads::what_loads_with(&roots, &config, flags.one("--profile"), &cwd, &options)
+            .map_err(|e| CtlError::failed("context_invalid", e))?;
+    if let Some((run, info)) = cached {
+        report.measured = Some(run);
+        report.measured_info = Some(info);
+    }
     let mut human = format!(
         "{} tokens loaded in {} (estimate: bytes / 4, good for ordering, not a saving)\n",
         report.total_tokens, report.cwd
@@ -56,6 +78,15 @@ pub fn loads(rest: &[String]) -> Result<Output, CtlError> {
         human.push_str(&format!(
             "{} more tokens load only when Claude reads there (~)\n",
             report.tokens_lazy
+        ));
+    }
+    if let (Some(run), Some(info)) = (&report.measured, &report.measured_info) {
+        human.push_str(&format!(
+            "measured {} tokens at start ({}, Claude Code {}{})\n",
+            run.total,
+            info.model,
+            info.claude_code_version,
+            if info.stale { ", stale" } else { "" }
         ));
     }
     if report.partial {
@@ -83,6 +114,130 @@ pub fn loads(rest: &[String]) -> Result<Output, CtlError> {
     let data =
         serde_json::to_value(&report).map_err(|e| CtlError::failed("encode", e.to_string()))?;
     Ok(Output::new(data, human))
+}
+
+pub(super) const MEASURE: Spec = Spec {
+    flags: &[
+        value("--cwd"),
+        value("--without"),
+        value("--bundle"),
+        value("--model"),
+        switch("--force"),
+        switch("--yes"),
+    ],
+    ..LOADS
+};
+
+fn measure_error(e: MeasureError) -> CtlError {
+    match e {
+        MeasureError::Usage(message) => CtlError::usage(message),
+        MeasureError::Failed { code, message } => CtlError::failed(code, message),
+        MeasureError::Declined(n) => CtlError::failed(
+            "confirm_required",
+            format!(
+                "this needs {n} request(s) to Claude Code, which spend model tokens; pass --yes to go ahead"
+            ),
+        ),
+    }
+}
+
+fn describe(report: &MeasureReport) -> String {
+    let mut human = String::new();
+    for (index, run) in report.runs.iter().enumerate() {
+        let tail = match index {
+            0 => format!(
+                "{} skills, {} agents, {} slash commands",
+                run.skills, run.agents, run.slash_commands
+            ),
+            _ => {
+                let d = &report.deltas[index - 1];
+                format!("{:+} ({:+.1}%)", d.tokens, d.percent)
+            }
+        };
+        human.push_str(&format!("{:<34} {:>8} tokens  {tail}\n", run.label, run.total));
+    }
+    human.push_str(&format!(
+        "{} on Claude Code {}, measured {}{}\n",
+        report.model,
+        report.claude_code_version,
+        report.measured_at,
+        if report.cached { " (cached)" } else { "" }
+    ));
+    if report.stale {
+        human.push_str("stale: Claude Code or a settings file changed since; --force measures again\n");
+    }
+    for skill in &report.invisible_skills {
+        human.push_str(&format!("invisible skill {}: {}\n", skill.name, skill.reason));
+    }
+    for note in &report.notes {
+        human.push_str(&format!("note: {note}\n"));
+    }
+    human
+}
+
+/// Starts nothing without a yes: `--yes`, or an answer at a terminal. Outside a terminal there is
+/// nobody to ask, so the measurement stops before the first request.
+fn approval<'a>(
+    yes: bool,
+    tty: bool,
+    answers: &'a mut dyn BufRead,
+) -> impl FnMut(usize) -> bool + 'a {
+    move |requests| {
+        if yes {
+            return true;
+        }
+        if !tty {
+            return false;
+        }
+        eprint!(
+            "{requests} request(s) to Claude Code will spend model tokens. Continue? [y/N] "
+        );
+        let _ = std::io::stderr().flush();
+        let mut line = String::new();
+        answers.read_line(&mut line).is_ok()
+            && matches!(line.trim().to_lowercase().as_str(), "y" | "yes")
+    }
+}
+
+pub(super) fn measure_in(
+    rest: &[String],
+    env: &Env,
+    tty: bool,
+    answers: &mut dyn BufRead,
+) -> Result<Output, CtlError> {
+    let flags = MEASURE.parse(rest)?;
+    let cwd = match flags.one("--cwd") {
+        Some(c) => PathBuf::from(c),
+        None => std::env::current_dir().unwrap_or_else(|_| env.roots.home.clone()),
+    };
+    let request = Request {
+        cwd,
+        without: flags.all("--without"),
+        bundle: flags.one("--bundle").map(str::to_string),
+        model: flags.one("--model").map(str::to_string),
+        force: flags.on("--force"),
+    };
+    let mut approve = approval(flags.on("--yes"), tty, answers);
+    let report = measure::measure(env, &request, &mut approve).map_err(measure_error)?;
+    let data =
+        serde_json::to_value(&report).map_err(|e| CtlError::failed("encode", e.to_string()))?;
+    Ok(Output::new(data, describe(&report)))
+}
+
+pub fn measure(rest: &[String]) -> Result<Output, CtlError> {
+    let (roots, config) = crate::plus::sources::host_world()
+        .ok_or_else(|| CtlError::failed("no_home", "home directory could not be resolved"))?;
+    let launcher = ProcessLauncher::from_env();
+    let data_dir = crate::registry::conduit_dir();
+    let env = Env {
+        roots: &roots,
+        config: &config,
+        data_dir: data_dir.as_deref(),
+        launcher: &launcher,
+    };
+    let stdin = std::io::stdin();
+    let tty = stdin.is_terminal() && std::io::stderr().is_terminal();
+    measure_in(rest, &env, tty, &mut stdin.lock())
 }
 
 pub(super) const STATUS: Spec = Spec {

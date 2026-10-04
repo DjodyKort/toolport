@@ -1810,6 +1810,17 @@
               "required": false,
               "sensitive": false,
               "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Attach the cached measurement of this folder; never starts one",
+              "escalates": false,
+              "hidden": false,
+              "name": "--measured",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
             }
           ],
           "group": "context",
@@ -1827,7 +1838,99 @@
             "flag": null,
             "mode": "none"
           },
-          "summary": "Show what a claude session loads, with token cost (--profile, --cwd)",
+          "summary": "Show what a claude session loads, with token cost (--profile, --cwd, --no-lazy, --measured)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": []
+        },
+        {
+          "baseTier": "read",
+          "cost": true,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Folder where Claude Code starts (default: the current folder)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--cwd",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Measure with plugin:<id> or skill:<name or glob> turned off (repeatable)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--without",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Context bundle to measure (profiles/<name>.yaml in the skills repository)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--bundle",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Model that answers the measuring requests (default: haiku)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--model",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Measure again although a cached measurement exists",
+              "escalates": false,
+              "hidden": false,
+              "name": "--force",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Confirm that the measurement spends model requests (needed outside a terminal)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--yes",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "context",
+          "id": "context measure",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": ["long-running"],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "context",
+          "path": ["context", "measure"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Measure what a folder really loads, in tokens, with Claude Code (--cwd, --without, --bundle, --model, --force, --yes)",
           "surface": "screen",
           "tier": "read",
           "tools": []
@@ -7961,9 +8064,9 @@
         }
       ],
       "counts": {
-        "commands": 133,
+        "commands": 134,
         "groups": 26,
-        "rows": 159,
+        "rows": 160,
         "tools": 81
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],

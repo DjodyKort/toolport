@@ -218,8 +218,13 @@ pub const COMMANDS: &[Command] = &[
     cmd(&["secret"], "Manage server secrets (not implemented)", secret_group),
     cmd(
         &["context", "loads"],
-        "Show what a claude session loads, with token cost (--profile, --cwd)",
+        "Show what a claude session loads, with token cost (--profile, --cwd, --no-lazy, --measured)",
         context::loads,
+    ),
+    cmd(
+        &["context", "measure"],
+        "Measure what a folder really loads, in tokens, with Claude Code (--cwd, --without, --bundle, --model, --force, --yes)",
+        context::measure,
     ),
     cmd(
         &["context", "folders"],
