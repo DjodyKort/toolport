@@ -1,4 +1,4 @@
-use super::{compression, direct, servers, skills, state, ToolError};
+use super::{backend, compression, content, direct, servers, skills, state, ToolError};
 use serde_json::{json, Map, Value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -33,7 +33,7 @@ pub struct ToolDef {
     pub gate: Gate,
     pub description: &'static str,
     pub params: &'static [Param],
-    pub run: Option<Runner>,
+    pub run: Runner,
 }
 
 pub struct ResourceDef {
@@ -81,7 +81,7 @@ const GLOBAL: Param = p(
 );
 
 macro_rules! tool {
-    (@def $name:literal, $tier:literal, $gate:ident, $desc:literal, [$($param:expr),*], $run:expr) => {
+    ($name:literal, $tier:literal, $gate:ident, $desc:literal, [$($param:expr),* $(,)?], $run:path) => {
         ToolDef {
             name: $name,
             tier: $tier,
@@ -90,12 +90,6 @@ macro_rules! tool {
             params: &[$($param),*],
             run: $run,
         }
-    };
-    ($name:literal, $tier:literal, $gate:ident, $desc:literal, [$($param:expr),* $(,)?]) => {
-        tool!(@def $name, $tier, $gate, $desc, [$($param),*], None)
-    };
-    ($name:literal, $tier:literal, $gate:ident, $desc:literal, [$($param:expr),* $(,)?], $run:path) => {
-        tool!(@def $name, $tier, $gate, $desc, [$($param),*], Some($run))
     };
 }
 
@@ -148,7 +142,8 @@ pub const TOOLS: &[ToolDef] = &[
         2,
         None,
         "Create a new skill skeleton",
-        [NAME, p("skill_type", Ty::Str, false, "skill or rule"), REPO]
+        [NAME, p("skill_type", Ty::Str, false, "skill or rule"), REPO],
+        content::skills_scaffold
     ),
     tool!(
         "skills_sync",
@@ -179,14 +174,16 @@ pub const TOOLS: &[ToolDef] = &[
         1,
         None,
         "List the registered skill taps (git sources) and whether each is cloned",
-        []
+        [],
+        content::skills_tap_list
     ),
     tool!(
         "skills_search",
         1,
         None,
         "Search the cloned taps for skills by name, description or tags",
-        [p("query", Ty::Str, true, "Text to look for")]
+        [p("query", Ty::Str, true, "Text to look for")],
+        content::skills_search
     ),
     tool!(
         "skills_tap_add",
@@ -197,21 +194,24 @@ pub const TOOLS: &[ToolDef] = &[
             p("repo", Ty::Str, true, "user/repo on GitHub, or an https, ssh or file git URL"),
             p("name", Ty::Str, false, "Tap name, default derived from the source"),
             DRY_ON
-        ]
+        ],
+        content::skills_tap_add
     ),
     tool!(
         "skills_tap_remove",
         2,
         None,
         "Unregister a tap and delete its clone; dry_run is on by default",
-        [NAME, DRY_ON]
+        [NAME, DRY_ON],
+        content::skills_tap_remove
     ),
     tool!(
         "skills_tap_update",
         2,
         None,
         "Pull one tap or all of them; dry_run is on by default",
-        [p("name", Ty::Str, false, "Limit to one tap"), DRY_ON]
+        [p("name", Ty::Str, false, "Limit to one tap"), DRY_ON],
+        content::skills_tap_update
     ),
     tool!(
         "skills_install",
@@ -222,7 +222,8 @@ pub const TOOLS: &[ToolDef] = &[
             p("spec", Ty::Str, true, "@user/repo, @user/repo/skill or with @version"),
             REPO,
             DRY_ON
-        ]
+        ],
+        content::skills_install
     ),
     tool!(
         "skills_diff",
@@ -300,7 +301,8 @@ pub const TOOLS: &[ToolDef] = &[
         3,
         Always,
         "Replace a skill body in the canonical repository",
-        [NAME, BODY, REPO]
+        [NAME, BODY, REPO],
+        content::skills_edit_body
     ),
     tool!(
         "skills_edit_frontmatter",
@@ -311,14 +313,16 @@ pub const TOOLS: &[ToolDef] = &[
             NAME,
             p("patch", Ty::Obj, true, "Frontmatter fields to set"),
             REPO
-        ]
+        ],
+        content::skills_edit_frontmatter
     ),
     tool!(
         "skills_delete",
         3,
         Always,
         "Delete a skill from the canonical repository",
-        [NAME, REPO]
+        [NAME, REPO],
+        content::skills_delete
     ),
     tool!(
         "skills_git_push",
@@ -328,21 +332,23 @@ pub const TOOLS: &[ToolDef] = &[
         [COMMIT, REPO],
         servers::skills_git_push
     ),
-    tool!("agents_list", 1, None, "List agents", [REPO]),
+    tool!("agents_list", 1, None, "List agents", [REPO], content::agents_list),
     tool!(
         "agents_get",
         1,
         None,
         "Read one agent including its body",
-        [NAME, REPO]
+        [NAME, REPO],
+        content::agents_get
     ),
-    tool!("agents_lint", 1, None, "Lint agents", [REPO]),
+    tool!("agents_lint", 1, None, "Lint agents", [REPO], content::agents_lint),
     tool!(
         "agents_list_transpilers",
         1,
         None,
         "List agent transpilers",
-        []
+        [],
+        content::agents_list_transpilers
     ),
     tool!(
         "agents_scaffold",
@@ -353,7 +359,8 @@ pub const TOOLS: &[ToolDef] = &[
             NAME,
             p("model", Ty::Str, false, "Model, default inherit"),
             REPO
-        ]
+        ],
+        content::agents_scaffold
     ),
     tool!(
         "agents_sync",
@@ -370,7 +377,8 @@ pub const TOOLS: &[ToolDef] = &[
                 false,
                 "Write to user-level locations"
             )
-        ]
+        ],
+        content::agents_sync
     ),
     tool!(
         "agents_diff",
@@ -417,51 +425,58 @@ pub const TOOLS: &[ToolDef] = &[
         3,
         Always,
         "Replace an agent body in the canonical repository",
-        [NAME, BODY, REPO]
+        [NAME, BODY, REPO],
+        content::agents_edit_body
     ),
-    tool!("styles_list", 1, None, "List styles", [REPO]),
+    tool!("styles_list", 1, None, "List styles", [REPO], content::styles_list),
     tool!(
         "styles_get",
         1,
         None,
         "Read one style including its body",
-        [NAME, REPO]
+        [NAME, REPO],
+        content::styles_get
     ),
-    tool!("styles_lint", 1, None, "Lint styles", [REPO]),
+    tool!("styles_lint", 1, None, "Lint styles", [REPO], content::styles_lint),
     tool!(
         "styles_active",
         1,
         None,
         "Show the applied style per client",
-        [REPO]
+        [REPO],
+        content::styles_active
     ),
     tool!(
         "styles_list_transpilers",
         1,
         None,
         "List style transpilers",
-        []
+        [],
+        content::styles_list_transpilers
     ),
     tool!(
         "styles_scaffold",
         2,
         None,
         "Create a new style skeleton",
-        [NAME, REPO]
+        [NAME, REPO],
+        content::styles_scaffold
     ),
     tool!(
         "styles_sync_tier1",
         2,
         None,
         "Sync tier-1 style outputs",
-        [REPO, CLIENTS, DRY]
+        [REPO, CLIENTS, DRY],
+        content::styles_sync_tier1
     ),
     tool!(
         "styles_apply",
         3,
         Always,
         "Apply a style to tier-2 clients",
-        [NAME, REPO, CLIENTS, DRY]
+        [NAME, REPO, CLIENTS, DRY],
+        content::styles_apply
     ),
     tool!(
         "styles_diff",
@@ -492,14 +507,16 @@ pub const TOOLS: &[ToolDef] = &[
         3,
         Always,
         "Replace a style body in the canonical repository",
-        [NAME, BODY, REPO]
+        [NAME, BODY, REPO],
+        content::styles_edit_body
     ),
     tool!(
         "styles_remove",
         4,
         Always,
         "Remove the applied style from tier-2 clients",
-        [REPO, CLIENTS, DRY]
+        [REPO, CLIENTS, DRY],
+        content::styles_remove
     ),
     tool!(
         "compression_status",
@@ -580,21 +597,24 @@ pub const TOOLS: &[ToolDef] = &[
             Ty::Bool,
             false,
             "Include source information"
-        )]
+        )],
+        backend::servers_list
     ),
     tool!(
         "servers_get",
         1,
         None,
         "Read one server entry without secret values",
-        [NAME]
+        [NAME],
+        backend::servers_get
     ),
     tool!(
         "servers_list_profiles",
         1,
         None,
         "List profiles and their enabled servers",
-        []
+        [],
+        backend::servers_list_profiles
     ),
     tool!(
         "servers_detect_source",
@@ -743,7 +763,7 @@ pub const TOOLS: &[ToolDef] = &[
         ],
         servers::uninstall
     ),
-    tool!("clients_list", 1, None, "List supported client keys", []),
+    tool!("clients_list", 1, None, "List supported client keys", [], backend::clients_list),
     tool!(
         "clients_sync",
         2,
@@ -810,15 +830,17 @@ pub const TOOLS: &[ToolDef] = &[
         1,
         None,
         "Absolute paths and state of this installation",
-        []
+        [],
+        backend::where_am_i
     ),
-    tool!("doctor", 1, None, "Read-only health checks", []),
+    tool!("doctor", 1, None, "Read-only health checks", [], backend::doctor),
     tool!(
         "flow_diagram",
         1,
         None,
         "Data-flow diagram of skills and servers",
-        []
+        [],
+        backend::flow_diagram
     ),
 ];
 

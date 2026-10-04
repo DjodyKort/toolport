@@ -38,62 +38,69 @@ fn server_row(reg: &Registry, active: &str, s: &registry::ServerEntry) -> Value 
 }
 
 pub fn run_tool(tool: &ToolDef, args: &Value) -> Result<Value, ToolError> {
-    if let Some(run) = tool.run {
-        return run(args);
-    }
-    if let Some(outcome) = content::run(tool.name, args) {
-        return outcome;
-    }
-    match tool.name {
-        "servers_list" => {
-            let reg = read_registry()?;
-            let active = reg.active_profile_id();
-            Ok(json!({
-                "activeProfile": active,
-                "servers": reg.servers.iter().map(|s| server_row(&reg, &active, s)).collect::<Vec<_>>(),
-            }))
-        }
-        "servers_get" => {
-            let name = str_arg(args, "name").unwrap_or_default();
-            let reg = read_registry()?;
-            let active = reg.active_profile_id();
-            let server = reg
-                .servers
-                .iter()
-                .find(|s| s.name == name || s.id == name)
-                .ok_or_else(|| ToolError::new("not_found", format!("server not found: {name}")))?;
-            let mut row = server_row(&reg, &active, server);
-            row["command"] = json!(server.command);
-            row["args"] = json!(server.args);
-            row["url"] = json!(server.url);
-            row["cwd"] = json!(server.cwd);
-            row["disabledTools"] = json!(server.disabled_tools);
-            row["declareClientCapabilities"] = json!(server.declare_client_capabilities);
-            row["forwardInstructions"] = json!(server.forward_instructions);
-            row["env"] = json!(server
-                .env
-                .iter()
-                .map(|e| json!({"key": e.key, "secret": e.secret}))
-                .collect::<Vec<_>>());
-            Ok(row)
-        }
-        "servers_list_profiles" => {
-            let reg = read_registry()?;
-            Ok(json!({
-                "activeProfile": reg.active_profile_id(),
-                "profiles": profiles::rows(&reg).iter().map(|p| json!({
-                    "id": p.id,
-                    "name": p.name,
-                    "enabledServerIds": p.servers.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(),
-                })).collect::<Vec<_>>(),
-            }))
-        }
-        "clients_list" => Ok(json!({"clients": detected_clients()})),
-        "where_am_i" => Ok(status::status(&status::snapshot())),
-        "doctor" => Ok(status::doctor(&status::snapshot()).to_value()),
-        "flow_diagram" => Ok(json!({"markdown": FLOW})),
-        other => Err(ToolError::not_implemented(other)),
-    }
+    (tool.run)(args)
+}
+
+pub(super) fn servers_list(_: &Value) -> Result<Value, ToolError> {
+    let reg = read_registry()?;
+    let active = reg.active_profile_id();
+    Ok(json!({
+        "activeProfile": active,
+        "servers": reg.servers.iter().map(|s| server_row(&reg, &active, s)).collect::<Vec<_>>(),
+    }))
+}
+
+pub(super) fn servers_get(args: &Value) -> Result<Value, ToolError> {
+    let name = str_arg(args, "name").unwrap_or_default();
+    let reg = read_registry()?;
+    let active = reg.active_profile_id();
+    let server = reg
+        .servers
+        .iter()
+        .find(|s| s.name == name || s.id == name)
+        .ok_or_else(|| ToolError::new("not_found", format!("server not found: {name}")))?;
+    let mut row = server_row(&reg, &active, server);
+    row["command"] = json!(server.command);
+    row["args"] = json!(server.args);
+    row["url"] = json!(server.url);
+    row["cwd"] = json!(server.cwd);
+    row["disabledTools"] = json!(server.disabled_tools);
+    row["declareClientCapabilities"] = json!(server.declare_client_capabilities);
+    row["forwardInstructions"] = json!(server.forward_instructions);
+    row["env"] = json!(server
+        .env
+        .iter()
+        .map(|e| json!({"key": e.key, "secret": e.secret}))
+        .collect::<Vec<_>>());
+    Ok(row)
+}
+
+pub(super) fn servers_list_profiles(_: &Value) -> Result<Value, ToolError> {
+    let reg = read_registry()?;
+    Ok(json!({
+        "activeProfile": reg.active_profile_id(),
+        "profiles": profiles::rows(&reg).iter().map(|p| json!({
+            "id": p.id,
+            "name": p.name,
+            "enabledServerIds": p.servers.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(),
+        })).collect::<Vec<_>>(),
+    }))
+}
+
+pub(super) fn clients_list(_: &Value) -> Result<Value, ToolError> {
+    Ok(json!({"clients": detected_clients()}))
+}
+
+pub(super) fn where_am_i(_: &Value) -> Result<Value, ToolError> {
+    Ok(status::status(&status::snapshot()))
+}
+
+pub(super) fn doctor(_: &Value) -> Result<Value, ToolError> {
+    Ok(status::doctor(&status::snapshot()).to_value())
+}
+
+pub(super) fn flow_diagram(_: &Value) -> Result<Value, ToolError> {
+    Ok(json!({"markdown": FLOW}))
 }
 
 fn detected_clients() -> Vec<Value> {
