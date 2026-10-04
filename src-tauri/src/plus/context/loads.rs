@@ -11,6 +11,7 @@ use super::layers::{body_of, frontmatter_of, is_managed_local, list_layers, yaml
 use super::loads_extra as extra;
 use super::measure::{MeasureRun, MeasuredInfo};
 use super::roots::Roots;
+use crate::plus::sources::fsx;
 use crate::plus::sources::model::Origin;
 use crate::savings::estimated_tokens;
 use serde::Serialize;
@@ -780,6 +781,20 @@ pub fn what_loads(
     what_loads_with(roots, config, profile, cwd, &LoadsOptions::default())
 }
 
+/// `cwd` spelled the way `home` is. A symlinked or `/private` prefix makes the same folder two
+/// strings, and every "is this the home folder" and "is this below `~/.claude`" test compares
+/// strings.
+fn in_home_spelling(cwd: &Path, home: &Path) -> PathBuf {
+    if cwd.starts_with(home) {
+        return cwd.to_path_buf();
+    }
+    match fsx::canonical(cwd).strip_prefix(fsx::canonical(home)) {
+        Ok(rel) if rel.as_os_str().is_empty() => home.to_path_buf(),
+        Ok(rel) => home.join(rel),
+        Err(_) => cwd.to_path_buf(),
+    }
+}
+
 pub fn what_loads_with(
     roots: &Roots,
     config: &ContextConfig,
@@ -787,6 +802,8 @@ pub fn what_loads_with(
     cwd: &Path,
     options: &LoadsOptions,
 ) -> Result<WhatLoads, String> {
+    let respelled = in_home_spelling(cwd, &roots.home);
+    let cwd = respelled.as_path();
     let spec = match profile {
         Some(name) => Some(
             config
