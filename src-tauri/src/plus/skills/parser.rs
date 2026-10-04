@@ -1,5 +1,6 @@
 //! SKILL.md parsing: YAML frontmatter plus Markdown body, validated like mcpm's pydantic schema.
 
+use super::kind::{discover_report, item_dirs, ContentKind};
 use regex::Regex;
 use serde_yaml::{Mapping, Value};
 use std::path::{Path, PathBuf};
@@ -392,63 +393,32 @@ pub struct Discovery {
     pub warnings: Vec<String>,
 }
 
-/// `skills/` first, then `rules/`; each directory's children in byte order of their names.
-fn skill_dirs(repo: &Path) -> Vec<PathBuf> {
-    let mut dirs = Vec::new();
-    for search in ["skills", "rules"] {
-        let dir = repo.join(search);
-        if !dir.is_dir() {
-            continue;
-        }
-        let Ok(read) = std::fs::read_dir(&dir) else {
-            continue;
-        };
-        let mut children: Vec<PathBuf> = read.filter_map(|e| e.ok().map(|e| e.path())).collect();
-        children.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
-        dirs.extend(children);
+pub struct SkillKind;
+
+impl ContentKind for SkillKind {
+    type Item = Skill;
+    const NOUN: &'static str = "Skill";
+    const DIRS: &'static [&'static str] = &["skills", "rules"];
+    const FILE: &'static str = "SKILL.md";
+
+    fn parse(path: &Path) -> Result<Skill, String> {
+        parse_skill_file(path)
     }
-    dirs
 }
 
 pub fn discover_skills_report(repo: &Path) -> Discovery {
-    let mut out = Discovery::default();
-    for skill_dir in skill_dirs(repo) {
-        if !skill_dir.is_dir() {
-            continue;
-        }
-        let skill_file = skill_dir.join("SKILL.md");
-        if !skill_file.exists() {
-            out.warnings.push(format!(
-                "Skill directory {} has no SKILL.md, skipping",
-                file_name(&skill_dir)
-            ));
-            continue;
-        }
-        match parse_skill_file(&skill_file) {
-            Ok(skill) => out.skills.push(skill),
-            Err(e) => out
-                .warnings
-                .push(format!("Failed to parse {}: {e}", skill_file.display())),
-        }
-    }
-    out
+    let (skills, warnings) = discover_report::<SkillKind>(repo);
+    Discovery { skills, warnings }
 }
 
 /// The first skill `discover_skills` would list under `name`, without parsing the ones after it.
 pub fn find_skill(repo: &Path, name: &str) -> Option<Skill> {
-    skill_dirs(repo)
+    item_dirs::<SkillKind>(repo)
         .into_iter()
-        .filter(|dir| dir.is_dir())
-        .filter_map(|dir| parse_skill_file(&dir.join("SKILL.md")).ok())
+        .filter_map(|dir| parse_skill_file(&dir.join(SkillKind::FILE)).ok())
         .find(|skill| skill.name() == name)
 }
 
 pub fn discover_skills(repo: &Path) -> Vec<Skill> {
     discover_skills_report(repo).skills
-}
-
-fn file_name(p: &Path) -> String {
-    p.file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_default()
 }

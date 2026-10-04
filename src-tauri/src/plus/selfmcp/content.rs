@@ -4,13 +4,14 @@ use crate::plus::args::{flag, flag_or, nonempty_strings, str_arg};
 use crate::plus::hashing::lock_hash;
 use crate::plus::skills::agents::lint::lint_agents;
 use crate::plus::skills::agents::{
-    all_agent_transpilers, discover_agents, parse_agent_file, sync_scoped, Agent,
+    all_agent_transpilers, discover_agents, sync_scoped, Agent, AgentKind,
 };
 use crate::plus::skills::api::{self, lint_json};
+use crate::plus::skills::kind::ContentKind;
 use crate::plus::skills::lock::LockFile;
 use crate::plus::skills::ops::read_lock;
 use crate::plus::skills::parser::{
-    build_frontmatter, discover_skills, parse_frontmatter, parse_skill_file, Skill,
+    build_frontmatter, discover_skills, parse_frontmatter, Skill, SkillKind,
 };
 use crate::plus::skills::pyfs::write_text;
 use crate::plus::skills::repo::{skill_bucket, skill_template};
@@ -19,7 +20,7 @@ use crate::plus::skills::styles::manage::{
     apply_scoped, remove_scoped, style_template, sync_scoped as sync_styles_scoped,
 };
 use crate::plus::skills::styles::{
-    all_style_transpilers, discover_styles, parse_style_file, Style, Tier,
+    all_style_transpilers, discover_styles, Style, StyleKind, Tier,
 };
 use crate::plus::skills::tap_handlers as taps;
 use crate::plus::skills::tap_ops::{Kind, TapError};
@@ -86,39 +87,29 @@ fn name_arg(args: &Value) -> Result<&str, ToolError> {
     path_safe(str_arg(args, "name").unwrap_or_default())
 }
 
-fn find_skill(repo: &Path, name: &str) -> Result<Skill, ToolError> {
-    for bucket in ["skills", "rules"] {
-        let path = repo.join(bucket).join(name).join("SKILL.md");
+fn find<K: ContentKind>(repo: &Path, name: &str, noun: &str) -> Result<K::Item, ToolError> {
+    for dir in K::DIRS {
+        let path = repo.join(dir).join(name).join(K::FILE);
         if path.exists() {
-            return parse_skill_file(&path).map_err(|e| ToolError::new("invalid_input", e));
+            return K::parse(&path).map_err(|e| ToolError::new("invalid_input", e));
         }
     }
     Err(ToolError::new(
         "not_found",
-        format!("no skill or rule named {name}"),
+        format!("no {noun} named {name}"),
     ))
 }
 
+fn find_skill(repo: &Path, name: &str) -> Result<Skill, ToolError> {
+    find::<SkillKind>(repo, name, "skill or rule")
+}
+
 fn find_agent(repo: &Path, name: &str) -> Result<Agent, ToolError> {
-    let path = repo.join("agents").join(name).join("AGENT.md");
-    if !path.exists() {
-        return Err(ToolError::new(
-            "not_found",
-            format!("no agent named {name}"),
-        ));
-    }
-    parse_agent_file(&path).map_err(|e| ToolError::new("invalid_input", e))
+    find::<AgentKind>(repo, name, "agent")
 }
 
 fn find_style(repo: &Path, name: &str) -> Result<Style, ToolError> {
-    let path = repo.join("styles").join(name).join("STYLE.md");
-    if !path.exists() {
-        return Err(ToolError::new(
-            "not_found",
-            format!("no style named {name}"),
-        ));
-    }
-    parse_style_file(&path).map_err(|e| ToolError::new("invalid_input", e))
+    find::<StyleKind>(repo, name, "style")
 }
 
 fn file_hash(path: &Path) -> Result<String, ToolError> {

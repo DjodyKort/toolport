@@ -9,7 +9,7 @@ pub mod transpilers;
 pub use sync::{apply_style, remove_style, sync_styles, StyleOptions};
 pub use transpilers::{all_style_transpilers, StyleTranspiler, Tier};
 
-use super::parser::parse_frontmatter;
+use super::kind::{discover, discover_report, read_document, ContentKind};
 use super::schema::{self, Fm};
 use serde_yaml::Mapping;
 use std::path::{Path, PathBuf};
@@ -63,15 +63,21 @@ fn build_frontmatter(fm: &Fm) -> Result<StyleFrontmatter, String> {
     })
 }
 
+pub struct StyleKind;
+
+impl ContentKind for StyleKind {
+    type Item = Style;
+    const NOUN: &'static str = "Style";
+    const DIRS: &'static [&'static str] = &["styles"];
+    const FILE: &'static str = "STYLE.md";
+
+    fn parse(path: &Path) -> Result<Style, String> {
+        parse_style_file(path)
+    }
+}
+
 pub fn parse_style_file(path: &Path) -> Result<Style, String> {
-    if !path.exists() {
-        return Err(format!("Style file not found: {}", path.display()));
-    }
-    let content = super::pyfs::read_text(path)?;
-    let (fm_data, body) = parse_frontmatter(&content)?;
-    if fm_data.is_empty() {
-        return Err(format!("No YAML frontmatter found in {}", path.display()));
-    }
+    let (fm_data, body) = read_document(StyleKind::NOUN, path)?;
     Ok(Style {
         frontmatter: build_frontmatter(&fm_data)?,
         body,
@@ -80,40 +86,9 @@ pub fn parse_style_file(path: &Path) -> Result<Style, String> {
 }
 
 pub fn discover_styles_report(repo: &Path) -> (Vec<Style>, Vec<String>) {
-    let mut warnings = Vec::new();
-    let mut styles = Vec::new();
-    let dir = repo.join("styles");
-    if !dir.is_dir() {
-        return (styles, warnings);
-    }
-    let Ok(read) = std::fs::read_dir(&dir) else {
-        return (styles, warnings);
-    };
-    let mut children: Vec<PathBuf> = read.filter_map(|e| e.ok().map(|e| e.path())).collect();
-    children.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
-    for style_dir in children {
-        if !style_dir.is_dir() {
-            continue;
-        }
-        let file = style_dir.join("STYLE.md");
-        let dir_name = style_dir
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        if !file.exists() {
-            warnings.push(format!(
-                "Style directory {dir_name} has no STYLE.md, skipping"
-            ));
-            continue;
-        }
-        match parse_style_file(&file) {
-            Ok(s) => styles.push(s),
-            Err(e) => warnings.push(format!("Failed to parse {}: {e}", file.display())),
-        }
-    }
-    (styles, warnings)
+    discover_report::<StyleKind>(repo)
 }
 
 pub fn discover_styles(repo: &Path) -> Vec<Style> {
-    discover_styles_report(repo).0
+    discover::<StyleKind>(repo)
 }
