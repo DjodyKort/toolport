@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "name": "demo"
+  },
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "lockDir": "<WORLD>/data",
+    "lockUpdated": true,
+    "name": "demo",
+    "outputRoot": "<WORLD>/home",
+    "outputs": ["<WORLD>/home/.claude/skills/demo/SKILL.md"],
+    "repo": "<WORLD>/skills-repo",
+    "scope": "global",
+    "sourcePath": "<WORLD>/skills-repo/skills/demo"
+  },
+  "tool": "skills_uninstall"
+}

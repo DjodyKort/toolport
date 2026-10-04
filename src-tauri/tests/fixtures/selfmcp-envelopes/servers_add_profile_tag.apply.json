@@ -1,0 +1,12 @@
+{
+  "arguments": {
+    "name": "beta",
+    "profile_tag": "Default"
+  },
+  "isError": false,
+  "result": {
+    "name": "beta",
+    "profileTags": ["Default"]
+  },
+  "tool": "servers_add_profile_tag"
+}

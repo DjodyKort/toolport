@@ -1,0 +1,10 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "failed": 0,
+    "results": []
+  },
+  "tool": "skills_tap_update"
+}

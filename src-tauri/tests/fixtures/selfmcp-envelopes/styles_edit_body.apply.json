@@ -1,0 +1,13 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "plain",
+    "new_body": "Short\n"
+  },
+  "isError": false,
+  "result": {
+    "newHash": "sha256:d299bf9bcabd0693",
+    "sourcePath": "<WORLD>/skills-repo/styles/plain/STYLE.md"
+  },
+  "tool": "styles_edit_body"
+}

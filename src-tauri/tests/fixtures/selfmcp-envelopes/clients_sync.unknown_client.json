@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "client": "no-such-client",
+    "dry_run": true
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "unknown client 'no-such-client'"
+    }
+  },
+  "text": "not_found: unknown client 'no-such-client'",
+  "tool": "clients_sync"
+}

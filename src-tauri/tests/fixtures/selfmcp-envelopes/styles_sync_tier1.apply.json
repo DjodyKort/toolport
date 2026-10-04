@@ -1,0 +1,13 @@
+{
+  "arguments": {
+    "client_keys": ["claude-code"]
+  },
+  "isError": false,
+  "result": {
+    "dryRun": false,
+    "repo": "<WORLD>/skills-repo",
+    "styleCount": 1,
+    "syncedAt": "<TIME>"
+  },
+  "tool": "styles_sync_tier1"
+}

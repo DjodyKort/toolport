@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "fresh"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "skill fresh already exists at <WORLD>/skills-repo/skills/fresh/SKILL.md"
+    }
+  },
+  "text": "conflict: skill fresh already exists at <WORLD>/skills-repo/skills/fresh/SKILL.md",
+  "tool": "skills_scaffold"
+}

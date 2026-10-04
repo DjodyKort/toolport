@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "dry_run": true
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "backend_error",
+      "message": "sync is not configured; run init first"
+    }
+  },
+  "text": "backend_error: sync is not configured; run init first",
+  "tool": "sync_push"
+}

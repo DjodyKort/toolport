@@ -1,0 +1,19 @@
+{
+  "arguments": {
+    "dry_run": false
+  },
+  "isError": false,
+  "result": {
+    "dryRun": false,
+    "failed": 0,
+    "results": [
+      {
+        "error": null,
+        "head": "<masked>",
+        "name": "local",
+        "ok": true
+      }
+    ]
+  },
+  "tool": "skills_tap_update"
+}

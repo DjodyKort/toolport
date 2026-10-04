@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "port": "49213"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "argument port has the wrong type"
+    }
+  },
+  "text": "invalid_arguments: argument port has the wrong type",
+  "tool": "compression_enable"
+}

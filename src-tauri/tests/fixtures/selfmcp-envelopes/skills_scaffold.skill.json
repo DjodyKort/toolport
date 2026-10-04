@@ -1,0 +1,11 @@
+{
+  "arguments": {
+    "name": "fresh"
+  },
+  "isError": false,
+  "result": {
+    "created_path": "<WORLD>/skills-repo/skills/fresh/SKILL.md",
+    "kind": "skill"
+  },
+  "tool": "skills_scaffold"
+}

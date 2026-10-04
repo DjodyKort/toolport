@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "name": "demo"
+  },
+  "isError": false,
+  "result": {
+    "activation": "auto",
+    "body": "Body text",
+    "description": "A synthetic demo skill",
+    "name": "demo",
+    "path": "<WORLD>/skills-repo/skills/demo/SKILL.md",
+    "type": "skill"
+  },
+  "tool": "skills_get"
+}

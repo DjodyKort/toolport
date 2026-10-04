@@ -1,0 +1,20 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false
+  },
+  "isError": false,
+  "result": {
+    "backupRoot": "<WORLD>/home/.mcpm-backups",
+    "collisions": [],
+    "dryRun": false,
+    "kept": 0,
+    "migrate": null,
+    "outputRoot": "<WORLD>/home",
+    "replaced": 0,
+    "repo": "<WORLD>/skills-repo",
+    "scope": "global",
+    "skillCount": 1
+  },
+  "tool": "skills_resolve"
+}

@@ -1,0 +1,88 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "applyRemove": [
+      {
+        "active": null,
+        "client": "aider",
+        "name": "Aider"
+      },
+      {
+        "active": null,
+        "client": "amazon-q",
+        "name": "Amazon Q"
+      },
+      {
+        "active": null,
+        "client": "cline",
+        "name": "Cline"
+      },
+      {
+        "active": null,
+        "client": "codex-cli",
+        "name": "Codex CLI"
+      },
+      {
+        "active": null,
+        "client": "continue",
+        "name": "Continue.dev"
+      },
+      {
+        "active": null,
+        "client": "cursor",
+        "name": "Cursor"
+      },
+      {
+        "active": null,
+        "client": "gemini-cli",
+        "name": "Gemini CLI"
+      },
+      {
+        "active": null,
+        "client": "goose",
+        "name": "Goose"
+      },
+      {
+        "active": null,
+        "client": "jetbrains",
+        "name": "JetBrains AI"
+      },
+      {
+        "active": null,
+        "client": "trae",
+        "name": "Trae"
+      },
+      {
+        "active": null,
+        "client": "vscode-copilot",
+        "name": "VS Code Copilot"
+      },
+      {
+        "active": null,
+        "client": "windsurf",
+        "name": "Windsurf"
+      },
+      {
+        "active": null,
+        "client": "zed",
+        "name": "Zed"
+      }
+    ],
+    "lockfilePresent": true,
+    "native": [
+      {
+        "client": "claude-code",
+        "name": "Claude Code",
+        "styles": ["plain"]
+      },
+      {
+        "client": "roomodes-style",
+        "name": "Roo Code",
+        "styles": []
+      }
+    ],
+    "repo": "<WORLD>/skills-repo"
+  },
+  "tool": "styles_status"
+}

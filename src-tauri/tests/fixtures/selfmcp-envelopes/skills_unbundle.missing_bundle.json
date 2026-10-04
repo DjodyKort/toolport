@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "bundle_path": "<WORLD>/skills-repo/none.zip",
+    "confirm": true,
+    "dry_run": false
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "<WORLD>/skills-repo/none.zip: No such file or directory (os error 2)"
+    }
+  },
+  "text": "not_found: <WORLD>/skills-repo/none.zip: No such file or directory (os error 2)",
+  "tool": "skills_unbundle"
+}

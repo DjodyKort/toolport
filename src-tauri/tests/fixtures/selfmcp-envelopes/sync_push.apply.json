@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "confirm": true
+  },
+  "isError": false,
+  "result": {
+    "committed": false,
+    "dryRun": false,
+    "entries": [],
+    "machineId": "m-test",
+    "pushed": false
+  },
+  "tool": "sync_push"
+}

@@ -1,0 +1,12 @@
+{
+  "arguments": {
+    "model": "sonnet",
+    "name": "scout"
+  },
+  "isError": false,
+  "result": {
+    "created_path": "<WORLD>/skills-repo/agents/scout/AGENT.md",
+    "kind": "agent"
+  },
+  "tool": "agents_scaffold"
+}

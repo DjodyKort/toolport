@@ -1,0 +1,13 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "demo",
+    "new_body": "Changed body\n"
+  },
+  "isError": false,
+  "result": {
+    "newHash": "sha256:e2c2f8d41371269f",
+    "sourcePath": "<WORLD>/skills-repo/skills/demo/SKILL.md"
+  },
+  "tool": "skills_edit_body"
+}

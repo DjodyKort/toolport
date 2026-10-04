@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "confirm": true,
+    "mode": "direct",
+    "name": "alpha"
+  },
+  "isError": false,
+  "result": {
+    "changed": false,
+    "dropped": true,
+    "mode": "direct",
+    "name": "alpha",
+    "note": "Toolport+ has no per-server proxy modes; the shared gateway daemon exposes every server (D-008)."
+  },
+  "tool": "servers_set_mode"
+}

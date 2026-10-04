@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "name": "nope",
+    "profile_tag": "Default"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "server not found: nope"
+    }
+  },
+  "text": "not_found: server not found: nope",
+  "tool": "servers_add_profile_tag"
+}

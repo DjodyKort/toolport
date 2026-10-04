@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "scout"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "agent scout already exists at <WORLD>/skills-repo/agents/scout/AGENT.md"
+    }
+  },
+  "text": "conflict: agent scout already exists at <WORLD>/skills-repo/agents/scout/AGENT.md",
+  "tool": "agents_scaffold"
+}

@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "provider": "bogus"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "unknown provider 'bogus' (have: headroom, rtk-only, parsec, none)"
+    }
+  },
+  "text": "invalid_arguments: unknown provider 'bogus' (have: headroom, rtk-only, parsec, none)",
+  "tool": "compression_enable"
+}

@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "beta"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no server 'beta'"
+    }
+  },
+  "text": "not_found: no server 'beta'",
+  "tool": "servers_uninstall"
+}

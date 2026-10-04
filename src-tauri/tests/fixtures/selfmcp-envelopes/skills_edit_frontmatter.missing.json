@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "nope",
+    "patch": {
+      "description": "x"
+    }
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no skill or rule named nope"
+    }
+  },
+  "text": "not_found: no skill or rule named nope",
+  "tool": "skills_edit_frontmatter"
+}

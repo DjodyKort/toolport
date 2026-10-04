@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "gamma",
+    "patch": {
+      "args": ["--changed"]
+    }
+  },
+  "isError": false,
+  "result": {
+    "id": "gamma",
+    "updatedKeys": ["args"]
+  },
+  "tool": "servers_update_config"
+}

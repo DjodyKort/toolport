@@ -1,0 +1,22 @@
+{
+  "arguments": {
+    "dry_run": false
+  },
+  "isError": false,
+  "result": {
+    "bundleBytes": 0,
+    "dryRun": false,
+    "fileCount": 1,
+    "output": "<WORLD>/skills-repo/skills-repo-bundle.zip",
+    "repo": "<WORLD>/skills-repo",
+    "skills": [
+      {
+        "files": 1,
+        "name": "demo",
+        "type": "skill"
+      }
+    ],
+    "sourceBytes": 65
+  },
+  "tool": "skills_bundle"
+}

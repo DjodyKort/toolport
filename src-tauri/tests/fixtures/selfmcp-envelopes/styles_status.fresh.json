@@ -1,0 +1,11 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "applyRemove": [],
+    "lockfilePresent": false,
+    "native": [],
+    "repo": "<WORLD>/skills-repo"
+  },
+  "tool": "styles_status"
+}

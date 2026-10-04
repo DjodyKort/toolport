@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "client_keys": ["claude-code"],
+    "dry_run": true
+  },
+  "isError": false,
+  "result": {
+    "agentCount": 1,
+    "dryRun": true,
+    "globalMode": true,
+    "repo": "<WORLD>/skills-repo",
+    "syncedAt": "<TIME>"
+  },
+  "tool": "agents_sync"
+}

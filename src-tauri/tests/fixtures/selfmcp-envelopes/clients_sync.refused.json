@@ -1,0 +1,12 @@
+{
+  "arguments": {},
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: clients_sync (tier 2). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: clients_sync (tier 2). Pass confirm=true to proceed.",
+  "tool": "clients_sync"
+}

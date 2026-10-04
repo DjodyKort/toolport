@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "mode": "cache",
+    "port": 49213,
+    "provider": "rtk-only"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: compression_enable (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: compression_enable (tier 3). Pass confirm=true to proceed.",
+  "tool": "compression_enable"
+}

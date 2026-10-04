@@ -1,0 +1,21 @@
+{
+  "arguments": {
+    "client": "claude-code",
+    "server": "alpha"
+  },
+  "isError": false,
+  "result": {
+    "action": "removed",
+    "backup": null,
+    "changed": true,
+    "client": "claude-code",
+    "clientName": "Claude Code",
+    "dryRun": true,
+    "entry": "alpha",
+    "notes": [],
+    "path": "<WORLD>/home/.claude/.claude.json",
+    "server": "srv-alpha",
+    "serverName": "alpha"
+  },
+  "tool": "client_direct_rm"
+}

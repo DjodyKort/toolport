@@ -1,0 +1,13 @@
+{
+  "json": {
+    "note": "Toolport+ serves every enabled server through one gateway daemon. Per-server proxy modes, router and bridge workers do not exist; use where_am_i for the gateway binary and doctor for health.",
+    "router": {
+      "decision": "D-008",
+      "present": false,
+      "replacedBy": "toolport-gateway daemon",
+      "status": "replaced"
+    }
+  },
+  "mimeType": "application/json",
+  "uri": "mcpm://router/status"
+}

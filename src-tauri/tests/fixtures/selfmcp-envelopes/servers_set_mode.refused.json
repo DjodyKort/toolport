@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "mode": "direct",
+    "name": "alpha"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: servers_set_mode (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: servers_set_mode (tier 3). Pass confirm=true to proceed.",
+  "tool": "servers_set_mode"
+}

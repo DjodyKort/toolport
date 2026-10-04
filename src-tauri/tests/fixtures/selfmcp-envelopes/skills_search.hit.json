@@ -1,0 +1,21 @@
+{
+  "arguments": {
+    "query": "tapskill"
+  },
+  "isError": false,
+  "result": {
+    "discoveryWarnings": [],
+    "query": "tapskill",
+    "results": [
+      {
+        "description": "A synthetic tap skill",
+        "name": "tapskill",
+        "repo": "<WORLD>/tap-src",
+        "tap": "local",
+        "type": "skill"
+      }
+    ],
+    "tapCount": 1
+  },
+  "tool": "skills_search"
+}

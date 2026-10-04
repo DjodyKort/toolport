@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "bundle_path": "<WORLD>/skills-repo/skills-repo-bundle.zip"
+  },
+  "isError": false,
+  "result": {
+    "bundle": "<WORLD>/skills-repo/skills-repo-bundle.zip",
+    "dryRun": true,
+    "files": ["skills/demo/SKILL.md"],
+    "names": ["demo"],
+    "overwritten": [],
+    "skipped": [],
+    "target": "<WORLD>/skills-repo"
+  },
+  "tool": "skills_unbundle"
+}

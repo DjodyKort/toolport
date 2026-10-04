@@ -1,0 +1,19 @@
+{
+  "arguments": {
+    "config": {
+      "args": ["--flag"],
+      "command": "gamma-mcp"
+    },
+    "confirm": true,
+    "name": "gamma"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "server gamma already exists; pass force=true to replace"
+    }
+  },
+  "text": "conflict: server gamma already exists; pass force=true to replace",
+  "tool": "servers_install"
+}

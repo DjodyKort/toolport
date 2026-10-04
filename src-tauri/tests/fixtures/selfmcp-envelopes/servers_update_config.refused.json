@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "name": "gamma",
+    "patch": {
+      "args": ["--changed"]
+    }
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: servers_update_config (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: servers_update_config (tier 3). Pass confirm=true to proceed.",
+  "tool": "servers_update_config"
+}

@@ -1,0 +1,13 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "helper",
+    "new_body": "Changed prompt\n"
+  },
+  "isError": false,
+  "result": {
+    "newHash": "sha256:6fe761ba0c9cd0a4",
+    "sourcePath": "<WORLD>/skills-repo/agents/helper/AGENT.md"
+  },
+  "tool": "agents_edit_body"
+}

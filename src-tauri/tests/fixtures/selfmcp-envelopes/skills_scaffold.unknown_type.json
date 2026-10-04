@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "name": "odd",
+    "skill_type": "bogus"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "skill_type must be skill or rule"
+    }
+  },
+  "text": "invalid_arguments: skill_type must be skill or rule",
+  "tool": "skills_scaffold"
+}

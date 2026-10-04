@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "nope"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no agent named nope"
+    }
+  },
+  "text": "not_found: no agent named nope",
+  "tool": "agents_get"
+}

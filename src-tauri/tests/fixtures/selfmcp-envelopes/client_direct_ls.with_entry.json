@@ -1,0 +1,20 @@
+{
+  "arguments": {
+    "client": "claude-code"
+  },
+  "isError": false,
+  "result": {
+    "entries": [
+      {
+        "client": "claude-code",
+        "clientName": "Claude Code",
+        "entry": "alpha",
+        "path": "<WORLD>/home/.claude/.claude.json",
+        "server": "srv-alpha",
+        "serverName": "alpha",
+        "state": "ok"
+      }
+    ]
+  },
+  "tool": "client_direct_ls"
+}

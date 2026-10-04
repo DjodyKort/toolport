@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "terse"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "style terse already exists at <WORLD>/skills-repo/styles/terse/STYLE.md"
+    }
+  },
+  "text": "conflict: style terse already exists at <WORLD>/skills-repo/styles/terse/STYLE.md",
+  "tool": "styles_scaffold"
+}

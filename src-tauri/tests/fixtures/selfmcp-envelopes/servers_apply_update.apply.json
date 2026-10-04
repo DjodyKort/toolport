@@ -1,0 +1,23 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "alpha"
+  },
+  "isError": false,
+  "result": {
+    "counts": {
+      "skipped": 1
+    },
+    "mode": "apply",
+    "servers": [
+      {
+        "detected": false,
+        "id": "srv-alpha",
+        "kind": "unknown",
+        "message": "unknown source (synthetic fixture); run update --init",
+        "status": "skipped"
+      }
+    ]
+  },
+  "tool": "servers_apply_update"
+}

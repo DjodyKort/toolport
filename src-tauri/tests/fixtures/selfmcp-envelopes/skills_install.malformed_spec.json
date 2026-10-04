@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "spec": "no-owner-or-repo"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "invalid install spec \"no-owner-or-repo\": expected @user/repo[/skill][@version]"
+    }
+  },
+  "text": "invalid_arguments: invalid install spec \"no-owner-or-repo\": expected @user/repo[/skill][@version]",
+  "tool": "skills_install"
+}

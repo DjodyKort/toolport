@@ -1,0 +1,17 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "repo": "<WORLD>/skills-repo",
+    "skills": [
+      {
+        "activation": "auto",
+        "description": "A synthetic demo skill",
+        "name": "demo",
+        "path": "<WORLD>/skills-repo/skills/demo/SKILL.md",
+        "type": "skill"
+      }
+    ]
+  },
+  "tool": "skills_list"
+}

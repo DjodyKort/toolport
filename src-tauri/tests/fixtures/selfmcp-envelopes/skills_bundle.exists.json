@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "dry_run": false
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "<WORLD>/skills-repo/skills-repo-bundle.zip already exists; pass another output"
+    }
+  },
+  "text": "conflict: <WORLD>/skills-repo/skills-repo-bundle.zip already exists; pass another output",
+  "tool": "skills_bundle"
+}

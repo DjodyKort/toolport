@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "name": "demo",
+    "new_body": "Changed body\n"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: skills_edit_body (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: skills_edit_body (tier 3). Pass confirm=true to proceed.",
+  "tool": "skills_edit_body"
+}

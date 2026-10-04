@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "local"
+  },
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "hadClone": true,
+    "name": "local",
+    "path": "<WORLD>/data/taps/local",
+    "removed": false
+  },
+  "tool": "skills_tap_remove"
+}

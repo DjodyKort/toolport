@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "beta"
+  },
+  "isError": false,
+  "result": {
+    "clients": [],
+    "dryRun": false,
+    "id": "srv-beta",
+    "name": "beta",
+    "secretsRemoved": "[redacted]"
+  },
+  "tool": "servers_uninstall"
+}

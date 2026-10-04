@@ -1,0 +1,13 @@
+{
+  "arguments": {
+    "query": "tapskill"
+  },
+  "isError": false,
+  "result": {
+    "discoveryWarnings": [],
+    "query": "tapskill",
+    "results": [],
+    "tapCount": 0
+  },
+  "tool": "skills_search"
+}

@@ -1,0 +1,19 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false
+  },
+  "isError": false,
+  "result": {
+    "apply": true,
+    "complete": false,
+    "declarable": [],
+    "dryRun": false,
+    "port": 49214,
+    "preset": "interactive",
+    "sealed": 0,
+    "unset": ["HEADROOM_PROTECT_RECENT"],
+    "version": null
+  },
+  "tool": "compression_seal"
+}

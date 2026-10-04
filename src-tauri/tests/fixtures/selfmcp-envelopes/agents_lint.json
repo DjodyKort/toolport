@@ -1,0 +1,10 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "errors": 0,
+    "messages": [],
+    "warnings": 0
+  },
+  "tool": "agents_lint"
+}

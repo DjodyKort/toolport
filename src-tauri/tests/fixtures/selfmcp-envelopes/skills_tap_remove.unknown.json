@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "local"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "Tap 'local' not found."
+    }
+  },
+  "text": "not_found: Tap 'local' not found.",
+  "tool": "skills_tap_remove"
+}

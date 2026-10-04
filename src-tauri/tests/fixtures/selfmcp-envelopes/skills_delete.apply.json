@@ -1,0 +1,11 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "demo"
+  },
+  "isError": false,
+  "result": {
+    "removedPath": "<WORLD>/skills-repo/skills/demo"
+  },
+  "tool": "skills_delete"
+}

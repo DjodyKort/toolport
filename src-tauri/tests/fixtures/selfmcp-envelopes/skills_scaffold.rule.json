@@ -1,0 +1,12 @@
+{
+  "arguments": {
+    "name": "house-rule",
+    "skill_type": "rule"
+  },
+  "isError": false,
+  "result": {
+    "created_path": "<WORLD>/skills-repo/rules/house-rule/SKILL.md",
+    "kind": "rule"
+  },
+  "tool": "skills_scaffold"
+}

@@ -1,0 +1,19 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "drift": false,
+    "lockedCount": 1,
+    "lockfilePresent": true,
+    "outputRoot": "<WORLD>/home",
+    "outputs": [
+      {
+        "client": "claude-code",
+        "name": "helper",
+        "present": true
+      }
+    ],
+    "repo": "<WORLD>/skills-repo"
+  },
+  "tool": "agents_status"
+}

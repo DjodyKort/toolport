@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "repo": "acme/skills"
+  },
+  "isError": false,
+  "result": {
+    "cloned": false,
+    "dryRun": true,
+    "head": null,
+    "name": "acme-skills",
+    "path": "<WORLD>/data/taps/acme-skills",
+    "repo": "acme/skills",
+    "url": "https://github.com/acme/skills.git"
+  },
+  "tool": "skills_tap_add"
+}

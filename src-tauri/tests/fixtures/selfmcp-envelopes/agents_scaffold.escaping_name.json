@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "../escape"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "name must be lowercase alphanumeric and hyphens"
+    }
+  },
+  "text": "invalid_arguments: name must be lowercase alphanumeric and hyphens",
+  "tool": "agents_scaffold"
+}
