@@ -1258,25 +1258,68 @@ fn failing_read_only_commands_still_describe_the_failure() {
     assert_eq!(value["error"]["code"], "sync");
 }
 
+fn subcommands_of(path: &[&str]) -> BTreeSet<&'static str> {
+    COMMANDS
+        .iter()
+        .filter(|c| c.path.len() > path.len() && c.path.starts_with(path))
+        .map(|c| c.path[path.len()])
+        .collect()
+}
+
+const KNOWN_UNLISTED_IN_USAGE: [&str; 1] = ["context folders"];
+
 #[test]
-fn bare_groups_report_usage_or_not_implemented() {
+fn wired_bare_groups_print_usage_naming_every_subcommand() {
     let world = World::new("groups");
     let groups = group_keys();
     assert!(groups.len() >= 8, "{groups:?}");
+    let before = world.snapshot();
+    let mut checked = 0;
+    let mut unlisted = Vec::new();
     for command in COMMANDS {
         let key = row_key(command.path);
-        if !groups.contains(&key) {
+        if !groups.contains(&key) || command.planned() {
             continue;
         }
         let (run, value) = world.json(command.path);
-        let (exit, code) = if command.planned() {
-            (1, "not_implemented")
-        } else {
-            (2, "usage")
-        };
-        assert_envelope(&key, &run, &value, &key, exit);
-        assert_eq!(value["error"]["code"], code, "{key}");
+        assert_envelope(&key, &run, &value, &key, 2);
+        assert_eq!(value["error"]["code"], "usage", "{key}");
+        let message = value["error"]["message"].as_str().unwrap();
+        assert!(message.starts_with(&format!("usage: {key} ")), "{message}");
+        for child in subcommands_of(command.path) {
+            if !message.contains(child) {
+                unlisted.push(format!("{key} {child}"));
+            }
+        }
+        checked += 1;
     }
+    assert!(checked >= 15, "{checked} wired groups checked of {groups:?}");
+    assert_eq!(unlisted, KNOWN_UNLISTED_IN_USAGE, "usage texts that omit a registered subcommand");
+    assert_eq!(world.snapshot(), before, "a usage error writes nothing");
+}
+
+#[test]
+fn the_planned_group_heads_report_not_implemented_through_the_binary() {
+    let world = World::new("planned-groups");
+    let before = world.snapshot();
+    let planned: Vec<&[&str]> = COMMANDS
+        .iter()
+        .filter(|c| c.planned())
+        .map(|c| c.path)
+        .collect();
+    assert_eq!(planned, [&["server"][..], &["secret"][..], &["import"][..]]);
+    for path in planned {
+        let key = row_key(path);
+        let (run, value) = world.json(path);
+        assert_envelope(&key, &run, &value, &key, 1);
+        assert_eq!(value["error"]["code"], "not_implemented", "{key}");
+        assert_eq!(value["error"]["message"], format!("{key}: not implemented"));
+        let text = world.run(path, None);
+        assert_eq!(text.code, 1, "{key}");
+        assert!(text.stdout.is_empty(), "{key}: {}", text.stdout);
+        assert_eq!(text.stderr, format!("toolportctl: {key}: not implemented\n"));
+    }
+    assert_eq!(world.snapshot(), before);
 }
 
 #[test]

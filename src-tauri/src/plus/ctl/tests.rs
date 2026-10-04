@@ -257,19 +257,47 @@ fn help_and_version_exit_0() {
     assert_eq!(value["data"]["name"], "toolportctl");
 }
 
+const PLANNED_GROUP_HEADS: [&str; 3] = ["server", "secret", "import"];
+
 #[test]
-fn planned_commands_are_not_implemented() {
-    let _fx = Fixture::new("planned", Some(sample_registry()));
-    for list in [&["server", "add"][..]] {
-        let (code, out, err) = run_cli(list);
-        assert_eq!(code, 1, "{list:?}");
-        assert!(out.is_empty());
-        assert!(err.contains("not implemented"), "{err}");
+fn only_the_bare_server_secret_and_import_heads_are_still_planned() {
+    let planned: Vec<String> = COMMANDS
+        .iter()
+        .filter(|c| c.planned())
+        .map(|c| c.path.join(" "))
+        .collect();
+    assert_eq!(planned, PLANNED_GROUP_HEADS);
+    for head in PLANNED_GROUP_HEADS {
+        let wired: Vec<String> = COMMANDS
+            .iter()
+            .filter(|c| c.path.len() > 1 && c.path[0] == head && !c.planned())
+            .map(|c| c.path.join(" "))
+            .collect();
+        assert!(!wired.is_empty(), "{head} has wired subcommands: {wired:?}");
     }
-    let (code, value) = json_of(&["--json", "secret", "ls"]);
-    assert_eq!(code, 1);
-    assert_eq!(value["error"]["code"], "not_implemented");
-    assert_eq!(value["command"], "secret");
+    let help = usage();
+    assert_eq!(help.matches("(not implemented)").count(), PLANNED_GROUP_HEADS.len());
+}
+
+#[test]
+fn a_planned_group_head_reports_not_implemented_and_writes_nothing() {
+    let fx = Fixture::new("planned", Some(sample_registry()));
+    let registry = std::fs::read(fx.dir.join("registry.json")).unwrap();
+    for head in PLANNED_GROUP_HEADS {
+        let (code, out, err) = run_cli(&[head]);
+        assert_eq!(code, 1, "{head}");
+        assert!(out.is_empty(), "{head}: {out}");
+        assert_eq!(err, format!("toolportctl: {head}: not implemented\n"));
+
+        let (code, value) = json_of(&["--json", head]);
+        assert_eq!(code, 1, "{head}");
+        assert_eq!(value["ok"], false);
+        assert_eq!(value["command"], head);
+        assert_eq!(value["error"]["code"], "not_implemented");
+        assert_eq!(value["error"]["message"], format!("{head}: not implemented"));
+        assert!(value.get("data").is_none(), "{head}");
+    }
+    assert_eq!(std::fs::read(fx.dir.join("registry.json")).unwrap(), registry);
 }
 
 #[test]
