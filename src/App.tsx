@@ -117,6 +117,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthNotifier } from "@/plus/AuthNotifier";
 import { AuthPanel } from "@/plus/AuthRows";
 import { WhatLoadsPanel } from "@/plus/WhatLoads";
 import { useTheme } from "@/lib/theme";
@@ -1138,6 +1139,7 @@ function App() {
       {/* Quarantine has no global signal otherwise: the first sign used to be an agent
           call failing, with the only fix buried in Settings (SOU-293). */}
       <QuarantineAlert onReview={() => selectView("settings")} />
+      <AuthNotifier onReview={() => selectView("settings")} />
       <ConfirmDialog
         open={confirmDisableAll}
         onOpenChange={setConfirmDisableAll}
