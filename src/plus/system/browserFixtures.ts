@@ -1,15 +1,50 @@
-import { goldenReply, systemCtlFixtures, updateWorld } from "./fixtures";
+import { systemCtlFixtures } from "./fixtures";
+import { COUNCIL_KEY, createSystemWorld } from "./world";
 
-/** What the dev browser fixture answers for the System screen: the static world of
- * `fixtures.ts` (the command list comes from the shared fixture), the update list with every
- * state, and the importer for the folder `/old/mcpm` and the tools file `/old/tools.json`. */
+const ROOT = "/old/mcpm";
+const TOOLS = "/old/tools.json";
+export const WALK = {
+  repo: "git@git.example.com:me/toolport-sync.git",
+  machine: "work-laptop",
+};
+
+const world = createSystemWorld();
+
+const both = (argv: string) => [argv, `${argv} --dry-run`];
+
+/** What the dev browser fixture (`plusCtl.ts`) answers for the System screen: the stateful
+ * System world, so the smoke walk sees an init, a push or an update change the next read. One
+ * row per argv the tabs run with the forms the walk fills in; the browser fixture does not
+ * carry stdin, so a passphrase or key command is answered as if one had been given. */
+const argvs = [
+  "sync status",
+  "sync diff",
+  "sync git-sync --status",
+  `sync init --repo ${WALK.repo} --machine-id ${WALK.machine} --passphrase-stdin`,
+  ...both("sync push"),
+  ...both("sync pull"),
+  "update --check",
+  "update srv-git --check",
+  ...both("update srv-git --apply"),
+  ...both("update --apply"),
+  ...both("update --init"),
+  "council doctor",
+  "council tools",
+  "council install",
+  "council uninstall",
+  `secret set council ${COUNCIL_KEY}`,
+  "mcp doctor",
+  "mcp tools",
+  "mcp install",
+  "mcp uninstall",
+  ...both(`import mcpm ${ROOT}`),
+  `import mcpm ${ROOT} --dry-run --tools ${TOOLS} --name-map`,
+];
+
 export const systemBrowserFixtures: Array<[string, unknown]> = [
-  ...systemCtlFixtures.filter(([key]) => key !== "commands"),
-  ["update --check", updateWorld],
-  ["import mcpm /old/mcpm --dry-run", goldenReply("import-mcpm.preview")],
-  ["import mcpm /old/mcpm", goldenReply("import-mcpm.apply")],
-  [
-    "import mcpm /old/mcpm --dry-run --tools /old/tools.json --name-map",
-    goldenReply("import-mcpm.name-map"),
-  ],
+  ...systemCtlFixtures.filter(([key]) => key !== "commands" && !argvs.includes(key)),
+  ...[...new Set(argvs)].map((argv): [string, () => unknown] => [
+    argv,
+    () => world.reply(argv.split(" "), "stdin"),
+  ]),
 ];
