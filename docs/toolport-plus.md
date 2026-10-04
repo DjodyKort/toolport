@@ -38,6 +38,7 @@ Global flag `--json` prints one envelope (`schemaVersion`, `command`, `data`). E
 | `auth statusline / hook / probe / login`                                | Auth-health JSON; probe now (`--server`, `--force`); sign in again |
 | `secret set / get / rm`                                                 | Server secrets (stdin or `--value-env`; `get --reveal` prints)     |
 | `context loads / folders / checkpoint-status / plan / apply / sync`     | What a session loads, folder profiles, checkpoint, context deploy  |
+| `context init / status / client / profile / disable`                    | Scaffold layers and launch profiles, show state                    |
 | `compression status / presets / run / verify / ledger / proxy / update` | Compression policy and launch                                      |
 | `import mcpm / rename-refs`                                             | Import an mcpm root; rewrite tool references                       |
 | `council`                                                               | Council server install, uninstall, doctor, tools                   |
