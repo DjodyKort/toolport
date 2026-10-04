@@ -12,8 +12,9 @@ use super::{DetectorOutput, ScanCtx, SourceDetector};
 use crate::plus::hashing::sha256_hex;
 use crate::plus::skills::agents::parse_agent_file;
 use crate::plus::skills::frontmatter::output_accepted;
-use crate::plus::skills::parser::{parse_skill_file, SkillType};
+use crate::plus::skills::parser::{parse_skill_file, Skill, SkillType};
 use crate::plus::skills::transpilers::registry_with_home;
+use crate::plus::skills::TranspilerRegistry;
 use crate::savings::estimated_tokens;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -140,21 +141,27 @@ struct Record {
     reason: Option<String>,
 }
 
-fn emission(ctx: &ScanCtx, file: &Found) -> Result<Record, String> {
-    let skill = parse_skill_file(&file.path)?;
-    let registry = registry_with_home(Some(ctx.roots.home.clone()));
-    let mut reason = None;
-    if let Some(claude) = registry.get("claude-code") {
-        if let Ok(out) = claude.transpile(&skill, &ctx.roots.home) {
-            if let Err(why) = output_accepted("claude-code", &out.content) {
-                reason = Some(why.to_string());
-            } else if let Some(text) = fsx::read_text(&out.output_path, fsx::TEXT_CAP) {
-                if let Err(why) = output_accepted("claude-code", &text) {
-                    reason = Some(format!("the deployed copy is rejected: {why}"));
-                }
-            }
-        }
+/// Why Claude Code would not list `skill`: what Toolport emits for it, or the copy already
+/// deployed under `home`, fails the strict frontmatter check. `None` when it is accepted.
+pub fn invisible_reason(
+    registry: &TranspilerRegistry,
+    skill: &Skill,
+    home: &Path,
+) -> Option<String> {
+    let claude = registry.get("claude-code")?;
+    let out = claude.transpile(skill, home).ok()?;
+    if let Err(why) = output_accepted("claude-code", &out.content) {
+        return Some(why.to_string());
     }
+    let deployed = fsx::read_text(&out.output_path, fsx::TEXT_CAP)?;
+    output_accepted("claude-code", &deployed)
+        .err()
+        .map(|why| format!("the deployed copy is rejected: {why}"))
+}
+
+fn emission(ctx: &ScanCtx, registry: &TranspilerRegistry, file: &Found) -> Result<Record, String> {
+    let skill = parse_skill_file(&file.path)?;
+    let reason = invisible_reason(registry, &skill, &ctx.roots.home);
     let kind = if skill.skill_type == SkillType::Rule {
         "rule"
     } else {
@@ -244,6 +251,7 @@ fn records(ctx: &ScanCtx, root: &Path, files: &[Found]) -> (Vec<Record>, Vec<Str
     }
     let mut recs = Vec::new();
     let mut warns = Vec::new();
+    let registry = registry_with_home(Some(ctx.roots.home.clone()));
     for file in files.iter().filter(|f| f.kind != "command") {
         if file.kind == "agent" {
             match parse_agent_file(&file.path) {
@@ -263,7 +271,7 @@ fn records(ctx: &ScanCtx, root: &Path, files: &[Found]) -> (Vec<Record>, Vec<Str
             }
             continue;
         }
-        match emission(ctx, file) {
+        match emission(ctx, &registry, file) {
             Ok(rec) => recs.push(rec),
             Err(e) => warns.push(format!("Failed to parse {}: {e}", file.path.display())),
         }

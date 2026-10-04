@@ -11,6 +11,7 @@ pub mod gitx;
 pub mod item;
 pub mod layout;
 pub mod model;
+pub mod render;
 pub mod roots;
 pub mod scope;
 
@@ -31,6 +32,7 @@ mod tests;
 use crate::plus::context::{ContextConfig, Roots};
 use budget::Budget;
 use cache::Cache;
+pub use library::invisible_reason;
 pub use model::{Item, Source};
 use scope::RootSet;
 use std::path::{Path, PathBuf};
@@ -112,6 +114,29 @@ fn selector_detector(selector: &str) -> &str {
 
 fn selected(source: &Source, selector: &str) -> bool {
     source.id == selector || source.detector == selector || source.origin.kind == selector
+}
+
+/// The roots and `context.json` of this machine, as every caller of the scan sees them.
+pub fn host_world() -> Option<(Roots, ContextConfig)> {
+    let home = crate::clients::home()?;
+    let mut roots = Roots::from_home(&home);
+    roots.read_env();
+    if let Some(dir) = std::env::var("CLAUDE_CONFIG_DIR")
+        .ok()
+        .filter(|d| !d.is_empty())
+    {
+        roots.claude_home = roots.expand_user(&dir);
+        roots.env_claude_config_dir = Some(dir);
+    }
+    let config = crate::plus::context::load_config(&roots.context_config_path());
+    Some((roots, config))
+}
+
+/// [`scan`] over [`host_world`] and the data directory; `None` when there is no home directory.
+pub fn scan_host(opts: &ScanOptions) -> Option<ScanReport> {
+    let (roots, config) = host_world()?;
+    let data_dir = crate::registry::conduit_dir();
+    Some(scan(&roots, &config, data_dir.as_deref(), opts))
 }
 
 pub fn scan(
