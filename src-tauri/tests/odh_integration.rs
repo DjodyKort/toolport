@@ -531,8 +531,8 @@ fn in_lazy_mode_the_odh_tools_are_reached_through_toolport_call_tool() {
     );
     let shown = text_of(&exact);
     assert!(
-        shown.contains("\"inputSchema\"") && !shown.contains("\"outputSchema\""),
-        "lazy search shows the top hit's inputSchema and never an outputSchema: {shown}"
+        shown.contains("\"inputSchema\"") && shown.contains("\"outputSchema\""),
+        "lazy search shows the top hit's inputSchema and outputSchema: {shown}"
     );
     assert!(found.contains("schemaOmitted"));
 
@@ -556,6 +556,67 @@ fn in_lazy_mode_the_odh_tools_are_reached_through_toolport_call_tool() {
     assert_eq!(notes.len(), 2, "{notes:?}");
     assert_eq!(notes[0]["params"]["progressToken"], "FAKE-lazy-token");
     assert_eq!(notes[1]["params"]["message"], "FAKE-step 2 of 2");
+}
+
+fn search_hits(client: &mut Client, arguments: Value) -> Vec<Value> {
+    let reply = client.call("toolport_search_tools", arguments, None);
+    let text = text_of(&reply);
+    let (_, payload) = text.split_once("\n\n").expect("lead and payload");
+    serde_json::from_str(payload).unwrap_or_else(|e| panic!("search payload: {e}: {text}"))
+}
+
+fn wait_for_lazy_tool(client: &mut Client, name: &str) {
+    let deadline = Instant::now() + Duration::from_secs(60);
+    loop {
+        let search = client.call("toolport_search_tools", json!({"server": "odh"}), None);
+        if text_of(&search).contains(name) {
+            return;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "search never found the odh tools: {search}"
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+#[test]
+fn lazy_search_gives_the_top_hit_its_output_schema_and_the_menu_entries_none() {
+    let scratch = Scratch::new("lazy-output-schema");
+    write_registry(&scratch, mock_entry(&scratch), |reg| {
+        reg.set_lazy_discovery(true)
+    });
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", json!({}));
+    wait_for_lazy_tool(&mut client, "odh__odoo_search_read");
+
+    let hits = search_hits(&mut client, json!({"query": "odh__odoo_search_read"}));
+    assert_eq!(hits[0]["name"], "odh__odoo_search_read");
+    assert_eq!(
+        hits[0]["outputSchema"]["required"],
+        json!(["count", "records"]),
+        "the top hit carries the outputSchema a client validates structuredContent against: {}",
+        hits[0]
+    );
+    assert!(hits[0].get("outputSchemaOmitted").is_none());
+
+    let menu = search_hits(&mut client, json!({"server": "odh", "limit": 50}));
+    assert!(menu.len() > 2, "{menu:?}");
+    for hit in menu.iter().skip(1) {
+        assert!(
+            hit.get("outputSchema").is_none(),
+            "only the top hit carries one: {hit}"
+        );
+    }
+
+    let without = search_hits(&mut client, json!({"query": "odh__odoo_export"}));
+    assert_eq!(without[0]["name"], "odh__odoo_export");
+    assert!(without[0].get("outputSchema").is_none(), "{}", without[0]);
+    assert!(
+        without[0].get("outputSchemaOmitted").is_none(),
+        "{}",
+        without[0]
+    );
 }
 
 #[test]
@@ -650,18 +711,7 @@ fn a_link_returned_through_toolport_call_tool_is_readable_too() {
     });
     let mut client = Client::start(&scratch.0);
     client.initialize("2025-06-18", json!({}));
-    let deadline = Instant::now() + Duration::from_secs(60);
-    loop {
-        let search = client.call("toolport_search_tools", json!({"server": "odh"}), None);
-        if text_of(&search).contains("odh__odoo_export_dynamic") {
-            break;
-        }
-        assert!(
-            Instant::now() < deadline,
-            "search never found the odh tools: {search}"
-        );
-        std::thread::sleep(Duration::from_millis(100));
-    }
+    wait_for_lazy_tool(&mut client, "odh__odoo_export_dynamic");
 
     let reply = client.call(
         "toolport_call_tool",
