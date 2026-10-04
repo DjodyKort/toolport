@@ -1,0 +1,14 @@
+  ! collision: code-review (claude-code) — existing file at <root>/repo/.claude/commands/code-review.md shadows synced skill
+  ! collision: db-helper (claude-code) — existing file at <root>/repo/.claude/agents/db-helper.md shadows synced skill
+
+Synced 3 skill(s) to 1 client(s).
+
+┏━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Skill        ┃ Type  ┃ Clients synced ┃ Warnings                                                                                                                  ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ code-review  │ skill │ claude-code    │ claude-code: shadowed by existing file at <root>/repo/.claude/commands/code-review.md │
+│ db-helper    │ skill │ claude-code    │ claude-code: shadowed by existing file at <root>/repo/.claude/agents/db-helper.md     │
+│ python-style │ rule  │ claude-code    │ --                                                                                                                        │
+└──────────────┴───────┴────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+2 unresolved collision(s). Run mcpm skills resolve to handle them, or re-run with --migrate to auto-replace.

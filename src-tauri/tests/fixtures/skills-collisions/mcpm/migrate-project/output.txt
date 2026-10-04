@@ -1,0 +1,14 @@
+  Replaced <root>/repo/.claude/commands/code-review.md → backup at <root>/repo/.mcpm-backups/.claude/commands/code-review.md.<stamp>
+  Replaced <root>/repo/.claude/agents/db-helper.md → backup at <root>/repo/.mcpm-backups/.claude/agents/db-helper.md.<stamp>
+
+Synced 3 skill(s) to 1 client(s).
+
+┏━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━┓
+┃ Skill        ┃ Type  ┃ Clients synced ┃ Warnings ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━┩
+│ code-review  │ skill │ claude-code    │ --       │
+│ db-helper    │ skill │ claude-code    │ --       │
+│ python-style │ rule  │ claude-code    │ --       │
+└──────────────┴───────┴────────────────┴──────────┘
+
+Replaced 2 colliding file(s) (backed up).

@@ -1,0 +1,16 @@
+Global mode -- writing to user-level paths.
+
+  Replaced <root>/home/.claude/commands/code-review.md → backup at <root>/home/.mcpm-backups/.claude/commands/code-review.md.<stamp>
+  Replaced <root>/home/.claude/agents/db-helper.md → backup at <root>/home/.mcpm-backups/.claude/agents/db-helper.md.<stamp>
+
+Synced 3 skill(s) to 1 client(s).
+
+┏━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━┓
+┃ Skill        ┃ Type  ┃ Clients synced ┃ Warnings ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━┩
+│ code-review  │ skill │ claude-code    │ --       │
+│ db-helper    │ skill │ claude-code    │ --       │
+│ python-style │ rule  │ claude-code    │ --       │
+└──────────────┴───────┴────────────────┴──────────┘
+
+Replaced 2 colliding file(s) (backed up).

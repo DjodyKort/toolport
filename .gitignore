@@ -34,6 +34,7 @@ dist-ssr
 .claude/
 !src-tauri/tests/fixtures/skills-core/**/.claude/
 !src-tauri/tests/fixtures/context-cases/**/.claude/
+!src-tauri/tests/fixtures/skills-collisions/**/.claude/
 .vscode/*
 !.vscode/extensions.json
 .idea

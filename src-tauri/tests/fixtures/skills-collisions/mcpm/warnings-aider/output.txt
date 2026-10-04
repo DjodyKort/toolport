@@ -1,0 +1,10 @@
+
+Synced 3 skill(s) to 1 client(s).
+
+┏━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Skill        ┃ Type  ┃ Clients synced ┃ Warnings                                        ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ code-review  │ skill │ aider          │ aider: activation 'auto' downgraded to 'always' │
+│ db-helper    │ skill │ aider          │ aider: activation 'auto' downgraded to 'always' │
+│ python-style │ rule  │ aider          │ aider: activation 'auto' downgraded to 'always' │
+└──────────────┴───────┴────────────────┴─────────────────────────────────────────────────┘

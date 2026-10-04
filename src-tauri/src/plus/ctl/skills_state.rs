@@ -216,6 +216,18 @@ pub fn uninstall(rest: &[String]) -> Result<Output, CtlError> {
     Ok(Output::new(data, lines.join("\n")))
 }
 
+pub(super) fn collision_line(c: &Value) -> String {
+    let (skill, path) = (str_of(c, "skill"), str_of(c, "collisionPath"));
+    match str_of(c, "action") {
+        "replaced" => format!("  Replaced {path} → backup at {}", str_of(c, "backupPath")),
+        "skipped-dry-run" => format!("  (dry run) would replace {path} (skill: {skill})"),
+        _ => format!(
+            "  ! collision: {skill} ({}) — existing file at {path} shadows synced skill",
+            str_of(c, "client")
+        ),
+    }
+}
+
 pub fn resolve(rest: &[String]) -> Result<Output, CtlError> {
     let args = RESOLVE.parse(rest)?;
     no_operands(&args, RESOLVE_USAGE)?;
@@ -247,19 +259,7 @@ pub fn resolve(rest: &[String]) -> Result<Output, CtlError> {
         lines.push("No collisions found.".to_string());
     } else {
         lines.push(format!("Found {} collision(s).", collisions.len()));
-        for c in collisions {
-            let (skill, path) = (str_of(c, "skill"), str_of(c, "collisionPath"));
-            lines.push(match str_of(c, "action") {
-                "replaced" => format!("  Replaced {path} → backup at {}", str_of(c, "backupPath")),
-                "skipped-dry-run" => {
-                    format!("  (dry run) would replace {path} (skill: {skill})")
-                }
-                _ => format!(
-                    "  ! collision: {skill} ({}) — existing file at {path} shadows synced skill",
-                    str_of(c, "client")
-                ),
-            });
-        }
+        lines.extend(collisions.iter().map(collision_line));
         let (replaced, kept) = (data["replaced"].as_u64(), data["kept"].as_u64());
         if replaced.unwrap_or(0) > 0 {
             lines.push(format!(

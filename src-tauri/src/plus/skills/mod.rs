@@ -21,6 +21,7 @@ pub(crate) mod schema;
 pub mod state_handlers;
 pub mod styles;
 pub mod sync;
+pub mod sync_report;
 pub mod taps;
 pub mod transpilers;
 pub mod transpiler;

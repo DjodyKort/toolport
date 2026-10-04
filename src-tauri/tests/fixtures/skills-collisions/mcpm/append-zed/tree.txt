@@ -1,0 +1,5 @@
+repo/.rules
+repo/mcpm-skills.lock
+repo/rules/python-style/SKILL.md
+repo/skills/code-review/SKILL.md
+repo/skills/db-helper/SKILL.md

@@ -1,0 +1,7 @@
+sync
+--path
+{repo}
+--client
+claude-code
+--migrate
+--dry-run

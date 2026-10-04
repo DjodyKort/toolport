@@ -1,0 +1,12 @@
+
+Synced 2 skill(s) to 1 client(s).
+
+┏━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━┓
+┃ Skill        ┃ Type  ┃ Clients synced ┃ Warnings ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━┩
+│ code-review  │ skill │ claude-code    │ --       │
+│ python-style │ rule  │ claude-code    │ --       │
+└──────────────┴───────┴────────────────┴──────────┘
+
+Removed 1 stale file(s) from prior syncs (renames or deletions):
+  - .claude/skills/db-helper/SKILL.md
