@@ -92,6 +92,24 @@
           "tier": 2
         },
         {
+          "description": "List the installed Claude Code plugins with what each brings (skills, agents, commands, hooks, MCP servers), whether it is on in the folder, its token cost and its MCP servers that sit outside the gateway",
+          "gate": "none",
+          "name": "plugins_ls",
+          "tier": 1
+        },
+        {
+          "description": "Show one installed plugin: components, hooks, MCP servers with their deny state, options and token cost. Option values marked sensitive are never returned",
+          "gate": "none",
+          "name": "plugins_show",
+          "tier": 1
+        },
+        {
+          "description": "List every hook Claude Code would start in a folder, read from settings, plugins and Toolport files; a hook is never run. Counts the processes per tool and flags PreToolUse hooks of different owners on the same tool",
+          "gate": "none",
+          "name": "hooks_ls",
+          "tier": 1
+        },
+        {
           "description": "Read one skill including its body",
           "gate": "none",
           "name": "skills_get",
