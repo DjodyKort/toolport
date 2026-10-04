@@ -30,15 +30,15 @@ pub mod taps;
 pub mod transpilers;
 pub mod transpiler;
 
-pub use assets::{
-    compute_skill_hash, discover_assets, with_asset_policy, AssetPolicy, ASSET_ALLOWLIST,
-    EXTRA_EXTENSIONS_ENV, MCPM_ASSET_ALLOWLIST,
-};
+pub use assets::{with_asset_policy, AssetPolicy};
 pub use clock::{Clock, FixedClock, Instant, SystemClock};
-pub use lock::{load_lockfile, save_lockfile, LockEntry, LockFile, LOCKFILE_NAME};
-pub use parser::{discover_skills, find_skill, parse_skill_file, Skill, SkillType};
-pub use sync::{sync_skills, SyncOptions, SyncResult};
-pub use transpiler::{TranspileResult, Transpiler, TranspilerRegistry};
+pub use lock::{load_lockfile, save_lockfile, LOCKFILE_NAME};
+pub use parser::{discover_skills, Skill, SkillType};
+pub use sync::{sync_skills, SyncOptions};
+pub use transpiler::{Transpiler, TranspilerRegistry};
+
+#[cfg(test)]
+pub use {assets::{compute_skill_hash, discover_assets}, transpiler::TranspileResult};
 
 #[cfg(test)]
 pub(crate) mod tap_fixtures;

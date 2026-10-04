@@ -7,7 +7,9 @@ pub mod sync;
 pub mod transpilers;
 
 pub use sync::{apply_style, remove_style, sync_styles, StyleOptions};
-pub use transpilers::{all_style_transpilers, StyleTranspiler, Tier};
+pub use transpilers::{all_style_transpilers, Tier};
+#[cfg(test)]
+pub use transpilers::StyleTranspiler;
 
 use super::kind::{discover, discover_report, read_document, ContentKind};
 use super::schema::{self, Fm};

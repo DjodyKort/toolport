@@ -94,7 +94,6 @@ pub fn sync_agents(
 
 pub struct ScopedSync {
     pub lock: LockFile,
-    pub scope: Scope,
 }
 
 /// Syncs `agents` under the user-level scope (outputs under `~/`, the lock beside the registry)
@@ -120,5 +119,5 @@ pub fn sync_scoped(
     if !dry_run {
         save_lockfile(&scope.lock_dir, &lock)?;
     }
-    Ok(ScopedSync { lock, scope })
+    Ok(ScopedSync { lock })
 }

@@ -9,7 +9,6 @@ use super::ops::{self, ResolveRequest};
 use super::parser::discover_skills;
 use super::styles::{apply_style, discover_styles, remove_style, sync_styles, StyleOptions};
 use super::sync::{sync_skills, SyncOptions};
-use super::taps::{sync_skills_repo, SkillsSyncConfig, TapOutcome};
 use super::transpilers::{register_all_with_home, register_vscode_copilot};
 use super::TranspilerRegistry;
 use std::fs;
@@ -595,7 +594,7 @@ fn git(dir: &Path, args: &[&str]) {
 }
 
 #[test]
-fn skills_repo_sync_clones_and_fast_forwards_a_local_repo() {
+fn system_git_clones_and_fast_forwards_a_local_repo() {
     if !git_available() {
         return;
     }
@@ -607,25 +606,23 @@ fn skills_repo_sync_clones_and_fast_forwards_a_local_repo() {
     git(&origin, &["add", "."]);
     git(&origin, &["commit", "-q", "-m", "one"]);
 
-    let cfg = SkillsSyncConfig {
-        remote: origin.to_string_lossy().into_owned(),
-        local_path: t.0.join("clone"),
-    };
+    let clone = t.0.join("clone");
     let runner = SystemGit;
-    let TapOutcome::Cloned { head: first } = sync_skills_repo(&runner, &cfg).unwrap() else {
-        panic!("expected a clone");
-    };
+    assert!(!runner.is_repo(&clone));
+    runner
+        .clone_repo(&origin.to_string_lossy(), &clone)
+        .unwrap();
+    assert!(runner.is_repo(&clone));
+    let first = runner.head(&clone).unwrap();
     assert!(t.0.join("clone/skills/a/SKILL.md").exists());
 
     put(&origin, "skills/b/SKILL.md", &simple_skill("b"));
     git(&origin, &["add", "."]);
     git(&origin, &["commit", "-q", "-m", "two"]);
-    let TapOutcome::Updated { head: second } = sync_skills_repo(&runner, &cfg).unwrap() else {
-        panic!("expected an update");
-    };
+    let second = runner.pull(&clone).unwrap();
     assert_ne!(first, second);
     assert!(t.0.join("clone/skills/b/SKILL.md").exists());
-    assert_eq!(runner.head(&cfg.local_path).unwrap(), second);
+    assert_eq!(runner.head(&clone).unwrap(), second);
     assert!(runner.clone_repo("--evil", &t.0.join("x")).is_err());
 }
 

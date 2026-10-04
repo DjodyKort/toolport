@@ -1,12 +1,8 @@
-//! Taps (named git sources of skills) and the cross-machine skills repo sync. mcpm keeps this in
-//! its remote-sync plugin, which is not part of the fork's tree. A tap is `{name: {repo, url}}`
-//! in `taps.json` beside the registry with its clone at `taps/<name>`; the path is always
-//! derived from the name, never read back from the file. The operations live in `tap_ops.rs`;
-//! `skills_sync.json` with `local_path` keeps the canonical skills repo clone.
+//! Taps (named git sources of skills). A tap is `{name: {repo, url}}` in `taps.json` beside the
+//! registry with its clone at `taps/<name>`; the path is always derived from the name, never read
+//! back from the file. The operations live in `tap_ops.rs`.
 
-use super::git::GitRunner;
 use super::json::{self, J};
-use super::ops::SKILLS_SYNC_CONFIG;
 use crate::registry::atomic_write;
 use regex::Regex;
 use std::fs;
@@ -222,52 +218,4 @@ pub fn save_taps(config_dir: &Path, taps: &[Tap]) -> Result<(), String> {
 
 pub fn tap_dir(taps_root: &Path, tap: &Tap) -> PathBuf {
     taps_root.join(&tap.name)
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TapOutcome {
-    Cloned { head: String },
-    Updated { head: String },
-    Failed(String),
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SkillsSyncConfig {
-    pub remote: String,
-    pub local_path: PathBuf,
-}
-
-pub fn load_sync_config(config_dir: &Path) -> Option<SkillsSyncConfig> {
-    let text = fs::read_to_string(config_dir.join(SKILLS_SYNC_CONFIG)).ok()?;
-    let doc = json::parse(&text).ok()?;
-    Some(SkillsSyncConfig {
-        remote: doc.get("remote")?.as_str()?.to_string(),
-        local_path: PathBuf::from(doc.get("local_path")?.as_str()?),
-    })
-}
-
-pub fn save_sync_config(config_dir: &Path, cfg: &SkillsSyncConfig) -> Result<(), String> {
-    let doc = J::Obj(vec![
-        ("remote".into(), J::str(&cfg.remote)),
-        (
-            "local_path".into(),
-            J::str(cfg.local_path.to_string_lossy()),
-        ),
-    ]);
-    atomic_write(&config_dir.join(SKILLS_SYNC_CONFIG), &doc.dumps())
-}
-
-/// Brings the canonical skills repo up to date and returns its HEAD.
-pub fn sync_skills_repo(git: &dyn GitRunner, cfg: &SkillsSyncConfig) -> Result<TapOutcome, String> {
-    if git.is_repo(&cfg.local_path) {
-        return git
-            .pull(&cfg.local_path)
-            .map(|head| TapOutcome::Updated { head });
-    }
-    if let Some(parent) = cfg.local_path.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
-    git.clone_repo(&cfg.remote, &cfg.local_path)?;
-    let head = git.head(&cfg.local_path)?;
-    Ok(TapOutcome::Cloned { head })
 }
