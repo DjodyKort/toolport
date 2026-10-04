@@ -18,6 +18,9 @@ const LibraryScreen = lazy(() =>
 const TokensScreen = lazy(() =>
   import("./compression/TokensScreen").then((m) => ({ default: m.TokensScreen })),
 );
+const ContextScreen = lazy(() =>
+  import("./context/ContextScreen").then((m) => ({ default: m.ContextScreen })),
+);
 const NotBuilt = lazy(() => import("./NotBuilt").then((m) => ({ default: m.NotBuilt })));
 
 /** The single entry for every Toolport+ screen. Each screen is its own chunk, so the app
@@ -50,6 +53,8 @@ export function PlusViews({
         <LibraryScreen onOpenCommands={openCommands} />
       ) : view === "tokens" ? (
         <TokensScreen onOpenCommands={openCommands} />
+      ) : view === "context" ? (
+        <ContextScreen onOpenCommands={openCommands} />
       ) : (
         <NotBuilt view={view} onOpenCommands={openCommands} />
       )}
