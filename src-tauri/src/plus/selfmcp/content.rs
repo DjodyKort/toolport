@@ -1,18 +1,16 @@
-use super::backend::{lint_value, skills_repo};
+use super::backend::skills_repo;
 use super::ToolError;
-use crate::plus::args::{flag, flag_or, list, str_arg};
+use crate::plus::args::{flag, flag_or, nonempty_strings, str_arg};
 use crate::plus::hashing::lock_hash;
 use crate::plus::skills::agents::lint::lint_agents;
 use crate::plus::skills::agents::{
     all_agent_transpilers, discover_agents, parse_agent_file, sync_scoped, Agent,
 };
-use crate::plus::skills::assets::compute_skill_hash;
-use crate::plus::skills::ops::{
-    diff_skills, has_drift, lock_dir, lock_output_root, read_lock, skills_status as output_rows,
-};
-use crate::plus::skills::lock::{get_entry, save_lockfile, LockFile};
+use crate::plus::skills::api::{self, lint_json};
+use crate::plus::skills::lock::LockFile;
+use crate::plus::skills::ops::read_lock;
 use crate::plus::skills::parser::{
-    build_frontmatter, discover_skills, parse_frontmatter, parse_skill_file, Skill, SkillType,
+    build_frontmatter, discover_skills, parse_frontmatter, parse_skill_file, Skill,
 };
 use crate::plus::skills::pyfs::write_text;
 use crate::plus::skills::repo::{skill_bucket, skill_template};
@@ -23,12 +21,9 @@ use crate::plus::skills::styles::manage::{
 use crate::plus::skills::styles::{
     all_style_transpilers, discover_styles, parse_style_file, Style, Tier,
 };
-use crate::plus::skills::sync_report::sync_report;
 use crate::plus::skills::tap_handlers as taps;
 use crate::plus::skills::tap_ops::{Kind, TapError};
-use crate::plus::skills::transpiler::TranspilerRegistry;
-use crate::plus::skills::transpilers::registry_with_home;
-use crate::plus::skills::{sync_skills, SyncOptions, SystemClock};
+use crate::plus::skills::SystemClock;
 use serde_json::{json, Value};
 use serde_yaml::{Mapping, Value as Yaml};
 use std::path::{Path, PathBuf};
@@ -36,7 +31,7 @@ use std::path::{Path, PathBuf};
 type Outcome = Result<Value, ToolError>;
 
 fn home() -> Result<PathBuf, ToolError> {
-    crate::clients::home().ok_or_else(|| ToolError::new("not_found", "home directory unknown"))
+    Ok(api::home()?)
 }
 
 fn global_mode(args: &Value) -> bool {
@@ -47,23 +42,8 @@ fn dry_run(args: &Value) -> bool {
     flag(args, "dry_run")
 }
 
-fn client_keys(args: &Value) -> Option<Vec<String>> {
-    let keys: Vec<String> = list(args, "client_keys")?
-        .iter()
-        .filter_map(|v| v.as_str().map(String::from))
-        .collect();
-    (!keys.is_empty()).then_some(keys)
-}
-
 fn lock_for_read(repo: &Path) -> Option<LockFile> {
     read_lock(repo).map(|(lock, _)| lock)
-}
-
-fn persist(dir: &Path, lock: &LockFile, dry_run: bool) -> Result<(), ToolError> {
-    if dry_run {
-        return Ok(());
-    }
-    save_lockfile(dir, lock).map_err(ToolError::backend)
 }
 
 pub(super) fn path_safe(name: &str) -> Result<&str, ToolError> {
@@ -104,10 +84,6 @@ fn kebab(name: &str) -> Result<&str, ToolError> {
 
 fn name_arg(args: &Value) -> Result<&str, ToolError> {
     path_safe(str_arg(args, "name").unwrap_or_default())
-}
-
-fn registry_for_skills() -> Result<TranspilerRegistry, ToolError> {
-    Ok(registry_with_home(Some(home()?)))
 }
 
 fn find_skill(repo: &Path, name: &str) -> Result<Skill, ToolError> {
@@ -264,6 +240,10 @@ pub(super) fn inventory(kind: &str) -> Result<String, ToolError> {
         Err(e) => return Err(e),
     };
     let rows: Vec<String> = match kind {
+        "skills" => discover_skills(&repo)
+            .iter()
+            .map(|s| format!("{} - {}", s.name(), s.frontmatter.description))
+            .collect(),
         "agents" => discover_agents(&repo)
             .iter()
             .map(|a| format!("{} - {}", a.name(), a.frontmatter.description))
@@ -278,7 +258,6 @@ pub(super) fn inventory(kind: &str) -> Result<String, ToolError> {
 
 pub(super) fn run(name: &str, args: &Value) -> Option<Outcome> {
     Some(match name {
-        "skills_status" => skills_status(args),
         "skills_scaffold" => skills_scaffold(args),
         "skills_tap_list" => tapped(taps::tap_list_value(args)),
         "skills_search" => tapped(taps::search_value(args)),
@@ -286,13 +265,12 @@ pub(super) fn run(name: &str, args: &Value) -> Option<Outcome> {
         "skills_tap_remove" => tap_remove(args),
         "skills_tap_update" => tap_update(args),
         "skills_install" => skills_install(args),
-        "skills_sync" => skills_sync(args),
         "skills_edit_body" => edit_body(args, "skill"),
         "skills_edit_frontmatter" => skills_edit_frontmatter(args),
         "skills_delete" => skills_delete(args),
         "agents_list" => agents_list(args),
         "agents_get" => agents_get(args),
-        "agents_lint" => skills_repo(args).map(|r| lint_value(&lint_agents(&discover_agents(&r)))),
+        "agents_lint" => skills_repo(args).map(|r| lint_json(&lint_agents(&discover_agents(&r)))),
         "agents_list_transpilers" => Ok(json!({"transpilers": all_agent_transpilers()
             .iter()
             .map(|t| t.client_key().to_string())
@@ -302,7 +280,7 @@ pub(super) fn run(name: &str, args: &Value) -> Option<Outcome> {
         "agents_edit_body" => edit_body(args, "agent"),
         "styles_list" => styles_list(args),
         "styles_get" => styles_get(args),
-        "styles_lint" => skills_repo(args).map(|r| lint_value(&lint_styles(&discover_styles(&r)))),
+        "styles_lint" => skills_repo(args).map(|r| lint_json(&lint_styles(&discover_styles(&r)))),
         "styles_active" => styles_active(args),
         "styles_list_transpilers" => Ok(styles_transpilers()),
         "styles_scaffold" => styles_scaffold(args),
@@ -312,75 +290,6 @@ pub(super) fn run(name: &str, args: &Value) -> Option<Outcome> {
         "styles_remove" => styles_remove(args),
         _ => return None,
     })
-}
-
-pub(super) fn skills_diff(args: &Value) -> Outcome {
-    let repo = skills_repo(args)?;
-    let lock = lock_for_read(&repo);
-    let skills = discover_skills(&repo);
-    let report = diff_skills(&skills, lock.as_ref()).map_err(ToolError::backend)?;
-    Ok(json!({
-        "repo": repo.to_string_lossy(),
-        "noLockfile": report.no_lockfile,
-        "clean": report.is_clean(),
-        "new": report.new,
-        "modified": report.modified,
-        "removed": report.removed,
-        "unchanged": report.unchanged,
-    }))
-}
-
-fn skills_status(args: &Value) -> Outcome {
-    let repo = skills_repo(args)?;
-    let found = read_lock(&repo);
-    let lock = found.as_ref().map(|(lock, _)| lock);
-    let skills = discover_skills(&repo);
-    let mut entries = Vec::new();
-    for skill in &skills {
-        let bucket = lock.map(|l| match skill.skill_type {
-            SkillType::Rule => &l.rules,
-            SkillType::Skill => &l.skills,
-        });
-        let entry = bucket.and_then(|b| get_entry(b, skill.name()));
-        let current = compute_skill_hash(skill).ok();
-        entries.push(json!({
-            "name": skill.name(),
-            "type": skill.skill_type.as_str(),
-            "knownToLockfile": entry.is_some(),
-            "currentHash": current,
-            "lockfileHash": entry.map(|e| e.hash.clone()),
-            "drifted": entry.is_some_and(|e| Some(&e.hash) != current.as_ref()),
-            "clientsSynced": entry.map(|e| e.clients_synced.clone()).unwrap_or_default(),
-        }));
-    }
-    let transpilers = registry_with_home(crate::clients::home());
-    let wanted = client_keys(args);
-    let targeted = wanted
-        .clone()
-        .unwrap_or_else(|| transpilers.all().map(|t| t.client_key().to_string()).collect());
-    let mut outputs = Vec::new();
-    let mut output_root = Value::Null;
-    if let Some((lock, source)) = &found {
-        let root = lock_output_root(*source, &repo)
-            .map_err(|e| ToolError::new("not_found", e))?;
-        outputs = output_rows(lock, &transpilers, &root);
-        outputs.retain(|row| targeted.contains(&row.client));
-        output_root = json!(root.to_string_lossy());
-    }
-    Ok(json!({
-        "repo": repo.to_string_lossy(),
-        "lockfilePresent": lock.is_some(),
-        "lockfileSyncedAt": lock.map(|l| l.synced_at.clone()),
-        "lockedCount": lock.map_or(0, |l| l.skills.len() + l.rules.len()),
-        "targetedClients": targeted,
-        "entries": entries,
-        "outputRoot": output_root,
-        "drift": has_drift(&outputs),
-        "outputs": outputs
-            .iter()
-            .map(|row| json!({"name": row.name, "client": row.client, "present": row.present}))
-            .collect::<Vec<_>>(),
-    }))
 }
 
 fn tapped(outcome: Result<Value, TapError>) -> Outcome {
@@ -450,40 +359,6 @@ fn skills_scaffold(args: &Value) -> Outcome {
         name,
         skill_template(name, skill_type),
     )
-}
-
-fn skills_sync(args: &Value) -> Outcome {
-    let repo = skills_repo(args)?;
-    let skills = discover_skills(&repo);
-    let global = global_mode(args);
-    let output_root = if global { home()? } else { repo.clone() };
-    let dir = lock_dir(global, &repo);
-    let opts = SyncOptions {
-        output_root,
-        lock_dir: dir.clone(),
-        global_mode: global,
-        dry_run: dry_run(args),
-        migrate: args.get("migrate").and_then(Value::as_bool),
-        client_keys: client_keys(args),
-        clock: &SystemClock,
-    };
-    let result = sync_skills(&skills, &registry_for_skills()?, &opts)
-        .map_err(ToolError::backend)?;
-    persist(&dir, &result.lockfile, opts.dry_run)?;
-    let mut data = json!({
-        "repo": repo.to_string_lossy(),
-        "dryRun": opts.dry_run,
-        "globalMode": global,
-        "outputRoot": result.output_root.to_string_lossy(),
-        "syncedAt": result.lockfile.synced_at,
-        "skillCount": result.lockfile.skills.len(),
-        "ruleCount": result.lockfile.rules.len(),
-        "cleaned": result.cleaned.iter().map(|p| p.to_string_lossy().into_owned()).collect::<Vec<_>>(),
-    });
-    if let Some(fields) = data.as_object_mut() {
-        fields.extend(sync_report(&result));
-    }
-    Ok(data)
 }
 
 fn edit_body(args: &Value, kind: &str) -> Outcome {
@@ -569,7 +444,7 @@ fn agents_sync(args: &Value) -> Outcome {
         home()?;
     }
     let dry = dry_run(args);
-    let synced = sync_scoped(&repo, &agents, global, dry, client_keys(args), &SystemClock)
+    let synced = sync_scoped(&repo, &agents, global, dry, nonempty_strings(args, "client_keys"), &SystemClock)
         .map_err(ToolError::backend)?;
     Ok(json!({
         "repo": repo.to_string_lossy(),
@@ -633,7 +508,7 @@ fn styles_sync_tier1(args: &Value) -> Outcome {
     let styles = discover_styles(&repo);
     home()?;
     let dry = dry_run(args);
-    let synced = sync_styles_scoped(&repo, &styles, true, dry, client_keys(args), &SystemClock)
+    let synced = sync_styles_scoped(&repo, &styles, true, dry, nonempty_strings(args, "client_keys"), &SystemClock)
         .map_err(ToolError::backend)?;
     Ok(json!({
         "repo": repo.to_string_lossy(),
@@ -649,7 +524,7 @@ fn styles_apply(args: &Value) -> Outcome {
     let style = find_style(&repo, name)?;
     home()?;
     let dry = dry_run(args);
-    let applied = apply_scoped(&repo, &style, true, dry, client_keys(args), &SystemClock)
+    let applied = apply_scoped(&repo, &style, true, dry, nonempty_strings(args, "client_keys"), &SystemClock)
         .map_err(ToolError::backend)?;
     Ok(json!({
         "applied": name,
@@ -662,7 +537,7 @@ fn styles_remove(args: &Value) -> Outcome {
     let repo = skills_repo(args)?;
     home()?;
     let dry = dry_run(args);
-    let removed = remove_scoped(&repo, true, dry, client_keys(args), &SystemClock)
+    let removed = remove_scoped(&repo, true, dry, nonempty_strings(args, "client_keys"), &SystemClock)
         .map_err(ToolError::backend)?;
     Ok(json!({
         "dryRun": dry,

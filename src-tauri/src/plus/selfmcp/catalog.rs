@@ -1,4 +1,4 @@
-use super::{compression, content, direct, servers, state, ToolError};
+use super::{compression, direct, servers, skills, state, ToolError};
 use serde_json::{json, Map, Value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -105,14 +105,16 @@ pub const TOOLS: &[ToolDef] = &[
         1,
         None,
         "List skills and rules in the repository",
-        [REPO]
+        [REPO],
+        skills::list
     ),
     tool!(
         "skills_get",
         1,
         None,
         "Read one skill including its body",
-        [NAME, REPO]
+        [NAME, REPO],
+        skills::get
     ),
     tool!(
         "skills_lint",
@@ -122,21 +124,24 @@ pub const TOOLS: &[ToolDef] = &[
         [
             REPO,
             p("names", Ty::StrList, false, "Limit to these skills")
-        ]
+        ],
+        skills::lint
     ),
     tool!(
         "skills_status",
         1,
         None,
         "Drift between repository and client outputs",
-        [REPO, CLIENTS]
+        [REPO, CLIENTS],
+        skills::status
     ),
     tool!(
         "skills_list_transpilers",
         1,
         None,
         "List client transpilers",
-        []
+        [],
+        skills::list_transpilers
     ),
     tool!(
         "skills_scaffold",
@@ -166,7 +171,8 @@ pub const TOOLS: &[ToolDef] = &[
                 false,
                 "Back up and replace files that shadow a synced skill; otherwise they are only reported"
             )
-        ]
+        ],
+        skills::sync
     ),
     tool!(
         "skills_tap_list",
@@ -224,7 +230,7 @@ pub const TOOLS: &[ToolDef] = &[
         None,
         "Compare the skills with the lockfile: new, modified, removed and unchanged",
         [REPO],
-        content::skills_diff
+        skills::diff
     ),
     tool!(
         "skills_audit",

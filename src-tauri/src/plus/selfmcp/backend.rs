@@ -1,14 +1,10 @@
 use super::catalog::{ResourceDef, ToolDef};
 use super::ToolError;
 use super::{content, docs};
-use crate::plus::args::{list, str_arg};
+use crate::plus::args::str_arg;
 use crate::plus::profiles;
 use crate::plus::registry_ro;
-use crate::plus::skills::lint::{lint_skills, LintResult};
-use crate::plus::skills::ops::find_skills_repo;
-use crate::plus::skills::parser::{discover_skills, find_skill, Skill};
-use crate::plus::skills::transpiler::TranspilerRegistry;
-use crate::plus::skills::transpilers;
+use crate::plus::skills::api;
 use crate::registry::{self, Registry};
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -28,39 +24,11 @@ pub(super) fn ctl(path: &[&str]) -> Result<Value, ToolError> {
 }
 
 #[cfg(test)]
-thread_local! {
-    pub(super) static TEST_REPO: std::cell::RefCell<Option<PathBuf>> =
-        const { std::cell::RefCell::new(None) };
-}
+pub(super) use crate::plus::skills::api::TEST_REPO;
 
 pub(super) fn skills_repo(args: &Value) -> Result<PathBuf, ToolError> {
     let start = str_arg(args, "repo_path").map(PathBuf::from);
-    #[cfg(test)]
-    if start.is_none() {
-        if let Some(repo) = TEST_REPO.with(|r| r.borrow().clone()) {
-            return Ok(repo);
-        }
-    }
-    let cwd = std::env::current_dir().unwrap_or_default();
-    let config = registry::conduit_dir().unwrap_or_else(|| cwd.clone());
-    find_skills_repo(start.as_deref(), &cwd, &config)
-        .ok_or_else(|| ToolError::new("not_found", "no skills repository found"))
-}
-
-fn load_skills(args: &Value) -> Result<(PathBuf, Vec<Skill>), ToolError> {
-    let repo = skills_repo(args)?;
-    let skills = discover_skills(&repo);
-    Ok((repo, skills))
-}
-
-pub(super) fn skill_row(skill: &Skill) -> Value {
-    json!({
-        "name": skill.name(),
-        "description": skill.frontmatter.description,
-        "activation": skill.frontmatter.activation.as_str(),
-        "type": skill.skill_type.as_str(),
-        "path": skill.source_path.to_string_lossy(),
-    })
+    Ok(api::resolve_repo(start.as_deref())?)
 }
 
 pub(super) fn read_registry() -> Result<Registry, ToolError> {
@@ -77,20 +45,6 @@ fn server_row(reg: &Registry, active: &str, s: &registry::ServerEntry) -> Value 
     })
 }
 
-fn transpiler_keys() -> Vec<String> {
-    let mut reg = TranspilerRegistry::new();
-    transpilers::register_all(&mut reg);
-    reg.all().map(|t| t.client_key().to_string()).collect()
-}
-
-pub(super) fn lint_value(result: &LintResult) -> Value {
-    json!({
-        "errors": result.errors().count(),
-        "warnings": result.warnings().count(),
-        "messages": result.messages.iter().map(|m| json!({"level": m.level, "name": m.name, "message": m.message})).collect::<Vec<_>>(),
-    })
-}
-
 pub fn run_tool(tool: &ToolDef, args: &Value) -> Result<Value, ToolError> {
     if let Some(run) = tool.run {
         return run(args);
@@ -99,29 +53,6 @@ pub fn run_tool(tool: &ToolDef, args: &Value) -> Result<Value, ToolError> {
         return outcome;
     }
     match tool.name {
-        "skills_list" => {
-            let (repo, skills) = load_skills(args)?;
-            Ok(
-                json!({"repo": repo.to_string_lossy(), "skills": skills.iter().map(skill_row).collect::<Vec<_>>()}),
-            )
-        }
-        "skills_get" => {
-            let name = str_arg(args, "name").unwrap_or_default();
-            let repo = skills_repo(args)?;
-            let skill = find_skill(&repo, &name)
-                .ok_or_else(|| ToolError::new("not_found", format!("skill not found: {name}")))?;
-            let mut row = skill_row(&skill);
-            row["body"] = Value::String(skill.body);
-            Ok(row)
-        }
-        "skills_lint" => {
-            let (_, mut skills) = load_skills(args)?;
-            if let Some(names) = list(args, "names") {
-                skills.retain(|s| names.iter().any(|n| n.as_str() == Some(s.name())));
-            }
-            Ok(lint_value(&lint_skills(&skills)))
-        }
-        "skills_list_transpilers" => Ok(json!({"transpilers": transpiler_keys()})),
         "servers_list" => {
             let reg = read_registry()?;
             let active = reg.active_profile_id();
@@ -184,23 +115,11 @@ fn as_text(value: Value) -> String {
     serde_json::to_string_pretty(&value).unwrap_or_default()
 }
 
-fn skills_inventory() -> Result<String, ToolError> {
-    match load_skills(&json!({})) {
-        Ok((_, skills)) => Ok(skills
-            .iter()
-            .map(|s| format!("{} - {}", s.name(), s.frontmatter.description))
-            .collect::<Vec<_>>()
-            .join("\n")),
-        Err(e) if e.kind == "not_found" => Ok(String::new()),
-        Err(e) => Err(e),
-    }
-}
-
 pub fn read_resource(def: &ResourceDef) -> Result<String, ToolError> {
     match def.uri {
         "mcpm://paths" | "mcpm://status" => ctl(&["status"]).map(as_text),
         "mcpm://flow" => Ok(FLOW.to_string()),
-        "mcpm://inventory/skills" => skills_inventory(),
+        "mcpm://inventory/skills" => content::inventory("skills"),
         "mcpm://inventory/servers" => {
             let reg = read_registry()?;
             Ok(reg

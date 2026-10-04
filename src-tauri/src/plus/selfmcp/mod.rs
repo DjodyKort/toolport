@@ -22,6 +22,7 @@ mod effect_tests;
 mod enable_tests;
 pub mod register;
 mod servers;
+mod skills;
 mod state;
 #[cfg(test)]
 mod state_agent_style_tests;
@@ -209,10 +210,6 @@ pub fn call_tool(name: &str, args: &Value) -> Result<Value, ToolError> {
     }
     let value = backend::run_tool(tool, args)?;
     Ok(redact::scrub(value))
-}
-
-pub fn skills_diff(args: &Value) -> Result<Value, ToolError> {
-    content::skills_diff(args)
 }
 
 pub fn read_resource(uri: &str) -> Result<(String, &'static str), ToolError> {

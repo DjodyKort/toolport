@@ -2,6 +2,7 @@
 //! transpiler abstraction. Per-client transpilers are layered on top in later items.
 
 pub mod agents;
+pub mod api;
 pub mod assets;
 pub mod audit;
 pub mod bundle;

@@ -4,11 +4,12 @@
 
 use super::flags::{switch, value, Flags, Spec};
 use super::output::{table, CtlError, Output};
-use super::skills::apply_home;
+use super::skills::{apply_home, served};
 use super::skills_repo::{call, no_operands, operand, spec, str_of, strings, with_path, PATH};
+use crate::plus::skills::api::{self, Args};
 use crate::plus::skills::LOCKFILE_NAME;
 use serde_json::{json, Value};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 const STATUS_USAGE: &str =
     "usage: skills status [--repo <dir>] [--home <dir>] [--client <key>]... [--strict]";
@@ -77,12 +78,13 @@ pub fn status(rest: &[String]) -> Result<Output, CtlError> {
     let args = STATUS.parse(rest)?;
     no_operands(&args, STATUS_USAGE)?;
     apply_home(args.one("--home"));
-    let mut request = with_path(&args, json!({}));
     let clients = args.all("--client");
-    if !clients.is_empty() {
-        request["client_keys"] = json!(clients);
-    }
-    let data = call("plus.skills.status", request)?;
+    let request = Args {
+        repo: args.one("--path").map(PathBuf::from),
+        clients: (!clients.is_empty()).then_some(clients),
+        ..Args::default()
+    };
+    let data = served(api::status(&request))?;
     let missing_lock = data["lockfilePresent"] != json!(true);
     let drift = data["drift"] == json!(true);
     let human = if missing_lock {
