@@ -53,6 +53,7 @@ const NOT_READ_ONLY: &[(&str, &str)] = &[
     ("usage", "indexes transcripts into the data dir; ctl::usage unit tests"),
     ("obs otel enable", "writes the Claude settings and the receiver config; obs::otel_e2e_tests round trip"),
     ("obs otel disable", "removes what enable wrote; obs::otel_e2e_tests round trip"),
+    ("context measure", "starts Claude Code and spends model requests; tests/context_measure.rs against the stub"),
     ("context init", "scaffolds the personal layer and writes context.json; context management round trip test"),
     ("context client add", "scaffolds a client layer rule; context management round trip test"),
     ("context profile add", "writes context.json, a launch profile and the shims; context management round trip test"),
