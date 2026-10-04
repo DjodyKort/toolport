@@ -192,6 +192,7 @@ pub fn apply(
     Ok(report)
 }
 
+#[cfg(test)]
 pub fn plan(roots: &Roots, config: &mut ContextConfig) -> Result<Report, String> {
     apply(
         roots,
