@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "client", "add"],
+  "envelope": {
+    "command": "context client add",
+    "error": {
+      "code": "usage",
+      "message": "missing client name\nusage: context client add <name> [--glob <pattern>] [--home <dir>] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

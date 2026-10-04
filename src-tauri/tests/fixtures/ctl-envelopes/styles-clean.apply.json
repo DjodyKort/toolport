@@ -1,0 +1,24 @@
+{
+  "argv": ["styles", "clean", "--repo", "{repo}"],
+  "envelope": {
+    "command": "styles clean",
+    "data": {
+      "cleanRoot": "<WORLD>/home",
+      "dryRun": false,
+      "ignored": [],
+      "lockDir": "<WORLD>/data",
+      "lockUpdated": true,
+      "lockfilePresent": true,
+      "managed": ["plain"],
+      "removed": [
+        "<WORLD>/home/.claude/output-styles/plain.md",
+        "<WORLD>/home/.roomodes"
+      ],
+      "scope": "global",
+      "skipped": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

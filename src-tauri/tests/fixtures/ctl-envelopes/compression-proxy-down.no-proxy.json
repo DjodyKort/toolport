@@ -1,0 +1,13 @@
+{
+  "argv": ["compression", "proxy", "down"],
+  "envelope": {
+    "command": "compression proxy",
+    "error": {
+      "code": "proxy_down",
+      "message": "no proxy listening on :49213"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

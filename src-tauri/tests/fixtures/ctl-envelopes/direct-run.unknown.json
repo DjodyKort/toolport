@@ -1,0 +1,13 @@
+{
+  "argv": ["direct", "run", "no-such-server"],
+  "envelope": {
+    "command": "direct run",
+    "error": {
+      "code": "direct_run",
+      "message": "server 'no-such-server' is not in the registry; remove the client entry with `toolportctl client direct rm no-such-server --client <id>`"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -1,0 +1,28 @@
+{
+  "argv": ["cc", "update", "demo-plugin", "--dry-run"],
+  "envelope": {
+    "command": "cc",
+    "data": {
+      "mode": "dry-run",
+      "plugins": [
+        {
+          "available": null,
+          "blocked": false,
+          "enabled": true,
+          "error": null,
+          "id": "demo-plugin@fake-market",
+          "installed": "1.0.0",
+          "marketplace": "fake-market",
+          "name": "demo-plugin",
+          "outcome": "would update",
+          "status": "unknown"
+        }
+      ],
+      "refreshError": null,
+      "restartRequired": false
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

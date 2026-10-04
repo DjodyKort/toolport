@@ -1,0 +1,34 @@
+{
+  "argv": ["client", "import", "cursor", "--all", "--dry-run"],
+  "envelope": {
+    "command": "client import",
+    "data": {
+      "client": "cursor",
+      "direct": [
+        {
+          "name": "direct-one",
+          "status": "importable",
+          "target": "echo x",
+          "transport": "stdio"
+        }
+      ],
+      "dryRun": true,
+      "gateway": [],
+      "imported": [
+        {
+          "id": "direct-one",
+          "name": "direct-one"
+        }
+      ],
+      "name": "Cursor",
+      "path": "<WORLD>/home/.cursor/mcp.json",
+      "profile": null,
+      "secrets": [],
+      "selected": true,
+      "skipped": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

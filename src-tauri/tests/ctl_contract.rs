@@ -4,13 +4,15 @@
 //! reviewed change: `CTL_ENVELOPE_BLESS=1 cargo test --test ctl_contract` rewrites the goldens
 //! (rejected when `CI` is set) and `src/plus/bridge/data.ts` carries the matching TS shape.
 //!
-//! Adding a command to the table:
-//!   1. `case("<command id>", &[step(...)])` in `cases()`; a writer gets a `--dry-run` step that
-//!      must leave the world untouched, then the apply step.
+//! Adding a command to the table (`CASES` below, or `ctl_contract/cases.rs` for the bulk):
+//!   1. `case("<command id>", &[read(...), apply(...), usage(...)])`; a writer gets a `--dry-run`
+//!      step that must leave the world untouched, then the apply step, and a command with a
+//!      required operand a `usage` step. `setup` steps prepare the world and write no golden.
 //!   2. `CTL_ENVELOPE_BLESS=1 cargo test --no-default-features --test ctl_contract`, read the new
-//!      file, and describe its `data` in `src/plus/bridge/data.ts`.
+//!      files, `npx prettier --write src-tauri/tests/fixtures/ctl-envelopes`, and describe each
+//!      `data` in `src/plus/types/<group>.ts`.
 //! `contract_coverage` prints what is still uncovered; `CTL_CONTRACT_STRICT=1` turns that into a
-//! failure.
+//! failure. `no_output_carries_a_canary_secret` runs every case again with a canary in the vault.
 
 #![cfg(unix)]
 
@@ -33,14 +35,31 @@ mod exec;
 mod golden;
 #[path = "common/sources_world.rs"]
 mod sources_world;
+#[path = "ctl_contract/cases.rs"]
+mod cases;
 
 use ctl_world::{CtlWorld, FAKE_SECRET};
 
 const VAULTED: &str = "FAKE-vaulted-value-1c9e";
+const CANARY: &str = "FAKE-canary-in-the-vault-5b07";
+const PASSPHRASE: &str = "FAKE-sync-passphrase-31d8";
+const COUNCIL_KEY: &str = "FAKE-council-key-77c2";
 const RUN_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// Keys whose value changes between machines or releases; the golden keeps only that they exist.
-const MASKED_KEYS: &[&str] = &["version", "pid", "elapsedMs", "durationMs", "tookMs"];
+const MASKED_KEYS: &[&str] = &[
+    "version",
+    "pid",
+    "elapsedMs",
+    "durationMs",
+    "tookMs",
+    "head",
+    "bundleBytes",
+    "nextDueAt",
+    "lastProbe",
+    "since",
+    "expiresAt",
+];
 
 #[derive(Clone, Copy)]
 struct Step {
@@ -50,6 +69,8 @@ struct Step {
     exit: i32,
     writes: bool,
     reveals: bool,
+    golden: bool,
+    env: &'static [(&'static str, &'static str)],
 }
 
 /// A step that must leave the world as it was: a read or a `--dry-run`.
@@ -61,6 +82,25 @@ const fn read(label: &'static str, argv: &'static [&'static str]) -> Step {
         exit: 0,
         writes: false,
         reveals: false,
+        golden: true,
+        env: &[],
+    }
+}
+
+/// A step whose argv fails the parser (exit 2): nothing runs, so the world must stay as it was.
+const fn usage(label: &'static str, argv: &'static [&'static str]) -> Step {
+    Step {
+        exit: 2,
+        ..read(label, argv)
+    }
+}
+
+/// Prepares the world for the steps after it; checked for exit code and leaks, no golden.
+const fn setup(label: &'static str, argv: &'static [&'static str]) -> Step {
+    Step {
+        writes: true,
+        golden: false,
+        ..read(label, argv)
     }
 }
 
@@ -89,31 +129,48 @@ impl Step {
             ..self
         }
     }
+
+    const fn env(self, env: &'static [(&'static str, &'static str)]) -> Self {
+        Self { env, ..self }
+    }
 }
 
 struct Case {
     id: &'static str,
+    prepare: Option<fn(&CtlWorld)>,
     steps: &'static [Step],
-    sources: bool,
 }
 
 const fn case(id: &'static str, steps: &'static [Step]) -> Case {
     Case {
         id,
+        prepare: None,
         steps,
-        sources: false,
     }
+}
+
+fn sources_home(world: &CtlWorld) {
+    sources_world::build_in(&world.base);
 }
 
 /// A case that runs over the sources fixture home of the GUI-wave contract, section 13.
 const fn sources_case(id: &'static str, steps: &'static [Step]) -> Case {
     Case {
-        sources: true,
+        prepare: Some(sources_home),
         ..case(id, steps)
     }
 }
 
-/// `{repo}`, `{home}`, `{data}` and `{mock}` in an argv word stand for the synthetic world.
+/// A case whose world needs files the shared fixture does not have (a git repository, transcripts).
+const fn prepared(id: &'static str, prepare: fn(&CtlWorld), steps: &'static [Step]) -> Case {
+    Case {
+        id,
+        prepare: Some(prepare),
+        steps,
+    }
+}
+
+/// `{repo}`, `{home}`, `{data}`, `{base}` and `{mock}` in an argv word stand for the synthetic world.
 const CASES: &[Case] = &[
     case("commands", &[read("", &["commands"])]),
     case("status", &[read("", &["status"])]),
@@ -342,10 +399,16 @@ fn expand(world: &CtlWorld, word: &str) -> String {
     word.replace("{repo}", &world.path(&world.repo))
         .replace("{home}", &world.path(&world.home))
         .replace("{data}", &world.path(&world.data))
+        .replace("{base}", &world.path(&world.base))
         .replace("{mock}", &world.mock)
 }
 
-fn run_ctl(world: &CtlWorld, argv: &[String], stdin: Option<&str>) -> Run {
+fn run_ctl(
+    world: &CtlWorld,
+    argv: &[String],
+    stdin: Option<&str>,
+    extra_env: &[(&str, &str)],
+) -> Run {
     let mut command = Command::new(env!("CARGO_BIN_EXE_toolportctl"));
     command
         .arg("--json")
@@ -360,6 +423,9 @@ fn run_ctl(world: &CtlWorld, argv: &[String], stdin: Option<&str>) -> Run {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     for (key, value) in world.env() {
+        command.env(key, value);
+    }
+    for (key, value) in extra_env {
         command.env(key, value);
     }
     let mut child = command.spawn().expect("spawn toolportctl");
@@ -395,7 +461,11 @@ fn snapshot(world: &CtlWorld) -> BTreeMap<PathBuf, Vec<u8>> {
         for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
             let path = entry.path();
             if path.is_dir() {
-                if !path.ends_with("plus/cache") {
+                // a plan that fetches or checks out in a clone moves git's own bookkeeping
+                // (FETCH_HEAD, ORIG_HEAD); what a user can see is outside `.git`
+                if path.file_name().is_none_or(|name| name != ".git")
+                    && !path.ends_with("plus/cache")
+                {
                     collect(&path, files);
                 }
             } else if path.extension().is_some_and(|ext| ext == "lock") {
@@ -406,18 +476,21 @@ fn snapshot(world: &CtlWorld) -> BTreeMap<PathBuf, Vec<u8>> {
         }
     }
     let mut files = BTreeMap::new();
-    for dir in [&world.data, &world.home, &world.repo] {
-        collect(dir, &mut files);
-    }
+    collect(&world.base, &mut files);
     files
 }
 
+/// A masked value keeps its JSON type, so the TS shape of the field stays honest.
 fn mask(value: &mut Value) {
     match value {
         Value::Object(map) => {
             for (key, inner) in map.iter_mut() {
                 if MASKED_KEYS.contains(&key.as_str()) && !inner.is_null() {
-                    *inner = json!("<masked>");
+                    *inner = if inner.is_number() {
+                        json!(0)
+                    } else {
+                        json!("<masked>")
+                    };
                 } else {
                     mask(inner);
                 }
@@ -449,11 +522,12 @@ fn bin_dirs() -> Vec<String> {
     dirs
 }
 
-/// Paths and times that differ per run become placeholders, so the golden holds the shape and
-/// the stable values only.
+/// Paths, times and backup stamps that differ per run become placeholders (`<WORLD>`, `<TIME>`,
+/// `<STAMP>`, `<BIN>`), so the golden holds the shape and the stable values only.
 fn normalize(world: &CtlWorld, envelope: &Value) -> Value {
     let time =
         Regex::new(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?").unwrap();
+    let backup_stamp = Regex::new(r"/\d{13}-").unwrap();
     let mut text = serde_json::to_string(envelope).unwrap();
     for root in world_roots(world) {
         text = text.replace(&root, "<WORLD>");
@@ -462,9 +536,11 @@ fn normalize(world: &CtlWorld, envelope: &Value) -> Value {
     for dir in bin_dirs() {
         text = text.replace(&dir, "<BIN>");
     }
+    let text = text.replace(VAULTED, "<VAULTED>");
     let text = time.replace_all(&text, "<TIME>").into_owned();
     let stamp = Regex::new(r"\b\d{8}-\d{6}\b").unwrap();
     let text = stamp.replace_all(&text, "<STAMP>").into_owned();
+    let text = backup_stamp.replace_all(&text, "/<STAMP>-").into_owned();
     let mut value: Value = serde_json::from_str(&text).unwrap();
     mask(&mut value);
     value
@@ -478,15 +554,24 @@ fn stem(case: &Case, step: &Step) -> String {
     }
 }
 
-fn run_case(case: &Case) {
+fn all_cases() -> impl Iterator<Item = &'static Case> {
+    CASES.iter().chain(cases::MORE)
+}
+
+fn world_for(case: &Case) -> CtlWorld {
     let world = world(&golden::file_stem(case.id));
-    if case.sources {
-        sources_world::build_in(&world.base);
+    if let Some(prepare) = case.prepare {
+        prepare(&world);
     }
+    world
+}
+
+fn run_case(case: &Case) {
+    let world = world_for(case);
     for step in case.steps {
         let argv: Vec<String> = step.argv.iter().map(|w| expand(&world, w)).collect();
         let before = snapshot(&world);
-        let run = run_ctl(&world, &argv, step.stdin);
+        let run = run_ctl(&world, &argv, step.stdin, step.env);
         let name = format!("{} {}", case.id, step.label);
 
         assert_eq!(
@@ -522,7 +607,8 @@ fn run_case(case: &Case) {
             );
         }
 
-        let mut canaries = vec![FAKE_SECRET];
+        let mut canaries = vec![FAKE_SECRET, CANARY, PASSPHRASE];
+        canaries.extend(step.env.iter().map(|(_, value)| *value));
         if !step.reveals {
             canaries.push(VAULTED);
         }
@@ -556,21 +642,23 @@ fn run_case(case: &Case) {
             );
         }
 
-        golden::assert_golden(
-            &stem(case, step),
-            &json!({
-                "argv": step.argv,
-                "exitCode": step.exit,
-                "envelope": normalize(&world, &envelope),
-            }),
-        );
+        if step.golden {
+            golden::assert_golden(
+                &stem(case, step),
+                &json!({
+                    "argv": step.argv,
+                    "exitCode": step.exit,
+                    "envelope": normalize(&world, &envelope),
+                }),
+            );
+        }
     }
 }
 
 #[test]
 fn every_case_matches_its_golden_envelope() {
     let mut failures = Vec::new();
-    for case in CASES {
+    for case in all_cases() {
         let result = std::panic::catch_unwind(|| run_case(case));
         if let Err(payload) = result {
             let message = payload
@@ -585,7 +673,7 @@ fn every_case_matches_its_golden_envelope() {
 }
 
 fn covered_ids() -> BTreeSet<&'static str> {
-    CASES.iter().map(|c| c.id).collect()
+    all_cases().map(|c| c.id).collect()
 }
 
 fn command_ids() -> Vec<String> {
@@ -601,7 +689,7 @@ fn command_ids() -> Vec<String> {
 #[test]
 fn every_case_names_a_command_and_every_golden_belongs_to_a_case() {
     let ids: BTreeSet<String> = command_ids().into_iter().collect();
-    for case in CASES {
+    for case in all_cases() {
         assert!(
             ids.contains(case.id),
             "case `{}` is not a registry command",
@@ -630,7 +718,7 @@ fn every_case_names_a_command_and_every_golden_belongs_to_a_case() {
         .iter()
         .filter(|row| row["kind"] == "command")
         .collect();
-    for case in CASES {
+    for case in all_cases() {
         for step in case.steps {
             let command = rows
                 .iter()
@@ -646,7 +734,7 @@ fn every_case_names_a_command_and_every_golden_belongs_to_a_case() {
                         case.id, step.label
                     )
                 });
-            if step.writes {
+            if step.writes || step.exit == 2 {
                 continue;
             }
             let flag = command["preview"]["flag"].as_str().unwrap_or("");
@@ -660,8 +748,8 @@ fn every_case_names_a_command_and_every_golden_belongs_to_a_case() {
         }
     }
     let mut owned: BTreeSet<String> = BTreeSet::new();
-    for case in CASES {
-        for step in case.steps {
+    for case in all_cases() {
+        for step in case.steps.iter().filter(|step| step.golden) {
             owned.insert(stem(case, step));
         }
     }
@@ -682,8 +770,7 @@ fn contract_coverage() {
         .collect();
     let rows = registry();
     let rows = rows["commands"].as_array().unwrap();
-    let writers_without_preview: Vec<&str> = CASES
-        .iter()
+    let writers_without_preview: Vec<&str> = all_cases()
         .filter(|case| {
             rows.iter().any(|row| {
                 let flag = row["preview"]["flag"].as_str().unwrap_or("");
@@ -702,6 +789,10 @@ fn contract_coverage() {
         writers_without_preview.is_empty(),
         "commands that can preview need a --dry-run step: {writers_without_preview:?}"
     );
+    let mut seen = BTreeSet::new();
+    for case in all_cases() {
+        assert!(seen.insert(case.id), "case `{}` appears twice", case.id);
+    }
     eprintln!(
         "ctl contract: {} of {} commands have a golden envelope; {} still to add",
         ids.len() - missing.len(),
@@ -710,5 +801,71 @@ fn contract_coverage() {
     );
     if std::env::var_os("CTL_CONTRACT_STRICT").is_some_and(|v| !v.is_empty() && v != "0") {
         assert!(missing.is_empty(), "no golden envelope for: {missing:?}");
+    }
+}
+
+fn contains(haystack: &[u8], needle: &str) -> bool {
+    haystack
+        .windows(needle.len())
+        .any(|window| window == needle.as_bytes())
+}
+
+/// Every case runs again in a world whose vault holds a canary: it must not show up in a
+/// command's output, in a file the command wrote, or in a golden.
+#[test]
+fn no_output_carries_a_canary_secret() {
+    let mut runs = 0;
+    for case in all_cases() {
+        let world = world_for(case);
+        let seeded = run_ctl(
+            &world,
+            &["secret", "set", "alpha", "CANARY_KEY"].map(String::from),
+            Some(CANARY),
+            &[],
+        );
+        assert_eq!(seeded.code, 0, "{}: {}", case.id, seeded.stdout);
+        let mut secrets = vec![CANARY, PASSPHRASE];
+        for step in case.steps {
+            let argv: Vec<String> = step.argv.iter().map(|w| expand(&world, w)).collect();
+            let run = run_ctl(&world, &argv, step.stdin, step.env);
+            runs += 1;
+            let mut shown = secrets.clone();
+            shown.push(FAKE_SECRET);
+            shown.extend(step.env.iter().map(|(_, value)| *value));
+            if !step.reveals {
+                shown.push(VAULTED);
+            }
+            for secret in shown {
+                assert!(
+                    !run.stdout.contains(secret) && !run.stderr.contains(secret),
+                    "{} {}: leaked a secret value",
+                    case.id,
+                    step.label
+                );
+            }
+            secrets.extend(step.env.iter().map(|(_, value)| *value));
+        }
+        for (path, bytes) in snapshot(&world) {
+            for secret in secrets.iter().chain(&[VAULTED]) {
+                assert!(
+                    !contains(&bytes, secret),
+                    "{}: {} holds a secret in plain text",
+                    case.id,
+                    path.display()
+                );
+            }
+        }
+    }
+    assert!(runs > 100, "{runs} runs");
+
+    for entry in std::fs::read_dir(golden::root()).unwrap().flatten() {
+        let text = std::fs::read_to_string(entry.path()).unwrap();
+        for secret in [FAKE_SECRET, CANARY, VAULTED, PASSPHRASE, COUNCIL_KEY] {
+            assert!(
+                !text.contains(secret),
+                "golden {} contains a secret value",
+                entry.path().display()
+            );
+        }
     }
 }

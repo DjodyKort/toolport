@@ -1,0 +1,13 @@
+{
+  "argv": ["compression", "proxy", "up"],
+  "envelope": {
+    "command": "compression proxy",
+    "error": {
+      "code": "proxy_up",
+      "message": "headroom not on PATH"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

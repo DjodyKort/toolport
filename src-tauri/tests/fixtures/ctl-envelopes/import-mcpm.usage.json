@@ -1,0 +1,13 @@
+{
+  "argv": ["import", "mcpm"],
+  "envelope": {
+    "command": "import mcpm",
+    "error": {
+      "code": "usage",
+      "message": "usage: import mcpm <config-root> [--dry-run] [--short-ids <file>] [--home <dir>] [--skip-clients] [--prune-orphans] [--name-map --tools <file>]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

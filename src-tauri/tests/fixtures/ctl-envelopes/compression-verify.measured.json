@@ -1,0 +1,73 @@
+{
+  "argv": [
+    "compression",
+    "verify",
+    "--transcripts",
+    "{home}/.claude/projects",
+    "--min-turns",
+    "1"
+  ],
+  "envelope": {
+    "command": "compression verify",
+    "data": {
+      "buckets": {
+        "plain": {
+          "cacheCreate": 0,
+          "cacheRead": 0,
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "readRatio": null,
+          "readWrite": null,
+          "sessions": 0,
+          "turns": 0
+        },
+        "proxied": {
+          "cacheCreate": 0,
+          "cacheRead": 0,
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "readRatio": null,
+          "readWrite": null,
+          "sessions": 0,
+          "turns": 0
+        },
+        "unattributed": {
+          "cacheCreate": 3000,
+          "cacheRead": 42000,
+          "inputTokens": 60,
+          "outputTokens": 240,
+          "readRatio": 0.9333333333333333,
+          "readWrite": 14.0,
+          "sessions": 1,
+          "turns": 6
+        }
+      },
+      "checks": [
+        {
+          "detail": "compression disabled (provider none)",
+          "name": "engine",
+          "ok": true
+        },
+        {
+          "detail": "not used by provider none",
+          "name": "pin",
+          "ok": true
+        },
+        {
+          "detail": "not required for this provider",
+          "name": "shims",
+          "ok": true
+        }
+      ],
+      "provider": "none",
+      "transcripts": {
+        "count": 1,
+        "root": "<WORLD>/home/.claude/projects"
+      },
+      "verdict": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

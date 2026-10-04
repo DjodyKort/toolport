@@ -1,0 +1,38 @@
+{
+  "argv": ["compression", "verify", "--transcripts", "{base}/none"],
+  "envelope": {
+    "command": "compression verify",
+    "data": {
+      "buckets": null,
+      "checks": [
+        {
+          "detail": "compression disabled (provider none)",
+          "name": "engine",
+          "ok": true
+        },
+        {
+          "detail": "not used by provider none",
+          "name": "pin",
+          "ok": true
+        },
+        {
+          "detail": "not required for this provider",
+          "name": "shims",
+          "ok": true
+        }
+      ],
+      "provider": "none",
+      "transcripts": {
+        "count": 0,
+        "root": "<WORLD>/none"
+      }
+    },
+    "error": {
+      "code": "unhealthy",
+      "message": "one or more checks failed"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

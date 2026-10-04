@@ -1,0 +1,19 @@
+{
+  "argv": ["context", "checkpoint-status", "--checkpoint-at", "50000"],
+  "envelope": {
+    "command": "context checkpoint-status",
+    "data": {
+      "at_checkpoint": false,
+      "checkpoint_at": 50000,
+      "checkpoint_point": 150000,
+      "remaining_to_checkpoint": 148500,
+      "remaining_to_compact": 198500,
+      "used_tokens": 1500,
+      "window": 200000,
+      "window_source": "model"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

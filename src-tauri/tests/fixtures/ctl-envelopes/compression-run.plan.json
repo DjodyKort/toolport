@@ -1,0 +1,33 @@
+{
+  "argv": ["compression", "run", "--plan", "claude"],
+  "envelope": {
+    "command": "compression run",
+    "data": {
+      "argv": ["claude"],
+      "cwd": "<WORLD>/home",
+      "env": {
+        "set": {},
+        "unset": ["ANTHROPIC_BASE_URL"]
+      },
+      "installed": null,
+      "ledger": {
+        "cwd": "<WORLD>/home",
+        "pin": "0.29.0",
+        "port": null,
+        "preset": "interactive",
+        "provider": "none",
+        "routed": false
+      },
+      "pin": "0.29.0",
+      "preset": "interactive",
+      "program": "claude",
+      "provider": "none",
+      "proxy": null,
+      "routed": false,
+      "warnings": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

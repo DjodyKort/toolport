@@ -1,0 +1,18 @@
+{
+  "argv": ["skills", "add", "fresh-skill", "--path", "{base}/fresh"],
+  "envelope": {
+    "command": "skills add",
+    "data": {
+      "dryRun": false,
+      "files": ["<WORLD>/fresh/skills/fresh-skill/SKILL.md"],
+      "name": "fresh-skill",
+      "path": "<WORLD>/fresh/skills/fresh-skill/SKILL.md",
+      "progressive": false,
+      "repo": "<WORLD>/fresh",
+      "type": "skill"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

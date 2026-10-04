@@ -1,0 +1,129 @@
+{
+  "argv": ["styles", "apply", "plain", "--repo", "{repo}", "--dry-run"],
+  "envelope": {
+    "command": "styles apply",
+    "data": {
+      "active": [
+        {
+          "client": "aider",
+          "style": "plain"
+        },
+        {
+          "client": "amazon-q",
+          "style": "plain"
+        },
+        {
+          "client": "cline",
+          "style": "plain"
+        },
+        {
+          "client": "codex-cli",
+          "style": "plain"
+        },
+        {
+          "client": "continue",
+          "style": "plain"
+        },
+        {
+          "client": "cursor",
+          "style": "plain"
+        },
+        {
+          "client": "gemini-cli",
+          "style": "plain"
+        },
+        {
+          "client": "goose",
+          "style": "plain"
+        },
+        {
+          "client": "jetbrains",
+          "style": "plain"
+        },
+        {
+          "client": "trae",
+          "style": "plain"
+        },
+        {
+          "client": "vscode-copilot",
+          "style": "plain"
+        },
+        {
+          "client": "windsurf",
+          "style": "plain"
+        },
+        {
+          "client": "zed",
+          "style": "plain"
+        }
+      ],
+      "applied": [
+        {
+          "client": "aider",
+          "path": "<WORLD>/home/.mcpm/skills/mcpm-output-style/SKILL.md"
+        },
+        {
+          "client": "amazon-q",
+          "path": "<WORLD>/home/.amazonq/rules/mcpm-output-style.md"
+        },
+        {
+          "client": "cline",
+          "path": "<WORLD>/home/.clinerules/mcpm-output-style.md"
+        },
+        {
+          "client": "codex-cli",
+          "path": "<WORLD>/home/.agents/skills/mcpm-output-style/SKILL.md"
+        },
+        {
+          "client": "continue",
+          "path": "<WORLD>/home/.continue/rules/mcpm-output-style.md"
+        },
+        {
+          "client": "cursor",
+          "path": "<WORLD>/home/.cursor/rules/mcpm-output-style/RULE.md"
+        },
+        {
+          "client": "gemini-cli",
+          "path": "<WORLD>/home/.gemini/skills/mcpm-output-style/SKILL.md"
+        },
+        {
+          "client": "goose",
+          "path": "<WORLD>/home/.goose/rules/mcpm-output-style.md"
+        },
+        {
+          "client": "jetbrains",
+          "path": "<WORLD>/home/.aiassistant/rules/mcpm-output-style.md"
+        },
+        {
+          "client": "trae",
+          "path": "<WORLD>/home/.trae/rules/mcpm-output-style.md"
+        },
+        {
+          "client": "vscode-copilot",
+          "path": "<WORLD>/home/.github/instructions/mcpm-output-style.instructions.md"
+        },
+        {
+          "client": "windsurf",
+          "path": "<WORLD>/home/.windsurf/rules/mcpm-output-style.md"
+        },
+        {
+          "client": "zed",
+          "path": "<WORLD>/home/.rules"
+        }
+      ],
+      "appliedCount": 13,
+      "discoveryWarnings": [],
+      "dryRun": true,
+      "lockDir": "<WORLD>/data",
+      "name": "plain",
+      "nativeClients": [],
+      "outputRoot": "<WORLD>/home",
+      "replaced": [],
+      "repo": "<WORLD>/skills-repo",
+      "scope": "global"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

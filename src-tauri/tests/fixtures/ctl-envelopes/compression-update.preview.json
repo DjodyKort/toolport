@@ -1,0 +1,15 @@
+{
+  "argv": ["compression", "update", "--to", "0.30.0"],
+  "envelope": {
+    "command": "compression update",
+    "data": {
+      "accepted": false,
+      "current": "0.29.0",
+      "same": false,
+      "target": "0.30.0"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["sync", "rotate-passphrase", "--passphrase-stdin"],
+  "envelope": {
+    "command": "sync",
+    "data": {
+      "rotated": 1,
+      "skipped": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

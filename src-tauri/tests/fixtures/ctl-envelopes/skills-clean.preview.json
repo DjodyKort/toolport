@@ -1,0 +1,35 @@
+{
+  "argv": ["skills", "clean", "--repo", "{repo}", "--dry-run"],
+  "envelope": {
+    "command": "skills clean",
+    "data": {
+      "cleanRoot": "<WORLD>/home",
+      "dryRun": true,
+      "ignored": [],
+      "lockDir": "<WORLD>/data",
+      "lockfilePresent": true,
+      "lockfileRemoved": true,
+      "managed": ["demo"],
+      "removed": [
+        "<WORLD>/home/.mcpm/skills/demo/SKILL.md",
+        "<WORLD>/home/.amazonq/rules/demo.md",
+        "<WORLD>/home/.claude/skills/demo/SKILL.md",
+        "<WORLD>/home/.clinerules/demo.md",
+        "<WORLD>/home/.codex/skills/demo/SKILL.md",
+        "<WORLD>/home/.continue/rules/demo.md",
+        "<WORLD>/home/.cursor/rules/demo/RULE.md",
+        "<WORLD>/home/.gemini/skills/demo/SKILL.md",
+        "<WORLD>/home/.goose/skills/demo/SKILL.md",
+        "<WORLD>/home/.aiassistant/rules/demo.md",
+        "<WORLD>/home/.roo/rules/demo.md",
+        "<WORLD>/home/.trae/rules/demo.md",
+        "<WORLD>/home/.windsurf/rules/demo.md"
+      ],
+      "scope": "global",
+      "skipped": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

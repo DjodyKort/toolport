@@ -1,0 +1,13 @@
+{
+  "argv": ["agents", "uninstall"],
+  "envelope": {
+    "command": "agents uninstall",
+    "error": {
+      "code": "usage",
+      "message": "missing agent name\nusage: agents uninstall <name> [--path <dir>] [--home <dir>] [--project] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

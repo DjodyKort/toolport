@@ -1,0 +1,16 @@
+{
+  "argv": ["mcp", "install", "--profile", "default"],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "action": "unchanged",
+      "command": "<BIN>/toolport-selfmcp",
+      "enabled": [],
+      "id": "toolport-plus-self",
+      "profile": "default"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

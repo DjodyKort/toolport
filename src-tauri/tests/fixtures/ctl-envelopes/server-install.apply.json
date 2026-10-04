@@ -1,0 +1,15 @@
+{
+  "argv": ["server", "install", "Stripe", "--offline"],
+  "envelope": {
+    "command": "server install",
+    "data": {
+      "envKeys": [],
+      "id": "stripe",
+      "name": "Stripe",
+      "source": "curated"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

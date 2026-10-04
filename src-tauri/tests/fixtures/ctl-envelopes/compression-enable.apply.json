@@ -1,0 +1,28 @@
+{
+  "argv": ["compression", "enable", "--provider", "rtk-only"],
+  "envelope": {
+    "command": "compression enable",
+    "data": {
+      "actions": ["saved config (provider=rtk-only)"],
+      "adopted": null,
+      "dryRun": false,
+      "nextSteps": [
+        "verify: toolportctl compression status / doctor   (MCP entry already registered)"
+      ],
+      "preset": {
+        "mode": "cache",
+        "name": "interactive",
+        "port": 8787,
+        "savingsProfile": null
+      },
+      "provider": "rtk-only",
+      "removed": [],
+      "runtime": "hook",
+      "warnings": [],
+      "written": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

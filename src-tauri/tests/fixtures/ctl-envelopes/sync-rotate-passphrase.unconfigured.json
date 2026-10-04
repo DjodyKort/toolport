@@ -1,0 +1,13 @@
+{
+  "argv": ["sync", "rotate-passphrase", "--passphrase-stdin"],
+  "envelope": {
+    "command": "sync",
+    "error": {
+      "code": "sync",
+      "message": "sync is not configured; run init first"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

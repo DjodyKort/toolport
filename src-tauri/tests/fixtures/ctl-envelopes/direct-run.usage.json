@@ -1,0 +1,13 @@
+{
+  "argv": ["direct", "run"],
+  "envelope": {
+    "command": "direct run",
+    "error": {
+      "code": "usage",
+      "message": "missing server\nusage: direct run <server id>"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

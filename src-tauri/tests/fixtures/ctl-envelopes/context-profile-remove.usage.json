@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "profile", "remove"],
+  "envelope": {
+    "command": "context profile remove",
+    "error": {
+      "code": "usage",
+      "message": "missing profile name\nusage: context profile remove <name> [--purge] [--home <dir>] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

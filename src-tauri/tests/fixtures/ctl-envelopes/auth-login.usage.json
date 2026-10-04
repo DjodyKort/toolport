@@ -1,0 +1,13 @@
+{
+  "argv": ["auth", "login"],
+  "envelope": {
+    "command": "auth login",
+    "error": {
+      "code": "usage",
+      "message": "usage: auth login <server> [--no-open]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -1,0 +1,25 @@
+{
+  "argv": ["compression", "use", "agent", "--dry-run"],
+  "envelope": {
+    "command": "compression use",
+    "data": {
+      "actions": ["would save config (provider=none)"],
+      "adopted": null,
+      "dryRun": true,
+      "preset": {
+        "mode": "token",
+        "name": "agent",
+        "port": 8788,
+        "savingsProfile": "agent-90"
+      },
+      "provider": "none",
+      "removed": [],
+      "runtime": "none",
+      "warnings": [],
+      "written": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

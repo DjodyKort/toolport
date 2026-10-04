@@ -1,0 +1,13 @@
+{
+  "argv": ["sync", "rotate-passphrase"],
+  "envelope": {
+    "command": "sync",
+    "error": {
+      "code": "usage",
+      "message": "missing argument: newPassphrase"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

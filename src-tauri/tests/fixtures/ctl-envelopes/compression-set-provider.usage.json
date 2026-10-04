@@ -1,0 +1,13 @@
+{
+  "argv": ["compression", "set-provider"],
+  "envelope": {
+    "command": "compression set-provider",
+    "error": {
+      "code": "usage",
+      "message": "set-provider needs a provider (headroom, rtk-only, parsec, none)"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

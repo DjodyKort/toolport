@@ -1,0 +1,18 @@
+{
+  "argv": ["skills", "tap", "add", "{base}/tap-src", "--name", "local", "--dry-run"],
+  "envelope": {
+    "command": "skills tap add",
+    "data": {
+      "cloned": false,
+      "dryRun": true,
+      "head": null,
+      "name": "local",
+      "path": "<WORLD>/data/taps/local",
+      "repo": "<WORLD>/tap-src",
+      "url": "<WORLD>/tap-src"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

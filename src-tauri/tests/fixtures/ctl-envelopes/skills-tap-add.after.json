@@ -1,0 +1,21 @@
+{
+  "argv": ["skills", "tap", "ls"],
+  "envelope": {
+    "command": "skills tap ls",
+    "data": {
+      "taps": [
+        {
+          "cloned": true,
+          "name": "local",
+          "path": "<WORLD>/data/taps/local",
+          "repo": "<WORLD>/tap-src",
+          "url": "<WORLD>/tap-src"
+        }
+      ],
+      "tapsRoot": "<WORLD>/data/taps"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

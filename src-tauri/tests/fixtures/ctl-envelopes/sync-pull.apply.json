@@ -1,0 +1,22 @@
+{
+  "argv": ["sync", "pull", "--include-projects"],
+  "envelope": {
+    "command": "sync",
+    "data": {
+      "applied": ["projects/proj1/a.txt"],
+      "changes": null,
+      "conflicts": [],
+      "dryRun": false,
+      "keptLocal": [],
+      "machineId": "m-test",
+      "noRemote": false,
+      "pushedAt": "<TIME>",
+      "resolved": [],
+      "skillsRepoChanged": 0,
+      "skipped": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

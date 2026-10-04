@@ -1,0 +1,39 @@
+{
+  "argv": ["import", "mcpm", "{base}/mcpm", "--dry-run"],
+  "envelope": {
+    "command": "import mcpm",
+    "data": {
+      "clientDiscovery": [],
+      "clientScopes": [],
+      "clients": [],
+      "counts": {
+        "created": 3
+      },
+      "dryRun": true,
+      "profiles": [
+        {
+          "action": "created",
+          "id": "smoke"
+        }
+      ],
+      "rejects": [],
+      "scripts": [],
+      "secrets": [],
+      "servers": [
+        {
+          "action": "created",
+          "id": "alpha-mock"
+        },
+        {
+          "action": "created",
+          "id": "beta-mock"
+        }
+      ],
+      "skippedClients": [],
+      "warnings": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

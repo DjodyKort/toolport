@@ -1,0 +1,16 @@
+{
+  "argv": ["skills", "tap", "remove", "local", "--dry-run"],
+  "envelope": {
+    "command": "skills tap remove",
+    "data": {
+      "dryRun": true,
+      "hadClone": true,
+      "name": "local",
+      "path": "<WORLD>/data/taps/local",
+      "removed": false
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

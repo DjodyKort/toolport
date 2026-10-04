@@ -1,0 +1,29 @@
+{
+  "argv": ["client", "edit", "cursor", "--set-profiles", "default"],
+  "envelope": {
+    "command": "client edit",
+    "data": {
+      "backup": "<WORLD>/data/backups/cursor/<STAMP>-mcp.json",
+      "changed": true,
+      "client": "cursor",
+      "dryRun": false,
+      "followsActive": null,
+      "name": "Cursor",
+      "notInClient": [],
+      "path": "<WORLD>/home/.cursor/mcp.json",
+      "profiles": {
+        "added": ["Default"],
+        "after": ["Default"],
+        "before": [],
+        "removed": []
+      },
+      "scope": {
+        "after": "default",
+        "before": null
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

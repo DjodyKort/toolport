@@ -1,0 +1,30 @@
+{
+  "argv": [
+    "import",
+    "rename-refs",
+    "{base}/mcpm",
+    "--tools",
+    "{base}/tools.json",
+    "--paths",
+    "{base}/refs",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "import rename-refs",
+    "data": {
+      "dryRun": true,
+      "files": [
+        {
+          "path": "<WORLD>/refs/note.md",
+          "replaced": 1
+        }
+      ],
+      "orphans": [],
+      "replaced": 1,
+      "scanned": 1
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

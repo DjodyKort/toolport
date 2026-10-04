@@ -1,0 +1,24 @@
+{
+  "argv": ["skills", "bundle", "--repo", "{repo}", "--dry-run"],
+  "envelope": {
+    "command": "skills bundle",
+    "data": {
+      "bundleBytes": null,
+      "dryRun": true,
+      "fileCount": 1,
+      "output": "<WORLD>/skills-repo/skills-repo-bundle.zip",
+      "repo": "<WORLD>/skills-repo",
+      "skills": [
+        {
+          "files": 1,
+          "name": "demo",
+          "type": "skill"
+        }
+      ],
+      "sourceBytes": 65
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

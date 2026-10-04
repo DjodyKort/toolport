@@ -1,0 +1,13 @@
+{
+  "argv": ["import", "rename-refs"],
+  "envelope": {
+    "command": "import rename-refs",
+    "error": {
+      "code": "usage",
+      "message": "usage: import rename-refs <config-root> --tools <file> --paths <path>... [--short-ids <file>] [--home <dir>] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

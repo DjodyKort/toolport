@@ -1,0 +1,22 @@
+{
+  "argv": ["client", "direct", "rm", "alpha", "--client", "claude-code", "--dry-run"],
+  "envelope": {
+    "command": "client direct rm",
+    "data": {
+      "action": "removed",
+      "backup": null,
+      "changed": true,
+      "client": "claude-code",
+      "clientName": "Claude Code",
+      "dryRun": true,
+      "entry": "alpha",
+      "notes": [],
+      "path": "<WORLD>/home/.claude/.claude.json",
+      "server": "srv-alpha",
+      "serverName": "alpha"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

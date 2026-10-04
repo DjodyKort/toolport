@@ -1,0 +1,17 @@
+{
+  "argv": ["context", "client", "add", "acme"],
+  "envelope": {
+    "command": "context client add",
+    "data": {
+      "created": true,
+      "dryRun": false,
+      "glob": "**/clients/acme/**",
+      "name": "acme",
+      "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-acme/SKILL.md",
+      "rule": "client-acme"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

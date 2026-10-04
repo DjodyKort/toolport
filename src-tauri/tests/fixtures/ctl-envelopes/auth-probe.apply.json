@@ -1,0 +1,54 @@
+{
+  "argv": ["auth", "probe"],
+  "envelope": {
+    "command": "auth probe",
+    "data": {
+      "counts": {
+        "expiring": 0,
+        "misconfigured": 0,
+        "needs_reauth": 1,
+        "ok": 0,
+        "revoked": 0,
+        "unknown": 0,
+        "unreachable": 0
+      },
+      "failures": [],
+      "mode": "due",
+      "probes": [
+        {
+          "nextDueAt": 0,
+          "ran": true,
+          "server": "srv-beta",
+          "skipped": null,
+          "tracked": {
+            "reason": "no_token",
+            "since": 0,
+            "state": "needs_reauth",
+            "transient": null
+          }
+        }
+      ],
+      "servers": [
+        {
+          "expiresAt": null,
+          "fix": {
+            "action": "reauth",
+            "command": "toolportctl auth login srv-beta",
+            "ipc": null,
+            "label": "Sign in to srv-beta again",
+            "server": "srv-beta"
+          },
+          "lastProbe": 0,
+          "reason": "no_token",
+          "server": "srv-beta",
+          "since": 0,
+          "state": "needs_reauth",
+          "ttlSecs": null
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

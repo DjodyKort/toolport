@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "tap", "remove"],
+  "envelope": {
+    "command": "skills tap remove",
+    "error": {
+      "code": "usage",
+      "message": "missing tap name\nusage: skills tap remove <name> [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

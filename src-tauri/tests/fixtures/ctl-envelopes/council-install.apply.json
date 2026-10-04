@@ -1,0 +1,14 @@
+{
+  "argv": ["council", "install"],
+  "envelope": {
+    "command": "council",
+    "data": {
+      "created": true,
+      "id": "council",
+      "keyStored": false
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

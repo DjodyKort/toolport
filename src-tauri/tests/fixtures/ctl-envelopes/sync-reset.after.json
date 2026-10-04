@@ -1,0 +1,21 @@
+{
+  "argv": ["sync", "status"],
+  "envelope": {
+    "command": "sync",
+    "data": {
+      "backend": null,
+      "branch": null,
+      "configured": false,
+      "keyfilePresent": false,
+      "lastDirection": "",
+      "lastSyncAt": "",
+      "machineId": null,
+      "projects": {},
+      "repoUrl": null,
+      "tracked": 0
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

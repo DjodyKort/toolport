@@ -1,0 +1,14 @@
+{
+  "argv": ["council", "uninstall", "--purge-key"],
+  "envelope": {
+    "command": "council",
+    "data": {
+      "id": null,
+      "keyPurged": false,
+      "removed": false
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

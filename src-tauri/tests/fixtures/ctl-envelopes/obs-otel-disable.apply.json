@@ -1,0 +1,24 @@
+{
+  "argv": ["obs", "otel", "disable"],
+  "envelope": {
+    "command": "obs otel disable",
+    "data": {
+      "actions": [
+        "env.CLAUDE_CODE_ENABLE_TELEMETRY: removed",
+        "env.OTEL_EXPORTER_OTLP_ENDPOINT: removed",
+        "env.OTEL_EXPORTER_OTLP_PROTOCOL: removed",
+        "env.OTEL_LOGS_EXPORTER: removed",
+        "env.OTEL_METRICS_EXPORTER: removed"
+      ],
+      "changed": true,
+      "dryRun": false,
+      "enabled": false,
+      "kept": [],
+      "port": 4999,
+      "settingsPath": "<WORLD>/home/.claude/settings.json"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

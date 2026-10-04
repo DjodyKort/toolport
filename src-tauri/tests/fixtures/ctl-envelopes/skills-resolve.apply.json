@@ -1,0 +1,21 @@
+{
+  "argv": ["skills", "resolve", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills resolve",
+    "data": {
+      "backupRoot": "<WORLD>/home/.mcpm-backups",
+      "collisions": [],
+      "dryRun": false,
+      "kept": 0,
+      "migrate": null,
+      "outputRoot": "<WORLD>/home",
+      "replaced": 0,
+      "repo": "<WORLD>/skills-repo",
+      "scope": "global",
+      "skillCount": 1
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

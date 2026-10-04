@@ -1,0 +1,20 @@
+{
+  "argv": ["sync", "git-sync", "--repo", "{base}/tap-src", "--branch", "main"],
+  "envelope": {
+    "command": "sync",
+    "data": {
+      "autoSync": false,
+      "branch": "main",
+      "cleared": false,
+      "cloned": true,
+      "configured": true,
+      "head": "<masked>",
+      "localPath": "<WORLD>/data/skills_repo",
+      "pulled": true,
+      "repo": "<WORLD>/tap-src"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

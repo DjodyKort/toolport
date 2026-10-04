@@ -1,0 +1,13 @@
+{
+  "argv": ["sync", "add-project", "{home}", "--name", "proj1", "--files", "a.txt"],
+  "envelope": {
+    "command": "sync",
+    "data": {
+      "name": "proj1",
+      "replaced": false
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

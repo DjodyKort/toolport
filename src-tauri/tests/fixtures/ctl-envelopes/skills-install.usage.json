@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "install"],
+  "envelope": {
+    "command": "skills install",
+    "error": {
+      "code": "usage",
+      "message": "missing install spec\nusage: skills install <@user/repo[/skill][@version]> [--path <dir>] [--no-audit] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

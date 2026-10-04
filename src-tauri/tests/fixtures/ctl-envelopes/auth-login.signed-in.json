@@ -1,0 +1,19 @@
+{
+  "argv": ["auth", "login", "alpha", "--no-open"],
+  "envelope": {
+    "command": "auth login",
+    "data": {
+      "consentUrl": null,
+      "flow": "stdio",
+      "message": "alpha reports it is already signed in.",
+      "name": "alpha",
+      "probe": null,
+      "server": "srv-alpha",
+      "servers": [],
+      "signedIn": true
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}
