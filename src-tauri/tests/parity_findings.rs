@@ -7,7 +7,7 @@ use common::replay::*;
 use conduit_lib::plus::skills::audit::audit_skills;
 use conduit_lib::plus::skills::collisions::detect_collisions;
 use conduit_lib::plus::skills::lint::lint_skills;
-use conduit_lib::plus::skills::transpiler::{Transpiler, APPEND_MODE_TRANSPILERS};
+use conduit_lib::plus::skills::transpiler::Transpiler;
 use conduit_lib::plus::skills::transpilers::register_all_with_home;
 use conduit_lib::plus::skills::{discover_skills, FixedClock, TranspilerRegistry};
 use serde_json::{json, Value};
@@ -61,7 +61,7 @@ fn findings_entry(home: &Path, args: &Value, _clock: &FixedClock) -> Extras {
         .unwrap_or_default();
     let transpilers: Vec<&dyn Transpiler> = registry
         .all()
-        .filter(|t| !APPEND_MODE_TRANSPILERS.contains(&t.client_key()))
+        .filter(|t| !t.capabilities().append_mode)
         .filter(|t| wanted.is_empty() || wanted.contains(&t.client_key()))
         .collect();
     let collisions = detect_collisions(&skills, &transpilers, &repo);

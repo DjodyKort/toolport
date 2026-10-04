@@ -1,7 +1,8 @@
 use crate::plus::skills::parser::Skill;
 use crate::plus::skills::pyfs::read_text;
 use crate::plus::skills::transpiler::{
-    inject_managed_block, TranspileResult, Transpiler, MCPM_BLOCK_END, MCPM_BLOCK_START,
+    inject_managed_block, Capabilities, TranspileResult, Transpiler, MCPM_BLOCK_END,
+    MCPM_BLOCK_START,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -35,6 +36,10 @@ fn skill_line(skill: &Skill) -> String {
 impl Transpiler for AgentsMd {
     fn client_key(&self) -> &str {
         "agents-md"
+    }
+
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::PROJECT_APPEND
     }
 
     fn transpile(&self, skill: &Skill, root: &Path) -> Result<TranspileResult, String> {

@@ -3,6 +3,9 @@ use crate::plus::skills::parser::{Activation, Skill, SkillType};
 use crate::plus::skills::transpiler::{TranspileResult, Transpiler};
 use std::path::{Path, PathBuf};
 
+/// mcpm's project-only list spells this client `vscode-copilot`, which never matches its `vscode`
+/// key, so it is not project-only.
+///
 /// Not part of `register_all`: mcpm's `transpilers/__init__.py` never imports this module, so
 /// the `vscode` client is unreachable there. Parity keeps the gap; see `register_vscode_copilot`.
 pub struct VsCodeCopilot;
