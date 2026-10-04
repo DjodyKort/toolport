@@ -4,6 +4,7 @@ import {
   plusSourcesItemsFixture,
   plusSourcesRootFixture,
 } from "./sources";
+import { commandsFixture } from "./commandsRegistry";
 
 /** Envelope `data` the dev browser fixture returns per `toolportctl` argv (joined with spaces).
  * A command a screen runs needs a row here or the fixture rejects it as unimplemented. */
@@ -22,6 +23,8 @@ export const plusCtlFixtures = new Map<string, unknown>([
   ["sources ls", plusSourcesFixture],
   ["sources ls --items", plusSourcesItemsFixture],
   ["sources root ls", plusSourcesRootFixture],
+  ["commands", commandsFixture],
+  ["attention ls", { counts: { needsYou: 3, worthALook: 2 }, items: [] }],
 ]);
 
 const jobs = new Map<string, string>();
