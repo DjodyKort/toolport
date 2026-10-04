@@ -2083,7 +2083,27 @@ impl Router {
             .resource_server(uri)
             .ok_or_else(|| format!("no server owns resource '{uri}'"))?
             .to_string();
-        let slot = self.slot_for(&server_id)?;
+        self.read_resource_from(&server_id, uri, cancel, meta, mrtr)
+    }
+
+    /// Whether a server with this id is connected in this router.
+    pub fn has_server(&self, server_id: &str) -> bool {
+        self.by_id.contains_key(server_id)
+    }
+
+    /// Read `uri` from `server_id` without asking which server lists it. For a URI
+    /// the server only linked to in a tool result: it is neither listed nor covered
+    /// by a template, so [`resource_server`](Self::resource_server) has no owner for
+    /// it.
+    pub fn read_resource_from(
+        &self,
+        server_id: &str,
+        uri: &str,
+        cancel: Option<CancelContext>,
+        meta: Option<&Value>,
+        mrtr: Option<&MrtrRequest>,
+    ) -> Result<Value, String> {
+        let slot = self.slot_for(server_id)?;
         self.call_with_retry(
             &slot,
             cancel.as_ref(),
@@ -4324,6 +4344,25 @@ mod tests {
         let result = router.read_resource("postgres://readme").unwrap();
         assert_eq!(result["contents"][0]["text"], "postgres-body");
         assert!(router.read_resource("nope://x").is_err());
+    }
+
+    #[test]
+    fn a_uri_no_server_lists_is_read_from_the_server_named_for_it() {
+        let mut router = Router::new();
+        router.add(mock_server("github"));
+        router.add(mock_server("postgres"));
+
+        assert!(router.read_resource("dyn://only-linked").is_err());
+        assert!(router.has_server("postgres"));
+        assert!(!router.has_server("nope"));
+
+        let result = router
+            .read_resource_from("postgres", "dyn://only-linked", None, None, None)
+            .unwrap();
+        assert_eq!(result["contents"][0]["text"], "postgres-body");
+        assert!(router
+            .read_resource_from("nope", "dyn://only-linked", None, None, None)
+            .is_err());
     }
 
     #[test]

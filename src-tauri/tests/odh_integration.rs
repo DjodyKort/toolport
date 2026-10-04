@@ -559,7 +559,7 @@ fn in_lazy_mode_the_odh_tools_are_reached_through_toolport_call_tool() {
 }
 
 #[test]
-fn resource_links_pass_through_and_only_listed_or_templated_uris_can_be_read() {
+fn resource_links_pass_through_and_listed_or_templated_uris_can_be_read() {
     let scratch = Scratch::new("resources");
     write_registry(&scratch, mock_entry(&scratch), |_| {});
     let mut client = Client::start(&scratch.0);
@@ -586,6 +586,41 @@ fn resource_links_pass_through_and_only_listed_or_templated_uris_can_be_read() {
         "a URI covered by a listed resource template is routable: {read}"
     );
 
+    assert_eq!(downstream_reads_of(&scratch, "odh://export/1"), 1);
+    assert_eq!(downstream_reads_of(&scratch, "odh://report/7"), 1);
+}
+
+fn downstream_reads_of(scratch: &Scratch, uri: &str) -> usize {
+    transcript(&scratch.transcript())
+        .into_iter()
+        .filter(|l| l["method"] == "resources/read" && l["params"]["uri"] == uri)
+        .count()
+}
+
+fn refusal_of(read: &Value) -> &str {
+    assert_eq!(read["error"]["code"], -32602, "{read}");
+    read["error"]["message"].as_str().unwrap_or_default()
+}
+
+#[test]
+fn a_link_to_an_unlisted_uri_is_read_from_the_server_that_returned_it() {
+    let scratch = Scratch::new("linked");
+    write_registry(&scratch, mock_entry(&scratch), |_| {});
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", json!({}));
+    client.wait_for_tool("odh__odoo_export_dynamic");
+
+    let before = client.request("resources/read", json!({"uri": "odh://dyn/42"}));
+    assert!(
+        refusal_of(&before).contains("Toolport: no server owns resource 'odh___dyn_42'"),
+        "a URI nobody listed is refused, with the URI sanitized in the message: {before}"
+    );
+    assert_eq!(
+        downstream_reads_of(&scratch, "odh://dyn/42"),
+        0,
+        "the refused read never reached the downstream server"
+    );
+
     let dynamic = client.call("odh__odoo_export_dynamic", json!({}), None);
     let uri = dynamic["result"]["content"][1]["uri"].as_str().unwrap();
     assert_eq!(
@@ -593,21 +628,87 @@ fn resource_links_pass_through_and_only_listed_or_templated_uris_can_be_read() {
         "the link itself is forwarded untouched"
     );
     let read = client.request("resources/read", json!({"uri": uri}));
-    assert_eq!(read["error"]["code"], -32602, "{read}");
-    assert!(
-        read["error"]["message"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("Toolport: no server owns resource 'odh___dyn_42'"),
-        "a link to a URI that is neither listed nor templated is refused at the gateway, with the URI sanitized in the message: {read}"
-    );
-    let reads = transcript(&scratch.transcript())
-        .into_iter()
-        .filter(|l| l["method"] == "resources/read")
-        .count();
     assert_eq!(
-        reads, 2,
-        "the refused read never reached the downstream server"
+        read["result"]["contents"][0]["text"], "body of odh://dyn/42",
+        "a URI the gateway relayed in a link is read from the server that returned it: {read}"
+    );
+    assert_eq!(downstream_reads_of(&scratch, "odh://dyn/42"), 1);
+
+    let other = client.request("resources/read", json!({"uri": "odh://dyn/43"}));
+    assert!(
+        refusal_of(&other).contains("no server owns resource"),
+        "only the URIs the gateway saw in a link are remembered: {other}"
+    );
+    assert_eq!(downstream_reads_of(&scratch, "odh://dyn/43"), 0);
+}
+
+#[test]
+fn a_link_returned_through_toolport_call_tool_is_readable_too() {
+    let scratch = Scratch::new("linked-lazy");
+    write_registry(&scratch, mock_entry(&scratch), |reg| {
+        reg.set_lazy_discovery(true)
+    });
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", json!({}));
+    let deadline = Instant::now() + Duration::from_secs(60);
+    loop {
+        let search = client.call("toolport_search_tools", json!({"server": "odh"}), None);
+        if text_of(&search).contains("odh__odoo_export_dynamic") {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "search never found the odh tools: {search}"
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    }
+
+    let reply = client.call(
+        "toolport_call_tool",
+        json!({"name": "odh__odoo_export_dynamic", "arguments": {}}),
+        None,
+    );
+    assert_eq!(
+        reply["result"]["content"][1]["uri"], "odh://dyn/42",
+        "{reply}"
+    );
+    let read = client.request("resources/read", json!({"uri": "odh://dyn/42"}));
+    assert_eq!(
+        read["result"]["contents"][0]["text"], "body of odh://dyn/42",
+        "{read}"
+    );
+}
+
+#[test]
+fn a_link_is_readable_only_in_the_session_that_was_given_it() {
+    let scratch = Scratch::new("linked-sessions");
+    write_registry(&scratch, mock_entry(&scratch), |_| {});
+    let mut first = Client::start(&scratch.0);
+    first.initialize("2025-06-18", json!({}));
+    first.wait_for_tool("odh__odoo_export_dynamic");
+    let mut second = Client::start(&scratch.0);
+    second.initialize("2025-06-18", json!({}));
+    second.wait_for_tool("odh__odoo_export_dynamic");
+
+    first.call("odh__odoo_export_dynamic", json!({}), None);
+    let read = first.request("resources/read", json!({"uri": "odh://dyn/42"}));
+    assert_eq!(
+        read["result"]["contents"][0]["text"], "body of odh://dyn/42",
+        "{read}"
+    );
+
+    let other = second.request("resources/read", json!({"uri": "odh://dyn/42"}));
+    assert!(
+        refusal_of(&other).contains("no server owns resource"),
+        "a second client of the shared gateway was never given the link: {other}"
+    );
+    assert_eq!(downstream_reads_of(&scratch, "odh://dyn/42"), 1);
+
+    second.call("odh__odoo_export_dynamic", json!({}), None);
+    let read = second.request("resources/read", json!({"uri": "odh://dyn/42"}));
+    assert_eq!(
+        read["result"]["contents"][0]["text"], "body of odh://dyn/42",
+        "{read}"
     );
 }
 

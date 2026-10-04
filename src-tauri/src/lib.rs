@@ -41,6 +41,7 @@ pub mod rate_limits;
 pub mod registry;
 pub mod registry_controller;
 pub mod remote;
+pub mod resource_links;
 pub mod router;
 pub mod routine_advisor;
 pub mod routine_candidates;

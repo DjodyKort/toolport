@@ -45,6 +45,7 @@ use conduit_lib::integrity;
 use conduit_lib::pii;
 use conduit_lib::registry::{self, Registry, ServerEntry};
 use conduit_lib::remote;
+use conduit_lib::resource_links;
 use conduit_lib::router::{
     is_destructive, sanitize_segment, Reconnect, Router, SharedServerSlot, ToolPolicy,
 };
@@ -4872,6 +4873,7 @@ fn execute_call(
             };
             let Defended { result: out, pii } =
                 defend_and_shape(reg, srv, tool, client, result, &trailer, shape);
+            session_tables().remember_links(client, server_id, &out);
             if let Some(profiler) = &mut call_profiler {
                 profiler.mark_postprocess();
             }
@@ -4985,6 +4987,7 @@ struct CallOpts {
 struct SessionTables {
     pii: Mutex<SessionStore<pii::SessionMap>>,
     hitl: Mutex<SessionStore<ModernHitlApproval>>,
+    links: Mutex<SessionStore<resource_links::SeenLinks>>,
 }
 
 impl SessionTables {
@@ -4999,6 +5002,7 @@ impl SessionTables {
                 MODERN_HITL_RETENTION,
                 MODERN_HITL_MAX_PENDING,
             )),
+            links: Mutex::new(SessionStore::new(MCP_SESSION_TTL, MCP_SESSION_MAX)),
         }
     }
 
@@ -5015,6 +5019,47 @@ impl SessionTables {
         sessions.get_or_insert_with(&conversation_scope(client), pii::SessionMap::new, f)
     }
 
+    /// Remember the `resource_link` URIs in a result the client is about to get from
+    /// `server`, so a later `resources/read` of one the server never listed can go
+    /// back to it.
+    fn remember_links(&self, client: Option<&str>, server: &str, result: &Value) {
+        let mut uris = resource_links::link_uris(result).peekable();
+        if uris.peek().is_none() {
+            return;
+        }
+        let mut sessions = self
+            .links
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        sessions.get_or_insert_with(
+            &conversation_scope(client),
+            resource_links::SeenLinks::default,
+            |seen| {
+                for uri in uris {
+                    seen.remember(server, uri);
+                }
+            },
+        );
+    }
+
+    /// The server that returned a link to `uri` in the current conversation.
+    fn link_owner(&self, client: Option<&str>, uri: &str) -> Option<String> {
+        self.links
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .with(&conversation_scope(client), |seen| {
+                seen.owner(uri).map(str::to_string)
+            })
+            .flatten()
+    }
+
+    fn forget_links(&self, scope: &str) {
+        self.links
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(scope);
+    }
+
     /// Forget everything mapped for the current conversation.
     fn clear_pii(&self, client: Option<&str>) {
         let scope = conversation_scope(client);
@@ -5022,6 +5067,7 @@ impl SessionTables {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .remove(&scope);
+        self.forget_links(&scope);
         self.hitl()
             .remove_where(|_, pending| pending.scope == scope);
     }
@@ -5032,6 +5078,7 @@ impl SessionTables {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .remove(&scope);
+        self.forget_links(&scope);
         self.hitl()
             .remove_where(|_, pending| pending.scope == scope);
     }
@@ -8730,12 +8777,21 @@ fn handle_request_with_cancel(
                 .and_then(|p| p.get("uri"))
                 .and_then(|u| u.as_str())
                 .unwrap_or("");
+            // A URI no server lists and no template covers is still readable when this
+            // conversation was given a link to it: the read goes to the server that
+            // returned the link. A listed or templated URI keeps its owner.
+            let linked_owner = match router.resource_server(uri) {
+                Some(_) => None,
+                None => session_tables()
+                    .link_owner(client, uri)
+                    .filter(|server| router.has_server(server)),
+            };
+            let owner = router.resource_server(uri).or(linked_owner.as_deref());
             // Scope guard: a registered HTTP client may only read resources on servers
             // its token allows. Out-of-scope is reported as not-found so a scoped client
             // can't probe another server's resource names.
             if let Some(set) = allowed {
-                let in_scope = router
-                    .resource_server(uri)
+                let in_scope = owner
                     .map(|srv| server_in_allowed_scope(srv, set))
                     .unwrap_or(false);
                 if !in_scope {
@@ -8751,17 +8807,27 @@ fn handle_request_with_cancel(
             }
             let client_meta = params.and_then(|p| p.get("_meta")).cloned();
             let mrtr = MrtrRequest::from_params(params);
-            let (_progress_route, relay_owned) = match router.resource_server(uri) {
+            let (_progress_route, relay_owned) = match owner {
                 Some(owner) => prepare_progress(client_meta.as_ref(), owner),
                 None => (None, None),
             };
             let client_meta = relay_owned.or(client_meta);
-            match router.read_resource_with_cancel_and_mrtr(
-                uri,
-                cancel.clone(),
-                client_meta.as_ref(),
-                (!mrtr.is_empty()).then_some(&mrtr),
-            ) {
+            let read = match linked_owner.as_deref() {
+                Some(server) => router.read_resource_from(
+                    server,
+                    uri,
+                    cancel.clone(),
+                    client_meta.as_ref(),
+                    (!mrtr.is_empty()).then_some(&mrtr),
+                ),
+                None => router.read_resource_with_cancel_and_mrtr(
+                    uri,
+                    cancel.clone(),
+                    client_meta.as_ref(),
+                    (!mrtr.is_empty()).then_some(&mrtr),
+                ),
+            };
+            match read {
                 Ok(mut result) => {
                     // MCP App HTML is executable UI payload for the host's
                     // sandbox, not model-facing resource text. The Apps spec
@@ -8770,9 +8836,7 @@ fn handle_request_with_cancel(
                     // this path after the modern host explicitly negotiates UI
                     // support and the response matches the reserved URI + MIME.
                     let preserve_mcp_app = relays_mcp_app_html_to_active_client(router, allowed)
-                        && router
-                            .resource_server(uri)
-                            .is_some_and(|server| server_supports_mcp_app_html(router, server))
+                        && owner.is_some_and(|server| server_supports_mcp_app_html(router, server))
                         && is_mcp_app_resource_result(uri, &result);
                     // Content defense: a resource is as attacker-controllable as a tool
                     // result, so scan it for injection and label any flagged text as data.
@@ -8786,7 +8850,7 @@ fn handle_request_with_cancel(
                         // resource's values are credited to the server that served it.
                         // PII origins stay on the raw registry id (see
                         // a_resource_and_a_tool_on_one_server_share_an_origin_identity).
-                        let owner = router.resource_server(uri).unwrap_or(uri);
+                        let owner = owner.unwrap_or(uri);
                         pseudonymize_if_enabled(reg, client, owner, &mut result);
                         // Always-on: do not let a resource body speak as Toolport
                         // when content defense is off (SBS-896). Skip MCP App HTML.
@@ -8795,7 +8859,6 @@ fn handle_request_with_cancel(
                     if !preserve_mcp_app
                         && (reg.content_defense_effective() || reg.block_on_injection_effective())
                     {
-                        let owner = router.resource_server(uri);
                         // Wrapper / block message get a sanitized owner, never the
                         // raw URI (SBS-896). Exempt-map lookup keeps the raw owner.
                         let wrapper_label = owner
@@ -8826,8 +8889,7 @@ fn handle_request_with_cancel(
                     &format!(
                         "Toolport: {}",
                         integrity::defend_error_text(
-                            &router
-                                .resource_server(uri)
+                            &owner
                                 .map(integrity::sanitize_wrapper_label)
                                 .unwrap_or_else(|| "resource".to_string()),
                             &e,
@@ -24764,6 +24826,253 @@ mod tests {
         let mut r = Router::new();
         r.add(ds);
         r
+    }
+
+    struct LinkRoute {
+        label: &'static str,
+        listed: Option<&'static str>,
+        links: Vec<&'static str>,
+    }
+
+    impl conduit_lib::downstream::Transport for LinkRoute {
+        fn request(
+            &mut self,
+            method: &str,
+            params: Value,
+        ) -> Result<Value, conduit_lib::downstream::TransportError> {
+            match method {
+                "initialize" => Ok(json!({
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": { "resources": {} }
+                })),
+                "tools/list" => Ok(json!({
+                    "tools": [{
+                        "name": "make",
+                        "description": "returns resource links",
+                        "inputSchema": { "type": "object" }
+                    }]
+                })),
+                "tools/call" => {
+                    let mut content = vec![json!({ "type": "text", "text": "made" })];
+                    for uri in &self.links {
+                        content
+                            .push(json!({ "type": "resource_link", "uri": uri, "name": "linked" }));
+                    }
+                    Ok(json!({ "content": content, "isError": false }))
+                }
+                "resources/list" => Ok(json!({
+                    "resources": self.listed.iter()
+                        .map(|uri| json!({ "uri": uri, "name": "listed" }))
+                        .collect::<Vec<_>>()
+                })),
+                "resources/read" => Ok(json!({
+                    "contents": [{
+                        "uri": params["uri"],
+                        "text": format!("{} read {}", self.label, params["uri"].as_str().unwrap_or(""))
+                    }]
+                })),
+                other => Err(conduit_lib::downstream::TransportError::Fatal(format!(
+                    "unexpected {other}"
+                ))),
+            }
+        }
+
+        fn notify(
+            &mut self,
+            _method: &str,
+            _params: Value,
+        ) -> Result<(), conduit_lib::downstream::TransportError> {
+            Ok(())
+        }
+    }
+
+    fn link_router() -> Router {
+        let mut router = Router::new();
+        let routes = [
+            LinkRoute {
+                label: "alpha",
+                listed: None,
+                links: vec!["alpha://only-linked", "beta://listed"],
+            },
+            LinkRoute {
+                label: "beta",
+                listed: Some("beta://listed"),
+                links: Vec::new(),
+            },
+        ];
+        for route in routes {
+            let mut server =
+                DownstreamServer::connect(route.label.to_string(), Box::new(route)).unwrap();
+            server.load_resources_prompts();
+            router.add(server);
+        }
+        router
+    }
+
+    fn read_resource_as(
+        host: &HostState,
+        router: &Router,
+        uri: &str,
+        allowed: Option<&std::collections::HashSet<String>>,
+        client: Option<&str>,
+    ) -> Value {
+        handle_request(
+            host,
+            &json!({ "jsonrpc": "2.0", "id": 9, "method": "resources/read", "params": { "uri": uri } }),
+            &Registry::default(),
+            router,
+            &[],
+            false,
+            None,
+            &SearchGuard::default(),
+            &ConfirmGuard::new(),
+            allowed,
+            client,
+        )
+        .unwrap()
+    }
+
+    fn call_make_as(host: &HostState, router: &Router, tool: &str, client: Option<&str>) -> Value {
+        handle_request(
+            host,
+            &json!({
+                "jsonrpc": "2.0", "id": 8, "method": "tools/call",
+                "params": { "name": tool, "arguments": {} }
+            }),
+            &Registry::default(),
+            router,
+            &router.aggregated_tools(),
+            false,
+            None,
+            &SearchGuard::default(),
+            &ConfirmGuard::new(),
+            None,
+            client,
+        )
+        .unwrap()
+    }
+
+    /// G6: a `resource_link` to a URI no server lists and no template covers can be read
+    /// once the gateway has relayed the link, from the server that returned it.
+    #[test]
+    fn a_relayed_resource_link_makes_its_uri_readable_from_the_server_that_returned_it() {
+        let _data_env = DataDirTestEnv::new("relayed_resource_link_is_readable");
+        let host = dispatch_host(false);
+        let router = link_router();
+        let client = Some("link-client");
+
+        let before = read_resource_as(&host, &router, "alpha://only-linked", None, client);
+        assert_eq!(before["error"]["code"], -32602, "{before}");
+        assert!(
+            before["error"]["message"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("no server owns resource"),
+            "{before}"
+        );
+
+        let made = call_make_as(&host, &router, "alpha__make", client);
+        assert_eq!(made["result"]["content"][1]["uri"], "alpha://only-linked");
+
+        let read = read_resource_as(&host, &router, "alpha://only-linked", None, client);
+        assert_eq!(
+            read["result"]["contents"][0]["text"], "alpha read alpha://only-linked",
+            "{read}"
+        );
+
+        let never_linked = read_resource_as(&host, &router, "alpha://never-linked", None, client);
+        assert_eq!(never_linked["error"]["code"], -32602, "{never_linked}");
+    }
+
+    /// A link never moves a read away from the server that lists the URI: the first
+    /// server to list a resource keeps it (SOU-325), whoever links to it afterwards.
+    #[test]
+    fn a_resource_link_does_not_take_a_listed_uri_from_the_server_that_lists_it() {
+        let _data_env = DataDirTestEnv::new("link_does_not_take_a_listed_uri");
+        let host = dispatch_host(false);
+        let router = link_router();
+        let client = Some("link-client-listed");
+
+        call_make_as(&host, &router, "alpha__make", client);
+        let read = read_resource_as(&host, &router, "beta://listed", None, client);
+        assert_eq!(
+            read["result"]["contents"][0]["text"], "beta read beta://listed",
+            "{read}"
+        );
+    }
+
+    /// A link is remembered for the conversation that was given it. Another session and a
+    /// client scoped away from the server get the ordinary refusal, and a session that
+    /// ends takes its links with it.
+    #[test]
+    fn a_remembered_link_is_readable_only_in_its_own_session_and_scope() {
+        let _data_env = DataDirTestEnv::new("link_is_session_and_scope_bound");
+        let host = dispatch_host(false);
+        let router = link_router();
+        let client = Some("link-client-session");
+
+        {
+            let _session = McpSessionGuard::enter(Some("link-session-a".to_string()));
+            call_make_as(&host, &router, "alpha__make", client);
+            let own = read_resource_as(&host, &router, "alpha://only-linked", None, client);
+            assert!(own.get("result").is_some(), "{own}");
+
+            let beta_only: std::collections::HashSet<String> = ["beta".to_string()].into();
+            let scoped = read_resource_as(
+                &host,
+                &router,
+                "alpha://only-linked",
+                Some(&beta_only),
+                client,
+            );
+            assert_eq!(scoped["error"]["code"], -32602, "{scoped}");
+
+            let alpha_only: std::collections::HashSet<String> = ["alpha".to_string()].into();
+            let allowed = read_resource_as(
+                &host,
+                &router,
+                "alpha://only-linked",
+                Some(&alpha_only),
+                client,
+            );
+            assert!(allowed.get("result").is_some(), "{allowed}");
+        }
+        {
+            let _session = McpSessionGuard::enter(Some("link-session-b".to_string()));
+            let other = read_resource_as(&host, &router, "alpha://only-linked", None, client);
+            assert_eq!(other["error"]["code"], -32602, "{other}");
+        }
+        {
+            let _session = McpSessionGuard::enter(Some("link-session-a".to_string()));
+            clear_mcp_session_tables("link-session-a");
+            let ended = read_resource_as(&host, &router, "alpha://only-linked", None, client);
+            assert_eq!(ended["error"]["code"], -32602, "{ended}");
+        }
+    }
+
+    /// A link to a server the router no longer has is not read from anywhere.
+    #[test]
+    fn a_remembered_link_is_refused_once_its_server_is_gone() {
+        let _data_env = DataDirTestEnv::new("link_refused_when_server_gone");
+        let host = dispatch_host(false);
+        let router = link_router();
+        let client = Some("link-client-gone");
+
+        call_make_as(&host, &router, "alpha__make", client);
+        let mut only_beta = Router::new();
+        let mut beta = DownstreamServer::connect(
+            "beta".to_string(),
+            Box::new(LinkRoute {
+                label: "beta",
+                listed: Some("beta://listed"),
+                links: Vec::new(),
+            }),
+        )
+        .unwrap();
+        beta.load_resources_prompts();
+        only_beta.add(beta);
+        let read = read_resource_as(&host, &only_beta, "alpha://only-linked", None, client);
+        assert_eq!(read["error"]["code"], -32602, "{read}");
     }
 
     /// One host whose host-scoped fields ARE the Arcs a watcher test builds locally.
