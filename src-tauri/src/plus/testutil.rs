@@ -1,5 +1,8 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Condvar, Mutex};
+use std::time::Duration;
 
 #[cfg(unix)]
 #[path = "../../tests/common/exec.rs"]
@@ -97,4 +100,48 @@ pub(crate) fn tree_snapshot(root: &Path) -> BTreeMap<String, Option<Vec<u8>>> {
         }
     }
     out
+}
+
+/// Holds the first `size` callers of `pass` until all of them are inside at once, so
+/// getting through proves they ran concurrently whatever the runner's speed. The 30 s
+/// timeout only keeps a regression from hanging the suite; `timed_out` reports it.
+pub(crate) struct Gate {
+    size: usize,
+    arrived: Mutex<usize>,
+    open: Condvar,
+    timed_out: AtomicBool,
+}
+
+impl Gate {
+    pub(crate) fn new(size: usize) -> Arc<Self> {
+        Arc::new(Self {
+            size,
+            arrived: Mutex::new(0),
+            open: Condvar::new(),
+            timed_out: AtomicBool::new(false),
+        })
+    }
+
+    pub(crate) fn pass(&self) {
+        let mut arrived = self.arrived.lock().unwrap_or_else(|e| e.into_inner());
+        if *arrived >= self.size {
+            return;
+        }
+        *arrived += 1;
+        if *arrived == self.size {
+            self.open.notify_all();
+            return;
+        }
+        let (_arrived, wait) = self
+            .open
+            .wait_timeout_while(arrived, Duration::from_secs(30), |n| *n < self.size)
+            .unwrap_or_else(|e| e.into_inner());
+        if wait.timed_out() {
+            self.timed_out.store(true, Ordering::SeqCst);
+        }
+    }
+
+    pub(crate) fn timed_out(&self) -> bool {
+        self.timed_out.load(Ordering::SeqCst)
+    }
 }

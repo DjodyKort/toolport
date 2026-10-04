@@ -1157,6 +1157,7 @@ struct SlowHttp {
     live: Arc<std::sync::atomic::AtomicUsize>,
     peak: Arc<std::sync::atomic::AtomicUsize>,
     delay_ms: u64,
+    gate: Option<Arc<crate::plus::testutil::Gate>>,
 }
 
 impl HttpClient for SlowHttp {
@@ -1164,6 +1165,9 @@ impl HttpClient for SlowHttp {
         use std::sync::atomic::Ordering::SeqCst;
         let now = self.live.fetch_add(1, SeqCst) + 1;
         self.peak.fetch_max(now, SeqCst);
+        if let Some(gate) = &self.gate {
+            gate.pass();
+        }
         std::thread::sleep(Duration::from_millis(self.delay_ms));
         self.live.fetch_sub(1, SeqCst);
         let name = url.rsplit('/').nth(1).unwrap_or("x");
@@ -1199,24 +1203,26 @@ fn slow_env(http: &SlowHttp) -> Env {
 #[test]
 fn the_check_pool_is_bounded_keeps_order_and_overlaps_lookups() {
     use std::sync::atomic::Ordering::SeqCst;
+    let gate = crate::plus::testutil::Gate::new(CHECK_WORKERS);
     let http = SlowHttp {
         delay_ms: 40,
+        gate: Some(Arc::clone(&gate)),
         ..Default::default()
     };
     let env = slow_env(&http);
     let mut entries = many_pinned(13);
-    let started = std::time::Instant::now();
     let report = run(&env, &mut entries, &Options::new(Mode::Check)).unwrap();
-    let took = started.elapsed();
     let ids: Vec<String> = report.servers.iter().map(|s| s.id.clone()).collect();
     assert_eq!(ids, (0..13).map(|i| format!("s{i}")).collect::<Vec<_>>());
     assert!(report
         .servers
         .iter()
         .all(|s| s.status == Status::UpdateAvailable));
-    let peak = http.peak.load(SeqCst);
-    assert!((2..=CHECK_WORKERS).contains(&peak), "peak {peak}");
-    assert!(took < Duration::from_millis(13 * 40), "took {took:?}");
+    assert!(
+        !gate.timed_out(),
+        "the first {CHECK_WORKERS} lookups never ran at the same time"
+    );
+    assert_eq!(http.peak.load(SeqCst), CHECK_WORKERS);
 }
 
 #[test]
