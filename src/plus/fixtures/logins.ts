@@ -138,10 +138,15 @@ export const loginsStatus: StatusData = {
   },
 };
 
+export const statusFor = (rows: AuthRow[]): StatusData => ({
+  ...loginsStatus,
+  auth: { counts: counts(rows), servers: rows },
+});
+
 const worst = (rows: AuthRow[]) =>
   rows.filter((entry) => entry.fix !== null).map((entry) => entry.server);
 
-const statuslineOf = (rows: AuthRow[]) => {
+export const statuslineOf = (rows: AuthRow[]) => {
   const tally = counts(rows);
   const names = worst(rows).slice(0, 3);
   const parts = [
@@ -170,7 +175,7 @@ const statuslineOf = (rows: AuthRow[]) => {
   };
 };
 
-const hookOf = (rows: AuthRow[]) => {
+export const hookOf = (rows: AuthRow[]) => {
   const base = statuslineOf(rows);
   const issues = rows.filter((entry) => entry.fix !== null);
   if (issues.length === 0) return base;
