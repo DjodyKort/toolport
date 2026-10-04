@@ -41,6 +41,12 @@
       "view": "context",
       "status": "built",
       "component": "src/plus/context/ContextScreen.tsx"
+    },
+    "system": {
+      "title": "System",
+      "view": "system",
+      "status": "built",
+      "component": "src/plus/system/SystemScreen.tsx"
     }
   },
   "actions": {
@@ -661,6 +667,138 @@
       "status": "built",
       "test": "src/plus/usage/OtelCard.test.tsx",
       "summary": "Disable the OTel receiver and remove the keys Toolport wrote after a preview (obs otel disable)"
+    },
+    "system.sync-status": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/SyncTab.e2e.test.tsx",
+      "summary": "Sync card: machine, backend, repository, last sync and key file; Not set up with a Set up sync action; what a bundle holds and never holds"
+    },
+    "system.sync-diff": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/SyncTab.e2e.test.tsx",
+      "summary": "Differences from the remote: new, changed, removed and conflicting files, or In sync"
+    },
+    "system.sync-init": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/SyncTab.e2e.test.tsx",
+      "summary": "Set up or reconfigure sync: plan, passphrase twice on stdin, never in argv or DOM"
+    },
+    "system.sync-push": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/SyncTab.e2e.test.tsx",
+      "summary": "Push to the bundle: dry-run plan, typed confirmation, apply, last sync changes"
+    },
+    "system.sync-pull": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/SyncTab.e2e.test.tsx",
+      "summary": "Pull from the bundle: dry-run plan with conflicts, apply, local files change"
+    },
+    "system.sync-reset": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/SyncTab.e2e.test.tsx",
+      "summary": "Reset the local sync setup: plan, typed confirmation, back to Not set up"
+    },
+    "system.sync-rotate": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/SyncTab.e2e.test.tsx",
+      "summary": "Rotate the bundle passphrase: new passphrase twice on stdin, typed confirmation"
+    },
+    "system.sync-project-add": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/SyncTab.e2e.test.tsx",
+      "summary": "Add a project folder and its files to the sync set"
+    },
+    "system.sync-project-remove": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/SyncTab.e2e.test.tsx",
+      "summary": "Remove a project from the sync set"
+    },
+    "system.sync-git": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/SyncTab.e2e.test.tsx",
+      "summary": "Git sync of the data folder: status, set up, remove the setup"
+    },
+    "system.sync-migrate": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/SyncTab.e2e.test.tsx",
+      "summary": "Import an mcpm sync bundle: folder and its passphrase on stdin"
+    },
+    "system.update-check": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/UpdatesTab.e2e.test.tsx",
+      "summary": "Server updates: check all or one server, per-row state, version and post_update command; apply with a dry-run plan, allow-commands and allow-unverified opt-ins; detect sources (--init)"
+    },
+    "system.council-install": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/CouncilTab.e2e.test.tsx",
+      "summary": "Install the council: plan, then the API key into the vault on stdin"
+    },
+    "system.council-uninstall": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/CouncilTab.e2e.test.tsx",
+      "summary": "Uninstall the council with a typed confirmation, optionally deleting the stored key"
+    },
+    "system.council-doctor": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/CouncilTab.e2e.test.tsx",
+      "summary": "Council doctor checks; a failing check is shown, not hidden"
+    },
+    "system.council-tools": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/CouncilTab.e2e.test.tsx",
+      "summary": "Council tools and resources"
+    },
+    "system.import-mcpm": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/ImportTab.e2e.test.tsx",
+      "summary": "mcpm importer: the preview is the dry-run plan, apply, rejects shown, name map"
+    },
+    "system.import-rename-refs": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/ImportTab.e2e.test.tsx",
+      "summary": "Rewrite old tool references: dry-run plan, orphan report with wildcard cases, apply"
+    },
+    "system.mcp-install": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/SelfTab.e2e.test.tsx",
+      "summary": "Install the self-management server, optionally into a profile"
+    },
+    "system.mcp-uninstall": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/SelfTab.e2e.test.tsx",
+      "summary": "Turn the self-management server off with a typed confirmation"
+    },
+    "system.mcp-doctor": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/SelfTab.e2e.test.tsx",
+      "summary": "Self-management state and doctor checks"
+    },
+    "system.mcp-tools": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/SelfTab.e2e.test.tsx",
+      "summary": "Tool catalogue with tiers and gates, resources, connect-a-client snippet"
     }
   },
   "owners": {
@@ -978,23 +1116,23 @@
       "surface": "screen"
     },
     "council doctor": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.council-doctor",
       "surface": "screen"
     },
     "council install": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.council-install",
       "surface": "screen"
     },
     "council tools": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.council-tools",
       "surface": "screen"
     },
     "council uninstall": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.council-uninstall",
       "surface": "screen"
     },
     "direct run": {
@@ -1013,13 +1151,13 @@
       "surface": "screen"
     },
     "import mcpm": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.import-mcpm",
       "surface": "screen"
     },
     "import rename-refs": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.import-rename-refs",
       "surface": "screen"
     },
     "inspect": {
@@ -1033,23 +1171,23 @@
       "surface": "screen"
     },
     "mcp doctor": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.mcp-doctor",
       "surface": "screen"
     },
     "mcp install": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.mcp-install",
       "surface": "screen"
     },
     "mcp tools": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.mcp-tools",
       "surface": "screen"
     },
     "mcp uninstall": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.mcp-uninstall",
       "surface": "screen"
     },
     "obs otel disable": {
@@ -1318,63 +1456,63 @@
       "surface": "screen"
     },
     "sync add-project": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.sync-project-add",
       "surface": "screen"
     },
     "sync diff": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.sync-diff",
       "surface": "screen"
     },
     "sync git-sync": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.sync-git",
       "surface": "screen"
     },
     "sync init": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.sync-init",
       "surface": "screen"
     },
     "sync migrate": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.sync-migrate",
       "surface": "screen"
     },
     "sync pull": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.sync-pull",
       "surface": "screen"
     },
     "sync push": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.sync-push",
       "surface": "screen"
     },
     "sync remove-project": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.sync-project-remove",
       "surface": "screen"
     },
     "sync reset": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.sync-reset",
       "surface": "screen"
     },
     "sync rotate-passphrase": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.sync-rotate",
       "surface": "screen"
     },
     "sync status": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.sync-status",
       "surface": "screen"
     },
     "update": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.update-check",
       "surface": "screen"
     },
     "usage": {
@@ -1800,8 +1938,8 @@
       "surface": "screen"
     },
     "sync_push": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.sync-push",
       "surface": "screen"
     },
     "where_am_i": {
