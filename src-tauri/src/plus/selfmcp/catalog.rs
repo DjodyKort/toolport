@@ -21,6 +21,7 @@ pub struct Param {
     pub ty: Ty,
     pub required: bool,
     pub desc: &'static str,
+    pub default: Option<bool>,
 }
 
 pub type Runner = fn(&Value) -> Result<Value, ToolError>;
@@ -47,6 +48,14 @@ const fn p(name: &'static str, ty: Ty, required: bool, desc: &'static str) -> Pa
         ty,
         required,
         desc,
+        default: None,
+    }
+}
+
+const fn on_by_default(param: Param) -> Param {
+    Param {
+        default: Some(true),
+        ..param
     }
 }
 
@@ -55,6 +64,12 @@ const NAME: Param = p("name", Ty::Str, true, "Entity or server name");
 const CLIENTS: Param = p("client_keys", Ty::StrList, false, "Client keys to target");
 const DRY: Param = p("dry_run", Ty::Bool, false, "Report without writing");
 const BODY: Param = p("new_body", Ty::Str, true, "Replacement body");
+const DRY_ON: Param = on_by_default(p(
+    "dry_run",
+    Ty::Bool,
+    false,
+    "Report without writing; true unless you pass false to apply",
+));
 const COMMIT: Param = p("commit_message", Ty::Str, true, "Commit message");
 
 macro_rules! tool {
@@ -143,6 +158,56 @@ pub const TOOLS: &[ToolDef] = &[
                 false,
                 "Back up and replace files that shadow a synced skill; otherwise they are only reported"
             )
+        ]
+    ),
+    tool!(
+        "skills_tap_list",
+        1,
+        None,
+        "List the registered skill taps (git sources) and whether each is cloned",
+        []
+    ),
+    tool!(
+        "skills_search",
+        1,
+        None,
+        "Search the cloned taps for skills by name, description or tags",
+        [p("query", Ty::Str, true, "Text to look for")]
+    ),
+    tool!(
+        "skills_tap_add",
+        2,
+        None,
+        "Register a tap and clone it; dry_run is on by default",
+        [
+            p("repo", Ty::Str, true, "user/repo on GitHub, or an https, ssh or file git URL"),
+            p("name", Ty::Str, false, "Tap name, default derived from the source"),
+            DRY_ON
+        ]
+    ),
+    tool!(
+        "skills_tap_remove",
+        2,
+        None,
+        "Unregister a tap and delete its clone; dry_run is on by default",
+        [NAME, DRY_ON]
+    ),
+    tool!(
+        "skills_tap_update",
+        2,
+        None,
+        "Pull one tap or all of them; dry_run is on by default",
+        [p("name", Ty::Str, false, "Limit to one tap"), DRY_ON]
+    ),
+    tool!(
+        "skills_install",
+        2,
+        None,
+        "Install the skills of @user/repo[/skill] from a tap into the skills repository after a security audit; dry_run is on by default",
+        [
+            p("spec", Ty::Str, true, "@user/repo, @user/repo/skill or with @version"),
+            REPO,
+            DRY_ON
         ]
     ),
     tool!(
@@ -597,6 +662,9 @@ pub fn input_schema(tool: &ToolDef) -> Value {
     for param in tool.params {
         let mut schema = ty_schema(param.ty);
         schema["description"] = json!(param.desc);
+        if let Some(default) = param.default {
+            schema["default"] = json!(default);
+        }
         props.insert(param.name.to_string(), schema);
         if param.required {
             required.push(json!(param.name));
