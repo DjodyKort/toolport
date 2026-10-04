@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { forkEgressDisabled, isUpstreamEgressUrl } from "@/lib/fork";
+import { isEgressRefused } from "@/lib/fork";
 
 /**
  * Open an external link, but only real web URLs.
@@ -39,7 +39,7 @@ export function openExternal(url: string | null | undefined): Promise<void> {
     console.warn(`openExternal: refusing to open non-web URL: ${url}`);
     return Promise.resolve();
   }
-  if (forkEgressDisabled() && isUpstreamEgressUrl(url)) {
+  if (isEgressRefused(url)) {
     console.warn(
       `openExternal: upstream hosted services are disabled in this fork: ${url}`,
     );
