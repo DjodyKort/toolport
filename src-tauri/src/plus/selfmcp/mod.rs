@@ -187,10 +187,33 @@ fn gate_passes(tool: &ToolDef, args: &Value) -> bool {
     }
 }
 
-fn previews_by_default(tool: &ToolDef) -> bool {
+pub fn previews_by_default(tool: &ToolDef) -> bool {
     tool.params
         .iter()
         .any(|p| p.name == "dry_run" && p.default == Some(true))
+}
+
+/// What a form needs per argument: the declared parameters, then `confirm` for a gated tool.
+pub fn tool_params(tool: &ToolDef) -> Vec<Value> {
+    let name = |ty: catalog::Ty| match ty {
+        catalog::Ty::Str => "string",
+        catalog::Ty::Bool => "boolean",
+        catalog::Ty::Obj => "object",
+        catalog::Ty::StrList => "string[]",
+        catalog::Ty::Int => "integer",
+    };
+    let mut params: Vec<Value> = tool
+        .params
+        .iter()
+        .map(|p| json!({"name": p.name, "type": name(p.ty), "required": p.required, "description": p.desc}))
+        .collect();
+    if tool.gate != Gate::None {
+        params.push(json!({
+            "name": "confirm", "type": "boolean", "required": false,
+            "description": "Must be true to run this tool",
+        }));
+    }
+    params
 }
 
 fn refusal(tool: &ToolDef) -> ToolError {

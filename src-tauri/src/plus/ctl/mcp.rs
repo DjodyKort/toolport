@@ -1,13 +1,17 @@
 //! `toolportctl mcp install|uninstall|doctor|tools`: lifecycle of the self-management server.
 
-use super::flags::{value, Spec};
+use super::flags::{switch, value, Inline, Operands, Spec};
 use super::output::{CtlError, Output};
+use crate::plus::redact;
 use crate::plus::registry_ro;
 use crate::plus::selfmcp::{self, register, Gate, RESOURCES, TOOLS};
 use serde_json::{json, Value};
+use std::io::Read;
 use std::path::Path;
 
-const USAGE: &str = "usage: mcp <install [--profile <id>] | uninstall | doctor | tools>";
+const USAGE: &str =
+    "usage: mcp <install [--profile <id>] | uninstall | doctor | tools | call <tool> [--args <json> | --args-stdin]>";
+const CALL_USAGE: &str = "usage: mcp call <tool> [--args <json> | --args-stdin]";
 
 pub fn run(rest: &[String]) -> Result<Output, CtlError> {
     let Some((sub, args)) = rest.split_first() else {
@@ -18,6 +22,7 @@ pub fn run(rest: &[String]) -> Result<Output, CtlError> {
         "uninstall" => Spec::NONE.parse(args).and_then(|_| uninstall()),
         "doctor" => Spec::NONE.parse(args).and_then(|_| doctor()),
         "tools" => Spec::NONE.parse(args).and_then(|_| tools()),
+        "call" => call(args),
         _ => Err(CtlError::usage(USAGE)),
     }
 }
@@ -26,6 +31,137 @@ pub(super) const INSTALL: Spec = Spec {
     flags: &[value("--profile").needs("a profile id")],
     ..Spec::NONE
 };
+
+pub(super) const CALL: Spec = Spec {
+    flags: &[
+        value("--args").needs("a JSON object"),
+        switch("--args-stdin"),
+    ],
+    inline: Inline::Value,
+    operands: Operands::Max(1, CALL_USAGE),
+    ..Spec::NONE
+};
+
+const TOKEN_PREFIXES: &[&str] = &[
+    "sk-", "ghp_", "gho_", "github_pat_", "xoxb-", "xoxp-", "xoxa-", "AKIA", "Bearer ", "eyJ",
+    "-----BEGIN",
+];
+const SECRET_MAPS: &[&str] = &["env", "headers"];
+
+fn edit_distance(a: &str, b: &str) -> usize {
+    let b: Vec<char> = b.chars().collect();
+    let mut row: Vec<usize> = (0..=b.len()).collect();
+    for (i, ca) in a.chars().enumerate() {
+        let mut diagonal = row[0];
+        row[0] = i + 1;
+        for (j, cb) in b.iter().enumerate() {
+            let above = row[j + 1];
+            row[j + 1] = (diagonal + usize::from(ca != *cb))
+                .min(row[j] + 1)
+                .min(above + 1);
+            diagonal = above;
+        }
+    }
+    row[b.len()]
+}
+
+fn closest_tools(asked: &str) -> Vec<&'static str> {
+    let limit = (asked.len() / 3).max(3);
+    let mut scored: Vec<(usize, &'static str)> = TOOLS
+        .iter()
+        .map(|t| {
+            let near = t.name.contains(asked) || asked.contains(t.name);
+            (if near { 0 } else { edit_distance(asked, t.name) }, t.name)
+        })
+        .filter(|(score, _)| *score <= limit)
+        .collect();
+    scored.sort();
+    scored.into_iter().take(5).map(|(_, name)| name).collect()
+}
+
+fn unknown_tool(asked: &str) -> CtlError {
+    let close = closest_tools(asked);
+    CtlError::usage(if close.is_empty() {
+        format!("unknown tool: {asked}; `toolportctl mcp tools` lists them")
+    } else {
+        format!("unknown tool: {asked}; closest: {}", close.join(", "))
+    })
+}
+
+fn secret_at(value: &Value, path: &str, in_secret_map: bool) -> Option<String> {
+    match value {
+        Value::String(text) if !text.is_empty() => {
+            let token = TOKEN_PREFIXES.iter().any(|p| text.starts_with(p));
+            (token || in_secret_map).then(|| path.to_string())
+        }
+        Value::Object(map) => map.iter().find_map(|(key, inner)| {
+            let here = if path.is_empty() {
+                key.clone()
+            } else {
+                format!("{path}.{key}")
+            };
+            if redact::sensitive_key(key)
+                && matches!(inner, Value::String(_) | Value::Array(_) | Value::Object(_))
+                && inner.as_str() != Some("")
+            {
+                return Some(here);
+            }
+            let maps = in_secret_map || SECRET_MAPS.contains(&key.to_ascii_lowercase().as_str());
+            secret_at(inner, &here, maps)
+        }),
+        Value::Array(items) => items
+            .iter()
+            .enumerate()
+            .find_map(|(i, inner)| secret_at(inner, &format!("{path}[{i}]"), in_secret_map)),
+        _ => None,
+    }
+}
+
+fn parse_arguments(text: &str, source: &str) -> Result<Value, CtlError> {
+    if text.trim().is_empty() {
+        return Ok(json!({}));
+    }
+    let parsed: Value = serde_json::from_str(text)
+        .map_err(|e| CtlError::usage(format!("{source} is not valid JSON: {e}")))?;
+    if parsed.is_object() {
+        Ok(parsed)
+    } else {
+        Err(CtlError::usage(format!("{source} must be one JSON object")))
+    }
+}
+
+fn call(args: &[String]) -> Result<Output, CtlError> {
+    let flags = CALL.parse(args)?;
+    let asked = flags.single(CALL_USAGE)?;
+    let inline = flags.one("--args");
+    let from_stdin = flags.on("--args-stdin");
+    if inline.is_some() && from_stdin {
+        return Err(CtlError::usage("--args and --args-stdin are exclusive"));
+    }
+    let tool = selfmcp::find_tool(asked).ok_or_else(|| unknown_tool(asked))?;
+    let arguments = if from_stdin {
+        let mut text = String::new();
+        std::io::stdin()
+            .read_to_string(&mut text)
+            .map_err(|e| CtlError::failed("mcp", format!("cannot read stdin: {e}")))?;
+        parse_arguments(&text, "stdin")?
+    } else {
+        let arguments = parse_arguments(inline.unwrap_or(""), "--args")?;
+        if let Some(at) = secret_at(&arguments, "", false) {
+            return Err(CtlError::usage(format!(
+                "--args holds a secret-looking value at `{at}`: pass the arguments with --args-stdin so it never reaches a command line"
+            )));
+        }
+        arguments
+    };
+    let result = selfmcp::call_tool(tool.name, &arguments)
+        .map_err(|e| CtlError::failed(e.kind, e.message))?;
+    let human = serde_json::to_string_pretty(&result).unwrap_or_default();
+    Ok(Output::new(
+        json!({"tool": tool.name, "tier": tool.tier, "isError": false, "result": result}),
+        human,
+    ))
+}
 
 fn install(args: &[String]) -> Result<Output, CtlError> {
     let flags = INSTALL.parse(args)?;
@@ -235,6 +371,8 @@ fn tools() -> Result<Output, CtlError> {
         "server": selfmcp::SERVER_NAME,
         "tools": TOOLS.iter().map(|t| json!({
             "name": t.name, "tier": t.tier, "gate": gate_name(t.gate), "description": t.description,
+            "dryRunDefault": selfmcp::previews_by_default(t),
+            "params": selfmcp::tool_params(t),
         })).collect::<Vec<_>>(),
         "resources": RESOURCES.iter().map(|r| json!({
             "uri": r.uri, "name": r.name, "mimeType": r.mime, "description": r.description,
@@ -407,6 +545,115 @@ mod tests {
             if tier >= 3 {
                 assert_ne!(tool["gate"], "none", "{tool}");
             }
+        }
+    }
+
+    #[test]
+    fn tools_carry_the_fields_a_form_is_built_from() {
+        let _fx = DataDirFx::new("toolportctl-mcp", "toolfields");
+        let (_, value) = run(&["--json", "mcp", "tools"]);
+        let tools = value["data"]["tools"].as_array().unwrap();
+        let find = |name: &str| tools.iter().find(|t| t["name"] == name).unwrap();
+        let drops = find("skills_clean");
+        assert_eq!(drops["dryRunDefault"], true);
+        let params = drops["params"].as_array().unwrap();
+        assert!(params
+            .iter()
+            .any(|p| p["name"] == "dry_run" && p["type"] == "boolean" && p["required"] == false));
+        assert!(params.iter().any(|p| p["name"] == "confirm"));
+        let edit = find("skills_edit_body");
+        assert_eq!(edit["dryRunDefault"], false);
+        let body = edit["params"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["name"] == "new_body")
+            .unwrap();
+        assert_eq!((body["type"].as_str(), body["required"].as_bool()), (Some("string"), Some(true)));
+        for tool in tools {
+            assert!(tool["dryRunDefault"].is_boolean(), "{tool}");
+            for param in tool["params"].as_array().unwrap() {
+                assert!(param["description"].is_string() && param["type"].is_string(), "{tool}");
+            }
+        }
+    }
+
+    #[test]
+    fn call_runs_a_tool_through_the_self_mcp_dispatch() {
+        let _fx = DataDirFx::new("toolportctl-mcp", "call");
+        let (code, value) = run(&["--json", "mcp", "call", "where_am_i"]);
+        assert_eq!(code, 0, "{value}");
+        let data = &value["data"];
+        assert_eq!(data["tool"], "where_am_i");
+        assert_eq!(data["tier"], 1);
+        assert_eq!(data["isError"], false);
+        assert_eq!(
+            data["result"],
+            crate::plus::selfmcp::call_tool("where_am_i", &json!({})).unwrap()
+        );
+        let (code, same) = run(&["--json", "mcp", "call", "where_am_i", "--args", "{}"]);
+        assert_eq!(code, 0);
+        assert_eq!(same["data"], data.clone());
+    }
+
+    #[test]
+    fn call_reports_the_tools_own_error_kind_and_message() {
+        let _fx = DataDirFx::new("toolportctl-mcp", "callerr");
+        let (code, refused) = run(&[
+            "--json", "mcp", "call", "skills_delete", "--args", r#"{"name":"demo"}"#,
+        ]);
+        assert_eq!(code, 1, "{refused}");
+        assert_eq!(refused["ok"], false);
+        assert_eq!(refused["error"]["code"], "refused");
+        assert!(refused["error"]["message"].as_str().unwrap().contains("confirm=true"));
+        let (code, bad) = run(&["--json", "mcp", "call", "skills_get", "--args", "{}"]);
+        assert_eq!(code, 1, "{bad}");
+        assert_eq!(bad["error"]["code"], "invalid_arguments");
+    }
+
+    #[test]
+    fn call_names_the_closest_tools_for_an_unknown_one() {
+        let _fx = DataDirFx::new("toolportctl-mcp", "callunknown");
+        let (code, value) = run(&["--json", "mcp", "call", "skils_get"]);
+        assert_eq!(code, 2, "{value}");
+        let message = value["error"]["message"].as_str().unwrap();
+        assert!(message.contains("closest: skills_get"), "{message}");
+        let (code, far) = run(&["--json", "mcp", "call", "zzzzzzzzzzzz"]);
+        assert_eq!(code, 2);
+        assert!(far["error"]["message"].as_str().unwrap().contains("mcp tools"));
+    }
+
+    #[test]
+    fn call_refuses_a_secret_looking_inline_value_and_points_to_stdin() {
+        let _fx = DataDirFx::new("toolportctl-mcp", "callsecret");
+        for args in [
+            r#"{"patch":{"api_key":"FAKE-inline-value-0001"}}"#,
+            r#"{"config":{"env":{"LOG":"FAKE-inline-value-0002"}}}"#,
+            r#"{"name":"sk-FAKE-inline-value-0003"}"#,
+        ] {
+            let (code, value) = run(&["--json", "mcp", "call", "servers_install", "--args", args]);
+            assert_eq!(code, 2, "{value}");
+            let message = value["error"]["message"].as_str().unwrap();
+            assert!(message.contains("--args-stdin"), "{message}");
+            assert!(!message.contains("FAKE-inline-value"), "{message}");
+        }
+    }
+
+    #[test]
+    fn call_rejects_bad_arguments_before_running_anything() {
+        let _fx = DataDirFx::new("toolportctl-mcp", "callusage");
+        for argv in [
+            vec!["mcp", "call"],
+            vec!["mcp", "call", "where_am_i", "extra"],
+            vec!["mcp", "call", "where_am_i", "--args"],
+            vec!["mcp", "call", "where_am_i", "--args", "[1]"],
+            vec!["mcp", "call", "where_am_i", "--args", "{"],
+            vec!["mcp", "call", "where_am_i", "--args", "{}", "--args-stdin"],
+            vec!["mcp", "call", "where_am_i", "--bogus"],
+        ] {
+            let (mut out, mut err) = (Vec::new(), Vec::new());
+            let args: Vec<String> = argv.iter().map(|s| s.to_string()).collect();
+            assert_eq!(run_with(&args, &mut out, &mut err), 2, "{argv:?}");
         }
     }
 

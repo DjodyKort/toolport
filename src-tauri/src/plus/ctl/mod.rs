@@ -399,7 +399,7 @@ pub const COMMANDS: &[Command] = &[
     cmd(&["council"], "Council server: install uninstall doctor tools", council::run),
     cmd(
         &["mcp"],
-        "Self-management server: install [--profile <id>] uninstall doctor tools",
+        "Self-management server: install [--profile <id>] uninstall doctor tools call <tool> [--args <json> | --args-stdin]",
         mcp::run,
     ),
     cmd(

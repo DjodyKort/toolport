@@ -282,6 +282,7 @@ pub(super) const SUBS: &[Sub] = &[
     sub("mcp", "uninstall", "Remove the self-management server and keep it removed"),
     sub("mcp", "doctor", "Check the self-management server"),
     sub("mcp", "tools", "List the self-management tools and resources"),
+    sub("mcp", "call", "Run one self-management tool in-process (<tool>, --args, --args-stdin)"),
     sub("cc", "list", "List Claude Code plugins and their update state (<plugin>, --marketplace)"),
     sub("cc", "update", "Update Claude Code plugins (<plugin>, --marketplace, --dry-run)"),
     sub("compression proxy", "up", "Start the local compression proxy"),
@@ -606,6 +607,7 @@ pub(super) const ROWS: &[Row] = &[
     row("mcp uninstall", D),
     row("mcp doctor", R),
     row("mcp tools", R),
+    row("mcp call", W).spec(&[&mcp::CALL]).args(&[req("tool")]),
     row("cc list", R)
         .spec(&[&cc::SPEC])
         .only(&["--marketplace"])

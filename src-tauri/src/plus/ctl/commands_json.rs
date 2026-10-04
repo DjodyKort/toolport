@@ -723,6 +723,22 @@ pub(super) const OVERRIDES: &[(&str, Meta)] = &[
             "Profile to enable the self-management server in",
         ),
     ),
+    (
+        "mcp call",
+        m(
+            "--args",
+            Str,
+            "The tool's arguments as one JSON object, for values that are not secret",
+        ),
+    ),
+    (
+        "mcp call",
+        m(
+            "--args-stdin",
+            Bool,
+            "Read the tool's arguments as one JSON object from stdin; nothing reaches argv",
+        ),
+    ),
 ];
 
 pub(super) fn meta_for(row: &str, flag: &str) -> Option<&'static Meta> {
