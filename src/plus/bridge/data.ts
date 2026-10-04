@@ -341,6 +341,7 @@ export const skillsSyncData = obj({
   backupRoot: str,
   cleaned: arr(any),
   clientCount: num,
+  clientSource: str,
   collisions: arr(any),
   dryRun: bool,
   entries: arr(
@@ -354,6 +355,7 @@ export const skillsSyncData = obj({
   ruleCount: num,
   skillCount: num,
   syncedAt: str,
+  targetedClients: arr(str),
 });
 export type SkillsSyncData = Infer<typeof skillsSyncData>;
 

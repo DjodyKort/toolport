@@ -7,6 +7,7 @@
     "backupRoot": "<WORLD>/home/.mcpm-backups",
     "cleaned": [],
     "clientCount": 1,
+    "clientSource": "requested",
     "collisions": [],
     "dryRun": false,
     "entries": [
@@ -24,7 +25,8 @@
     "repo": "<WORLD>/skills-repo",
     "ruleCount": 0,
     "skillCount": 1,
-    "syncedAt": "<TIME>"
+    "syncedAt": "<TIME>",
+    "targetedClients": ["claude-code"]
   },
   "tool": "skills_sync"
 }
