@@ -79,6 +79,45 @@ Global flag `--json` prints one envelope (`schemaVersion`, `command`, `data`). E
 
 The policy is data in `ctl/policy.rs`; flag types and effect text are in `ctl/commands_json.rs`. A tool row says `tier` (self-MCP tiers 1 to 3 read or write, 4 destructive), `toolTier`, `dryRun` (`none`, `param`, `default-on`: D-048) and the `command` it maps to. Tests (`plus::ctl::policy_tests`, `tests/gui_parity.rs`) fail on a command without a policy row, a row without a command, a flag the parser does not know, a flag without a type, a preview flag the parser rejects, and a tool whose tier or dry-run default differs from its row or from the command it maps to. The bridge refuses a terminal-only argv (`ctl::terminal_only`).
 
+### GUI parity manifest
+
+`src/plus/gui-parity.json` says where every registry command and every self-management tool lives in the app (D-058, rule R3 of `index/gui-parity.md`). Typed in `src/plus/guiParity.ts`.
+
+```json
+{
+  "schemaVersion": 1,
+  "routes": { "all-commands": { "title": "All commands", "status": "planned" } },
+  "actions": {
+    "all-commands.run": { "route": "all-commands", "status": "planned", "summary": "..." }
+  },
+  "owners": { "skills": "MIG-GUI-3" },
+  "commands": {
+    "skills ls": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    }
+  },
+  "tools": {
+    "skills_list": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    }
+  }
+}
+```
+
+- `commands` has one entry per registry command, sub-commands included (`sync push`, `compression ledger record`); groups have none. `tools` has one entry per self-management tool; a tool that runs a command normally uses that command's route and action.
+- `surface` is `screen` or `terminal` (D-062). It must equal the registry: only `direct run` and `compression run` are `terminal`.
+- A route is `planned` or `built`; `built` needs `component`, an existing file. An action is `planned` or `built`; `built` needs its route built and `test`, an existing component test that names the action id (a `data-action` query or the test title). Every route has an action and every action is used.
+- A row is pending while its route is `all-commands` or its action is `planned`. The tests print the pending count per owner; `GUI_PARITY_STRICT=1` makes any pending row a failure (MIG-GUI-9 sets it).
+- `owners` maps each command group to the item that gives it a screen.
+
+`cargo test --test gui_parity` (Rust) and `vitest src/plus/guiParity.test.ts` (reads the blessed `src-tauri/tests/fixtures/ctl-envelopes/commands.json`) fail on a command or tool without an entry (printing the line to paste), an entry for something that no longer exists, a missing route or action, an action that belongs to another route, a surface that differs from the registry, and a built route or action without its file or test. A change to the registry changes `commands.json` (bless it with `CTL_ENVELOPE_BLESS=1`, rejected when `CI` is set), which in turn makes the manifest test ask for the new entry.
+
+A screen item adds its routes and actions, points its rows at them, and flips `status` to `built` together with the component and its test. A command that does not exist yet has no entry: whoever adds the command adds the row.
+
 ## OTel receiver
 
 `toolportctl obs otel enable` turns on Claude Code telemetry and a loopback OTLP/HTTP-JSON receiver that stores it next to the transcript index. It is off until you run it.
