@@ -84,6 +84,16 @@ The profile is the one the connection is scoped to: a registered HTTP client's
 own profile, which is the active profile unless `TOOLPORT_PROFILE` sets another.
 Changes apply the next time a client connects and don't restart any servers.
 
+**Forwarding a server's own instructions.** By default a server's `instructions` do not
+reach your client. Set `forwardInstructions` to `true` on a server entry, or run
+`toolportctl server edit <server> --forward-instructions on`, to add them after the text
+above under a heading with the server's name. Each server is cut at 4096 characters, and
+text that looks like a prompt injection is left out while content defense is on.
+`declareClientCapabilities` is the matching switch toward the server: it tells that server
+which of `roots`, `sampling` and `elicitation` your client supports, for servers that only
+use them when told. Both default to off and are left out of `registry.json` while off.
+See `docs/odh-integration.md`, B6.
+
 **Code mode limits.** Execution, validation, and saved routines run Boa in a separate
 worker process. The parent enforces the 60-second wall-clock budget even during pure
 JavaScript and permits at most four simultaneous runs. Saved routines can set lower
