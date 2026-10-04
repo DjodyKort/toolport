@@ -95,6 +95,8 @@ const CASES: &[&[&str]] = &[
     &["server", "edit", "a"],
     &["server", "edit", "a", "--name"],
     &["server", "edit", "a", "--arg"],
+    &["server", "edit", "a", "--forward-instructions"],
+    &["server", "edit", "alpha", "--forward-instructions", "maybe"],
     &["server", "edit", "a", "--bogus"],
     &["server", "edit", "a", "b", "--name", "c"],
     &["server", "edit", "nope", "--name", "x"],

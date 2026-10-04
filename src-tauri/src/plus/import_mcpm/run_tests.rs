@@ -251,6 +251,44 @@ fn rerun_changes_nothing() {
 }
 
 #[test]
+fn rerun_keeps_the_gateway_settings_a_user_made_on_an_imported_server() {
+    with_world("keep-gateway", |w| {
+        run(&w.opts(false)).unwrap();
+        let path = w.data().join("registry.json");
+        let mut reg: Value = serde_json::from_str(&w.registry_text().unwrap()).unwrap();
+        let anna = reg["servers"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|s| s["id"] == "anna")
+            .unwrap();
+        anna["requestTimeoutMs"] = json!(45_000);
+        anna["maxRequestTimeoutMs"] = json!(900_000);
+        anna["declareClientCapabilities"] = json!(true);
+        anna["forwardInstructions"] = json!(true);
+        std::fs::write(&path, serde_json::to_string_pretty(&reg).unwrap()).unwrap();
+        let before = w.registry_text().unwrap();
+
+        let plan = run(&w.opts(false)).unwrap();
+        let anna = plan.servers.iter().find(|c| c.id == "anna").unwrap();
+        assert_eq!(anna.action, Action::Unchanged);
+        assert_eq!(w.registry_text().unwrap(), before);
+
+        let after: Value = serde_json::from_str(&w.registry_text().unwrap()).unwrap();
+        let kept = after["servers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["id"] == "anna")
+            .unwrap();
+        assert_eq!(kept["requestTimeoutMs"], 45_000);
+        assert_eq!(kept["maxRequestTimeoutMs"], 900_000);
+        assert_eq!(kept["declareClientCapabilities"], true);
+        assert_eq!(kept["forwardInstructions"], true);
+    });
+}
+
+#[test]
 fn changed_secret_and_server_report_updated() {
     with_world("upd", |w| {
         run(&w.opts(false)).unwrap();
@@ -290,6 +328,8 @@ fn user_owned_server_with_same_id_is_a_conflict() {
             client_credentials: None,
             request_timeout_ms: None,
             max_request_timeout_ms: None,
+            declare_client_capabilities: false,
+            forward_instructions: false,
             initialize_timeout_ms: None,
             unknown_fields: Default::default(),
         };

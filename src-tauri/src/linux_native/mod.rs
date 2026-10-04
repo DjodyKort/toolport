@@ -10898,6 +10898,8 @@ fn collect_server_fields(
             .collect(),
         url: Some(url.text().to_string()),
         cwd: Some(cwd.text().to_string()),
+        declare_client_capabilities: None,
+        forward_instructions: None,
     }
 }
 
