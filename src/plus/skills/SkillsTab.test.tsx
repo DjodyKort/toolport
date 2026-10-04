@@ -159,12 +159,11 @@ describe("Skills tab: reading", () => {
   });
 
   it("shows the CLI's words and a Retry when the list fails", async () => {
-    bridge.set(
-      "skills ls",
-      failure("skills", "no skills repository at /fixture/skills-repo"),
-    );
+    bridge.set("skills ls", failure("skills", "cannot read /fixture/skills-repo: busy"));
     render(<SkillsTab />);
-    expect(await screen.findByText(/no skills repository at/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/cannot read \/fixture\/skills-repo/),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 

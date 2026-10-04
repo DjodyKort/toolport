@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PathField } from "./fields";
 import { byClient, clientName, nameProblem } from "./model";
 
 const WHY: Record<string, string> = {
@@ -161,6 +162,60 @@ export function NewDialog({
             Cancel
           </Button>
           <Button onClick={submit}>Preview</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Creates the skills repository (`skills init`): where, and under which name. */
+export function InitDialog({
+  onSubmit,
+  onClose,
+}: {
+  onSubmit: (path: string, name: string) => void;
+  onClose: () => void;
+}) {
+  const [path, setPath] = useState("");
+  const [name, setName] = useState("");
+  const problem = name.trim() && nameProblem(name.trim());
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Create a skills repository</DialogTitle>
+          <DialogDescription>
+            Toolport creates the folders for skills, rules, agents, styles and profiles.
+            You see the list before anything is written.
+          </DialogDescription>
+        </DialogHeader>
+        <PathField
+          label="Folder"
+          kind="folder"
+          value={path}
+          onChange={setPath}
+          placeholder="Empty: the configured location"
+        />
+        <label className="flex flex-col gap-1.5 text-sm">
+          Name (optional)
+          <Input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            aria-invalid={problem ? true : undefined}
+          />
+        </label>
+        <p role="status" className="min-h-4 text-xs text-destructive">
+          {problem || ""}
+        </p>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button disabled={!!problem} onClick={() => onSubmit(path.trim(), name.trim())}>
+            Preview
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
