@@ -1,4 +1,5 @@
 use super::state_tests::{call, kind};
+use crate::plus::testutil::tree_snapshot;
 use super::tests::Fixture;
 use super::wired_tests::git;
 use serde_json::{json, Value};
@@ -187,4 +188,39 @@ fn sync_push_commits_an_encrypted_bundle_only_when_confirmed() {
     let changed = call("sync_push", json!({"confirm": true})).unwrap();
     assert_eq!(changed["committed"], true);
     assert_eq!(remote_commits(&remote), "2");
+}
+
+#[test]
+fn agents_and_styles_sync_write_nothing_on_a_dry_run_and_stay_inside_the_named_client() {
+    let fixture = Fixture::new("effect-sync-dry");
+    let before = tree_snapshot(&fixture.dir);
+    let tools = [
+        ("agents_sync", "agentCount"),
+        ("styles_sync_tier1", "styleCount"),
+    ];
+    for (tool, count) in tools {
+        let planned = call(tool, json!({"client_keys": ["claude-code"], "dry_run": true})).unwrap();
+        assert_eq!(planned["dryRun"], true, "{tool}");
+        assert_eq!(planned[count], 1, "{tool}");
+        assert_eq!(tree_snapshot(&fixture.dir), before, "{tool} dry run wrote");
+    }
+    for (tool, count) in tools {
+        let done = call(tool, json!({"client_keys": ["claude-code"]})).unwrap();
+        assert_eq!(done["dryRun"], false, "{tool}");
+        assert_eq!(done[count], 1, "{tool}");
+    }
+    let after = tree_snapshot(&fixture.dir);
+    let created: Vec<String> = after
+        .keys()
+        .filter(|path| !before.contains_key(*path) && !path.ends_with(['/', '\\']))
+        .map(|path| path.replace('\\', "/"))
+        .collect();
+    assert_eq!(
+        created,
+        [
+            "home/.claude/agents/helper.md",
+            "home/.claude/output-styles/plain.md",
+            "mcpm-skills.lock"
+        ]
+    );
 }

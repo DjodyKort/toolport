@@ -21,6 +21,8 @@ const TAPS_APPLY: &str = "the_tap_tools_apply_when_dry_run_is_false";
 const AGENTS_FLOW: &str = "agents_flow_scaffold_sync_edit";
 const STYLES_FLOW: &str = "styles_flow_with_apply_and_remove_tiers";
 const SERVER_MUTATIONS: &str = "server_mutations_follow_their_tiers";
+const SYNC_DRY_RUN: &str =
+    "agents_and_styles_sync_write_nothing_on_a_dry_run_and_stay_inside_the_named_client";
 const DIRECT_APPLY: &str = "add_ls_and_rm_apply_only_with_dry_run_false";
 
 const SIDE_EFFECT_TESTS: &[(&str, &str, &str)] = &[
@@ -64,7 +66,7 @@ const SIDE_EFFECT_TESTS: &[(&str, &str, &str)] = &[
         "skills_git_push_commits_and_pushes_only_when_confirmed",
     ),
     ("agents_scaffold", "wired_tests.rs", AGENTS_FLOW),
-    ("agents_sync", "wired_tests.rs", AGENTS_FLOW),
+    ("agents_sync", "effect_tests.rs", SYNC_DRY_RUN),
     ("agents_edit_body", "wired_tests.rs", AGENTS_FLOW),
     (
         "agents_clean",
@@ -77,7 +79,7 @@ const SIDE_EFFECT_TESTS: &[(&str, &str, &str)] = &[
         "agents_uninstall_removes_the_agent_its_outputs_and_its_lock_entry_only_when_applied",
     ),
     ("styles_scaffold", "wired_tests.rs", STYLES_FLOW),
-    ("styles_sync_tier1", "wired_tests.rs", STYLES_FLOW),
+    ("styles_sync_tier1", "effect_tests.rs", SYNC_DRY_RUN),
     ("styles_apply", "wired_tests.rs", STYLES_FLOW),
     ("styles_remove", "wired_tests.rs", STYLES_FLOW),
     ("styles_edit_body", "wired_tests.rs", STYLES_FLOW),
