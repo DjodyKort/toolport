@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Install the fork-ci "unsigned macOS app" artifact on a Mac: download, verify,
-# re-sign with the self-signed identity (fork-codesign.sh), install, and print
-# the G1 checks. See D-009 (login-keychain secrets, one stable signing identity).
+# re-sign every Mach-O in the bundle with the self-signed identity
+# (fork-codesign.sh), install, verify the installed bundle, and print the G1
+# checks. See D-009 (login-keychain secrets, one stable signing identity).
 #
 #   mac-install.sh [--dry-run] [--run-id ID] [--repo OWNER/NAME]
 #                  [--identity NAME] [--dest DIR] [--no-login-keychain]
@@ -29,7 +30,7 @@ DRY_RUN=0
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
 usage() {
-  sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,11p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 }
 
 while [ $# -gt 0 ]; do
@@ -105,13 +106,18 @@ if [ "$DRY_RUN" -eq 0 ]; then
   exe="$(plutil -extract CFBundleExecutable raw "$STAGED/Contents/Info.plist")"
   [ -f "$STAGED/Contents/MacOS/$exe" ] || die "main executable missing"
   [ -f "$STAGED/Contents/MacOS/toolport-gateway" ] || die "nested gateway missing"
-  for bin in "$exe" toolport-gateway; do
-    lipo -archs "$STAGED/Contents/MacOS/$bin" | grep -qw arm64 || die "$bin is not arm64"
-  done
-  echo "ok: bundle id $bundle_id, executable $exe, gateway present, arm64"
+  binaries="$("$CODESIGN" --app "$STAGED" list)"
+  count=0
+  while IFS= read -r bin <&3; do
+    [ -n "$bin" ] || continue
+    lipo -archs "$bin" | grep -qw arm64 || die "${bin#"$STAGED"/} is not arm64"
+    count=$((count + 1))
+  done 3<<<"$binaries"
+  echo "ok: bundle id $bundle_id, executable $exe, gateway present, $count Mach-O file(s), all arm64"
 else
   echo "+ plutil -extract CFBundleIdentifier raw $STAGED/Contents/Info.plist  (expect $APP_ID)"
-  echo "+ test -f $STAGED/Contents/MacOS/toolport-gateway && lipo -archs (expect arm64)"
+  echo "+ test -f $STAGED/Contents/MacOS/toolport-gateway"
+  echo "+ $CODESIGN --app $STAGED list  (every Mach-O in the bundle; lipo -archs on each, expect arm64)"
 fi
 run xattr -dr com.apple.quarantine "$STAGED"
 
@@ -130,6 +136,13 @@ fi
 run rm -rf "$DEST/$APP_NAME"
 run ditto "$STAGED" "$DEST/$APP_NAME"
 
+step "verify the installed bundle (every Mach-O carries the identity)"
+verify_args=(--identity "$IDENTITY" --app "$DEST/$APP_NAME")
+if [ "$DRY_RUN" -eq 1 ]; then
+  verify_args=(--dry-run "${verify_args[@]}")
+fi
+"$CODESIGN" "${verify_args[@]}" verify
+
 if [ "$LOGIN_KEYCHAIN" -eq 1 ]; then
   step "select the login-keychain secrets mode"
   DATA_DIR="$HOME/Library/Application Support/Toolport"
@@ -144,10 +157,22 @@ fi
 run rm -rf "$WORK"
 
 step "G1 checks (run these, then launch the app)"
+list_args=(--app "$DEST/$APP_NAME")
+if [ "$DRY_RUN" -eq 1 ]; then
+  list_args=(--dry-run "${list_args[@]}")
+fi
+INSTALLED_BINARIES="$("$CODESIGN" "${list_args[@]}" list)"
+SIGNATURE_LINES=""
+while IFS= read -r bin <&3; do
+  [ -n "$bin" ] || continue
+  SIGNATURE_LINES="$SIGNATURE_LINES   codesign -dvv \"$bin\" 2>&1 | grep -E 'Identifier|Authority|Signature'
+"
+done 3<<<"$INSTALLED_BINARIES"
 cat <<CHECKS
 1. codesign -dvv "$DEST/$APP_NAME" 2>&1 | grep -E 'Identifier|Authority|Signature'
-   codesign -dvv "$DEST/$APP_NAME/Contents/MacOS/toolport-gateway" 2>&1 | grep -E 'Identifier|Authority|Signature'
-   expect: the same Authority ($IDENTITY) on both; Identifier $APP_ID and $APP_ID.gateway
+$SIGNATURE_LINES   expect: the same Authority ($IDENTITY) on every file, no Signature=adhoc; Identifier $APP_ID for the app and $APP_ID.<file name> for each helper (the gateway is $APP_ID.gateway)
+   or in one go: "$CODESIGN" --identity "$IDENTITY" --app "$DEST/$APP_NAME" verify
+   expect: exit 0; otherwise it names every Mach-O that is not signed with the identity
 2. codesign -d --entitlements - "$DEST/$APP_NAME" 2>&1 | grep -c keychain-access-groups
    expect: 0
 3. open "$DEST/$APP_NAME"
