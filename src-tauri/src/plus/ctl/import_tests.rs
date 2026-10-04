@@ -15,6 +15,13 @@ fn cli_json(list: &[&str]) -> (i32, Value) {
     (code, serde_json::from_str(text.trim()).expect(&text))
 }
 
+fn cli_text(list: &[&str]) -> (i32, String) {
+    let (mut out, mut err) = (Vec::new(), Vec::new());
+    let code = run_with(&args(list), &mut out, &mut err);
+    let text = String::from_utf8(if out.is_empty() { err } else { out }).unwrap();
+    (code, text)
+}
+
 fn fixture_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/import_mcpm/input")
 }
@@ -64,8 +71,9 @@ fn rename_refs_dry_run_apply_and_rerun_golden() {
     assert_eq!(v["data"]["scanned"], 3);
     assert_eq!(v["data"]["files"].as_array().unwrap().len(), 2);
     assert_eq!(v["data"]["replaced"], 2);
+    assert_eq!(v["data"]["orphans"].as_array().unwrap().len(), 0);
     assert_eq!(
-        v["data"]["orphans"][0]["reference"],
+        v["data"]["dead"][0]["reference"],
         "mcp__mcpm_FAKE-ghost__tool"
     );
     assert_eq!(read(&settings), settings_text);
@@ -85,6 +93,87 @@ fn rename_refs_dry_run_apply_and_rerun_golden() {
     let (code, v) = cli_json(&base);
     assert_eq!(code, 0, "{v}");
     assert_eq!(v["data"]["files"].as_array().unwrap().len(), 0);
+    assert_eq!(v["data"]["replaced"], 0);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+const WILDCARD_SETTINGS: &str = r#"{"permissions":{"allow":["mcp__mcpm_anna-mcp__search","mcp__mcpm_playwright__browser_click"],"ask":["mcp__mcpm_anna-mcp__create-*","mcp__mcpm_anna-mcp__list-*","mcp__mcpm_anna-*","mcp__mcpm_playwright__*"],"deny":[]}}"#;
+
+#[test]
+fn rename_refs_maps_wildcard_gates_reports_dead_servers_and_refuses_to_drop_a_gate() {
+    let dir = std::env::temp_dir().join(format!("ctl-rename-wild-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let settings = dir.join("settings.json");
+    std::fs::write(&settings, WILDCARD_SETTINGS).unwrap();
+
+    let root = fixture_root();
+    let tools = root.join("tools.json");
+    let (root_s, tools_s) = (root.to_string_lossy(), tools.to_string_lossy());
+    let settings_s = settings.to_string_lossy().to_string();
+    let base = [
+        "import",
+        "rename-refs",
+        &root_s,
+        "--tools",
+        &tools_s,
+        "--home",
+        "/FAKE/home",
+        "--paths",
+        &settings_s,
+    ];
+
+    let mut dry = base.to_vec();
+    dry.push("--dry-run");
+    let (code, v) = cli_json(&dry);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["data"]["replaced"], 3);
+    assert_eq!(v["data"]["orphans"][0]["reference"], "mcp__mcpm_anna-*");
+    assert_eq!(v["data"]["orphans"][0]["rule"], "ask");
+    assert!(v["data"]["orphans"][0]["reason"]
+        .as_str()
+        .unwrap()
+        .contains("cuts a server name"));
+    let dead: Vec<&str> = v["data"]["dead"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d["reference"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        dead,
+        ["mcp__mcpm_playwright__*", "mcp__mcpm_playwright__browser_click"]
+    );
+    let (code, text) = cli_text(&dry);
+    assert_eq!(code, 0, "{text}");
+    assert!(text.contains("1 orphans, 2 dead"), "{text}");
+    assert!(text.contains("orphan mcp__mcpm_anna-* in "), "{text}");
+    assert!(text.contains("[ask rule]"), "{text}");
+    assert!(text.contains("dead mcp__mcpm_playwright__* in "), "{text}");
+    assert!(text.contains("error: apply would refuse"), "{text}");
+    assert_eq!(read(&settings), WILDCARD_SETTINGS);
+
+    let (code, v) = cli_json(&base);
+    assert_ne!(code, 0, "{v}");
+    assert!(v.to_string().contains("would be left without a replacement"), "{v}");
+    assert_eq!(read(&settings), WILDCARD_SETTINGS, "nothing written on refusal");
+
+    std::fs::write(
+        &settings,
+        WILDCARD_SETTINGS.replace(r#""mcp__mcpm_anna-*","#, ""),
+    )
+    .unwrap();
+    let (code, v) = cli_json(&base);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["data"]["replaced"], 3);
+    assert_eq!(
+        read(&settings),
+        r#"{"permissions":{"allow":["mcp__toolport__anna__search","mcp__mcpm_playwright__browser_click"],"ask":["mcp__toolport__anna__create_*","mcp__toolport__anna__list_*","mcp__mcpm_playwright__*"],"deny":[]}}"#
+    );
+    assert_eq!(v["data"]["dead"].as_array().unwrap().len(), 2);
+
+    let (code, v) = cli_json(&base);
+    assert_eq!(code, 0, "{v}");
     assert_eq!(v["data"]["replaced"], 0);
     let _ = std::fs::remove_dir_all(&dir);
 }

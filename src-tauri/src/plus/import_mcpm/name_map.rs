@@ -5,7 +5,7 @@ use super::{
 use crate::router::sanitize_segment;
 use serde::Serialize;
 use serde_json::{json, Value};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 pub type ToolManifest = BTreeMap<String, Vec<String>>;
@@ -72,6 +72,10 @@ impl std::error::Error for NameMapError {}
 pub struct NameMap {
     pub map: BTreeMap<String, String>,
     pub servers: BTreeMap<String, String>,
+    /// Every server of the import, with or without a tool manifest entry, so a reference to a
+    /// server that exists is never reported as one that is gone.
+    #[serde(skip)]
+    pub imported: BTreeSet<String>,
 }
 
 impl NameMap {
@@ -138,7 +142,12 @@ pub fn build_name_map(
         }
     }
     if err.is_empty() {
-        Ok(NameMap { map, servers: ids })
+        let imported = servers.iter().map(|s| s.mcpm_name.clone()).collect();
+        Ok(NameMap {
+            map,
+            servers: ids,
+            imported,
+        })
     } else {
         Err(err)
     }
