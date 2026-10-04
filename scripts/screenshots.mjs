@@ -4,6 +4,8 @@
 // confirmation with its plan, a not-built screen with its tabs, the Tokens screen with the Usage
 // tab (the figures, an index that never ran, the OTel plan, the receiver on) and the Compression
 // tab (state, provider plan, health, the ledger empty and filled, the typed disable),
+// the System screen (sync, the push plan, updates, the council key form, the import preview,
+// the self-management card),
 // and the element shots of the smoke. Fails when a page shot is missing or not 1280x800. The PNGs come out of
 // Chromium already deflated tighter than zlib level 9 can do, so they are kept as they are.
 import { spawnSync } from "node:child_process";
@@ -68,6 +70,13 @@ const PAGES = [
   "context-remove-light",
   "context-move-light",
   "context-loads-light",
+  "system-sync-light",
+  "system-sync-dark",
+  "system-sync-plan-light",
+  "system-updates-light",
+  "system-council-key-light",
+  "system-import-light",
+  "system-self-light",
 ];
 const SIZE = [1280, 800];
 

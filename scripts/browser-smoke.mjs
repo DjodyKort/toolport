@@ -349,6 +349,85 @@ async function contextScreen(shot, theme) {
   }
 }
 
+// The System screen on the stateful System world: a machine that has not set sync up, the
+// init with its passphrase on stdin, a push (the plan, the typed confirmation, the apply that
+// moves the last sync), the updates with the update command of a server, the council with the
+// key form, the import preview and the self-management card.
+async function systemScreen(shot, theme) {
+  const snap = (target, name) => guiShot(target, name, { animations: "disabled" });
+  const nav = shot.getByRole("navigation", { name: "Views" });
+  await nav.getByRole("button", { name: "System", exact: true }).click();
+  const tabs = shot.getByRole("tablist", { name: "System sections" });
+  const tab = (name) => tabs.getByRole("tab", { name, exact: true }).click();
+  await expect(shot.getByText("Not set up", { exact: true })).toBeVisible();
+  await shot.getByRole("button", { name: "Set up sync" }).click();
+  const init = shot.getByRole("dialog");
+  await init
+    .getByLabel("Git repository")
+    .fill("git@git.example.com:me/toolport-sync.git");
+  await init.getByLabel("This machine's name").fill("work-laptop");
+  await init.getByLabel("Passphrase", { exact: true }).fill("walk-passphrase");
+  await init.getByLabel("Repeat passphrase").fill("walk-passphrase");
+  await init.getByRole("button", { name: "Set up sync" }).click();
+  await expect(
+    init.getByText(/This machine is work-laptop on branch main/),
+  ).toBeVisible();
+  await init.getByRole("button", { name: "Done" }).click();
+  await expect(shot.getByRole("dialog")).toHaveCount(0);
+  await shot.getByRole("button", { name: "Push…" }).click();
+  const push = shot.getByRole("dialog", { name: "Push to the sync repository?" });
+  await expect(push.getByText("registry.json")).toBeVisible();
+  await expect(push.getByRole("button", { name: "Push", exact: true })).toBeDisabled();
+  if (theme === "light") await snap(shot, "system-sync-plan-light");
+  await push.getByRole("textbox").fill("sync push");
+  await push.getByRole("button", { name: "Push", exact: true }).click();
+  const pushed = shot.getByRole("dialog");
+  await expect(pushed.getByText(/^Pushed 3 files from work-laptop/)).toBeVisible();
+  await pushed.getByRole("button", { name: "Close", exact: true }).last().click();
+  await expect(shot.getByRole("dialog")).toHaveCount(0);
+  await expect(shot.getByText(/This machine matches the remote bundle/)).toBeVisible();
+  await shot.evaluate(() => document.fonts.ready);
+  await snap(shot, `system-sync-${theme}`);
+  if (theme === "light") {
+    await tab("Updates");
+    await expect(shot.getByText("srv-git", { exact: true })).toBeVisible();
+    await expect(shot.getByText(/Update command:/)).toBeVisible();
+    await snap(shot, "system-updates-light");
+
+    await tab("Council");
+    await shot.getByRole("button", { name: "Install…" }).click();
+    await shot
+      .getByRole("dialog", { name: "Install the council?" })
+      .getByRole("button", { name: "Install", exact: true })
+      .click();
+    const installed = shot.getByRole("dialog");
+    await expect(installed.getByText("Council installed")).toBeVisible();
+    await installed.getByRole("button", { name: "Close", exact: true }).last().click();
+    await shot.getByRole("button", { name: "Set key" }).click();
+    const key = shot.getByRole("dialog", { name: "Set OPENROUTER_API_KEY" });
+    await expect(key.getByLabel("New value")).toBeVisible();
+    await snap(shot, "system-council-key-light");
+    await key.getByRole("button", { name: "Cancel" }).click();
+    await expect(shot.getByRole("dialog")).toHaveCount(0);
+
+    await tab("Import");
+    await shot.getByLabel("mcpm config folder").fill("/old/mcpm");
+    await shot.getByRole("button", { name: "Preview import…" }).click();
+    const plan = shot.getByRole("dialog", { name: "Import from mcpm?" });
+    await expect(
+      plan.getByText(/Import 2 servers, 1 profile and 0 secrets/),
+    ).toBeVisible();
+    await snap(shot, "system-import-light");
+    await plan.getByRole("button", { name: "Cancel" }).click();
+    await expect(shot.getByRole("dialog")).toHaveCount(0);
+
+    await tab("Self-management");
+    await expect(shot.getByRole("list", { name: "Tools" })).toBeVisible();
+    await snap(shot, "system-self-light");
+  }
+  expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
+}
+
 let browser;
 let context;
 let page;
@@ -443,6 +522,7 @@ try {
     await serversScreen(shot, theme);
     await usageTab(shot, theme);
     await tokensScreen(shot, theme);
+    await systemScreen(shot, theme);
     await shot.getByRole("button", { name: "Settings", exact: true }).click();
     await shot.getByRole("button", { name: "Open All commands" }).click();
     await expect(shot.getByRole("list", { name: "Commands" })).toBeVisible();
