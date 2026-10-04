@@ -34,7 +34,7 @@ use std::time::{Duration, Instant};
 use base64::Engine as _;
 
 use crate::daemon::{DaemonDescriptor, Rendezvous};
-use crate::registry;
+use crate::registry::{self, ServerEntry};
 use crate::topology::CompatKey;
 
 /// The flag that selects the adapter role instead of the in-process gateway.
@@ -51,8 +51,13 @@ pub const ADAPTER_DECLARED_ROOT_HEADER: &str = "Toolport-Adapter-Declared-Root";
 /// Same per-frame bound the in-process stdio gateway applies to one client frame.
 pub const MAX_FRAME_BYTES: usize = 16 * 1024 * 1024;
 /// A single request may legitimately run long (a slow downstream call), so the
-/// HTTP budget is generous; the listen stream is separate and reconnects.
+/// HTTP budget is generous; the listen stream is separate and reconnects. A call
+/// to a server whose own ceiling is longer gets that ceiling instead
+/// ([`call_request_timeout`]), so this is the floor, not a limit on `requestTimeoutMs`.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(600);
+/// Slack past the longest a configured server can hold a call, so the gateway's
+/// own timeout answer reaches the client before the adapter gives up on the daemon.
+const CALL_CEILING_MARGIN: Duration = Duration::from_secs(60);
 /// A subscription's reply stays open for the life of the subscription, so it has
 /// no overall deadline. The daemon sends a keepalive every 30 seconds; three
 /// missed ones mean it is gone.
@@ -73,6 +78,23 @@ const MAX_INFLIGHT: usize = 256;
 /// On client EOF, how long to let in-flight requests finish before the session is
 /// deleted. The client is already gone, so this is a courtesy rather than a wait.
 const EOF_GRACE: Duration = Duration::from_secs(5);
+
+fn configured_servers() -> Vec<ServerEntry> {
+    crate::plus::registry_ro::read_opt()
+        .map(|registry| registry.servers)
+        .unwrap_or_default()
+}
+
+/// How long the adapter lets one downstream call stay open: the longest any
+/// configured server can hold a call (`requestTimeoutMs`, and for a stdio server
+/// the progress cap) plus a margin, never less than `floor`.
+fn call_request_timeout(servers: &[ServerEntry], floor: Duration) -> Duration {
+    servers
+        .iter()
+        .map(ServerEntry::call_ceiling)
+        .max()
+        .map_or(floor, |ceiling| (ceiling + CALL_CEILING_MARGIN).max(floor))
+}
 
 /// Whether the command line asked for the adapter role. Kept beside the flag so
 /// the help text and the parser cannot disagree.
@@ -240,6 +262,9 @@ struct Session {
     handshake_initialized: Mutex<Option<String>>,
     stdout: Mutex<Box<dyn Write + Send>>,
     request_timeout: Duration,
+    /// The configured servers, read when a call is sent so a registry edit applies
+    /// to the next call without restarting the adapter.
+    servers: fn() -> Vec<ServerEntry>,
     client_id: String,
     env_profile: Option<String>,
     cwd: Option<String>,
@@ -306,6 +331,7 @@ impl Session {
             handshake_initialized: Mutex::new(None),
             stdout: Mutex::new(Box::new(std::io::stdout())),
             request_timeout: REQUEST_TIMEOUT,
+            servers: configured_servers,
             client_id,
             env_profile,
             cwd,
@@ -496,6 +522,15 @@ impl Session {
         }
     }
 
+    fn request_timeout_for(&self, method: Option<&str>) -> Duration {
+        match method {
+            Some("tools/call" | "resources/read" | "prompts/get") => {
+                call_request_timeout(&(self.servers)(), self.request_timeout)
+            }
+            _ => self.request_timeout,
+        }
+    }
+
     /// POST one message to `/mcp`. `forward` writes the daemon's JSON-RPC messages
     /// to stdout as they arrive; a replayed handshake does not, because the client
     /// already has its answer, but an error in its reply fails the replay. A
@@ -515,7 +550,7 @@ impl Session {
                 .timeout_read(SUBSCRIPTION_READ_TIMEOUT)
                 .build()
                 .post(&url),
-            None => ureq::post(&url).timeout(self.request_timeout),
+            None => ureq::post(&url).timeout(self.request_timeout_for(message["method"].as_str())),
         };
         let mut request = self.with_identity(
             request
@@ -1206,6 +1241,98 @@ mod tests {
         );
     }
 
+    fn server(config: serde_json::Value) -> ServerEntry {
+        let mut entry = serde_json::json!({ "id": "odh", "name": "odh", "transport": "stdio" });
+        entry.as_object_mut().unwrap().extend(
+            config
+                .as_object()
+                .unwrap()
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone())),
+        );
+        serde_json::from_value(entry).unwrap()
+    }
+
+    #[test]
+    fn the_call_ceiling_is_derived_from_the_servers_deadline_and_cap() {
+        let floor = REQUEST_TIMEOUT;
+        let secs = |n: u64| Duration::from_secs(n);
+        let timeout = |servers: &[ServerEntry]| call_request_timeout(servers, floor);
+
+        assert_eq!(timeout(&[]), floor, "no server, no change");
+        let stdio = server(serde_json::json!({ "command": "uv" }));
+        assert_eq!(
+            timeout(&[stdio]),
+            secs(3_600) + CALL_CEILING_MARGIN,
+            "the default cap outlasts the old 600 s constant"
+        );
+        let slow = server(serde_json::json!({ "command": "uv", "requestTimeoutMs": 7_200_000 }));
+        assert_eq!(timeout(&[slow]), secs(7_200) + CALL_CEILING_MARGIN);
+        let capped = server(serde_json::json!({
+            "command": "uv", "requestTimeoutMs": 60_000, "maxRequestTimeoutMs": 10_800_000
+        }));
+        assert_eq!(
+            timeout(&[capped.clone()]),
+            secs(10_800) + CALL_CEILING_MARGIN
+        );
+        let tight = server(serde_json::json!({ "command": "uv", "maxRequestTimeoutMs": 120_000 }));
+        assert_eq!(
+            timeout(&[tight]),
+            floor,
+            "a short cap never drops the ceiling below the floor"
+        );
+
+        let remote = server(serde_json::json!({
+            "transport": "http", "url": "https://example.invalid/mcp", "requestTimeoutMs": 900_000
+        }));
+        assert_eq!(
+            timeout(&[remote.clone()]),
+            secs(900) + CALL_CEILING_MARGIN,
+            "a remote server has no progress cap, only its deadline"
+        );
+        let remote_default = server(serde_json::json!({
+            "transport": "http", "url": "https://example.invalid/mcp"
+        }));
+        assert_eq!(timeout(&[remote_default]), floor);
+        assert_eq!(
+            timeout(&[remote, capped]),
+            secs(10_800) + CALL_CEILING_MARGIN,
+            "the longest server decides"
+        );
+    }
+
+    fn one_long_stdio_server() -> Vec<ServerEntry> {
+        vec![server(serde_json::json!({
+            "command": "uv", "maxRequestTimeoutMs": 5_400_000
+        }))]
+    }
+
+    #[test]
+    fn only_downstream_calls_get_the_derived_ceiling() {
+        let data_dir = std::env::temp_dir();
+        let compat = CompatKey::new("test", data_dir.to_string_lossy());
+        let mut session = Session::new(
+            Rendezvous::new(&data_dir, compat.clone()),
+            DaemonDescriptor::new("127.0.0.1:9", "test-token", &compat),
+        );
+        session.servers = one_long_stdio_server;
+        let derived = Duration::from_secs(5_400) + CALL_CEILING_MARGIN;
+        for method in ["tools/call", "resources/read", "prompts/get"] {
+            assert_eq!(
+                session.request_timeout_for(Some(method)),
+                derived,
+                "{method}"
+            );
+        }
+        for method in [Some("initialize"), Some("tools/list"), Some("ping"), None] {
+            assert_eq!(
+                session.request_timeout_for(method),
+                REQUEST_TIMEOUT,
+                "{method:?}"
+            );
+        }
+    }
+
     #[test]
     fn modern_headers_mirror_the_body() {
         let call = serde_json::json!({
@@ -1524,6 +1651,7 @@ mod tests {
         );
         session.stdout = Mutex::new(Box::new(sink.clone()));
         session.request_timeout = timeout;
+        session.servers = Vec::new;
         session
     }
 
