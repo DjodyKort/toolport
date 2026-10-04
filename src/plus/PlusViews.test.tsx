@@ -11,6 +11,7 @@ const { invoke, listen } = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn() 
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
+vi.mock("./skills/SkillsTab", () => ({ SkillsTab: () => <p>Skills panel</p> }));
 
 import { PlusViews } from "./PlusViews";
 import { createBridge } from "./servers/testkit";
@@ -54,7 +55,10 @@ function Harness({ start }: { start: PlusView }) {
 describe("PlusViews", () => {
   it.each(
     PLUS_VIEWS.filter(
-      (view) => view !== "commands" && view !== "control" && view !== "logins",
+      (view) => view !== "commands" &&
+        view !== "control" &&
+        view !== "logins" &&
+        view !== "library",
     ),
   )("marks %s as not built yet and names the item that builds it", async (view) => {
     render(<Harness start={view} />);
@@ -79,7 +83,7 @@ describe("PlusViews", () => {
     expect(screen.getByText("upstream")).toBeInTheDocument();
   });
 
-  it("shows the tabs of the mockup and a placeholder per tab", async () => {
+  it("shows the tabs of the mockup, the Skills panel and a placeholder per other tab", async () => {
     const user = userEvent.setup();
     render(<Harness start="library" />);
     const tabs = await screen.findByRole("tablist", { name: "Library sections" });
@@ -88,7 +92,9 @@ describe("PlusViews", () => {
         .getAllByRole("tab")
         .map((tab) => tab.textContent),
     ).toEqual(["Skills", "Agents", "Styles", "Plugins", "Sources"]);
-    expect(screen.getByText(/built by MIG-GUI-3\b/)).toBeInTheDocument();
+    expect(await screen.findByText("Skills panel")).toBeInTheDocument();
+    await user.click(within(tabs).getByRole("tab", { name: "Agents" }));
+    expect(screen.getByText(/built by MIG-GUI-4\b/)).toBeInTheDocument();
     await user.click(within(tabs).getByRole("tab", { name: "Plugins" }));
     expect(screen.getByText(/built by MIG-GUI-12\b/)).toBeInTheDocument();
   });
