@@ -9,12 +9,13 @@ import { Gate, StateBadge, WhenText } from "./atoms";
 import {
   countableLogins,
   expiresText,
+  loginArgv,
   needsSignIn,
   summarize,
   type LoginRow,
 } from "./model";
 import { ProbePanel } from "./ProbePanel";
-import { loginArgv, SignInDialog } from "./SignInDialog";
+import { SignInDialog } from "./SignInDialog";
 import { SetSecretDialog } from "./SetSecretDialog";
 import { Strip } from "./Strip";
 import { useProbe } from "./useProbe";

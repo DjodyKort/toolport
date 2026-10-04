@@ -290,3 +290,15 @@ export function secretRows(
 export const presenceKey = (server: string, key: string) => `${server}\u0000${key}`;
 
 export type Presence = "set" | "unset" | "error";
+
+export const LOGIN_TABS = [
+  { id: "logins", label: "Logins" },
+  { id: "secrets", label: "Secrets" },
+  { id: "integrations", label: "Integrations" },
+] as const;
+
+export type LoginTabId = (typeof LOGIN_TABS)[number]["id"];
+
+export function loginArgv(server: string, noOpen: boolean): string[] {
+  return ["auth", "login", server, ...(noOpen ? ["--no-open"] : [])];
+}
