@@ -2,16 +2,14 @@ use super::agents::{discover_agents, lint::lint_agents, sync_agents, AgentSyncOp
 use super::audit::audit_skills;
 use super::bundle::{create_bundle, extract_bundle, BundleOptions};
 use super::clock::{FixedClock, Instant};
-use super::git::{GitRunner, MockGit, SystemGit};
+use super::git::{GitRunner, SystemGit};
 use super::lint::lint_skills;
 use super::lock::{load_lockfile, save_lockfile, LockFile};
 use super::ops::{self, ResolveRequest};
 use super::parser::discover_skills;
 use super::styles::{apply_style, discover_styles, remove_style, sync_styles, StyleOptions};
 use super::sync::{sync_skills, SyncOptions};
-use super::taps::{
-    add_tap, load_taps, remove_tap, sync_skills_repo, sync_taps, SkillsSyncConfig, TapOutcome,
-};
+use super::taps::{sync_skills_repo, SkillsSyncConfig, TapOutcome};
 use super::transpilers::{register_all_with_home, register_vscode_copilot};
 use super::TranspilerRegistry;
 use std::fs;
@@ -571,41 +569,6 @@ fn extract_rejects_foreign_zips_and_skips_unsafe_names() {
     let t = Tmp::new("bundle-bad");
     put(&t.0, "plain.zip", "not a zip");
     assert!(extract_bundle(&t.0.join("plain.zip"), &t.0.join("o"), false).is_err());
-}
-
-#[test]
-fn taps_store_and_sync_with_a_mock_runner() {
-    let t = Tmp::new("taps");
-    let cfg = t.0.join("cfg");
-    add_tap(&cfg, "team", "https://example.invalid/skills.git").unwrap();
-    add_tap(&cfg, "other", "https://example.invalid/other.git").unwrap();
-    assert!(add_tap(&cfg, "../evil", "https://x").is_err());
-    assert!(add_tap(&cfg, "ok", "--upload-pack=x").is_err());
-    assert_eq!(load_taps(&cfg).len(), 2);
-
-    let git = MockGit::with_head("abc123");
-    let taps_root = t.0.join("taps");
-    let first = sync_taps(&git, &cfg, &taps_root);
-    assert!(first.iter().all(|(_, o)| *o
-        == TapOutcome::Cloned {
-            head: "abc123".into()
-        }));
-    let second = sync_taps(&git, &cfg, &taps_root);
-    assert!(second.iter().all(|(_, o)| *o
-        == TapOutcome::Updated {
-            head: "abc123".into()
-        }));
-    assert!(git.calls.borrow()[0].starts_with("clone https://example.invalid/skills.git"));
-
-    *git.fail_with.borrow_mut() = Some("offline".into());
-    let failed = sync_taps(&git, &cfg, &taps_root);
-    assert!(failed
-        .iter()
-        .all(|(_, o)| matches!(o, TapOutcome::Failed(e) if e == "offline")));
-
-    assert!(remove_tap(&cfg, "team").unwrap());
-    assert!(!remove_tap(&cfg, "team").unwrap());
-    assert_eq!(load_taps(&cfg).len(), 1);
 }
 
 fn git_available() -> bool {

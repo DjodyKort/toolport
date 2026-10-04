@@ -11,6 +11,11 @@ const GIT_TIMEOUT: Duration = Duration::from_secs(300);
 pub trait GitRunner {
     fn clone_repo(&self, url: &str, dest: &Path) -> Result<(), String>;
 
+    /// A `--depth 1` clone, which is all a tap needs; the default falls back to a full clone.
+    fn clone_shallow(&self, url: &str, dest: &Path) -> Result<(), String> {
+        self.clone_repo(url, dest)
+    }
+
     /// Fast-forward pull; returns the new HEAD commit.
     fn pull(&self, repo: &Path) -> Result<String, String>;
 
@@ -43,6 +48,16 @@ impl GitRunner for SystemGit {
         let dest = dest.to_string_lossy();
         self.run(None, &["clone", "--quiet", "--", url, &dest])
             .map(|_| ())
+    }
+
+    fn clone_shallow(&self, url: &str, dest: &Path) -> Result<(), String> {
+        safe_url(url)?;
+        let dest = dest.to_string_lossy();
+        self.run(
+            None,
+            &["clone", "--quiet", "--depth", "1", "--", url, &dest],
+        )
+        .map(|_| ())
     }
 
     fn pull(&self, repo: &Path) -> Result<String, String> {
@@ -82,6 +97,11 @@ impl MockGit {
 impl GitRunner for MockGit {
     fn clone_repo(&self, url: &str, dest: &Path) -> Result<(), String> {
         self.record(format!("clone {url} {}", dest.display()))?;
+        std::fs::create_dir_all(dest.join(".git")).map_err(|e| e.to_string())
+    }
+
+    fn clone_shallow(&self, url: &str, dest: &Path) -> Result<(), String> {
+        self.record(format!("clone --depth 1 {url} {}", dest.display()))?;
         std::fs::create_dir_all(dest.join(".git")).map_err(|e| e.to_string())
     }
 
