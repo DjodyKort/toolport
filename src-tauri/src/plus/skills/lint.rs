@@ -1,8 +1,11 @@
 //! Lint checks for skills, agents and styles; message texts and ordering match mcpm.
 
+use super::frontmatter::output_accepted;
 use super::parser::{Activation, Skill};
+use super::transpiler::TranspilerRegistry;
 use super::transpilers::windsurf::WINDSURF_WORKSPACE_CHAR_LIMIT;
 use serde::Serialize;
+use std::path::Path;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -199,6 +202,33 @@ pub fn lint_skills(skills: &[Skill]) -> LintResult {
                     name_a,
                     format!(
                         "Has identical globs and activation as '{name_b}'. May cause conflicts."
+                    ),
+                );
+            }
+        }
+    }
+    result
+}
+
+/// Transpiles every skill for every client with a file of its own and fails the ones whose emitted
+/// frontmatter the client would reject; a skill that Claude Code cannot read is hidden from the model
+/// without a message (MIG-GFX-4).
+pub fn lint_outputs(skills: &[Skill], registry: &TranspilerRegistry) -> LintResult {
+    let mut result = LintResult::default();
+    for skill in skills {
+        for transpiler in registry.all() {
+            if transpiler.capabilities().append_mode {
+                continue;
+            }
+            let Ok(out) = transpiler.transpile(skill, Path::new(".")) else {
+                continue;
+            };
+            if let Err(reason) = output_accepted(transpiler.client_key(), &out.content) {
+                result.error(
+                    skill.name(),
+                    format!(
+                        "Emitted {} frontmatter would be rejected: {reason}",
+                        transpiler.client_key()
                     ),
                 );
             }

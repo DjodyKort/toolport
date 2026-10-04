@@ -3,7 +3,7 @@
 //! `plus.skills.*` handlers and the self-MCP skills tools only translate their input into
 //! [`Args`] and render or wrap the result; they share nothing else.
 
-use super::lint::{lint_skills, LintResult};
+use super::lint::{lint_outputs, lint_skills, LintResult};
 use super::ops::{
     diff_skills, find_skills_repo, has_drift, lock_dir, lock_output_root, read_lock,
     skills_status as output_rows,
@@ -142,7 +142,10 @@ pub fn lint(args: &Args) -> Result<Value, OpError> {
     if let Some(names) = &args.names {
         skills.retain(|s| names.iter().any(|n| n == s.name()));
     }
-    Ok(lint_json(&lint_skills(&skills)))
+    let mut result = lint_skills(&skills);
+    let outputs = lint_outputs(&skills, &registry_with_home(crate::clients::home()));
+    result.messages.extend(outputs.messages);
+    Ok(lint_json(&result))
 }
 
 pub fn transpilers() -> Value {
