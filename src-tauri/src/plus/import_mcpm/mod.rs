@@ -15,6 +15,8 @@ mod rename_refs;
 #[cfg(test)] mod rename_refs_prop_tests;
 #[cfg(test)]
 mod rename_refs_tests;
+#[cfg(test)]
+mod rename_refs_wildcard_tests;
 mod run;
 #[cfg(test)]
 mod run_tests;

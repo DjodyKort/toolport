@@ -21,7 +21,11 @@ fn nm() -> NameMap {
             );
         }
     }
-    NameMap { map, servers }
+    NameMap {
+        imported: servers.keys().cloned().collect(),
+        map,
+        servers,
+    }
 }
 
 fn scratch(tag: &str) -> PathBuf {
@@ -141,11 +145,15 @@ fn orphans_are_listed_with_their_file() {
     )
     .unwrap();
     std::fs::write(root.join("b.bin"), "mcp__mcpm_ghost__other").unwrap();
+    std::fs::write(root.join("c.md"), "mcp__mcpm_beta__nope").unwrap();
     let r = rename_refs(&[root.clone()], &nm(), false).unwrap();
     assert_eq!(r.orphans.len(), 1);
-    assert_eq!(r.orphans[0].reference, "mcp__mcpm_ghost__tool");
-    assert!(r.orphans[0].path.ends_with("a.md"));
-    assert!(r.summary().contains("1 orphans"));
+    assert_eq!(r.orphans[0].reference, "mcp__mcpm_beta__nope");
+    assert!(r.orphans[0].path.ends_with("c.md"));
+    assert_eq!(r.dead.len(), 1);
+    assert_eq!(r.dead[0].reference, "mcp__mcpm_ghost__tool");
+    assert!(r.dead[0].path.ends_with("a.md"));
+    assert!(r.summary().contains("1 orphans, 1 dead"));
     let _ = std::fs::remove_dir_all(&root);
 }
 

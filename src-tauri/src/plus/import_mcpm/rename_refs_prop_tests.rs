@@ -31,9 +31,10 @@ const TOOLS: &[&str] = &[
     "x",
 ];
 
+/// No `*`: directly after a reference it is a wildcard, which `rename_refs_wildcard_tests.rs` covers.
 const SEPARATORS: &[&str] = &[
     " ", "\n", "\t", ".", ",", ";", ":", "(", ")", "[", "]", "{", "}", "\"", "'", "`", "/", "\\",
-    "|", "<", ">", "=", "+", "*", "&", "!", "?", "~", "日本", "é", "🙂", ". ", ", ", "`\n",
+    "|", "<", ">", "=", "+", "&", "!", "?", "~", "日本", "é", "🙂", ". ", ", ", "`\n",
 ];
 
 fn map() -> NameMap {
@@ -45,7 +46,11 @@ fn map() -> NameMap {
             map.insert(old_tool_name(name, tool), exposed_tool_name(id, tool));
         }
     }
-    NameMap { map, servers }
+    NameMap {
+        imported: servers.keys().cloned().collect(),
+        map,
+        servers,
+    }
 }
 
 fn token_char(c: char) -> bool {
@@ -219,6 +224,7 @@ fn degenerate_references() {
     let empty = NameMap {
         map: BTreeMap::new(),
         servers: BTreeMap::new(),
+        imported: BTreeSet::new(),
     };
     let (out, n, orphans) = rewrite_text("mcp__mcpm_a__b", &empty);
     assert_eq!((out.as_str(), n, orphans.len()), ("mcp__mcpm_a__b", 0, 1));
