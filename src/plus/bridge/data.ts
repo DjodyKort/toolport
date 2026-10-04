@@ -3,7 +3,6 @@ import {
   bool,
   any,
   lit,
-  masked,
   nullable,
   num,
   obj,
@@ -363,7 +362,7 @@ export const measureRun = obj({
   mcpServers: arr(obj({ name: str, status: str })),
   skillNames: arr(str),
   agentNames: arr(str),
-  durationMs: masked(num),
+  durationMs: num,
 });
 export type MeasureRun = Infer<typeof measureRun>;
 

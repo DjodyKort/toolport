@@ -33,7 +33,7 @@
         {
           "agentNames": ["reviewer", "kit:kit-agent"],
           "agents": 2,
-          "durationMs": "<masked>",
+          "durationMs": 0,
           "label": "as is",
           "mcpServers": [
             {
@@ -97,7 +97,7 @@
         {
           "agentNames": ["reviewer"],
           "agents": 1,
-          "durationMs": "<masked>",
+          "durationMs": 0,
           "label": "without plugin:kit@market",
           "mcpServers": [
             {

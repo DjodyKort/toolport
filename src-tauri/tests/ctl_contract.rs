@@ -144,30 +144,6 @@ fn sources_home(world: &CtlWorld) {
     sources_world::build_in(&world.base);
 }
 
-fn loads_home(world: &CtlWorld) {
-    loads_world::build_in(
-        &world.base,
-        conduit_lib::plus::context::layers::MANAGED_LOCAL_HEADER,
-    );
-}
-
-/// The client-folder home with a `claude` that is the stream-json stub
-/// (`fixtures/loads/claude-stub.sh`) and a user skill Claude Code does not list.
-fn measure_home(world: &CtlWorld) {
-    let loaded = loads_world::build_in(
-        &world.base,
-        conduit_lib::plus::context::layers::MANAGED_LOCAL_HEADER,
-    );
-    claude_stub::ClaudeStub::install(&world.claude, &world.base);
-    let unlisted = loaded.claude.join("skills/handoff/SKILL.md");
-    std::fs::create_dir_all(unlisted.parent().unwrap()).unwrap();
-    std::fs::write(
-        unlisted,
-        "---\nname: handoff\ndescription: \"Write a handoff\nfor the next session\"\n---\nBody\n",
-    )
-    .unwrap();
-}
-
 /// A case that runs over the sources fixture home of the GUI-wave contract, section 13.
 const fn sources_case(id: &'static str, steps: &'static [Step]) -> Case {
     Case {

@@ -1071,7 +1071,7 @@
       "measured": {
         "agentNames": ["reviewer", "kit:kit-agent"],
         "agents": 2,
-        "durationMs": "<masked>",
+        "durationMs": 0,
         "label": "as is",
         "mcpServers": [
           {

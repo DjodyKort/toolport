@@ -109,7 +109,8 @@ impl CtlWorld {
 
     /// Every file of the scratch tree, for "this step changed nothing" checks. Lock files and
     /// git's own bookkeeping are left out: a plan that fetches or checks out in a clone moves
-    /// FETCH_HEAD and ORIG_HEAD, and what a user can see lies outside `.git`.
+    /// FETCH_HEAD and ORIG_HEAD, and what a user can see lies outside `.git`. So are the call log
+    /// and version file of the `claude` stub, which record what a step asked and are not state.
     pub fn snapshot(&self) -> BTreeMap<PathBuf, Vec<u8>> {
         fn collect(dir: &Path, files: &mut BTreeMap<PathBuf, Vec<u8>>) {
             for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
@@ -120,7 +121,11 @@ impl CtlWorld {
                     {
                         collect(&path, files);
                     }
-                } else if path.extension().is_some_and(|ext| ext == "lock") {
+                } else if path.extension().is_some_and(|ext| ext == "lock")
+                    || path
+                        .file_name()
+                        .is_some_and(|name| name.to_string_lossy().starts_with("claude-stub."))
+                {
                     continue;
                 } else if let Ok(bytes) = std::fs::read(&path) {
                     files.insert(path, bytes);
