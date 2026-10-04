@@ -1,6 +1,7 @@
 import { useState, type ComponentType } from "react";
 import { NotBuiltPanel } from "../NotBuilt";
 import { NOT_BUILT_TABS } from "../notBuiltTabs";
+import { useRestoreFocus } from "../agents/useRestoreFocus";
 import { Tabs } from "../ui";
 import { CouncilTab } from "./CouncilTab";
 import { ImportTab } from "./ImportTab";
@@ -30,6 +31,7 @@ export function SystemScreen({
   initialTab?: string;
   onOpenCommands: (group?: string) => void;
 }) {
+  useRestoreFocus();
   const [tab, setTab] = useState(initialTab);
   const current = TABS.find((item) => item.id === tab) ?? TABS[0];
   const Panel = current ? PANELS[current.id] : undefined;
