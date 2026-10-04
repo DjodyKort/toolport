@@ -4,6 +4,9 @@
 
 mod backend;
 mod catalog;
+mod compression;
+#[cfg(test)]
+mod compression_tests;
 mod content;
 mod direct;
 #[cfg(test)]
@@ -140,6 +143,7 @@ fn type_matches(ty: catalog::Ty, value: &Value) -> bool {
         catalog::Ty::StrList => value
             .as_array()
             .is_some_and(|items| items.iter().all(Value::is_string)),
+        catalog::Ty::Int => value.is_i64() || value.is_u64(),
     }
 }
 

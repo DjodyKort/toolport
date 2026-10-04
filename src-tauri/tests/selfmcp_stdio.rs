@@ -20,7 +20,7 @@ use serde_json::{json, Value};
 
 const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
-const TOOL_COUNT: usize = 73;
+const TOOL_COUNT: usize = 80;
 const RESOURCE_COUNT: usize = 11;
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -318,6 +318,7 @@ fn sample_args(descriptor: &Value) -> Value {
             Some("boolean") => json!(true),
             Some("object") => json!({}),
             Some("array") => json!(["x"]),
+            Some("integer") => json!(1),
             other => panic!("unexpected parameter type {other:?} for {name}"),
         };
         args.insert(name.to_string(), value);
@@ -507,6 +508,7 @@ fn tier_one_calls() -> BTreeMap<&'static str, Value> {
         ("servers_check_updates", json!({})),
         ("clients_list", json!({})),
         ("client_direct_ls", json!({})),
+        ("compression_status", json!({})),
         ("where_am_i", json!({})),
         ("doctor", json!({})),
         ("flow_diagram", json!({})),
@@ -575,6 +577,8 @@ fn tier_one_tools_read_without_confirm_and_never_write() {
     );
     assert_eq!(results["servers_list_profiles"]["activeProfile"], "default");
     assert_eq!(results["client_direct_ls"]["entries"], json!([]));
+    assert_eq!(results["compression_status"]["configExists"], false);
+    assert_eq!(results["compression_status"]["provider"], "none");
     assert_eq!(results["servers_git_status"]["isGit"], false);
     same_path(&results["where_am_i"]["dataDir"], &world.data);
     assert_eq!(results["where_am_i"]["serverCount"], 2);
@@ -975,6 +979,98 @@ fn the_agent_and_style_clean_and_uninstall_tools_plan_by_default_and_apply_when_
     assert_eq!(gone.ok()["dryRun"], false);
     assert!(!world.repo.join("agents/helper").exists());
     assert!(world.skill_file().is_file());
+    assert!(client.close().success());
+}
+
+#[test]
+fn the_compression_tools_plan_by_default_and_apply_when_confirmed() {
+    let world = World::new("compression");
+    let mut client = Client::spawn(&world);
+    client.handshake();
+    let listed = listed_tools(&mut client);
+    for name in [
+        "compression_enable",
+        "compression_disable",
+        "compression_set_provider",
+        "compression_use",
+        "compression_sync",
+        "compression_seal",
+    ] {
+        let tool = listed.iter().find(|t| t["name"] == name).unwrap();
+        assert_eq!(
+            tool["inputSchema"]["properties"]["dry_run"]["default"], true,
+            "{name}"
+        );
+        assert!(
+            tool["description"]
+                .as_str()
+                .unwrap()
+                .contains("dry_run is on by default"),
+            "{name}"
+        );
+    }
+    let enable = listed.iter().find(|t| t["name"] == "compression_enable").unwrap();
+    assert_eq!(enable["inputSchema"]["properties"]["port"]["type"], "integer");
+
+    let before = world.snapshot();
+    let args = json!({"provider": "rtk-only", "port": 9411, "mode": "cache"});
+    let planned = client.call("compression_enable", args.clone());
+    assert_eq!(planned.ok()["dryRun"], true);
+    assert_eq!(planned.ok()["provider"], "rtk-only");
+    assert_eq!(world.snapshot(), before, "a default call must not write");
+    let mut apply = args;
+    apply["dry_run"] = json!(false);
+    assert_eq!(
+        client.call("compression_enable", apply.clone()).error_kind(),
+        "refused"
+    );
+    assert_eq!(world.snapshot(), before, "a refused call must not write");
+    for bad in [json!({"port": "9411"}), json!({"port": 0}), json!({"provider": "bogus"})] {
+        let mut bad_apply = bad.clone();
+        bad_apply["dry_run"] = json!(false);
+        bad_apply["confirm"] = json!(true);
+        assert_eq!(
+            client.call("compression_enable", bad_apply).error_kind(),
+            "invalid_arguments",
+            "{bad}"
+        );
+    }
+    assert_eq!(world.snapshot(), before);
+
+    apply["confirm"] = json!(true);
+    assert_eq!(client.call("compression_enable", apply).ok()["dryRun"], false);
+    let status = client.call("compression_status", json!({}));
+    assert_eq!(status.ok()["configExists"], true);
+    assert_eq!(status.ok()["provider"], "rtk-only");
+    assert_eq!(status.ok()["preset"]["port"], 9411);
+    let config = PathBuf::from(status.ok()["configPath"].as_str().unwrap());
+    same_path(
+        &json!(config.parent().unwrap().to_string_lossy()),
+        &world.data,
+    );
+    assert!(config.is_file());
+
+    let before = world.snapshot();
+    assert_eq!(
+        client.call("compression_disable", json!({})).ok()["dryRun"],
+        true
+    );
+    assert_eq!(
+        client
+            .call("compression_disable", json!({"dry_run": false}))
+            .error_kind(),
+        "refused"
+    );
+    assert_eq!(world.snapshot(), before);
+    let done = client.call(
+        "compression_disable",
+        json!({"dry_run": false, "confirm": true}),
+    );
+    assert_eq!(done.ok()["provider"], "none");
+    assert_eq!(
+        client.call("compression_status", json!({})).ok()["provider"],
+        "none"
+    );
     assert!(client.close().success());
 }
 

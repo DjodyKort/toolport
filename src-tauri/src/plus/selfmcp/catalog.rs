@@ -1,4 +1,4 @@
-use super::{content, direct, servers, state, ToolError};
+use super::{compression, content, direct, servers, state, ToolError};
 use serde_json::{json, Map, Value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -14,6 +14,7 @@ pub enum Ty {
     Bool,
     Obj,
     StrList,
+    Int,
 }
 
 pub struct Param {
@@ -495,6 +496,75 @@ pub const TOOLS: &[ToolDef] = &[
         [REPO, CLIENTS, DRY]
     ),
     tool!(
+        "compression_status",
+        1,
+        None,
+        "Show the compression provider, active preset, engine pin and shims",
+        [],
+        compression::status
+    ),
+    tool!(
+        "compression_enable",
+        3,
+        UnlessDryRun,
+        "Enable compression: writes the policy config, the shell shims and the registry entry of the provider (default headroom); dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("provider", Ty::Str, false, "headroom, rtk-only, parsec or none"),
+            p("port", Ty::Int, false, "Proxy port of the active preset"),
+            p("telemetry", Ty::Str, false, "on or off"),
+            p("preset", Ty::Str, false, "Preset to make active"),
+            p("mode", Ty::Str, false, "cache or token"),
+            DRY_ON
+        ],
+        compression::enable
+    ),
+    tool!(
+        "compression_disable",
+        4,
+        UnlessDryRun,
+        "Switch compression off (provider none) and remove the generated shims and registry entry; presets and the pin stay and the engine is not torn down; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [DRY_ON],
+        compression::disable
+    ),
+    tool!(
+        "compression_set_provider",
+        3,
+        UnlessDryRun,
+        "Switch the compression provider and re-apply the policy; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("provider", Ty::Str, true, "headroom, rtk-only, parsec or none"),
+            DRY_ON
+        ],
+        compression::set_provider
+    ),
+    tool!(
+        "compression_use",
+        3,
+        UnlessDryRun,
+        "Make a compression preset active and re-apply the policy; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [p("preset", Ty::Str, true, "Preset name"), DRY_ON],
+        compression::use_preset
+    ),
+    tool!(
+        "compression_sync",
+        3,
+        UnlessDryRun,
+        "Re-apply the stored compression policy to the shims, the registry entry and the engine, adopting a legacy mcpm policy when none is stored; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [DRY_ON],
+        compression::sync
+    ),
+    tool!(
+        "compression_seal",
+        3,
+        UnlessDryRun,
+        "Read the running proxy's /health and record the settings the policy never declared into the preset; needs a running proxy; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("preset", Ty::Str, false, "Preset to seal, default the active one"),
+            DRY_ON
+        ],
+        compression::seal
+    ),
+    tool!(
         "servers_list",
         1,
         None,
@@ -829,6 +899,7 @@ fn ty_schema(ty: Ty) -> Value {
         Ty::Bool => json!({"type": "boolean"}),
         Ty::Obj => json!({"type": "object"}),
         Ty::StrList => json!({"type": "array", "items": {"type": "string"}}),
+        Ty::Int => json!({"type": "integer"}),
     }
 }
 

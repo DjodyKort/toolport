@@ -54,6 +54,13 @@ const EXPECTED_TOOLS: &[&str] = &[
     "styles_clean",
     "styles_edit_body",
     "styles_remove",
+    "compression_status",
+    "compression_enable",
+    "compression_disable",
+    "compression_set_provider",
+    "compression_use",
+    "compression_sync",
+    "compression_seal",
     "servers_list",
     "servers_get",
     "servers_list_profiles",
@@ -96,6 +103,7 @@ const EXPECTED_RESOURCES: &[&str] = &[
 ];
 
 pub(super) struct Fixture {
+    _env: crate::plus::compression::manage_tests::EnvGuard,
     base: crate::plus::testutil::DataDirFx,
     pub(super) home: PathBuf,
     pub(super) repo: PathBuf,
@@ -158,7 +166,12 @@ impl Fixture {
         std::fs::create_dir_all(&home).unwrap();
         crate::clients::TEST_HOME.with(|h| *h.borrow_mut() = Some(home.clone()));
         backend::TEST_REPO.with(|r| *r.borrow_mut() = Some(repo.clone()));
-        Self { base, home, repo }
+        Self {
+            _env: crate::plus::compression::manage_tests::EnvGuard::home(&home),
+            base,
+            home,
+            repo,
+        }
     }
 }
 
@@ -177,6 +190,7 @@ fn sample_args(tool: &ToolDef) -> Value {
             catalog::Ty::Bool => json!(true),
             catalog::Ty::Obj => json!({}),
             catalog::Ty::StrList => json!(["x"]),
+            catalog::Ty::Int => json!(1),
         };
         map.insert(param.name.to_string(), value);
     }
@@ -191,9 +205,9 @@ fn err_kind(result: Result<Value, ToolError>) -> &'static str {
 }
 
 #[test]
-fn registry_has_all_73_tools_and_11_resources() {
+fn registry_has_all_80_tools_and_11_resources() {
     let names: Vec<&str> = TOOLS.iter().map(|t| t.name).collect();
-    assert_eq!(names.len(), 73);
+    assert_eq!(names.len(), 80);
     assert_eq!(
         names.iter().copied().collect::<BTreeSet<_>>(),
         EXPECTED_TOOLS.iter().copied().collect::<BTreeSet<_>>()
@@ -212,6 +226,7 @@ fn module_counts_match_the_parity_matrix() {
     assert_eq!(count("skills_") - 1, 23);
     assert_eq!(count("agents_"), 12);
     assert_eq!(count("styles_"), 13);
+    assert_eq!(count("compression_"), 7);
     assert_eq!(count("servers_"), 15);
     assert_eq!(count("clients_"), 2);
     assert_eq!(count("client_direct_"), 3);
@@ -280,7 +295,8 @@ fn tiers_three_and_four_always_carry_a_gate() {
             "skills_uninstall",
             "agents_clean",
             "agents_uninstall",
-            "styles_clean"
+            "styles_clean",
+            "compression_disable"
         ])
     );
 }
@@ -364,6 +380,69 @@ fn a_dry_run_that_is_on_by_default_previews_without_confirm_and_applies_only_wit
         let refused = call_tool(tool.name, &with(Some(false))).unwrap_err();
         assert_eq!(refused.kind, "refused", "{}", tool.name);
         assert_eq!(refused.message.contains("WARNING"), tool.tier >= 4);
+    }
+}
+
+const DEFAULT_DRY_RUN_TOOLS: &[&str] = &[
+    "skills_tap_add",
+    "skills_tap_remove",
+    "skills_tap_update",
+    "skills_install",
+    "skills_bundle",
+    "skills_unbundle",
+    "skills_clean",
+    "skills_uninstall",
+    "skills_resolve",
+    "agents_clean",
+    "agents_uninstall",
+    "styles_clean",
+    "compression_enable",
+    "compression_disable",
+    "compression_set_provider",
+    "compression_use",
+    "compression_sync",
+    "compression_seal",
+    "client_direct_add",
+    "client_direct_rm",
+];
+
+#[test]
+fn every_tool_whose_dry_run_defaults_to_true_says_so_and_the_list_is_closed() {
+    let found: BTreeSet<&str> = TOOLS
+        .iter()
+        .filter(|t| {
+            t.params
+                .iter()
+                .any(|p| p.name == "dry_run" && p.default == Some(true))
+        })
+        .map(|t| t.name)
+        .collect();
+    assert_eq!(
+        found,
+        DEFAULT_DRY_RUN_TOOLS
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>()
+    );
+    for tool in TOOLS.iter().filter(|t| found.contains(t.name)) {
+        let schema = catalog::input_schema(tool);
+        assert_eq!(
+            schema["properties"]["dry_run"]["default"], true,
+            "{}",
+            tool.name
+        );
+        assert!(
+            tool.description.contains("dry_run is on by default"),
+            "{} must say that dry_run is on by default",
+            tool.name
+        );
+    }
+    for tool in TOOLS.iter().filter(|t| t.gate == Gate::UnlessDryRun) {
+        assert!(
+            found.contains(tool.name) || tool.name == "clients_sync" || tool.name == "sync_push",
+            "{} gates on dry_run without defaulting it to true",
+            tool.name
+        );
     }
 }
 
@@ -553,7 +632,7 @@ fn json_rpc_surface_lists_calls_and_reads() {
         handle_message(&json!({"jsonrpc": "2.0", "method": "notifications/initialized"})).is_none()
     );
     let tools = call(json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}));
-    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 73);
+    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 80);
     let resources = call(json!({"jsonrpc": "2.0", "id": 3, "method": "resources/list"}));
     assert_eq!(
         resources["result"]["resources"].as_array().unwrap().len(),
