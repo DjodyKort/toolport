@@ -718,6 +718,15 @@ impl Router {
             .map(|(s, t)| (s.as_str(), t.as_str()))
     }
 
+    /// The `outputSchema` the exposed tool `exposed` declares, if it declares one.
+    pub fn tool_output_schema(&self, exposed: &str) -> Option<&Value> {
+        self.tools
+            .iter()
+            .find(|tool| tool.get("name").and_then(Value::as_str) == Some(exposed))
+            .and_then(|tool| tool.get("outputSchema"))
+            .filter(|schema| schema.is_object())
+    }
+
     /// Why a call to `exposed_name` cannot be routed.
     pub fn no_route_message(&self, exposed_name: &str) -> String {
         self.no_route_message_within(exposed_name, |_| true)
@@ -4344,6 +4353,40 @@ mod tests {
         let result = router.read_resource("postgres://readme").unwrap();
         assert_eq!(result["contents"][0]["text"], "postgres-body");
         assert!(router.read_resource("nope://x").is_err());
+    }
+
+    #[test]
+    fn a_tool_exposes_the_output_schema_it_declares() {
+        struct TypedTools;
+        impl Transport for TypedTools {
+            fn request(&mut self, method: &str, _params: Value) -> Result<Value, TransportError> {
+                match method {
+                    "initialize" => Ok(json!({ "protocolVersion": "2025-06-18" })),
+                    "tools/list" => Ok(json!({
+                        "tools": [
+                            { "name": "typed", "outputSchema": { "type": "object" } },
+                            { "name": "plain" },
+                            { "name": "odd", "outputSchema": "not a schema" }
+                        ]
+                    })),
+                    other => Err(TransportError::Fatal(format!("unexpected method {other}"))),
+                }
+            }
+            fn notify(&mut self, _method: &str, _params: Value) -> Result<(), TransportError> {
+                Ok(())
+            }
+        }
+        let mut router = Router::new();
+        router.add(DownstreamServer::connect("srv".to_string(), Box::new(TypedTools)).unwrap());
+
+        assert_eq!(
+            router.tool_output_schema("srv__typed"),
+            Some(&json!({ "type": "object" }))
+        );
+        assert_eq!(router.tool_output_schema("srv__plain"), None);
+        assert_eq!(router.tool_output_schema("srv__odd"), None);
+        assert_eq!(router.tool_output_schema("srv__missing"), None);
+        assert_eq!(router.tool_output_schema("typed"), None);
     }
 
     #[test]

@@ -240,6 +240,14 @@ fn odh_tools() -> Vec<Value> {
                     "delayMs": { "type": "integer" }, "progressEveryMs": { "type": "integer" } } } }),
         json!({ "name": "odoo_big", "description": "Return a text body and a structuredContent blob of `bytes` bytes each.",
                 "inputSchema": { "type": "object", "properties": { "bytes": { "type": "integer" } } } }),
+        json!({ "name": "odoo_big_typed", "description": "Like odoo_big, with an outputSchema; the text body is `textBytes` bytes long (default `bytes`).",
+                "inputSchema": { "type": "object", "properties": {
+                    "bytes": { "type": "integer" }, "textBytes": { "type": "integer" } } },
+                "outputSchema": {
+                    "type": "object",
+                    "properties": { "blob": { "type": "string" } },
+                    "required": ["blob"]
+                } }),
     ]
 }
 
@@ -339,6 +347,15 @@ fn odh_call(
             let bytes = number("bytes", 0) as usize;
             json!({
                 "content": [{ "type": "text", "text": "x".repeat(bytes) }],
+                "structuredContent": { "blob": "y".repeat(bytes) },
+                "isError": false
+            })
+        }
+        "odoo_big_typed" => {
+            let bytes = number("bytes", 0) as usize;
+            let text_bytes = number("textBytes", bytes as u64) as usize;
+            json!({
+                "content": [{ "type": "text", "text": "x".repeat(text_bytes) }],
                 "structuredContent": { "blob": "y".repeat(bytes) },
                 "isError": false
             })

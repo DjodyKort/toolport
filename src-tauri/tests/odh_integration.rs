@@ -1139,6 +1139,115 @@ fn oversized_results_are_shaped_and_lose_structured_content_unless_the_budget_is
     assert!(!text_of(&whole).contains("toolport_fetch_result"));
 }
 
+const RESULT_BUDGET: usize = 48 * 1024;
+
+fn blob_len(reply: &Value) -> Option<usize> {
+    reply["result"]["structuredContent"]["blob"]
+        .as_str()
+        .map(str::len)
+}
+
+#[test]
+fn a_tool_with_an_output_schema_keeps_structured_content_when_its_text_is_shaped() {
+    let scratch = Scratch::new("typed-shaped");
+    write_registry(&scratch, mock_entry(&scratch), |_| {});
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", json!({}));
+    let tool = client.wait_for_tool("odh__odoo_big_typed");
+    assert_eq!(tool["outputSchema"]["required"], json!(["blob"]));
+
+    let reply = client.call(
+        "odh__odoo_big_typed",
+        json!({"bytes": 60_000, "textBytes": 60_000}),
+        None,
+    );
+    assert_eq!(
+        blob_len(&reply),
+        Some(60_000),
+        "structuredContent conforms to the declared outputSchema, so it is not stashed"
+    );
+    let text = first_text(&reply);
+    assert!(text.contains("toolport_fetch_result"), "{reply}");
+    assert!(
+        text.len() <= RESULT_BUDGET,
+        "the budget still holds for the text content: {} bytes",
+        text.len()
+    );
+    assert_eq!(reply["result"]["isError"], false);
+
+    let cursor = text
+        .split("\"cursor\":\"")
+        .nth(1)
+        .and_then(|rest| rest.split('"').next())
+        .expect("the marker carries a cursor");
+    let more = client.call(
+        "toolport_fetch_result",
+        json!({"cursor": cursor, "offset": 0}),
+        None,
+    );
+    assert!(
+        text_of(&more).starts_with("xxxx"),
+        "the cursor still pages the text: {more}"
+    );
+}
+
+#[test]
+fn a_tool_with_an_output_schema_keeps_structured_content_whose_text_fits_the_budget() {
+    let scratch = Scratch::new("typed-fits");
+    write_registry(&scratch, mock_entry(&scratch), |_| {});
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", json!({}));
+    client.wait_for_tool("odh__odoo_big_typed");
+
+    let reply = client.call(
+        "odh__odoo_big_typed",
+        json!({"bytes": 60_000, "textBytes": 20}),
+        None,
+    );
+    assert_eq!(blob_len(&reply), Some(60_000), "{}", first_text(&reply));
+    assert_eq!(first_text(&reply), "x".repeat(20));
+}
+
+#[test]
+fn a_tool_with_an_output_schema_keeps_structured_content_through_toolport_call_tool_too() {
+    let scratch = Scratch::new("typed-lazy");
+    write_registry(&scratch, mock_entry(&scratch), |reg| {
+        reg.set_lazy_discovery(true)
+    });
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", json!({}));
+    wait_for_lazy_tool(&mut client, "odh__odoo_big_typed");
+
+    let reply = client.call(
+        "toolport_call_tool",
+        json!({"name": "odh__odoo_big_typed",
+               "arguments": {"bytes": 60_000, "textBytes": 60_000}}),
+        None,
+    );
+    assert_eq!(blob_len(&reply), Some(60_000), "{}", first_text(&reply));
+    assert!(first_text(&reply).contains("toolport_fetch_result"));
+}
+
+#[test]
+fn a_structured_payload_past_the_keep_ceiling_is_stashed_even_with_an_output_schema() {
+    let scratch = Scratch::new("typed-ceiling");
+    write_registry(&scratch, mock_entry(&scratch), |_| {});
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", json!({}));
+    client.wait_for_tool("odh__odoo_big_typed");
+
+    let reply = client.call(
+        "odh__odoo_big_typed",
+        json!({"bytes": 1_100_000, "textBytes": 60_000}),
+        None,
+    );
+    assert!(
+        reply["result"].get("structuredContent").is_none(),
+        "past one MiB the payload goes behind the cursor as before"
+    );
+    assert!(first_text(&reply).contains("toolport_fetch_result"));
+}
+
 #[test]
 fn a_profile_instruction_of_two_thousand_characters_is_sent_unchanged() {
     let scratch = Scratch::new("instructions");

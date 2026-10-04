@@ -4888,8 +4888,10 @@ fn execute_call(
             } else {
                 recovery_hint(cached, srv)
             };
+            let typed = result.get("structuredContent").is_some()
+                && exec_router.tool_output_schema(name).is_some();
             let Defended { result: out, pii } =
-                defend_and_shape(reg, srv, tool, client, result, &trailer, shape);
+                defend_and_shape_for(reg, srv, tool, client, result, &trailer, shape, typed);
             session_tables().remember_links(client, server_id, &out);
             if let Some(profiler) = &mut call_profiler {
                 profiler.mark_postprocess();
@@ -5624,9 +5626,26 @@ fn defend_and_shape(
     srv: &str,
     tool: &str,
     client: Option<&str>,
+    result: Value,
+    trailer: &str,
+    shape: bool,
+) -> Defended {
+    defend_and_shape_for(reg, srv, tool, client, result, trailer, shape, false)
+}
+
+/// [`defend_and_shape`] for a tool that may declare an `outputSchema`. `typed` says it
+/// does: its `structuredContent` then stays in a result that shaping cuts (see
+/// [`shaping::shape_result_keeping_structured`]).
+#[allow(clippy::too_many_arguments)]
+fn defend_and_shape_for(
+    reg: &Registry,
+    srv: &str,
+    tool: &str,
+    client: Option<&str>,
     mut result: Value,
     trailer: &str,
     shape: bool,
+    typed: bool,
 ) -> Defended {
     // Scan untrusted output for injection; label always, optionally fail closed.
     // Block mode alone must still run the scanner: an org forceBlockOnInjection (or a
@@ -5668,7 +5687,11 @@ fn defend_and_shape(
 
                 budget
             });
-        shaping::shape_result(&mut result, budget, client);
+        if typed {
+            shaping::shape_result_keeping_structured(&mut result, budget, client);
+        } else {
+            shaping::shape_result(&mut result, budget, client);
+        }
     }
     // Toolport-authored trailer, appended last so it survives both passes intact.
     let trailer = trailer.trim();
@@ -24859,6 +24882,103 @@ mod tests {
         r
     }
 
+    struct TypedRoute {
+        text_bytes: usize,
+        structured_bytes: usize,
+        is_error: bool,
+    }
+
+    impl conduit_lib::downstream::Transport for TypedRoute {
+        fn request(
+            &mut self,
+            method: &str,
+            params: Value,
+        ) -> Result<Value, conduit_lib::downstream::TransportError> {
+            match method {
+                "initialize" => Ok(json!({ "protocolVersion": "2025-06-18" })),
+                "tools/list" => Ok(json!({
+                    "tools": [
+                        {
+                            "name": "typed",
+                            "description": "declares an outputSchema",
+                            "inputSchema": { "type": "object" },
+                            "outputSchema": {
+                                "type": "object",
+                                "properties": { "blob": { "type": "string" } },
+                                "required": ["blob"]
+                            }
+                        },
+                        {
+                            "name": "untyped",
+                            "description": "declares none",
+                            "inputSchema": { "type": "object" }
+                        }
+                    ]
+                })),
+                "tools/call" => {
+                    let _ = params;
+                    Ok(json!({
+                        "content": [{ "type": "text", "text": "t".repeat(self.text_bytes) }],
+                        "structuredContent": { "blob": "s".repeat(self.structured_bytes) },
+                        "isError": self.is_error
+                    }))
+                }
+                other => Err(conduit_lib::downstream::TransportError::Fatal(format!(
+                    "unexpected {other}"
+                ))),
+            }
+        }
+
+        fn notify(
+            &mut self,
+            _method: &str,
+            _params: Value,
+        ) -> Result<(), conduit_lib::downstream::TransportError> {
+            Ok(())
+        }
+    }
+
+    fn call_typed(
+        reg: &Registry,
+        text_bytes: usize,
+        structured_bytes: usize,
+        is_error: bool,
+        tool: &str,
+    ) -> Value {
+        let downstream = DownstreamServer::connect(
+            "s".to_string(),
+            Box::new(TypedRoute {
+                text_bytes,
+                structured_bytes,
+                is_error,
+            }),
+        )
+        .unwrap();
+        let mut router = Router::new();
+        router.add(downstream);
+        let cached = router.aggregated_tools();
+        execute_call(
+            reg,
+            &router,
+            &cached,
+            Some("typed-client"),
+            None,
+            None,
+            None,
+            Some(&ConfirmGuard::new()),
+            tool,
+            json!({}),
+            None,
+            None,
+            CallOpts {
+                confirmed: true,
+                shape: true,
+                allow_app_only: true,
+            },
+            None,
+        )
+    }
+
     struct LinkRoute {
         label: &'static str,
         listed: Option<&'static str>,
@@ -24981,6 +25101,129 @@ mod tests {
             client,
         )
         .unwrap()
+    }
+
+    /// G9: a tool that declares an `outputSchema` keeps its `structuredContent` through
+    /// shaping, because the spec has it conform to that schema; one that does not
+    /// declare a schema is shaped as before.
+    #[test]
+    fn a_typed_tools_structured_content_survives_shaping_and_an_untyped_ones_does_not() {
+        let _data_env = DataDirTestEnv::new("typed_structured_content_survives_shaping");
+        let reg = Registry::default();
+        let budget = shaping::DEFAULT_BUDGET_BYTES;
+
+        let typed = call_typed(&reg, budget * 2, 30_000, false, "s__typed");
+        assert_eq!(
+            typed["structuredContent"]["blob"].as_str().map(str::len),
+            Some(30_000),
+            "{typed}"
+        );
+        let text = typed["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("toolport_fetch_result"), "{text}");
+        let mut text_only = typed.clone();
+        text_only
+            .as_object_mut()
+            .unwrap()
+            .remove("structuredContent");
+        assert!(
+            serde_json::to_string(&text_only).unwrap().len() <= budget,
+            "the budget still holds for the text content"
+        );
+        assert_eq!(typed["isError"], false);
+
+        let untyped = call_typed(&reg, budget * 2, 30_000, false, "s__untyped");
+        assert!(
+            untyped.get("structuredContent").is_none(),
+            "a tool without an outputSchema is shaped as before: {untyped}"
+        );
+        assert!(untyped["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("toolport_fetch_result"));
+    }
+
+    #[test]
+    fn a_typed_tools_result_whose_text_fits_is_returned_whole_whatever_its_structured_size() {
+        let _data_env = DataDirTestEnv::new("typed_text_fits_structured_whole");
+        let reg = Registry::default();
+        let typed = call_typed(
+            &reg,
+            100,
+            shaping::DEFAULT_BUDGET_BYTES * 2,
+            false,
+            "s__typed",
+        );
+        assert_eq!(
+            typed["content"][0]["text"].as_str().map(str::len),
+            Some(100)
+        );
+        assert_eq!(
+            typed["structuredContent"]["blob"].as_str().map(str::len),
+            Some(shaping::DEFAULT_BUDGET_BYTES * 2)
+        );
+
+        let untyped = call_typed(
+            &reg,
+            100,
+            shaping::DEFAULT_BUDGET_BYTES * 2,
+            false,
+            "s__untyped",
+        );
+        assert!(untyped.get("structuredContent").is_none(), "{untyped}");
+    }
+
+    #[test]
+    fn a_failed_typed_result_and_a_payload_past_the_ceiling_are_shaped_as_before() {
+        let _data_env = DataDirTestEnv::new("typed_failure_and_ceiling_shaped_as_before");
+        let reg = Registry::default();
+        let failed = call_typed(
+            &reg,
+            shaping::DEFAULT_BUDGET_BYTES * 2,
+            30_000,
+            true,
+            "s__typed",
+        );
+        assert_eq!(failed["isError"], true);
+        assert!(failed.get("structuredContent").is_none(), "{failed}");
+
+        let past = call_typed(
+            &reg,
+            shaping::DEFAULT_BUDGET_BYTES * 2,
+            shaping::MAX_KEPT_STRUCTURED_BYTES,
+            false,
+            "s__typed",
+        );
+        assert!(past.get("structuredContent").is_none());
+        assert!(past["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("toolport_fetch_result"));
+    }
+
+    #[test]
+    fn the_servers_result_budget_still_applies_to_a_typed_tools_text() {
+        let _data_env = DataDirTestEnv::new("typed_result_budget_applies_to_text");
+        let mut reg = Registry::default();
+        reg.result_budgets.insert("s".to_string(), 4096);
+        let typed = call_typed(&reg, 10_000, 30_000, false, "s__typed");
+        assert!(
+            typed["content"][0]["text"]
+                .as_str()
+                .unwrap()
+                .contains("toolport_fetch_result"),
+            "{typed}"
+        );
+        assert_eq!(
+            typed["structuredContent"]["blob"].as_str().map(str::len),
+            Some(30_000)
+        );
+
+        reg.result_budgets.insert("s".to_string(), 0);
+        let whole = call_typed(&reg, 10_000, 30_000, false, "s__untyped");
+        assert_eq!(
+            whole["structuredContent"]["blob"].as_str().map(str::len),
+            Some(30_000)
+        );
     }
 
     /// G6: a `resource_link` to a URI no server lists and no template covers can be read
