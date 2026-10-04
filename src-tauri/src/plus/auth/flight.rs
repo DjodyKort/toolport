@@ -52,6 +52,7 @@ impl<T: Clone> SingleFlight<T> {
         Self::default()
     }
 
+    #[cfg(test)]
     pub fn waiters(&self, key: &str) -> usize {
         let slot = lock(&self.slots).get(key).cloned();
         slot.map(|s| lock(&s.phase).1).unwrap_or(0)

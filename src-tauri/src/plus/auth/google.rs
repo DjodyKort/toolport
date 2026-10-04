@@ -158,10 +158,12 @@ fn read_credentials(path: &Path) -> Result<(Credentials, Option<SystemTime>), Pr
 }
 
 impl GoogleRefreshProbe {
+    #[cfg(test)]
     pub fn new() -> Self {
         Self::default()
     }
 
+    #[cfg(test)]
     pub fn with_endpoint(mut self, endpoint: &str) -> Result<Self, String> {
         if !endpoint_allowed(endpoint) {
             return Err("token endpoint must be https or loopback http".to_string());
@@ -170,16 +172,19 @@ impl GoogleRefreshProbe {
         Ok(self)
     }
 
+    #[cfg(test)]
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self
     }
 
+    #[cfg(test)]
     pub fn with_vault(mut self, vault: Box<dyn ClientVault>) -> Self {
         self.vault = vault;
         self
     }
 
+    #[cfg(test)]
     pub fn last_ttl(&self, server: &str) -> Option<i64> {
         self.ttl.lock().ok()?.get(server).copied()
     }
