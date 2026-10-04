@@ -117,6 +117,7 @@ struct Ctx<'a> {
     items: Vec<LoadItem>,
     clobbers: Vec<Clobber>,
     notes: Vec<String>,
+    winners: BTreeMap<(&'static str, String), (String, usize)>,
 }
 
 impl Ctx<'_> {
@@ -144,6 +145,18 @@ impl Ctx<'_> {
     fn override_item(&mut self, index: usize, winner: &str) {
         self.items[index].loaded = false;
         self.items[index].reason = format!("overridden by {winner}");
+    }
+
+    /// Call right before pushing the item `name` of `kind` read from `label`: a later scope wins
+    /// over the earlier one, which stays listed but unloaded.
+    fn claim(&mut self, kind: &'static str, name: &str, label: &str) {
+        let key = (kind, name.to_string());
+        if let Some((prev, i)) = self.winners.get(&key).cloned() {
+            self.clobber(kind, name, label, &prev, "overrides");
+            self.override_item(i, label);
+        }
+        self.winners
+            .insert(key, (label.to_string(), self.items.len()));
     }
 
     fn org_enabled(&self) -> bool {
@@ -432,15 +445,10 @@ fn mcp(ctx: &mut Ctx, legacy_names: &[String]) {
             }
         }
     }
-    let mut winner: BTreeMap<String, (String, usize)> = BTreeMap::new();
     for (label, source, servers) in scopes {
         for (name, entry) in servers {
             let text = serde_json::to_string(&entry).unwrap_or_default();
-            if let Some((prev, i)) = winner.get(&name).cloned() {
-                ctx.clobber("mcp", &name, &label, &prev, "overrides");
-                ctx.override_item(i, &label);
-            }
-            winner.insert(name.clone(), (label.clone(), ctx.items.len()));
+            ctx.claim("mcp", &name, &label);
             let org = legacy_names.contains(&name);
             ctx.push(LoadItem::new(
                 "mcp",
@@ -477,7 +485,6 @@ fn skills(ctx: &mut Ctx) {
             scopes.push(("project", dir.join(".claude/skills")));
         }
     }
-    let mut winner: BTreeMap<String, (String, usize)> = BTreeMap::new();
     for (scope, dir) in scopes {
         for (dirname, path) in skill_dirs(&dir) {
             let skill_md = path.join("SKILL.md");
@@ -485,12 +492,7 @@ fn skills(ctx: &mut Ctx) {
             let get = |k: &str| fm.get(Yaml::String(k.into())).map(yaml_text);
             let name = get("name").unwrap_or(dirname);
             let description = get("description").unwrap_or_default();
-            let label = path.display().to_string();
-            if let Some((prev, i)) = winner.get(&name).cloned() {
-                ctx.clobber("skill", &name, &label, &prev, "overrides");
-                ctx.override_item(i, &label);
-            }
-            winner.insert(name.clone(), (label, ctx.items.len()));
+            ctx.claim("skill", &name, &show(&path));
             let managed = scope == "user" && canonical_root.join("skills").join(&name).is_dir();
             let source = if scope == "project" {
                 "project"
@@ -536,6 +538,7 @@ pub fn what_loads(
         items: Vec::new(),
         clobbers: Vec::new(),
         notes: Vec::new(),
+        winners: BTreeMap::new(),
     };
     if let Some(spec) = spec {
         for (field, on) in [
