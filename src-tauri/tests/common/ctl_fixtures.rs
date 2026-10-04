@@ -378,6 +378,23 @@ pub fn ctl(world: &CtlWorld, argv: &[&str], stdin: Option<&str>) {
     );
 }
 
+/// Like `ctl`, and returns the `data` of the envelope.
+pub fn ctl_data(world: &CtlWorld, argv: &[&str]) -> Value {
+    let output = Command::new(env!("CARGO_BIN_EXE_toolportctl"))
+        .arg("--json")
+        .args(argv)
+        .env_clear()
+        .envs(world.env())
+        .current_dir(&world.home)
+        .stdin(Stdio::null())
+        .output()
+        .expect("run toolportctl");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(output.status.success(), "toolportctl {argv:?}: {stdout}");
+    let envelope: Value = serde_json::from_str(stdout.trim()).expect("one envelope line");
+    envelope["data"].clone()
+}
+
 /// The sync of the world points at the local remote and tracks one project file.
 pub fn sync_world(world: &CtlWorld) {
     git_world(world);
