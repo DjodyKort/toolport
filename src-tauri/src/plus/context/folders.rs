@@ -46,7 +46,14 @@ pub fn folder_profiles_handler(args: Value) -> Result<Value, String> {
                 .find(|k| config.profiles.contains_key(*k))
                 .map(String::from)
         });
-        let cost = loads::what_loads(&roots, &config, launch.as_deref(), &PathBuf::from(&root))?;
+        let only_loaded = loads::LoadsOptions { no_lazy: true };
+        let cost = loads::what_loads_with(
+            &roots,
+            &config,
+            launch.as_deref(),
+            &PathBuf::from(&root),
+            &only_loaded,
+        )?;
         let reason = match (rule, reg.folder_profiles_enabled) {
             (None, _) => "no mapping matches this folder".to_string(),
             (Some(fp), true) => format!("longest matching mapping: {}", fp.path),

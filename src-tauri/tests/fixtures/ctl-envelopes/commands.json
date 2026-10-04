@@ -1799,6 +1799,17 @@
               "required": false,
               "sensitive": false,
               "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Leave out the rows that load only when Claude reads a file in a subfolder",
+              "escalates": false,
+              "hidden": false,
+              "name": "--no-lazy",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
             }
           ],
           "group": "context",

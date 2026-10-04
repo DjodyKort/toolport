@@ -6,7 +6,7 @@ use crate::plus::context::{compact, load_config, loads, Roots};
 use std::path::PathBuf;
 
 pub(super) const LOADS: Spec = Spec {
-    flags: &[value("--profile"), value("--cwd")],
+    flags: &[value("--profile"), value("--cwd"), switch("--no-lazy")],
     inline: Inline::Value,
     unknown: Unknown::ArgumentKey,
     operands: Operands::Reject,
@@ -18,6 +18,7 @@ pub fn loads(rest: &[String]) -> Result<Output, CtlError> {
     let home = dirs::home_dir()
         .ok_or_else(|| CtlError::failed("no_home", "home directory could not be resolved"))?;
     let mut roots = Roots::from_home(&home);
+    roots.read_env();
     roots.env_claude_config_dir = std::env::var("CLAUDE_CONFIG_DIR").ok();
     compact::apply_env(&mut roots);
     let config = load_config(&roots.context_config_path());
@@ -25,15 +26,39 @@ pub fn loads(rest: &[String]) -> Result<Output, CtlError> {
         Some(c) => PathBuf::from(c),
         None => std::env::current_dir().unwrap_or_else(|_| home.clone()),
     };
-    let report = loads::what_loads(&roots, &config, flags.one("--profile"), &cwd)
+    let options = loads::LoadsOptions {
+        no_lazy: flags.on("--no-lazy"),
+    };
+    let report = loads::what_loads_with(&roots, &config, flags.one("--profile"), &cwd, &options)
         .map_err(|e| CtlError::failed("context_invalid", e))?;
-    let mut human = format!("{} tokens loaded in {}\n", report.total_tokens, report.cwd);
+    let mut human = format!(
+        "{} tokens loaded in {} (estimate: bytes / 4, good for ordering, not a saving)\n",
+        report.total_tokens, report.cwd
+    );
     for item in &report.items {
-        let mark = if item.loaded { "+" } else { "-" };
+        let mark = match (item.loaded, item.lazy) {
+            (true, _) => "+",
+            (false, true) => "~",
+            (false, false) => "-",
+        };
+        let via = if item.via.is_empty() {
+            String::new()
+        } else {
+            format!("  via {}", item.via.join(" > "))
+        };
         human.push_str(&format!(
-            "{mark} {:<8} {:<14} {:>6}  {}\n",
+            "{mark} {:<12} {:<14} {:>6}  {}{via}\n",
             item.kind, item.source, item.tokens, item.name
         ));
+    }
+    if report.tokens_lazy > 0 {
+        human.push_str(&format!(
+            "{} more tokens load only when Claude reads there (~)\n",
+            report.tokens_lazy
+        ));
+    }
+    if report.partial {
+        human.push_str("the search for some files stopped early (partial)\n");
     }
     for c in &report.clobbers {
         human.push_str(&format!(

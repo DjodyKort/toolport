@@ -1,13 +1,14 @@
-//! "What loads": which memory layers, rules, settings, MCP servers and skills a `claude` session
-//! gets for a launch profile and working directory, with a token estimate, provenance and the
-//! override ("clobber") relations between layers. Pure: it only reads files under [`Roots`].
+//! "What loads": which memory layers, rules, settings, MCP servers, skills, commands, agents and
+//! plugins a `claude` session gets for a launch profile and working directory, with a token
+//! estimate, provenance and the override ("clobber") relations between layers. Pure: it only
+//! reads files under [`Roots`]. Every number is `bytes / 4`: good for ordering, not a saving.
 
 use super::config::{ContextConfig, ProfileSpec};
 use super::launch::{parse_selection, read_json_object as read_json, Selection};
-use super::layers::{
-    body_of, frontmatter, frontmatter_of, is_managed_local, list_layers, yaml_text,
-};
+use super::layers::{body_of, frontmatter_of, is_managed_local, list_layers, yaml_text};
+use super::loads_extra as extra;
 use super::roots::Roots;
+use crate::plus::sources::model::Origin;
 use crate::savings::estimated_tokens;
 use serde::Serialize;
 use serde_json::{json, Map, Value};
@@ -25,10 +26,16 @@ pub struct LoadItem {
     pub loaded: bool,
     pub reason: String,
     pub tokens: u64,
+    pub origin: Origin,
+    pub writable: bool,
+    pub lazy: bool,
+    pub via: Vec<String>,
+    pub scope: &'static str,
+    pub visible: Option<bool>,
 }
 
 impl LoadItem {
-    fn new(
+    pub(super) fn new(
         kind: &'static str,
         name: impl Into<String>,
         path: String,
@@ -44,7 +51,29 @@ impl LoadItem {
             loaded: true,
             reason: reason.into(),
             tokens,
+            origin: Origin::new("user", ""),
+            writable: false,
+            lazy: false,
+            via: Vec::new(),
+            scope: "always",
+            visible: None,
         }
+    }
+
+    pub(super) fn from(mut self, origin: Origin, writable: bool) -> Self {
+        self.origin = origin;
+        self.writable = writable;
+        self
+    }
+
+    pub(super) fn via(mut self, chain: Vec<String>) -> Self {
+        self.via = chain;
+        self
+    }
+
+    pub(super) fn visible(mut self, accepted: Option<bool>) -> Self {
+        self.visible = accepted;
+        self
     }
 
     fn unless(mut self, skip: bool, reason: &str) -> Self {
@@ -53,6 +82,19 @@ impl LoadItem {
             self.reason = reason.into();
         }
         self
+    }
+
+    /// Loads only when Claude reads a file the row belongs to: never in the total.
+    pub(super) fn on_demand(mut self, reason: impl Into<String>) -> Self {
+        self.loaded = false;
+        self.lazy = true;
+        self.reason = reason.into();
+        self
+    }
+
+    fn path_scoped(mut self) -> Self {
+        self.scope = "paths";
+        self.on_demand("path-scoped: loads when a matching file is read")
     }
 }
 
@@ -73,16 +115,23 @@ pub struct WhatLoads {
     pub clobbers: Vec<Clobber>,
     pub tokens_by_kind: BTreeMap<String, u64>,
     pub total_tokens: u64,
+    pub tokens_lazy: u64,
+    pub partial: bool,
     pub notes: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub compact: Option<super::compact::CompactInfo>,
 }
 
-fn text_tokens(text: &str) -> u64 {
+#[derive(Clone, Debug, Default)]
+pub struct LoadsOptions {
+    pub no_lazy: bool,
+}
+
+pub(super) fn text_tokens(text: &str) -> u64 {
     estimated_tokens(text.len() as u64)
 }
 
-fn show(path: &Path) -> String {
+pub(super) fn show(path: &Path) -> String {
     path.display().to_string()
 }
 
@@ -101,27 +150,38 @@ fn ancestors(cwd: &Path) -> Vec<PathBuf> {
     chain
 }
 
-fn excluded(settings: &Map<String, Value>, path: &Path) -> bool {
+pub(super) fn excluded(settings: &Map<String, Value>, path: &Path) -> bool {
     let target = path.display().to_string();
     settings
         .get("claudeMdExcludes")
         .and_then(Value::as_array)
-        .map(|items| items.iter().any(|v| v.as_str() == Some(target.as_str())))
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .any(|pattern| pattern == target)
+        })
         .unwrap_or(false)
 }
 
-struct Ctx<'a> {
-    roots: &'a Roots,
-    cwd: &'a Path,
-    spec: Option<&'a ProfileSpec>,
-    items: Vec<LoadItem>,
-    clobbers: Vec<Clobber>,
-    notes: Vec<String>,
-    winners: BTreeMap<(&'static str, String), (String, usize)>,
+pub(super) struct Ctx<'a> {
+    pub roots: &'a Roots,
+    pub config: &'a ContextConfig,
+    pub cwd: &'a Path,
+    pub spec: Option<&'a ProfileSpec>,
+    pub items: Vec<LoadItem>,
+    pub clobbers: Vec<Clobber>,
+    pub notes: Vec<String>,
+    pub partial: bool,
+    pub winners: BTreeMap<(&'static str, String), (String, usize)>,
+    pub plugin_switches: BTreeMap<String, (bool, String)>,
+    pub clients_root: PathBuf,
+    pub corp_name: String,
+    pub library_name: String,
 }
 
 impl Ctx<'_> {
-    fn push(&mut self, item: LoadItem) {
+    pub(super) fn push(&mut self, item: LoadItem) {
         self.items.push(item);
     }
 
@@ -162,12 +222,45 @@ impl Ctx<'_> {
     fn org_enabled(&self) -> bool {
         self.spec.map(|s| s.org).unwrap_or(true)
     }
+
+    /// Where a file below the working tree comes from: the repository it sits in, a client
+    /// repository under the clients root, or nobody Toolport knows (`loose`).
+    pub(super) fn project_origin(&self, path: &Path) -> (Origin, bool) {
+        let start = path.parent().unwrap_or(path);
+        match extra::git_root(start) {
+            Some(root) => {
+                let name = root
+                    .file_name()
+                    .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+                let kind = if root.starts_with(&self.clients_root) {
+                    "client"
+                } else {
+                    "repo"
+                };
+                (Origin::new(kind, name), false)
+            }
+            None => (Origin::new("loose", show(start)), true),
+        }
+    }
+}
+
+fn user_origin(ctx: &Ctx) -> Origin {
+    Origin::new("user", show(&ctx.roots.claude_home))
+}
+
+fn managed_origin() -> Origin {
+    Origin::new("managed", "toolportctl")
 }
 
 fn memory(ctx: &mut Ctx, effective_settings: &Map<String, Value>) {
     let user_md = ctx.roots.claude_home.join("CLAUDE.md");
     if let Ok(text) = fs::read_to_string(&user_md) {
         let off = !ctx.org_enabled() || excluded(effective_settings, &user_md);
+        let owner = if extra::org_provides_claude_md(ctx) {
+            (Origin::new("org", ctx.corp_name.clone()), false)
+        } else {
+            (Origin::new("loose", show(&ctx.roots.claude_home)), true)
+        };
         ctx.push(
             LoadItem::new(
                 "memory",
@@ -177,8 +270,12 @@ fn memory(ctx: &mut Ctx, effective_settings: &Map<String, Value>) {
                 "user memory",
                 text_tokens(&text),
             )
+            .from(owner.0.clone(), owner.1)
             .unless(off, "excluded by claudeMdExcludes"),
         );
+        if !off {
+            extra::follow_imports(ctx, &user_md, &text, &[], "org", &owner);
+        }
     }
     for dir in ancestors(ctx.cwd) {
         for (rel, local) in [
@@ -199,6 +296,11 @@ fn memory(ctx: &mut Ctx, effective_settings: &Map<String, Value>) {
             } else {
                 "project"
             };
+            let owner = if source == "client-layer" {
+                (managed_origin(), false)
+            } else {
+                ctx.project_origin(&path)
+            };
             ctx.push(
                 LoadItem::new(
                     "memory",
@@ -208,8 +310,12 @@ fn memory(ctx: &mut Ctx, effective_settings: &Map<String, Value>) {
                     "directory walk to cwd",
                     text_tokens(&text),
                 )
+                .from(owner.0.clone(), owner.1)
                 .unless(off, "excluded by claudeMdExcludes"),
             );
+            if !off {
+                extra::follow_imports(ctx, &path, &text, &[], source, &owner);
+            }
         }
     }
 }
@@ -250,33 +356,43 @@ fn rules(ctx: &mut Ctx) {
         for (name, path) in rule_files(&dir) {
             let text = fs::read_to_string(&path).unwrap_or_default();
             let scoped = has_paths(&text);
+            let layer = layers.iter().any(|l| l.name == name);
             let source = if scope == "project" {
                 "project"
-            } else if layers.iter().any(|l| l.name == name) {
+            } else if layer {
                 if name.starts_with("client-") {
                     "client-layer"
                 } else {
                     "personal"
                 }
             } else {
-                "org"
+                "loose"
+            };
+            let (origin, writable) = if scope == "project" {
+                ctx.project_origin(&path)
+            } else if layer {
+                (managed_origin(), false)
+            } else {
+                (Origin::new("loose", show(&ctx.roots.claude_home)), true)
             };
             let label = path.display().to_string();
             if let Some(prev) = seen.get(&name) {
                 ctx.clobber("rule", &name, &label, prev, "overrides");
             }
             seen.insert(name.clone(), label);
-            ctx.push(
-                LoadItem::new(
-                    "rule",
-                    name,
-                    show(&path),
-                    source,
-                    "always on",
-                    text_tokens(&text),
-                )
-                .unless(scoped, "path-scoped: loads when a matching file is read"),
-            );
+            let mut row = LoadItem::new(
+                "rule",
+                name,
+                show(&path),
+                source,
+                "always on",
+                text_tokens(&text),
+            )
+            .from(origin, writable);
+            if scoped {
+                row = row.path_scoped();
+            }
+            ctx.push(row);
         }
     }
     if let Some(spec) = ctx.spec {
@@ -293,14 +409,17 @@ fn rules(ctx: &mut Ctx) {
                 } else {
                     "personal"
                 };
-                ctx.push(LoadItem::new(
-                    "rule",
-                    format!("{rule} (append-system-prompt)"),
-                    show(&layer.path),
-                    source,
-                    "profile --append-system-prompt-file",
-                    text_tokens(body.trim()),
-                ));
+                ctx.push(
+                    LoadItem::new(
+                        "rule",
+                        format!("{rule} (append-system-prompt)"),
+                        show(&layer.path),
+                        source,
+                        "profile --append-system-prompt-file",
+                        text_tokens(body.trim()),
+                    )
+                    .from(managed_origin(), false),
+                );
             }
         }
     }
@@ -348,14 +467,22 @@ fn settings(ctx: &mut Ctx) -> Map<String, Value> {
     let mut owner: BTreeMap<String, (String, Value)> = BTreeMap::new();
     for (label, source, map) in &layers {
         if label.ends_with("settings.json") || label.ends_with("settings.local.json") {
-            ctx.push(LoadItem::new(
-                "settings",
-                label.rsplit('/').next().unwrap_or(label),
-                label.clone(),
-                source,
-                "configuration only, no prompt tokens",
-                0,
-            ));
+            let (origin, writable) = if *source == "user" {
+                (user_origin(ctx), true)
+            } else {
+                ctx.project_origin(Path::new(label))
+            };
+            ctx.push(
+                LoadItem::new(
+                    "settings",
+                    label.rsplit('/').next().unwrap_or(label),
+                    label.clone(),
+                    source,
+                    "configuration only, no prompt tokens",
+                    0,
+                )
+                .from(origin, writable),
+            );
         }
         for (key, value) in map {
             if let Some((prev_label, prev)) = owner.get(key) {
@@ -368,6 +495,13 @@ fn settings(ctx: &mut Ctx) -> Map<String, Value> {
             }
             owner.insert(key.clone(), (label.clone(), value.clone()));
             effective.insert(key.clone(), value.clone());
+        }
+        if let Some(plugins) = map.get("enabledPlugins").and_then(Value::as_object) {
+            for (id, on) in plugins {
+                if let Some(on) = on.as_bool() {
+                    ctx.plugin_switches.insert(id.clone(), (on, label.clone()));
+                }
+            }
         }
     }
     if !ctx.spec.map(|s| s.org).unwrap_or(true) {
@@ -450,19 +584,29 @@ fn mcp(ctx: &mut Ctx, legacy_names: &[String]) {
             let text = serde_json::to_string(&entry).unwrap_or_default();
             ctx.claim("mcp", &name, &label);
             let org = legacy_names.contains(&name);
-            ctx.push(LoadItem::new(
-                "mcp",
-                name,
-                label.clone(),
-                if org { "org" } else { source },
-                "server definition; tool schemas are not included in the estimate",
-                text_tokens(&text),
-            ));
+            let (origin, writable) = if org {
+                (Origin::new("org", ctx.corp_name.clone()), false)
+            } else if source == "user" {
+                (user_origin(ctx), true)
+            } else {
+                ctx.project_origin(Path::new(label.trim_end_matches(" [project]")))
+            };
+            ctx.push(
+                LoadItem::new(
+                    "mcp",
+                    name,
+                    label.clone(),
+                    if org { "org" } else { source },
+                    "server definition; tool schemas are not included in the estimate",
+                    text_tokens(&text),
+                )
+                .from(origin, writable),
+            );
         }
     }
 }
 
-fn skill_dirs(dir: &Path) -> Vec<(String, PathBuf)> {
+pub(super) fn skill_dirs(dir: &Path) -> Vec<(String, PathBuf)> {
     let Ok(read) = fs::read_dir(dir) else {
         return Vec::new();
     };
@@ -488,28 +632,50 @@ fn skills(ctx: &mut Ctx) {
     for (scope, dir) in scopes {
         for (dirname, path) in skill_dirs(&dir) {
             let skill_md = path.join("SKILL.md");
-            let fm = frontmatter(&skill_md);
+            let text = fs::read_to_string(&skill_md).unwrap_or_default();
+            let fm = frontmatter_of(&text);
             let get = |k: &str| fm.get(Yaml::String(k.into())).map(yaml_text);
             let name = get("name").unwrap_or(dirname);
             let description = get("description").unwrap_or_default();
             ctx.claim("skill", &name, &show(&path));
             let managed = scope == "user" && canonical_root.join("skills").join(&name).is_dir();
-            let source = if scope == "project" {
-                "project"
+            let (source, origin, writable) = if scope == "project" {
+                let (origin, writable) = ctx.project_origin(&skill_md);
+                ("project", origin, writable)
             } else if managed {
-                "personal"
+                (
+                    "personal",
+                    Origin::new("library", ctx.library_name.clone()),
+                    true,
+                )
+            } else if extra::carries_managed_marker(&text) {
+                ("personal", managed_origin(), false)
             } else {
-                "org"
+                (
+                    "loose",
+                    Origin::new("loose", show(&ctx.roots.claude_home)),
+                    true,
+                )
             };
             let tokens = text_tokens(&format!("{name}: {description}"));
-            ctx.push(LoadItem::new(
+            let verdict = crate::plus::skills::frontmatter::frontmatter_accepted(&text);
+            let mut row = LoadItem::new(
                 "skill",
                 name,
                 show(&skill_md),
                 source,
                 "name and description load at start; body on demand",
                 tokens,
-            ));
+            )
+            .from(origin, writable)
+            .visible(Some(verdict.is_ok()));
+            if let Err(why) = verdict {
+                row = row.unless(
+                    true,
+                    &format!("Claude Code does not list this skill: {why}"),
+                );
+            }
+            ctx.push(row);
         }
     }
 }
@@ -522,6 +688,16 @@ pub fn what_loads(
     profile: Option<&str>,
     cwd: &Path,
 ) -> Result<WhatLoads, String> {
+    what_loads_with(roots, config, profile, cwd, &LoadsOptions::default())
+}
+
+pub fn what_loads_with(
+    roots: &Roots,
+    config: &ContextConfig,
+    profile: Option<&str>,
+    cwd: &Path,
+    options: &LoadsOptions,
+) -> Result<WhatLoads, String> {
     let spec = match profile {
         Some(name) => Some(
             config
@@ -531,14 +707,21 @@ pub fn what_loads(
         ),
         None => None,
     };
+    let corp_clone = roots.resolve_corp_tools_dir(config);
     let mut ctx = Ctx {
         roots,
+        config,
         cwd,
         spec,
         items: Vec::new(),
         clobbers: Vec::new(),
         notes: Vec::new(),
+        partial: false,
         winners: BTreeMap::new(),
+        plugin_switches: BTreeMap::new(),
+        clients_root: roots.resolve_clients_root(config),
+        corp_name: extra::dir_name(&corp_clone),
+        library_name: extra::dir_name(&roots.skills_repo_path()),
     };
     if let Some(spec) = spec {
         for (field, on) in [
@@ -560,15 +743,30 @@ pub fn what_loads(
     }
     let effective = settings(&mut ctx);
     memory(&mut ctx, &effective);
+    extra::memory_index(&mut ctx);
     rules(&mut ctx);
     mcp(&mut ctx, &config.dedupe.legacy_names);
     skills(&mut ctx);
+    extra::commands_and_agents(&mut ctx);
+    let found = extra::scan_plugins(&mut ctx);
+    let _plugin_skills = extra::plugins(&mut ctx, &found);
+    if !options.no_lazy {
+        extra::nested(&mut ctx, &effective);
+    }
+    if options.no_lazy {
+        ctx.items.retain(|i| !i.lazy);
+    }
 
     let mut by_kind: BTreeMap<String, u64> = BTreeMap::new();
     let mut total = 0;
-    for item in ctx.items.iter().filter(|i| i.loaded) {
-        *by_kind.entry(item.kind.to_string()).or_default() += item.tokens;
-        total += item.tokens;
+    let mut lazy = 0;
+    for item in &ctx.items {
+        if item.loaded {
+            *by_kind.entry(item.kind.to_string()).or_default() += item.tokens;
+            total += item.tokens;
+        } else if item.lazy {
+            lazy += item.tokens;
+        }
     }
     Ok(WhatLoads {
         profile: profile.map(String::from),
@@ -577,6 +775,8 @@ pub fn what_loads(
         clobbers: ctx.clobbers,
         tokens_by_kind: by_kind,
         total_tokens: total,
+        tokens_lazy: lazy,
+        partial: ctx.partial,
         notes: ctx.notes,
         compact: spec.and_then(|s| super::compact::info(roots, s)),
     })
