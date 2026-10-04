@@ -849,6 +849,18 @@ fn process_report(needle: &str) -> Vec<String> {
         .collect()
 }
 
+/// What a launch-count assertion has to quote: the downstream transcript (one
+/// `initialize` per spawned child, discarded ones included), every live mock
+/// server and the gateway log's tail.
+fn launch_evidence(transcript: &Path, dir: &Path) -> String {
+    format!(
+        "transcript:\n{}\nmock-mcp-server processes:\n{}\n{}",
+        std::fs::read_to_string(transcript).unwrap_or_default(),
+        process_report("mock-mcp-server").join("\n"),
+        gateway_log_tail(dir)
+    )
+}
+
 #[cfg(unix)]
 fn process_command_lines() -> Vec<String> {
     let output = Command::new("ps")
@@ -2209,7 +2221,15 @@ fn matrix_pooling_unused_root_launch_exits_while_another_root_stays_live() {
     let b_pwd = b.wait_for_tool("__pwd", Duration::from_secs(30));
     a.call_tool(&a_pwd, json!({}));
     b.call_tool(&b_pwd, json!({}));
-    assert_eq!(mock_child_process_count().saturating_sub(before), 2);
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while mock_child_process_count().saturating_sub(before) != 2 {
+        assert!(
+            Instant::now() < deadline,
+            "expected one live child per root:\n{}",
+            launch_evidence(&transcript, &dir)
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
 
     a.close_stdin();
     assert!(a.wait_exit(Duration::from_secs(10)).success());
@@ -2218,14 +2238,19 @@ fn matrix_pooling_unused_root_launch_exits_while_another_root_stays_live() {
         assert!(
             Instant::now() < deadline,
             "unused root child stayed live:\n{}",
-            process_report("mock-mcp-server").join("\n")
+            launch_evidence(&transcript, &dir)
         );
         std::thread::sleep(Duration::from_millis(50));
     }
     assert!(!b.call_tool(&b_pwd, json!({}))["isError"]
         .as_bool()
         .unwrap_or(false));
-    assert_eq!(transcript_initialize_count(&transcript), 2);
+    assert_eq!(
+        transcript_initialize_count(&transcript),
+        2,
+        "one downstream launch per root expected:\n{}",
+        launch_evidence(&transcript, &dir)
+    );
 }
 
 #[test]
