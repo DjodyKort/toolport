@@ -407,7 +407,7 @@ fn missing_root_is_an_error() {
     });
 }
 
-fn desktop_config(w: &World) -> PathBuf {
+pub(super) fn desktop_config(w: &World) -> PathBuf {
     if cfg!(target_os = "macos") {
         w.home
             .join("Library/Application Support/Claude/claude_desktop_config.json")
@@ -416,7 +416,7 @@ fn desktop_config(w: &World) -> PathBuf {
     }
 }
 
-fn client_files(w: &World) -> Vec<(&'static str, PathBuf)> {
+pub(super) fn client_files(w: &World) -> Vec<(&'static str, PathBuf)> {
     vec![
         ("claude-code", w.home.join(".claude.json")),
         ("claude-desktop", desktop_config(w)),
@@ -425,7 +425,7 @@ fn client_files(w: &World) -> Vec<(&'static str, PathBuf)> {
     ]
 }
 
-fn seed_clients(w: &World) {
+pub(super) fn seed_clients(w: &World) {
     for (id, path) in client_files(w) {
         let mut doc: Value = serde_json::from_str(
             &std::fs::read_to_string(w.root.join(format!("{id}.json"))).unwrap(),
@@ -441,7 +441,7 @@ pub(super) fn read_json(path: &Path) -> Value {
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 
-fn live_opts(w: &World, dry_run: bool) -> RunOptions {
+pub(super) fn live_opts(w: &World, dry_run: bool) -> RunOptions {
     RunOptions {
         write_clients: true,
         ..w.opts(dry_run)
