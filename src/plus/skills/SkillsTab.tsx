@@ -641,7 +641,11 @@ function Body({ write, scope }: { write: WriteControl; scope: Scope }) {
             <ErrorState
               error={lib.error}
               title="Couldn't list skills"
-              onRetry={list.reload}
+              onRetry={() => {
+                list.reload();
+                for (const read of [sources, status, lint, audit, diff, plan, collisions])
+                  if (read.status === "error") read.reload();
+              }}
             />
           )
         ) : list.rows.length === 0 ? (

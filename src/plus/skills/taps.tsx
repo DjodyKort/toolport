@@ -20,6 +20,13 @@ import { plural } from "./model";
 import { PathLine } from "./parts";
 
 const SOURCE = /^(https?:\/\/\S+|git@\S+|[\w.-]+\/[\w.-]+)$/;
+const CREDENTIAL = /^https?:\/\/[^/@\s]*@/;
+
+function sourceProblem(source: string): string | null {
+  if (CREDENTIAL.test(source))
+    return "This URL carries a credential, and a command line is not a safe place for one. Use an SSH URL or let git's credential helper sign in";
+  return SOURCE.test(source) ? null : "Use user/repo or the URL of a git repository";
+}
 
 function AddTapDialog({
   onSubmit,
@@ -31,9 +38,7 @@ function AddTapDialog({
   const [source, setSource] = useState("");
   const [alias, setAlias] = useState("");
   const [touched, setTouched] = useState(false);
-  const problem = SOURCE.test(source.trim())
-    ? null
-    : "Use user/repo or the URL of a git repository";
+  const problem = sourceProblem(source.trim());
   const submit = () => {
     setTouched(true);
     if (!problem) onSubmit(source.trim(), alias.trim());
