@@ -2,6 +2,8 @@ use super::backend::{ctl, read_registry, skills_repo};
 use super::ToolError;
 use crate::plus::profiles;
 use crate::plus::args::{flag, flag_or, list, str_arg, str_nonempty};
+use crate::plus::auth::login;
+use crate::plus::auth::stdio::{self, LaunchFault};
 use crate::plus::servers::{self, AddError, Patch};
 use crate::plus::update::exec::{CmdOutput, GitRunner, ShellRunner, SystemGit, SystemShell};
 use crate::plus::update::source::{self, Source};
@@ -9,11 +11,8 @@ use crate::plus::update::{execute, gitops, Mode, Options};
 use crate::registry::{Registry, ServerEntry};
 use crate::registry_controller::{self, ServerFields};
 use serde_json::{json, Value};
-use std::io::{BufRead, BufReader};
 use std::path::Path;
-use std::process::{Command, Stdio};
-use std::sync::mpsc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 type Outcome = Result<Value, ToolError>;
 
@@ -526,102 +525,36 @@ fn run_post_update(repo: &Path, cmd: &str) -> Outcome {
     }))
 }
 
-fn find_url(line: &str) -> Option<String> {
-    line.split_whitespace()
-        .find(|t| t.starts_with("https://") || t.starts_with("http://"))
-        .map(|t| t.trim_end_matches([',', '.', ')', '"', '\'']).to_string())
+fn launch_error(error: stdio::LaunchError) -> ToolError {
+    match error.fault {
+        LaunchFault::Unsupported => ToolError::new("invalid_input", error.message),
+        LaunchFault::Refused => ToolError::new("refused", error.message),
+        LaunchFault::Spawn => ToolError::backend(error.message),
+    }
 }
 
 pub(super) fn auth(args: &Value) -> Outcome {
-    let server = load(args)?;
-    let command = match (&server.command, server.transport.as_str()) {
-        (Some(c), "stdio") => c.clone(),
-        _ => {
-            return Err(ToolError::new(
-                "invalid_input",
-                "the auth flow only applies to stdio servers",
-            ))
-        }
-    };
-    let mut cmd = Command::new(&command);
-    cmd.args(&server.args).arg("auth");
-    if let Some(cwd) = &server.cwd {
-        cmd.current_dir(cwd);
+    let reg = read_registry()?;
+    let server = resolve(&reg, name_arg(args)?)?;
+    if let Some(login::Plan::Unsupported { reason, .. }) = login::review_gate(&reg, &server) {
+        return Err(ToolError::new("refused", reason));
     }
-    let configured: std::collections::HashSet<&str> =
-        server.env.iter().map(|var| var.key.as_str()).collect();
-    crate::downstream::strip_gateway_control_env(&mut cmd, &configured);
-    let mut env: Vec<(String, String)> = Vec::new();
-    for var in &server.env {
-        let value = if var.secret {
-            crate::secrets::get_secret(&server.id, &var.key)
-        } else {
-            var.value.clone()
-        };
-        if let Some(value) = value {
-            cmd.env(&var.key, &value);
-            env.push((var.key.clone(), value));
-        }
-    }
-    cmd.stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped());
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| ToolError::backend(format!("could not start: {e}")))?;
-    let stderr = child
-        .stderr
-        .take()
-        .ok_or_else(|| ToolError::backend("no stderr"))?;
-    let (tx, rx) = mpsc::channel::<String>();
-    std::thread::spawn(move || {
-        for line in BufReader::new(stderr).lines().map_while(Result::ok) {
-            if tx.send(line).is_err() {
-                break;
-            }
-        }
-    });
-    let deadline = Instant::now() + AUTH_WAIT;
-    let mut tail: Vec<String> = Vec::new();
-    let mut url = None;
-    let mut exited = false;
-    while Instant::now() < deadline {
-        match rx.recv_timeout(Duration::from_millis(200)) {
-            Ok(line) => {
-                url = find_url(&line);
-                tail.push(crate::launch_inputs::redact_env_secrets(
-                    &server, &env, line,
-                ));
-                if tail.len() > 10 {
-                    tail.remove(0);
-                }
-                if url.is_some() {
-                    break;
-                }
-            }
-            Err(mpsc::RecvTimeoutError::Timeout) => {}
-            Err(mpsc::RecvTimeoutError::Disconnected) => {
-                exited = true;
-                break;
-            }
-        }
-    }
-    if url.is_some() {
-        std::thread::spawn(move || {
-            let _ = child.wait();
-        });
+    let mut session = stdio::start(&server).map_err(launch_error)?;
+    let capture = session.wait_url(AUTH_WAIT);
+    let signing_in = capture.url.is_some();
+    if signing_in {
+        session.detach();
     } else {
-        let _ = child.kill();
-        let _ = child.wait();
+        session.kill();
     }
     Ok(json!({
         "name": server.name,
         "started": true,
-        "authUrl": url,
-        "exited": exited,
-        "timedOut": url.is_none() && !exited,
-        "stderrTail": tail,
-        "hint": url.as_ref().map(|_| "Open authUrl in a browser; the server's local callback saves the token on completion."),
+        "authUrl": capture.url,
+        "exited": capture.exit.is_some(),
+        "timedOut": capture.timed_out,
+        "stderrTail": capture.tail,
+        "hint": signing_in.then_some("Open authUrl in a browser; the server's local callback saves the token on completion."),
     }))
 }
 
