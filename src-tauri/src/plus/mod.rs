@@ -27,6 +27,7 @@ pub(crate) mod health;
 pub(crate) mod jsonfs;
 pub(crate) mod registry_ro;
 pub(crate) mod servers;
+pub(crate) mod tags;
 
 #[cfg(test)]
 pub(crate) mod testutil;

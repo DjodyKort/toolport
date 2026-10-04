@@ -1,4 +1,5 @@
 use super::{BINARY_NAME, SERVER_NAME};
+use crate::plus::tags;
 use crate::registry::{self, Registry, ServerEntry};
 use serde_json::{json, Map, Value};
 use std::path::PathBuf;
@@ -161,42 +162,15 @@ pub enum Intent {
 }
 
 fn record(reg: &Registry) -> Option<&Map<String, Value>> {
-    reg.unknown_fields
-        .get(PLUS_KEY)?
-        .get(RECORD_KEY)?
-        .as_object()
+    tags::object(&reg.unknown_fields, &[PLUS_KEY, RECORD_KEY])
 }
 
 fn record_mut(reg: &mut Registry) -> &mut Map<String, Value> {
-    let plus = reg
-        .unknown_fields
-        .entry(PLUS_KEY.to_string())
-        .or_insert_with(|| Value::Object(Map::new()));
-    if !plus.is_object() {
-        *plus = Value::Object(Map::new());
-    }
-    let slot = plus
-        .as_object_mut()
-        .expect("just made an object")
-        .entry(RECORD_KEY.to_string())
-        .or_insert_with(|| Value::Object(Map::new()));
-    if !slot.is_object() {
-        *slot = Value::Object(Map::new());
-    }
-    slot.as_object_mut().expect("just made an object")
+    tags::object_mut(&mut reg.unknown_fields, &[PLUS_KEY, RECORD_KEY])
 }
 
 fn clear_record(reg: &mut Registry) {
-    if let Some(plus) = reg
-        .unknown_fields
-        .get_mut(PLUS_KEY)
-        .and_then(Value::as_object_mut)
-    {
-        plus.remove(RECORD_KEY);
-        if plus.is_empty() {
-            reg.unknown_fields.remove(PLUS_KEY);
-        }
-    }
+    tags::remove(&mut reg.unknown_fields, &[PLUS_KEY, RECORD_KEY]);
 }
 
 /// Profiles Toolport has already switched the self server on in. Once a profile is listed it
