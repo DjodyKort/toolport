@@ -456,6 +456,10 @@ fn replay_with(case: &str, profile_case: bool, reduce_reports: bool) {
     let _ = fs::remove_dir_all(&root);
     let home = root.join("home");
     fs::create_dir_all(&home).unwrap();
+    // mcpm's goldens hold the shims under ~/.config/mcpm; the data dir, where Toolport writes
+    // them, is mapped there so the replayed trees stay comparable.
+    let _data_dir_lock = conduit_lib::registry::data_dir_test_lock();
+    let _data_dir = conduit_lib::registry::DataDirOverride::set(home.join(".config/mcpm"));
     if dir.join("input").is_dir() {
         copy_dir(&dir.join("input"), &home);
     }

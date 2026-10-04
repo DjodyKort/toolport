@@ -4,19 +4,17 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
-struct Home(PathBuf);
+struct Home(PathBuf, crate::plus::testutil::DataDirFx);
 
 impl Home {
     fn new(tag: &str) -> Self {
         static N: AtomicUsize = AtomicUsize::new(0);
-        let dir = std::env::temp_dir().join(format!(
-            "ctx-hrd-{tag}-{}-{}",
-            std::process::id(),
-            N.fetch_add(1, Ordering::SeqCst)
-        ));
+        let n = N.fetch_add(1, Ordering::SeqCst);
+        let data = crate::plus::testutil::DataDirFx::new("ctx-hrd-data", &format!("{tag}-{n}"));
+        let dir = std::env::temp_dir().join(format!("ctx-hrd-{tag}-{}-{n}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
-        Self(dir)
+        Self(dir, data)
     }
 
     fn roots(&self) -> Roots {
@@ -25,6 +23,10 @@ impl Home {
 
     fn arg(&self) -> String {
         self.0.to_string_lossy().into_owned()
+    }
+
+    fn shims(&self) -> PathBuf {
+        self.1.dir.join("context-shims.zsh")
     }
 }
 
@@ -248,6 +250,7 @@ fn a_planned_shim_removal_is_not_reported_as_done() {
 fn context_commands_word_a_dry_run_as_planned_and_a_real_run_as_done() {
     use crate::plus::ctl::context as ctl;
     let home = Home::new("ctl-wording");
+    let shims = home.shims();
     let flags = |extra: &[&str]| -> Vec<String> {
         let mut args: Vec<String> = vec!["--home".into(), home.arg()];
         args.extend(extra.iter().map(|s| s.to_string()));
@@ -261,12 +264,13 @@ fn context_commands_word_a_dry_run_as_planned_and_a_real_run_as_done() {
     planned_only(&ctl::plan(&flags(&[])).unwrap().human);
     planned_only(&ctl::apply(&flags(&["--dry-run"])).unwrap().human);
     planned_only(&ctl::sync(&flags(&["--dry-run"])).unwrap().human);
-    assert!(!home.roots().shims_path().exists());
+    assert!(!shims.exists());
 
     let synced = ctl::sync(&flags(&[])).unwrap().human;
     let (plan_part, apply_part) = synced.split_once("apply:\n").expect("sync prints both");
     planned_only(plan_part);
     assert!(apply_part.contains("wrote shims:"), "{apply_part}");
     assert!(!apply_part.contains("would write"), "{apply_part}");
-    assert!(home.roots().shims_path().is_file());
+    assert!(shims.is_file());
+    assert!(!home.roots().shims_path().exists());
 }

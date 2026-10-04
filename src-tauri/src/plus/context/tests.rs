@@ -383,6 +383,7 @@ fn doctor_flags_a_changed_wrapper_and_new_cf_assets() {
 
 #[test]
 fn handlers_plan_and_apply_against_an_explicit_home() {
+    let _data = crate::plus::testutil::DataDirFx::new("ctx-handlers", "explicit-home");
     let h = TempHome::new();
     let args = json!({
         "home": h.0.to_string_lossy(),

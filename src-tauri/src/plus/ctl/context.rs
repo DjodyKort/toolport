@@ -116,10 +116,15 @@ pub fn checkpoint_status(rest: &[String]) -> Result<Output, CtlError> {
     checkpoint_status_from(rest, &mut std::io::stdin().lock(), &roots)
 }
 
-const GROUP_USAGE: &str = "usage: context init|status|client|profile|disable|loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--dry-run])";
+const GROUP_USAGE: &str = "usage: context init|status|client|profile|disable|loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])";
 
 pub(super) const DEPLOY: Spec = Spec {
-    flags: &[value("--home"), switch("--rules"), switch("--no-persist")],
+    flags: &[
+        value("--home"),
+        switch("--rules"),
+        switch("--no-persist"),
+        switch("--rewrite-zshrc"),
+    ],
     inline: Inline::Value,
     unknown: Unknown::Argument,
     operands: Operands::Reject,
@@ -130,6 +135,7 @@ pub(super) const DEPLOY_DRY: Spec = Spec {
         value("--home"),
         switch("--rules"),
         switch("--no-persist"),
+        switch("--rewrite-zshrc"),
         switch("--dry-run"),
     ],
     ..DEPLOY
@@ -145,6 +151,9 @@ fn deploy_args(flags: &Flags) -> serde_json::Value {
     }
     if flags.on("--no-persist") {
         args["persist"] = serde_json::json!(false);
+    }
+    if flags.on("--rewrite-zshrc") {
+        args["rewriteZshrc"] = serde_json::json!(true);
     }
     args
 }

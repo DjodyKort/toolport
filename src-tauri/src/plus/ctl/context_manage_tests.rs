@@ -212,11 +212,14 @@ fn profile_add_and_remove_print_the_actions_and_warnings() {
         "--servers",
         "none",
     ]);
+    let shims = fx.base.dir.join("context-shims.zsh").display().to_string();
     assert_eq!(
         added,
-        "  ✓ generated launch profile work (0 server(s)) in <HOME>/.config/mcpm/claude-profiles/work\n\
-         \x20 ✓ wrote shims: <HOME>/.config/mcpm/context-shims.zsh\n\
-         \x20 ✓ saved config (1 profile(s))"
+        format!(
+            "  ✓ generated launch profile work (0 server(s)) in <HOME>/.config/mcpm/claude-profiles/work\n\
+             \x20 ✓ wrote shims: {shims}\n\
+             \x20 ✓ saved config (1 profile(s))"
+        )
     );
     assert_eq!(
         fx.text(&["profile", "list"]),
@@ -224,18 +227,22 @@ fn profile_add_and_remove_print_the_actions_and_warnings() {
     );
     assert_eq!(
         fx.text(&["status"]),
-        "layers            none — run `toolportctl context init`\n\
-         profile work      org=on(import) rules=none servers=none\n\
-         legacy MCP dupes  none\n\
-         shims             <HOME>/.config/mcpm/context-shims.zsh"
+        format!(
+            "layers            none — run `toolportctl context init`\n\
+             profile work      org=on(import) rules=none servers=none\n\
+             legacy MCP dupes  none\n\
+             shims             {shims}"
+        )
     );
 
     let removed = fx.text(&["profile", "remove", "work"]);
     assert_eq!(
         removed,
-        "  ✓ wrote shims: <HOME>/.config/mcpm/context-shims.zsh\n\
-         \x20 ✓ saved config (0 profile(s))\n\
-         \x20 ! orphan profile dir <HOME>/.config/mcpm/claude-profiles/work (not in config) — `toolportctl context profile remove work --purge`"
+        format!(
+            "  ✓ wrote shims: {shims}\n\
+             \x20 ✓ saved config (0 profile(s))\n\
+             \x20 ! orphan profile dir <HOME>/.config/mcpm/claude-profiles/work (not in config) — `toolportctl context profile remove work --purge`"
+        )
     );
     let purged = fx.text(&["profile", "remove", "work", "--purge"]);
     assert!(purged.starts_with(
@@ -432,4 +439,101 @@ fn every_new_command_is_resolved_by_the_table_and_not_planned() {
         assert!(rest.is_empty());
         assert!(!command.planned(), "{path}");
     }
+}
+
+const MCPM_ZSHRC: &str = "source \"$HOME/.local/share/corp-dev-tools/claude/shell-wrapper.sh\"\n\
+source ~/.config/mcpm/compression-shims.zsh\n\
+source ~/.config/mcpm/context-shims.zsh\n\
+source ~/.config/mcpm/local-aliases.zsh\n";
+
+fn mcpm_home(fx: &Fx) {
+    fx.put(".zshrc", MCPM_ZSHRC);
+    fx.put(
+        ".config/mcpm/local-aliases.zsh",
+        "alias mcpmup='cd ~/mcpm.sh && ./scripts/update.sh'\nalias gs='git status'\n",
+    );
+    fx.put(".config/mcpm/compression-shims.zsh", "# mcpm\n");
+    fx.put(".config/mcpm/context-shims.zsh", "# mcpm\n");
+    fs::write(fx.base.dir.join("compression-shims.zsh"), "# toolport\n").unwrap();
+}
+
+fn plain(fx: &Fx, text: String) -> String {
+    text.replace(&*fx.base.dir.to_string_lossy(), "<DATA>")
+}
+
+#[test]
+fn status_and_the_zshrc_rewrite_print_the_old_lines_the_diff_and_the_backup() {
+    let fx = Fx::new("zshrc-text");
+    mcpm_home(&fx);
+    let status = plain(&fx, fx.text(&["status"]));
+    assert_eq!(
+        status,
+        "layers            none — run `toolportctl context init`\n\
+         profiles          none\n\
+         legacy MCP dupes  none\n\
+         shims             none\n\
+         zshrc             3 line(s) still point into mcpm's config directory: line 2 compression-shims.zsh, line 3 context-shims.zsh, line 4 local-aliases.zsh — `toolportctl context sync --rewrite-zshrc --dry-run` previews the new paths\n\
+         mcpm alias        mcpmup (<HOME>/.config/mcpm/local-aliases.zsh:1) runs `cd ~/mcpm.sh && ./scripts/update.sh`; remove it when mcpm is gone"
+    );
+
+    let before = fx.snapshot();
+    let preview = plain(&fx, fx.text(&["sync", "--rewrite-zshrc", "--dry-run"]));
+    assert_eq!(fx.snapshot(), before, "the preview writes nothing");
+    let plan_part = preview.as_str();
+    for line in [
+        "would copy <HOME>/.config/mcpm/local-aliases.zsh to <DATA>/local-aliases.zsh (the original stays)",
+        "would rewrite 3 line(s) of <HOME>/.zshrc",
+        "  - 2: source ~/.config/mcpm/compression-shims.zsh",
+        "  + 2: source <DATA>/compression-shims.zsh",
+        "  - 3: source ~/.config/mcpm/context-shims.zsh",
+        "  + 3: source <DATA>/context-shims.zsh",
+        "  - 4: source ~/.config/mcpm/local-aliases.zsh",
+        "  + 4: source <DATA>/local-aliases.zsh",
+        "warning: mcpm alias mcpmup (<HOME>/.config/mcpm/local-aliases.zsh:1) runs `cd ~/mcpm.sh && ./scripts/update.sh`; it stops working once mcpm is gone, remove it yourself (nothing is deleted)",
+    ] {
+        assert!(plan_part.lines().any(|l| l == line), "missing {line:?} in\n{plan_part}");
+    }
+    assert!(
+        plan_part.lines().any(|l| l.starts_with("would back up <HOME>/.zshrc as <HOME>/.zshrc.toolport-backup-")),
+        "{plan_part}"
+    );
+    assert_eq!(fx.json(&["sync", "--rewrite-zshrc", "--dry-run"])["data"]["plan"]["zshrc"]["order"]["ok"], true);
+
+    let applied = plain(&fx, fx.text(&["sync", "--rewrite-zshrc"]));
+    let (_, apply_part) = applied.split_once("apply:\n").expect("sync prints both");
+    assert!(apply_part.contains("rewrote 3 line(s) of <HOME>/.zshrc"), "{apply_part}");
+    assert!(apply_part.contains("backed up <HOME>/.zshrc as <HOME>/.zshrc.toolport-backup-"), "{apply_part}");
+    assert_eq!(
+        fs::read_to_string(fx.home.join(".zshrc")).unwrap(),
+        MCPM_ZSHRC
+            .replace("~/.config/mcpm/", &format!("{}/", fx.base.dir.display()))
+    );
+    let backup = fs::read_dir(&fx.home)
+        .unwrap()
+        .flatten()
+        .find(|e| e.file_name().to_string_lossy().starts_with(".zshrc.toolport-backup-"))
+        .expect("a timestamped backup next to the rc file");
+    assert_eq!(fs::read_to_string(backup.path()).unwrap(), MCPM_ZSHRC);
+
+    let after = plain(&fx, fx.text(&["status"]));
+    assert!(after.contains("shims             <DATA>/context-shims.zsh"), "{after}");
+    assert!(!after.contains("still point into"), "{after}");
+    assert!(after.contains("mcpm alias        mcpmup (<DATA>/local-aliases.zsh:1)"), "{after}");
+}
+
+#[test]
+fn init_can_rewrite_the_zshrc_and_previews_it_with_dry_run() {
+    let fx = Fx::new("zshrc-init");
+    mcpm_home(&fx);
+    let before = fx.snapshot();
+    let preview = plain(&fx, fx.text(&["init", "--rewrite-zshrc", "--dry-run"]));
+    assert_eq!(fx.snapshot(), before);
+    assert!(preview.contains("  would rewrite 2 line(s) of <HOME>/.zshrc"), "{preview}");
+    assert!(preview.contains("    + 2: source <DATA>/compression-shims.zsh"), "{preview}");
+    assert!(preview.contains("    + 4: source <DATA>/local-aliases.zsh"), "{preview}");
+    assert!(
+        preview.contains("  ! <HOME>/.zshrc:3 context-shims.zsh: not written yet: run `toolportctl context sync`"),
+        "{preview}"
+    );
+    assert!(preview.contains("Next steps:"), "{preview}");
 }

@@ -1398,7 +1398,7 @@ fn context_management_commands_round_trip_on_a_synthetic_home() {
     ]);
     assert_envelope("context profile add", &run, &value, "context profile add", 0);
     assert_eq!(value["data"]["profile"]["generated"], true);
-    assert!(world.home.join(".config/mcpm/context-shims.zsh").is_file());
+    assert!(world.data.join("context-shims.zsh").is_file());
     let (_, status) = world.json(&["context", "status", "--home", &home]);
     assert_eq!(status["data"]["profiles"][0]["name"], "work");
     assert_eq!(status["data"]["shims"]["exists"], true);
@@ -1412,7 +1412,7 @@ fn context_management_commands_round_trip_on_a_synthetic_home() {
     let (run, value) = world.json(&["context", "disable", "--home", &home]);
     assert_envelope("context disable", &run, &value, "context disable", 0);
     assert_eq!(value["data"]["shims"]["removed"], true);
-    assert!(!world.home.join(".config/mcpm/context-shims.zsh").exists());
+    assert!(!world.data.join("context-shims.zsh").exists());
     assert!(personal.is_file(), "disable never touches the layers");
 }
 

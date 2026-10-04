@@ -1934,18 +1934,18 @@ Run `toolportctl --help` for usage.
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: context init|status|client|profile|disable|loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--dry-run])
+toolportctl: usage: context init|status|client|profile|disable|loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])
 Run `toolportctl --help` for usage.
 === ["--json","context"]
 exit 2
 --- stdout
-{"command":"context","error":{"code":"usage","message":"usage: context init|status|client|profile|disable|loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--dry-run])"},"ok":false,"schemaVersion":1}
+{"command":"context","error":{"code":"usage","message":"usage: context init|status|client|profile|disable|loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["context","nope"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: context init|status|client|profile|disable|loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--dry-run])
+toolportctl: usage: context init|status|client|profile|disable|loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])
 Run `toolportctl --help` for usage.
 === ["context","loads","--bogus"]
 exit 2
@@ -2219,14 +2219,14 @@ exit 2
 --- stdout
 --- stderr
 toolportctl: unexpected argument: extra
-usage: context init [--home <dir>] [--dry-run] [--yes]
+usage: context init [--home <dir>] [--dry-run] [--yes] [--rewrite-zshrc]
 Run `toolportctl --help` for usage.
 === ["context","init","--bogus"]
 exit 2
 --- stdout
 --- stderr
 toolportctl: unexpected argument: --bogus
-usage: context init [--home <dir>] [--dry-run] [--yes]
+usage: context init [--home <dir>] [--dry-run] [--yes] [--rewrite-zshrc]
 Run `toolportctl --help` for usage.
 === ["context","init","--home"]
 exit 2
@@ -2249,7 +2249,7 @@ Run `toolportctl --help` for usage.
 === ["--json","context","init","--bogus"]
 exit 2
 --- stdout
-{"command":"context init","error":{"code":"usage","message":"unexpected argument: --bogus\nusage: context init [--home <dir>] [--dry-run] [--yes]"},"ok":false,"schemaVersion":1}
+{"command":"context init","error":{"code":"usage","message":"unexpected argument: --bogus\nusage: context init [--home <dir>] [--dry-run] [--yes] [--rewrite-zshrc]"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["context","status","extra"]
 exit 2

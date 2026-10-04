@@ -347,6 +347,11 @@ pub(super) const GLOBAL: &[Meta] = &[
     ),
     m("--repo", Str, "Repository"),
     m("--reveal", Bool, "Print the secret value").sensitive(),
+    m(
+        "--rewrite-zshrc",
+        Bool,
+        "Point the source lines in ~/.zshrc at the data directory (backs the file up first)",
+    ),
     m("--root", Path, "Claude Code projects folder"),
     m("--rules", Bool, "Also deploy the rules files"),
     m(
