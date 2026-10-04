@@ -934,3 +934,153 @@ fn plus_handlers_serve_the_same_data_as_the_cli() {
     .unwrap();
     assert_eq!(ipc, v["data"]);
 }
+
+const LEGACY_UNINDENTED: &str =
+    include_str!("../../../tests/fixtures/skills-frontmatter/legacy-unindented.txt");
+
+const REJECTED_NOTE: &str = "1 deployed file(s) would be rejected by their client and hidden from the model. Run 'toolportctl skills sync' to rewrite them:\n  alpha (claude-code): line 4 continues a quoted multi-line value without indentation: Use when the user says wrap up or stop for today.";
+
+#[test]
+fn status_reports_a_deployed_file_its_client_would_reject() {
+    let fx = Fx::new("status-rejected");
+    let repo = fx.arg("repo");
+    fx.sync(&["--project", "--client", "claude-code"]);
+    let (code, v, _) = cli(&["skills", "status", "--repo", &repo, "--strict"]);
+    assert_eq!(code, 0);
+    assert_eq!(v["data"]["rejected"], json!([]));
+
+    fx.put("repo/.claude/skills/alpha/SKILL.md", LEGACY_UNINDENTED);
+    let before = fx.snapshot();
+
+    let (code, v, _) = cli(&["skills", "status", "--repo", &repo]);
+    assert_eq!(code, 0);
+    assert_eq!(v["data"]["drift"], false);
+    assert_eq!(
+        v["data"]["outputs"],
+        json!([
+            {"name": "alpha", "client": "claude-code", "present": true},
+            {"name": "beta", "client": "claude-code", "present": true},
+            {"name": "gamma", "client": "claude-code", "present": true},
+        ])
+    );
+    let rows = v["data"]["rejected"].as_array().unwrap();
+    assert_eq!(rows.len(), 1, "{rows:?}");
+    assert_eq!(rows[0]["name"], "alpha");
+    assert_eq!(rows[0]["client"], "claude-code");
+    assert_eq!(rows[0]["code"], "unindented-continuation");
+    assert_eq!(
+        fx.normalised(rows[0]["path"].as_str().unwrap()),
+        "<root>/repo/.claude/skills/alpha/SKILL.md"
+    );
+    assert!(rows[0]["reason"]
+        .as_str()
+        .unwrap()
+        .starts_with("line 4 continues a quoted multi-line value"));
+
+    let expected = format!("{STATUS_OK}\n\n{REJECTED_NOTE}\n");
+    let (code, out, _) = run(&["skills", "status", "--repo", &repo]);
+    assert_eq!(code, 0);
+    assert_eq!(out, expected);
+    let (code, out, _) = run(&["skills", "status", "--repo", &repo, "--strict"]);
+    assert_eq!(code, 1);
+    assert_eq!(out, expected);
+    assert_eq!(fx.snapshot(), before);
+
+    fx.sync(&["--project", "--client", "claude-code"]);
+    let (code, v, _) = cli(&["skills", "status", "--repo", &repo, "--strict"]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["data"]["rejected"], json!([]));
+}
+
+#[test]
+fn status_only_judges_the_clients_it_was_asked_about() {
+    let fx = Fx::new("status-rejected-client");
+    let repo = fx.arg("repo");
+    fx.sync(&["--project", "--client", "claude-code", "--client", "cursor"]);
+    fx.put("repo/.claude/skills/alpha/SKILL.md", LEGACY_UNINDENTED);
+    fx.put("repo/.cursor/rules/beta/RULE.md", LEGACY_UNINDENTED);
+    let (code, v, _) = cli(&["skills", "status", "--repo", &repo, "--client", "cursor"]);
+    assert_eq!(code, 0);
+    let rows = v["data"]["rejected"].as_array().unwrap();
+    let got: Vec<(&str, &str)> = rows
+        .iter()
+        .map(|r| (r["name"].as_str().unwrap(), r["client"].as_str().unwrap()))
+        .collect();
+    assert_eq!(got, [("beta", "cursor")]);
+    let (_, v, _) = cli(&["skills", "status", "--repo", &repo]);
+    assert_eq!(v["data"]["rejected"].as_array().unwrap().len(), 2);
+}
+
+fn skills_check(fx: &Fx) -> Option<Value> {
+    let _ = fx;
+    let (code, v, err) = cli(&["doctor"]);
+    assert_eq!(code, 0, "{err}{v}");
+    v["data"]["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "skills")
+        .cloned()
+}
+
+#[test]
+fn doctor_reports_deployed_skill_files_that_would_be_rejected() {
+    let fx = Fx::new("doctor-rejected");
+    assert_eq!(skills_check(&fx), None, "no lock, nothing to check");
+
+    fx.sync(&["--client", "claude-code"]);
+    assert_eq!(
+        skills_check(&fx),
+        Some(json!({
+            "name": "skills",
+            "status": "ok",
+            "detail": "3 deployed skill files read cleanly"
+        }))
+    );
+
+    std::fs::write(
+        fx.home.join(".claude/skills/alpha/SKILL.md"),
+        LEGACY_UNINDENTED,
+    )
+    .unwrap();
+    assert_eq!(
+        skills_check(&fx),
+        Some(json!({
+            "name": "skills",
+            "status": "warn",
+            "detail": "1 of 3 deployed skill files would be rejected by their client and hidden from the model: alpha/claude-code (unindented-continuation); run toolportctl skills sync"
+        }))
+    );
+
+    fx.sync(&["--client", "claude-code"]);
+    assert_eq!(skills_check(&fx).unwrap()["status"], "ok");
+}
+
+#[test]
+fn doctor_names_at_most_five_rejected_files() {
+    let fx = Fx::new("doctor-rejected-many");
+    for n in 1..=7 {
+        fx.put(
+            &format!("repo/skills/many{n}/SKILL.md"),
+            &format!(
+                "---\nname: many{n}\ndescription: Another synthetic skill number {n}\n---\nBody\n"
+            ),
+        );
+    }
+    fx.sync(&["--client", "claude-code"]);
+    for name in [
+        "alpha", "beta", "many1", "many2", "many3", "many4", "many5", "many6", "many7",
+    ] {
+        std::fs::write(
+            fx.home.join(format!(".claude/skills/{name}/SKILL.md")),
+            LEGACY_UNINDENTED,
+        )
+        .unwrap();
+    }
+    let check = skills_check(&fx).unwrap();
+    assert_eq!(check["status"], "warn");
+    assert_eq!(
+        check["detail"],
+        "9 of 10 deployed skill files would be rejected by their client and hidden from the model: alpha/claude-code (unindented-continuation), beta/claude-code (unindented-continuation), many1/claude-code (unindented-continuation), many2/claude-code (unindented-continuation), many3/claude-code (unindented-continuation) and 4 more; run toolportctl skills sync"
+    );
+}

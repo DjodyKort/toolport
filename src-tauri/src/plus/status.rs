@@ -210,6 +210,40 @@ fn direct_check(reg: &crate::registry::Registry) -> Check {
     }
 }
 
+/// Only when a user-level skills lock exists: the deployed skill files its clients would reject.
+fn skills_check(snap: &Snapshot) -> Option<Check> {
+    use crate::plus::skills::ops::check_outputs;
+    use crate::plus::skills::transpilers::registry_with_home;
+    let lock = crate::plus::skills::load_lockfile(snap.data_dir.as_ref()?)?;
+    let home = crate::clients::home()?;
+    let found = check_outputs(&lock, &registry_with_home(Some(home.clone())), &home);
+    if found.rejected.is_empty() {
+        return Some(check(
+            "skills",
+            Health::Ok,
+            format!("{} deployed skill files read cleanly", found.checked),
+        ));
+    }
+    let shown: Vec<String> = found
+        .rejected
+        .iter()
+        .take(5)
+        .map(|row| format!("{}/{} ({})", row.name, row.client, row.reason.code()))
+        .collect();
+    let more = found.rejected.len().saturating_sub(shown.len());
+    Some(check(
+        "skills",
+        Health::Warn,
+        format!(
+            "{} of {} deployed skill files would be rejected by their client and hidden from the model: {}{}; run toolportctl skills sync",
+            found.rejected.len(),
+            found.checked,
+            shown.join(", "),
+            if more > 0 { format!(" and {more} more") } else { String::new() }
+        ),
+    ))
+}
+
 pub(crate) fn doctor(snap: &Snapshot) -> Doctor {
     let mut checks = Vec::new();
 
@@ -283,6 +317,7 @@ pub(crate) fn doctor(snap: &Snapshot) -> Doctor {
     if let Some(reg) = snap.registry.as_ref().filter(|r| crate::plus::direct::count(r) > 0) {
         checks.push(direct_check(reg));
     }
+    checks.extend(skills_check(snap));
 
     let healthy = !checks.iter().any(|c| c.status == Health::Fail);
     Doctor { healthy, checks }
