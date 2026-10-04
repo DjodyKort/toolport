@@ -18,6 +18,11 @@
       "view": "control",
       "status": "built",
       "component": "src/plus/logins/LoginsTab.tsx"
+    },
+    "library": {
+      "title": "Library",
+      "status": "built",
+      "component": "src/plus/skills/LibraryScreen.tsx"
     }
   },
   "actions": {
@@ -217,6 +222,120 @@
       "status": "built",
       "test": "src/plus/logins/IntegrationsTab.test.tsx",
       "summary": "Show the live session start hook output and the Claude Code hook snippet"
+    },
+    "skills.list": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "List every skill and rule with its source badge, source filter, activation, visibility and the sync state per client"
+    },
+    "skills.status": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "Show whether the synced outputs still exist: in sync, missing, changed since sync, and what Claude Code rejects"
+    },
+    "skills.diff": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "Show the skills new, modified or removed since the last sync; exit 1 with changes still shows its data"
+    },
+    "skills.lint": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "Lint all skills and one skill by name; warnings and notes listed per skill"
+    },
+    "skills.audit": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "Scan the library for prompt injection and risky commands; findings listed by severity"
+    },
+    "skills.sync": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "Pick the clients (those of the lock, never all), preview with the dropped fields, confirm, apply; user level or one project"
+    },
+    "skills.clean": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "Remove the synced outputs and the lockfile after a preview and a typed confirmation; user level or one project"
+    },
+    "skills.uninstall": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "Uninstall a library skill with its outputs after a preview and typing its name; user level or one project"
+    },
+    "skills.resolve": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "Resolve the files that shadow a synced skill with --migrate after a preview of what moves"
+    },
+    "skills.add": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "Create a skill or rule from the template, optionally with progressive files: name check, preview, confirm"
+    },
+    "skills.init": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "Create the skills repository from the empty state: folder, name, preview of what is created, confirm"
+    },
+    "skills.bundle": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "Pack skills into a zip: skills, zip path (native picker), exact command, preview, confirm"
+    },
+    "skills.unbundle": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "Extract a skills zip into a folder; every file it overwrites is listed in the plan"
+    },
+    "skills.tap.ls": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "List the registered taps with their clone state"
+    },
+    "skills.tap.add": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "Add a tap by user/repo or URL (a URL with a credential is refused): preview of the clone, confirm"
+    },
+    "skills.tap.update": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "Pull one tap or all taps after a preview; a tap that fails is named in the plan"
+    },
+    "skills.tap.remove": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "Remove a tap and its clone after a preview and a plain confirmation (tier write)"
+    },
+    "skills.search": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "Search the taps for skills by name, description or tags; an empty answer says so"
+    },
+    "skills.install": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "Install from a tap: the preview shows the audit findings, a high finding blocks it, and only a typed --no-audit goes past"
     }
   },
   "owners": {
@@ -704,98 +823,98 @@
       "surface": "screen"
     },
     "skills add": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.add",
       "surface": "screen"
     },
     "skills audit": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.audit",
       "surface": "screen"
     },
     "skills bundle": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.bundle",
       "surface": "screen"
     },
     "skills clean": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.clean",
       "surface": "screen"
     },
     "skills diff": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.diff",
       "surface": "screen"
     },
     "skills init": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.init",
       "surface": "screen"
     },
     "skills install": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.install",
       "surface": "screen"
     },
     "skills lint": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.lint",
       "surface": "screen"
     },
     "skills ls": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.list",
       "surface": "screen"
     },
     "skills resolve": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.resolve",
       "surface": "screen"
     },
     "skills search": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.search",
       "surface": "screen"
     },
     "skills status": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.status",
       "surface": "screen"
     },
     "skills sync": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.sync",
       "surface": "screen"
     },
     "skills tap add": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.tap.add",
       "surface": "screen"
     },
     "skills tap ls": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.tap.ls",
       "surface": "screen"
     },
     "skills tap remove": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.tap.remove",
       "surface": "screen"
     },
     "skills tap update": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.tap.update",
       "surface": "screen"
     },
     "skills unbundle": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.unbundle",
       "surface": "screen"
     },
     "skills uninstall": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.uninstall",
       "surface": "screen"
     },
     "sources ls": {
@@ -1161,18 +1280,18 @@
       "surface": "screen"
     },
     "skills_audit": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.audit",
       "surface": "screen"
     },
     "skills_bundle": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.bundle",
       "surface": "screen"
     },
     "skills_clean": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.clean",
       "surface": "screen"
     },
     "skills_delete": {
@@ -1181,8 +1300,8 @@
       "surface": "screen"
     },
     "skills_diff": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.diff",
       "surface": "screen"
     },
     "skills_edit_body": {
@@ -1206,18 +1325,18 @@
       "surface": "screen"
     },
     "skills_install": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.install",
       "surface": "screen"
     },
     "skills_lint": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.lint",
       "surface": "screen"
     },
     "skills_list": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.list",
       "surface": "screen"
     },
     "skills_list_transpilers": {
@@ -1226,58 +1345,58 @@
       "surface": "screen"
     },
     "skills_resolve": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.resolve",
       "surface": "screen"
     },
     "skills_scaffold": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.add",
       "surface": "screen"
     },
     "skills_search": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.search",
       "surface": "screen"
     },
     "skills_status": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.status",
       "surface": "screen"
     },
     "skills_sync": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.sync",
       "surface": "screen"
     },
     "skills_tap_add": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.tap.add",
       "surface": "screen"
     },
     "skills_tap_list": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.tap.ls",
       "surface": "screen"
     },
     "skills_tap_remove": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.tap.remove",
       "surface": "screen"
     },
     "skills_tap_update": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.tap.update",
       "surface": "screen"
     },
     "skills_unbundle": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.unbundle",
       "surface": "screen"
     },
     "skills_uninstall": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "skills.uninstall",
       "surface": "screen"
     },
     "sources_ls": {
