@@ -1,6 +1,8 @@
 /** Envelope `data` of the agents and styles commands for the dev browser fixture: one agent
  * (`scout`) that reaches four clients with the `tools` field dropped by two of them, and no
  * output styles yet. Shapes follow `src-tauri/tests/fixtures/ctl-envelopes/agents-*.json`. */
+import type { CommandFlag, CommandRow } from "../bridge/data";
+
 const repo = "/fixture/skills-repo";
 const home = "/fixture/home";
 const data = "/fixture/data";
@@ -224,3 +226,77 @@ export const agentsCtlFixtures = new Map<string, unknown>([
   ["styles add terse", added("styles", "terse", false)],
   ["styles sync --dry-run", stylesSync(true)],
 ]);
+
+function flag(name: string, valueType: CommandFlag["valueType"], repeatable = false) {
+  return {
+    name,
+    aliases: [],
+    valueType,
+    required: false,
+    repeatable,
+    escalates: false,
+    hidden: false,
+    sensitive: false,
+    effect: "",
+  } satisfies CommandFlag;
+}
+
+function row(
+  id: string,
+  tier: "read" | "write" | "destructive",
+  options: { dry?: boolean; name?: boolean; client?: boolean; project?: boolean } = {},
+): CommandRow {
+  const path = id.split(" ");
+  return {
+    id,
+    path,
+    group: path[0],
+    kind: "command",
+    parent: path[0],
+    summary: id,
+    planned: false,
+    tier,
+    baseTier: tier,
+    dryRun: !!options.dry,
+    preview: options.dry
+      ? { mode: "flag", flag: "--dry-run" }
+      : { mode: "none", flag: null },
+    needs: [],
+    cost: false,
+    surface: "screen",
+    operands: options.name ? [{ name: "name", required: true, variadic: false }] : [],
+    maxOperands: null,
+    flags: [
+      flag("--path", "path"),
+      ...(options.client ? [flag("--client", "string", true)] : []),
+      ...(options.project ? [flag("--project", "bool")] : []),
+      ...(options.dry ? [flag("--dry-run", "bool")] : []),
+    ],
+    operandEscalates: false,
+    oneOf: [],
+    tools: [],
+  };
+}
+
+/** The `agents` and `styles` rows of the registry, with the tier and preview flag of the
+ * policy table (`src-tauri/tests/fixtures/ctl-envelopes/commands.json`). */
+export const agentsCommandRows: CommandRow[] = [
+  row("agents add", "write", { dry: true, name: true }),
+  row("agents ls", "read"),
+  row("agents lint", "read"),
+  row("agents audit", "read"),
+  row("agents diff", "read"),
+  row("agents status", "read"),
+  row("agents clean", "destructive", { dry: true, client: true, project: true }),
+  row("agents uninstall", "destructive", { dry: true, name: true, project: true }),
+  row("agents sync", "write", { dry: true, client: true, project: true }),
+  row("styles add", "write", { dry: true, name: true }),
+  row("styles ls", "read"),
+  row("styles lint", "read"),
+  row("styles diff", "read"),
+  row("styles status", "read"),
+  row("styles sync", "write", { dry: true, client: true, project: true }),
+  row("styles apply", "write", { dry: true, name: true, client: true, project: true }),
+  row("styles remove", "destructive", { dry: true, client: true, project: true }),
+  row("styles clean", "destructive", { dry: true, project: true }),
+];
