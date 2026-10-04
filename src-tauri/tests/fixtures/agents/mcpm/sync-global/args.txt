@@ -1,0 +1,4 @@
+sync
+--global
+--path
+{repo}

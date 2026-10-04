@@ -1,0 +1,14 @@
+  Removed <root>/home/.claude/agents/helper.md
+  Removed <root>/home/.claude/agents/planner.md
+  Removed <root>/home/.claude/agents/reviewer.md
+  Removed <root>/home/.codex/agents/helper.toml
+  Removed <root>/home/.codex/agents/planner.toml
+  Removed <root>/home/.codex/agents/reviewer.toml
+  Removed <root>/home/.cursor/agents/helper.md
+  Removed <root>/home/.cursor/agents/planner.md
+  Removed <root>/home/.cursor/agents/reviewer.md
+  Removed <root>/home/.gemini/agents/helper.md
+  Removed <root>/home/.gemini/agents/planner.md
+  Removed <root>/home/.gemini/agents/reviewer.md
+
+Cleaned 12 file(s).

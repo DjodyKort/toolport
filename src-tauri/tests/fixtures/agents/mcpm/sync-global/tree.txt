@@ -1,0 +1,17 @@
+home/.claude/agents/helper.md
+home/.claude/agents/planner.md
+home/.claude/agents/reviewer.md
+home/.codex/agents/helper.toml
+home/.codex/agents/planner.toml
+home/.codex/agents/reviewer.toml
+home/.config/mcpm/mcpm-skills.lock
+home/.cursor/agents/helper.md
+home/.cursor/agents/planner.md
+home/.cursor/agents/reviewer.md
+home/.gemini/agents/helper.md
+home/.gemini/agents/planner.md
+home/.gemini/agents/reviewer.md
+repo/agents/helper/AGENT.md
+repo/agents/planner/AGENT.md
+repo/agents/reviewer/AGENT.md
+repo/mcpm-skills.yaml

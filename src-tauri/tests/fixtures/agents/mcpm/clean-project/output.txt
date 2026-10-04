@@ -1,0 +1,18 @@
+  Removed .claude/agents/helper.md
+  Removed .claude/agents/planner.md
+  Removed .claude/agents/reviewer.md
+  Removed .codex/agents/helper.toml
+  Removed .codex/agents/planner.toml
+  Removed .codex/agents/reviewer.toml
+  Removed .cursor/agents/helper.md
+  Removed .cursor/agents/planner.md
+  Removed .cursor/agents/reviewer.md
+  Removed .gemini/agents/helper.md
+  Removed .gemini/agents/planner.md
+  Removed .gemini/agents/reviewer.md
+  Removed .roomodes
+  Removed .github/agents/helper.agent.md
+  Removed .github/agents/planner.agent.md
+  Removed .github/agents/reviewer.agent.md
+
+Cleaned 16 file(s).

@@ -1,0 +1,4 @@
+
+Agent 'code-reviewer' created at <root>/repo/agents/code-reviewer/AGENT.md
+
+Edit the AGENT.md file, then run 'mcpm agents sync' to transpile to all clients.

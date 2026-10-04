@@ -1,0 +1,4 @@
+repo/agents/fine/AGENT.md
+repo/agents/injector/AGENT.md
+repo/agents/shell/AGENT.md
+repo/mcpm-skills.yaml

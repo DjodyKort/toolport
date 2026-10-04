@@ -1,0 +1,4 @@
+Error: Invalid agent name 'a--b': 1 validation error for AgentFrontmatter
+name
+  Value error, name must not contain consecutive hyphens 
+    For further information visit https://errors.pydantic.dev/2.13/v/value_error

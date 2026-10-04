@@ -1,6 +1,7 @@
 //! `toolportctl` command line (D-010, MIG-SELF). The binary is a thin `main`;
 //! parsing, dispatch and rendering live here so they are unit-testable.
 
+mod agents;
 mod auth;
 mod cc;
 mod client;
@@ -391,6 +392,52 @@ pub const COMMANDS: &[Command] = &[
         "Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve",
         skills::group,
     ),
+    cmd(
+        &["agents", "add"],
+        "Create an agent from a template (<name>, --path, --dry-run)",
+        agents::add,
+    ),
+    cmd(&["agents", "ls"], "List agents (--path <dir>)", agents::ls),
+    cmd(
+        &["agents", "lint"],
+        "Lint agents; exits 1 on errors (--path <dir>)",
+        agents::lint,
+    ),
+    cmd(
+        &["agents", "audit"],
+        "Scan agents for prompt injection and risky commands; exits 1 on high findings (--path <dir>)",
+        agents::audit,
+    ),
+    cmd(
+        &["agents", "diff"],
+        "Show new, modified and removed agents since the last sync (--path <dir>)",
+        agents::diff,
+    ),
+    cmd(
+        &["agents", "status"],
+        "Show whether synced agent outputs still exist; --strict exits 1 on drift (--path, --home)",
+        agents::status,
+    ),
+    cmd(
+        &["agents", "clean"],
+        "Remove synced agent outputs, keeping the lockfile (--path, --home, --client <key>, --project, --dry-run)",
+        agents::clean,
+    ),
+    cmd(
+        &["agents", "uninstall"],
+        "Remove an agent, its outputs and its lock entry (<name>, --path, --home, --project, --dry-run)",
+        agents::uninstall,
+    ),
+    cmd(
+        &["agents", "sync"],
+        "Transpile agents to client outputs (--path, --home, --client <key>, --project, --dry-run)",
+        agents::sync,
+    ),
+    cmd(
+        &["agents"],
+        "Agents: add ls lint audit diff status clean uninstall sync",
+        agents::group,
+    ),
     cmd(&["sync"], "Encrypted sync: init push pull diff status reset ...", sync::run),
     cmd(&["cc"], "Claude Code plugins: list | update [--dry-run]", cc::run),
     cmd(
@@ -612,6 +659,10 @@ fn emit(
 
 #[cfg(test)]
 mod auth_tests;
+#[cfg(test)]
+mod agents_golden_tests;
+#[cfg(test)]
+mod agents_tests;
 #[cfg(test)]
 mod compression_cfg_tests;
 #[cfg(test)]

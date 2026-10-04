@@ -1,0 +1,6 @@
+repo/agents/conflict/AGENT.md
+repo/agents/dup-a/AGENT.md
+repo/agents/dup-b/AGENT.md
+repo/agents/fullauto/AGENT.md
+repo/agents/mismatch/AGENT.md
+repo/mcpm-skills.yaml

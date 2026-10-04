@@ -149,42 +149,46 @@ pub fn add(rest: &[String]) -> Result<Output, CtlError> {
     Ok(Output::new(data, human))
 }
 
+/// The findings and the severity totals of an audit the way mcpm prints them; `name_key` is the
+/// data key holding the name of the audited item.
+pub(super) fn findings_text(data: &Value, name_key: &str) -> String {
+    let mut text = String::new();
+    for f in data["findings"].as_array().into_iter().flatten() {
+        let label = match f["severity"].as_str().unwrap_or("") {
+            "high" => "HIGH",
+            "medium" => "MED ",
+            _ => "LOW ",
+        };
+        let line = match f["line"].as_u64().unwrap_or(0) {
+            0 => String::new(),
+            n => format!(" (line {n})"),
+        };
+        text.push_str(&format!(
+            "  {label} {}{line}: {}\n",
+            str_of(f, name_key),
+            str_of(f, "message")
+        ));
+    }
+    let parts: Vec<String> = ["high", "medium", "low"]
+        .iter()
+        .filter(|k| data[**k].as_u64().unwrap_or(0) > 0)
+        .map(|k| format!("{} {k}", data[*k]))
+        .collect();
+    text.push_str(&format!("\n  {}", parts.join(", ")));
+    text
+}
+
 pub fn audit(rest: &[String]) -> Result<Output, CtlError> {
     let args = AUDIT.parse(rest)?;
     no_operands(&args, AUDIT_USAGE)?;
     let data = call("plus.skills.audit", with_path(&args, json!({})))?;
-    let mut human = String::new();
-    if data["skillCount"] == json!(0) {
-        human.push_str("No skills found to audit.");
+    let human = if data["skillCount"] == json!(0) {
+        "No skills found to audit.".to_string()
     } else if data["clean"] == json!(true) {
-        human.push_str(&format!(
-            "All {} skill(s) passed security audit.",
-            data["skillCount"]
-        ));
+        format!("All {} skill(s) passed security audit.", data["skillCount"])
     } else {
-        for f in data["findings"].as_array().into_iter().flatten() {
-            let label = match f["severity"].as_str().unwrap_or("") {
-                "high" => "HIGH",
-                "medium" => "MED ",
-                _ => "LOW ",
-            };
-            let line = match f["line"].as_u64().unwrap_or(0) {
-                0 => String::new(),
-                n => format!(" (line {n})"),
-            };
-            human.push_str(&format!(
-                "  {label} {}{line}: {}\n",
-                str_of(f, "skill"),
-                str_of(f, "message")
-            ));
-        }
-        let parts: Vec<String> = ["high", "medium", "low"]
-            .iter()
-            .filter(|k| data[**k].as_u64().unwrap_or(0) > 0)
-            .map(|k| format!("{} {k}", data[*k]))
-            .collect();
-        human.push_str(&format!("\n  {}", parts.join(", ")));
-    }
+        findings_text(&data, "skill")
+    };
     let mut out = Output::new(data.clone(), human);
     out.failed = data["high"].as_u64().unwrap_or(0) > 0;
     Ok(out)

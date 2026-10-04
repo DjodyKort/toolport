@@ -1,0 +1,4 @@
+status
+--strict
+--path
+{repo}

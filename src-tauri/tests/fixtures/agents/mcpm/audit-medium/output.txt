@@ -1,0 +1,4 @@
+  MED  medium (line 1): Suspicious: sudo usage in skill instructions
+  MED  medium (line 2): Suspicious: setting world-writable permissions
+
+  2 medium

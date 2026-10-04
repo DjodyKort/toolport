@@ -1,0 +1,14 @@
+
+Found 4 agent(s) in <root>/repo
+
+┏━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Name        ┃ Model             ┃ Tools             ┃ Description                                        ┃
+┡━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ exact-fifty │ default           │ all               │ 12345678901234567890123456789012345678901234567890 │
+│ one-word    │ default           │ all               │ Supercalifragilisticexpialidocious_Supercalifragil │
+│             │                   │                   │ ...                                                │
+│ over-fifty  │ claude-sonnet-4-5 │ Read, Write, Bash │ This description is longer than fifty characters   │
+│             │                   │                   │ s...                                               │
+│ spaced      │ default           │ all               │ Two  spaces  and                                   │
+│             │                   │                   │ a-very-long-hyphenated-word-that-...               │
+└─────────────┴───────────────────┴───────────────────┴────────────────────────────────────────────────────┘

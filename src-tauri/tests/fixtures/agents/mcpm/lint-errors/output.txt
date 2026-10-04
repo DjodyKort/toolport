@@ -1,0 +1,11 @@
+  W conflict: Description is very short (<20 chars).
+  W conflict: Body (system prompt) is empty.
+  E conflict: Tools in both allowed and disallowed: Write
+  E dup-a: Agent name 'dup-a' does not match directory name 'dup-b'
+  I fullauto: Model 'gpt-5' is not a standard shorthand (sonnet/opus/haiku/inherit).
+  W fullauto: readonly=true conflicts with permission-mode=full-auto.
+  W fullauto: max-turns=500 is outside typical range (1-200).
+  E other-name: Agent name 'other-name' does not match directory name 'mismatch'
+  E dup-a: Duplicate agent name found.
+
+  4 error(s), 4 warning(s), 1 info(s)

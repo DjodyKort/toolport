@@ -1,0 +1,8 @@
+  HIGH injector (line 1): Prompt injection: ignore previous instructions
+  MED  injector (line 3): Possible prompt injection: role override attempt
+  HIGH shell (line 1): Data exfiltration risk: piping curl to bash
+  MED  shell (line 2): Suspicious: sudo usage in skill instructions
+  MED  shell (line 3): Suspicious: setting world-writable permissions
+  HIGH shell (line 4): Dangerous command: recursive delete of system paths
+
+  3 high, 3 medium

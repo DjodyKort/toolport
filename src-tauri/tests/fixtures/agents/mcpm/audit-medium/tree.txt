@@ -1,0 +1,2 @@
+repo/agents/medium/AGENT.md
+repo/mcpm-skills.yaml

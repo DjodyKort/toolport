@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "synced_at": "<ts>",
+  "scope": "",
+  "output_root": "",
+  "skills": {},
+  "rules": {},
+  "agents": {
+    "tester": {
+      "source": "local",
+      "version": null,
+      "hash": "sha256:7468181072ec195a",
+      "clients_synced": [
+        "claude-code",
+        "codex-cli",
+        "cursor",
+        "gemini-cli",
+        "vscode",
+        "roomodes"
+      ],
+      "warnings": [
+        "codex-cli: 'tools' field not supported in agent TOML, dropped",
+        "cursor: 'tools' field not supported, dropped",
+        "cursor: 'max-turns' field not supported, dropped",
+        "vscode: 'max-turns' not supported, dropped",
+        "roomodes: 'model' not directly supported, included in customInstructions",
+        "roomodes: 'model' not directly supported, included in customInstructions"
+      ],
+      "output_files": {
+        "claude-code": [".claude/agents/tester.md"],
+        "codex-cli": [".codex/agents/tester.toml"],
+        "cursor": [".cursor/agents/tester.md"],
+        "gemini-cli": [".gemini/agents/tester.md"],
+        "vscode": [".github/agents/tester.agent.md"],
+        "roomodes": [".roomodes"]
+      },
+      "hooks_installed": {}
+    },
+    "writer": {
+      "source": "local",
+      "version": null,
+      "hash": "sha256:9ffa2f87a4ad0587",
+      "clients_synced": [
+        "claude-code",
+        "codex-cli",
+        "cursor",
+        "gemini-cli",
+        "vscode",
+        "roomodes"
+      ],
+      "warnings": [
+        "roomodes: 'model' not directly supported, included in customInstructions",
+        "roomodes: 'model' not directly supported, included in customInstructions"
+      ],
+      "output_files": {
+        "claude-code": [".claude/agents/writer.md"],
+        "codex-cli": [".codex/agents/writer.toml"],
+        "cursor": [".cursor/agents/writer.md"],
+        "gemini-cli": [".gemini/agents/writer.md"],
+        "vscode": [".github/agents/writer.agent.md"],
+        "roomodes": [".roomodes"]
+      },
+      "hooks_installed": {}
+    }
+  },
+  "styles": {},
+  "active_styles": {}
+}

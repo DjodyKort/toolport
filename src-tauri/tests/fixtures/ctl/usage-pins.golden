@@ -84,6 +84,16 @@ Commands:
   skills uninstall Remove a skill, its outputs and its lock entry (<name>, --repo, --home, --project, --dry-run)
   skills resolve Find files shadowing synced skills; --migrate backs them up (--repo, --home, --client <key>, --project, --dry-run)
   skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve
+  agents add     Create an agent from a template (<name>, --path, --dry-run)
+  agents ls      List agents (--path <dir>)
+  agents lint    Lint agents; exits 1 on errors (--path <dir>)
+  agents audit   Scan agents for prompt injection and risky commands; exits 1 on high findings (--path <dir>)
+  agents diff    Show new, modified and removed agents since the last sync (--path <dir>)
+  agents status  Show whether synced agent outputs still exist; --strict exits 1 on drift (--path, --home)
+  agents clean   Remove synced agent outputs, keeping the lockfile (--path, --home, --client <key>, --project, --dry-run)
+  agents uninstall Remove an agent, its outputs and its lock entry (<name>, --path, --home, --project, --dry-run)
+  agents sync    Transpile agents to client outputs (--path, --home, --client <key>, --project, --dry-run)
+  agents         Agents: add ls lint audit diff status clean uninstall sync
   sync           Encrypted sync: init push pull diff status reset ...
   cc             Claude Code plugins: list | update [--dry-run]
   update         Check or apply server updates (--check, --apply, --init, --dry-run)
@@ -188,6 +198,16 @@ Commands:
   skills uninstall Remove a skill, its outputs and its lock entry (<name>, --repo, --home, --project, --dry-run)
   skills resolve Find files shadowing synced skills; --migrate backs them up (--repo, --home, --client <key>, --project, --dry-run)
   skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve
+  agents add     Create an agent from a template (<name>, --path, --dry-run)
+  agents ls      List agents (--path <dir>)
+  agents lint    Lint agents; exits 1 on errors (--path <dir>)
+  agents audit   Scan agents for prompt injection and risky commands; exits 1 on high findings (--path <dir>)
+  agents diff    Show new, modified and removed agents since the last sync (--path <dir>)
+  agents status  Show whether synced agent outputs still exist; --strict exits 1 on drift (--path, --home)
+  agents clean   Remove synced agent outputs, keeping the lockfile (--path, --home, --client <key>, --project, --dry-run)
+  agents uninstall Remove an agent, its outputs and its lock entry (<name>, --path, --home, --project, --dry-run)
+  agents sync    Transpile agents to client outputs (--path, --home, --client <key>, --project, --dry-run)
+  agents         Agents: add ls lint audit diff status clean uninstall sync
   sync           Encrypted sync: init push pull diff status reset ...
   cc             Claude Code plugins: list | update [--dry-run]
   update         Check or apply server updates (--check, --apply, --init, --dry-run)
@@ -292,6 +312,16 @@ Commands:
   skills uninstall Remove a skill, its outputs and its lock entry (<name>, --repo, --home, --project, --dry-run)
   skills resolve Find files shadowing synced skills; --migrate backs them up (--repo, --home, --client <key>, --project, --dry-run)
   skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve
+  agents add     Create an agent from a template (<name>, --path, --dry-run)
+  agents ls      List agents (--path <dir>)
+  agents lint    Lint agents; exits 1 on errors (--path <dir>)
+  agents audit   Scan agents for prompt injection and risky commands; exits 1 on high findings (--path <dir>)
+  agents diff    Show new, modified and removed agents since the last sync (--path <dir>)
+  agents status  Show whether synced agent outputs still exist; --strict exits 1 on drift (--path, --home)
+  agents clean   Remove synced agent outputs, keeping the lockfile (--path, --home, --client <key>, --project, --dry-run)
+  agents uninstall Remove an agent, its outputs and its lock entry (<name>, --path, --home, --project, --dry-run)
+  agents sync    Transpile agents to client outputs (--path, --home, --client <key>, --project, --dry-run)
+  agents         Agents: add ls lint audit diff status clean uninstall sync
   sync           Encrypted sync: init push pull diff status reset ...
   cc             Claude Code plugins: list | update [--dry-run]
   update         Check or apply server updates (--check, --apply, --init, --dry-run)
@@ -396,6 +426,16 @@ Commands:
   skills uninstall Remove a skill, its outputs and its lock entry (<name>, --repo, --home, --project, --dry-run)
   skills resolve Find files shadowing synced skills; --migrate backs them up (--repo, --home, --client <key>, --project, --dry-run)
   skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve
+  agents add     Create an agent from a template (<name>, --path, --dry-run)
+  agents ls      List agents (--path <dir>)
+  agents lint    Lint agents; exits 1 on errors (--path <dir>)
+  agents audit   Scan agents for prompt injection and risky commands; exits 1 on high findings (--path <dir>)
+  agents diff    Show new, modified and removed agents since the last sync (--path <dir>)
+  agents status  Show whether synced agent outputs still exist; --strict exits 1 on drift (--path, --home)
+  agents clean   Remove synced agent outputs, keeping the lockfile (--path, --home, --client <key>, --project, --dry-run)
+  agents uninstall Remove an agent, its outputs and its lock entry (<name>, --path, --home, --project, --dry-run)
+  agents sync    Transpile agents to client outputs (--path, --home, --client <key>, --project, --dry-run)
+  agents         Agents: add ls lint audit diff status clean uninstall sync
   sync           Encrypted sync: init push pull diff status reset ...
   cc             Claude Code plugins: list | update [--dry-run]
   update         Check or apply server updates (--check, --apply, --init, --dry-run)
@@ -3324,6 +3364,342 @@ exit 2
 --- stderr
 toolportctl: --client requires a value
 Run `toolportctl --help` for usage.
+=== ["agents"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: agents add|ls|lint|audit|diff|status|clean|uninstall|sync (add: <name> [--path <dir>] [--dry-run]; ls|lint|audit|diff: [--path <dir>]; status: [--path <dir>] [--home <dir>] [--strict]; clean: [--path <dir>] [--home <dir>] [--client <key>] [--project] [--dry-run]; uninstall: <name> [--path <dir>] [--home <dir>] [--project] [--dry-run]; sync: [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["--json","agents"]
+exit 2
+--- stdout
+{"command":"agents","error":{"code":"usage","message":"usage: agents add|ls|lint|audit|diff|status|clean|uninstall|sync (add: <name> [--path <dir>] [--dry-run]; ls|lint|audit|diff: [--path <dir>]; status: [--path <dir>] [--home <dir>] [--strict]; clean: [--path <dir>] [--home <dir>] [--client <key>] [--project] [--dry-run]; uninstall: <name> [--path <dir>] [--home <dir>] [--project] [--dry-run]; sync: [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run])"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["agents","nope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: agents add|ls|lint|audit|diff|status|clean|uninstall|sync (add: <name> [--path <dir>] [--dry-run]; ls|lint|audit|diff: [--path <dir>]; status: [--path <dir>] [--home <dir>] [--strict]; clean: [--path <dir>] [--home <dir>] [--client <key>] [--project] [--dry-run]; uninstall: <name> [--path <dir>] [--home <dir>] [--project] [--dry-run]; sync: [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["agents","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: agents add|ls|lint|audit|diff|status|clean|uninstall|sync (add: <name> [--path <dir>] [--dry-run]; ls|lint|audit|diff: [--path <dir>]; status: [--path <dir>] [--home <dir>] [--strict]; clean: [--path <dir>] [--home <dir>] [--client <key>] [--project] [--dry-run]; uninstall: <name> [--path <dir>] [--home <dir>] [--project] [--dry-run]; sync: [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["agents","ls","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: agents ls [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["agents","ls","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: agents ls [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["agents","ls","--path"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --path requires a value
+Run `toolportctl --help` for usage.
+=== ["agents","ls","--repo"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --path requires a value
+Run `toolportctl --help` for usage.
+=== ["agents","ls","--project"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --project
+usage: agents ls [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["agents","ls","--dry-run"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --dry-run
+usage: agents ls [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["agents","lint","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: agents lint [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["agents","lint","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: agents lint [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["agents","lint","--path"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --path requires a value
+Run `toolportctl --help` for usage.
+=== ["agents","lint","--strict"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --strict
+usage: agents lint [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["agents","audit","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: agents audit [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["agents","audit","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: agents audit [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["agents","audit","--path"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --path requires a value
+Run `toolportctl --help` for usage.
+=== ["agents","diff","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: agents diff [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["agents","diff","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: agents diff [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["agents","diff","--home"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --home
+usage: agents diff [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["agents","status","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: agents status [--path <dir>] [--home <dir>] [--strict]
+Run `toolportctl --help` for usage.
+=== ["agents","status","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: agents status [--path <dir>] [--home <dir>] [--strict]
+Run `toolportctl --help` for usage.
+=== ["agents","status","--strict=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --strict takes no value
+Run `toolportctl --help` for usage.
+=== ["agents","status","--home"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --home requires a value
+Run `toolportctl --help` for usage.
+=== ["agents","status","--project"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --project
+usage: agents status [--path <dir>] [--home <dir>] [--strict]
+Run `toolportctl --help` for usage.
+=== ["agents","status","--client","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --client
+usage: agents status [--path <dir>] [--home <dir>] [--strict]
+Run `toolportctl --help` for usage.
+=== ["agents","add"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing agent name
+usage: agents add <name> [--path <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["agents","add","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: agents add <name> [--path <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["agents","add","a","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: agents add <name> [--path <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["agents","add","a","--path"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --path requires a value
+Run `toolportctl --help` for usage.
+=== ["agents","add","a","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --dry-run takes no value
+Run `toolportctl --help` for usage.
+=== ["agents","add","--dry-run"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing agent name
+usage: agents add <name> [--path <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["--json","agents","add"]
+exit 2
+--- stdout
+{"command":"agents add","error":{"code":"usage","message":"missing agent name\nusage: agents add <name> [--path <dir>] [--dry-run]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["agents","clean","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: agents clean [--path <dir>] [--home <dir>] [--client <key>] [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["agents","clean","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: agents clean [--path <dir>] [--home <dir>] [--client <key>] [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["agents","clean","--client"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --client requires a value
+Run `toolportctl --help` for usage.
+=== ["agents","clean","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --dry-run takes no value
+Run `toolportctl --help` for usage.
+=== ["agents","clean","--global","--project"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --global and --project are mutually exclusive
+Run `toolportctl --help` for usage.
+=== ["--json","agents","clean","--global","--project"]
+exit 2
+--- stdout
+{"command":"agents clean","error":{"code":"usage","message":"--global and --project are mutually exclusive"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["agents","uninstall"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing agent name
+usage: agents uninstall <name> [--path <dir>] [--home <dir>] [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["agents","uninstall","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: agents uninstall <name> [--path <dir>] [--home <dir>] [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["agents","uninstall","a","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: agents uninstall <name> [--path <dir>] [--home <dir>] [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["agents","uninstall","a","--global","--project"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --global and --project are mutually exclusive
+Run `toolportctl --help` for usage.
+=== ["agents","uninstall","a","--client","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --client
+usage: agents uninstall <name> [--path <dir>] [--home <dir>] [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["agents","uninstall","--path"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --path requires a value
+Run `toolportctl --help` for usage.
+=== ["agents","sync","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: agents sync [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["agents","sync","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: agents sync [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["agents","sync","--client"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --client requires a value
+Run `toolportctl --help` for usage.
+=== ["agents","sync","--home"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --home requires a value
+Run `toolportctl --help` for usage.
+=== ["agents","sync","--project=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --project takes no value
+Run `toolportctl --help` for usage.
+=== ["agents","sync","--global","--project"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --global and --project are mutually exclusive
+Run `toolportctl --help` for usage.
+=== ["--json","agents","sync","--bogus"]
+exit 2
+--- stdout
+{"command":"agents sync","error":{"code":"usage","message":"unexpected argument: --bogus\nusage: agents sync [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]"},"ok":false,"schemaVersion":1}
+--- stderr
 === ["sync"]
 exit 2
 --- stdout
