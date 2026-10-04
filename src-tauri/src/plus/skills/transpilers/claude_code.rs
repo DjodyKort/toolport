@@ -2,6 +2,7 @@ use super::{render_frontmatter, Field};
 use crate::plus::skills::json::{self, J};
 use crate::plus::skills::parser::{Activation, Skill, SkillType};
 use crate::plus::skills::pyfs::write_text;
+use crate::plus::skills::scalar;
 use crate::plus::skills::transpiler::{TranspileResult, Transpiler};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -14,7 +15,7 @@ fn paths_list(globs: &str) -> String {
         .split(',')
         .map(str::trim)
         .filter(|g| !g.is_empty())
-        .map(|g| format!("\"{g}\""))
+        .map(scalar::quoted_item)
         .collect();
     format!("[{}]", items.join(", "))
 }
@@ -125,16 +126,15 @@ impl Transpiler for ClaudeCode {
                 format!("{frontmatter}\n\n{}\n", skill.body)
             }
         } else {
-            let description = format!("\"{}\"", fm.description);
             let mut fields = vec![
                 ("name", Field::Raw(&fm.name)),
-                ("description", Field::Raw(&description)),
+                ("description", Field::Quoted(&fm.description)),
             ];
             if let Some(g) = globs {
-                fields.push(("paths", Field::Raw(g)));
+                fields.push(("paths", Field::Text(g)));
             }
             if let Some(t) = fm.allowed_tools.as_deref().filter(|t| !t.is_empty()) {
-                fields.push(("allowed-tools", Field::Raw(t)));
+                fields.push(("allowed-tools", Field::Text(t)));
             }
             if fm.activation == Activation::Manual {
                 fields.push(("disable-model-invocation", Field::Bool(true)));

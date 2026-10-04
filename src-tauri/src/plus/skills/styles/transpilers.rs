@@ -1,6 +1,7 @@
 use super::Style;
 use crate::plus::skills::json::{self, J};
 use crate::plus::skills::pyfs::{read_text, title};
+use crate::plus::skills::scalar;
 use crate::plus::skills::transpiler::TranspileResult;
 use crate::plus::skills::transpilers::windsurf::{py_prefix, WINDSURF_WORKSPACE_CHAR_LIMIT};
 use std::fs;
@@ -79,6 +80,11 @@ pub(crate) fn remove_with_empty_parent(path: &Path) -> Result<bool, String> {
     Ok(true)
 }
 
+/// `"Output style: <description>"`, as a scalar a strict YAML parser reads back unchanged.
+fn style_description(description: &str) -> String {
+    scalar::quoted(&format!("Output style: {description}"))
+}
+
 #[derive(Clone, Copy)]
 enum Shape {
     /// `description: "Output style: D"` + `alwaysApply: true` frontmatter.
@@ -117,12 +123,12 @@ impl StyleTranspiler for Simple {
         let body = &style.body;
         let content = match self.shape {
             Shape::AlwaysRule => format!(
-                "---\ndescription: \"Output style: {}\"\nalwaysApply: true\n---\n\n{body}\n",
-                fm.description
+                "---\ndescription: {}\nalwaysApply: true\n---\n\n{body}\n",
+                style_description(&fm.description)
             ),
             Shape::NamedSkill => format!(
-                "---\nname: {OUTPUT_STYLE_RULE}\ndescription: \"Output style: {}\"\n---\n\n{body}\n",
-                fm.description
+                "---\nname: {OUTPUT_STYLE_RULE}\ndescription: {}\n---\n\n{body}\n",
+                style_description(&fm.description)
             ),
             Shape::PlainBody => format!("{body}\n"),
             Shape::AiderHeading => format!("# Output Style: {}\n\n{body}\n", fm.name),
@@ -167,8 +173,11 @@ impl StyleTranspiler for ClaudeCodeStyle {
         Ok(TranspileResult {
             output_path: self.get_output_path(style, root),
             content: format!(
-                "---\nname: {}\ndescription: \"{}\"\nkeep-coding-instructions: {}\n---\n\n{}\n",
-                fm.name, fm.description, fm.keep_coding_instructions, style.body
+                "---\nname: {}\ndescription: {}\nkeep-coding-instructions: {}\n---\n\n{}\n",
+                fm.name,
+                scalar::quoted(&fm.description),
+                fm.keep_coding_instructions,
+                style.body
             ),
             warnings: Vec::new(),
         })
@@ -198,8 +207,8 @@ impl StyleTranspiler for WindsurfStyle {
     fn transpile(&self, style: &Style, root: &Path) -> Result<TranspileResult, String> {
         let fm = &style.frontmatter;
         let frontmatter = format!(
-            "---\ndescription: \"Output style: {}\"\ntrigger: always_on\n---",
-            fm.description
+            "---\ndescription: {}\ntrigger: always_on\n---",
+            style_description(&fm.description)
         );
         let mut content = format!("{frontmatter}\n\n{}\n", style.body);
         let mut warnings = Vec::new();

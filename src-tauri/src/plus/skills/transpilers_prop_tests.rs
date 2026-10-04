@@ -3,6 +3,7 @@
 //! managed blocks are stable and removable, and the structured formats re-parse.
 
 use super::agents::{all_agent_transpilers, Agent, PermissionMode};
+use super::frontmatter::{frontmatter_accepted, output_accepted};
 use super::json::{self, J};
 use super::parser::{parse_frontmatter, Activation, Skill, SkillType};
 use super::pyfs::universal_newlines;
@@ -904,4 +905,129 @@ fn numeric_and_keyword_names_are_emitted_unquoted_like_mcpm() {
             out.content
         );
     }
+}
+
+const STRICT_CLIENTS: [&str; 4] = ["claude-code", "codex-cli", "gemini-cli", "goose-cli"];
+
+fn description_of(content: &str) -> Option<Value> {
+    let (fields, _) = parse_frontmatter(content).ok()?;
+    fields
+        .into_iter()
+        .find(|(k, _)| k == "description")
+        .map(|(_, v)| v)
+}
+
+#[test]
+fn every_skill_transpiler_emits_frontmatter_its_client_accepts() {
+    let tmp = ScratchDir::new("skill-accepted");
+    let reg = registry(tmp.path());
+    run_cases("skills-output-accepted", 800, |_, rng| {
+        let s = skill(rng, false);
+        for t in reg.all().filter(|t| !t.capabilities().append_mode) {
+            let out = t.transpile(&s, tmp.path()).unwrap();
+            if let Err(reason) = output_accepted(t.client_key(), &out.content) {
+                panic!("{}: {reason}\n{}", t.client_key(), out.content);
+            }
+            if STRICT_CLIENTS.contains(&t.client_key()) && s.skill_type == SkillType::Skill {
+                assert_eq!(
+                    description_of(&out.content),
+                    Some(Value::String(s.frontmatter.description.clone())),
+                    "{}\n{}",
+                    t.client_key(),
+                    out.content
+                );
+            }
+        }
+    });
+}
+
+#[test]
+fn a_multi_line_description_is_accepted_by_every_client_in_every_activation() {
+    let tmp = ScratchDir::new("skill-multiline");
+    let reg = registry(tmp.path());
+    let descriptions = [
+        "One line.\nTwo lines with \"quotes\" and a \\ backslash.\n\nThree.",
+        "Trailing newline.\nSecond line.\n",
+        " Leading space.\nSecond line.",
+        "Windows\r\nbreaks\r\n",
+        "---\nlooks like a fence\n---",
+        "key: value\n- item\n# comment",
+    ];
+    for description in descriptions {
+        for kind in [SkillType::Skill, SkillType::Rule] {
+            for activation in [
+                Activation::Always,
+                Activation::Auto,
+                Activation::Agent,
+                Activation::Manual,
+            ] {
+                let mut s = Skill::placeholder("multi", kind);
+                s.frontmatter.description = description.to_string();
+                s.frontmatter.activation = activation;
+                s.frontmatter.globs = Some("**/*.py, src/**".into());
+                s.frontmatter.allowed_tools = Some("Read, Bash(git diff:*)".into());
+                s.body = "Body".into();
+                for t in reg.all().filter(|t| !t.capabilities().append_mode) {
+                    let out = t.transpile(&s, tmp.path()).unwrap();
+                    if let Err(reason) = output_accepted(t.client_key(), &out.content) {
+                        panic!(
+                            "{} {kind:?} {activation:?} {description:?}: {reason}\n{}",
+                            t.client_key(),
+                            out.content
+                        );
+                    }
+                    if STRICT_CLIENTS.contains(&t.client_key()) && kind == SkillType::Skill {
+                        assert_eq!(
+                            description_of(&out.content),
+                            Some(Value::String(description.to_string())),
+                            "{}\n{}",
+                            t.client_key(),
+                            out.content
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn every_agent_transpiler_emits_frontmatter_its_client_accepts() {
+    let tmp = ScratchDir::new("agent-accepted");
+    let all = all_agent_transpilers();
+    run_cases("agents-output-accepted", 600, |_, rng| {
+        let a = agent(rng, false);
+        for t in &all {
+            let out = t
+                .transpile(&a, tmp.path())
+                .unwrap_or_else(|e| panic!("{}: {e}", t.client_key()));
+            if let Err(reason) = frontmatter_accepted(&out.content) {
+                panic!("{}: {reason}\n{}", t.client_key(), out.content);
+            }
+            if ["claude-code", "cursor", "gemini-cli", "vscode"].contains(&t.client_key()) {
+                assert_eq!(
+                    description_of(&out.content),
+                    Some(Value::String(a.frontmatter.description.clone())),
+                    "{}\n{}",
+                    t.client_key(),
+                    out.content
+                );
+            }
+        }
+    });
+}
+
+#[test]
+fn every_style_transpiler_emits_frontmatter_its_client_accepts() {
+    let tmp = ScratchDir::new("style-accepted");
+    let all = all_style_transpilers();
+    run_cases("styles-output-accepted", 600, |_, rng| {
+        let s = style(rng, false);
+        for t in &all {
+            let out = t.transpile(&s, tmp.path()).unwrap();
+            if let Err(reason) = frontmatter_accepted(&out.content) {
+                panic!("{}: {reason}\n{}", t.client_key(), out.content);
+            }
+        }
+    });
 }

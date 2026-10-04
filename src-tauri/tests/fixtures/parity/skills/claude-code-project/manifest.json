@@ -2,6 +2,9 @@
   "area": "skills",
   "case": "skills/claude-code-project",
   "comparison": "A",
+  "deviations": [
+    "DEV-GFX4-2"
+  ],
   "entry": "skills_sync",
   "files": {
     "repo/.claude/rules/python-style.md": {
@@ -15,9 +18,9 @@
       "sha256": "de3bd80dfab51959f1a2643b712e6fc7a81f87a164eb058ddee4fe41ab20e551"
     },
     "repo/.claude/skills/code-review/SKILL.md": {
-      "bytes": 259,
+      "bytes": 261,
       "class": "A",
-      "sha256": "bdd7311c72bac0abaa6ff186a6fce2634d6b97e60ecb2b60cb5d561ee43bdc61"
+      "sha256": "7ca5572bc0f072cc0e4007b7ea4872d8b8de3f90b0c4f8ec8cecabab154cea39"
     },
     "repo/.claude/skills/code-review/modules/checklist.md": {
       "bytes": 50,

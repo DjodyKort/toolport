@@ -12,13 +12,12 @@ impl Transpiler for RooCode {
 
     fn transpile(&self, skill: &Skill, root: &Path) -> Result<TranspileResult, String> {
         let fm = &skill.frontmatter;
-        let description = format!("\"{}\"", fm.description);
         let mut fields = Vec::new();
         if !fm.description.is_empty() {
-            fields.push(("description", Field::Raw(&description)));
+            fields.push(("description", Field::Quoted(&fm.description)));
         }
         if let Some(g) = fm.globs.as_deref().filter(|g| !g.is_empty()) {
-            fields.push(("globs", Field::Raw(g)));
+            fields.push(("globs", Field::Loose(g)));
         }
         let mut warnings = Vec::new();
         if fm.activation == Activation::Manual {

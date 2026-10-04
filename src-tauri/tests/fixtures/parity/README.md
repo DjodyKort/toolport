@@ -25,5 +25,12 @@ launch profiles (D-022) are not mcpm's `CLAUDE_CONFIG_DIR` profile dirs, so the 
 `links*.json` observations and the profile action lines are skipped.
 
 Other intentional deviations are applied the same way, by the generator's per-case `goldenlib/deviations.py` layer (not
-by hand), and the case's `manifest.json` lists them under `deviations`. Currently one: DEV-HRD11-1 (D-049), where
-`skills/zed-append-existing` `repo/.rules` ends the text after the managed block with one newline instead of mcpm's extra one.
+by hand), and the case's `manifest.json` lists them under `deviations`. Currently:
+
+- DEV-HRD11-1 (D-049): `skills/zed-append-existing` `repo/.rules` ends the text after the managed block with one newline
+  instead of mcpm's extra one.
+- DEV-GFX4-1 (D-070, MIG-GFX-4): in `skills/claude-code-multiline-description` a multi-line `description:` is an indented
+  block scalar. mcpm splices the raw text between double quotes, which leaves continuation lines in column 0 (and unescaped
+  quotes) and makes Claude Code hide the skill from the model.
+- DEV-GFX4-2 (D-070, MIG-GFX-4): in `skills/claude-code-project` and `skills/claude-code-global` the skill's
+  `paths: **/*.py` is written as `paths: "**/*.py"`; the unquoted form is a YAML alias and fails a strict parse.

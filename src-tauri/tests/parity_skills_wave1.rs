@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 const CASES: &[&str] = &[
     "claude-code-project",
     "claude-code-global",
+    "claude-code-multiline-description",
     "cursor-project",
     "windsurf-project",
     "cline-project",
@@ -261,6 +262,7 @@ fn claude_code_matches_golden() {
     for case in [
         "claude-code-project",
         "claude-code-global",
+        "claude-code-multiline-description",
         "assets-changed-hash",
     ] {
         replay(case);

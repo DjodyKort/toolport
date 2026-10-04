@@ -1,7 +1,7 @@
 ---
 name: code-review
 description: "Review a diff for correctness and clarity"
-paths: **/*.py
+paths: "**/*.py"
 allowed-tools: Read, Grep, Bash(git diff:*)
 ---
 

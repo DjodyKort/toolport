@@ -1,0 +1,57 @@
+{
+  "active_styles": {},
+  "agents": {},
+  "output_root": "<HOME>/repo",
+  "rules": {},
+  "scope": "project",
+  "skills": {
+    "doc-drift": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:7ae918424db4daa9",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/skills/doc-drift/SKILL.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "release-gate": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:b918b201f1d4bdd8",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/skills/release-gate/SKILL.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    },
+    "session-handoff": {
+      "clients_synced": [
+        "claude-code"
+      ],
+      "hash": "sha256:32078646f6696119",
+      "hooks_installed": {},
+      "output_files": {
+        "claude-code": [
+          ".claude/skills/session-handoff/SKILL.md"
+        ]
+      },
+      "source": "local",
+      "version": null,
+      "warnings": []
+    }
+  },
+  "styles": {},
+  "synced_at": "<SYNCED_AT>",
+  "version": 1
+}

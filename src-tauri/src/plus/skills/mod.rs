@@ -20,6 +20,7 @@ pub mod parser;
 pub mod pyfs;
 pub mod repo;
 pub mod repo_handlers;
+pub(crate) mod scalar;
 pub(crate) mod schema;
 pub mod state_handlers;
 pub mod styles;
@@ -48,6 +49,8 @@ pub(crate) mod tap_fixtures;
 mod tap_ops_tests;
 #[cfg(test)]
 mod frontmatter_tests;
+#[cfg(test)]
+mod scalar_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
