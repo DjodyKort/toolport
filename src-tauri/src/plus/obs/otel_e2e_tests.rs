@@ -1,6 +1,7 @@
 use super::otel::fixtures::{logs_payload, metrics_payload};
 use super::otel_host::Host;
 use super::receiver::{probe, Probe};
+use super::receiver_tests::wait_closed;
 use super::store::iso_to_ms;
 use super::transcript::fixtures::{assistant, with_request_id};
 use crate::plus::ctl::run_with;
@@ -32,11 +33,13 @@ fn ctl_json(args: &[&str]) -> (i32, Value) {
 }
 
 fn free_port() -> u16 {
-    TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
+    let port = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
         .unwrap()
         .local_addr()
         .unwrap()
-        .port()
+        .port();
+    wait_closed(port);
+    port
 }
 
 fn post(port: u16, path: &str, body: &Value) -> u16 {
@@ -267,7 +270,7 @@ fn enable_serve_ingest_and_disable_round_trip_through_toolportctl() {
     host.tick(Instant::now(), &record);
     assert_eq!(host.port(), None);
     assert!(log.borrow().last().unwrap().contains("otel receiver stopped"));
-    assert_eq!(probe(port), Probe::Closed);
+    wait_closed(port);
     assert_eq!(
         serde_json::from_str::<Value>(&std::fs::read_to_string(fx.settings()).unwrap()).unwrap(),
         original,
@@ -331,6 +334,7 @@ fn a_port_held_by_another_program_is_reported_and_retried() {
     assert_eq!(log.borrow().len(), 1, "the same failure is logged once");
 
     drop(squatter);
+    wait_closed(port);
     host.tick(start + Duration::from_secs(22), &record);
     assert_eq!(host.port(), Some(port));
     assert!(log.borrow().last().unwrap().contains("listening on"));
@@ -338,7 +342,7 @@ fn a_port_held_by_another_program_is_reported_and_retried() {
     assert_eq!(status["data"]["receiver"]["state"], "listening");
     assert!(status["data"]["receiver"]["error"].is_null());
     drop(host);
-    assert_eq!(probe(port), Probe::Closed);
+    wait_closed(port);
 }
 
 #[test]
@@ -362,7 +366,7 @@ fn a_second_gateway_waits_quietly_and_takes_over_when_the_first_goes_away() {
 
     assert_eq!(post(port, "/v1/metrics", &metrics_payload()), 200);
     drop(first);
-    assert_eq!(probe(port), Probe::Closed);
+    wait_closed(port);
     second.tick(start + Duration::from_secs(11), &record);
     assert_eq!(second.port(), Some(port));
     assert_eq!(post(port, "/v1/metrics", &metrics_payload()), 200);
@@ -385,7 +389,7 @@ fn changing_the_port_restarts_the_receiver_on_the_new_one() {
     assert_eq!(code, 0);
     host.tick(Instant::now(), &record);
     assert_eq!(host.port(), Some(second_port));
-    assert_eq!(probe(first_port), Probe::Closed);
+    wait_closed(first_port);
     assert_eq!(probe(second_port), Probe::Ours);
 }
 
