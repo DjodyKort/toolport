@@ -41,6 +41,16 @@ export const num = primitive<number>("number");
 export const bool = primitive<boolean>("boolean");
 export const any: Shape<unknown> = { validate() {} };
 
+/** The goldens replace values that differ per run (`MASKED_KEYS` in `ctl_contract.rs`) with this
+ * placeholder; the shape still names the real type, which a live response carries. */
+export function masked<T>(inner: Shape<T>): Shape<T> {
+  return {
+    validate(value, path, errors) {
+      if (value !== "<masked>") inner.validate(value, path, errors);
+    },
+  };
+}
+
 export function lit<T extends string>(...values: T[]): Shape<T> {
   return {
     validate(value, path, errors) {

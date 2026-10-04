@@ -840,6 +840,8 @@ fn emit(
 
 #[cfg(test)]
 mod auth_tests;
+#[cfg(all(test, unix))]
+mod context_measure_tests;
 #[cfg(test)]
 mod policy_tests;
 #[cfg(test)]

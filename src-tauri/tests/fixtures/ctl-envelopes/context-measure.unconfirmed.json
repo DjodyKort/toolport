@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "context",
+    "measure",
+    "--cwd",
+    "{home}/work/erp/clients/acme-erp",
+    "--model",
+    "sonnet"
+  ],
+  "envelope": {
+    "command": "context measure",
+    "error": {
+      "code": "confirm_required",
+      "message": "this needs 1 request(s) to Claude Code, which spend model tokens; pass --yes to go ahead"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

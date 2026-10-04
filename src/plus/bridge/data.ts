@@ -3,6 +3,7 @@ import {
   bool,
   any,
   lit,
+  masked,
   nullable,
   num,
   obj,
@@ -362,7 +363,7 @@ export const measureRun = obj({
   mcpServers: arr(obj({ name: str, status: str })),
   skillNames: arr(str),
   agentNames: arr(str),
-  durationMs: num,
+  durationMs: masked(num),
 });
 export type MeasureRun = Infer<typeof measureRun>;
 
@@ -667,6 +668,9 @@ export const ctlShapes: Record<string, Shape<unknown>> = {
   "sources-ls.org": sourcesLsData,
   "context-loads.folder": loadsData,
   "context-loads.no-lazy": loadsData,
+  "context-measure.measured": measureData,
+  "context-measure.cached": measureData,
+  "context-measure.loads": loadsData,
   "sources-root-ls": sourcesRootLsData,
   "sources-root-add.preview": sourcesRootChangeData,
   "sources-root-add.apply": sourcesRootChangeData,

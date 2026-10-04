@@ -7,7 +7,8 @@
 use crate::ctl_fixtures::{git_world, health_proxy, import_world, transcripts_world};
 
 use super::{
-    apply, case, loads_home, prepared, read, setup, usage, Case, COUNCIL_KEY, PASSPHRASE, VAULTED,
+    apply, case, loads_home, measure_home, prepared, read, setup, usage, Case, COUNCIL_KEY,
+    PASSPHRASE, VAULTED,
 };
 
 const NEW_PASSPHRASE: &str = "FAKE-sync-passphrase-31d8-rotated";
@@ -300,6 +301,57 @@ pub const MORE: &[Case] = &[
                     "--no-lazy",
                 ],
             ),
+        ],
+    ),
+    prepared(
+        "context measure",
+        measure_home,
+        &[
+            read(
+                "measured",
+                &[
+                    "context",
+                    "measure",
+                    "--cwd",
+                    "{home}/work/erp/clients/acme-erp",
+                    "--without",
+                    "plugin:kit@market",
+                    "--yes",
+                ],
+            ),
+            read(
+                "cached",
+                &[
+                    "context",
+                    "measure",
+                    "--cwd",
+                    "{home}/work/erp/clients/acme-erp",
+                    "--without",
+                    "plugin:kit@market",
+                ],
+            ),
+            read(
+                "loads",
+                &[
+                    "context",
+                    "loads",
+                    "--cwd",
+                    "{home}/work/erp/clients/acme-erp",
+                    "--measured",
+                ],
+            ),
+            read(
+                "unconfirmed",
+                &[
+                    "context",
+                    "measure",
+                    "--cwd",
+                    "{home}/work/erp/clients/acme-erp",
+                    "--model",
+                    "sonnet",
+                ],
+            )
+            .exit(1),
         ],
     ),
     case(
