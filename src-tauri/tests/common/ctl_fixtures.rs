@@ -11,7 +11,7 @@ use std::sync::Mutex;
 
 use serde_json::{json, Value};
 
-use crate::ctl_world::{write_json, CtlWorld};
+use crate::ctl_world::{read_json, write_json, CtlWorld};
 
 pub const PASSPHRASE: &str = "FAKE-sync-passphrase-31d8";
 
@@ -27,6 +27,8 @@ pub fn git(dir: &Path, home: &Path, args: &[&str]) {
         .env("GIT_AUTHOR_EMAIL", "fixture@example.invalid")
         .env("GIT_COMMITTER_NAME", "fixture")
         .env("GIT_COMMITTER_EMAIL", "fixture@example.invalid")
+        .env("GIT_AUTHOR_DATE", "2026-01-01T00:00:00Z")
+        .env("GIT_COMMITTER_DATE", "2026-01-01T00:00:00Z")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -148,13 +150,7 @@ pub fn skills_repo_remote_world(world: &CtlWorld) {
         &world.home,
         &["symbolic-ref", "HEAD", "refs/heads/main"],
     );
-    for (key, value) in [
-        ("user.name", "fixture"),
-        ("user.email", "fixture@example.invalid"),
-        ("commit.gpgsign", "false"),
-    ] {
-        git(repo, &world.home, &["config", key, value]);
-    }
+    git_identity(repo, &world.home);
     git(
         repo,
         &world.home,
@@ -164,6 +160,77 @@ pub fn skills_repo_remote_world(world: &CtlWorld) {
     git(repo, &world.home, &["commit", "-q", "-m", "fixture"]);
     git(repo, &world.home, &["push", "-q", "-u", "origin", "main"]);
     std::fs::write(repo.join("skills/demo/extra.md"), "not committed yet\n").unwrap();
+}
+
+/// The server `forked` is a git checkout (`{base}/fork-work`, one local commit ahead) of a bare
+/// repository (`{base}/upstream.git`, also its `upstream` remote) that has gained a commit.
+pub fn fork_world(world: &CtlWorld) {
+    let upstream = world.base.join("upstream.git");
+    std::fs::create_dir_all(&upstream).unwrap();
+    git(
+        &upstream,
+        &world.home,
+        &["init", "-q", "--bare", "-b", "main"],
+    );
+    let work = world.base.join("fork-work");
+    std::fs::create_dir_all(&work).unwrap();
+    git(&work, &world.home, &["init", "-q", "-b", "main"]);
+    git_identity(&work, &world.home);
+    std::fs::write(work.join("a.txt"), "a\n").unwrap();
+    git(&work, &world.home, &["add", "-A"]);
+    git(&work, &world.home, &["commit", "-q", "-m", "base"]);
+    for remote in ["origin", "upstream"] {
+        git(
+            &work,
+            &world.home,
+            &["remote", "add", remote, &world.path(&upstream)],
+        );
+    }
+    git(&work, &world.home, &["push", "-q", "-u", "origin", "main"]);
+    std::fs::write(work.join("local.txt"), "mine\n").unwrap();
+    git(&work, &world.home, &["add", "-A"]);
+    git(&work, &world.home, &["commit", "-q", "-m", "local change"]);
+
+    let other = world.base.join("fork-other");
+    git(
+        &world.base,
+        &world.home,
+        &["clone", "-q", &world.path(&upstream), &world.path(&other)],
+    );
+    git_identity(&other, &world.home);
+    std::fs::write(other.join("b.txt"), "b\n").unwrap();
+    git(&other, &world.home, &["add", "-A"]);
+    git(
+        &other,
+        &world.home,
+        &["commit", "-q", "-m", "upstream change"],
+    );
+    git(&other, &world.home, &["push", "-q", "origin", "main"]);
+
+    let path = world.data.join("registry.json");
+    let mut registry = read_json(&path);
+    registry["servers"].as_array_mut().unwrap().push(json!({
+        "id": "srv-fork", "name": "forked", "transport": "stdio", "command": world.mock,
+        "args": [],
+        "mcpmSource": {"type": "git", "path": world.path(&work), "branch": "main"}
+    }));
+    write_json(&path, &registry);
+}
+
+/// Back to `main` in the fork checkout, as a user would between two fork syncs.
+pub fn fork_back_to_main(world: &CtlWorld) {
+    let work = world.base.join("fork-work");
+    git(&work, &world.home, &["checkout", "-q", "main"]);
+}
+
+fn git_identity(dir: &Path, home: &Path) {
+    for (key, value) in [
+        ("user.name", "fixture"),
+        ("user.email", "fixture@example.invalid"),
+        ("commit.gpgsign", "false"),
+    ] {
+        git(dir, home, &["config", key, value]);
+    }
 }
 
 /// Runs the real `toolportctl` against the world, for the setup that a test needs before the

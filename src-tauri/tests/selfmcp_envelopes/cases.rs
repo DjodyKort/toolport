@@ -3,7 +3,9 @@
 //! runs with it (`write`); a tool that takes a name fails for an unknown or a tampered one.
 //! `setup` calls build the state a tool acts on and record no golden.
 
-use crate::ctl_fixtures::{git_world, health_proxy, skills_repo_remote_world, sync_setup};
+use crate::ctl_fixtures::{
+    fork_back_to_main, fork_world, git_world, health_proxy, skills_repo_remote_world, sync_setup,
+};
 
 use super::{case, fails, hook, prepared, read, refused, setup, write, Case};
 
@@ -708,13 +710,21 @@ pub const ALL: &[Case] = &[
         "servers_list_profiles",
         &[read("", "servers_list_profiles", "{}")],
     ),
-    case(
+    prepared(
         "servers_detect_source",
-        &[read("", "servers_detect_source", r#"{"name":"alpha"}"#)],
+        fork_world,
+        &[
+            read("unknown", "servers_detect_source", r#"{"name":"alpha"}"#),
+            read("git", "servers_detect_source", r#"{"name":"forked"}"#),
+        ],
     ),
-    case(
+    prepared(
         "servers_git_status",
-        &[read("", "servers_git_status", r#"{"name":"alpha"}"#)],
+        fork_world,
+        &[
+            read("not_git", "servers_git_status", r#"{"name":"alpha"}"#),
+            read("git", "servers_git_status", r#"{"name":"forked"}"#),
+        ],
     ),
     case(
         "servers_check_updates",
@@ -815,15 +825,33 @@ pub const ALL: &[Case] = &[
             ),
         ],
     ),
-    case(
+    prepared(
         "servers_fork_sync",
+        fork_world,
         &[
-            refused("refused", "servers_fork_sync", r#"{"name":"alpha"}"#),
+            refused("refused", "servers_fork_sync", r#"{"name":"forked"}"#),
             fails(
                 "not_git_backed",
                 "invalid_input",
                 "servers_fork_sync",
                 r#"{"name":"alpha","confirm":true}"#,
+            ),
+            fails(
+                "missing_author",
+                "invalid_arguments",
+                "servers_fork_sync",
+                r#"{"name":"forked","mode":"onto-author","confirm":true}"#,
+            ),
+            write(
+                "rebase",
+                "servers_fork_sync",
+                r#"{"name":"forked","target_branch":"main-synced","confirm":true}"#,
+            ),
+            hook(fork_back_to_main),
+            write(
+                "onto_author",
+                "servers_fork_sync",
+                r#"{"name":"forked","mode":"onto-author","author_email":"fixture@example.invalid","target_branch":"main-picked","confirm":true}"#,
             ),
         ],
     ),
