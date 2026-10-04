@@ -1,0 +1,81 @@
+import { useState } from "react";
+import { Hammer } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PLUS_SCREENS, type PlusView } from "./nav";
+import { NOT_BUILT_TABS } from "./notBuiltTabs";
+import { Tabs } from "./ui";
+
+function Placeholder({
+  name,
+  builtBy,
+  group,
+  onOpenCommands,
+}: {
+  name: string;
+  builtBy: string;
+  group?: string;
+  onOpenCommands: (group?: string) => void;
+}) {
+  return (
+    <EmptyState
+      icon={<Hammer />}
+      title={
+        <span className="inline-flex items-center gap-2">
+          {name} <Badge variant="warning">Not built yet</Badge>
+        </span>
+      }
+      description={
+        <>
+          This screen is built by {builtBy}. Until then everything it will cover is
+          available on the All commands page.
+        </>
+      }
+      action={
+        <Button variant="outline" size="sm" onClick={() => onOpenCommands(group)}>
+          Open All commands
+        </Button>
+      }
+    />
+  );
+}
+
+/** A Toolport+ screen that no item has built yet: the tabs of the mockup, and in each a
+ * marked placeholder that names the item that builds it. */
+export function NotBuilt({
+  view,
+  onOpenCommands,
+}: {
+  view: PlusView;
+  onOpenCommands: (group?: string) => void;
+}) {
+  const screen = PLUS_SCREENS[view];
+  const tabs = NOT_BUILT_TABS[view];
+  const [tab, setTab] = useState(tabs?.[0]?.id ?? "");
+  const current = tabs?.find((item) => item.id === tab) ?? tabs?.[0];
+  if (!tabs || !current) {
+    return (
+      <Placeholder
+        name={screen.title}
+        builtBy={screen.builtBy}
+        onOpenCommands={onOpenCommands}
+      />
+    );
+  }
+  return (
+    <Tabs
+      items={tabs.map(({ id, label }) => ({ id, label }))}
+      value={current.id}
+      onValueChange={setTab}
+      label={`${screen.title} sections`}
+    >
+      <Placeholder
+        name={current.label}
+        builtBy={current.builtBy}
+        group={current.group}
+        onOpenCommands={onOpenCommands}
+      />
+    </Tabs>
+  );
+}

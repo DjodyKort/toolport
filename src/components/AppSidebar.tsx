@@ -1,24 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
-  Activity,
   ArrowUpCircle,
   ClipboardList,
   Compass,
   ExternalLink,
-  FileText,
-  FlaskConical,
   FolderOpen,
   Layers,
   Loader2,
-  MonitorCog,
-  ScrollText,
-  Settings,
   Share2,
-  Store,
-  Users,
   Zap,
-  ShieldCheck,
 } from "lucide-react";
 import { getVersion } from "@tauri-apps/api/app";
 import { openExternal } from "@/lib/openUrl";
@@ -44,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ProfileBar } from "@/components/ProfileBar";
 import { ShareDialog } from "@/components/ShareDialog";
+import { SidebarNav } from "@/plus/SidebarNav";
 
 const FOCUS_RING =
   "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -485,6 +477,8 @@ export function AppSidebar({
     onClick: () => void,
     badge?: number | null,
     stale?: boolean,
+    badgeLabel?: string,
+    urgent?: boolean,
   ) => (
     <button
       onClick={onClick}
@@ -497,8 +491,8 @@ export function AppSidebar({
       <span>{label}</span>
       {badge !== undefined && badge !== null && badge > 0 && (
         <span
-          className="ml-auto inline-flex shrink-0 items-center rounded-full bg-warning/15 px-1.5 text-[10px] font-medium text-warning"
-          aria-label={`${badge} tool${badge === 1 ? "" : "s"} blocked`}
+          className={`ml-auto inline-flex shrink-0 items-center rounded-full px-1.5 text-[10px] font-medium ${urgent ? "bg-destructive text-white" : "bg-warning/15 text-warning"}`}
+          aria-label={badgeLabel ?? `${badge} tool${badge === 1 ? "" : "s"} blocked`}
           title={
             stale
               ? "Could not reach the gateway — quarantine count may be stale"
@@ -564,39 +558,13 @@ export function AppSidebar({
         )}
 
         <nav aria-label="Views" className="flex flex-col gap-0.5 px-3 pt-2">
-          {navItem(Layers, "All servers", view === "servers", () =>
-            onSelectView("servers"),
-          )}
-          {navItem(MonitorCog, "Clients", view === "clients", () =>
-            onSelectView("clients"),
-          )}
-          {navItem(Store, "Browse catalog", view === "catalog", () =>
-            onSelectView("catalog"),
-          )}
-          {navItem(FlaskConical, "Playground", view === "playground", () =>
-            onSelectView("playground"),
-          )}
-          {navItem(ScrollText, "Activity", view === "activity", () =>
-            onSelectView("activity"),
-          )}
-          {navItem(FileText, "Agent rules", view === "rules", () =>
-            onSelectView("rules"),
-          )}
-          {navItem(Activity, "Agent activity", view === "hooks", () =>
-            onSelectView("hooks"),
-          )}
-          {navItem(ShieldCheck, "Agent permissions", view === "permissions", () =>
-            onSelectView("permissions"),
-          )}
-          {navItem(Users, "Teams", view === "teams", () => onSelectView("teams"))}
-          {navItem(
-            Settings,
-            "Settings",
-            view === "settings",
-            () => onSelectView("settings"),
-            quarantinedCount,
-            quarantineStale,
-          )}
+          <SidebarNav
+            view={view}
+            onSelectView={onSelectView}
+            row={navItem}
+            quarantined={quarantinedCount}
+            quarantineStale={quarantineStale}
+          />
         </nav>
 
         {savings && savings.tokensSaved > 0 && (

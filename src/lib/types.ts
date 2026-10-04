@@ -1,3 +1,5 @@
+import type { PlusView } from "@/plus/nav";
+
 export type Transport = "stdio" | "http" | "sse" | "unknown";
 
 /** The main content views, selected from the sidebar. */
@@ -11,7 +13,8 @@ export type View =
   | "hooks"
   | "permissions"
   | "teams"
-  | "settings";
+  | "settings"
+  | PlusView;
 
 export interface McpServer {
   name: string;
