@@ -22,12 +22,14 @@ use serde_json::{json, Value};
 mod claude_stub;
 #[path = "common/exec.rs"]
 mod exec;
+#[path = "common/plugins_world.rs"]
+mod plugins_world;
 #[path = "common/sources_world.rs"]
 mod sources_world;
 
 const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
-const TOOL_COUNT: usize = 82;
+const TOOL_COUNT: usize = 85;
 const RESOURCE_COUNT: usize = 11;
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -174,6 +176,8 @@ impl Client {
             .env("TOOLPORT_DATA_DIR", &world.data)
             .env("TOOLPORT_SECRET_KEY", "ab".repeat(32))
             .env("TOOLPORT_SOURCES_TIME_SCALE", "20")
+            .env("TOOLPORT_CLAUDE_BIN", world.base.join("no-claude"))
+            .env("TOOLPORT_CLAUDE_MANAGED_SETTINGS", "")
             .envs(env.iter().copied())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -528,13 +532,24 @@ fn tier_one_calls() -> BTreeMap<&'static str, Value> {
         ("where_am_i", json!({})),
         ("doctor", json!({})),
         ("flow_diagram", json!({})),
+        ("plugins_ls", json!({})),
+        ("plugins_show", json!({"id": "ecc@ecc"})),
+        ("hooks_ls", json!({})),
     ])
 }
 
 #[test]
 fn tier_one_tools_read_without_confirm_and_never_write() {
     let world = World::new("tier1");
-    let mut client = Client::spawn(&world);
+    let claude = world.base.join("plugins-world/claude");
+    let plugins = plugins_world::build_in(&world.base.join("plugins-world"), &claude);
+    let mut client = Client::spawn_with(
+        &world,
+        &[
+            ("CLAUDE_CONFIG_DIR", plugins.claude_home.as_path()),
+            ("TOOLPORT_CLAUDE_BIN", claude.as_path()),
+        ],
+    );
     client.handshake();
     let calls = tier_one_calls();
     let catalog: BTreeSet<&str> = TOOLS
@@ -605,6 +620,17 @@ fn tier_one_tools_read_without_confirm_and_never_write() {
         .as_str()
         .unwrap()
         .contains("->"));
+    let listed = results["plugins_ls"]["plugins"].as_array().unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0]["id"], "ecc@ecc");
+    assert_eq!(listed[0]["from"], "claude-cli");
+    assert_eq!(listed[0]["cost"]["projected"]["value"], 70);
+    assert_eq!(results["plugins_show"]["id"], "ecc@ecc");
+    assert_eq!(results["plugins_show"]["brings"]["hooks"], 23);
+    let counts = &results["hooks_ls"]["counts"];
+    assert_eq!(counts["byOwner"]["plugin:ecc@ecc"], 23);
+    assert_eq!(counts["byOwner"]["user:settings.json"], 27);
+    assert_eq!(results["hooks_ls"]["disabledAll"], false);
     assert!(client.close().success());
 }
 
