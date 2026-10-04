@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { screen, waitFor, within } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 
 const { invoke, listen } = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn() }));
@@ -17,6 +17,15 @@ let bridge: Bridge;
 beforeEach(() => {
   bridge = createBridge({ world: true });
   wire({ invoke, listen }, bridge);
+});
+
+afterEach(() => {
+  expect(bridge.missing).toEqual([]);
+  const stray = bridge
+    .ran()
+    .filter((line) => !/^(commands|agents|styles)( |$)/.test(line));
+  expect(stray, "the tab only runs its own commands").toEqual([]);
+  expect(bridge.ran().some((line) => /secret|--reveal|stdin/.test(line))).toBe(false);
 });
 
 const open = async () => {
@@ -130,6 +139,19 @@ describe("Agents tab, end to end", () => {
         .at(-1)!,
     );
     expect(await screen.findAllByText("In sync")).toHaveLength(4);
+  });
+
+  it("agents.sync: is reachable from the keyboard and Escape cancels without writing", async () => {
+    const user = await open();
+    const sync = screen.getByRole("button", { name: "Sync…" });
+    sync.focus();
+    await user.keyboard("{Enter}");
+    const box = await screen.findByRole("dialog");
+    await within(box).findByText("Write 1 agent to 4 clients");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(bridge.count("agents sync")).toBe(0);
+    expect(sync).toHaveFocus();
   });
 
   it("agents.clean: needs the typed phrase, removes the outputs, keeps the agent", async () => {

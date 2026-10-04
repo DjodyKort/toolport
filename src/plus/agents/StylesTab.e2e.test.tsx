@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { screen, waitFor, within } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 
 const { invoke, listen } = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn() }));
@@ -17,6 +17,15 @@ let bridge: Bridge;
 beforeEach(() => {
   bridge = createBridge({ world: true });
   wire({ invoke, listen }, bridge);
+});
+
+afterEach(() => {
+  expect(bridge.missing).toEqual([]);
+  const stray = bridge
+    .ran()
+    .filter((line) => !/^(commands|agents|styles)( |$)/.test(line));
+  expect(stray, "the tab only runs its own commands").toEqual([]);
+  expect(bridge.ran().some((line) => /secret|--reveal|stdin/.test(line))).toBe(false);
 });
 
 const open = async () => {
@@ -91,6 +100,19 @@ describe("Styles tab, end to end", () => {
     expect(screen.getByText("No client")).toBeVisible();
     expect(screen.getByRole("button", { name: "New style…" })).toBeVisible();
     expect(bridge.count("styles add terse")).toBe(1);
+  });
+
+  it("styles.add: the name dialog opens from the keyboard and Escape gives focus back", async () => {
+    const user = await open();
+    const first = screen.getByRole("button", { name: "Create your first style" });
+    first.focus();
+    await user.keyboard("{Enter}");
+    const form = await screen.findByRole("dialog");
+    expect(within(form).getByRole("textbox")).toHaveFocus();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(first).toHaveFocus();
+    expect(bridge.count("styles add terse --dry-run")).toBe(0);
   });
 
   it("styles.lint, styles.diff: both checks read, and the diff follows the sync", async () => {

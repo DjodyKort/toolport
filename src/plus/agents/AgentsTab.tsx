@@ -25,6 +25,7 @@ import {
 } from "./model";
 import { NewDialog } from "./NewDialog";
 import { Card, DiffBody, Discovery, LintBody, PathLine, Section, Verdict } from "./parts";
+import { useRestoreFocus } from "./useRestoreFocus";
 import { WriteDialogs } from "./WriteDialogs";
 
 type Agent = AgentsLsData["agents"][number];
@@ -317,6 +318,7 @@ export function AgentsTab() {
   const [epoch, setEpoch] = useState(0);
   const [naming, setNaming] = useState(false);
   const write = useWrite(rows, () => setEpoch((n) => n + 1));
+  useRestoreFocus();
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-2">

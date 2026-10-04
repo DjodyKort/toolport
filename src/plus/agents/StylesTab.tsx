@@ -10,6 +10,7 @@ import { useRead, useRegistryRows, useWrite, type WriteControl } from "./hooks";
 import { byClient, clientName, type ActiveRow, type NativeRow } from "./model";
 import { NewDialog } from "./NewDialog";
 import { Card, Chips, DiffBody, Discovery, LintBody, PathLine, Section } from "./parts";
+import { useRestoreFocus } from "./useRestoreFocus";
 import { WriteDialogs } from "./WriteDialogs";
 
 type Style = StylesLsData["styles"][number];
@@ -250,6 +251,7 @@ export function StylesTab() {
   const [epoch, setEpoch] = useState(0);
   const [naming, setNaming] = useState(false);
   const write = useWrite(rows, () => setEpoch((n) => n + 1));
+  useRestoreFocus();
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
