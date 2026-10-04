@@ -8,7 +8,10 @@ use crate::ctl_fixtures::{
     git_world, health_proxy, import_world, loads_home, measure_home, transcripts_world,
 };
 
-use super::{apply, case, prepared, read, setup, usage, Case, COUNCIL_KEY, PASSPHRASE, VAULTED};
+use super::{
+    apply, case, plugins_home, prepared, read, setup, usage, Case, COUNCIL_KEY, PASSPHRASE,
+    VAULTED,
+};
 
 const NEW_PASSPHRASE: &str = "FAKE-sync-passphrase-31d8-rotated";
 const STATUSLINE: &str = r#"{"context_window":{"context_window_size":200000,"current_usage":{"input_tokens":1000,"cache_read_input_tokens":500,"cache_creation_input_tokens":0}},"model":{"id":"claude-sonnet-5"}}"#;
@@ -44,7 +47,48 @@ const SYNC_INIT: &[&str] = &[
     "--passphrase-stdin",
 ];
 
+const FILES_ONLY: &[(&str, &str)] = &[("TOOLPORT_CLAUDE_BIN", "/nonexistent/claude")];
+
 pub const MORE: &[Case] = &[
+    // plugins and hooks (contract section 14): the recorded `claude` stub, and the same world with
+    // `claude` missing, where the CLI-only figures are null
+    prepared(
+        "plugins ls",
+        plugins_home,
+        &[
+            read("cli", &["plugins", "ls"]),
+            read("files", &["plugins", "ls"]).env(FILES_ONLY),
+            read("folder", &["plugins", "ls", "--cwd", "{home}/work/side-project"]),
+            read("measured", &["plugins", "ls", "--cwd", "{home}/work/acme-erp"]),
+            read("refresh", &["plugins", "ls", "--refresh"]),
+            usage("usage", &["plugins", "ls", "extra"]),
+            usage("badcwd", &["plugins", "ls", "--cwd", "{home}/work/nowhere"]),
+        ],
+    ),
+    prepared(
+        "plugins show",
+        plugins_home,
+        &[
+            read("cli", &["plugins", "show", "ecc@ecc", "--cwd", "{home}/work/acme-erp"]),
+            read("files", &["plugins", "show", "ecc@ecc", "--cwd", "{home}/work/acme-erp"])
+                .env(FILES_ONLY),
+            read("denied", &["plugins", "show", "ecc", "--cwd", "{home}/work/side-project"]),
+            read("unknown", &["plugins", "show", "nope@nowhere"]).exit(1),
+            usage("usage", &["plugins", "show"]),
+        ],
+    ),
+    prepared(
+        "hooks ls",
+        plugins_home,
+        &[
+            read("full", &["hooks", "ls", "--cwd", "{home}/work/acme-erp"]),
+            read("bash", &["hooks", "ls", "--cwd", "{home}/work/acme-erp", "--tool", "Bash"]),
+            read("skill", &["hooks", "ls", "--owner", "skill"]),
+            read("project", &["hooks", "ls", "--cwd", "{home}/work/side-project"]),
+            read("disabled", &["hooks", "ls", "--cwd", "{home}/work/quiet"]),
+            usage("usage", &["hooks", "ls", "--owner", "nope"]),
+        ],
+    ),
     // server
     case(
         "server install",

@@ -41,6 +41,8 @@ mod golden;
 mod loads_world;
 #[path = "common/normalize.rs"]
 mod normalize;
+#[path = "common/plugins_world.rs"]
+mod plugins_world;
 #[path = "common/sources_world.rs"]
 mod sources_world;
 
@@ -142,6 +144,11 @@ const fn case(id: &'static str, steps: &'static [Step]) -> Case {
 
 fn sources_home(world: &CtlWorld) {
     sources_world::build_in(&world.base);
+}
+
+/// The plugin and hook fixture of contract section 14, with the recorded stub as `claude`.
+fn plugins_home(world: &CtlWorld) {
+    plugins_world::build_in(&world.base, &world.claude);
 }
 
 /// A case that runs over the sources fixture home of the GUI-wave contract, section 13.

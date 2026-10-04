@@ -1,0 +1,158 @@
+{
+  "argv": ["hooks", "ls", "--owner", "skill"],
+  "envelope": {
+    "command": "hooks ls",
+    "data": {
+      "conflicts": [
+        {
+          "event": "PreToolUse",
+          "hooks": [
+            "settings.json: switchboard-hook.sh pre",
+            "settings.json: iterm2-status.sh pre",
+            "settings.json: gh-write-gate.sh",
+            "settings.json: rtk",
+            "ecc@ecc: run-with-flags.js pre:bash:dispatcher",
+            "ecc@ecc: run-with-flags.js pre:governance-capture",
+            "ecc@ecc: run-with-flags.js pre:mcp-health-check"
+          ],
+          "note": "strictest answer wins (deny, then defer, then ask, then allow)",
+          "tools": ["Bash"]
+        },
+        {
+          "event": "PreToolUse",
+          "hooks": [
+            "settings.json: switchboard-hook.sh pre",
+            "settings.json: iterm2-status.sh pre",
+            "settings.json: format-guard.sh",
+            "ecc@ecc: run-with-flags.js pre:edit-write:suggest-compact",
+            "ecc@ecc: run-with-flags.js pre:governance-capture",
+            "ecc@ecc: run-with-flags.js pre:config-protection",
+            "ecc@ecc: run-with-flags.js pre:mcp-health-check",
+            "ecc@ecc: run-with-flags.js pre:edit-write:gateguard-fact-force"
+          ],
+          "note": "strictest answer wins (deny, then defer, then ask, then allow)",
+          "tools": ["Edit"]
+        },
+        {
+          "event": "PreToolUse",
+          "hooks": [
+            "settings.json: switchboard-hook.sh pre",
+            "settings.json: iterm2-status.sh pre",
+            "settings.json: format-guard.sh",
+            "ecc@ecc: run-with-flags.js pre:write:doc-warning",
+            "ecc@ecc: run-with-flags.js pre:edit-write:suggest-compact",
+            "ecc@ecc: run-with-flags.js pre:governance-capture",
+            "ecc@ecc: run-with-flags.js pre:config-protection",
+            "ecc@ecc: run-with-flags.js pre:mcp-health-check",
+            "ecc@ecc: run-with-flags.js pre:edit-write:gateguard-fact-force"
+          ],
+          "note": "strictest answer wins (deny, then defer, then ask, then allow)",
+          "tools": ["Write"]
+        },
+        {
+          "event": "PreToolUse",
+          "hooks": [
+            "settings.json: switchboard-hook.sh pre",
+            "settings.json: iterm2-status.sh pre",
+            "settings.json: read-once.sh",
+            "ecc@ecc: run-with-flags.js pre:mcp-health-check"
+          ],
+          "note": "strictest answer wins (deny, then defer, then ask, then allow)",
+          "tools": ["Read"]
+        }
+      ],
+      "counts": {
+        "byOwner": {
+          "plugin:ecc@ecc": 23,
+          "skill:handoff-notes": 1,
+          "user:settings.json": 26
+        },
+        "otherEvents": {
+          "Notification": 2,
+          "PermissionRequest": 1,
+          "PostToolUseFailure": 3,
+          "PreCompact": 3,
+          "SessionEnd": 3,
+          "SessionStart": 6,
+          "Stop": 10,
+          "SubagentStop": 1,
+          "UserPromptSubmit": 3
+        },
+        "otherEventsByOwner": {
+          "plugin:ecc@ecc": {
+            "PostToolUseFailure": 2,
+            "PreCompact": 1,
+            "SessionEnd": 1,
+            "SessionStart": 2,
+            "Stop": 7
+          },
+          "skill:handoff-notes": {
+            "SessionStart": 1
+          },
+          "user:settings.json": {
+            "Notification": 2,
+            "PermissionRequest": 1,
+            "PostToolUseFailure": 1,
+            "PreCompact": 2,
+            "SessionEnd": 2,
+            "SessionStart": 3,
+            "Stop": 3,
+            "SubagentStop": 1,
+            "UserPromptSubmit": 3
+          }
+        },
+        "perTool": {
+          "Bash": {
+            "post": 4,
+            "pre": 8,
+            "total": 12
+          },
+          "Edit": {
+            "post": 4,
+            "pre": 9,
+            "total": 13
+          },
+          "Read": {
+            "post": 4,
+            "pre": 5,
+            "total": 9
+          },
+          "Write": {
+            "post": 4,
+            "pre": 10,
+            "total": 14
+          }
+        }
+      },
+      "cwd": null,
+      "disabledAll": false,
+      "hooks": [
+        {
+          "active": true,
+          "async": false,
+          "command": "~/.claude/skills/handoff-notes/hooks/session-notes.sh",
+          "event": "SessionStart",
+          "marker": "hooks_installed",
+          "matcher": "startup",
+          "owner": {
+            "kind": "skill",
+            "name": "handoff-notes"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/settings.json#hooks.SessionStart[1].hooks[0]",
+          "switch": {
+            "detail": "written by skills sync; change the skill's hooks and sync again",
+            "method": "skills-sync"
+          },
+          "timeoutSec": null,
+          "tools": [],
+          "type": "command"
+        }
+      ],
+      "warnings": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

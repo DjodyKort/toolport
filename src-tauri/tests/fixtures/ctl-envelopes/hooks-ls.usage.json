@@ -1,0 +1,13 @@
+{
+  "argv": ["hooks", "ls", "--owner", "nope"],
+  "envelope": {
+    "command": "hooks ls",
+    "error": {
+      "code": "usage",
+      "message": "--owner must be one of plugin, user, project, local, skill, toolport, managed"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

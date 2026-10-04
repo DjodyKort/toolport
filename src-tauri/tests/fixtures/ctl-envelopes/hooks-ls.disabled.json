@@ -1,0 +1,45 @@
+{
+  "argv": ["hooks", "ls", "--cwd", "{home}/work/quiet"],
+  "envelope": {
+    "command": "hooks ls",
+    "data": {
+      "conflicts": [],
+      "counts": {
+        "byOwner": {},
+        "otherEvents": {},
+        "otherEventsByOwner": {},
+        "perTool": {
+          "Bash": {
+            "post": 0,
+            "pre": 0,
+            "total": 0
+          },
+          "Edit": {
+            "post": 0,
+            "pre": 0,
+            "total": 0
+          },
+          "Read": {
+            "post": 0,
+            "pre": 0,
+            "total": 0
+          },
+          "Write": {
+            "post": 0,
+            "pre": 0,
+            "total": 0
+          }
+        }
+      },
+      "cwd": "<WORLD>/home/work/quiet",
+      "disabledAll": true,
+      "hooks": [],
+      "warnings": [
+        "disableAllHooks is set in <WORLD>/home/work/quiet/.claude/settings.local.json: every hook is off except the managed ones"
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}
