@@ -1,5 +1,6 @@
 use super::backend::{ctl, read_registry, skills_repo};
 use super::ToolError;
+use crate::plus::profiles;
 use crate::plus::args::{flag, flag_or, list, str_arg, str_nonempty};
 use crate::plus::update::exec::{CmdOutput, GitRunner, ShellRunner, SystemGit, SystemShell};
 use crate::plus::update::source::{self, Source};
@@ -135,38 +136,13 @@ fn apply_update(args: &Value) -> Outcome {
     execute(&opts).map(|r| r.to_value()).map_err(ToolError::backend)
 }
 
-fn tags_of(reg: &Registry, server_id: &str) -> Vec<String> {
-    reg.profiles
-        .iter()
-        .filter(|p| p.enabled_server_ids.iter().any(|s| s == server_id))
-        .map(|p| p.name.clone())
-        .collect()
-}
-
-fn find_profile(reg: &Registry, tag: &str) -> Option<String> {
-    reg.profiles
-        .iter()
-        .find(|p| p.id == tag || p.name.eq_ignore_ascii_case(tag))
-        .map(|p| p.id.clone())
-}
-
 fn join_profile(server: &ServerEntry, tag: &str, add: bool) -> Result<Registry, ToolError> {
-    let mut reg = read_registry()?;
-    let profile = match find_profile(&reg, tag) {
-        Some(id) => id,
-        None if add => {
-            reg = registry_controller::create_profile(tag).map_err(ToolError::backend)?;
-            find_profile(&reg, tag)
-                .ok_or_else(|| ToolError::backend("profile was not created"))?
+    profiles::set_member(tag, &server.id, add, add).map_err(|error| match error.kind {
+        profiles::Kind::NotFound => {
+            ToolError::new("not_found", format!("profile not found: {tag}"))
         }
-        None => {
-            return Err(ToolError::new(
-                "not_found",
-                format!("profile not found: {tag}"),
-            ))
-        }
-    };
-    registry_controller::set_server_enabled(&profile, &server.id, add, false).map_err(ToolError::backend)
+        _ => ToolError::backend(error.message),
+    })
 }
 
 fn profile_tag(args: &Value, add: bool) -> Outcome {
@@ -176,7 +152,7 @@ fn profile_tag(args: &Value, add: bool) -> Outcome {
         return Err(ToolError::new("invalid_arguments", "profile_tag is empty"));
     }
     let reg = join_profile(&server, tag, add)?;
-    Ok(json!({"name": server.name, "profileTags": tags_of(&reg, &server.id)}))
+    Ok(json!({"name": server.name, "profileTags": profiles::tags_of(&reg, &server.id)}))
 }
 
 fn config_strings(
