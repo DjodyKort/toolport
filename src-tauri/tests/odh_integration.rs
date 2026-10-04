@@ -11,7 +11,7 @@ use std::collections::BTreeSet;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -132,6 +132,7 @@ struct Client {
     responses: mpsc::Receiver<Value>,
     notifications: Arc<Mutex<Vec<Value>>>,
     server_requests: Arc<Mutex<Vec<Value>>>,
+    elicit_delay_ms: Arc<AtomicU64>,
     next_id: i64,
 }
 
@@ -158,6 +159,8 @@ impl Client {
         let responder = Arc::clone(&stdin);
         let seen_notes = Arc::clone(&notifications);
         let seen_requests = Arc::clone(&server_requests);
+        let elicit_delay_ms = Arc::new(AtomicU64::new(0));
+        let delay = Arc::clone(&elicit_delay_ms);
         std::thread::spawn(move || {
             for line in BufReader::new(stdout).lines().map_while(Result::ok) {
                 let Ok(value) = serde_json::from_str::<Value>(&line) else {
@@ -173,10 +176,15 @@ impl Client {
                             json!({"jsonrpc": "2.0", "id": id,
                                    "error": {"code": -32601, "message": "harness answers elicitation only"}})
                         };
-                        if let Some(handle) = responder.lock().unwrap().as_mut() {
-                            let _ = writeln!(handle, "{reply}");
-                            let _ = handle.flush();
-                        }
+                        let responder = Arc::clone(&responder);
+                        let wait = Duration::from_millis(delay.load(Ordering::Relaxed));
+                        std::thread::spawn(move || {
+                            std::thread::sleep(wait);
+                            if let Some(handle) = responder.lock().unwrap().as_mut() {
+                                let _ = writeln!(handle, "{reply}");
+                                let _ = handle.flush();
+                            }
+                        });
                     }
                     (Some(_), None) => seen_notes.lock().unwrap().push(value),
                     _ => {
@@ -193,6 +201,7 @@ impl Client {
             responses,
             notifications,
             server_requests,
+            elicit_delay_ms,
             next_id: 0,
         }
     }
@@ -427,6 +436,80 @@ fn tool_names_carry_the_server_prefix_and_keep_the_output_schema() {
 }
 
 #[test]
+fn in_lazy_mode_the_odh_tools_are_reached_through_toolport_call_tool() {
+    let scratch = Scratch::new("lazy");
+    write_registry(&scratch, mock_entry(&scratch), |reg| {
+        reg.set_lazy_discovery(true)
+    });
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", json!({}));
+
+    let names: Vec<String> = client
+        .tools()
+        .iter()
+        .filter_map(|t| t["name"].as_str().map(String::from))
+        .collect();
+    assert!(
+        names.contains(&"toolport_search_tools".to_string()),
+        "{names:?}"
+    );
+    assert!(
+        names.contains(&"toolport_call_tool".to_string()),
+        "{names:?}"
+    );
+    assert!(
+        names.iter().all(|n| !n.starts_with("odh__")),
+        "lazy discovery lists meta-tools, not the server's own tools: {names:?}"
+    );
+
+    let deadline = Instant::now() + Duration::from_secs(60);
+    let found = loop {
+        let search = client.call("toolport_search_tools", json!({"server": "odh"}), None);
+        let text = text_of(&search);
+        if text.contains("odh__odoo_search_read") {
+            break text;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "search never found the odh tools: {search}"
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    };
+    let exact = client.call(
+        "toolport_search_tools",
+        json!({"query": "odh__odoo_search_read"}),
+        None,
+    );
+    let shown = text_of(&exact);
+    assert!(
+        shown.contains("\"inputSchema\"") && !shown.contains("\"outputSchema\""),
+        "lazy search shows the top hit's inputSchema and never an outputSchema: {shown}"
+    );
+    assert!(found.contains("schemaOmitted"));
+
+    let reply = client.call(
+        "toolport_call_tool",
+        json!({"name": "odh__odoo_search_read", "arguments": {"model": "res.partner"}}),
+        None,
+    );
+    assert_eq!(
+        reply["result"]["structuredContent"]["records"][0]["name"], "FAKE-a",
+        "structuredContent passes through toolport_call_tool: {reply}"
+    );
+
+    let reply = client.call(
+        "toolport_call_tool",
+        json!({"name": "odh__odoo_progress", "arguments": {"steps": 2}}),
+        Some(json!({"progressToken": "FAKE-lazy-token"})),
+    );
+    assert_eq!(text_of(&reply), "progress done", "{reply}");
+    let notes = client.wait_for_notifications("notifications/progress", 2);
+    assert_eq!(notes.len(), 2, "{notes:?}");
+    assert_eq!(notes[0]["params"]["progressToken"], "FAKE-lazy-token");
+    assert_eq!(notes[1]["params"]["message"], "FAKE-step 2 of 2");
+}
+
+#[test]
 fn resource_links_pass_through_and_only_listed_or_templated_uris_can_be_read() {
     let scratch = Scratch::new("resources");
     write_registry(&scratch, mock_entry(&scratch), |_| {});
@@ -576,6 +659,30 @@ fn a_server_elicitation_is_refused_when_the_client_never_declared_the_capability
 }
 
 #[test]
+fn a_slow_elicitation_answer_is_charged_to_the_call_deadline() {
+    let scratch = Scratch::new("elicit-slow");
+    let mut entry = mock_entry(&scratch);
+    entry.request_timeout_ms = Some(1_500);
+    write_registry(&scratch, entry, |_| {});
+    let mut client = Client::start(&scratch.0);
+    client.elicit_delay_ms.store(2_500, Ordering::Relaxed);
+    client.initialize("2025-06-18", json!({"elicitation": {}}));
+    client.wait_for_tool("odh__legacy_elicitation");
+
+    let reply = client.call("odh__legacy_elicitation", json!({}), None);
+    assert_eq!(
+        client.server_requests.lock().unwrap().len(),
+        1,
+        "the question reached the client"
+    );
+    assert_eq!(reply["result"]["isError"], true, "{reply}");
+    assert!(
+        text_of(&reply).contains("timed out waiting for 'tools/call' response"),
+        "time spent waiting for the human is not excluded from requestTimeoutMs: {reply}"
+    );
+}
+
+#[test]
 fn a_call_past_request_timeout_ms_fails_even_while_progress_keeps_arriving() {
     let scratch = Scratch::new("deadline");
     let mut entry = mock_entry(&scratch);
@@ -610,6 +717,38 @@ fn a_call_past_request_timeout_ms_fails_even_while_progress_keeps_arriving() {
     assert!(
         progress.len() >= 3,
         "progress kept flowing for the whole wait and did not extend it: {progress:?}"
+    );
+}
+
+#[test]
+fn two_calls_to_the_same_server_run_one_after_the_other() {
+    let scratch = Scratch::new("serial");
+    write_registry(&scratch, mock_entry(&scratch), |_| {});
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", json!({}));
+    client.wait_for_tool("odh__odoo_slow");
+
+    let started = Instant::now();
+    for id in [901, 902] {
+        client.send(json!({
+            "jsonrpc": "2.0", "id": id, "method": "tools/call",
+            "params": {"name": "odh__odoo_slow", "arguments": {"delayMs": 800}}
+        }));
+    }
+    let mut answered = Vec::new();
+    while answered.len() < 2 {
+        let value = client
+            .responses
+            .recv_timeout(Duration::from_secs(30))
+            .expect("both calls are answered");
+        if value["id"] == 901 || value["id"] == 902 {
+            assert_eq!(text_of(&value), "slow done", "{value}");
+            answered.push(started.elapsed());
+        }
+    }
+    assert!(
+        answered[1] >= Duration::from_millis(1_500),
+        "the second call waited for the first: {answered:?}"
     );
 }
 
