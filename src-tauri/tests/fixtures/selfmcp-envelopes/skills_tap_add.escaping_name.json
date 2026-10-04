@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "name": "../x",
+    "repo": "acme/skills"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "invalid tap name \"../x\": use letters, digits, '-', '_' and '.' (at most 64, not starting with '.' or '-')"
+    }
+  },
+  "text": "invalid_arguments: invalid tap name \"../x\": use letters, digits, '-', '_' and '.' (at most 64, not starting with '.' or '-')",
+  "tool": "skills_tap_add"
+}

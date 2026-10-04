@@ -1,0 +1,12 @@
+{
+  "arguments": {
+    "name": "alpha"
+  },
+  "isError": false,
+  "result": {
+    "isGit": false,
+    "message": "server is tracked as unknown, not git",
+    "name": "alpha"
+  },
+  "tool": "servers_git_status"
+}

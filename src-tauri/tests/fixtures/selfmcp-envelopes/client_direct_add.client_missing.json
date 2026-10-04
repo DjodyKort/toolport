@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "server": "alpha"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "missing required argument: client"
+    }
+  },
+  "text": "invalid_arguments: missing required argument: client",
+  "tool": "client_direct_add"
+}

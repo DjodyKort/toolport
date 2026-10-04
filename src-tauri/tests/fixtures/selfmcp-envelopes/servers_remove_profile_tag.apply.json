@@ -1,0 +1,12 @@
+{
+  "arguments": {
+    "name": "beta",
+    "profile_tag": "Default"
+  },
+  "isError": false,
+  "result": {
+    "name": "beta",
+    "profileTags": []
+  },
+  "tool": "servers_remove_profile_tag"
+}

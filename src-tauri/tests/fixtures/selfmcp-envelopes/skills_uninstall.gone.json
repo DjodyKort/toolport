@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "name": "demo"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "Skill 'demo' not found."
+    }
+  },
+  "text": "not_found: Skill 'demo' not found.",
+  "tool": "skills_uninstall"
+}

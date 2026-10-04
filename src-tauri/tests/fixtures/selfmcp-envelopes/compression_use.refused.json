@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "preset": "agent"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: compression_use (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: compression_use (tier 3). Pass confirm=true to proceed.",
+  "tool": "compression_use"
+}

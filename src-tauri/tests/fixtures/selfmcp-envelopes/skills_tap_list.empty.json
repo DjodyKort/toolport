@@ -1,0 +1,9 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "taps": [],
+    "tapsRoot": "<WORLD>/data/taps"
+  },
+  "tool": "skills_tap_list"
+}

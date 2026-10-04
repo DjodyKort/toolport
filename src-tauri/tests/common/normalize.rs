@@ -17,6 +17,7 @@ pub const MASKED_KEYS: &[&str] = &[
     "durationMs",
     "tookMs",
     "head",
+    "commitSha",
     "bundleBytes",
     "nextDueAt",
     "lastProbe",
@@ -86,4 +87,3 @@ pub fn normalize(world: &CtlWorld, envelope: &Value) -> Value {
     mask(&mut value);
     value
 }
-

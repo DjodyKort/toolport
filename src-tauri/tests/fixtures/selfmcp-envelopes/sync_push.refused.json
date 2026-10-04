@@ -1,0 +1,12 @@
+{
+  "arguments": {},
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: sync_push (tier 4). Pass confirm=true to proceed. WARNING: this modifies remote state or removes entries."
+    }
+  },
+  "text": "refused: Refused: sync_push (tier 4). Pass confirm=true to proceed. WARNING: this modifies remote state or removes entries.",
+  "tool": "sync_push"
+}

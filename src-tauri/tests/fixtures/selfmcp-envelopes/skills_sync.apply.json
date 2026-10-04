@@ -1,0 +1,30 @@
+{
+  "arguments": {
+    "client_keys": ["claude-code"]
+  },
+  "isError": false,
+  "result": {
+    "backupRoot": "<WORLD>/home/.mcpm-backups",
+    "cleaned": [],
+    "clientCount": 1,
+    "collisions": [],
+    "dryRun": false,
+    "entries": [
+      {
+        "clientsSynced": ["claude-code"],
+        "name": "demo",
+        "type": "skill",
+        "warnings": []
+      }
+    ],
+    "globalMode": true,
+    "kept": 0,
+    "outputRoot": "<WORLD>/home",
+    "replaced": 0,
+    "repo": "<WORLD>/skills-repo",
+    "ruleCount": 0,
+    "skillCount": 1,
+    "syncedAt": "<TIME>"
+  },
+  "tool": "skills_sync"
+}

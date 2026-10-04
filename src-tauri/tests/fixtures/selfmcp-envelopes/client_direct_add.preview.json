@@ -1,0 +1,31 @@
+{
+  "arguments": {
+    "client": "claude-code",
+    "server": "alpha"
+  },
+  "isError": false,
+  "result": {
+    "action": "added",
+    "backup": null,
+    "changed": true,
+    "client": "claude-code",
+    "clientName": "Claude Code",
+    "dryRun": true,
+    "entry": "alpha",
+    "launcher": {
+      "args": ["direct", "run", "srv-alpha"],
+      "command": "<BIN>/toolportctl",
+      "env": {
+        "TOOLPORT_DATA_DIR": "<WORLD>/data"
+      }
+    },
+    "notes": [
+      "Secrets come from the encrypted secret file: the client must start the entry with TOOLPORT_SECRET_KEY in its environment (it is never written to the client config)."
+    ],
+    "path": "<WORLD>/home/.claude/.claude.json",
+    "server": "srv-alpha",
+    "serverName": "alpha",
+    "tradeoff": "A direct entry bypasses the Toolport gateway: its tools are not covered by profile tool scopes, approvals (HITL), receipts or lazy discovery, and every client with a direct entry starts its own process of the server instead of sharing one."
+  },
+  "tool": "client_direct_add"
+}

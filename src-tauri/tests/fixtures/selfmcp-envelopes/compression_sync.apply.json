@@ -1,0 +1,24 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false
+  },
+  "isError": false,
+  "result": {
+    "actions": ["saved config (provider=none)"],
+    "adopted": null,
+    "dryRun": false,
+    "preset": {
+      "mode": "cache",
+      "name": "interactive",
+      "port": 8787,
+      "savingsProfile": null
+    },
+    "provider": "none",
+    "removed": [],
+    "runtime": "none",
+    "warnings": [],
+    "written": []
+  },
+  "tool": "compression_sync"
+}

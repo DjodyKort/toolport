@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "name": "helper"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: agents_uninstall (tier 4). Pass confirm=true to proceed. WARNING: this modifies remote state or removes entries."
+    }
+  },
+  "text": "refused: Refused: agents_uninstall (tier 4). Pass confirm=true to proceed. WARNING: this modifies remote state or removes entries.",
+  "tool": "agents_uninstall"
+}

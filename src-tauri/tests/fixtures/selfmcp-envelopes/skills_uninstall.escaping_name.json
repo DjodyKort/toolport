@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "name": "../agents/helper"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "invalid name: ../agents/helper"
+    }
+  },
+  "text": "invalid_arguments: invalid name: ../agents/helper",
+  "tool": "skills_uninstall"
+}

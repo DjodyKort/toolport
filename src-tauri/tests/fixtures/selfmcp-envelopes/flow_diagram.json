@@ -1,0 +1,8 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "markdown": "# Data flow\n\ncanonical skills repository -> transpilers -> per-client outputs\nregistry (servers, profiles) -> gateway -> every client\nencrypted sync bundle <-> remote (push and pull)\n"
+  },
+  "tool": "flow_diagram"
+}

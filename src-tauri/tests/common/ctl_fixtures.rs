@@ -3,8 +3,11 @@
 //! Fixtures that the contract tests add to a `CtlWorld`: local git repositories (no network),
 //! an mcpm config root and Claude Code transcripts. Nothing in them is a real credential.
 
+use std::io::{Read, Write};
+use std::net::TcpListener;
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::sync::Mutex;
 
 use serde_json::{json, Value};
 
@@ -45,7 +48,11 @@ pub fn git_world(world: &CtlWorld) {
     )
     .unwrap();
     git(&tap, &world.home, &["init", "-q"]);
-    git(&tap, &world.home, &["symbolic-ref", "HEAD", "refs/heads/main"]);
+    git(
+        &tap,
+        &world.home,
+        &["symbolic-ref", "HEAD", "refs/heads/main"],
+    );
     git(&tap, &world.home, &["add", "-A"]);
     git(&tap, &world.home, &["commit", "-q", "-m", "fixture"]);
     let remote = world.base.join("remote.git");
@@ -123,9 +130,9 @@ pub fn transcripts_world(world: &CtlWorld) {
     std::fs::write(dir.join("s1.jsonl"), lines.join("\n") + "\n").unwrap();
 }
 
-/// `{base}/skills-clone` is a clone of `{base}/skills-remote.git` (empty bare repository) with one
-/// commit of the skills tree, for the tools that commit and push a skills repository.
-pub fn skills_clone_world(world: &CtlWorld) {
+/// The skills repository of the world is a git clone of `{base}/skills-remote.git` with one pushed
+/// commit and one file that is not committed yet, for the tools that commit and push it.
+pub fn skills_repo_remote_world(world: &CtlWorld) {
     let remote = world.base.join("skills-remote.git");
     std::fs::create_dir_all(&remote).unwrap();
     git(&remote, &world.home, &["init", "-q", "--bare"]);
@@ -134,25 +141,29 @@ pub fn skills_clone_world(world: &CtlWorld) {
         &world.home,
         &["symbolic-ref", "HEAD", "refs/heads/main"],
     );
-    let clone = world.base.join("skills-clone");
-    let skill = clone.join("skills/demo/SKILL.md");
-    std::fs::create_dir_all(skill.parent().unwrap()).unwrap();
-    std::fs::copy(world.repo.join("skills/demo/SKILL.md"), &skill).unwrap();
-    git(&clone, &world.home, &["init", "-q"]);
+    let repo = &world.repo;
+    git(repo, &world.home, &["init", "-q"]);
     git(
-        &clone,
+        repo,
         &world.home,
         &["symbolic-ref", "HEAD", "refs/heads/main"],
     );
+    for (key, value) in [
+        ("user.name", "fixture"),
+        ("user.email", "fixture@example.invalid"),
+        ("commit.gpgsign", "false"),
+    ] {
+        git(repo, &world.home, &["config", key, value]);
+    }
     git(
-        &clone,
+        repo,
         &world.home,
         &["remote", "add", "origin", &world.path(&remote)],
     );
-    git(&clone, &world.home, &["add", "-A"]);
-    git(&clone, &world.home, &["commit", "-q", "-m", "fixture"]);
-    git(&clone, &world.home, &["push", "-q", "origin", "main"]);
-    std::fs::write(skill, "---\nname: demo\ndescription: A synthetic demo skill\n---\nEdited body\n").unwrap();
+    git(repo, &world.home, &["add", "-A"]);
+    git(repo, &world.home, &["commit", "-q", "-m", "fixture"]);
+    git(repo, &world.home, &["push", "-q", "-u", "origin", "main"]);
+    std::fs::write(repo.join("skills/demo/extra.md"), "not committed yet\n").unwrap();
 }
 
 /// Runs the real `toolportctl` against the world, for the setup that a test needs before the
@@ -195,6 +206,10 @@ pub fn ctl(world: &CtlWorld, argv: &[&str], stdin: Option<&str>) {
 /// The sync of the world points at the local remote and tracks one project file.
 pub fn sync_world(world: &CtlWorld) {
     git_world(world);
+    sync_setup(world);
+}
+
+pub fn sync_setup(world: &CtlWorld) {
     ctl(
         world,
         &[
@@ -221,4 +236,30 @@ pub fn sync_world(world: &CtlWorld) {
         ],
         None,
     );
+}
+
+const HEALTH: &str = r#"{"ready":true,"config":{"max_items_after_crush":50,"protect_recent":null,"accuracy_guard":true}}"#;
+
+/// Answers `GET /health` on a local port for the rest of the test process, like the compression
+/// proxy does, so that the commands that read the live posture have one to read.
+pub fn health_proxy(port: u16) {
+    static STARTED: Mutex<Vec<u16>> = Mutex::new(Vec::new());
+    let mut started = STARTED.lock().unwrap();
+    if started.contains(&port) {
+        return;
+    }
+    let listener = TcpListener::bind(("127.0.0.1", port))
+        .unwrap_or_else(|e| panic!("port {port} is needed for the fake proxy: {e}"));
+    started.push(port);
+    std::thread::spawn(move || {
+        for mut stream in listener.incoming().flatten() {
+            let mut request = [0u8; 2048];
+            let _ = stream.read(&mut request);
+            let _ = write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{HEALTH}",
+                HEALTH.len()
+            );
+        }
+    });
 }

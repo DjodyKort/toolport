@@ -1,0 +1,23 @@
+{
+  "arguments": {
+    "preset": "agent"
+  },
+  "isError": false,
+  "result": {
+    "actions": ["would save config (provider=none)"],
+    "adopted": null,
+    "dryRun": true,
+    "preset": {
+      "mode": "token",
+      "name": "agent",
+      "port": 8788,
+      "savingsProfile": "agent-90"
+    },
+    "provider": "none",
+    "removed": [],
+    "runtime": "none",
+    "warnings": [],
+    "written": []
+  },
+  "tool": "compression_use"
+}

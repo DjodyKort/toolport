@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "nope",
+    "patch": {
+      "args": []
+    }
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "server not found: nope"
+    }
+  },
+  "text": "not_found: server not found: nope",
+  "tool": "servers_update_config"
+}

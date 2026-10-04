@@ -1,0 +1,15 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "clean": true,
+    "discoveryWarnings": [],
+    "modified": [],
+    "new": [],
+    "noLockfile": false,
+    "removed": [],
+    "repo": "<WORLD>/skills-repo",
+    "unchanged": 1
+  },
+  "tool": "agents_diff"
+}

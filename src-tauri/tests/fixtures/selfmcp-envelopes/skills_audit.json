@@ -1,0 +1,14 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "clean": true,
+    "findings": [],
+    "high": 0,
+    "low": 0,
+    "medium": 0,
+    "repo": "<WORLD>/skills-repo",
+    "skillCount": 1
+  },
+  "tool": "skills_audit"
+}

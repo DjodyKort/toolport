@@ -1,0 +1,27 @@
+{
+  "arguments": {
+    "name": "alpha"
+  },
+  "isError": false,
+  "result": {
+    "args": [],
+    "command": "<MOCK>",
+    "cwd": null,
+    "declareClientCapabilities": false,
+    "disabledTools": [],
+    "enabled": true,
+    "env": [
+      {
+        "key": "API_KEY",
+        "secret": true
+      }
+    ],
+    "forwardInstructions": false,
+    "id": "srv-alpha",
+    "name": "alpha",
+    "source": null,
+    "transport": "stdio",
+    "url": null
+  },
+  "tool": "servers_get"
+}

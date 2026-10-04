@@ -1,0 +1,31 @@
+{
+  "arguments": {
+    "provider": "headroom"
+  },
+  "isError": false,
+  "result": {
+    "actions": [
+      "would save config (provider=headroom)",
+      "would register MCP server 'headroom' in the registry (enabled in profile 'default')",
+      "would write <WORLD>/data/compression-env.sh  (source from ~/.zshrc to route this shell's AI clients (active preset))",
+      "would write <WORLD>/data/compression-shims.zsh  (source from ~/.zshrc for hrclaude/hrup/hrdown/hrstat (replaces headroom-aliases.zsh))"
+    ],
+    "adopted": null,
+    "dryRun": true,
+    "preset": {
+      "mode": "cache",
+      "name": "interactive",
+      "port": 8787,
+      "savingsProfile": null
+    },
+    "provider": "headroom",
+    "removed": [],
+    "runtime": "proxy",
+    "warnings": [
+      "preset 'agent': headroom is not on PATH: cannot snapshot profile env. Install the pinned build: toolportctl compression pin --install",
+      "preset 'balanced': headroom is not on PATH: cannot snapshot profile env. Install the pinned build: toolportctl compression pin --install"
+    ],
+    "written": ["<WORLD>/data/compression-env.sh", "<WORLD>/data/compression-shims.zsh"]
+  },
+  "tool": "compression_set_provider"
+}

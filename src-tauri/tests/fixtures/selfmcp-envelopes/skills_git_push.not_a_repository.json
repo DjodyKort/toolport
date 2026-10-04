@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "commit_message": "x",
+    "confirm": true,
+    "repo_path": "<WORLD>/data"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no skills repository found"
+    }
+  },
+  "text": "not_found: no skills repository found",
+  "tool": "skills_git_push"
+}

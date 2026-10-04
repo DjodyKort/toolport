@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "name": "alpha"
+  },
+  "isError": false,
+  "result": {
+    "detected": {
+      "kind": "unknown",
+      "meta": {
+        "reason": "synthetic fixture",
+        "type": "unknown"
+      }
+    },
+    "name": "alpha",
+    "stored": true
+  },
+  "tool": "servers_detect_source"
+}

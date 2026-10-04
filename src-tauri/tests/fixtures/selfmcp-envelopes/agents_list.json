@@ -1,0 +1,17 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "agents": [
+      {
+        "description": "A synthetic helper agent",
+        "model": "inherit",
+        "name": "helper",
+        "path": "<WORLD>/skills-repo/agents/helper/AGENT.md",
+        "tools": []
+      }
+    ],
+    "repo": "<WORLD>/skills-repo"
+  },
+  "tool": "agents_list"
+}

@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "commit_message": " ",
+    "confirm": true
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "commit_message is empty"
+    }
+  },
+  "text": "invalid_arguments: commit_message is empty",
+  "tool": "skills_git_push"
+}

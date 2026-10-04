@@ -1,0 +1,36 @@
+{
+  "json": {
+    "activeProfile": "default",
+    "auth": {
+      "counts": {
+        "expiring": 0,
+        "misconfigured": 0,
+        "needs_reauth": 0,
+        "ok": 0,
+        "revoked": 0,
+        "unknown": 0,
+        "unreachable": 0
+      },
+      "servers": []
+    },
+    "dataDir": "<WORLD>/data",
+    "gateway": {
+      "build": null,
+      "builds": [],
+      "path": "<BIN>/toolport-gateway",
+      "present": true
+    },
+    "profileCount": 1,
+    "registry": {
+      "error": null,
+      "exists": true,
+      "path": "<WORLD>/data/registry.json",
+      "readable": true
+    },
+    "secretsBackend": "encrypted-file",
+    "serverCount": 2,
+    "version": "<masked>"
+  },
+  "mimeType": "application/json",
+  "uri": "mcpm://status"
+}

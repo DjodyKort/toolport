@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "nope"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no style named nope"
+    }
+  },
+  "text": "not_found: no style named nope",
+  "tool": "styles_get"
+}

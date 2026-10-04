@@ -1,0 +1,219 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "clients": [
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "claude-desktop",
+        "name": "Claude Desktop"
+      },
+      {
+        "appPresent": true,
+        "gatewayInstalled": false,
+        "id": "cursor",
+        "name": "Cursor"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "droid",
+        "name": "Factory Droid"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "crush",
+        "name": "Crush"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "anythingllm",
+        "name": "AnythingLLM"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "vscode",
+        "name": "VS Code"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "amp",
+        "name": "Amp"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "windsurf",
+        "name": "Devin Desktop (Cascade)"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "devin-cli",
+        "name": "Devin Local / CLI"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "opencode",
+        "name": "OpenCode"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "kilo-code",
+        "name": "Kilo Code"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "grok",
+        "name": "Grok Build"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "codex",
+        "name": "Codex"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "github-copilot-cli",
+        "name": "GitHub Copilot CLI"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "antigravity",
+        "name": "Antigravity"
+      },
+      {
+        "appPresent": true,
+        "gatewayInstalled": false,
+        "id": "claude-code",
+        "name": "Claude Code"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "gemini-cli",
+        "name": "Gemini CLI"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "qwen-code",
+        "name": "Qwen Code"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "junie",
+        "name": "JetBrains Junie"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "cline",
+        "name": "Cline"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "roo-code",
+        "name": "Roo Code"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "warp",
+        "name": "Warp"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "amazon-q",
+        "name": "Amazon Q"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "kiro",
+        "name": "Kiro"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "kimi-code",
+        "name": "Kimi Code"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "zed",
+        "name": "Zed"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "lm-studio",
+        "name": "LM Studio"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "jan",
+        "name": "Jan"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "boltai",
+        "name": "BoltAI"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "pi",
+        "name": "Pi"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "omp",
+        "name": "Oh My Pi"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "goose",
+        "name": "Goose"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "hermes",
+        "name": "Hermes"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "continue",
+        "name": "Continue"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "witsy",
+        "name": "Witsy"
+      }
+    ]
+  },
+  "tool": "clients_list"
+}

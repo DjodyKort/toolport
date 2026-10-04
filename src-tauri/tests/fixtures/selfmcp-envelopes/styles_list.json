@@ -1,0 +1,16 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "repo": "<WORLD>/skills-repo",
+    "styles": [
+      {
+        "description": "A synthetic plain style",
+        "keepCodingInstructions": true,
+        "name": "plain",
+        "path": "<WORLD>/skills-repo/styles/plain/STYLE.md"
+      }
+    ]
+  },
+  "tool": "styles_list"
+}

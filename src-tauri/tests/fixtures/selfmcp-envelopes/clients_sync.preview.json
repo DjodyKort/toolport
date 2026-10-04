@@ -1,0 +1,11 @@
+{
+  "arguments": {
+    "dry_run": true
+  },
+  "isError": false,
+  "result": {
+    "clients": [],
+    "dryRun": true
+  },
+  "tool": "clients_sync"
+}

@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "client_keys": ["aider"],
+    "name": "plain"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: styles_apply (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: styles_apply (tier 3). Pass confirm=true to proceed.",
+  "tool": "styles_apply"
+}

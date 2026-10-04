@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "alpha"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_input",
+      "message": "server alpha is not git-backed"
+    }
+  },
+  "text": "invalid_input: server alpha is not git-backed",
+  "tool": "servers_fork_sync"
+}

@@ -1,0 +1,21 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "actions": ["would save config (provider=none)"],
+    "adopted": null,
+    "dryRun": true,
+    "preset": {
+      "mode": "cache",
+      "name": "interactive",
+      "port": 8787,
+      "savingsProfile": null
+    },
+    "provider": "none",
+    "removed": [],
+    "runtime": "none",
+    "warnings": [],
+    "written": []
+  },
+  "tool": "compression_sync"
+}

@@ -1,0 +1,30 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "mode": "cache",
+    "port": 49213,
+    "provider": "rtk-only"
+  },
+  "isError": false,
+  "result": {
+    "actions": ["saved config (provider=rtk-only)"],
+    "adopted": null,
+    "dryRun": false,
+    "nextSteps": [
+      "verify: toolportctl compression status / doctor   (MCP entry already registered)"
+    ],
+    "preset": {
+      "mode": "cache",
+      "name": "interactive",
+      "port": 49213,
+      "savingsProfile": null
+    },
+    "provider": "rtk-only",
+    "removed": [],
+    "runtime": "hook",
+    "warnings": [],
+    "written": []
+  },
+  "tool": "compression_enable"
+}

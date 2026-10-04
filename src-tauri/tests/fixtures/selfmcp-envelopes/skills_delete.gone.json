@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "demo"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no skill or rule named demo"
+    }
+  },
+  "text": "not_found: no skill or rule named demo",
+  "tool": "skills_delete"
+}

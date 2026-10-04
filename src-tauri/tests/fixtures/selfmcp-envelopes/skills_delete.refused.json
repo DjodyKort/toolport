@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "demo"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: skills_delete (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: skills_delete (tier 3). Pass confirm=true to proceed.",
+  "tool": "skills_delete"
+}

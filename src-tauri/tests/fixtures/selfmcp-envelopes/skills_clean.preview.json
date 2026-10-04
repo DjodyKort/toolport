@@ -1,0 +1,17 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "cleanRoot": "<WORLD>/home",
+    "dryRun": true,
+    "ignored": [],
+    "lockDir": "<WORLD>/data",
+    "lockfilePresent": true,
+    "lockfileRemoved": true,
+    "managed": ["demo"],
+    "removed": ["<WORLD>/home/.claude/skills/demo/SKILL.md"],
+    "scope": "global",
+    "skipped": []
+  },
+  "tool": "skills_clean"
+}

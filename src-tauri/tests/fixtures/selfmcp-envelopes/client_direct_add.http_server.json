@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "client": "claude-code",
+    "dry_run": false,
+    "server": "beta"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "beta cannot get a direct entry: it is a remote (http) server and only the gateway can reach it. It stays reachable through the gateway."
+    }
+  },
+  "text": "invalid_arguments: beta cannot get a direct entry: it is a remote (http) server and only the gateway can reach it. It stays reachable through the gateway.",
+  "tool": "client_direct_add"
+}

@@ -1,0 +1,28 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false
+  },
+  "isError": false,
+  "result": {
+    "apply": true,
+    "complete": false,
+    "declarable": [
+      {
+        "knob": "HEADROOM_MAX_ITEMS",
+        "value": "50"
+      },
+      {
+        "knob": "HEADROOM_ACCURACY_GUARD",
+        "value": "1"
+      }
+    ],
+    "dryRun": false,
+    "port": 49214,
+    "preset": "interactive",
+    "sealed": 2,
+    "unset": ["HEADROOM_PROTECT_RECENT"],
+    "version": null
+  },
+  "tool": "compression_seal"
+}

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "nope"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "skill not found: nope"
+    }
+  },
+  "text": "not_found: skill not found: nope",
+  "tool": "skills_get"
+}

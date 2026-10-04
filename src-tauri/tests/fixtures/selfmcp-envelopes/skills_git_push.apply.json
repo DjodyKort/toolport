@@ -1,0 +1,13 @@
+{
+  "arguments": {
+    "commit_message": "add extra",
+    "confirm": true
+  },
+  "isError": false,
+  "result": {
+    "commitSha": "<masked>",
+    "pushed": true,
+    "repo": "<WORLD>/skills-repo"
+  },
+  "tool": "skills_git_push"
+}

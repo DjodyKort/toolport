@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "name": "helper"
+  },
+  "isError": false,
+  "result": {
+    "body": "Agent prompt",
+    "description": "A synthetic helper agent",
+    "model": "inherit",
+    "name": "helper",
+    "path": "<WORLD>/skills-repo/agents/helper/AGENT.md",
+    "tools": []
+  },
+  "tool": "agents_get"
+}

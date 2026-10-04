@@ -1,0 +1,17 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "taps": [
+      {
+        "cloned": true,
+        "name": "local",
+        "path": "<WORLD>/data/taps/local",
+        "repo": "<WORLD>/tap-src",
+        "url": "<WORLD>/tap-src"
+      }
+    ],
+    "tapsRoot": "<WORLD>/data/taps"
+  },
+  "tool": "skills_tap_list"
+}
