@@ -53,7 +53,7 @@ export const plusCtlFixtures = new Map<string, unknown>([
   ["sources root ls", plusSourcesRootFixture],
   ["commands", commandsFixture],
   ["server uninstall acme-erp --dry-run", uninstallPlan],
-  ["attention ls", { counts: { needsYou: 3, worthALook: 2 }, items: [] }],
+  ["attention ls", { counts: { needsYou: 3, look: 2, fyi: 0 }, items: [] }],
 ]);
 
 const jobs = new Map<string, string>();
