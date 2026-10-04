@@ -9,7 +9,7 @@ use std::collections::BTreeSet;
 use std::path::{Component, Path, PathBuf};
 
 const CAP: usize = 4 * 1024 * 1024;
-const MASK: &str = "[redacted]";
+pub(super) const MASK: &str = "[redacted]";
 
 pub fn read_doc(path: &Path) -> Option<Value> {
     serde_json::from_str(&fsx::read_text(path, CAP)?).ok()
@@ -146,24 +146,28 @@ fn server_map(value: &Value) -> Option<&Map<String, Value>> {
     }
 }
 
+/// Whether a flag or header name (`--api-key`, `Authorization:`) carries a credential.
+pub fn secret_name(flag: &str) -> bool {
+    let lower = flag
+        .trim_matches(|c: char| c == '-' || c == ':' || c == '"' || c == '\'')
+        .to_ascii_lowercase();
+    [
+        "token",
+        "secret",
+        "password",
+        "passwd",
+        "api-key",
+        "api_key",
+        "apikey",
+        "auth",
+        "private-key",
+        "credential",
+    ]
+    .iter()
+    .any(|s| lower.contains(s))
+}
+
 pub fn mask_args(args: Vec<String>) -> Vec<String> {
-    let secret = |flag: &str| {
-        let lower = flag.trim_start_matches('-').to_ascii_lowercase();
-        [
-            "token",
-            "secret",
-            "password",
-            "passwd",
-            "api-key",
-            "api_key",
-            "apikey",
-            "auth",
-            "private-key",
-            "credential",
-        ]
-            .iter()
-            .any(|s| lower.contains(s))
-    };
     let mut hide_next = false;
     args.into_iter()
         .map(|arg| {
@@ -171,10 +175,10 @@ pub fn mask_args(args: Vec<String>) -> Vec<String> {
                 return MASK.to_string();
             }
             if let Some((flag, _)) = arg.split_once('=').filter(|(f, _)| f.starts_with('-')) {
-                if secret(flag) {
+                if secret_name(flag) {
                     return format!("{flag}={MASK}");
                 }
-            } else if arg.starts_with('-') && secret(&arg) {
+            } else if arg.starts_with('-') && secret_name(&arg) {
                 hide_next = true;
             }
             arg
