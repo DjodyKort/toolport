@@ -132,6 +132,19 @@ fn stale_lines(data: &Value, prefix: &str) -> Vec<String> {
     lines
 }
 
+/// Which clients a sync picked when `--client` did not say: the lock's, else claude-code.
+fn client_line(data: &Value) -> Option<String> {
+    let why = match data["clientSource"].as_str()? {
+        "lock" => "the clients of the existing lock",
+        "default" => "no lock lists clients yet",
+        _ => return None,
+    };
+    Some(format!(
+        "Clients: {} ({why}; --client chooses others).\n",
+        strings(data, "targetedClients").join(", ")
+    ))
+}
+
 /// mcpm's `skills sync` report: the collisions as they are resolved, the entries with their
 /// warnings, the append-mode notes, the stale files and the collision summary.
 fn sync_text(data: &Value) -> String {
@@ -152,6 +165,9 @@ fn sync_text(data: &Value) -> String {
     }
     if data["globalMode"] == json!(true) {
         lines.push("Global mode -- writing to user-level paths.\n".to_string());
+    }
+    if let Some(line) = client_line(data) {
+        lines.push(line);
     }
     let collisions: &[Value] = data["collisions"].as_array().map_or(&[], Vec::as_slice);
     lines.extend(collisions.iter().map(collision_line));

@@ -3,13 +3,14 @@
 //! `plus.skills.*` handlers and the self-MCP skills tools only translate their input into
 //! [`Args`] and render or wrap the result; they share nothing else.
 
+use super::client_scope::{default_clients, ClientSource};
 use super::lint::{lint_outputs, lint_skills, LintResult};
 use super::ops::{
     check_outputs, diff_skills, find_skills_repo, has_drift, lock_dir, lock_output_root, read_lock,
     skills_status as output_rows,
 };
 use super::assets::compute_skill_hash;
-use super::lock::{get_entry, save_lockfile};
+use super::lock::{get_entry, load_lockfile, save_lockfile};
 use super::parser::{discover_skills, find_skill, Skill, SkillType};
 use super::sync_report::sync_report;
 use super::transpiler::TranspilerRegistry;
@@ -318,17 +319,21 @@ pub fn sync(args: &Args) -> Result<Value, OpError> {
     let global = args.global;
     let output_root = if global { home()? } else { repo.clone() };
     let dir = lock_dir(global, &repo);
+    let registry = registry_with_home(Some(home()?));
+    let (targeted, source) = match &args.clients {
+        Some(keys) => (keys.clone(), ClientSource::Requested),
+        None => default_clients(load_lockfile(&dir).as_ref(), &registry),
+    };
     let opts = SyncOptions {
         output_root,
         lock_dir: dir.clone(),
         global_mode: global,
         dry_run: args.dry_run,
         migrate: args.migrate,
-        client_keys: args.clients.clone(),
+        client_keys: Some(targeted.clone()),
         clock: &SystemClock,
     };
-    let result = sync_skills(&skills, &registry_with_home(Some(home()?)), &opts)
-        .map_err(backend)?;
+    let result = sync_skills(&skills, &registry, &opts).map_err(backend)?;
     if !opts.dry_run {
         save_lockfile(&dir, &result.lockfile).map_err(backend)?;
     }
@@ -341,6 +346,8 @@ pub fn sync(args: &Args) -> Result<Value, OpError> {
         "skillCount": result.lockfile.skills.len(),
         "ruleCount": result.lockfile.rules.len(),
         "cleaned": result.cleaned.iter().map(|p| p.to_string_lossy().into_owned()).collect::<Vec<_>>(),
+        "targetedClients": targeted,
+        "clientSource": source.as_str(),
     });
     if let Some(fields) = data.as_object_mut() {
         fields.extend(sync_report(&result));
