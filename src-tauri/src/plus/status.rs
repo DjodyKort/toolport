@@ -3,6 +3,7 @@
 //! from it. Each surface only renders the result.
 
 use crate::plus::health::Health;
+use crate::plus::op::OpError;
 use crate::plus::registry_ro;
 use crate::registry::{self, Registry};
 use serde_json::{json, Value};
@@ -36,6 +37,14 @@ pub(crate) fn snapshot() -> Snapshot {
         Err(e) => snap.registry_error = Some(e),
     }
     snap
+}
+
+pub(crate) fn readable_registry() -> Result<Registry, OpError> {
+    let snap = snapshot();
+    match snap.registry_error {
+        Some(error) => Err(OpError::failed("registry_error", error)),
+        None => Ok(snap.registry.unwrap_or_default()),
+    }
 }
 
 fn secrets_backend() -> &'static str {

@@ -15,15 +15,6 @@ canonical skills repository -> transpilers -> per-client outputs\n\
 registry (servers, profiles) -> gateway -> every client\n\
 encrypted sync bundle <-> remote (push and pull)\n";
 
-pub(super) fn ctl(path: &[&str]) -> Result<Value, ToolError> {
-    let positional: Vec<String> = path.iter().map(|s| s.to_string()).collect();
-    let (command, rest) = crate::plus::ctl::find_command(&positional)
-        .ok_or_else(|| ToolError::new("internal", "ctl command missing"))?;
-    (command.handler)(rest)
-        .map(|out| out.data)
-        .map_err(ToolError::from)
-}
-
 #[cfg(test)]
 pub(super) use crate::plus::skills::api::TEST_REPO;
 
