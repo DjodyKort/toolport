@@ -13,6 +13,12 @@ import { plusCtlFixtures, plusCtlResult, plusCtlStart } from "../fixtures/plusCt
 import { compressionLedgerSummaryData, compressionShapes } from "../types/compression";
 import { compressionBrowserFixtures } from "./browserFixtures";
 import { CompressionTab } from "./CompressionTab";
+import { createCompressionWorld } from "./world";
+
+const served = (argv: string) => {
+  const reply = plusCtlFixtures.get(argv);
+  return typeof reply === "function" ? reply() : reply;
+};
 
 beforeEach(() => {
   listen.mockReset().mockResolvedValue(() => {});
@@ -44,25 +50,32 @@ describe("Compression browser fixtures", () => {
       "compression update --latest": "compression-update.preview",
       "compression verify": "compression-verify.measured",
     };
+    const running = createCompressionWorld({
+      provider: "headroom",
+      installed: "0.29.0",
+      proxy: true,
+    });
     for (const [argv, stem] of Object.entries(stems))
       expect(
-        check({ ...ctlShapes, ...compressionShapes }[stem], plusCtlFixtures.get(argv)),
+        check(
+          { ...ctlShapes, ...compressionShapes }[stem],
+          argv.startsWith("compression seal")
+            ? running.reply(argv.split(" "))
+            : served(argv),
+        ),
         argv,
       ).toEqual([]);
     expect(
-      check(
-        compressionLedgerSummaryData,
-        plusCtlFixtures.get("compression ledger summary"),
-      ),
+      check(compressionLedgerSummaryData, served("compression ledger summary")),
     ).toEqual([]);
   });
 
-  it("draw the whole tab: state, pin, health, a ledger with two providers", async () => {
+  it("draw the whole tab: state, pin, health and a ledger that starts empty", async () => {
     render(<CompressionTab />);
     const strip = await screen.findByLabelText("Compression status");
     expect(within(strip).getByText("rtk-only")).toBeInTheDocument();
     const ledger = await screen.findByRole("region", { name: "Savings ledger" });
-    expect(await within(ledger).findByRole("img")).toHaveAccessibleName(/headroom/);
+    expect(await within(ledger).findByText("No launches recorded yet")).toBeVisible();
     expect(
       await screen.findByText("headroom-ai[proxy,code,ml]==0.29.0"),
     ).toBeInTheDocument();

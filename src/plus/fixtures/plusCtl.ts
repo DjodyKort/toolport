@@ -92,12 +92,7 @@ function resultFor(job: string, key: string, reply: unknown): CtlResult {
         ok: true,
         command: key.split(" --")[0],
         schemaVersion: 1,
-        data:
-          typeof reply === "function"
-            ? (reply as () => unknown)()
-            : reply instanceof CtlReplyHeld
-              ? reply.data
-              : reply,
+        data: reply instanceof CtlReplyHeld ? reply.data : reply,
       };
   return {
     job,
@@ -115,7 +110,8 @@ export function plusCtlResult(job: string): CtlResult {
   const key = jobs.get(job);
   if (key === undefined) throw new Error(`unknown job: ${job}`);
   jobs.delete(job);
-  return resultFor(job, key, plusCtlFixtures.get(key));
+  const reply = plusCtlFixtures.get(key);
+  return resultFor(job, key, typeof reply === "function" ? reply() : reply);
 }
 
 /** A run that waits (a sign-in waiting for the browser) answers only once it is cancelled. */
