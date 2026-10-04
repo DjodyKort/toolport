@@ -7,6 +7,7 @@ use super::store::Paths;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
+#[cfg(test)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct RuntimeSpec {
     pub kind: RuntimeKind,
@@ -22,6 +23,7 @@ pub struct GeneratedFile {
     pub note: &'static str,
 }
 
+#[cfg(test)]
 pub fn runtime_spec(provider: ProviderName, config: &CompressionConfig) -> RuntimeSpec {
     match provider {
         ProviderName::Headroom => {

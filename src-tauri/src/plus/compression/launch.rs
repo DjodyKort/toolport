@@ -77,6 +77,7 @@ impl LaunchPlan {
     }
 
     /// Applies the plan to a parent environment, as the child would see it.
+    #[cfg(test)]
     pub fn child_env(&self, parent: &BTreeMap<String, String>) -> BTreeMap<String, String> {
         let mut env = parent.clone();
         for key in &self.env.unset {

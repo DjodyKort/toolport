@@ -208,6 +208,7 @@ pub fn read_savings(paths: &Paths) -> Vec<SavingsEntry> {
 
 /// The launch a session belongs to, or `None`: a session started some other way is
 /// unattributed, never guessed into a bucket that would flatter the result.
+#[cfg(test)]
 pub fn attribute<'a>(
     start_ms: Option<i64>,
     cwd: Option<&str>,
@@ -216,7 +217,7 @@ pub fn attribute<'a>(
     Attributor::new(launches).attribute(start_ms, cwd)
 }
 
-/// [`attribute`] over many sessions: launch directories are normalized once and grouped,
+/// Attribution over many sessions: launch directories are normalized once and grouped,
 /// and each distinct session directory is normalized once.
 pub struct Attributor<'a> {
     launches: &'a [LaunchRecord],
