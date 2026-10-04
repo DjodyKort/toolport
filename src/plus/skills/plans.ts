@@ -133,6 +133,173 @@ export function planOf(command: string, data: Data, done: boolean): PlanV1 | nul
         undo: `toolportctl skills uninstall ${str(data.name)}`,
       };
     }
+    case "skills install": {
+      const audit = (data.audit ?? {}) as Data;
+      const found = list(audit.findings);
+      const rows = list(data.skills);
+      const fresh = rows.filter((row) => row.status === "installed");
+      const high = num(audit.high);
+      const blocked = data.blocked === true;
+      return {
+        summary: blocked
+          ? `Blocked: ${plural(high, "high-severity audit finding")} in ${str(data.spec)}`
+          : `${done ? "Installed" : "Install"} ${plural(fresh.length, "skill")} from ${str(data.tap)}`,
+        steps: blocked
+          ? []
+          : [
+              ...(data.tapMissing || data.tapAdded
+                ? [
+                    {
+                      op: "create",
+                      path: str(data.cloneUrl),
+                      detail: `${done ? "Registered" : "Clone and register"} the tap ${str(data.tap)} (needs the network)`,
+                    } as PlanStep,
+                  ]
+                : []),
+              ...rows.map((row): PlanStep =>
+                row.status === "installed"
+                  ? {
+                      op: "create",
+                      path: str(data.target),
+                      detail: `${str(row.name)} (${str(row.type)})`,
+                    }
+                  : {
+                      op: "note",
+                      detail: `${str(row.name)} already exists and is kept`,
+                    },
+              ),
+            ],
+        effects: {},
+        warnings: [
+          ...(audit.ran === false
+            ? [
+                "The audit was skipped: nothing checked these skills for risky instructions",
+              ]
+            : []),
+          ...found.map(
+            (f) =>
+              `${str(f.severity)}: ${str(f.skill)}: ${str(f.message)}${f.line != null ? ` (line ${str(f.line)})` : ""}`,
+          ),
+          ...texts(data.discoveryWarnings),
+          ...texts(data.symlinksSkipped).map((link) => `Skipped the symlink ${link}`),
+        ],
+        undo:
+          fresh.length === 1 ? `toolportctl skills uninstall ${str(fresh[0].name)}` : "",
+      };
+    }
+    case "skills tap add":
+      return {
+        summary: `${done ? "Added" : "Add"} the tap '${str(data.name)}' from ${str(data.url)}`,
+        steps: [
+          {
+            op: "create",
+            path: str(data.path),
+            detail: `${done ? "Cloned" : "Clone"} the repository (needs the network)`,
+          },
+        ],
+        effects: {},
+        warnings: [],
+        undo: `toolportctl skills tap remove ${str(data.name)}`,
+      };
+    case "skills tap remove":
+      return {
+        summary: `${done ? "Removed" : "Remove"} the tap '${str(data.name)}'`,
+        steps: [
+          data.hadClone
+            ? { op: "delete", path: str(data.path), detail: "Delete the local clone" }
+            : { op: "note", detail: "The tap has no local clone" },
+        ],
+        effects: {},
+        warnings: [],
+        undo: "",
+      };
+    case "skills tap update": {
+      const results = list(data.results);
+      return {
+        summary:
+          results.length === 0
+            ? "No taps to update"
+            : `${done ? "Updated" : "Update"} ${plural(results.length, "tap")}`,
+        steps: results.map((row): PlanStep => ({
+          op: "update",
+          detail: `${str(row.name)}: pull from its remote (needs the network)`,
+        })),
+        effects: {},
+        warnings: results
+          .filter((row) => row.ok === false)
+          .map((row) => `${str(row.name)}: ${str(row.error)}`),
+        undo: "",
+      };
+    }
+    case "skills bundle": {
+      const skills = list(data.skills);
+      return {
+        summary: `${done ? "Packed" : "Pack"} ${plural(skills.length, "skill")} (${plural(num(data.fileCount), "file")}) into a zip`,
+        steps: [
+          {
+            op: "create",
+            path: str(data.output),
+            detail: `${num(data.sourceBytes)} bytes of sources${data.bundleBytes != null ? `, ${num(data.bundleBytes)} bytes zipped` : ""}`,
+          },
+          ...skills.map((row): PlanStep => ({
+            op: "note",
+            detail: `${str(row.name)} (${str(row.type)}): ${plural(num(row.files), "file")}`,
+          })),
+        ],
+        effects: {},
+        warnings: [],
+        undo: "",
+      };
+    }
+    case "skills unbundle": {
+      const overwritten = texts(data.overwritten);
+      const names = texts(data.names);
+      return {
+        summary: `${done ? "Extracted" : "Extract"} ${plural(names.length, "skill")} from the bundle into ${str(data.target)}`,
+        steps: [
+          ...texts(data.files).map((file): PlanStep => ({
+            op: overwritten.includes(file) ? "update" : "create",
+            path: `${str(data.target)}/${file}`,
+            detail: overwritten.includes(file)
+              ? "Overwrites a file that is already there"
+              : "New file",
+          })),
+          ...overwritten
+            .filter((file) => !texts(data.files).includes(file))
+            .map((file): PlanStep => ({
+              op: "update",
+              path: file,
+              detail: "Overwrites a file that is already there",
+            })),
+        ],
+        effects: {},
+        warnings: [
+          ...(overwritten.length > 0
+            ? [`${plural(overwritten.length, "file")} will be overwritten`]
+            : []),
+          ...texts(data.skipped).map((entry) => `Skipped: ${entry}`),
+        ],
+        undo: "",
+      };
+    }
+    case "skills init": {
+      const exists = data.alreadyExists === true;
+      return {
+        summary: exists
+          ? `A skills repository already exists at ${str(data.repo)}`
+          : `${done ? "Created" : "Create"} the skills repository '${str(data.name)}' at ${str(data.repo)}`,
+        steps: exists
+          ? [{ op: "note", path: str(data.repo), detail: "Nothing is overwritten" }]
+          : texts(data.created).map((entry): PlanStep => ({
+              op: "create",
+              path: `${str(data.repo)}/${entry}`,
+              detail: entry.endsWith("/") ? "Folder" : "Repository file",
+            })),
+        effects: {},
+        warnings: [],
+        undo: "",
+      };
+    }
     default:
       return null;
   }

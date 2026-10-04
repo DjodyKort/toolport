@@ -62,6 +62,62 @@ function Confirm({
   );
 }
 
+function Blocked({
+  write,
+  spec,
+  data,
+  reason,
+  override,
+}: {
+  write: WriteControl;
+  spec: WriteSpec;
+  data: unknown;
+  reason: string;
+  override?: WriteSpec;
+}) {
+  return (
+    <Dialog open onOpenChange={(open) => !open && write.dismiss()}>
+      <DialogContent aria-describedby={undefined} className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{spec.title} is blocked</DialogTitle>
+        </DialogHeader>
+        <Callout variant="danger" role="alert">
+          {reason}
+        </Callout>
+        <PlanPreview data={data} />
+        <DialogFooter>
+          <Button variant="ghost" onClick={write.dismiss}>
+            Close
+          </Button>
+          {override && (
+            <Button variant="outline" onClick={() => write.begin(override)}>
+              {override.title}…
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Review({
+  write,
+  spec,
+  raw,
+}: {
+  write: WriteControl;
+  spec: WriteSpec;
+  raw: unknown;
+}) {
+  const data = shown(spec, raw, false);
+  const gate = spec.gate?.(raw) ?? null;
+  return gate ? (
+    <Blocked write={write} spec={spec} data={data} {...gate} />
+  ) : (
+    <Confirm write={write} spec={spec} data={data} />
+  );
+}
+
 /** The dialogs of a `useWrite`: the preview in progress, the plan to confirm (with the typed
  * confirmation for a destructive tier) and the result. */
 export function WriteDialogs({ write }: { write: WriteControl }) {
@@ -81,11 +137,7 @@ export function WriteDialogs({ write }: { write: WriteControl }) {
         </Callout>
       )}
       {spec && dialog === "review" && previewOk && (
-        <Confirm
-          write={write}
-          spec={spec}
-          data={shown(spec, preview.state.result?.envelope?.data, false)}
-        />
+        <Review write={write} spec={spec} raw={preview.state.result?.envelope?.data} />
       )}
       {spec && previewing && (
         <Dialog open onOpenChange={(open) => !open && closeable && write.dismiss()}>

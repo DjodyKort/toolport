@@ -12,6 +12,7 @@ import {
   syncData,
   uninstallData,
 } from "./fixtures";
+import { tapsCtlFixtures } from "./fixturesTaps";
 
 const dir = join(__dirname, "../../../src-tauri/tests/fixtures/ctl-envelopes");
 
@@ -47,6 +48,7 @@ export function createBridge() {
     .data;
   const replies = new Map<string, Reply>([
     ...skillsCtlFixtures,
+    ...tapsCtlFixtures,
     ["commands", registry],
     ["skills clean --dry-run", cleanData(true)],
     ["skills clean", cleanData(false)],
