@@ -3,7 +3,7 @@
   "envelope": {
     "command": "context apply",
     "data": {
-      "actions": ["would write shims: <WORLD>/home/.config/mcpm/context-shims.zsh"],
+      "actions": ["would write shims: <WORLD>/data/context-shims.zsh"],
       "checks": [
         ["ok", "no legacy MCP duplicates"],
         ["warn", "no personal layer scaffolded — run `toolportctl context init`"],
