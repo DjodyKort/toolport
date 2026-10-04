@@ -33,6 +33,7 @@ export const importMcpmData = obj({
       id: str,
     }),
   ),
+  skillsSync: arr(any),
   skippedClients: arr(any),
   warnings: arr(any),
 });
