@@ -1,6 +1,7 @@
 use crate::plus::args::flag;
 use crate::plus::jsonfs::read_json;
 use crate::plus::update::exec::{is_not_found, run_command, CmdOutput};
+use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -58,13 +59,31 @@ pub struct Options {
     pub claude_root: Option<PathBuf>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PluginStatus {
+    Update,
+    Current,
+    Unknown,
+}
+
+impl PluginStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            PluginStatus::Update => "update",
+            PluginStatus::Current => "current",
+            PluginStatus::Unknown => "unknown",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct PluginRow {
     pub name: String,
     pub marketplace: Option<String>,
     pub installed: Option<String>,
     pub available: Option<String>,
-    pub status: &'static str,
+    pub status: PluginStatus,
     pub enabled: bool,
     pub blocked: bool,
     pub outcome: Option<String>,
@@ -131,7 +150,11 @@ impl Report {
         for r in &self.rows {
             let installed = r.installed.as_deref().unwrap_or("?");
             let available = r.available.as_deref().unwrap_or("?");
-            let mut line = format!("{:<32} {:<10} {installed} -> {available}", r.id(), r.status);
+            let mut line = format!(
+                "{:<32} {:<10} {installed} -> {available}",
+                r.id(),
+                r.status.as_str()
+            );
             if !r.enabled {
                 line.push_str("  disabled");
             }
@@ -340,9 +363,9 @@ fn survey(
             .as_ref()
             .and_then(|m| catalog.get(&(m.clone(), name.clone())).cloned().flatten());
         let status = match (&installed_v, &available) {
-            (Some(a), Some(b)) if a != b => "update",
-            (Some(_), Some(_)) => "current",
-            _ => "unknown",
+            (Some(a), Some(b)) if a != b => PluginStatus::Update,
+            (Some(_), Some(_)) => PluginStatus::Current,
+            _ => PluginStatus::Unknown,
         };
         let mut row = PluginRow {
             name,
@@ -392,7 +415,8 @@ pub fn update(runner: &dyn ClaudeRunner, opts: &Options) -> Result<Report, Strin
     let explicit = opts.plugin.is_some();
     let mut restart_required = false;
     for row in rows.iter_mut() {
-        let wanted = row.status == "update" || (explicit && row.status == "unknown");
+        let wanted =
+            row.status == PluginStatus::Update || (explicit && row.status == PluginStatus::Unknown);
         if row.blocked {
             row.outcome = Some("skipped: blocked".into());
             continue;

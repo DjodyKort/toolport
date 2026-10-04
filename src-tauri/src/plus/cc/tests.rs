@@ -91,11 +91,11 @@ fn list_reports_installed_vs_available_without_mutating() {
     env.catalog();
     let mock = env.mock(LISTED, "echo updated");
     let r = list(&mock, &env.opts()).unwrap();
-    assert_eq!(row(&r, "alpha").status, "update");
+    assert_eq!(row(&r, "alpha").status, PluginStatus::Update);
     assert_eq!(row(&r, "alpha").available.as_deref(), Some("2.0.0"));
-    assert_eq!(row(&r, "beta").status, "current");
+    assert_eq!(row(&r, "beta").status, PluginStatus::Current);
     assert_eq!(row(&r, "gamma").available.as_deref(), Some("0123456789ab"));
-    assert_eq!(row(&r, "orphan").status, "unknown");
+    assert_eq!(row(&r, "orphan").status, PluginStatus::Unknown);
     assert_eq!(env.calls(), vec!["plugin list --json"]);
     assert!(r.render().contains("alpha@mkt-a"));
     assert_eq!(r.to_value()["plugins"][0]["id"], "alpha@mkt-a");
@@ -204,7 +204,7 @@ fn wrapped_list_shape_and_garbage_output() {
     );
     let r = list(&wrapped, &env.opts()).unwrap();
     assert_eq!(r.rows[0].marketplace.as_deref(), Some("mkt-a"));
-    assert_eq!(r.rows[0].status, "current");
+    assert_eq!(r.rows[0].status, PluginStatus::Current);
     let garbage = env.mock("not json", "echo x");
     assert!(list(&garbage, &env.opts())
         .unwrap_err()
@@ -250,4 +250,16 @@ fn handlers_are_registered() {
     assert!(err.contains("invalid plugin"));
     let err = crate::plus::dispatch("plus.cc.update", json!({"plugin": "-x"})).unwrap_err();
     assert!(err.contains("invalid plugin"));
+}
+
+#[test]
+fn plugin_status_keeps_its_wire_strings() {
+    for (status, wire) in [
+        (PluginStatus::Update, "update"),
+        (PluginStatus::Current, "current"),
+        (PluginStatus::Unknown, "unknown"),
+    ] {
+        assert_eq!(status.as_str(), wire);
+        assert_eq!(serde_json::to_value(status).unwrap(), wire);
+    }
 }
