@@ -1,4 +1,5 @@
 use super::*;
+use crate::plus::health::Health;
 use serde_json::json;
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -499,7 +500,7 @@ fn generate_profile_writes_strict_files_and_is_idempotent() {
     apply(&roots, &mut config, ApplyOptions::default()).unwrap();
     assert_eq!(h.read(&format!("{dir}/mcp.json")), before);
     let checks = doctor::run_checks(&roots, &config);
-    assert!(checks.iter().any(|(l, m)| l == "ok" && m.contains("profile 'bare' healthy")), "{checks:?}");
+    assert!(checks.iter().any(|(l, m)| *l == Health::Ok && m.contains("profile 'bare' healthy")), "{checks:?}");
 }
 
 #[test]

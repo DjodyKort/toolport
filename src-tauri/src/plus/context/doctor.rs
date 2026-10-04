@@ -8,11 +8,12 @@ use super::layers::PERSONAL_RULE_NAME;
 use super::roots::Roots;
 use crate::plus::skills::json::{parse, J};
 use crate::plus::hashing::sha256_hex;
+use crate::plus::health::Health;
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 
-pub type Check = (String, String);
+pub type Check = (Health, String);
 
 pub const PROFILE_STATE_FILE: &str = ".mcpm-context-state.json";
 
@@ -26,8 +27,8 @@ const KNOWN_CF_ASSETS: [&str; 5] = [
     "commands",
 ];
 
-fn check(level: &str, msg: impl Into<String>) -> Check {
-    (level.into(), msg.into())
+fn check(level: Health, msg: impl Into<String>) -> Check {
+    (level, msg.into())
 }
 
 pub fn run_checks(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
@@ -45,10 +46,10 @@ pub fn run_checks(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
 fn check_dupes(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
     let dupes = plan_dedupe(&roots.claude_json, &config.dedupe);
     if dupes.is_empty() {
-        return vec![check("ok", "no legacy MCP duplicates")];
+        return vec![check(Health::Ok, "no legacy MCP duplicates")];
     }
     vec![check(
-        "warn",
+        Health::Warn,
         format!(
             "legacy MCP duplicates present: {} — run `toolportctl context sync`",
             dupes.join(", ")
@@ -64,12 +65,12 @@ fn check_layers(roots: &Roots) -> Vec<Check> {
         .join(format!("{PERSONAL_RULE_NAME}.md"));
     if !canonical.exists() {
         vec![check(
-            "warn",
+            Health::Warn,
             "no personal layer scaffolded — run `toolportctl context init`",
         )]
     } else if !transpiled.exists() {
         vec![check(
-            "warn",
+            Health::Warn,
             format!(
                 "personal layer not transpiled to {} — run `toolportctl skills sync`",
                 transpiled.display()
@@ -77,7 +78,7 @@ fn check_layers(roots: &Roots) -> Vec<Check> {
         )]
     } else {
         vec![check(
-            "ok",
+            Health::Ok,
             "personal layer in place (canonical + transpiled)",
         )]
     }
@@ -97,7 +98,7 @@ fn check_settings_policy(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
             Some(v) => Some(v),
             None => {
                 return vec![check(
-                    "fail",
+                    Health::Fail,
                     format!("{} is not valid JSON", path.display()),
                 )]
             }
@@ -121,12 +122,12 @@ fn check_settings_policy(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
     }
     if missing > 0 {
         vec![check(
-            "warn",
+            Health::Warn,
             format!("{missing} policy permission entr(y/ies) missing (cf clobber?) — run `toolportctl context sync`"),
         )]
     } else {
         vec![check(
-            "ok",
+            Health::Ok,
             "policy permission entries present in settings.json",
         )]
     }
@@ -152,7 +153,7 @@ fn check_profiles(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
         let dir = roots.profiles_root().join(name);
         if !dir.is_dir() {
             checks.push(check(
-                "warn",
+                Health::Warn,
                 format!("profile '{name}' not generated — run `toolportctl context sync`"),
             ));
             continue;
@@ -161,7 +162,7 @@ fn check_profiles(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
         for file in [launch::MCP_FILE, launch::SETTINGS_FILE] {
             if !dir.join(file).is_file() {
                 checks.push(check(
-                    "warn",
+                    Health::Warn,
                     format!("profile '{name}': {file} missing — run `toolportctl context sync`"),
                 ));
             }
@@ -177,17 +178,17 @@ fn check_profiles(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
         broken.sort();
         if !broken.is_empty() {
             checks.push(check(
-                "warn",
+                Health::Warn,
                 format!("profile '{name}': broken symlink(s): {}", broken.join(", ")),
             ));
         }
         if let (Some(base), Some(state)) = (&base_hash, profile_state_base(&dir)) {
             if &state != base {
-                checks.push(check("warn", format!("profile '{name}': settings.json stale vs ~/.claude — run `toolportctl context sync`")));
+                checks.push(check(Health::Warn, format!("profile '{name}': settings.json stale vs ~/.claude — run `toolportctl context sync`")));
             }
         }
         if checks.len() == before {
-            checks.push(check("ok", format!("profile '{name}' healthy")));
+            checks.push(check(Health::Ok, format!("profile '{name}' healthy")));
         }
     }
     checks
@@ -200,7 +201,7 @@ fn check_shims(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
     let path = roots.shims_path();
     if !path.exists() {
         return vec![check(
-            "warn",
+            Health::Warn,
             "shims file missing — run `toolportctl context sync`",
         )];
     }
@@ -208,7 +209,7 @@ fn check_shims(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
     let zshrc = fs::read_to_string(roots.home.join(".zshrc")).ok();
     let Some(content) = zshrc.filter(|c| c.contains(&shown)) else {
         return vec![check(
-            "warn",
+            Health::Warn,
             format!("shims not sourced — add to ~/.zshrc:  source {shown}"),
         )];
     };
@@ -217,19 +218,19 @@ fn check_shims(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
         for other in ["shell-wrapper.sh", "compression-shims.zsh"] {
             if content.find(other).is_some_and(|pos| pos > ours) {
                 return vec![check(
-                    "warn",
+                    Health::Warn,
                     format!("context-shims sourced BEFORE {other} in ~/.zshrc — move our source line below it"),
                 )];
             }
         }
     }
-    vec![check("ok", "shims written and sourced (last)")]
+    vec![check(Health::Ok, "shims written and sourced (last)")]
 }
 
 fn check_env(roots: &Roots) -> Vec<Check> {
     match &roots.env_claude_config_dir {
         Some(v) if !v.is_empty() => vec![check(
-            "warn",
+            Health::Warn,
             "CLAUDE_CONFIG_DIR is exported globally — default `claude` now targets a profile, not ~/.claude",
         )],
         _ => Vec::new(),
@@ -240,7 +241,7 @@ fn check_cf_drift(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
     let cf = &roots.resolve_corp_tools_dir(config);
     if !cf.exists() {
         return vec![check(
-            "ok",
+            Health::Ok,
             "corp-dev-tools not installed — no coexistence constraints",
         )];
     }
@@ -252,12 +253,12 @@ fn check_cf_drift(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
     ) {
         if sha256_file(&wrapper).as_deref() != Some(baseline) {
             checks.push(check(
-                "warn",
+                Health::Warn,
                 "corp-dev-tools shell-wrapper.sh CHANGED since baseline — re-verify its sync still leaves rules/ and mcpServers alone, then re-baseline via `toolportctl context sync`",
             ));
         } else {
             checks.push(check(
-                "ok",
+                Health::Ok,
                 "corp-dev-tools shell-wrapper unchanged since baseline",
             ));
         }
@@ -277,7 +278,7 @@ fn check_cf_drift(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
             .collect();
         if !unexpected.is_empty() {
             checks.push(check(
-                "warn",
+                Health::Warn,
                 format!(
                     "corp-dev-tools claude/ grew new assets: {} — its sync scope may have expanded",
                     unexpected.join(", ")

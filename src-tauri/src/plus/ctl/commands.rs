@@ -1,4 +1,5 @@
 use super::output::{no_args, CtlError, Output};
+use crate::plus::health::Health;
 use crate::plus::registry_ro;
 use crate::registry::{self, Registry};
 use serde_json::{json, Value};
@@ -147,8 +148,18 @@ pub fn status(rest: &[String]) -> Result<Output, CtlError> {
     Ok(Output::new(data, human))
 }
 
-fn check(name: &str, status: &str, detail: String) -> Value {
-    json!({"name": name, "status": status, "detail": detail})
+struct Check {
+    name: &'static str,
+    status: Health,
+    detail: String,
+}
+
+fn check(name: &'static str, status: Health, detail: String) -> Check {
+    Check {
+        name,
+        status,
+        detail,
+    }
 }
 
 pub fn doctor(rest: &[String]) -> Result<Output, CtlError> {
@@ -159,71 +170,82 @@ pub fn doctor(rest: &[String]) -> Result<Output, CtlError> {
     checks.push(match &snap.data_dir {
         Some(dir) if !dir.exists() => check(
             "dataDir",
-            "warn",
+            Health::Warn,
             format!("{} does not exist yet", dir.display()),
         ),
-        Some(dir) if data_dir_writable(dir) => {
-            check("dataDir", "ok", format!("{} is writable", dir.display()))
-        }
+        Some(dir) if data_dir_writable(dir) => check(
+            "dataDir",
+            Health::Ok,
+            format!("{} is writable", dir.display()),
+        ),
         Some(dir) => check(
             "dataDir",
-            "fail",
+            Health::Fail,
             format!("{} is not writable", dir.display()),
         ),
         None => check(
             "dataDir",
-            "fail",
+            Health::Fail,
             "data directory could not be resolved".into(),
         ),
     });
     checks.push(match (&snap.registry, &snap.registry_error) {
         (Some(reg), _) => check(
             "registry",
-            "ok",
+            Health::Ok,
             format!(
                 "{} servers, {} profiles",
                 reg.servers.len(),
                 reg.profiles.len()
             ),
         ),
-        (None, Some(e)) => check("registry", "fail", e.clone()),
-        (None, None) => check("registry", "warn", "no registry file yet".into()),
+        (None, Some(e)) => check("registry", Health::Fail, e.clone()),
+        (None, None) => check("registry", Health::Warn, "no registry file yet".into()),
     });
     checks.push(match &snap.registry {
         Some(reg) => {
             let active = reg.active_profile_id();
             if reg.profiles.iter().any(|p| p.id == active) {
-                check("activeProfile", "ok", active)
+                check("activeProfile", Health::Ok, active)
             } else {
                 check(
                     "activeProfile",
-                    "warn",
+                    Health::Warn,
                     format!("{active} is not a defined profile"),
                 )
             }
         }
-        None => check("activeProfile", "warn", "no registry to inspect".into()),
+        None => check(
+            "activeProfile",
+            Health::Warn,
+            "no registry to inspect".into(),
+        ),
     });
-    checks.push(check("secretsBackend", "ok", secrets_backend().to_string()));
+    checks.push(check(
+        "secretsBackend",
+        Health::Ok,
+        secrets_backend().to_string(),
+    ));
     checks.push(match gateway_binary(snap.data_dir.as_ref()) {
-        Some(path) => check("gatewayBinary", "ok", path.display().to_string()),
-        None => check("gatewayBinary", "warn", "toolport-gateway not found".into()),
+        Some(path) => check("gatewayBinary", Health::Ok, path.display().to_string()),
+        None => check(
+            "gatewayBinary",
+            Health::Warn,
+            "toolport-gateway not found".into(),
+        ),
     });
 
-    let failed = checks.iter().any(|c| c["status"] == "fail");
+    let failed = checks.iter().any(|c| c.status == Health::Fail);
     let human = checks
         .iter()
-        .map(|c| {
-            format!(
-                "[{}] {}: {}",
-                c["status"].as_str().unwrap_or(""),
-                c["name"].as_str().unwrap_or(""),
-                c["detail"].as_str().unwrap_or("")
-            )
-        })
+        .map(|c| format!("[{}] {}: {}", c.status.as_str(), c.name, c.detail))
         .collect::<Vec<_>>()
         .join("\n");
-    let mut output = Output::new(json!({"healthy": !failed, "checks": checks}), human);
+    let rows: Vec<Value> = checks
+        .iter()
+        .map(|c| json!({"name": c.name, "status": c.status, "detail": c.detail}))
+        .collect();
+    let mut output = Output::new(json!({"healthy": !failed, "checks": rows}), human);
     output.failed = failed;
     Ok(output)
 }

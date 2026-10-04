@@ -23,6 +23,7 @@ pub(crate) mod args;
 pub(crate) mod exec;
 pub(crate) mod fswalk;
 pub(crate) mod hashing;
+pub(crate) mod health;
 pub(crate) mod jsonfs;
 pub(crate) mod registry_ro;
 pub(crate) mod servers;
