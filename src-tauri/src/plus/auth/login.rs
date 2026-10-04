@@ -5,10 +5,15 @@
 use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
+use serde_json::{json, Value};
 
 use super::http_probes::{combined_registry, PARAM_TOKEN_KEY};
-use super::probe::{ProbeKind, ProbeSpec};
+use super::probe::{Clock, ProbeKind, ProbeSpec};
+use super::scan::{self, ProbeRun, Selector};
 use super::stdio;
+use super::surfaces::{self, AuthRow};
+use super::SystemClock;
+use crate::plus::args::{flag_or, str_nonempty};
 use crate::registry::{Registry, ServerEntry};
 
 pub type UrlSink = Arc<dyn Fn(&str) + Send + Sync>;
@@ -271,4 +276,63 @@ pub fn login(key: &str, opts: LoginOptions, sink: UrlSink) -> Result<LoginReport
         Plan::Stdio => stdio_flow(server, opts, sink),
         Plan::Unsupported { reason, next } => Err(LoginError::Unsupported { reason, next }),
     }
+}
+
+/// A forced re-probe of the server just signed in to: what the status cache says afterwards.
+pub struct FollowUp {
+    pub probe: Value,
+    pub rows: Vec<AuthRow>,
+    pub run: Option<ProbeRun>,
+}
+
+pub fn follow_up(server: &str) -> FollowUp {
+    let outcome = scan::default_prober()
+        .and_then(|prober| scan::run(&prober, &Selector::One(server.to_string()), true, 1));
+    match outcome {
+        Ok(run) => {
+            let status = surfaces::auth_dir()
+                .map(|dir| surfaces::read_status(&dir))
+                .unwrap_or_default();
+            let rows = surfaces::rows_for(&status, SystemClock.now(), &run.servers());
+            FollowUp {
+                probe: json!(run.reports.first()),
+                rows,
+                run: Some(run),
+            }
+        }
+        Err(_) => FollowUp {
+            probe: Value::Null,
+            rows: Vec::new(),
+            run: None,
+        },
+    }
+}
+
+pub fn report_value(report: &LoginReport, follow: &FollowUp) -> Value {
+    let mut data = serde_json::to_value(report).unwrap_or_default();
+    data["probe"] = follow.probe.clone();
+    data["servers"] = json!(follow.rows);
+    data
+}
+
+impl LoginError {
+    /// The text `toolportctl auth login` and the app show for a refused or failed sign-in.
+    pub fn message(&self) -> String {
+        match self {
+            LoginError::NotFound(message) | LoginError::Failed(message) => message.clone(),
+            LoginError::Unsupported { reason, next } => format!("{reason}. Next: {next}"),
+        }
+    }
+}
+
+/// `plus.auth.login`: the one-click fix of a `reauth` or `reconsent` row. It blocks until the
+/// browser sign-in ends, so the caller runs it off the UI thread (`plus_invoke` already does).
+pub fn login_handler(args: Value) -> Result<Value, String> {
+    let server = str_nonempty(&args, "server").ok_or_else(|| "server is required".to_string())?;
+    let opts = LoginOptions {
+        open_browser: flag_or(&args, "openBrowser", true),
+    };
+    let sink: UrlSink = Arc::new(|_| {});
+    let report = login(server, opts, sink).map_err(|error| error.message())?;
+    Ok(report_value(&report, &follow_up(&report.server)))
 }

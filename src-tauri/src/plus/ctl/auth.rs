@@ -6,7 +6,7 @@ use crate::plus::auth::login::{self, LoginError, LoginOptions};
 use crate::plus::auth::scan::{self, ProbeRun, Selector};
 use crate::plus::auth::surfaces::{self, AuthRow};
 use crate::plus::auth::{AuthProber, Clock, StatusFile, SystemClock};
-use serde_json::{json, Value};
+use serde_json::Value;
 
 const PROBE_USAGE: &str = "usage: auth probe [--server <id>] [--force]";
 const LOGIN_USAGE: &str = "usage: auth login <server> [--no-open]";
@@ -157,18 +157,6 @@ fn consent_sink() -> login::UrlSink {
     Arc::new(|url| eprintln!("Open this URL to sign in:\n  {url}"))
 }
 
-fn follow_up(server: &str) -> (Value, Vec<AuthRow>, Option<ProbeRun>) {
-    let outcome = scan::default_prober()
-        .and_then(|prober| scan::run(&prober, &Selector::One(server.to_string()), true, 1));
-    match outcome {
-        Ok(run) => {
-            let rows = surfaces::rows_for(&read_status(), SystemClock.now(), &run.servers());
-            (json!(run.reports.first()), rows, Some(run))
-        }
-        Err(_) => (Value::Null, Vec::new(), None),
-    }
-}
-
 pub fn login(rest: &[String]) -> Result<Output, CtlError> {
     let flags = LOGIN.parse(rest)?;
     let key = flags.single(LOGIN_USAGE)?;
@@ -177,22 +165,17 @@ pub fn login(rest: &[String]) -> Result<Output, CtlError> {
     };
     let report = login::login(key, opts, consent_sink()).map_err(|error| match error {
         LoginError::NotFound(message) => CtlError::not_found(message),
-        LoginError::Unsupported { reason, next } => {
-            CtlError::failed("unsupported", format!("{reason}. Next: {next}"))
-        }
+        error @ LoginError::Unsupported { .. } => CtlError::failed("unsupported", error.message()),
         LoginError::Failed(message) => CtlError::failed("auth_login", message),
     })?;
-    let (probe, rows, run) = follow_up(&report.server);
+    let follow = login::follow_up(&report.server);
     let mut human = report.message.clone();
     if let Some(url) = &report.consent_url {
         human.push_str(&format!("\nConsent URL: {url}"));
     }
-    if let Some(run) = &run {
+    if let Some(run) = &follow.run {
         human.push('\n');
-        human.push_str(&rows_table(&rows, run));
+        human.push_str(&rows_table(&follow.rows, run));
     }
-    let mut data = serde_json::to_value(&report).unwrap_or_default();
-    data["probe"] = probe;
-    data["servers"] = json!(rows);
-    Ok(Output::new(data, human))
+    Ok(Output::new(login::report_value(&report, &follow), human))
 }
