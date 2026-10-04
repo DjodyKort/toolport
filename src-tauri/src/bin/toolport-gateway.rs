@@ -19445,6 +19445,10 @@ fn main() {
     }
 }
 
+#[cfg(all(test, unix))]
+#[path = "../../tests/common/exec.rs"]
+mod exec;
+
 #[cfg(test)]
 mod tests {
     use conduit_lib::approval::decide_via_broker;
@@ -29583,17 +29587,34 @@ mod tests {
         );
     }
 
+    /// Writes its pid to `$FIXTURE_GATE.started`, serves nothing until `$FIXTURE_GATE`
+    /// exists (about 30 s at most), then answers the handshake and catalog lists with
+    /// one `pwd` tool and appends every request to `$FIXTURE_TRANSCRIPT`.
     #[cfg(unix)]
-    fn mock_server_binary() -> PathBuf {
-        let path = std::env::current_exe()
-            .unwrap()
-            .parent()
-            .and_then(Path::parent)
-            .unwrap()
-            .join(format!("mock-mcp-server{}", std::env::consts::EXE_SUFFIX));
-        assert!(path.exists(), "build the fixture first: {}", path.display());
-        path
-    }
+    const GATED_SERVER: &str = r#"#!/bin/sh
+printf '%s\n' "$$" >> "$FIXTURE_GATE.started"
+waited=0
+while [ ! -e "$FIXTURE_GATE" ] && [ "$waited" -lt 3000 ]; do
+  sleep 0.01
+  waited=$((waited + 1))
+done
+while IFS= read -r line; do
+  printf '%s\n' "$line" >> "$FIXTURE_TRANSCRIPT"
+  id=$(printf '%s' "$line" | sed -n 's/^{"id":\([0-9][0-9]*\),.*/\1/p')
+  [ -n "$id" ] || continue
+  case "$line" in
+    *'"method":"initialize"'*)
+      result='{"protocolVersion":"2025-06-18","capabilities":{"tools":{}},"serverInfo":{"name":"gated","version":"0"}}' ;;
+    *'"method":"tools/list"'*)
+      result='{"tools":[{"name":"pwd","description":"cwd","inputSchema":{"type":"object"}}]}' ;;
+    *'"method":"resources/list"'*) result='{"resources":[]}' ;;
+    *'"method":"resources/templates/list"'*) result='{"resourceTemplates":[]}' ;;
+    *'"method":"prompts/list"'*) result='{"prompts":[]}' ;;
+    *) result='{}' ;;
+  esac
+  printf '{"jsonrpc":"2.0","id":%s,"result":%s}\n' "$id" "$result"
+done
+"#;
 
     /// A daemon host whose first launch for one root stays in flight until
     /// `open_gate`, so a test decides what happens to the pool while it connects.
@@ -29624,20 +29645,19 @@ mod tests {
             let gate = dir.join("start-gate");
             let started = dir.join("start-gate.started");
             let transcript = dir.join("downstream.jsonl");
+            let script = dir.join("gated-server.sh");
+            exec::write_executable(&script, GATED_SERVER);
             let mut server = stub_server("mock", "Mock");
-            server.command = Some(mock_server_binary().display().to_string());
+            server.command = Some(script.display().to_string());
             server.cwd = Some("${ROOT}".to_string());
-            server.env = [
-                ("MOCK_MCP_TRANSCRIPT", &transcript),
-                ("MOCK_MCP_START_GATE", &gate),
-            ]
-            .into_iter()
-            .map(|(key, path)| registry::EnvVar {
-                key: key.to_string(),
-                value: Some(path.display().to_string()),
-                secret: false,
-            })
-            .collect();
+            server.env = [("FIXTURE_TRANSCRIPT", &transcript), ("FIXTURE_GATE", &gate)]
+                .into_iter()
+                .map(|(key, path)| registry::EnvVar {
+                    key: key.to_string(),
+                    value: Some(path.display().to_string()),
+                    secret: false,
+                })
+                .collect();
             let mut reg = Registry::default();
             reg.set_lazy_discovery(false);
             reg.servers = vec![server];
