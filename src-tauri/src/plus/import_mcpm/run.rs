@@ -1,5 +1,6 @@
 use super::{
-    map_all, relocate_entry, screen_entry, ClientConfig, Mapping, McpmInput, Warning, IMPORT_SOURCE,
+    map_all, relocate_entry, screen_entry, skills_sync, ClientConfig, Mapping, McpmInput, Warning,
+    IMPORT_SOURCE,
 };
 use crate::clients;
 use crate::plus::args::{flag, flag_or, str_arg};
@@ -86,6 +87,7 @@ pub struct Plan {
     pub client_discovery: Vec<Change>,
     pub clients: Vec<ClientChange>,
     pub secrets: Vec<Change>,
+    pub skills_sync: Vec<Change>,
     pub skipped_clients: Value,
     pub warnings: Value,
     pub counts: BTreeMap<Action, usize>,
@@ -124,12 +126,13 @@ impl Plan {
             }
             lines.push(line);
         }
-        let groups: [(&str, &[Change]); 5] = [
+        let groups: [(&str, &[Change]); 6] = [
             ("server", &self.servers),
             ("profile", &self.profiles),
             ("scope", &self.client_scopes),
             ("discovery", &self.client_discovery),
             ("secret", &self.secrets),
+            ("skills-sync", &self.skills_sync),
         ];
         for (label, changes) in groups {
             for c in changes.iter().filter(|c| c.action != Action::Unchanged) {
@@ -510,6 +513,7 @@ fn counts(plan: &Plan) -> BTreeMap<Action, usize> {
         .chain(&plan.client_scopes)
         .chain(&plan.client_discovery)
         .chain(&plan.secrets)
+        .chain(&plan.skills_sync)
         .map(|c| c.action)
         .chain(plan.clients.iter().map(|c| c.action));
     for action in all {
@@ -592,6 +596,8 @@ pub fn run(opts: &RunOptions) -> Result<Plan, String> {
     mapping.warnings.extend(notes);
     let data_dir = registry::conduit_dir().ok_or("Could not resolve data directory")?;
     let (rejects, moves) = prepare_launch(&mut mapping, &input.home, &data_dir);
+    let carry = skills_sync::plan(&opts.root, &data_dir, &input.home);
+    mapping.warnings.extend(carry.warnings);
     let mut preview = read_registry()?;
     let preview_changes = merge_registry(&mut preview, &mapping);
     let skipped: Vec<String> = preview_changes
@@ -641,6 +647,9 @@ pub fn run(opts: &RunOptions) -> Result<Plan, String> {
 
     if !opts.dry_run {
         register::ensure_self_server()?;
+        if let Some((path, text)) = &carry.write {
+            registry::atomic_write(path, text)?;
+        }
     }
 
     let mut client_changes = Vec::new();
@@ -671,6 +680,7 @@ pub fn run(opts: &RunOptions) -> Result<Plan, String> {
         client_discovery: changes.client_discovery,
         clients: client_changes,
         secrets: secret_changes,
+        skills_sync: carry.change.into_iter().collect(),
         skipped_clients: json!(mapping.skipped_clients),
         warnings: json!(mapping.warnings),
         counts: BTreeMap::new(),

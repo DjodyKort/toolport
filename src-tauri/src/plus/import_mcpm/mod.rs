@@ -25,6 +25,9 @@ mod run;
 #[cfg(test)]
 mod run_tests;
 mod servers;
+mod skills_sync;
+#[cfg(test)]
+mod skills_sync_tests;
 #[cfg(test)]
 mod tests;
 
