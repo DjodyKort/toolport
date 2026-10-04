@@ -1,0 +1,26 @@
+ecc 2.2.0
+  Description: Synthetic engineering toolkit: review skills, agents, commands and a hook runner.
+  Source: ecc@ecc
+
+Component inventory
+  Skills (5)  arch-review, debug-loop, plan, release-notes, review
+  Agents (2)  planner, code-reviewer
+  Hooks (7)  PreToolUse, PostToolUse, PreCompact, SessionStart, PostToolUseFailure, Stop, SessionEnd  (harness-only — no model context cost)
+  MCP servers (2)  chrome-devtools, memory  (tool schemas resolved at runtime; not counted)
+  LSP servers (0)
+
+Projected token cost
+  Always-on:   ~70 tok   added to every session
+
+Per-component (rounded)
+  component      always-on  on-invoke
+  debug-loop          < 20       < 20
+  release-notes       < 20       < 20
+  arch-review         < 20       < 20
+  planner             < 20       < 20
+  code-reviewer       < 20       < 20
+  plan                < 20       < 20
+  review              < 20       < 20
+
+  On-invoke cost is paid each time a skill or agent fires.
+  Token counts are estimates and may differ from actual usage.

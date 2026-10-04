@@ -1,0 +1,25 @@
+[
+  {
+    "id": "ecc@ecc",
+    "version": "2.2.0",
+    "scope": "user",
+    "enabled": true,
+    "installPath": "@CLAUDE_HOME@/plugins/cache/ecc/ecc/2.2.0",
+    "readFromFolder": "@CLAUDE_HOME@/plugins/marketplaces/ecc",
+    "folderVersion": "2.2.0",
+    "installedAt": "2026-08-31T10:00:00.000Z",
+    "lastUpdated": "2026-08-31T10:00:00.000Z",
+    "mcpServers": {
+      "chrome-devtools": {
+        "command": "npx",
+        "args": ["-y", "chrome-devtools-mcp@latest"]
+      },
+      "memory": {
+        "command": "node",
+        "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/mcp/memory.js"]
+      }
+    },
+    "projectEnabled": true,
+    "hasUserConfig": true
+  }
+]

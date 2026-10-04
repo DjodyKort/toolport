@@ -1,0 +1,34 @@
+{
+  "pluginId": "ecc@ecc",
+  "displayName": "ecc",
+  "schema": {
+    "hook_profile": {
+      "type": "string",
+      "title": "Hook profile",
+      "description": "How strict the hook runner is: minimal, standard or strict.",
+      "default": "standard"
+    },
+    "hooks_enabled": {
+      "type": "boolean",
+      "title": "Hooks",
+      "description": "Run the plugin hooks at all.",
+      "default": true
+    },
+    "api_token": {
+      "type": "string",
+      "title": "Service token",
+      "description": "Token for the optional remote service.",
+      "sensitive": true
+    }
+  },
+  "inputs": {
+    "hook_profile": "strict",
+    "hooks_enabled": "true",
+    "api_token": ""
+  },
+  "choices": {
+    "hooks_enabled": ["true", "false"]
+  },
+  "configured": ["hook_profile", "hooks_enabled"],
+  "unconfigured": ["api_token"]
+}

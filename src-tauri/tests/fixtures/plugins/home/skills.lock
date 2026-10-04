@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "synced_at": "2026-10-01T00:00:00Z",
+  "scope": "global",
+  "output_root": "@HOME@/.claude",
+  "skills": {
+    "handoff-notes": {
+      "source": "local",
+      "version": null,
+      "hash": "sha256:0",
+      "clients_synced": [
+        "claude-code"
+      ],
+      "warnings": [],
+      "output_files": {
+        "claude-code": [
+          ".claude/skills/handoff-notes/SKILL.md"
+        ]
+      },
+      "hooks_installed": {
+        "claude-code": [
+          "@HOME@/.claude/skills/handoff-notes/hooks/session-notes.sh"
+        ]
+      }
+    }
+  },
+  "rules": {},
+  "agents": {},
+  "styles": {},
+  "active_styles": {}
+}
