@@ -842,6 +842,8 @@ mod agents_golden_tests;
 #[cfg(test)]
 mod agents_tests;
 #[cfg(test)]
+mod skills_client_scope_tests;
+#[cfg(test)]
 mod styles_golden_tests;
 #[cfg(test)]
 mod styles_tests;

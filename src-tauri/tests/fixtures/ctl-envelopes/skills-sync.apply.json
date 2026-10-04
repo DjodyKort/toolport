@@ -5,32 +5,16 @@
     "data": {
       "backupRoot": "<WORLD>/home/.mcpm-backups",
       "cleaned": [],
-      "clientCount": 13,
+      "clientCount": 1,
+      "clientSource": "default",
       "collisions": [],
       "dryRun": false,
       "entries": [
         {
-          "clientsSynced": [
-            "aider",
-            "amazon-q",
-            "claude-code",
-            "cline",
-            "codex-cli",
-            "continue",
-            "cursor",
-            "gemini-cli",
-            "goose-cli",
-            "jetbrains",
-            "roo-code",
-            "trae",
-            "windsurf"
-          ],
+          "clientsSynced": ["claude-code"],
           "name": "demo",
           "type": "skill",
-          "warnings": [
-            "aider: activation 'auto' downgraded to 'always'",
-            "amazon-q: activation 'auto' downgraded to 'always' (no frontmatter support)"
-          ]
+          "warnings": []
         }
       ],
       "globalMode": true,
@@ -40,7 +24,8 @@
       "repo": "<WORLD>/skills-repo",
       "ruleCount": 0,
       "skillCount": 1,
-      "syncedAt": "<TIME>"
+      "syncedAt": "<TIME>",
+      "targetedClients": ["claude-code"]
     },
     "ok": true,
     "schemaVersion": 1

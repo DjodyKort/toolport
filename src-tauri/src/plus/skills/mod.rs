@@ -6,6 +6,7 @@ pub mod api;
 pub mod assets;
 pub mod audit;
 pub mod bundle;
+pub mod client_scope;
 pub mod clock;
 pub mod collisions;
 pub mod frontmatter;

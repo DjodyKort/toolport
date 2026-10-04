@@ -184,6 +184,20 @@ impl Fx {
         let (code, out, err) = run(&list);
         assert_eq!(code, 0, "{list:?}: {out}{err}");
     }
+
+    /// The state mcpm's recordings start from: every client synced. A bare sync only repeats the
+    /// clients its lock holds, so they are named.
+    fn sync_everywhere(&self, extra: &[&str]) {
+        let keys: Vec<String> = crate::plus::skills::transpilers::registry_with_home(None)
+            .all()
+            .map(|t| t.client_key().to_string())
+            .collect();
+        let mut list: Vec<&str> = extra.to_vec();
+        for key in &keys {
+            list.extend(["--client", key]);
+        }
+        self.sync(&list);
+    }
 }
 
 impl Drop for Fx {
@@ -359,7 +373,7 @@ fn status_client_filter_limits_the_rows() {
 fn project_clean_text_matches_mcpm_and_keeps_what_mcpm_keeps() {
     let fx = Fx::new("clean-project");
     let repo = fx.arg("repo");
-    fx.sync(&["--project"]);
+    fx.sync_everywhere(&["--project"]);
     assert_eq!(fx.files("repo").len(), 46);
 
     let (code, out, err) = run(&["skills", "clean", "--project", "--repo", &repo]);
@@ -376,7 +390,7 @@ fn project_clean_text_matches_mcpm_and_keeps_what_mcpm_keeps() {
 fn clean_for_one_client_keeps_the_lockfile_like_mcpm() {
     let fx = Fx::new("clean-client");
     let repo = fx.arg("repo");
-    fx.sync(&["--project"]);
+    fx.sync_everywhere(&["--project"]);
     let (code, out, err) = run(&[
         "skills",
         "clean",
@@ -411,7 +425,7 @@ fn clean_for_one_client_keeps_the_lockfile_like_mcpm() {
 fn clean_dry_run_reports_the_real_removals_and_writes_nothing() {
     let fx = Fx::new("clean-dry");
     let repo = fx.arg("repo");
-    fx.sync(&["--project"]);
+    fx.sync_everywhere(&["--project"]);
     let before = fx.snapshot();
 
     let (code, v, err) = cli(&["skills", "clean", "--project", "--repo", &repo, "--dry-run"]);
@@ -576,7 +590,7 @@ fn clean_still_cleans_valid_names_beside_tampered_ones() {
 fn uninstall_text_matches_mcpm_for_a_skill_and_a_rule() {
     let fx = Fx::new("uninstall");
     let repo = fx.arg("repo");
-    fx.sync(&["--project"]);
+    fx.sync_everywhere(&["--project"]);
 
     let (code, out, err) = run(&["skills", "uninstall", "beta", "--project", "--repo", &repo]);
     assert_eq!(code, 0, "{err}");
@@ -600,7 +614,7 @@ fn uninstall_text_matches_mcpm_for_a_skill_and_a_rule() {
 fn uninstall_dry_run_reports_the_real_removals_and_writes_nothing() {
     let fx = Fx::new("uninstall-dry");
     let repo = fx.arg("repo");
-    fx.sync(&["--project"]);
+    fx.sync_everywhere(&["--project"]);
     let before = fx.snapshot();
 
     let (code, v, err) = cli(&[
@@ -664,7 +678,7 @@ fn global_uninstall_cleans_home_outputs_and_updates_the_data_dir_lock() {
 fn uninstall_refuses_unknown_invalid_and_escaping_names() {
     let fx = Fx::new("uninstall-bad");
     let repo = fx.arg("repo");
-    fx.sync(&["--project"]);
+    fx.sync_everywhere(&["--project"]);
     fx.put("outside/keep.txt", "keep");
     let before = fx.snapshot();
     for (name, needle) in [
