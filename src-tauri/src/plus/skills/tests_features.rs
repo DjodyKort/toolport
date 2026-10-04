@@ -3,12 +3,13 @@ use super::audit::audit_skills;
 use super::bundle::{create_bundle, extract_bundle, BundleOptions};
 use super::clock::{FixedClock, Instant};
 use super::git::{GitRunner, SystemGit};
-use super::lint::lint_skills;
+use super::lint::{lint_outputs, lint_skills, LintLevel};
 use super::lock::{load_lockfile, save_lockfile, LockFile};
 use super::ops::{self, ResolveRequest};
 use super::parser::discover_skills;
 use super::styles::{apply_style, discover_styles, remove_style, sync_styles, StyleOptions};
 use super::sync::{sync_skills, SyncOptions};
+use super::transpiler::{Capabilities, TranspileResult, Transpiler};
 use super::transpilers::{register_all_with_home, register_vscode_copilot};
 use super::TranspilerRegistry;
 use std::fs;
@@ -633,4 +634,115 @@ fn vscode_registration_is_opt_in() {
     assert!(r.get("vscode").is_none());
     register_vscode_copilot(&mut r);
     assert!(r.get("vscode").is_some());
+}
+
+const MULTILINE_LIBRARY: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/fixtures/skills-core/claude-code-multiline-description/input/repo"
+);
+
+/// The emitter before MIG-GFX-4: the description spliced between quotes as it is.
+struct LegacyEmitter {
+    key: &'static str,
+    capabilities: Capabilities,
+}
+
+impl Transpiler for LegacyEmitter {
+    fn client_key(&self) -> &str {
+        self.key
+    }
+
+    fn capabilities(&self) -> Capabilities {
+        self.capabilities
+    }
+
+    fn transpile(&self, skill: &super::Skill, root: &Path) -> Result<TranspileResult, String> {
+        Ok(TranspileResult {
+            output_path: self.get_output_path(skill, root),
+            content: format!(
+                "---\nname: {}\ndescription: \"{}\"\n---\n\n{}\n",
+                skill.name(),
+                skill.frontmatter.description,
+                skill.body
+            ),
+            warnings: Vec::new(),
+        })
+    }
+
+    fn get_output_path(&self, skill: &super::Skill, root: &Path) -> PathBuf {
+        root.join(".legacy").join(skill.name()).join("SKILL.md")
+    }
+}
+
+fn lint_registry(home: &Path) -> TranspilerRegistry {
+    let mut registry = TranspilerRegistry::new();
+    register_all_with_home(&mut registry, Some(home.to_path_buf()));
+    register_vscode_copilot(&mut registry);
+    registry
+}
+
+#[test]
+fn output_lint_accepts_the_multi_line_description_fixture_for_every_client() {
+    let t = Tmp::new("lint-outputs-clean");
+    let skills = load_skills(Path::new(MULTILINE_LIBRARY));
+    let names: Vec<&str> = skills.iter().map(|s| s.name()).collect();
+    assert_eq!(names, ["doc-drift", "release-gate", "session-handoff"]);
+    assert!(skills
+        .iter()
+        .all(|s| s.frontmatter.description.contains('\n')));
+    let result = lint_outputs(&skills, &lint_registry(&t.0));
+    assert!(result.messages.is_empty(), "{:?}", result.messages);
+}
+
+#[test]
+fn output_lint_fails_a_client_that_would_write_the_rejected_shape() {
+    let t = Tmp::new("lint-outputs-broken");
+    let mut skills = load_skills(Path::new(MULTILINE_LIBRARY));
+    let mut quoted = super::Skill::placeholder("quoted", super::SkillType::Skill);
+    quoted.frontmatter.description = "Say \"hi\" to start".into();
+    skills.push(quoted);
+    let mut registry = lint_registry(&t.0);
+    registry.register(Box::new(LegacyEmitter {
+        key: "claude-code",
+        capabilities: Capabilities::PER_FILE,
+    }));
+    let result = lint_outputs(&skills, &registry);
+    let prefix = "Emitted claude-code frontmatter would be rejected: ";
+    let got: Vec<(&str, LintLevel)> = result
+        .messages
+        .iter()
+        .map(|m| (m.name.as_str(), m.level))
+        .collect();
+    assert_eq!(
+        got,
+        [
+            ("doc-drift", LintLevel::Error),
+            ("release-gate", LintLevel::Error),
+            ("session-handoff", LintLevel::Error),
+            ("quoted", LintLevel::Error),
+        ]
+    );
+    let reasons: Vec<&str> = result
+        .messages
+        .iter()
+        .map(|m| m.message.strip_prefix(prefix).expect(&m.message))
+        .collect();
+    for reason in &reasons[..3] {
+        assert!(
+            reason.starts_with("line ") && reason.contains("continues a quoted multi-line value"),
+            "{reason}"
+        );
+    }
+    assert!(reasons[3].starts_with("invalid YAML"), "{}", reasons[3]);
+}
+
+#[test]
+fn output_lint_ignores_clients_that_aggregate_all_skills_into_one_file() {
+    let skills = load_skills(Path::new(MULTILINE_LIBRARY));
+    let mut registry = TranspilerRegistry::new();
+    registry.register(Box::new(LegacyEmitter {
+        key: "aggregate",
+        capabilities: Capabilities::PROJECT_APPEND,
+    }));
+    assert!(lint_outputs(&skills, &registry).messages.is_empty());
 }

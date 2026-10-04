@@ -115,6 +115,39 @@ fn lint_errors_exit_one() {
     assert!(v["data"]["errors"].as_u64().unwrap() > 0);
 }
 
+const MULTILINE_LIBRARY: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/fixtures/skills-core/claude-code-multiline-description/input/repo"
+);
+
+fn lint_messages(v: &Value) -> Vec<String> {
+    v["data"]["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| {
+            format!(
+                "{}: {}",
+                m["name"].as_str().unwrap(),
+                m["message"].as_str().unwrap()
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn lint_passes_a_library_with_multi_line_descriptions() {
+    let _fx = Fx::new("lint-multiline");
+    let (code, v, _) = cli(&["--json", "skills", "lint", "--repo", MULTILINE_LIBRARY]);
+    assert_eq!(code, 0, "{v}");
+    assert_eq!(v["data"]["errors"], 0);
+    let messages = lint_messages(&v);
+    assert!(
+        messages.iter().all(|m| !m.contains("would be rejected")),
+        "{messages:?}"
+    );
+}
+
 #[test]
 fn sync_dry_run_writes_nothing_then_real_sync_makes_diff_clean() {
     let fx = Fx::new("sync");
