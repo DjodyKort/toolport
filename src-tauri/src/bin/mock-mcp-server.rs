@@ -193,6 +193,146 @@ fn council_profile() -> bool {
     std::env::var("MOCK_MCP_PROFILE").as_deref() == Ok("council")
 }
 
+/// `MOCK_MCP_PROFILE=odh` adds the `odoo_*` tools, an `instructions` string, the
+/// `odh://` resources and `resources/read` on top of the default surface.
+fn odh_profile() -> bool {
+    std::env::var("MOCK_MCP_PROFILE").as_deref() == Ok("odh")
+}
+
+const ODH_INSTRUCTIONS: &str = "FAKE-odh-downstream-instructions";
+
+fn odh_tools() -> Vec<Value> {
+    vec![
+        json!({ "name": "odoo_search_read", "description": "Structured result with an outputSchema.",
+                "inputSchema": { "type": "object", "properties": { "model": { "type": "string" } } },
+                "outputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "count": { "type": "integer" },
+                        "records": { "type": "array", "items": { "type": "object" } }
+                    },
+                    "required": ["count", "records"]
+                } }),
+        json!({ "name": "odoo_export", "description": "Returns a resource_link to a listed resource.",
+                "inputSchema": { "type": "object", "properties": {} } }),
+        json!({ "name": "odoo_export_report", "description": "Returns a resource_link covered by a template.",
+                "inputSchema": { "type": "object", "properties": {} } }),
+        json!({ "name": "odoo_export_dynamic", "description": "Returns a resource_link that is neither listed nor templated.",
+                "inputSchema": { "type": "object", "properties": {} } }),
+        json!({ "name": "odoo_progress", "description": "Emit progress notifications with a message, then reply.",
+                "inputSchema": { "type": "object", "properties": { "steps": { "type": "integer" } } } }),
+        json!({ "name": "odoo_slow", "description": "Reply after delayMs, emitting progress every progressEveryMs.",
+                "inputSchema": { "type": "object", "properties": {
+                    "delayMs": { "type": "integer" }, "progressEveryMs": { "type": "integer" } } } }),
+        json!({ "name": "odoo_big", "description": "Return a text body and a structuredContent blob of `bytes` bytes each.",
+                "inputSchema": { "type": "object", "properties": { "bytes": { "type": "integer" } } } }),
+    ]
+}
+
+fn odh_resource_text(uri: &str) -> Option<(&'static str, String)> {
+    if uri == "odh://export/1" {
+        return Some(("text/csv", "id,name\n1,FAKE-row\n".to_string()));
+    }
+    if uri.starts_with("odh://report/") || uri.starts_with("odh://dyn/") {
+        return Some(("text/plain", format!("body of {uri}")));
+    }
+    None
+}
+
+fn odh_progress_note(token: &Value, progress: u64, total: u64) -> Value {
+    json!({
+        "jsonrpc": "2.0",
+        "method": "notifications/progress",
+        "params": {
+            "progressToken": token,
+            "progress": progress,
+            "total": total,
+            "message": format!("FAKE-step {progress} of {total}")
+        }
+    })
+}
+
+fn odh_call(
+    name: &str,
+    args: &Value,
+    params: Option<&Value>,
+    pre: &mut Vec<Value>,
+) -> Option<Value> {
+    let token = params
+        .and_then(|p| p.get("_meta"))
+        .and_then(|m| m.get("progressToken"))
+        .cloned();
+    let number = |key: &str, default: u64| args.get(key).and_then(Value::as_u64).unwrap_or(default);
+    let link = |uri: &str| {
+        json!({
+            "content": [
+                { "type": "text", "text": "export ready" },
+                { "type": "resource_link", "uri": uri, "name": "FAKE-export", "mimeType": "text/csv" }
+            ],
+            "isError": false
+        })
+    };
+    Some(match name {
+        "odoo_search_read" => json!({
+            "content": [{ "type": "text", "text": "{\"count\":2}" }],
+            "structuredContent": {
+                "count": 2,
+                "records": [{ "id": 1, "name": "FAKE-a" }, { "id": 2, "name": "FAKE-b" }]
+            },
+            "isError": false
+        }),
+        "odoo_export" => link("odh://export/1"),
+        "odoo_export_report" => link("odh://report/7"),
+        "odoo_export_dynamic" => link("odh://dyn/42"),
+        "odoo_progress" => {
+            let steps = number("steps", 2);
+            if let Some(token) = &token {
+                for step in 1..=steps {
+                    pre.push(odh_progress_note(token, step, steps));
+                }
+            }
+            json!({ "content": [{ "type": "text", "text": "progress done" }], "isError": false })
+        }
+        "odoo_slow" => {
+            let delay = number("delayMs", 0);
+            let every = number("progressEveryMs", 0);
+            let started = std::time::Instant::now();
+            let total = if every == 0 { 0 } else { delay.div_ceil(every) };
+            let mut sent = 0;
+            loop {
+                let elapsed = started.elapsed().as_millis() as u64;
+                if elapsed >= delay {
+                    break;
+                }
+                let wait = if every == 0 {
+                    delay - elapsed
+                } else {
+                    every.min(delay - elapsed)
+                };
+                std::thread::sleep(std::time::Duration::from_millis(wait));
+                if every > 0 {
+                    if let Some(token) = &token {
+                        sent += 1;
+                        let mut out = std::io::stdout().lock();
+                        let _ = writeln!(out, "{}", odh_progress_note(token, sent, total));
+                        let _ = out.flush();
+                    }
+                }
+            }
+            json!({ "content": [{ "type": "text", "text": "slow done" }], "isError": false })
+        }
+        "odoo_big" => {
+            let bytes = number("bytes", 0) as usize;
+            json!({
+                "content": [{ "type": "text", "text": "x".repeat(bytes) }],
+                "structuredContent": { "blob": "y".repeat(bytes) },
+                "isError": false
+            })
+        }
+        _ => return None,
+    })
+}
+
 fn tool_list(cfg: &Config, grown: bool) -> Value {
     if council_profile() {
         let tools: Vec<Value> = [
@@ -237,6 +377,9 @@ fn tool_list(cfg: &Config, grown: bool) -> Value {
                 json!({ "type": "string", "const": marker.trim() });
         }
     }
+    if odh_profile() {
+        tools.extend(odh_tools());
+    }
     if grown {
         tools.push(json!({ "name": "greet", "description": "Greet someone by name.",
                 "inputSchema": { "type": "object", "properties": { "name": { "type": "string" } } } }));
@@ -264,6 +407,10 @@ fn resource_list(grown: bool) -> Value {
     let mut resources = vec![json!({ "uri": "mock://base", "name": "base" })];
     if grown {
         resources.push(json!({ "uri": "mock://grown", "name": "grown" }));
+    }
+    if odh_profile() {
+        resources
+            .push(json!({ "uri": "odh://export/1", "name": "export-1", "mimeType": "text/csv" }));
     }
     json!({ "resources": resources })
 }
@@ -397,11 +544,15 @@ fn handle(cfg: &Config, state: &mut State, req: &Value, pre: &mut Vec<Value>) ->
     let result = match method {
         "initialize" => {
             state.initialized = true;
-            json!({
+            let mut result = json!({
                 "protocolVersion": cfg.revision.as_str(),
                 "capabilities": capabilities(),
                 "serverInfo": { "name": SERVER_NAME, "version": SERVER_VERSION }
-            })
+            });
+            if odh_profile() {
+                result["instructions"] = json!(ODH_INSTRUCTIONS);
+            }
+            result
         }
         // Modern servers MUST implement this. Legacy revisions deliberately do
         // not, so the gateway's stdio fallback probe has something to fail on.
@@ -423,6 +574,18 @@ fn handle(cfg: &Config, state: &mut State, req: &Value, pre: &mut Vec<Value>) ->
                 state.subscribed_resources.remove(uri);
             }
             json!({})
+        }
+        "resources/templates/list" if odh_profile() => json!({ "resourceTemplates": [
+            { "uriTemplate": "odh://report/{id}", "name": "report" }
+        ] }),
+        "resources/read" if odh_profile() => {
+            let uri = req["params"]["uri"].as_str().unwrap_or("");
+            match odh_resource_text(uri) {
+                Some((mime, text)) => json!({
+                    "contents": [{ "uri": uri, "mimeType": mime, "text": text }]
+                }),
+                None => return Some(error(id, -32002, "Resource not found", None)),
+            }
         }
         "resources/templates/list" => json!({ "resourceTemplates": [] }),
         "prompts/list" => prompt_list(state.grown),
@@ -528,6 +691,11 @@ fn handle(cfg: &Config, state: &mut State, req: &Value, pre: &mut Vec<Value>) ->
                     }
                 }));
                 return None;
+            }
+            if odh_profile() {
+                if let Some(result) = odh_call(name, &args, params, pre) {
+                    return Some(success(id, decorate(cfg, method, result)));
+                }
             }
             let text = match name {
                 "echo" => args
