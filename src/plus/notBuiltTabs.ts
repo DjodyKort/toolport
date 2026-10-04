@@ -1,4 +1,3 @@
-import type { View } from "@/lib/types";
 import type { PlusView } from "./nav";
 
 export interface PlusTab {
@@ -8,8 +7,6 @@ export interface PlusTab {
   builtBy: string;
   /** The command group the All commands page offers until the tab exists. */
   group?: string;
-  /** A screen that already holds this tab until the screen it belongs to exists. */
-  opens?: View;
 }
 
 /** The tabs of the mockup for a screen that is not built yet. Only the placeholder reads
@@ -17,20 +14,8 @@ export interface PlusTab {
 export const NOT_BUILT_TABS: Partial<Record<PlusView, PlusTab[]>> = {
   library: [
     { id: "skills", label: "Skills", builtBy: "MIG-GUI-3", group: "skills" },
-    {
-      id: "agents",
-      label: "Agents",
-      builtBy: "MIG-GUI-4",
-      group: "agents",
-      opens: "agents",
-    },
-    {
-      id: "styles",
-      label: "Styles",
-      builtBy: "MIG-GUI-4",
-      group: "styles",
-      opens: "agents",
-    },
+    { id: "agents", label: "Agents", builtBy: "MIG-GUI-4", group: "agents" },
+    { id: "styles", label: "Styles", builtBy: "MIG-GUI-4", group: "styles" },
     { id: "plugins", label: "Plugins", builtBy: "MIG-GUI-12" },
     { id: "sources", label: "Sources", builtBy: "MIG-GUI-10" },
   ],

@@ -367,7 +367,6 @@ try {
     await shot.goto(`${baseURL}/fixtures/`);
     await shot.getByRole("button", { name: "Library", exact: true }).click();
     await shot.getByRole("tab", { name: "Agents" }).click();
-    await shot.getByRole("button", { name: "Open Agents & styles" }).click();
     const outputs = shot.getByRole("list", { name: "Output of scout per client" });
     await expect(outputs).toBeVisible();
     await expect(outputs.getByText("tools is dropped for Codex CLI")).toBeVisible();

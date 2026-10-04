@@ -3,6 +3,10 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("./SkillsTab", () => ({ SkillsTab: () => <p>Skills panel</p> }));
+vi.mock("../agents", () => ({
+  AgentsTab: () => <p>Agents panel</p>,
+  StylesTab: () => <p>Styles panel</p>,
+}));
 
 import { LibraryScreen } from "./LibraryScreen";
 
@@ -27,8 +31,6 @@ describe("Library screen", () => {
     render(<LibraryScreen onOpenCommands={vi.fn()} />);
     const tabs = await screen.findByRole("tablist", { name: "Library sections" });
     for (const [tab, item] of [
-      ["Agents", "MIG-GUI-4"],
-      ["Styles", "MIG-GUI-4"],
       ["Plugins", "MIG-GUI-12"],
       ["Sources", "MIG-GUI-10"],
     ]) {
@@ -39,13 +41,23 @@ describe("Library screen", () => {
     }
   });
 
-  it("opens the All commands page on the group of the tab it was left from", async () => {
+  it("mounts the Agents and Styles panels as tabs", async () => {
+    const user = userEvent.setup();
+    render(<LibraryScreen onOpenCommands={vi.fn()} />);
+    await user.click(await screen.findByRole("tab", { name: "Agents" }));
+    expect(screen.getByText("Agents panel")).toBeInTheDocument();
+    expect(screen.queryByText("Not built yet")).toBeNull();
+    await user.click(screen.getByRole("tab", { name: "Styles" }));
+    expect(screen.getByText("Styles panel")).toBeInTheDocument();
+  });
+
+  it("offers the All commands page on a tab nobody has built", async () => {
     const user = userEvent.setup();
     const open = vi.fn();
     render(<LibraryScreen onOpenCommands={open} />);
-    await user.click(await screen.findByRole("tab", { name: "Styles" }));
+    await user.click(await screen.findByRole("tab", { name: "Plugins" }));
     await user.click(screen.getByRole("button", { name: "Open All commands" }));
-    expect(open).toHaveBeenCalledWith("styles");
+    expect(open).toHaveBeenCalledTimes(1);
   });
 
   it("starts on the tab it is asked to and moves between tabs with the arrow keys", async () => {
