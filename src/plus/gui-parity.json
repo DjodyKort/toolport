@@ -1169,18 +1169,18 @@
   },
   "tools": {
     "agents_audit": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "agents.audit",
       "surface": "screen"
     },
     "agents_clean": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "agents.clean",
       "surface": "screen"
     },
     "agents_diff": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "agents.diff",
       "surface": "screen"
     },
     "agents_edit_body": {
@@ -1194,13 +1194,13 @@
       "surface": "screen"
     },
     "agents_lint": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "agents.lint",
       "surface": "screen"
     },
     "agents_list": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "agents.list",
       "surface": "screen"
     },
     "agents_list_transpilers": {
@@ -1209,23 +1209,23 @@
       "surface": "screen"
     },
     "agents_scaffold": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "agents.add",
       "surface": "screen"
     },
     "agents_status": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "agents.status",
       "surface": "screen"
     },
     "agents_sync": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "agents.sync",
       "surface": "screen"
     },
     "agents_uninstall": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "agents.uninstall",
       "surface": "screen"
     },
     "client_direct_add": {
@@ -1329,8 +1329,8 @@
       "surface": "screen"
     },
     "servers_auth": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "logins",
+      "action": "logins.signin",
       "surface": "screen"
     },
     "servers_check_updates": {
@@ -1524,18 +1524,18 @@
       "surface": "screen"
     },
     "styles_apply": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "styles.apply",
       "surface": "screen"
     },
     "styles_clean": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "styles.clean",
       "surface": "screen"
     },
     "styles_diff": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "styles.diff",
       "surface": "screen"
     },
     "styles_edit_body": {
@@ -1549,13 +1549,13 @@
       "surface": "screen"
     },
     "styles_lint": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "styles.lint",
       "surface": "screen"
     },
     "styles_list": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "styles.list",
       "surface": "screen"
     },
     "styles_list_transpilers": {
@@ -1564,23 +1564,23 @@
       "surface": "screen"
     },
     "styles_remove": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "styles.remove",
       "surface": "screen"
     },
     "styles_scaffold": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "styles.add",
       "surface": "screen"
     },
     "styles_status": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "styles.status",
       "surface": "screen"
     },
     "styles_sync_tier1": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "agents",
+      "action": "styles.sync",
       "surface": "screen"
     },
     "sync_push": {
