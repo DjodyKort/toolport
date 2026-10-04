@@ -637,6 +637,30 @@
       "status": "built",
       "test": "src/plus/context/ContextScreen.e2e.test.tsx",
       "summary": "Gauge of the context used against the checkpoint from the statusline JSON; the JSON goes to stdin through the bridge and is never in an argument or on screen"
+    },
+    "usage.refresh": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/usage/UsageTab.test.tsx",
+      "summary": "Usage tab: tokens per day, per project, server, model and session from the stored index, and Refresh to re-index (usage, --root, --no-refresh)"
+    },
+    "usage.otel-status": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/usage/OtelCard.test.tsx",
+      "summary": "OTel card: receiver state, stored events, the five Claude settings keys and the requests the transcripts lack (obs otel status)"
+    },
+    "usage.otel-enable": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/usage/OtelCard.test.tsx",
+      "summary": "Enable the OTel receiver on a port after a preview of the settings keys it writes (obs otel enable)"
+    },
+    "usage.otel-disable": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/usage/OtelCard.test.tsx",
+      "summary": "Disable the OTel receiver and remove the keys Toolport wrote after a preview (obs otel disable)"
     }
   },
   "owners": {
@@ -1029,18 +1053,18 @@
       "surface": "screen"
     },
     "obs otel disable": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "usage.otel-disable",
       "surface": "screen"
     },
     "obs otel enable": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "usage.otel-enable",
       "surface": "screen"
     },
     "obs otel status": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "usage.otel-status",
       "surface": "screen"
     },
     "plugins ls": {
@@ -1354,8 +1378,8 @@
       "surface": "screen"
     },
     "usage": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "usage.refresh",
       "surface": "screen"
     }
   },
