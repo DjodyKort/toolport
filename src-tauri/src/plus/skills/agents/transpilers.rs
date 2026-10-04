@@ -1,6 +1,7 @@
 use super::Agent;
 use crate::plus::skills::json::J;
 use crate::plus::skills::pyfs::title;
+use crate::plus::skills::scalar;
 use crate::plus::skills::transpiler::TranspileResult;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -84,7 +85,7 @@ fn raw(s: &str) -> F {
 }
 
 fn quoted(s: &str) -> F {
-    F::Raw(format!("\"{s}\""))
+    F::Raw(scalar::quoted(s))
 }
 
 fn result(

@@ -25,7 +25,7 @@ impl Transpiler for VsCodeCopilot {
         let content = if is_instruction(skill) {
             let mut fields = Vec::new();
             if let Some(g) = fm.globs.as_deref().filter(|g| !g.is_empty()) {
-                fields.push(("applyTo", Field::Raw(g)));
+                fields.push(("applyTo", Field::Loose(g)));
             }
             let frontmatter = render_frontmatter(&fields);
             if frontmatter.is_empty() {
@@ -34,13 +34,12 @@ impl Transpiler for VsCodeCopilot {
                 format!("{frontmatter}\n\n{}\n", skill.body)
             }
         } else {
-            let description = format!("\"{}\"", fm.description);
             let mut fields = vec![
                 ("name", Field::Raw(&fm.name)),
-                ("description", Field::Raw(&description)),
+                ("description", Field::Quoted(&fm.description)),
             ];
             if let Some(t) = fm.allowed_tools.as_deref().filter(|t| !t.is_empty()) {
-                fields.push(("allowed-tools", Field::Raw(t)));
+                fields.push(("allowed-tools", Field::Text(t)));
             }
             if matches!(fm.activation, Activation::Agent | Activation::Manual) {
                 warnings.push(format!(

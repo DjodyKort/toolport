@@ -15,7 +15,7 @@ impl Transpiler for Cline {
         let globs = fm.globs.as_deref().filter(|g| !g.is_empty());
         let mut fields = Vec::new();
         if let Some(g) = globs {
-            fields.push(("paths", Field::Raw(g)));
+            fields.push(("paths", Field::Loose(g)));
         }
         let mut warnings = Vec::new();
         if matches!(fm.activation, Activation::Agent | Activation::Manual) {

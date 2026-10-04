@@ -22,13 +22,12 @@ impl Transpiler for CodexCli {
 
     fn transpile(&self, skill: &Skill, root: &Path) -> Result<TranspileResult, String> {
         let fm = &skill.frontmatter;
-        let description = format!("\"{}\"", fm.description);
         let mut fields = vec![
             ("name", Field::Raw(&fm.name)),
-            ("description", Field::Raw(&description)),
+            ("description", Field::Quoted(&fm.description)),
         ];
         if let Some(t) = fm.allowed_tools.as_deref().filter(|t| !t.is_empty()) {
-            fields.push(("allowed-tools", Field::Raw(t)));
+            fields.push(("allowed-tools", Field::Text(t)));
         }
         let mut warnings = Vec::new();
         if fm.activation == Activation::Manual {

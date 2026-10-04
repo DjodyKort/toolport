@@ -290,3 +290,173 @@ fn agents_md_block_roundtrip_and_clean() {
         "# Mine\n\nKeep this.\n"
     );
 }
+
+const MULTI_LINE_FRONT: &str = "name: handoff-notes\ndescription: |-\n  Write a handoff note at the end of a session.\n  Use when the user says \"wrap up\" or \"stop for today\".\n\n  Do not use it for mid-session summaries.\nallowed-tools: Read, Write\n";
+
+#[test]
+fn claude_multi_line_description_is_an_indented_block_byte_for_byte() {
+    let t = Tmp::new("multiline");
+    let s = skill(
+        &t.0,
+        "handoff-notes",
+        MULTI_LINE_FRONT,
+        "# Handoff notes\n\nSummarise what is in flight.",
+    );
+    let out = claude_code::ClaudeCode.transpile(&s, &t.0).unwrap();
+    assert_eq!(
+        out.content,
+        concat!(
+            "---\n",
+            "name: handoff-notes\n",
+            "description: |-\n",
+            "  Write a handoff note at the end of a session.\n",
+            "  Use when the user says \"wrap up\" or \"stop for today\".\n",
+            "\n",
+            "  Do not use it for mid-session summaries.\n",
+            "allowed-tools: Read, Write\n",
+            "---\n",
+            "\n",
+            "# Handoff notes\n",
+            "\n",
+            "Summarise what is in flight.\n",
+        )
+    );
+    assert!(out
+        .output_path
+        .ends_with(".claude/skills/handoff-notes/SKILL.md"));
+}
+
+#[test]
+fn claude_description_forms_of_the_library_are_emitted_in_one_canonical_shape() {
+    let t = Tmp::new("multiline-forms");
+    let want = "---\nname: n\ndescription: |-\n  First line.\n  Second line with it's \"quotes\".\n---\n\nB\n";
+    for (tag, description) in [
+        (
+            "literal",
+            "|-\n  First line.\n  Second line with it's \"quotes\".\n",
+        ),
+        (
+            "single-quoted",
+            "'First line.\n\n  Second line with it''s \"quotes\".'\n",
+        ),
+        (
+            "double-quoted",
+            "\"First line.\\nSecond line with it's \\\"quotes\\\".\"\n",
+        ),
+    ] {
+        let s = skill(
+            &t.0,
+            tag,
+            &format!("name: n\ndescription: {description}"),
+            "B",
+        );
+        let out = claude_code::ClaudeCode.transpile(&s, &t.0).unwrap();
+        assert_eq!(out.content, want, "{tag}");
+    }
+}
+
+#[test]
+fn claude_description_with_a_trailing_newline_keeps_it_in_a_clip_block() {
+    let t = Tmp::new("multiline-clip");
+    let s = skill(
+        &t.0,
+        "n",
+        "name: n\ndescription: |\n  Line one.\n  Line two.\n",
+        "B",
+    );
+    let out = claude_code::ClaudeCode.transpile(&s, &t.0).unwrap();
+    assert_eq!(
+        out.content,
+        "---\nname: n\ndescription: |\n  Line one.\n  Line two.\n---\n\nB\n"
+    );
+}
+
+#[test]
+fn claude_one_line_description_keeps_mcpm_bytes_even_with_yaml_syntax_inside() {
+    let t = Tmp::new("oneline");
+    let s = skill(
+        &t.0,
+        "n",
+        "name: n\ndescription: 'Use when: asked # not a comment'\n",
+        "B",
+    );
+    let out = claude_code::ClaudeCode.transpile(&s, &t.0).unwrap();
+    assert_eq!(
+        out.content,
+        "---\nname: n\ndescription: \"Use when: asked # not a comment\"\n---\n\nB\n"
+    );
+}
+
+#[test]
+fn claude_one_line_description_with_quotes_is_single_quoted() {
+    let t = Tmp::new("quotes");
+    let s = skill(
+        &t.0,
+        "n",
+        "name: n\ndescription: 'Say \"hi\" and don''t panic'\n",
+        "B",
+    );
+    let out = claude_code::ClaudeCode.transpile(&s, &t.0).unwrap();
+    assert_eq!(
+        out.content,
+        "---\nname: n\ndescription: 'Say \"hi\" and don''t panic'\n---\n\nB\n"
+    );
+}
+
+#[test]
+fn claude_skill_paths_that_yaml_cannot_read_unquoted_are_quoted() {
+    let t = Tmp::new("paths");
+    let s = skill(
+        &t.0,
+        "n",
+        "name: n\ndescription: d\nglobs: \"**/*.py\"\n",
+        "B",
+    );
+    let out = claude_code::ClaudeCode.transpile(&s, &t.0).unwrap();
+    assert_eq!(
+        out.content,
+        "---\nname: n\ndescription: \"d\"\npaths: \"**/*.py\"\n---\n\nB\n"
+    );
+}
+
+#[test]
+fn claude_allowed_tools_are_quoted_only_when_yaml_would_misread_them() {
+    let t = Tmp::new("tools");
+    for (tools, want) in [
+        (
+            "Read, Grep, Bash(git diff:*)",
+            "Read, Grep, Bash(git diff:*)",
+        ),
+        ("Bash(git log: --oneline)", "\"Bash(git log: --oneline)\""),
+        ("Read # and more", "\"Read # and more\""),
+    ] {
+        let s = skill(
+            &t.0,
+            "n",
+            &format!("name: n\ndescription: d\nallowed-tools: '{tools}'\n"),
+            "B",
+        );
+        let out = claude_code::ClaudeCode.transpile(&s, &t.0).unwrap();
+        assert!(
+            out.content.contains(&format!("\nallowed-tools: {want}\n")),
+            "{tools}: {}",
+            out.content
+        );
+    }
+}
+
+#[test]
+fn clients_with_their_own_glob_dialect_keep_globs_unquoted() {
+    let t = Tmp::new("lenient-globs");
+    let s = skill(
+        &t.0,
+        "n",
+        "name: n\ndescription: |-\n  one\n  two\nactivation: auto\nglobs: \"**/*.py\"\n",
+        "B",
+    );
+    let out = cursor::Cursor.transpile(&s, &t.0).unwrap();
+    assert_eq!(
+        out.content,
+        "---\ndescription: |-\n  one\n  two\nglobs: **/*.py\n---\n\nB\n"
+    );
+}

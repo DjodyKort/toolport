@@ -12,14 +12,13 @@ impl Transpiler for ContinueDev {
 
     fn transpile(&self, skill: &Skill, root: &Path) -> Result<TranspileResult, String> {
         let fm = &skill.frontmatter;
-        let description = format!("\"{}\"", fm.description);
         let priority = fm.priority.to_string();
         let mut fields = Vec::new();
         if !fm.description.is_empty() {
-            fields.push(("description", Field::Raw(&description)));
+            fields.push(("description", Field::Quoted(&fm.description)));
         }
         if let Some(g) = fm.globs.as_deref().filter(|g| !g.is_empty()) {
-            fields.push(("globs", Field::Raw(g)));
+            fields.push(("globs", Field::Loose(g)));
         }
         if fm.priority != 0 {
             fields.push(("priority", Field::Raw(&priority)));

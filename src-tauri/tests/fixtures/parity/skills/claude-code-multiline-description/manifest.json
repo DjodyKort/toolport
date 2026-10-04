@@ -1,0 +1,37 @@
+{
+  "area": "skills",
+  "case": "skills/claude-code-multiline-description",
+  "comparison": "A",
+  "deviations": [
+    "DEV-GFX4-1"
+  ],
+  "entry": "skills_sync",
+  "files": {
+    "repo/.claude/skills/doc-drift/SKILL.md": {
+      "bytes": 271,
+      "class": "A",
+      "sha256": "968d24ed9f104b9e16b0266dbb9c6808369e57670aa96d07dd60e99fb0c5f354"
+    },
+    "repo/.claude/skills/release-gate/SKILL.md": {
+      "bytes": 208,
+      "class": "A",
+      "sha256": "cdcabff7b921feba16cf3e7d20a2810784166f90ceb40aa626b6c7b1b76d8ab7"
+    },
+    "repo/.claude/skills/session-handoff/SKILL.md": {
+      "bytes": 290,
+      "class": "A",
+      "sha256": "c82bb09c02a7b5dde0260bc652f0294ab60672495b6d997b51a715ae80a8518f"
+    },
+    "repo/mcpm-skills.lock": {
+      "bytes": 1217,
+      "class": "B",
+      "sha256": "2ef834d2019ab535895afca53cd435df671ee99676b6614169d4c36c1c991334"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

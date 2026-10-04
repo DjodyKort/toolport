@@ -19,6 +19,7 @@ pub mod vscode_copilot;
 pub mod windsurf;
 pub mod zed;
 
+use super::scalar;
 use super::transpiler::TranspilerRegistry;
 use std::path::PathBuf;
 
@@ -26,9 +27,17 @@ use std::path::PathBuf;
 pub(crate) enum Field<'a> {
     Raw(&'a str),
     Bool(bool),
+    /// Free text mcpm wraps in double quotes (descriptions).
+    Quoted(&'a str),
+    /// Free text mcpm writes unquoted, which a strict YAML parser must read back unchanged.
+    Text(&'a str),
+    /// Free text mcpm writes unquoted for a client that reads its own glob dialect.
+    Loose(&'a str),
 }
 
-/// Mirrors `BaseSkillTranspiler._render_frontmatter`: values are emitted verbatim, unquoted.
+/// Mirrors `BaseSkillTranspiler._render_frontmatter`: values are emitted as mcpm emits them, unquoted
+/// or double-quoted, except where those bytes are not valid YAML for the value (several lines, a
+/// quote or a backslash): `scalar` writes a form a strict parser reads back unchanged (D-070).
 pub(crate) fn render_frontmatter(fields: &[(&str, Field<'_>)]) -> String {
     if fields.is_empty() {
         return String::new();
@@ -38,6 +47,9 @@ pub(crate) fn render_frontmatter(fields: &[(&str, Field<'_>)]) -> String {
         match value {
             Field::Bool(b) => lines.push(format!("{key}: {b}")),
             Field::Raw(v) => lines.push(format!("{key}: {v}")),
+            Field::Quoted(v) => lines.push(format!("{key}: {}", scalar::quoted(v))),
+            Field::Text(v) => lines.push(format!("{key}: {}", scalar::plain(v))),
+            Field::Loose(v) => lines.push(format!("{key}: {}", scalar::loose(v))),
         }
     }
     lines.push("---".into());
