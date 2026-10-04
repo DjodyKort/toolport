@@ -11,7 +11,7 @@ pub mod handlers;
 #[cfg(test)]
 mod tests;
 
-use crate::plus::registry_ro;
+use crate::plus::{registry_ro, servers};
 use crate::registry::{self, Profile, Registry, ServerEntry};
 use crate::registry_controller;
 use serde_json::{json, Value};
@@ -110,12 +110,7 @@ pub(crate) fn resolve<'a>(reg: &'a Registry, key: &str) -> Result<&'a Profile, E
 }
 
 fn find_server<'a>(reg: &'a Registry, key: &str) -> Option<&'a ServerEntry> {
-    let key = key.trim();
-    reg.servers.iter().find(|s| s.id == key).or_else(|| {
-        reg.servers
-            .iter()
-            .find(|s| s.name.eq_ignore_ascii_case(key))
-    })
+    servers::find(reg, key.trim())
 }
 
 fn members<'a>(reg: &'a Registry, profile: &Profile) -> Vec<&'a ServerEntry> {
