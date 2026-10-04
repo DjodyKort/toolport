@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { ClientLogo } from "@/components/ClientLogo";
 import { ServerLogo } from "@/components/ServerLogo";
 import type { Registry, SavingsSummary, ServerEntry } from "@/lib/types";
+import { plusAuthRowsFixture } from "@/plus/fixtures/authRows";
 import { plusWhatLoadsFixture } from "@/plus/fixtures/whatLoads";
 import "../index.css";
 
@@ -116,38 +117,54 @@ mockIPC(
       case "get_inspect_log":
       case "list_tool_identities":
         return [];
-      case "plus_invoke":
-        if (
-          (args as { command?: string } | undefined)?.command === "plus.context.whatLoads"
-        ) {
-          return plusWhatLoadsFixture;
+      case "plus_invoke": {
+        const plus = (args as { command?: string } | undefined)?.command ?? "";
+        switch (plus) {
+          case "plus.ping":
+            return {
+              name: "toolport-plus",
+              version: "0.0.0-fixture",
+              forkEgressDisabled: true,
+            };
+          case "plus.auth.rows":
+            return plusAuthRowsFixture;
+          case "plus.auth.probe":
+            return { server: "odoo", ran: true, skipped: null };
+          case "plus.auth.login":
+            return {
+              server: "figma",
+              name: "figma",
+              flow: "browser",
+              consentUrl: null,
+              signedIn: true,
+              message: "Signed in to figma.",
+            };
+          case "plus.context.whatLoads":
+            return plusWhatLoadsFixture;
+          case "plus.context.folderProfiles":
+            return {
+              enabled: false,
+              mappings: [{ path: "/proj/work", profile: "Work" }],
+              folders: [
+                {
+                  root: "/proj/work/app",
+                  applies: false,
+                  profile: null,
+                  wouldApply: "Work",
+                  rule: "/proj/work",
+                  reason: "mapping /proj/work matches but folder profiles are disabled",
+                  launchProfile: null,
+                  tokens: 120,
+                },
+              ],
+            };
+          case "plus.context.folderProfilesSet":
+            return { enabled: true };
+          default:
+            missing.push(plus);
+            throw new Error(`Unimplemented fixture command: ${plus}`);
         }
-        if (
-          (args as { command?: string } | undefined)?.command ===
-          "plus.context.folderProfiles"
-        ) {
-          return {
-            enabled: false,
-            mappings: [{ path: "/proj/work", profile: "Work" }],
-            folders: [
-              {
-                root: "/proj/work/app",
-                applies: false,
-                profile: null,
-                wouldApply: "Work",
-                rule: "/proj/work",
-                reason: "mapping /proj/work matches but folder profiles are disabled",
-                launchProfile: null,
-                tokens: 120,
-              },
-            ],
-          };
-        }
-        return {
-          name: "toolport-plus",
-          version: "0.0.0-fixture",
-          forkEgressDisabled: true,
-        };
+      }
       default:
         missing.push(command);
         throw new Error(`Unimplemented fixture command: ${command}`);

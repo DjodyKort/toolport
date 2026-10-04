@@ -61,6 +61,14 @@ try {
   ).toBeVisible();
   await page.screenshot({ path: path.join(output, "activity.png") });
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const authRows = page.getByRole("region", { name: "Sign-in health" });
+  await expect(authRows.getByText("5 need attention")).toBeVisible();
+  await expect(authRows.getByText("Needs sign-in")).toBeVisible();
+  await expect(
+    authRows.getByRole("button", { name: "Sign in to figma again" }),
+  ).toBeVisible();
+  await authRows.scrollIntoViewIfNeeded();
+  await authRows.screenshot({ path: path.join(output, "auth-rows.png") });
   const whatLoads = page.getByRole("region", { name: "What loads" });
   await expect(whatLoads.getByText("~1738 tokens")).toBeVisible();
   await whatLoads.scrollIntoViewIfNeeded();
