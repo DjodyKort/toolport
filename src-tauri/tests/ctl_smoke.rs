@@ -32,6 +32,7 @@ const NOT_READ_ONLY: &[(&str, &str)] = &[
     ("server install", "adds a catalog server; round trip test"),
     ("server new", "adds a server; round trip test"),
     ("server edit", "changes a server; round trip test"),
+    ("profile rm", "deletes a profile and disconnects the clients scoped to it; ctl::profile_tests"),
     ("secret set", "writes the vault; round trip test"),
     ("secret rm", "writes the vault; round trip test"),
     ("auth probe", "writes the auth status cache; ctl::auth_tests"),
@@ -510,6 +511,43 @@ fn read_only_cases(w: &World) -> Vec<Case> {
                 assert_eq!(d["dryRun"], true);
             },
         ),
+        case("profile ls", &["profile", "ls"], 0, |_, d| {
+            assert_eq!(d["activeProfile"], "default");
+            assert_eq!(d["profiles"][0]["servers"][0]["id"], "srv-alpha");
+        }),
+        case(
+            "profile create",
+            &["profile", "create", "demo", "--dry-run"],
+            0,
+            |_, d| {
+                assert_eq!(d["dryRun"], true);
+                assert_eq!(d["created"], true);
+            },
+        ),
+        case(
+            "profile edit",
+            &["profile", "edit", "default", "--name", "Main", "--add-server", "beta", "--dry-run"],
+            0,
+            |_, d| {
+                assert_eq!(d["dryRun"], true);
+                assert_eq!(d["renamed"], true);
+                assert_eq!(d["servers"]["added"], json!(["beta"]));
+            },
+        ),
+        case(
+            "client edit",
+            &["client", "edit", "cursor", "--add-profile", "default", "--dry-run"],
+            0,
+            |_, d| {
+                assert_eq!(d["dryRun"], true);
+                assert_eq!(d["scope"], json!({"before": null, "after": "default"}));
+            },
+        ),
+        case("client import", &["client", "import", "cursor"], 0, |_, d| {
+            assert_eq!(d["selected"], false);
+            assert_eq!(d["direct"][0]["name"], "direct-one");
+            assert_eq!(d["direct"][0]["status"], "importable");
+        }),
         case("auth statusline", &["auth", "statusline"], 0, |_, d| {
             assert_eq!(d["auth"]["text"], "auth ok (0)");
         }),
@@ -1090,6 +1128,31 @@ fn bare_groups_report_usage_or_not_implemented() {
 }
 
 #[test]
+fn profile_and_client_are_wired_usage_groups_not_planned_stubs() {
+    let world = World::new("wired-groups");
+    for key in ["profile", "client"] {
+        let command = COMMANDS
+            .iter()
+            .find(|c| row_key(c.path) == key)
+            .expect("the group row exists");
+        assert!(!command.planned(), "{key} is wired");
+        let (run, value) = world.json(command.path);
+        assert_envelope(key, &run, &value, key, 2);
+        assert_eq!(value["error"]["code"], "usage", "{key}");
+        let message = value["error"]["message"].as_str().unwrap();
+        assert!(message.starts_with(&format!("usage: {key} ")), "{message}");
+        assert!(message.contains("edit"), "{message}");
+    }
+    for key in ["profile ls", "profile create", "profile edit", "profile rm", "client edit", "client import"] {
+        let command = COMMANDS
+            .iter()
+            .find(|c| row_key(c.path) == key)
+            .unwrap_or_else(|| panic!("{key} is registered"));
+        assert!(!command.planned(), "{key}");
+    }
+}
+
+#[test]
 fn context_management_commands_round_trip_on_a_synthetic_home() {
     let world = World::new("context-manage");
     let home = world.path(&world.home);
@@ -1263,6 +1326,51 @@ fn compression_sync_adopts_an_mcpm_policy_from_the_given_root_once() {
         std::fs::read_to_string(&legacy).unwrap().contains("rtk-only"),
         "the mcpm file is only read"
     );
+}
+
+#[test]
+fn profile_and_client_commands_round_trip_through_the_binary() {
+    let world = World::new("profile-round-trip");
+    let (run, value) = world.json(&["profile", "create", "demo"]);
+    assert_envelope("profile create", &run, &value, "profile create", 0);
+    assert_eq!(value["data"]["created"], true);
+    let (run, value) = world.json(&[
+        "profile", "edit", "demo", "--name", "showcase", "--add-server", "beta",
+    ]);
+    assert_envelope("profile edit", &run, &value, "profile edit", 0);
+    assert_eq!(value["data"]["servers"]["added"], json!(["beta"]));
+    assert_eq!(value["data"]["renamed"], true);
+    let (run, value) = world.json(&["client", "edit", "cursor", "--set-profiles", "showcase"]);
+    assert_envelope("client edit", &run, &value, "client edit", 0);
+    assert_eq!(value["data"]["scope"], json!({"before": null, "after": "demo"}));
+    assert_eq!(value["data"]["profiles"]["after"], json!(["showcase"]));
+    let gateway_of = |world: &World| {
+        let (_, value) = world.json(&["client", "ls"]);
+        value["data"]["clients"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["id"] == "cursor")
+            .unwrap()["gateway"]
+            .clone()
+    };
+    assert_eq!(gateway_of(&world), "managed");
+    let (run, value) = world.json(&["profile", "rm", "showcase"]);
+    assert_envelope("profile rm", &run, &value, "profile rm", 0);
+    assert_eq!(value["data"]["clients"][0]["client"], "cursor");
+    assert_eq!(gateway_of(&world), "absent");
+    let (_, value) = world.json(&["profile", "ls"]);
+    let names: Vec<&str> = value["data"]["profiles"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["Default"]);
+    let (run, value) = world.json(&["client", "import", "cursor", "--all", "--profile", "cursor-import"]);
+    assert_envelope("client import", &run, &value, "client import", 0);
+    assert_eq!(value["data"]["imported"][0]["name"], "direct-one");
+    assert_eq!(value["data"]["profile"]["created"], true);
 }
 
 #[test]

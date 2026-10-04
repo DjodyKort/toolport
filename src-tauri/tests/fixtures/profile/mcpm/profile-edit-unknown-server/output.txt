@@ -1,0 +1,7 @@
+Error: Server(s) not found: ghost
+
+Available servers:
+  • alpha
+  • beta
+  • gamma
+[exit 1]

@@ -1,0 +1,5 @@
+Cursor Configuration Management
+Config file: <HOME>/.cursor/mcp.json
+
+Error: Profile(s) not found: ghost
+[exit 1]

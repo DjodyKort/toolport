@@ -1,0 +1,3 @@
+✅ Profile 'play' removed successfully
+1 server(s) remain available in global configuration
+[exit 0]

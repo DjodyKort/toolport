@@ -1,0 +1,3 @@
+Error: Cannot use multiple server options simultaneously
+Use either --servers, --add-server, --remove-server, or --set-servers
+[exit 1]

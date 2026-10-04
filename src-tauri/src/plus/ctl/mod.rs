@@ -5,6 +5,7 @@ mod agents;
 mod auth;
 mod cc;
 mod client;
+mod client_edit;
 mod commands;
 pub(crate) mod compression;
 mod compression_cfg;
@@ -20,6 +21,7 @@ mod folders;
 mod mcp;
 mod obs;
 mod output;
+mod profile;
 mod secret;
 mod server;
 mod sync;
@@ -75,8 +77,6 @@ macro_rules! planned_groups {
 }
 
 planned_groups!(
-    profile_group => "profile",
-    client_group => "client",
     server_group => "server",
     secret_group => "secret",
     import_group => "import",
@@ -111,14 +111,40 @@ pub const COMMANDS: &[Command] = &[
         "List the tools of every server in a profile (connects live)",
         server::profile_inspect,
     ),
-    cmd(&["profile"], "Profiles (not implemented)", profile_group),
+    cmd(&["profile", "ls"], "List profiles and their servers (--verbose)", profile::ls),
+    cmd(
+        &["profile", "create"],
+        "Create an empty profile (<name>, --force, --dry-run)",
+        profile::create,
+    ),
+    cmd(
+        &["profile", "edit"],
+        "Rename a profile or change its servers (--name, --servers, --add-server, --remove-server, --dry-run)",
+        profile::edit,
+    ),
+    cmd(
+        &["profile", "rm"],
+        "Delete a profile and clean the client entries scoped to it (--no-clients, --dry-run)",
+        profile::rm,
+    ),
+    cmd(&["profile"], "Profiles: ls create edit rm inspect", profile::group),
     cmd(&["client", "ls"], "List detected clients and their direct entries", client::ls),
     cmd(
         &["client", "sync"],
         "Sync managed clients (--client <id>, --dry-run, --keep-orphans)",
         client::sync,
     ),
-    cmd(&["client"], "Client configs (not implemented)", client_group),
+    cmd(
+        &["client", "edit"],
+        "Point a client at a profile (<client>, --add-profile, --remove-profile, --set-profiles, --force, --dry-run)",
+        client_edit::edit,
+    ),
+    cmd(
+        &["client", "import"],
+        "Import a client's direct entries into the registry (<client>, --select, --all, --profile, --dry-run)",
+        client_edit::import,
+    ),
+    cmd(&["client"], "Client configs: ls edit import sync", client_edit::group),
     cmd(&["server"], "Manage servers (mutations) (not implemented)", server_group),
     cmd(
         &["auth", "statusline"],
@@ -683,3 +709,8 @@ mod import_tests;
 
 #[cfg(test)]
 mod skills_tests;
+
+#[cfg(test)]
+mod profile_golden_tests;
+#[cfg(test)]
+mod profile_tests;

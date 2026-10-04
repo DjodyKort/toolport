@@ -1,0 +1,6 @@
+Cursor Configuration Management
+Config file: <HOME>/.cursor/mcp.json
+
+Error: Cannot use multiple profile options simultaneously
+Use either --add-profile, --remove-profile, or --set-profiles
+[exit 1]

@@ -1,0 +1,13 @@
+Cursor Configuration Management
+Config file: <HOME>/.cursor/mcp.json
+
+
+Updating Cursor configuration:
+Profiles: 1 profiles → 0 profiles
+  - Removed: work
+
+Applying changes...
+✅ Successfully updated Cursor configuration
+✅ 0 profiles and 0 servers configured
+Restart Cursor for changes to take effect.
+[exit 0]

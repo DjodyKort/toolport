@@ -1,0 +1,18 @@
+Error: Client 'ghostclient' is not supported.
+Available clients:
+  5ire
+  claude-code
+  claude-desktop
+  cline
+  codex-cli
+  continue
+  cursor
+  gemini-cli
+  goose-cli
+  opencode
+  qwen-cli
+  roo-code
+  trae
+  vscode
+  windsurf
+[exit 0]

@@ -1,0 +1,1 @@
+client import cursor direct1,direct2 1 cursor

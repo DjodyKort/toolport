@@ -1,0 +1,8 @@
+Cursor Configuration Management
+Config file: <HOME>/.cursor/mcp.json
+
+Warning: Profile(s) not in client: play
+
+Updating Cursor configuration:
+No changes specified
+[exit 0]

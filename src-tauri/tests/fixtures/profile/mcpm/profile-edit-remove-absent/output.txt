@@ -1,0 +1,5 @@
+Warning: Server(s) not in profile: gamma
+
+Updating profile 'work':
+No changes specified
+[exit 0]
