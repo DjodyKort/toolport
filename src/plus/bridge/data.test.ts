@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { ctlTypeShapes } from "../types";
 import { ctlShapes, envelopeShape } from "./data";
 import { arr, bool, check, lit, nullable, num, obj, opt, rec, str } from "./shape";
 
@@ -12,9 +13,12 @@ const stems = readdirSync(goldenDir)
 const golden = (stem: string) =>
   JSON.parse(readFileSync(join(goldenDir, `${stem}.json`), "utf8"));
 
-/** Goldens whose `data` has no TS shape yet. A later worker types one, deletes the row here and
- * adds it to `ctlShapes`; `CTL_CONTRACT_STRICT=1` fails while any remain. */
-const UNTYPED = new Set(stems.filter((stem) => !(stem in ctlShapes)));
+const shapes = { ...ctlShapes, ...ctlTypeShapes };
+const carriesData = (stem: string) => golden(stem).envelope.data !== undefined;
+
+/** Goldens whose `data` has no TS shape yet: a new command adds its shape to `src/plus/types/`;
+ * `CTL_CONTRACT_STRICT=1` fails while any remain. */
+const UNTYPED = stems.filter((stem) => carriesData(stem) && !(stem in shapes));
 
 describe("ctl envelope goldens", () => {
   it("are one wrapper of argv, exit code and a well-formed envelope", () => {
@@ -30,25 +34,30 @@ describe("ctl envelope goldens", () => {
   });
 
   it("match the TS shape of their data exactly (schema drift)", () => {
-    for (const stem of stems.filter((s) => s in ctlShapes)) {
-      const errors = check(ctlShapes[stem], golden(stem).envelope.data);
-      expect(errors, `${stem}: update src/plus/bridge/data.ts`).toEqual([]);
+    for (const stem of stems.filter((s) => s in shapes)) {
+      const errors = check(shapes[stem], golden(stem).envelope.data);
+      expect(errors, `${stem}: update src/plus/types or src/plus/bridge/data.ts`).toEqual(
+        [],
+      );
     }
   });
 
-  it("have a golden for every shape", () => {
-    for (const stem of Object.keys(ctlShapes)) {
+  it("have a golden with data for every shape, and one shape per golden", () => {
+    for (const stem of Object.keys(shapes)) {
       expect(stems, `shape ${stem} has no golden`).toContain(stem);
+      expect(carriesData(stem), `shape ${stem}: its golden has no data`).toBe(true);
     }
+    const twice = Object.keys(ctlTypeShapes).filter((stem) => stem in ctlShapes);
+    expect(twice, "described in both bridge/data.ts and src/plus/types").toEqual([]);
   });
 
   it("report the goldens that still have no TS shape", () => {
-    const left = [...UNTYPED];
+    const withData = stems.filter(carriesData);
     if (process.env.CTL_CONTRACT_STRICT) {
-      expect(left, "goldens without a TS shape").toEqual([]);
+      expect(UNTYPED, "goldens without a TS shape").toEqual([]);
     } else {
       console.info(
-        `ctl contract: ${stems.length - left.length} of ${stems.length} goldens have a TS shape; untyped: ${left.join(", ")}`,
+        `ctl contract: ${withData.length - UNTYPED.length} of ${withData.length} goldens with data have a TS shape; untyped: ${UNTYPED.join(", ")}`,
       );
     }
   });

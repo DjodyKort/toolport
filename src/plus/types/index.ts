@@ -1,0 +1,60 @@
+import type { Shape } from "../bridge/shape";
+import { agentsShapes } from "./agents";
+import { authShapes } from "./auth";
+import { ccShapes } from "./cc";
+import { clientShapes } from "./client";
+import { compressionShapes } from "./compression";
+import { contextShapes } from "./context";
+import { councilShapes } from "./council";
+import { importShapes } from "./import";
+import { inspectShapes } from "./inspect";
+import { mcpShapes } from "./mcp";
+import { obsShapes } from "./obs";
+import { profileShapes } from "./profile";
+import { secretShapes } from "./secret";
+import { serverShapes } from "./server";
+import { skillsShapes } from "./skills";
+import { stylesShapes } from "./styles";
+import { syncShapes } from "./sync";
+import { usageShapes } from "./usage";
+
+export * from "./agents";
+export * from "./auth";
+export * from "./cc";
+export * from "./client";
+export * from "./compression";
+export * from "./context";
+export * from "./council";
+export * from "./import";
+export * from "./inspect";
+export * from "./mcp";
+export * from "./obs";
+export * from "./profile";
+export * from "./secret";
+export * from "./server";
+export * from "./skills";
+export * from "./styles";
+export * from "./sync";
+export * from "./usage";
+
+/** Every ctl golden stem that `bridge/data.ts` does not describe, to the shape of its `data`. */
+export const ctlTypeShapes: Record<string, Shape<unknown>> = {
+  ...agentsShapes,
+  ...authShapes,
+  ...ccShapes,
+  ...clientShapes,
+  ...compressionShapes,
+  ...contextShapes,
+  ...councilShapes,
+  ...importShapes,
+  ...inspectShapes,
+  ...mcpShapes,
+  ...obsShapes,
+  ...profileShapes,
+  ...secretShapes,
+  ...serverShapes,
+  ...skillsShapes,
+  ...stylesShapes,
+  ...syncShapes,
+  ...usageShapes,
+};
