@@ -19,7 +19,7 @@ beforeEach(() => {
 });
 
 describe("Compression tab: status", () => {
-  it("reproduces today's state: rtk-only, hook runtime, interactive preset, healthy engine", async () => {
+  it("compression.status: reproduces today's state: rtk-only, hook runtime, interactive preset, healthy engine", async () => {
     render(<CompressionTab />);
     const strip = await screen.findByLabelText("Compression status");
     expect(within(strip).getByText("rtk-only")).toBeInTheDocument();
@@ -30,7 +30,7 @@ describe("Compression tab: status", () => {
     expect(within(strip).getByText("0.29.0")).toBeInTheDocument();
   });
 
-  it("shows drift when the installed engine differs from the pin", async () => {
+  it("compression.status: shows drift when the installed engine differs from the pin", async () => {
     const golden = statusData();
     bridge.set("compression status", {
       ...golden,
@@ -43,7 +43,7 @@ describe("Compression tab: status", () => {
     expect(screen.getByText("0.30.1 installed, pin 0.29.0")).toBeInTheDocument();
   });
 
-  it("shows a loading state, then an error with Retry that reads again", async () => {
+  it("compression.status: shows a loading state, then an error with Retry that reads again", async () => {
     const user = userEvent.setup();
     bridge.set(
       "compression status",
@@ -61,7 +61,7 @@ describe("Compression tab: status", () => {
 });
 
 describe("Compression tab: provider switch", () => {
-  it("previews with set-provider --dry-run, shows its action lines, applies on confirm", async () => {
+  it("compression.set-provider: previews with set-provider --dry-run, shows its action lines, applies on confirm", async () => {
     const user = userEvent.setup();
     render(<CompressionTab />);
     await user.click(await screen.findByRole("button", { name: "Switch to headroom" }));
@@ -94,7 +94,7 @@ describe("Compression tab: provider switch", () => {
     await waitFor(() => expect(bridge.count("compression status")).toBe(2));
   });
 
-  it("applies nothing when the preview is cancelled", async () => {
+  it("compression.set-provider: applies nothing when the preview is cancelled", async () => {
     const user = userEvent.setup();
     render(<CompressionTab />);
     await user.click(await screen.findByRole("button", { name: "Switch to headroom" }));
@@ -103,7 +103,7 @@ describe("Compression tab: provider switch", () => {
     expect(bridge.ran()).not.toContain("compression set-provider headroom");
   });
 
-  it("shows the CLI's error when the preview fails", async () => {
+  it("compression.set-provider: shows the CLI's error when the preview fails", async () => {
     const user = userEvent.setup();
     bridge.set(
       "compression set-provider headroom --dry-run",
@@ -117,7 +117,7 @@ describe("Compression tab: provider switch", () => {
 });
 
 describe("Compression tab: presets", () => {
-  it("lists the presets with the active one marked and no Use on it", async () => {
+  it("compression.presets: lists the presets with the active one marked and no Use on it", async () => {
     render(<CompressionTab />);
     const list = await screen.findByRole("region", { name: "Presets" });
     expect(await within(list).findByText("agent")).toBeInTheDocument();
@@ -126,7 +126,7 @@ describe("Compression tab: presets", () => {
     expect(within(list).getByText(/token · agent-90 · port 8788/)).toBeInTheDocument();
   });
 
-  it("previews with use --dry-run and applies on confirm", async () => {
+  it("compression.use: previews with use --dry-run and applies on confirm", async () => {
     const user = userEvent.setup();
     render(<CompressionTab />);
     await user.click(await screen.findByRole("button", { name: "Use agent" }));

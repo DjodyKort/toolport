@@ -29,6 +29,12 @@
       "view": "library",
       "status": "built",
       "component": "src/plus/agents/AgentsTab.tsx"
+    },
+    "tokens": {
+      "title": "Tokens",
+      "view": "tokens",
+      "status": "built",
+      "component": "src/plus/compression/TokensScreen.tsx"
     }
   },
   "actions": {
@@ -37,12 +43,6 @@
       "status": "built",
       "test": "src/plus/allcommands/AllCommandsPage.test.tsx",
       "summary": "Run any registry command: flag form from the registry, preview, confirm, apply"
-    },
-    "all-commands.terminal": {
-      "route": "all-commands",
-      "status": "built",
-      "test": "src/plus/allcommands/AllCommandsPage.test.tsx",
-      "summary": "Show the exact command of a terminal-only row with a copy button and Open in Terminal"
     },
     "all-commands.tool": {
       "route": "all-commands",
@@ -451,6 +451,102 @@
       "status": "built",
       "test": "src/plus/agents/StylesTab.e2e.test.tsx",
       "summary": "Remove every synced and applied style file after a preview and a typed confirmation"
+    },
+    "compression.status": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/compression/CompressionTab.test.tsx",
+      "summary": "Status strip: provider, runtime, preset, scope, engine health and pin with drift (compression status)"
+    },
+    "compression.presets": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/compression/CompressionTab.test.tsx",
+      "summary": "Presets list with the active one, and a refresh of the knob snapshot after a dry run (compression presets)"
+    },
+    "compression.enable": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/compression/CompressionCards.test.tsx",
+      "summary": "Enable a provider from a form (preset, mode, port, telemetry) after a preview (compression enable)"
+    },
+    "compression.disable": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/compression/CompressionCards.test.tsx",
+      "summary": "Disable compression behind a typed confirmation, optionally tearing the engine down (compression disable)"
+    },
+    "compression.set-provider": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/compression/CompressionTab.test.tsx",
+      "summary": "Provider cards with a switch that previews the changes first (compression set-provider)"
+    },
+    "compression.use": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/compression/CompressionTab.test.tsx",
+      "summary": "Switch the active preset after a preview (compression use)"
+    },
+    "compression.sync": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/compression/CompressionCards.test.tsx",
+      "summary": "Re-apply the policy after a preview (compression sync)"
+    },
+    "compression.pin": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/compression/CompressionCards.test.tsx",
+      "summary": "Engine pin card: pinned, installed and drift, Install, Refresh knobs and Set pin (compression pin)"
+    },
+    "compression.seal": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/compression/CompressionCards.test.tsx",
+      "summary": "Declare the live proxy posture as policy after a preview (compression seal)"
+    },
+    "compression.env": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/compression/CompressionCards.test.tsx",
+      "summary": "Proxy env of a folder: lines, port and launch, with a copy button (compression env)"
+    },
+    "compression.doctor": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/compression/CompressionCards.test.tsx",
+      "summary": "Health checks card and Run doctor, a failing check shown with its detail (compression doctor)"
+    },
+    "compression.run": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/compression/CompressionCards.test.tsx",
+      "summary": "Launch plan of a folder, and the exact terminal command with a disabled Open in Terminal (compression run)"
+    },
+    "compression.verify": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/compression/CompressionCards.test.tsx",
+      "summary": "Verify dialog: local transcripts, buckets, verdict and checks, no model requests (compression verify)"
+    },
+    "compression.ledger": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/compression/CompressionCards.test.tsx",
+      "summary": "Savings ledger: chart and table per provider, empty state, Record savings (compression ledger)"
+    },
+    "compression.proxy": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/compression/CompressionCards.test.tsx",
+      "summary": "Proxy Start, Stop and Restart behind a confirmation, with the log and a hint on failure (compression proxy)"
+    },
+    "compression.update": {
+      "route": "tokens",
+      "status": "built",
+      "test": "src/plus/compression/CompressionCards.test.tsx",
+      "summary": "Move the engine pin to a version or the latest build in two steps, preview then accept (compression update)"
     }
   },
   "owners": {
@@ -598,98 +694,98 @@
       "surface": "screen"
     },
     "compression disable": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.disable",
       "surface": "screen"
     },
     "compression doctor": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.doctor",
       "surface": "screen"
     },
     "compression enable": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.enable",
       "surface": "screen"
     },
     "compression env": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.env",
       "surface": "screen"
     },
     "compression ledger record": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.ledger",
       "surface": "screen"
     },
     "compression ledger summary": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.ledger",
       "surface": "screen"
     },
     "compression pin": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.pin",
       "surface": "screen"
     },
     "compression presets": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.presets",
       "surface": "screen"
     },
     "compression proxy down": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.proxy",
       "surface": "screen"
     },
     "compression proxy restart": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.proxy",
       "surface": "screen"
     },
     "compression proxy up": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.proxy",
       "surface": "screen"
     },
     "compression run": {
-      "route": "all-commands",
-      "action": "all-commands.terminal",
+      "route": "tokens",
+      "action": "compression.run",
       "surface": "terminal"
     },
     "compression seal": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.seal",
       "surface": "screen"
     },
     "compression set-provider": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.set-provider",
       "surface": "screen"
     },
     "compression status": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.status",
       "surface": "screen"
     },
     "compression sync": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.sync",
       "surface": "screen"
     },
     "compression update": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.update",
       "surface": "screen"
     },
     "compression use": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.use",
       "surface": "screen"
     },
     "compression verify": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.verify",
       "surface": "screen"
     },
     "context apply": {
@@ -1260,38 +1356,38 @@
       "surface": "screen"
     },
     "compression_disable": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.disable",
       "surface": "screen"
     },
     "compression_enable": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.enable",
       "surface": "screen"
     },
     "compression_seal": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.seal",
       "surface": "screen"
     },
     "compression_set_provider": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.set-provider",
       "surface": "screen"
     },
     "compression_status": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.status",
       "surface": "screen"
     },
     "compression_sync": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.sync",
       "surface": "screen"
     },
     "compression_use": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tokens",
+      "action": "compression.use",
       "surface": "screen"
     },
     "context_measure": {
