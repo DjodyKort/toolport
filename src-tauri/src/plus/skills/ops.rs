@@ -2,7 +2,7 @@
 //! clean and collision triage. Mirrors the data side of mcpm's `skills|agents|styles` commands;
 //! rendering and prompting stay with the caller.
 
-use super::agents::AgentTranspiler;
+use super::agents::{Agent, AgentTranspiler};
 use super::assets::compute_skill_hash;
 use super::clock::Clock;
 use super::collisions::{
@@ -11,6 +11,7 @@ use super::collisions::{
 use super::json;
 use super::lock::{get_entry, load_lockfile, lockfile_path, save_lockfile, LockFile, OrderedMap};
 use super::parser::{valid_name, Skill, SkillType};
+use super::pyfs::text_hash;
 use super::styles::{all_style_transpilers, Tier};
 use super::transpiler::{
     Transpiler, TranspilerRegistry, APPEND_MODE_TRANSPILERS, PROJECT_ONLY_TRANSPILERS,
@@ -162,6 +163,36 @@ pub fn diff_skills(skills: &[Skill], lock: Option<&LockFile>) -> Result<DiffRepo
     Ok(report)
 }
 
+/// `mcpm agents diff`: the agents' names and file hashes against the lock's agents section. Without
+/// a lock every agent is new, listed in discovery order.
+pub fn diff_agents(agents: &[Agent], lock: Option<&LockFile>) -> Result<DiffReport, String> {
+    let Some(lock) = lock else {
+        return Ok(DiffReport {
+            no_lockfile: true,
+            new: agents.iter().map(|a| a.name().to_string()).collect(),
+            ..DiffReport::default()
+        });
+    };
+    let current: BTreeSet<&str> = agents.iter().map(Agent::name).collect();
+    let locked: BTreeSet<&str> = lock.agents.iter().map(|(k, _)| k.as_str()).collect();
+    let mut report = DiffReport {
+        new: current.difference(&locked).map(|s| s.to_string()).collect(),
+        removed: locked.difference(&current).map(|s| s.to_string()).collect(),
+        ..DiffReport::default()
+    };
+    let mut modified = BTreeSet::new();
+    for agent in agents {
+        if let Some(entry) = get_entry(&lock.agents, agent.name()) {
+            if text_hash(&agent.source_path)? != entry.hash {
+                modified.insert(agent.name().to_string());
+            }
+        }
+    }
+    report.unchanged = current.intersection(&locked).count() - modified.len();
+    report.modified = modified.into_iter().collect();
+    Ok(report)
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StatusRow {
     pub name: String,
@@ -207,7 +238,7 @@ pub fn agents_status(
     root: &Path,
 ) -> Vec<StatusRow> {
     let mut rows = Vec::new();
-    for (name, entry) in &lock.agents {
+    for (name, entry) in lock.agents.iter().filter(|(name, _)| valid_name(name).is_ok()) {
         for client in &entry.clients_synced {
             let Some(t) = transpilers.iter().find(|t| t.client_key() == client) else {
                 continue;
@@ -325,12 +356,14 @@ pub fn clean_skills(
     out
 }
 
-/// `mcpm agents clean`: removes agent outputs but, unlike skills, leaves the lockfile alone.
+/// `mcpm agents clean`: removes agent outputs but, unlike skills, leaves the lockfile alone. A
+/// dry run reports the same paths and leaves the disk alone.
 pub fn clean_agents(
     clean_root: &Path,
     transpilers: &[Box<dyn AgentTranspiler>],
     client: Option<&str>,
     lock: Option<&LockFile>,
+    dry_run: bool,
 ) -> CleanOutcome {
     let mut out = CleanOutcome::default();
     let Some(lock) = lock else {
@@ -346,6 +379,10 @@ pub fn clean_agents(
         .iter()
         .filter(|t| client.is_none_or(|c| c == t.client_key()))
     {
+        if dry_run {
+            out.removed.extend(t.clean_targets(clean_root, &managed));
+            continue;
+        }
         match t.clean(clean_root, &managed) {
             Ok(removed) => out.removed.extend(removed),
             Err(e) => out.skipped.push((t.client_key().to_string(), e)),
@@ -384,6 +421,34 @@ pub struct UninstallOutcome {
     pub lock_updated: bool,
 }
 
+/// The source directory of `name` under the first of `buckets` that has it. Names that are not
+/// valid and directories that resolve outside the repository are refused before anything is
+/// touched.
+fn source_dir(repo: &Path, name: &str, buckets: &[&str], noun: &str) -> Result<PathBuf, String> {
+    valid_name(name).map_err(|e| format!("Invalid {noun} name '{name}': {e}"))?;
+    let source = buckets
+        .iter()
+        .map(|dir| repo.join(dir).join(name))
+        .find(|path| path.is_dir())
+        .ok_or_else(|| format!("{} '{name}' not found.", capitalized(noun)))?;
+    let inside = match (source.canonicalize(), repo.canonicalize()) {
+        (Ok(dir), Ok(root)) => dir != root && dir.starts_with(&root),
+        _ => false,
+    };
+    if !inside {
+        return Err(format!("'{name}' resolves outside the repository"));
+    }
+    Ok(source)
+}
+
+fn capitalized(word: &str) -> String {
+    let mut chars = word.chars();
+    chars
+        .next()
+        .map(|c| c.to_uppercase().chain(chars).collect())
+        .unwrap_or_default()
+}
+
 /// `mcpm skills uninstall`: every transpiler drops its outputs for `name`, the source directory
 /// goes away and the lock forgets the entry. Names that are not valid skill names and source
 /// directories that resolve outside the repository are refused before anything is touched.
@@ -394,19 +459,7 @@ pub fn uninstall_skill(
     registry: &TranspilerRegistry,
     dry_run: bool,
 ) -> Result<UninstallOutcome, String> {
-    valid_name(name).map_err(|e| format!("Invalid skill name '{name}': {e}"))?;
-    let source = ["skills", "rules"]
-        .iter()
-        .map(|dir| repo.join(dir).join(name))
-        .find(|path| path.is_dir())
-        .ok_or_else(|| format!("Skill '{name}' not found."))?;
-    let inside = match (source.canonicalize(), repo.canonicalize()) {
-        (Ok(dir), Ok(root)) => dir != root && dir.starts_with(&root),
-        _ => false,
-    };
-    if !inside {
-        return Err(format!("'{name}' resolves outside the repository"));
-    }
+    let source = source_dir(repo, name, &["skills", "rules"], "skill")?;
     let managed = [name.to_string()];
     let mut outputs = Vec::new();
     for t in registry.all() {
@@ -428,6 +481,48 @@ pub fn uninstall_skill(
         lock.skills.retain(|(k, _)| k != name);
         lock.rules.retain(|(k, _)| k != name);
         lock_updated = lock.skills.len() + lock.rules.len() != before;
+        if lock_updated && !dry_run {
+            save_lockfile(&scope.lock_dir, &lock)?;
+        }
+    }
+    Ok(UninstallOutcome {
+        source,
+        outputs,
+        lock_updated,
+    })
+}
+
+/// `mcpm agents uninstall`: the agent's outputs for every client, its source directory and its
+/// lock entry. mcpm passes a keyword the transpilers do not take, so the command raises a
+/// TypeError on every call; this is what it was written to do.
+pub fn uninstall_agent(
+    repo: &Path,
+    name: &str,
+    scope: &Scope,
+    transpilers: &[Box<dyn AgentTranspiler>],
+    dry_run: bool,
+) -> Result<UninstallOutcome, String> {
+    let source = source_dir(repo, name, &["agents"], "agent")?;
+    let managed = [name.to_string()];
+    let mut outputs = Vec::new();
+    for t in transpilers {
+        if dry_run {
+            outputs.extend(t.clean_targets(&scope.output_root, &managed));
+        } else {
+            let removed = t
+                .clean(&scope.output_root, &managed)
+                .map_err(|e| format!("{}: {e}", t.client_key()))?;
+            outputs.extend(removed);
+        }
+    }
+    if !dry_run {
+        fs::remove_dir_all(&source).map_err(|e| format!("{}: {e}", source.display()))?;
+    }
+    let mut lock_updated = false;
+    if let Some(mut lock) = load_lockfile(&scope.lock_dir) {
+        let before = lock.agents.len();
+        lock.agents.retain(|(k, _)| k != name);
+        lock_updated = lock.agents.len() != before;
         if lock_updated && !dry_run {
             save_lockfile(&scope.lock_dir, &lock)?;
         }

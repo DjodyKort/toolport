@@ -1,6 +1,7 @@
 //! Security audit for skill bodies. The pattern table is copied verbatim from mcpm, including
 //! the two upper-case patterns that can never match because lines are lower-cased first.
 
+use super::agents::Agent;
 use super::parser::Skill;
 use regex::Regex;
 use std::sync::OnceLock;
@@ -107,21 +108,26 @@ fn compiled() -> &'static Vec<(Regex, &'static str, &'static str)> {
     })
 }
 
-pub fn audit_skill(skill: &Skill) -> AuditResult {
+fn scan_body(name: &str, body: &str) -> AuditResult {
     let mut result = AuditResult::default();
-    for (idx, line) in skill.body.split('\n').enumerate() {
+    for (idx, line) in body.split('\n').enumerate() {
         let lowered = line.to_lowercase();
         for (re, severity, message) in compiled() {
             if re.is_match(&lowered) {
                 result.findings.push(AuditFinding {
                     severity,
-                    skill_name: skill.name().to_string(),
+                    skill_name: name.to_string(),
                     message: (*message).to_string(),
                     line: idx + 1,
                 });
             }
         }
     }
+    result
+}
+
+pub fn audit_skill(skill: &Skill) -> AuditResult {
+    let mut result = scan_body(skill.name(), &skill.body);
     if let Some(tools) = skill
         .frontmatter
         .allowed_tools
@@ -151,6 +157,19 @@ pub fn audit_skills(skills: &[Skill]) -> AuditResult {
     let mut result = AuditResult::default();
     for skill in skills {
         result.findings.extend(audit_skill(skill).findings);
+    }
+    result
+}
+
+/// `mcpm agents audit` hands agents to `audit_skills`, which reads `allowed_tools` from a
+/// frontmatter that has none and raises on every agent. The body patterns are what it was
+/// meant to scan; agents carry no `allowed_tools` string to check.
+pub fn audit_agents(agents: &[Agent]) -> AuditResult {
+    let mut result = AuditResult::default();
+    for agent in agents {
+        result
+            .findings
+            .extend(scan_body(agent.name(), &agent.body).findings);
     }
     result
 }

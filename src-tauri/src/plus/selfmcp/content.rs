@@ -4,7 +4,7 @@ use crate::plus::args::{flag, flag_or, list, str_arg};
 use crate::plus::hashing::lock_hash;
 use crate::plus::skills::agents::lint::lint_agents;
 use crate::plus::skills::agents::{
-    all_agent_transpilers, discover_agents, parse_agent_file, sync_agents, Agent, AgentSyncOptions,
+    all_agent_transpilers, discover_agents, parse_agent_file, sync_scoped, Agent,
 };
 use crate::plus::skills::assets::compute_skill_hash;
 use crate::plus::skills::ops::{
@@ -499,24 +499,18 @@ fn agents_sync(args: &Value) -> Outcome {
     let repo = skills_repo(args)?;
     let agents = discover_agents(&repo);
     let global = global_mode(args);
-    let output_root = if global { home()? } else { repo.clone() };
-    let dir = lock_dir(global, &repo);
-    let opts = AgentSyncOptions {
-        output_root,
-        global_mode: global,
-        dry_run: dry_run(args),
-        client_keys: client_keys(args),
-        clock: &SystemClock,
-    };
-    let lock = sync_agents(&agents, load_lockfile(&dir), &opts)
+    if global {
+        home()?;
+    }
+    let dry = dry_run(args);
+    let synced = sync_scoped(&repo, &agents, global, dry, client_keys(args), &SystemClock)
         .map_err(ToolError::backend)?;
-    persist(&dir, &lock, opts.dry_run)?;
     Ok(json!({
         "repo": repo.to_string_lossy(),
-        "dryRun": opts.dry_run,
+        "dryRun": dry,
         "globalMode": global,
-        "syncedAt": lock.synced_at,
-        "agentCount": lock.agents.len(),
+        "syncedAt": synced.lock.synced_at,
+        "agentCount": synced.lock.agents.len(),
     }))
 }
 

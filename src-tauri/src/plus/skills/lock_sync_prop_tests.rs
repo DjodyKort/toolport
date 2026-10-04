@@ -358,7 +358,7 @@ fn a_tampered_lock_cannot_clean_outside_the_output_root() {
         tampered.styles.push((name.into(), e));
     }
     clean_skills(&root, &root, &reg, None, Some(&tampered), false);
-    clean_agents(&root, &all_agent_transpilers(), None, Some(&tampered));
+    clean_agents(&root, &all_agent_transpilers(), None, Some(&tampered), false);
     clean_styles(&root, Some(&mut tampered.clone()));
     let deleted: Vec<&PathBuf> = victims.iter().filter(|v| !v.exists()).collect();
     assert!(deleted.is_empty(), "deleted outside the root: {deleted:?}");
