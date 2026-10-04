@@ -35,6 +35,11 @@ const EXPECTED_TOOLS: &[&str] = &[
     "agents_list_transpilers",
     "agents_scaffold",
     "agents_sync",
+    "agents_diff",
+    "agents_audit",
+    "agents_status",
+    "agents_clean",
+    "agents_uninstall",
     "agents_edit_body",
     "styles_list",
     "styles_get",
@@ -44,6 +49,9 @@ const EXPECTED_TOOLS: &[&str] = &[
     "styles_scaffold",
     "styles_sync_tier1",
     "styles_apply",
+    "styles_diff",
+    "styles_status",
+    "styles_clean",
     "styles_edit_body",
     "styles_remove",
     "servers_list",
@@ -183,9 +191,9 @@ fn err_kind(result: Result<Value, ToolError>) -> &'static str {
 }
 
 #[test]
-fn registry_has_all_65_tools_and_11_resources() {
+fn registry_has_all_73_tools_and_11_resources() {
     let names: Vec<&str> = TOOLS.iter().map(|t| t.name).collect();
-    assert_eq!(names.len(), 65);
+    assert_eq!(names.len(), 73);
     assert_eq!(
         names.iter().copied().collect::<BTreeSet<_>>(),
         EXPECTED_TOOLS.iter().copied().collect::<BTreeSet<_>>()
@@ -202,8 +210,8 @@ fn registry_has_all_65_tools_and_11_resources() {
 fn module_counts_match_the_parity_matrix() {
     let count = |prefix: &str| TOOLS.iter().filter(|t| t.name.starts_with(prefix)).count();
     assert_eq!(count("skills_") - 1, 23);
-    assert_eq!(count("agents_"), 7);
-    assert_eq!(count("styles_"), 10);
+    assert_eq!(count("agents_"), 12);
+    assert_eq!(count("styles_"), 13);
     assert_eq!(count("servers_"), 15);
     assert_eq!(count("clients_"), 2);
     assert_eq!(count("client_direct_"), 3);
@@ -269,7 +277,10 @@ fn tiers_three_and_four_always_carry_a_gate() {
             "styles_remove",
             "servers_uninstall",
             "skills_clean",
-            "skills_uninstall"
+            "skills_uninstall",
+            "agents_clean",
+            "agents_uninstall",
+            "styles_clean"
         ])
     );
 }
@@ -542,7 +553,7 @@ fn json_rpc_surface_lists_calls_and_reads() {
         handle_message(&json!({"jsonrpc": "2.0", "method": "notifications/initialized"})).is_none()
     );
     let tools = call(json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}));
-    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 65);
+    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 73);
     let resources = call(json!({"jsonrpc": "2.0", "id": 3, "method": "resources/list"}));
     assert_eq!(
         resources["result"]["resources"].as_array().unwrap().len(),
