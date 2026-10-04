@@ -143,6 +143,15 @@ impl Plan {
         for r in &self.rejects {
             lines.push(format!("  rejected {}: {}", r.id, r.reason));
         }
+        for w in self.warnings.as_array().into_iter().flatten() {
+            if w["kind"] == "keep-in-place" {
+                lines.push(format!(
+                    "  kept in place {}: {}",
+                    w["server"].as_str().unwrap_or(""),
+                    w["detail"].as_str().unwrap_or("")
+                ));
+            }
+        }
         lines.join("\n")
     }
 
@@ -340,8 +349,19 @@ fn prepare_launch(
     let mut rejects = Vec::new();
     let mut moves = Vec::new();
     for s in mapping.servers.iter_mut() {
-        for (from, to) in relocate_entry(&mut s.entry, home, data_dir) {
+        let relocation = relocate_entry(&mut s.entry, home, data_dir);
+        for (from, to) in relocation.moves {
             moves.push((PathBuf::from(from), to));
+        }
+        for (path, reason) in relocation.kept {
+            mapping.warnings.retain(|w| {
+                !(w.kind == "relocate-path" && w.server == s.entry.id && w.detail == path)
+            });
+            mapping.warnings.push(Warning {
+                server: s.entry.id.clone(),
+                kind: "keep-in-place".into(),
+                detail: format!("{path}: {reason}; it stays where it is and must not be deleted"),
+            });
         }
     }
     let mut kept = Vec::new();

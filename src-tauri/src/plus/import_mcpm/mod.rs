@@ -5,6 +5,8 @@ mod ids;
 mod launch;
 #[cfg(test)]
 mod launch_tests;
+#[cfg(test)]
+mod launch_venv_tests;
 mod name_map;
 #[cfg(test)] mod name_map_prop_tests;
 #[cfg(test)]
