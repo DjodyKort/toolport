@@ -27,10 +27,6 @@ export interface ActiveRow {
   name: string;
   active: string | null;
 }
-export interface ClientStyle {
-  client: string;
-  style: string;
-}
 
 const CLIENT_NAMES: Record<string, string> = {
   "claude-code": "Claude Code",
