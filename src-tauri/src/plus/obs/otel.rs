@@ -2,6 +2,18 @@ use super::store::{day_from_ms, Event, Locked};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
+const CONTENT_ATTRS: [&str; 8] = [
+    "prompt",
+    "tool_parameters",
+    "tool_input",
+    "tool_result",
+    "tool_output",
+    "user.email",
+    "user.account_uuid",
+    "user_email",
+];
+const MAX_ATTR_CHARS: usize = 512;
+
 fn attr_map(list: Option<&Value>) -> BTreeMap<String, Value> {
     let mut out = BTreeMap::new();
     let Some(items) = list.and_then(Value::as_array) else {
@@ -11,6 +23,9 @@ fn attr_map(list: Option<&Value>) -> BTreeMap<String, Value> {
         let Some(key) = item.get("key").and_then(Value::as_str) else {
             continue;
         };
+        if CONTENT_ATTRS.contains(&key) {
+            continue;
+        }
         let Some(value) = item.get("value") else {
             continue;
         };
@@ -23,7 +38,7 @@ fn attr_map(list: Option<&Value>) -> BTreeMap<String, Value> {
 
 fn any_value(v: &Value) -> Option<Value> {
     if let Some(s) = v.get("stringValue").and_then(Value::as_str) {
-        return Some(Value::String(s.to_string()));
+        return Some(Value::String(s.chars().take(MAX_ATTR_CHARS).collect()));
     }
     if let Some(i) = v.get("intValue") {
         let n = match i {
@@ -256,6 +271,10 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    fn kv(k: &str, v: Value) -> Value {
+        json!({"key": k, "value": v})
+    }
+
     #[test]
     fn metrics_become_token_and_cost_events() {
         let events = parse_metrics(&metrics_payload());
@@ -296,6 +315,33 @@ mod tests {
         assert_eq!(parse_logs(&body).len(), 1);
         assert!(parse_payload(&json!({"x": 1})).is_empty());
         assert!(parse_payload(&json!(null)).is_empty());
+    }
+
+    #[test]
+    fn content_attributes_are_dropped_and_long_values_cut() {
+        let long = "x".repeat(2000);
+        let body = json!({"resourceLogs": [{
+            "resource": {"attributes": [
+                kv("user.email", json!({"stringValue": "someone@example.invalid"})),
+                kv("service.name", json!({"stringValue": "claude-code"}))
+            ]},
+            "scopeLogs": [{"logRecords": [{"timeUnixNano": "1759492800000000000", "attributes": [
+                kv("event.name", json!({"stringValue": "claude_code.tool_decision"})),
+                kv("prompt", json!({"stringValue": "synthetic secret prompt"})),
+                kv("tool_parameters", json!({"stringValue": "{\"command\":\"ls\"}"})),
+                kv("error", json!({"stringValue": long})),
+                kv("decision", json!({"stringValue": "accept"}))
+            ]}]}]
+        }]});
+        let events = parse_logs(&body);
+        assert_eq!(events.len(), 1);
+        let attrs = &events[0].attrs;
+        for dropped in ["prompt", "tool_parameters", "user.email"] {
+            assert!(!attrs.contains_key(dropped), "{dropped}");
+        }
+        assert_eq!(attrs["decision"], "accept");
+        assert_eq!(attrs["service.name"], "claude-code");
+        assert_eq!(attrs["error"].as_str().unwrap().chars().count(), 512);
     }
 
     #[test]

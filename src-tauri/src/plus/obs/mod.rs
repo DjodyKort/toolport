@@ -2,8 +2,12 @@
 
 pub mod monitor_db;
 pub mod otel;
+pub mod receiver;
 pub mod store;
 pub mod transcript;
+
+#[cfg(test)]
+mod receiver_tests;
 
 use crate::plus::args::flag_or;
 use serde::Serialize;
