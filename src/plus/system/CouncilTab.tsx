@@ -3,10 +3,10 @@ import { KeyRound, RefreshCw, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { CouncilToolsData } from "../types";
-import { AsyncView, type CtlQuery } from "../ui";
+import { AsyncView } from "../ui";
 import { SetSecretDialog } from "../logins/SetSecretDialog";
 import { Card, Intro, Mono, Tag, Toggle } from "./atoms";
-import { rowsOf, useRead, useRegistry, useWrite } from "./hooks";
+import { answered, rowsOf, useRead, useRegistry, useWrite } from "./hooks";
 import {
   checkLabel,
   checksOf,
@@ -34,12 +34,6 @@ export function CheckList({ checks, label }: { checks: Check[]; label: string })
       ))}
     </ul>
   );
-}
-
-/** A doctor exits 1 when a check fails but still prints the checks: that is an answer, not a
- * failure of the read. */
-export function answered<T>(query: CtlQuery<T>): CtlQuery<T> {
-  return query.data ? { ...query, status: "ready", error: null } : query;
 }
 
 /** Council: the multi-model server (install, key, doctor, tools). The key is written to the

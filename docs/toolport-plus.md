@@ -257,6 +257,9 @@ MIG-GUI-1 edits:
 | `src/plus/fixtures/plusCtl.ts` (usage)     | spreads `usageCtlFixtures` before the stateful worlds; its rows are functions (the OTel receiver changes state) and end yesterday                                                                                                |
 | `scripts/browser-smoke.mjs` (usage)        | `usageTab` walks the Usage tab in both themes; `screenshots.mjs` lists the five `gui-usage-*` shots                                                                                                                              |
 | `src/plus/gui-parity.json` (usage)         | the four `usage.*` actions are `built` on the `tokens` route; `usage`, `obs otel status`, `obs otel enable` and `obs otel disable` point at them                                                                                 |
+| `src/plus/PlusViews.tsx` (system)          | `system` renders the lazy `SystemScreen`: the five tabs Sync, Updates, Council, Import and Self-management are built; the plugins section of Updates is a placeholder for MIG-GUI-12                                             |
+| `src/plus/PlusViews.test.tsx` (system)     | System leaves the not-built list; the All commands round trip starts from the Tokens placeholder; one test opens the System tabs                                                                                                 |
+| `src/plus/fixtures/plusCtl.ts` (system)    | spreads `systemBrowserFixtures` (the golden envelopes of the System commands, the update list and the importer for `/old/mcpm`)                                                                                                  |
 
 ## Sources
 
@@ -500,3 +503,20 @@ Legacy `CONDUIT_*` names are still read through `brand::env_var`.
 - Secrets tests use `secrets::tests::with_isolated_vault` (isolated vault dir plus the secret-key env lock) and synthetic keys only; never real credentials.
 - Never run `cargo fmt` on the tree; format only new files. Run suites with `cargo test --no-default-features --tests --no-fail-fast` and `npm run verify`.
 - Use synthetic fixtures and `.invalid` hosts; no real organization or customer names.
+
+## System
+
+`src/plus/system/` builds the approved mockup nav item "System": `SystemScreen` has the tabs Sync, Updates, Council, Import and Self-management (`PANELS` maps a tab id to its panel; a tab not in the map stays the marked placeholder). The plugins section of Updates (`PluginUpdates.tsx`) is a placeholder that MIG-GUI-12 replaces.
+
+| Tab             | Reads                                                    | Writes (policy tier from `toolportctl commands`)                                                                                                                                                                           |
+| --------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sync            | `sync status`, `sync diff`, `sync git-sync --status`     | `sync push` (destructive, `--dry-run`), `sync pull` (write, `--dry-run`), `sync reset` and `sync rotate-passphrase` (destructive), `sync init`, `add-project`, `remove-project`, `git-sync`, `migrate` (write, no preview) |
+| Updates         | `update --check`, `update <server> --check`              | `update [<server>] --apply` and `update --init` (write, `--dry-run`; `--allow-commands` only when the user ticks the `post_update` command shown before it runs)                                                           |
+| Council         | `council doctor`, `council tools`                        | `council install` (write), `council uninstall [--purge-key]` (destructive), the API key through `secret set council <key>` on stdin                                                                                        |
+| Import          | `import mcpm <root> --dry-run --tools <file> --name-map` | `import mcpm <root>` and `import rename-refs <root>` (write, `--dry-run`); the cutover rollback is a copyable command with a disabled Open in Terminal                                                                     |
+| Self-management | `mcp doctor`, `mcp tools`                                | `mcp install [--profile]` (write), `mcp uninstall` (destructive)                                                                                                                                                           |
+
+- Every write is the D-059 flow through `useWrite` and `WriteDialogs`: the command's own `--dry-run` where the registry has one, a plan worded from its answer (`model.ts`), the confirmation (the phrase is the command id for a destructive tier, D-081), the apply in `JobProgress`, then the reads of the tab run again. A command without a preview shows a plan worked out from the form and says it has none.
+- A passphrase goes through `SecretWriteDialog` to the child's stdin and nowhere else: never argv, `--passphrase-env`, React state or the DOM. A new passphrase is asked twice.
+- A doctor that exits 1 still prints its checks; `useRead` treats that as an answer and the checks show beside it.
+- The tests use the golden envelopes of `src-tauri/tests/fixtures/ctl-envelopes` through `fixtures.ts` and the fake bridge of `testkit.ts`.

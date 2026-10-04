@@ -6,8 +6,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import type { McpToolsData } from "../types";
 import { AsyncView, CopyButton } from "../ui";
 import { Card, Field, Intro, Kv, Mono, Tag } from "./atoms";
-import { CheckList, answered } from "./CouncilTab";
-import { rowsOf, useRead, useRegistry, useWrite } from "./hooks";
+import { CheckList } from "./CouncilTab";
+import { answered, rowsOf, useRead, useRegistry, useWrite } from "./hooks";
 import {
   SELF_ID,
   SELF_STATE,
