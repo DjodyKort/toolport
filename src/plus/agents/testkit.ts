@@ -1,5 +1,6 @@
 import type { CtlResult } from "../bridge/ctl";
 import { agentsCtlFixtures } from "../fixtures/agents";
+import { createAgentsWorld } from "../fixtures/agentsWorld";
 import golden from "../../../src-tauri/tests/fixtures/ctl-envelopes/commands.json";
 
 export type Reply = unknown | ((argv: string[]) => unknown | Promise<unknown>);
@@ -24,10 +25,12 @@ interface Call {
 /** A fake `plus_ctl` bridge over the fixture world of the Agents and Styles panels. Every argv
  * has a reply and an argv without one fails the test: a screen that runs a command it should
  * not shows up as a missing reply. A test overrides a reply with `set`, or makes it a function
- * that changes the world (a write that edits what the next read returns). */
-export function createBridge() {
+ * that changes the world (a write that edits what the next read returns). `world: true`
+ * starts from the stateful world of the dev browser fixture, where an applied write already
+ * changes the next read. */
+export function createBridge(options: { world?: boolean } = {}) {
   const replies = new Map<string, Reply>([
-    ...agentsCtlFixtures,
+    ...(options.world ? createAgentsWorld() : agentsCtlFixtures),
     ["commands", (golden as { envelope: { data: unknown } }).envelope.data],
   ]);
   const calls: Call[] = [];
