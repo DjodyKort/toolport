@@ -18,6 +18,9 @@ cat >"$stub" <<'STUB'
 #!/usr/bin/env bash
 set -euo pipefail
 dry=0
+if [ "${1:-}" = "--json" ]; then shift; fi
+# client id and config file of every client the stub knows
+CLIENTS="claude-code:.claude.json claude-desktop:.config/Claude/claude_desktop_config.json cursor:.cursor/mcp.json gemini-cli:.gemini/settings.json windsurf:.codeium/windsurf/mcp_config.json"
 case "$1 ${2:-}" in
   "import mcpm")
     shift 2; root="$1"; shift
@@ -39,11 +42,29 @@ case "$1 ${2:-}" in
       [ -z "$prev" ] || state="$prev"
     fi
     echo "{\"servers\":[\"fake-a\",\"fake-b\"],\"selfServer\":\"$state\"}" >"$reg"
-    for f in .claude.json .config/Claude/claude_desktop_config.json .cursor/mcp.json .gemini/settings.json; do
+    # live (default): a client whose own config launches mcpm is switched; snapshot: the importer
+    # that only knew <root>/<client>.json; STUB_IMPORT_MISS names a config it fails to switch
+    for pair in $CLIENTS; do
+      id="${pair%%:*}"; f="${pair#*:}"
       [ -f "$HOME/$f" ] || continue
+      [ "$f" != "${STUB_IMPORT_MISS:-}" ] || continue
+      if [ "${STUB_IMPORT_MODE:-live}" = snapshot ]; then
+        [ -f "$root/$id.json" ] || continue
+      else
+        grep -q mcpm "$HOME/$f" || continue
+      fi
       printf '{"mcpServers":{"toolport":{"command":"toolport-gateway"}}}\n' >"$HOME/$f"
     done
     echo "applied"
+    ;;
+  "client ls")
+    rows=""
+    for pair in $CLIENTS; do
+      id="${pair%%:*}"; f="${pair#*:}"
+      [ -f "$HOME/$f" ] || continue
+      rows="$rows${rows:+,}{\"id\":\"$id\",\"path\":\"$HOME/$f\",\"gateway\":\"absent\",\"entries\":[],\"launchers\":[]}"
+    done
+    printf '{"command":"client ls","data":{"clients":[%s]},"ok":true,"schemaVersion":1}\n' "$rows"
     ;;
   "import rename-refs")
     shift 2; shift
@@ -215,6 +236,54 @@ expect "rollback restored the mcpm client config" grep -q '"mcpm"' "$home_user/.
 again="$("$SCRIPT_DIR/cutover.sh" --home "$home_user" --tools "$work/tools.json")"
 expect "a second cutover reports the disable as healthy" grep -q "state disabled" <<<"$again"
 expect "a second cutover does not re-enable it" grep -q '"selfServer":"disabled"' "$home_user/.config/toolport/registry.json"
+
+# a real mcpm root has no <client>.json snapshots; the importer reads the clients' own configs, and
+# a client it detects that is not switched fails the run instead of passing silently
+add_windsurf() {
+  mkdir -p "$1/.codeium/windsurf"
+  echo '{"mcpServers":{"mcpm_FAKE-server":{"command":"mcpm","args":["run","FAKE-server"]}}}' >"$1/.codeium/windsurf/mcp_config.json"
+}
+
+home_ns="$work/home-nosnap"
+make_home "$home_ns"
+add_windsurf "$home_ns"
+cp -a "$home_ns" "$work/home-nosnap.orig"
+expect_not "the no-snapshot home has no client snapshot" test -e "$home_ns/.config/mcpm/claude-code.json"
+ns_out="$("$SCRIPT_DIR/cutover.sh" --home "$home_ns" --tools "$work/tools.json")"
+expect "cutover lists the detected clients" grep -q "  windsurf .*mcp_config.json" <<<"$ns_out"
+expect "no-snapshot cutover switches the claude code config" grep -q '"toolport"' "$home_ns/.claude.json"
+expect "no-snapshot cutover switches a client outside the fixed list" grep -q '"toolport"' "$home_ns/.codeium/windsurf/mcp_config.json"
+expect "verify covers a client outside the fixed list" grep -q "verify ok: client windsurf" <<<"$ns_out"
+ns_backup="$(echo "$home_ns"/.toolport-cutover-backups/*)"
+expect "the backup holds the client outside the fixed list" test -f "$ns_backup/files/.codeium/windsurf/mcp_config.json"
+"$SCRIPT_DIR/rollback.sh" --home "$home_ns" >/dev/null
+expect "rollback restores the client outside the fixed list" diff -q "$work/home-nosnap.orig/.codeium/windsurf/mcp_config.json" "$home_ns/.codeium/windsurf/mcp_config.json"
+expect "rollback restores the claude code config" diff -q "$work/home-nosnap.orig/.claude.json" "$home_ns/.claude.json"
+
+home_old="$work/home-oldimporter"
+make_home "$home_old"
+old_rc=0
+old_out="$(STUB_IMPORT_MODE=snapshot "$SCRIPT_DIR/cutover.sh" --home "$home_old" --tools "$work/tools.json" 2>&1)" || old_rc=$?
+expect "cutover fails when the importer switched no client" test "$old_rc" -ne 0
+expect "the failure names the config that was not switched" grep -q "verify FAIL: .claude.json still launches mcpm" <<<"$old_out"
+expect "the failure offers the rollback" grep -q "roll back with" <<<"$old_out"
+
+home_miss="$work/home-missed"
+make_home "$home_miss"
+add_windsurf "$home_miss"
+miss_rc=0
+miss_out="$(STUB_IMPORT_MISS=.codeium/windsurf/mcp_config.json "$SCRIPT_DIR/cutover.sh" --home "$home_miss" --tools "$work/tools.json" 2>&1)" || miss_rc=$?
+expect "cutover fails when one detected client is not switched" test "$miss_rc" -ne 0
+expect "the failure names the client and its config" grep -q "verify FAIL: client windsurf is not switched, .*mcp_config.json still launches mcpm" <<<"$miss_out"
+expect "the clients that were switched still verify" grep -q "verify ok: .claude.json" <<<"$miss_out"
+
+home_by="$work/home-bystander"
+make_home "$home_by"
+echo '{"mcpServers":{"fs":{"command":"npx","args":["-y","FAKE-fs"]}}}' >"$home_by/.cursor/mcp.json"
+cp "$home_by/.cursor/mcp.json" "$work/bystander.cursor"
+by_out="$("$SCRIPT_DIR/cutover.sh" --home "$home_by" --tools "$work/tools.json")"
+expect "a client without mcpm entries needs no switch" grep -q "verify ok: .cursor/mcp.json" <<<"$by_out"
+expect "a client without mcpm entries is left alone" diff -q "$work/bystander.cursor" "$home_by/.cursor/mcp.json"
 
 if [ "$failures" -ne 0 ]; then echo "$failures failure(s)"; exit 1; fi
 echo "all cutover tests passed"
