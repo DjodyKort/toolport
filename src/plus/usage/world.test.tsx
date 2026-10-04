@@ -10,9 +10,17 @@ vi.mock("sonner", () => ({
 }));
 
 import { UsageTab } from "./UsageTab";
+import { plusCtlFixtures } from "../fixtures/plusCtl";
 import { usageCtlFixtures } from "./browserFixtures";
 import { createBridge, goldenData, wire } from "./testkit";
-import { emptyUsage, statusOff, statusOn, usageWorld } from "./world";
+import {
+  createOtelWorld,
+  emptyUsage,
+  shiftDays,
+  statusOff,
+  statusOn,
+  usageWorld,
+} from "./world";
 
 const keys = (value: unknown) => Object.keys(value as object).sort();
 const first = (value: unknown) => Object.values(value as object)[0];
@@ -56,17 +64,18 @@ describe("the synthetic index has the shape of the real envelopes", () => {
       expect(keys(world.receiver)).toEqual(keys(status.receiver));
       expect(keys(world.events)).toEqual(keys(status.events));
     }
-    const enable = usageCtlFixtures.get("obs otel enable --port 4318 --dry-run");
-    expect(keys(enable)).toEqual(keys(goldenData("obs-otel-enable.preview")));
-    expect(keys(usageCtlFixtures.get("obs otel enable --port 4318"))).toEqual(
+    const otel = createOtelWorld();
+    expect(keys(otel.enable(4318, true))).toEqual(
+      keys(goldenData("obs-otel-enable.preview")),
+    );
+    expect(keys(otel.enable(4318, false))).toEqual(
       keys(goldenData("obs-otel-enable.apply")),
     );
-    expect(keys(usageCtlFixtures.get("obs otel disable --dry-run"))).toEqual(
+    expect(keys(otel.disable(true))).toEqual(
       keys(goldenData("obs-otel-disable.preview")),
     );
-    expect(keys(usageCtlFixtures.get("obs otel disable"))).toEqual(
-      keys(goldenData("obs-otel-disable.apply")),
-    );
+    expect(keys(otel.disable(false))).toEqual(keys(goldenData("obs-otel-disable.apply")));
+    expect(keys(otel.status())).toEqual(keys(status));
   });
 });
 
@@ -79,7 +88,7 @@ describe("the dev browser fixtures drive the tab", () => {
 
   it("shows the usage of the fixture and previews Enable on the default port", async () => {
     const user = userEvent.setup();
-    render(<UsageTab today="2026-10-04" />);
+    render(<UsageTab />);
     await screen.findByRole("group", { name: "Usage summary" });
     expect(screen.getByRole("region", { name: "By project" })).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Enable…" }));
@@ -87,5 +96,64 @@ describe("the dev browser fixtures drive the tab", () => {
     expect(
       within(dialog).getByText("env.CLAUDE_CODE_ENABLE_TELEMETRY: added"),
     ).toBeInTheDocument();
+  });
+});
+
+describe("the stateful OTel world", () => {
+  it("changes only on an applied Enable or Disable, never on a preview", () => {
+    const otel = createOtelWorld();
+    expect(otel.status()).toMatchObject({ enabled: false, port: 4318 });
+    otel.enable(4318, true);
+    otel.disable(true);
+    expect(otel.status().enabled).toBe(false);
+
+    otel.enable(4999, false);
+    const on = otel.status();
+    expect(on).toMatchObject({
+      enabled: true,
+      port: 4999,
+      endpoint: "http://127.0.0.1:4999",
+      receiver: { listening: true, state: "listening" },
+      settings: { state: "configured" },
+      events: { count: 0, latest: null },
+    });
+    expect(Object.values(on.settings.keys)).toEqual(Array(5).fill("ok"));
+    otel.disable(true);
+    expect(otel.status().enabled).toBe(true);
+
+    expect(otel.disable(false)).toMatchObject({ dryRun: false, port: 4999 });
+    expect(otel.status()).toMatchObject({
+      enabled: false,
+      receiver: { state: "disabled" },
+    });
+    expect(Object.values(otel.status().settings.keys)).toEqual(Array(5).fill("missing"));
+  });
+
+  it("starts listening on request and keeps the stored events then", () => {
+    expect(createOtelWorld({ enabled: true }).status()).toEqual(statusOn);
+  });
+});
+
+describe("shiftDays", () => {
+  it("moves every date by the same number of days and nothing else", () => {
+    const world = usageWorld();
+    const moved = shiftDays(world, "2026-12-30") as typeof world;
+    expect(shiftDays(world, "2026-10-03")).toBe(world);
+    const days = Object.keys(moved.byDay as object);
+    expect(days[0]).toBe("2026-12-15");
+    expect(days.at(-1)).toBe("2026-12-30");
+    expect(Object.values(moved.byDay as object)).toEqual(
+      Object.values(world.byDay as object),
+    );
+    expect(JSON.stringify(moved)).toContain("2026-12-29T11:00:01Z");
+    expect(JSON.stringify(moved)).not.toContain("2026-10-");
+  });
+});
+
+describe("the dev browser fixture of the Usage tab", () => {
+  it("is what plusCtl serves, with no row taken over by another screen", () => {
+    expect([...usageCtlFixtures.keys()]).toHaveLength(11);
+    for (const [argv, reply] of usageCtlFixtures)
+      expect(plusCtlFixtures.get(argv), argv).toBe(reply);
   });
 });

@@ -6,6 +6,7 @@ const { invoke, listen } = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn() 
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
+vi.mock("../usage/UsageTab", () => ({ UsageTab: () => <p>Usage panel</p> }));
 
 import { PlusViews } from "../PlusViews";
 import { confirm, openCompression, section, stat } from "./e2e";

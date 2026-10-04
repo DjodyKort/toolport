@@ -2,11 +2,13 @@ import { useState, type ComponentType } from "react";
 import { NotBuiltPanel } from "../NotBuilt";
 import { NOT_BUILT_TABS } from "../notBuiltTabs";
 import { Tabs } from "../ui";
+import { UsageTab } from "../usage/UsageTab";
 import { CompressionTab } from "./CompressionTab";
 
 /** The tabs of the Tokens screen that are built. A tab not listed here is still the marked
- * placeholder of `NOT_BUILT_TABS`; MIG-GUI-7 adds `usage: UsageTab` from `src/plus/usage`. */
+ * placeholder of `NOT_BUILT_TABS`. */
 export const PANELS: Record<string, ComponentType> = {
+  usage: UsageTab,
   compression: CompressionTab,
 };
 

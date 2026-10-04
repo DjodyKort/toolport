@@ -286,11 +286,61 @@ const disableData = (dryRun: boolean, port: number) => ({
   settingsPath: "/fixture/home/.claude/settings.json",
 });
 
-/** The dev browser starts with the receiver off, so Enable has something to preview. */
-export const otelBrowserFixtures: Array<[string, unknown]> = [
-  ["obs otel status", statusOff],
-  ["obs otel enable --port 4318 --dry-run", enableData(true, 4318)],
-  ["obs otel enable --port 4318", enableData(false, 4318)],
-  ["obs otel disable --dry-run", disableData(true, 4318)],
-  ["obs otel disable", disableData(false, 4318)],
-];
+/** The receiver as a person sees it change: an applied Enable makes the next status say
+ * listening with every key set (no events stored yet), an applied Disable says off again, and
+ * a preview (`--dry-run`) changes nothing. */
+export function createOtelWorld(options: { enabled?: boolean; port?: number } = {}) {
+  let on = options.enabled ?? false;
+  let port = options.port ?? 4318;
+  let events = structuredClone((on ? statusOn : statusOff).events);
+  return {
+    status: () => ({
+      ...structuredClone(on ? statusOn : statusOff),
+      port,
+      endpoint: `http://127.0.0.1:${port}`,
+      events: structuredClone(events),
+    }),
+    enable(given: number, dryRun: boolean) {
+      if (!dryRun) {
+        on = true;
+        port = given;
+        events = structuredClone(statusOff.events);
+      }
+      return enableData(dryRun, given);
+    },
+    disable(dryRun: boolean) {
+      if (!dryRun) on = false;
+      return disableData(dryRun, port);
+    },
+  };
+}
+
+export type OtelWorld = ReturnType<typeof createOtelWorld>;
+
+/** The dev browser starts with the receiver off, so Enable has something to preview, and it
+ * answers the default port only. */
+export function otelBrowserFixtures(
+  world: OtelWorld = createOtelWorld(),
+): Array<[string, () => unknown]> {
+  return [
+    ["obs otel status", () => world.status()],
+    ["obs otel enable --port 4318 --dry-run", () => world.enable(4318, true)],
+    ["obs otel enable --port 4318", () => world.enable(4318, false)],
+    ["obs otel disable --dry-run", () => world.disable(true)],
+    ["obs otel disable", () => world.disable(false)],
+  ];
+}
+
+const DAY_MS = 86_400_000;
+const LAST_DAY = "2026-10-03";
+
+/** The same world moved in time so its newest day is `lastDay` (every date in it shifts by the
+ * same number of days). The dev browser uses it to keep the chart inside the period picker. */
+export function shiftDays<T>(value: T, lastDay: string): T {
+  const delta = Math.round((Date.parse(lastDay) - Date.parse(LAST_DAY)) / DAY_MS);
+  if (delta === 0) return value;
+  const moved = JSON.stringify(value).replace(/\d{4}-\d{2}-\d{2}/g, (day) =>
+    new Date(Date.parse(day) + delta * DAY_MS).toISOString().slice(0, 10),
+  );
+  return JSON.parse(moved) as T;
+}
