@@ -12,6 +12,7 @@ pub mod compression;
 pub mod council;
 pub mod context;
 pub mod direct;
+pub mod gateway_build;
 pub mod import_mcpm;
 pub mod obs;
 pub mod profiles;

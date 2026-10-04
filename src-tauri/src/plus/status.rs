@@ -2,6 +2,7 @@
 //! tools report: a read-only [`Snapshot`] of the data directory and registry, and the JSON built
 //! from it. Each surface only renders the result.
 
+use crate::plus::gateway_build;
 use crate::plus::health::Health;
 use crate::plus::op::OpError;
 use crate::plus::registry_ro;
@@ -118,6 +119,11 @@ pub(crate) fn status(snap: &Snapshot) -> Value {
     };
     let gateway = gateway_binary(snap.data_dir.as_ref());
     let direct_entries = snap.registry.as_ref().map_or(0, crate::plus::direct::count);
+    let builds = snap
+        .data_dir
+        .as_deref()
+        .map(gateway_build::read_live)
+        .unwrap_or_default();
     let mut data = json!({
         "version": env!("CARGO_PKG_VERSION"),
         "dataDir": path_str(&snap.data_dir),
@@ -135,6 +141,8 @@ pub(crate) fn status(snap: &Snapshot) -> Value {
         "gateway": {
             "present": gateway.is_some(),
             "path": path_str(&gateway),
+            "build": builds.first().map_or(Value::Null, |build| json!(build)),
+            "builds": builds,
         },
     });
     if direct_entries > 0 {
@@ -278,4 +286,61 @@ pub(crate) fn doctor(snap: &Snapshot) -> Doctor {
 
     let healthy = !checks.iter().any(|c| c.status == Health::Fail);
     Doctor { healthy, checks }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::plus::gateway_build::BuildTracker;
+    use crate::plus::testutil::DataDirFx;
+
+    fn snapshot_of(fx: &DataDirFx) -> Snapshot {
+        Snapshot {
+            data_dir: Some(fx.dir.clone()),
+            registry_path: None,
+            registry: None,
+            registry_error: None,
+        }
+    }
+
+    fn ids(names: &[&str]) -> Vec<String> {
+        names.iter().map(|name| name.to_string()).collect()
+    }
+
+    #[test]
+    fn status_reports_the_progress_of_a_gateway_build_that_is_running() {
+        let fx = DataDirFx::new("status-build", "running").with_secret_key(&"ab".repeat(32));
+        let tracker = BuildTracker::new("daemon", Some(fx.dir.clone()));
+        tracker.plan(&ids(&["a", "b", "c"]));
+        tracker.server_connected("a", 4, 4);
+        tracker.server_failed("b");
+
+        let data = status(&snapshot_of(&fx));
+        let build = &data["gateway"]["build"];
+        assert_eq!(build["building"], true);
+        assert_eq!(build["role"], "daemon");
+        assert_eq!(build["pid"], std::process::id());
+        assert_eq!(build["serversTotal"], 3);
+        assert_eq!(build["serversConnected"], 1);
+        assert_eq!(build["serversFailed"], 1);
+        assert_eq!(build["toolsSoFar"], 4);
+        assert_eq!(build["servers"][2]["state"], "connecting");
+        assert_eq!(data["gateway"]["builds"].as_array().unwrap().len(), 1);
+
+        tracker.server_connected("c", 2, 6);
+        tracker.finish(6);
+        let done = status(&snapshot_of(&fx));
+        assert_eq!(done["gateway"]["build"]["building"], false);
+        assert_eq!(done["gateway"]["build"]["serversConnected"], 2);
+        assert_eq!(done["gateway"]["build"]["toolsSoFar"], 6);
+    }
+
+    #[test]
+    fn status_has_no_build_when_no_gateway_is_running() {
+        let fx = DataDirFx::new("status-build", "none").with_secret_key(&"ab".repeat(32));
+        let data = status(&snapshot_of(&fx));
+        assert!(data["gateway"]["build"].is_null());
+        assert_eq!(data["gateway"]["builds"], json!([]));
+        assert!(data["gateway"]["present"].is_boolean());
+    }
 }
