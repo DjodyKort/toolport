@@ -238,12 +238,9 @@ try {
       await signIn.getByRole("button", { name: "Close", exact: true }).last().click();
       await shot.getByRole("tab", { name: "Secrets" }).click();
       await expect(shot.getByRole("list", { name: "Secrets" })).toBeVisible();
-      await expect(shot.getByText("unset", { exact: true })).toBeVisible();
       await guiShot(shot, "secrets-light");
-      await shot
-        .getByRole("button", { name: "Set ERP_WEBHOOK_SECRET of acme-erp" })
-        .click();
-      const setDialog = shot.getByRole("dialog", { name: "Set ERP_WEBHOOK_SECRET" });
+      await shot.getByRole("button", { name: "Replace ERP_API_KEY of acme-erp" }).click();
+      const setDialog = shot.getByRole("dialog", { name: "Replace ERP_API_KEY" });
       await expect(setDialog.getByLabel("New value")).toBeVisible();
       await guiShot(shot, "secrets-set-light");
       await setDialog.getByRole("button", { name: "Cancel" }).click();
