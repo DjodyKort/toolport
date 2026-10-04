@@ -12862,10 +12862,6 @@ impl HostState {
         }
         if pool.specs != daemon_root_servers(reg)
             || pool.secrets_generation != reg.secrets_generation
-            || !pool
-                .base
-                .as_ref()
-                .is_some_and(|current| Arc::ptr_eq(current, &base))
         {
             drop(pool);
             for (_, launch) in &connected {
@@ -12875,6 +12871,10 @@ impl HostState {
             }
             return base;
         }
+        let base_is_current = pool
+            .base
+            .as_ref()
+            .is_some_and(|current| Arc::ptr_eq(current, &base));
         let mut inserted = false;
         let mut discarded = Vec::new();
         for (key, launch) in connected {
@@ -12897,6 +12897,15 @@ impl HostState {
         if inserted {
             pool.views.remove(&keys);
             pool.incomplete_until.remove(&keys);
+        }
+        // A swap drops the pool's views and leases, not the launches, which hold no base.
+        if !base_is_current {
+            if active_mcp_session().is_none() {
+                pool.last_used.insert(keys.clone(), Instant::now());
+            }
+            drop(pool);
+            drop(discarded);
+            return base;
         }
         if let Some(view) = pool.views.get(&keys) {
             let view = Arc::clone(view);
@@ -29586,97 +29595,216 @@ mod tests {
         path
     }
 
+    /// A daemon host whose first launch for one root stays in flight until
+    /// `open_gate`, so a test decides what happens to the pool while it connects.
+    #[cfg(unix)]
+    struct GatedRootLaunch {
+        dir: PathBuf,
+        root: String,
+        gate: PathBuf,
+        started: PathBuf,
+        transcript: PathBuf,
+        reg: Registry,
+        host: Arc<HostState>,
+        _data_dir: conduit_lib::registry::DataDirOverride,
+        _env: std::sync::MutexGuard<'static, ()>,
+    }
+
+    #[cfg(unix)]
+    impl GatedRootLaunch {
+        fn new(tag: &str) -> Self {
+            let env = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+            let dir = std::env::temp_dir().join(format!(
+                "toolport-root-{tag}-{}",
+                routines::generate_id().unwrap()
+            ));
+            let root = dir.join("project");
+            std::fs::create_dir_all(&root).unwrap();
+            let data_dir = conduit_lib::registry::DataDirOverride::set(&dir);
+            let gate = dir.join("start-gate");
+            let started = dir.join("start-gate.started");
+            let transcript = dir.join("downstream.jsonl");
+            let mut server = stub_server("mock", "Mock");
+            server.command = Some(mock_server_binary().display().to_string());
+            server.cwd = Some("${ROOT}".to_string());
+            server.env = [
+                ("MOCK_MCP_TRANSCRIPT", &transcript),
+                ("MOCK_MCP_START_GATE", &gate),
+            ]
+            .into_iter()
+            .map(|(key, path)| registry::EnvVar {
+                key: key.to_string(),
+                value: Some(path.display().to_string()),
+                secret: false,
+            })
+            .collect();
+            let mut reg = Registry::default();
+            reg.set_lazy_discovery(false);
+            reg.servers = vec![server];
+            let active = reg.active_profile_id();
+            reg.profiles
+                .iter_mut()
+                .find(|profile| profile.id == active)
+                .unwrap()
+                .enabled_server_ids = vec!["mock".to_string()];
+            let host = dispatch_host(false);
+            host.daemon_mode.store(true, Ordering::SeqCst);
+            *host.registry.lock().unwrap() = reg.clone();
+            Self {
+                root: root.display().to_string(),
+                dir,
+                gate,
+                started,
+                transcript,
+                reg,
+                host,
+                _data_dir: data_dir,
+                _env: env,
+            }
+        }
+
+        fn live_router(&self) -> Arc<Router> {
+            self.host.router.lock().unwrap().clone()
+        }
+
+        fn launch_on(&self, base: &Arc<Router>) -> std::thread::JoinHandle<Arc<Router>> {
+            let (host, reg, base, root) = (
+                Arc::clone(&self.host),
+                self.reg.clone(),
+                Arc::clone(base),
+                self.root.clone(),
+            );
+            std::thread::spawn(move || host.router_for_root(base, &reg, Some(&root), None))
+        }
+
+        fn router_for_root(&self, base: &Arc<Router>, reg: &Registry) -> Arc<Router> {
+            self.host
+                .router_for_root(Arc::clone(base), reg, Some(&self.root), None)
+        }
+
+        fn wait_until_started(&self) {
+            let deadline = Instant::now() + Duration::from_secs(30);
+            while std::fs::read_to_string(&self.started).map_or(true, |pids| pids.trim().is_empty())
+            {
+                assert!(Instant::now() < deadline, "the launch never started");
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        }
+
+        fn open_gate(&self) {
+            std::fs::write(&self.gate, "").unwrap();
+        }
+
+        fn pooled_launches(&self) -> usize {
+            self.host.root_launch_pool.lock().unwrap().launches.len()
+        }
+
+        /// The swap a rebuild performs: publish the new router, then drop the pool's views.
+        fn swap_router(&self) -> Arc<Router> {
+            let next = Arc::new(Router::new());
+            *self.host.router.lock().unwrap() = Arc::clone(&next);
+            self.host.invalidate_root_views();
+            next
+        }
+
+        fn assert_one_child_serves(&self, routers: &[&Arc<Router>], respawned: &str) {
+            let initializes = std::fs::read_to_string(&self.transcript)
+                .unwrap_or_default()
+                .lines()
+                .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+                .filter(|entry| entry["method"] == "initialize")
+                .count();
+            assert_eq!(initializes, 1, "{respawned}");
+            let pids = std::fs::read_to_string(&self.started).unwrap();
+            let pids: Vec<&str> = pids.lines().collect();
+            assert_eq!(pids.len(), 1, "one root must start one child: {pids:?}");
+            assert!(
+                std::process::Command::new("kill")
+                    .args(["-0", pids[0]])
+                    .status()
+                    .unwrap()
+                    .success(),
+                "the pooled child is not running"
+            );
+            assert_eq!(self.pooled_launches(), 1);
+            for router in routers {
+                assert!(
+                    router
+                        .aggregated_tools()
+                        .iter()
+                        .any(|tool| tool["name"] == "mock__pwd"),
+                    "the rooted catalog is missing from the view"
+                );
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    impl Drop for GatedRootLaunch {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.dir);
+        }
+    }
+
     #[cfg(unix)]
     #[test]
     fn a_reap_while_the_first_root_launch_connects_does_not_discard_it() {
-        let _env = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
-        let dir = std::env::temp_dir().join(format!(
-            "toolport-root-reap-{}",
-            routines::generate_id().unwrap()
-        ));
-        let root = dir.join("project");
-        std::fs::create_dir_all(&root).unwrap();
-        let _data_dir = conduit_lib::registry::DataDirOverride::set(&dir);
-        let gate = dir.join("start-gate");
-        let started = dir.join("start-gate.started");
-        let transcript = dir.join("downstream.jsonl");
-        let mut server = stub_server("mock", "Mock");
-        server.command = Some(mock_server_binary().display().to_string());
-        server.cwd = Some("${ROOT}".to_string());
-        server.env = [
-            ("MOCK_MCP_TRANSCRIPT", &transcript),
-            ("MOCK_MCP_START_GATE", &gate),
-        ]
-        .into_iter()
-        .map(|(key, path)| registry::EnvVar {
-            key: key.to_string(),
-            value: Some(path.display().to_string()),
-            secret: false,
-        })
-        .collect();
-        let mut reg = Registry::default();
-        reg.set_lazy_discovery(false);
-        reg.servers = vec![server];
-        let active = reg.active_profile_id();
-        reg.profiles
-            .iter_mut()
-            .find(|profile| profile.id == active)
-            .unwrap()
-            .enabled_server_ids = vec!["mock".to_string()];
-        let host = dispatch_host(false);
-        host.daemon_mode.store(true, Ordering::SeqCst);
-        *host.registry.lock().unwrap() = reg.clone();
-        let base = host.router.lock().unwrap().clone();
-        let root_arg = root.display().to_string();
-
-        let launch = {
-            let (host, reg, base, root) = (
-                Arc::clone(&host),
-                reg.clone(),
-                Arc::clone(&base),
-                root_arg.clone(),
-            );
-            std::thread::spawn(move || host.router_for_root(base, &reg, Some(&root), None))
-        };
-        let deadline = Instant::now() + Duration::from_secs(30);
-        while std::fs::read_to_string(&started).map_or(true, |pids| pids.trim().is_empty()) {
-            assert!(Instant::now() < deadline, "the launch never started");
-            std::thread::sleep(Duration::from_millis(10));
-        }
-        host.reap_root_launches();
-        std::fs::write(&gate, "").unwrap();
+        let rig = GatedRootLaunch::new("reap");
+        let base = rig.live_router();
+        let launch = rig.launch_on(&base);
+        rig.wait_until_started();
+        rig.host.reap_root_launches();
+        rig.open_gate();
         let view = launch.join().unwrap();
-        let again = host.router_for_root(Arc::clone(&base), &reg, Some(&root_arg), None);
+        let again = rig.router_for_root(&base, &rig.reg);
 
-        let initializes = std::fs::read_to_string(&transcript)
-            .unwrap_or_default()
-            .lines()
-            .filter_map(|line| serde_json::from_str::<Value>(line).ok())
-            .filter(|entry| entry["method"] == "initialize")
-            .count();
-        assert_eq!(initializes, 1, "the reaped launch was spawned again");
-        let pids = std::fs::read_to_string(&started).unwrap();
-        let pids: Vec<&str> = pids.lines().collect();
-        assert_eq!(pids.len(), 1, "one root must start one child: {pids:?}");
-        assert!(
-            std::process::Command::new("kill")
-                .args(["-0", pids[0]])
-                .status()
-                .unwrap()
-                .success(),
-            "the pooled child is not running"
+        rig.assert_one_child_serves(&[&view, &again], "the reaped launch was spawned again");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_router_swap_while_the_first_root_launch_connects_keeps_it() {
+        let rig = GatedRootLaunch::new("swap");
+        let stale = rig.live_router();
+        let launch = rig.launch_on(&stale);
+        rig.wait_until_started();
+        let live = rig.swap_router();
+        rig.open_gate();
+        launch.join().unwrap();
+        rig.host.reap_root_launches();
+        let again = rig.router_for_root(&live, &rig.reg);
+
+        rig.assert_one_child_serves(&[&again], "the swapped-out launch was spawned again");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_swap_that_changes_the_root_server_discards_the_launch_it_raced() {
+        let rig = GatedRootLaunch::new("respec");
+        let stale = rig.live_router();
+        let launch = rig.launch_on(&stale);
+        rig.wait_until_started();
+        let mut changed = rig.reg.clone();
+        changed.servers[0].args = vec!["--changed".to_string()];
+        *rig.host.registry.lock().unwrap() = changed.clone();
+        let live = rig.swap_router();
+        rig.open_gate();
+        launch.join().unwrap();
+
+        assert_eq!(
+            rig.pooled_launches(),
+            0,
+            "a launch built from the old server entry outlived the swap"
         );
-        assert_eq!(host.root_launch_pool.lock().unwrap().launches.len(), 1);
-        for router in [&view, &again] {
-            assert!(
-                router
-                    .aggregated_tools()
-                    .iter()
-                    .any(|tool| tool["name"] == "mock__pwd"),
-                "the rooted catalog is missing from the view"
-            );
-        }
-        let _ = std::fs::remove_dir_all(&dir);
+        let again = rig.router_for_root(&live, &changed);
+        assert_eq!(rig.pooled_launches(), 1);
+        assert!(
+            again
+                .aggregated_tools()
+                .iter()
+                .any(|tool| tool["name"] == "mock__pwd"),
+            "the changed server was not launched for the live router"
+        );
     }
 
     #[test]
