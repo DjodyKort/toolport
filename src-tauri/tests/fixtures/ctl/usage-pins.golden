@@ -1962,18 +1962,18 @@ Run `toolportctl --help` for usage.
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: context init|status|client|profile|disable|loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])
+toolportctl: usage: context init|status|client|profile|disable|loads|measure|checkpoint-status|plan|apply|sync (measure: [--cwd <dir>] [--without plugin:<id>|skill:<name>]... [--bundle <name>] [--model <id>] [--force] [--yes]; plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])
 Run `toolportctl --help` for usage.
 === ["--json","context"]
 exit 2
 --- stdout
-{"command":"context","error":{"code":"usage","message":"usage: context init|status|client|profile|disable|loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])"},"ok":false,"schemaVersion":1}
+{"command":"context","error":{"code":"usage","message":"usage: context init|status|client|profile|disable|loads|measure|checkpoint-status|plan|apply|sync (measure: [--cwd <dir>] [--without plugin:<id>|skill:<name>]... [--bundle <name>] [--model <id>] [--force] [--yes]; plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["context","nope"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: context init|status|client|profile|disable|loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])
+toolportctl: usage: context init|status|client|profile|disable|loads|measure|checkpoint-status|plan|apply|sync (measure: [--cwd <dir>] [--without plugin:<id>|skill:<name>]... [--bundle <name>] [--model <id>] [--force] [--yes]; plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])
 Run `toolportctl --help` for usage.
 === ["context","loads","--bogus"]
 exit 2
@@ -3785,6 +3785,58 @@ exit 2
 --- stdout
 --- stderr
 toolportctl: usage: sources root add|rm <dir> [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["context","measure","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["--json","context","measure","--bogus"]
+exit 2
+--- stdout
+{"command":"context measure","error":{"code":"usage","message":"unexpected argument: --bogus"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["context","measure","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["context","measure","--cwd"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --cwd requires a value
+Run `toolportctl --help` for usage.
+=== ["context","measure","--without"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --without requires a value
+Run `toolportctl --help` for usage.
+=== ["--json","context","measure","--without"]
+exit 2
+--- stdout
+{"command":"context measure","error":{"code":"usage","message":"--without requires a value"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["context","measure","--bundle"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --bundle requires a value
+Run `toolportctl --help` for usage.
+=== ["context","measure","--model"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --model requires a value
+Run `toolportctl --help` for usage.
+=== ["context","measure","--force=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --force
 Run `toolportctl --help` for usage.
 === ["skills","lint","--bogus"]
 exit 2

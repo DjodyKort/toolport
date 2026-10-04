@@ -297,7 +297,7 @@ pub fn checkpoint_status(rest: &[String]) -> Result<Output, CtlError> {
     checkpoint_status_from(rest, &mut std::io::stdin().lock(), &roots)
 }
 
-const GROUP_USAGE: &str = "usage: context init|status|client|profile|disable|loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])";
+const GROUP_USAGE: &str = "usage: context init|status|client|profile|disable|loads|measure|checkpoint-status|plan|apply|sync (measure: [--cwd <dir>] [--without plugin:<id>|skill:<name>]... [--bundle <name>] [--model <id>] [--force] [--yes]; plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])";
 
 pub(super) const DEPLOY: Spec = Spec {
     flags: &[
