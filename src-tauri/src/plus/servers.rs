@@ -102,6 +102,28 @@ fn add_unique(
     }
 }
 
+/// A stdio entry with every optional field empty; callers set what differs with `..stdio_entry()`.
+pub(crate) fn stdio_entry(name: &str, command: Option<String>, source: &str) -> ServerEntry {
+    ServerEntry {
+        id: String::new(),
+        name: name.to_string(),
+        transport: "stdio".into(),
+        command,
+        args: Vec::new(),
+        launch: None,
+        env: Vec::new(),
+        url: None,
+        cwd: None,
+        source: Some(source.to_string()),
+        disabled_tools: Vec::new(),
+        client_credentials: None,
+        request_timeout_ms: None,
+        max_request_timeout_ms: None,
+        initialize_timeout_ms: None,
+        unknown_fields: Default::default(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -366,5 +388,21 @@ mod tests {
         let remove = registry_controller::remove_server(&id).unwrap_err();
         assert_eq!(remove, format!("No server with id '{id}'"));
         assert!(registry::load_resolved().unwrap().servers.is_empty());
+    }
+
+    #[test]
+    fn stdio_entry_matches_a_registry_entry_with_only_the_required_fields() {
+        let minimal: ServerEntry = serde_json::from_value(json!({
+            "id": "",
+            "name": "probe",
+            "transport": "stdio",
+            "command": "probe-mcp",
+            "source": "test:probe",
+        }))
+        .unwrap();
+        assert_eq!(
+            stdio_entry("probe", Some("probe-mcp".into()), "test:probe"),
+            minimal
+        );
     }
 }

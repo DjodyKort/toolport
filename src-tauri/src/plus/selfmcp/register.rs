@@ -1,4 +1,5 @@
 use super::{BINARY_NAME, SERVER_NAME};
+use crate::plus::servers::stdio_entry;
 use crate::plus::tags;
 use crate::registry::{self, Registry, ServerEntry};
 use serde_json::{json, Map, Value};
@@ -108,24 +109,7 @@ fn is_self(entry: &ServerEntry) -> bool {
 }
 
 fn self_entry(command: &str) -> ServerEntry {
-    ServerEntry {
-        id: String::new(),
-        name: SERVER_NAME.to_string(),
-        transport: "stdio".into(),
-        command: Some(command.to_string()),
-        args: Vec::new(),
-        env: Vec::new(),
-        url: None,
-        cwd: None,
-        source: Some(SELF_SOURCE.into()),
-        disabled_tools: Vec::new(),
-        client_credentials: None,
-        request_timeout_ms: None,
-        max_request_timeout_ms: None,
-        initialize_timeout_ms: None,
-        launch: None,
-        unknown_fields: serde_json::Map::new(),
-    }
+    stdio_entry(SERVER_NAME, Some(command.to_string()), SELF_SOURCE)
 }
 
 /// Idempotent: adds the self server when missing, repoints a stale command, and leaves every
