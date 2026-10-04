@@ -1833,6 +1833,8 @@ mod tests {
         let peak = Arc::new(Mutex::new(0usize));
         let in_flight2 = in_flight.clone();
         let peak2 = peak.clone();
+        let gate = crate::plus::testutil::Gate::new(3);
+        let gate2 = gate.clone();
         let call: CallBinding = Arc::new(move |name: &str, _: Value| {
             {
                 let mut current = in_flight2.lock().unwrap();
@@ -1840,6 +1842,7 @@ mod tests {
                 let mut observed_peak = peak2.lock().unwrap();
                 *observed_peak = (*observed_peak).max(*current);
             }
+            gate2.pass();
             thread::sleep(StdDuration::from_millis(80));
             *in_flight2.lock().unwrap() -= 1;
             json!({ "echo": name })
@@ -1863,6 +1866,10 @@ mod tests {
         );
         assert_eq!(out.error, None, "unexpected error: {:?}", out.error);
         assert_eq!(out.calls, 3);
+        assert!(
+            !gate.timed_out(),
+            "the host calls never ran at the same time"
+        );
         assert_eq!(*peak.lock().unwrap(), 3, "all host calls should overlap");
     }
 
@@ -1872,6 +1879,8 @@ mod tests {
         let peak = Arc::new(Mutex::new(0usize));
         let in_flight2 = in_flight.clone();
         let peak2 = peak.clone();
+        let gate = crate::plus::testutil::Gate::new(2);
+        let gate2 = gate.clone();
         let call: CallBinding = Arc::new(move |_name: &str, _: Value| {
             {
                 let mut n = in_flight2.lock().unwrap();
@@ -1881,6 +1890,7 @@ mod tests {
                     *p = *n;
                 }
             }
+            gate2.pass();
             thread::sleep(StdDuration::from_millis(30));
             {
                 let mut n = in_flight2.lock().unwrap();
@@ -1909,6 +1919,10 @@ mod tests {
         assert_eq!(out.error, None, "unexpected error: {:?}", out.error);
         assert_eq!(out.calls, 4);
         let peak = *peak.lock().unwrap();
+        assert!(
+            !gate.timed_out(),
+            "two host calls never ran at the same time"
+        );
         assert!(peak <= 2, "peak concurrency {peak} exceeded max_parallel 2");
         assert!(peak >= 2, "expected to reach max_parallel, peak={peak}");
     }

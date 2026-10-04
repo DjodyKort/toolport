@@ -258,16 +258,19 @@ fn concurrency_stays_within_the_bound() {
     }
     let live = Arc::new(AtomicUsize::new(0));
     let peak = Arc::new(AtomicUsize::new(0));
-    let (live_in, peak_in) = (live.clone(), peak.clone());
+    let gate = crate::plus::testutil::Gate::new(2);
+    let (live_in, peak_in, gate_in) = (live.clone(), peak.clone(), gate.clone());
     let probe = MockProbe::always(ProbeOutcome::Success).on_run(move || {
         let now = live_in.fetch_add(1, Ordering::SeqCst) + 1;
         peak_in.fetch_max(now, Ordering::SeqCst);
+        gate_in.pass();
         std::thread::sleep(Duration::from_millis(40));
         live_in.fetch_sub(1, Ordering::SeqCst);
     });
     let rig = rig("bound", reg, probe);
     let result = run(&rig.prober, &Selector::Due, false, 2).unwrap();
     assert_eq!(result.probed(), 8);
+    assert!(!gate.timed_out(), "two probes never ran at the same time");
     assert_eq!(peak.load(Ordering::SeqCst), 2);
     let order: Vec<&str> = result.reports.iter().map(|r| r.server.as_str()).collect();
     let expected: Vec<String> = (0..8).map(|i| format!("srv-{i}")).collect();
