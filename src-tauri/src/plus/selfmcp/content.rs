@@ -66,7 +66,7 @@ fn persist(dir: &Path, lock: &LockFile, dry_run: bool) -> Result<(), ToolError> 
     save_lockfile(dir, lock).map_err(ToolError::backend)
 }
 
-fn path_safe(name: &str) -> Result<&str, ToolError> {
+pub(super) fn path_safe(name: &str) -> Result<&str, ToolError> {
     let ok = !name.is_empty()
         && name.len() <= 128
         && !name.starts_with('.')

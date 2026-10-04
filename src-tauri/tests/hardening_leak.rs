@@ -650,6 +650,15 @@ fn client_import_never_prints_or_stores_a_client_config_canary() {
     assert!(leaks.is_empty(), "canary reached the disk: {leaks:#?}");
 }
 
+fn leak_bundle(world: &World) -> String {
+    world
+        .sb
+        .work
+        .join("selfmcp-leak-bundle.zip")
+        .to_string_lossy()
+        .into_owned()
+}
+
 fn tool_args(name: &str, schema: &Value, world: &World) -> Value {
     let props = schema["properties"]
         .as_object()
@@ -697,6 +706,15 @@ fn tool_args(name: &str, schema: &Value, world: &World) -> Value {
     }
     match name {
         "skills_scaffold" => set(&mut args, &[("name", json!("fresh"))]),
+        "skills_bundle" => set(
+            &mut args,
+            &[("output", json!(leak_bundle(world))), ("dry_run", json!(false))],
+        ),
+        "skills_unbundle" => set(
+            &mut args,
+            &[("bundle_path", json!(leak_bundle(world))), ("dry_run", json!(false))],
+        ),
+        "skills_clean" | "skills_resolve" => set(&mut args, &[("dry_run", json!(false))]),
         "skills_delete" => set(&mut args, &[("name", json!("fresh"))]),
         "agents_scaffold" => set(&mut args, &[("name", json!("fresh-agent"))]),
         "styles_scaffold" => set(&mut args, &[("name", json!("fresh-style"))]),
@@ -774,6 +792,20 @@ fn selfmcp_tools_and_resources_never_return_or_store_a_canary() {
     for name in catalog {
         assert!(called.iter().any(|c| c == name), "{name} was never called");
     }
+    let repo = json!(world.repo);
+    for (name, args) in [
+        ("skills_scaffold", json!({"name": "throwaway", "repo_path": repo})),
+        (
+            "skills_uninstall",
+            json!({"name": "throwaway", "repo_path": repo, "dry_run": false, "confirm": true}),
+        ),
+    ] {
+        let reply = session.call(name, args.clone());
+        assert_eq!(reply["result"]["isError"], false, "{name} {args} -> {reply}");
+    }
+    assert!(!std::path::Path::new(&world.repo)
+        .join("skills/throwaway")
+        .exists());
     let resources = session.request("resources/list", json!({}));
     for resource in resources["result"]["resources"].as_array().unwrap() {
         let uri = resource["uri"].as_str().unwrap();

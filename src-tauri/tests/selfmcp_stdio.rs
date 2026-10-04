@@ -20,7 +20,7 @@ use serde_json::{json, Value};
 
 const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
-const TOOL_COUNT: usize = 58;
+const TOOL_COUNT: usize = 65;
 const RESOURCE_COUNT: usize = 11;
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -415,7 +415,10 @@ fn every_gated_tool_refuses_without_confirm_and_changes_nothing() {
         if def.gate == Gate::None {
             continue;
         }
-        let args = sample_args(descriptor);
+        let mut args = sample_args(descriptor);
+        if descriptor["inputSchema"]["properties"]["dry_run"]["default"] == json!(true) {
+            args["dry_run"] = json!(false);
+        }
         for variant in [args.clone(), {
             let mut with_false = args.clone();
             with_false["confirm"] = json!(false);
@@ -478,6 +481,8 @@ fn tier_one_calls() -> BTreeMap<&'static str, Value> {
         ("skills_lint", json!({})),
         ("skills_status", json!({})),
         ("skills_list_transpilers", json!({})),
+        ("skills_diff", json!({})),
+        ("skills_audit", json!({})),
         ("skills_tap_list", json!({})),
         ("skills_search", json!({"query": "review"})),
         ("agents_list", json!({})),
@@ -535,6 +540,10 @@ fn tier_one_tools_read_without_confirm_and_never_write() {
 
     assert_eq!(results["skills_list"]["skills"][0]["name"], "demo");
     assert_eq!(results["skills_get"]["body"], "Body text");
+    assert_eq!(results["skills_diff"]["noLockfile"], true);
+    assert_eq!(results["skills_diff"]["new"], json!(["demo"]));
+    assert_eq!(results["skills_audit"]["clean"], true);
+    assert_eq!(results["skills_audit"]["skillCount"], 1);
     assert_eq!(results["skills_tap_list"]["taps"], json!([]));
     assert_eq!(results["skills_search"]["tapCount"], 0);
     assert_eq!(results["skills_search"]["results"], json!([]));
@@ -777,6 +786,121 @@ fn the_direct_tools_plan_by_default_and_apply_on_request() {
             .error_kind(),
         "invalid_arguments"
     );
+    assert!(client.close().success());
+}
+
+#[test]
+fn the_destructive_skills_tools_plan_by_default_and_apply_only_when_confirmed() {
+    let world = World::new("destructive");
+    let mut client = Client::spawn(&world);
+    client.handshake();
+    let listed = listed_tools(&mut client);
+    for name in [
+        "skills_bundle",
+        "skills_unbundle",
+        "skills_clean",
+        "skills_uninstall",
+        "skills_resolve",
+    ] {
+        let tool = listed.iter().find(|t| t["name"] == name).unwrap();
+        assert_eq!(
+            tool["inputSchema"]["properties"]["dry_run"]["default"], true,
+            "{name}"
+        );
+        assert!(
+            tool["description"]
+                .as_str()
+                .unwrap()
+                .contains("dry_run is on by default"),
+            "{name}"
+        );
+    }
+    client
+        .call("skills_sync", json!({"client_keys": ["claude-code"]}))
+        .ok();
+    let output = world.home.join(".claude/skills/demo/SKILL.md");
+    let lockfile = world.data.join("mcpm-skills.lock");
+    let original = std::fs::read(world.skill_file()).unwrap();
+    assert!(output.is_file() && lockfile.is_file());
+    let bundle = world.repo.join("skills-repo-bundle.zip");
+
+    let before = world.snapshot();
+    let planned = client.call("skills_bundle", json!({}));
+    assert_eq!(planned.ok()["dryRun"], true);
+    assert_eq!(world.snapshot(), before, "a default bundle must not write");
+    let made = client.call("skills_bundle", json!({"dry_run": false}));
+    assert_eq!(made.ok()["dryRun"], false);
+    assert!(bundle.is_file());
+    assert_eq!(
+        client
+            .call("skills_bundle", json!({"dry_run": false}))
+            .error_kind(),
+        "conflict",
+        "a bundle never overwrites a file"
+    );
+
+    let before = world.snapshot();
+    let planned = client.call("skills_uninstall", json!({"name": "demo"}));
+    assert_eq!(planned.ok()["dryRun"], true);
+    assert_eq!(planned.ok()["lockUpdated"], true);
+    assert_eq!(world.snapshot(), before, "a default call must not write");
+    let refused = client.call("skills_uninstall", json!({"name": "demo", "dry_run": false}));
+    assert_eq!(refused.error_kind(), "refused");
+    assert!(refused.error_message().contains("confirm=true"));
+    assert_eq!(world.snapshot(), before, "a refused call must not write");
+    for name in ["../agents/helper", "a/b", ".."] {
+        let tampered = client.call(
+            "skills_uninstall",
+            json!({"name": name, "dry_run": false, "confirm": true}),
+        );
+        assert_eq!(tampered.error_kind(), "invalid_arguments", "{name}");
+    }
+    assert_eq!(world.snapshot(), before, "a tampered name must not write");
+    let applied = client.call(
+        "skills_uninstall",
+        json!({"name": "demo", "dry_run": false, "confirm": true}),
+    );
+    assert_eq!(applied.ok()["dryRun"], false);
+    assert!(!world.skill_file().exists() && !output.exists());
+    assert!(world.repo.join("agents/helper/AGENT.md").is_file());
+
+    let args = json!({"bundle_path": bundle.to_string_lossy()});
+    let before = world.snapshot();
+    let planned = client.call("skills_unbundle", args.clone());
+    assert_eq!(planned.ok()["dryRun"], true);
+    assert_eq!(planned.ok()["files"], json!(["skills/demo/SKILL.md"]));
+    assert_eq!(world.snapshot(), before, "a default call must not write");
+    let mut apply = args;
+    apply["dry_run"] = json!(false);
+    assert_eq!(
+        client.call("skills_unbundle", apply.clone()).error_kind(),
+        "refused"
+    );
+    assert_eq!(world.snapshot(), before, "a refused call must not write");
+    apply["confirm"] = json!(true);
+    client.call("skills_unbundle", apply).ok();
+    assert_eq!(std::fs::read(world.skill_file()).unwrap(), original);
+
+    client
+        .call("skills_sync", json!({"client_keys": ["claude-code"]}))
+        .ok();
+    assert!(output.is_file());
+    let before = world.snapshot();
+    let planned = client.call("skills_clean", json!({}));
+    assert_eq!(planned.ok()["dryRun"], true);
+    assert_eq!(planned.ok()["lockfileRemoved"], true);
+    assert_eq!(world.snapshot(), before, "a default call must not write");
+    assert_eq!(
+        client
+            .call("skills_clean", json!({"dry_run": false}))
+            .error_kind(),
+        "refused"
+    );
+    assert_eq!(world.snapshot(), before, "a refused call must not write");
+    let cleaned = client.call("skills_clean", json!({"dry_run": false, "confirm": true}));
+    assert_eq!(cleaned.ok()["dryRun"], false);
+    assert!(!output.exists() && !lockfile.exists());
+    assert_eq!(std::fs::read(world.skill_file()).unwrap(), original);
     assert!(client.close().success());
 }
 

@@ -448,7 +448,7 @@ fn imported_clients_see_the_self_tools_through_the_gateway() {
         .iter()
         .map(|t| format!("{SELF_PREFIX}{}", t.name))
         .collect();
-    assert_eq!(expected.len(), 58);
+    assert_eq!(expected.len(), 65);
     for (profile, lazy) in [
         (None, false),
         (Some("claude-code"), false),

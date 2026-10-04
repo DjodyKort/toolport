@@ -17,6 +17,13 @@ const EXPECTED_TOOLS: &[&str] = &[
     "skills_tap_remove",
     "skills_tap_update",
     "skills_install",
+    "skills_diff",
+    "skills_audit",
+    "skills_bundle",
+    "skills_unbundle",
+    "skills_clean",
+    "skills_uninstall",
+    "skills_resolve",
     "skills_scaffold",
     "skills_sync",
     "skills_edit_body",
@@ -176,9 +183,9 @@ fn err_kind(result: Result<Value, ToolError>) -> &'static str {
 }
 
 #[test]
-fn registry_has_all_58_tools_and_11_resources() {
+fn registry_has_all_65_tools_and_11_resources() {
     let names: Vec<&str> = TOOLS.iter().map(|t| t.name).collect();
-    assert_eq!(names.len(), 58);
+    assert_eq!(names.len(), 65);
     assert_eq!(
         names.iter().copied().collect::<BTreeSet<_>>(),
         EXPECTED_TOOLS.iter().copied().collect::<BTreeSet<_>>()
@@ -194,7 +201,7 @@ fn registry_has_all_58_tools_and_11_resources() {
 #[test]
 fn module_counts_match_the_parity_matrix() {
     let count = |prefix: &str| TOOLS.iter().filter(|t| t.name.starts_with(prefix)).count();
-    assert_eq!(count("skills_") - 1, 16);
+    assert_eq!(count("skills_") - 1, 23);
     assert_eq!(count("agents_"), 7);
     assert_eq!(count("styles_"), 10);
     assert_eq!(count("servers_"), 15);
@@ -260,7 +267,9 @@ fn tiers_three_and_four_always_carry_a_gate() {
             "skills_git_push",
             "sync_push",
             "styles_remove",
-            "servers_uninstall"
+            "servers_uninstall",
+            "skills_clean",
+            "skills_uninstall"
         ])
     );
 }
@@ -309,6 +318,42 @@ fn dry_run_waives_the_gate_only_where_declared() {
     let refused = call_tool("styles_remove", &json!({"dry_run": true})).unwrap_err();
     assert_eq!(refused.kind, "refused");
     assert!(refused.message.contains("WARNING"));
+}
+
+#[test]
+fn a_dry_run_that_is_on_by_default_previews_without_confirm_and_applies_only_with_it() {
+    let _fixture = Fixture::new("dryrun-default");
+    let gated: Vec<&ToolDef> = TOOLS
+        .iter()
+        .filter(|t| {
+            t.gate == Gate::UnlessDryRun
+                && t.params
+                    .iter()
+                    .any(|p| p.name == "dry_run" && p.default == Some(true))
+        })
+        .collect();
+    assert!(!gated.is_empty());
+    for tool in gated {
+        let args = sample_args(tool);
+        let with = |dry_run: Option<bool>| {
+            let mut args = args.clone();
+            if let Some(dry_run) = dry_run {
+                args["dry_run"] = json!(dry_run);
+            }
+            args
+        };
+        for preview in [None, Some(true)] {
+            assert_ne!(
+                err_kind(call_tool(tool.name, &with(preview))),
+                "refused",
+                "{} {preview:?}",
+                tool.name
+            );
+        }
+        let refused = call_tool(tool.name, &with(Some(false))).unwrap_err();
+        assert_eq!(refused.kind, "refused", "{}", tool.name);
+        assert_eq!(refused.message.contains("WARNING"), tool.tier >= 4);
+    }
 }
 
 #[test]
@@ -497,7 +542,7 @@ fn json_rpc_surface_lists_calls_and_reads() {
         handle_message(&json!({"jsonrpc": "2.0", "method": "notifications/initialized"})).is_none()
     );
     let tools = call(json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}));
-    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 58);
+    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 65);
     let resources = call(json!({"jsonrpc": "2.0", "id": 3, "method": "resources/list"}));
     assert_eq!(
         resources["result"]["resources"].as_array().unwrap().len(),
