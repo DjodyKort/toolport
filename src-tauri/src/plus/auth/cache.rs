@@ -92,6 +92,10 @@ impl AuthStore {
         self.dir.join("events.jsonl")
     }
 
+    pub fn notified_path(&self) -> PathBuf {
+        self.dir.join("notified.json")
+    }
+
     pub fn corrupt_path(&self) -> PathBuf {
         self.dir.join("status.json.corrupt")
     }
