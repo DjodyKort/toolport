@@ -114,6 +114,8 @@ export const plusWhatLoadsFixture: WhatLoads = {
     used_tokens: 18,
     capped: [],
   },
+  measured: null,
+  measured_info: null,
   partial: false,
   notes: ["strict-mcp-config: only profile servers load"],
 };

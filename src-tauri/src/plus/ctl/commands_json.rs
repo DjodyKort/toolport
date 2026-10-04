@@ -143,6 +143,11 @@ pub(super) const GLOBAL: &[Meta] = &[
     .hidden()
     .repeats(),
     m(
+        "--bundle",
+        Str,
+        "Context bundle to measure (profiles/<name>.yaml in the skills repository)",
+    ),
+    m(
         "--by-pin",
         Bool,
         "Group the measured sessions by engine pin",
@@ -254,6 +259,11 @@ pub(super) const GLOBAL: &[Meta] = &[
         "mcpm configuration root to adopt the compression policy from",
     ),
     m(
+        "--measured",
+        Bool,
+        "Attach the cached measurement of this folder; never starts one",
+    ),
+    m(
         "--migrate",
         Bool,
         "Back up files that shadow synced skills and take them over",
@@ -263,6 +273,11 @@ pub(super) const GLOBAL: &[Meta] = &[
         "--mode",
         Ty::Choice(&["cache", "token"]),
         "Compression mode",
+    ),
+    m(
+        "--model",
+        Str,
+        "Model that answers the measuring requests (default: haiku)",
     ),
     m("--name", Str, "Name"),
     m(
@@ -449,6 +464,12 @@ pub(super) const GLOBAL: &[Meta] = &[
         Bool,
         "Also create the progressive-disclosure files",
     ),
+    m(
+        "--without",
+        Str,
+        "Measure with plugin:<id> or skill:<name or glob> turned off (repeatable)",
+    )
+    .repeats(),
     m("--yes", Bool, COMPAT).hidden(),
 ];
 
@@ -580,6 +601,22 @@ pub(super) const OVERRIDES: &[(&str, Meta)] = &[
         ),
     ),
     ("context init", m("--yes", Bool, COMPAT).hidden()),
+    (
+        "context measure",
+        m(
+            "--force",
+            Bool,
+            "Measure again although a cached measurement exists",
+        ),
+    ),
+    (
+        "context measure",
+        m(
+            "--yes",
+            Bool,
+            "Confirm that the measurement spends model requests (needed outside a terminal)",
+        ),
+    ),
     (
         "skills init",
         m("--name", Str, "Name of the skills repository"),

@@ -202,6 +202,11 @@ impl Row {
         Self { needs, ..self }
     }
 
+    /// The command spends model requests (`context measure`).
+    const fn costs(self) -> Self {
+        Self { cost: true, ..self }
+    }
+
     const fn terminal(self) -> Self {
         Self {
             surface: Surface::Terminal,
@@ -372,6 +377,10 @@ pub(super) const ROWS: &[Row] = &[
         .args(&[req("server"), req("key")]),
     row("secret rm", D).args(&[req("server"), req("key")]),
     row("context loads", R).spec(&[&context::LOADS]),
+    row("context measure", R)
+        .needs(&[LongRunning])
+        .costs()
+        .spec(&[&context::MEASURE]),
     row("context folders", W)
         .reads(&["--enable", "--disable"])
         .spec(&[&folders::FOLDERS]),

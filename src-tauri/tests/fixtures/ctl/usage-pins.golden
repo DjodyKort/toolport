@@ -44,7 +44,8 @@ Commands:
   secret get     Check a secret (--reveal prints the value)
   secret rm      Remove a secret
   secret         Manage server secrets (not implemented)
-  context loads  Show what a claude session loads, with token cost (--profile, --cwd)
+  context loads  Show what a claude session loads, with token cost (--profile, --cwd, --no-lazy, --measured)
+  context measure Measure what a folder really loads, in tokens, with Claude Code (--cwd, --without, --bundle, --model, --force, --yes)
   context folders Show the active profile per folder (--cwd, --enable, --disable)
   context checkpoint-status Report used tokens vs the checkpoint point from statusline JSON on stdin
   context plan   Preview the context deploy (--home <dir>, --rules)
@@ -194,7 +195,8 @@ Commands:
   secret get     Check a secret (--reveal prints the value)
   secret rm      Remove a secret
   secret         Manage server secrets (not implemented)
-  context loads  Show what a claude session loads, with token cost (--profile, --cwd)
+  context loads  Show what a claude session loads, with token cost (--profile, --cwd, --no-lazy, --measured)
+  context measure Measure what a folder really loads, in tokens, with Claude Code (--cwd, --without, --bundle, --model, --force, --yes)
   context folders Show the active profile per folder (--cwd, --enable, --disable)
   context checkpoint-status Report used tokens vs the checkpoint point from statusline JSON on stdin
   context plan   Preview the context deploy (--home <dir>, --rules)
@@ -344,7 +346,8 @@ Commands:
   secret get     Check a secret (--reveal prints the value)
   secret rm      Remove a secret
   secret         Manage server secrets (not implemented)
-  context loads  Show what a claude session loads, with token cost (--profile, --cwd)
+  context loads  Show what a claude session loads, with token cost (--profile, --cwd, --no-lazy, --measured)
+  context measure Measure what a folder really loads, in tokens, with Claude Code (--cwd, --without, --bundle, --model, --force, --yes)
   context folders Show the active profile per folder (--cwd, --enable, --disable)
   context checkpoint-status Report used tokens vs the checkpoint point from statusline JSON on stdin
   context plan   Preview the context deploy (--home <dir>, --rules)
@@ -494,7 +497,8 @@ Commands:
   secret get     Check a secret (--reveal prints the value)
   secret rm      Remove a secret
   secret         Manage server secrets (not implemented)
-  context loads  Show what a claude session loads, with token cost (--profile, --cwd)
+  context loads  Show what a claude session loads, with token cost (--profile, --cwd, --no-lazy, --measured)
+  context measure Measure what a folder really loads, in tokens, with Claude Code (--cwd, --without, --bundle, --model, --force, --yes)
   context folders Show the active profile per folder (--cwd, --enable, --disable)
   context checkpoint-status Report used tokens vs the checkpoint point from statusline JSON on stdin
   context plan   Preview the context deploy (--home <dir>, --rules)

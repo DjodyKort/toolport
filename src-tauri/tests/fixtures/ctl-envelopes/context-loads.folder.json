@@ -1049,6 +1049,8 @@
           "writable": false
         }
       ],
+      "measured": null,
+      "measured_info": null,
       "notes": [
         "the skill list is over its budget (1998 of 2000 tokens): 17 skills lose their description; which ones is a guess until `context measure` counts them"
       ],

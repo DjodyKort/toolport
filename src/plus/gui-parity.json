@@ -303,6 +303,11 @@
       "action": "all-commands.run",
       "surface": "screen"
     },
+    "context measure": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
     "context plan": {
       "route": "all-commands",
       "action": "all-commands.run",

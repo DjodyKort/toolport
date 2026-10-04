@@ -9,6 +9,7 @@ use super::globs::glob_match;
 use super::launch::{parse_selection, read_json_object as read_json, Selection};
 use super::layers::{body_of, frontmatter_of, is_managed_local, list_layers, yaml_text};
 use super::loads_extra as extra;
+use super::measure::{MeasureRun, MeasuredInfo};
 use super::roots::Roots;
 use crate::plus::sources::model::Origin;
 use crate::savings::estimated_tokens;
@@ -158,6 +159,9 @@ pub struct WhatLoads {
     pub tokens_lazy: u64,
     pub basis: &'static str,
     pub skill_budget: SkillBudget,
+    /// The cached `context measure` as-is run, only when the caller asked for it (`--measured`).
+    pub measured: Option<MeasureRun>,
+    pub measured_info: Option<MeasuredInfo>,
     pub partial: bool,
     pub notes: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -879,6 +883,8 @@ pub fn what_loads_with(
         tokens_lazy: lazy,
         basis: "estimate",
         skill_budget: budget,
+        measured: None,
+        measured_info: None,
         partial: ctx.partial,
         notes: ctx.notes,
         compact: spec.and_then(|s| super::compact::info(roots, s)),

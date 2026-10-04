@@ -351,6 +351,46 @@ export const skillBudget = obj({
 });
 export type SkillBudget = Infer<typeof skillBudget>;
 
+export const measureRun = obj({
+  label: str,
+  total: num,
+  parts: obj({ input: num, cacheCreation: num, cacheRead: num }),
+  skills: num,
+  agents: num,
+  slashCommands: num,
+  plugins: arr(obj({ name: str, source: str })),
+  mcpServers: arr(obj({ name: str, status: str })),
+  skillNames: arr(str),
+  agentNames: arr(str),
+  durationMs: num,
+});
+export type MeasureRun = Infer<typeof measureRun>;
+
+export const measuredInfo = obj({
+  claudeCodeVersion: str,
+  model: str,
+  measuredAt: str,
+  stale: bool,
+});
+export type MeasuredInfo = Infer<typeof measuredInfo>;
+
+/** `context measure`: `total` is what Claude Code reported for the first request, not an estimate.
+ * `deltas` are signed against "as is": a saving is negative. */
+export const measureData = obj({
+  cwd: str,
+  claudeCodeVersion: str,
+  model: str,
+  measuredAt: str,
+  cached: bool,
+  stale: bool,
+  runs: arr(measureRun),
+  deltas: arr(obj({ label: str, tokens: num, percent: num })),
+  visibleSkills: arr(str),
+  invisibleSkills: arr(obj({ name: str, reason: str })),
+  notes: arr(str),
+});
+export type MeasureData = Infer<typeof measureData>;
+
 /** `context loads`: every number is an estimate (`basis`), good for ordering, not a saving. */
 export const loadsData = obj({
   profile: nullable(str),
@@ -370,6 +410,8 @@ export const loadsData = obj({
   tokens_lazy: num,
   basis: tokenBasis,
   skill_budget: skillBudget,
+  measured: nullable(measureRun),
+  measured_info: nullable(measuredInfo),
   partial: bool,
   notes: arr(str),
   compact: opt(any),

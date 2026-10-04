@@ -72,8 +72,8 @@ fn every_leaf_command_has_a_policy_row_and_every_policy_row_a_command() {
     assert_eq!(leaves.len(), ROWS.len());
     assert_eq!(
         leaves.len(),
-        133,
-        "effective commands: 107 leaf rows and 26 sub rows"
+        134,
+        "effective commands: 108 leaf rows and 26 sub rows"
     );
 }
 
@@ -456,7 +456,7 @@ fn the_registry_lists_every_row_with_the_policy_fields() {
             .collect::<Vec<_>>()
     );
     assert_eq!(data["counts"]["rows"], rows.len());
-    assert_eq!(data["counts"]["commands"], 133);
+    assert_eq!(data["counts"]["commands"], 134);
     assert_eq!(data["counts"]["tools"], TOOLS.len());
     for row in rows {
         let id = row["id"].as_str().unwrap();
