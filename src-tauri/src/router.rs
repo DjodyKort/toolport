@@ -551,6 +551,11 @@ impl ServerSlot {
 pub struct SharedServerSlot(Arc<ServerSlot>);
 
 impl SharedServerSlot {
+    /// Wrap a freshly connected server so several routers can share its connection.
+    pub fn new(server: DownstreamServer, reconnect: Option<Reconnect>) -> Self {
+        Self(Arc::new(ServerSlot::new(server, reconnect)))
+    }
+
     pub fn ptr_eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
     }
@@ -700,6 +705,25 @@ impl Router {
     /// connected zero servers (SBS-871).
     pub fn is_built(&self) -> bool {
         self.built
+    }
+
+    /// A router over already-connected slots, indexed in the given order. The gateway's startup
+    /// build publishes one per connected server and a last one over all of them, so the
+    /// exposed names and `_2` collision suffixes follow the registry order the slots are
+    /// passed in, never the order the servers happened to finish connecting.
+    pub fn from_slots(
+        policy: ToolPolicy,
+        overrides: HashMap<String, HashMap<String, ToolOverride>>,
+        slots: &[SharedServerSlot],
+    ) -> Self {
+        let mut router = Router::with_policy(policy);
+        router.set_overrides(overrides);
+        for slot in slots {
+            router.by_id.insert(slot.0.id.clone(), router.servers.len());
+            router.servers.push(Arc::clone(&slot.0));
+        }
+        router.rebuild_aggregation();
+        router
     }
 
     /// Set the per-tool exposure overrides. Must be called BEFORE `add`/`refresh`, since
@@ -3891,6 +3915,105 @@ mod tests {
             router.add(catalog_server(id, *n));
         }
         router
+    }
+
+    fn slots_of(specs: &[(&str, usize)]) -> Vec<SharedServerSlot> {
+        specs
+            .iter()
+            .map(|(id, n)| SharedServerSlot::new(catalog_server(id, *n), None))
+            .collect()
+    }
+
+    #[test]
+    fn from_slots_indexes_like_adding_the_servers_in_the_same_order() {
+        let added = router_with_catalogs(&[("alpha", 3), ("beta", 2)]);
+        let from_slots = Router::from_slots(
+            ToolPolicy::default(),
+            HashMap::new(),
+            &slots_of(&[("alpha", 3), ("beta", 2)]),
+        );
+
+        assert_eq!(from_slots.server_count(), 2);
+        assert!(from_slots.is_built());
+        assert_eq!(from_slots.aggregated_tools(), added.aggregated_tools());
+        assert_eq!(from_slots.aggregated_prompts(), added.aggregated_prompts());
+        assert_eq!(
+            from_slots.aggregated_resources(),
+            added.aggregated_resources()
+        );
+        assert_eq!(from_slots.route_of("beta__t1"), Some(("beta", "t1")));
+        let result = from_slots.route_call("alpha__t2", json!({})).unwrap();
+        assert_eq!(result["content"][0]["text"], "alpha:t2");
+    }
+
+    #[test]
+    fn a_partial_router_shares_its_connections_with_the_complete_one() {
+        let slots = slots_of(&[("alpha", 3), ("beta", 2), ("gamma", 1)]);
+        let partial =
+            Router::from_slots(ToolPolicy::default(), HashMap::new(), &[slots[1].clone()]);
+        let complete = Router::from_slots(ToolPolicy::default(), HashMap::new(), &slots);
+
+        assert_eq!(partial.server_count(), 1);
+        assert_eq!(partial.aggregated_tools().len(), 2);
+        assert_eq!(complete.aggregated_tools().len(), 6);
+        assert!(partial
+            .server_slot("beta")
+            .unwrap()
+            .ptr_eq(&complete.server_slot("beta").unwrap()));
+        assert!(partial.route_of("alpha__t0").is_none());
+    }
+
+    #[test]
+    fn from_slots_allocates_collision_suffixes_in_the_order_it_is_given() {
+        let slots = slots_of(&[("team-slack", 1), ("team_slack", 1)]);
+        let forward = Router::from_slots(ToolPolicy::default(), HashMap::new(), &slots);
+        let reversed = Router::from_slots(
+            ToolPolicy::default(),
+            HashMap::new(),
+            &[slots[1].clone(), slots[0].clone()],
+        );
+
+        assert_eq!(
+            forward.route_of("team_slack__t0"),
+            Some(("team-slack", "t0"))
+        );
+        assert_eq!(
+            forward.route_of("team_slack__t0_2"),
+            Some(("team_slack", "t0"))
+        );
+        assert_eq!(
+            reversed.route_of("team_slack__t0"),
+            Some(("team_slack", "t0"))
+        );
+        assert_eq!(
+            reversed.route_of("team_slack__t0_2"),
+            Some(("team-slack", "t0"))
+        );
+    }
+
+    #[test]
+    fn from_slots_enforces_the_policy_and_the_overrides() {
+        let mut policy = ToolPolicy::default();
+        policy
+            .disabled
+            .insert("alpha".to_string(), HashSet::from(["t1".to_string()]));
+        let mut overrides = HashMap::new();
+        overrides.insert(
+            "alpha".to_string(),
+            HashMap::from([(
+                "t0".to_string(),
+                ToolOverride {
+                    name: Some("renamed".to_string()),
+                    description: None,
+                },
+            )]),
+        );
+        let router = Router::from_slots(policy, overrides, &slots_of(&[("alpha", 3)]));
+
+        assert!(router.is_blocked("alpha__t1"));
+        assert_eq!(router.route_of("renamed"), Some(("alpha", "t0")));
+        assert!(router.route_of("alpha__t0").is_none());
+        assert_eq!(router.aggregated_tools().len(), 2);
     }
 
     #[test]
