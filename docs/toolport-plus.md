@@ -25,7 +25,7 @@ Toolport+ is a fork of Toolport. Everything the fork adds lives under `src-tauri
 | `jsonfs.rs`                    | Tolerant JSON file read shared by the modules above.                                                                                                       |
 | `testutil.rs`                  | Test-only fixtures (see Test conventions).                                                                                                                 |
 
-Frontend (`src/plus/`): `api.ts` (`plusInvoke` wrapper), `AuthRows` and `AuthNotifier`, `FolderProfiles`, `WhatLoads`, with fixtures under `src/plus/fixtures/`. New IPC commands must be registered in `src/plus/fixtures/plusInvoke.ts`, which `src/test/browser-fixture.tsx` serves.
+Frontend (`src/plus/`): `api.ts` (`plusInvoke` wrapper), `bridge/` (the `toolportctl` child-process bridge), `ui/` (the shared kit), `allcommands/`, `PlusViews`, `nav.ts`, `AuthRows` and `AuthNotifier`, `FolderProfiles`, `WhatLoads`, with fixtures under `src/plus/fixtures/` (see Frontend shell below). New IPC commands must be registered in `src/plus/fixtures/plusInvoke.ts`, which `src/test/browser-fixture.tsx` serves.
 
 ## toolportctl commands
 
@@ -132,7 +132,60 @@ The GUI parses what `toolportctl --json` prints, so each command has a golden en
 
 To add a command: one `case(...)` row, bless, read the new file, add the shape to `data.ts` and its stem to `ctlShapes`. A command that needs more of the world than `CtlWorld` offers gets a setup step or a fixture added to `CtlWorld`: `sources_case(...)` adds the sources fixture home (`tests/common/sources_world.rs`, the contract's section 13 world) to the case's world. A backup directory name (`20261004-154128`) becomes `<STAMP>` in a golden. The snapshot that proves a read or a dry run changed nothing leaves out `<data dir>/plus/cache`, which is derived state a scan may rewrite.
 
-`npm run screenshots:gui` runs the browser smoke and keeps its `gui-<screen>.png` files in `docs/assets/` (`guiShot` in `scripts/browser-smoke.mjs`; a screen adds one line there).
+`npm run screenshots:gui` (`scripts/screenshots.mjs`) runs the browser smoke and keeps its `gui-<screen>.png` files in `docs/assets/` (`guiShot` in `scripts/browser-smoke.mjs`; a screen adds one line there). It fails when a page shot is missing or not 1280x800. Chromium's PNGs are already smaller than a zlib level 9 recompression, so they are kept as they are. The committed shots:
+
+| File                                      | Shows                                                                        |
+| ----------------------------------------- | ---------------------------------------------------------------------------- |
+| `gui-shell-light.png`, `-dark`            | The shell: sidebar B (groups, Attention counter) around an upstream view     |
+| `gui-all-commands-light.png`, `-dark`     | The All commands page with a command picked and its form filled in           |
+| `gui-plan-confirm-light.png`              | The typed confirmation of a destructive command, with its plan               |
+| `gui-library-light.png`                   | A screen that is not built yet: the tabs of the mockup and the marked notice |
+| `gui-auth-rows.png`, `gui-what-loads.png` | Element shots of the login health and the "what loads" panels                |
+
+## Frontend shell, UI kit and All commands page
+
+`src/plus/` after MIG-GUI-0:
+
+- `bridge/` runs `toolportctl --json` as a child process and types what comes back (`ctl.ts`, `data.ts`, `shape.ts`).
+- `ui/` is the kit every Toolport+ screen is built from (below).
+- `nav.ts` holds the grouped sidebar B (`NAV_GROUPS`, 16 items, labels as in the approved mockup), the title and subtitle of each Toolport+ screen (`PLUS_SCREENS`) and the item that builds each. The tabs of the mockup live in `notBuiltTabs.ts`, which only the placeholder reads, so they stay out of the startup bundle. `SidebarNav.tsx` draws the groups with the sidebar's own row, `attention.ts` reads the Attention counter.
+- `PlusViews.tsx` is the one entry for Toolport+ screens; each is a `React.lazy` chunk. `NotBuilt.tsx` is the marked placeholder (tabs of the mockup, a "Not built yet" notice naming the item, a button to the All commands page on the right command group).
+- `allcommands/` is the All commands page.
+
+**Adding a screen.** Put it under `src/plus/<screen>/`, import it with `React.lazy` in `PlusViews.tsx` in place of the `NotBuilt` branch, add its view to `PLUS_VIEWS` if it is new, and flip its rows in `gui-parity.json`. A screen reads data with `useCtlQuery` inside `AsyncView` (skeleton, error with Retry and "Copy diagnostics", empty) so it never renders nothing, and writes through the preview, confirm and apply flow below.
+
+**The Attention counter** comes from one function, `readAttentionCount` in `attention.ts`: `counts.needsYou` of `toolportctl attention ls`, `null` (no badge) while the CLI has no such row. The badge shows only above zero. It is polled once a minute and a failed read keeps the last number.
+
+**UI kit (`src/plus/ui/`).**
+
+- `Tabs`: roving tabindex, arrows, Home and End, `aria-selected`, panel linked to its tab.
+- `PlanPreview` and `DataView`: a `PlanV1` as a list of steps with collapsible diffs, the token effect, warnings and the undo command; older shapes as a readable list; anything else as pretty JSON.
+- `TypedConfirmDialog`: the upstream `ConfirmDialog` with a field; the button works only when the phrase matches exactly. Enter never confirms. Used for the `destructive` tier (D-081).
+- `JobProgress` with `useCtlJob`: stderr as it arrives, Cancel (kills the child), the final envelope as Done, Failed or Cancelled. Leaving the screen cancels a running job.
+- `SecretField`: write-only password input, no React state for the value, no reveal; the value goes to the child's stdin and the field is empty afterwards.
+- `AsyncView`, `ScreenSkeleton`, `ErrorState`, `useCtlQuery`: the loading, error and empty states.
+- `keyboard.ts`: the number keys stay at the shipped 7 views; the new screens add no global chord; a bare-key shortcut inside a screen is allowed only through `screenKeyAllowed` (not while typing, never with Ctrl, Cmd or Alt, never `/`, `?` or Escape); Escape never cancels a job.
+
+**All commands (`src/plus/allcommands/`).** The page is generated from `toolportctl commands --json`: search over id, summary and flag names, a group filter, a tier badge on every row and a form per command from its operands and flags (switch, text, comma list, one-per-line for a repeatable flag, a select for choices). Rules, all in `model.ts` and covered by tests over the real registry golden:
+
+- Hidden flags, flags that take a secret and the preview flag are never offered or sent. A command that reads stdin gets a `SecretField`; `--passphrase-stdin` is added when it holds something.
+- A read runs at once (a row that reads until a flag escalates it stays a read until the flag is set). A change runs preview (the row's own dry-run flag; `unless-applied` rows preview without their flag), plan, confirm, apply. A change without a preview, or one that reads stdin, is confirmed with its exact command line. `destructive` types a phrase: the first operand when it is short, else the command id.
+- A terminal-only command shows its exact command line and a Copy button, never a Run button.
+- "Run a tool" calls `toolportctl mcp call <tool> --args-stdin` for tools that no command covers (arguments as JSON on stdin; `dry_run` and `confirm` per the tool's tier). It is disabled, with a tooltip and a note, while `commands --json` has no `mcp call` row.
+
+**Edits to upstream files.** Everything else is under `src/plus/`.
+
+| File                                 | Edit                                                                                                                                                         |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/App.tsx`                        | 3 imports; the title and subtitle ternaries end in `PLUS_SCREENS[view]`; one render branch `isPlusView(view) ? <PlusViews>`; `<AllCommandsLink>` in Settings |
+| `src/components/AppSidebar.tsx`      | the nav list is `<SidebarNav>`; `navItem` takes `badgeLabel` and `urgent`; the icons that moved to `nav.ts` are no longer imported                           |
+| `src/components/AppSidebar.test.tsx` | mocks `@/plus/attention`; a block of tests for sidebar B; no existing test changed                                                                           |
+| `src/lib/types.ts`                   | `View` includes `PlusView`                                                                                                                                   |
+| `src/test/browser-fixture.tsx`       | not edited: `plus_ctl` was registered by MIG-GUI-0 part A and serves the rows of `plusCtlFixtures` (`commands`, `attention ls`, one dry run)                 |
+| `scripts/browser-smoke.mjs`          | sidebar B, a not-built screen and a run of `status` on the All commands page; the shots above in both themes                                                 |
+| `scripts/screenshots-gui.mjs`        | renamed to `scripts/screenshots.mjs`                                                                                                                         |
+| `package.json`                       | `screenshots:gui` points at `scripts/screenshots.mjs`                                                                                                        |
+| `src/plus/gui-parity.json`           | the `all-commands` route and its `run` and `terminal` actions are `built`; `tool` stays `planned` until the CLI has `mcp call`                               |
 
 ## Sources
 
