@@ -19,6 +19,7 @@ import {
   TypedConfirmDialog,
   outcomeOf,
   useCtlQuery,
+  type JobState,
   type PlanV1,
 } from "../ui";
 import { policyOf } from "./model";
@@ -45,6 +46,8 @@ export interface WriteSpec {
   plan?: (data: unknown) => PlanV1 | null;
   /** A line shown above the plan, such as "this downloads the engine". */
   notice?: string;
+  /** What to do next, per error code of the CLI, shown under a failure. */
+  hints?: Record<string, string>;
 }
 
 export interface WriteControl {
@@ -82,7 +85,11 @@ export function useWrite(rows: CommandRow[] | null, onApplied: () => void): Writ
       const flag = next.previewArgv ? null : policy.previewFlag;
       const previewArgv = next.previewArgv ?? (flag ? [...next.argv, flag] : undefined);
       setRefused(null);
-      setSpec(next);
+      setSpec({
+        ...next,
+        notice:
+          next.notice ?? (policy.network ? "This command uses the network." : undefined),
+      });
       beginFlow({
         title: next.title,
         line: commandLine(next.argv),
@@ -111,6 +118,13 @@ export function useWrite(rows: CommandRow[] | null, onApplied: () => void): Writ
   }, [reset]);
 
   return { flow, spec, refused, begin, dismiss };
+}
+
+function Hint({ spec, state }: { spec: WriteSpec; state: JobState }) {
+  const outcome = outcomeOf(state);
+  const hint =
+    outcome?.kind === "error" && outcome.code ? spec.hints?.[outcome.code] : undefined;
+  return hint ? <Callout variant="info">{hint}</Callout> : null;
 }
 
 const shown = (spec: WriteSpec, data: unknown) => {
@@ -164,7 +178,7 @@ function Direct({ write, spec }: { write: WriteControl; spec: WriteSpec }) {
   return (
     <ConfirmDialog
       open
-      onOpenChange={(open) => !open && write.dismiss()}
+      onOpenChange={(open) => !open && flow.closeDialog()}
       title={`${spec.title}?`}
       contentClassName="sm:max-w-lg"
       confirmLabel={spec.confirmLabel ?? "Run"}
@@ -213,6 +227,7 @@ export function WriteDialogs({ write }: { write: WriteControl }) {
               onCancel={() => void preview.cancel()}
               title="Previewing"
             />
+            <Hint spec={spec} state={preview.state} />
             {closeable && (
               <DialogFooter>
                 <Button variant="ghost" onClick={write.dismiss}>
@@ -235,6 +250,7 @@ export function WriteDialogs({ write }: { write: WriteControl }) {
               title="Applying"
               renderResult={(data) => <PlanPreview data={shown(spec, data)} />}
             />
+            <Hint spec={spec} state={apply.state} />
             {closeable && (
               <DialogFooter>
                 <Button onClick={write.dismiss}>Close</Button>

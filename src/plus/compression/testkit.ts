@@ -34,6 +34,9 @@ export function createBridge() {
     ["commands", registry],
     ["compression status", statusData()],
     ["compression presets", presetsData()],
+    ["compression pin", goldenData("compression-pin")],
+    ["compression doctor", goldenData("compression-doctor")],
+    ["compression ledger summary", goldenData("compression-ledger-summary")],
     [
       "compression set-provider headroom --dry-run",
       goldenData("compression-set-provider.preview"),
