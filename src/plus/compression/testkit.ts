@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { CtlResult } from "../bridge/ctl";
+import { CtlReplyFailure } from "../fixtures/ctlReply";
 import { goldenData, presetsData, statusData } from "./fixtures";
+import { createCompressionWorld, type WorldState } from "./world";
 
 const dir = join(__dirname, "../../../src-tauri/tests/fixtures/ctl-envelopes");
 
@@ -26,24 +28,36 @@ interface Call {
 
 /** A fake `plus_ctl` bridge over the fixture world of the Compression tab. An argv without
  * a reply fails the test: a screen that runs a command it should not shows up as a missing
- * reply. A test overrides a reply with `set`, or makes it a function that changes the world. */
-export function createBridge() {
+ * reply. A test overrides a reply with `set`, or makes it a function that changes the world.
+ * With `world`, an argv without a row is answered by the stateful compression world (an applied
+ * write changes the next read), and a row still wins so a test can force a failure. */
+export function createBridge(options: { world?: boolean | Partial<WorldState> } = {}) {
   const registry = JSON.parse(readFileSync(join(dir, "commands.json"), "utf8")).envelope
     .data;
+  const world = options.world
+    ? createCompressionWorld(options.world === true ? {} : options.world)
+    : null;
   const replies = new Map<string, Reply>([
     ["commands", registry],
-    ["compression status", statusData()],
-    ["compression presets", presetsData()],
-    ["compression pin", goldenData("compression-pin")],
-    ["compression doctor", goldenData("compression-doctor")],
-    ["compression ledger summary", goldenData("compression-ledger-summary")],
-    [
-      "compression set-provider headroom --dry-run",
-      goldenData("compression-set-provider.preview"),
-    ],
-    ["compression set-provider headroom", goldenData("compression-set-provider.apply")],
-    ["compression use agent --dry-run", goldenData("compression-use.preview")],
-    ["compression use agent", goldenData("compression-use.apply")],
+    ...(world
+      ? []
+      : ([
+          ["compression status", statusData()],
+          ["compression presets", presetsData()],
+          ["compression pin", goldenData("compression-pin")],
+          ["compression doctor", goldenData("compression-doctor")],
+          ["compression ledger summary", goldenData("compression-ledger-summary")],
+          [
+            "compression set-provider headroom --dry-run",
+            goldenData("compression-set-provider.preview"),
+          ],
+          [
+            "compression set-provider headroom",
+            goldenData("compression-set-provider.apply"),
+          ],
+          ["compression use agent --dry-run", goldenData("compression-use.preview")],
+          ["compression use agent", goldenData("compression-use.apply")],
+        ] as Array<[string, Reply]>)),
   ]);
   const calls: Call[] = [];
   const missing: string[] = [];
@@ -53,6 +67,7 @@ export function createBridge() {
   return {
     calls,
     missing,
+    world,
     set(argv: string, reply: Reply) {
       replies.set(argv, reply);
     },
@@ -69,13 +84,19 @@ export function createBridge() {
         const call = jobs.get(args.job as string);
         if (!call) throw new Error(`unknown job ${String(args.job)}`);
         const key = call.argv.join(" ");
-        if (!replies.has(key)) {
+        const own = replies.has(key);
+        const wanted = replies.get(key);
+        const value = own
+          ? typeof wanted === "function"
+            ? await wanted(call.argv)
+            : wanted
+          : world?.reply(call.argv);
+        if (!own && value === undefined) {
           missing.push(key);
           throw new Error(`no fake reply for plus_ctl ${key}`);
         }
-        const wanted = replies.get(key);
-        const value = typeof wanted === "function" ? await wanted(call.argv) : wanted;
-        const failed = value instanceof Failure ? value : null;
+        const failed =
+          value instanceof Failure || value instanceof CtlReplyFailure ? value : null;
         return {
           job: call.job,
           exitCode: failed ? 1 : 0,

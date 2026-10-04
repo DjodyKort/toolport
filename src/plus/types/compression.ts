@@ -81,7 +81,7 @@ export const compressionLedgerRecordData = obj({
   path: str,
   recorded: obj({
     provider: str,
-    session: str,
+    session: nullable(str),
     source: str,
     tokens_after: num,
     tokens_before: num,
