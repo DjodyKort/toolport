@@ -47,7 +47,16 @@ if [ "$dry_run" = 1 ]; then
   exit 0
 fi
 
-for root in "${SCOPE_ROOTS[@]}"; do
+# the fixed scope, then whatever else the backup holds (detected client configs)
+restore_roots=("${SCOPE_ROOTS[@]}")
+while IFS= read -r root; do
+  known=0
+  for fixed in "${SCOPE_ROOTS[@]}"; do
+    if [ "$fixed" = "$root" ]; then known=1; fi
+  done
+  [ "$known" = 1 ] || restore_roots+=("$root")
+done <"$backup/scope.list"
+for root in "${restore_roots[@]}"; do
   if grep -Fxq -- "$root" "$backup/scope.list"; then
     rm -rf "${home:?}/$root"
     mkdir -p "$(dirname "$home/$root")"
