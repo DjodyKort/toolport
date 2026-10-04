@@ -25,14 +25,22 @@ pub trait AgentTranspiler {
         None
     }
 
+    /// The paths [`AgentTranspiler::clean`] would remove; nothing is touched.
+    fn clean_targets(&self, root: &Path, managed: &[String]) -> Vec<PathBuf> {
+        let mut targets: Vec<PathBuf> = Vec::new();
+        for name in managed {
+            let path = self.get_output_path(&Agent::placeholder(name), root);
+            if path.exists() && !targets.contains(&path) {
+                targets.push(path);
+            }
+        }
+        targets
+    }
+
     /// Removes each managed agent's output and one now-empty parent directory.
     fn clean(&self, root: &Path, managed: &[String]) -> Result<Vec<PathBuf>, String> {
         let mut removed = Vec::new();
-        for name in managed {
-            let path = self.get_output_path(&Agent::placeholder(name), root);
-            if !path.exists() {
-                continue;
-            }
+        for path in self.clean_targets(root, managed) {
             fs::remove_file(&path).map_err(|e| format!("{}: {e}", path.display()))?;
             if let Some(parent) = path.parent() {
                 if parent.is_dir() && fs::read_dir(parent).is_ok_and(|mut r| r.next().is_none()) {
@@ -432,13 +440,21 @@ impl AgentTranspiler for RooCodeAgent {
         root.join(".roomodes")
     }
 
-    fn clean(&self, root: &Path, _managed: &[String]) -> Result<Vec<PathBuf>, String> {
+    fn clean_targets(&self, root: &Path, _managed: &[String]) -> Vec<PathBuf> {
         let path = root.join(".roomodes");
-        if !path.exists() {
-            return Ok(Vec::new());
+        if path.exists() {
+            vec![path]
+        } else {
+            Vec::new()
         }
-        fs::remove_file(&path).map_err(|e| e.to_string())?;
-        Ok(vec![path])
+    }
+
+    fn clean(&self, root: &Path, managed: &[String]) -> Result<Vec<PathBuf>, String> {
+        let targets = self.clean_targets(root, managed);
+        for path in &targets {
+            fs::remove_file(path).map_err(|e| e.to_string())?;
+        }
+        Ok(targets)
     }
 }
 

@@ -858,6 +858,39 @@ fn style_and_agent_helpers_survive_extreme_names() {
 }
 
 #[test]
+fn agent_clean_targets_are_exactly_what_clean_removes() {
+    let tmp = ScratchDir::new("agent-clean-targets");
+    let agents: Vec<Agent> = ["alpha", "beta"].iter().map(|n| Agent::placeholder(n)).collect();
+    let managed: Vec<String> = agents.iter().map(|a| a.name().to_string()).collect();
+    for t in all_agent_transpilers() {
+        let key = t.client_key().to_string();
+        assert!(t.clean_targets(tmp.path(), &managed).is_empty(), "{key}");
+        let outputs = match t.transpile_all(&agents, tmp.path()) {
+            Some(result) => vec![result.unwrap()],
+            None => agents
+                .iter()
+                .map(|a| t.transpile(a, tmp.path()).unwrap())
+                .collect(),
+        };
+        for out in &outputs {
+            fs::create_dir_all(out.output_path.parent().unwrap()).unwrap();
+            fs::write(&out.output_path, &out.content).unwrap();
+        }
+        assert!(
+            t.clean_targets(tmp.path(), &["gamma".to_string()]).is_empty() || key == "roomodes",
+            "{key}: only the combined file ignores the managed names"
+        );
+        let targets = t.clean_targets(tmp.path(), &managed);
+        assert_eq!(targets.len(), outputs.len(), "{key}");
+        assert!(targets.iter().all(|p| p.exists()), "{key}");
+        let removed = t.clean(tmp.path(), &managed).unwrap();
+        assert_eq!(removed, targets, "{key}");
+        assert!(targets.iter().all(|p| !p.exists()), "{key}");
+        assert!(t.clean_targets(tmp.path(), &managed).is_empty(), "{key}");
+    }
+}
+
+#[test]
 fn numeric_and_keyword_names_are_emitted_unquoted_like_mcpm() {
     let tmp = ScratchDir::new("unquoted-names");
     let reg = registry(tmp.path());

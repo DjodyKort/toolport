@@ -3,10 +3,13 @@ use super::transpilers::{
 };
 use super::Agent;
 use crate::plus::skills::clock::Clock;
-use crate::plus::skills::lock::{get_entry_mut, set_entry, LockEntry, LockFile};
+use crate::plus::skills::lock::{
+    get_entry_mut, load_lockfile, save_lockfile, set_entry, LockEntry, LockFile,
+};
+use crate::plus::skills::ops::Scope;
 use crate::plus::skills::pyfs::{text_hash, write_text};
 use crate::plus::skills::sync::rel_or_abs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub struct AgentSyncOptions<'a> {
     /// Project root, or the user's home directory in global mode.
@@ -87,4 +90,35 @@ pub fn sync_agents(
         }
     }
     Ok(lock)
+}
+
+pub struct ScopedSync {
+    pub lock: LockFile,
+    pub scope: Scope,
+}
+
+/// Syncs `agents` under the user-level scope (outputs under `~/`, the lock beside the registry)
+/// or the project one (both in the repository), extending the lock that scope already has and
+/// saving it unless this is a dry run.
+pub fn sync_scoped(
+    repo: &Path,
+    agents: &[Agent],
+    global: bool,
+    dry_run: bool,
+    client_keys: Option<Vec<String>>,
+    clock: &dyn Clock,
+) -> Result<ScopedSync, String> {
+    let scope = Scope::new(global, repo)?;
+    let opts = AgentSyncOptions {
+        output_root: scope.output_root.clone(),
+        global_mode: global,
+        dry_run,
+        client_keys,
+        clock,
+    };
+    let lock = sync_agents(agents, load_lockfile(&scope.lock_dir), &opts)?;
+    if !dry_run {
+        save_lockfile(&scope.lock_dir, &lock)?;
+    }
+    Ok(ScopedSync { lock, scope })
 }
