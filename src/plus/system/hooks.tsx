@@ -68,6 +68,12 @@ export function useRegistry(): CtlQuery<CommandsData> {
   return useCtlQuery<CommandsData>(["commands"]);
 }
 
+/** A doctor exits 1 when a check fails but still prints the checks: that is an answer, not a
+ * failure of the read. */
+export function answered<T>(query: CtlQuery<T>): CtlQuery<T> {
+  return query.data ? { ...query, status: "ready", error: null } : query;
+}
+
 export function rowsOf(registry: CtlQuery<CommandsData>): CommandRow[] | null {
   return registry.data?.commands ?? null;
 }
