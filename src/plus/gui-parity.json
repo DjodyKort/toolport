@@ -195,7 +195,9 @@
     "council": "MIG-GUI-8",
     "import": "MIG-GUI-8",
     "mcp": "MIG-GUI-8",
-    "sources": "MIG-GUI-10"
+    "sources": "MIG-GUI-10",
+    "plugins": "MIG-GUI-12",
+    "hooks": "MIG-GUI-12"
   },
   "commands": {
     "agents add": {
@@ -513,6 +515,11 @@
       "action": "servers.health",
       "surface": "screen"
     },
+    "hooks ls": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
     "import mcpm": {
       "route": "all-commands",
       "action": "all-commands.run",
@@ -559,6 +566,16 @@
       "surface": "screen"
     },
     "obs otel status": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "plugins ls": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "plugins show": {
       "route": "all-commands",
       "action": "all-commands.run",
       "surface": "screen"
@@ -1001,6 +1018,21 @@
       "surface": "screen"
     },
     "flow_diagram": {
+      "route": "all-commands",
+      "action": "all-commands.tool",
+      "surface": "screen"
+    },
+    "hooks_ls": {
+      "route": "all-commands",
+      "action": "all-commands.tool",
+      "surface": "screen"
+    },
+    "plugins_ls": {
+      "route": "all-commands",
+      "action": "all-commands.tool",
+      "surface": "screen"
+    },
+    "plugins_show": {
       "route": "all-commands",
       "action": "all-commands.tool",
       "surface": "screen"
