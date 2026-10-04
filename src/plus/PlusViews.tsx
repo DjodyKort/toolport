@@ -8,6 +8,7 @@ const AllCommandsPage = lazy(() =>
 );
 const ServersScreen = lazy(() =>
   import("./servers/ServersScreen").then((m) => ({ default: m.ServersScreen })),
+);
 const LoginsScreen = lazy(() =>
   import("./logins/LoginsScreen").then((m) => ({ default: m.LoginsScreen })),
 );

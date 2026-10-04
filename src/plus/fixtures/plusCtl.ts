@@ -46,7 +46,8 @@ export const plusCtlFixtures = new Map<string, unknown>([
   ["server uninstall acme-erp --dry-run", uninstallPlan],
   ["attention ls", { counts: { needsYou: 3, look: 2, fyi: 0 }, items: [] }],
   ...serversCtlFixtures,
-  ...loginsCtlFixtures,
+  // The two synthetic worlds share their servers; where both answer a command, Servers wins.
+  ...loginsCtlFixtures.filter(([key]) => !serversCtlFixtures.has(key)),
 ]);
 
 const jobs = new Map<string, string>();

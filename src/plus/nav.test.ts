@@ -104,7 +104,7 @@ describe("sidebar B", () => {
   });
 
   it("highlights Servers while Logins & secrets, which lives under it, is open", () => {
-    const servers = items.find((item) => item.view === "servers") as NavItem;
+    const servers = items.find((item) => item.view === "control") as NavItem;
     expect(navItemActive(servers, "logins")).toBe(true);
     expect(navItemActive(servers, "servers")).toBe(true);
     const clients = items.find((item) => item.view === "clients") as NavItem;

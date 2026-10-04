@@ -200,7 +200,7 @@ describe("servers.detail: a server, with its login", () => {
       "aria-selected",
       "true",
     );
-    expect(screen.getByText("Not built yet")).toBeInTheDocument();
+    expect(await screen.findByRole("table", { name: "Logins" })).toBeInTheDocument();
   });
 
   it("says a server outside the active profile is not seen by the clients that follow it", async () => {
