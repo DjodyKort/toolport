@@ -1,0 +1,40 @@
+{
+  "argv": ["context", "init", "--dry-run"],
+  "envelope": {
+    "command": "context init",
+    "data": {
+      "config": {
+        "keptUnreadable": null,
+        "path": "<WORLD>/home/.config/mcpm/context.json",
+        "saved": false
+      },
+      "dryRun": true,
+      "migration": null,
+      "nextSteps": [
+        {
+          "command": "toolportctl skills sync",
+          "label": "Edit your personal layer, then:"
+        },
+        {
+          "command": "toolportctl context client add <name>",
+          "label": "Per-client layer:"
+        },
+        {
+          "command": "toolportctl context profile add bare --no-org --rules none --servers none",
+          "label": "Profiles:"
+        },
+        {
+          "command": "toolportctl context sync",
+          "label": "Apply everything:"
+        }
+      ],
+      "personal": {
+        "created": true,
+        "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/personal/SKILL.md"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

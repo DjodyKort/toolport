@@ -1,0 +1,16 @@
+{
+  "argv": ["sync", "reset"],
+  "envelope": {
+    "command": "sync",
+    "data": {
+      "removed": [
+        "<WORLD>/data/sync/sync.json",
+        "<WORLD>/data/sync/sync_keyfile",
+        "<WORLD>/data/sync/sync_repo"
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,23 @@
+{
+  "argv": ["skills", "search", "tapskill"],
+  "envelope": {
+    "command": "skills search",
+    "data": {
+      "discoveryWarnings": [],
+      "query": "tapskill",
+      "results": [
+        {
+          "description": "A synthetic tap skill",
+          "name": "tapskill",
+          "repo": "<WORLD>/tap-src",
+          "tap": "local",
+          "type": "skill"
+        }
+      ],
+      "tapCount": 1
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

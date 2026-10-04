@@ -1,0 +1,22 @@
+{
+  "argv": ["client", "direct", "ls"],
+  "envelope": {
+    "command": "client direct ls",
+    "data": {
+      "entries": [
+        {
+          "client": "claude-code",
+          "clientName": "Claude Code",
+          "entry": "alpha",
+          "path": "<WORLD>/home/.claude/.claude.json",
+          "server": "srv-alpha",
+          "serverName": "alpha",
+          "state": "ok"
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

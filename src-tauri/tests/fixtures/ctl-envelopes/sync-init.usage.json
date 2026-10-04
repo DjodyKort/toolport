@@ -1,0 +1,13 @@
+{
+  "argv": ["sync", "init"],
+  "envelope": {
+    "command": "sync",
+    "error": {
+      "code": "usage",
+      "message": "missing argument: repo"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

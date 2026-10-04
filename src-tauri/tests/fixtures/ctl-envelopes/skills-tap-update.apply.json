@@ -1,0 +1,21 @@
+{
+  "argv": ["skills", "tap", "update", "local"],
+  "envelope": {
+    "command": "skills tap update",
+    "data": {
+      "dryRun": false,
+      "failed": 0,
+      "results": [
+        {
+          "error": null,
+          "head": "<masked>",
+          "name": "local",
+          "ok": true
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

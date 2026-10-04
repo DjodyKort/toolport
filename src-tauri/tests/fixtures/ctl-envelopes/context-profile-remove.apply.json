@@ -1,0 +1,21 @@
+{
+  "argv": ["context", "profile", "remove", "work", "--purge"],
+  "envelope": {
+    "command": "context profile remove",
+    "data": {
+      "actions": [
+        "removed profile dir <WORLD>/home/.config/mcpm/claude-profiles/work",
+        "wrote shims: <WORLD>/home/.config/mcpm/context-shims.zsh",
+        "saved config (0 profile(s))"
+      ],
+      "dryRun": false,
+      "inConfig": true,
+      "name": "work",
+      "purged": true,
+      "warnings": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

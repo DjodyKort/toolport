@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "search"],
+  "envelope": {
+    "command": "skills search",
+    "error": {
+      "code": "usage",
+      "message": "missing query\nusage: skills search <query>"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

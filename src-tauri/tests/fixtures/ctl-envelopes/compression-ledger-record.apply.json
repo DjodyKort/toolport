@@ -1,0 +1,35 @@
+{
+  "argv": [
+    "compression",
+    "ledger",
+    "record",
+    "--provider",
+    "rtk-only",
+    "--before",
+    "1000",
+    "--after",
+    "400",
+    "--source",
+    "contract",
+    "--session",
+    "s1"
+  ],
+  "envelope": {
+    "command": "compression ledger",
+    "data": {
+      "path": "<WORLD>/data/compression-savings.jsonl",
+      "recorded": {
+        "provider": "rtk-only",
+        "session": "s1",
+        "source": "contract",
+        "tokens_after": 400,
+        "tokens_before": 1000,
+        "ts": "<TIME>"
+      },
+      "tokensSaved": 600
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["sync", "remove-project", "proj1"],
+  "envelope": {
+    "command": "sync",
+    "data": {
+      "name": "proj1",
+      "removed": true
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

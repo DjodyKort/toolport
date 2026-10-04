@@ -1,0 +1,19 @@
+{
+  "argv": ["agents", "audit", "--repo", "{repo}"],
+  "envelope": {
+    "command": "agents audit",
+    "data": {
+      "agentCount": 1,
+      "clean": true,
+      "discoveryWarnings": [],
+      "findings": [],
+      "high": 0,
+      "low": 0,
+      "medium": 0,
+      "repo": "<WORLD>/skills-repo"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,20 @@
+{
+  "argv": ["sync", "git-sync", "--clear"],
+  "envelope": {
+    "command": "sync",
+    "data": {
+      "autoSync": false,
+      "branch": null,
+      "cleared": true,
+      "cloned": false,
+      "configured": false,
+      "head": null,
+      "localPath": null,
+      "pulled": false,
+      "repo": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

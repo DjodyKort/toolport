@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "install"],
+  "envelope": {
+    "command": "server install",
+    "error": {
+      "code": "usage",
+      "message": "usage: server install <catalog name> [--offline]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["auth", "probe", "--server", "alpha"],
+  "envelope": {
+    "command": "auth probe",
+    "error": {
+      "code": "not_found",
+      "message": "no auth probe is registered for alpha; `toolportctl auth login alpha` shows its sign-in step"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "tap", "remove", "local"],
+  "envelope": {
+    "command": "skills tap remove",
+    "error": {
+      "code": "skills",
+      "message": "Tap 'local' not found."
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

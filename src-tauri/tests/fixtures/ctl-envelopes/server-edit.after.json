@@ -1,0 +1,24 @@
+{
+  "argv": ["server", "info", "gamma"],
+  "envelope": {
+    "command": "server info",
+    "data": {
+      "args": ["y"],
+      "command": "/bin/true",
+      "cwd": null,
+      "declareClientCapabilities": false,
+      "disabledTools": [],
+      "env": [],
+      "forwardInstructions": false,
+      "id": "gamma",
+      "name": "gamma",
+      "profiles": [],
+      "source": "manual",
+      "transport": "stdio",
+      "url": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

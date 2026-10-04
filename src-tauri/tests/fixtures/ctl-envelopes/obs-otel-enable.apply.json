@@ -1,0 +1,26 @@
+{
+  "argv": ["obs", "otel", "enable", "--port", "4999"],
+  "envelope": {
+    "command": "obs otel enable",
+    "data": {
+      "actions": [
+        "env.CLAUDE_CODE_ENABLE_TELEMETRY: added",
+        "env.OTEL_METRICS_EXPORTER: added",
+        "env.OTEL_LOGS_EXPORTER: added",
+        "env.OTEL_EXPORTER_OTLP_PROTOCOL: added",
+        "env.OTEL_EXPORTER_OTLP_ENDPOINT: added"
+      ],
+      "changed": true,
+      "conflicts": [],
+      "dryRun": false,
+      "enabled": true,
+      "endpoint": "http://127.0.0.1:4999",
+      "port": 4999,
+      "settingsPath": "<WORLD>/home/.claude/settings.json",
+      "warnings": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

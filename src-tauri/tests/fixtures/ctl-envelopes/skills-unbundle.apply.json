@@ -1,0 +1,18 @@
+{
+  "argv": ["skills", "unbundle", "{base}/demo.zip", "--path", "{base}/fresh"],
+  "envelope": {
+    "command": "skills unbundle",
+    "data": {
+      "bundle": "<WORLD>/demo.zip",
+      "dryRun": false,
+      "files": ["skills/demo/SKILL.md"],
+      "names": ["demo"],
+      "overwritten": [],
+      "skipped": [],
+      "target": "<WORLD>/fresh"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

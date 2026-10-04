@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "profile", "add"],
+  "envelope": {
+    "command": "context profile add",
+    "error": {
+      "code": "usage",
+      "message": "missing profile name\nusage: context profile add <name> [--no-org] [--org-mode import|copy] [--rules inherit|none|<a,b>] [--servers inherit|none|<a,b>] [--no-commands] [--no-skills] [--home <dir>] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

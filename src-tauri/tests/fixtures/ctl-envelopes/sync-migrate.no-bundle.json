@@ -1,0 +1,13 @@
+{
+  "argv": ["sync", "migrate", "{base}", "--passphrase-stdin"],
+  "envelope": {
+    "command": "sync",
+    "error": {
+      "code": "sync",
+      "message": "io error: <WORLD>/sync_manifest.json: No such file or directory (os error 2)"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

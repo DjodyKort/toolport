@@ -1,0 +1,13 @@
+{
+  "argv": ["client", "import"],
+  "envelope": {
+    "command": "client import",
+    "error": {
+      "code": "usage",
+      "message": "missing client\nusage: client import <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

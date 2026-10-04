@@ -1,0 +1,16 @@
+{
+  "argv": ["sync", "push", "--include-projects"],
+  "envelope": {
+    "command": "sync",
+    "data": {
+      "committed": true,
+      "dryRun": false,
+      "entries": ["projects/proj1/a.txt"],
+      "machineId": "m-test",
+      "pushed": true
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

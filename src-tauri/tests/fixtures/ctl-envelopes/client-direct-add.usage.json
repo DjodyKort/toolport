@@ -1,0 +1,13 @@
+{
+  "argv": ["client", "direct", "add"],
+  "envelope": {
+    "command": "client direct add",
+    "error": {
+      "code": "usage",
+      "message": "missing server\nusage: client direct add <server> --client <id> [--force] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

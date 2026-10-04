@@ -1,0 +1,25 @@
+{
+  "argv": ["agents", "clean", "--repo", "{repo}", "--dry-run"],
+  "envelope": {
+    "command": "agents clean",
+    "data": {
+      "cleanRoot": "<WORLD>/home",
+      "dryRun": true,
+      "ignored": [],
+      "lockDir": "<WORLD>/data",
+      "lockfilePresent": true,
+      "managed": ["helper"],
+      "removed": [
+        "<WORLD>/home/.claude/agents/helper.md",
+        "<WORLD>/home/.codex/agents/helper.toml",
+        "<WORLD>/home/.cursor/agents/helper.md",
+        "<WORLD>/home/.gemini/agents/helper.md"
+      ],
+      "scope": "global",
+      "skipped": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

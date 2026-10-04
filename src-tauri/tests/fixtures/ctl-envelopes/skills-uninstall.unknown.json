@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "uninstall", "demo", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills uninstall",
+    "error": {
+      "code": "skills",
+      "message": "Skill 'demo' not found."
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

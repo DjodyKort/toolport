@@ -1,0 +1,48 @@
+{
+  "argv": ["agents", "sync", "--repo", "{repo}", "--dry-run"],
+  "envelope": {
+    "command": "agents sync",
+    "data": {
+      "agentCount": 1,
+      "agents": [
+        {
+          "clientsSynced": ["claude-code", "codex-cli", "cursor", "gemini-cli"],
+          "found": true,
+          "model": "inherit",
+          "name": "helper",
+          "outputFiles": [
+            {
+              "client": "claude-code",
+              "files": [".claude/agents/helper.md"]
+            },
+            {
+              "client": "codex-cli",
+              "files": [".codex/agents/helper.toml"]
+            },
+            {
+              "client": "cursor",
+              "files": [".cursor/agents/helper.md"]
+            },
+            {
+              "client": "gemini-cli",
+              "files": [".gemini/agents/helper.md"]
+            }
+          ],
+          "warnings": []
+        }
+      ],
+      "clientCount": 4,
+      "discoveryWarnings": [],
+      "dryRun": true,
+      "foundCount": 1,
+      "lockDir": "<WORLD>/data",
+      "outputRoot": "<WORLD>/home",
+      "repo": "<WORLD>/skills-repo",
+      "scope": "global",
+      "syncedAt": "<TIME>"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

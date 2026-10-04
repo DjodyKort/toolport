@@ -1,0 +1,29 @@
+{
+  "argv": [
+    "import",
+    "mcpm",
+    "{base}/mcpm",
+    "--dry-run",
+    "--tools",
+    "{base}/tools.json",
+    "--name-map"
+  ],
+  "envelope": {
+    "command": "import mcpm",
+    "data": {
+      "count": 3,
+      "map": {
+        "mcp__mcpm_alpha-mock__add": "mcp__toolport__alpha_mock__add",
+        "mcp__mcpm_alpha-mock__echo": "mcp__toolport__alpha_mock__echo",
+        "mcp__mcpm_beta-mock__echo": "mcp__toolport__beta_mock__echo"
+      },
+      "servers": {
+        "alpha-mock": "alpha-mock",
+        "beta-mock": "beta-mock"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

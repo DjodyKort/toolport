@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "install", "Stripe", "--offline"],
+  "envelope": {
+    "command": "server install",
+    "error": {
+      "code": "conflict",
+      "message": "server 'Stripe' is already installed"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "edit"],
+  "envelope": {
+    "command": "server edit",
+    "error": {
+      "code": "usage",
+      "message": "usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--url <url>] [--transport <t>] [--cwd <dir>] [--declare-client-capabilities on|off] [--forward-instructions on|off]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

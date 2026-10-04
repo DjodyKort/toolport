@@ -1,0 +1,13 @@
+{
+  "argv": ["client", "edit"],
+  "envelope": {
+    "command": "client edit",
+    "error": {
+      "code": "usage",
+      "message": "missing client\nusage: client edit <client> [--add-profile <p>] [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

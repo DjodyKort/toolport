@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "loads", "--profile", "no-such-profile"],
+  "envelope": {
+    "command": "context loads",
+    "error": {
+      "code": "context_invalid",
+      "message": "unknown profile: no-such-profile"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

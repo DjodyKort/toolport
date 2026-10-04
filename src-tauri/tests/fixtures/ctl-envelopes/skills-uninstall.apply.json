@@ -1,0 +1,34 @@
+{
+  "argv": ["skills", "uninstall", "demo", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills uninstall",
+    "data": {
+      "dryRun": false,
+      "lockDir": "<WORLD>/data",
+      "lockUpdated": true,
+      "name": "demo",
+      "outputRoot": "<WORLD>/home",
+      "outputs": [
+        "<WORLD>/home/.mcpm/skills/demo/SKILL.md",
+        "<WORLD>/home/.amazonq/rules/demo.md",
+        "<WORLD>/home/.claude/skills/demo/SKILL.md",
+        "<WORLD>/home/.clinerules/demo.md",
+        "<WORLD>/home/.codex/skills/demo/SKILL.md",
+        "<WORLD>/home/.continue/rules/demo.md",
+        "<WORLD>/home/.cursor/rules/demo/RULE.md",
+        "<WORLD>/home/.gemini/skills/demo/SKILL.md",
+        "<WORLD>/home/.goose/skills/demo/SKILL.md",
+        "<WORLD>/home/.aiassistant/rules/demo.md",
+        "<WORLD>/home/.roo/rules/demo.md",
+        "<WORLD>/home/.trae/rules/demo.md",
+        "<WORLD>/home/.windsurf/rules/demo.md"
+      ],
+      "repo": "<WORLD>/skills-repo",
+      "scope": "global",
+      "sourcePath": "<WORLD>/skills-repo/skills/demo"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

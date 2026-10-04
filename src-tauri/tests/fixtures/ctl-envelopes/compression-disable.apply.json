@@ -1,0 +1,29 @@
+{
+  "argv": ["compression", "disable", "--teardown"],
+  "envelope": {
+    "command": "compression disable",
+    "data": {
+      "actions": ["saved config (provider=none)"],
+      "adopted": null,
+      "dryRun": false,
+      "preset": {
+        "mode": "cache",
+        "name": "interactive",
+        "port": 8787,
+        "savingsProfile": null
+      },
+      "provider": "none",
+      "removed": [],
+      "runtime": "none",
+      "teardown": true,
+      "warnings": [
+        "headroom mcp uninstall — headroom not on PATH",
+        "headroom unwrap claude — headroom not on PATH"
+      ],
+      "written": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

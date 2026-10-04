@@ -1,0 +1,20 @@
+{
+  "argv": ["sync", "diff"],
+  "envelope": {
+    "command": "sync",
+    "data": {
+      "changes": {
+        "conflicts": [],
+        "modified": [],
+        "new": [],
+        "removed": [],
+        "unchanged": ["projects/proj1/a.txt"]
+      },
+      "machineId": "m-test",
+      "noRemote": false
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

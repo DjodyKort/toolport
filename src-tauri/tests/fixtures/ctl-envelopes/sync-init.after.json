@@ -1,0 +1,21 @@
+{
+  "argv": ["sync", "status"],
+  "envelope": {
+    "command": "sync",
+    "data": {
+      "backend": "git",
+      "branch": "main",
+      "configured": true,
+      "keyfilePresent": true,
+      "lastDirection": "",
+      "lastSyncAt": "",
+      "machineId": "m-test",
+      "projects": {},
+      "repoUrl": "<WORLD>/remote.git",
+      "tracked": 0
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

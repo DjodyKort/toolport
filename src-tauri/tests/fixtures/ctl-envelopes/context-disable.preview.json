@@ -1,0 +1,22 @@
+{
+  "argv": ["context", "disable", "--purge-profiles", "--dry-run"],
+  "envelope": {
+    "command": "context disable",
+    "data": {
+      "actions": [
+        "would remove shims file",
+        "would remove profile dir <WORLD>/home/.config/mcpm/claude-profiles/work"
+      ],
+      "dryRun": true,
+      "purgedProfiles": ["<WORLD>/home/.config/mcpm/claude-profiles/work"],
+      "shims": {
+        "path": "<WORLD>/home/.config/mcpm/context-shims.zsh",
+        "removed": true
+      },
+      "warnings": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

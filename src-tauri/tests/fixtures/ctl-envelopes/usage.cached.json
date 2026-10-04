@@ -1,0 +1,82 @@
+{
+  "argv": ["usage", "--no-refresh"],
+  "envelope": {
+    "command": "usage",
+    "data": {
+      "byDay": {
+        "2026-10-01": {
+          "cacheCreation": 3000,
+          "cacheRead": 42000,
+          "input": 60,
+          "messages": 6,
+          "output": 240
+        }
+      },
+      "byMcpServer": {
+        "github": {
+          "calls": 3,
+          "tools": {
+            "mcp__github__list": 3
+          }
+        }
+      },
+      "byModel": {
+        "claude-a": {
+          "cacheCreation": 3000,
+          "cacheRead": 42000,
+          "input": 60,
+          "messages": 6,
+          "output": 240
+        }
+      },
+      "bySession": {
+        "s1": {
+          "cacheCreation": 3000,
+          "cacheRead": 42000,
+          "cwd": "/work/demo",
+          "firstTs": "<TIME>",
+          "input": 60,
+          "lastTs": "<TIME>",
+          "messages": 6,
+          "output": 240
+        }
+      },
+      "index": {
+        "files": 1,
+        "messages": 6
+      },
+      "mcpFailures": [],
+      "otel": {
+        "apiRequests": {
+          "costUsd": 0.0,
+          "count": 0,
+          "durationMs": 0
+        },
+        "costByModel": {},
+        "costUsd": 0.0,
+        "events": 0,
+        "mcpConnections": {
+          "failures": [],
+          "total": 0
+        },
+        "tokens": {},
+        "toolDecisions": {}
+      },
+      "sources": {
+        "otelOnly": 0,
+        "otelRequests": 0,
+        "transcriptMessages": 6
+      },
+      "totals": {
+        "cacheCreation": 3000,
+        "cacheRead": 42000,
+        "input": 60,
+        "messages": 6,
+        "output": 240
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

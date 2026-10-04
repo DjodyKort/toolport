@@ -1,0 +1,13 @@
+{
+  "argv": ["compression", "use"],
+  "envelope": {
+    "command": "compression use",
+    "error": {
+      "code": "usage",
+      "message": "use needs a preset name"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

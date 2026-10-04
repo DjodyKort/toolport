@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "checkpoint-status"],
+  "envelope": {
+    "command": "context checkpoint-status",
+    "error": {
+      "code": "bad_input",
+      "message": "statusline JSON: EOF while parsing a value at line 1 column 0"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -1,0 +1,24 @@
+{
+  "argv": ["context", "plan"],
+  "envelope": {
+    "command": "context plan",
+    "data": {
+      "actions": ["would write shims: <WORLD>/home/.config/mcpm/context-shims.zsh"],
+      "checks": [
+        ["ok", "no legacy MCP duplicates"],
+        ["warn", "no personal layer scaffolded — run `toolportctl context init`"],
+        ["warn", "shims file missing — run `toolportctl context sync`"],
+        [
+          "warn",
+          "CLAUDE_CONFIG_DIR is exported globally — default `claude` now targets a profile, not ~/.claude"
+        ],
+        ["ok", "corp-dev-tools not installed — no coexistence constraints"]
+      ],
+      "dryRun": true,
+      "warnings": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

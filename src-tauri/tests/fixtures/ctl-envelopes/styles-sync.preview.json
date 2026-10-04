@@ -1,0 +1,33 @@
+{
+  "argv": ["styles", "sync", "--repo", "{repo}", "--dry-run"],
+  "envelope": {
+    "command": "styles sync",
+    "data": {
+      "clientCount": 2,
+      "discoveryWarnings": [],
+      "dryRun": true,
+      "foundCount": 1,
+      "lockDir": "<WORLD>/data",
+      "outputRoot": "<WORLD>/home",
+      "outputs": [
+        "<WORLD>/home/.claude/output-styles/plain.md",
+        "<WORLD>/home/.roomodes"
+      ],
+      "repo": "<WORLD>/skills-repo",
+      "scope": "global",
+      "styleCount": 1,
+      "styles": [
+        {
+          "clientsSynced": ["claude-code", "roomodes-style"],
+          "description": "A synthetic plain style",
+          "name": "plain",
+          "warnings": []
+        }
+      ],
+      "syncedAt": "<TIME>"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

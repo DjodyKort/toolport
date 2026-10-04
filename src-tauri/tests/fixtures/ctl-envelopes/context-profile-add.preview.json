@@ -1,0 +1,38 @@
+{
+  "argv": [
+    "context",
+    "profile",
+    "add",
+    "work",
+    "--rules",
+    "none",
+    "--servers",
+    "none",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "context profile add",
+    "data": {
+      "actions": [
+        "would generate launch profile work (0 server(s)) in <WORLD>/home/.config/mcpm/claude-profiles/work",
+        "would write shims: <WORLD>/home/.config/mcpm/context-shims.zsh"
+      ],
+      "dryRun": true,
+      "profile": {
+        "created": true,
+        "dir": "<WORLD>/home/.config/mcpm/claude-profiles/work",
+        "generated": false,
+        "name": "work",
+        "org": true,
+        "orgMode": "import",
+        "rules": "none",
+        "servers": "none",
+        "shim": "claude-work"
+      },
+      "warnings": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

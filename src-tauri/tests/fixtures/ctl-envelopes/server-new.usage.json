@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "new"],
+  "envelope": {
+    "command": "server new",
+    "error": {
+      "code": "usage",
+      "message": "usage: server new <name> (--command <cmd> [--arg <a>]... | --url <url> [--transport http|sse]) [--cwd <dir>]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}
