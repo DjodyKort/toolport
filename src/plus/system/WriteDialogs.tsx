@@ -14,6 +14,9 @@ import { JobProgress, PlanPreview, TypedConfirmDialog, planOf } from "../ui";
 import type { WriteControl, WriteSpec } from "./hooks";
 
 function shown(spec: WriteSpec, data: unknown, done: boolean): unknown {
+  if (done && spec.planned) {
+    return { plan: { ...spec.planned, summary: spec.done ?? spec.planned.summary } };
+  }
   const plan =
     planOf(data) ??
     (data && typeof data === "object"

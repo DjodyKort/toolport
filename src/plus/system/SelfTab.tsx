@@ -76,100 +76,108 @@ export function SelfTab() {
             </Button>
           }
         >
-          <AsyncView
-            query={answered(doctor)}
-            errorTitle="Couldn't check the self-management server"
-          >
-            {() => (
-              <div className="flex flex-col gap-3">
-                {state === "missing" && (
-                  <EmptyState
-                    className="py-6"
-                    icon={<Bot />}
-                    title="Not installed"
-                    description="This server lets an agent list, check and change Toolport's own setup, with a preview and a confirmation for every change."
-                  />
-                )}
-                <Kv
-                  rows={[
-                    [
-                      "State",
-                      <Tag key="s" tone={info.tone}>
-                        {info.label}
-                      </Tag>,
-                    ],
-                    [
-                      "Catalogue",
-                      tools.data
-                        ? `${plural(tools.data.tools.length, "tool")}, ${plural(tools.data.resources.length, "resource")}`
-                        : "Loading",
-                    ],
-                    [
-                      "Enabled in",
-                      profiles.length === 0 ? (
-                        "no profile"
-                      ) : (
-                        <span key="p" className="flex flex-wrap gap-1">
-                          {profiles.map((entry) => (
-                            <Badge
-                              key={entry.id}
-                              variant={entry.enabled ? "success" : "secondary"}
-                            >
-                              {entry.id}
-                              {entry.optedOut ? " (turned off)" : ""}
-                            </Badge>
-                          ))}
-                        </span>
-                      ),
-                    ],
-                  ]}
-                />
-                <div className="flex flex-wrap items-end gap-2">
-                  <div className="min-w-40 flex-1">
-                    <Field
-                      label="Profile (optional)"
-                      value={profile}
-                      onChange={setProfile}
-                      placeholder="the active profile"
+          {doctor.status === "error" && !doctor.data ? (
+            <p className="text-sm text-muted-foreground">
+              The state is unknown until the doctor answers.
+            </p>
+          ) : (
+            <AsyncView
+              query={answered(doctor)}
+              errorTitle="Couldn't check the self-management server"
+            >
+              {() => (
+                <div className="flex flex-col gap-3">
+                  {state === "missing" && (
+                    <EmptyState
+                      className="py-6"
+                      icon={<Bot />}
+                      title="Not installed"
+                      description="This server lets an agent list, check and change Toolport's own setup, with a preview and a confirmation for every change."
                     />
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={() =>
-                      write.begin({
-                        command: "mcp install",
-                        title: installed
-                          ? "Enable the self-management server"
-                          : "Install the self-management server",
-                        argv: ["mcp", "install", ...optionFlag("--profile", profile)],
-                        confirmLabel: "Install",
-                        planned: planOfMcpInstall(profile.trim()),
-                      })
-                    }
-                  >
-                    {installed ? "Enable in a profile…" : "Install…"}
-                  </Button>
-                  {installed && (
+                  )}
+                  <Kv
+                    rows={[
+                      [
+                        "State",
+                        <Tag key="s" tone={info.tone}>
+                          {info.label}
+                        </Tag>,
+                      ],
+                      [
+                        "Catalogue",
+                        tools.data
+                          ? `${plural(tools.data.tools.length, "tool")}, ${plural(tools.data.resources.length, "resource")}`
+                          : "Loading",
+                      ],
+                      [
+                        "Enabled in",
+                        profiles.length === 0 ? (
+                          "no profile"
+                        ) : (
+                          <span key="p" className="flex flex-wrap gap-1">
+                            {profiles.map((entry) => (
+                              <Badge
+                                key={entry.id}
+                                variant={entry.enabled ? "success" : "secondary"}
+                              >
+                                {entry.id}
+                                {entry.optedOut ? " (turned off)" : ""}
+                              </Badge>
+                            ))}
+                          </span>
+                        ),
+                      ],
+                    ]}
+                  />
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="min-w-40 flex-1">
+                      <Field
+                        label="Profile (optional)"
+                        value={profile}
+                        onChange={setProfile}
+                        placeholder="the active profile"
+                      />
+                    </div>
                     <Button
                       size="sm"
-                      variant="destructive"
                       onClick={() =>
                         write.begin({
-                          command: "mcp uninstall",
-                          title: "Turn off the self-management server",
-                          argv: ["mcp", "uninstall"],
-                          confirmLabel: "Turn off",
-                          planned: planOfMcpUninstall(),
+                          command: "mcp install",
+                          title: installed
+                            ? "Enable the self-management server"
+                            : "Install the self-management server",
+                          argv: ["mcp", "install", ...optionFlag("--profile", profile)],
+                          confirmLabel: "Install",
+                          done: "Self-management server installed",
+                          planned: planOfMcpInstall(profile.trim()),
                         })
                       }
                     >
-                      Turn off…
+                      {installed ? "Enable in a profile…" : "Install…"}
                     </Button>
-                  )}
+                    {installed && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() =>
+                          write.begin({
+                            command: "mcp uninstall",
+                            title: "Turn off the self-management server",
+                            argv: ["mcp", "uninstall"],
+                            confirmLabel: "Turn off",
+                            done: "Self-management server turned off",
+                            planned: planOfMcpUninstall(),
+                          })
+                        }
+                      >
+                        Turn off…
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-          </AsyncView>
+              )}
+            </AsyncView>
+          )}
         </Card>
         <Card title="Doctor">
           <AsyncView query={answered(doctor)} errorTitle="Couldn't run the doctor">
