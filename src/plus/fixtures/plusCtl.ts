@@ -41,7 +41,6 @@ const uninstallPlan = {
 };
 
 export const plusCtlFixtures = new Map<string, unknown>([
-  ...skillsBrowserFixtures,
   ["sources ls", plusSourcesFixture],
   ["sources ls --items", plusSourcesItemsFixture],
   ["sources root ls", plusSourcesRootFixture],
@@ -50,6 +49,8 @@ export const plusCtlFixtures = new Map<string, unknown>([
   ...serversCtlFixtures,
   // The two synthetic worlds share their servers; where both answer a command, Servers wins.
   ...loginsCtlFixtures.filter(([key]) => !serversCtlFixtures.has(key)),
+  // The Library screen drives a stateful skills world, so its commands win over the static Health fixtures.
+  ...skillsBrowserFixtures,
 ]);
 
 const jobs = new Map<string, string>();
