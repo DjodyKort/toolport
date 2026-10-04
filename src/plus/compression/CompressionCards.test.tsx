@@ -292,7 +292,7 @@ describe("Compression tab: seal and proxy", () => {
   it("compression.seal: says to start the proxy first when there is none to seal", async () => {
     bridge.set("compression seal --dry-run", failureOf("compression-seal.no-proxy"));
     await open("Seal…");
-    expect(await screen.findByText(/no proxy on :49213/)).toBeInTheDocument();
+    expect(await screen.findByText(/no proxy on :29213/)).toBeInTheDocument();
     expect(
       screen.getByText("Start the proxy first, then seal what it runs."),
     ).toBeInTheDocument();
@@ -320,7 +320,7 @@ describe("Compression tab: seal and proxy", () => {
         await screen.findByRole("dialog", { name: "Stop the compression proxy?" }),
       ).getByRole("button", { name: "Stop" }),
     );
-    expect(await screen.findByText("no proxy listening on :49213")).toBeInTheDocument();
+    expect(await screen.findByText("no proxy listening on :29213")).toBeInTheDocument();
   });
 
   it("compression.proxy: restarts the proxy", async () => {

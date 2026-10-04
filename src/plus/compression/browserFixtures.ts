@@ -110,7 +110,7 @@ export const compressionBrowserFixtures: Array<[string, unknown]> = [
   ["compression seal --dry-run", data(sealPreview)],
   ["compression seal --apply", data(sealApply)],
   ["compression proxy up", ctlFailure("proxy_up", "headroom not on PATH")],
-  ["compression proxy down", ctlFailure("proxy_down", "no proxy listening on :49213")],
+  ["compression proxy down", ctlFailure("proxy_down", "no proxy listening on :29213")],
   ["compression proxy restart", ctlFailure("proxy_up", "headroom not on PATH")],
   ["compression verify", data(verify)],
   [
