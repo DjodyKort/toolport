@@ -105,6 +105,86 @@ async function serversScreen(shot, theme) {
   await expect(shot.getByRole("tablist", { name: "Servers sections" })).toBeVisible();
 }
 
+// The Tokens screen, tab Compression, on the stateful compression world: today's policy and
+// its presets, a provider switch (the plan, then the apply that changes the strip and the
+// health checks), a ledger that starts empty and grows from two recorded entries, and the
+// typed confirmation of a disable.
+async function tokensScreen(shot, theme) {
+  const snap = (target, name) => guiShot(target, name, { animations: "disabled" });
+  const nav = shot.getByRole("navigation", { name: "Views" });
+  await nav.getByRole("button", { name: "Tokens", exact: true }).click();
+  await shot
+    .getByRole("tablist", { name: "Tokens sections" })
+    .getByRole("tab", { name: "Compression" })
+    .click();
+  const strip = shot.getByLabel("Compression status");
+  await expect(strip).toContainText("rtk-only");
+  const presets = shot.getByRole("region", { name: "Presets" });
+  await expect(presets.getByText("agent", { exact: true })).toBeVisible();
+  const ledger = shot.getByRole("region", { name: "Savings ledger" });
+  await expect(ledger.getByText("No launches recorded yet")).toBeVisible();
+  const health = shot.getByRole("region", { name: "Health checks" });
+  await expect(health.getByText(/rtk binary found/)).toBeVisible();
+  await shot.evaluate(() => document.fonts.ready);
+  await snap(shot, `tokens-${theme}`);
+  if (theme === "light") {
+    const dialog = shot.getByRole("dialog");
+    const closeResult = async () => {
+      await dialog.getByRole("button", { name: "Close", exact: true }).last().click();
+      await expect(dialog).toHaveCount(0);
+    };
+    await ledger.scrollIntoViewIfNeeded();
+    await snap(shot, "tokens-ledger-empty-light");
+    await shot.evaluate(() => window.scrollTo(0, 0));
+
+    await shot.getByRole("button", { name: "Switch to headroom" }).click();
+    const plan = shot.getByRole("dialog", { name: "Switch the provider to headroom?" });
+    await expect(plan.getByRole("region", { name: "Preview" })).toBeVisible();
+    await expect(plan.getByText(/would save config \(provider=headroom\)/)).toBeVisible();
+    await snap(shot, "tokens-provider-plan-light");
+    await plan.getByRole("button", { name: "Switch provider" }).click();
+    await expect(dialog.getByText(/^Provider headroom \(proxy\)/)).toBeVisible();
+    await closeResult();
+    await expect(strip).toContainText("headroom");
+    await expect(strip).toContainText("Not installed");
+    await expect(health.getByText("no ready proxy on :8787")).toBeVisible();
+    await health.scrollIntoViewIfNeeded();
+    await snap(shot, "tokens-health-light");
+
+    const record = async (provider, before, after) => {
+      await shot.getByRole("button", { name: "Record savings…" }).click();
+      await dialog.getByLabel("Provider").selectOption(provider);
+      await dialog.getByLabel("Tokens before").fill(before);
+      await dialog.getByLabel("Tokens after").fill(after);
+      await dialog.getByRole("button", { name: "Review" }).click();
+      await dialog.getByRole("button", { name: "Record", exact: true }).click();
+      await closeResult();
+    };
+    await record("rtk-only", "1000", "400");
+    await record("headroom", "20000", "8000");
+    await expect(
+      ledger.getByRole("table", { name: "Savings by provider" }),
+    ).toBeVisible();
+    await expect(ledger.getByText("12,600")).toBeVisible();
+    await ledger.scrollIntoViewIfNeeded();
+    await snap(shot, "tokens-ledger-light");
+    await shot.evaluate(() => window.scrollTo(0, 0));
+
+    await shot.getByRole("button", { name: "Disable…" }).click();
+    await dialog.getByRole("button", { name: "Preview" }).click();
+    const off = shot.getByRole("dialog", { name: "Disable compression?" });
+    await expect(off.getByRole("region", { name: "Preview" })).toBeVisible();
+    await expect(
+      off.getByRole("button", { name: "Disable", exact: true }),
+    ).toBeDisabled();
+    await off.getByRole("textbox").fill("disa");
+    await snap(shot, "tokens-disable-light");
+    await off.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toHaveCount(0);
+  }
+  expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
+}
+
 let browser;
 let context;
 let page;
@@ -197,6 +277,7 @@ try {
     await shot.evaluate(() => document.fonts.ready);
     await guiShot(shot, `shell-${theme}`);
     await serversScreen(shot, theme);
+    await tokensScreen(shot, theme);
     await shot.getByRole("button", { name: "Settings", exact: true }).click();
     await shot.getByRole("button", { name: "Open All commands" }).click();
     await expect(shot.getByRole("list", { name: "Commands" })).toBeVisible();
