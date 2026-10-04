@@ -1,8 +1,9 @@
 //! The rows `context loads` adds on top of the memory/rules/settings/MCP/skill walk: `@imports`,
-//! the auto-memory index, account and plugin skills, user and project commands and agents, and
-//! the files below the working directory that load only when Claude reads there. Plugin and
-//! account contents come from the `sources` detectors (MIG-SRC-1), which are read-only.
+//! the auto-memory index, plugins, user and project commands and agents, and
+//! the files below the working directory that load only when Claude reads there. Plugin contents
+//! come from the `plugin` detector of `sources` (MIG-SRC-1), which is read-only.
 
+use super::globs::glob_match;
 use super::layers::is_managed_local;
 use super::loads::{excluded, show, skill_dirs, text_tokens, Ctx, LoadItem};
 use crate::plus::sources::budget::{Budget, DETECTOR_TIME, MAX_DEPTH};
@@ -285,7 +286,8 @@ pub(super) fn plugins(ctx: &mut Ctx, found: &DetectorOutput) -> Vec<(String, u64
             match switch {
                 Some((true, _)) => {
                     for item in mine.iter().filter(|i| i.kind == "skill") {
-                        listed.push((format!("{id}:{}", item.name), item.tokens.value));
+                        let plugin = id.split('@').next().unwrap_or(&id);
+                        listed.push((format!("{plugin}:{}", item.name), item.tokens.value));
                     }
                 }
                 Some((false, layer)) => {
@@ -389,7 +391,7 @@ fn inert(ctx: &Ctx, name: &str) -> bool {
             .inert_patterns
             .iter()
             .map(|p| p.trim_end_matches("/**").trim_end_matches('/'))
-            .any(|p| p == name)
+            .any(|p| !p.is_empty() && glob_match(p, name))
 }
 
 fn walk(ctx: &Ctx, dir: &Path, depth: usize, budget: &Budget, out: &mut Vec<PathBuf>) {
