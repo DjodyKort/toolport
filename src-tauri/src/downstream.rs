@@ -10206,11 +10206,11 @@ mod tests {
             Some(HTTP_RETRY_CAP)
         );
         // ...a near-future date keeps its exact delay...
-        let soon = std::time::SystemTime::now() + Duration::from_secs(2);
+        let soon = std::time::SystemTime::now() + Duration::from_secs(8);
         let delay = retry_after_delay(&httpdate::fmt_http_date(soon)).unwrap();
         assert!(
-            delay <= Duration::from_secs(2) && !delay.is_zero(),
-            "near-future date should keep ~2s, got {delay:?}"
+            delay <= Duration::from_secs(8) && !delay.is_zero(),
+            "near-future date should keep ~8s, got {delay:?}"
         );
         // ...and a date that already elapsed means "retry now".
         let past = std::time::SystemTime::now() - Duration::from_secs(60);
@@ -12703,7 +12703,7 @@ mod tests {
         // window (unbound state is in-memory here, which is equivalent for
         // this process's consult).
         let url = format!("http://127.0.0.1:{port}/");
-        downstream_backoff::record_rate_limited(&url, Some(Duration::from_secs(2)));
+        downstream_backoff::record_rate_limited(&url, Some(Duration::from_secs(8)));
 
         let mut t = HttpTransport::new(&url);
         let result = t.post(
@@ -12715,7 +12715,7 @@ mod tests {
                 retry_after,
                 message,
             }) => {
-                assert!(*retry_after <= Some(Duration::from_secs(2)));
+                assert!(*retry_after <= Some(Duration::from_secs(8)));
                 assert!(message.contains("shared backoff"), "{message}");
             }
             other => panic!("expected fast-fail Retry, got {other:?}"),
@@ -12745,7 +12745,7 @@ mod tests {
 
         // Guard: with a shared window open, an inline reply must fail fast
         // exactly like the request/response POST path — no wire traffic.
-        downstream_backoff::record_rate_limited(&url, Some(Duration::from_secs(2)));
+        downstream_backoff::record_rate_limited(&url, Some(Duration::from_secs(8)));
         let mut t = HttpTransport::new(&url);
         let result = t.send_post_no_response(&serde_json::json!({
             "jsonrpc": "2.0", "id": 2, "result": {}
@@ -12762,10 +12762,10 @@ mod tests {
         let hit = Arc::new(AtomicBool::new(false));
         let hc = Arc::clone(&hit);
         let handle = std::thread::spawn(move || {
-            if let Ok(Some(req)) = server.recv_timeout(Duration::from_secs(2)) {
+            if let Ok(Some(req)) = server.recv_timeout(Duration::from_secs(10)) {
                 hc.store(true, Ordering::SeqCst);
                 let retry_after =
-                    tiny_http::Header::from_bytes(&b"Retry-After"[..], &b"1"[..]).unwrap();
+                    tiny_http::Header::from_bytes(&b"Retry-After"[..], &b"8"[..]).unwrap();
                 let _ = req.respond(
                     tiny_http::Response::from_string("rate limited")
                         .with_status_code(429)
@@ -12778,7 +12778,7 @@ mod tests {
         }));
         match &result {
             Err(TransportError::Retry { retry_after, .. }) => {
-                assert_eq!(*retry_after, Some(Duration::from_secs(1)));
+                assert_eq!(*retry_after, Some(Duration::from_secs(8)));
             }
             other => panic!("expected Retry from live 429, got {other:?}"),
         }

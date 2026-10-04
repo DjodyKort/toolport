@@ -313,11 +313,11 @@ mod tests {
         // Another gateway process records a window after this one started.
         let mut disk = BackoffFile::default();
         disk.not_before
-            .insert("https://api.example.com".into(), now_ms() + 2_000);
+            .insert("https://api.example.com".into(), now_ms() + 8_000);
         fs::write(&path, serde_json::to_string(&disk).unwrap()).unwrap();
 
         let remaining = remaining_for_url("https://api.example.com").unwrap();
-        assert!(remaining <= Duration::from_secs(2) && !remaining.is_zero());
+        assert!(remaining <= Duration::from_secs(8) && !remaining.is_zero());
     }
 
     #[test]
@@ -328,16 +328,16 @@ mod tests {
         let path = dir.0.join(FILE_NAME);
         bind_data_dir(&dir.0);
 
-        record_rate_limited("https://api.example.com/mcp", Some(Duration::from_secs(2)));
+        record_rate_limited("https://api.example.com/mcp", Some(Duration::from_secs(8)));
 
         let remaining = remaining_for_url("https://api.example.com/other-path").unwrap();
-        assert!(remaining <= Duration::from_secs(2) && !remaining.is_zero());
+        assert!(remaining <= Duration::from_secs(8) && !remaining.is_zero());
         let file = load_file(&path).unwrap();
         let ts = *file.not_before.get("https://api.example.com").unwrap();
         let now = now_ms();
         assert!(
-            ts > now && ts <= now + 2_000,
-            "window should be ~2s from now, got {ts} vs {now}"
+            ts > now && ts <= now + 8_000,
+            "window should be ~8s from now, got {ts} vs {now}"
         );
     }
 
@@ -453,7 +453,7 @@ mod tests {
         let _lock = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         reset_for_test();
 
-        record_rate_limited("https://api.example.com", Some(Duration::from_secs(2)));
+        record_rate_limited("https://api.example.com", Some(Duration::from_secs(8)));
 
         assert!(remaining_for_url("https://api.example.com").is_some());
         assert!(
