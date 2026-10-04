@@ -1,4 +1,5 @@
-//! `toolportctl skills sync|ls|lint|diff`: thin renderers over the `plus.skills.*` handlers.
+//! `toolportctl skills sync|ls|lint|diff`: thin renderers over the typed operations in
+//! `skills::api`.
 //! `init|add|audit|bundle|unbundle` live in `skills_repo.rs`, `status|clean|uninstall|resolve` in
 //! `skills_state.rs`.
 
@@ -6,7 +7,11 @@ use super::flags::{switch, value, Flags, Inline, Operands, Spec, Unknown};
 use super::output::{table, CtlError, Output};
 use super::skills_repo::{str_of, strings};
 use super::skills_state::{collision_line, shown};
+use crate::plus::op::OpError;
+use crate::plus::redact;
+use crate::plus::skills::api::{self, Args};
 use serde_json::{json, Value};
+use std::path::PathBuf;
 
 const USAGE: &str = "usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|diff|status|clean|uninstall|resolve|tap|search|install \
      (sync|ls|lint|diff: [--repo <dir>] [--home <dir>]; sync: [--client <key>]... [--project] \
@@ -58,16 +63,19 @@ pub(super) fn apply_home(home: Option<&str>) {
     }
 }
 
-fn repo_args(flags: &Flags) -> Value {
-    let mut args = json!({});
-    if let Some(repo) = flags.one("--repo") {
-        args["repo_path"] = json!(repo);
+fn repo_args(flags: &Flags) -> Args {
+    Args {
+        repo: flags.one("--repo").map(PathBuf::from),
+        ..Args::default()
     }
-    args
 }
 
-fn call(command: &str, args: Value) -> Result<Value, CtlError> {
-    crate::plus::dispatch(command, args).map_err(|e| CtlError::failed("skills", e))
+fn failed(error: OpError) -> CtlError {
+    CtlError::failed("skills", error.message)
+}
+
+pub(super) fn served(result: Result<Value, OpError>) -> Result<Value, CtlError> {
+    result.map(redact::scrub).map_err(failed)
 }
 
 pub fn group(_rest: &[String]) -> Result<Output, CtlError> {
@@ -85,17 +93,15 @@ pub fn sync(rest: &[String]) -> Result<Output, CtlError> {
         ));
     }
     apply_home(flags.one("--home"));
-    let mut args = repo_args(&flags);
-    args["dry_run"] = json!(flags.on("--dry-run"));
-    args["global_mode"] = json!(!flags.on("--project"));
-    if flags.on("--migrate") || flags.on("--no-migrate") {
-        args["migrate"] = json!(flags.on("--migrate"));
-    }
     let clients = flags.all("--client");
-    if !clients.is_empty() {
-        args["client_keys"] = json!(clients);
-    }
-    let data = call("plus.skills.sync", args)?;
+    let args = Args {
+        dry_run: flags.on("--dry-run"),
+        global: !flags.on("--project"),
+        migrate: (flags.on("--migrate") || flags.on("--no-migrate")).then(|| flags.on("--migrate")),
+        clients: (!clients.is_empty()).then_some(clients),
+        ..repo_args(&flags)
+    };
+    let data = served(api::sync(&args))?;
     let human = sync_text(&data);
     Ok(Output::new(data, human))
 }
@@ -199,7 +205,7 @@ fn sync_text(data: &Value) -> String {
 pub fn ls(rest: &[String]) -> Result<Output, CtlError> {
     let flags = LS.parse(rest)?;
     apply_home(flags.one("--home"));
-    let data = call("plus.skills.list", repo_args(&flags))?;
+    let data = served(api::list_skills(&repo_args(&flags)))?;
     let mut human = String::new();
     for row in data["skills"].as_array().into_iter().flatten() {
         human.push_str(&format!(
@@ -218,12 +224,12 @@ pub fn ls(rest: &[String]) -> Result<Output, CtlError> {
 pub fn lint(rest: &[String]) -> Result<Output, CtlError> {
     let flags = LINT.parse(rest)?;
     apply_home(flags.one("--home"));
-    let mut args = repo_args(&flags);
     let names = flags.all("--name");
-    if !names.is_empty() {
-        args["names"] = json!(names);
-    }
-    let data = call("plus.skills.lint", args)?;
+    let args = Args {
+        names: (!names.is_empty()).then_some(names),
+        ..repo_args(&flags)
+    };
+    let data = served(api::lint(&args))?;
     let mut human = String::new();
     for m in data["messages"].as_array().into_iter().flatten() {
         human.push_str(&format!(
@@ -245,7 +251,7 @@ pub fn lint(rest: &[String]) -> Result<Output, CtlError> {
 pub fn diff(rest: &[String]) -> Result<Output, CtlError> {
     let flags = LS.parse(rest)?;
     apply_home(flags.one("--home"));
-    let data = call("plus.skills.diff", repo_args(&flags))?;
+    let data = api::diff(&repo_args(&flags)).map_err(failed)?;
     let mut human = String::new();
     for (key, mark) in [("new", "+"), ("modified", "~"), ("removed", "-")] {
         for name in data[key].as_array().into_iter().flatten() {

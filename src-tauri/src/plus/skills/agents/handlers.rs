@@ -10,7 +10,7 @@ use super::manage::add_agent;
 use super::{
     all_agent_transpilers, discover_agents_report, sync_scoped, Agent, AgentFrontmatter,
 };
-use crate::plus::args::{flag, flag_or, list, str_nonempty};
+use crate::plus::args::{flag, flag_or, nonempty_strings, str_nonempty};
 use crate::plus::skills::audit::audit_agents;
 use crate::plus::skills::clock::SystemClock;
 use crate::plus::skills::lock::load_lockfile;
@@ -194,14 +194,6 @@ pub fn add_handler(args: Value) -> Result<Value, String> {
     }))
 }
 
-fn client_keys(args: &Value) -> Option<Vec<String>> {
-    let keys: Vec<String> = list(args, "client_keys")?
-        .iter()
-        .filter_map(|v| v.as_str().map(String::from))
-        .collect();
-    (!keys.is_empty()).then_some(keys)
-}
-
 pub fn sync_handler(args: Value) -> Result<Value, String> {
     let global = flag_or(&args, "global_mode", true);
     let dry_run = flag(&args, "dry_run");
@@ -227,7 +219,7 @@ pub fn sync_handler(args: Value) -> Result<Value, String> {
         &agents,
         global,
         dry_run,
-        client_keys(&args),
+        nonempty_strings(&args, "client_keys"),
         &SystemClock,
     )?;
     let lock = &synced.lock;

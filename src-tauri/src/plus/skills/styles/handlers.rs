@@ -10,7 +10,7 @@ use super::manage::{
     add_style, apply_scoped, check_style_name, is_native_client, remove_scoped, sync_scoped,
 };
 use super::{discover_styles_report, Style};
-use crate::plus::args::{flag, flag_or, list, str_nonempty};
+use crate::plus::args::{flag, flag_or, nonempty_strings, str_nonempty};
 use crate::plus::skills::clock::SystemClock;
 use crate::plus::skills::lock::{get_entry, load_lockfile, save_lockfile, LockFile};
 use crate::plus::skills::ops::{self, clean_styles, read_lock, Scope};
@@ -38,14 +38,6 @@ fn pairs(list: &[(String, String)]) -> Vec<Value> {
     list.iter()
         .map(|(client, style)| json!({"client": client, "style": style}))
         .collect()
-}
-
-fn client_keys(args: &Value) -> Option<Vec<String>> {
-    let keys: Vec<String> = list(args, "client_keys")?
-        .iter()
-        .filter_map(|v| v.as_str().map(String::from))
-        .collect();
-    (!keys.is_empty()).then_some(keys)
 }
 
 fn row(style: &Style, lock: Option<&LockFile>) -> Value {
@@ -163,7 +155,14 @@ pub fn sync_handler(args: Value) -> Result<Value, String> {
     if styles.is_empty() {
         return Ok(data);
     }
-    let synced = sync_scoped(&repo, &styles, global, dry_run, client_keys(&args), &SystemClock)?;
+    let synced = sync_scoped(
+        &repo,
+        &styles,
+        global,
+        dry_run,
+        nonempty_strings(&args, "client_keys"),
+        &SystemClock,
+    )?;
     let lock = &synced.lock;
     let clients: BTreeSet<&String> = lock
         .styles
@@ -203,7 +202,7 @@ pub fn apply_handler(args: Value) -> Result<Value, String> {
         };
         format!("Style '{name}' not found. Available: {available}")
     })?;
-    let keys = client_keys(&args);
+    let keys = nonempty_strings(&args, "client_keys");
     let native: Vec<&String> = keys
         .iter()
         .flatten()
@@ -236,7 +235,7 @@ pub fn remove_handler(args: Value) -> Result<Value, String> {
     let global = flag_or(&args, "global_mode", true);
     let dry_run = flag(&args, "dry_run");
     let repo = found_repo(&args)?;
-    let keys = client_keys(&args);
+    let keys = nonempty_strings(&args, "client_keys");
     let removed = remove_scoped(&repo, global, dry_run, keys.clone(), &SystemClock)?;
     Ok(json!({
         "repo": display(&repo),

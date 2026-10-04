@@ -1,7 +1,7 @@
 //! What a skills sync reports beyond its counts: what each entry synced and warned about and how
-//! each file that shadows a synced skill was handled. One builder serves the selfmcp
-//! `skills_sync` tool, the `plus.skills.sync` handler that forwards to it and `toolportctl skills
-//! sync`; `plus.skills.resolve` shares the collision rows.
+//! each file that shadows a synced skill was handled. One builder serves `api::sync`, behind the
+//! selfmcp `skills_sync` tool, `plus.skills.sync` and `toolportctl skills sync`;
+//! `plus.skills.resolve` shares the collision rows.
 
 use super::collisions::{Action, CollisionSummary, BACKUP_DIR_NAME};
 use super::lock::{LockEntry, LockFile};
