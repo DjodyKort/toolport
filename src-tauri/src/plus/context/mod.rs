@@ -5,6 +5,9 @@
 //! Every operation takes explicit [`Roots`], so tests run in temp dirs and nothing reads `$HOME`.
 
 pub mod backup;
+pub mod bundle;
+pub mod bundle_io;
+pub mod bundle_store;
 pub mod compact;
 pub mod config;
 pub mod dedupe;
@@ -28,6 +31,8 @@ mod loads_extra;
 #[cfg(test)] mod settings_prop_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_bundle;
 #[cfg(test)]
 mod tests_compact;
 #[cfg(test)]

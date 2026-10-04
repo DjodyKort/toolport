@@ -1,0 +1,16 @@
+format: 1
+name: acme-dev
+description: "ERP work: no marketplace plugins, only the ERP skills"
+servers: acme-dev
+skills:
+  off: [notes-helper, "scratch-*"]
+  name_only: [long-guide]
+  allow: []
+plugins:
+  off: ["tools-pack@tools-market", "loop-runner@official"]
+layers:
+  add: [acme-knowledge]
+  exclude: ["**/acme-erp/CLAUDE.md"]
+agents:
+  off: [reviewer-bot]
+bind: ["~/work/acme-erp/clients/*"]
