@@ -5,10 +5,10 @@ use std::path::{Path, PathBuf};
 
 const CANARY: &str = "FAKE-canary-secret-5d71c0";
 
-struct World {
-    home: PathBuf,
-    data: PathBuf,
-    launcher: PathBuf,
+pub(crate) struct World {
+    pub(crate) home: PathBuf,
+    pub(crate) data: PathBuf,
+    pub(crate) launcher: PathBuf,
     _vars: Vec<crate::clients::EnvRestore>,
     _launcher: LauncherOverride,
 }
@@ -45,7 +45,7 @@ fn registry_json() -> Value {
     })
 }
 
-fn world(test: impl FnOnce(&World)) {
+pub(crate) fn world(test: impl FnOnce(&World)) {
     let _env = crate::clients::env_test_lock();
     crate::secrets::tests::with_isolated_vault(|| {
         let data = crate::registry::conduit_dir().unwrap();
@@ -89,7 +89,7 @@ fn world(test: impl FnOnce(&World)) {
     });
 }
 
-fn config_path(id: &str) -> PathBuf {
+pub(crate) fn config_path(id: &str) -> PathBuf {
     clients::detect_clients()
         .into_iter()
         .find(|c| c.id == id)
@@ -98,7 +98,7 @@ fn config_path(id: &str) -> PathBuf {
         .into()
 }
 
-fn installed(id: &str) -> PathBuf {
+pub(crate) fn installed(id: &str) -> PathBuf {
     let path = config_path(id);
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     let detected = clients::detect_clients()
@@ -111,11 +111,11 @@ fn installed(id: &str) -> PathBuf {
     path
 }
 
-fn read(id: &str) -> String {
+pub(crate) fn read(id: &str) -> String {
     std::fs::read_to_string(config_path(id)).unwrap_or_default()
 }
 
-fn tree(dir: &Path) -> Vec<(PathBuf, Vec<u8>)> {
+pub(crate) fn tree(dir: &Path) -> Vec<(PathBuf, Vec<u8>)> {
     let mut out = Vec::new();
     let mut stack = vec![dir.to_path_buf()];
     while let Some(d) = stack.pop() {

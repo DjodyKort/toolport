@@ -1,4 +1,4 @@
-use super::{servers, ToolError};
+use super::{direct, servers, ToolError};
 use serde_json::{json, Map, Value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -544,6 +544,40 @@ pub const TOOLS: &[ToolDef] = &[
             DRY
         ],
         servers::clients_sync
+    ),
+    tool!(
+        "client_direct_ls",
+        1,
+        None,
+        "List direct client entries that start one server through the stdio launcher, bypassing the gateway",
+        [p("client", Ty::Str, false, "Limit to one client key")],
+        direct::client_direct_ls
+    ),
+    tool!(
+        "client_direct_add",
+        2,
+        None,
+        "Add an entry for one stdio server to one client that runs the toolportctl launcher instead of the gateway; it bypasses profile tool scopes, approvals, receipts and lazy discovery, and each client starts its own process; dry_run is on by default",
+        [
+            p("server", Ty::Str, true, "Server name or id"),
+            p("client", Ty::Str, true, "Client key"),
+            p("force", Ty::Bool, false, "Replace an entry this tool did not create"),
+            DRY_ON
+        ],
+        direct::client_direct_add
+    ),
+    tool!(
+        "client_direct_rm",
+        2,
+        None,
+        "Remove the direct entry of one server from one client; dry_run is on by default",
+        [
+            p("server", Ty::Str, true, "Server name or id"),
+            p("client", Ty::Str, true, "Client key"),
+            p("force", Ty::Bool, false, "Remove an entry that was changed after it was written"),
+            DRY_ON
+        ],
+        direct::client_direct_rm
     ),
     tool!(
         "sync_push",

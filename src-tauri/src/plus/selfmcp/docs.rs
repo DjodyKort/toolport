@@ -15,6 +15,10 @@ earlier tooling were replaced by this daemon (D-008).
   profiles, per-client scopes and the entries Toolport wrote into client configs.
 - `clients_sync` makes each managed client match the registry: it installs the gateway entry,
   removes direct entries that duplicate registered servers and prunes orphans.
+- `client_direct_add` is the opt-in exception: one stdio server gets its own entry in one client
+  that runs `toolportctl direct run <server id>` instead of going through the gateway. It
+  bypasses profile tool scopes, approvals, receipts and lazy discovery, and each client starts
+  its own process. `clients_sync` leaves such an entry alone; `servers_uninstall` removes it.
 - Secret values live in the vault (OS keychain or the encrypted file selected by
   `TOOLPORT_SECRET_KEY`). They are never written to the registry or returned by any tool here.
 
@@ -32,7 +36,8 @@ earlier tooling were replaced by this daemon (D-008).
 - Data directory: registry, lockfile, auth cache, scripts relocated by the importer.
 - Skills repository: the clone named in `skills_sync.json`, or the nearest directory that looks
   like one.
-- Client configs: written only by `clients_sync` and the importer, with backups.
+- Client configs: written only by `clients_sync`, `client_direct_add|rm` and the importer, with
+  backups.
 
 ## Invariants
 
@@ -76,6 +81,13 @@ Read `mcpm://architecture` first for the model behind these recipes.
 
 1. `skills_lint`, then `skills_sync` with `dry_run=true`, then without it.
 2. `skills_git_push` with a commit message (tier 4, confirm required).
+
+## Give one client a server directly
+
+1. `client_direct_ls` to see which clients already have one.
+2. `client_direct_add` with `server` and `client` (dry run by default; pass `dry_run=false` to
+   write). Only local stdio servers qualify.
+3. `client_direct_rm` undoes it.
 
 ## Apply an output style
 

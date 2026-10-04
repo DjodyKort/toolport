@@ -5,6 +5,9 @@
 mod backend;
 mod catalog;
 mod content;
+mod direct;
+#[cfg(test)]
+mod direct_tests;
 mod docs;
 #[cfg(test)]
 mod enable_tests;
