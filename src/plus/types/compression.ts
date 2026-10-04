@@ -91,9 +91,22 @@ export const compressionLedgerRecordData = obj({
 });
 export type CompressionLedgerRecordData = Infer<typeof compressionLedgerRecordData>;
 
+export const compressionLedgerProvider = obj({
+  launches: num,
+  plain: num,
+  provider: str,
+  routed: num,
+  savedPercent: nullable(num),
+  savingsEntries: num,
+  tokensAfter: num,
+  tokensBefore: num,
+  tokensSaved: num,
+});
+export type CompressionLedgerProvider = Infer<typeof compressionLedgerProvider>;
+
 export const compressionLedgerSummaryData = obj({
   launchesPath: str,
-  providers: arr(any),
+  providers: arr(compressionLedgerProvider),
   savingsPath: str,
   tokensSaved: num,
 });
