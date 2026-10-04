@@ -5,6 +5,7 @@ import { ccShapes } from "./cc";
 import { clientShapes } from "./client";
 import { compressionShapes } from "./compression";
 import { contextShapes } from "./context";
+import { contextBundleShapes } from "./context-bundle";
 import { councilShapes } from "./council";
 import { importShapes } from "./import";
 import { inspectShapes } from "./inspect";
@@ -25,6 +26,7 @@ export * from "./cc";
 export * from "./client";
 export * from "./compression";
 export * from "./context";
+export * from "./context-bundle";
 export * from "./council";
 export * from "./import";
 export * from "./inspect";
@@ -60,6 +62,7 @@ export const ctlTypeShapes: Record<string, Shape<unknown>> = {
   ...clientShapes,
   ...compressionShapes,
   ...contextShapes,
+  ...contextBundleShapes,
   ...councilShapes,
   ...importShapes,
   ...inspectShapes,

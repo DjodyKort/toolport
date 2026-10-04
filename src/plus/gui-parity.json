@@ -1045,6 +1045,56 @@
       "action": "context.apply",
       "surface": "screen"
     },
+    "context bundle add": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "context bundle apply": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "context bundle config": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "context bundle edit": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "context bundle launch": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "context bundle ls": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "context bundle rm": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "context bundle show": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "context bundle status": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "context bundle undo": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
     "context checkpoint-status": {
       "route": "context",
       "action": "context.checkpoint-status",
@@ -1113,6 +1163,11 @@
     "context sync": {
       "route": "context",
       "action": "context.sync",
+      "surface": "screen"
+    },
+    "context use": {
+      "route": "all-commands",
+      "action": "all-commands.run",
       "surface": "screen"
     },
     "council doctor": {
@@ -1640,6 +1695,26 @@
     "compression_use": {
       "route": "tokens",
       "action": "compression.use",
+      "surface": "screen"
+    },
+    "context_bundle_apply": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "context_bundle_ls": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "context_bundle_status": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "context_bundle_undo": {
+      "route": "all-commands",
+      "action": "all-commands.run",
       "surface": "screen"
     },
     "context_measure": {
