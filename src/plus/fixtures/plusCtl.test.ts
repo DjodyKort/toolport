@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { commandsData, sourcesLsData, sourcesRootLsData } from "../bridge/data";
 import { check } from "../bridge/shape";
-import { sourcesLsData, sourcesRootLsData } from "../bridge/data";
+import { commandsFixture, commandsFixtureWithMcpCall } from "./commandsRegistry";
 import { plusCtlCancel, plusCtlFixtures, plusCtlResult, plusCtlStart } from "./plusCtl";
 
 describe("plus_ctl browser fixtures", () => {
@@ -50,5 +51,22 @@ describe("plus_ctl browser fixtures", () => {
     });
     expect(byId.get("org")?.freshness?.lastSync).toBeTruthy();
     expect(byId.get("library")?.status.state).toBe("duplicate");
+  });
+
+  it("serves the commands registry in the shape of the real one", () => {
+    const data = plusCtlResult(plusCtlStart(["commands"])).envelope?.data;
+    expect(check(commandsData, data)).toEqual([]);
+    expect(check(commandsData, commandsFixtureWithMcpCall)).toEqual([]);
+    expect(data).toEqual(commandsFixture);
+  });
+
+  it("keeps the registry counts true and every tool's command real", () => {
+    const { commands, tools, counts } = commandsFixture;
+    expect(counts.rows).toBe(commands.length);
+    expect(counts.commands).toBe(commands.filter((row) => row.kind === "command").length);
+    expect(counts.tools).toBe(tools.length);
+    const ids = new Set(commands.map((row) => row.id));
+    for (const tool of tools) if (tool.command) expect(ids.has(tool.command)).toBe(true);
+    expect(ids.size).toBe(commands.length);
   });
 });
