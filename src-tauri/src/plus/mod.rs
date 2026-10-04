@@ -30,6 +30,7 @@ pub(crate) mod op;
 pub(crate) mod redact;
 pub(crate) mod registry_ro;
 pub(crate) mod servers;
+pub(crate) mod status;
 pub(crate) mod tags;
 
 #[cfg(test)]

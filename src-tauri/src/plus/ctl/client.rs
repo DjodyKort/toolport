@@ -1,4 +1,4 @@
-use super::commands::snapshot;
+use crate::plus::status::snapshot;
 use super::flags::{switch, value, Inline, Operands, Spec, Unknown};
 use super::output::{no_args, CtlError, Output};
 use crate::clients::{self, DetectedClient, GatewayEntryState};
