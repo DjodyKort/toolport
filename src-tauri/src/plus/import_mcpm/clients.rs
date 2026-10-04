@@ -10,14 +10,6 @@ pub struct ClientConfig {
     pub servers: Map<String, Value>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ClientProfile {
-    pub client_id: String,
-    pub profile_id: String,
-    pub server_ids: Vec<String>,
-}
-
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ClientSkip {

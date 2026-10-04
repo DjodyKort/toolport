@@ -44,6 +44,7 @@ pub struct Orphan {
 }
 
 impl RenameReport {
+    #[cfg(test)]
     pub fn changed(&self) -> bool {
         !self.files.is_empty()
     }
