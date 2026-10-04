@@ -11,6 +11,7 @@ pub mod cc;
 pub mod compression;
 pub mod council;
 pub mod context;
+pub mod direct;
 pub mod import_mcpm;
 pub mod obs;
 pub mod profiles;
@@ -130,6 +131,9 @@ const HANDLERS: &[(&str, Handler)] = &[
     ("plus.profile.remove", profiles::handlers::remove_handler),
     ("plus.client.edit", profiles::handlers::client_edit_handler),
     ("plus.client.import", profiles::handlers::client_import_handler),
+    ("plus.client.directAdd", direct::handlers::add_handler),
+    ("plus.client.directRm", direct::handlers::remove_handler),
+    ("plus.client.directLs", direct::handlers::list_handler),
     ("plus.cc.list", cc::list_handler),
     ("plus.cc.update", cc::update_handler),
     ("plus.selfmcp.ensure", selfmcp::register::ensure_handler),
