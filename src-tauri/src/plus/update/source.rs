@@ -1,3 +1,4 @@
+use crate::plus::tags;
 use crate::registry::ServerEntry;
 use serde_json::{json, Map, Value};
 use std::path::{Path, PathBuf};
@@ -130,18 +131,7 @@ pub fn stored(entry: &ServerEntry) -> Option<Source> {
 }
 
 pub fn set_meta_fields(entry: &mut ServerEntry, fields: Map<String, Value>) {
-    let slot = entry
-        .unknown_fields
-        .entry(META_KEY.to_string())
-        .or_insert_with(|| Value::Object(Map::new()));
-    if !slot.is_object() {
-        *slot = Value::Object(Map::new());
-    }
-    if let Some(obj) = slot.as_object_mut() {
-        for (k, v) in fields {
-            obj.insert(k, v);
-        }
-    }
+    tags::object_mut(&mut entry.unknown_fields, &[META_KEY]).extend(fields);
 }
 
 pub fn expand_path(raw: &str, home: Option<&Path>) -> PathBuf {

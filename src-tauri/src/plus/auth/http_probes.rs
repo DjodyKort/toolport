@@ -733,11 +733,7 @@ fn infer(server: &crate::registry::ServerEntry) -> Option<(Service, String)> {
 pub(super) fn hint(
     server: &crate::registry::ServerEntry,
 ) -> Option<&serde_json::Map<String, Value>> {
-    server
-        .unknown_fields
-        .get("plus")?
-        .get("authProbe")?
-        .as_object()
+    crate::plus::tags::object(&server.unknown_fields, &["plus", "authProbe"])
 }
 
 pub(super) fn hint_str<'a>(hint: &'a serde_json::Map<String, Value>, key: &str) -> Option<&'a str> {
