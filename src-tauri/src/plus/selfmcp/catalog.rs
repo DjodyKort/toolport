@@ -1,4 +1,4 @@
-use super::{backend, compression, content, context, direct, servers, skills, sources, state, ToolError};
+use super::{backend, compression, content, context, direct, plugins, servers, skills, sources, state, ToolError};
 use serde_json::{json, Map, Value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -130,6 +130,41 @@ pub const TOOLS: &[ToolDef] = &[
             p("force", Ty::Bool, false, "Measure again instead of answering from the cache")
         ],
         context::measure_tool
+    ),
+    tool!(
+        "plugins_ls",
+        1,
+        None,
+        "List the installed Claude Code plugins with what each brings (skills, agents, commands, hooks, MCP servers), whether it is on in the folder, its token cost and its MCP servers that sit outside the gateway",
+        [
+            p("cwd", Ty::Str, false, "Folder where Claude Code starts; its project and local settings decide which plugins are on"),
+            p("refresh", Ty::Bool, false, "Run claude plugin marketplace update first")
+        ],
+        plugins::ls
+    ),
+    tool!(
+        "plugins_show",
+        1,
+        None,
+        "Show one installed plugin: components, hooks, MCP servers with their deny state, options and token cost. Option values marked sensitive are never returned",
+        [
+            p("id", Ty::Str, true, "Plugin id such as ecc@ecc, or a bare plugin name when it is unique"),
+            p("cwd", Ty::Str, false, "Folder where Claude Code starts; its project and local settings decide whether the plugin is on and its MCP servers denied")
+        ],
+        plugins::show
+    ),
+    tool!(
+        "hooks_ls",
+        1,
+        None,
+        "List every hook Claude Code would start in a folder, read from settings, plugins and Toolport files; a hook is never run. Counts the processes per tool and flags PreToolUse hooks of different owners on the same tool",
+        [
+            p("cwd", Ty::Str, false, "Folder where Claude Code starts; without it only user and managed settings apply"),
+            p("tool", Ty::Str, false, "Only hooks that fire for this tool: Bash, Edit, Write or Read"),
+            p("event", Ty::Str, false, "Only hooks on this event, for example PreToolUse"),
+            p("owner", Ty::Str, false, "Only hooks of this owner kind: plugin, user, project, local, skill, toolport or managed")
+        ],
+        plugins::hooks_ls
     ),
     tool!(
         "skills_get",

@@ -180,6 +180,11 @@ pub(super) const GLOBAL: &[Meta] = &[
     m("--disabled", Str, REFUSED).hidden(),
     m("--dry-run", Bool, "Preview the change and write nothing"),
     m("--enable", Bool, "Turn folder profiles on"),
+    m(
+        "--event",
+        Str,
+        "Only hooks on this event (PreToolUse, SessionStart, ...)",
+    ),
     m("--external", Bool, REFUSED).hidden(),
     m("--file", Path, REFUSED).hidden(),
     m(
@@ -332,6 +337,13 @@ pub(super) const GLOBAL: &[Meta] = &[
     ),
     m("--output", Path, "File to write"),
     m(
+        "--owner",
+        Ty::Choice(&[
+            "plugin", "user", "project", "local", "skill", "toolport", "managed",
+        ]),
+        "Only hooks of this owner kind",
+    ),
+    m(
         "--passphrase-env",
         Str,
         "Name of an environment variable holding the passphrase (the GUI sends it on stdin)",
@@ -437,6 +449,11 @@ pub(super) const GLOBAL: &[Meta] = &[
     ),
     m("--telemetry", ON_OFF, "Send compression telemetry"),
     m("--to", Str, "Version to move to"),
+    m(
+        "--tool",
+        Ty::Choice(&["Bash", "Edit", "Write", "Read"]),
+        "Only hooks that fire for this tool",
+    ),
     m(
         "--tools",
         Path,
@@ -640,6 +657,38 @@ pub(super) const OVERRIDES: &[(&str, Meta)] = &[
             "--source",
             Str,
             "Only this source or detector (library, plugin, repo:odh)",
+        ),
+    ),
+    (
+        "plugins ls",
+        m(
+            "--cwd",
+            Path,
+            "Folder whose project and local settings decide which plugins are on (default: user settings only)",
+        ),
+    ),
+    (
+        "plugins ls",
+        m(
+            "--refresh",
+            Bool,
+            "Run claude plugin marketplace update first (needs claude on PATH)",
+        ),
+    ),
+    (
+        "plugins show",
+        m(
+            "--cwd",
+            Path,
+            "Folder whose project and local settings decide whether the plugin is on and its MCP servers denied (default: user settings only)",
+        ),
+    ),
+    (
+        "hooks ls",
+        m(
+            "--cwd",
+            Path,
+            "Folder whose project and local settings and plugins apply (default: user and managed settings only)",
         ),
     ),
     (

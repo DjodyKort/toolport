@@ -11,7 +11,8 @@ use super::flags::{switch, value, Flag, Spec};
 use super::{agents, auth, cc, client, client_direct, client_edit, compression, compression_cfg};
 use super::{context, context_manage, council, folders, import, mcp, obs, profile, secret};
 use super::{
-    server, skills, skills_repo, skills_state, skills_taps, sources, styles, sync, update,
+    hooks, plugins, server, skills, skills_repo, skills_state, skills_taps, sources, styles, sync,
+    update,
 };
 use super::usage;
 
@@ -469,6 +470,11 @@ pub(super) const ROWS: &[Row] = &[
         .args(&[req("config-root")])
         .requires(&["--tools", "--paths"]),
     row("sources ls", R).spec(&[&sources::LS]),
+    row("plugins ls", R).spec(&[&plugins::LS]),
+    row("plugins show", R)
+        .spec(&[&plugins::SHOW])
+        .args(&[req("id")]),
+    row("hooks ls", R).spec(&[&hooks::LS]),
     row("sources root ls", R).spec(&[&sources::ROOT_LS]),
     row("sources root add", W)
         .dry()
@@ -692,6 +698,9 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("skills_list", R, "skills ls"),
     maps("sources_ls", R, "sources ls"),
     maps("context_measure", W, "context measure"),
+    maps("plugins_ls", R, "plugins ls"),
+    maps("plugins_show", R, "plugins show"),
+    maps("hooks_ls", R, "hooks ls"),
     own("skills_get", R),
     maps("skills_lint", R, "skills lint"),
     maps("skills_status", R, "skills status"),
