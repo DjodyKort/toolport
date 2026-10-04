@@ -2,8 +2,9 @@
 //!
 //! Every test starts the real `toolport-gateway --stdio-adapter` (the default topology: adapter
 //! plus shared host daemon) on a scratch data directory whose registry holds one server `odh`
-//! backed by `mock-mcp-server` with `MOCK_MCP_PROFILE=odh`. The rows pin behavior that exists
-//! today; none of them asks for a change. `docs/odh-integration.md` names each row.
+//! backed by `mock-mcp-server` with `MOCK_MCP_PROFILE=odh`. Most rows pin behavior that exists
+//! today; the ones from MIG-ODH-2 (breaker probe, `TOOLPORT_REGISTRY` for ctl, `uv run` connect
+//! budget) pin a fix. `docs/odh-integration.md` names each row.
 
 #![cfg(unix)]
 
@@ -111,6 +112,10 @@ fn mock_entry(scratch: &Scratch) -> ServerEntry {
 }
 
 fn write_registry(scratch: &Scratch, entry: ServerEntry, tweak: impl FnOnce(&mut Registry)) {
+    write_registry_at(&scratch.0.join("registry.json"), entry, tweak);
+}
+
+fn write_registry_at(path: &Path, entry: ServerEntry, tweak: impl FnOnce(&mut Registry)) {
     let mut reg = Registry::default();
     reg.set_lazy_discovery(false);
     reg.servers = vec![entry];
@@ -123,7 +128,7 @@ fn write_registry(scratch: &Scratch, entry: ServerEntry, tweak: impl FnOnce(&mut
         profile.enabled_server_ids = vec!["odh".into()];
     }
     tweak(&mut reg);
-    registry::save_to(&scratch.0.join("registry.json"), &reg).expect("write registry");
+    registry::save_to(path, &reg).expect("write registry");
 }
 
 struct Client {
@@ -138,10 +143,14 @@ struct Client {
 
 impl Client {
     fn start(dir: &Path) -> Self {
+        Self::start_at(dir, &dir.join("registry.json"))
+    }
+
+    fn start_at(dir: &Path, registry_file: &Path) -> Self {
         let mut child = Command::new(env!("CARGO_BIN_EXE_toolport-gateway"))
             .arg("--stdio-adapter")
             .env("TOOLPORT_DATA_DIR", dir)
-            .env("TOOLPORT_REGISTRY", dir.join("registry.json"))
+            .env("TOOLPORT_REGISTRY", registry_file)
             .env_remove("TOOLPORT_PROFILE")
             .env_remove("TOOLPORT_CLIENT_ID")
             .env_remove("TOOLPORT_GATEWAY_TOPOLOGY")
@@ -840,5 +849,64 @@ fn the_uv_run_directory_form_launches_through_the_gateway() {
     assert!(
         log.contains("connected 'odh'") && !log.contains("refusing to launch"),
         "{log}"
+    );
+}
+
+#[test]
+fn toolportctl_and_the_gateway_read_the_same_file_under_toolport_registry() {
+    let scratch = Scratch::new("registry-env");
+    let elsewhere = scratch.0.join("elsewhere");
+    std::fs::create_dir_all(&elsewhere).unwrap();
+    let registry_file = elsewhere.join("registry.json");
+    write_registry_at(&registry_file, mock_entry(&scratch), |_| {});
+    assert!(!scratch.0.join("registry.json").exists());
+
+    let mut client = Client::start_at(&scratch.0, &registry_file);
+    client.initialize("2025-06-18", json!({}));
+    client.wait_for_tool("odh__odoo_search_read");
+
+    let ctl = |registry_env: Option<&Path>, args: &[&str]| -> (i32, Value) {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_toolportctl"));
+        cmd.arg("--json")
+            .args(args)
+            .env("TOOLPORT_DATA_DIR", &scratch.0)
+            .env_remove("TOOLPORT_REGISTRY")
+            .env_remove("CONDUIT_REGISTRY");
+        if let Some(path) = registry_env {
+            cmd.env("TOOLPORT_REGISTRY", path);
+        }
+        let out = cmd.output().expect("run toolportctl");
+        let text = String::from_utf8_lossy(&out.stdout).to_string();
+        let envelope = serde_json::from_str(text.lines().next().unwrap_or("null"))
+            .unwrap_or_else(|e| panic!("not JSON ({e}): {text}"));
+        (out.status.code().unwrap_or(-1), envelope)
+    };
+
+    let (code, status) = ctl(Some(&registry_file), &["status"]);
+    assert_eq!(code, 0, "{status}");
+    assert_eq!(status["data"]["serverCount"], 1, "{status}");
+    assert_eq!(
+        status["data"]["registry"]["path"],
+        json!(registry_file.to_string_lossy()),
+        "{status}"
+    );
+    let (code, info) = ctl(Some(&registry_file), &["server", "info", "odh"]);
+    assert_eq!(code, 0, "{info}");
+    assert_eq!(info["data"]["id"], "odh");
+    assert_eq!(
+        info["data"]["command"],
+        env!("CARGO_BIN_EXE_mock-mcp-server")
+    );
+
+    let (code, status) = ctl(None, &["status"]);
+    assert_eq!(code, 0, "{status}");
+    assert_eq!(
+        status["data"]["serverCount"], 0,
+        "without the override ctl reads <data dir>/registry.json: {status}"
+    );
+    assert_eq!(
+        status["data"]["registry"]["path"],
+        json!(scratch.0.join("registry.json").to_string_lossy()),
+        "{status}"
     );
 }

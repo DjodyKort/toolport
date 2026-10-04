@@ -17,7 +17,7 @@ pub(super) struct Snapshot {
 /// writes, so inspection never changes the data directory.
 pub(super) fn snapshot() -> Snapshot {
     let data_dir = registry::conduit_dir();
-    let registry_path = registry::registry_path();
+    let registry_path = registry::resolved_path();
     let mut snap = Snapshot {
         data_dir,
         registry_path: registry_path.clone(),

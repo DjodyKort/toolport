@@ -385,21 +385,58 @@ fn the_registry_file_keeps_non_secret_env_values_and_vaults_the_secret_ones() {
 }
 
 #[test]
-fn ctl_follows_the_data_dir_while_the_gateway_also_honors_toolport_registry() {
+fn ctl_reads_the_file_toolport_registry_names_like_the_gateway() {
     let _env = crate::clients::env_test_lock();
     crate::secrets::tests::with_isolated_vault(|| {
         let world = Cutover::new();
         world.run();
         let elsewhere = world.base.join("elsewhere.json");
-        std::fs::write(&elsewhere, r#"{"servers": []}"#).unwrap();
-        let _restore = crate::clients::EnvRestore::set("TOOLPORT_REGISTRY", &elsewhere);
+        let mut other = crate::registry::Registry::default();
+        let mut entry = mapped_odh();
+        entry.id = "elsewhere-only".into();
+        entry.name = "elsewhere-only".into();
+        other.servers = vec![entry];
+        crate::registry::save_to(&elsewhere, &other).unwrap();
+        let data_file = world.base.join("data/registry.json");
 
-        assert_eq!(crate::registry::resolved_path(), Some(elsewhere));
+        {
+            let _restore = crate::clients::EnvRestore::set("TOOLPORT_REGISTRY", &elsewhere);
+            assert_eq!(crate::registry::resolved_path(), Some(elsewhere.clone()));
+
+            let (code, text, status) = ctl_json(&["status"]);
+            assert_eq!(code, 0, "{text}");
+            assert_eq!(status["data"]["serverCount"], 1, "{text}");
+            assert_eq!(
+                status["data"]["registry"]["path"],
+                json!(elsewhere.to_string_lossy()),
+                "{text}"
+            );
+            assert_eq!(
+                status["data"]["dataDir"],
+                json!(world.base.join("data").to_string_lossy()),
+                "the data dir is still the data dir: {text}"
+            );
+
+            let (code, text, listed) = ctl_json(&["server", "ls"]);
+            assert_eq!(code, 0, "{text}");
+            let names: Vec<_> = listed["data"]["servers"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|s| s["id"].as_str().unwrap())
+                .collect();
+            assert_eq!(names, ["elsewhere-only"], "{text}");
+            let (code, _, _) = ctl_json(&["server", "info", "odh"]);
+            assert_ne!(code, 0, "odh lives only in the data-dir file");
+        }
+
         let (code, text, status) = ctl_json(&["status"]);
         assert_eq!(code, 0, "{text}");
+        assert_eq!(status["data"]["serverCount"], 2, "{text}");
         assert_eq!(
-            status["data"]["serverCount"], 2,
-            "toolportctl reads <data dir>/registry.json and ignores TOOLPORT_REGISTRY: {text}"
+            status["data"]["registry"]["path"],
+            json!(data_file.to_string_lossy()),
+            "without the override ctl keeps reading <data dir>/registry.json: {text}"
         );
     });
 }
