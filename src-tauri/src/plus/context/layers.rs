@@ -275,7 +275,7 @@ pub fn deploy_client_locals(
             continue;
         };
         let target = child.join("CLAUDE.local.md");
-        let content = format!(
+        let mut content = format!(
             "{MANAGED_LOCAL_HEADER}\n\n{}\n",
             body_of(&layer.path).trim()
         );
@@ -295,6 +295,10 @@ pub fn deploy_client_locals(
                 ));
                 continue;
             }
+            if let Some(block) = super::bundle_apply::carried_block(text) {
+                content.push('\n');
+                content.push_str(block);
+            }
         }
         if existing_text.as_deref() != Some(content.as_str()) {
             if !dry_run {
@@ -310,17 +314,27 @@ pub fn deploy_client_locals(
 /// A `.git` pointer file (worktree/submodule) is skipped; the append drops a missing trailing
 /// newline of the previous last line exactly like mcpm.
 fn ensure_local_exclude(repo: &Path, report: &mut Report, dry_run: bool) -> Result<(), String> {
+    ensure_exclude_line(repo, "CLAUDE.local.md", report, dry_run).map(|_| ())
+}
+
+/// Adds `line` to the repo's `.git/info/exclude`; true when it was not there yet.
+pub(super) fn ensure_exclude_line(
+    repo: &Path,
+    line: &str,
+    report: &mut Report,
+    dry_run: bool,
+) -> Result<bool, String> {
     let git_dir = repo.join(".git");
     if !git_dir.is_dir() {
-        return Ok(());
+        return Ok(false);
     }
     let exclude = git_dir.join("info").join("exclude");
     let text = fs::read_to_string(&exclude).unwrap_or_default();
     let mut lines: Vec<&str> = text.lines().collect();
-    if lines.contains(&"CLAUDE.local.md") {
-        return Ok(());
+    if lines.contains(&line) {
+        return Ok(false);
     }
-    lines.push("CLAUDE.local.md");
+    lines.push(line);
     if !dry_run {
         write_text(&exclude, &format!("{}\n", lines.join("\n")))?;
     }
@@ -328,6 +342,6 @@ fn ensure_local_exclude(repo: &Path, report: &mut Report, dry_run: bool) -> Resu
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
-    report.add(format!("added CLAUDE.local.md to {name}/.git/info/exclude"));
-    Ok(())
+    report.add(format!("added {line} to {name}/.git/info/exclude"));
+    Ok(true)
 }

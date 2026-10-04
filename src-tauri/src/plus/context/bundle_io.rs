@@ -27,22 +27,36 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
     })
 }
 
-/// Read, compute, and write only if the bytes are still the ones the answer was computed from;
-/// otherwise compute again (up to `tries` times). `compute` returns `None` to leave the file be.
+#[derive(Clone, Debug)]
+pub enum Action {
+    Keep,
+    Write(String),
+    Delete,
+}
+
+/// Read, compute, and act only if the bytes are still the ones the answer was computed from;
+/// otherwise compute again (up to `tries` times).
 pub fn update<T>(
     path: &Path,
     tries: usize,
-    mut compute: impl FnMut(Option<&str>) -> Result<(Option<String>, T), String>,
+    mut compute: impl FnMut(Option<&str>) -> Result<(Action, T), String>,
 ) -> Result<T, String> {
     for _ in 0..tries {
         let before = read_exact(path)?;
-        let (after, out) = compute(before.as_deref())?;
+        let (action, out) = compute(before.as_deref())?;
         if read_exact(path)? != before {
             continue;
         }
-        match after {
-            Some(text) => write_atomic(path, text.as_bytes()).map_err(|e| format!("{}: {e}", path.display()))?,
-            None => {}
+        match action {
+            Action::Write(text) => {
+                write_atomic(path, text.as_bytes()).map_err(|e| format!("{}: {e}", path.display()))?
+            }
+            Action::Delete => match fs::remove_file(path) {
+                Ok(()) => {}
+                Err(e) if e.kind() == io::ErrorKind::NotFound => {}
+                Err(e) => return Err(format!("{}: {e}", path.display())),
+            },
+            Action::Keep => {}
         }
         return Ok(out);
     }
