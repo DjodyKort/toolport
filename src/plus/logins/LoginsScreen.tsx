@@ -2,15 +2,8 @@ import { useState } from "react";
 import { Tabs } from "../ui";
 import { IntegrationsTab } from "./IntegrationsTab";
 import { LoginsTab, type TabProps } from "./LoginsTab";
+import { LOGIN_TABS, type LoginTabId } from "./model";
 import { SecretsTab } from "./SecretsTab";
-
-export const LOGIN_TABS = [
-  { id: "logins", label: "Logins" },
-  { id: "secrets", label: "Secrets" },
-  { id: "integrations", label: "Integrations" },
-] as const;
-
-export type LoginTabId = (typeof LOGIN_TABS)[number]["id"];
 
 /** The three tabs of "Logins & secrets" in one screen. The Servers screen mounts the same
  * three panels as tabs of its own; this screen is where a notification or a link from

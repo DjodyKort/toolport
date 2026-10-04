@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Settled } from "./model";
 
 export interface Batch<V> {
@@ -56,13 +56,7 @@ export function useBatch<V>(
 
   const signature = keys.join("\u0001");
   useEffect(() => {
-    const wanted = signature === "" ? [] : signature.split("\u0001");
-    setResults((prev) => {
-      const next: Record<string, Settled<V>> = {};
-      for (const key of wanted) if (key in prev) next[key] = prev[key];
-      return Object.keys(next).length === Object.keys(prev).length ? prev : next;
-    });
-    void run(wanted);
+    void run(signature === "" ? [] : signature.split("\u0001"));
   }, [signature, run]);
 
   const refresh = useCallback(
@@ -70,6 +64,10 @@ export function useBatch<V>(
     [run, signature],
   );
 
+  const visible = useMemo(() => {
+    const wanted = new Set(signature === "" ? [] : signature.split("\u0001"));
+    return Object.fromEntries(Object.entries(results).filter(([key]) => wanted.has(key)));
+  }, [results, signature]);
   const pending = keys.filter((key) => !(key in results)).length;
-  return { results, pending, refresh };
+  return { results: visible, pending, refresh };
 }

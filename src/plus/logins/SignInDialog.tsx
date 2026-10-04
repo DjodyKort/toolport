@@ -11,10 +11,6 @@ import { JobProgress, outcomeOf, type CtlJobControl } from "../ui";
 import type { AuthLoginData } from "../types/auth";
 import type { LoginRow } from "./model";
 
-export function loginArgv(server: string, noOpen: boolean): string[] {
-  return ["auth", "login", server, ...(noOpen ? ["--no-open"] : [])];
-}
-
 /** `auth login`: the browser opens (or, with `--no-open`, only the address is printed), the
  * address is shown with a Copy button, and the dialog says how it ended. The run belongs to
  * the tab, so closing the dialog while it waits is Cancel and Escape never stops it. */
