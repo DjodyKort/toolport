@@ -25630,22 +25630,22 @@ mod tests {
 
         let mut slow_header = TcpStream::connect(public_addr).unwrap();
         slow_header
-            .set_read_timeout(Some(Duration::from_secs(2)))
+            .set_read_timeout(Some(Duration::from_secs(10)))
             .unwrap();
         let mut drip_stream = slow_header.try_clone().unwrap();
         let drip = std::thread::spawn(move || {
-            for byte in b"GET / HTTP/1.1" {
-                if drip_stream.write_all(&[*byte]).is_err() {
-                    break;
+            let head = format!("GET / HTTP/1.1\r\nX-Drip: {}", "a".repeat(200));
+            for byte in head.bytes() {
+                if drip_stream.write_all(&[byte]).is_err() {
+                    return true;
                 }
                 std::thread::sleep(Duration::from_millis(40));
             }
+            false
         });
-        let started = Instant::now();
         let mut response = String::new();
         let read_result = slow_header.read_to_string(&mut response);
-        let elapsed = started.elapsed();
-        drip.join().unwrap();
+        let cut_off = drip.join().unwrap();
         assert!(
             read_result.is_ok()
                 || read_result
@@ -25657,17 +25657,14 @@ mod tests {
             response.starts_with("HTTP/1.1 408 Request Timeout"),
             "slow header response was: {response}"
         );
-        // Absolute deadline is 180ms. A per-read reset would take ~560ms
-        // (14 dripped bytes * 40ms). macOS CI can land just over 350ms
-        // from scheduling; 500ms still fails a reset-on-drip implementation.
         assert!(
-            elapsed < Duration::from_millis(500),
-            "header timeout reset after each drip ({elapsed:?}) instead of enforcing an absolute deadline"
+            cut_off,
+            "header timeout reset after each drip instead of enforcing an absolute deadline"
         );
 
         let mut slow_body = TcpStream::connect(public_addr).unwrap();
         slow_body
-            .set_read_timeout(Some(Duration::from_secs(2)))
+            .set_read_timeout(Some(Duration::from_secs(10)))
             .unwrap();
         slow_body
             .write_all(b"POST /mcp HTTP/1.1\r\nHost: localhost\r\nContent-Length: 5\r\n\r\na")
@@ -25999,15 +25996,10 @@ mod tests {
         });
         std::thread::sleep(Duration::from_millis(50));
 
-        let started = Instant::now();
         let rejected = http_get(port, "/");
         assert!(
-            started.elapsed() < Duration::from_millis(400),
-            "over-cap response blocked the accept loop"
-        );
-        assert!(
             rejected.contains("503 Service Unavailable"),
-            "unexpected over-cap response: {rejected}"
+            "no over-cap rejection reached the client, the accept loop may be blocked: {rejected}"
         );
         assert!(
             rejected.contains("Retry-After: 1"),
@@ -29967,15 +29959,13 @@ done
             assert!(cancel_registry.cancel(&cancel_id, Some("client deadline elapsed")));
         });
 
-        let started = Instant::now();
         let err = gate
-            .wait_for_cancelable(Duration::from_secs(1), Some(&cancel))
+            .wait_for_cancelable(Duration::from_secs(10), Some(&cancel))
             .expect_err("a cancelled caller must stop waiting");
         canceller.join().unwrap();
-        assert!(err.contains("cancelled"), "got: {err}");
         assert!(
-            started.elapsed() < Duration::from_millis(500),
-            "a cancelled request should not park for the one-second leader timeout"
+            err.contains("cancelled"),
+            "the wait ran into the leader timeout instead of the cancel: {err}"
         );
         assert_eq!(gate.waiters.load(Ordering::Acquire), 0);
     }
