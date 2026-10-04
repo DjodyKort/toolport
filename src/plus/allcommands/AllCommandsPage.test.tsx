@@ -585,6 +585,36 @@ describe("all-commands.tool", () => {
     await waitFor(() => expect(ran()).toHaveLength(1));
   });
 
+  it("all-commands.tool: the real registry offers the 23 tools that have no command and runs one through mcp call", async () => {
+    const registry = golden("commands") as typeof commandsFixture;
+    const toolOnly = registry.tools.filter((tool) => tool.command === null);
+    expect(toolOnly).toHaveLength(23);
+    answer("commands", { data: registry });
+    answer("mcp call servers_set_mode --args-stdin", { data: { changed: true } });
+    const user = userEvent.setup();
+    render(<AllCommandsPage />);
+    const box = await screen.findByRole("region", { name: "Run a tool" });
+    expect(box).not.toHaveAttribute("title");
+    expect(within(box).queryByText(/no `mcp call` command/)).not.toBeInTheDocument();
+    await user.click(within(box).getByRole("combobox", { name: "Tool" }));
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual(
+      toolOnly.map((tool) => tool.name),
+    );
+    await user.click(screen.getByRole("option", { name: "servers_set_mode" }));
+    await user.click(within(box).getByRole("textbox"));
+    await user.paste('{"name":"alpha","mode":"direct"}');
+    await user.click(within(box).getByRole("button", { name: "Run…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Run servers_set_mode?" });
+    await user.click(within(dialog).getByRole("button", { name: "Run" }));
+    await waitFor(() => expect(ran()).toHaveLength(1));
+    expect(ran()[0].argv).toEqual(["mcp", "call", "servers_set_mode", "--args-stdin"]);
+    expect(JSON.parse(ran()[0].stdin ?? "{}")).toEqual({
+      name: "alpha",
+      mode: "direct",
+      confirm: true,
+    });
+  });
+
   it("all-commands.tool: refuses arguments that are not one JSON object", async () => {
     const { user, box } = await openTool("skills_get");
     await user.click(within(box).getByRole("textbox"));

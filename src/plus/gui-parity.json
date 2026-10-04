@@ -46,8 +46,9 @@
     },
     "all-commands.tool": {
       "route": "all-commands",
-      "status": "planned",
-      "summary": "Call a self-management tool that has no command: parameter form, dry run first"
+      "status": "built",
+      "test": "src/plus/allcommands/AllCommandsPage.test.tsx",
+      "summary": "Call a self-management tool that has no command through mcp call: JSON arguments on stdin, dry run first (no parameter form yet)"
     },
     "servers.gateway": {
       "route": "servers",
