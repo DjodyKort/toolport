@@ -83,7 +83,7 @@ Commands:
   import rename-refs Rewrite mcp__mcpm_ tool references under --paths (--tools F, --dry-run)
   import         Import data from other tools (not implemented)
   council        Council server: install uninstall doctor tools
-  mcp            Self-management server: install [--profile <id>] uninstall doctor tools
+  mcp            Self-management server: install [--profile <id>] uninstall doctor tools call <tool> [--args <json> | --args-stdin]
   sources ls     List where skills, commands, agents, rules and CLAUDE.md come from (--source, --kind, --items, --cwd, --root, --deep, --refresh)
   sources root ls List the folders searched for repo checkouts
   sources root add Search a folder for repo checkouts (<dir>, --dry-run)
@@ -239,7 +239,7 @@ Commands:
   import rename-refs Rewrite mcp__mcpm_ tool references under --paths (--tools F, --dry-run)
   import         Import data from other tools (not implemented)
   council        Council server: install uninstall doctor tools
-  mcp            Self-management server: install [--profile <id>] uninstall doctor tools
+  mcp            Self-management server: install [--profile <id>] uninstall doctor tools call <tool> [--args <json> | --args-stdin]
   sources ls     List where skills, commands, agents, rules and CLAUDE.md come from (--source, --kind, --items, --cwd, --root, --deep, --refresh)
   sources root ls List the folders searched for repo checkouts
   sources root add Search a folder for repo checkouts (<dir>, --dry-run)
@@ -395,7 +395,7 @@ Commands:
   import rename-refs Rewrite mcp__mcpm_ tool references under --paths (--tools F, --dry-run)
   import         Import data from other tools (not implemented)
   council        Council server: install uninstall doctor tools
-  mcp            Self-management server: install [--profile <id>] uninstall doctor tools
+  mcp            Self-management server: install [--profile <id>] uninstall doctor tools call <tool> [--args <json> | --args-stdin]
   sources ls     List where skills, commands, agents, rules and CLAUDE.md come from (--source, --kind, --items, --cwd, --root, --deep, --refresh)
   sources root ls List the folders searched for repo checkouts
   sources root add Search a folder for repo checkouts (<dir>, --dry-run)
@@ -551,7 +551,7 @@ Commands:
   import rename-refs Rewrite mcp__mcpm_ tool references under --paths (--tools F, --dry-run)
   import         Import data from other tools (not implemented)
   council        Council server: install uninstall doctor tools
-  mcp            Self-management server: install [--profile <id>] uninstall doctor tools
+  mcp            Self-management server: install [--profile <id>] uninstall doctor tools call <tool> [--args <json> | --args-stdin]
   sources ls     List where skills, commands, agents, rules and CLAUDE.md come from (--source, --kind, --items, --cwd, --root, --deep, --refresh)
   sources root ls List the folders searched for repo checkouts
   sources root add Search a folder for repo checkouts (<dir>, --dry-run)
@@ -3247,24 +3247,24 @@ Run `toolportctl --help` for usage.
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: mcp <install [--profile <id>] | uninstall | doctor | tools>
+toolportctl: usage: mcp <install [--profile <id>] | uninstall | doctor | tools | call <tool> [--args <json> | --args-stdin]>
 Run `toolportctl --help` for usage.
 === ["--json","mcp"]
 exit 2
 --- stdout
-{"command":"mcp","error":{"code":"usage","message":"usage: mcp <install [--profile <id>] | uninstall | doctor | tools>"},"ok":false,"schemaVersion":1}
+{"command":"mcp","error":{"code":"usage","message":"usage: mcp <install [--profile <id>] | uninstall | doctor | tools | call <tool> [--args <json> | --args-stdin]>"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["mcp","serve"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: mcp <install [--profile <id>] | uninstall | doctor | tools>
+toolportctl: usage: mcp <install [--profile <id>] | uninstall | doctor | tools | call <tool> [--args <json> | --args-stdin]>
 Run `toolportctl --help` for usage.
 === ["mcp","--bogus"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: mcp <install [--profile <id>] | uninstall | doctor | tools>
+toolportctl: usage: mcp <install [--profile <id>] | uninstall | doctor | tools | call <tool> [--args <json> | --args-stdin]>
 Run `toolportctl --help` for usage.
 === ["mcp","install","--bogus"]
 exit 2

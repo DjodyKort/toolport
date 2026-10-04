@@ -16,7 +16,7 @@ const SENSITIVE_KEYS: &[&str] = &[
 const EXEMPT_KEYS: &[&str] = &["secretsbackend", "tokens"];
 const MASK: &str = "[redacted]";
 
-fn sensitive_key(key: &str) -> bool {
+pub(crate) fn sensitive_key(key: &str) -> bool {
     let lower = key.to_ascii_lowercase();
     !EXEMPT_KEYS.contains(&lower.as_str()) && SENSITIVE_KEYS.iter().any(|s| lower.contains(s))
 }
