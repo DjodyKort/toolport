@@ -258,18 +258,3 @@ export const skillsCtlFixtures: Array<[string, unknown]> = [
   ["skills resolve --dry-run", resolveData(false, true)],
   ...sourceReplies,
 ];
-
-/** What the dev browser fixture (`plusCtl.ts`) answers for the Skills tab: every read it runs,
- * the lint of each skill, `skills diff` (whose real exit 1 the fixture shows as data) and the
- * previews of the writes. */
-export const skillsBrowserFixtures: Array<[string, unknown]> = [
-  ...skillsCtlFixtures,
-  ["skills diff", diffData],
-  ...libraryRows.map((row): [string, unknown] => [
-    `skills lint --name ${row.name}`,
-    { ...lintData, messages: lintData.messages.filter((m) => m.name === row.name) },
-  ]),
-  ["skills sync --client claude-code --client cursor --dry-run", syncData(CLIENTS, true)],
-  ["skills clean --dry-run", cleanData(true)],
-  ["skills resolve --migrate --dry-run", resolveData(true, true)],
-];

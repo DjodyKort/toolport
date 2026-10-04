@@ -87,7 +87,12 @@ function resultFor(job: string, key: string, reply: unknown): CtlResult {
         ok: true,
         command: key.split(" --")[0],
         schemaVersion: 1,
-        data: reply instanceof CtlReplyHeld ? reply.data : reply,
+        data:
+          typeof reply === "function"
+            ? (reply as () => unknown)()
+            : reply instanceof CtlReplyHeld
+              ? reply.data
+              : reply,
       };
   return {
     job,
