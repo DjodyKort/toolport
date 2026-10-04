@@ -163,8 +163,10 @@ try {
   await expect(nav.getByRole("group")).toHaveCount(4);
   await expect(nav.getByRole("button", { name: /^Attention/ })).toContainText("3");
   await nav.getByRole("button", { name: "Library", exact: true }).click();
+  await expect(page.getByRole("list", { name: "Skills" })).toBeVisible();
+  await page.getByRole("tab", { name: "Plugins" }).click();
   await expect(page.getByText("Not built yet")).toBeVisible();
-  await expect(page.getByText(/built by MIG-GUI-3/)).toBeVisible();
+  await expect(page.getByText(/built by MIG-GUI-12/)).toBeVisible();
   await nav.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Open All commands" }).click();
   await expect(page.getByRole("heading", { name: "All commands" })).toBeVisible();
@@ -218,6 +220,8 @@ try {
       await shot.getByRole("button", { name: "Settings", exact: true }).click();
       await shot.getByRole("button", { name: "Library", exact: true }).click();
       await expect(shot.getByRole("tablist", { name: "Library sections" })).toBeVisible();
+      await shot.getByRole("tab", { name: "Plugins" }).click();
+      await expect(shot.getByText("Not built yet")).toBeVisible();
       await guiShot(shot, "library-light");
     }
     await shot.getByRole("button", { name: "Settings", exact: true }).click();
@@ -257,6 +261,97 @@ try {
       await expect(shot.getByRole("region", { name: "Hook output" })).toBeVisible();
       await shot.evaluate(() => document.fonts.ready);
       await guiShot(shot, "integrations-light");
+    }
+    expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
+    await shot.close();
+  }
+  expect(errors).toEqual([]);
+  for (const theme of ["light", "dark"]) {
+    const shot = await context.newPage();
+    await shot.addInitScript((choice) => {
+      localStorage.setItem("toolport-theme", choice);
+    }, theme);
+    await shot.setViewportSize({ width: 1280, height: 800 });
+    await watch(shot);
+    await shot.goto(`${baseURL}/fixtures/`);
+    await shot.getByRole("button", { name: "Library", exact: true }).click();
+    const rows = shot.getByRole("list", { name: "Skills" });
+    await expect(rows).toBeVisible();
+    await expect(
+      shot.getByRole("group", { name: "Library" }).getByText("35 items"),
+    ).toBeVisible();
+    await rows
+      .getByRole("button")
+      .filter({ has: shot.locator("b", { hasText: /^deploy-helper$/ }) })
+      .click();
+    const detail = shot.getByRole("region", { name: "Skill deploy-helper" });
+    await expect(detail.getByText(/longer than 200 characters/)).toBeVisible();
+    await expect(
+      detail
+        .getByRole("list", { name: "Sync state of deploy-helper" })
+        .getByText("Changed since sync"),
+    ).toHaveCount(2);
+    await shot
+      .getByRole("tablist", { name: "Library sections" })
+      .scrollIntoViewIfNeeded();
+    await shot.evaluate(() => document.fonts.ready);
+    await guiShot(shot, `skills-${theme}`);
+    const drift = shot.getByRole("group", { name: "Drift" });
+    await expect(drift.getByText(/1 output missing or changed/)).toBeVisible();
+    await expect(
+      shot
+        .getByRole("group", { name: "Changes since last sync" })
+        .getByText("feature-spec"),
+    ).toBeVisible();
+    await drift.scrollIntoViewIfNeeded();
+    await shot.evaluate(() => document.fonts.ready);
+    await guiShot(shot, `skills-checks-${theme}`);
+    if (theme === "light") {
+      await rows.scrollIntoViewIfNeeded();
+      const dialog = shot.getByRole("dialog");
+      await shot.getByRole("button", { name: "Sync…", exact: true }).click();
+      await dialog.getByRole("button", { name: "Preview", exact: true }).click();
+      await expect(
+        dialog.getByText("Write 33 skills and 2 rules to 2 clients"),
+      ).toBeVisible();
+      await expect(
+        dialog.getByText(/cursor: 'allowed-tools' field not supported/),
+      ).toBeVisible();
+      await guiShot(shot, "skills-sync-plan-light");
+      await dialog.getByRole("button", { name: "Sync", exact: true }).click();
+      await expect(
+        dialog.getByText("Wrote 33 skills and 2 rules to 2 clients"),
+      ).toBeVisible();
+      await dialog.getByRole("button", { name: "Close", exact: true }).last().click();
+      await expect(dialog).toHaveCount(0);
+      await expect(drift.getByText(/All 35 synced skills still in place/)).toBeVisible();
+      await rows
+        .getByRole("button")
+        .filter({ has: shot.locator("b", { hasText: /^deploy-helper$/ }) })
+        .click();
+      await shot.getByRole("button", { name: "Uninstall deploy-helper" }).click();
+      await dialog.getByRole("textbox").fill("deploy");
+      await expect(
+        dialog.getByRole("button", { name: "Uninstall", exact: true }),
+      ).toBeDisabled();
+      await guiShot(shot, "skills-uninstall-light");
+      await dialog.getByRole("button", { name: "Cancel" }).click();
+      await expect(dialog).toHaveCount(0);
+
+      await shot.getByRole("tab", { name: "Taps" }).click();
+      const taps = shot.getByRole("list", { name: "Taps" });
+      await expect(taps.getByRole("listitem")).toHaveCount(2);
+      await expect(taps.getByText("clone missing")).toBeVisible();
+      await shot.evaluate(() => document.fonts.ready);
+      await guiShot(shot, "skills-taps-light");
+
+      await shot.getByRole("tab", { name: "Find and install" }).click();
+      await shot.getByRole("textbox", { name: "Spec" }).fill("@acme/risky");
+      await shot.getByRole("button", { name: "Preview install" }).click();
+      await expect(dialog.getByRole("alert")).toContainText("1 high-severity finding");
+      await guiShot(shot, "skills-install-blocked-light");
+      await dialog.getByRole("button", { name: "Close", exact: true }).last().click();
+      await expect(dialog).toHaveCount(0);
     }
     expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
     await shot.close();

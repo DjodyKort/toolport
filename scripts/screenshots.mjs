@@ -33,6 +33,14 @@ const PAGES = [
   "secrets-set-light",
   "secrets-reveal-light",
   "integrations-light",
+  "skills-light",
+  "skills-dark",
+  "skills-checks-light",
+  "skills-checks-dark",
+  "skills-sync-plan-light",
+  "skills-uninstall-light",
+  "skills-taps-light",
+  "skills-install-blocked-light",
 ];
 const SIZE = [1280, 800];
 
