@@ -78,6 +78,11 @@ Commands:
   cc             Claude Code plugins: list | update [--dry-run]
   update         Check or apply server updates (--check, --apply, --init, --dry-run)
   usage          Token and MCP usage from Claude Code transcripts (--root <dir>, --no-refresh)
+  obs otel enable Send Claude Code telemetry to the local receiver (--port <n>, --home <dir>, --dry-run)
+  obs otel disable Stop the receiver and remove the telemetry keys Toolport wrote (--home <dir>, --dry-run)
+  obs otel status Show the receiver, the Claude settings and the stored OTel events (--home <dir>)
+  obs otel       OTel receiver: enable disable status
+  obs            Observability: otel enable|disable|status
 
 Options:
   --json             Machine-readable envelope on stdout
@@ -167,6 +172,11 @@ Commands:
   cc             Claude Code plugins: list | update [--dry-run]
   update         Check or apply server updates (--check, --apply, --init, --dry-run)
   usage          Token and MCP usage from Claude Code transcripts (--root <dir>, --no-refresh)
+  obs otel enable Send Claude Code telemetry to the local receiver (--port <n>, --home <dir>, --dry-run)
+  obs otel disable Stop the receiver and remove the telemetry keys Toolport wrote (--home <dir>, --dry-run)
+  obs otel status Show the receiver, the Claude settings and the stored OTel events (--home <dir>)
+  obs otel       OTel receiver: enable disable status
+  obs            Observability: otel enable|disable|status
 
 Options:
   --json             Machine-readable envelope on stdout
@@ -256,6 +266,11 @@ Commands:
   cc             Claude Code plugins: list | update [--dry-run]
   update         Check or apply server updates (--check, --apply, --init, --dry-run)
   usage          Token and MCP usage from Claude Code transcripts (--root <dir>, --no-refresh)
+  obs otel enable Send Claude Code telemetry to the local receiver (--port <n>, --home <dir>, --dry-run)
+  obs otel disable Stop the receiver and remove the telemetry keys Toolport wrote (--home <dir>, --dry-run)
+  obs otel status Show the receiver, the Claude settings and the stored OTel events (--home <dir>)
+  obs otel       OTel receiver: enable disable status
+  obs            Observability: otel enable|disable|status
 
 Options:
   --json             Machine-readable envelope on stdout
@@ -345,6 +360,11 @@ Commands:
   cc             Claude Code plugins: list | update [--dry-run]
   update         Check or apply server updates (--check, --apply, --init, --dry-run)
   usage          Token and MCP usage from Claude Code transcripts (--root <dir>, --no-refresh)
+  obs otel enable Send Claude Code telemetry to the local receiver (--port <n>, --home <dir>, --dry-run)
+  obs otel disable Stop the receiver and remove the telemetry keys Toolport wrote (--home <dir>, --dry-run)
+  obs otel status Show the receiver, the Claude settings and the stored OTel events (--home <dir>)
+  obs otel       OTel receiver: enable disable status
+  obs            Observability: otel enable|disable|status
 
 Options:
   --json             Machine-readable envelope on stdout
@@ -3356,4 +3376,153 @@ exit 2
 exit 2
 --- stdout
 {"command":"update","error":{"code":"usage","message":"--check, --apply and --init are mutually exclusive"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["obs"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: obs otel enable|disable|status
+Run `toolportctl --help` for usage.
+=== ["--json","obs"]
+exit 2
+--- stdout
+{"command":"obs","error":{"code":"usage","message":"usage: obs otel enable|disable|status"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["obs","nope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: obs otel enable|disable|status
+Run `toolportctl --help` for usage.
+=== ["obs","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: obs otel enable|disable|status
+Run `toolportctl --help` for usage.
+=== ["obs","otel"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: obs otel enable [--port <n>] [--home <dir>] [--dry-run] | disable [--home <dir>] [--dry-run] | status [--home <dir>]
+Run `toolportctl --help` for usage.
+=== ["--json","obs","otel"]
+exit 2
+--- stdout
+{"command":"obs otel","error":{"code":"usage","message":"usage: obs otel enable [--port <n>] [--home <dir>] [--dry-run] | disable [--home <dir>] [--dry-run] | status [--home <dir>]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["obs","otel","nope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: obs otel enable [--port <n>] [--home <dir>] [--dry-run] | disable [--home <dir>] [--dry-run] | status [--home <dir>]
+Run `toolportctl --help` for usage.
+=== ["obs","otel","enable","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: obs otel enable [--port <n>] [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["obs","otel","enable","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: obs otel enable [--port <n>] [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["obs","otel","enable","--port"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --port requires a port number
+Run `toolportctl --help` for usage.
+=== ["obs","otel","enable","--port="]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --port requires a port number
+Run `toolportctl --help` for usage.
+=== ["obs","otel","enable","--port","0"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --port must be a number between 1 and 65535
+Run `toolportctl --help` for usage.
+=== ["obs","otel","enable","--port","70000"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --port must be a number between 1 and 65535
+Run `toolportctl --help` for usage.
+=== ["obs","otel","enable","--port=abc"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --port must be a number between 1 and 65535
+Run `toolportctl --help` for usage.
+=== ["obs","otel","enable","--home"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --home requires a directory
+Run `toolportctl --help` for usage.
+=== ["obs","otel","enable","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --dry-run=1
+usage: obs otel enable [--port <n>] [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["--json","obs","otel","enable","--port","0"]
+exit 2
+--- stdout
+{"command":"obs otel enable","error":{"code":"usage","message":"--port must be a number between 1 and 65535"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["obs","otel","disable","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: obs otel disable [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["obs","otel","disable","--port","4318"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --port
+usage: obs otel disable [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["obs","otel","disable","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: obs otel disable [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["obs","otel","status","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: obs otel status [--home <dir>]
+Run `toolportctl --help` for usage.
+=== ["obs","otel","status","--dry-run"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --dry-run
+usage: obs otel status [--home <dir>]
+Run `toolportctl --help` for usage.
+=== ["obs","otel","status","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: obs otel status [--home <dir>]
+Run `toolportctl --help` for usage.
+=== ["--json","obs","otel","status","--bogus"]
+exit 2
+--- stdout
+{"command":"obs otel status","error":{"code":"usage","message":"unexpected argument: --bogus\nusage: obs otel status [--home <dir>]"},"ok":false,"schemaVersion":1}
 --- stderr

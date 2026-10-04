@@ -45,6 +45,8 @@ const NOT_READ_ONLY: &[(&str, &str)] = &[
     ("compression seal", "reads a live proxy /health; stub engine tests in ctl::compression_cfg_tests"),
     ("skills unbundle", "extracts into the target; bundle round trip test"),
     ("usage", "indexes transcripts into the data dir; ctl::usage unit tests"),
+    ("obs otel enable", "writes the Claude settings and the receiver config; obs::otel_e2e_tests round trip"),
+    ("obs otel disable", "removes what enable wrote; obs::otel_e2e_tests round trip"),
 ];
 
 struct World {
@@ -829,6 +831,16 @@ fn read_only_cases(w: &World) -> Vec<Case> {
         case("update", &["update", "--check"], 0, |_, d| {
             assert_eq!(d["mode"], "check");
             assert_eq!(d["counts"]["skipped"], 2);
+        }),
+        case("obs otel status", &["obs", "otel", "status"], 0, |_, d| {
+            assert_eq!(d["enabled"], false);
+            assert_eq!(d["receiver"]["state"], "disabled");
+            assert_eq!(d["settings"]["state"], "missing");
+            assert!(d["settings"]["path"]
+                .as_str()
+                .unwrap()
+                .ends_with(".claude/settings.json"));
+            assert_eq!(d["events"]["count"], 0);
         }),
     ];
     cases.push(Case {
