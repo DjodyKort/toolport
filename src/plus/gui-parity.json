@@ -35,6 +35,12 @@
       "view": "tokens",
       "status": "built",
       "component": "src/plus/compression/TokensScreen.tsx"
+    },
+    "context": {
+      "title": "Context",
+      "view": "context",
+      "status": "built",
+      "component": "src/plus/context/ContextScreen.tsx"
     }
   },
   "actions": {
@@ -547,6 +553,90 @@
       "status": "built",
       "test": "src/plus/compression/CompressionCards.test.tsx",
       "summary": "Move the engine pin to a version or the latest build in two steps, preview then accept (compression update)"
+    },
+    "context.status": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextScreen.e2e.test.tsx",
+      "summary": "Read the layers, launch profiles, legacy duplicates and the shims file with the source-order check; the old shell lines move with a previewed sync"
+    },
+    "context.plan": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextScreen.e2e.test.tsx",
+      "summary": "Read what a context deploy would write, with the rules and shell-rewrite options and the diff of the shell file"
+    },
+    "context.apply": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextScreen.e2e.test.tsx",
+      "summary": "Apply the deploy: preview of every file (dry run) equal to the plan, Escape cancels, confirm writes; no-persist keeps the config"
+    },
+    "context.sync": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextScreen.e2e.test.tsx",
+      "summary": "Plan and apply in one step: the same files as the plan, confirm, result; rewrite-zshrc moves the old shell lines"
+    },
+    "context.init": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextScreen.e2e.test.tsx",
+      "summary": "Set up the personal layer: preview of the layer and the config, confirm, the layer shows with its scope"
+    },
+    "context.client-add": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextScreen.e2e.test.tsx",
+      "summary": "Add a client layer for a folder pattern: name and glob, preview, confirm, listed with its glob"
+    },
+    "context.client-list": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextScreen.e2e.test.tsx",
+      "summary": "List the personal and client layers with their folder patterns and files"
+    },
+    "context.profile-add": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextScreen.e2e.test.tsx",
+      "summary": "Add a launch profile: name, org file, rules and servers, preview, confirm, listed and its shell function shows"
+    },
+    "context.profile-list": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextScreen.e2e.test.tsx",
+      "summary": "List the launch profiles with their shell function, org file, rules, servers and whether they are generated"
+    },
+    "context.profile-remove": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextScreen.e2e.test.tsx",
+      "summary": "Remove a launch profile, optionally its folder: preview and a typed confirmation of the name"
+    },
+    "context.disable": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextScreen.e2e.test.tsx",
+      "summary": "Remove the generated shims, optionally the profile folders: preview and a typed confirmation"
+    },
+    "context.loads": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextScreen.e2e.test.tsx",
+      "summary": "Show what a session loads with the token cost per layer, per launch profile and per folder; read again after a write"
+    },
+    "context.folders": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextScreen.e2e.test.tsx",
+      "summary": "Show the profile per folder and turn routing on or off: no preview, so a confirmation with the exact command line"
+    },
+    "context.checkpoint-status": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextScreen.e2e.test.tsx",
+      "summary": "Gauge of the context used against the checkpoint from the statusline JSON; the JSON goes to stdin through the bridge and is never in an argument or on screen"
     }
   },
   "owners": {
@@ -789,43 +879,43 @@
       "surface": "screen"
     },
     "context apply": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.apply",
       "surface": "screen"
     },
     "context checkpoint-status": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.checkpoint-status",
       "surface": "screen"
     },
     "context client add": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.client-add",
       "surface": "screen"
     },
     "context client list": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.client-list",
       "surface": "screen"
     },
     "context disable": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.disable",
       "surface": "screen"
     },
     "context folders": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.folders",
       "surface": "screen"
     },
     "context init": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.init",
       "surface": "screen"
     },
     "context loads": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.loads",
       "surface": "screen"
     },
     "context measure": {
@@ -834,33 +924,33 @@
       "surface": "screen"
     },
     "context plan": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.plan",
       "surface": "screen"
     },
     "context profile add": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.profile-add",
       "surface": "screen"
     },
     "context profile list": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.profile-list",
       "surface": "screen"
     },
     "context profile remove": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.profile-remove",
       "surface": "screen"
     },
     "context status": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.status",
       "surface": "screen"
     },
     "context sync": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.sync",
       "surface": "screen"
     },
     "council doctor": {
