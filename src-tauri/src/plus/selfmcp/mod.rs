@@ -11,7 +11,10 @@ mod compression;
 mod compression_tests;
 mod content;
 mod context;
+mod context_bundle;
 #[cfg(all(test, unix))]
+mod context_bundle_tests;
+#[cfg(test)]
 mod context_tests;
 #[cfg(test)]
 mod coverage_tests;

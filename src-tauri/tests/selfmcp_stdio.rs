@@ -29,7 +29,7 @@ mod sources_world;
 
 const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
-const TOOL_COUNT: usize = 85;
+const TOOL_COUNT: usize = 89;
 const RESOURCE_COUNT: usize = 11;
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -498,6 +498,8 @@ fn tier_one_calls() -> BTreeMap<&'static str, Value> {
     BTreeMap::from([
         ("skills_list", json!({})),
         ("sources_ls", json!({"items": true})),
+        ("context_bundle_ls", json!({})),
+        ("context_bundle_status", json!({"cwd": "."})),
         ("skills_get", json!({"name": "demo"})),
         ("skills_lint", json!({})),
         ("skills_status", json!({})),
