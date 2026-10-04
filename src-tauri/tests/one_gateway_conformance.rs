@@ -153,6 +153,8 @@ struct AdapterOptions<'a> {
     roots: Vec<PathBuf>,
     /// Whether this client can answer legacy form elicitation requests.
     elicitation: bool,
+    /// Extra environment for the adapter, which its daemon inherits.
+    env: Vec<(&'a str, &'a str)>,
 }
 
 impl Default for AdapterOptions<'_> {
@@ -166,6 +168,7 @@ impl Default for AdapterOptions<'_> {
             grace_ms: None,
             roots: Vec::new(),
             elicitation: false,
+            env: Vec::new(),
         }
     }
 }
@@ -203,6 +206,7 @@ fn spawn_adapter(dir: &Path, options: &AdapterOptions) -> AdapterClient {
     if let Some(grace_ms) = options.grace_ms {
         command.env("TOOLPORT_DAEMON_IDLE_GRACE_MS", grace_ms.to_string());
     }
+    command.envs(options.env.iter().copied());
     let mut child = command.spawn().expect("spawn the stdio adapter");
     let stdin = child.stdin.take().expect("adapter stdin");
     let stdout = child.stdout.take().expect("adapter stdout");
@@ -2359,6 +2363,88 @@ fn matrix_pooling_secret_generation_retires_the_old_root_launch() {
         client.call_tool(&pwd, json!({}))["isError"] != true,
         "replacement child must remain callable"
     );
+}
+
+const CTL_SYNTHETIC_KEY: &str = "matrix-ctl-secret-synthetic-key";
+const CTL_SYNTHETIC_VALUE: &str = "FAKE-ctl-secret-value-do-not-use";
+
+/// Runs the real `toolportctl` the way the app's GUI bridge does (D-060): a child process
+/// with the value on stdin, never in argv.
+fn toolportctl(dir: &Path, args: &[&str], stdin_text: Option<&str>) -> std::process::Output {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_toolportctl"))
+        .args(args)
+        .env("TOOLPORT_DATA_DIR", dir)
+        .env("TOOLPORT_REGISTRY", dir.join("registry.json"))
+        .env("TOOLPORT_SECRET_KEY", CTL_SYNTHETIC_KEY)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn toolportctl");
+    let mut stdin = child.stdin.take().expect("toolportctl stdin");
+    if let Some(text) = stdin_text {
+        stdin.write_all(text.as_bytes()).expect("write the value");
+    }
+    drop(stdin);
+    child.wait_with_output().expect("toolportctl output")
+}
+
+fn registry_secrets_generation(dir: &Path) -> u64 {
+    registry::load_from(&dir.join("registry.json"))
+        .expect("load registry")
+        .secrets_generation
+}
+
+#[test]
+fn matrix_secret_set_and_rm_through_the_cli_reach_a_running_gateway() {
+    let _guard = CASE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let (_fixture, dir) = Fixture::new("cli-secret-generation");
+    let transcript = dir.join("downstream.jsonl");
+    let mut server = mock_server_entry("mock", &transcript, None);
+    server.env.push(EnvVar {
+        key: "MOCK_TOKEN".to_string(),
+        value: None,
+        secret: true,
+    });
+    write_registry(&dir, vec![server], vec![]);
+    let first = toolportctl(&dir, &["secret", "set", "mock", "MOCK_TOKEN"], Some(CTL_SYNTHETIC_VALUE));
+    assert!(first.status.success(), "{first:?}");
+    let before = registry_secrets_generation(&dir);
+
+    let mut client = spawn_adapter(
+        &dir,
+        &AdapterOptions {
+            env: vec![("TOOLPORT_SECRET_KEY", CTL_SYNTHETIC_KEY)],
+            ..AdapterOptions::default()
+        },
+    );
+    client.initialize("matrix-cli-secret-generation");
+    let echo = client.wait_for_tool("__echo", Duration::from_secs(30));
+    assert!(text_of(&client.call_tool(&echo, json!({ "text": "before" }))).starts_with("before"));
+    assert_eq!(transcript_initialize_count(&transcript), 1);
+
+    let set = toolportctl(&dir, &["secret", "set", "mock", "MOCK_TOKEN"], Some("FAKE-rotated-value"));
+    assert!(set.status.success(), "{set:?}");
+    assert_eq!(registry_secrets_generation(&dir), before + 1);
+    wait_until(
+        || transcript_initialize_count(&transcript) >= 2,
+        "the gateway to relaunch the downstream after `secret set`",
+        Duration::from_secs(30),
+    );
+    assert!(text_of(&client.call_tool(&echo, json!({ "text": "after-set" }))).starts_with("after-set"));
+
+    let launches = transcript_initialize_count(&transcript);
+    let removed = toolportctl(&dir, &["secret", "rm", "mock", "MOCK_TOKEN"], None);
+    assert!(removed.status.success(), "{removed:?}");
+    assert_eq!(registry_secrets_generation(&dir), before + 2);
+    wait_until(
+        || transcript_initialize_count(&transcript) > launches,
+        "the gateway to relaunch the downstream after `secret rm`",
+        Duration::from_secs(30),
+    );
+    assert!(text_of(&client.call_tool(&echo, json!({ "text": "after-rm" }))).starts_with("after-rm"));
 }
 
 #[test]
