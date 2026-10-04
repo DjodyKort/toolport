@@ -15,6 +15,8 @@ mod direct;
 mod direct_tests;
 mod docs;
 #[cfg(test)]
+mod effect_tests;
+#[cfg(test)]
 mod enable_tests;
 mod redact;
 pub mod register;
