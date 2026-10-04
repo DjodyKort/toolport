@@ -1,4 +1,4 @@
-use super::{backend, compression, content, context, direct, plugins, servers, skills, sources, state, ToolError};
+use super::{backend, compression, content, context, context_bundle, direct, plugins, servers, skills, sources, state, ToolError};
 use serde_json::{json, Map, Value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -130,6 +130,42 @@ pub const TOOLS: &[ToolDef] = &[
             p("force", Ty::Bool, false, "Measure again instead of answering from the cache")
         ],
         context::measure_tool
+    ),
+    tool!(
+        "context_bundle_ls",
+        1,
+        None,
+        "List the context bundles (profiles/<name>.yaml in the skills repository) with what each hides and adds and the folders it is applied in",
+        [],
+        context_bundle::ls
+    ),
+    tool!(
+        "context_bundle_status",
+        1,
+        None,
+        "Report which context bundle is applied in a folder, whether a key it owns changed since, and the keys an undo would leave alone",
+        [p("cwd", Ty::Str, true, "The folder where Claude Code starts")],
+        context_bundle::status
+    ),
+    tool!(
+        "context_bundle_apply",
+        2,
+        None,
+        "Apply a context bundle in a folder: skill, plugin, agent and CLAUDE.md hiding goes into the folder's git-ignored .claude/settings.local.json and layers into one managed block of CLAUDE.local.md, with a ledger that undo restores from. Pass dry_run to see the plan and write nothing",
+        [
+            p("name", Ty::Str, true, "The bundle's name (profiles/<name>.yaml)"),
+            p("cwd", Ty::Str, true, "The folder where Claude Code starts; nothing is written above it"),
+            DRY
+        ],
+        context_bundle::apply
+    ),
+    tool!(
+        "context_bundle_undo",
+        2,
+        None,
+        "Undo the bundle applied in a folder: put back the keys it replaced and remove its block; a key changed since is left alone and listed in conflicts. Pass dry_run to see the plan and write nothing",
+        [p("cwd", Ty::Str, true, "The folder where Claude Code starts"), DRY],
+        context_bundle::undo
     ),
     tool!(
         "plugins_ls",

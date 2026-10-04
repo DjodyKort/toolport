@@ -641,9 +641,14 @@ pub fn apply(w: &World, name: &str, cwd: &Path, dry_run: bool) -> Result<Value, 
     let mut excludes = Vec::new();
     if repo.is_some() {
         let mut report = super::Report::default();
+        let existed = exclude_file(&cwd).exists();
         for line in exclude_lines(m_out.rec.is_some()) {
             if layers::ensure_exclude_line(&cwd, line, &mut report, false).map_err(failed)? {
-                excludes.push(ExcludeRec { file: fsx::display(&exclude_file(&cwd)), line: line.to_string() });
+                excludes.push(ExcludeRec {
+                    file: fsx::display(&exclude_file(&cwd)),
+                    line: line.to_string(),
+                    created_file: !existed && excludes.is_empty(),
+                });
             }
         }
         if !excludes.is_empty() {
@@ -815,7 +820,12 @@ pub fn undo(w: &World, cwd: &Path, dry_run: bool) -> Result<Value, BundleError> 
         let file = PathBuf::from(&e.file);
         if let Ok(Some(text)) = bundle_io::read_exact(&file) {
             if let Some(after) = remove_line(&text, &e.line) {
-                bundle_io::write_atomic(&file, after.as_bytes()).map_err(|x| failed(format!("{}: {x}", file.display())))?;
+                let created = prior.excludes.iter().any(|x| x.file == e.file && x.created_file);
+                if after.is_empty() && created {
+                    let _ = fs::remove_file(&file);
+                } else {
+                    bundle_io::write_atomic(&file, after.as_bytes()).map_err(|x| failed(format!("{}: {x}", file.display())))?;
+                }
                 if !changed.contains(&e.file) {
                     changed.push(e.file.clone());
                 }

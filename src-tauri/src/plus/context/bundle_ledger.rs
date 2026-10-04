@@ -54,6 +54,8 @@ pub struct BlockRec {
 pub struct ExcludeRec {
     pub file: String,
     pub line: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub created_file: bool,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
