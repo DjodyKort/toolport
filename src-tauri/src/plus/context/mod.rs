@@ -20,6 +20,8 @@ pub mod settings;
 pub mod shims;
 pub mod zshrc;
 
+mod loads_extra;
+
 #[cfg(test)] mod layers_prop_tests;
 #[cfg(test)] mod settings_prop_tests;
 #[cfg(test)]
@@ -34,6 +36,8 @@ mod tests_folders;
 mod tests_hardening;
 #[cfg(test)]
 mod tests_hooks;
+#[cfg(test)]
+mod tests_loads;
 #[cfg(test)]
 mod tests_manage;
 #[cfg(test)]

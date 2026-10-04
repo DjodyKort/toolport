@@ -282,6 +282,11 @@ pub(super) const GLOBAL: &[Meta] = &[
         "Leave the commands out of the profile",
     ),
     m(
+        "--no-lazy",
+        Bool,
+        "Leave out the rows that load only when Claude reads a file in a subfolder",
+    ),
+    m(
         "--no-migrate",
         Bool,
         "Do not take over files that shadow synced skills",

@@ -698,7 +698,7 @@ mod loads_tests {
         let rule = |name: &str| r.items.iter().find(|i| i.kind == "rule" && i.name == name).unwrap();
         assert_eq!((rule("personal").source, rule("personal").loaded), ("personal", true));
         assert_eq!(rule("client-acme").source, "client-layer");
-        assert_eq!(rule("org-style").source, "org");
+        assert_eq!(rule("org-style").source, "loose");
         assert!(!rule("scoped").loaded && !rule("paths-scoped").loaded);
         assert!(rule("plain-fm").loaded);
         let appended = rule("personal (append-system-prompt)");
