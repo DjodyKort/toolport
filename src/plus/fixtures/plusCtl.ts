@@ -9,6 +9,7 @@ import {
 } from "./sources";
 import { serversCtlFixtures } from "./servers";
 import { skillsBrowserFixtures } from "../skills/browserFixtures";
+import { agentsCtlFixtures } from "./agents";
 
 /** Envelope `data` the dev browser fixture returns per `toolportctl` argv (joined with spaces).
  * A command a screen runs needs a row here or the fixture rejects it as unimplemented. */
@@ -51,6 +52,7 @@ export const plusCtlFixtures = new Map<string, unknown>([
   ...loginsCtlFixtures.filter(([key]) => !serversCtlFixtures.has(key)),
   // The Library screen drives a stateful skills world, so its commands win over the static Health fixtures.
   ...skillsBrowserFixtures,
+  ...agentsCtlFixtures,
 ]);
 
 const jobs = new Map<string, string>();

@@ -23,6 +23,7 @@ import type { View } from "@/lib/types";
 export const PLUS_VIEWS = [
   "control",
   "logins",
+  "agents",
   "attention",
   "library",
   "context",
@@ -107,6 +108,7 @@ const LIVES_UNDER: Partial<Record<View, View>> = {
   commands: "settings",
   servers: "control",
   logins: "control",
+  agents: "library",
 };
 
 export function navItemActive(item: NavItem, view: View): boolean {
@@ -132,6 +134,11 @@ export const PLUS_SCREENS: Record<PlusView, PlusScreen> = {
     title: "Logins & secrets",
     subtitle: "Which servers are signed in, and the secrets behind them",
     builtBy: "MIG-GUI-2",
+  },
+  agents: {
+    title: "Agents & styles",
+    subtitle: "One AGENT.md or STYLE.md, written in the format each client reads",
+    builtBy: "MIG-GUI-4",
   },
   attention: {
     title: "Needs attention",

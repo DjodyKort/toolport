@@ -59,7 +59,8 @@ describe("PlusViews", () => {
         view !== "commands" &&
         view !== "control" &&
         view !== "logins" &&
-        view !== "library",
+        view !== "library" &&
+        view !== "agents",
     ),
   )("marks %s as not built yet and names the item that builds it", async (view) => {
     render(<Harness start={view} />);

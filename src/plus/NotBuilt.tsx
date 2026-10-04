@@ -2,21 +2,31 @@ import { useState } from "react";
 import { Hammer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { View } from "@/lib/types";
 import { EmptyState } from "@/components/ui/empty-state";
-import { PLUS_SCREENS, type PlusView } from "./nav";
+import { PLUS_SCREENS, isPlusView, type PlusView } from "./nav";
 import { NOT_BUILT_TABS } from "./notBuiltTabs";
 import { Tabs } from "./ui";
+
+interface PlusScreenLink {
+  view: View;
+  title: string;
+}
 
 export function NotBuiltPanel({
   name,
   builtBy,
   group,
+  opens,
   onOpenCommands,
+  onOpenView,
 }: {
   name: string;
   builtBy: string;
   group?: string;
+  opens?: PlusScreenLink;
   onOpenCommands: (group?: string) => void;
+  onOpenView?: (view: View) => void;
 }) {
   return (
     <EmptyState
@@ -33,9 +43,16 @@ export function NotBuiltPanel({
         </>
       }
       action={
-        <Button variant="outline" size="sm" onClick={() => onOpenCommands(group)}>
-          Open All commands
-        </Button>
+        <div className="flex flex-wrap justify-center gap-2">
+          {opens && onOpenView && (
+            <Button size="sm" onClick={() => onOpenView(opens.view)}>
+              Open {opens.title}
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => onOpenCommands(group)}>
+            Open All commands
+          </Button>
+        </div>
       }
     />
   );
@@ -46,9 +63,11 @@ export function NotBuiltPanel({
 export function NotBuilt({
   view,
   onOpenCommands,
+  onOpenView,
 }: {
   view: PlusView;
   onOpenCommands: (group?: string) => void;
+  onOpenView?: (view: View) => void;
 }) {
   const screen = PLUS_SCREENS[view];
   const tabs = NOT_BUILT_TABS[view];
@@ -74,7 +93,13 @@ export function NotBuilt({
         name={current.label}
         builtBy={current.builtBy}
         group={current.group}
+        opens={
+          current.opens && isPlusView(current.opens)
+            ? { view: current.opens, title: PLUS_SCREENS[current.opens].title }
+            : undefined
+        }
         onOpenCommands={onOpenCommands}
+        onOpenView={onOpenView}
       />
     </Tabs>
   );
