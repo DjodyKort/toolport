@@ -66,7 +66,7 @@ const subsets = (list: string[]): string[][] =>
     .slice(1);
 
 const outputFile = (name: string, client: string, root = HOME) =>
-  `${root}/.${client}/skills/${name}/SKILL.md`;
+  `${root}/.${client === "claude-code" ? "claude" : client}/skills/${name}/SKILL.md`;
 
 export function createSkillsWorld(
   options: WorldOptions = {},
