@@ -2928,7 +2928,7 @@ fn container_escape_flag(args: &[String]) -> Option<&str> {
 /// env into the container. Vaulted secrets already ride on the CLI via `.envs()`;
 /// without `-e` they stay on the host docker process and the container starts
 /// with empty credentials (SBS-785). Values stay off argv so `ps` cannot leak them.
-fn inject_container_env(command: &str, args: &[String], env: &[(String, String)]) -> Vec<String> {
+pub(crate) fn inject_container_env(command: &str, args: &[String], env: &[(String, String)]) -> Vec<String> {
     let base = command_basename(command);
     let family = interpreter_family(&base);
     if !matches!(family, "docker" | "podman" | "nerdctl") || env.is_empty() {

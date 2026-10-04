@@ -35,7 +35,7 @@ fn missing_secret(server: &ServerEntry) -> bool {
     })
 }
 
-fn environment_for_probe_with(
+pub(crate) fn environment_for_probe_with(
     server: &ServerEntry,
     mut vault: impl FnMut(&str, &str) -> Result<Option<String>, String>,
 ) -> Result<Vec<(String, String)>, String> {
