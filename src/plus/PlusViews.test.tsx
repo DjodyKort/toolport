@@ -19,6 +19,7 @@ vi.mock("./usage/UsageTab", () => ({ UsageTab: () => <p>Usage panel</p> }));
 
 import { PlusViews } from "./PlusViews";
 import { createBridge } from "./servers/testkit";
+import { createBridge as createSystemBridge } from "./system/testkit";
 
 beforeEach(() => {
   listen.mockReset().mockResolvedValue(() => {});
@@ -129,7 +130,7 @@ describe("PlusViews", () => {
   });
 
   it("opens the System screen with its five tabs and the plugin updates as a placeholder", async () => {
-    invoke.mockReset().mockImplementation(createBridge().invoke);
+    invoke.mockReset().mockImplementation(createSystemBridge().invoke);
     const user = userEvent.setup();
     render(<Harness start="system" />);
     const tabs = await screen.findByRole("tablist", { name: "System sections" });

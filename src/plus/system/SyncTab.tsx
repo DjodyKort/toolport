@@ -199,6 +199,7 @@ export function SyncTab() {
                           argv: ["sync", "reset"],
                           confirmLabel: "Reset sync",
                           planned: planOfSyncReset(s.repoUrl),
+                          done: "Sync data removed",
                         })
                       }
                     >
@@ -324,6 +325,7 @@ export function SyncTab() {
                           argv: ["sync", "remove-project", project.name],
                           confirmLabel: "Remove",
                           planned: planOfRemoveProject(project.name),
+                          done: `Removed ${project.name} from the sync set`,
                         })
                       }
                     >
@@ -376,6 +378,7 @@ export function SyncTab() {
                       ...optionFlag("--files", list.join(",")),
                     ],
                     confirmLabel: "Add project",
+                    done: `Added ${name.trim()} to the sync set`,
                     planned: planOfAddProject({
                       path: path.trim(),
                       name: name.trim(),
@@ -418,6 +421,7 @@ export function SyncTab() {
                         title: "Remove the git sync setup",
                         argv: ["sync", "git-sync", "--clear"],
                         confirmLabel: "Remove setup",
+                        done: "Git sync setup removed",
                         planned: planOfGitSync({
                           repo: "",
                           branch: "",
@@ -471,6 +475,7 @@ export function SyncTab() {
                           ...(gitAuto ? ["--auto"] : []),
                         ],
                         confirmLabel: "Set up git sync",
+                        done: `Git sync is set up with ${gitRepo.trim()}`,
                         planned: planOfGitSync({
                           repo: gitRepo.trim(),
                           branch: gitBranch.trim(),

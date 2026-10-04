@@ -86,6 +86,8 @@ export interface WriteSpec {
   adapt?: (data: Record<string, unknown>, done: boolean) => PlanV1 | null;
   /** The plan of a command that has no preview, worked out from the form. */
   planned?: PlanV1;
+  /** What a command without a preview reports once it ran, in the past tense. */
+  done?: string;
   /** Called with the data of a preview that finished (`previewed`) and of an apply. */
   onResult?: (data: unknown, previewed: boolean) => void;
 }

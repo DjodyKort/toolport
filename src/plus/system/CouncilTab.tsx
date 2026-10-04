@@ -79,6 +79,7 @@ export function CouncilTab() {
                       title: "Uninstall the council",
                       argv: ["council", "uninstall", ...(purge ? ["--purge-key"] : [])],
                       confirmLabel: "Uninstall",
+                      done: "Council uninstalled",
                       planned: planOfCouncilUninstall(purge),
                     })
                   }
@@ -89,46 +90,53 @@ export function CouncilTab() {
             ) : undefined
           }
         >
-          <AsyncView query={answered(doctor)} errorTitle="Couldn't check the council">
-            {() =>
-              installed ? (
-                <div className="flex flex-col gap-3">
-                  <p className="flex items-center gap-2 text-sm">
-                    <Tag tone="success">Installed</Tag> The council server is in your
-                    registry.
-                  </p>
-                  <Toggle
-                    label="Also delete the stored API key when uninstalling"
-                    checked={purge}
-                    onChange={setPurge}
+          {doctor.status === "error" && !doctor.data ? (
+            <p className="text-sm text-muted-foreground">
+              Whether the council is installed is unknown until the doctor answers.
+            </p>
+          ) : (
+            <AsyncView query={answered(doctor)} errorTitle="Couldn't check the council">
+              {() =>
+                installed ? (
+                  <div className="flex flex-col gap-3">
+                    <p className="flex items-center gap-2 text-sm">
+                      <Tag tone="success">Installed</Tag> The council server is in your
+                      registry.
+                    </p>
+                    <Toggle
+                      label="Also delete the stored API key when uninstalling"
+                      checked={purge}
+                      onChange={setPurge}
+                    />
+                  </div>
+                ) : (
+                  <EmptyState
+                    className="py-8"
+                    icon={<Users />}
+                    title="Not installed"
+                    description="The council runs several models on one question and returns their answers as tools."
+                    action={
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          write.begin({
+                            command: "council install",
+                            title: "Install the council",
+                            argv: ["council", "install"],
+                            confirmLabel: "Install",
+                            done: "Council installed",
+                            planned: planOfCouncilInstall(),
+                          })
+                        }
+                      >
+                        Install…
+                      </Button>
+                    }
                   />
-                </div>
-              ) : (
-                <EmptyState
-                  className="py-8"
-                  icon={<Users />}
-                  title="Not installed"
-                  description="The council runs several models on one question and returns their answers as tools."
-                  action={
-                    <Button
-                      size="sm"
-                      onClick={() =>
-                        write.begin({
-                          command: "council install",
-                          title: "Install the council",
-                          argv: ["council", "install"],
-                          confirmLabel: "Install",
-                          planned: planOfCouncilInstall(),
-                        })
-                      }
-                    >
-                      Install…
-                    </Button>
-                  }
-                />
-              )
-            }
-          </AsyncView>
+                )
+              }
+            </AsyncView>
+          )}
         </Card>
         <Card
           title="Doctor"
