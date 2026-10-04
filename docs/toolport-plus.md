@@ -170,7 +170,7 @@ The Servers screen (MIG-GUI-1) adds:
 - `ui/` is the kit every Toolport+ screen is built from (below).
 - `nav.ts` holds the grouped sidebar B (`NAV_GROUPS`, 16 items, labels as in the approved mockup; the Servers entry opens the Toolport+ view `control`, and the upstream `servers` view is lit under it), the title and subtitle of each Toolport+ screen (`PLUS_SCREENS`) and the item that builds each. The tabs of the mockup live in `notBuiltTabs.ts`, which only the placeholder reads, so they stay out of the startup bundle. `SidebarNav.tsx` draws the groups with the sidebar's own row, `attention.ts` reads the Attention counter.
 - `PlusViews.tsx` is the one entry for Toolport+ screens; each is a `React.lazy` chunk. `NotBuilt.tsx` is the marked placeholder (tabs of the mockup, a "Not built yet" notice naming the item, a button to the All commands page on the right command group).
-- `src/plus/compression/` (MIG-GUI-5) is the Tokens screen: `TokensScreen.tsx` holds the Usage and Compression tabs and a `PANELS` map (MIG-GUI-7 adds `usage`); `PlusViews.tsx` lazy-loads it for the `tokens` view; `NotBuilt.tsx` exports `NotBuiltPanel` so a built screen can keep the marked placeholder for its other tabs.
+- `src/plus/compression/` (MIG-GUI-5) is the Tokens screen: `TokensScreen.tsx` holds the Usage and Compression tabs and a `PANELS` map (`usage` is `src/plus/usage/UsageTab.tsx`, MIG-GUI-7); `PlusViews.tsx` lazy-loads it for the `tokens` view; `NotBuilt.tsx` exports `NotBuiltPanel` so a built screen can keep the marked placeholder for its other tabs.
 - `allcommands/` is the All commands page.
 - `servers/` is the Servers screen (MIG-GUI-1, below).
 
@@ -244,7 +244,7 @@ MIG-GUI-1 edits:
 | `src/plus/fixtures/plusCtl.ts`             | `commands` appends `agentsCommandRows`; the agents rows are `createAgentsWorld()`; a function row is called                                                                                                                      |
 | `scripts/browser-smoke.mjs` (agents)       | the Agents and Styles walk in both themes; `screenshots.mjs` lists the seven shots                                                                                                                                               |
 | `src/plus/gui-parity.json` (agents)        | the `agents` route and its 18 actions are `built`; the 18 agents and styles commands point at them                                                                                                                               |
-| `src/plus/PlusViews.tsx` (tokens)          | `tokens` renders the lazy `TokensScreen`; the Usage tab stays the marked placeholder (`NotBuiltPanel`) until MIG-GUI-7                                                                                                           |
+| `src/plus/PlusViews.tsx` (tokens)          | `tokens` renders the lazy `TokensScreen`; both of its tabs are built, `NotBuiltPanel` is only the fallback of a tab without a panel                                                                                              |
 | `src/plus/NotBuilt.tsx` (tokens)           | `NotBuiltPanel` is the export a built screen uses for its tabs that are not built yet                                                                                                                                            |
 | `src/plus/fixtures/plusCtl.ts` (tokens)    | spreads `compressionBrowserFixtures` (the stateful compression world) last; a function row is called and may return a failed envelope                                                                                            |
 | `src/plus/types/compression.ts`            | the ledger provider shape (`savedPercent` is null without a before total) and `ledger record` `session` is nullable, as the CLI prints them                                                                                      |
@@ -253,6 +253,10 @@ MIG-GUI-1 edits:
 | `src/plus/fixtures/plusCtl.ts` (context)   | spreads `contextBrowserFixtures` after the agents world: the rows are `createContextWorld().rows()`, each reading the live world                                                                                                 |
 | `scripts/browser-smoke.mjs` (context)      | `contextScreen` opens the Context entry and walks Launch & shell in both themes; `screenshots.mjs` lists its six shots                                                                                                           |
 | `src/plus/gui-parity.json` (context)       | the `context` route and its 14 actions are `built`; the 14 context commands point at them (`context measure` and its tool stay on All commands until MIG-GUI-10)                                                                 |
+| `compression/TokensScreen.tsx` (usage)     | `PANELS` gains `usage: UsageTab`, imported from `../usage/UsageTab`; `notBuiltTabs.ts` is unchanged (it still lists the tabs and their order)                                                                                    |
+| `src/plus/fixtures/plusCtl.ts` (usage)     | spreads `usageCtlFixtures` before the stateful worlds; its rows are functions (the OTel receiver changes state) and end yesterday                                                                                                |
+| `scripts/browser-smoke.mjs` (usage)        | `usageTab` walks the Usage tab in both themes; `screenshots.mjs` lists the five `gui-usage-*` shots                                                                                                                              |
+| `src/plus/gui-parity.json` (usage)         | the four `usage.*` actions are `built` on the `tokens` route; `usage`, `obs otel status`, `obs otel enable` and `obs otel disable` point at them                                                                                 |
 
 ## Sources
 
@@ -383,7 +387,7 @@ Screenshots (1280x800, from `npm run screenshots:gui`): `docs/assets/gui-agents-
 
 ## Tokens and Compression
 
-`src/plus/compression/` builds the Compression tab of the approved mockup nav item "Tokens". `TokensScreen` (the `tokens` view) holds the tabs; Usage stays the marked placeholder until MIG-GUI-7 adds `usage: UsageTab` to its `PANELS` map.
+`src/plus/compression/` builds the Compression tab of the approved mockup nav item "Tokens". `TokensScreen` (the `tokens` view) holds the tabs; the Usage tab is `src/plus/usage/` (below).
 
 | Card                      | Reads                                                                      | Writes (policy tier from `toolportctl commands`)                                                                                                                      |
 | ------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -399,6 +403,25 @@ Screenshots (1280x800, from `npm run screenshots:gui`): `docs/assets/gui-agents-
 - Tests: `testkit.ts` is a fake `plus_ctl` bridge over the golden envelopes; `createBridge({ world: true })` and the dev browser fixture use `world.ts` instead, where an applied write changes the next read (a provider switch changes the status strip and the doctor, an install changes the engine and the pin, a recorded entry grows the ledger) and a preview never does. `CompressionTab.e2e.test.tsx` walks the real screen through that world, one test per parity action id; `world.test.ts` checks the world against the golden shapes.
 
 Screenshots (1280x800, from `npm run screenshots:gui`): `docs/assets/gui-tokens-light.png` and `gui-tokens-dark.png` (the status strip, the providers and the presets), `gui-tokens-provider-plan-light.png` (the plan of a switch to headroom), `gui-tokens-health-light.png` (the checks of a provider whose engine is not installed), `gui-tokens-ledger-empty-light.png` and `gui-tokens-ledger-light.png` (the ledger before and after two recorded entries) and `gui-tokens-disable-light.png` (the typed confirmation of a disable).
+
+### Usage
+
+`src/plus/usage/` (MIG-GUI-7) is the Usage tab, the first tab of the Tokens screen. It opens on `toolportctl usage --no-refresh` (the stored index, quick) and `obs otel status`; Refresh runs `usage` (re-index, which can take a while: the tab says so, shows Cancel while it runs and keeps the stored figures when it fails). A folder field passes `--root <dir>` to both reads.
+
+| Part                    | Shows                                                                                                                                                                                                            |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Strip                   | tokens in the period (7, 14, 30 or 90 days), cache read share, MCP calls, the OTel receiver state as a word                                                                                                      |
+| Tokens per day          | SVG bars from zero with titled axes, a text summary (range, total, busiest day) and "Show the numbers" for a table of every day                                                                                  |
+| By project, MCP server  | sessions grouped by folder; calls per server with its tools on request (the envelope has no tokens per server)                                                                                                   |
+| Sessions, models, cache | top sessions ranked by tokens (not by cost: transcripts carry none), by model, cache read and write with reads per write                                                                                         |
+| Failures, provenance    | MCP connection failures when there are some; "Where these numbers come from": one count per `message.id`, last record wins, an id in several files counts once, OTel                                             |
+| OpenTelemetry receiver  | `obs otel status` as facts and the five keys, and Enable and Disable: each previewed with `--dry-run`, then confirmed, applied and read again (typed phrase only if the registry tier says `destructive`, D-081) |
+
+- The period only moves the strip and the chart: the tables are all indexed time and say so. The tab reads only the members it names (`model.ts`, `parseUsage` and `parseStatus`), so an unknown member is never shown; a test puts a canary in unknown members of every envelope and finds it in no DOM and no argv.
+- Enable validates the port (1 to 65535) before it runs anything, shows the CLI's own action lines, the settings file, the undo (`obs otel disable`) and that running Claude Code sessions need a restart; a `conflict` from the preview is shown and nothing can be applied. Closing a write's dialogs gives focus back to the control that began it.
+- Tests: `testkit.ts` is a fake `plus_ctl` bridge over `world.ts`, a synthetic transcript index aggregated the way the CLI does it (once per message id, by day, model, session and server), so a test compares the screen with figures it worked out another way. `createOtelWorld()` is the receiver that changes: an applied Enable makes the next status say listening with every key set, an applied Disable says off again, a preview changes nothing. `UsageTab.e2e.test.tsx` walks the tab through the Tokens screen, one test per parity action id (`usage.refresh`, `usage.otel-status`, `usage.otel-enable`, `usage.otel-disable`); the dev browser fixture (`browserFixtures.ts`) serves the same world and moves its dates so the newest day is yesterday.
+
+Screenshots (1280x800, from `npm run screenshots:gui`): `docs/assets/gui-usage-light.png` and `gui-usage-dark.png` (the strip, the chart and the period picker), `gui-usage-empty-light.png` (an index that never ran), `gui-usage-otel-plan-light.png` (the Enable preview with the five keys) and `gui-usage-otel-on-light.png` (the receiver listening, every key set).
 
 ## Context: Launch & shell
 
