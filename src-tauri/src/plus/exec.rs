@@ -203,6 +203,7 @@ mod tests {
             let started = Instant::now();
             let err = run_command(cmd, Duration::from_millis(millis)).unwrap_err();
             assert_eq!(err, "timed out after 0s", "{millis}");
+            // 20x the longest timeout above; a command left running takes 30 s
             assert!(started.elapsed() < Duration::from_secs(5), "{millis}");
         }
     }

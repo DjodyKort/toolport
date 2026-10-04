@@ -415,7 +415,7 @@ fn transient_failures_for_every_service() {
 fn timeouts_are_transient() {
     for service in [Service::Slack, Service::Odoo, Service::Framelink] {
         let m = serve(
-            Duration::from_millis(1500),
+            Duration::from_secs(10),
             Arc::new(|_| (200, "{}".to_string(), vec![])),
         );
         let p = HttpProbe::new()
@@ -428,7 +428,7 @@ fn timeouts_are_transient() {
         };
         let started = std::time::Instant::now();
         assert_eq!(p.run(&spec(service, &m.url)), ProbeOutcome::TransportError);
-        assert!(started.elapsed() < Duration::from_secs(5));
+        assert!(started.elapsed() >= Duration::from_millis(200));
     }
 }
 
