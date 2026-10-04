@@ -6,7 +6,7 @@ export function forkEgressDisabled(): boolean {
   return import.meta.env.VITE_TOOLPORT_UPSTREAM_EGRESS !== "1";
 }
 
-export function isUpstreamEgressUrl(url: string): boolean {
+function isUpstreamEgressUrl(url: string): boolean {
   let parsed: URL;
   try {
     parsed = new URL(url.trim());
@@ -19,4 +19,9 @@ export function isUpstreamEgressUrl(url: string): boolean {
     host.endsWith(".toolport.app") ||
     (host === "github.com" && parsed.pathname.toLowerCase().startsWith("/btsouth/"))
   );
+}
+
+/** True when this build must not reach `url`: an upstream hosted service in the fork. */
+export function isEgressRefused(url: string): boolean {
+  return forkEgressDisabled() && isUpstreamEgressUrl(url);
 }
