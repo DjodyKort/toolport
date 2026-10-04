@@ -4605,6 +4605,221 @@
           "tools": []
         },
         {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Folder whose project and local settings decide which plugins are on (default: user settings only)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--cwd",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Run claude plugin marketplace update first (needs claude on PATH)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--refresh",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "plugins",
+          "id": "plugins ls",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "plugins",
+          "path": ["plugins", "ls"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["plugins_ls"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Folder whose project and local settings decide whether the plugin is on and its MCP servers denied (default: user settings only)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--cwd",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            }
+          ],
+          "group": "plugins",
+          "id": "plugins show",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "id",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "plugins",
+          "path": ["plugins", "show"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["plugins_show"]
+        },
+        {
+          "baseTier": null,
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "plugins",
+          "id": "plugins",
+          "kind": "group",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["plugins"],
+          "planned": false,
+          "preview": null,
+          "summary": "Plugins: ls show",
+          "surface": null,
+          "tier": null,
+          "tools": []
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Folder whose project and local settings and plugins apply (default: user and managed settings only)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--cwd",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "choices": ["Bash", "Edit", "Write", "Read"],
+              "effect": "Only hooks that fire for this tool",
+              "escalates": false,
+              "hidden": false,
+              "name": "--tool",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            },
+            {
+              "aliases": [],
+              "effect": "Only hooks on this event (PreToolUse, SessionStart, ...)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--event",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "choices": [
+                "plugin",
+                "user",
+                "project",
+                "local",
+                "skill",
+                "toolport",
+                "managed"
+              ],
+              "effect": "Only hooks of this owner kind",
+              "escalates": false,
+              "hidden": false,
+              "name": "--owner",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            }
+          ],
+          "group": "hooks",
+          "id": "hooks ls",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "hooks",
+          "path": ["hooks", "ls"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "List every hook Claude Code would start in a folder, from files (--cwd, --tool, --event, --owner)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["hooks_ls"]
+        },
+        {
+          "baseTier": null,
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "hooks",
+          "id": "hooks",
+          "kind": "group",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["hooks"],
+          "planned": false,
+          "preview": null,
+          "summary": "Hooks: ls",
+          "surface": null,
+          "tier": null,
+          "tools": []
+        },
+        {
           "baseTier": "write",
           "cost": false,
           "dryRun": true,
@@ -8064,10 +8279,10 @@
         }
       ],
       "counts": {
-        "commands": 134,
-        "groups": 26,
-        "rows": 160,
-        "tools": 82
+        "commands": 137,
+        "groups": 28,
+        "rows": 165,
+        "tools": 85
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
       "tiers": ["read", "write", "destructive"],
@@ -8092,6 +8307,27 @@
           "name": "context_measure",
           "tier": "write",
           "toolTier": 2
+        },
+        {
+          "command": "plugins ls",
+          "dryRun": "none",
+          "name": "plugins_ls",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "plugins show",
+          "dryRun": "none",
+          "name": "plugins_show",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "hooks ls",
+          "dryRun": "none",
+          "name": "hooks_ls",
+          "tier": "read",
+          "toolTier": 1
         },
         {
           "command": null,

@@ -90,6 +90,11 @@ Commands:
   sources root rm Stop searching a folder (<dir>, --dry-run)
   sources root   Search folders: ls add rm
   sources        Sources: ls root
+  plugins ls     List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)
+  plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
+  plugins        Plugins: ls show
+  hooks ls       List every hook Claude Code would start in a folder, from files (--cwd, --tool, --event, --owner)
+  hooks          Hooks: ls
   skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
   skills ls      List skills and rules (--repo <dir>, --home <dir>, --source <id>)
   skills lint    Lint skills; exits 1 on errors (--repo, --home, --name <skill>)
@@ -241,6 +246,11 @@ Commands:
   sources root rm Stop searching a folder (<dir>, --dry-run)
   sources root   Search folders: ls add rm
   sources        Sources: ls root
+  plugins ls     List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)
+  plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
+  plugins        Plugins: ls show
+  hooks ls       List every hook Claude Code would start in a folder, from files (--cwd, --tool, --event, --owner)
+  hooks          Hooks: ls
   skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
   skills ls      List skills and rules (--repo <dir>, --home <dir>, --source <id>)
   skills lint    Lint skills; exits 1 on errors (--repo, --home, --name <skill>)
@@ -392,6 +402,11 @@ Commands:
   sources root rm Stop searching a folder (<dir>, --dry-run)
   sources root   Search folders: ls add rm
   sources        Sources: ls root
+  plugins ls     List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)
+  plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
+  plugins        Plugins: ls show
+  hooks ls       List every hook Claude Code would start in a folder, from files (--cwd, --tool, --event, --owner)
+  hooks          Hooks: ls
   skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
   skills ls      List skills and rules (--repo <dir>, --home <dir>, --source <id>)
   skills lint    Lint skills; exits 1 on errors (--repo, --home, --name <skill>)
@@ -543,6 +558,11 @@ Commands:
   sources root rm Stop searching a folder (<dir>, --dry-run)
   sources root   Search folders: ls add rm
   sources        Sources: ls root
+  plugins ls     List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)
+  plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
+  plugins        Plugins: ls show
+  hooks ls       List every hook Claude Code would start in a folder, from files (--cwd, --tool, --event, --owner)
+  hooks          Hooks: ls
   skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
   skills ls      List skills and rules (--repo <dir>, --home <dir>, --source <id>)
   skills lint    Lint skills; exits 1 on errors (--repo, --home, --name <skill>)
@@ -3837,6 +3857,177 @@ exit 2
 --- stdout
 --- stderr
 toolportctl: unexpected argument: --force
+Run `toolportctl --help` for usage.
+=== ["plugins"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: plugins ls|show (ls: [--cwd <dir>] [--refresh]; show: <id> [--cwd <dir>])
+Run `toolportctl --help` for usage.
+=== ["--json","plugins"]
+exit 2
+--- stdout
+{"command":"plugins","error":{"code":"usage","message":"usage: plugins ls|show (ls: [--cwd <dir>] [--refresh]; show: <id> [--cwd <dir>])"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["plugins","nope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: plugins ls|show (ls: [--cwd <dir>] [--refresh]; show: <id> [--cwd <dir>])
+Run `toolportctl --help` for usage.
+=== ["plugins","ls","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["--json","plugins","ls","--bogus"]
+exit 2
+--- stdout
+{"command":"plugins ls","error":{"code":"usage","message":"unexpected argument: --bogus"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["plugins","ls","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["plugins","ls","--cwd"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --cwd requires a value
+Run `toolportctl --help` for usage.
+=== ["plugins","ls","--refresh=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --refresh takes no value
+Run `toolportctl --help` for usage.
+=== ["plugins","show"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: plugins show <id> [--cwd <dir>]
+Run `toolportctl --help` for usage.
+=== ["--json","plugins","show"]
+exit 2
+--- stdout
+{"command":"plugins show","error":{"code":"usage","message":"usage: plugins show <id> [--cwd <dir>]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["plugins","show","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: plugins show <id> [--cwd <dir>]
+Run `toolportctl --help` for usage.
+=== ["plugins","show","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["plugins","show","x","--cwd"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --cwd requires a value
+Run `toolportctl --help` for usage.
+=== ["plugins","show","-x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: -x
+Run `toolportctl --help` for usage.
+=== ["--json","plugins","show","bad id"]
+exit 2
+--- stdout
+{"command":"plugins show","error":{"code":"usage","message":"invalid plugin id: bad id"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["plugins","ls","--cwd","/nonexistent-pin-folder"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --cwd is not a folder: /nonexistent-pin-folder
+Run `toolportctl --help` for usage.
+=== ["--json","plugins","show","a@b","--cwd","/nonexistent-pin-folder"]
+exit 2
+--- stdout
+{"command":"plugins show","error":{"code":"usage","message":"--cwd is not a folder: /nonexistent-pin-folder"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["hooks","ls","--cwd","/nonexistent-pin-folder"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --cwd is not a folder: /nonexistent-pin-folder
+Run `toolportctl --help` for usage.
+=== ["hooks"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: hooks ls [--cwd <dir>] [--tool Bash|Edit|Write|Read] [--event <name>] [--owner <kind>]
+Run `toolportctl --help` for usage.
+=== ["--json","hooks"]
+exit 2
+--- stdout
+{"command":"hooks","error":{"code":"usage","message":"usage: hooks ls [--cwd <dir>] [--tool Bash|Edit|Write|Read] [--event <name>] [--owner <kind>]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["hooks","nope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: hooks ls [--cwd <dir>] [--tool Bash|Edit|Write|Read] [--event <name>] [--owner <kind>]
+Run `toolportctl --help` for usage.
+=== ["hooks","ls","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["--json","hooks","ls","--bogus"]
+exit 2
+--- stdout
+{"command":"hooks ls","error":{"code":"usage","message":"unexpected argument: --bogus"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["hooks","ls","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["hooks","ls","--tool"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --tool requires a value
+Run `toolportctl --help` for usage.
+=== ["hooks","ls","--tool","Grep"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --tool must be one of Bash, Edit, Write, Read
+Run `toolportctl --help` for usage.
+=== ["--json","hooks","ls","--tool","Grep"]
+exit 2
+--- stdout
+{"command":"hooks ls","error":{"code":"usage","message":"--tool must be one of Bash, Edit, Write, Read"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["hooks","ls","--owner","nope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --owner must be one of plugin, user, project, local, skill, toolport, managed
+Run `toolportctl --help` for usage.
+=== ["--json","hooks","ls","--owner","nope"]
+exit 2
+--- stdout
+{"command":"hooks ls","error":{"code":"usage","message":"--owner must be one of plugin, user, project, local, skill, toolport, managed"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["hooks","ls","--event"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --event requires a value
 Run `toolportctl --help` for usage.
 === ["skills","lint","--bogus"]
 exit 2
