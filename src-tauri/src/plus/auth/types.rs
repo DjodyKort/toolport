@@ -12,17 +12,68 @@ pub enum AuthState {
     Unreachable,
 }
 
-impl AuthState {
-    pub fn name(&self) -> &'static str {
+/// The state without its payload, as every surface names it (`AuthStateName` in `src/plus/api.ts`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthKind {
+    Unknown,
+    Ok,
+    Expiring,
+    NeedsReauth,
+    Revoked,
+    Misconfigured,
+    Unreachable,
+}
+
+impl AuthKind {
+    pub fn as_str(self) -> &'static str {
         match self {
-            AuthState::Unknown => "unknown",
-            AuthState::Ok => "ok",
-            AuthState::Expiring { .. } => "expiring",
-            AuthState::NeedsReauth => "needs_reauth",
-            AuthState::Revoked => "revoked",
-            AuthState::Misconfigured => "misconfigured",
-            AuthState::Unreachable => "unreachable",
+            AuthKind::Unknown => "unknown",
+            AuthKind::Ok => "ok",
+            AuthKind::Expiring => "expiring",
+            AuthKind::NeedsReauth => "needs_reauth",
+            AuthKind::Revoked => "revoked",
+            AuthKind::Misconfigured => "misconfigured",
+            AuthKind::Unreachable => "unreachable",
         }
+    }
+
+    pub fn parse(name: &str) -> Option<AuthKind> {
+        [
+            AuthKind::Unknown,
+            AuthKind::Ok,
+            AuthKind::Expiring,
+            AuthKind::NeedsReauth,
+            AuthKind::Revoked,
+            AuthKind::Misconfigured,
+            AuthKind::Unreachable,
+        ]
+        .into_iter()
+        .find(|kind| kind.as_str() == name)
+    }
+}
+
+impl std::fmt::Display for AuthKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl AuthState {
+    pub fn kind(&self) -> AuthKind {
+        match self {
+            AuthState::Unknown => AuthKind::Unknown,
+            AuthState::Ok => AuthKind::Ok,
+            AuthState::Expiring { .. } => AuthKind::Expiring,
+            AuthState::NeedsReauth => AuthKind::NeedsReauth,
+            AuthState::Revoked => AuthKind::Revoked,
+            AuthState::Misconfigured => AuthKind::Misconfigured,
+            AuthState::Unreachable => AuthKind::Unreachable,
+        }
+    }
+
+    pub fn name(&self) -> &'static str {
+        self.kind().as_str()
     }
 
     pub fn is_issue(&self) -> bool {
