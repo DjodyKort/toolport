@@ -15,7 +15,7 @@ const TOOLS: Flag = value("--tools").needs("a file");
 const SHORT_IDS: Flag = value("--short-ids").needs("a file");
 const HOME: Flag = value("--home").needs("a directory");
 
-const MCPM: Spec = Spec {
+pub(super) const MCPM: Spec = Spec {
     flags: &[
         switch("--dry-run"),
         switch("--skip-clients"),
@@ -30,7 +30,7 @@ const MCPM: Spec = Spec {
     ..Spec::PLAIN
 };
 
-const RENAME: Spec = Spec {
+pub(super) const RENAME: Spec = Spec {
     flags: &[
         switch("--dry-run"),
         TOOLS,

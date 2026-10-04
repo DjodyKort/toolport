@@ -5,7 +5,7 @@ use crate::plus::update::{execute, Mode, Options};
 const USAGE: &str = "usage: update [server] [--check|--apply|--init|--dry-run] [--allow-commands] \
                      [--allow-unverified] [--force] [--repo owner/repo]";
 
-const SPEC: Spec = Spec {
+pub(super) const SPEC: Spec = Spec {
     flags: &[
         switch("--check").alias(&["-c"]),
         switch("--apply"),

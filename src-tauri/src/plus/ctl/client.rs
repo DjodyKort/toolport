@@ -60,7 +60,7 @@ pub fn ls(rest: &[String]) -> Result<Output, CtlError> {
     Ok(Output::new(json!({"clients": rows}), human))
 }
 
-const SYNC: Spec = Spec {
+pub(super) const SYNC: Spec = Spec {
     flags: &[
         value("--client").needs("an id"),
         switch("--dry-run"),

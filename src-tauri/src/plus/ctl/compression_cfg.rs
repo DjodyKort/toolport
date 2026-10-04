@@ -30,7 +30,7 @@ impl From<CmdError> for CtlError {
     }
 }
 
-const ENABLE: Spec = spec(&[
+pub(super) const ENABLE: Spec = spec(&[
     value("--provider"),
     value("--port"),
     value("--telemetry"),
@@ -38,16 +38,16 @@ const ENABLE: Spec = spec(&[
     value("--mode"),
     switch("--dry-run"),
 ]);
-const DISABLE: Spec = spec(&[switch("--teardown"), switch("--dry-run")]);
-const DRY: Spec = spec(&[switch("--dry-run")]);
-const SYNC: Spec = spec(&[value("--mcpm-root"), switch("--dry-run")]);
-const PIN: Spec = spec(&[
+pub(super) const DISABLE: Spec = spec(&[switch("--teardown"), switch("--dry-run")]);
+pub(super) const DRY: Spec = spec(&[switch("--dry-run")]);
+pub(super) const SYNC: Spec = spec(&[value("--mcpm-root"), switch("--dry-run")]);
+pub(super) const PIN: Spec = spec(&[
     switch("--install"),
     switch("--refresh"),
     switch("--dry-run"),
 ]);
-const SEAL: Spec = spec(&[switch("--apply"), switch("--dry-run")]);
-const ENV: Spec = spec(&[value("--cwd")]);
+pub(super) const SEAL: Spec = spec(&[switch("--apply"), switch("--dry-run")]);
+pub(super) const ENV: Spec = spec(&[value("--cwd")]);
 pub(super) const PRESETS: Spec = spec(&[switch("--refresh"), switch("--dry-run")]);
 
 pub fn group(_rest: &[String]) -> Result<Output, CtlError> {

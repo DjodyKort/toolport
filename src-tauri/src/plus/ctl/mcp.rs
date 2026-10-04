@@ -22,7 +22,7 @@ pub fn run(rest: &[String]) -> Result<Output, CtlError> {
     }
 }
 
-const INSTALL: Spec = Spec {
+pub(super) const INSTALL: Spec = Spec {
     flags: &[value("--profile").needs("a profile id")],
     ..Spec::NONE
 };

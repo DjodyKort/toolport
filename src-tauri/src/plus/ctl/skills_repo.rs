@@ -25,8 +25,8 @@ pub(super) const fn spec(flags: &'static [Flag], usage: &'static str) -> Spec {
     }
 }
 
-const INIT: Spec = spec(&[PATH, value("--name"), switch("--dry-run")], INIT_USAGE);
-const ADD: Spec = spec(
+pub(super) const INIT: Spec = spec(&[PATH, value("--name"), switch("--dry-run")], INIT_USAGE);
+pub(super) const ADD: Spec = spec(
     &[
         PATH,
         value("--type"),
@@ -35,12 +35,12 @@ const ADD: Spec = spec(
     ],
     ADD_USAGE,
 );
-const AUDIT: Spec = spec(&[PATH], AUDIT_USAGE);
-const BUNDLE: Spec = spec(
+pub(super) const AUDIT: Spec = spec(&[PATH], AUDIT_USAGE);
+pub(super) const BUNDLE: Spec = spec(
     &[PATH, value("--output"), value("--skills"), switch("--dry-run")],
     BUNDLE_USAGE,
 );
-const UNBUNDLE: Spec = spec(&[PATH, switch("--dry-run")], UNBUNDLE_USAGE);
+pub(super) const UNBUNDLE: Spec = spec(&[PATH, switch("--dry-run")], UNBUNDLE_USAGE);
 
 pub(super) fn no_operands(flags: &Flags, usage: &str) -> Result<(), CtlError> {
     match flags.operands().first() {

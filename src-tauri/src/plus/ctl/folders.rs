@@ -5,7 +5,7 @@ use super::output::{CtlError, Output};
 use crate::plus::dispatch;
 use serde_json::{json, Value};
 
-const FOLDERS: Spec = Spec {
+pub(super) const FOLDERS: Spec = Spec {
     flags: &[switch("--enable"), switch("--disable"), value("--cwd")],
     inline: Inline::Value,
     unknown: Unknown::Argument,

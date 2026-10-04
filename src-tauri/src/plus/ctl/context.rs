@@ -5,7 +5,7 @@ use super::output::{CtlError, Output};
 use crate::plus::context::{compact, load_config, loads, Roots};
 use std::path::PathBuf;
 
-const LOADS: Spec = Spec {
+pub(super) const LOADS: Spec = Spec {
     flags: &[value("--profile"), value("--cwd")],
     inline: Inline::Value,
     unknown: Unknown::ArgumentKey,
@@ -59,7 +59,7 @@ pub fn loads(rest: &[String]) -> Result<Output, CtlError> {
     Ok(Output::new(data, human))
 }
 
-const STATUS: Spec = Spec {
+pub(super) const STATUS: Spec = Spec {
     flags: &[
         value("--profile"),
         value("--window").count("requires a token count"),
@@ -118,14 +118,14 @@ pub fn checkpoint_status(rest: &[String]) -> Result<Output, CtlError> {
 
 const GROUP_USAGE: &str = "usage: context init|status|client|profile|disable|loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--dry-run])";
 
-const DEPLOY: Spec = Spec {
+pub(super) const DEPLOY: Spec = Spec {
     flags: &[value("--home"), switch("--rules"), switch("--no-persist")],
     inline: Inline::Value,
     unknown: Unknown::Argument,
     operands: Operands::Reject,
     ..Spec::PLAIN
 };
-const DEPLOY_DRY: Spec = Spec {
+pub(super) const DEPLOY_DRY: Spec = Spec {
     flags: &[
         value("--home"),
         switch("--rules"),

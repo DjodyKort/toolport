@@ -69,6 +69,26 @@ impl Flag {
     fn matches(&self, key: &str) -> bool {
         self.name == key || self.aliases.contains(&key)
     }
+
+    pub(super) const fn name(&self) -> &'static str {
+        self.name
+    }
+
+    pub(super) const fn aliases(&self) -> &'static [&'static str] {
+        self.aliases
+    }
+
+    pub(super) const fn takes_value(&self) -> bool {
+        !matches!(self.kind, Kind::Switch)
+    }
+
+    pub(super) const fn is_greedy(&self) -> bool {
+        matches!(self.kind, Kind::Greedy)
+    }
+
+    pub(super) const fn is_whole_number(&self) -> bool {
+        self.count.is_some()
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -134,6 +154,15 @@ impl Spec {
         operands: Operands::Collect,
         dashes: Dashes::NotBare,
     };
+
+    /// How many operands the parser accepts: `None` is unlimited.
+    pub(super) const fn operand_limit(&self) -> Option<usize> {
+        match self.operands {
+            Operands::Collect => None,
+            Operands::Reject => Some(0),
+            Operands::Max(max, _) => Some(max),
+        }
+    }
 
     fn unknown(&self, arg: &str, key: &str) -> CtlError {
         CtlError::usage(match self.unknown {

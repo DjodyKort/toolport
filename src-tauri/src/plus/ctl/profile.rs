@@ -18,9 +18,9 @@ pub const GROUP_USAGE: &str = "usage: profile ls|create|edit|rm|inspect (ls: [--
      [--set-servers <a,b>] [--add-server <a,b>] [--remove-server <a,b>] [--force] [--dry-run]; \
      rm: <profile> [--no-clients] [--force|-f] [--dry-run]; inspect: [<profile>])";
 
-const LS: Spec = spec(&[switch("--verbose").alias(&["-v"])], LS_USAGE);
-const CREATE: Spec = spec(&[switch("--force"), switch("--dry-run")], CREATE_USAGE);
-const EDIT: Spec = spec(
+pub(super) const LS: Spec = spec(&[switch("--verbose").alias(&["-v"])], LS_USAGE);
+pub(super) const CREATE: Spec = spec(&[switch("--force"), switch("--dry-run")], CREATE_USAGE);
+pub(super) const EDIT: Spec = spec(
     &[
         value("--name"),
         value("--servers"),
@@ -32,7 +32,7 @@ const EDIT: Spec = spec(
     ],
     EDIT_USAGE,
 );
-const RM: Spec = spec(
+pub(super) const RM: Spec = spec(
     &[
         switch("--force").alias(&["-f"]),
         switch("--no-clients"),

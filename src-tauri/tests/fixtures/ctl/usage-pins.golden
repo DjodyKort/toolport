@@ -8,6 +8,7 @@ Usage: toolportctl [--json] [--data-dir <dir>] <command> [args]
 Commands:
   status         Show registry, profile, secrets backend and gateway state
   doctor         Run read-only health checks
+  commands       List all commands with tier, dry-run support and flags (the registry)
   server ls      List servers and whether the active profile enables them
   server search  Search the catalog (--offline, --limit <n>)
   server install Install a catalog server by name
@@ -151,6 +152,7 @@ Usage: toolportctl [--json] [--data-dir <dir>] <command> [args]
 Commands:
   status         Show registry, profile, secrets backend and gateway state
   doctor         Run read-only health checks
+  commands       List all commands with tier, dry-run support and flags (the registry)
   server ls      List servers and whether the active profile enables them
   server search  Search the catalog (--offline, --limit <n>)
   server install Install a catalog server by name
@@ -294,6 +296,7 @@ Usage: toolportctl [--json] [--data-dir <dir>] <command> [args]
 Commands:
   status         Show registry, profile, secrets backend and gateway state
   doctor         Run read-only health checks
+  commands       List all commands with tier, dry-run support and flags (the registry)
   server ls      List servers and whether the active profile enables them
   server search  Search the catalog (--offline, --limit <n>)
   server install Install a catalog server by name
@@ -437,6 +440,7 @@ Usage: toolportctl [--json] [--data-dir <dir>] <command> [args]
 Commands:
   status         Show registry, profile, secrets backend and gateway state
   doctor         Run read-only health checks
+  commands       List all commands with tier, dry-run support and flags (the registry)
   server ls      List servers and whether the active profile enables them
   server search  Search the catalog (--offline, --limit <n>)
   server install Install a catalog server by name

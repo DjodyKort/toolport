@@ -8,6 +8,7 @@ mod client;
 mod client_direct;
 mod client_edit;
 mod commands;
+mod commands_json;
 pub(crate) mod compression;
 mod compression_cfg;
 mod council;
@@ -23,6 +24,7 @@ mod folders;
 mod mcp;
 mod obs;
 mod output;
+mod policy;
 mod profile;
 mod secret;
 mod server;
@@ -31,7 +33,9 @@ mod sync;
 mod update;
 mod usage;
 
+pub use commands_json::registry;
 pub use output::ErrorKind;
+pub use policy::{terminal_only, Needs, Preview, Surface, Tier, ToolPreview};
 use output::{CtlError, Envelope, Output};
 
 pub const SCHEMA_VERSION: u32 = 1;
@@ -100,6 +104,12 @@ pub const COMMANDS: &[Command] = &[
     )
     .no_options(),
     cmd(&["doctor"], "Run read-only health checks", commands::doctor).no_options(),
+    cmd(
+        &["commands"],
+        "List all commands with tier, dry-run support and flags (the registry)",
+        commands_json::run,
+    )
+    .no_options(),
     cmd(
         &["server", "ls"],
         "List servers and whether the active profile enables them",
@@ -794,6 +804,8 @@ fn emit(
 
 #[cfg(test)]
 mod auth_tests;
+#[cfg(test)]
+mod policy_tests;
 #[cfg(test)]
 mod agents_golden_tests;
 #[cfg(test)]

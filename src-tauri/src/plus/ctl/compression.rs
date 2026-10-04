@@ -153,6 +153,10 @@ fn parse_run(rest: &[String]) -> Result<RunArgs, CtlError> {
     Ok(out)
 }
 
+pub(super) fn is_plan_only(rest: &[String]) -> bool {
+    parse_run(rest).is_ok_and(|args| args.plan_only)
+}
+
 /// The system launcher plus the append-only launch record `verify` attributes sessions with.
 struct LoggedOps {
     inner: SystemOps,
@@ -232,21 +236,21 @@ pub(super) const fn spec(flags: &'static [Flag]) -> Spec {
     }
 }
 
-const VERIFY: Spec = spec(&[
+pub(super) const VERIFY: Spec = spec(&[
     switch("--by-pin"),
     value("--limit"),
     value("--min-turns"),
     value("--transcripts"),
 ]);
-const LEDGER_RECORD: Spec = spec(&[
+pub(super) const LEDGER_RECORD: Spec = spec(&[
     value("--provider"),
     value("--before"),
     value("--after"),
     value("--source"),
     value("--session"),
 ]);
-const LEDGER_SUMMARY: Spec = spec(&[value("--provider"), value("--since")]);
-const UPDATE: Spec = spec(&[switch("--latest"), switch("--accept"), value("--to")]);
+pub(super) const LEDGER_SUMMARY: Spec = spec(&[value("--provider"), value("--since")]);
+pub(super) const UPDATE: Spec = spec(&[switch("--latest"), switch("--accept"), value("--to")]);
 
 fn pct(value: Option<f64>) -> String {
     value.map_or("-".into(), |v| format!("{:.1}%", v * 100.0))

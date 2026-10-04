@@ -33,6 +33,7 @@ Global flag `--json` prints one envelope (`schemaVersion`, `command`, `data`). E
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | `status`                                                                | Registry, profile, secrets backend and gateway state               |
 | `doctor`                                                                | Read-only health checks                                            |
+| `commands`                                                              | The command registry: tier, dry-run, flags (`commands --json`)     |
 | `server ls / search / install / uninstall / info / new / edit`          | Catalog and registry server management                             |
 | `inspect`, `profile inspect`                                            | List tools of a server or of a whole profile (connects live)       |
 | `profile ls / create / edit / rm`                                       | List, create, edit and remove profiles; `rm` cleans clients        |
@@ -57,6 +58,26 @@ Global flag `--json` prints one envelope (`schemaVersion`, `command`, `data`). E
 | `update`                                                                | Server updates (`--check`, `--apply`, `--init`, `--dry-run`)       |
 | `usage`                                                                 | Token and MCP usage from Claude Code transcripts                   |
 | `obs otel enable / disable / status`                                    | Loopback OTLP receiver and Claude Code telemetry env in settings   |
+
+### Command registry and policy
+
+`toolportctl commands --json` prints the registry the GUI is built from (D-058, D-059). `data.commands` has one row per `COMMANDS` path and per sub-command of the rows that dispatch further (`sync`, `council`, `mcp`, `cc`, `compression proxy`, `compression ledger`); `data.tools` has one row per self-management tool. Rows that are only a prefix of other rows are `kind: "group"` and carry no policy. A `kind: "command"` row has:
+
+| Field                     | Meaning                                                                                                                                                                                          |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`, `path`, `parent`    | Space-joined path (`sync push`), its words, and the dispatching row for a sub-command                                                                                                            |
+| `tier`                    | Highest tier the command can reach: `read` changes nothing, `write` changes files, `destructive` deletes or overwrites                                                                           |
+| `baseTier`                | Tier of the bare invocation; lower than `tier` when flags in `escalators` (`--select`, `--apply`, ...) turn a read into a write                                                                  |
+| `dryRun`, `preview`       | Whether the command can preview; `preview.mode` is `flag` (`--dry-run` or `--plan` previews), `unless-applied` (previews until the apply flag is given) or `none`                                |
+| `needs`                   | `stdin` (a secret goes over the pipe), `browser`, `long-running`, `network`, `terminal-only`                                                                                                     |
+| `cost`                    | Calls a paid or rate-limited service                                                                                                                                                             |
+| `surface`                 | `screen` or `terminal` (D-062): `direct run` and `compression run` replace themselves with another process and never run through the app                                                         |
+| `operands`, `maxOperands` | Positional arguments in order, with `required` and `variadic`; `maxOperands` is null when unlimited                                                                                              |
+| `flags`                   | Per flag: `name`, `aliases`, `valueType` (`bool`, `string`, `integer`, `path`, `list`, `paths`, `choice` with `choices`), `required`, `repeatable`, `escalates`, `hidden`, `sensitive`, `effect` |
+| `oneOf`                   | Groups of flags of which at least one is needed                                                                                                                                                  |
+| `tools`                   | Self-management tools that run the same core                                                                                                                                                     |
+
+The policy is data in `ctl/policy.rs`; flag types and effect text are in `ctl/commands_json.rs`. A tool row says `tier` (self-MCP tiers 1 to 3 read or write, 4 destructive), `toolTier`, `dryRun` (`none`, `param`, `default-on`: D-048) and the `command` it maps to. Tests (`plus::ctl::policy_tests`, `tests/gui_parity.rs`) fail on a command without a policy row, a row without a command, a flag the parser does not know, a flag without a type, a preview flag the parser rejects, and a tool whose tier or dry-run default differs from its row or from the command it maps to. The bridge refuses a terminal-only argv (`ctl::terminal_only`).
 
 ## OTel receiver
 
