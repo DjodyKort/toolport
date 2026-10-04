@@ -56,6 +56,12 @@ const PAGES = [
   "tokens-ledger-empty-light",
   "tokens-ledger-light",
   "tokens-disable-light",
+  "context-light",
+  "context-dark",
+  "context-plan-light",
+  "context-remove-light",
+  "context-move-light",
+  "context-loads-light",
 ];
 const SIZE = [1280, 800];
 

@@ -185,6 +185,102 @@ async function tokensScreen(shot, theme) {
   expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
 }
 
+// The Context screen on the fixture home: the Launch & shell tab with its deploy plan, launch
+// profiles, shell shims, layers, what loads, folder routing and the checkpoint gauge, and the
+// dialogs that guard a write (the plan, the typed confirmation, the shell move).
+async function contextScreen(shot, theme) {
+  const snap = (name) => guiShot(shot, name, { animations: "disabled" });
+  const nav = shot.getByRole("navigation", { name: "Views" });
+  await nav.getByRole("button", { name: "Context", exact: true }).click();
+  const tabs = shot.getByRole("tablist", { name: "Context sections" });
+  await expect(tabs.getByRole("tab", { name: "Launch & shell" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  const section = (name) => shot.getByRole("region", { name });
+  const profiles = shot.getByRole("list", { name: "Launch profiles" });
+  await expect(profiles.getByText("claude-bare")).toBeVisible();
+  await expect(section("Shell shims").getByText("Written")).toBeVisible();
+  await expect(
+    section("Shell shims").getByText(/still reads 1 line from the old folder/),
+  ).toBeVisible();
+  await expect(shot.getByRole("list", { name: "Tokens per layer" })).toBeVisible();
+  await expect(shot.getByRole("list", { name: "Profile per folder" })).toBeVisible();
+  await tabs.scrollIntoViewIfNeeded();
+  await shot.evaluate(() => document.fonts.ready);
+  await snap(`context-${theme}`);
+  if (theme === "light") {
+    const dialog = shot.getByRole("dialog");
+    const cancel = async () => {
+      await dialog.getByRole("button", { name: "Cancel" }).click();
+      await expect(dialog).toHaveCount(0);
+    };
+    const deploy = section("Deploy");
+    await deploy.getByRole("checkbox", { name: /Point the shell at Toolport/ }).check();
+    await expect(deploy.getByText(/Line 3 of the shell rc file/)).toBeVisible();
+    await deploy.getByRole("button", { name: "Sync…" }).click();
+    const plan = shot.getByRole("dialog", { name: "Sync the context files?" });
+    await expect(plan.getByRole("list", { name: "Changes" })).toBeVisible();
+    await expect(plan.getByText(/sourced before shell-wrapper\.sh/)).toBeVisible();
+    await shot.evaluate(() => document.fonts.ready);
+    await snap("context-plan-light");
+    await cancel();
+
+    await profiles.getByRole("button", { name: "Remove bare" }).click();
+    await dialog.getByRole("checkbox", { name: /Also delete its folder/ }).check();
+    await dialog.getByRole("button", { name: "Preview", exact: true }).click();
+    const remove = shot.getByRole("dialog", { name: "Remove launch profile bare?" });
+    await expect(remove.getByText("Launch profile folder")).toBeVisible();
+    await expect(remove.getByRole("button", { name: "Remove profile" })).toBeDisabled();
+    await remove.getByRole("textbox").fill("bar");
+    await shot.evaluate(() => document.fonts.ready);
+    await snap("context-remove-light");
+    await cancel();
+
+    const shims = section("Shell shims");
+    await shims.scrollIntoViewIfNeeded();
+    await shims.getByRole("button", { name: "Move…" }).click();
+    const move = shot.getByRole("dialog", { name: /Move the shell lines/ });
+    await expect(move.getByText(/Line 3 of the shell rc file/)).toBeVisible();
+    await expect(move.getByText(/sourced before shell-wrapper\.sh/)).toBeVisible();
+    await move.getByText("Show the change").click();
+    await expect(
+      move.getByText(/source ~\/\.config\/mcpm\/context-shims\.zsh/),
+    ).toBeVisible();
+    await shot.evaluate(() => document.fonts.ready);
+    await snap("context-move-light");
+    await move.getByRole("button", { name: "Rewrite the shell file" }).click();
+    await expect(shot.getByText("Deployed", { exact: true })).toBeVisible();
+    await dialog.getByRole("button", { name: "Close", exact: true }).last().click();
+    await expect(dialog).toHaveCount(0);
+    await expect(shims.getByText(/still reads/)).toHaveCount(0);
+
+    const loads = section("What loads");
+    await loads.scrollIntoViewIfNeeded();
+    await expect(loads.getByText(/10,601/)).toBeVisible();
+    await expect(loads.getByText(/5,666 more load on demand/)).toBeVisible();
+    await shot.evaluate(() => document.fonts.ready);
+    await snap("context-loads-light");
+    await loads.getByLabel("Launch profile").selectOption("bare");
+    await expect(loads.getByText(/with the profile bare/)).toBeVisible();
+
+    const folders = section("Folder routing");
+    await folders.getByRole("button", { name: "Turn on…" }).click();
+    await expect(dialog.getByText(/no preview/)).toBeVisible();
+    await dialog.getByRole("button", { name: "Turn on", exact: true }).click();
+    await expect(shot.getByText("Folder routing is on")).toBeVisible();
+    await dialog.getByRole("button", { name: "Close", exact: true }).last().click();
+    await expect(dialog).toHaveCount(0);
+    await expect(folders.getByText("On", { exact: true })).toBeVisible();
+
+    const checkpoint = section("Checkpoint");
+    await checkpoint.getByLabel("Statusline JSON").fill('{"context_window":{}}');
+    await checkpoint.getByLabel(/Checkpoint at/).fill("50000");
+    await checkpoint.getByRole("button", { name: "Check" }).click();
+    await expect(checkpoint.getByRole("meter", { name: "Context used" })).toBeVisible();
+  }
+}
+
 let browser;
 let context;
 let page;
@@ -511,6 +607,18 @@ try {
     await expect(shot.getByRole("table")).toBeVisible();
     await shot.evaluate(() => document.fonts.ready);
     await guiShot(shot, `styles-${theme}`);
+    expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
+    await shot.close();
+  }
+  for (const theme of ["light", "dark"]) {
+    const shot = await context.newPage();
+    await shot.addInitScript((choice) => {
+      localStorage.setItem("toolport-theme", choice);
+    }, theme);
+    await shot.setViewportSize({ width: 1280, height: 800 });
+    await watch(shot);
+    await shot.goto(`${baseURL}/fixtures/`);
+    await contextScreen(shot, theme);
     expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
     await shot.close();
   }
