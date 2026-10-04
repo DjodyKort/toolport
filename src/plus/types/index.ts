@@ -10,6 +10,7 @@ import { importShapes } from "./import";
 import { inspectShapes } from "./inspect";
 import { mcpShapes } from "./mcp";
 import { obsShapes } from "./obs";
+import { pluginsShapes } from "./plugins";
 import { profileShapes } from "./profile";
 import { secretShapes } from "./secret";
 import { serverShapes } from "./server";
@@ -29,6 +30,7 @@ export * from "./import";
 export * from "./inspect";
 export * from "./mcp";
 export * from "./obs";
+export * from "./plugins";
 export * from "./profile";
 export * from "./secret";
 export * from "./server";
@@ -41,6 +43,7 @@ export * from "./selfmcp-clients";
 export * from "./selfmcp-compression";
 export * from "./selfmcp-context";
 export * from "./selfmcp-core";
+export * from "./selfmcp-plugins";
 export * from "./selfmcp-servers";
 export * from "./selfmcp-skills";
 export * from "./selfmcp-sources";
@@ -62,6 +65,7 @@ export const ctlTypeShapes: Record<string, Shape<unknown>> = {
   ...inspectShapes,
   ...mcpShapes,
   ...obsShapes,
+  ...pluginsShapes,
   ...profileShapes,
   ...secretShapes,
   ...serverShapes,
