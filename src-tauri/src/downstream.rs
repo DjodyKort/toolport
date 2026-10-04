@@ -5523,6 +5523,14 @@ impl Drop for HttpTransport {
     }
 }
 
+fn instructions_of(handshake: &Value) -> Option<String> {
+    handshake
+        .get("instructions")
+        .and_then(Value::as_str)
+        .filter(|text| !text.trim().is_empty())
+        .map(str::to_string)
+}
+
 /// One connected downstream server: its id, its transport, and its cached
 /// tools, resources, resource templates, and prompts.
 pub struct DownstreamServer {
@@ -5572,6 +5580,12 @@ pub struct DownstreamServer {
     /// `input_required` results use it as a compatibility shim when the upstream
     /// client predates MRTR.
     server_handler: Option<ServerRequestHandler>,
+    /// The `instructions` the server returned from its handshake, if any.
+    instructions: Option<String>,
+    /// The client capabilities this connection declared in `initialize`. `None`
+    /// when the server was not set to declare any (the historical empty
+    /// declaration); `Some` records what was declared, relayable keys only.
+    declared_client_capabilities: Option<Value>,
 }
 
 /// The compatibility shim holds the originating legacy request open, so keep a
@@ -5586,7 +5600,19 @@ impl DownstreamServer {
     /// so the health probe (which connects to every server in one batch) stays
     /// tools-only and fast and can't stall on a slow or hanging resources/prompts
     /// endpoint. The gateway calls `load_resources_prompts` to populate them.
-    pub fn connect(id: String, mut transport: Box<dyn Transport>) -> Result<Self, String> {
+    pub fn connect(id: String, transport: Box<dyn Transport>) -> Result<Self, String> {
+        Self::connect_declaring(id, transport, None)
+    }
+
+    /// [`Self::connect`] for a server set to receive the client's capabilities:
+    /// `client_capabilities` is what its legacy `initialize` declares instead of
+    /// the empty object. A modern server is unaffected; it gets the capabilities
+    /// of the request that reaches it.
+    pub fn connect_declaring(
+        id: String,
+        mut transport: Box<dyn Transport>,
+        client_capabilities: Option<Value>,
+    ) -> Result<Self, String> {
         // Fail the handshake fast so one unresponsive server can't stall the whole
         // batch probe / router rebuild for the full live-call timeout. The transport
         // picks the budget: download-then-run launchers (npx, uvx, ...) get a long
@@ -5611,12 +5637,12 @@ impl DownstreamServer {
             "initialize",
             json!({
                 "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {},
+                "capabilities": client_capabilities.clone().unwrap_or_else(|| json!({})),
                 "clientInfo": { "name": "toolport-gateway", "version": env!("CARGO_PKG_VERSION") }
             }),
         );
         transport.initialize_complete();
-        let (era, caps) = match initialize_result {
+        let (era, caps, instructions) = match initialize_result {
             Ok(init) => {
                 let version = init
                     .get("protocolVersion")
@@ -5624,10 +5650,11 @@ impl DownstreamServer {
                     .unwrap_or(PROTOCOL_VERSION)
                     .to_string();
                 let caps = init.get("capabilities").cloned();
+                let instructions = instructions_of(&init);
                 transport
                     .notify("notifications/initialized", json!({}))
                     .map_err(|e| e.to_string())?;
-                (Era::Legacy { version }, caps)
+                (Era::Legacy { version }, caps, instructions)
             }
             // A dead or unresponsive server is not a modern server. Probing it
             // again would just double the wait before reporting the same failure.
@@ -5724,7 +5751,8 @@ impl DownstreamServer {
                     &version,
                     capabilities.as_ref(),
                 )));
-                (Era::Modern { version }, capabilities)
+                let instructions = instructions_of(&discovered);
+                (Era::Modern { version }, capabilities, instructions)
             }
         };
         let caps = caps.as_ref();
@@ -5827,7 +5855,26 @@ impl DownstreamServer {
             modern_resource_subscriptions: std::collections::HashSet::new(),
             call_timeout: STDIO_READ_TIMEOUT,
             server_handler: None,
+            instructions,
+            declared_client_capabilities: client_capabilities,
         })
+    }
+
+    /// The server's own `instructions` from its handshake, as it sent them.
+    pub fn instructions(&self) -> Option<&str> {
+        self.instructions.as_deref()
+    }
+
+    /// Run the server's `instructions` through `redact` once, so text a server
+    /// echoes from its own secrets never reaches another surface.
+    pub fn redact_instructions(&mut self, redact: impl FnOnce(String) -> String) {
+        self.instructions = self.instructions.take().map(redact);
+    }
+
+    /// The client capabilities declared to this server in `initialize`, or `None`
+    /// when it was connected without the opt-in.
+    pub fn declared_client_capabilities(&self) -> Option<&Value> {
+        self.declared_client_capabilities.as_ref()
     }
 
     /// Widen the live-call read deadline for this server (per-server
@@ -6788,6 +6835,104 @@ mod tests {
         }
     }
 
+    struct HandshakeTransport {
+        initialize: Result<Value, TransportError>,
+        discover: Option<Value>,
+        initializes: Arc<Mutex<Vec<Value>>>,
+    }
+
+    impl HandshakeTransport {
+        fn legacy(instructions: Option<&str>) -> (Self, Arc<Mutex<Vec<Value>>>) {
+            let seen = Arc::new(Mutex::new(Vec::new()));
+            let mut result =
+                json!({ "protocolVersion": super::PROTOCOL_VERSION, "capabilities": {} });
+            if let Some(text) = instructions {
+                result["instructions"] = json!(text);
+            }
+            let transport = Self {
+                initialize: Ok(result),
+                discover: None,
+                initializes: Arc::clone(&seen),
+            };
+            (transport, seen)
+        }
+    }
+
+    impl Transport for HandshakeTransport {
+        fn request(&mut self, method: &str, params: Value) -> Result<Value, TransportError> {
+            match method {
+                "initialize" => {
+                    self.initializes.lock().unwrap().push(params);
+                    self.initialize.clone()
+                }
+                "server/discover" => self
+                    .discover
+                    .clone()
+                    .ok_or_else(|| TransportError::Fatal("no discover".into())),
+                "tools/list" => Ok(json!({ "tools": [] })),
+                other => Err(TransportError::Fatal(format!("unexpected method {other}"))),
+            }
+        }
+
+        fn notify(&mut self, _method: &str, _params: Value) -> Result<(), TransportError> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_legacy_initialize_declares_no_capabilities_unless_the_caller_passes_some() {
+        let (transport, seen) = HandshakeTransport::legacy(None);
+        let server = DownstreamServer::connect("fixture".into(), Box::new(transport)).unwrap();
+        assert_eq!(seen.lock().unwrap()[0]["capabilities"], json!({}));
+        assert_eq!(server.declared_client_capabilities(), None);
+
+        let declared = json!({ "elicitation": {}, "roots": { "listChanged": true } });
+        let (transport, seen) = HandshakeTransport::legacy(None);
+        let server = DownstreamServer::connect_declaring(
+            "fixture".into(),
+            Box::new(transport),
+            Some(declared.clone()),
+        )
+        .unwrap();
+        assert_eq!(seen.lock().unwrap()[0]["capabilities"], declared);
+        assert_eq!(
+            seen.lock().unwrap()[0]["clientInfo"]["name"],
+            "toolport-gateway"
+        );
+        assert_eq!(server.declared_client_capabilities(), Some(&declared));
+    }
+
+    #[test]
+    fn the_servers_instructions_are_kept_from_either_era_and_blank_ones_are_not() {
+        let (transport, _) = HandshakeTransport::legacy(Some("FAKE-legacy text"));
+        let server = DownstreamServer::connect("fixture".into(), Box::new(transport)).unwrap();
+        assert_eq!(server.instructions(), Some("FAKE-legacy text"));
+
+        let (transport, _) = HandshakeTransport::legacy(Some("  \n"));
+        let server = DownstreamServer::connect("fixture".into(), Box::new(transport)).unwrap();
+        assert_eq!(server.instructions(), None);
+
+        let (mut transport, _) = HandshakeTransport::legacy(None);
+        transport.initialize = Err(TransportError::Rpc(
+            json!({ "code": -32601, "message": "method not found" }),
+        ));
+        transport.discover = Some(json!({
+            "supportedVersions": [MODERN_PROTOCOL_VERSION],
+            "capabilities": {},
+            "instructions": "FAKE-modern text"
+        }));
+        let server = DownstreamServer::connect("fixture".into(), Box::new(transport)).unwrap();
+        assert_eq!(server.instructions(), Some("FAKE-modern text"));
+    }
+
+    #[test]
+    fn instructions_can_be_redacted_once() {
+        let (transport, _) = HandshakeTransport::legacy(Some("key FAKE-secret-value here"));
+        let mut server = DownstreamServer::connect("fixture".into(), Box::new(transport)).unwrap();
+        server.redact_instructions(|text| text.replace("FAKE-secret-value", "<redacted>"));
+        assert_eq!(server.instructions(), Some("key <redacted> here"));
+    }
+
     #[test]
     fn paginated_list_collects_every_page_and_treats_empty_cursor_as_opaque() {
         let mut transport = PaginationTransport::new(vec![
@@ -7096,6 +7241,8 @@ mod tests {
             modern_resource_subscriptions: std::collections::HashSet::new(),
             call_timeout: super::STDIO_READ_TIMEOUT,
             server_handler: None,
+            instructions: None,
+            declared_client_capabilities: None,
         };
         server.refresh_tools();
         assert_eq!(server.tools, vec![json!({"name":"stable"})]);
@@ -7132,6 +7279,8 @@ mod tests {
             modern_resource_subscriptions: std::collections::HashSet::new(),
             call_timeout: super::STDIO_READ_TIMEOUT,
             server_handler: None,
+            instructions: None,
+            declared_client_capabilities: None,
         };
         server.refresh_tools();
         assert_eq!(
@@ -7174,6 +7323,8 @@ mod tests {
             modern_resource_subscriptions: std::collections::HashSet::new(),
             call_timeout: super::STDIO_READ_TIMEOUT,
             server_handler: None,
+            instructions: None,
+            declared_client_capabilities: None,
         };
         server.refresh_tools();
         assert_eq!(server.tools, vec![json!({"name":"stable"})]);
@@ -7216,6 +7367,8 @@ mod tests {
             modern_resource_subscriptions: std::collections::HashSet::new(),
             call_timeout: super::STDIO_READ_TIMEOUT,
             server_handler: None,
+            instructions: None,
+            declared_client_capabilities: None,
         };
         server.refresh_tools();
         assert!(server.tools.is_empty());
@@ -7255,6 +7408,8 @@ mod tests {
             modern_resource_subscriptions: std::collections::HashSet::new(),
             call_timeout: super::STDIO_READ_TIMEOUT,
             server_handler: None,
+            instructions: None,
+            declared_client_capabilities: None,
         };
         server.refresh_resources();
         server.refresh_prompts();
@@ -7303,6 +7458,8 @@ mod tests {
             modern_resource_subscriptions: std::collections::HashSet::new(),
             call_timeout: super::STDIO_READ_TIMEOUT,
             server_handler: None,
+            instructions: None,
+            declared_client_capabilities: None,
         };
         server.refresh_resources();
         assert_eq!(server.resources, vec![json!({"uri":"r:"})]);

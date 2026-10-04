@@ -150,19 +150,32 @@ impl Client {
     }
 
     fn start_at(dir: &Path, registry_file: &Path) -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_toolport-gateway"))
+        let mut command = Command::new(env!("CARGO_BIN_EXE_toolport-gateway"));
+        command
             .arg("--stdio-adapter")
+            .env_remove("TOOLPORT_GATEWAY_TOPOLOGY");
+        Self::spawn(command, dir, registry_file)
+    }
+
+    /// The in-process stdio gateway (`legacy` topology): one client, one router, no daemon.
+    fn start_standalone(dir: &Path) -> Self {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_toolport-gateway"));
+        command.env("TOOLPORT_GATEWAY_TOPOLOGY", "legacy");
+        Self::spawn(command, dir, &dir.join("registry.json"))
+    }
+
+    fn spawn(mut command: Command, dir: &Path, registry_file: &Path) -> Self {
+        let mut child = command
             .env("TOOLPORT_DATA_DIR", dir)
             .env("TOOLPORT_REGISTRY", registry_file)
             .env_remove("TOOLPORT_PROFILE")
             .env_remove("TOOLPORT_CLIENT_ID")
-            .env_remove("TOOLPORT_GATEWAY_TOPOLOGY")
             .env_remove("CONDUIT_GATEWAY_TOPOLOGY")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
-            .expect("spawn the adapter");
+            .expect("spawn the gateway");
         let stdin = Arc::new(Mutex::new(Some(child.stdin.take().expect("adapter stdin"))));
         let stdout = child.stdout.take().expect("adapter stdout");
         let (sender, responses) = mpsc::channel();
@@ -271,6 +284,24 @@ impl Client {
                 return tool;
             }
             assert!(Instant::now() < deadline, "the gateway never listed {name}");
+            std::thread::sleep(Duration::from_millis(100));
+        }
+    }
+
+    fn wait_for_tool_modern(&mut self, name: &str) {
+        let deadline = Instant::now() + Duration::from_secs(60);
+        loop {
+            let list = self.request("tools/list", json!({"_meta": modern_meta(json!({}))}));
+            if list["result"]["tools"]
+                .as_array()
+                .is_some_and(|tools| tools.iter().any(|t| t["name"] == name))
+            {
+                return;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "the gateway never listed {name}: {list}"
+            );
             std::thread::sleep(Duration::from_millis(100));
         }
     }
@@ -1198,4 +1229,318 @@ fn initialize_timeout_ms_still_overrides_the_uv_run_launcher_budget() {
         "the 3 s setting cut the first initialize short and `uv run` is named a launcher: {log}"
     );
     assert!(!log.contains("connected 'odh'"), "{log}");
+}
+
+fn with_env(mut entry: ServerEntry, key: &str, value: &str) -> ServerEntry {
+    entry.env.push(EnvVar {
+        key: key.into(),
+        value: Some(value.into()),
+        secret: false,
+    });
+    entry
+}
+
+/// A server that asks for elicitation only when its `initialize` declared the capability.
+fn gating_entry(scratch: &Scratch) -> ServerEntry {
+    with_env(mock_entry(scratch), "MOCK_MCP_GATE_ELICITATION", "1")
+}
+
+fn downstream_initializes(scratch: &Scratch) -> Vec<Value> {
+    transcript(&scratch.transcript())
+        .into_iter()
+        .filter(|line| line["method"] == "initialize")
+        .collect()
+}
+
+fn last_declared(scratch: &Scratch) -> Value {
+    downstream_initializes(scratch)
+        .last()
+        .expect("the downstream saw an initialize")["params"]["capabilities"]
+        .clone()
+}
+
+fn full_client() -> Value {
+    json!({
+        "elicitation": {},
+        "roots": {"listChanged": true},
+        "sampling": {},
+        "experimental": {"x": {}},
+        "extensions": {"io.modelcontextprotocol/ui": {}}
+    })
+}
+
+fn declared_by_full_client() -> Value {
+    json!({"elicitation": {}, "roots": {"listChanged": true}, "sampling": {}})
+}
+
+#[test]
+fn with_declare_client_capabilities_the_downstream_initialize_carries_exactly_the_clients() {
+    let scratch = Scratch::new("declare-on");
+    let mut entry = gating_entry(&scratch);
+    entry.declare_client_capabilities = true;
+    write_registry(&scratch, entry, |_| {});
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", full_client());
+    client.wait_for_tool("odh__legacy_elicitation");
+
+    assert_eq!(
+        last_declared(&scratch),
+        declared_by_full_client(),
+        "roots, sampling and elicitation as the client declared them; experimental and extensions are not relayed"
+    );
+}
+
+#[test]
+fn with_declare_client_capabilities_a_server_that_gates_elicitation_asks_and_the_answer_comes_back()
+{
+    let scratch = Scratch::new("declare-roundtrip");
+    let mut entry = gating_entry(&scratch);
+    entry.declare_client_capabilities = true;
+    write_registry(&scratch, entry, |_| {});
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", json!({"elicitation": {}}));
+    client.wait_for_tool("odh__legacy_elicitation");
+    assert_eq!(last_declared(&scratch), json!({"elicitation": {}}));
+
+    let reply = client.call("odh__legacy_elicitation", json!({}), None);
+    assert_eq!(text_of(&reply), "legacy confirmed", "{reply}");
+    let asked = client.server_requests.lock().unwrap().clone();
+    assert_eq!(asked.len(), 1, "{asked:?}");
+    assert_eq!(asked[0]["method"], "elicitation/create");
+    assert!(
+        asked[0]["params"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Continue the legacy mock operation?"),
+        "{asked:?}"
+    );
+}
+
+#[test]
+fn with_the_opt_in_off_every_downstream_initialize_stays_empty_and_a_gating_server_never_asks() {
+    let scratch = Scratch::new("declare-off");
+    write_registry(&scratch, gating_entry(&scratch), |_| {});
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", full_client());
+    client.wait_for_tool("odh__legacy_elicitation");
+
+    let reply = client.call("odh__legacy_elicitation", json!({}), None);
+    assert_eq!(
+        text_of(&reply),
+        "elicitation unavailable: the client did not declare it",
+        "{reply}"
+    );
+    assert!(
+        client
+            .server_requests
+            .lock()
+            .unwrap()
+            .iter()
+            .all(|request| request["method"] != "elicitation/create"),
+        "the gateway's own roots/list is not the server's question"
+    );
+    let initializes = downstream_initializes(&scratch);
+    assert!(!initializes.is_empty());
+    for handshake in &initializes {
+        assert_eq!(
+            handshake["params"]["capabilities"],
+            json!({}),
+            "{handshake}"
+        );
+    }
+}
+
+#[test]
+fn with_declare_client_capabilities_a_client_that_declared_nothing_adds_nothing() {
+    let scratch = Scratch::new("declare-none");
+    let mut entry = gating_entry(&scratch);
+    entry.declare_client_capabilities = true;
+    write_registry(&scratch, entry, |_| {});
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", json!({}));
+    client.wait_for_tool("odh__legacy_elicitation");
+
+    let reply = client.call("odh__legacy_elicitation", json!({}), None);
+    assert_eq!(
+        text_of(&reply),
+        "elicitation unavailable: the client did not declare it",
+        "{reply}"
+    );
+    for handshake in downstream_initializes(&scratch) {
+        assert_eq!(
+            handshake["params"]["capabilities"],
+            json!({}),
+            "{handshake}"
+        );
+    }
+}
+
+#[test]
+fn the_declaration_is_what_the_clients_of_the_shared_gateway_declared_and_each_answers_for_itself()
+{
+    let scratch = Scratch::new("declare-union");
+    let mut entry = gating_entry(&scratch);
+    entry.declare_client_capabilities = true;
+    entry.request_timeout_ms = Some(1_500);
+    write_registry(&scratch, entry, |_| {});
+    let mut plain = Client::start(&scratch.0);
+    plain.initialize("2025-06-18", json!({}));
+    plain.wait_for_tool("odh__legacy_elicitation");
+    let mut capable = Client::start(&scratch.0);
+    capable.initialize("2025-06-18", json!({"elicitation": {}}));
+    capable.wait_for_tool("odh__legacy_elicitation");
+    assert_eq!(last_declared(&scratch), json!({"elicitation": {}}));
+
+    let reply = capable.call("odh__legacy_elicitation", json!({}), None);
+    assert_eq!(text_of(&reply), "legacy confirmed", "{reply}");
+    assert_eq!(capable.server_requests.lock().unwrap().len(), 1);
+
+    let refused = plain.call("odh__legacy_elicitation", json!({}), None);
+    assert!(
+        plain.server_requests.lock().unwrap().is_empty(),
+        "nothing is forwarded to the client that cannot answer"
+    );
+    assert_eq!(refused["result"]["isError"], true, "{refused}");
+}
+
+#[test]
+fn the_in_process_stdio_gateway_declares_the_clients_capabilities_too() {
+    let scratch = Scratch::new("declare-standalone");
+    let mut entry = gating_entry(&scratch);
+    entry.declare_client_capabilities = true;
+    write_registry(&scratch, entry, |_| {});
+    let mut client = Client::start_standalone(&scratch.0);
+    client.initialize("2025-06-18", full_client());
+    client.wait_for_tool("odh__legacy_elicitation");
+    assert_eq!(last_declared(&scratch), declared_by_full_client());
+
+    let reply = client.call("odh__legacy_elicitation", json!({}), None);
+    assert_eq!(text_of(&reply), "legacy confirmed", "{reply}");
+}
+
+#[test]
+fn a_modern_client_that_declares_elicitation_per_request_reaches_a_gating_legacy_server() {
+    let scratch = Scratch::new("declare-modern");
+    let mut entry = gating_entry(&scratch);
+    entry.declare_client_capabilities = true;
+    write_registry(&scratch, entry, |_| {});
+    let mut client = Client::start(&scratch.0);
+    client.wait_for_tool_modern("odh__legacy_elicitation");
+
+    let reply = client.call(
+        "odh__legacy_elicitation",
+        json!({}),
+        Some(modern_meta(json!({"elicitation": {}}))),
+    );
+    assert_eq!(
+        reply["result"]["resultType"], "input_required",
+        "the server asked, and the modern client is handed the question: {reply}"
+    );
+    assert_eq!(last_declared(&scratch), json!({"elicitation": {}}));
+}
+
+fn modern_meta(capabilities: Value) -> Value {
+    json!({
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientInfo": {"name": "odh-integration", "version": "1"},
+        "io.modelcontextprotocol/clientCapabilities": capabilities
+    })
+}
+
+fn forwarded_heading() -> &'static str {
+    "## Instructions from server \"odh\"\n"
+}
+
+#[test]
+fn with_forward_instructions_the_server_text_follows_the_profile_text_under_a_heading() {
+    let scratch = Scratch::new("forward-on");
+    let mut entry = mock_entry(&scratch);
+    entry.forward_instructions = true;
+    write_registry(&scratch, entry, |reg| {
+        reg.profiles[0].instructions = Some("FAKE-profile-text.".into());
+    });
+    let mut client = Client::start(&scratch.0);
+    let init = client.initialize("2025-06-18", json!({}));
+
+    assert_eq!(
+        init["result"]["instructions"],
+        format!(
+            "FAKE-profile-text.\n\n{}{MOCK_INSTRUCTIONS}",
+            forwarded_heading()
+        )
+        .as_str(),
+        "the profile text stays first and the server's text follows under its own heading"
+    );
+}
+
+#[test]
+fn forwarded_instructions_follow_the_built_in_text_when_no_profile_text_is_set() {
+    let scratch = Scratch::new("forward-builtin");
+    let mut entry = mock_entry(&scratch);
+    entry.forward_instructions = true;
+    write_registry(&scratch, entry, |_| {});
+    let mut client = Client::start(&scratch.0);
+    let init = client.initialize("2025-06-18", json!({}));
+
+    let text = init["result"]["instructions"].as_str().unwrap();
+    let (own, forwarded) = text
+        .split_once("\n\n## Instructions from server")
+        .expect("the forwarded section follows the gateway's own text");
+    assert!(own.starts_with("Saved routines are advertised"), "{own}");
+    assert!(
+        forwarded.ends_with(MOCK_INSTRUCTIONS) && !own.contains(MOCK_INSTRUCTIONS),
+        "{text}"
+    );
+}
+
+#[test]
+fn forwarded_instructions_are_cut_at_the_cap() {
+    let scratch = Scratch::new("forward-cap");
+    let cap = conduit_lib::handshake::MAX_FORWARDED_INSTRUCTIONS_CHARS;
+    let long = format!("FAKE-{}", "i".repeat(cap + 904));
+    let mut entry = with_env(mock_entry(&scratch), "MOCK_MCP_INSTRUCTIONS", &long);
+    entry.forward_instructions = true;
+    write_registry(&scratch, entry, |reg| {
+        reg.profiles[0].instructions = Some("FAKE-profile-text.".into());
+    });
+    let mut client = Client::start(&scratch.0);
+    let init = client.initialize("2025-06-18", json!({}));
+
+    let text = init["result"]["instructions"].as_str().unwrap();
+    let body = text
+        .strip_prefix(&format!("FAKE-profile-text.\n\n{}", forwarded_heading()))
+        .expect("profile text, then the heading");
+    let (kept, note) = body
+        .split_once("\n[")
+        .expect("a note says the text was cut");
+    assert_eq!(kept.chars().count(), cap);
+    assert!(long.starts_with(kept));
+    assert_eq!(note, format!("Toolport: cut at {cap} characters]"));
+}
+
+#[test]
+fn a_profile_that_sends_no_text_still_carries_the_forwarded_instructions() {
+    let scratch = Scratch::new("forward-empty-profile");
+    let mut entry = mock_entry(&scratch);
+    entry.forward_instructions = true;
+    write_registry(&scratch, entry, |reg| {
+        reg.profiles[0].instructions = Some(String::new());
+    });
+    let mut client = Client::start(&scratch.0);
+    let init = client.initialize("2025-06-18", json!({}));
+    assert_eq!(
+        init["result"]["instructions"],
+        format!("{}{MOCK_INSTRUCTIONS}", forwarded_heading()).as_str()
+    );
+}
+
+#[test]
+fn with_forward_instructions_off_the_gateway_text_is_unchanged() {
+    let scratch = Scratch::new("forward-off");
+    write_registry(&scratch, mock_entry(&scratch), |reg| {
+        reg.profiles[0].instructions = Some("FAKE-profile-text.".into());
+    });
+    let mut client = Client::start(&scratch.0);
+    let init = client.initialize("2025-06-18", json!({}));
+    assert_eq!(init["result"]["instructions"], "FAKE-profile-text.");
 }
