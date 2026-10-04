@@ -19,6 +19,7 @@ pub mod obs;
 pub mod profiles;
 pub mod selfmcp;
 pub mod skills;
+pub mod sources;
 pub mod sync;
 pub mod update;
 
@@ -30,6 +31,7 @@ pub(crate) mod hashing;
 pub(crate) mod health;
 pub(crate) mod jsonfs;
 pub(crate) mod op;
+pub(crate) mod plan;
 pub(crate) mod redact;
 pub(crate) mod registry_ro;
 pub(crate) mod servers;

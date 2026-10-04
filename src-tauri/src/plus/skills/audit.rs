@@ -108,6 +108,11 @@ fn compiled() -> &'static Vec<(Regex, &'static str, &'static str)> {
     })
 }
 
+/// The body patterns over any markdown text, for items that are not library skills.
+pub fn audit_text(name: &str, text: &str) -> AuditResult {
+    scan_body(name, text)
+}
+
 fn scan_body(name: &str, body: &str) -> AuditResult {
     let mut result = AuditResult::default();
     for (idx, line) in body.split('\n').enumerate() {
