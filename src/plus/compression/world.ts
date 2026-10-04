@@ -236,6 +236,7 @@ export function createCompressionWorld(initial: Partial<WorldState> = {}) {
     const out = [];
     const port = portOf();
     const ready = headroom() && s.installed !== null && s.proxy;
+    const binary = s.provider === "rtk-only" ? "rtk" : s.provider;
     if (s.provider === "none")
       out.push(check("engine", true, "compression disabled (provider none)"));
     else if (s.provider === "headroom") {
@@ -270,11 +271,7 @@ export function createCompressionWorld(initial: Partial<WorldState> = {}) {
       );
     } else
       out.push(
-        check(
-          "engine",
-          true,
-          `${s.provider} binary found at ${FIXTURE}/bin/${s.provider}`,
-        ),
+        check("engine", true, `${binary} binary found at ${FIXTURE}/bin/${binary}`),
       );
     if (!headroom()) out.push(check("pin", true, `not used by provider ${s.provider}`));
     else {
