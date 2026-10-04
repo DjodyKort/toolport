@@ -311,12 +311,22 @@ const HEALTH: &str = r#"{"ready":true,"config":{"max_items_after_crush":50,"prot
 /// proxy does, so that the commands that read the live posture have one to read.
 pub fn health_proxy(port: u16) {
     static STARTED: Mutex<Vec<u16>> = Mutex::new(Vec::new());
-    let mut started = STARTED.lock().unwrap();
+    let mut started = STARTED.lock().unwrap_or_else(|e| e.into_inner());
     if started.contains(&port) {
         return;
     }
-    let listener = TcpListener::bind(("127.0.0.1", port))
-        .unwrap_or_else(|e| panic!("port {port} is needed for the fake proxy: {e}"));
+    // The proxy ports sit in the ephemeral range, where another test's socket can hold one briefly.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    let listener = loop {
+        match TcpListener::bind(("127.0.0.1", port)) {
+            Ok(listener) => break listener,
+            Err(e) if std::time::Instant::now() < deadline => {
+                eprintln!("port {port} is busy for the fake proxy ({e}), retrying");
+                std::thread::sleep(std::time::Duration::from_millis(250));
+            }
+            Err(e) => panic!("port {port} is needed for the fake proxy: {e}"),
+        }
+    };
     started.push(port);
     std::thread::spawn(move || {
         for mut stream in listener.incoming().flatten() {
