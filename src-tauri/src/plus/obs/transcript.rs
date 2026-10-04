@@ -32,6 +32,7 @@ fn u64_of(v: &Value, key: &str) -> u64 {
     v.get(key).and_then(Value::as_u64).unwrap_or(0)
 }
 
+#[cfg(test)]
 pub fn parse_line(line: &str, file_stem: &str, anon_key: &str) -> Option<Parsed> {
     parse_line_with(line, file_stem, || anon_key.to_string())
 }
@@ -249,6 +250,7 @@ fn index_file(state: &mut State, path: &Path, report: &mut IndexReport) -> Resul
     Ok(())
 }
 
+#[cfg(test)]
 pub fn index(lock: &Locked, root: &Path) -> Result<IndexReport, String> {
     index_state(lock, root).map(|(report, _)| report)
 }

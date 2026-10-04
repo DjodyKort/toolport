@@ -122,7 +122,6 @@ impl PortableRoots {
 pub struct BundleFile {
     pub key: String,
     pub category: String,
-    pub project_name: Option<String>,
     pub bytes: Vec<u8>,
 }
 
@@ -213,7 +212,6 @@ pub fn read_bundle(
             files.push(BundleFile {
                 key: entry_key.clone(),
                 category: entry.category.clone(),
-                project_name: entry.project_name.clone(),
                 bytes: stored,
             });
             continue;
@@ -236,7 +234,6 @@ pub fn read_bundle(
         files.push(BundleFile {
             key: entry_key.clone(),
             category: entry.category.clone(),
-            project_name: entry.project_name.clone(),
             bytes,
         });
     }
@@ -254,6 +251,7 @@ fn content_hash_for_entry(entry: &ManifestEntry, plaintext: &[u8]) -> Result<Str
     }
 }
 
+#[cfg(test)]
 pub fn write_bundle(
     out_dir: &Path,
     cred: Credential<'_>,

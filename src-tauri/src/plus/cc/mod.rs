@@ -31,6 +31,7 @@ impl SystemClaude {
         Self { bin }
     }
 
+    #[cfg(test)]
     pub fn with_bin(bin: impl Into<String>) -> Self {
         Self { bin: bin.into() }
     }

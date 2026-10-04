@@ -32,6 +32,7 @@ impl Host {
         }
     }
 
+    #[cfg(test)]
     pub fn port(&self) -> Option<u16> {
         self.active.as_ref().map(|(port, _)| *port)
     }
