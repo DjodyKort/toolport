@@ -143,15 +143,29 @@ To add a command: one `case(...)` row, bless, read the new file, add the shape t
 | `gui-library-light.png`                   | A screen that is not built yet: the tabs of the mockup and the marked notice |
 | `gui-auth-rows.png`, `gui-what-loads.png` | Element shots of the login health and the "what loads" panels                |
 
+The Servers screen (MIG-GUI-1) adds:
+
+| File                                    | Shows                                                                           |
+| --------------------------------------- | ------------------------------------------------------------------------------- |
+| `gui-servers-light.png`, `-dark`        | Servers grouped by attention, a server that needs a login with its live inspect |
+| `gui-servers-gateway-light.png`         | Element shot of the gateway strip                                               |
+| `gui-servers-plan-light.png`            | The preview of a write (a server switched on in a profile) before Apply         |
+| `gui-servers-remove-light.png`          | The typed confirmation of removing a server, with its plan                      |
+| `gui-servers-profiles-light.png`        | The Profiles tab                                                                |
+| `gui-servers-profile-inspect-light.png` | A profile inspected while one of its servers needs a login                      |
+| `gui-servers-clients-light.png`         | The Clients tab: what each client sees, and the orphan list                     |
+| `gui-servers-health-light.png`          | The Health tab: status facts, named fixes and the doctor checks                 |
+
 ## Frontend shell, UI kit and All commands page
 
 `src/plus/` after MIG-GUI-0:
 
 - `bridge/` runs `toolportctl --json` as a child process and types what comes back (`ctl.ts`, `data.ts`, `shape.ts`).
 - `ui/` is the kit every Toolport+ screen is built from (below).
-- `nav.ts` holds the grouped sidebar B (`NAV_GROUPS`, 16 items, labels as in the approved mockup), the title and subtitle of each Toolport+ screen (`PLUS_SCREENS`) and the item that builds each. The tabs of the mockup live in `notBuiltTabs.ts`, which only the placeholder reads, so they stay out of the startup bundle. `SidebarNav.tsx` draws the groups with the sidebar's own row, `attention.ts` reads the Attention counter.
+- `nav.ts` holds the grouped sidebar B (`NAV_GROUPS`, 16 items, labels as in the approved mockup; the Servers entry opens the Toolport+ view `control`, and the upstream `servers` view is lit under it), the title and subtitle of each Toolport+ screen (`PLUS_SCREENS`) and the item that builds each. The tabs of the mockup live in `notBuiltTabs.ts`, which only the placeholder reads, so they stay out of the startup bundle. `SidebarNav.tsx` draws the groups with the sidebar's own row, `attention.ts` reads the Attention counter.
 - `PlusViews.tsx` is the one entry for Toolport+ screens; each is a `React.lazy` chunk. `NotBuilt.tsx` is the marked placeholder (tabs of the mockup, a "Not built yet" notice naming the item, a button to the All commands page on the right command group).
 - `allcommands/` is the All commands page.
+- `servers/` is the Servers screen (MIG-GUI-1, below).
 
 **Adding a screen.** Put it under `src/plus/<screen>/`, import it with `React.lazy` in `PlusViews.tsx` in place of the `NotBuilt` branch, add its view to `PLUS_VIEWS` if it is new, and flip its rows in `gui-parity.json`. A screen reads data with `useCtlQuery` inside `AsyncView` (skeleton, error with Retry and "Copy diagnostics", empty) so it never renders nothing, and writes through the preview, confirm and apply flow below.
 
@@ -174,6 +188,15 @@ To add a command: one `case(...)` row, bless, read the new file, add the shape t
 - A terminal-only command shows its exact command line and a Copy button, never a Run button.
 - "Run a tool" calls `toolportctl mcp call <tool> --args-stdin` for tools that no command covers (arguments as JSON on stdin; `dry_run` and `confirm` per the tool's tier). It is disabled, with a tooltip and a note, while `commands --json` has no `mcp call` row.
 
+**Servers (`src/plus/servers/`).** The control center: tabs Servers, Profiles, Clients and Health (Logins, Secrets and Integrations are placeholder slots until MIG-GUI-2), a gateway strip above them, a "Run doctor" button and, on the Servers tab, a "Classic view" button. Every read is one `toolportctl --json` call through `ServersProvider` (`server ls`, `profile ls`, `client ls`, `status`, polled and kept on screen when a reload fails); every write goes through `useWrite`.
+
+- **State** is derived in `model.ts` from `server ls`, `status` (gateway, tool cache, `auth.servers`), `profile ls` and `client ls`: connected, login needed, failed (with the CLI's reason), disabled. Servers are grouped by attention. "What a client sees" is the tool count per server of the profile the client uses.
+- **Writes** follow D-059 and D-081 (`plans.ts`, `useWrite.tsx`, `WriteDialogs.tsx`): a command with a dry-run flag is previewed with it, then confirmed, applied and shown with its undo; a command without one (`server new`, `server install`, `server edit`) is confirmed with its exact command line and a client-side plan marked "no preview"; only a `destructive` row asks for a typed phrase. `direct run` is a terminal-surface action: the command is shown with Copy and "Open in Terminal" stays disabled.
+- **Profile inspect** runs `profile inspect`; when that stops at the first failing server (a 401), the dialog asks each server with `inspect` (three at a time) and shows what answered, who needs a login and why.
+- **Dialogs** have no trigger element, so `useRestoreFocus` returns focus to the control that opened a dialog once the last one closes.
+- **View id and the Classic view (D-088).** The screen is the view `control`; the sidebar entry labelled Servers opens it. The upstream `servers` view and its page are untouched, so the health filter (Checking, Ready, Disabled), the team-enable review dialog and the upstream tests stay reachable and green: "Classic view" in the header of the Servers tab opens it, and the sidebar entry stays lit there. The app still starts on the upstream view. The button is not in the mockup; whether it stays is judged on the Mac.
+- **Fixtures:** `fixtures/servers.ts` is one synthetic registry (eight servers including a failing one and two that need a login, three profiles, four clients, direct entries, a doctor with a named fix) served by the dev browser fixture and the tests; `servers/testkit.ts` is the fake bridge.
+
 **Edits to upstream files.** Everything else is under `src/plus/`.
 
 | File                                 | Edit                                                                                                                                                         |
@@ -187,6 +210,17 @@ To add a command: one `case(...)` row, bless, read the new file, add the shape t
 | `scripts/screenshots-gui.mjs`        | renamed to `scripts/screenshots.mjs`                                                                                                                         |
 | `package.json`                       | `screenshots:gui` points at `scripts/screenshots.mjs`                                                                                                        |
 | `src/plus/gui-parity.json`           | the `all-commands` route and its `run` and `terminal` actions are `built`; `tool` stays `planned` until the CLI has `mcp call`                               |
+
+MIG-GUI-1 edits:
+
+| File                                       | Edit                                                                                                                                                                                                                             |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/App.tsx`, `src/lib/types.ts`          | not edited (D-088): the upstream `servers` view, its header controls, the first view and every upstream App test stay as they are; `View` already includes `PlusView`, so `control` needs no line there                          |
+| `src/plus/nav.ts`, `PlusViews.tsx`         | `control` joins `PLUS_VIEWS` and `PLUS_SCREENS`; the Servers entry of `NAV_GROUPS` opens it; `servers` lives under that entry (`LIVES_UNDER`), so the entry is lit on both; `PlusViews` lazy-loads `ServersScreen` for `control` |
+| `src/plus/gui-parity.json`, `guiParity.ts` | route `servers` (view `control`; `GuiRoute.view` names the view when it differs from the route id) and 23 `servers.*` actions; 23 commands and 12 tools point at them                                                            |
+| `src/plus/fixtures/plusCtl.ts`             | the `status` and `commands` rows come from `fixtures/servers.ts`; a `FixtureFailure` makes a failed envelope                                                                                                                     |
+| `scripts/browser-smoke.mjs`                | `serversScreen` opens the Servers entry, walks the tabs and dialogs, writes the `gui-servers-*` shots and checks the Classic view round trip                                                                                     |
+| `scripts/screenshots.mjs`                  | the `gui-servers-*` page shots are checked for size                                                                                                                                                                              |
 
 ## Sources
 

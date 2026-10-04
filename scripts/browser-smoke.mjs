@@ -33,6 +33,78 @@ async function guiShot(target, screen, options = {}) {
   await mkdir(screenshotDir, { recursive: true });
   await target.screenshot({ path: path.join(screenshotDir, file), ...options });
 }
+// The Servers screen on the fixture registry: a server that needs a login, one that fails to
+// start, profiles with a server that answers 401, clients, health, and the two dialogs that
+// guard a write (the plan, and the typed confirmation of a removal).
+async function serversScreen(shot, theme) {
+  const snap = (target, name) => guiShot(target, name, { animations: "disabled" });
+  const nav = shot.getByRole("navigation", { name: "Views" });
+  await nav.getByRole("button", { name: "Servers", exact: true }).click();
+  await expect(shot.getByRole("tablist", { name: "Servers sections" })).toBeVisible();
+  const list = shot.getByRole("region", { name: "Needs attention" });
+  await list.getByRole("button", { name: /issue-tracker/ }).click();
+  const detail = shot.getByRole("region", { name: "issue-tracker details" });
+  await expect(detail.getByText("Sign-in needed.")).toBeVisible();
+  await detail.getByRole("button", { name: "Inspect live" }).click();
+  await expect(detail.getByText(/asked for a sign-in/)).toBeVisible();
+  await shot.evaluate(() => document.fonts.ready);
+  await snap(shot, `servers-${theme}`);
+  if (theme !== "light") return;
+  await snap(shot.getByRole("region", { name: "Gateway" }), "servers-gateway-light");
+
+  await list.getByRole("button", { name: /acme-erp/ }).click();
+  const erp = shot.getByRole("region", { name: "acme-erp details" });
+  await expect(erp.getByText("ERP_API_KEY")).toBeVisible();
+  await expect(erp.getByText("secret, stored in the vault")).toBeVisible();
+  await erp.getByRole("button", { name: "Remove…" }).click();
+  await shot.getByRole("button", { name: "Preview removal" }).click();
+  const remove = shot.getByRole("dialog", { name: "Remove acme-erp?" });
+  await expect(remove.getByRole("region", { name: "Preview" })).toBeVisible();
+  await expect(remove.getByRole("button", { name: "Remove server" })).toBeDisabled();
+  await remove.getByRole("textbox", { name: /type acme-erp to confirm/i }).fill("acme");
+  await snap(shot, "servers-remove-light");
+  await remove.getByRole("button", { name: "Cancel" }).click();
+
+  await shot
+    .getByRole("region", { name: "Connected" })
+    .getByRole("button", { name: /docs-search/ })
+    .click();
+  await shot.getByRole("switch", { name: "docs-search in profile Work" }).click();
+  const plan = shot.getByRole("dialog", { name: "Add docs-search to Work?" });
+  await expect(plan.getByRole("region", { name: "Preview" })).toBeVisible();
+  await snap(shot, "servers-plan-light");
+  await plan.getByRole("button", { name: "Cancel" }).click();
+
+  const tabs = shot.getByRole("tablist", { name: "Servers sections" });
+  await tabs.getByRole("tab", { name: /^Profiles/ }).click();
+  await expect(shot.getByRole("list", { name: "Profiles" })).toBeVisible();
+  await snap(shot, "servers-profiles-light");
+  await shot.getByRole("button", { name: "Inspect Work" }).click();
+  const inspect = shot.getByRole("dialog", { name: "Inspect Work" });
+  await expect(inspect.getByText(/2 of 3 servers answered/)).toBeVisible();
+  await expect(inspect.getByText("Needs a login")).toBeVisible();
+  await snap(shot, "servers-profile-inspect-light");
+  await inspect.getByRole("button", { name: "Close" }).first().click();
+
+  await tabs.getByRole("tab", { name: /^Clients/ }).click();
+  await expect(shot.getByRole("table")).toBeVisible();
+  await snap(shot, "servers-clients-light");
+
+  await tabs.getByRole("tab", { name: "Health" }).click();
+  await expect(shot.getByRole("list", { name: "Doctor checks" })).toBeVisible();
+  await expect(shot.getByRole("button", { name: "Run skills sync" })).toBeVisible();
+  await snap(shot, "servers-health-light");
+  await tabs.getByRole("tab", { name: "Servers" }).click();
+  await shot.getByRole("button", { name: "Classic view" }).click();
+  await expect(shot.getByText("GitHub", { exact: true })).toBeVisible();
+  await expect(nav.getByRole("button", { name: "Servers", exact: true })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await nav.getByRole("button", { name: "Servers", exact: true }).click();
+  await expect(shot.getByRole("tablist", { name: "Servers sections" })).toBeVisible();
+}
+
 let browser;
 let context;
 let page;
@@ -122,6 +194,7 @@ try {
     );
     await shot.evaluate(() => document.fonts.ready);
     await guiShot(shot, `shell-${theme}`);
+    await serversScreen(shot, theme);
     await shot.getByRole("button", { name: "Settings", exact: true }).click();
     await shot.getByRole("button", { name: "Open All commands" }).click();
     await expect(shot.getByRole("list", { name: "Commands" })).toBeVisible();

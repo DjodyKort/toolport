@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Runs the browser smoke and keeps its GUI screenshots in docs/assets/gui-<screen>.png: the
-// shell (sidebar B) and the All commands page at 1280x800 in light and dark, the typed
+// shell (sidebar B) and the All commands page at 1280x800 in light and dark, the Servers screen, the typed
 // confirmation with its plan, a not-built screen with its tabs, and the element shots of the
 // smoke. Fails when a page shot is missing or not 1280x800. The PNGs come out of
 // Chromium already deflated tighter than zlib level 9 can do, so they are kept as they are.
@@ -18,6 +18,14 @@ const PAGES = [
   "all-commands-dark",
   "plan-confirm-light",
   "library-light",
+  "servers-light",
+  "servers-dark",
+  "servers-remove-light",
+  "servers-plan-light",
+  "servers-profiles-light",
+  "servers-profile-inspect-light",
+  "servers-clients-light",
+  "servers-health-light",
 ];
 const SIZE = [1280, 800];
 
