@@ -11,6 +11,7 @@ import { serversCtlFixtures } from "./servers";
 import { skillsBrowserFixtures } from "../skills/browserFixtures";
 import { compressionBrowserFixtures } from "../compression/browserFixtures";
 import { createAgentsWorld } from "./agentsWorld";
+import { contextBrowserFixtures } from "../context/browserFixtures";
 
 /** Envelope `data` the dev browser fixture returns per `toolportctl` argv (joined with spaces).
  * A command a screen runs needs a row here or the fixture rejects it as unimplemented. */
@@ -55,6 +56,7 @@ export const plusCtlFixtures = new Map<string, unknown>([
   ...skillsBrowserFixtures,
   ...createAgentsWorld(),
   ...compressionBrowserFixtures,
+  ...contextBrowserFixtures,
 ]);
 
 const jobs = new Map<string, string>();

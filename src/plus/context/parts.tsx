@@ -15,6 +15,9 @@ import type { CheckLevel, Check } from "./model";
 
 export const RowsContext = createContext<CommandRow[] | null>(null);
 export const useRows = () => useContext(RowsContext);
+/** Reads the command list again; a section's Retry calls it while the list is missing, so a
+ * screen that opened while toolportctl was down can write once it is back. */
+export const RowsReloadContext = createContext<() => void>(() => {});
 
 export function Section({
   title,
@@ -65,6 +68,17 @@ export function QuerySection<T>({
   empty?: ReactNode;
   children: (data: T) => ReactNode;
 }) {
+  const rows = useRows();
+  const reloadRows = useContext(RowsReloadContext);
+  const shown: CtlQuery<T> = rows
+    ? query
+    : {
+        ...query,
+        reload: () => {
+          query.reload();
+          reloadRows();
+        },
+      };
   return (
     <Section
       title={title}
@@ -76,7 +90,7 @@ export function QuerySection<T>({
             size="xs"
             variant="ghost"
             aria-label={`Read ${title.toLowerCase()} again`}
-            onClick={query.reload}
+            onClick={shown.reload}
           >
             <RefreshCw />
           </Button>
@@ -84,7 +98,7 @@ export function QuerySection<T>({
       }
     >
       <AsyncView
-        query={query}
+        query={shown}
         errorTitle={`Couldn't read ${title.toLowerCase()}`}
         isEmpty={isEmpty}
         empty={empty}

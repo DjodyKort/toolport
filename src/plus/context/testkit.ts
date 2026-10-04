@@ -1,17 +1,11 @@
 import type { CtlResult } from "../bridge/ctl";
 import { contextCtlFixtures } from "./fixtures";
+import { Failure, createContextWorld, type WorldOptions } from "./world";
 import golden from "../../../src-tauri/tests/fixtures/ctl-envelopes/commands.json";
 
 export type Reply = unknown | ((argv: string[]) => unknown | Promise<unknown>);
 
-/** A reply that is a failed envelope; `data` is what a command that exits 1 still prints. */
-export class Failure {
-  constructor(
-    readonly code: string,
-    readonly message: string,
-    readonly data?: unknown,
-  ) {}
-}
+export { Failure };
 
 export const failure = (code: string, message: string, data?: unknown) =>
   new Failure(code, message, data);
@@ -25,14 +19,24 @@ interface Call {
 /** A fake `plus_ctl` bridge over the fixture home of the Context screen. Every argv
  * has a reply and an argv without one fails the test: a screen that runs a command it should
  * not shows up as a missing reply. A test overrides a reply with `set`, or makes it a function
- * that changes the world (a write that edits what the next read returns). */
-export function createBridge() {
-  const replies = new Map<string, Reply>([
-    ...contextCtlFixtures(),
-    ["context loads", goldenData("context-loads.home")],
-    ["context folders", goldenData("context-folders")],
-    ["commands", (golden as { envelope: { data: unknown } }).envelope.data],
-  ]);
+ * that changes the world (a write that edits what the next read returns). `world` answers
+ * every `context` argv from the stateful world of the dev browser fixture, where an applied
+ * write already changes the next read. */
+export function createBridge(options: { world?: boolean | WorldOptions } = {}) {
+  const world = options.world
+    ? createContextWorld(options.world === true ? {} : options.world)
+    : null;
+  const registry = (golden as { envelope: { data: unknown } }).envelope.data;
+  const replies = new Map<string, Reply>(
+    world
+      ? [["commands", registry]]
+      : [
+          ...contextCtlFixtures(),
+          ["context loads", goldenData("context-loads.home")],
+          ["context folders", goldenData("context-folders")],
+          ["commands", registry],
+        ],
+  );
   const calls: Call[] = [];
   const missing: string[] = [];
   const jobs = new Map<string, Call>();
@@ -41,6 +45,7 @@ export function createBridge() {
   return {
     calls,
     missing,
+    world,
     set(argv: string, reply: Reply) {
       replies.set(argv, reply);
     },
@@ -63,11 +68,12 @@ export function createBridge() {
         const call = jobs.get(args.job as string);
         if (!call) throw new Error(`unknown job ${String(args.job)}`);
         const key = call.argv.join(" ");
-        if (!replies.has(key)) {
+        const live = world && call.argv[0] === "context" && !replies.has(key);
+        if (!live && !replies.has(key)) {
           missing.push(key);
           throw new Error(`no fake reply for plus_ctl ${key}`);
         }
-        const wanted = replies.get(key);
+        const wanted = live ? () => world?.run(call.argv, call.stdin) : replies.get(key);
         const value = typeof wanted === "function" ? await wanted(call.argv) : wanted;
         const failed = value instanceof Failure ? value : null;
         return {
