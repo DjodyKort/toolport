@@ -46,7 +46,10 @@ pub fn folder_profiles_handler(args: Value) -> Result<Value, String> {
                 .find(|k| config.profiles.contains_key(*k))
                 .map(String::from)
         });
-        let only_loaded = loads::LoadsOptions { no_lazy: true };
+        let only_loaded = loads::LoadsOptions {
+            no_lazy: true,
+            ..Default::default()
+        };
         let cost = loads::what_loads_with(
             &roots,
             &config,

@@ -4,6 +4,7 @@
 //! reads files under [`Roots`]. Every number is `bytes / 4`: good for ordering, not a saving.
 
 use super::config::{ContextConfig, ProfileSpec};
+use super::globs::glob_match;
 use super::launch::{parse_selection, read_json_object as read_json, Selection};
 use super::layers::{body_of, frontmatter_of, is_managed_local, list_layers, yaml_text};
 use super::loads_extra as extra;
@@ -107,7 +108,41 @@ pub struct Clobber {
     pub relation: &'static str,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+/// Claude Code lists skills up to 1% of the context window; the rest keep only their name.
+pub const SKILL_BUDGET_FRACTION: f64 = 0.01;
+pub const DEFAULT_CONTEXT_WINDOW: u64 = 200_000;
+
+#[derive(Clone, Debug, Serialize, PartialEq)]
+pub struct SkillBudget {
+    pub fraction: f64,
+    pub context_window: u64,
+    pub limit_tokens: u64,
+    pub used_tokens: u64,
+    pub capped: Vec<String>,
+}
+
+/// Entries in listing order; the first one that does not fit and every one after it is capped.
+fn skill_budget(window: u64, listed: &[(String, u64)]) -> SkillBudget {
+    let limit = (window as f64 * SKILL_BUDGET_FRACTION) as u64;
+    let mut used = 0;
+    let mut capped = Vec::new();
+    for (name, tokens) in listed {
+        if capped.is_empty() && used + tokens <= limit {
+            used += tokens;
+        } else {
+            capped.push(name.clone());
+        }
+    }
+    SkillBudget {
+        fraction: SKILL_BUDGET_FRACTION,
+        context_window: window,
+        limit_tokens: limit,
+        used_tokens: used,
+        capped,
+    }
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct WhatLoads {
     pub profile: Option<String>,
     pub cwd: String,
@@ -116,6 +151,7 @@ pub struct WhatLoads {
     pub tokens_by_kind: BTreeMap<String, u64>,
     pub total_tokens: u64,
     pub tokens_lazy: u64,
+    pub skill_budget: SkillBudget,
     pub partial: bool,
     pub notes: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -125,6 +161,7 @@ pub struct WhatLoads {
 #[derive(Clone, Debug, Default)]
 pub struct LoadsOptions {
     pub no_lazy: bool,
+    pub context_window: Option<u64>,
 }
 
 pub(super) fn text_tokens(text: &str) -> u64 {
@@ -159,7 +196,7 @@ pub(super) fn excluded(settings: &Map<String, Value>, path: &Path) -> bool {
             items
                 .iter()
                 .filter_map(Value::as_str)
-                .any(|pattern| pattern == target)
+                .any(|pattern| pattern == target || glob_match(pattern, &target))
         })
         .unwrap_or(false)
 }
@@ -425,6 +462,21 @@ fn rules(ctx: &mut Ctx) {
     }
 }
 
+/// The folders whose `.claude/settings*.json` Claude Code reads for a session started in `cwd`:
+/// that folder and the root of the repository around it. Folders above the repository root are
+/// not merged (proof F0, run R4), so they are not read here either.
+fn project_dirs(cwd: &Path, home: &Path) -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    if let Some(root) = extra::git_root(cwd) {
+        if root != cwd {
+            dirs.push(root);
+        }
+    }
+    dirs.push(cwd.to_path_buf());
+    dirs.retain(|d| d != home);
+    dirs
+}
+
 fn settings_layers(ctx: &Ctx) -> Vec<(String, &'static str, Map<String, Value>)> {
     let mut layers = vec![(
         ctx.roots
@@ -435,10 +487,7 @@ fn settings_layers(ctx: &Ctx) -> Vec<(String, &'static str, Map<String, Value>)>
         "user",
         read_json(&ctx.roots.claude_home.join("settings.json")),
     )];
-    for dir in ancestors(ctx.cwd) {
-        if dir == ctx.roots.home {
-            continue;
-        }
+    for dir in project_dirs(ctx.cwd, &ctx.roots.home) {
         for (file, source) in [
             ("settings.json", "project"),
             ("settings.local.json", "project-local"),
@@ -459,6 +508,31 @@ fn settings_layers(ctx: &Ctx) -> Vec<(String, &'static str, Map<String, Value>)>
         }
     }
     layers
+}
+
+/// Objects merge key by key and arrays become a union, as Claude Code combines settings layers;
+/// any other value is replaced by the later layer.
+fn merge_into(base: &mut Value, over: &Value) {
+    match (base, over) {
+        (Value::Object(have), Value::Object(add)) => {
+            for (key, value) in add {
+                match have.get_mut(key) {
+                    Some(existing) => merge_into(existing, value),
+                    None => {
+                        have.insert(key.clone(), value.clone());
+                    }
+                }
+            }
+        }
+        (Value::Array(have), Value::Array(add)) => {
+            for value in add {
+                if !have.contains(value) {
+                    have.push(value.clone());
+                }
+            }
+        }
+        (slot, value) => *slot = value.clone(),
+    }
 }
 
 fn settings(ctx: &mut Ctx) -> Map<String, Value> {
@@ -494,7 +568,12 @@ fn settings(ctx: &mut Ctx) -> Map<String, Value> {
                 }
             }
             owner.insert(key.clone(), (label.clone(), value.clone()));
-            effective.insert(key.clone(), value.clone());
+            match effective.get_mut(key) {
+                Some(existing) => merge_into(existing, value),
+                None => {
+                    effective.insert(key.clone(), value.clone());
+                }
+            }
         }
         if let Some(plugins) = map.get("enabledPlugins").and_then(Value::as_object) {
             for (id, on) in plugins {
@@ -749,7 +828,7 @@ pub fn what_loads_with(
     skills(&mut ctx);
     extra::commands_and_agents(&mut ctx);
     let found = extra::scan_plugins(&mut ctx);
-    let _plugin_skills = extra::plugins(&mut ctx, &found);
+    let plugin_skills = extra::plugins(&mut ctx, &found);
     if !options.no_lazy {
         extra::nested(&mut ctx, &effective);
     }
@@ -757,6 +836,22 @@ pub fn what_loads_with(
         ctx.items.retain(|i| !i.lazy);
     }
 
+    let mut listed: Vec<(String, u64)> = ctx
+        .items
+        .iter()
+        .filter(|i| i.kind == "skill" && i.loaded && i.visible != Some(false))
+        .map(|i| (i.name.clone(), i.tokens))
+        .collect();
+    listed.extend(plugin_skills);
+    let budget = skill_budget(options.context_window.unwrap_or(DEFAULT_CONTEXT_WINDOW), &listed);
+    if !budget.capped.is_empty() {
+        ctx.notes.push(format!(
+            "the skill list is over its budget ({} of {} tokens): {} skills lose their description; which ones is a guess until `context measure` counts them",
+            budget.used_tokens,
+            budget.limit_tokens,
+            budget.capped.len()
+        ));
+    }
     let mut by_kind: BTreeMap<String, u64> = BTreeMap::new();
     let mut total = 0;
     let mut lazy = 0;
@@ -776,6 +871,7 @@ pub fn what_loads_with(
         tokens_by_kind: by_kind,
         total_tokens: total,
         tokens_lazy: lazy,
+        skill_budget: budget,
         partial: ctx.partial,
         notes: ctx.notes,
         compact: spec.and_then(|s| super::compact::info(roots, s)),

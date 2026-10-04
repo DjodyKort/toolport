@@ -14,10 +14,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
 
-struct Home(PathBuf);
+pub(super) struct Home(PathBuf);
 
 impl Home {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let base = fs::canonicalize(std::env::temp_dir()).unwrap();
         let dir = base.join(format!(
             "loads-{}-{}",
@@ -29,24 +29,24 @@ impl Home {
         Self(dir)
     }
 
-    fn put(&self, rel: &str, text: &str) -> PathBuf {
+    pub(super) fn put(&self, rel: &str, text: &str) -> PathBuf {
         let path = self.0.join(rel);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(&path, text).unwrap();
         path
     }
 
-    fn repo(&self, rel: &str) -> PathBuf {
+    pub(super) fn repo(&self, rel: &str) -> PathBuf {
         let dir = self.0.join(rel);
         fs::create_dir_all(dir.join(".git")).unwrap();
         dir
     }
 
-    fn roots(&self) -> Roots {
+    pub(super) fn roots(&self) -> Roots {
         Roots::from_home(&self.0)
     }
 
-    fn at(&self, rel: &str) -> PathBuf {
+    pub(super) fn at(&self, rel: &str) -> PathBuf {
         self.0.join(rel)
     }
 }
@@ -57,7 +57,7 @@ impl Drop for Home {
     }
 }
 
-fn config(extra: Value) -> ContextConfig {
+pub(super) fn config(extra: Value) -> ContextConfig {
     let mut base = json!({"wrap_default_claude": false, "dedupe": {"enabled": false}});
     for (key, value) in extra.as_object().unwrap() {
         base[key] = value.clone();
@@ -65,11 +65,11 @@ fn config(extra: Value) -> ContextConfig {
     ContextConfig::from_value(base).unwrap()
 }
 
-fn loads(h: &Home, cwd: &Path) -> WhatLoads {
+pub(super) fn loads(h: &Home, cwd: &Path) -> WhatLoads {
     what_loads(&h.roots(), &config(json!({})), None, cwd).unwrap()
 }
 
-fn row<'a>(r: &'a WhatLoads, kind: &str, name: &str) -> &'a LoadItem {
+pub(super) fn row<'a>(r: &'a WhatLoads, kind: &str, name: &str) -> &'a LoadItem {
     r.items
         .iter()
         .find(|i| i.kind == kind && i.name == name)
@@ -83,15 +83,15 @@ fn row<'a>(r: &'a WhatLoads, kind: &str, name: &str) -> &'a LoadItem {
         })
 }
 
-fn tokens(text: &str) -> u64 {
+pub(super) fn tokens(text: &str) -> u64 {
     estimated_tokens(text.len() as u64)
 }
 
-fn listing(name: &str, description: &str) -> u64 {
+pub(super) fn listing(name: &str, description: &str) -> u64 {
     estimated_tokens((name.len() + description.len()) as u64)
 }
 
-fn skill(name: &str, description: &str) -> String {
+pub(super) fn skill(name: &str, description: &str) -> String {
     format!("---\nname: {name}\ndescription: {description}\n---\nBody of {name}.\n")
 }
 
@@ -103,7 +103,7 @@ fn slug(path: &Path) -> String {
         .collect()
 }
 
-fn install_plugin(h: &Home, id: &str, version: &str, parts: &[(&str, &str)]) -> PathBuf {
+pub(super) fn install_plugin(h: &Home, id: &str, version: &str, parts: &[(&str, &str)]) -> PathBuf {
     let dir = h.at(&format!(".claude/plugins/cache/market/{}/{version}", id.split('@').next().unwrap()));
     for (rel, text) in parts {
         let path = dir.join(rel);
@@ -415,7 +415,10 @@ fn no_lazy_leaves_the_on_demand_rows_out() {
         &config(json!({})),
         None,
         &app,
-        &LoadsOptions { no_lazy: true },
+        &LoadsOptions {
+            no_lazy: true,
+            ..Default::default()
+        },
     )
     .unwrap();
     assert!(without.items.iter().all(|i| !i.lazy));

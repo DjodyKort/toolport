@@ -28,6 +28,7 @@ pub fn loads(rest: &[String]) -> Result<Output, CtlError> {
     };
     let options = loads::LoadsOptions {
         no_lazy: flags.on("--no-lazy"),
+        ..Default::default()
     };
     let report = loads::what_loads_with(&roots, &config, flags.one("--profile"), &cwd, &options)
         .map_err(|e| CtlError::failed("context_invalid", e))?;
