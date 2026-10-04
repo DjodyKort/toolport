@@ -357,6 +357,84 @@ try {
     await shot.close();
   }
   expect(errors).toEqual([]);
+  for (const theme of ["light", "dark"]) {
+    const shot = await context.newPage();
+    await shot.addInitScript((choice) => {
+      localStorage.setItem("toolport-theme", choice);
+    }, theme);
+    await shot.setViewportSize({ width: 1280, height: 800 });
+    await watch(shot);
+    await shot.goto(`${baseURL}/fixtures/`);
+    await shot.getByRole("button", { name: "Library", exact: true }).click();
+    await shot.getByRole("tab", { name: "Agents" }).click();
+    await shot.getByRole("button", { name: "Open Agents & styles" }).click();
+    const outputs = shot.getByRole("list", { name: "Output of scout per client" });
+    await expect(outputs).toBeVisible();
+    await expect(outputs.getByText("tools is dropped for Codex CLI")).toBeVisible();
+    await expect(outputs.getByText("tools is dropped for Cursor")).toBeVisible();
+    await expect(outputs.getByText("Not written yet")).toHaveCount(4);
+    await shot.evaluate(() => document.fonts.ready);
+    await guiShot(shot, `agents-${theme}`);
+    const dialog = shot.getByRole("dialog");
+    const closeResult = async () => {
+      await dialog.getByRole("button", { name: "Close", exact: true }).last().click();
+      await expect(dialog).toHaveCount(0);
+    };
+    await shot.getByRole("button", { name: "Sync…", exact: true }).click();
+    await expect(dialog.getByText("Write 1 agent to 4 clients")).toBeVisible();
+    await expect(dialog.getByText(/cursor: 'tools' field not supported/)).toBeVisible();
+    if (theme === "light") await guiShot(shot, "agents-plan-light");
+    await dialog.getByRole("button", { name: "Sync", exact: true }).click();
+    await expect(dialog.getByText("Wrote 1 agent to 4 clients")).toBeVisible();
+    await closeResult();
+    await expect(outputs.getByText("In sync")).toHaveCount(4);
+    await shot.getByRole("button", { name: "Clean outputs…", exact: true }).click();
+    await expect(dialog.getByText("Remove 4 synced agent files")).toBeVisible();
+    await dialog.getByRole("textbox").fill("clean agent");
+    await expect(
+      dialog.getByRole("button", { name: "Remove", exact: true }),
+    ).toBeDisabled();
+    if (theme === "light") await guiShot(shot, "agents-clean-light");
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toHaveCount(0);
+
+    await shot.getByRole("tab", { name: "Styles" }).click();
+    await expect(shot.getByText("No output styles yet")).toBeVisible();
+    await shot.evaluate(() => document.fonts.ready);
+    if (theme === "light") await guiShot(shot, "styles-empty-light");
+    await shot.getByRole("button", { name: "Create your first style" }).click();
+    await dialog.getByRole("textbox").fill("terse");
+    await dialog.getByRole("button", { name: "Preview", exact: true }).click();
+    await shot
+      .getByRole("dialog", { name: /Create style terse/ })
+      .getByRole("button", { name: "Create", exact: true })
+      .click();
+    await expect(
+      dialog.getByText("Created the style 'terse' from the template"),
+    ).toBeVisible();
+    await closeResult();
+    await shot.getByRole("button", { name: "Sync…", exact: true }).click();
+    await expect(dialog.getByText("Write 1 style to 2 native clients")).toBeVisible();
+    await dialog.getByRole("button", { name: "Sync", exact: true }).click();
+    await expect(dialog.getByText("Wrote 1 style to 2 native clients")).toBeVisible();
+    await closeResult();
+    await shot.getByRole("button", { name: "Apply terse to other clients" }).click();
+    await expect(
+      dialog.getByText("Apply 'terse' as an always-on rule in 4 clients"),
+    ).toBeVisible();
+    await dialog.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(
+      dialog.getByText("Applied 'terse' as an always-on rule in 4 clients"),
+    ).toBeVisible();
+    await closeResult();
+    await expect(shot.getByText("Active", { exact: true })).toBeVisible();
+    await expect(shot.getByRole("table")).toBeVisible();
+    await shot.evaluate(() => document.fonts.ready);
+    await guiShot(shot, `styles-${theme}`);
+    expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
+    await shot.close();
+  }
+  expect(errors).toEqual([]);
   await page.goto(`${baseURL}/fixtures/?logos`);
   await expect(page.getByText("Dark logo fixture")).toBeVisible();
   await page.evaluate(() => document.fonts.ready);

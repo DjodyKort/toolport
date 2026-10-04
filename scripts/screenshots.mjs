@@ -41,6 +41,13 @@ const PAGES = [
   "skills-uninstall-light",
   "skills-taps-light",
   "skills-install-blocked-light",
+  "agents-light",
+  "agents-dark",
+  "agents-plan-light",
+  "agents-clean-light",
+  "styles-empty-light",
+  "styles-light",
+  "styles-dark",
 ];
 const SIZE = [1280, 800];
 
