@@ -22,6 +22,8 @@ pub mod state_handlers;
 pub mod styles;
 pub mod sync;
 pub mod sync_report;
+pub mod tap_handlers;
+pub mod tap_ops;
 pub mod taps;
 pub mod transpilers;
 pub mod transpiler;
@@ -36,6 +38,10 @@ pub use parser::{discover_skills, find_skill, parse_skill_file, Skill, SkillType
 pub use sync::{sync_skills, SyncOptions, SyncResult};
 pub use transpiler::{TranspileResult, Transpiler, TranspilerRegistry};
 
+#[cfg(test)]
+pub(crate) mod tap_fixtures;
+#[cfg(test)]
+mod tap_ops_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
