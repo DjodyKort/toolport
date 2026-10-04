@@ -21,7 +21,7 @@ not load `AGENTS.md` by itself, so the upstream guide is imported here:
 - `src-tauri/src/plus/` Rust extensions; one `pub mod plus;` in `lib.rs`, one generic IPC command
   `plus_invoke(command, args)` dispatching to handlers registered in `plus/mod.rs`.
 - `src/plus/` React code and the `plusInvoke` wrapper (`src/plus/api.ts`). New IPC commands also need an entry in
-  `src/test/browser-fixture.tsx`.
+  `src/plus/fixtures/plusInvoke.ts` (`src/test/browser-fixture.tsx` serves it).
 - Keep edits to upstream hot files (`desktop.rs`, `lib.rs`, `src/lib/api.ts`) minimal to ease merges.
 - `src-tauri/tauri.fork.conf.json`: fork identifier and neutralised updater, merged at build time. Build with
   `npm run tauri:fork` (adds `--config src-tauri/tauri.fork.conf.json`); do not edit the base `identifier`.

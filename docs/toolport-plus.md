@@ -22,7 +22,7 @@ Toolport+ is a fork of Toolport. Everything the fork adds lives under `src-tauri
 | `jsonfs.rs`                    | Tolerant JSON file read shared by the modules above.                                                                                                       |
 | `testutil.rs`                  | Test-only fixtures (see Test conventions).                                                                                                                 |
 
-Frontend (`src/plus/`): `api.ts` (`plusInvoke` wrapper), `AuthRows` and `AuthNotifier`, `FolderProfiles`, `WhatLoads`, with fixtures under `src/plus/fixtures/`. New IPC commands must be registered in `src/test/browser-fixture.tsx`.
+Frontend (`src/plus/`): `api.ts` (`plusInvoke` wrapper), `AuthRows` and `AuthNotifier`, `FolderProfiles`, `WhatLoads`, with fixtures under `src/plus/fixtures/`. New IPC commands must be registered in `src/plus/fixtures/plusInvoke.ts`, which `src/test/browser-fixture.tsx` serves.
 
 ## toolportctl commands
 
