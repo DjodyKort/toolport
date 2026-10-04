@@ -26,6 +26,13 @@ const PAGES = [
   "servers-profile-inspect-light",
   "servers-clients-light",
   "servers-health-light",
+  "logins-light",
+  "logins-dark",
+  "logins-signin-light",
+  "secrets-light",
+  "secrets-set-light",
+  "secrets-reveal-light",
+  "integrations-light",
 ];
 const SIZE = [1280, 800];
 
