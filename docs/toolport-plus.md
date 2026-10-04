@@ -11,7 +11,7 @@ Toolport+ is a fork of Toolport. Everything the fork adds lives under `src-tauri
 | `auth/`                        | Expired-login detection: stdio and remote auth probes, status cache, gateway state, Google OAuth refresh, status surfaces (statusline, SessionStart hook). |
 | `context/`                     | Context engine: layered rules, `CLAUDE.local.md` deploy, settings union, legacy MCP dedupe, shims, "what loads" viewer, folder profiles.                   |
 | `compression/`                 | Compression policy, provider health, shims, launch plan and the token-savings ledger.                                                                      |
-| `skills/`                      | SKILL.md parser, lockfile, linting, collision backups, per-client transpilers (agents, styles, assets).                                                    |
+| `skills/`                      | SKILL.md parser, lockfile, lint, collision backups, per-client transpilers (agents, styles, assets), skill taps (add, update, search, install).            |
 | `sync/`                        | Encrypted cross-machine sync (Fernet bundle, KDF, git transport, origins).                                                                                 |
 | `import_mcpm/`                 | Pure mapping from an mcpm config root to registry servers, name map, tool-reference rewrite.                                                               |
 | `selfmcp/`                     | Self-management MCP server: tool and resource catalog, confirm-tier enforcement, backends onto skills, registry and client sync.                           |
@@ -46,6 +46,7 @@ Global flag `--json` prints one envelope (`schemaVersion`, `command`, `data`). E
 | `mcp`                                                                   | Self-management server: install, uninstall, doctor, tools          |
 | `skills init/add/ls/lint/audit/bundle/unbundle/sync/diff`               | Skills repo init, add, list, lint, audit, bundle, sync, diff       |
 | `skills status / clean / uninstall / resolve`                           | Lock vs outputs, remove managed outputs, uninstall, collisions     |
+| `skills tap add/ls/remove/update, search, install`                      | Skill taps: register, list, pull, search, install (`--dry-run`)    |
 | `agents add/ls/lint/audit/diff/status/clean/uninstall/sync`             | Agents: template, list, lint, audit, drift, sync, remove           |
 | `styles add/ls/lint/diff/status/sync/apply/remove/clean`                | Output styles: template, list, lint, drift, sync, apply, remove    |
 | `sync`                                                                  | Encrypted sync (init, push, pull, diff, status, reset, ...)        |
@@ -72,9 +73,9 @@ It binds `127.0.0.1` only and answers `POST /v1/metrics` and `POST /v1/logs` (`a
 
 ## Self-management MCP server
 
-`toolport-plus-self` is the `toolport-selfmcp` binary registered as a stdio server: 49 tools and 11 `mcpm://` resources for skills, agents, styles, servers, clients and sync. `import mcpm`, `toolportctl mcp install` and `plus.selfmcp.ensure` register it and switch it on in the active (default) profile and in the profile of every connected client (`clientScopes`), so every client connected through the gateway sees its tools. A profile created later (a new client) gets it the next time one of those runs. The binary must sit next to `toolportctl` or in `<data dir>/bin`; `toolportctl mcp doctor` checks it.
+`toolport-plus-self` is the `toolport-selfmcp` binary registered as a stdio server: 55 tools and 11 `mcpm://` resources for skills, agents, styles, servers, clients and sync. `import mcpm`, `toolportctl mcp install` and `plus.selfmcp.ensure` register it and switch it on in the active (default) profile and in the profile of every connected client (`clientScopes`), so every client connected through the gateway sees its tools. A profile created later (a new client) gets it the next time one of those runs. The binary must sit next to `toolportctl` or in `<data dir>/bin`; `toolportctl mcp doctor` checks it.
 
-**What it costs.** The 49 tool definitions are about 20 KB of JSON, roughly 5,000 tokens, in every client that lists all tools (full discovery, which import sets for Claude Code). A client in lazy discovery (the import default for every other client) lists none of them and pays only when it searches with `toolport_search_tools`. Exposed names are at most 46 characters (`toolport_plus_self__servers_remove_profile_tag`), which keeps `mcp__toolport__...` inside the 64 character limit of Claude Code. Tier 3 and tier 4 tools refuse unless `confirm` is true.
+**What it costs.** The 55 tool definitions are about 23 KB of JSON, roughly 5,700 tokens, in every client that lists all tools (full discovery, which import sets for Claude Code). A client in lazy discovery (the import default for every other client) lists none of them and pays only when it searches with `toolport_search_tools`. Exposed names are at most 46 characters (`toolport_plus_self__servers_remove_profile_tag`), which keeps `mcp__toolport__...` inside the 64 character limit of Claude Code. Tier 3 and tier 4 tools refuse unless `confirm` is true.
 
 **Turning it off.**
 
