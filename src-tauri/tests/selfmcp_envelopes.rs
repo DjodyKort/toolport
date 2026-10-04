@@ -24,6 +24,8 @@ use serde_json::{json, Value};
 
 #[path = "selfmcp_envelopes/cases.rs"]
 mod cases;
+#[path = "common/claude_stub.rs"]
+mod claude_stub;
 #[path = "common/ctl_fixtures.rs"]
 mod ctl_fixtures;
 #[path = "common/ctl_world.rs"]
@@ -32,6 +34,8 @@ mod ctl_world;
 mod exec;
 #[path = "common/golden.rs"]
 mod golden;
+#[path = "common/loads_world.rs"]
+mod loads_world;
 #[path = "common/normalize.rs"]
 mod normalize;
 #[path = "common/selfmcp_client.rs"]

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/absent"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "--cwd is not a folder: <WORLD>/home/absent"
+    }
+  },
+  "text": "invalid_arguments: --cwd is not a folder: <WORLD>/home/absent",
+  "tool": "context_measure"
+}
