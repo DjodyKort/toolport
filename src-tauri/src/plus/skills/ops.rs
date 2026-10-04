@@ -13,9 +13,7 @@ use super::lock::{get_entry, load_lockfile, lockfile_path, save_lockfile, LockFi
 use super::parser::{valid_name, Skill, SkillType};
 use super::pyfs::text_hash;
 use super::styles::{all_style_transpilers, Style, Tier};
-use super::transpiler::{
-    Transpiler, TranspilerRegistry, APPEND_MODE_TRANSPILERS, PROJECT_ONLY_TRANSPILERS,
-};
+use super::transpiler::{Transpiler, TranspilerRegistry};
 use crate::registry;
 use std::collections::BTreeSet;
 use std::fs;
@@ -610,8 +608,8 @@ pub fn resolve_skill_collisions(
     let transpilers: Vec<&dyn Transpiler> = registry
         .all()
         .filter(|t| req.client.is_none_or(|c| c == t.client_key()))
-        .filter(|t| !(req.global_mode && PROJECT_ONLY_TRANSPILERS.contains(&t.client_key())))
-        .filter(|t| !APPEND_MODE_TRANSPILERS.contains(&t.client_key()))
+        .filter(|t| !(req.global_mode && t.capabilities().project_only))
+        .filter(|t| !t.capabilities().append_mode)
         .collect();
     let found = detect_collisions(skills, &transpilers, req.output_root);
     let summary = resolve_collisions(

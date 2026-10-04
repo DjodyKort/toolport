@@ -6,12 +6,25 @@ use std::path::{Path, PathBuf};
 pub const MCPM_BLOCK_START: &str = "<!-- mcpm:start -->";
 pub const MCPM_BLOCK_END: &str = "<!-- mcpm:end -->";
 
-/// Client keys that write relative to a project and are skipped in global mode. Mirrors mcpm
-/// verbatim, including its `vscode-copilot` spelling that never matches the `vscode` class key.
-pub const PROJECT_ONLY_TRANSPILERS: &[&str] = &["vscode-copilot", "zed", "agents-md"];
+/// What a transpiler's output means for a sync.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Capabilities {
+    /// Writes relative to a project, so a global sync skips it.
+    pub project_only: bool,
+    /// Aggregates every skill into one file through `transpile_all`.
+    pub append_mode: bool,
+}
 
-/// Keys whose output aggregates every skill into one file through `transpile_all`.
-pub const APPEND_MODE_TRANSPILERS: &[&str] = &["zed", "agents-md"];
+impl Capabilities {
+    pub const PER_FILE: Self = Self {
+        project_only: false,
+        append_mode: false,
+    };
+    pub const PROJECT_APPEND: Self = Self {
+        project_only: true,
+        append_mode: true,
+    };
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TranspileResult {
@@ -22,6 +35,10 @@ pub struct TranspileResult {
 
 pub trait Transpiler {
     fn client_key(&self) -> &str;
+
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::PER_FILE
+    }
 
     fn transpile(&self, skill: &Skill, output_root: &Path) -> Result<TranspileResult, String>;
 

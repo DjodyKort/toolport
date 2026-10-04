@@ -7,9 +7,7 @@ use super::collisions::{detect_collisions, resolve_collisions, resolve_mode, Col
 use super::lock::{get_entry, get_entry_mut, load_lockfile, set_entry, LockEntry, LockFile};
 use super::parser::{Skill, SkillType};
 use super::pyfs::write_text;
-use super::transpiler::{
-    Transpiler, TranspilerRegistry, APPEND_MODE_TRANSPILERS, PROJECT_ONLY_TRANSPILERS,
-};
+use super::transpiler::{Transpiler, TranspilerRegistry};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
@@ -136,17 +134,17 @@ pub fn sync_skills(
                 .as_ref()
                 .is_none_or(|keys| keys.iter().any(|k| k == t.client_key()))
         })
-        .filter(|t| !(opts.global_mode && PROJECT_ONLY_TRANSPILERS.contains(&t.client_key())))
+        .filter(|t| !(opts.global_mode && t.capabilities().project_only))
         .collect();
     let per_file: Vec<&dyn Transpiler> = selected
         .iter()
         .copied()
-        .filter(|t| !APPEND_MODE_TRANSPILERS.contains(&t.client_key()))
+        .filter(|t| !t.capabilities().append_mode)
         .collect();
     let append: Vec<&dyn Transpiler> = selected
         .iter()
         .copied()
-        .filter(|t| APPEND_MODE_TRANSPILERS.contains(&t.client_key()))
+        .filter(|t| t.capabilities().append_mode)
         .collect();
 
     for skill in skills {

@@ -4,7 +4,7 @@ use super::json::{self, J};
 use super::lock::{LockEntry, LockFile};
 use super::parser::{self, Activation, SkillType};
 use super::sync::{sync_skills, SyncOptions};
-use super::transpiler::inject_managed_block;
+use super::transpiler::{inject_managed_block, Capabilities};
 use super::*;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -710,6 +710,12 @@ fn global_mode_skips_project_only_clients_and_filters_by_key() {
     impl Transpiler for Keyed {
         fn client_key(&self) -> &str {
             self.0
+        }
+        fn capabilities(&self) -> Capabilities {
+            Capabilities {
+                project_only: self.0 == "vscode-copilot",
+                append_mode: false,
+            }
         }
         fn transpile(&self, skill: &Skill, root: &Path) -> Result<TranspileResult, String> {
             Ok(TranspileResult {

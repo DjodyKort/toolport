@@ -1,6 +1,6 @@
 use super::*;
 use crate::plus::skills::parser::{parse_skill_file, Skill};
-use crate::plus::skills::transpiler::Transpiler;
+use crate::plus::skills::transpiler::{Capabilities, Transpiler};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -36,6 +36,22 @@ fn full_registry_has_fifteen_clients_without_vscode() {
     assert!(reg.get("vscode").is_none());
     register_vscode_copilot(&mut reg);
     assert_eq!(reg.all().last().unwrap().client_key(), "vscode");
+}
+
+#[test]
+fn only_zed_and_agents_md_are_project_only_and_append_mode() {
+    let mut reg = TranspilerRegistry::new();
+    register_all_with_home(&mut reg, None);
+    register_vscode_copilot(&mut reg);
+    for t in reg.all() {
+        let aggregates = matches!(t.client_key(), "zed" | "agents-md");
+        let expected = if aggregates {
+            Capabilities::PROJECT_APPEND
+        } else {
+            Capabilities::PER_FILE
+        };
+        assert_eq!(t.capabilities(), expected, "{}", t.client_key());
+    }
 }
 
 #[test]
