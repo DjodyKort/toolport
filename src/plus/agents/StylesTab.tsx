@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { StylesLsData } from "../bridge/data";
 import type { StylesDiffData, StylesLintData, StylesStatusData } from "../types/styles";
-import { AsyncView } from "../ui";
-import { useRead, useRegistryRows, useWrite, type WriteControl } from "./hooks";
+import { AsyncView, type CtlQuery } from "../ui";
+import { reloadAll, useRead, useRegistry, useWrite, type WriteControl } from "./hooks";
 import { byClient, clientName, type ActiveRow, type NativeRow } from "./model";
 import { NewDialog } from "./NewDialog";
 import { Card, Chips, DiffBody, Discovery, LintBody, PathLine, Section } from "./parts";
@@ -177,11 +177,20 @@ function Actions({ write, onNew }: { write: WriteControl; onNew: () => void }) {
   );
 }
 
-function Styles({ write, onNew }: { write: WriteControl; onNew: () => void }) {
+function Styles({
+  write,
+  onNew,
+  registry,
+}: {
+  write: WriteControl;
+  onNew: () => void;
+  registry: CtlQuery<unknown>;
+}) {
   const list = useRead<StylesLsData>(["styles", "ls"]);
   const status = useRead<StylesStatusData>(["styles", "status"]);
   const lint = useRead<StylesLintData>(["styles", "lint"]);
   const diff = useRead<StylesDiffData>(["styles", "diff"]);
+  const everything = reloadAll(list, [status, lint, diff, registry]);
   const empty = list.data !== null && list.data.styles.length === 0;
   return (
     <>
@@ -193,7 +202,7 @@ function Styles({ write, onNew }: { write: WriteControl; onNew: () => void }) {
         }
       >
         <AsyncView
-          query={list}
+          query={everything}
           errorTitle="Couldn't list styles"
           isEmpty={(d) => d.styles.length === 0}
           empty={
@@ -247,7 +256,8 @@ function Styles({ write, onNew }: { write: WriteControl; onNew: () => void }) {
 /** The Styles panel. It starts empty with one action, "Create your first style"; once there
  * are styles it shows where each is synced and active, and the writes that move them. */
 export function StylesTab() {
-  const rows = useRegistryRows();
+  const registry = useRegistry();
+  const rows = registry.data?.commands ?? null;
   const [epoch, setEpoch] = useState(0);
   const [naming, setNaming] = useState(false);
   const write = useWrite(rows, () => setEpoch((n) => n + 1));
@@ -277,7 +287,12 @@ export function StylesTab() {
           }}
         />
       )}
-      <Styles key={epoch} write={write} onNew={() => setNaming(true)} />
+      <Styles
+        key={epoch}
+        write={write}
+        onNew={() => setNaming(true)}
+        registry={registry}
+      />
     </div>
   );
 }

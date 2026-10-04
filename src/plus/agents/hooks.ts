@@ -62,10 +62,24 @@ export function useRead<T>(argv: readonly string[]): CtlQuery<T> {
   };
 }
 
-/** The registry rows the policy of each write is read from. */
-export function useRegistryRows(): CommandRow[] | null {
-  const query = useCtlQuery<CommandsData>(["commands"]);
-  return query.data?.commands ?? null;
+/** The registry the policy of each write is read from. */
+export function useRegistry(): CtlQuery<CommandsData> {
+  return useCtlQuery<CommandsData>(["commands"]);
+}
+
+/** A query that reloads every given query: the Retry of a list brings back the reads that
+ * hang off it (the per-client output, the checks, the registry) as well. */
+export function reloadAll<T>(
+  main: CtlQuery<T>,
+  others: CtlQuery<unknown>[],
+): CtlQuery<T> {
+  return {
+    ...main,
+    reload: () => {
+      main.reload();
+      others.forEach((query) => query.reload());
+    },
+  };
 }
 
 /** One write of the screen: preview, confirm, apply, result (D-059). */

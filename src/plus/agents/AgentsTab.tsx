@@ -11,8 +11,8 @@ import type {
   AgentsStatusData,
   AgentsSyncData,
 } from "../types/agents";
-import { AsyncView, errorText } from "../ui";
-import { useRead, useRegistryRows, useWrite, type WriteControl } from "./hooks";
+import { AsyncView, errorText, type CtlQuery } from "../ui";
+import { reloadAll, useRead, useRegistry, useWrite, type WriteControl } from "./hooks";
 import {
   byClient,
   clientFlag,
@@ -189,18 +189,27 @@ function AgentCard({
   );
 }
 
-function Agents({ write, onNew }: { write: WriteControl; onNew: () => void }) {
+function Agents({
+  write,
+  onNew,
+  registry,
+}: {
+  write: WriteControl;
+  onNew: () => void;
+  registry: CtlQuery<unknown>;
+}) {
   const list = useRead<AgentsLsData>(["agents", "ls"]);
   const sync = useRead<AgentsSyncData>(["agents", "sync", "--dry-run"]);
   const status = useRead<AgentsStatusData>(["agents", "status"]);
   const lint = useRead<AgentsLintData>(["agents", "lint"]);
   const audit = useRead<AgentsAuditData>(["agents", "audit"]);
   const diff = useRead<AgentsDiffData>(["agents", "diff"]);
+  const everything = reloadAll(list, [sync, status, lint, audit, diff, registry]);
   return (
     <>
       <Section title="Agents" count={list.data?.agents.length}>
         <AsyncView
-          query={list}
+          query={everything}
           errorTitle="Couldn't list agents"
           isEmpty={(d) => d.agents.length === 0}
           empty={
@@ -314,7 +323,8 @@ function DriftBody({ data }: { data: AgentsStatusData }) {
 /** The Agents panel: the agents, what each client gets (with the fields a client drops), and
  * the lint, audit, diff and drift checks. Every write is previewed first. */
 export function AgentsTab() {
-  const rows = useRegistryRows();
+  const registry = useRegistry();
+  const rows = registry.data?.commands ?? null;
   const [epoch, setEpoch] = useState(0);
   const [naming, setNaming] = useState(false);
   const write = useWrite(rows, () => setEpoch((n) => n + 1));
@@ -378,7 +388,12 @@ export function AgentsTab() {
           }}
         />
       )}
-      <Agents key={epoch} write={write} onNew={() => setNaming(true)} />
+      <Agents
+        key={epoch}
+        write={write}
+        onNew={() => setNaming(true)}
+        registry={registry}
+      />
     </div>
   );
 }
