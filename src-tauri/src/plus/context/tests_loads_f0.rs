@@ -225,3 +225,32 @@ fn a_skill_claude_code_does_not_list_uses_no_budget() {
     fs::create_dir_all(&cwd).unwrap();
     assert_eq!(loads(&h, &cwd).skill_budget.used_tokens, 0);
 }
+
+#[cfg(unix)]
+#[test]
+fn a_folder_spelled_through_a_symlink_is_still_below_the_home_folder() {
+    let h = Home::new();
+    h.put(".claude/skills/alpha/SKILL.md", &skill("alpha", "A user skill"));
+    h.put(".claude/rules/style.md", "Keep it short.\n");
+    let cwd = h.repo("work/repo");
+    let alias = h
+        .at("")
+        .with_file_name(format!("alias-of-home-{}", std::process::id()));
+    let _ = fs::remove_file(&alias);
+    std::os::unix::fs::symlink(h.at(""), &alias).unwrap();
+
+    let roots = super::roots::Roots::from_home(&alias);
+    let r = what_loads(&roots, &config(json!({})), None, &cwd).unwrap();
+    let _ = fs::remove_file(&alias);
+
+    let skills: Vec<_> = r.items.iter().filter(|i| i.kind == "skill").collect();
+    assert_eq!(skills.len(), 1, "the user skill is read once: {skills:?}");
+    assert_eq!(skills[0].origin.kind, "loose");
+    assert!(r.clobbers.is_empty(), "{:?}", r.clobbers);
+    assert_eq!(r.items.iter().filter(|i| i.kind == "rule").count(), 1);
+    assert!(
+        r.cwd.starts_with(&alias.display().to_string()),
+        "the folder is reported in the home's spelling: {}",
+        r.cwd
+    );
+}
