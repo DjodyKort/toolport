@@ -33,9 +33,28 @@ fn proxy_world(_: &crate::CtlWorld) {
     health_proxy(49214);
 }
 
+fn sources_home(world: &crate::CtlWorld) {
+    crate::sources_world::build_in(&world.base);
+}
+
 pub const ALL: &[Case] = &[
     // skills
     case("skills_list", &[read("", "skills_list", "{}")]),
+    prepared(
+        "sources_ls",
+        sources_home,
+        &[
+            read("summary", "sources_ls", "{}"),
+            read("items", "sources_ls", r#"{"items":true,"kind":"skill"}"#),
+            read("org", "sources_ls", r#"{"source":"org","items":true}"#),
+            fails(
+                "bad_kind",
+                "invalid_arguments",
+                "sources_ls",
+                r#"{"kind":"widget"}"#,
+            ),
+        ],
+    ),
     case(
         "skills_get",
         &[

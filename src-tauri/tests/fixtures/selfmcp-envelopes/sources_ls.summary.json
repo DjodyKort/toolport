@@ -1,0 +1,483 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "generatedAt": "<TIME>",
+    "partial": false,
+    "skipped": [],
+    "sources": [
+      {
+        "counts": {
+          "agent": 0,
+          "command": 0,
+          "memory": 1,
+          "rule": 0,
+          "skill": 3
+        },
+        "detector": "repo",
+        "freshness": {
+          "ahead": 0,
+          "behind": 114,
+          "inCheckout": false,
+          "lastSync": "<TIME>",
+          "ref": "origin/main"
+        },
+        "id": "repo:odh",
+        "managedBy": null,
+        "origin": {
+          "kind": "repo",
+          "name": "odh"
+        },
+        "owner": "project",
+        "root": "<WORLD>/home/work/odh",
+        "status": {
+          "checkedAt": "<TIME>",
+          "detail": "114 commit(s) behind origin/main; 2 item(s) only on origin/main",
+          "state": "behind"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 32
+        },
+        "visible": {
+          "skill": 3,
+          "skillTotal": 3
+        },
+        "warnings": ["2 item(s) exist only on the remote branch, not in the checkout"],
+        "writable": false
+      },
+      {
+        "counts": {
+          "agent": 0,
+          "command": 1,
+          "memory": 1,
+          "rule": 0,
+          "skill": 2
+        },
+        "detector": "client",
+        "freshness": null,
+        "id": "client:acme",
+        "managedBy": null,
+        "origin": {
+          "kind": "client",
+          "name": "acme"
+        },
+        "owner": "project",
+        "root": "<WORLD>/home/work/odh/clients/acme",
+        "status": {
+          "checkedAt": "<TIME>",
+          "detail": "no remote branch to compare with",
+          "state": "ok"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 28
+        },
+        "visible": {
+          "skill": 2,
+          "skillTotal": 2
+        },
+        "warnings": ["1 item(s) with high-severity audit findings; nothing was changed"],
+        "writable": false
+      },
+      {
+        "counts": {
+          "agent": 0,
+          "command": 0,
+          "memory": 0,
+          "rule": 0,
+          "skill": 2
+        },
+        "detector": "vendored",
+        "freshness": null,
+        "id": "vendored:repos/core/odoo-20.0/skills",
+        "managedBy": null,
+        "origin": {
+          "kind": "vendored",
+          "name": "repos/core/odoo-20.0/skills"
+        },
+        "owner": "third-party",
+        "root": "<WORLD>/home/work/odh/repos/core/odoo-20.0/skills",
+        "status": {
+          "checkedAt": "<TIME>",
+          "detail": "2 skill folder(s) under repos/core/odoo-20.0/skills",
+          "state": "ok"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 12
+        },
+        "visible": {
+          "skill": 2,
+          "skillTotal": 2
+        },
+        "warnings": [],
+        "writable": false
+      },
+      {
+        "counts": {
+          "agent": 0,
+          "command": 0,
+          "memory": 0,
+          "rule": 0,
+          "skill": 1
+        },
+        "detector": "vendored",
+        "freshness": null,
+        "id": "vendored:repos/vve-stubs/skills",
+        "managedBy": null,
+        "origin": {
+          "kind": "vendored",
+          "name": "repos/vve-stubs/skills"
+        },
+        "owner": "third-party",
+        "root": "<WORLD>/home/work/odh/repos/vve-stubs/skills",
+        "status": {
+          "checkedAt": "<TIME>",
+          "detail": "1 skill folder(s) under repos/vve-stubs/skills",
+          "state": "ok"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 6
+        },
+        "visible": {
+          "skill": 1,
+          "skillTotal": 1
+        },
+        "warnings": [],
+        "writable": false
+      },
+      {
+        "counts": {
+          "agent": 0,
+          "command": 0,
+          "memory": 0,
+          "rule": 0,
+          "skill": 1
+        },
+        "detector": "vendored",
+        "freshness": null,
+        "id": "vendored:vendor/ext-skills/skills",
+        "managedBy": null,
+        "origin": {
+          "kind": "vendored",
+          "name": "vendor/ext-skills/skills"
+        },
+        "owner": "third-party",
+        "root": "<WORLD>/home/work/odh/vendor/ext-skills/skills",
+        "status": {
+          "checkedAt": "<TIME>",
+          "detail": "1 skill folder(s) under vendor/ext-skills/skills",
+          "state": "ok"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 6
+        },
+        "visible": {
+          "skill": 1,
+          "skillTotal": 1
+        },
+        "warnings": [],
+        "writable": false
+      },
+      {
+        "counts": {
+          "agent": 1,
+          "command": 1,
+          "memory": 0,
+          "rule": 0,
+          "skill": 1
+        },
+        "detector": "plugin",
+        "enabled": true,
+        "freshness": null,
+        "id": "plugin:alpha@market",
+        "managedBy": "marketplace",
+        "origin": {
+          "kind": "plugin",
+          "name": "alpha@market"
+        },
+        "owner": "third-party",
+        "root": "<WORLD>/home/.claude/plugins/cache/market/alpha/1.0.0",
+        "status": {
+          "checkedAt": "<TIME>",
+          "detail": "1.0.0; enabled in user settings",
+          "state": "ok"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 20
+        },
+        "visible": {
+          "skill": 1,
+          "skillTotal": 1
+        },
+        "warnings": [],
+        "writable": false
+      },
+      {
+        "counts": {
+          "agent": 0,
+          "command": 0,
+          "memory": 0,
+          "rule": 0,
+          "skill": 1
+        },
+        "detector": "plugin",
+        "enabled": false,
+        "freshness": null,
+        "id": "plugin:beta@market",
+        "managedBy": "marketplace",
+        "origin": {
+          "kind": "plugin",
+          "name": "beta@market"
+        },
+        "owner": "third-party",
+        "root": "<WORLD>/home/.claude/plugins/cache/market/beta/2.0.0",
+        "status": {
+          "checkedAt": "<TIME>",
+          "detail": "2.0.0; off (user)",
+          "state": "ok"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 7
+        },
+        "visible": {
+          "skill": 1,
+          "skillTotal": 1
+        },
+        "warnings": [],
+        "writable": false
+      },
+      {
+        "counts": {
+          "agent": 0,
+          "command": 2,
+          "memory": 1,
+          "rule": 0,
+          "skill": 0
+        },
+        "detector": "org",
+        "freshness": {
+          "ahead": 0,
+          "behind": 1,
+          "inCheckout": true,
+          "lastSync": "<TIME>",
+          "ref": "origin/main"
+        },
+        "id": "org",
+        "managedBy": "corp-tools sync (about every 4 h)",
+        "origin": {
+          "kind": "org",
+          "name": "corp-tools"
+        },
+        "owner": "org",
+        "root": "<WORLD>/home/.local/share/corp-tools",
+        "status": {
+          "checkedAt": "<TIME>",
+          "detail": "1 file(s) differ from the clone; the clone is 1 commit(s) behind origin/main; 1 clone command(s) are not deployed",
+          "state": "stale"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 16
+        },
+        "visible": {
+          "skill": 0,
+          "skillTotal": 0
+        },
+        "warnings": [
+          "command ship differs from the clone (not synced yet, or edited by hand)",
+          "shell-wrapper.sh changed since the hash recorded in context.json",
+          "command odoo-upgrade shadows the library skill of the same name; both are left alone"
+        ],
+        "writable": false
+      },
+      {
+        "counts": {
+          "agent": 0,
+          "command": 0,
+          "memory": 0,
+          "rule": 0,
+          "skill": 2
+        },
+        "detector": "account",
+        "freshness": null,
+        "id": "account",
+        "managedBy": "Claude account sync",
+        "origin": {
+          "kind": "account",
+          "name": "account"
+        },
+        "owner": "anthropic",
+        "root": "<WORLD>/home/.claude/skills/synced",
+        "status": {
+          "checkedAt": "<TIME>",
+          "detail": "2 skill(s) from 1 account folder(s)",
+          "state": "ok"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 12
+        },
+        "visible": {
+          "skill": 2,
+          "skillTotal": 2
+        },
+        "warnings": [],
+        "writable": false
+      },
+      {
+        "counts": {
+          "agent": 1,
+          "command": 0,
+          "memory": 0,
+          "rule": 1,
+          "skill": 4
+        },
+        "detector": "library",
+        "freshness": {
+          "ahead": 1,
+          "behind": 0,
+          "inCheckout": true,
+          "lastSync": "<TIME>",
+          "ref": "origin/main"
+        },
+        "id": "library",
+        "managedBy": null,
+        "origin": {
+          "kind": "library",
+          "name": "ai-skills"
+        },
+        "owner": "me",
+        "root": "<WORLD>/home/lib/ai-skills",
+        "status": {
+          "checkedAt": "<TIME>",
+          "detail": "1 other clone(s) of the same remote",
+          "state": "duplicate"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 65
+        },
+        "visible": {
+          "skill": 3,
+          "skillTotal": 4
+        },
+        "warnings": [
+          "1 skill(s) are hidden from Claude Code; see the item reasons",
+          "1 commit(s) not pushed",
+          "another clone of the same remote at <WORLD>/home/dups/ai-skills-copy",
+          "skill odoo-upgrade is shadowed by the org command of the same name"
+        ],
+        "writable": true
+      },
+      {
+        "counts": {
+          "agent": 0,
+          "command": 0,
+          "memory": 0,
+          "rule": 0,
+          "skill": 1
+        },
+        "detector": "tap",
+        "freshness": null,
+        "id": "tap:acme-tools",
+        "managedBy": "toolportctl skills tap",
+        "origin": {
+          "kind": "tap",
+          "name": "acme-tools"
+        },
+        "owner": "third-party",
+        "root": "<WORLD>/data/taps/acme-tools",
+        "status": {
+          "checkedAt": "<TIME>",
+          "detail": "1 item(s) from acme/tools",
+          "state": "ok"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 7
+        },
+        "visible": {
+          "skill": 1,
+          "skillTotal": 1
+        },
+        "warnings": [],
+        "writable": false
+      },
+      {
+        "counts": {
+          "agent": 1,
+          "command": 1,
+          "memory": 0,
+          "rule": 0,
+          "skill": 1
+        },
+        "detector": "loose",
+        "freshness": null,
+        "id": "loose",
+        "managedBy": null,
+        "origin": {
+          "kind": "loose",
+          "name": "~/.claude"
+        },
+        "owner": "me",
+        "root": "<WORLD>/home/.claude",
+        "status": {
+          "checkedAt": "<TIME>",
+          "detail": "3 file(s) no other source owns; 1 managed by toolportctl, not counted; 1 retired backup file(s) ignored",
+          "state": "ok"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 19
+        },
+        "visible": {
+          "skill": 1,
+          "skillTotal": 1
+        },
+        "warnings": [],
+        "writable": true
+      },
+      {
+        "counts": {
+          "agent": 0,
+          "command": 0,
+          "memory": 1,
+          "rule": 0,
+          "skill": 0
+        },
+        "detector": "inert",
+        "freshness": null,
+        "id": "inert",
+        "managedBy": null,
+        "origin": {
+          "kind": "inert",
+          "name": "_claude"
+        },
+        "owner": "project",
+        "root": null,
+        "status": {
+          "checkedAt": "<TIME>",
+          "detail": "1 file(s) under _claude that no load rule reaches",
+          "state": "ok"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 9
+        },
+        "visible": {
+          "skill": 0,
+          "skillTotal": 0
+        },
+        "warnings": [],
+        "writable": false
+      }
+    ]
+  },
+  "tool": "sources_ls"
+}

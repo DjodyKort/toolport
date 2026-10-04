@@ -36,6 +36,8 @@ mod golden;
 mod normalize;
 #[path = "common/selfmcp_client.rs"]
 mod selfmcp_client;
+#[path = "common/sources_world.rs"]
+mod sources_world;
 
 use ctl_fixtures::PASSPHRASE;
 use ctl_world::{CtlWorld, FAKE_SECRET};

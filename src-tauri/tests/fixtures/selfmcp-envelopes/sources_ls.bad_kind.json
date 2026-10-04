@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "kind": "widget"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "kind must be one of skill, command, agent, rule, memory"
+    }
+  },
+  "text": "invalid_arguments: kind must be one of skill, command, agent, rule, memory",
+  "tool": "sources_ls"
+}

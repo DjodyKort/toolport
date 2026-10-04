@@ -42,6 +42,7 @@ export * from "./selfmcp-compression";
 export * from "./selfmcp-core";
 export * from "./selfmcp-servers";
 export * from "./selfmcp-skills";
+export * from "./selfmcp-sources";
 export * from "./selfmcp-styles";
 export * from "./selfmcp-sync";
 export * from "./selfmcp-resources";

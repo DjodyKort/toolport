@@ -15,6 +15,7 @@ import { compressionToolShapes } from "./selfmcp-compression";
 import { coreToolShapes } from "./selfmcp-core";
 import { serversToolShapes } from "./selfmcp-servers";
 import { skillsToolShapes } from "./selfmcp-skills";
+import { sourcesToolShapes } from "./selfmcp-sources";
 import { stylesToolShapes } from "./selfmcp-styles";
 import { syncToolShapes } from "./selfmcp-sync";
 
@@ -62,6 +63,7 @@ export const selfmcpToolShapes: Record<string, Shape<unknown>> = {
   ...coreToolShapes,
   ...serversToolShapes,
   ...skillsToolShapes,
+  ...sourcesToolShapes,
   ...stylesToolShapes,
   ...syncToolShapes,
 };

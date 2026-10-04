@@ -172,6 +172,14 @@ export const contextStatusData = obj({
   profiles: arr(any),
   shims: obj({
     exists: bool,
+    legacyExists: bool,
+    legacyPath: str,
+    path: str,
+  }),
+  zshrc: obj({
+    deadAliases: arr(any),
+    exists: bool,
+    legacyLines: arr(any),
     path: str,
   }),
 });
