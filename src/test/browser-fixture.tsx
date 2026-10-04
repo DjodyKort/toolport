@@ -128,6 +128,8 @@ mockIPC(
             };
           case "plus.auth.rows":
             return plusAuthRowsFixture;
+          case "plus.auth.notifications":
+            return { notifications: [] };
           case "plus.auth.probe":
             return { server: "odoo", ran: true, skipped: null };
           case "plus.auth.login":

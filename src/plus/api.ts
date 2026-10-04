@@ -43,6 +43,21 @@ export function plusAuthRows(): Promise<AuthRows> {
   return plusInvoke<AuthRows>("plus.auth.rows");
 }
 
+export interface AuthNotification {
+  server: string;
+  state: "needs_reauth" | "expiring";
+  title: string;
+  body: string;
+  dedupeKey: string;
+}
+
+/** Each edge is returned once; the backend remembers what it already handed out. */
+export function plusAuthNotifications(): Promise<AuthNotification[]> {
+  return plusInvoke<{ notifications: AuthNotification[] }>(
+    "plus.auth.notifications",
+  ).then((r) => r.notifications);
+}
+
 export interface AuthLogin {
   server: string;
   name: string;

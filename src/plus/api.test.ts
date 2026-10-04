@@ -4,7 +4,8 @@ import type { AuthFixAction } from "./api";
 const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 
-const { fixIsActionable, plusAuthFix, plusAuthRows, plusInvoke } = await import("./api");
+const { fixIsActionable, plusAuthFix, plusAuthNotifications, plusAuthRows, plusInvoke } =
+  await import("./api");
 
 function fix(over: Partial<AuthFixAction>): AuthFixAction {
   return {
@@ -34,6 +35,22 @@ describe("plus api", () => {
     await expect(plusAuthRows()).resolves.toEqual({ counts: {}, rows: [] });
     expect(invoke).toHaveBeenCalledWith("plus_invoke", {
       command: "plus.auth.rows",
+      args: {},
+    });
+  });
+
+  it("unwraps the notification list", async () => {
+    const note = {
+      server: "beta",
+      state: "needs_reauth",
+      title: "beta needs a new login",
+      body: "Sign in again.",
+      dedupeKey: "beta:needs_reauth",
+    };
+    invoke.mockResolvedValue({ notifications: [note] });
+    await expect(plusAuthNotifications()).resolves.toEqual([note]);
+    expect(invoke).toHaveBeenCalledWith("plus_invoke", {
+      command: "plus.auth.notifications",
       args: {},
     });
   });
