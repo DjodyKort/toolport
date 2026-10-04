@@ -1,3 +1,4 @@
+use super::{servers, ToolError};
 use serde_json::{json, Map, Value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -22,12 +23,15 @@ pub struct Param {
     pub desc: &'static str,
 }
 
+pub type Runner = fn(&Value) -> Result<Value, ToolError>;
+
 pub struct ToolDef {
     pub name: &'static str,
     pub tier: u8,
     pub gate: Gate,
     pub description: &'static str,
     pub params: &'static [Param],
+    pub run: Option<Runner>,
 }
 
 pub struct ResourceDef {
@@ -54,14 +58,21 @@ const BODY: Param = p("new_body", Ty::Str, true, "Replacement body");
 const COMMIT: Param = p("commit_message", Ty::Str, true, "Commit message");
 
 macro_rules! tool {
-    ($name:literal, $tier:literal, $gate:ident, $desc:literal, [$($param:expr),* $(,)?]) => {
+    (@def $name:literal, $tier:literal, $gate:ident, $desc:literal, [$($param:expr),*], $run:expr) => {
         ToolDef {
             name: $name,
             tier: $tier,
             gate: Gate::$gate,
             description: $desc,
             params: &[$($param),*],
+            run: $run,
         }
+    };
+    ($name:literal, $tier:literal, $gate:ident, $desc:literal, [$($param:expr),* $(,)?]) => {
+        tool!(@def $name, $tier, $gate, $desc, [$($param),*], None)
+    };
+    ($name:literal, $tier:literal, $gate:ident, $desc:literal, [$($param:expr),* $(,)?], $run:path) => {
+        tool!(@def $name, $tier, $gate, $desc, [$($param),*], Some($run))
     };
 }
 
@@ -164,7 +175,8 @@ pub const TOOLS: &[ToolDef] = &[
         4,
         Always,
         "Commit and push the skills repository to its remote",
-        [COMMIT, REPO]
+        [COMMIT, REPO],
+        servers::skills_git_push
     ),
     tool!("agents_list", 1, None, "List agents", [REPO]),
     tool!(
@@ -306,14 +318,16 @@ pub const TOOLS: &[ToolDef] = &[
         1,
         None,
         "Detect where a server was installed from",
-        [NAME]
+        [NAME],
+        servers::detect_source
     ),
     tool!(
         "servers_git_status",
         1,
         None,
         "Git status of a source-installed server",
-        [NAME]
+        [NAME],
+        servers::git_status
     ),
     tool!(
         "servers_check_updates",
@@ -328,21 +342,24 @@ pub const TOOLS: &[ToolDef] = &[
                 false,
                 "Consider prereleases"
             )
-        ]
+        ],
+        servers::check_updates
     ),
     tool!(
         "servers_add_profile_tag",
         2,
         None,
         "Add a server to a profile",
-        [NAME, p("profile_tag", Ty::Str, true, "Profile name")]
+        [NAME, p("profile_tag", Ty::Str, true, "Profile name")],
+        servers::add_profile_tag
     ),
     tool!(
         "servers_remove_profile_tag",
         2,
         None,
         "Remove a server from a profile",
-        [NAME, p("profile_tag", Ty::Str, true, "Profile name")]
+        [NAME, p("profile_tag", Ty::Str, true, "Profile name")],
+        servers::remove_profile_tag
     ),
     tool!(
         "servers_install",
@@ -354,14 +371,16 @@ pub const TOOLS: &[ToolDef] = &[
             p("config", Ty::Obj, true, "Server configuration"),
             p("profile_tags", Ty::StrList, false, "Profiles to join"),
             p("force", Ty::Bool, false, "Replace an existing entry")
-        ]
+        ],
+        servers::install
     ),
     tool!(
         "servers_update_config",
         3,
         Always,
         "Patch a server's configuration",
-        [NAME, p("patch", Ty::Obj, true, "Fields to change")]
+        [NAME, p("patch", Ty::Obj, true, "Fields to change")],
+        servers::update_config
     ),
     tool!(
         "servers_apply_update",
@@ -377,7 +396,8 @@ pub const TOOLS: &[ToolDef] = &[
                 false,
                 "Consider prereleases"
             )
-        ]
+        ],
+        servers::apply_update
     ),
     tool!(
         "servers_set_mode",
@@ -392,7 +412,8 @@ pub const TOOLS: &[ToolDef] = &[
                 true,
                 "auto, direct, router, legacy or bridge"
             )
-        ]
+        ],
+        servers::set_mode
     ),
     tool!(
         "servers_fork_sync",
@@ -412,14 +433,16 @@ pub const TOOLS: &[ToolDef] = &[
                 false,
                 "Run the post-update command"
             )
-        ]
+        ],
+        servers::fork_sync
     ),
     tool!(
         "servers_auth",
         3,
         Always,
         "Start the authorization flow for a server",
-        [NAME]
+        [NAME],
+        servers::auth
     ),
     tool!(
         "servers_uninstall",
@@ -434,7 +457,8 @@ pub const TOOLS: &[ToolDef] = &[
                 false,
                 "Remove client entries too"
             )
-        ]
+        ],
+        servers::uninstall
     ),
     tool!("clients_list", 1, None, "List supported client keys", []),
     tool!(
@@ -453,14 +477,16 @@ pub const TOOLS: &[ToolDef] = &[
             ),
             p("keep_orphans", Ty::Bool, false, "Keep unmatched entries"),
             DRY
-        ]
+        ],
+        servers::clients_sync
     ),
     tool!(
         "sync_push",
         4,
         UnlessDryRun,
         "Publish the encrypted sync bundle to its remote",
-        [DRY]
+        [DRY],
+        servers::sync_push
     ),
     tool!(
         "where_am_i",

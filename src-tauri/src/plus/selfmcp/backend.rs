@@ -1,6 +1,6 @@
 use super::catalog::{ResourceDef, ToolDef};
 use super::ToolError;
-use super::{content, docs, servers};
+use super::{content, docs};
 use crate::plus::args::{list, str_arg};
 use crate::plus::ctl::ErrorKind;
 use crate::plus::profiles;
@@ -101,7 +101,10 @@ pub(super) fn lint_value(result: &LintResult) -> Value {
 }
 
 pub fn run_tool(tool: &ToolDef, args: &Value) -> Result<Value, ToolError> {
-    if let Some(outcome) = content::run(tool.name, args).or_else(|| servers::run(tool.name, args)) {
+    if let Some(run) = tool.run {
+        return run(args);
+    }
+    if let Some(outcome) = content::run(tool.name, args) {
         return outcome;
     }
     match tool.name {

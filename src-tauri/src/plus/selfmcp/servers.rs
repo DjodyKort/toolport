@@ -21,27 +21,6 @@ const GIT_TIMEOUT: Duration = Duration::from_secs(120);
 const AUTH_WAIT: Duration = Duration::from_secs(20);
 const CONFIG_KEYS: [&str; 5] = ["command", "args", "url", "transport", "cwd"];
 
-pub(super) fn run(name: &str, args: &Value) -> Option<Outcome> {
-    Some(match name {
-        "servers_detect_source" => detect_source(args),
-        "servers_git_status" => git_status(args),
-        "servers_check_updates" => check_updates(args),
-        "servers_add_profile_tag" => profile_tag(args, true),
-        "servers_remove_profile_tag" => profile_tag(args, false),
-        "servers_install" => install(args),
-        "servers_update_config" => update_config(args),
-        "servers_apply_update" => apply_update(args),
-        "servers_set_mode" => set_mode(args),
-        "servers_fork_sync" => fork_sync(args),
-        "servers_auth" => auth(args),
-        "servers_uninstall" => uninstall(args),
-        "clients_sync" => clients_sync(args),
-        "skills_git_push" => skills_git_push(args),
-        "sync_push" => sync_push(args),
-        _ => return None,
-    })
-}
-
 fn safe_token(value: &str) -> bool {
     !value.is_empty() && !value.starts_with('-')
 }
@@ -68,13 +47,13 @@ fn source_value(source: &Source) -> Value {
     json!({"kind": source.kind(), "meta": source.to_meta()})
 }
 
-fn detect_source(args: &Value) -> Outcome {
+pub(super) fn detect_source(args: &Value) -> Outcome {
     let server = load(args)?;
     let (src, stored) = source::effective(&server, crate::clients::home().as_deref());
     Ok(json!({"name": server.name, "stored": stored, "detected": source_value(&src)}))
 }
 
-fn git_status(args: &Value) -> Outcome {
+pub(super) fn git_status(args: &Value) -> Outcome {
     let server = load(args)?;
     let (src, _) = source::effective(&server, crate::clients::home().as_deref());
     let Source::Git { path, branch, .. } = src else {
@@ -118,12 +97,12 @@ fn update_options(args: &Value, mode: Mode) -> Result<Options, ToolError> {
     Ok(opts)
 }
 
-fn check_updates(args: &Value) -> Outcome {
+pub(super) fn check_updates(args: &Value) -> Outcome {
     let opts = update_options(args, Mode::Check)?;
     execute(&opts).map(|r| r.to_value()).map_err(ToolError::backend)
 }
 
-fn apply_update(args: &Value) -> Outcome {
+pub(super) fn apply_update(args: &Value) -> Outcome {
     name_arg(args)?;
     let mut opts = update_options(args, Mode::Apply)?;
     opts.allow_commands = true;
@@ -137,6 +116,14 @@ fn join_profile(server: &ServerEntry, tag: &str, add: bool) -> Result<Registry, 
         }
         _ => ToolError::backend(error.message),
     })
+}
+
+pub(super) fn add_profile_tag(args: &Value) -> Outcome {
+    profile_tag(args, true)
+}
+
+pub(super) fn remove_profile_tag(args: &Value) -> Outcome {
+    profile_tag(args, false)
 }
 
 fn profile_tag(args: &Value, add: bool) -> Outcome {
@@ -219,7 +206,7 @@ fn fields_from(
     Ok(servers::fields_from(patch, base))
 }
 
-fn install(args: &Value) -> Outcome {
+pub(super) fn install(args: &Value) -> Outcome {
     let name = name_arg(args)?;
     let cfg = args
         .get("config")
@@ -262,7 +249,7 @@ fn install(args: &Value) -> Outcome {
     Ok(json!({"installed": true, "id": id, "name": server.name}))
 }
 
-fn update_config(args: &Value) -> Outcome {
+pub(super) fn update_config(args: &Value) -> Outcome {
     let server = load(args)?;
     let patch = args
         .get("patch")
@@ -281,7 +268,7 @@ fn update_config(args: &Value) -> Outcome {
     Ok(json!({"id": server.id, "updatedKeys": keys}))
 }
 
-fn set_mode(args: &Value) -> Outcome {
+pub(super) fn set_mode(args: &Value) -> Outcome {
     let server = load(args)?;
     let mode = str_arg(args, "mode").unwrap_or_default();
     if !["auto", "direct", "router", "legacy", "bridge"].contains(&mode) {
@@ -299,7 +286,7 @@ fn set_mode(args: &Value) -> Outcome {
     }))
 }
 
-fn uninstall(args: &Value) -> Outcome {
+pub(super) fn uninstall(args: &Value) -> Outcome {
     let name = name_arg(args)?;
     let propagate = flag_or(args, "propagate_to_clients", true);
     let mut cmd = vec!["server", "uninstall", name];
@@ -309,7 +296,7 @@ fn uninstall(args: &Value) -> Outcome {
     ctl(&cmd)
 }
 
-fn clients_sync(args: &Value) -> Outcome {
+pub(super) fn clients_sync(args: &Value) -> Outcome {
     let mut cmd = vec!["client", "sync"];
     if let Some(client) = str_nonempty(args, "client") {
         if client.starts_with('-') {
@@ -334,7 +321,7 @@ fn clients_sync(args: &Value) -> Outcome {
     Ok(out)
 }
 
-fn sync_push(args: &Value) -> Outcome {
+pub(super) fn sync_push(args: &Value) -> Outcome {
     crate::plus::sync::handlers::push_handler(json!({"dryRun": flag(args, "dry_run")}))
         .map_err(ToolError::backend)
 }
@@ -353,7 +340,7 @@ fn git_ok(repo: &Path, cmd: &[&str]) -> Result<String, ToolError> {
     }
 }
 
-fn skills_git_push(args: &Value) -> Outcome {
+pub(super) fn skills_git_push(args: &Value) -> Outcome {
     let repo = skills_repo(args)?;
     if !repo.join(".git").exists() {
         return Err(ToolError::new(
@@ -429,7 +416,7 @@ fn fork_onto_author(repo: &Path, target: &str, upstream: &str, email: &str) -> O
     Ok(json!({"synced": true, "branch": target, "mode": "onto-author", "picked": commits.len()}))
 }
 
-fn fork_sync(args: &Value) -> Outcome {
+pub(super) fn fork_sync(args: &Value) -> Outcome {
     let server = load(args)?;
     let (src, _) = source::effective(&server, crate::clients::home().as_deref());
     let Source::Git {
@@ -512,7 +499,7 @@ fn find_url(line: &str) -> Option<String> {
         .map(|t| t.trim_end_matches([',', '.', ')', '"', '\'']).to_string())
 }
 
-fn auth(args: &Value) -> Outcome {
+pub(super) fn auth(args: &Value) -> Outcome {
     let server = load(args)?;
     let command = match (&server.command, server.transport.as_str()) {
         (Some(c), "stdio") => c.clone(),
