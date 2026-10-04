@@ -4,7 +4,7 @@ import { NOT_BUILT_TABS } from "../notBuiltTabs";
 import { Tabs, useCtlQuery } from "../ui";
 import type { CommandsData } from "../bridge/data";
 import { LaunchTab } from "./LaunchTab";
-import { RowsContext } from "./parts";
+import { RowsContext, RowsReloadContext } from "./parts";
 
 /** The tabs of the Context screen that are built. A tab not listed here is still the marked
  * placeholder of `NOT_BUILT_TABS`; the item that builds a tab adds its panel to this map. */
@@ -28,25 +28,27 @@ export function ContextScreen({
   const Panel = current ? PANELS[current.id] : undefined;
   return (
     <RowsContext.Provider value={registry.data?.commands ?? null}>
-      <Tabs
-        items={TABS.map(({ id, label }) => ({ id, label }))}
-        value={current?.id ?? ""}
-        onValueChange={setTab}
-        label="Context sections"
-      >
-        {Panel ? (
-          <Panel />
-        ) : (
-          current && (
-            <NotBuiltPanel
-              name={current.label}
-              builtBy={current.builtBy}
-              group={current.group}
-              onOpenCommands={onOpenCommands}
-            />
-          )
-        )}
-      </Tabs>
+      <RowsReloadContext.Provider value={registry.reload}>
+        <Tabs
+          items={TABS.map(({ id, label }) => ({ id, label }))}
+          value={current?.id ?? ""}
+          onValueChange={setTab}
+          label="Context sections"
+        >
+          {Panel ? (
+            <Panel />
+          ) : (
+            current && (
+              <NotBuiltPanel
+                name={current.label}
+                builtBy={current.builtBy}
+                group={current.group}
+                onOpenCommands={onOpenCommands}
+              />
+            )
+          )}
+        </Tabs>
+      </RowsReloadContext.Provider>
     </RowsContext.Provider>
   );
 }

@@ -81,7 +81,7 @@ export const checks: Array<[string, string]> = [
   ["ok", "corp-tools not installed — no coexistence constraints"],
 ];
 
-const zshrcPlan = (dry: boolean) => ({
+export const zshrcPlan = (dry: boolean) => ({
   path: `${HOME}/.zshrc`,
   exists: true,
   dryRun: dry,
