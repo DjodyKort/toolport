@@ -263,6 +263,49 @@ mod flows {
     }
 
     #[test]
+    fn the_app_route_signs_in_and_reports_the_state_afterwards() {
+        with_world("login-route", |world| {
+            write_registry(vec![mock(world, "acme", "signed_in")], &["acme"]);
+            let value =
+                crate::plus::dispatch("plus.auth.login", json!({"server": "acme"})).unwrap();
+            assert_eq!(value["flow"], "stdio");
+            assert_eq!(value["signedIn"], true);
+            assert_eq!(value["message"], "acme reports it is already signed in.");
+            assert!(value["consentUrl"].is_null());
+            assert!(value["servers"].is_array());
+            assert!(value.get("probe").is_some());
+        });
+    }
+
+    #[test]
+    fn the_app_route_refuses_what_the_command_refuses_with_the_same_words() {
+        with_world("login-route-refuse", |world| {
+            let mut team = mock(world, "shared", "consent");
+            team["source"] = json!("team:acme");
+            write_registry(vec![team], &[]);
+            let missing = crate::plus::dispatch("plus.auth.login", json!({})).unwrap_err();
+            assert_eq!(missing, "server is required");
+            let blank =
+                crate::plus::dispatch("plus.auth.login", json!({"server": ""})).unwrap_err();
+            assert_eq!(blank, "server is required");
+            let unknown =
+                crate::plus::dispatch("plus.auth.login", json!({"server": "nope"})).unwrap_err();
+            assert_eq!(unknown, "unknown server: nope");
+            let gated = crate::plus::dispatch(
+                "plus.auth.login",
+                json!({"server": "shared", "openBrowser": false}),
+            )
+            .unwrap_err();
+            assert!(gated.contains("needs consent"), "{gated}");
+            assert!(
+                gated.ends_with("Next: enable it from Teams after review, then run toolportctl auth login shared"),
+                "{gated}"
+            );
+            assert!(!world.path("pid").exists(), "the mock server was started");
+        });
+    }
+
+    #[test]
     fn a_sign_in_never_surfaces_launch_secrets() {
         with_world("login-leak", |world| {
             let mut value = mock(world, "acme", "leak");

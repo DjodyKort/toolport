@@ -29,6 +29,7 @@ pub use machine::{
 pub use probe::{
     Clock, FakeClock, MockProbe, Probe, ProbeKind, ProbeRegistry, ProbeSpec, SystemClock,
 };
+pub use login::login_handler;
 pub use surfaces::rows_handler;
 pub use prober::{
     backoff_delay, probe_all, probe_due, status_handler, AuthProber, ProbeReport, Trigger,
