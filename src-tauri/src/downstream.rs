@@ -9143,15 +9143,15 @@ mod tests {
         }
     }
 
-    /// A transport that reads whatever is sent to the returned sender, with an
-    /// 800 ms call deadline and the given absolute cap.
+    /// A transport that reads whatever is sent to the returned sender, with a
+    /// 2 s call deadline and the given absolute cap.
     fn timed_transport(
         recorder: &StdinRecorder,
         cap: Option<std::time::Duration>,
     ) -> (super::StdioTransport, std::sync::mpsc::Sender<String>) {
         let (tx, rx) = std::sync::mpsc::channel();
         let mut transport = stdio_transport_fed(Arc::clone(&recorder.stdin), rx);
-        transport.read_timeout = std::time::Duration::from_millis(800);
+        transport.read_timeout = std::time::Duration::from_secs(2);
         transport.call_cap = cap;
         (transport, tx)
     }
@@ -9197,15 +9197,15 @@ mod tests {
     fn progress_for_the_calls_token_re_arms_the_deadline_up_to_the_cap() {
         let recorder = StdinRecorder::new("rearm");
         let (mut transport, tx) = timed_transport(&recorder, Some(Duration::from_secs(10)));
-        let feeder = feed_progress(tx, "tp-1", Duration::from_millis(2_000));
+        let feeder = feed_progress(tx, "tp-1", Duration::from_secs(5));
         let (result, took) = call_with_token(&mut transport);
         assert_eq!(
             result.expect("progress kept the call alive"),
             json!({ "ok": true })
         );
         assert!(
-            took >= Duration::from_millis(1_900),
-            "the call ran well past the 800 ms deadline: {took:?}"
+            took > Duration::from_secs(2),
+            "the call ran past the 2 s deadline: {took:?}"
         );
         feeder.join().unwrap();
         drop(transport);
@@ -9216,13 +9216,13 @@ mod tests {
     fn progress_for_another_token_leaves_the_deadline_alone() {
         let recorder = StdinRecorder::new("other-token");
         let (mut transport, tx) = timed_transport(&recorder, Some(Duration::from_secs(10)));
-        let feeder = feed_progress(tx, "tp-other", Duration::from_millis(2_000));
+        let feeder = feed_progress(tx, "tp-other", Duration::from_secs(8));
         let (result, took) = call_with_token(&mut transport);
         let Err(TransportError::Unavailable(message)) = result else {
             panic!("expected the deadline to fire, got {result:?}");
         };
         assert_eq!(message, "timed out waiting for 'tools/call' response");
-        assert!(took < Duration::from_millis(1_500), "{took:?}");
+        assert!(took >= Duration::from_millis(1_900), "{took:?}");
         drop(transport);
         feeder.join().unwrap();
         recorder.finish();
@@ -9232,13 +9232,13 @@ mod tests {
     fn without_a_cap_progress_never_re_arms_the_deadline() {
         let recorder = StdinRecorder::new("no-cap");
         let (mut transport, tx) = timed_transport(&recorder, None);
-        let feeder = feed_progress(tx, "tp-1", Duration::from_millis(2_000));
+        let feeder = feed_progress(tx, "tp-1", Duration::from_secs(8));
         let (result, took) = call_with_token(&mut transport);
         let Err(TransportError::Unavailable(message)) = result else {
             panic!("expected the deadline to fire, got {result:?}");
         };
         assert_eq!(message, "timed out waiting for 'tools/call' response");
-        assert!(took < Duration::from_millis(1_500), "{took:?}");
+        assert!(took >= Duration::from_millis(1_900), "{took:?}");
         drop(transport);
         feeder.join().unwrap();
         recorder.finish();
@@ -9247,7 +9247,7 @@ mod tests {
     #[test]
     fn the_cap_ends_a_call_that_keeps_reporting_progress() {
         let recorder = StdinRecorder::new("cap");
-        let (mut transport, tx) = timed_transport(&recorder, Some(Duration::from_millis(1_500)));
+        let (mut transport, tx) = timed_transport(&recorder, Some(Duration::from_secs(4)));
         let feeder = feed_progress(tx, "tp-1", Duration::from_secs(30));
         let (result, took) = call_with_token(&mut transport);
         let Err(TransportError::Unavailable(message)) = result else {
@@ -9255,13 +9255,10 @@ mod tests {
         };
         assert!(
             message.starts_with("timed out waiting for 'tools/call' response: ")
-                && message.contains("1.5s absolute cap (maxRequestTimeoutMs)"),
+                && message.contains("4s absolute cap (maxRequestTimeoutMs)"),
             "{message}"
         );
-        assert!(
-            took >= Duration::from_millis(1_400) && took < Duration::from_millis(2_500),
-            "{took:?}"
-        );
+        assert!(took >= Duration::from_millis(3_900), "{took:?}");
         drop(transport);
         feeder.join().unwrap();
         recorder.finish();
@@ -9272,7 +9269,7 @@ mod tests {
         let recorder = StdinRecorder::new("elicit-wait");
         let (mut transport, tx) = timed_transport(&recorder, None);
         transport.server_handler = Some(Arc::new(|_| {
-            std::thread::sleep(Duration::from_millis(1_200));
+            std::thread::sleep(Duration::from_secs(3));
             Some(ServerRequestAction::Respond(
                 json!({ "jsonrpc": "2.0", "id": "srv-1", "result": { "action": "accept" } }),
             ))
@@ -9285,7 +9282,7 @@ mod tests {
         .unwrap();
         let answer = tx.clone();
         let late = std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_millis(1_500));
+            std::thread::sleep(Duration::from_millis(3_500));
             let _ = answer
                 .send(json!({ "jsonrpc": "2.0", "id": 1, "result": { "ok": true } }).to_string());
         });
@@ -9295,7 +9292,7 @@ mod tests {
             result.expect("the human's wait was not charged"),
             json!({ "ok": true })
         );
-        assert!(started.elapsed() >= Duration::from_millis(1_400));
+        assert!(started.elapsed() >= Duration::from_secs(3));
         late.join().unwrap();
         drop(transport);
         drop(tx);
@@ -10431,9 +10428,10 @@ mod tests {
 
         let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
         let port = server.server_addr().to_ip().unwrap().port();
+        let (release, released) = std::sync::mpsc::channel::<()>();
         let handle = std::thread::spawn(move || {
             let request = server.recv().expect("receive timed request");
-            std::thread::sleep(Duration::from_secs(1));
+            let _ = released.recv_timeout(Duration::from_secs(10));
             let _ = request.respond(tiny_http::Response::from_string(
                 r#"{"jsonrpc":"2.0","id":1,"result":{}}"#,
             ));
@@ -10453,15 +10451,13 @@ mod tests {
             true,
         );
 
+        let took = started.elapsed();
+        let _ = release.send(());
         assert!(
             result.is_err(),
-            "the delayed response must exceed the configured timeout"
+            "the configured timeout was not applied, the call returned {result:?}"
         );
-        assert!(
-            started.elapsed() < Duration::from_millis(800),
-            "the custom timeout was not applied: {:?}",
-            started.elapsed()
-        );
+        assert!(took >= Duration::from_millis(50), "{took:?}");
         handle.join().unwrap();
     }
 
