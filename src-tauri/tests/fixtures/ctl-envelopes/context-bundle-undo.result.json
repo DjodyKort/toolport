@@ -1,0 +1,65 @@
+{
+  "argv": ["context", "bundle", "undo", "--cwd", "{home}/work/erp/clients/acme-erp"],
+  "envelope": {
+    "command": "context bundle undo",
+    "data": {
+      "bundle": "acme-dev",
+      "conflicts": [],
+      "cwd": "<WORLD>/home/work/erp/clients/acme-erp",
+      "dryRun": false,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "put back 8 key(s) of bundle acme-dev",
+            "keys": [
+              "skillOverrides",
+              "enabledPlugins",
+              "claudeMdExcludes",
+              "permissions.deny"
+            ],
+            "op": "merge",
+            "path": "<WORLD>/home/work/erp/clients/acme-erp/.claude/settings.local.json"
+          },
+          {
+            "detail": "remove the managed block",
+            "op": "update",
+            "path": "<WORLD>/home/work/erp/clients/acme-erp/CLAUDE.local.md"
+          },
+          {
+            "detail": "stop git-ignoring .claude/settings.local.json",
+            "op": "update",
+            "path": "<WORLD>/home/work/erp/clients/acme-erp/.git/info/exclude"
+          },
+          {
+            "detail": "stop git-ignoring CLAUDE.local.md",
+            "op": "update",
+            "path": "<WORLD>/home/work/erp/clients/acme-erp/.git/info/exclude"
+          },
+          {
+            "detail": "drop the record of this folder",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          }
+        ],
+        "summary": "Undo bundle acme-dev in <WORLD>/home/work/erp/clients/acme-erp",
+        "undo": "toolportctl context bundle apply acme-dev --cwd <WORLD>/home/work/erp/clients/acme-erp",
+        "warnings": []
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [
+          "<WORLD>/home/work/erp/clients/acme-erp/.claude/settings.local.json",
+          "<WORLD>/home/work/erp/clients/acme-erp/CLAUDE.local.md",
+          "<WORLD>/home/work/erp/clients/acme-erp/.git/info/exclude"
+        ],
+        "ledger": "<WORLD>/data/plus/profile-ledger.json",
+        "undo": "toolportctl context bundle apply acme-dev --cwd <WORLD>/home/work/erp/clients/acme-erp"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

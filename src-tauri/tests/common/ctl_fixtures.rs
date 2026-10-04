@@ -40,6 +40,89 @@ pub fn measure_home(world: &CtlWorld) {
     .unwrap();
 }
 
+pub const BUNDLE_ACME_DEV: &str = include_str!("../fixtures/bundles/acme-dev.yaml");
+pub const BUNDLE_DEFAULT: &str = include_str!("../fixtures/bundles/default.yaml");
+pub const BUNDLE_BROKEN: &str = "format: 1\nname: broken\nskills: 3\n";
+
+/// A foreign `settings.local.json`: Claude Code wrote the permissions, the user an
+/// `enabledPlugins` entry of their own.
+pub const FOREIGN_SETTINGS: &str = "{\n  \"permissions\": {\n    \"allow\": [\"Bash(git status)\", \"Read(./docs/**)\"],\n    \"deny\": [\"Bash(rm -rf *)\"]\n  },\n  \"enabledPlugins\": {\n    \"user-notes@notes-market\": true\n  },\n  \"model\": \"sonnet\"\n}\n";
+
+/// The client-folder home of `loads_world` plus bundles: the library holds `acme-dev`, the legacy
+/// `default` list and a broken definition, the workspace repository above the client repository
+/// has files of its own (nothing may be written there), the client repository holds a foreign
+/// `settings.local.json` and a user-written `CLAUDE.local.md`, a second client repository starts
+/// clean, and the registry has a server profile named like the bundle.
+pub fn bundle_home(world: &CtlWorld) {
+    let loaded = crate::loads_world::build_in(
+        &world.base,
+        conduit_lib::plus::context::layers::MANAGED_LOCAL_HEADER,
+    );
+    let put = |path: std::path::PathBuf, text: &str| {
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    };
+    let profiles = loaded.library.join("profiles");
+    put(profiles.join("acme-dev.yaml"), BUNDLE_ACME_DEV);
+    put(profiles.join("default.yaml"), BUNDLE_DEFAULT);
+    put(profiles.join("broken.yaml"), BUNDLE_BROKEN);
+    put(
+        loaded.library.join("rules/acme-knowledge/SKILL.md"),
+        "---\nname: acme-knowledge\ndescription: ERP knowledge\nactivation: always\n---\nPost invoices before closing the period.\n",
+    );
+    for name in ["notes-helper", "scratch-one", "scratch-two", "long-guide", "erp-core", "erp-reports"] {
+        put(
+            loaded.library.join(format!("skills/{name}/SKILL.md")),
+            &format!("---\nname: {name}\ndescription: Synthetic {name}\n---\nBody of {name}.\n"),
+        );
+    }
+    put(loaded.client.join(".claude/settings.local.json"), FOREIGN_SETTINGS);
+    put(
+        loaded.client.join("CLAUDE.local.md"),
+        "# My notes\nKeep the invoices in order.\n",
+    );
+    let second = loaded.workspace.join("clients/acme-two");
+    std::fs::create_dir_all(second.join(".git")).unwrap();
+    put(second.join(".claude/settings.local.json"), FOREIGN_SETTINGS);
+
+    let path = world.data.join("registry.json");
+    let mut registry = read_json(&path);
+    registry["profiles"].as_array_mut().unwrap().push(json!({
+        "id": "acme-dev", "name": "acme-dev", "enabledServerIds": ["srv-alpha", "srv-beta"]
+    }));
+    write_json(&path, &registry);
+}
+
+/// `bundle_home` with `acme-dev` applied in both client repositories and the second one changed
+/// since: a value Toolport wrote was edited and a foreign key was added.
+pub fn bundle_drift_home(world: &CtlWorld) {
+    bundle_home(world);
+    let workspace = world.home.join("work/erp");
+    for client in ["clients/acme-erp", "clients/acme-two"] {
+        ctl(
+            world,
+            &[
+                "context",
+                "bundle",
+                "apply",
+                "acme-dev",
+                "--cwd",
+                &world.path(&workspace.join(client)),
+            ],
+            None,
+        );
+    }
+    let file = workspace.join("clients/acme-two/.claude/settings.local.json");
+    let mut settings = read_json(&file);
+    settings["skillOverrides"]["scratch-one"] = json!("on");
+    settings["effortLevel"] = json!("high");
+    std::fs::write(
+        &file,
+        serde_json::to_string_pretty(&settings).unwrap() + "\n",
+    )
+    .unwrap();
+}
+
 pub fn git(dir: &Path, home: &Path, args: &[&str]) {
     let status = Command::new("git")
         .args(args)

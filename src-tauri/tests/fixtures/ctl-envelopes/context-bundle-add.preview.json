@@ -1,0 +1,50 @@
+{
+  "argv": [
+    "context",
+    "bundle",
+    "add",
+    "ops-lite",
+    "--description",
+    "Operations work",
+    "--skills-off",
+    "scratch-one,scratch-two",
+    "--plugins-off",
+    "tools-pack@tools-market",
+    "--layers-add",
+    "acme-knowledge",
+    "--bind",
+    "~/work/erp/clients/*",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "context bundle add",
+    "data": {
+      "created": true,
+      "dryRun": true,
+      "issues": [],
+      "name": "ops-lite",
+      "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/ops-lite.yaml",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "write the new bundle ops-lite",
+            "diff": {
+              "after": "format: 1\nname: ops-lite\ndescription: Operations work\nskills:\n  off:\n  - scratch-one\n  - scratch-two\nplugins:\n  off:\n  - tools-pack@tools-market\nlayers:\n  add:\n  - acme-knowledge\nbind:\n- ~/work/erp/clients/*\n",
+              "before": ""
+            },
+            "op": "create",
+            "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/ops-lite.yaml"
+          }
+        ],
+        "summary": "Add bundle ops-lite",
+        "undo": "toolportctl context bundle rm ops-lite",
+        "warnings": []
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

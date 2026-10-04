@@ -1,0 +1,25 @@
+{
+  "argv": ["context", "bundle", "status", "--cwd", "{home}/work/erp/clients/acme-two"],
+  "envelope": {
+    "command": "context bundle status",
+    "data": {
+      "applied": {
+        "appliedAt": "<TIME>",
+        "bundle": "acme-dev",
+        "changedKeys": ["skillOverrides.scratch-one"],
+        "drift": true,
+        "ownedKeys": {
+          "claudeMdExcludes": ["**/acme-erp/CLAUDE.md"],
+          "enabledPlugins": ["loop-runner@official", "tools-pack@tools-market"],
+          "permissionsDeny": ["Agent(reviewer-bot)"],
+          "skillOverrides": ["long-guide", "notes-helper", "scratch-one", "scratch-two"]
+        }
+      },
+      "conflicts": ["skillOverrides.scratch-one"],
+      "folder": "<WORLD>/home/work/erp/clients/acme-two"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

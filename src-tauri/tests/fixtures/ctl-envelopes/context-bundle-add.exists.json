@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "bundle", "add", "ops-lite", "--dry-run"],
+  "envelope": {
+    "command": "context bundle add",
+    "error": {
+      "code": "conflict",
+      "message": "bundle ops-lite exists already (<WORLD>/home/.config/mcpm/skills_repo/profiles/ops-lite.yaml); use `context bundle edit`"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

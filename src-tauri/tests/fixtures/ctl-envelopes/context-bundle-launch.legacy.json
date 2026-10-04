@@ -1,0 +1,16 @@
+{
+  "argv": ["context", "bundle", "launch", "default"],
+  "envelope": {
+    "command": "context bundle launch",
+    "data": {
+      "bundle": "default",
+      "command": "claude --settings <WORLD>/home/.config/toolport/profiles/default.settings.json",
+      "cwd": null,
+      "notes": [],
+      "settingsFile": "<WORLD>/home/.config/toolport/profiles/default.settings.json"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

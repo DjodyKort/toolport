@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "bundle", "launch"],
+  "envelope": {
+    "command": "context bundle launch",
+    "error": {
+      "code": "usage",
+      "message": "usage: context bundle launch <name> [--cwd <dir>]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

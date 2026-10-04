@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "bundle", "show", "no-such-bundle"],
+  "envelope": {
+    "command": "context bundle show",
+    "error": {
+      "code": "not_found",
+      "message": "unknown bundle: no-such-bundle (no <WORLD>/home/.config/mcpm/skills_repo/profiles/no-such-bundle.yaml)"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

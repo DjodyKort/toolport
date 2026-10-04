@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "bundle", "config"],
+  "envelope": {
+    "command": "context bundle config",
+    "data": {
+      "autoApply": true,
+      "file": "<WORLD>/home/.config/mcpm/context.json"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

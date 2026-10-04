@@ -2762,6 +2762,740 @@
           "tools": []
         },
         {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "context",
+          "id": "context bundle ls",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "context bundle",
+          "path": ["context", "bundle", "ls"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "List the context bundles with where each is applied",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["context_bundle_ls"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "context",
+          "id": "context bundle show",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "context bundle",
+          "path": ["context", "bundle", "show"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Show one bundle's definition and lint (<name>)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Start from what this folder's .claude/settings.local.json hides today",
+              "escalates": false,
+              "hidden": false,
+              "name": "--from-folder",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "One line that says what the bundle is for",
+              "escalates": false,
+              "hidden": false,
+              "name": "--description",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Skills to turn off (comma separated names or globs)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--skills-off",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "list"
+            },
+            {
+              "aliases": [],
+              "effect": "Skills reduced to their name (comma separated names or globs)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--skills-name-only",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "list"
+            },
+            {
+              "aliases": [],
+              "effect": "Keep only these library skills on (comma separated); every other one is turned off",
+              "escalates": false,
+              "hidden": false,
+              "name": "--skills-allow",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "list"
+            },
+            {
+              "aliases": [],
+              "effect": "Plugins to turn off in the folder (comma separated ids)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--plugins-off",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "list"
+            },
+            {
+              "aliases": [],
+              "effect": "Layers delivered through CLAUDE.local.md (comma separated)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--layers-add",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "list"
+            },
+            {
+              "aliases": [],
+              "effect": "claudeMdExcludes globs (comma separated)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--layers-exclude",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "list"
+            },
+            {
+              "aliases": [],
+              "effect": "Agents to deny in the folder (comma separated names)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--agents-off",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "list"
+            },
+            {
+              "aliases": [],
+              "effect": "Server profile paired with the bundle (default: the profile with the same name)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--servers",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Folder patterns the bundle is offered for (comma separated, * is one folder name)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--bind",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "list"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "context",
+          "id": "context bundle add",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "context bundle",
+          "path": ["context", "bundle", "add"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Write a new bundle (<name>, --from-folder, --description, --skills-off, --skills-name-only, --skills-allow, --plugins-off, --layers-add, --layers-exclude, --agents-off, --servers, --bind, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "One line that says what the bundle is for",
+              "escalates": false,
+              "hidden": false,
+              "name": "--description",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Skills to turn off (comma separated names or globs)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--skills-off",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "list"
+            },
+            {
+              "aliases": [],
+              "effect": "Skills reduced to their name (comma separated names or globs)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--skills-name-only",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "list"
+            },
+            {
+              "aliases": [],
+              "effect": "Keep only these library skills on (comma separated); every other one is turned off",
+              "escalates": false,
+              "hidden": false,
+              "name": "--skills-allow",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "list"
+            },
+            {
+              "aliases": [],
+              "effect": "Plugins to turn off in the folder (comma separated ids)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--plugins-off",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "list"
+            },
+            {
+              "aliases": [],
+              "effect": "Layers delivered through CLAUDE.local.md (comma separated)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--layers-add",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "list"
+            },
+            {
+              "aliases": [],
+              "effect": "claudeMdExcludes globs (comma separated)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--layers-exclude",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "list"
+            },
+            {
+              "aliases": [],
+              "effect": "Agents to deny in the folder (comma separated names)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--agents-off",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "list"
+            },
+            {
+              "aliases": [],
+              "effect": "Server profile paired with the bundle (empty removes the pairing)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--servers",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Folder patterns the bundle is offered for (comma separated, * is one folder name)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--bind",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "list"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "context",
+          "id": "context bundle edit",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "context bundle",
+          "path": ["context", "bundle", "edit"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Change a bundle; each given list replaces that list (<name>, same flags as add, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "destructive",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Delete even while the bundle is applied in a folder",
+              "escalates": false,
+              "hidden": false,
+              "name": "--force",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "context",
+          "id": "context bundle rm",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "context bundle",
+          "path": ["context", "bundle", "rm"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Delete a bundle definition; refuses while applied unless --force (<name>, --force, --dry-run)",
+          "surface": "screen",
+          "tier": "destructive",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Folder where Claude Code starts (default: the current folder)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--cwd",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "context",
+          "id": "context bundle apply",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "context bundle",
+          "path": ["context", "bundle", "apply"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Apply a bundle in the folder where Claude starts, through git-ignored local files (<name>, --cwd, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["context_bundle_apply"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Folder where Claude Code starts (default: the current folder)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--cwd",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "context",
+          "id": "context bundle undo",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "context bundle",
+          "path": ["context", "bundle", "undo"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Undo the applied bundle in a folder; keys changed since are left alone (--cwd, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["context_bundle_undo"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Folder where Claude Code starts (default: the current folder)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--cwd",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            }
+          ],
+          "group": "context",
+          "id": "context bundle status",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "context bundle",
+          "path": ["context", "bundle", "status"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Show the bundle applied in a folder and any drift (--cwd)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["context_bundle_status"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Folder the command is meant for; the settings file is the same everywhere",
+              "escalates": false,
+              "hidden": false,
+              "name": "--cwd",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            }
+          ],
+          "group": "context",
+          "id": "context bundle launch",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "context bundle",
+          "path": ["context", "bundle", "launch"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Write the --settings file of a bundle and print the claude command (<name>, --cwd)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "choices": ["on", "off"],
+              "effect": "Let context sync apply a bound bundle to matching folders that have none",
+              "escalates": true,
+              "hidden": false,
+              "name": "--auto-apply",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            }
+          ],
+          "group": "context",
+          "id": "context bundle config",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "context bundle",
+          "path": ["context", "bundle", "config"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Show or set whether context sync applies bound bundles (--auto-apply on|off)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": null,
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "context",
+          "id": "context bundle",
+          "kind": "group",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "context",
+          "path": ["context", "bundle"],
+          "planned": false,
+          "preview": null,
+          "summary": "Context bundles: ls show add edit rm apply undo status launch config",
+          "surface": null,
+          "tier": null,
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Folder where Claude Code starts (default: the current folder)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--cwd",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Drop the bundle and the server routing of the folder",
+              "escalates": false,
+              "hidden": false,
+              "name": "--none",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "context",
+          "id": "context use",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": false,
+              "variadic": false
+            }
+          ],
+          "parent": "context",
+          "path": ["context", "use"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Apply a bundle and its paired server set to a folder, or drop both (<name>, --none, --cwd, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
           "baseTier": "destructive",
           "cost": false,
           "dryRun": true,
@@ -2837,7 +3571,7 @@
           "path": ["context"],
           "planned": false,
           "preview": null,
-          "summary": "Context: init status client profile disable loads checkpoint-status plan apply sync",
+          "summary": "Context: init status client profile bundle use disable loads checkpoint-status plan apply sync",
           "surface": null,
           "tier": null,
           "tools": []
@@ -8333,10 +9067,10 @@
         }
       ],
       "counts": {
-        "commands": 138,
-        "groups": 28,
-        "rows": 166,
-        "tools": 85
+        "commands": 149,
+        "groups": 29,
+        "rows": 178,
+        "tools": 89
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
       "tiers": ["read", "write", "destructive"],
@@ -8359,6 +9093,34 @@
           "command": "context measure",
           "dryRun": "none",
           "name": "context_measure",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": "context bundle ls",
+          "dryRun": "none",
+          "name": "context_bundle_ls",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "context bundle status",
+          "dryRun": "none",
+          "name": "context_bundle_status",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "context bundle apply",
+          "dryRun": "param",
+          "name": "context_bundle_apply",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": "context bundle undo",
+          "dryRun": "param",
+          "name": "context_bundle_undo",
           "tier": "write",
           "toolTier": 2
         },

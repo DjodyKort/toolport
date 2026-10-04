@@ -1,0 +1,14 @@
+{
+  "argv": ["context", "bundle", "status", "--cwd", "{home}/work/erp"],
+  "envelope": {
+    "command": "context bundle status",
+    "data": {
+      "applied": null,
+      "conflicts": [],
+      "folder": "<WORLD>/home/work/erp"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

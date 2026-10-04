@@ -1,0 +1,14 @@
+{
+  "argv": ["context", "bundle", "status"],
+  "envelope": {
+    "command": "context bundle status",
+    "data": {
+      "applied": null,
+      "conflicts": [],
+      "folder": "<WORLD>/home"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

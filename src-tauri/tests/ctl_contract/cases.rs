@@ -5,8 +5,8 @@
 //! without a terminal, a browser or an engine, and says so next to its case.
 
 use crate::ctl_fixtures::{
-    fork_world, git_world, health_proxy, import_world, loads_home, measure_home,
-    skills_repo_remote_world, transcripts_world,
+    bundle_drift_home, bundle_home, fork_world, git_world, health_proxy, import_world, loads_home,
+    measure_home, skills_repo_remote_world, transcripts_world,
 };
 use crate::ctl_world::CtlWorld;
 
@@ -1372,6 +1372,192 @@ pub const MORE: &[Case] = &[
             setup("setup", &["obs", "otel", "enable", "--port", "4999"]),
             read("preview", &["obs", "otel", "disable", "--dry-run"]),
             apply("apply", &["obs", "otel", "disable"]),
+        ],
+    ),
+    // context bundles (MIG-CTX-10): the library of `bundle_home` holds acme-dev, the legacy
+    // `default` list and a broken definition; the client repository has a foreign
+    // `settings.local.json`, the workspace repository above it files that nothing may touch
+    prepared(
+        "context bundle ls",
+        bundle_home,
+        &[
+            read("library", &["context", "bundle", "ls"]),
+            setup(
+                "setup",
+                &["context", "bundle", "apply", "acme-dev", "--cwd", "{home}/work/erp/clients/acme-erp"],
+            ),
+            read("applied", &["context", "bundle", "ls"]),
+        ],
+    ),
+    prepared(
+        "context bundle show",
+        bundle_home,
+        &[
+            read("bundle", &["context", "bundle", "show", "acme-dev"]),
+            read("legacy", &["context", "bundle", "show", "default"]),
+            read("broken", &["context", "bundle", "show", "broken"]).exit(1),
+            read("missing", &["context", "bundle", "show", "no-such-bundle"]).exit(1),
+            usage("usage", &["context", "bundle", "show"]),
+        ],
+    ),
+    prepared(
+        "context bundle add",
+        bundle_home,
+        &[
+            read(
+                "preview",
+                &[
+                    "context", "bundle", "add", "ops-lite", "--description", "Operations work",
+                    "--skills-off", "scratch-one,scratch-two", "--plugins-off",
+                    "tools-pack@tools-market", "--layers-add", "acme-knowledge", "--bind",
+                    "~/work/erp/clients/*", "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &[
+                    "context", "bundle", "add", "ops-lite", "--description", "Operations work",
+                    "--skills-off", "scratch-one,scratch-two", "--plugins-off",
+                    "tools-pack@tools-market", "--layers-add", "acme-knowledge", "--bind",
+                    "~/work/erp/clients/*",
+                ],
+            ),
+            read("exists", &["context", "bundle", "add", "ops-lite", "--dry-run"]).exit(1),
+            read(
+                "from-folder",
+                &["context", "bundle", "add", "from-client", "--from-folder", "{home}/work/erp/clients/acme-erp", "--dry-run"],
+            ),
+            read("show", &["context", "bundle", "show", "ops-lite"]),
+            usage("usage", &["context", "bundle", "add"]),
+        ],
+    ),
+    prepared(
+        "context bundle edit",
+        bundle_home,
+        &[
+            read(
+                "preview",
+                &[
+                    "context", "bundle", "edit", "acme-dev", "--agents-off", "reviewer-bot,planner",
+                    "--description", "ERP work", "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &[
+                    "context", "bundle", "edit", "acme-dev", "--agents-off", "reviewer-bot,planner",
+                    "--description", "ERP work",
+                ],
+            ),
+            read("show", &["context", "bundle", "show", "acme-dev"]),
+            read("missing", &["context", "bundle", "edit", "no-such-bundle", "--bind", "x", "--dry-run"]).exit(1),
+            usage("usage", &["context", "bundle", "edit"]),
+        ],
+    ),
+    prepared(
+        "context bundle rm",
+        bundle_home,
+        &[
+            setup(
+                "setup",
+                &["context", "bundle", "apply", "acme-dev", "--cwd", "{home}/work/erp/clients/acme-erp"],
+            ),
+            read("refused", &["context", "bundle", "rm", "acme-dev", "--dry-run"]).exit(1),
+            read("forced", &["context", "bundle", "rm", "acme-dev", "--force", "--dry-run"]),
+            read("preview", &["context", "bundle", "rm", "default", "--dry-run"]),
+            apply("apply", &["context", "bundle", "rm", "default"]),
+            read("missing", &["context", "bundle", "rm", "default", "--dry-run"]).exit(1),
+            usage("usage", &["context", "bundle", "rm"]),
+        ],
+    ),
+    prepared(
+        "context bundle apply",
+        bundle_home,
+        &[
+            read(
+                "plan",
+                &["context", "bundle", "apply", "acme-dev", "--cwd", "{home}/work/erp/clients/acme-erp", "--dry-run"],
+            ),
+            apply(
+                "result",
+                &["context", "bundle", "apply", "acme-dev", "--cwd", "{home}/work/erp/clients/acme-erp"],
+            ),
+            read(
+                "again",
+                &["context", "bundle", "apply", "acme-dev", "--cwd", "{home}/work/erp/clients/acme-erp", "--dry-run"],
+            ),
+            read(
+                "legacy",
+                &["context", "bundle", "apply", "default", "--cwd", "{home}/work/erp/clients/acme-two", "--dry-run"],
+            ),
+            usage(
+                "no-folder",
+                &["context", "bundle", "apply", "acme-dev", "--cwd", "{home}/no-such-folder", "--dry-run"],
+            ),
+            read(
+                "missing",
+                &["context", "bundle", "apply", "no-such-bundle", "--cwd", "{home}/work/erp/clients/acme-erp", "--dry-run"],
+            )
+            .exit(1),
+            usage("usage", &["context", "bundle", "apply"]),
+        ],
+    ),
+    prepared(
+        "context bundle undo",
+        bundle_drift_home,
+        &[
+            read("plan", &["context", "bundle", "undo", "--cwd", "{home}/work/erp/clients/acme-erp", "--dry-run"]),
+            apply("result", &["context", "bundle", "undo", "--cwd", "{home}/work/erp/clients/acme-erp"]),
+            read("conflicts", &["context", "bundle", "undo", "--cwd", "{home}/work/erp/clients/acme-two", "--dry-run"]),
+            apply("conflicted", &["context", "bundle", "undo", "--cwd", "{home}/work/erp/clients/acme-two"]),
+            read("none", &["context", "bundle", "undo", "--cwd", "{home}/work/erp/clients/acme-erp", "--dry-run"]).exit(1),
+        ],
+    ),
+    prepared(
+        "context bundle status",
+        bundle_drift_home,
+        &[
+            read("clean", &["context", "bundle", "status", "--cwd", "{home}/work/erp/clients/acme-erp"]),
+            read("drift", &["context", "bundle", "status", "--cwd", "{home}/work/erp/clients/acme-two"]),
+            read("none", &["context", "bundle", "status", "--cwd", "{home}/work/erp"]),
+            read("default", &["context", "bundle", "status"]),
+        ],
+    ),
+    prepared(
+        "context bundle launch",
+        bundle_home,
+        &[
+            apply("apply", &["context", "bundle", "launch", "acme-dev", "--cwd", "{home}/work/erp/clients/acme-erp"]),
+            apply("legacy", &["context", "bundle", "launch", "default"]),
+            apply("missing", &["context", "bundle", "launch", "no-such-bundle"]).exit(1),
+            usage("usage", &["context", "bundle", "launch"]),
+        ],
+    ),
+    prepared(
+        "context bundle config",
+        bundle_home,
+        &[
+            read("show", &["context", "bundle", "config"]),
+            apply("on", &["context", "bundle", "config", "--auto-apply", "on"]),
+            read("after", &["context", "bundle", "config"]),
+            apply("off", &["context", "bundle", "config", "--auto-apply", "off"]),
+            usage("usage", &["context", "bundle", "config", "--auto-apply", "sometimes"]),
+        ],
+    ),
+    prepared(
+        "context use",
+        bundle_home,
+        &[
+            read("off", &["context", "use", "acme-dev", "--cwd", "{home}/work/erp/clients/acme-erp", "--dry-run"]),
+            apply("bundle", &["context", "use", "acme-dev", "--cwd", "{home}/work/erp/clients/acme-erp"]),
+            setup("enable", &["context", "folders", "--enable"]),
+            read("routed", &["context", "use", "acme-dev", "--cwd", "{home}/work/erp/clients/acme-two", "--dry-run"]),
+            apply("routed-apply", &["context", "use", "acme-dev", "--cwd", "{home}/work/erp/clients/acme-two"]),
+            read("none", &["context", "use", "--none", "--cwd", "{home}/work/erp/clients/acme-two", "--dry-run"]),
+            apply("none-apply", &["context", "use", "--none", "--cwd", "{home}/work/erp/clients/acme-two"]),
+            read("none-again", &["context", "use", "--none", "--cwd", "{home}/work/erp/clients/acme-two", "--dry-run"]).exit(1),
+            read("missing", &["context", "use", "no-such-name", "--cwd", "{home}/work/erp/clients/acme-two", "--dry-run"]).exit(1),
+            usage("usage", &["context", "use", "--cwd", "{home}/work/erp/clients/acme-two"]),
         ],
     ),
 ];

@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "bundle", "edit"],
+  "envelope": {
+    "command": "context bundle edit",
+    "error": {
+      "code": "usage",
+      "message": "usage: context bundle add|edit <name> [--from-folder <dir>] [--description <t>] [--skills-off <csv>] [--skills-name-only <csv>] [--skills-allow <csv>] [--plugins-off <csv>] [--layers-add <csv>] [--layers-exclude <csv>] [--agents-off <csv>] [--servers <profile>] [--bind <csv>] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

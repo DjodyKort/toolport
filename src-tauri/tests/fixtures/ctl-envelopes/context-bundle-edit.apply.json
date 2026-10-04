@@ -1,0 +1,48 @@
+{
+  "argv": [
+    "context",
+    "bundle",
+    "edit",
+    "acme-dev",
+    "--agents-off",
+    "reviewer-bot,planner",
+    "--description",
+    "ERP work"
+  ],
+  "envelope": {
+    "command": "context bundle edit",
+    "data": {
+      "created": false,
+      "dryRun": false,
+      "issues": [],
+      "name": "acme-dev",
+      "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/acme-dev.yaml",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "change bundle acme-dev",
+            "diff": {
+              "after": "format: 1\nname: acme-dev\ndescription: ERP work\nservers: acme-dev\nskills:\n  off:\n  - notes-helper\n  - scratch-*\n  name_only:\n  - long-guide\n  allow: []\nplugins:\n  off:\n  - tools-pack@tools-market\n  - loop-runner@official\nlayers:\n  add:\n  - acme-knowledge\n  exclude:\n  - '**/acme-erp/CLAUDE.md'\nagents:\n  off:\n  - reviewer-bot\n  - planner\nbind:\n- ~/work/acme-erp/clients/*\n",
+              "before": "format: 1\nname: acme-dev\ndescription: \"ERP work: no marketplace plugins, only the ERP skills\"\nservers: acme-dev\nskills:\n  off: [notes-helper, \"scratch-*\"]\n  name_only: [long-guide]\n  allow: []\nplugins:\n  off: [\"tools-pack@tools-market\", \"loop-runner@official\"]\nlayers:\n  add: [acme-knowledge]\n  exclude: [\"**/acme-erp/CLAUDE.md\"]\nagents:\n  off: [reviewer-bot]\nbind: [\"~/work/acme-erp/clients/*\"]\n"
+            },
+            "op": "update",
+            "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/acme-dev.yaml"
+          }
+        ],
+        "summary": "Edit bundle acme-dev",
+        "undo": "git checkout -- <WORLD>/home/.config/mcpm/skills_repo/profiles/acme-dev.yaml (the file is yours to commit)",
+        "warnings": []
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["<WORLD>/home/.config/mcpm/skills_repo/profiles/acme-dev.yaml"],
+        "undo": "git checkout -- <WORLD>/home/.config/mcpm/skills_repo/profiles/acme-dev.yaml (the file is yours to commit)"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

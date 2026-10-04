@@ -1,0 +1,28 @@
+{
+  "argv": ["context", "bundle", "rm", "default", "--dry-run"],
+  "envelope": {
+    "command": "context bundle rm",
+    "data": {
+      "dryRun": true,
+      "name": "default",
+      "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/default.yaml",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "delete the definition of bundle default",
+            "op": "delete",
+            "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/default.yaml"
+          }
+        ],
+        "summary": "Remove bundle default",
+        "undo": "git checkout -- <WORLD>/home/.config/mcpm/skills_repo/profiles/default.yaml (the file is yours to commit)",
+        "warnings": []
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

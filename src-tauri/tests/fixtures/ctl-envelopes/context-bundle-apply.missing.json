@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "context",
+    "bundle",
+    "apply",
+    "no-such-bundle",
+    "--cwd",
+    "{home}/work/erp/clients/acme-erp",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "context bundle apply",
+    "error": {
+      "code": "not_found",
+      "message": "unknown bundle: no-such-bundle (no <WORLD>/home/.config/mcpm/skills_repo/profiles/no-such-bundle.yaml)"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

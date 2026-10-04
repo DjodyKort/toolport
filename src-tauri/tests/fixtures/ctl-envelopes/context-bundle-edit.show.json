@@ -1,0 +1,35 @@
+{
+  "argv": ["context", "bundle", "show", "acme-dev"],
+  "envelope": {
+    "command": "context bundle show",
+    "data": {
+      "agents": {
+        "off": ["reviewer-bot", "planner"]
+      },
+      "appliedTo": [],
+      "bind": ["~/work/acme-erp/clients/*"],
+      "description": "ERP work",
+      "issues": [],
+      "layers": {
+        "add": ["acme-knowledge"],
+        "exclude": ["**/acme-erp/CLAUDE.md"]
+      },
+      "legacy": false,
+      "name": "acme-dev",
+      "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/acme-dev.yaml",
+      "plugins": {
+        "off": ["tools-pack@tools-market", "loop-runner@official"]
+      },
+      "servers": "acme-dev",
+      "skills": {
+        "allow": [],
+        "nameOnly": ["long-guide"],
+        "off": ["notes-helper", "scratch-*"]
+      },
+      "yaml": "format: 1\nname: acme-dev\ndescription: ERP work\nservers: acme-dev\nskills:\n  off:\n  - notes-helper\n  - scratch-*\n  name_only:\n  - long-guide\n  allow: []\nplugins:\n  off:\n  - tools-pack@tools-market\n  - loop-runner@official\nlayers:\n  add:\n  - acme-knowledge\n  exclude:\n  - '**/acme-erp/CLAUDE.md'\nagents:\n  off:\n  - reviewer-bot\n  - planner\nbind:\n- ~/work/acme-erp/clients/*\n"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

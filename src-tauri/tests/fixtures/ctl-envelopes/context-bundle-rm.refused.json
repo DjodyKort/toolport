@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "bundle", "rm", "acme-dev", "--dry-run"],
+  "envelope": {
+    "command": "context bundle rm",
+    "error": {
+      "code": "conflict",
+      "message": "bundle acme-dev is applied in <WORLD>/home/work/erp/clients/acme-erp; undo it there or pass --force"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

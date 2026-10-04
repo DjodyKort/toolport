@@ -1,0 +1,64 @@
+{
+  "argv": [
+    "context",
+    "bundle",
+    "undo",
+    "--cwd",
+    "{home}/work/erp/clients/acme-two",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "context bundle undo",
+    "data": {
+      "bundle": "acme-dev",
+      "conflicts": ["skillOverrides.scratch-one"],
+      "cwd": "<WORLD>/home/work/erp/clients/acme-two",
+      "dryRun": true,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "put back 8 key(s) of bundle acme-dev",
+            "keys": [
+              "skillOverrides",
+              "enabledPlugins",
+              "claudeMdExcludes",
+              "permissions.deny"
+            ],
+            "op": "merge",
+            "path": "<WORLD>/home/work/erp/clients/acme-two/.claude/settings.local.json"
+          },
+          {
+            "detail": "remove the managed block",
+            "op": "delete",
+            "path": "<WORLD>/home/work/erp/clients/acme-two/CLAUDE.local.md"
+          },
+          {
+            "detail": "stop git-ignoring .claude/settings.local.json",
+            "op": "update",
+            "path": "<WORLD>/home/work/erp/clients/acme-two/.git/info/exclude"
+          },
+          {
+            "detail": "stop git-ignoring CLAUDE.local.md",
+            "op": "update",
+            "path": "<WORLD>/home/work/erp/clients/acme-two/.git/info/exclude"
+          },
+          {
+            "detail": "drop the record of this folder",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          }
+        ],
+        "summary": "Undo bundle acme-dev in <WORLD>/home/work/erp/clients/acme-two",
+        "undo": "toolportctl context bundle apply acme-dev --cwd <WORLD>/home/work/erp/clients/acme-two",
+        "warnings": [
+          "changed since the apply and left as they are: skillOverrides.scratch-one"
+        ]
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}
