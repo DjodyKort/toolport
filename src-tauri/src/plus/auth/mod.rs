@@ -37,7 +37,7 @@ pub use prober::{
     backoff_delay, probe_all, probe_due, status_handler, AuthProber, ProbeReport, Trigger,
 };
 pub use scan::probe_handler;
-pub use types::{AuthState, ProbeOutcome, Tracked, TransientRun};
+pub use types::{AuthKind, AuthState, ProbeOutcome, Tracked, TransientRun};
 
 const MAX_BODY_BYTES: u64 = 64 * 1024;
 

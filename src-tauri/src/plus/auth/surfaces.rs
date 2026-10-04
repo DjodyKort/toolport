@@ -9,7 +9,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 
 use super::cache::{EdgeEvent, StatusFile, STATUS_VERSION};
-use super::types::AuthState;
+use super::types::{AuthKind, AuthState};
 
 pub const NOTIFY_DEDUPE_SECS: i64 = 6 * 3600;
 const WORST_MAX: usize = 3;
@@ -28,7 +28,7 @@ pub struct FixAction {
 #[serde(rename_all = "camelCase")]
 pub struct AuthRow {
     pub server: String,
-    pub state: &'static str,
+    pub state: AuthKind,
     pub reason: String,
     pub since: i64,
     pub expires_at: Option<i64>,
@@ -52,7 +52,7 @@ pub struct AuthCounts {
 #[serde(rename_all = "camelCase")]
 pub struct Notification {
     pub server: String,
-    pub state: &'static str,
+    pub state: AuthKind,
     pub title: String,
     pub body: String,
     pub dedupe_key: String,
@@ -124,7 +124,7 @@ pub fn rows(status: &StatusFile, now: i64) -> Vec<AuthRow> {
                 severity(&state),
                 AuthRow {
                     server: server.clone(),
-                    state: state.name(),
+                    state: state.kind(),
                     reason: entry.tracked.reason.clone(),
                     since: entry.tracked.since,
                     expires_at,
@@ -149,13 +149,13 @@ pub fn counts(rows: &[AuthRow]) -> AuthCounts {
     let mut counts = AuthCounts::default();
     for row in rows {
         match row.state {
-            "ok" => counts.ok += 1,
-            "expiring" => counts.expiring += 1,
-            "needs_reauth" => counts.needs_reauth += 1,
-            "revoked" => counts.revoked += 1,
-            "misconfigured" => counts.misconfigured += 1,
-            "unreachable" => counts.unreachable += 1,
-            _ => counts.unknown += 1,
+            AuthKind::Ok => counts.ok += 1,
+            AuthKind::Expiring => counts.expiring += 1,
+            AuthKind::NeedsReauth => counts.needs_reauth += 1,
+            AuthKind::Revoked => counts.revoked += 1,
+            AuthKind::Misconfigured => counts.misconfigured += 1,
+            AuthKind::Unreachable => counts.unreachable += 1,
+            AuthKind::Unknown => counts.unknown += 1,
         }
     }
     counts
@@ -246,17 +246,16 @@ pub fn hook(status: &StatusFile, now: i64) -> Value {
 }
 
 pub fn notification_for(event: &EdgeEvent) -> Option<Notification> {
-    let (state, title, body) = match event.to.as_str() {
-        "needs_reauth" => (
-            "needs_reauth",
+    let state = AuthKind::parse(&event.to)?;
+    let (title, body) = match state {
+        AuthKind::NeedsReauth => (
             format!("{} needs a new login", event.server),
             format!(
                 "{} can no longer authenticate ({}). Sign in again.",
                 event.server, event.reason
             ),
         ),
-        "expiring" => (
-            "expiring",
+        AuthKind::Expiring => (
             format!("{} login is expiring", event.server),
             format!(
                 "The login for {} expires soon. Re-authenticate to avoid an interruption.",

@@ -375,6 +375,44 @@ fn auth_state_serde_goldens() {
 }
 
 #[test]
+fn auth_kind_names_match_the_state_wire_names_and_the_typescript_union() {
+    let states = [
+        AuthState::Unknown,
+        AuthState::Ok,
+        AuthState::Expiring { eta: 1 },
+        AuthState::NeedsReauth,
+        AuthState::Revoked,
+        AuthState::Misconfigured,
+        AuthState::Unreachable,
+    ];
+    let mut wire = Vec::new();
+    for state in states {
+        let kind = state.kind();
+        assert_eq!(serde_json::to_value(kind).unwrap(), json!(kind.as_str()));
+        assert_eq!(serde_json::to_value(state).unwrap()["state"], kind.as_str());
+        assert_eq!(AuthKind::parse(kind.as_str()), Some(kind));
+        assert_eq!(kind.to_string(), state.name());
+        wire.push(kind.as_str());
+    }
+    assert_eq!(AuthKind::parse("bogus"), None);
+    let api = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../src/plus/api.ts"))
+        .unwrap();
+    let union = api
+        .split("export type AuthStateName =")
+        .nth(1)
+        .and_then(|rest| rest.split(';').next())
+        .unwrap();
+    let mut declared: Vec<&str> = union
+        .split('|')
+        .map(|n| n.trim().trim_matches('"'))
+        .filter(|n| !n.is_empty())
+        .collect();
+    declared.sort_unstable();
+    wire.sort_unstable();
+    assert_eq!(declared, wire);
+}
+
+#[test]
 fn probe_outcome_serde_goldens() {
     let cases = [
         (ProbeOutcome::Success, json!({"kind": "success"})),
