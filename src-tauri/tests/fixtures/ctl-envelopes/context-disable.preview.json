@@ -10,7 +10,7 @@
       "dryRun": true,
       "purgedProfiles": ["<WORLD>/home/.config/mcpm/claude-profiles/work"],
       "shims": {
-        "path": "<WORLD>/home/.config/mcpm/context-shims.zsh",
+        "path": "<WORLD>/data/context-shims.zsh",
         "removed": true
       },
       "warnings": []

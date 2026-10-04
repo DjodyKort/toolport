@@ -4,7 +4,7 @@
     "command": "context apply",
     "data": {
       "actions": [
-        "wrote shims: <WORLD>/home/.config/mcpm/context-shims.zsh",
+        "wrote shims: <WORLD>/data/context-shims.zsh",
         "saved config (0 profile(s))"
       ],
       "checks": [
@@ -12,7 +12,7 @@
         ["warn", "no personal layer scaffolded — run `toolportctl context init`"],
         [
           "warn",
-          "shims not sourced — add to ~/.zshrc:  source <WORLD>/home/.config/mcpm/context-shims.zsh"
+          "shims not sourced — add to ~/.zshrc:  source <WORLD>/data/context-shims.zsh"
         ],
         [
           "warn",

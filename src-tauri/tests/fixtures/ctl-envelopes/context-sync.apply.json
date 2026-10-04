@@ -5,7 +5,7 @@
     "data": {
       "apply": {
         "actions": [
-          "wrote shims: <WORLD>/home/.config/mcpm/context-shims.zsh",
+          "wrote shims: <WORLD>/data/context-shims.zsh",
           "saved config (0 profile(s))"
         ],
         "checks": [
@@ -13,7 +13,7 @@
           ["warn", "no personal layer scaffolded — run `toolportctl context init`"],
           [
             "warn",
-            "shims not sourced — add to ~/.zshrc:  source <WORLD>/home/.config/mcpm/context-shims.zsh"
+            "shims not sourced — add to ~/.zshrc:  source <WORLD>/data/context-shims.zsh"
           ],
           [
             "warn",
@@ -26,7 +26,7 @@
       },
       "dryRun": false,
       "plan": {
-        "actions": ["would write shims: <WORLD>/home/.config/mcpm/context-shims.zsh"],
+        "actions": ["would write shims: <WORLD>/data/context-shims.zsh"],
         "checks": [
           ["ok", "no legacy MCP duplicates"],
           ["warn", "no personal layer scaffolded — run `toolportctl context init`"],

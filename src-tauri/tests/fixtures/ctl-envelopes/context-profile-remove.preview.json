@@ -5,7 +5,7 @@
     "data": {
       "actions": [
         "would remove profile dir <WORLD>/home/.config/mcpm/claude-profiles/work",
-        "would write shims: <WORLD>/home/.config/mcpm/context-shims.zsh"
+        "would write shims: <WORLD>/data/context-shims.zsh"
       ],
       "dryRun": true,
       "inConfig": true,

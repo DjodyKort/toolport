@@ -11,6 +11,7 @@
   "envelope": {
     "command": "import rename-refs",
     "data": {
+      "dead": [],
       "dryRun": false,
       "files": [
         {

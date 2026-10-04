@@ -15,7 +15,7 @@
     "data": {
       "actions": [
         "would generate launch profile work (0 server(s)) in <WORLD>/home/.config/mcpm/claude-profiles/work",
-        "would write shims: <WORLD>/home/.config/mcpm/context-shims.zsh"
+        "would write shims: <WORLD>/data/context-shims.zsh"
       ],
       "dryRun": true,
       "profile": {
