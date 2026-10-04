@@ -105,6 +105,74 @@ async function serversScreen(shot, theme) {
   await expect(shot.getByRole("tablist", { name: "Servers sections" })).toBeVisible();
 }
 
+// The Tokens screen, tab Usage, on the synthetic transcript index: the strip and the chart, the
+// tables, an index that never ran, and the OTel card, whose Enable is previewed with the keys it
+// writes, applied (the receiver then listens) and turned off again.
+async function usageTab(shot, theme) {
+  const snap = (target, name) => guiShot(target, name, { animations: "disabled" });
+  const nav = shot.getByRole("navigation", { name: "Views" });
+  await nav.getByRole("button", { name: "Tokens", exact: true }).click();
+  await shot
+    .getByRole("tablist", { name: "Tokens sections" })
+    .getByRole("tab", { name: "Usage" })
+    .click();
+  await expect(shot.getByRole("group", { name: "Usage summary" })).toContainText(
+    "Tokens, last 14 days",
+  );
+  await expect(shot.getByRole("img", { name: /Tokens per day/ })).toBeVisible();
+  const projects = shot.getByRole("region", { name: "By project" });
+  await expect(projects.getByText("acme-erp", { exact: true })).toBeVisible();
+  const servers = shot.getByRole("region", { name: "By MCP server" });
+  await expect(servers.getByText("github", { exact: true })).toBeVisible();
+  const card = shot.getByRole("region", { name: "OpenTelemetry receiver" });
+  await expect(card.getByText("Off", { exact: true })).toBeVisible();
+  await shot.evaluate(() => document.fonts.ready);
+  await snap(shot, `usage-${theme}`);
+  if (theme === "light") {
+    const dialog = shot.getByRole("dialog");
+    const closeResult = async () => {
+      await dialog.getByRole("button", { name: "Close", exact: true }).last().click();
+      await expect(dialog).toHaveCount(0);
+    };
+    const root = shot.getByLabel(/Transcript folder/);
+    await root.fill("/fixture/empty");
+    await shot.getByRole("button", { name: "Use this folder" }).click();
+    await expect(shot.getByText("Nothing indexed yet")).toBeVisible();
+    await snap(shot, "usage-empty-light");
+    await root.fill("");
+    await shot.getByRole("button", { name: "Use this folder" }).click();
+    await expect(projects.getByText("acme-erp", { exact: true })).toBeVisible();
+
+    await card.scrollIntoViewIfNeeded();
+    await shot.getByRole("button", { name: "Enable…" }).click();
+    const plan = shot.getByRole("dialog", {
+      name: "Enable the OTel receiver on port 4318?",
+    });
+    await expect(plan.getByRole("region", { name: "Preview" })).toBeVisible();
+    await expect(plan.getByText("env.CLAUDE_CODE_ENABLE_TELEMETRY: added")).toBeVisible();
+    await expect(plan.getByText(/Restart running Claude Code sessions/)).toBeVisible();
+    await snap(shot, "usage-otel-plan-light");
+    await plan.getByRole("button", { name: "Enable receiver" }).click();
+    await closeResult();
+    await expect(card.getByText("Listening")).toBeVisible();
+    await expect(shot.getByRole("group", { name: "Usage summary" })).toContainText(
+      "Listening",
+    );
+    await card.scrollIntoViewIfNeeded();
+    await snap(shot, "usage-otel-on-light");
+
+    await shot.getByRole("button", { name: "Disable…" }).click();
+    await shot
+      .getByRole("dialog", { name: "Disable the OTel receiver?" })
+      .getByRole("button", { name: "Disable receiver" })
+      .click();
+    await closeResult();
+    await expect(card.getByText("Off", { exact: true })).toBeVisible();
+    await shot.evaluate(() => window.scrollTo(0, 0));
+  }
+  expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
+}
+
 // The Tokens screen, tab Compression, on the stateful compression world: today's policy and
 // its presets, a provider switch (the plan, then the apply that changes the strip and the
 // health checks), a ledger that starts empty and grows from two recorded entries, and the
@@ -373,6 +441,7 @@ try {
     await shot.evaluate(() => document.fonts.ready);
     await guiShot(shot, `shell-${theme}`);
     await serversScreen(shot, theme);
+    await usageTab(shot, theme);
     await tokensScreen(shot, theme);
     await shot.getByRole("button", { name: "Settings", exact: true }).click();
     await shot.getByRole("button", { name: "Open All commands" }).click();
