@@ -65,7 +65,8 @@ describe("PlusViews", () => {
         view !== "logins" &&
         view !== "library" &&
         view !== "tokens" &&
-        view !== "context",
+        view !== "context" &&
+        view !== "system",
     ),
   )("marks %s as not built yet and names the item that builds it", async (view) => {
     render(<Harness start={view} />);
@@ -119,16 +120,25 @@ describe("PlusViews", () => {
     expect(await screen.findByText("Compression panel")).toBeInTheDocument();
   });
 
-  it("opens the All commands page on the group of the tab it was left from", async () => {
+  it("opens the All commands page from the placeholder of a tab that is not built", async () => {
+    const user = userEvent.setup();
+    render(<Harness start="tasks" />);
+    await user.click(await screen.findByRole("button", { name: "Open All commands" }));
+    expect(screen.getByLabelText("view")).toHaveTextContent("commands");
+    expect(await screen.findByRole("list", { name: "Commands" })).toBeInTheDocument();
+  });
+
+  it("opens the System screen with its five tabs and the plugin updates as a placeholder", async () => {
+    invoke.mockReset().mockImplementation(createBridge().invoke);
     const user = userEvent.setup();
     render(<Harness start="system" />);
-    await user.click(await screen.findByRole("tab", { name: "Council" }));
-    await user.click(screen.getByRole("button", { name: "Open All commands" }));
-    expect(screen.getByLabelText("view")).toHaveTextContent("commands");
-    const list = await screen.findByRole("list", { name: "Commands" });
-    expect(within(list).getAllByRole("listitem")).toHaveLength(1);
-    expect(screen.getByRole("combobox", { name: "Group" })).toHaveTextContent(
-      "council (1)",
-    );
+    const tabs = await screen.findByRole("tablist", { name: "System sections" });
+    expect(
+      within(tabs)
+        .getAllByRole("tab")
+        .map((tab) => tab.textContent),
+    ).toEqual(["Sync", "Updates", "Council", "Import", "Self-management"]);
+    await user.click(within(tabs).getByRole("tab", { name: "Updates" }));
+    expect(await screen.findByText(/MIG-GUI-12 builds this section/)).toBeInTheDocument();
   });
 });
