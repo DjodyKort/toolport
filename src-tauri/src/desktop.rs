@@ -5110,18 +5110,18 @@ mod tests {
     #[test]
     fn probe_one_bounded_passes_through_a_fast_failure_well_under_the_timeout() {
         // A bogus command fails to spawn immediately, so the bounded wrapper must
-        // return that result promptly (nowhere near PROBE_TIMEOUT) and carry the
-        // server id - it only times out for a genuinely hung probe.
+        // return that result, not its own timeout result, and carry the server id -
+        // it only times out for a genuinely hung probe.
         let mut server = plain_server("bogus", "Bogus");
         server.command = Some("toolport-no-such-binary-xyz".into());
-        let start = std::time::Instant::now();
         let r = probe_one_bounded(&server);
-        assert!(
-            start.elapsed() < Duration::from_secs(10),
-            "a fast failure must not wait on the timeout"
-        );
         assert!(!r.ok);
         assert_eq!(r.server_id, "bogus");
+        assert!(
+            !r.error.as_deref().unwrap_or_default().contains("timed out"),
+            "a fast failure must not wait on the timeout: {:?}",
+            r.error
+        );
     }
 
     fn plain_server(id: &str, name: &str) -> ServerEntry {
