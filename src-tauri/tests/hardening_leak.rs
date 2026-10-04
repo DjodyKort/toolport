@@ -714,6 +714,23 @@ fn tool_args(name: &str, schema: &Value, world: &World) -> Value {
             &mut args,
             &[("bundle_path", json!(leak_bundle(world))), ("dry_run", json!(false))],
         ),
+        "compression_enable" => set(
+            &mut args,
+            &[
+                ("provider", json!("rtk-only")),
+                ("port", json!(9511)),
+                ("dry_run", json!(false)),
+            ],
+        ),
+        "compression_set_provider" => set(
+            &mut args,
+            &[("provider", json!("none")), ("dry_run", json!(false))],
+        ),
+        "compression_use" => set(
+            &mut args,
+            &[("preset", json!("agent")), ("dry_run", json!(false))],
+        ),
+        "compression_disable" | "compression_sync" => set(&mut args, &[("dry_run", json!(false))]),
         "skills_clean" | "skills_resolve" | "agents_clean" | "styles_clean" => {
             set(&mut args, &[("dry_run", json!(false))])
         }

@@ -48,6 +48,7 @@ fn no_tool_or_resource_is_left_unimplemented() {
                 catalog::Ty::Bool => json!(true),
                 catalog::Ty::Obj => json!({}),
                 catalog::Ty::StrList => json!(["x"]),
+            catalog::Ty::Int => json!(1),
             };
             args.insert(param.name.to_string(), value);
         }
