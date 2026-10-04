@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Runs the browser smoke and keeps its GUI screenshots in docs/assets/gui-<screen>.png: the
 // shell (sidebar B) and the All commands page at 1280x800 in light and dark, the Servers screen, the typed
-// confirmation with its plan, a not-built screen with its tabs, the Tokens screen with the
-// Compression tab (state, provider plan, health, the ledger empty and filled, the typed disable),
+// confirmation with its plan, a not-built screen with its tabs, the Tokens screen with the Usage
+// tab (the figures, an index that never ran, the OTel plan, the receiver on) and the Compression
+// tab (state, provider plan, health, the ledger empty and filled, the typed disable),
 // and the element shots of the smoke. Fails when a page shot is missing or not 1280x800. The PNGs come out of
 // Chromium already deflated tighter than zlib level 9 can do, so they are kept as they are.
 import { spawnSync } from "node:child_process";
@@ -49,6 +50,11 @@ const PAGES = [
   "styles-empty-light",
   "styles-light",
   "styles-dark",
+  "usage-light",
+  "usage-dark",
+  "usage-empty-light",
+  "usage-otel-plan-light",
+  "usage-otel-on-light",
   "tokens-light",
   "tokens-dark",
   "tokens-provider-plan-light",
