@@ -1,0 +1,79 @@
+{
+  "area": "context",
+  "case": "context/cli-scaffold",
+  "comparison": "A",
+  "entry": "context_scenario",
+  "files": {
+    ".config/mcpm/context.json": {
+      "bytes": 462,
+      "class": "B",
+      "sha256": "7d0899ff3b9768505d4f1fb24aeedf1e59926bc469f5d3799eb1f32e9b1f5319"
+    },
+    "_golden/client-add-acme-again.txt": {
+      "bytes": 42,
+      "class": "A",
+      "sha256": "4a72334e24dfaf04d89d7b949656585e825475f72eab0b3ccee4fd0afdd8064d"
+    },
+    "_golden/client-add-acme.txt": {
+      "bytes": 119,
+      "class": "A",
+      "sha256": "0ea6044e509106b50df923ae189ff7956c10dfb0667f8340bea38374f63616e7"
+    },
+    "_golden/client-add-glob.txt": {
+      "bytes": 122,
+      "class": "A",
+      "sha256": "e2815b324e6a05a5ca25a160815874e3c9ff79dba168da6c552087b6bd33280d"
+    },
+    "_golden/client-list.txt": {
+      "bytes": 125,
+      "class": "A",
+      "sha256": "f4386d704aa6790c574ddbaa0f11957809740c0efd6ec56d2fb6463df175879b"
+    },
+    "_golden/init1.txt": {
+      "bytes": 618,
+      "class": "A",
+      "sha256": "0537c331817d8801a2d00283e99f7cfe17a13f570d6ea183bc3014b16bdc507f"
+    },
+    "_golden/init2-again.txt": {
+      "bytes": 535,
+      "class": "A",
+      "sha256": "ed4d49ea0c2f5a52b86afa9902edf16acf608277ab3db9cbb52deb3950eb7722"
+    },
+    "_golden/status0-empty.txt": {
+      "bytes": 136,
+      "class": "A",
+      "sha256": "6fad86df56104b4dd64ba194b35d3bc10af4907d8d47fc39c7644338b76ebea3"
+    },
+    "_golden/status1-layers.txt": {
+      "bytes": 202,
+      "class": "A",
+      "sha256": "e348cb59fc7fe0195bb732eccb7ac83371fd96514957d4e03b3ccbfa97f81c05"
+    },
+    "skills-repo/rules/client-acme/SKILL.md": {
+      "bytes": 287,
+      "class": "A",
+      "sha256": "1d6ed3ae7a599bcebc06b7b30c68751a8d6524bc72ed0f5a3a36f616793ce842"
+    },
+    "skills-repo/rules/client-v18-arp/SKILL.md": {
+      "bytes": 287,
+      "class": "A",
+      "sha256": "6468d5f85dec4cebcbf8fe08cd8df2f4bcb6fa0bd74dc80ba8829b003d2ba455"
+    },
+    "skills-repo/rules/manual/SKILL.md": {
+      "bytes": 126,
+      "class": "A",
+      "sha256": "1498345db557d98d0d6240d841839804414e097ed4244d440c1dbed76f85176f"
+    },
+    "skills-repo/rules/personal/SKILL.md": {
+      "bytes": 300,
+      "class": "A",
+      "sha256": "fb3d50574466bfb6c1df6515ddef6eb337b510aa77191cfc22336e252a023d98"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

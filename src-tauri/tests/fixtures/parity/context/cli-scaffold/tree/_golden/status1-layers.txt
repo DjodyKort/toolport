@@ -1,0 +1,5 @@
+rc=0
+layers            client-acme [**/clients/acme/**], client-v18-arp [**/v18/**], manual [**/manual/**,**/other/**], personal
+profiles          none
+legacy MCP dupes  context7
+shims             none

@@ -1,0 +1,5 @@
+rc=0
+  ! no profile 'stale' in config
+  ✓ removed profile dir <HOME>/.config/mcpm/claude-profiles/stale
+  ✓ wrote shims: <HOME>/.config/mcpm/context-shims.zsh
+  ✓ saved config (0 profile(s))

@@ -5,6 +5,6 @@
   ],
   [
     "warn",
-    "no personal layer scaffolded — create rules/personal/SKILL.md in the skills repo"
+    "no personal layer scaffolded — run `toolportctl context init`"
   ]
 ]

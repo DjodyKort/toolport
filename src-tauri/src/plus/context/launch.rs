@@ -258,8 +258,9 @@ pub fn generate_profile_with(
     }
     let dir = profile_dir(roots, name);
     let servers = mcp["mcpServers"].as_object().map(Map::len).unwrap_or(0);
+    let verb = if dry_run { "would generate" } else { "generated" };
     report.add(format!(
-        "generated launch profile {name} ({servers} server(s)) in {}",
+        "{verb} launch profile {name} ({servers} server(s)) in {}",
         dir.display()
     ));
     if dry_run {

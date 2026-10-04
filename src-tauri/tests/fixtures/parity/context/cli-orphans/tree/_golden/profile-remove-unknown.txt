@@ -1,0 +1,6 @@
+rc=0
+  ! no profile 'nope' in config
+  ✓ removed legacy MCP entries from .claude.json: context7
+  ✓ wrote shims: <HOME>/.config/mcpm/context-shims.zsh
+  ✓ saved config (0 profile(s))
+  ! orphan profile dir <HOME>/.config/mcpm/claude-profiles/stale (not in config) — `toolportctl context profile remove stale --purge`

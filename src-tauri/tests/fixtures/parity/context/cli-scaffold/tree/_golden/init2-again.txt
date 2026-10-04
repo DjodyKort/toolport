@@ -1,0 +1,12 @@
+rc=0
+  personal layer already scaffolded
+
+  ! <HOME>/.claude/settings.local.json is not read by Claude Code at user level (unsupported).
+      3 allow entr(y/ies) found; 0 migratable.
+  ✓ saved context.json
+
+Next steps:
+  1. Edit your personal layer, then:  toolportctl skills sync
+  2. Per-client layer:                toolportctl context client add <name>
+  3. Profiles:                        toolportctl context profile add bare --no-org --rules none --servers none
+  4. Apply everything:                toolportctl context sync

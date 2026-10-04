@@ -1,0 +1,5 @@
+rc=0
+layers            none — run `toolportctl context init`
+profiles          none
+legacy MCP dupes  context7
+shims             <HOME>/.config/mcpm/context-shims.zsh

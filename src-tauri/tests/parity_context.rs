@@ -1,9 +1,11 @@
 //! Replays the mcpm-context golden scenarios (inputs vendored under `fixtures/context-cases/`)
 //! through the Rust context engine and compares the produced tree with the goldens.
 //!
-//! Launch-profile generation belongs to CTX-3, so the profile-bearing cases are compared on
-//! everything except the generated `claude-profiles/` tree and the apply reports that list
-//! profile actions; `profiles-reconcile` is not replayed at all.
+//! Launch profiles (D-022) are not mcpm's `CLAUDE_CONFIG_DIR` profile dirs, so the profile-bearing
+//! cases are compared on everything except the generated `claude-profiles/` tree, the shims text and
+//! the apply reports that list profile actions. `profiles-reconcile` is replayed the same way, with
+//! its apply reports reduced to the lines both engines produce (shims, saved config, orphan dirs).
+//! The `cli-*` cases run the real `toolportctl context` commands and compare their text with mcpm's.
 
 mod common;
 
@@ -199,6 +201,16 @@ impl Scenario {
                 names.sort();
                 self.emit_json(&s("label"), &json!(names));
             }
+            "cli" => self.cli(step),
+            "links" => {}
+            "remove" => {
+                let p = self.p(&s("path"));
+                if p.is_dir() {
+                    fs::remove_dir_all(&p).unwrap();
+                } else {
+                    let _ = fs::remove_file(&p);
+                }
+            }
             "scaffold_personal" => {
                 let r = layers::scaffold_personal_rule(&self.roots).unwrap();
                 self.notes.insert("scaffold_personal".into(), self.rel_or_null(r));
@@ -334,6 +346,27 @@ impl Scenario {
         }
     }
 
+    fn cli(&self, step: &Value) {
+        let mut argv = vec!["context".to_string()];
+        argv.extend(
+            step["argv"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|a| a.as_str().unwrap().to_string()),
+        );
+        argv.extend(["--home".to_string(), self.home.to_string_lossy().into_owned()]);
+        let (mut out, mut err) = (Vec::new(), Vec::new());
+        let code = conduit_lib::plus::ctl::run_with(&argv, &mut out, &mut err);
+        let mut text = String::from_utf8(out).unwrap();
+        text.push_str(&String::from_utf8(err).unwrap());
+        let text: String = text.lines().map(|l| format!("{}\n", l.trim_end())).collect();
+        self.emit(
+            &format!("{}.txt", step["label"].as_str().unwrap()),
+            &format!("rc={code}\n{text}"),
+        );
+    }
+
     fn rel_or_null(&self, p: Option<PathBuf>) -> Value {
         match p {
             Some(p) => json!(p.strip_prefix(&self.home).unwrap().to_string_lossy()),
@@ -391,7 +424,32 @@ fn is_zsh_derived(rel: &str) -> bool {
     rel.ends_with(".zsh-n.txt") || rel.ends_with("/throttle.txt") || rel.ends_with("/nowrap.txt")
 }
 
+/// Keeps the report lines whose wording does not depend on how a profile is generated.
+fn shared_report_lines(text: &str) -> String {
+    let report: Value = serde_json::from_str(text).unwrap();
+    let mut lines: Vec<String> = ["actions", "warnings"]
+        .iter()
+        .flat_map(|k| report[k].as_array().cloned().unwrap_or_default())
+        .filter_map(|l| l.as_str().map(String::from))
+        .filter(|l| {
+            l.starts_with("wrote shims:")
+                || l.starts_with("saved config (")
+                || l.starts_with("orphan profile dir")
+        })
+        .collect();
+    lines.sort();
+    pydump(&json!(lines))
+}
+
+fn is_apply_report(rel: &str) -> bool {
+    rel.starts_with("_golden/apply") && rel.ends_with(".report.json")
+}
+
 fn replay(case: &str, profile_case: bool) {
+    replay_with(case, profile_case, false);
+}
+
+fn replay_with(case: &str, profile_case: bool, reduce_reports: bool) {
     let dir = inputs_root().join(case);
     let spec: Value = serde_json::from_slice(&fs::read(dir.join("case.json")).unwrap()).unwrap();
     let root = std::env::temp_dir().join(format!("parity-context-{}-{case}", std::process::id()));
@@ -435,10 +493,12 @@ fn replay(case: &str, profile_case: bool) {
     let zsh = zsh_available();
     let skip = |rel: &str| {
         excludes.iter().any(|p| glob_match(p, rel))
+            || rel == ".config/mcpm/context.json.lock"
             || (!zsh && is_zsh_derived(rel))
             || (profile_case
                 && (rel.starts_with(".config/mcpm/claude-profiles/")
-                    || (rel.starts_with("_golden/apply") && rel.ends_with(".report.json"))
+                    || (is_apply_report(rel) && !reduce_reports)
+                    || rel.starts_with("_golden/links")
                     || (rel.starts_with("_golden/") && rel.contains("profiles") && rel.ends_with(".zsh"))
                     || (rel.starts_with("_golden/") && rel.ends_with(".txt") && !rel.ends_with(".zsh-n.txt"))
                     || rel.ends_with("context-shims.zsh")))
@@ -454,8 +514,19 @@ fn replay(case: &str, profile_case: bool) {
         fs::create_dir_all(out.parent().unwrap()).unwrap();
         fs::write(out, data).unwrap();
     }
+    let deleted: Vec<&String> = before
+        .keys()
+        .filter(|r| !after.contains_key(*r) && !skip(r))
+        .collect();
+    if !deleted.is_empty() {
+        let text: String = deleted.iter().map(|r| format!("{r}\n")).collect();
+        fs::write(actual.join("_deleted.txt"), text).unwrap();
+    }
     let sync_re = regex::Regex::new(r#"("synced_at"\s*:\s*)"[^"]*""#).unwrap();
     for (rel, path) in list_files(&actual).unwrap() {
+        if reduce_reports && is_apply_report(&rel) {
+            fs::write(&path, shared_report_lines(&fs::read_to_string(&path).unwrap())).unwrap();
+        }
         if rel.ends_with("mcpm-skills.lock") {
             let text = fs::read_to_string(&path).unwrap();
             fs::write(&path, sync_re.replace(&text, r#"$1"<SYNCED_AT>""#).into_owned()).unwrap();
@@ -471,7 +542,11 @@ fn replay(case: &str, profile_case: bool) {
         }
         let out = filtered.join("tree").join(&rel);
         fs::create_dir_all(out.parent().unwrap()).unwrap();
-        fs::copy(path, out).unwrap();
+        if reduce_reports && is_apply_report(&rel) {
+            fs::write(&out, shared_report_lines(&fs::read_to_string(&path).unwrap())).unwrap();
+        } else {
+            fs::copy(path, out).unwrap();
+        }
         classes.insert(rel.clone(), json!({ "class": golden.classes[&rel] }));
     }
     let manifest = json!({ "comparison": golden.comparison, "files": classes });
@@ -528,12 +603,24 @@ fn shim_generation_matches_golden() {
 }
 
 #[test]
+fn profiles_reconcile_matches_golden_on_the_shared_report_lines() {
+    replay_with("profiles-reconcile", true, true);
+}
+
+#[test]
+fn context_cli_text_matches_mcpm() {
+    for case in ["cli-scaffold", "cli-orphans", "cli-disable"] {
+        replay(case, false);
+    }
+}
+
+#[test]
 fn every_declared_case_has_vendored_inputs_and_a_golden() {
     let all = [
         "layered-rules", "client-local-deploy", "client-local-missing-root", "settings-union",
         "settings-corp-clobber", "settings-edge", "dedupe-legacy-names", "corp-tripwire", "corp-no-wrapper",
         "doctor-no-corp", "shims-wrap-on", "shims-wrap-off", "shims-throttle", "shims-throttle-nowrap",
-        "profiles-reconcile",
+        "profiles-reconcile", "cli-scaffold", "cli-orphans", "cli-disable",
     ];
     for case in all {
         assert!(inputs_root().join(case).join("case.json").is_file(), "{case}");

@@ -13,6 +13,7 @@ mod skills;
 mod skills_repo;
 mod skills_state;
 pub(crate) mod context;
+mod context_manage;
 mod flags;
 mod folders;
 mod mcp;
@@ -171,7 +172,61 @@ pub const COMMANDS: &[Command] = &[
         "Plan then apply the context deploy (--home <dir>, --rules, --dry-run)",
         context::sync,
     ),
-    cmd(&["context"], "Context: loads checkpoint-status plan apply sync", context::group),
+    cmd(
+        &["context", "init"],
+        "Scaffold the personal layer and save context.json (--home <dir>, --dry-run, --yes)",
+        context_manage::init,
+    ),
+    cmd(
+        &["context", "status"],
+        "Show layers, profiles, legacy MCP duplicates and the shims file (--home <dir>)",
+        context_manage::status,
+    ),
+    cmd(
+        &["context", "client", "add"],
+        "Scaffold a path-scoped client layer (<name>, --glob <pattern>, --home <dir>, --dry-run)",
+        context_manage::client_add,
+    ),
+    cmd(
+        &["context", "client", "list"],
+        "List the context layers with their path globs (--home <dir>)",
+        context_manage::client_list,
+    ),
+    cmd(
+        &["context", "client"],
+        "Client layers: add list",
+        context_manage::client_group,
+    ),
+    cmd(
+        &["context", "profile", "add"],
+        "Define a launch profile and generate it (<name>, --no-org, --rules, --servers, --dry-run)",
+        context_manage::profile_add,
+    ),
+    cmd(
+        &["context", "profile", "list"],
+        "List the configured launch profiles (--home <dir>)",
+        context_manage::profile_list,
+    ),
+    cmd(
+        &["context", "profile", "remove"],
+        "Drop a launch profile; --purge deletes its directory (<name>, --purge, --dry-run)",
+        context_manage::profile_remove,
+    ),
+    cmd(
+        &["context", "profile"],
+        "Launch profiles: add list remove",
+        context_manage::profile_group,
+    ),
+    cmd(
+        &["context", "disable"],
+        "Remove the generated shims; --purge-profiles also the profile directories (--dry-run)",
+        context_manage::disable,
+    ),
+    cmd(
+        &["context"],
+        "Context: init status client profile disable loads checkpoint-status plan apply sync",
+        context::group,
+    ),
     cmd(
         &["compression", "status"],
         "Show the compression policy, pin and drift",

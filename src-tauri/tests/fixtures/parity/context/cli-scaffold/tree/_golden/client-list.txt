@@ -1,0 +1,5 @@
+rc=0
+  client-acme  **/clients/acme/**
+  client-v18-arp  **/v18/**
+  manual  **/manual/**, **/other/**
+  personal  always-on

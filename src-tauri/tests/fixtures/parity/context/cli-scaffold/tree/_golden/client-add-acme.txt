@@ -1,0 +1,3 @@
+rc=0
+  ✓ scaffolded <HOME>/skills-repo/rules/client-acme/SKILL.md
+  fill in the body, then:  toolportctl skills sync

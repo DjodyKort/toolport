@@ -25,19 +25,19 @@
       "sha256": "21ed898970cc6d8aa6f5873f86360b619518a019d117cbed2df7124c6e2863e6"
     },
     "_golden/doctor0-empty-defaults.json": {
-      "bytes": 329,
+      "bytes": 310,
       "class": "B",
-      "sha256": "6fa9cbc55069ec0c60e185612976baa5cdc1ff30317de2a589a40e21e61236e5"
+      "sha256": "d6c82202c04fedfd8f3d9e32918150feba9c418170fa9f5b82e375f54048e9b3"
     },
     "_golden/doctor1-shims-unsourced.json": {
-      "bytes": 360,
+      "bytes": 341,
       "class": "B",
-      "sha256": "67aa8a8e90a956cf538436003294ea72a097bec00a8e6f03984591b364e3bff9"
+      "sha256": "cbcffac53b60f582b3f8116e84d6ce26ca5e1987efaf985503d991a809fa21f9"
     },
     "_golden/doctor2-sourced.json": {
-      "bytes": 367,
+      "bytes": 348,
       "class": "B",
-      "sha256": "8c4716a9b974bfc97e837a25a430fc80c36966aaf8ff0b312f4fff221f7b0e28"
+      "sha256": "a3b053af9e150a3171b99a8c53ca99a101f7c470d68039f96e028a6752b39a37"
     }
   },
   "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",

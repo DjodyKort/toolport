@@ -31,9 +31,13 @@ pub struct Layer {
     pub description: String,
 }
 
+pub fn personal_rule_path(roots: &Roots) -> PathBuf {
+    roots.rules_dir().join(PERSONAL_RULE_NAME).join("SKILL.md")
+}
+
 /// Creates `rules/personal/SKILL.md`; `None` when it already exists.
 pub fn scaffold_personal_rule(roots: &Roots) -> Result<Option<PathBuf>, String> {
-    let target = roots.rules_dir().join(PERSONAL_RULE_NAME).join("SKILL.md");
+    let target = personal_rule_path(roots);
     if target.exists() {
         return Ok(None);
     }
@@ -85,6 +89,49 @@ fn check_scaffold_text(what: &str, text: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Where a client rule goes and what it holds, after the name and glob passed the checks that
+/// keep the frontmatter valid and the skills pipeline from rejecting the rule.
+pub struct ClientRule {
+    pub path: PathBuf,
+    pub content: String,
+    pub glob: String,
+}
+
+pub fn check_client_rule(name: &str, glob: Option<&str>) -> Result<(), String> {
+    check_scaffold_text("client name", name)?;
+    if let Some(glob) = glob {
+        check_scaffold_text("glob", glob)?;
+    }
+    let slug = slug(name);
+    crate::plus::skills::parser::valid_name(&format!("client-{slug}"))
+        .map_err(|e| format!("rule name client-{slug}: {e}"))
+}
+
+pub fn plan_client_rule(
+    roots: &Roots,
+    name: &str,
+    glob: Option<&str>,
+) -> Result<ClientRule, String> {
+    check_client_rule(name, glob)?;
+    let slug = slug(name);
+    let path = roots
+        .rules_dir()
+        .join(format!("client-{slug}"))
+        .join("SKILL.md");
+    let glob = glob
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("**/clients/{name}/**"));
+    let (quoted_name, quoted_glob) = (yaml_double_quoted(name), yaml_double_quoted(&glob));
+    let content = format!(
+        "---\nname: client-{slug}\ndescription: \"Client context: {quoted_name}\"\nactivation: always\nglobs: \"{quoted_glob}\"\n---\n\n## {name} — client context\n\n<!-- Project knowledge for this client that doesn't belong in the repo's own\n     CLAUDE.md: contacts, conventions, environment quirks, gotchas. -->\n"
+    );
+    Ok(ClientRule {
+        path,
+        content,
+        glob,
+    })
+}
+
 /// Creates `rules/client-<slug>/SKILL.md` with a path-scoped glob; `None` when present.
 /// Names the skills pipeline would reject or that cannot sit in the frontmatter are refused
 /// before anything is written.
@@ -93,29 +140,12 @@ pub fn scaffold_client_rule(
     name: &str,
     glob: Option<&str>,
 ) -> Result<Option<PathBuf>, String> {
-    let slug = slug(name);
-    check_scaffold_text("client name", name)?;
-    if let Some(glob) = glob {
-        check_scaffold_text("glob", glob)?;
-    }
-    crate::plus::skills::parser::valid_name(&format!("client-{slug}"))
-        .map_err(|e| format!("rule name client-{slug}: {e}"))?;
-    let target = roots
-        .rules_dir()
-        .join(format!("client-{slug}"))
-        .join("SKILL.md");
-    if target.exists() {
+    let rule = plan_client_rule(roots, name, glob)?;
+    if rule.path.exists() {
         return Ok(None);
     }
-    let globs = glob
-        .map(str::to_string)
-        .unwrap_or_else(|| format!("**/clients/{name}/**"));
-    let (quoted_name, globs) = (yaml_double_quoted(name), yaml_double_quoted(&globs));
-    let content = format!(
-        "---\nname: client-{slug}\ndescription: \"Client context: {quoted_name}\"\nactivation: always\nglobs: \"{globs}\"\n---\n\n## {name} — client context\n\n<!-- Project knowledge for this client that doesn't belong in the repo's own\n     CLAUDE.md: contacts, conventions, environment quirks, gotchas. -->\n"
-    );
-    write_text(&target, &content)?;
-    Ok(Some(target))
+    write_text(&rule.path, &rule.content)?;
+    Ok(Some(rule.path))
 }
 
 /// The text between the opening `---` and the next fence line, and what follows that fence's

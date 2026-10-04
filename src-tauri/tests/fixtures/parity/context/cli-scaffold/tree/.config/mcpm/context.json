@@ -1,0 +1,24 @@
+{
+  "cf_wrapper_hash": null,
+  "clients_root": "~/Documents/GitHub/ExampleWorkspace/clients",
+  "dedupe": {
+    "enabled": true,
+    "legacy_names": [
+      "context7",
+      "playwright",
+      "examplecorp-odoo",
+      "examplecorp-typst"
+    ],
+    "require_mcpm_twin": true
+  },
+  "profiles": {},
+  "settings": {
+    "ensure_allow": [
+      "Bash(ls:*)",
+      "Read(*)",
+      "Edit(src/**)"
+    ],
+    "ensure_ask": []
+  },
+  "wrap_default_claude": true
+}

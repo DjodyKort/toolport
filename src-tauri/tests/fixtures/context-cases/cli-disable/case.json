@@ -1,0 +1,48 @@
+{
+  "area": "context",
+  "entry": "context_scenario",
+  "args": {
+    "steps": [
+      {
+        "op": "cli",
+        "label": "disable-shims",
+        "argv": [
+          "disable"
+        ]
+      },
+      {
+        "op": "cli",
+        "label": "disable-purge",
+        "argv": [
+          "disable",
+          "--purge-profiles"
+        ]
+      }
+    ]
+  },
+  "comparison": "A",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ],
+  "env": {
+    "MCPM_CONFIG_DIR": "{HOME}/.config/mcpm",
+    "MCPM_CONTEXT_CLAUDE_HOME": "{HOME}/.claude",
+    "MCPM_CONTEXT_CLAUDE_JSON": "{HOME}/.claude.json",
+    "MCPM_CONTEXT_CACHE_DIR": "{HOME}/.cache/mcpm/context",
+    "MCPM_CONTEXT_CF_DIR": "{HOME}/.local/share/corp-dev-tools"
+  },
+  "exclude": [
+    ".cache/*",
+    ".git/*",
+    "*/.git/*",
+    ".config/mcpm/auth.json",
+    ".config/mcpm/config.json"
+  ],
+  "overrides": {
+    "*.json": "B",
+    "*/.mcpm-context-state.json": "B",
+    "*.report": "B"
+  }
+}

@@ -1,0 +1,3 @@
+rc=0
+  ✓ removed profile dir <HOME>/.config/mcpm/claude-profiles/a
+  ✓ removed profile dir <HOME>/.config/mcpm/claude-profiles/b

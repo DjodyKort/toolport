@@ -5,7 +5,7 @@ Toolport+ additions (D-010). Full overview: `docs/toolport-plus.md`.
 - `mod.rs`: `plus.*` handler table and `dispatch` behind the single `plus_invoke` IPC command.
 - `ctl/`: `toolportctl` command table, parsing and JSON/human output.
 - `auth/`: login-expiry probes, status cache, gateway state, status surfaces.
-- `context/`: layered rules deploy, what-loads viewer, folder profiles.
+- `context/`: layered rules deploy, what-loads viewer, folder profiles; `manage` is the shared core under `toolportctl context init|status|client|profile|disable` and the `plus.context.*` handlers of the same names.
 - `compression/`: compression policy, launch plan, savings ledger.
 - `skills/`: skill parser, lockfile, lint, transpilers; `ops` is the shared core under `toolportctl skills`, the `plus.skills.*` handlers and the selfmcp `skills_status` tool.
 - `sync/`: encrypted cross-machine sync.

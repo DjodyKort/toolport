@@ -7,12 +7,14 @@ use regex::Regex;
 use std::collections::BTreeMap;
 use std::fs;
 
-const SOURCES: [(&str, &str); 5] = [
+const SOURCES: [(&str, &str); 7] = [
     ("shims.rs", include_str!("shims.rs")),
     ("doctor.rs", include_str!("doctor.rs")),
     ("mod.rs", include_str!("mod.rs")),
     ("launch.rs", include_str!("launch.rs")),
     ("layers.rs", include_str!("layers.rs")),
+    ("manage.rs", include_str!("manage.rs")),
+    ("ctl/context_manage.rs", include_str!("../ctl/context_manage.rs")),
 ];
 
 const LEGACY_HEADER: &str = "<!-- Managed by `mcpm context` — edit the canonical layer (skills_repo/rules/client-*/SKILL.md); `mcpm context sync` regenerates. -->";
@@ -87,6 +89,10 @@ fn every_toolportctl_command_in_the_context_sources_exists() {
     for expected in [
         "context sync",
         "context",
+        "context init",
+        "context client add",
+        "context profile add",
+        "context profile remove",
         "skills sync",
         "compression run",
         "doctor",
@@ -109,8 +115,7 @@ fn doctor_hints_name_toolportctl_and_no_mcpm_command() {
         .any(|m| *m == "shims file missing — run `toolportctl context sync`"));
     assert!(text
         .iter()
-        .any(|m| m.starts_with("no personal layer scaffolded")
-            && m.contains("rules/personal/SKILL.md")));
+        .any(|m| *m == "no personal layer scaffolded — run `toolportctl context init`"));
     for message in &text {
         assert!(
             !message.contains("mcpm context") && !message.contains("mcpm skills"),
@@ -177,7 +182,7 @@ fn files_written_by_mcpm_stay_managed_and_get_the_new_header() {
 }
 
 #[test]
-fn orphan_profile_hint_is_not_an_mcpm_command() {
+fn orphan_profile_hint_names_the_wired_remove_command() {
     let home = ScratchDir::new("ctl-hints-orphan");
     let roots = Roots::from_home(home.path());
     fs::create_dir_all(roots.profiles_root().join("stale")).unwrap();
@@ -188,7 +193,8 @@ fn orphan_profile_hint_is_not_an_mcpm_command() {
         .iter()
         .find(|w| w.starts_with("orphan profile dir"))
         .expect("orphan warning");
-    assert!(warning
-        .ends_with("(not in config) — delete the directory or add the profile to context.json"));
+    assert!(warning.ends_with(
+        "(not in config) — `toolportctl context profile remove stale --purge`"
+    ));
     assert!(!warning.contains("mcpm context"));
 }

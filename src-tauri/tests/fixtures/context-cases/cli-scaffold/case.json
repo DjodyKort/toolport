@@ -1,0 +1,105 @@
+{
+  "area": "context",
+  "entry": "context_scenario",
+  "args": {
+    "steps": [
+      {
+        "op": "cli",
+        "label": "status0-empty",
+        "argv": [
+          "status"
+        ]
+      },
+      {
+        "op": "cli",
+        "label": "init1",
+        "argv": [
+          "init",
+          "--yes"
+        ]
+      },
+      {
+        "op": "cli",
+        "label": "init2-again",
+        "argv": [
+          "init",
+          "--yes"
+        ]
+      },
+      {
+        "op": "write_file",
+        "path": "skills-repo/rules/manual/SKILL.md",
+        "content": "---\nname: manual\ndescription: \"Hand written layer\"\nactivation: always\nglobs: \"**/manual/**,**/other/**\"\n---\n\n## Manual\n\nBody.\n"
+      },
+      {
+        "op": "cli",
+        "label": "client-add-acme",
+        "argv": [
+          "client",
+          "add",
+          "acme"
+        ]
+      },
+      {
+        "op": "cli",
+        "label": "client-add-acme-again",
+        "argv": [
+          "client",
+          "add",
+          "acme"
+        ]
+      },
+      {
+        "op": "cli",
+        "label": "client-add-glob",
+        "argv": [
+          "client",
+          "add",
+          "v18_arp",
+          "--glob",
+          "**/v18/**"
+        ]
+      },
+      {
+        "op": "cli",
+        "label": "client-list",
+        "argv": [
+          "client",
+          "list"
+        ]
+      },
+      {
+        "op": "cli",
+        "label": "status1-layers",
+        "argv": [
+          "status"
+        ]
+      }
+    ]
+  },
+  "comparison": "A",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ],
+  "env": {
+    "MCPM_CONFIG_DIR": "{HOME}/.config/mcpm",
+    "MCPM_CONTEXT_CLAUDE_HOME": "{HOME}/.claude",
+    "MCPM_CONTEXT_CLAUDE_JSON": "{HOME}/.claude.json",
+    "MCPM_CONTEXT_CACHE_DIR": "{HOME}/.cache/mcpm/context",
+    "MCPM_CONTEXT_CF_DIR": "{HOME}/.local/share/corp-dev-tools"
+  },
+  "exclude": [
+    ".cache/*",
+    ".git/*",
+    "*/.git/*",
+    ".config/mcpm/auth.json",
+    ".config/mcpm/config.json"
+  ],
+  "overrides": {
+    "*.json": "B",
+    "*/.mcpm-context-state.json": "B",
+    "*.report": "B"
+  }
+}

@@ -60,9 +60,9 @@
       "sha256": "c5217b0ede9e58c6c3c5553344820796c9875776abe6157e71b38a53970a45fb"
     },
     "_golden/apply2-wrap-only.report.json": {
-      "bytes": 421,
+      "bytes": 409,
       "class": "B",
-      "sha256": "5bcb6351359a4b28d8221534ddb43ebfc0eaa321ba534a03128dbb61c11c7708"
+      "sha256": "edcab1e727d7469d71bdb0815b469f4727d9ed685a4913c1364ebd110b3f6a55"
     },
     "_golden/context-shims.zsh-n.txt": {
       "bytes": 5,

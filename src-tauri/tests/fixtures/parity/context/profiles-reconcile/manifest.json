@@ -90,19 +90,19 @@
       "sha256": "b83ed72107b6148e07baa1777bc5f0ba70ab0a980f5968fff97da2c4a39f6341"
     },
     "_golden/apply1.report.json": {
-      "bytes": 1798,
+      "bytes": 1800,
       "class": "B",
-      "sha256": "e2dfe2ffb435a1e74241e3d1a5d07fdd95d0a97affca96224554102da6b5866f"
+      "sha256": "7e4aac667d8ace129117e76cb68e6f2dce41876595c44d910dbf1718a1d4ce40"
     },
     "_golden/apply2.report.json": {
-      "bytes": 805,
+      "bytes": 800,
       "class": "B",
-      "sha256": "d917dcc6928c6cfa9d6bc10f398fe16ea90a63a9e5fdfe07112e041175cb1daf"
+      "sha256": "1d2a46c09951c8a55c8492e4a8b768285c0821115f8d2e19272ef19110afeda4"
     },
     "_golden/doctor.json": {
-      "bytes": 453,
+      "bytes": 434,
       "class": "B",
-      "sha256": "fc14c26d054d183ddc678c9750e2788208935f84ba883cf58bd00e1ac8c191fb"
+      "sha256": "3d783033f710bfc92ff0b756970e39b665e7a9cef4f6ba80d863a905689127c1"
     },
     "_golden/links.json": {
       "bytes": 361,

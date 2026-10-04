@@ -65,7 +65,7 @@ fn check_layers(roots: &Roots) -> Vec<Check> {
     if !canonical.exists() {
         vec![check(
             "warn",
-            "no personal layer scaffolded — create rules/personal/SKILL.md in the skills repo",
+            "no personal layer scaffolded — run `toolportctl context init`",
         )]
     } else if !transpiled.exists() {
         vec![check(
