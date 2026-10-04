@@ -136,6 +136,26 @@ enum Format {
     YamlMcpServersList,
 }
 
+impl Format {
+    /// The top-level config key that holds the server list.
+    fn servers_key(self) -> &'static str {
+        match self {
+            Format::JsonMcpServers
+            | Format::JsonCopilotMcpServers
+            | Format::JsonDroidMcpServers
+            | Format::JsonQwenMcpServers
+            | Format::JsonKimiMcpServers
+            | Format::YamlMcpServersList => "mcpServers",
+            Format::JsonAmpMcpServers => "amp.mcpServers",
+            Format::JsonServers => "servers",
+            Format::JsonMcp | Format::JsonOpenCodeMcp => "mcp",
+            Format::JsonContextServers => "context_servers",
+            Format::TomlMcpServers | Format::YamlMcpServers => "mcp_servers",
+            Format::YamlExtensions => "extensions",
+        }
+    }
+}
+
 struct ClientDef {
     id: &'static str,
     name: &'static str,
@@ -2905,16 +2925,16 @@ fn read_client(def: &ClientDef) -> DetectedClient {
     }
 
     let parsed = match def.format {
-        Format::JsonMcpServers => parse_json(&content, "mcpServers"),
-        Format::JsonCopilotMcpServers => parse_json(&content, "mcpServers"),
-        Format::JsonDroidMcpServers => parse_json(&content, "mcpServers"),
-        Format::JsonAmpMcpServers => parse_json(&content, "amp.mcpServers"),
+        Format::JsonMcpServers
+        | Format::JsonCopilotMcpServers
+        | Format::JsonDroidMcpServers
+        | Format::JsonAmpMcpServers
+        | Format::JsonKimiMcpServers
+        | Format::JsonServers
+        | Format::JsonMcp
+        | Format::JsonContextServers => parse_json(&content, def.format.servers_key()),
         Format::JsonQwenMcpServers => parse_qwen_json(&content),
-        Format::JsonKimiMcpServers => parse_json(&content, "mcpServers"),
-        Format::JsonServers => parse_json(&content, "servers"),
-        Format::JsonMcp => parse_json(&content, "mcp"),
         Format::JsonOpenCodeMcp => parse_opencode_json(&content),
-        Format::JsonContextServers => parse_json(&content, "context_servers"),
         Format::TomlMcpServers => parse_toml(&content),
         Format::YamlExtensions => parse_yaml_extensions(&content),
         Format::YamlMcpServers => parse_hermes_yaml_servers(&content),
@@ -5054,16 +5074,18 @@ pub fn write_servers(client_id: &str, servers: &[ServerEntry]) -> Result<WriteOu
     let backup = backup_file(client_id, &path)?;
     let lenient = config_is_whole_app_state(client_id);
     match def.format {
-        Format::JsonMcpServers => write_json(&path, "mcpServers", servers, lenient)?,
+        Format::JsonMcpServers | Format::JsonServers => {
+            write_json(&path, def.format.servers_key(), servers, lenient)?
+        }
+        Format::JsonAmpMcpServers | Format::JsonContextServers => {
+            write_json(&path, def.format.servers_key(), servers, true)?
+        }
         Format::JsonCopilotMcpServers => write_copilot_json(&path, servers)?,
         Format::JsonDroidMcpServers => write_droid_json(&path, servers)?,
-        Format::JsonAmpMcpServers => write_json(&path, "amp.mcpServers", servers, true)?,
         Format::JsonQwenMcpServers => write_qwen_json(&path, servers)?,
         Format::JsonKimiMcpServers => write_kimi_json(&path, servers)?,
-        Format::JsonServers => write_json(&path, "servers", servers, lenient)?,
         Format::JsonMcp => write_crush_json(&path, servers)?,
         Format::JsonOpenCodeMcp => write_opencode_json(&path, servers)?,
-        Format::JsonContextServers => write_json(&path, "context_servers", servers, true)?,
         Format::TomlMcpServers => write_toml(&path, servers)?,
         Format::YamlExtensions => write_yaml_extensions(&path, servers)?,
         Format::YamlMcpServers => write_hermes_yaml_servers(&path, servers)?,
@@ -5751,16 +5773,18 @@ fn install_or_remove(client_id: &str, entry: Option<&ServerEntry>) -> Result<Wri
     // we put on disk (SOU-406). Strip secrets for the registry record.
     let managed = entry.map(ManagedEntry::from_gateway_entry);
     match def.format {
-        Format::JsonMcpServers => edit_json_gateway(&path, "mcpServers", entry, lenient)?,
+        Format::JsonMcpServers | Format::JsonServers => {
+            edit_json_gateway(&path, def.format.servers_key(), entry, lenient)?
+        }
+        Format::JsonAmpMcpServers | Format::JsonContextServers => {
+            edit_json_gateway(&path, def.format.servers_key(), entry, true)?
+        }
         Format::JsonCopilotMcpServers => edit_copilot_json_gateway(&path, entry)?,
         Format::JsonDroidMcpServers => edit_droid_json_gateway(&path, entry)?,
-        Format::JsonAmpMcpServers => edit_json_gateway(&path, "amp.mcpServers", entry, true)?,
         Format::JsonQwenMcpServers => edit_qwen_json_gateway(&path, entry)?,
         Format::JsonKimiMcpServers => edit_kimi_json_gateway(&path, entry)?,
-        Format::JsonServers => edit_json_gateway(&path, "servers", entry, lenient)?,
         Format::JsonMcp => edit_crush_gateway(&path, entry)?,
         Format::JsonOpenCodeMcp => edit_opencode_gateway(&path, entry)?,
-        Format::JsonContextServers => edit_json_gateway(&path, "context_servers", entry, true)?,
         Format::TomlMcpServers => edit_toml_gateway(&path, entry)?,
         Format::YamlExtensions => edit_yaml_gateway(&path, entry)?,
         Format::YamlMcpServers => edit_hermes_yaml_gateway(&path, entry)?,
@@ -7391,6 +7415,49 @@ mod tests {
         assert_eq!(parsed.len(), 1);
         assert_eq!(parsed[0].name, "filesystem");
         std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn format_servers_keys_keep_their_on_disk_names() {
+        let table = [
+            (Format::JsonMcpServers, "mcpServers"),
+            (Format::JsonCopilotMcpServers, "mcpServers"),
+            (Format::JsonDroidMcpServers, "mcpServers"),
+            (Format::JsonAmpMcpServers, "amp.mcpServers"),
+            (Format::JsonQwenMcpServers, "mcpServers"),
+            (Format::JsonKimiMcpServers, "mcpServers"),
+            (Format::JsonServers, "servers"),
+            (Format::JsonMcp, "mcp"),
+            (Format::JsonOpenCodeMcp, "mcp"),
+            (Format::JsonContextServers, "context_servers"),
+            (Format::TomlMcpServers, "mcp_servers"),
+            (Format::YamlExtensions, "extensions"),
+            (Format::YamlMcpServers, "mcp_servers"),
+            (Format::YamlMcpServersList, "mcpServers"),
+        ];
+        for (format, key) in table {
+            assert_eq!(format.servers_key(), key);
+        }
+    }
+
+    #[test]
+    fn generic_json_formats_write_and_read_under_their_servers_key() {
+        for format in [
+            Format::JsonMcpServers,
+            Format::JsonAmpMcpServers,
+            Format::JsonServers,
+            Format::JsonContextServers,
+        ] {
+            let key = format.servers_key();
+            let path = temp_path("servers-key");
+            write_json(&path, key, &[stdio("filesystem")], true).unwrap();
+            let content = std::fs::read_to_string(&path).unwrap();
+            let root: serde_json::Value = serde_json::from_str(&content).unwrap();
+            assert!(root[key].get("filesystem").is_some(), "{key}");
+            let parsed = parse_json(&content, key).unwrap();
+            assert_eq!(parsed.len(), 1, "{key}");
+            std::fs::remove_file(&path).ok();
+        }
     }
 
     #[test]
