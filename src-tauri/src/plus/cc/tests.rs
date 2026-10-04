@@ -1,5 +1,7 @@
 use super::*;
-use std::cell::RefCell;
+use crate::plus::update::exec::CmdOutput;
+use std::sync::Mutex;
+use std::time::Duration;
 
 struct Env {
     dir: PathBuf,
@@ -213,12 +215,13 @@ fn wrapped_list_shape_and_garbage_output() {
     assert!(list(&missing, &env.opts()).is_err());
 }
 
-struct Recorder(RefCell<Vec<Vec<String>>>);
+struct Recorder(Mutex<Vec<Vec<String>>>);
 
 impl ClaudeRunner for Recorder {
     fn run(&self, args: &[&str], _t: Duration) -> Result<CmdOutput, String> {
         self.0
-            .borrow_mut()
+            .lock()
+            .unwrap()
             .push(args.iter().map(|s| s.to_string()).collect());
         Ok(CmdOutput {
             code: 0,
@@ -231,11 +234,11 @@ impl ClaudeRunner for Recorder {
 #[test]
 fn only_fixed_plugin_subcommands_are_issued() {
     let env = Env::new("fixed");
-    let rec = Recorder(RefCell::new(Vec::new()));
+    let rec = Recorder(Mutex::new(Vec::new()));
     let mut o = env.opts();
     o.marketplace = Some("mkt-a".into());
     update(&rec, &o).unwrap();
-    for call in rec.0.borrow().iter() {
+    for call in rec.0.lock().unwrap().iter() {
         assert_eq!(call[0], "plugin");
         assert!(matches!(
             call[1].as_str(),
