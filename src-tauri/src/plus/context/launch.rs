@@ -219,6 +219,7 @@ fn write_private(path: &Path, text: &str) -> Result<(), String> {
     crate::registry::atomic_write(path, text).map_err(|e| format!("{}: {e}", path.display()))
 }
 
+#[cfg(test)]
 pub fn generate_profile(
     roots: &Roots,
     name: &str,
