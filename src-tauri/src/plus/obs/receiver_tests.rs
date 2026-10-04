@@ -1,10 +1,11 @@
 use super::otel::fixtures::{logs_payload, metrics_payload};
 use super::receiver::{probe, Probe, Receiver, StartError, MAX_BODY_BYTES};
 use super::store::Locked;
+use crate::plus::testutil::wait_until;
 use serde_json::{json, Value};
 use std::io::{Read, Write};
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 fn scratch(label: &str) -> PathBuf {
@@ -306,6 +307,24 @@ fn oversized_bodies_are_refused_before_and_while_reading() {
     assert_eq!(fx.stored(), 0);
 }
 
+// a child spawned by a parallel test can briefly hold a copy of the closed listener's fd
+pub(super) fn wait_closed(port: u16) {
+    wait_until(&format!("port {port} to close"), || probe(port) == Probe::Closed);
+}
+
+fn start_when_free(dir: &Path, port: u16) -> Receiver {
+    let mut started = None;
+    wait_until(&format!("port {port} to take a receiver"), || match Receiver::start(dir, port) {
+        Ok(receiver) => {
+            started = Some(receiver);
+            true
+        }
+        Err(StartError::InUse { .. }) => false,
+        Err(other) => panic!("{other:?}"),
+    });
+    started.unwrap()
+}
+
 #[test]
 fn a_taken_port_is_a_clear_error_and_a_freed_one_can_be_reused() {
     let dir = scratch("taken");
@@ -314,9 +333,9 @@ fn a_taken_port_is_a_clear_error_and_a_freed_one_can_be_reused() {
     assert_eq!(Receiver::start(&dir, port).err(), Some(StartError::InUse { ours: false }));
     assert_eq!(probe(port), Probe::Foreign);
     drop(squatter);
-    assert_eq!(probe(port), Probe::Closed);
+    wait_closed(port);
 
-    let receiver = Receiver::start(&dir, port).unwrap();
+    let receiver = start_when_free(&dir, port);
     assert_eq!(receiver.port(), port);
     assert!(receiver.local_addr().ip().is_loopback());
     assert_eq!(probe(port), Probe::Ours);
@@ -326,8 +345,8 @@ fn a_taken_port_is_a_clear_error_and_a_freed_one_can_be_reused() {
         "a second receiver on the port"
     );
     drop(receiver);
-    assert_eq!(probe(port), Probe::Closed);
-    let again = Receiver::start(&dir, port).unwrap();
+    wait_closed(port);
+    let again = start_when_free(&dir, port);
     assert_eq!(probe(port), Probe::Ours);
     drop(again);
     let _ = std::fs::remove_dir_all(&dir);
