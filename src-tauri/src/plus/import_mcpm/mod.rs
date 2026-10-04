@@ -9,6 +9,8 @@ mod name_map;
 #[cfg(test)] mod name_map_prop_tests;
 #[cfg(test)]
 mod name_map_tests;
+#[cfg(test)]
+mod odh_tests;
 mod rename_refs;
 #[cfg(test)] mod rename_refs_prop_tests;
 #[cfg(test)]
