@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/nowhere"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "cwd is not a folder"
+    }
+  },
+  "text": "invalid_arguments: cwd is not a folder",
+  "tool": "context_bundle_status"
+}

@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/work/erp/clients/acme-erp",
+    "dry_run": true
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "no bundle is applied in <WORLD>/home/work/erp/clients/acme-erp"
+    }
+  },
+  "text": "conflict: no bundle is applied in <WORLD>/home/work/erp/clients/acme-erp",
+  "tool": "context_bundle_undo"
+}

@@ -4,8 +4,8 @@
 //! `setup` calls build the state a tool acts on and record no golden.
 
 use crate::ctl_fixtures::{
-    fork_back_to_main, fork_world, git_world, health_proxy, measure_home, skills_repo_remote_world,
-    sync_setup,
+    bundle_drift_home, bundle_home, fork_back_to_main, fork_world, git_world, health_proxy,
+    measure_home, skills_repo_remote_world, sync_setup,
 };
 
 use super::{case, fails, hook, prepared, read, refused, setup, write, Case};
@@ -27,6 +27,8 @@ const GAMMA_APPLY: &str =
 const BUNDLE: &str = r#"{"bundle_path":"{repo}/skills-repo-bundle.zip"}"#;
 const MEASURE: &str =
     r#"{"cwd":"{home}/work/erp/clients/acme-erp","without":["plugin:kit@market"]}"#;
+const APPLY_ACME_DEV: &str =
+    r#"{"name":"acme-dev","cwd":"{home}/work/erp/clients/acme-erp"}"#;
 const ENABLE_PROXY_PORT: &str =
     r#"{"provider":"headroom","port":29214,"dry_run":false,"confirm":true}"#;
 const ENABLE_OFF_PORT: &str =
@@ -1041,4 +1043,72 @@ pub const ALL: &[Case] = &[
     case("where_am_i", &[read("", "where_am_i", "{}")]),
     case("doctor", &[read("", "doctor", "{}")]),
     case("flow_diagram", &[read("", "flow_diagram", "{}")]),
+    // context bundles (MIG-CTX-10)
+    prepared(
+        "context_bundle_ls",
+        bundle_home,
+        &[
+            read("library", "context_bundle_ls", "{}"),
+            setup("context_bundle_apply", APPLY_ACME_DEV),
+            read("applied", "context_bundle_ls", "{}"),
+        ],
+    ),
+    prepared(
+        "context_bundle_status",
+        bundle_drift_home,
+        &[
+            read("clean", "context_bundle_status", r#"{"cwd":"{home}/work/erp/clients/acme-erp"}"#),
+            read("drift", "context_bundle_status", r#"{"cwd":"{home}/work/erp/clients/acme-two"}"#),
+            read("none", "context_bundle_status", r#"{"cwd":"{home}/work/erp"}"#),
+            fails("no_cwd", "invalid_arguments", "context_bundle_status", "{}"),
+            fails(
+                "bad_cwd",
+                "invalid_arguments",
+                "context_bundle_status",
+                r#"{"cwd":"{home}/nowhere"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "context_bundle_apply",
+        bundle_home,
+        &[
+            read(
+                "plan",
+                "context_bundle_apply",
+                r#"{"name":"acme-dev","cwd":"{home}/work/erp/clients/acme-erp","dry_run":true}"#,
+            ),
+            write("result", "context_bundle_apply", APPLY_ACME_DEV),
+            fails(
+                "missing",
+                "not_found",
+                "context_bundle_apply",
+                r#"{"name":"no-such-bundle","cwd":"{home}/work/erp/clients/acme-erp","dry_run":true}"#,
+            ),
+            fails(
+                "bad_cwd",
+                "invalid_arguments",
+                "context_bundle_apply",
+                r#"{"name":"acme-dev","cwd":"{home}/nowhere","dry_run":true}"#,
+            ),
+            fails("no_name", "invalid_arguments", "context_bundle_apply", r#"{"cwd":"{home}/work/erp/clients/acme-erp"}"#),
+        ],
+    ),
+    prepared(
+        "context_bundle_undo",
+        bundle_drift_home,
+        &[
+            read("plan", "context_bundle_undo", r#"{"cwd":"{home}/work/erp/clients/acme-erp","dry_run":true}"#),
+            write("result", "context_bundle_undo", r#"{"cwd":"{home}/work/erp/clients/acme-erp"}"#),
+            read("conflicts", "context_bundle_undo", r#"{"cwd":"{home}/work/erp/clients/acme-two","dry_run":true}"#),
+            write("conflicted", "context_bundle_undo", r#"{"cwd":"{home}/work/erp/clients/acme-two"}"#),
+            fails(
+                "none",
+                "conflict",
+                "context_bundle_undo",
+                r#"{"cwd":"{home}/work/erp/clients/acme-erp","dry_run":true}"#,
+            ),
+            fails("no_cwd", "invalid_arguments", "context_bundle_undo", "{}"),
+        ],
+    ),
 ];

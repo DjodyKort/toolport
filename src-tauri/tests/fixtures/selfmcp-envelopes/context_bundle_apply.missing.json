@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/work/erp/clients/acme-erp",
+    "dry_run": true,
+    "name": "no-such-bundle"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "unknown bundle: no-such-bundle (no <WORLD>/home/.config/mcpm/skills_repo/profiles/no-such-bundle.yaml)"
+    }
+  },
+  "text": "not_found: unknown bundle: no-such-bundle (no <WORLD>/home/.config/mcpm/skills_repo/profiles/no-such-bundle.yaml)",
+  "tool": "context_bundle_apply"
+}
