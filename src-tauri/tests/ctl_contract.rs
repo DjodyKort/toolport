@@ -25,6 +25,8 @@ use std::time::Duration;
 use conduit_lib::plus::ctl::{registry, SCHEMA_VERSION};
 use serde_json::{json, Value};
 
+#[path = "ctl_contract/cases.rs"]
+mod cases;
 #[path = "common/ctl_fixtures.rs"]
 mod ctl_fixtures;
 #[path = "common/ctl_world.rs"]
@@ -37,8 +39,6 @@ mod golden;
 mod normalize;
 #[path = "common/sources_world.rs"]
 mod sources_world;
-#[path = "ctl_contract/cases.rs"]
-mod cases;
 
 use ctl_fixtures::PASSPHRASE;
 use ctl_world::{CtlWorld, FAKE_SECRET};
