@@ -4348,11 +4348,15 @@ pub fn run() {
         )
         .manage(Mutex::new(registry))
         .manage(Mutex::new(HttpBridge::default()))
+        .manage(crate::plus::bridge::Bridge::new())
         .manage(PendingShare::default())
         .manage(PendingTrayApprovals::default())
         .manage(RestartAdvice::default())
         .invoke_handler(tauri::generate_handler![
             crate::plus::plus_invoke,
+            crate::plus::bridge::app::plus_ctl,
+            crate::plus::bridge::app::plus_ctl_result,
+            crate::plus::bridge::app::plus_ctl_cancel,
             detect_clients,
             get_registry,
             take_registry_recovery_notice,
