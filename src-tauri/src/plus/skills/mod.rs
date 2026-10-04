@@ -11,6 +11,7 @@ pub mod collisions;
 pub mod git;
 pub mod handlers;
 pub mod json;
+pub mod kind;
 pub mod lint;
 pub mod lock;
 pub mod ops;

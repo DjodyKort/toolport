@@ -9,7 +9,7 @@ pub mod transpilers;
 pub use sync::{sync_agents, sync_scoped, AgentSyncOptions, ScopedSync};
 pub use transpilers::{all_agent_transpilers, AgentTranspiler};
 
-use super::parser::parse_frontmatter;
+use super::kind::{discover, discover_report, read_document, ContentKind};
 use super::schema::{self, Fm};
 use serde_yaml::{Mapping, Value};
 use std::path::{Path, PathBuf};
@@ -120,15 +120,21 @@ fn build_frontmatter(fm: &Fm) -> Result<AgentFrontmatter, String> {
     })
 }
 
+pub struct AgentKind;
+
+impl ContentKind for AgentKind {
+    type Item = Agent;
+    const NOUN: &'static str = "Agent";
+    const DIRS: &'static [&'static str] = &["agents"];
+    const FILE: &'static str = "AGENT.md";
+
+    fn parse(path: &Path) -> Result<Agent, String> {
+        parse_agent_file(path)
+    }
+}
+
 pub fn parse_agent_file(path: &Path) -> Result<Agent, String> {
-    if !path.exists() {
-        return Err(format!("Agent file not found: {}", path.display()));
-    }
-    let content = super::pyfs::read_text(path)?;
-    let (fm_data, body) = parse_frontmatter(&content)?;
-    if fm_data.is_empty() {
-        return Err(format!("No YAML frontmatter found in {}", path.display()));
-    }
+    let (fm_data, body) = read_document(AgentKind::NOUN, path)?;
     Ok(Agent {
         frontmatter: build_frontmatter(&fm_data)?,
         body,
@@ -137,40 +143,9 @@ pub fn parse_agent_file(path: &Path) -> Result<Agent, String> {
 }
 
 pub fn discover_agents_report(repo: &Path) -> (Vec<Agent>, Vec<String>) {
-    let mut warnings = Vec::new();
-    let mut agents = Vec::new();
-    let dir = repo.join("agents");
-    if !dir.is_dir() {
-        return (agents, warnings);
-    }
-    let Ok(read) = std::fs::read_dir(&dir) else {
-        return (agents, warnings);
-    };
-    let mut children: Vec<PathBuf> = read.filter_map(|e| e.ok().map(|e| e.path())).collect();
-    children.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
-    for agent_dir in children {
-        if !agent_dir.is_dir() {
-            continue;
-        }
-        let file = agent_dir.join("AGENT.md");
-        let dir_name = agent_dir
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        if !file.exists() {
-            warnings.push(format!(
-                "Agent directory {dir_name} has no AGENT.md, skipping"
-            ));
-            continue;
-        }
-        match parse_agent_file(&file) {
-            Ok(a) => agents.push(a),
-            Err(e) => warnings.push(format!("Failed to parse {}: {e}", file.display())),
-        }
-    }
-    (agents, warnings)
+    discover_report::<AgentKind>(repo)
 }
 
 pub fn discover_agents(repo: &Path) -> Vec<Agent> {
-    discover_agents_report(repo).0
+    discover::<AgentKind>(repo)
 }
