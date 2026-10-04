@@ -1,4 +1,5 @@
 import { useState, type ComponentType } from "react";
+import { AgentsTab, StylesTab } from "../agents";
 import { NotBuiltPanel } from "../NotBuilt";
 import { NOT_BUILT_TABS } from "../notBuiltTabs";
 import { Tabs } from "../ui";
@@ -8,6 +9,8 @@ import { SkillsTab } from "./SkillsTab";
  * placeholder of `NOT_BUILT_TABS`; the item that builds a tab adds its panel to this map. */
 const PANELS: Record<string, ComponentType> = {
   skills: SkillsTab,
+  agents: AgentsTab,
+  styles: StylesTab,
 };
 
 const TABS = NOT_BUILT_TABS.library ?? [];

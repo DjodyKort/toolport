@@ -234,12 +234,10 @@ MIG-GUI-1 edits:
 | `plus/fixtures/commandsRegistry.ts`        | exports `command`, `flag` and `DRY_RUN` for `skills/commandRows.ts`                                                                                                                                                              |
 | `scripts/browser-smoke.mjs` (skills)       | Library opens on Skills and Plugins is the not-built tab; the Skills walk in both themes; `screenshots.mjs` lists its eight shots                                                                                                |
 | `src/plus/gui-parity.json` (library)       | the `library` route and its 19 actions are `built`; 19 skills commands and 18 skills tools point at them                                                                                                                         |
-| `src/plus/nav.ts` (agents)           | `agents` is a Plus view ("Agents & styles") that lights Library; `PlusViews.tsx` lazy-loads `AgentsScreen`                                                   |
-| `src/plus/notBuiltTabs.ts`           | `PlusTab.opens`: the Agents and Styles tabs of the Library placeholder open the `agents` view                                                                |
-| `src/plus/NotBuilt.tsx`              | `onOpenView` prop: an "Open Agents & styles" button on a tab that has `opens`                                                                                |
-| `src/plus/fixtures/plusCtl.ts`       | `commands` appends `agentsCommandRows`; the agents rows are `createAgentsWorld()`; a function row is called                                                  |
-| `scripts/browser-smoke.mjs` (agents) | the Agents and Styles walk in both themes; `screenshots.mjs` lists the seven shots                                                                           |
-| `src/plus/gui-parity.json` (agents)  | the `agents` route and its 18 actions are `built`; the 18 agents and styles commands point at them                                                           |
+| `src/plus/notBuiltTabs.ts`                 | `PlusTab.opens`: the Agents and Styles tabs of the Library placeholder open the `agents` view                                                                                                                                    |
+| `src/plus/fixtures/plusCtl.ts`             | `commands` appends `agentsCommandRows`; the agents rows are `createAgentsWorld()`; a function row is called                                                                                                                      |
+| `scripts/browser-smoke.mjs` (agents)       | the Agents and Styles walk in both themes; `screenshots.mjs` lists the seven shots                                                                                                                                               |
+| `src/plus/gui-parity.json` (agents)        | the `agents` route and its 18 actions are `built`; the 18 agents and styles commands point at them                                                                                                                               |
 
 ## Sources
 
@@ -352,7 +350,7 @@ The desktop handlers are `plus.client.directAdd`, `plus.client.directRm` and `pl
 
 ## Agents & styles
 
-`src/plus/agents/` builds the two tabs of the approved mockup nav item "Agents & styles": `AgentsTab` and `StylesTab` (no props), and `AgentsScreen`, a host with both. The Library shell (MIG-GUI-3) mounts the same two panels as its Agents and Styles tabs; until it does, the Agents and Styles tabs of the Library placeholder lead to the `agents` view.
+`src/plus/agents/` builds the two tabs of the approved mockup nav item "Agents & styles": `AgentsTab` and `StylesTab` (no props). The Library screen (`src/plus/skills/LibraryScreen.tsx`) mounts them as its Agents and Styles tabs.
 
 | Tab    | Reads                                                                                                                  | Writes (policy tier from `toolportctl commands`)                                                                                               |
 | ------ | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -1,25 +1,14 @@
-import { useState } from "react";
 import { expect } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
-import type { View } from "@/lib/types";
-import { PlusViews } from "../PlusViews";
-import { PLUS_VIEWS } from "../nav";
+import { LibraryScreen } from "../skills/LibraryScreen";
 
-/** Walks to a tab the way a person does: the Library screen, its Agents or Styles tab, then
- * the screen that holds it. Everything after that runs through the real panels. */
+/** Walks to a tab the way a person does: the Library screen and its Agents or Styles tab.
+ * Everything after that runs through the real panels. */
 export async function openFromLibrary(tab: "Agents" | "Styles") {
   const user = userEvent.setup();
-  function Host() {
-    const [view, setView] = useState<View>("library");
-    const plus = PLUS_VIEWS.find((candidate) => candidate === view);
-    return plus ? <PlusViews view={plus} onSelectView={setView} /> : <p>upstream</p>;
-  }
-  render(<Host />);
-  await user.click(await screen.findByRole("tab", { name: tab }));
-  await user.click(await screen.findByRole("button", { name: "Open Agents & styles" }));
-  if (tab === "Styles")
-    await user.click(await screen.findByRole("tab", { name: "Styles" }));
+  render(<LibraryScreen initialTab={tab.toLowerCase()} onOpenCommands={() => {}} />);
+  await screen.findByRole("tab", { name: tab, selected: true });
   return user;
 }
 

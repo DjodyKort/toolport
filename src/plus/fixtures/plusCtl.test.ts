@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { commandsData, sourcesLsData, sourcesRootLsData } from "../bridge/data";
 import { planOf } from "../ui/plan";
 import { check } from "../bridge/shape";
-import { agentsCommandRows } from "./agents";
 import { commandsFixture, commandsFixtureWithMcpCall } from "./commandsRegistry";
 import { commandsServed } from "./servers";
 import { plusCtlCancel, plusCtlFixtures, plusCtlResult, plusCtlStart } from "./plusCtl";

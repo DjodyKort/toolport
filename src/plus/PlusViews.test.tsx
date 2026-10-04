@@ -59,8 +59,7 @@ describe("PlusViews", () => {
         view !== "commands" &&
         view !== "control" &&
         view !== "logins" &&
-        view !== "library" &&
-        view !== "agents",
+        view !== "library",
     ),
   )("marks %s as not built yet and names the item that builds it", async (view) => {
     render(<Harness start={view} />);
@@ -85,7 +84,7 @@ describe("PlusViews", () => {
     expect(screen.getByText("upstream")).toBeInTheDocument();
   });
 
-  it("shows the tabs of the mockup, the Skills panel and a placeholder per other tab", async () => {
+  it("shows the tabs of the mockup, the Skills panel and a placeholder per tab that is not built", async () => {
     const user = userEvent.setup();
     render(<Harness start="library" />);
     const tabs = await screen.findByRole("tablist", { name: "Library sections" });
@@ -95,8 +94,6 @@ describe("PlusViews", () => {
         .map((tab) => tab.textContent),
     ).toEqual(["Skills", "Agents", "Styles", "Plugins", "Sources"]);
     expect(await screen.findByText("Skills panel")).toBeInTheDocument();
-    await user.click(within(tabs).getByRole("tab", { name: "Agents" }));
-    expect(screen.getByText(/built by MIG-GUI-4\b/)).toBeInTheDocument();
     await user.click(within(tabs).getByRole("tab", { name: "Plugins" }));
     expect(screen.getByText(/built by MIG-GUI-12\b/)).toBeInTheDocument();
   });
