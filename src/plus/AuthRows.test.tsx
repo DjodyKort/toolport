@@ -121,6 +121,24 @@ describe("AuthPanel", () => {
     expect(calls("plus.auth.rows")).toHaveLength(1);
   });
 
+  it("opens Logins & secrets from a button that is only there when the screen is reachable", async () => {
+    routes();
+    const onOpenLogins = vi.fn();
+    const { unmount } = render(<AuthPanel onOpenLogins={onOpenLogins} />);
+    const section = await screen.findByRole("region", { name: "Sign-in health" });
+    await userEvent
+      .setup()
+      .click(within(section).getByRole("button", { name: "Open Logins & secrets" }));
+    expect(onOpenLogins).toHaveBeenCalledTimes(1);
+    unmount();
+
+    render(<AuthPanel />);
+    const bare = await screen.findByRole("region", { name: "Sign-in health" });
+    expect(
+      within(bare).queryByRole("button", { name: "Open Logins & secrets" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("says so when every login is fine, and shows nothing when there are no logins", async () => {
     invoke.mockResolvedValueOnce({
       counts: { ...plusAuthRowsFixture.counts },

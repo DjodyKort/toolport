@@ -103,6 +103,17 @@ describe("sidebar B", () => {
     expect(navItemActive(system, "commands")).toBe(false);
   });
 
+  it("highlights Servers while Logins & secrets, which lives under it, is open", () => {
+    const servers = items.find((item) => item.view === "servers") as NavItem;
+    expect(navItemActive(servers, "logins")).toBe(true);
+    expect(navItemActive(servers, "servers")).toBe(true);
+    const clients = items.find((item) => item.view === "clients") as NavItem;
+    expect(navItemActive(clients, "logins")).toBe(false);
+    expect(isPlusView("logins")).toBe(true);
+    expect(PLUS_SCREENS.logins.title).toBe("Logins & secrets");
+    expect(items.map((item) => item.label)).not.toContain("Logins & secrets");
+  });
+
   it("offers a command group for each tab that has a command", () => {
     const groups = Object.values(NOT_BUILT_TABS)
       .flatMap((tabs) => tabs ?? [])
