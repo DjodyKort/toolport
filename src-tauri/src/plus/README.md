@@ -16,6 +16,7 @@ Toolport+ additions (D-010). Full overview: `docs/toolport-plus.md`.
 - `obs/`: transcript indexer, loopback OTLP receiver (`receiver`, hosted by the gateway through `otel_host`), `otel_setup` (the `obs otel` enable, disable and status core) and `combine` (OTel and transcript dedupe).
 - `cc/`: Claude Code plugin list and update.
 - `council/`: council downstream server definition.
+- `servers.rs`: server lookup (`find`, `named`), `fields_from` and the add that checks the name under the registry lock (`add_returning_id`), shared by `toolportctl server new|edit|install` and the selfmcp `servers_install` and `servers_update_config` tools.
 - `jsonfs.rs`: `read_json`, tolerant typed JSON read (None on missing or invalid).
 - `testutil.rs` (test only): `DataDirFx`, data-dir lock plus override plus temp dir with the required drop order.
 

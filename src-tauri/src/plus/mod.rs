@@ -25,6 +25,7 @@ pub(crate) mod fswalk;
 pub(crate) mod hashing;
 pub(crate) mod jsonfs;
 pub(crate) mod registry_ro;
+pub(crate) mod servers;
 
 #[cfg(test)]
 pub(crate) mod testutil;

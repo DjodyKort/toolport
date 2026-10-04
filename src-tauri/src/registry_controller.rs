@@ -628,7 +628,10 @@ fn catalog_server(entry: crate::catalog::CatalogEntry) -> ServerEntry {
     }
 }
 
-pub fn add_catalog_entry(entry: crate::catalog::CatalogEntry) -> Result<Registry, String> {
+pub fn apply_add_catalog_entry(
+    registry: &mut Registry,
+    entry: crate::catalog::CatalogEntry,
+) -> Result<String, String> {
     // Self-hosted entries carry a url_hint instead of a url, because the
     // endpoint is the user's own instance. Committing one here would write a
     // server with no way to reach anything, so both shells send these through
@@ -639,8 +642,11 @@ pub fn add_catalog_entry(entry: crate::catalog::CatalogEntry) -> Result<Registry
             entry.name
         ));
     }
-    let server = catalog_server(entry);
-    let (registry, _) = registry::update(|registry| Ok(apply_add_entry(registry, server)))?;
+    Ok(apply_add_entry(registry, catalog_server(entry)))
+}
+
+pub fn add_catalog_entry(entry: crate::catalog::CatalogEntry) -> Result<Registry, String> {
+    let (registry, _) = registry::update(|registry| apply_add_catalog_entry(registry, entry))?;
     Ok(registry)
 }
 
