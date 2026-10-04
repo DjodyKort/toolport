@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "id": "nope@nowhere"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "plugin 'nope@nowhere' is not installed"
+    }
+  },
+  "text": "not_found: plugin 'nope@nowhere' is not installed",
+  "tool": "plugins_show"
+}

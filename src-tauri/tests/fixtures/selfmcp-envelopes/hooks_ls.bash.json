@@ -1,0 +1,346 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/work/acme-erp",
+    "tool": "Bash"
+  },
+  "isError": false,
+  "result": {
+    "conflicts": [
+      {
+        "event": "PreToolUse",
+        "hooks": [
+          "settings.json: switchboard-hook.sh pre",
+          "settings.json: iterm2-status.sh pre",
+          "settings.json: gh-write-gate.sh",
+          "settings.json: rtk",
+          "ecc@ecc: run-with-flags.js pre:bash:dispatcher",
+          "ecc@ecc: run-with-flags.js pre:governance-capture",
+          "ecc@ecc: run-with-flags.js pre:mcp-health-check"
+        ],
+        "note": "strictest answer wins (deny, then defer, then ask, then allow)",
+        "tools": ["Bash"]
+      }
+    ],
+    "counts": {
+      "byOwner": {
+        "plugin:ecc@ecc": 23,
+        "skill:handoff-notes": 1,
+        "user:settings.json": 26
+      },
+      "otherEvents": {
+        "Notification": 2,
+        "PermissionRequest": 1,
+        "PostToolUseFailure": 3,
+        "PreCompact": 3,
+        "SessionEnd": 3,
+        "SessionStart": 6,
+        "Stop": 10,
+        "SubagentStop": 1,
+        "UserPromptSubmit": 3
+      },
+      "otherEventsByOwner": {
+        "plugin:ecc@ecc": {
+          "PostToolUseFailure": 2,
+          "PreCompact": 1,
+          "SessionEnd": 1,
+          "SessionStart": 2,
+          "Stop": 7
+        },
+        "skill:handoff-notes": {
+          "SessionStart": 1
+        },
+        "user:settings.json": {
+          "Notification": 2,
+          "PermissionRequest": 1,
+          "PostToolUseFailure": 1,
+          "PreCompact": 2,
+          "SessionEnd": 2,
+          "SessionStart": 3,
+          "Stop": 3,
+          "SubagentStop": 1,
+          "UserPromptSubmit": 3
+        }
+      },
+      "perTool": {
+        "Bash": {
+          "post": 4,
+          "pre": 8,
+          "total": 12
+        },
+        "Edit": {
+          "post": 4,
+          "pre": 9,
+          "total": 13
+        },
+        "Read": {
+          "post": 4,
+          "pre": 5,
+          "total": 9
+        },
+        "Write": {
+          "post": 4,
+          "pre": 10,
+          "total": 14
+        }
+      }
+    },
+    "cwd": "<WORLD>/home/work/acme-erp",
+    "disabledAll": false,
+    "hooks": [
+      {
+        "active": true,
+        "async": false,
+        "command": "~/.claude/hooks/switchboard-hook.sh post",
+        "event": "PostToolUse",
+        "marker": null,
+        "matcher": "*",
+        "owner": {
+          "kind": "user",
+          "name": "settings.json"
+        },
+        "runtimeId": null,
+        "source": "<WORLD>/home/.claude/settings.json#hooks.PostToolUse[0].hooks[0]",
+        "switch": {
+          "detail": "edit settings.json or remove the entry",
+          "method": "edit-settings"
+        },
+        "timeoutSec": 5,
+        "tools": ["Bash", "Edit", "Write", "Read"],
+        "type": "command"
+      },
+      {
+        "active": true,
+        "async": false,
+        "command": "~/.claude/hooks/iterm2-status.sh post",
+        "event": "PostToolUse",
+        "marker": null,
+        "matcher": "*",
+        "owner": {
+          "kind": "user",
+          "name": "settings.json"
+        },
+        "runtimeId": null,
+        "source": "<WORLD>/home/.claude/settings.json#hooks.PostToolUse[1].hooks[0]",
+        "switch": {
+          "detail": "edit settings.json or remove the entry",
+          "method": "edit-settings"
+        },
+        "timeoutSec": 5,
+        "tools": ["Bash", "Edit", "Write", "Read"],
+        "type": "command"
+      },
+      {
+        "active": true,
+        "async": false,
+        "command": "~/.claude/hooks/switchboard-hook.sh pre",
+        "event": "PreToolUse",
+        "marker": null,
+        "matcher": "*",
+        "owner": {
+          "kind": "user",
+          "name": "settings.json"
+        },
+        "runtimeId": null,
+        "source": "<WORLD>/home/.claude/settings.json#hooks.PreToolUse[0].hooks[0]",
+        "switch": {
+          "detail": "edit settings.json or remove the entry",
+          "method": "edit-settings"
+        },
+        "timeoutSec": 5,
+        "tools": ["Bash", "Edit", "Write", "Read"],
+        "type": "command"
+      },
+      {
+        "active": true,
+        "async": false,
+        "command": "~/.claude/hooks/iterm2-status.sh pre",
+        "event": "PreToolUse",
+        "marker": null,
+        "matcher": "*",
+        "owner": {
+          "kind": "user",
+          "name": "settings.json"
+        },
+        "runtimeId": null,
+        "source": "<WORLD>/home/.claude/settings.json#hooks.PreToolUse[1].hooks[0]",
+        "switch": {
+          "detail": "edit settings.json or remove the entry",
+          "method": "edit-settings"
+        },
+        "timeoutSec": 5,
+        "tools": ["Bash", "Edit", "Write", "Read"],
+        "type": "command"
+      },
+      {
+        "active": true,
+        "async": false,
+        "command": "~/.claude/hooks/gh-write-gate.sh",
+        "event": "PreToolUse",
+        "marker": null,
+        "matcher": "Bash",
+        "owner": {
+          "kind": "user",
+          "name": "settings.json"
+        },
+        "runtimeId": null,
+        "source": "<WORLD>/home/.claude/settings.json#hooks.PreToolUse[2].hooks[0]",
+        "switch": {
+          "detail": "edit settings.json or remove the entry",
+          "method": "edit-settings"
+        },
+        "timeoutSec": 10,
+        "tools": ["Bash"],
+        "type": "command"
+      },
+      {
+        "active": true,
+        "async": false,
+        "command": "TOOLPORT_FIXTURE_MODE=… rtk hook claude",
+        "event": "PreToolUse",
+        "marker": null,
+        "matcher": "Bash",
+        "owner": {
+          "kind": "user",
+          "name": "settings.json"
+        },
+        "runtimeId": null,
+        "source": "<WORLD>/home/.claude/settings.json#hooks.PreToolUse[3].hooks[0]",
+        "switch": {
+          "detail": "edit settings.json or remove the entry",
+          "method": "edit-settings"
+        },
+        "timeoutSec": 10,
+        "tools": ["Bash"],
+        "type": "command"
+      },
+      {
+        "active": true,
+        "async": true,
+        "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" post:observe scripts/hooks/observe.js standard,strict",
+        "event": "PostToolUse",
+        "marker": null,
+        "matcher": "*",
+        "owner": {
+          "kind": "plugin",
+          "name": "ecc@ecc"
+        },
+        "runtimeId": null,
+        "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.PostToolUse[0].hooks[0]",
+        "switch": {
+          "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+          "method": "disable-plugin"
+        },
+        "timeoutSec": 10,
+        "tools": ["Bash", "Edit", "Write", "Read"],
+        "type": "command"
+      },
+      {
+        "active": true,
+        "async": false,
+        "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" post:quality-gate scripts/hooks/quality-gate.js standard,strict",
+        "event": "PostToolUse",
+        "marker": null,
+        "matcher": "*",
+        "owner": {
+          "kind": "plugin",
+          "name": "ecc@ecc"
+        },
+        "runtimeId": null,
+        "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.PostToolUse[1].hooks[0]",
+        "switch": {
+          "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+          "method": "disable-plugin"
+        },
+        "timeoutSec": 30,
+        "tools": ["Bash", "Edit", "Write", "Read"],
+        "type": "command"
+      },
+      {
+        "active": true,
+        "async": false,
+        "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:bash:dispatcher scripts/hooks/pre-bash-dispatcher.js standard,strict",
+        "event": "PreToolUse",
+        "marker": null,
+        "matcher": "Bash",
+        "owner": {
+          "kind": "plugin",
+          "name": "ecc@ecc"
+        },
+        "runtimeId": null,
+        "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.PreToolUse[0].hooks[0]",
+        "switch": {
+          "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+          "method": "disable-plugin"
+        },
+        "timeoutSec": 30,
+        "tools": ["Bash"],
+        "type": "command"
+      },
+      {
+        "active": true,
+        "async": true,
+        "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:observe scripts/hooks/observe.js standard,strict",
+        "event": "PreToolUse",
+        "marker": null,
+        "matcher": "*",
+        "owner": {
+          "kind": "plugin",
+          "name": "ecc@ecc"
+        },
+        "runtimeId": null,
+        "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.PreToolUse[3].hooks[0]",
+        "switch": {
+          "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+          "method": "disable-plugin"
+        },
+        "timeoutSec": 10,
+        "tools": ["Bash", "Edit", "Write", "Read"],
+        "type": "command"
+      },
+      {
+        "active": true,
+        "async": false,
+        "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:governance-capture scripts/hooks/governance-capture.js standard,strict",
+        "event": "PreToolUse",
+        "marker": null,
+        "matcher": "Bash|Write|Edit|MultiEdit",
+        "owner": {
+          "kind": "plugin",
+          "name": "ecc@ecc"
+        },
+        "runtimeId": null,
+        "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.PreToolUse[4].hooks[0]",
+        "switch": {
+          "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+          "method": "disable-plugin"
+        },
+        "timeoutSec": 30,
+        "tools": ["Bash", "Edit", "Write"],
+        "type": "command"
+      },
+      {
+        "active": true,
+        "async": false,
+        "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:mcp-health-check scripts/hooks/mcp-health-check.js standard,strict",
+        "event": "PreToolUse",
+        "marker": null,
+        "matcher": ".*",
+        "owner": {
+          "kind": "plugin",
+          "name": "ecc@ecc"
+        },
+        "runtimeId": null,
+        "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.PreToolUse[6].hooks[0]",
+        "switch": {
+          "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+          "method": "disable-plugin"
+        },
+        "timeoutSec": 30,
+        "tools": ["Bash", "Edit", "Write", "Read"],
+        "type": "command"
+      }
+    ],
+    "warnings": []
+  },
+  "tool": "hooks_ls"
+}

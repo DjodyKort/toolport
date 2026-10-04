@@ -36,6 +36,14 @@ fn proxy_world(_: &crate::CtlWorld) {
     health_proxy(49214);
 }
 
+fn plugins_home(world: &crate::CtlWorld) {
+    crate::plugins_world::build_in(&world.base, &world.claude);
+}
+
+fn without_claude(world: &crate::CtlWorld) {
+    std::fs::remove_file(&world.claude).unwrap();
+}
+
 fn sources_home(world: &crate::CtlWorld) {
     crate::sources_world::build_in(&world.base);
 }
@@ -76,6 +84,37 @@ pub const ALL: &[Case] = &[
                 "context_measure",
                 r#"{"cwd":"{home}/work/erp/clients/acme-erp","without":["kit"]}"#,
             ),
+        ],
+    ),
+    prepared(
+        "plugins_ls",
+        plugins_home,
+        &[
+            read("cli", "plugins_ls", "{}"),
+            read("folder", "plugins_ls", r#"{"cwd":"{home}/work/side-project"}"#),
+            fails("bad_cwd", "invalid_arguments", "plugins_ls", r#"{"cwd":"{home}/nowhere"}"#),
+            hook(without_claude),
+            read("files", "plugins_ls", "{}"),
+        ],
+    ),
+    prepared(
+        "plugins_show",
+        plugins_home,
+        &[
+            read("found", "plugins_show", r#"{"id":"ecc@ecc","cwd":"{home}/work/acme-erp"}"#),
+            fails("missing", "not_found", "plugins_show", r#"{"id":"nope@nowhere"}"#),
+            fails("no_id", "invalid_arguments", "plugins_show", "{}"),
+            hook(without_claude),
+            read("files", "plugins_show", r#"{"id":"ecc@ecc","cwd":"{home}/work/acme-erp"}"#),
+        ],
+    ),
+    prepared(
+        "hooks_ls",
+        plugins_home,
+        &[
+            read("all", "hooks_ls", r#"{"cwd":"{home}/work/acme-erp"}"#),
+            read("bash", "hooks_ls", r#"{"cwd":"{home}/work/acme-erp","tool":"Bash"}"#),
+            fails("bad_tool", "invalid_arguments", "hooks_ls", r#"{"tool":"Grep"}"#),
         ],
     ),
     case(

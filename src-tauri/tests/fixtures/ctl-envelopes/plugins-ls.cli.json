@@ -1,0 +1,64 @@
+{
+  "argv": ["plugins", "ls"],
+  "envelope": {
+    "command": "plugins ls",
+    "data": {
+      "partial": false,
+      "plugins": [
+        {
+          "adapter": null,
+          "brings": {
+            "agents": 2,
+            "commands": 2,
+            "hooks": 23,
+            "lspServers": 0,
+            "mcpServers": 2,
+            "skills": 3
+          },
+          "cost": {
+            "measured": null,
+            "projected": {
+              "basis": "projected",
+              "value": 70
+            }
+          },
+          "enabled": {
+            "effective": true,
+            "local": null,
+            "project": null,
+            "user": true
+          },
+          "from": "claude-cli",
+          "id": "ecc@ecc",
+          "installPath": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0",
+          "marketplace": "ecc",
+          "mcpOutsideGateway": [
+            {
+              "denied": false,
+              "key": "plugin:ecc:chrome-devtools",
+              "name": "chrome-devtools"
+            },
+            {
+              "denied": false,
+              "key": "plugin:ecc:memory",
+              "name": "memory"
+            }
+          ],
+          "name": "ecc",
+          "source": "github:acme/ecc-plugins",
+          "update": {
+            "available": "2.2.0",
+            "state": "current"
+          },
+          "version": "<masked>"
+        }
+      ],
+      "refreshError": null,
+      "restartRequired": false,
+      "warnings": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

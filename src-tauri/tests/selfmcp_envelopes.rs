@@ -38,6 +38,8 @@ mod golden;
 mod loads_world;
 #[path = "common/normalize.rs"]
 mod normalize;
+#[path = "common/plugins_world.rs"]
+mod plugins_world;
 #[path = "common/selfmcp_client.rs"]
 mod selfmcp_client;
 #[path = "common/sources_world.rs"]

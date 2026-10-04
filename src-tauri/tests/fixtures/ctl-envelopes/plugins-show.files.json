@@ -1,0 +1,613 @@
+{
+  "argv": ["plugins", "show", "ecc@ecc", "--cwd", "{home}/work/acme-erp"],
+  "envelope": {
+    "command": "plugins show",
+    "data": {
+      "adapter": null,
+      "brings": {
+        "agents": 2,
+        "commands": 2,
+        "hooks": 23,
+        "lspServers": 0,
+        "mcpServers": 2,
+        "skills": 3
+      },
+      "components": {
+        "agents": ["code-reviewer", "planner"],
+        "commands": ["plan", "review"],
+        "lspServers": [],
+        "skills": ["arch-review", "debug-loop", "release-notes"]
+      },
+      "cost": {
+        "measured": {
+          "basis": "measured",
+          "value": 1240
+        },
+        "projected": null
+      },
+      "description": "Synthetic engineering toolkit: review skills, agents, commands and a hook runner.",
+      "enabled": {
+        "effective": true,
+        "local": null,
+        "project": null,
+        "user": true
+      },
+      "from": "files",
+      "hooks": [
+        {
+          "active": true,
+          "async": true,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" post:observe scripts/hooks/observe.js standard,strict",
+          "event": "PostToolUse",
+          "marker": null,
+          "matcher": "*",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.PostToolUse[0].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 10,
+          "tools": ["Bash", "Edit", "Write", "Read"],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" post:quality-gate scripts/hooks/quality-gate.js standard,strict",
+          "event": "PostToolUse",
+          "marker": null,
+          "matcher": "*",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.PostToolUse[1].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": ["Bash", "Edit", "Write", "Read"],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" post:failure-capture scripts/hooks/failure-capture.js standard,strict",
+          "event": "PostToolUseFailure",
+          "marker": null,
+          "matcher": "*",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.PostToolUseFailure[0].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": [],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" post:mcp-health-failure scripts/hooks/mcp-health-failure.js standard,strict",
+          "event": "PostToolUseFailure",
+          "marker": null,
+          "matcher": "*",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.PostToolUseFailure[1].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": [],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:compact scripts/hooks/pre-compact.js standard,strict",
+          "event": "PreCompact",
+          "marker": null,
+          "matcher": "",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.PreCompact[0].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": [],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:bash:dispatcher scripts/hooks/pre-bash-dispatcher.js standard,strict",
+          "event": "PreToolUse",
+          "marker": null,
+          "matcher": "Bash",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.PreToolUse[0].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": ["Bash"],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:write:doc-warning scripts/hooks/doc-file-warning.js standard,strict",
+          "event": "PreToolUse",
+          "marker": null,
+          "matcher": "Write",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.PreToolUse[1].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": ["Write"],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:edit-write:suggest-compact scripts/hooks/suggest-compact.js standard,strict",
+          "event": "PreToolUse",
+          "marker": null,
+          "matcher": "Edit|Write",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.PreToolUse[2].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": ["Edit", "Write"],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": true,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:observe scripts/hooks/observe.js standard,strict",
+          "event": "PreToolUse",
+          "marker": null,
+          "matcher": "*",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.PreToolUse[3].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 10,
+          "tools": ["Bash", "Edit", "Write", "Read"],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:governance-capture scripts/hooks/governance-capture.js standard,strict",
+          "event": "PreToolUse",
+          "marker": null,
+          "matcher": "Bash|Write|Edit|MultiEdit",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.PreToolUse[4].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": ["Bash", "Edit", "Write"],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:config-protection scripts/hooks/config-protection.js standard,strict",
+          "event": "PreToolUse",
+          "marker": null,
+          "matcher": "Write|Edit|MultiEdit",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.PreToolUse[5].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": ["Edit", "Write"],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:mcp-health-check scripts/hooks/mcp-health-check.js standard,strict",
+          "event": "PreToolUse",
+          "marker": null,
+          "matcher": ".*",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.PreToolUse[6].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": ["Bash", "Edit", "Write", "Read"],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" pre:edit-write:gateguard-fact-force scripts/hooks/gateguard-fact-force.js standard,strict",
+          "event": "PreToolUse",
+          "marker": null,
+          "matcher": "Edit|Write|MultiEdit",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.PreToolUse[7].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": ["Edit", "Write"],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" session:end-marker scripts/hooks/session-end-marker.js minimal,standard,strict",
+          "event": "SessionEnd",
+          "marker": null,
+          "matcher": "*",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.SessionEnd[0].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": [],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" session:start scripts/hooks/session-start.js minimal,standard,strict",
+          "event": "SessionStart",
+          "marker": null,
+          "matcher": "*",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.SessionStart[0].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": [],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" session:context-load scripts/hooks/context-load.js standard,strict",
+          "event": "SessionStart",
+          "marker": null,
+          "matcher": "*",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.SessionStart[1].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": [],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" stop:format-typecheck scripts/hooks/format-typecheck.js standard,strict",
+          "event": "Stop",
+          "marker": null,
+          "matcher": "",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.Stop[0].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": [],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" stop:check-console-log scripts/hooks/check-console-log.js standard,strict",
+          "event": "Stop",
+          "marker": null,
+          "matcher": "",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.Stop[1].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": [],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" stop:session-end scripts/hooks/session-end.js standard,strict",
+          "event": "Stop",
+          "marker": null,
+          "matcher": "",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.Stop[2].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": [],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" stop:evaluate-session scripts/hooks/evaluate-session.js standard,strict",
+          "event": "Stop",
+          "marker": null,
+          "matcher": "",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.Stop[3].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": [],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" stop:cost-tracker scripts/hooks/cost-tracker.js standard,strict",
+          "event": "Stop",
+          "marker": null,
+          "matcher": "",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.Stop[4].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": [],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" stop:desktop-notify scripts/hooks/desktop-notify.js standard,strict",
+          "event": "Stop",
+          "marker": null,
+          "matcher": "",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.Stop[5].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": [],
+          "type": "command"
+        },
+        {
+          "active": true,
+          "async": false,
+          "command": "node -e \"require(process.argv[1])\" \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags.js\" stop:ledger-flush scripts/hooks/ledger-flush.js standard,strict",
+          "event": "Stop",
+          "marker": null,
+          "matcher": "",
+          "owner": {
+            "kind": "plugin",
+            "name": "ecc@ecc"
+          },
+          "runtimeId": null,
+          "source": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0/hooks/hooks.json#hooks.Stop[6].hooks[0]",
+          "switch": {
+            "detail": "turn the plugin off with `claude plugin disable ecc@ecc`; a switched-off hook still starts a process",
+            "method": "disable-plugin"
+          },
+          "timeoutSec": 30,
+          "tools": [],
+          "type": "command"
+        }
+      ],
+      "id": "ecc@ecc",
+      "installPath": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0",
+      "knobs": [],
+      "marketplace": "ecc",
+      "mcpOutsideGateway": [
+        {
+          "denied": false,
+          "key": "plugin:ecc:chrome-devtools",
+          "name": "chrome-devtools"
+        },
+        {
+          "denied": false,
+          "key": "plugin:ecc:memory",
+          "name": "memory"
+        }
+      ],
+      "mcpServers": [
+        {
+          "command": ["npx", "-y", "chrome-devtools-mcp@latest"],
+          "denied": {
+            "local": false,
+            "managed": false,
+            "project": false,
+            "user": false
+          },
+          "key": "plugin:ecc:chrome-devtools",
+          "name": "chrome-devtools",
+          "toolPrefix": "mcp__plugin_ecc_chrome-devtools__",
+          "url": null
+        },
+        {
+          "command": ["node", "${CLAUDE_PLUGIN_ROOT}/scripts/mcp/memory.js"],
+          "denied": {
+            "local": false,
+            "managed": false,
+            "project": false,
+            "user": false
+          },
+          "key": "plugin:ecc:memory",
+          "name": "memory",
+          "toolPrefix": "mcp__plugin_ecc_memory__",
+          "url": null
+        }
+      ],
+      "name": "ecc",
+      "options": [
+        {
+          "choices": null,
+          "configured": false,
+          "current": null,
+          "default": null,
+          "description": "Token for the optional remote service.",
+          "key": "api_token",
+          "sensitive": true,
+          "title": "Service token",
+          "type": "string"
+        },
+        {
+          "choices": null,
+          "configured": true,
+          "current": "strict",
+          "default": "standard",
+          "description": "How strict the hook runner is: minimal, standard or strict.",
+          "key": "hook_profile",
+          "sensitive": false,
+          "title": "Hook profile",
+          "type": "string"
+        },
+        {
+          "choices": ["true", "false"],
+          "configured": true,
+          "current": "true",
+          "default": true,
+          "description": "Run the plugin hooks at all.",
+          "key": "hooks_enabled",
+          "sensitive": false,
+          "title": "Hooks",
+          "type": "boolean"
+        }
+      ],
+      "source": "github:acme/ecc-plugins",
+      "update": {
+        "available": "2.2.0",
+        "state": "current"
+      },
+      "version": "<masked>",
+      "warnings": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

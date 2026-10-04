@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "tool": "Grep"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "tool must be one of Bash, Edit, Write, Read"
+    }
+  },
+  "text": "invalid_arguments: tool must be one of Bash, Edit, Write, Read",
+  "tool": "hooks_ls"
+}

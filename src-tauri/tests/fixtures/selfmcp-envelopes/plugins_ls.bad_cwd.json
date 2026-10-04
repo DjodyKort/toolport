@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/nowhere"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "cwd is not a folder: <WORLD>/home/nowhere"
+    }
+  },
+  "text": "invalid_arguments: cwd is not a folder: <WORLD>/home/nowhere",
+  "tool": "plugins_ls"
+}

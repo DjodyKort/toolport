@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "show", "nope@nowhere"],
+  "envelope": {
+    "command": "plugins show",
+    "error": {
+      "code": "not_found",
+      "message": "plugin 'nope@nowhere' is not installed"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}
