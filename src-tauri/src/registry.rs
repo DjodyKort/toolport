@@ -1030,6 +1030,22 @@ pub enum GatewayTopology {
 
 pub const DEFAULT_GATEWAY_TOPOLOGY: GatewayTopology = GatewayTopology::Daemon;
 
+/// How long a full-discovery client's first `tools/list` waits for the gateway's initial
+/// catalog build.
+pub const DEFAULT_COLD_START_WAIT_MS: u64 = 20_000;
+/// Above this a client's own request timeout would fire first.
+pub const MAX_COLD_START_WAIT_MS: u64 = 300_000;
+
+/// `0` is allowed and means the first `tools/list` never waits.
+pub fn validate_cold_start_wait_ms(milliseconds: u64) -> Result<u64, String> {
+    if milliseconds > MAX_COLD_START_WAIT_MS {
+        return Err(format!(
+            "coldStartWaitMs must not exceed {MAX_COLD_START_WAIT_MS} (5 minutes)"
+        ));
+    }
+    Ok(milliseconds)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Registry {
@@ -1042,6 +1058,11 @@ pub struct Registry {
     /// an explicit rollback choice for client-spawned stdio gateways.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gateway_topology: Option<GatewayTopology>,
+    /// Milliseconds a full-discovery client's first `tools/list` waits for the gateway's initial
+    /// catalog build. After that it gets the servers connected so far and a `list_changed`
+    /// when the rest arrives. An absent value selects 20 s, `0` never waits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cold_start_wait_ms: Option<u64>,
     /// Global safety switch: when true, the gateway hides and blocks any tool a
     /// server annotates with `destructiveHint: true` (deletes, drops, writes).
     /// One toggle to keep agents read-only across every connected server.
@@ -1550,6 +1571,7 @@ impl Default for Registry {
             }],
             active_profile_id: Some(DEFAULT_PROFILE_ID.to_string()),
             gateway_topology: None,
+            cold_start_wait_ms: None,
             deny_destructive: false,
             confirm_destructive: false,
             human_approval: false,
@@ -1938,6 +1960,16 @@ pub(crate) fn unique_id(base: &str, existing: &[String]) -> String {
 impl Registry {
     pub fn gateway_topology_effective(&self) -> GatewayTopology {
         self.gateway_topology.unwrap_or(DEFAULT_GATEWAY_TOPOLOGY)
+    }
+
+    /// The configured cold-start wait. A hand-edited value over the limit is an error so the
+    /// caller can say so and fall back to the default.
+    pub fn cold_start_wait(&self) -> Result<std::time::Duration, String> {
+        let ms = match self.cold_start_wait_ms {
+            Some(ms) => validate_cold_start_wait_ms(ms)?,
+            None => DEFAULT_COLD_START_WAIT_MS,
+        };
+        Ok(std::time::Duration::from_millis(ms))
     }
 
     fn profile_id_for_ref(&self, profile_ref: &str) -> Option<String> {
@@ -4516,6 +4548,37 @@ mod tests {
             "legacy",
             "an explicit rollback must survive a future release default change"
         );
+    }
+
+    #[test]
+    fn cold_start_wait_defaults_round_trips_and_rejects_values_over_the_limit() {
+        let mut reg = Registry::default();
+        assert_eq!(
+            reg.cold_start_wait(),
+            Ok(std::time::Duration::from_millis(DEFAULT_COLD_START_WAIT_MS))
+        );
+        assert!(serde_json::to_value(&reg)
+            .unwrap()
+            .get("coldStartWaitMs")
+            .is_none());
+
+        reg.cold_start_wait_ms = Some(1_500);
+        let stored = serde_json::to_value(&reg).unwrap();
+        assert_eq!(stored["coldStartWaitMs"], 1_500);
+        let loaded: Registry = serde_json::from_value(stored).unwrap();
+        assert_eq!(
+            loaded.cold_start_wait(),
+            Ok(std::time::Duration::from_millis(1_500))
+        );
+
+        assert_eq!(validate_cold_start_wait_ms(0), Ok(0));
+        assert_eq!(
+            validate_cold_start_wait_ms(MAX_COLD_START_WAIT_MS),
+            Ok(MAX_COLD_START_WAIT_MS)
+        );
+        assert!(validate_cold_start_wait_ms(MAX_COLD_START_WAIT_MS + 1).is_err());
+        reg.cold_start_wait_ms = Some(u64::MAX);
+        assert!(reg.cold_start_wait().is_err());
     }
 
     /// SBS-890: an error body is the downstream server's own words. It has been
