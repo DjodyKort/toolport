@@ -207,11 +207,16 @@ The Servers screen (MIG-GUI-1) adds:
 | `src/components/AppSidebar.tsx`      | the nav list is `<SidebarNav>`; `navItem` takes `badgeLabel` and `urgent`; the icons that moved to `nav.ts` are no longer imported                           |
 | `src/components/AppSidebar.test.tsx` | mocks `@/plus/attention`; a block of tests for sidebar B; no existing test changed                                                                           |
 | `src/lib/types.ts`                   | `View` includes `PlusView`                                                                                                                                   |
-| `src/test/browser-fixture.tsx`       | not edited: `plus_ctl` was registered by MIG-GUI-0 part A and serves the rows of `plusCtlFixtures` (`commands`, `attention ls`, one dry run)                 |
+| `src/test/browser-fixture.tsx`       | `plus_ctl` serves the rows of `plusCtlFixtures`; `plus_ctl_result` answers a held run (`plusCtlHeld`, a sign-in) when it is cancelled                        |
 | `scripts/browser-smoke.mjs`          | sidebar B, a not-built screen and a run of `status` on the All commands page; the shots above in both themes                                                 |
 | `scripts/screenshots-gui.mjs`        | renamed to `scripts/screenshots.mjs`                                                                                                                         |
 | `package.json`                       | `screenshots:gui` points at `scripts/screenshots.mjs`                                                                                                        |
 | `src/plus/gui-parity.json`           | the `all-commands` route and its `run` and `terminal` actions are `built`; `tool` stays `planned` until the CLI has `mcp call`                               |
+| `src/App.tsx` (logins)               | `<AuthPanel onOpenLogins>`; the `AuthNotifier` Review button selects the `logins` view instead of Settings                                                   |
+| `src/plus/nav.ts`, `PlusViews.tsx`   | `logins` is a Toolport+ view ("Logins & secrets") that lights Servers; one lazy branch renders `LoginsScreen`                                                |
+| `src/plus/AuthRows.tsx`              | `AuthPanel` takes `onOpenLogins` and shows an "Open Logins & secrets" button                                                                                 |
+| `scripts/browser-smoke.mjs` (logins) | Logins, the sign-in dialog, Secrets, the set and reveal dialogs and Integrations; `screenshots.mjs` lists the seven shots                                    |
+| `src/plus/gui-parity.json` (logins)  | the `logins` route and its seven actions are `built`; `auth login`, `probe`, `statusline`, `hook` and `secret get`, `set`, `rm` point at them                |
 
 MIG-GUI-1 edits:
 
@@ -316,6 +321,24 @@ The desktop handlers are `plus.client.directAdd`, `plus.client.directRm` and `pl
 `toolportctl auth login <server>` is the fix the status surfaces point at. A remote OAuth server runs the gateway browser flow; a stdio server runs `<command> <args> auth` and prints the consent URL it prints (`--no-open` leaves the browser to you). A server that signs in with an API token or client credentials gets the next step instead. A stdio server joins the probes by opting in with `"plus": {"authProbe": {"kind": "stdio"}}` in its registry entry.
 
 The app shows the same rows under Settings as "Sign-in health" (`plus.auth.rows`). A reauth or reconsent row signs in through `plus.auth.login`, the same core as `toolportctl auth login` and it opens the browser; a retry row runs the `plus.auth.probe` route it carries; a misconfigured row only names what to check. Each fix reloads the rows. While the window is visible, `AuthNotifier` asks `plus.auth.notifications` once a minute and raises a toast for each login that just moved to needs-reauth or expiring and is still in that state. A login is announced once per six hours; what was announced lives in `auth/notified.json` next to `status.json`. There is no operating-system notification yet.
+
+## Logins & secrets
+
+`src/plus/logins/` builds the screen of the approved mockup nav item "Logins & secrets": three tabs, `LoginsTab`, `SecretsTab` and `IntegrationsTab` (props `{ onOpenCommands?, pollMs? }`), and `LoginsScreen`, a host with the three of them. The Servers shell (MIG-GUI-1) mounts the same three panels as its tabs; until it does, the `logins` view is where the AUTH-5 notification (Review), the "Sign-in health" button under Settings and the All commands page lead.
+
+| Tab          | Reads                                                           | Writes (policy tier)                                                                                                           |
+| ------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Logins       | `status` (auth rows), `server ls`, one `server info` per server | `auth login <server> [--no-open]` (write, a held run with Cancel), `auth probe [--server <id>] [--force]` (read), `secret set` |
+| Secrets      | the same, plus one `secret get <server> <key>` per declared key | `secret set` (stdin), `secret get --reveal` and `secret rm` (tier from `commands`; `rm` is typed when destructive)             |
+| Integrations | `auth statusline`, `auth hook`                                  | none; copy buttons for the output and the Claude Code snippets                                                                 |
+
+- The CLI has no per-server login kind and no `secret ls`: a server that declares a secret key is an API-token row, any other server with a login is an OAuth row, and presence is one `secret get` per key (not found means unset). Rows are ordered broken first.
+- A secret value never sits in React state or in the DOM: `SecretField` hands it to `secret set` on stdin and is empty afterwards. A reveal asks first (a plain confirmation, or the key typed when the tier of `secret get` in `toolportctl commands` is `destructive`), shows the value for 10 seconds (Hide now, Escape, a hidden window and the timer all drop it) and is never read while a list is shown. `secret set` and `secret rm` have no dry run: the dialogs show a plan written locally and the exact command line.
+- Sign-in runs as a held job: stderr streams into the dialog with the consent address and a Copy button, "Don't open a browser" restarts it with `--no-open`, Cancel kills the child and Escape never stops it. A token server answers `unsupported` and the dialog offers Set secret.
+- Every tab has a loading skeleton, an empty state, the CLI's error with Retry, a stale-data note and an offline state (`toolportctl` itself cannot run) with a link to the doctor. The login state is polled every 15 seconds while the window is visible.
+- Tests: `testkit.ts` is a fake `plus_ctl` bridge with a reply for every argv of the fixture world (`src/plus/fixtures/logins.ts`; a command without a reply fails the test) and `harness.tsx` renders a tab or the screen against it. `canary.test.tsx` watches every DOM mutation, toast, storage entry and IPC payload for a typed value and for a stored one.
+
+Screenshots (1280x800, from `npm run screenshots:gui`): `docs/assets/gui-logins-light.png` and `gui-logins-dark.png` (the list), `gui-logins-signin-light.png` (sign-in waiting for the browser), `gui-secrets-light.png`, `gui-secrets-set-light.png`, `gui-secrets-reveal-light.png` (the confirmation, never the value) and `gui-integrations-light.png`.
 
 ## Environment variables
 
