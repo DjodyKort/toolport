@@ -580,6 +580,22 @@ impl Breaker {
             self.open_until = Some(now + BREAKER_COOLDOWN);
         }
     }
+
+    /// A fresh connection replaced the failed one without being tried. The next call
+    /// goes straight to it, and one more failure trips the circuit again.
+    fn replaced_connection(&mut self) {
+        self.consecutive_failures = BREAKER_FAILURE_THRESHOLD - 1;
+        self.open_until = None;
+    }
+}
+
+/// Whether a call that failed on a half-open probe may be sent again once the server
+/// has been re-spawned. A `tools/call` may have side effects and a timed-out one may
+/// still be running, so it is never replayed; reads and handshakes are.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Replay {
+    OnRespawn,
+    Never,
 }
 
 /// Cloneable so the dispatcher can hold the live router as a `Mutex<Arc<Router>>`,
@@ -1562,6 +1578,7 @@ impl Router {
         slot: &Arc<ServerSlot>,
         cancel: Option<&CancelContext>,
         dispatch_cancelled_continuation: bool,
+        replay: Replay,
         mut f: F,
     ) -> Result<T, String>
     where
@@ -1632,14 +1649,26 @@ impl Router {
                         // that the plain breaker would otherwise fast-fail forever (its
                         // self-heal only fires when EVERY server is dead). Gated on the
                         // probe so a live server is never re-spawned on a transient blip.
+                        // A call that must not be replayed still gets the re-spawn but
+                        // returns its error, so the next caller finds a fresh connection.
                         if is_probe {
                             if cancel.is_some_and(CancelContext::is_cancelled) {
                                 return Err(
                                     "request cancelled before downstream reconnect".to_string()
                                 );
                             }
-                            if let Some(v) = self.reconnect_and_retry(slot, cancel, &mut f) {
-                                return v;
+                            match replay {
+                                Replay::OnRespawn => {
+                                    if let Some(v) = self.reconnect_and_retry(slot, cancel, &mut f)
+                                    {
+                                        return v;
+                                    }
+                                }
+                                Replay::Never => {
+                                    if self.respawn_without_retry(slot) {
+                                        return Err(e.to_string());
+                                    }
+                                }
                             }
                         }
                         slot.breaker
@@ -1651,6 +1680,39 @@ impl Router {
                 }
             }
         }
+    }
+
+    /// Re-spawn a slot's downstream connection without sending anything on it.
+    /// Returns whether the fresh connection is now live; `false` falls through to the
+    /// normal breaker-failure path, like [`Self::reconnect_and_retry`] returning `None`.
+    fn respawn_without_retry(&self, slot: &Arc<ServerSlot>) -> bool {
+        let Some(factory) = slot.reconnect.as_ref() else {
+            return false;
+        };
+        eprintln!(
+            "conduit: server '{}' is down; re-spawning it without replaying the call",
+            slot.id
+        );
+        let Some(fresh) = factory() else {
+            eprintln!(
+                "conduit: re-spawn of '{}' failed; leaving it fast-failed",
+                slot.id
+            );
+            return false;
+        };
+        {
+            let mut server = slot
+                .inner
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            *server = fresh;
+            slot.tool_revision.fetch_add(1, Ordering::AcqRel);
+        }
+        slot.breaker
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .replaced_connection();
+        true
     }
 
     /// Re-spawn a slot's downstream connection and retry the call once on the fresh
@@ -1750,6 +1812,7 @@ impl Router {
             &slot,
             cancel.as_ref(),
             mrtr.is_some_and(|request| !request.is_empty()),
+            Replay::Never,
             |server| {
                 let supports_tasks = server
                     .extensions()
@@ -1809,9 +1872,10 @@ impl Router {
         let slot = self.slot_for(&server_id)?;
         let mut forwarded = params;
         forwarded["taskId"] = json!(native_task_id);
-        let result = self.call_with_retry(&slot, cancel.as_ref(), false, |server| {
-            server.task_request(method, forwarded.clone(), cancel.clone(), meta)
-        })?;
+        let result =
+            self.call_with_retry(&slot, cancel.as_ref(), false, Replay::OnRespawn, |server| {
+                server.task_request(method, forwarded.clone(), cancel.clone(), meta)
+            })?;
         let mut result = result;
         if method == "tasks/get" {
             if result.get("taskId").and_then(Value::as_str).is_none() {
@@ -1969,6 +2033,7 @@ impl Router {
             &slot,
             cancel.as_ref(),
             mrtr.is_some_and(|request| !request.is_empty()),
+            Replay::OnRespawn,
             |server| server.read_resource_with_cancel_and_mrtr(uri, cancel.clone(), meta, mrtr),
         )
     }
@@ -1982,7 +2047,9 @@ impl Router {
             .ok_or_else(|| format!("no server owns resource '{uri}'"))?
             .to_string();
         let slot = self.slot_for(&server_id)?;
-        self.call_with_retry(&slot, None, false, |server| server.subscribe_resource(uri))
+        self.call_with_retry(&slot, None, false, Replay::OnRespawn, |server| {
+            server.subscribe_resource(uri)
+        })
     }
 
     /// Unsubscribe from resource-updated notifications on the owning downstream
@@ -2007,7 +2074,7 @@ impl Router {
         uri: &str,
     ) -> Result<Value, String> {
         let slot = self.slot_for(server_id)?;
-        self.call_with_retry(&slot, None, false, |server| {
+        self.call_with_retry(&slot, None, false, Replay::OnRespawn, |server| {
             server.unsubscribe_resource(uri)
         })
     }
@@ -2046,6 +2113,7 @@ impl Router {
             &slot,
             cancel.as_ref(),
             mrtr.is_some_and(|request| !request.is_empty()),
+            Replay::OnRespawn,
             |server| {
                 server.get_prompt_with_cancel_and_mrtr(
                     &name,
@@ -2071,7 +2139,7 @@ impl Router {
     ) -> Result<Value, String> {
         let (server_id, forwarded) = self.resolve_completion(&params)?;
         let slot = self.slot_for(&server_id)?;
-        self.call_with_retry(&slot, cancel.as_ref(), false, |server| {
+        self.call_with_retry(&slot, cancel.as_ref(), false, Replay::OnRespawn, |server| {
             server.complete_with_cancel(forwarded.clone(), cancel.clone())
         })
     }
@@ -2948,6 +3016,171 @@ mod tests {
         let out: Option<Result<Value, String>> =
             router.reconnect_and_retry(&slot, None, &mut |ds| ds.call("echo", json!({})));
         assert!(out.is_none());
+    }
+
+    /// Counts every `tools/call` and `resources/read` that reaches it; when `timing_out`
+    /// each one fails the way a read that outlived `requestTimeoutMs` does.
+    struct CountingTransport {
+        seen: Arc<AtomicU32>,
+        timing_out: bool,
+    }
+
+    impl Transport for CountingTransport {
+        fn request(&mut self, method: &str, _params: Value) -> Result<Value, TransportError> {
+            match method {
+                "initialize" => Ok(json!({
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": { "resources": {} }
+                })),
+                "tools/list" => Ok(json!({ "tools": [{ "name": "write" }] })),
+                "resources/list" => {
+                    Ok(json!({ "resources": [{ "uri": "probe://report", "name": "report" }] }))
+                }
+                "tools/call" | "resources/read" => {
+                    self.seen.fetch_add(1, Ordering::SeqCst);
+                    if self.timing_out {
+                        return Err(TransportError::Unavailable(
+                            "timed out waiting for 'tools/call' response".into(),
+                        ));
+                    }
+                    Ok(json!({
+                        "content": [{ "type": "text", "text": "written" }],
+                        "contents": [{ "uri": "probe://report", "text": "body" }]
+                    }))
+                }
+                _ => Ok(json!({})),
+            }
+        }
+
+        fn notify(&mut self, _method: &str, _params: Value) -> Result<(), TransportError> {
+            Ok(())
+        }
+    }
+
+    fn counting_server(seen: &Arc<AtomicU32>, timing_out: bool) -> DownstreamServer {
+        let mut server = DownstreamServer::connect(
+            "odh".into(),
+            Box::new(CountingTransport {
+                seen: Arc::clone(seen),
+                timing_out,
+            }),
+        )
+        .unwrap();
+        server.load_resources_prompts();
+        server
+    }
+
+    /// A router whose only server times out on every call, behind a breaker whose
+    /// cooldown has elapsed: the next call is the half-open probe. `respawn` is what
+    /// the reconnect factory hands back: its counter and whether it times out too, or
+    /// `None` for a re-spawn that fails.
+    fn probing_router(
+        seen_old: &Arc<AtomicU32>,
+        respawn: Option<(&Arc<AtomicU32>, bool)>,
+    ) -> (Router, Arc<AtomicU32>) {
+        let respawns = Arc::new(AtomicU32::new(0));
+        let counted = Arc::clone(&respawns);
+        let respawn = respawn.map(|(seen, timing_out)| (Arc::clone(seen), timing_out));
+        let reconnect: Reconnect = Box::new(move || {
+            counted.fetch_add(1, Ordering::SeqCst);
+            respawn
+                .as_ref()
+                .map(|(seen, timing_out)| counting_server(seen, *timing_out))
+        });
+        let mut router = Router::new();
+        router.add_with_reconnect(counting_server(seen_old, true), Some(reconnect));
+        let mut breaker = router.servers[0].breaker.lock().unwrap();
+        breaker.consecutive_failures = BREAKER_FAILURE_THRESHOLD;
+        breaker.open_until = None;
+        drop(breaker);
+        (router, respawns)
+    }
+
+    #[test]
+    fn a_probe_that_times_out_respawns_the_server_but_never_replays_the_tool_call() {
+        let (old, fresh) = (Arc::new(AtomicU32::new(0)), Arc::new(AtomicU32::new(0)));
+        let (router, respawns) = probing_router(&old, Some((&fresh, false)));
+
+        let err = router.route_call("odh__write", json!({})).unwrap_err();
+        assert!(err.contains("timed out"), "the caller gets the error: {err}");
+        assert_eq!(old.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            fresh.load(Ordering::SeqCst),
+            0,
+            "the re-spawned server must not receive the call again"
+        );
+        assert_eq!(respawns.load(Ordering::SeqCst), 1, "the server is still re-spawned");
+
+        let ok = router.route_call("odh__write", json!({})).unwrap();
+        assert_eq!(ok["content"][0]["text"], "written");
+        assert_eq!(fresh.load(Ordering::SeqCst), 1, "the next call uses the fresh server");
+        assert_eq!(old.load(Ordering::SeqCst), 1);
+        let mut breaker = router.servers[0].breaker.lock().unwrap();
+        assert_eq!(breaker.consecutive_failures, 0);
+        assert!(breaker.open_remaining(Instant::now()).is_none());
+    }
+
+    #[test]
+    fn a_failed_respawn_without_replay_leaves_the_circuit_open() {
+        let old = Arc::new(AtomicU32::new(0));
+        let (router, respawns) = probing_router(&old, None);
+
+        let err = router.route_call("odh__write", json!({})).unwrap_err();
+        assert!(err.contains("timed out"), "{err}");
+        assert_eq!(respawns.load(Ordering::SeqCst), 1);
+        assert_eq!(old.load(Ordering::SeqCst), 1);
+        let again = router.route_call("odh__write", json!({})).unwrap_err();
+        assert!(again.contains("temporarily unavailable"), "{again}");
+        assert_eq!(old.load(Ordering::SeqCst), 1, "fast-failed, not sent");
+    }
+
+    #[test]
+    fn a_fresh_server_that_also_times_out_trips_the_circuit_after_one_call() {
+        let (old, fresh) = (Arc::new(AtomicU32::new(0)), Arc::new(AtomicU32::new(0)));
+        let (router, respawns) = probing_router(&old, Some((&fresh, true)));
+
+        let probe = router.route_call("odh__write", json!({})).unwrap_err();
+        assert!(probe.contains("timed out"), "{probe}");
+        assert_eq!((old.load(Ordering::SeqCst), fresh.load(Ordering::SeqCst)), (1, 0));
+
+        let first = router.route_call("odh__write", json!({})).unwrap_err();
+        assert!(first.contains("timed out"), "{first}");
+        assert_eq!(fresh.load(Ordering::SeqCst), 1);
+        let second = router.route_call("odh__write", json!({})).unwrap_err();
+        assert!(second.contains("temporarily unavailable"), "{second}");
+        assert_eq!(fresh.load(Ordering::SeqCst), 1, "fast-failed, not sent");
+        assert_eq!(respawns.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn a_probe_that_times_out_still_replays_a_resource_read_on_the_respawned_server() {
+        let (old, fresh) = (Arc::new(AtomicU32::new(0)), Arc::new(AtomicU32::new(0)));
+        let (router, respawns) = probing_router(&old, Some((&fresh, false)));
+
+        let read = router.read_resource("probe://report").unwrap();
+        assert_eq!(read["contents"][0]["text"], "body");
+        assert_eq!(old.load(Ordering::SeqCst), 1);
+        assert_eq!(fresh.load(Ordering::SeqCst), 1);
+        assert_eq!(respawns.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn a_replaced_connection_gets_exactly_one_failure_before_the_circuit_reopens() {
+        let t0 = Instant::now();
+        let mut breaker = Breaker::default();
+        for _ in 0..BREAKER_FAILURE_THRESHOLD {
+            breaker.record_failure(t0);
+        }
+        breaker.replaced_connection();
+        assert!(breaker.open_remaining(t0).is_none());
+        assert!(breaker.consecutive_failures < BREAKER_FAILURE_THRESHOLD);
+        breaker.record_failure(t0);
+        assert!(breaker.open_remaining(t0).is_some());
+
+        breaker.replaced_connection();
+        breaker.record_success();
+        breaker.record_failure(t0);
+        assert!(breaker.open_remaining(t0).is_none());
     }
 
     #[test]

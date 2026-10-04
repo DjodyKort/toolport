@@ -852,6 +852,68 @@ fn the_uv_run_directory_form_launches_through_the_gateway() {
     );
 }
 
+fn call_count(path: &Path, tag: &str) -> usize {
+    transcript(path)
+        .into_iter()
+        .filter(|l| l["method"] == "tools/call" && l["params"]["arguments"]["tag"] == tag)
+        .count()
+}
+
+#[test]
+fn a_timed_out_write_runs_once_even_when_the_breaker_probe_respawns_the_server() {
+    let scratch = Scratch::new("probe-once");
+    let mut entry = mock_entry(&scratch);
+    entry.request_timeout_ms = Some(1_500);
+    write_registry(&scratch, entry, |_| {});
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", json!({}));
+    client.wait_for_tool("odh__odoo_slow");
+
+    for round in 0..3 {
+        let reply = client.call(
+            "odh__odoo_slow",
+            json!({"delayMs": 2_500, "tag": format!("trip-{round}")}),
+            None,
+        );
+        assert_eq!(reply["result"]["isError"], true, "{reply}");
+        assert!(
+            text_of(&reply).contains("timed out waiting for 'tools/call' response"),
+            "{reply}"
+        );
+    }
+    let shed = client.call(
+        "odh__odoo_slow",
+        json!({"delayMs": 10, "tag": "while-open"}),
+        None,
+    );
+    assert!(text_of(&shed).contains("temporarily unavailable"), "{shed}");
+    assert_eq!(call_count(&scratch.transcript(), "while-open"), 0);
+
+    std::thread::sleep(Duration::from_secs(21));
+    let probe = client.call(
+        "odh__odoo_slow",
+        json!({"delayMs": 4_000, "tag": "write-once"}),
+        None,
+    );
+    assert_eq!(probe["result"]["isError"], true, "{probe}");
+    assert!(
+        text_of(&probe).contains("timed out waiting for 'tools/call' response"),
+        "the caller gets the original error: {probe}"
+    );
+    assert_eq!(
+        call_count(&scratch.transcript(), "write-once"),
+        1,
+        "the probe call reached the server once; the re-spawned server never saw it"
+    );
+
+    let next = client.call(
+        "odh__odoo_slow",
+        json!({"delayMs": 50, "tag": "after-respawn"}),
+        None,
+    );
+    assert_eq!(text_of(&next), "slow done", "{next}");
+}
+
 #[test]
 fn toolportctl_and_the_gateway_read_the_same_file_under_toolport_registry() {
     let scratch = Scratch::new("registry-env");
