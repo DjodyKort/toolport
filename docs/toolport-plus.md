@@ -34,7 +34,8 @@ Global flag `--json` prints one envelope (`schemaVersion`, `command`, `data`). E
 | `doctor`                                                                | Read-only health checks                                            |
 | `server ls / search / install / uninstall / info / new / edit`          | Catalog and registry server management                             |
 | `inspect`, `profile inspect`                                            | List tools of a server or of a whole profile (connects live)       |
-| `client ls / sync`                                                      | Detect clients; sync managed client entries                        |
+| `profile ls / create / edit / rm`                                       | List, create, edit and remove profiles; `rm` cleans clients        |
+| `client ls / sync / edit / import`                                      | Detect clients; sync; set a client's profile; import entries       |
 | `auth statusline / hook / probe / login`                                | Auth-health JSON; probe now (`--server`, `--force`); sign in again |
 | `secret set / get / rm`                                                 | Server secrets (stdin or `--value-env`; `get --reveal` prints)     |
 | `context loads / folders / checkpoint-status / plan / apply / sync`     | What a session loads, folder profiles, checkpoint, context deploy  |
