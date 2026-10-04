@@ -567,7 +567,9 @@ export function createSystemWorld(initial: Partial<SystemState> = {}) {
           ],
           {
             activeProfile: installed ? profileState("default") : null,
-            clientProfiles: [],
+            clientProfiles: self.profiles
+              .filter((id) => id !== "default")
+              .map(profileState),
             state: self.state,
           },
         );
