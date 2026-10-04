@@ -3,8 +3,15 @@
   "routes": {
     "all-commands": {
       "title": "All commands",
+      "view": "commands",
       "status": "built",
       "component": "src/plus/allcommands/AllCommandsPage.tsx"
+    },
+    "servers": {
+      "title": "Servers",
+      "view": "control",
+      "status": "built",
+      "component": "src/plus/servers/ServersScreen.tsx"
     }
   },
   "actions": {
@@ -24,6 +31,144 @@
       "route": "all-commands",
       "status": "planned",
       "summary": "Call a self-management tool that has no command: parameter form, dry run first"
+    },
+    "servers.gateway": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ServersTab.test.tsx",
+      "summary": "Gateway strip: daemon, tool cache and the profile and discovery each client uses (status)"
+    },
+    "servers.health": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/HealthTab.test.tsx",
+      "summary": "Health tab: status facts and doctor checks with one-click named fixes"
+    },
+    "servers.list": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ServersTab.test.tsx",
+      "summary": "Servers grouped by attention with live state, tool count and per-profile switches (server ls)"
+    },
+    "servers.detail": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ServersTab.test.tsx",
+      "summary": "One server: definition, env keys without values, profiles and its login (server info)"
+    },
+    "servers.inspect": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ServersTab.test.tsx",
+      "summary": "List the live tools of one server, with the failure reason when it cannot connect (inspect)"
+    },
+    "servers.search": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ServersTab.test.tsx",
+      "summary": "Search the catalog, online or offline (server search)"
+    },
+    "servers.install": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ServersTab.test.tsx",
+      "summary": "Install a catalog server after a preview (server install)"
+    },
+    "servers.new": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ServersTab.test.tsx",
+      "summary": "Add a custom server from a command or a URL (server new)"
+    },
+    "servers.edit": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ServersTab.test.tsx",
+      "summary": "Edit a server's name, command, arguments, URL or working folder (server edit)"
+    },
+    "servers.remove": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ServersTab.test.tsx",
+      "summary": "Remove a server and its client entries behind a typed confirmation (server uninstall)"
+    },
+    "servers.profiles": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ProfilesTab.test.tsx",
+      "summary": "Profiles with their servers and the clients that use them (profile ls)"
+    },
+    "servers.profile-create": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ProfilesTab.test.tsx",
+      "summary": "Create a profile, empty or with servers (profile create)"
+    },
+    "servers.profile-edit": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ProfilesTab.test.tsx",
+      "summary": "Rename a profile or change its servers with a client-impact preview (profile edit)"
+    },
+    "servers.profile-delete": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ProfilesTab.test.tsx",
+      "summary": "Delete a profile and clean the client entries scoped to it (profile rm)"
+    },
+    "servers.profile-inspect": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ProfilesTab.test.tsx",
+      "summary": "Inspect every server of a profile, with partial results when one needs a login (profile inspect)"
+    },
+    "servers.clients": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ClientsTab.test.tsx",
+      "summary": "Clients with gateway state, profile and what each one sees (client ls)"
+    },
+    "servers.client-profile": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ClientsTab.test.tsx",
+      "summary": "Point a client at a profile after a preview (client edit)"
+    },
+    "servers.client-sync": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ClientsTab.test.tsx",
+      "summary": "Sync the managed clients after a preview (client sync)"
+    },
+    "servers.client-import": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ClientsTab.test.tsx",
+      "summary": "Import the direct entries of a client into the registry (client import)"
+    },
+    "servers.direct-ls": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ClientsTab.test.tsx",
+      "summary": "Direct launcher entries of a client and their state (client direct ls)"
+    },
+    "servers.direct-add": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ClientsTab.test.tsx",
+      "summary": "Give a client one server as its own direct entry (client direct add)"
+    },
+    "servers.direct-rm": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ClientsTab.test.tsx",
+      "summary": "Remove a direct entry Toolport wrote (client direct rm)"
+    },
+    "servers.direct-run": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ClientsTab.test.tsx",
+      "summary": "Start a server over stdio for a direct client entry: copy the command, terminal only"
     }
   },
   "owners": {
@@ -129,38 +274,38 @@
       "surface": "screen"
     },
     "client direct add": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.direct-add",
       "surface": "screen"
     },
     "client direct ls": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.direct-ls",
       "surface": "screen"
     },
     "client direct rm": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.direct-rm",
       "surface": "screen"
     },
     "client edit": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.client-profile",
       "surface": "screen"
     },
     "client import": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.client-import",
       "surface": "screen"
     },
     "client ls": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.clients",
       "surface": "screen"
     },
     "client sync": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.client-sync",
       "surface": "screen"
     },
     "commands": {
@@ -359,13 +504,13 @@
       "surface": "screen"
     },
     "direct run": {
-      "route": "all-commands",
-      "action": "all-commands.terminal",
+      "route": "servers",
+      "action": "servers.direct-run",
       "surface": "terminal"
     },
     "doctor": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.health",
       "surface": "screen"
     },
     "import mcpm": {
@@ -379,8 +524,8 @@
       "surface": "screen"
     },
     "inspect": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.inspect",
       "surface": "screen"
     },
     "mcp doctor": {
@@ -419,28 +564,28 @@
       "surface": "screen"
     },
     "profile create": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.profile-create",
       "surface": "screen"
     },
     "profile edit": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.profile-edit",
       "surface": "screen"
     },
     "profile inspect": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.profile-inspect",
       "surface": "screen"
     },
     "profile ls": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.profiles",
       "surface": "screen"
     },
     "profile rm": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.profile-delete",
       "surface": "screen"
     },
     "secret get": {
@@ -459,38 +604,38 @@
       "surface": "screen"
     },
     "server edit": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.edit",
       "surface": "screen"
     },
     "server info": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.detail",
       "surface": "screen"
     },
     "server install": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.install",
       "surface": "screen"
     },
     "server ls": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.list",
       "surface": "screen"
     },
     "server new": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.new",
       "surface": "screen"
     },
     "server search": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.search",
       "surface": "screen"
     },
     "server uninstall": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.remove",
       "surface": "screen"
     },
     "skills add": {
@@ -609,8 +754,8 @@
       "surface": "screen"
     },
     "status": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.gateway",
       "surface": "screen"
     },
     "styles add": {
@@ -786,28 +931,28 @@
       "surface": "screen"
     },
     "client_direct_add": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.direct-add",
       "surface": "screen"
     },
     "client_direct_ls": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.direct-ls",
       "surface": "screen"
     },
     "client_direct_rm": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.direct-rm",
       "surface": "screen"
     },
     "clients_list": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.clients",
       "surface": "screen"
     },
     "clients_sync": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.client-sync",
       "surface": "screen"
     },
     "compression_disable": {
@@ -851,8 +996,8 @@
       "surface": "screen"
     },
     "doctor": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.health",
       "surface": "screen"
     },
     "flow_diagram": {
@@ -891,8 +1036,8 @@
       "surface": "screen"
     },
     "servers_get": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.detail",
       "surface": "screen"
     },
     "servers_git_status": {
@@ -901,18 +1046,18 @@
       "surface": "screen"
     },
     "servers_install": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.new",
       "surface": "screen"
     },
     "servers_list": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.list",
       "surface": "screen"
     },
     "servers_list_profiles": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.profiles",
       "surface": "screen"
     },
     "servers_remove_profile_tag": {
@@ -926,13 +1071,13 @@
       "surface": "screen"
     },
     "servers_uninstall": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.remove",
       "surface": "screen"
     },
     "servers_update_config": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "servers",
+      "action": "servers.edit",
       "surface": "screen"
     },
     "skills_audit": {

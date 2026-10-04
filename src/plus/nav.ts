@@ -21,6 +21,7 @@ import type { View } from "@/lib/types";
 
 /** Views that `PlusViews` renders. The other entries of the sidebar are the upstream views. */
 export const PLUS_VIEWS = [
+  "control",
   "attention",
   "library",
   "context",
@@ -60,7 +61,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Servers",
     items: [
-      { label: "Servers", view: "servers", icon: Layers },
+      { label: "Servers", view: "control", icon: Layers },
       { label: "Clients", view: "clients", icon: MonitorCog },
       { label: "Browse catalog", view: "catalog", icon: Store },
       { label: "Playground", view: "playground", icon: FlaskConical },
@@ -99,8 +100,12 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-/** A view that is reached from another entry and keeps that entry highlighted. */
-const LIVES_UNDER: Partial<Record<View, View>> = { commands: "settings" };
+/** A view that is reached from another entry and keeps that entry highlighted. The upstream
+ * `servers` page stays reachable as the Classic view of the Servers screen. */
+const LIVES_UNDER: Partial<Record<View, View>> = {
+  commands: "settings",
+  servers: "control",
+};
 
 export function navItemActive(item: NavItem, view: View): boolean {
   return view === item.view || LIVES_UNDER[view] === item.view;
@@ -116,6 +121,11 @@ export interface PlusScreen {
 /** Titles and subtitles as drawn in the mockup, for the header of the app and for the
  * "not built yet" screens. */
 export const PLUS_SCREENS: Record<PlusView, PlusScreen> = {
+  control: {
+    title: "Servers",
+    subtitle: "Every server, its login and the gateway",
+    builtBy: "MIG-GUI-1",
+  },
   attention: {
     title: "Needs attention",
     subtitle: "Everything across Toolport that wants a decision, in one list",

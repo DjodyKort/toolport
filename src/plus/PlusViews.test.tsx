@@ -13,6 +13,7 @@ vi.mock("@tauri-apps/api/event", () => ({ listen }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
 
 import { PlusViews } from "./PlusViews";
+import { createBridge } from "./servers/testkit";
 
 beforeEach(() => {
   listen.mockReset().mockResolvedValue(() => {});
@@ -51,7 +52,7 @@ function Harness({ start }: { start: PlusView }) {
 }
 
 describe("PlusViews", () => {
-  it.each(PLUS_VIEWS.filter((view) => view !== "commands"))(
+  it.each(PLUS_VIEWS.filter((view) => view !== "commands" && view !== "control"))(
     "marks %s as not built yet and names the item that builds it",
     async (view) => {
       render(<Harness start={view} />);
@@ -68,6 +69,18 @@ describe("PlusViews", () => {
       ).toBeInTheDocument();
     },
   );
+
+  it("opens the Servers screen on the control view and the classic page from it", async () => {
+    invoke.mockReset().mockImplementation(createBridge().invoke);
+    const user = userEvent.setup();
+    render(<Harness start="control" />);
+    expect(
+      await screen.findByRole("tablist", { name: "Servers sections" }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Classic view" }));
+    expect(screen.getByLabelText("view")).toHaveTextContent("servers");
+    expect(screen.getByText("upstream")).toBeInTheDocument();
+  });
 
   it("shows the tabs of the mockup and a placeholder per tab", async () => {
     const user = userEvent.setup();
