@@ -7,7 +7,7 @@ import { PLUS_SCREENS, type PlusView } from "./nav";
 import { NOT_BUILT_TABS } from "./notBuiltTabs";
 import { Tabs } from "./ui";
 
-function Placeholder({
+export function NotBuiltPanel({
   name,
   builtBy,
   group,
@@ -56,7 +56,7 @@ export function NotBuilt({
   const current = tabs?.find((item) => item.id === tab) ?? tabs?.[0];
   if (!tabs || !current) {
     return (
-      <Placeholder
+      <NotBuiltPanel
         name={screen.title}
         builtBy={screen.builtBy}
         onOpenCommands={onOpenCommands}
@@ -70,7 +70,7 @@ export function NotBuilt({
       onValueChange={setTab}
       label={`${screen.title} sections`}
     >
-      <Placeholder
+      <NotBuiltPanel
         name={current.label}
         builtBy={current.builtBy}
         group={current.group}
