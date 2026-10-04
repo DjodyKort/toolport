@@ -7,6 +7,7 @@ pub mod ctl;
 use serde_json::{json, Value};
 
 pub mod auth;
+pub mod bridge;
 pub mod cc;
 pub mod compression;
 pub mod council;

@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { ClientLogo } from "@/components/ClientLogo";
 import { ServerLogo } from "@/components/ServerLogo";
 import type { Registry, SavingsSummary, ServerEntry } from "@/lib/types";
+import { plusCtlCancel, plusCtlResult, plusCtlStart } from "@/plus/fixtures/plusCtl";
 import { plusInvokeFixtures } from "@/plus/fixtures/plusInvoke";
 import "../index.css";
 
@@ -124,6 +125,19 @@ mockIPC(
         }
         return plusInvokeFixtures.get(plus);
       }
+      case "plus_ctl": {
+        const argv = (args as { argv?: string[] } | undefined)?.argv ?? [];
+        try {
+          return plusCtlStart(argv);
+        } catch (error) {
+          missing.push(`plus_ctl ${argv.join(" ")}`);
+          throw error;
+        }
+      }
+      case "plus_ctl_result":
+        return plusCtlResult((args as { job: string }).job);
+      case "plus_ctl_cancel":
+        return plusCtlCancel((args as { job: string }).job);
       default:
         missing.push(command);
         throw new Error(`Unimplemented fixture command: ${command}`);
