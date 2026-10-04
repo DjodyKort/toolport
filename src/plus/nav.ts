@@ -22,6 +22,7 @@ import type { View } from "@/lib/types";
 /** Views that `PlusViews` renders. The other entries of the sidebar are the upstream views. */
 export const PLUS_VIEWS = [
   "control",
+  "logins",
   "attention",
   "library",
   "context",
@@ -105,6 +106,7 @@ export const NAV_GROUPS: NavGroup[] = [
 const LIVES_UNDER: Partial<Record<View, View>> = {
   commands: "settings",
   servers: "control",
+  logins: "control",
 };
 
 export function navItemActive(item: NavItem, view: View): boolean {
@@ -125,6 +127,11 @@ export const PLUS_SCREENS: Record<PlusView, PlusScreen> = {
     title: "Servers",
     subtitle: "Every server, its login and the gateway",
     builtBy: "MIG-GUI-1",
+  },
+  logins: {
+    title: "Logins & secrets",
+    subtitle: "Which servers are signed in, and the secrets behind them",
+    builtBy: "MIG-GUI-2",
   },
   attention: {
     title: "Needs attention",
