@@ -24,6 +24,9 @@ pub enum Tier {
 pub trait StyleTranspiler {
     fn client_key(&self) -> &str;
 
+    /// The client's name in mcpm's status tables.
+    fn display_name(&self) -> &str;
+
     fn tier(&self) -> Tier;
 
     fn transpile(&self, style: &Style, root: &Path) -> Result<TranspileResult, String>;
@@ -36,6 +39,18 @@ pub trait StyleTranspiler {
         _root: &Path,
     ) -> Option<Result<TranspileResult, String>> {
         None
+    }
+
+    /// The paths [`StyleTranspiler::clean`] would remove or rewrite; nothing is touched.
+    fn clean_targets(&self, root: &Path, managed: &[String]) -> Vec<PathBuf> {
+        let mut targets: Vec<PathBuf> = Vec::new();
+        for name in managed {
+            let path = self.get_output_path(&Style::placeholder(name), root);
+            if path.exists() && !targets.contains(&path) {
+                targets.push(path);
+            }
+        }
+        targets
     }
 
     /// Removes each managed style's output and one now-empty parent directory.
@@ -79,6 +94,7 @@ enum Shape {
 /// The styles that differ from each other only in target path and file shape.
 struct Simple {
     key: &'static str,
+    display: &'static str,
     path: &'static str,
     shape: Shape,
 }
@@ -86,6 +102,10 @@ struct Simple {
 impl StyleTranspiler for Simple {
     fn client_key(&self) -> &str {
         self.key
+    }
+
+    fn display_name(&self) -> &str {
+        self.display
     }
 
     fn tier(&self) -> Tier {
@@ -134,6 +154,10 @@ impl StyleTranspiler for ClaudeCodeStyle {
         "claude-code"
     }
 
+    fn display_name(&self) -> &str {
+        "Claude Code"
+    }
+
     fn tier(&self) -> Tier {
         Tier::Native
     }
@@ -161,6 +185,10 @@ pub struct WindsurfStyle;
 impl StyleTranspiler for WindsurfStyle {
     fn client_key(&self) -> &str {
         "windsurf"
+    }
+
+    fn display_name(&self) -> &str {
+        "Windsurf"
     }
 
     fn tier(&self) -> Tier {
@@ -237,6 +265,10 @@ impl StyleTranspiler for ZedStyle {
         "zed"
     }
 
+    fn display_name(&self) -> &str {
+        "Zed"
+    }
+
     fn tier(&self) -> Tier {
         Tier::ApplyRemove
     }
@@ -258,6 +290,16 @@ impl StyleTranspiler for ZedStyle {
 
     fn get_output_path(&self, _style: &Style, root: &Path) -> PathBuf {
         root.join(".rules")
+    }
+
+    fn clean_targets(&self, root: &Path, _managed: &[String]) -> Vec<PathBuf> {
+        let path = root.join(".rules");
+        let managed = read_text(&path).is_ok_and(|text| text.contains(STYLE_BLOCK_START));
+        if managed {
+            vec![path]
+        } else {
+            Vec::new()
+        }
     }
 
     fn clean(&self, root: &Path, _managed: &[String]) -> Result<Vec<PathBuf>, String> {
@@ -320,6 +362,10 @@ impl StyleTranspiler for RooCodeStyle {
         "roomodes-style"
     }
 
+    fn display_name(&self) -> &str {
+        "Roo Code"
+    }
+
     fn tier(&self) -> Tier {
         Tier::Native
     }
@@ -367,46 +413,78 @@ impl StyleTranspiler for RooCodeStyle {
         root.join(".roomodes")
     }
 
+    fn clean_targets(&self, root: &Path, _managed: &[String]) -> Vec<PathBuf> {
+        match roo_clean_plan(root) {
+            RooClean::Nothing => Vec::new(),
+            RooClean::Rewrite(_) | RooClean::Remove => vec![root.join(".roomodes")],
+        }
+    }
+
     /// Removes only `style-` modes and keeps the rest of the file.
     fn clean(&self, root: &Path, _managed: &[String]) -> Result<Vec<PathBuf>, String> {
         let path = root.join(".roomodes");
-        if !path.exists() {
-            return Ok(Vec::new());
-        }
-        let Some(J::Obj(mut doc)) = read_text(&path).ok().and_then(|t| json::parse(&t).ok()) else {
-            return Ok(Vec::new());
-        };
-        let modes = match doc.iter().find(|(k, _)| k == "customModes") {
-            Some((_, J::Arr(m))) => m.clone(),
-            None => Vec::new(),
-            Some(_) => return Ok(Vec::new()),
-        };
-        let mut filtered = Vec::new();
-        for mode in &modes {
-            match is_style_slug(mode) {
-                Ok(true) => {}
-                Ok(false) => filtered.push(mode.clone()),
-                Err(()) => return Ok(Vec::new()),
-            }
-        }
-        if !filtered.is_empty() {
-            match doc.iter_mut().find(|(k, _)| k == "customModes") {
-                Some(slot) => slot.1 = J::Arr(filtered),
-                None => doc.push(("customModes".into(), J::Arr(filtered))),
-            }
-            fs::write(&path, format!("{}\n", J::Obj(doc).dumps()))
-                .map_err(|e| format!("{}: {e}", path.display()))?;
-        } else if modes.is_empty() {
-            return Ok(Vec::new());
-        } else {
-            fs::remove_file(&path).map_err(|e| e.to_string())?;
+        match roo_clean_plan(root) {
+            RooClean::Nothing => return Ok(Vec::new()),
+            RooClean::Rewrite(doc) => fs::write(&path, format!("{}\n", doc.dumps()))
+                .map_err(|e| format!("{}: {e}", path.display()))?,
+            RooClean::Remove => fs::remove_file(&path).map_err(|e| e.to_string())?,
         }
         Ok(vec![path])
     }
 }
 
-fn simple(key: &'static str, path: &'static str, shape: Shape) -> Box<dyn StyleTranspiler> {
-    Box::new(Simple { key, path, shape })
+enum RooClean {
+    Nothing,
+    Rewrite(J),
+    Remove,
+}
+
+fn roo_clean_plan(root: &Path) -> RooClean {
+    let path = root.join(".roomodes");
+    if !path.exists() {
+        return RooClean::Nothing;
+    }
+    let Some(J::Obj(mut doc)) = read_text(&path).ok().and_then(|t| json::parse(&t).ok()) else {
+        return RooClean::Nothing;
+    };
+    let modes = match doc.iter().find(|(k, _)| k == "customModes") {
+        Some((_, J::Arr(m))) => m.clone(),
+        None => Vec::new(),
+        Some(_) => return RooClean::Nothing,
+    };
+    let mut filtered = Vec::new();
+    for mode in &modes {
+        match is_style_slug(mode) {
+            Ok(true) => {}
+            Ok(false) => filtered.push(mode.clone()),
+            Err(()) => return RooClean::Nothing,
+        }
+    }
+    if !filtered.is_empty() {
+        match doc.iter_mut().find(|(k, _)| k == "customModes") {
+            Some(slot) => slot.1 = J::Arr(filtered),
+            None => doc.push(("customModes".into(), J::Arr(filtered))),
+        }
+        RooClean::Rewrite(J::Obj(doc))
+    } else if modes.is_empty() {
+        RooClean::Nothing
+    } else {
+        RooClean::Remove
+    }
+}
+
+fn simple(
+    key: &'static str,
+    display: &'static str,
+    path: &'static str,
+    shape: Shape,
+) -> Box<dyn StyleTranspiler> {
+    Box::new(Simple {
+        key,
+        display,
+        path,
+        shape,
+    })
 }
 
 /// mcpm's import order in `styles/transpilers/__init__.py`, which fixes iteration order.
@@ -414,58 +492,69 @@ pub fn all_style_transpilers() -> Vec<Box<dyn StyleTranspiler>> {
     vec![
         simple(
             "aider",
+            "Aider",
             ".mcpm/skills/mcpm-output-style/SKILL.md",
             Shape::AiderHeading,
         ),
         simple(
             "amazon-q",
+            "Amazon Q",
             ".amazonq/rules/mcpm-output-style.md",
             Shape::AmazonQComment,
         ),
         Box::new(ClaudeCodeStyle),
         simple(
             "cline",
+            "Cline",
             ".clinerules/mcpm-output-style.md",
             Shape::PlainBody,
         ),
         simple(
             "codex-cli",
+            "Codex CLI",
             ".agents/skills/mcpm-output-style/SKILL.md",
             Shape::NamedSkill,
         ),
         simple(
             "continue",
+            "Continue.dev",
             ".continue/rules/mcpm-output-style.md",
             Shape::AlwaysRule,
         ),
         simple(
             "cursor",
+            "Cursor",
             ".cursor/rules/mcpm-output-style/RULE.md",
             Shape::AlwaysRule,
         ),
         simple(
             "gemini-cli",
+            "Gemini CLI",
             ".gemini/skills/mcpm-output-style/SKILL.md",
             Shape::NamedSkill,
         ),
         simple(
             "goose",
+            "Goose",
             ".goose/rules/mcpm-output-style.md",
             Shape::NamedSkill,
         ),
         simple(
             "jetbrains",
+            "JetBrains AI",
             ".aiassistant/rules/mcpm-output-style.md",
             Shape::JetBrainsComments,
         ),
         Box::new(RooCodeStyle),
         simple(
             "trae",
+            "Trae",
             ".trae/rules/mcpm-output-style.md",
             Shape::AlwaysRule,
         ),
         simple(
             "vscode-copilot",
+            "VS Code Copilot",
             ".github/instructions/mcpm-output-style.instructions.md",
             Shape::PlainBody,
         ),

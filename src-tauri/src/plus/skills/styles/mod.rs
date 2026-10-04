@@ -1,6 +1,7 @@
 //! Output styles: STYLE.md parsing, tier-1 sync, tier-2 apply/remove, lint.
 
 pub mod lint;
+pub mod manage;
 pub mod sync;
 pub mod transpilers;
 
