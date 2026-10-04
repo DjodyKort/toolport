@@ -13,22 +13,20 @@ pub fn lint_agent(agent: &Agent) -> LintResult {
         .file_name()
         .is_some_and(|n| n == "AGENT.md");
     if dir != name && is_agent_md {
-        result.add(
-            "error",
+        result.error(
             name,
             format!("Agent name '{name}' does not match directory name '{dir}'"),
         );
     }
     if fm.description.chars().count() < 20 {
-        result.add("warning", name, "Description is very short (<20 chars).");
+        result.warning(name, "Description is very short (<20 chars).");
     }
     if agent.body.trim().is_empty() {
-        result.add("warning", name, "Body (system prompt) is empty.");
+        result.warning(name, "Body (system prompt) is empty.");
     }
     if let Some(model) = fm.model.as_deref().filter(|m| !m.is_empty()) {
         if !VALID_MODELS.contains(&model) && !model.starts_with("claude-") {
-            result.add(
-                "info",
+            result.info(
                 name,
                 format!("Model '{model}' is not a standard shorthand (sonnet/opus/haiku/inherit)."),
             );
@@ -42,8 +40,7 @@ pub fn lint_agent(agent: &Agent) -> LintResult {
             }
         }
         if !overlap.is_empty() {
-            result.add(
-                "error",
+            result.error(
                 name,
                 format!(
                     "Tools in both allowed and disallowed: {}",
@@ -53,16 +50,14 @@ pub fn lint_agent(agent: &Agent) -> LintResult {
         }
     }
     if fm.permission_mode == Some(super::PermissionMode::FullAuto) && fm.readonly {
-        result.add(
-            "warning",
+        result.warning(
             name,
             "readonly=true conflicts with permission-mode=full-auto.",
         );
     }
     if let Some(n) = fm.max_turns {
         if !(1..=200).contains(&n) {
-            result.add(
-                "warning",
+            result.warning(
                 name,
                 format!("max-turns={n} is outside typical range (1-200)."),
             );
@@ -88,7 +83,7 @@ pub fn lint_agents(agents: &[Agent]) -> LintResult {
     let mut seen: Vec<&str> = Vec::new();
     for agent in agents {
         if seen.contains(&agent.name()) {
-            result.add("error", agent.name(), "Duplicate agent name found.");
+            result.error(agent.name(), "Duplicate agent name found.");
         }
         seen.push(agent.name());
     }
