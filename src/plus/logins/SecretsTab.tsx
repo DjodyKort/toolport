@@ -10,6 +10,7 @@ import type { TabProps } from "./LoginsTab";
 import {
   authRowsOf,
   countableAuth,
+  countableLogins,
   presenceKey,
   secretRows,
   summarize,
@@ -75,7 +76,11 @@ export function SecretsTab({ onOpenCommands, pollMs = POLL_MS }: TabProps) {
   const refreshKey = (id: string, key: string) =>
     void presence.refresh([presenceKey(id, key)]);
 
-  const summary = summarize(countableAuth(authRowsOf(data.status.data?.auth.servers)));
+  const summary = summarize(
+    data.roster
+      ? countableLogins(data.roster.rows)
+      : countableAuth(authRowsOf(data.status.data?.auth.servers)),
+  );
   const answer = (id: string, key: string) => presence.results[presenceKey(id, key)];
 
   return (
