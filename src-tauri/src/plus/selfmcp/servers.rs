@@ -299,7 +299,7 @@ pub(super) fn uninstall(args: &Value) -> Outcome {
 pub(super) fn clients_sync(args: &Value) -> Outcome {
     let mut cmd = vec!["client", "sync"];
     if let Some(client) = str_nonempty(args, "client") {
-        if client.starts_with('-') {
+        if !safe_token(client) {
             return Err(ToolError::new("invalid_arguments", "invalid client key"));
         }
         cmd.extend(["--client", client]);
@@ -435,21 +435,7 @@ pub(super) fn fork_sync(args: &Value) -> Outcome {
             "source path is not a git repository",
         ));
     }
-    let remote = str_arg(args, "upstream_remote").unwrap_or("upstream");
-    let branch = str_arg(args, "upstream_branch").unwrap_or("main");
-    let mode = str_arg(args, "mode").unwrap_or("rebase");
-    if !safe_token(remote) || !safe_token(branch) {
-        return Err(ToolError::new(
-            "invalid_arguments",
-            "invalid remote or branch",
-        ));
-    }
-    if !["rebase", "onto-author"].contains(&mode) {
-        return Err(ToolError::new(
-            "invalid_arguments",
-            "mode must be rebase or onto-author",
-        ));
-    }
+    let (remote, branch, mode) = fork_options(args)?;
     if !git_ok(&repo, &["status", "--porcelain"])?.trim().is_empty() {
         return Err(ToolError::new(
             "conflict",
@@ -481,16 +467,39 @@ pub(super) fn fork_sync(args: &Value) -> Outcome {
     result["previousBranch"] = json!(current);
     if result["synced"] == true && flag(args, "run_post_update") {
         if let Some(cmd) = post_update {
-            let out = SystemShell
-                .run(&cmd, &repo, Duration::from_secs(600))
-                .map_err(ToolError::backend)?;
-            result["postUpdate"] = json!({
-                "ok": out.ok(),
-                "stderrTail": out.stderr.lines().rev().take(10).collect::<Vec<_>>(),
-            });
+            result["postUpdate"] = run_post_update(&repo, &cmd)?;
         }
     }
     Ok(result)
+}
+
+fn fork_options(args: &Value) -> Result<(&str, &str, &str), ToolError> {
+    let remote = str_arg(args, "upstream_remote").unwrap_or("upstream");
+    let branch = str_arg(args, "upstream_branch").unwrap_or("main");
+    let mode = str_arg(args, "mode").unwrap_or("rebase");
+    if !safe_token(remote) || !safe_token(branch) {
+        return Err(ToolError::new(
+            "invalid_arguments",
+            "invalid remote or branch",
+        ));
+    }
+    if !["rebase", "onto-author"].contains(&mode) {
+        return Err(ToolError::new(
+            "invalid_arguments",
+            "mode must be rebase or onto-author",
+        ));
+    }
+    Ok((remote, branch, mode))
+}
+
+fn run_post_update(repo: &Path, cmd: &str) -> Outcome {
+    let out = SystemShell
+        .run(cmd, repo, Duration::from_secs(600))
+        .map_err(ToolError::backend)?;
+    Ok(json!({
+        "ok": out.ok(),
+        "stderrTail": out.stderr.lines().rev().take(10).collect::<Vec<_>>(),
+    }))
 }
 
 fn find_url(line: &str) -> Option<String> {
