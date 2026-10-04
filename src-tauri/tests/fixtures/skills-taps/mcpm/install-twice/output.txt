@@ -1,0 +1,10 @@
+Resolving @acme/skills...
+Failed to parse <root>/home/.config/mcpm/taps/acme-skills/skills/escape/SKILL.md: 1 validation error for SkillFrontmatter
+name
+  Value error, name must be lowercase alphanumeric + hyphens, cannot start/end with hyphen [type=value_error, input_value='../escape', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/value_error
+Found 3 skill(s)
+  Skipping code-review (already exists)
+  Skipping terraform-helper (already exists)
+  Skipping style-guide (already exists)
+No new skills installed.

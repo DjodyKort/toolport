@@ -1,0 +1,5 @@
+home/.config/mcpm/taps/acme-audit/skills/injector/SKILL.md
+home/.config/mcpm/taps/acme-audit/skills/safe-helper/SKILL.md
+home/.config/mcpm/taps_index.json
+target/skills/injector/SKILL.md
+target/skills/safe-helper/SKILL.md

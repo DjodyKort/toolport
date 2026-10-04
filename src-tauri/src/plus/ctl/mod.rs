@@ -791,6 +791,10 @@ mod server_tests;
 mod import_tests;
 
 #[cfg(test)]
+mod skills_taps_golden_tests;
+#[cfg(test)]
+mod skills_taps_tests;
+#[cfg(test)]
 mod skills_tests;
 
 #[cfg(test)]

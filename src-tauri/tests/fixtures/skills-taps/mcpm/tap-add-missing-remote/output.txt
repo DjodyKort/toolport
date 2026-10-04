@@ -1,0 +1,9 @@
+Cloning acme/nonexistent...
+Failed to clone https://github.com/acme/nonexistent.git: Cloning into '<root>/home/.config/mcpm/taps/acme-nonexistent'...
+fatal: '<root>/_infra/remotes/acme/nonexistent.git' does not appear to be a git repository
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+
+Failed to add tap.

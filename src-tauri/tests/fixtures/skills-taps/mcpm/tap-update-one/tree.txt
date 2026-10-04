@@ -1,0 +1,9 @@
+home/.config/mcpm/taps/acme-skills/README.md
+home/.config/mcpm/taps/acme-skills/rules/style-guide/SKILL.md
+home/.config/mcpm/taps/acme-skills/skills/code-review/SKILL.md
+home/.config/mcpm/taps/acme-skills/skills/code-review/reference/checklist.md
+home/.config/mcpm/taps/acme-skills/skills/code-review/scripts/summarize.sh
+home/.config/mcpm/taps/acme-skills/skills/escape/SKILL.md
+home/.config/mcpm/taps/acme-skills/skills/terraform-helper/SKILL.md
+home/.config/mcpm/taps/extra/skills/release-notes/SKILL.md
+home/.config/mcpm/taps_index.json

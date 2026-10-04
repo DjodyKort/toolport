@@ -1,0 +1,7 @@
+{
+  "acme-mild": {
+    "repo": "acme/mild",
+    "url": "https://github.com/acme/mild.git",
+    "path": "<root>/home/.config/mcpm/taps/acme-mild"
+  }
+}
