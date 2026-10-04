@@ -3,18 +3,21 @@
   "routes": {
     "all-commands": {
       "title": "All commands",
-      "status": "planned"
+      "status": "built",
+      "component": "src/plus/allcommands/AllCommandsPage.tsx"
     }
   },
   "actions": {
     "all-commands.run": {
       "route": "all-commands",
-      "status": "planned",
+      "status": "built",
+      "test": "src/plus/allcommands/AllCommandsPage.test.tsx",
       "summary": "Run any registry command: flag form from the registry, preview, confirm, apply"
     },
     "all-commands.terminal": {
       "route": "all-commands",
-      "status": "planned",
+      "status": "built",
+      "test": "src/plus/allcommands/AllCommandsPage.test.tsx",
       "summary": "Show the exact command of a terminal-only row with a copy button and Open in Terminal"
     },
     "all-commands.tool": {
