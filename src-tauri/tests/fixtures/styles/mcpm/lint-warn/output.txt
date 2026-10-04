@@ -1,0 +1,13 @@
+  E dup: Style name 'dup' does not match directory name 'dup-a'
+  E dup: Style name 'dup' does not match directory name 'dup-b'
+  W empty-body: Body is empty. Add style instructions.
+  W huge: Body (12851 chars) exceeds Windsurf workspace limit (12000). Will be truncated on Windsurf.
+  W long-lines: Body is 205 lines. Output styles should be concise -- consider trimming.
+  E other-name: Style name 'other-name' does not match directory name 'mismatch'
+  W placeholder: Description is very short (<20 chars). Add detail about the tone/style.
+  W placeholder: Description is a placeholder. Fill it in before syncing.
+  W placeholder: Body starts with TODO placeholder. Replace with actual style instructions.
+  W short: Description is very short (<20 chars). Add detail about the tone/style.
+  E dup: Duplicate style name found.
+
+  4 error(s), 7 warning(s)

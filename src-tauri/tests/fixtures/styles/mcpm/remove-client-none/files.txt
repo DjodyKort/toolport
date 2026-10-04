@@ -1,0 +1,7 @@
+=== repo/.mcpm/skills/mcpm-output-style/SKILL.md ===
+# Output Style: concise
+
+Answer in as few words as possible.
+
+Skip greetings and closing remarks.
+

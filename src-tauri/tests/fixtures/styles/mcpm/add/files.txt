@@ -1,0 +1,9 @@
+=== repo/styles/concise-engineer/STYLE.md ===
+---
+name: concise-engineer
+description: "TODO: Describe the tone, verbosity, and persona of this output style."
+keep-coding-instructions: true
+---
+
+TODO: Add style instructions here.
+

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "synced_at": "<ts>",
+  "scope": "",
+  "output_root": "",
+  "skills": {},
+  "rules": {},
+  "agents": {},
+  "styles": {
+    "ok": {
+      "source": "local",
+      "version": null,
+      "hash": "sha256:fb0158edcb8ab3e0",
+      "clients_synced": ["claude-code", "roomodes-style"],
+      "warnings": [],
+      "output_files": {},
+      "hooks_installed": {}
+    }
+  },
+  "active_styles": {}
+}

@@ -1,0 +1,7 @@
+
+Applied style 'concise' to 0 client(s).
+
+┏━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Client ┃ Active style ┃
+┡━━━━━━━━╇━━━━━━━━━━━━━━┩
+└────────┴──────────────┘

@@ -1,0 +1,6 @@
+apply
+concise
+--client
+claude-code
+--path
+{repo}

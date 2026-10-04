@@ -1,0 +1,4 @@
+apply
+teacher
+--path
+{repo}

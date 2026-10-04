@@ -1,0 +1,11 @@
+repo/.windsurf/rules/mcpm-output-style.md
+repo/mcpm-skills.lock
+repo/mcpm-skills.yaml
+repo/styles/dup-a/STYLE.md
+repo/styles/dup-b/STYLE.md
+repo/styles/empty-body/STYLE.md
+repo/styles/huge/STYLE.md
+repo/styles/long-lines/STYLE.md
+repo/styles/mismatch/STYLE.md
+repo/styles/placeholder/STYLE.md
+repo/styles/short/STYLE.md

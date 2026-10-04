@@ -24,6 +24,7 @@ mod output;
 mod profile;
 mod secret;
 mod server;
+mod styles;
 mod sync;
 mod update;
 mod usage;
@@ -464,6 +465,56 @@ pub const COMMANDS: &[Command] = &[
         "Agents: add ls lint audit diff status clean uninstall sync",
         agents::group,
     ),
+    cmd(
+        &["styles", "add"],
+        "Create an output style from a template (<name>, --path, --dry-run)",
+        styles::add,
+    ),
+    cmd(
+        &["styles", "ls"],
+        "List output styles and where they are synced (--path <dir>)",
+        styles::ls,
+    ),
+    cmd(
+        &["styles", "lint"],
+        "Lint output styles; exits 1 on errors (--path <dir>)",
+        styles::lint,
+    ),
+    cmd(
+        &["styles", "diff"],
+        "Show new, modified and removed styles since the last sync (--path <dir>)",
+        styles::diff,
+    ),
+    cmd(
+        &["styles", "status"],
+        "Show the synced and the active styles per client (--path <dir>)",
+        styles::status,
+    ),
+    cmd(
+        &["styles", "sync"],
+        "Write every style to the native-toggle clients (--path, --home, --client <key>, --project, --dry-run)",
+        styles::sync,
+    ),
+    cmd(
+        &["styles", "apply"],
+        "Apply one style as an always-on rule to the other clients (<name>, --path, --home, --client <key>, --project, --dry-run)",
+        styles::apply,
+    ),
+    cmd(
+        &["styles", "remove"],
+        "Remove the active style from the other clients (--path, --home, --client <key>, --project, --dry-run)",
+        styles::remove,
+    ),
+    cmd(
+        &["styles", "clean"],
+        "Remove every synced and applied style file (--path, --home, --project, --dry-run)",
+        styles::clean,
+    ),
+    cmd(
+        &["styles"],
+        "Styles: add ls lint diff status sync apply remove clean",
+        styles::group,
+    ),
     cmd(&["sync"], "Encrypted sync: init push pull diff status reset ...", sync::run),
     cmd(&["cc"], "Claude Code plugins: list | update [--dry-run]", cc::run),
     cmd(
@@ -689,6 +740,10 @@ mod auth_tests;
 mod agents_golden_tests;
 #[cfg(test)]
 mod agents_tests;
+#[cfg(test)]
+mod styles_golden_tests;
+#[cfg(test)]
+mod styles_tests;
 #[cfg(test)]
 mod compression_cfg_tests;
 #[cfg(test)]

@@ -1,0 +1,3 @@
+  Removed: <root>/repo/.rules
+
+Cleaned 1 style file(s) from clients.

@@ -1,0 +1,6 @@
+repo/.cursor/rules/mcpm-output-style/RULE.md
+repo/mcpm-skills.lock
+repo/mcpm-skills.yaml
+repo/styles/concise/STYLE.md
+repo/styles/teacher/STYLE.md
+repo/styles/terse/STYLE.md

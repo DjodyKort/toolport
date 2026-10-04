@@ -1,0 +1,5 @@
+sync
+--client
+cursor
+--path
+{repo}

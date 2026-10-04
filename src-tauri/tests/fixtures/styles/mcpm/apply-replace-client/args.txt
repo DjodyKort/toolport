@@ -1,0 +1,6 @@
+apply
+teacher
+--client
+cursor
+--path
+{repo}

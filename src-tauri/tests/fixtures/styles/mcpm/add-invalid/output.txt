@@ -1,0 +1,4 @@
+Invalid style name: 1 validation error for StyleFrontmatter
+name
+  Value error, name must be lowercase alphanumeric + hyphens, cannot start/end with hyphen 
+    For further information visit https://errors.pydantic.dev/2.13/v/value_error

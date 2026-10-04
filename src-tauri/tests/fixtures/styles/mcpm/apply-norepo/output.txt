@@ -1,0 +1,1 @@
+Error: No skills repository found. Run 'mcpm skills init' first.

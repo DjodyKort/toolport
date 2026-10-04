@@ -1,0 +1,3 @@
+repo/mcpm-skills.yaml
+repo/styles/nostyle/README.md
+repo/styles/ok/STYLE.md

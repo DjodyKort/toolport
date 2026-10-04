@@ -1,0 +1,11 @@
+Style directory nostyle has no STYLE.md, skipping
+
+Synced 1 style(s) to 2 native client(s).
+
+┏━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┓
+┃ Style ┃ Description                                         ┃ Clients synced              ┃ Warnings ┃
+┡━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━┩
+│ ok    │ A style that parses fine next to a broken directory │ claude-code, roomodes-style │ --       │
+└───────┴─────────────────────────────────────────────────────┴─────────────────────────────┴──────────┘
+
+These clients support native toggling. For other clients, use 'mcpm styles apply <name>'.

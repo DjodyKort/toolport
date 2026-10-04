@@ -1,0 +1,15 @@
+Removing style 'concise' from aider
+Removing style 'concise' from amazon-q
+Removing style 'concise' from cline
+Removing style 'concise' from codex-cli
+Removing style 'concise' from continue
+Removing style 'concise' from cursor
+Removing style 'concise' from gemini-cli
+Removing style 'concise' from goose
+Removing style 'concise' from jetbrains
+Removing style 'concise' from trae
+Removing style 'concise' from vscode-copilot
+Removing style 'concise' from windsurf
+Removing style 'concise' from zed
+
+Done. Removed active style from 0 client(s).

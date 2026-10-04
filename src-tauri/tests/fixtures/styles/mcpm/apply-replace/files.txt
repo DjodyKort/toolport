@@ -1,0 +1,113 @@
+=== repo/.agents/skills/mcpm-output-style/SKILL.md ===
+---
+name: mcpm-output-style
+description: "Output style: Explains every step like a patient teacher who checks understanding as it goes along"
+---
+
+Explain the reasoning behind each change.
+
+End with a question that checks understanding.
+
+=== repo/.aiassistant/rules/mcpm-output-style.md ===
+<!-- mcpm: name=mcpm-output-style, activation=always -->
+<!-- mcpm: description="Output style: Explains every step like a patient teacher who checks understanding as it goes along" -->
+
+Explain the reasoning behind each change.
+
+End with a question that checks understanding.
+
+=== repo/.amazonq/rules/mcpm-output-style.md ===
+<!-- mcpm: mcpm-output-style - Output style: Explains every step like a patient teacher who checks understanding as it goes along -->
+
+Explain the reasoning behind each change.
+
+End with a question that checks understanding.
+
+=== repo/.clinerules/mcpm-output-style.md ===
+Explain the reasoning behind each change.
+
+End with a question that checks understanding.
+
+=== repo/.continue/rules/mcpm-output-style.md ===
+---
+description: "Output style: Explains every step like a patient teacher who checks understanding as it goes along"
+alwaysApply: true
+---
+
+Explain the reasoning behind each change.
+
+End with a question that checks understanding.
+
+=== repo/.cursor/rules/mcpm-output-style/RULE.md ===
+---
+description: "Output style: Explains every step like a patient teacher who checks understanding as it goes along"
+alwaysApply: true
+---
+
+Explain the reasoning behind each change.
+
+End with a question that checks understanding.
+
+=== repo/.gemini/skills/mcpm-output-style/SKILL.md ===
+---
+name: mcpm-output-style
+description: "Output style: Explains every step like a patient teacher who checks understanding as it goes along"
+---
+
+Explain the reasoning behind each change.
+
+End with a question that checks understanding.
+
+=== repo/.github/instructions/mcpm-output-style.instructions.md ===
+Explain the reasoning behind each change.
+
+End with a question that checks understanding.
+
+=== repo/.goose/rules/mcpm-output-style.md ===
+---
+name: mcpm-output-style
+description: "Output style: Explains every step like a patient teacher who checks understanding as it goes along"
+---
+
+Explain the reasoning behind each change.
+
+End with a question that checks understanding.
+
+=== repo/.mcpm/skills/mcpm-output-style/SKILL.md ===
+# Output Style: teacher
+
+Explain the reasoning behind each change.
+
+End with a question that checks understanding.
+
+=== repo/.rules ===
+
+
+<!-- mcpm-style:start -->
+## Output Style: teacher
+
+Explain the reasoning behind each change.
+
+End with a question that checks understanding.
+<!-- mcpm-style:end -->
+
+=== repo/.trae/rules/mcpm-output-style.md ===
+---
+description: "Output style: Explains every step like a patient teacher who checks understanding as it goes along"
+alwaysApply: true
+---
+
+Explain the reasoning behind each change.
+
+End with a question that checks understanding.
+
+=== repo/.windsurf/rules/mcpm-output-style.md ===
+---
+description: "Output style: Explains every step like a patient teacher who checks understanding as it goes along"
+trigger: always_on
+---
+
+Explain the reasoning behind each change.
+
+End with a question that checks understanding.
+

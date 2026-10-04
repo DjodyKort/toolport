@@ -1,0 +1,7 @@
+┏━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ Style   ┃ Description                                                     ┃ Keep coding instructions ┃ Synced to  ┃
+┡━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ concise │ Short answers with no preamble and no trailing summary          │ yes                      │ not synced │
+│ teacher │ Explains every step like a patient teacher who checks unders... │ no                       │ not synced │
+│ terse   │ Terse bullet points for status updates and handovers            │ yes                      │ not synced │
+└─────────┴─────────────────────────────────────────────────────────────────┴──────────────────────────┴────────────┘

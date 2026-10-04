@@ -1,0 +1,2 @@
+repo/mcpm-skills.yaml
+repo/styles/concise-engineer/STYLE.md

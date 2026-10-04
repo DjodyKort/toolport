@@ -1,0 +1,5 @@
+No lockfile found. All styles are new.
+
+  + concise
+  + teacher
+  + terse

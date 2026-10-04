@@ -1,0 +1,4 @@
+add
+fresh
+--path
+{repo}/styles/concise

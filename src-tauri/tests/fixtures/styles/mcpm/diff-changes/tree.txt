@@ -1,0 +1,9 @@
+repo/.claude/output-styles/concise.md
+repo/.claude/output-styles/teacher.md
+repo/.claude/output-styles/terse.md
+repo/.roomodes
+repo/mcpm-skills.lock
+repo/mcpm-skills.yaml
+repo/styles/concise/STYLE.md
+repo/styles/newone/STYLE.md
+repo/styles/teacher/STYLE.md

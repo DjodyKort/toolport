@@ -1,0 +1,19 @@
+  Removed: <root>/repo/.mcpm/skills/mcpm-output-style/SKILL.md
+  Removed: <root>/repo/.amazonq/rules/mcpm-output-style.md
+  Removed: <root>/repo/.claude/output-styles/concise.md
+  Removed: <root>/repo/.claude/output-styles/teacher.md
+  Removed: <root>/repo/.claude/output-styles/terse.md
+  Removed: <root>/repo/.clinerules/mcpm-output-style.md
+  Removed: <root>/repo/.agents/skills/mcpm-output-style/SKILL.md
+  Removed: <root>/repo/.continue/rules/mcpm-output-style.md
+  Removed: <root>/repo/.cursor/rules/mcpm-output-style/RULE.md
+  Removed: <root>/repo/.gemini/skills/mcpm-output-style/SKILL.md
+  Removed: <root>/repo/.goose/rules/mcpm-output-style.md
+  Removed: <root>/repo/.aiassistant/rules/mcpm-output-style.md
+  Removed: <root>/repo/.roomodes
+  Removed: <root>/repo/.trae/rules/mcpm-output-style.md
+  Removed: <root>/repo/.github/instructions/mcpm-output-style.instructions.md
+  Removed: <root>/repo/.windsurf/rules/mcpm-output-style.md
+  Removed: <root>/repo/.rules
+
+Cleaned 17 style file(s) from clients.

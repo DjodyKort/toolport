@@ -1,0 +1,2 @@
+=== repo/.roomodes ===
+{"customModes": [{"slug": "reviewer", "name": "Reviewer", "roleDefinition": "Reviews", "groups": ["read"]}, {"slug": "style-old", "name": "Old", "roleDefinition": "Old style", "customInstructions": "x", "groups": ["read"]}]}

@@ -1,0 +1,5 @@
+  Removed: <root>/repo/.claude/output-styles/concise.md
+  Removed: <root>/repo/.claude/output-styles/teacher.md
+  Removed: <root>/repo/.claude/output-styles/terse.md
+
+Cleaned 3 style file(s) from clients.

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "synced_at": "<ts>",
+  "scope": "",
+  "output_root": "",
+  "skills": {},
+  "rules": {},
+  "agents": {},
+  "styles": {
+    "huge": {
+      "source": "local",
+      "version": null,
+      "hash": "sha256:d0be81ff8c321afe",
+      "clients_synced": ["windsurf"],
+      "warnings": ["windsurf: style body truncated from 12851 to fit 12000 char limit"],
+      "output_files": {},
+      "hooks_installed": {}
+    }
+  },
+  "active_styles": {
+    "windsurf": "huge"
+  }
+}

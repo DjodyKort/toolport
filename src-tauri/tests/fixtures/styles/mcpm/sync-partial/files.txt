@@ -1,0 +1,41 @@
+=== repo/.claude/output-styles/ok.md ===
+---
+name: ok
+description: "A style that parses fine next to a broken directory"
+keep-coding-instructions: true
+---
+
+Plain body.
+
+=== repo/.roomodes ===
+{
+  "customModes": [
+    {
+      "slug": "style-ok",
+      "name": "Ok",
+      "roleDefinition": "A style that parses fine next to a broken directory",
+      "customInstructions": "Plain body.",
+      "groups": [
+        [
+          "read",
+          {}
+        ],
+        [
+          "edit",
+          {
+            "fileRegex": ".*"
+          }
+        ],
+        [
+          "command",
+          {}
+        ],
+        [
+          "mcp",
+          {}
+        ]
+      ]
+    }
+  ]
+}
+

@@ -1,0 +1,11 @@
+=== repo/.rules ===
+
+
+<!-- mcpm-style:start -->
+## Output Style: teacher
+
+Explain the reasoning behind each change.
+
+End with a question that checks understanding.
+<!-- mcpm-style:end -->
+

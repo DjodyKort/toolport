@@ -1,0 +1,8 @@
+
+Applied style 'concise' to 1 client(s).
+
+┏━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Client ┃ Active style ┃
+┡━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ zed    │ concise      │
+└────────┴──────────────┘

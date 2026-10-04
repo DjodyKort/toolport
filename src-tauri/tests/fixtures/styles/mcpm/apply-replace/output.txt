@@ -1,0 +1,33 @@
+Replacing active style 'concise' on aider
+Replacing active style 'concise' on amazon-q
+Replacing active style 'concise' on cline
+Replacing active style 'concise' on codex-cli
+Replacing active style 'concise' on continue
+Replacing active style 'concise' on cursor
+Replacing active style 'concise' on gemini-cli
+Replacing active style 'concise' on goose
+Replacing active style 'concise' on jetbrains
+Replacing active style 'concise' on trae
+Replacing active style 'concise' on vscode-copilot
+Replacing active style 'concise' on windsurf
+Replacing active style 'concise' on zed
+
+Applied style 'teacher' to 13 client(s).
+
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Client         ┃ Active style ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ aider          │ teacher      │
+│ amazon-q       │ teacher      │
+│ cline          │ teacher      │
+│ codex-cli      │ teacher      │
+│ continue       │ teacher      │
+│ cursor         │ teacher      │
+│ gemini-cli     │ teacher      │
+│ goose          │ teacher      │
+│ jetbrains      │ teacher      │
+│ trae           │ teacher      │
+│ vscode-copilot │ teacher      │
+│ windsurf       │ teacher      │
+│ zed            │ teacher      │
+└────────────────┴──────────────┘

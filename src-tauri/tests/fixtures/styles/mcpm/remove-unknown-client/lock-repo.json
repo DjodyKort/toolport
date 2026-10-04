@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "synced_at": "<ts>",
+  "scope": "",
+  "output_root": "",
+  "skills": {},
+  "rules": {},
+  "agents": {},
+  "styles": {
+    "concise": {
+      "source": "local",
+      "version": null,
+      "hash": "sha256:c3bd726d6be9d89e",
+      "clients_synced": [
+        "aider",
+        "amazon-q",
+        "cline",
+        "codex-cli",
+        "continue",
+        "cursor",
+        "gemini-cli",
+        "goose",
+        "jetbrains",
+        "trae",
+        "vscode-copilot",
+        "windsurf",
+        "zed"
+      ],
+      "warnings": [],
+      "output_files": {},
+      "hooks_installed": {}
+    }
+  },
+  "active_styles": {
+    "aider": "concise",
+    "amazon-q": "concise",
+    "cline": "concise",
+    "codex-cli": "concise",
+    "continue": "concise",
+    "cursor": "concise",
+    "gemini-cli": "concise",
+    "goose": "concise",
+    "jetbrains": "concise",
+    "trae": "concise",
+    "vscode-copilot": "concise",
+    "windsurf": "concise",
+    "zed": "concise"
+  }
+}

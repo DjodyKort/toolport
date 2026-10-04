@@ -1,0 +1,17 @@
+Dry run -- no files will be removed.
+
+(dry run) Removing style 'concise' from aider
+(dry run) Removing style 'concise' from amazon-q
+(dry run) Removing style 'concise' from cline
+(dry run) Removing style 'concise' from codex-cli
+(dry run) Removing style 'concise' from continue
+(dry run) Removing style 'concise' from cursor
+(dry run) Removing style 'concise' from gemini-cli
+(dry run) Removing style 'concise' from goose
+(dry run) Removing style 'concise' from jetbrains
+(dry run) Removing style 'concise' from trae
+(dry run) Removing style 'concise' from vscode-copilot
+(dry run) Removing style 'concise' from windsurf
+(dry run) Removing style 'concise' from zed
+
+Done. Removed active style from 0 client(s).

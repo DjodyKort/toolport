@@ -1,0 +1,28 @@
+Tier 1 -- Native toggle (all styles available):
+
+┏━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Client      ┃ Styles synced           ┃
+┡━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ Claude Code │ concise, teacher, terse │
+│ Roo Code    │ concise, teacher, terse │
+└─────────────┴─────────────────────────┘
+
+Tier 2 -- Apply/Remove (one active style):
+
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Client          ┃ Active style ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ Aider           │ none         │
+│ Amazon Q        │ none         │
+│ Cline           │ none         │
+│ Codex CLI       │ none         │
+│ Continue.dev    │ none         │
+│ Cursor          │ none         │
+│ Gemini CLI      │ none         │
+│ Goose           │ none         │
+│ JetBrains AI    │ none         │
+│ Trae            │ none         │
+│ VS Code Copilot │ none         │
+│ Windsurf        │ none         │
+│ Zed             │ none         │
+└─────────────────┴──────────────┘

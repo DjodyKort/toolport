@@ -1,0 +1,5 @@
+apply
+concise
+--dry-run
+--path
+{repo}
