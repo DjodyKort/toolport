@@ -87,7 +87,8 @@ pub fn status(rest: &[String]) -> Result<Output, CtlError> {
     let data = served(api::status(&request))?;
     let missing_lock = data["lockfilePresent"] != json!(true);
     let drift = data["drift"] == json!(true);
-    let human = if missing_lock {
+    let rejected: &[Value] = data["rejected"].as_array().map_or(&[], Vec::as_slice);
+    let mut human = if missing_lock {
         "No lockfile found. Run 'toolportctl skills sync' first.".to_string()
     } else if data["lockedCount"] == json!(0) {
         "No skills in lockfile.".to_string()
@@ -119,8 +120,24 @@ pub fn status(rest: &[String]) -> Result<Output, CtlError> {
             table(&["Skill", "Client", "Status"], &rows)
         )
     };
+    if !rejected.is_empty() {
+        human.push_str(&format!(
+            "\n\n{} deployed file(s) would be rejected by their client and hidden from the model. \
+             Run 'toolportctl skills sync' to rewrite them:",
+            rejected.len()
+        ));
+        for row in rejected {
+            human.push_str(&format!(
+                "\n  {} ({}): {}",
+                str_of(row, "name"),
+                str_of(row, "client"),
+                str_of(row, "reason")
+            ));
+        }
+    }
+    let failed = args.on("--strict") && (missing_lock || drift || !rejected.is_empty());
     let mut out = Output::new(data, human);
-    out.failed = args.on("--strict") && (missing_lock || drift);
+    out.failed = failed;
     Ok(out)
 }
 

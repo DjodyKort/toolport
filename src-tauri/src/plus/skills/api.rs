@@ -5,7 +5,7 @@
 
 use super::lint::{lint_outputs, lint_skills, LintResult};
 use super::ops::{
-    diff_skills, find_skills_repo, has_drift, lock_dir, lock_output_root, read_lock,
+    check_outputs, diff_skills, find_skills_repo, has_drift, lock_dir, lock_output_root, read_lock,
     skills_status as output_rows,
 };
 use super::assets::compute_skill_hash;
@@ -201,11 +201,14 @@ pub fn status(args: &Args) -> Result<Value, OpError> {
             .collect()
     });
     let mut outputs = Vec::new();
+    let mut rejected = Vec::new();
     let mut output_root = Value::Null;
     if let Some((lock, source)) = &found {
         let root = lock_output_root(*source, &repo).map_err(OpError::not_found)?;
         outputs = output_rows(lock, &transpilers, &root);
         outputs.retain(|row| targeted.contains(&row.client));
+        rejected = check_outputs(lock, &transpilers, &root).rejected;
+        rejected.retain(|row| targeted.contains(&row.client));
         output_root = json!(root.to_string_lossy());
     }
     Ok(json!({
@@ -220,6 +223,16 @@ pub fn status(args: &Args) -> Result<Value, OpError> {
         "outputs": outputs
             .iter()
             .map(|row| json!({"name": row.name, "client": row.client, "present": row.present}))
+            .collect::<Vec<_>>(),
+        "rejected": rejected
+            .iter()
+            .map(|row| json!({
+                "name": row.name,
+                "client": row.client,
+                "path": row.path.to_string_lossy(),
+                "code": row.reason.code(),
+                "reason": row.reason.to_string(),
+            }))
             .collect::<Vec<_>>(),
     }))
 }

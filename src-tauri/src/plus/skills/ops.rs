@@ -8,6 +8,7 @@ use super::clock::Clock;
 use super::collisions::{
     detect_collisions, resolve_collisions, resolve_mode, Collision, CollisionSummary,
 };
+use super::frontmatter::{output_accepted, Reason};
 use super::json;
 use super::lock::{get_entry, load_lockfile, lockfile_path, save_lockfile, LockFile, OrderedMap};
 use super::parser::{valid_name, Skill, SkillType};
@@ -258,6 +259,58 @@ pub fn skills_status(
         }
     }
     rows
+}
+
+/// A deployed skill file whose frontmatter its client would reject.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RejectedOutput {
+    pub name: String,
+    pub client: String,
+    pub path: PathBuf,
+    pub reason: Reason,
+}
+
+/// What reading the deployed skill files of a lock found: how many were read and which of them
+/// their client would reject (a skill Claude Code rejects is hidden from the model).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct OutputCheck {
+    pub checked: usize,
+    pub rejected: Vec<RejectedOutput>,
+}
+
+/// Reads the primary output of every locked skill and rule for each synced client with a file of its
+/// own; missing files are `skills_status`'s business.
+pub fn check_outputs(lock: &LockFile, registry: &TranspilerRegistry, root: &Path) -> OutputCheck {
+    let mut check = OutputCheck::default();
+    for (name, entry) in lock.skills.iter().chain(lock.rules.iter()) {
+        let skill_type = if get_entry(&lock.rules, name).is_some() {
+            SkillType::Rule
+        } else {
+            SkillType::Skill
+        };
+        for client in &entry.clients_synced {
+            let Some(t) = registry
+                .get(client)
+                .filter(|t| !t.capabilities().append_mode)
+            else {
+                continue;
+            };
+            let path = t.get_output_path(&Skill::placeholder(name, skill_type), root);
+            let Ok(text) = fs::read_to_string(&path) else {
+                continue;
+            };
+            check.checked += 1;
+            if let Err(reason) = output_accepted(client, &text) {
+                check.rejected.push(RejectedOutput {
+                    name: name.clone(),
+                    client: client.clone(),
+                    path,
+                    reason,
+                });
+            }
+        }
+    }
+    check
 }
 
 pub fn agents_status(
