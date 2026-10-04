@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
-//! Golden `--json` envelopes under `tests/fixtures/ctl-envelopes/`. A golden is compared as JSON
+//! Golden `--json` envelopes under `tests/fixtures/ctl-envelopes/` (and the self-MCP results
+//! under `tests/fixtures/selfmcp-envelopes/`). A golden is compared as JSON
 //! (not text), so a formatter run over the file does not matter. `CTL_ENVELOPE_BLESS=1` rewrites
 //! them and is rejected when `CI` is set: a changed envelope is a reviewed change to the contract.
 
@@ -13,13 +14,21 @@ pub fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/ctl-envelopes")
 }
 
+pub fn selfmcp_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/selfmcp-envelopes")
+}
+
 /// `skills tap add` is stored as `skills-tap-add.json`.
 pub fn file_stem(case: &str) -> String {
     case.split_whitespace().collect::<Vec<_>>().join("-")
 }
 
 pub fn path_of(case: &str) -> PathBuf {
-    root().join(format!("{}.json", file_stem(case)))
+    path_in(&root(), case)
+}
+
+pub fn path_in(dir: &Path, case: &str) -> PathBuf {
+    dir.join(format!("{}.json", file_stem(case)))
 }
 
 pub fn bless_guard(bless: Option<&str>, ci: Option<&str>) -> Result<bool, String> {
@@ -86,28 +95,40 @@ pub fn first_difference(expected: &Value, actual: &Value) -> Option<String> {
     walk("", expected, actual)
 }
 
-pub fn write(case: &str, value: &Value) {
-    let path = path_of(case);
+pub fn write_in(dir: &Path, case: &str, value: &Value) {
+    let path = path_in(dir, case);
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     let mut text = serde_json::to_string_pretty(value).unwrap();
     text.push('\n');
     std::fs::write(&path, text).unwrap();
 }
 
-pub fn read(case: &str) -> Option<Value> {
-    let text = std::fs::read_to_string(path_of(case)).ok()?;
+pub fn read_in(dir: &Path, case: &str) -> Option<Value> {
+    let text = std::fs::read_to_string(path_in(dir, case)).ok()?;
     Some(serde_json::from_str(&text).unwrap_or_else(|e| panic!("golden {case} is not JSON: {e}")))
 }
 
+pub fn write(case: &str, value: &Value) {
+    write_in(&root(), case, value)
+}
+
+pub fn read(case: &str) -> Option<Value> {
+    read_in(&root(), case)
+}
+
 pub fn assert_golden(case: &str, actual: &Value) {
+    assert_golden_in(&root(), case, actual)
+}
+
+pub fn assert_golden_in(dir: &Path, case: &str, actual: &Value) {
     if bless_requested() {
-        write(case, actual);
+        write_in(dir, case, actual);
         return;
     }
-    let expected = read(case).unwrap_or_else(|| {
+    let expected = read_in(dir, case).unwrap_or_else(|| {
         panic!(
             "no golden for `{case}` ({}); run with {BLESS_VAR}=1 and review the new file",
-            path_of(case).display()
+            path_in(dir, case).display()
         )
     });
     if let Some(difference) = first_difference(&expected, actual) {
@@ -116,7 +137,7 @@ pub fn assert_golden(case: &str, actual: &Value) {
             "envelope of `{case}` drifted from {}: {difference}\n\
              actual: {shown}\n\
              a deliberate contract change: rerun with {BLESS_VAR}=1, review the diff, update the TS type",
-            path_of(case).display()
+            path_in(dir, case).display()
         );
     }
 }
