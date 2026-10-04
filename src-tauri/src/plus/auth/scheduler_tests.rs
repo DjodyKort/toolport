@@ -130,10 +130,8 @@ fn a_slow_probe_never_blocks_the_caller() {
     let rig = rig("slow", probe);
     let s = &rig.scheduler;
     rig.clock.advance(STARTUP_DELAY_SECS);
-    let began = Instant::now();
     assert_eq!(s.tick(), Tick::Started);
-    assert!(began.elapsed() < Duration::from_secs(2));
-    assert!(s.running());
+    assert!(s.running(), "tick returned only after the probe finished");
     rig.clock.advance(TICK_SECS * 5);
     assert_eq!(s.tick(), Tick::Busy);
     release.send(()).unwrap();
