@@ -3,8 +3,9 @@ use super::commands::snapshot;
 use super::flags::{switch, value, Flags, Spec};
 use super::output::{CtlError, Output};
 use crate::catalog::{self, CatalogEntry};
+use crate::plus::servers::{self, AddError, Patch};
 use crate::registry::{Registry, ServerEntry};
-use crate::registry_controller::{self, ServerFields};
+use crate::registry_controller;
 use serde_json::{json, Value};
 
 const SEARCH_USAGE: &str = "usage: server search [<query>] [--offline] [--limit <n>]";
@@ -61,16 +62,14 @@ fn load_registry() -> Result<Registry, CtlError> {
     }
 }
 
+/// A write must not run over an unreadable registry: the locked loader would restore it from
+/// the backup instead of refusing.
+fn require_readable() -> Result<(), CtlError> {
+    load_registry().map(drop)
+}
+
 pub(super) fn resolve<'a>(reg: &'a Registry, key: &str) -> Result<&'a ServerEntry, CtlError> {
-    reg.servers
-        .iter()
-        .find(|s| s.id == key)
-        .or_else(|| {
-            reg.servers
-                .iter()
-                .find(|s| s.name.eq_ignore_ascii_case(key))
-        })
-        .ok_or_else(|| CtlError::not_found(format!("no server '{key}'")))
+    servers::find(reg, key).ok_or_else(|| CtlError::not_found(format!("no server '{key}'")))
 }
 
 fn catalog_row(entry: &CatalogEntry) -> Value {
@@ -139,25 +138,13 @@ pub fn install(rest: &[String]) -> Result<Output, CtlError> {
         .into_iter()
         .find(|e| e.name.eq_ignore_ascii_case(name))
         .ok_or_else(|| CtlError::not_found(format!("no catalog entry named '{name}'")))?;
-    let existing = load_registry()?;
-    if existing
-        .servers
-        .iter()
-        .any(|s| s.name.eq_ignore_ascii_case(&entry.name))
-    {
-        return Err(CtlError::conflict(
-            format!("server '{}' is already installed", entry.name),
-        ));
-    }
-    let before: Vec<String> = existing.servers.iter().map(|s| s.id.clone()).collect();
-    let reg = registry_controller::add_catalog_entry(entry.clone())
-        .map_err(|e| CtlError::failed("install", e))?;
-    let added = reg
-        .servers
-        .iter()
-        .find(|s| !before.contains(&s.id))
-        .map(|s| s.id.clone())
-        .unwrap_or_default();
+    require_readable()?;
+    let added = servers::add_catalog_returning_id(entry.clone()).map_err(|e| match e {
+        AddError::Exists => {
+            CtlError::conflict(format!("server '{}' is already installed", entry.name))
+        }
+        AddError::Failed(message) => CtlError::failed("install", message),
+    })?;
     Ok(Output::new(
         json!({"id": added, "name": entry.name, "envKeys": entry.env_keys, "source": entry.source}),
         format!(
@@ -175,51 +162,16 @@ pub fn install(rest: &[String]) -> Result<Output, CtlError> {
     ))
 }
 
-fn fields_from(
-    flags: &Flags,
-    base: Option<&ServerEntry>,
-    name: Option<&str>,
-) -> Result<ServerFields, CtlError> {
-    let command = flags
-        .one("--command")
-        .map(String::from)
-        .or_else(|| base.and_then(|b| b.command.clone()));
-    let url = flags
-        .one("--url")
-        .map(String::from)
-        .or_else(|| base.and_then(|b| b.url.clone()));
-    let args = match flags.all("--arg") {
-        given if given.is_empty() => base.map(|b| b.args.clone()).unwrap_or_default(),
-        given => given,
-    };
-    let transport = match flags.one("--transport") {
-        Some(t) => t.to_string(),
-        None if flags.one("--command").is_some() => "stdio".into(),
-        None if flags.one("--url").is_some() => match base.map(|b| b.transport.as_str()) {
-            Some(t @ ("http" | "sse")) => t.to_string(),
-            _ => "http".into(),
-        },
-        None => match base {
-            Some(b) => b.transport.clone(),
-            None if url.is_some() => "http".into(),
-            None => "stdio".into(),
-        },
-    };
-    Ok(ServerFields {
-        name: name
-            .or_else(|| flags.one("--name"))
-            .map(String::from)
-            .or_else(|| base.map(|b| b.name.clone()))
-            .unwrap_or_default(),
-        transport,
-        command,
-        args,
-        url,
-        cwd: flags
-            .one("--cwd")
-            .map(String::from)
-            .or_else(|| base.and_then(|b| b.cwd.clone())),
-    })
+fn patch_from(flags: &Flags, name: Option<&str>) -> Patch {
+    let own = |flag| flags.one(flag).map(String::from);
+    Patch {
+        name: name.map(String::from).or_else(|| own("--name")),
+        transport: own("--transport"),
+        command: own("--command"),
+        args: Some(flags.all("--arg")).filter(|given| !given.is_empty()),
+        url: own("--url"),
+        cwd: own("--cwd"),
+    }
 }
 
 pub fn new(rest: &[String]) -> Result<Output, CtlError> {
@@ -228,25 +180,12 @@ pub fn new(rest: &[String]) -> Result<Output, CtlError> {
     if flags.one("--command").is_none() && flags.one("--url").is_none() {
         return Err(CtlError::usage(NEW_USAGE));
     }
-    let fields = fields_from(&flags, None, Some(&name))?;
-    let existing = load_registry()?;
-    if existing
-        .servers
-        .iter()
-        .any(|s| s.name.eq_ignore_ascii_case(name.trim()))
-    {
-        return Err(CtlError::conflict(
-            format!("server '{name}' already exists"),
-        ));
-    }
-    let before: Vec<String> = existing.servers.iter().map(|s| s.id.clone()).collect();
-    let reg = registry_controller::add_server(fields).map_err(|e| CtlError::failed("input", e))?;
-    let added = reg
-        .servers
-        .iter()
-        .find(|s| !before.contains(&s.id))
-        .map(|s| s.id.clone())
-        .unwrap_or_default();
+    let fields = servers::fields_from(patch_from(&flags, Some(&name)), None);
+    require_readable()?;
+    let added = servers::add_returning_id(fields).map_err(|e| match e {
+        AddError::Exists => CtlError::conflict(format!("server '{name}' already exists")),
+        AddError::Failed(message) => CtlError::failed("input", message),
+    })?;
     Ok(Output::new(
         json!({"id": added, "name": name}),
         format!("Added {name} as {added}."),
@@ -262,7 +201,7 @@ pub fn edit(rest: &[String]) -> Result<Output, CtlError> {
     let reg = load_registry()?;
     let server = resolve(&reg, key)?;
     let id = server.id.clone();
-    let fields = fields_from(&flags, Some(server), None)?;
+    let fields = servers::fields_from(patch_from(&flags, None), Some(server));
     let changed: Vec<&str> = [
         ("name", fields.name != server.name),
         ("transport", fields.transport != server.transport),
@@ -426,11 +365,8 @@ pub fn profile_inspect(rest: &[String]) -> Result<Output, CtlError> {
     let reg = load_registry()?;
     let profile_id = match flags.operands().first() {
         Some(id) => reg
-            .profiles
-            .iter()
-            .find(|p| p.id == *id || p.name.eq_ignore_ascii_case(id))
-            .map(|p| p.id.clone())
-            .ok_or_else(|| CtlError::not_found(format!("no profile '{id}'")))?,
+            .canonical_profile_id(id)
+            .map_err(|_| CtlError::not_found(format!("no profile '{id}'")))?,
         None => reg.active_profile_id(),
     };
     let mut rows = Vec::new();

@@ -470,3 +470,89 @@ fn server_uninstall_keep_clients_leaves_configs() {
         assert_eq!(std::fs::read(claude_file(w)).unwrap(), before);
     });
 }
+
+#[test]
+fn server_edit_moves_the_transport_with_the_endpoint_flag() {
+    world(|_| {
+        let (code, value) = cli_json(&["server", "edit", "beta", "--command", "beta-mcp"]);
+        assert_eq!(code, 0, "{value}");
+        assert_eq!(
+            value["data"],
+            json!({"id": "beta", "changed": ["transport", "command"]})
+        );
+        let (_, info) = cli_json(&["server", "info", "beta"]);
+        assert_eq!(info["data"]["transport"], "stdio");
+        assert_eq!(info["data"]["url"], Value::Null);
+
+        let (code, value) = cli_json(&[
+            "server",
+            "new",
+            "delta",
+            "--url",
+            "https://example.invalid/sse",
+            "--transport",
+            "sse",
+        ]);
+        assert_eq!(code, 0, "{value}");
+        let (code, value) = cli_json(&[
+            "server",
+            "edit",
+            "delta",
+            "--url",
+            "https://example.invalid/s2",
+        ]);
+        assert_eq!(code, 0, "{value}");
+        assert_eq!(value["data"]["changed"], json!(["url"]));
+        let (_, info) = cli_json(&["server", "info", "delta"]);
+        assert_eq!(info["data"]["transport"], "sse");
+
+        let (code, value) = cli_json(&[
+            "server",
+            "new",
+            "epsilon",
+            "--url",
+            "https://example.invalid/e",
+        ]);
+        assert_eq!(code, 0, "{value}");
+        let (_, info) = cli_json(&["server", "info", "epsilon"]);
+        assert_eq!(info["data"]["transport"], "http");
+    });
+}
+
+#[test]
+fn server_new_refuses_a_name_taken_ignoring_case_and_padding() {
+    world(|w| {
+        let before = std::fs::read(w.data.join("registry.json")).unwrap();
+        for name in ["ALPHA", " alpha "] {
+            let (code, value) = cli_json(&["server", "new", name, "--command", "x"]);
+            assert_eq!(
+                (code, value["error"]["code"].as_str()),
+                (1, Some("conflict")),
+                "{name:?}"
+            );
+        }
+        assert_eq!(std::fs::read(w.data.join("registry.json")).unwrap(), before);
+    });
+}
+
+#[test]
+fn profile_inspect_takes_a_profile_id_or_a_name_in_any_case() {
+    world(|_| {
+        for key in ["work", "Work", "WORK"] {
+            let (code, value) = cli_json(&["profile", "inspect", key]);
+            assert_eq!(code, 0, "{key}");
+            assert_eq!(value["data"]["profile"], "work", "{key}");
+        }
+        for args in [
+            &["profile", "inspect", "DEFAULT"][..],
+            &["profile", "inspect"][..],
+        ] {
+            let (code, value) = cli_json(args);
+            assert_eq!(
+                (code, value["error"]["code"].as_str()),
+                (1, Some("inspect")),
+                "{args:?}"
+            );
+        }
+    });
+}
