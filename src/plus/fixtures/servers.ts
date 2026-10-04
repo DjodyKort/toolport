@@ -531,6 +531,7 @@ const skillsSync = (dryRun: boolean) => ({
   backupRoot: "/fixture/home/.backups",
   cleaned: [],
   clientCount: 13,
+  clientSource: "default",
   collisions: [],
   dryRun,
   entries: [],
@@ -542,6 +543,7 @@ const skillsSync = (dryRun: boolean) => ({
   ruleCount: 0,
   skillCount: 12,
   syncedAt: "2026-10-04T12:00:00Z",
+  targetedClients: ["claude-code"],
 });
 
 const login401 = ctlFailure("inspect_failed", "issue-tracker: HTTP 401 invalid_token");
