@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "name": "forked"
+  },
+  "isError": false,
+  "result": {
+    "ahead": 1,
+    "behind": 1,
+    "branch": "main",
+    "dirty": false,
+    "isGit": true,
+    "name": "forked",
+    "path": "<WORLD>/fork-work",
+    "remoteRef": "origin/main",
+    "summaries": ["6a4a877 upstream change"]
+  },
+  "tool": "servers_git_status"
+}

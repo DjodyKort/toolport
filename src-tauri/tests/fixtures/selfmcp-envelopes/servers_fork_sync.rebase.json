@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "forked",
+    "target_branch": "main-synced"
+  },
+  "isError": false,
+  "result": {
+    "branch": "main-synced",
+    "mode": "rebase",
+    "previousBranch": "main",
+    "synced": true
+  },
+  "tool": "servers_fork_sync"
+}

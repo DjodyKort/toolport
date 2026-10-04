@@ -1,0 +1,19 @@
+{
+  "arguments": {
+    "name": "forked"
+  },
+  "isError": false,
+  "result": {
+    "detected": {
+      "kind": "git",
+      "meta": {
+        "branch": "main",
+        "path": "<WORLD>/fork-work",
+        "type": "git"
+      }
+    },
+    "name": "forked",
+    "stored": true
+  },
+  "tool": "servers_detect_source"
+}

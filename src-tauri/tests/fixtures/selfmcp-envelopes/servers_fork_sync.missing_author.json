@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "confirm": true,
+    "mode": "onto-author",
+    "name": "forked"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "author_email is required for onto-author"
+    }
+  },
+  "text": "invalid_arguments: author_email is required for onto-author",
+  "tool": "servers_fork_sync"
+}
