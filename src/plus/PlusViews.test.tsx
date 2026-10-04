@@ -56,23 +56,16 @@ describe("PlusViews", () => {
     PLUS_VIEWS.filter(
       (view) => view !== "commands" && view !== "control" && view !== "logins",
     ),
-  )(
-    "marks %s as not built yet and names the item that builds it",
-    async (view) => {
-      render(<Harness start={view} />);
-      const screenInfo = PLUS_SCREENS[view];
-      const first = NOT_BUILT_TABS[view]?.[0];
-      expect(await screen.findByText("Not built yet")).toBeInTheDocument();
-      expect(
-        screen.getByText(
-          new RegExp(`built by ${first?.builtBy ?? screenInfo.builtBy}\\b`),
-        ),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: "Open All commands" }),
-      ).toBeInTheDocument();
-    },
-  );
+  )("marks %s as not built yet and names the item that builds it", async (view) => {
+    render(<Harness start={view} />);
+    const screenInfo = PLUS_SCREENS[view];
+    const first = NOT_BUILT_TABS[view]?.[0];
+    expect(await screen.findByText("Not built yet")).toBeInTheDocument();
+    expect(
+      screen.getByText(new RegExp(`built by ${first?.builtBy ?? screenInfo.builtBy}\\b`)),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open All commands" })).toBeInTheDocument();
+  });
 
   it("opens the Servers screen on the control view and the classic page from it", async () => {
     invoke.mockReset().mockImplementation(createBridge().invoke);

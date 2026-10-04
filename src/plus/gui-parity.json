@@ -15,8 +15,9 @@
     },
     "logins": {
       "title": "Logins & secrets",
+      "view": "control",
       "status": "built",
-      "component": "src/plus/logins/LoginsScreen.tsx"
+      "component": "src/plus/logins/LoginsTab.tsx"
     }
   },
   "actions": {

@@ -324,7 +324,7 @@ The app shows the same rows under Settings as "Sign-in health" (`plus.auth.rows`
 
 ## Logins & secrets
 
-`src/plus/logins/` builds the screen of the approved mockup nav item "Logins & secrets": three tabs, `LoginsTab`, `SecretsTab` and `IntegrationsTab` (props `{ onOpenCommands?, pollMs? }`), and `LoginsScreen`, a host with the three of them. The Servers shell (MIG-GUI-1) mounts the same three panels as its tabs; until it does, the `logins` view is where the AUTH-5 notification (Review), the "Sign-in health" button under Settings and the All commands page lead.
+`src/plus/logins/` builds the screen of the approved mockup nav item "Logins & secrets": three tabs, `LoginsTab`, `SecretsTab` and `IntegrationsTab` (props `{ onOpenCommands?, pollMs? }`), and `LoginsScreen`, a host with the three of them. The Servers shell (MIG-GUI-1) mounts the same three panels as its tabs; until it does, the `logins` view is where the AUTH-5 notification (Review), the "Sign-in health" button under Settings and the All commands page lead. The Servers screen (`src/plus/servers/ServersScreen.tsx`) mounts the three panels as its Logins, Secrets and Integrations tabs; the `logins` view (`LoginsScreen`) stays for the notification and the Settings link, and the `logins` route of the manifest points at the Servers entry.
 
 | Tab          | Reads                                                           | Writes (policy tier)                                                                                                           |
 | ------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
