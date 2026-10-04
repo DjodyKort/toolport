@@ -21,16 +21,18 @@ fn sensitive_key(key: &str) -> bool {
     !EXEMPT_KEYS.contains(&lower.as_str()) && SENSITIVE_KEYS.iter().any(|s| lower.contains(s))
 }
 
+const LIVE_SECRET_ENV: [&str; 3] = [
+    crate::brand::SECRET_KEY,
+    crate::brand::SECRET_KEY_LEGACY,
+    "TOOLPORT_HTTP_TOKEN",
+];
+
 fn live_secrets() -> Vec<String> {
-    [
-        "TOOLPORT_SECRET_KEY",
-        "CONDUIT_SECRET_KEY",
-        "TOOLPORT_HTTP_TOKEN",
-    ]
-    .iter()
-    .filter_map(|name| std::env::var(name).ok())
-    .filter(|v| v.len() >= 8)
-    .collect()
+    LIVE_SECRET_ENV
+        .iter()
+        .filter_map(|name| std::env::var(name).ok())
+        .filter(|v| v.len() >= 8)
+        .collect()
 }
 
 pub fn scrub_text(text: String) -> String {
@@ -68,5 +70,22 @@ fn scrub_with(value: Value, secrets: &[String]) -> Value {
                 .fold(s, |acc, secret| acc.replace(secret.as_str(), MASK)),
         ),
         other => other,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn both_secret_key_names_and_the_http_token_are_scrubbed() {
+        assert_eq!(
+            LIVE_SECRET_ENV,
+            [
+                "TOOLPORT_SECRET_KEY",
+                "CONDUIT_SECRET_KEY",
+                "TOOLPORT_HTTP_TOKEN"
+            ]
+        );
     }
 }

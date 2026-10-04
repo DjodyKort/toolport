@@ -36,7 +36,7 @@ pub(super) fn snapshot() -> Snapshot {
 }
 
 fn secrets_backend() -> &'static str {
-    match crate::brand::env_var("TOOLPORT_SECRET_KEY", "CONDUIT_SECRET_KEY") {
+    match crate::brand::env_var(crate::brand::SECRET_KEY, crate::brand::SECRET_KEY_LEGACY) {
         Some(_) => "encrypted-file",
         None => "os-keychain",
     }

@@ -21,6 +21,11 @@ pub const PROFILE: &str = "TOOLPORT_PROFILE";
 /// Pre-rename profile env key still accepted by the gateway.
 pub const PROFILE_LEGACY: &str = "CONDUIT_PROFILE";
 
+/// Passphrase that activates the encrypted-file secrets backend.
+pub const SECRET_KEY: &str = "TOOLPORT_SECRET_KEY";
+/// Pre-rename passphrase env key still accepted by the secrets backend.
+pub const SECRET_KEY_LEGACY: &str = "CONDUIT_SECRET_KEY";
+
 /// Prefer a non-empty `TOOLPORT_*` value, else fall back to `CONDUIT_*`.
 pub fn env_var(new_key: &str, legacy_key: &str) -> Option<String> {
     for key in [new_key, legacy_key] {
