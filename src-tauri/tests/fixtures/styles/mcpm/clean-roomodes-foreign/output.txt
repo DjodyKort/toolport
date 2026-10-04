@@ -1,0 +1,6 @@
+  Removed: <root>/repo/.claude/output-styles/concise.md
+  Removed: <root>/repo/.claude/output-styles/teacher.md
+  Removed: <root>/repo/.claude/output-styles/terse.md
+  Removed: <root>/repo/.roomodes
+
+Cleaned 4 style file(s) from clients.

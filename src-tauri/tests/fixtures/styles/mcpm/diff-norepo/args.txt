@@ -1,0 +1,3 @@
+diff
+--path
+{root}/nowhere

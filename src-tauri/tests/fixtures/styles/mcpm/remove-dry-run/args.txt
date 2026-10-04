@@ -1,0 +1,4 @@
+remove
+--dry-run
+--path
+{repo}

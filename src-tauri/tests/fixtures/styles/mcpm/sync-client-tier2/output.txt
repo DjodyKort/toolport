@@ -1,0 +1,12 @@
+
+Synced 3 style(s) to 0 native client(s).
+
+┏━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━┓
+┃ Style   ┃ Description                                                     ┃ Clients synced ┃ Warnings ┃
+┡━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━┩
+│ concise │ Short answers with no preamble and no trailing summary          │ none           │ --       │
+│ teacher │ Explains every step like a patient teacher who checks unders... │ none           │ --       │
+│ terse   │ Terse bullet points for status updates and handovers            │ none           │ --       │
+└─────────┴─────────────────────────────────────────────────────────────────┴────────────────┴──────────┘
+
+These clients support native toggling. For other clients, use 'mcpm styles apply <name>'.

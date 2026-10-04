@@ -47,6 +47,7 @@ Global flag `--json` prints one envelope (`schemaVersion`, `command`, `data`). E
 | `skills init/add/ls/lint/audit/bundle/unbundle/sync/diff`               | Skills repo init, add, list, lint, audit, bundle, sync, diff       |
 | `skills status / clean / uninstall / resolve`                           | Lock vs outputs, remove managed outputs, uninstall, collisions     |
 | `agents add/ls/lint/audit/diff/status/clean/uninstall/sync`             | Agents: template, list, lint, audit, drift, sync, remove           |
+| `styles add/ls/lint/diff/status/sync/apply/remove/clean`                | Output styles: template, list, lint, drift, sync, apply, remove    |
 | `sync`                                                                  | Encrypted sync (init, push, pull, diff, status, reset, ...)        |
 | `cc`                                                                    | Claude Code plugins: list, update                                  |
 | `update`                                                                | Server updates (`--check`, `--apply`, `--init`, `--dry-run`)       |

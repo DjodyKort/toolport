@@ -1,0 +1,9 @@
+Note: 'claude-code' supports native style toggling. Use 'mcpm styles sync' instead and toggle in the client UI.
+
+
+Applied style 'concise' to 0 client(s).
+
+┏━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Client ┃ Active style ┃
+┡━━━━━━━━╇━━━━━━━━━━━━━━┩
+└────────┴──────────────┘

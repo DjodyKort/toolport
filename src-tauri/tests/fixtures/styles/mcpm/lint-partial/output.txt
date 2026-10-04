@@ -1,0 +1,2 @@
+Style directory nostyle has no STYLE.md, skipping
+All 1 style(s) passed lint checks.

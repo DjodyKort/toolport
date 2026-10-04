@@ -1,0 +1,10 @@
+=== repo/.cursor/rules/mcpm-output-style/RULE.md ===
+---
+description: "Output style: Short answers with no preamble and no trailing summary"
+alwaysApply: true
+---
+
+Answer in as few words as possible.
+
+Skip greetings and closing remarks.
+

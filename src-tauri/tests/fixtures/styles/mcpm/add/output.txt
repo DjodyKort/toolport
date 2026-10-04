@@ -1,0 +1,2 @@
+Created style 'concise-engineer' at <root>/repo/styles/concise-engineer/STYLE.md
+Edit the file to add your style instructions, then run 'mcpm styles sync'.

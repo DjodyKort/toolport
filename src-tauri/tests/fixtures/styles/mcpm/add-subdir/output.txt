@@ -1,0 +1,2 @@
+Created style 'fresh' at <root>/repo/styles/fresh/STYLE.md
+Edit the file to add your style instructions, then run 'mcpm styles sync'.

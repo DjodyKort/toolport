@@ -1,0 +1,20 @@
+
+Applied style 'concise' to 13 client(s).
+
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Client         ┃ Active style ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ aider          │ concise      │
+│ amazon-q       │ concise      │
+│ cline          │ concise      │
+│ codex-cli      │ concise      │
+│ continue       │ concise      │
+│ cursor         │ concise      │
+│ gemini-cli     │ concise      │
+│ goose          │ concise      │
+│ jetbrains      │ concise      │
+│ trae           │ concise      │
+│ vscode-copilot │ concise      │
+│ windsurf       │ concise      │
+│ zed            │ concise      │
+└────────────────┴──────────────┘

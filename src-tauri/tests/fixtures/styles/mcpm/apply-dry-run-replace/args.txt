@@ -1,0 +1,5 @@
+apply
+teacher
+--dry-run
+--path
+{repo}

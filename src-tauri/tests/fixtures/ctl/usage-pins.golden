@@ -100,6 +100,16 @@ Commands:
   agents uninstall Remove an agent, its outputs and its lock entry (<name>, --path, --home, --project, --dry-run)
   agents sync    Transpile agents to client outputs (--path, --home, --client <key>, --project, --dry-run)
   agents         Agents: add ls lint audit diff status clean uninstall sync
+  styles add     Create an output style from a template (<name>, --path, --dry-run)
+  styles ls      List output styles and where they are synced (--path <dir>)
+  styles lint    Lint output styles; exits 1 on errors (--path <dir>)
+  styles diff    Show new, modified and removed styles since the last sync (--path <dir>)
+  styles status  Show the synced and the active styles per client (--path <dir>)
+  styles sync    Write every style to the native-toggle clients (--path, --home, --client <key>, --project, --dry-run)
+  styles apply   Apply one style as an always-on rule to the other clients (<name>, --path, --home, --client <key>, --project, --dry-run)
+  styles remove  Remove the active style from the other clients (--path, --home, --client <key>, --project, --dry-run)
+  styles clean   Remove every synced and applied style file (--path, --home, --project, --dry-run)
+  styles         Styles: add ls lint diff status sync apply remove clean
   sync           Encrypted sync: init push pull diff status reset ...
   cc             Claude Code plugins: list | update [--dry-run]
   update         Check or apply server updates (--check, --apply, --init, --dry-run)
@@ -220,6 +230,16 @@ Commands:
   agents uninstall Remove an agent, its outputs and its lock entry (<name>, --path, --home, --project, --dry-run)
   agents sync    Transpile agents to client outputs (--path, --home, --client <key>, --project, --dry-run)
   agents         Agents: add ls lint audit diff status clean uninstall sync
+  styles add     Create an output style from a template (<name>, --path, --dry-run)
+  styles ls      List output styles and where they are synced (--path <dir>)
+  styles lint    Lint output styles; exits 1 on errors (--path <dir>)
+  styles diff    Show new, modified and removed styles since the last sync (--path <dir>)
+  styles status  Show the synced and the active styles per client (--path <dir>)
+  styles sync    Write every style to the native-toggle clients (--path, --home, --client <key>, --project, --dry-run)
+  styles apply   Apply one style as an always-on rule to the other clients (<name>, --path, --home, --client <key>, --project, --dry-run)
+  styles remove  Remove the active style from the other clients (--path, --home, --client <key>, --project, --dry-run)
+  styles clean   Remove every synced and applied style file (--path, --home, --project, --dry-run)
+  styles         Styles: add ls lint diff status sync apply remove clean
   sync           Encrypted sync: init push pull diff status reset ...
   cc             Claude Code plugins: list | update [--dry-run]
   update         Check or apply server updates (--check, --apply, --init, --dry-run)
@@ -340,6 +360,16 @@ Commands:
   agents uninstall Remove an agent, its outputs and its lock entry (<name>, --path, --home, --project, --dry-run)
   agents sync    Transpile agents to client outputs (--path, --home, --client <key>, --project, --dry-run)
   agents         Agents: add ls lint audit diff status clean uninstall sync
+  styles add     Create an output style from a template (<name>, --path, --dry-run)
+  styles ls      List output styles and where they are synced (--path <dir>)
+  styles lint    Lint output styles; exits 1 on errors (--path <dir>)
+  styles diff    Show new, modified and removed styles since the last sync (--path <dir>)
+  styles status  Show the synced and the active styles per client (--path <dir>)
+  styles sync    Write every style to the native-toggle clients (--path, --home, --client <key>, --project, --dry-run)
+  styles apply   Apply one style as an always-on rule to the other clients (<name>, --path, --home, --client <key>, --project, --dry-run)
+  styles remove  Remove the active style from the other clients (--path, --home, --client <key>, --project, --dry-run)
+  styles clean   Remove every synced and applied style file (--path, --home, --project, --dry-run)
+  styles         Styles: add ls lint diff status sync apply remove clean
   sync           Encrypted sync: init push pull diff status reset ...
   cc             Claude Code plugins: list | update [--dry-run]
   update         Check or apply server updates (--check, --apply, --init, --dry-run)
@@ -460,6 +490,16 @@ Commands:
   agents uninstall Remove an agent, its outputs and its lock entry (<name>, --path, --home, --project, --dry-run)
   agents sync    Transpile agents to client outputs (--path, --home, --client <key>, --project, --dry-run)
   agents         Agents: add ls lint audit diff status clean uninstall sync
+  styles add     Create an output style from a template (<name>, --path, --dry-run)
+  styles ls      List output styles and where they are synced (--path <dir>)
+  styles lint    Lint output styles; exits 1 on errors (--path <dir>)
+  styles diff    Show new, modified and removed styles since the last sync (--path <dir>)
+  styles status  Show the synced and the active styles per client (--path <dir>)
+  styles sync    Write every style to the native-toggle clients (--path, --home, --client <key>, --project, --dry-run)
+  styles apply   Apply one style as an always-on rule to the other clients (<name>, --path, --home, --client <key>, --project, --dry-run)
+  styles remove  Remove the active style from the other clients (--path, --home, --client <key>, --project, --dry-run)
+  styles clean   Remove every synced and applied style file (--path, --home, --project, --dry-run)
+  styles         Styles: add ls lint diff status sync apply remove clean
   sync           Encrypted sync: init push pull diff status reset ...
   cc             Claude Code plugins: list | update [--dry-run]
   update         Check or apply server updates (--check, --apply, --init, --dry-run)
@@ -4113,6 +4153,341 @@ Run `toolportctl --help` for usage.
 exit 2
 --- stdout
 {"command":"agents sync","error":{"code":"usage","message":"unexpected argument: --bogus\nusage: agents sync [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["styles"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: styles add|ls|lint|diff|status|sync|apply|remove|clean (add: <name> [--path <dir>] [--dry-run]; ls|lint|diff|status: [--path <dir>]; sync: [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]; apply: <name> [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]; remove: [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]; clean: [--path <dir>] [--home <dir>] [--project] [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["--json","styles"]
+exit 2
+--- stdout
+{"command":"styles","error":{"code":"usage","message":"usage: styles add|ls|lint|diff|status|sync|apply|remove|clean (add: <name> [--path <dir>] [--dry-run]; ls|lint|diff|status: [--path <dir>]; sync: [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]; apply: <name> [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]; remove: [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]; clean: [--path <dir>] [--home <dir>] [--project] [--dry-run])"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["styles","nope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: styles add|ls|lint|diff|status|sync|apply|remove|clean (add: <name> [--path <dir>] [--dry-run]; ls|lint|diff|status: [--path <dir>]; sync: [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]; apply: <name> [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]; remove: [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]; clean: [--path <dir>] [--home <dir>] [--project] [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["styles","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: styles add|ls|lint|diff|status|sync|apply|remove|clean (add: <name> [--path <dir>] [--dry-run]; ls|lint|diff|status: [--path <dir>]; sync: [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]; apply: <name> [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]; remove: [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]; clean: [--path <dir>] [--home <dir>] [--project] [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["styles","ls","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: styles ls [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["styles","ls","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: styles ls [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["styles","ls","--path"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --path requires a value
+Run `toolportctl --help` for usage.
+=== ["styles","ls","--repo"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --path requires a value
+Run `toolportctl --help` for usage.
+=== ["styles","ls","--project"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --project
+usage: styles ls [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["styles","ls","--dry-run"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --dry-run
+usage: styles ls [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["styles","lint","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: styles lint [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["styles","lint","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: styles lint [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["styles","lint","--path"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --path requires a value
+Run `toolportctl --help` for usage.
+=== ["styles","diff","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: styles diff [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["styles","diff","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: styles diff [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["styles","diff","--home"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --home
+usage: styles diff [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["styles","status","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: styles status [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["styles","status","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: styles status [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["styles","status","--home"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --home
+usage: styles status [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["styles","status","--project"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --project
+usage: styles status [--path <dir>]
+Run `toolportctl --help` for usage.
+=== ["styles","add"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing style name
+usage: styles add <name> [--path <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["styles","add","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: styles add <name> [--path <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["styles","add","a","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: styles add <name> [--path <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["styles","add","a","--path"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --path requires a value
+Run `toolportctl --help` for usage.
+=== ["styles","add","a","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --dry-run takes no value
+Run `toolportctl --help` for usage.
+=== ["styles","add","--dry-run"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing style name
+usage: styles add <name> [--path <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["--json","styles","add"]
+exit 2
+--- stdout
+{"command":"styles add","error":{"code":"usage","message":"missing style name\nusage: styles add <name> [--path <dir>] [--dry-run]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["styles","sync","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: styles sync [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["styles","sync","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: styles sync [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["styles","sync","--client"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --client requires a value
+Run `toolportctl --help` for usage.
+=== ["styles","sync","--home"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --home requires a value
+Run `toolportctl --help` for usage.
+=== ["styles","sync","--project=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --project takes no value
+Run `toolportctl --help` for usage.
+=== ["styles","sync","--global","--project"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --global and --project are mutually exclusive
+Run `toolportctl --help` for usage.
+=== ["--json","styles","sync","--bogus"]
+exit 2
+--- stdout
+{"command":"styles sync","error":{"code":"usage","message":"unexpected argument: --bogus\nusage: styles sync [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["styles","apply"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing style name
+usage: styles apply <name> [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["styles","apply","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: styles apply <name> [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["styles","apply","a","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: styles apply <name> [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["styles","apply","a","--client"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --client requires a value
+Run `toolportctl --help` for usage.
+=== ["styles","apply","a","--global","--project"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --global and --project are mutually exclusive
+Run `toolportctl --help` for usage.
+=== ["styles","apply","--dry-run"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing style name
+usage: styles apply <name> [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["--json","styles","apply"]
+exit 2
+--- stdout
+{"command":"styles apply","error":{"code":"usage","message":"missing style name\nusage: styles apply <name> [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["styles","remove","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: styles remove [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["styles","remove","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: styles remove [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["styles","remove","--client"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --client requires a value
+Run `toolportctl --help` for usage.
+=== ["styles","remove","--global","--project"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --global and --project are mutually exclusive
+Run `toolportctl --help` for usage.
+=== ["styles","remove","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --dry-run takes no value
+Run `toolportctl --help` for usage.
+=== ["styles","clean","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: styles clean [--path <dir>] [--home <dir>] [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["styles","clean","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: styles clean [--path <dir>] [--home <dir>] [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["styles","clean","--client","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --client
+usage: styles clean [--path <dir>] [--home <dir>] [--project] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["styles","clean","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --dry-run takes no value
+Run `toolportctl --help` for usage.
+=== ["styles","clean","--global","--project"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --global and --project are mutually exclusive
+Run `toolportctl --help` for usage.
+=== ["--json","styles","clean","--global","--project"]
+exit 2
+--- stdout
+{"command":"styles clean","error":{"code":"usage","message":"--global and --project are mutually exclusive"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["sync"]
 exit 2

@@ -1,0 +1,5 @@
+remove
+--client
+nosuch
+--path
+{repo}

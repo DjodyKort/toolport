@@ -394,6 +394,9 @@ fn version_and_usage_errors_use_the_documented_exit_codes() {
         (vec!["agents", "ls", "--bogus"], "agents ls"),
         (vec!["agents", "add"], "agents add"),
         (vec!["agents", "uninstall"], "agents uninstall"),
+        (vec!["styles", "ls", "--bogus"], "styles ls"),
+        (vec!["styles", "add"], "styles add"),
+        (vec!["styles", "apply"], "styles apply"),
     ] {
         let (run, value) = world.json(&argv);
         assert_envelope(&argv.join(" "), &run, &value, command, 2);
@@ -986,6 +989,96 @@ fn read_only_cases(w: &World) -> Vec<Case> {
                 assert_eq!(d["name"], "helper");
                 assert_eq!(d["lockUpdated"], false);
                 same_path(&d["sourcePath"], &w.repo.join("agents/helper"));
+            },
+        ),
+        case(
+            "styles ls",
+            &["styles", "ls", "--path", &repo],
+            0,
+            |_, d| {
+                assert_eq!(d["styles"][0]["name"], "plain");
+                assert_eq!(d["discoveryWarnings"], json!([]));
+            },
+        ),
+        case(
+            "styles lint",
+            &["styles", "lint", "--path", &repo],
+            0,
+            |_, d| {
+                assert_eq!(d["errors"], 0);
+                assert_eq!(d["styleCount"], 1);
+            },
+        ),
+        case(
+            "styles diff",
+            &["styles", "diff", "--path", &repo],
+            0,
+            |_, d| {
+                assert_eq!(d["noLockfile"], true);
+                assert_eq!(d["new"], json!(["plain"]));
+            },
+        ),
+        case(
+            "styles status",
+            &["styles", "status", "--path", &repo],
+            0,
+            |_, d| {
+                assert_eq!(d["lockfilePresent"], false);
+                assert_eq!(d["applyRemove"], json!([]));
+            },
+        ),
+        case(
+            "styles add",
+            &["styles", "add", "fresh-style", "--path", &repo, "--dry-run"],
+            0,
+            |_, d| {
+                assert_eq!(d["dryRun"], true);
+                let path = d["path"].as_str().unwrap();
+                assert!(path.ends_with("styles/fresh-style/STYLE.md"), "{path}");
+            },
+        ),
+        case(
+            "styles sync",
+            &["styles", "sync", "--path", &repo, "--home", &home, "--dry-run"],
+            0,
+            |_, d| {
+                assert_eq!(d["dryRun"], true);
+                assert_eq!(d["scope"], "global");
+                assert_eq!(d["foundCount"], 1);
+                assert_eq!(d["clientCount"], 2);
+            },
+        ),
+        case(
+            "styles apply",
+            &[
+                "styles", "apply", "plain", "--path", &repo, "--home", &home, "--dry-run",
+            ],
+            0,
+            |_, d| {
+                assert_eq!(d["dryRun"], true);
+                assert_eq!(d["name"], "plain");
+                assert_eq!(d["appliedCount"], 13);
+                assert_eq!(d["replaced"], json!([]));
+            },
+        ),
+        case(
+            "styles remove",
+            &["styles", "remove", "--path", &repo, "--home", &home, "--dry-run"],
+            0,
+            |_, d| {
+                assert_eq!(d["dryRun"], true);
+                assert_eq!(d["hadActive"], false);
+                assert_eq!(d["removed"], json!([]));
+            },
+        ),
+        case(
+            "styles clean",
+            &["styles", "clean", "--path", &repo, "--home", &home, "--dry-run"],
+            0,
+            |_, d| {
+                assert_eq!(d["dryRun"], true);
+                assert_eq!(d["lockfilePresent"], false);
+                assert_eq!(d["removed"], json!([]));
             },
         ),
         case("sync", &["sync", "status"], 0, |_, d| {

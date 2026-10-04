@@ -1,0 +1,5 @@
+
+  + newone (new)
+  ~ concise (modified)
+  - terse (removed)
+  1 unchanged

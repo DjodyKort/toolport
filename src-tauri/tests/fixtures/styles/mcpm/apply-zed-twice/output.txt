@@ -1,0 +1,9 @@
+Replacing active style 'concise' on zed
+
+Applied style 'teacher' to 1 client(s).
+
+┏━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Client ┃ Active style ┃
+┡━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ zed    │ teacher      │
+└────────┴──────────────┘

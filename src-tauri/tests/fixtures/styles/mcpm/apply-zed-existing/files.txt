@@ -1,0 +1,11 @@
+=== repo/.rules ===
+Be kind.
+
+<!-- mcpm-style:start -->
+## Output Style: concise
+
+Answer in as few words as possible.
+
+Skip greetings and closing remarks.
+<!-- mcpm-style:end -->
+

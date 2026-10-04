@@ -1,0 +1,111 @@
+=== repo/.agents/skills/mcpm-output-style/SKILL.md ===
+---
+name: mcpm-output-style
+description: "Output style: Short answers with no preamble and no trailing summary"
+---
+
+Answer in as few words as possible.
+
+Skip greetings and closing remarks.
+
+=== repo/.aiassistant/rules/mcpm-output-style.md ===
+<!-- mcpm: name=mcpm-output-style, activation=always -->
+<!-- mcpm: description="Output style: Short answers with no preamble and no trailing summary" -->
+
+Answer in as few words as possible.
+
+Skip greetings and closing remarks.
+
+=== repo/.amazonq/rules/mcpm-output-style.md ===
+<!-- mcpm: mcpm-output-style - Output style: Short answers with no preamble and no trailing summary -->
+
+Answer in as few words as possible.
+
+Skip greetings and closing remarks.
+
+=== repo/.clinerules/mcpm-output-style.md ===
+Answer in as few words as possible.
+
+Skip greetings and closing remarks.
+
+=== repo/.continue/rules/mcpm-output-style.md ===
+---
+description: "Output style: Short answers with no preamble and no trailing summary"
+alwaysApply: true
+---
+
+Answer in as few words as possible.
+
+Skip greetings and closing remarks.
+
+=== repo/.cursor/rules/mcpm-output-style/RULE.md ===
+---
+description: "Output style: Short answers with no preamble and no trailing summary"
+alwaysApply: true
+---
+
+Answer in as few words as possible.
+
+Skip greetings and closing remarks.
+
+=== repo/.gemini/skills/mcpm-output-style/SKILL.md ===
+---
+name: mcpm-output-style
+description: "Output style: Short answers with no preamble and no trailing summary"
+---
+
+Answer in as few words as possible.
+
+Skip greetings and closing remarks.
+
+=== repo/.github/instructions/mcpm-output-style.instructions.md ===
+Answer in as few words as possible.
+
+Skip greetings and closing remarks.
+
+=== repo/.goose/rules/mcpm-output-style.md ===
+---
+name: mcpm-output-style
+description: "Output style: Short answers with no preamble and no trailing summary"
+---
+
+Answer in as few words as possible.
+
+Skip greetings and closing remarks.
+
+=== repo/.mcpm/skills/mcpm-output-style/SKILL.md ===
+# Output Style: concise
+
+Answer in as few words as possible.
+
+Skip greetings and closing remarks.
+
+=== repo/.rules ===
+<!-- mcpm-style:start -->
+## Output Style: concise
+
+Answer in as few words as possible.
+
+Skip greetings and closing remarks.
+<!-- mcpm-style:end -->
+
+=== repo/.trae/rules/mcpm-output-style.md ===
+---
+description: "Output style: Short answers with no preamble and no trailing summary"
+alwaysApply: true
+---
+
+Answer in as few words as possible.
+
+Skip greetings and closing remarks.
+
+=== repo/.windsurf/rules/mcpm-output-style.md ===
+---
+description: "Output style: Short answers with no preamble and no trailing summary"
+trigger: always_on
+---
+
+Answer in as few words as possible.
+
+Skip greetings and closing remarks.
+

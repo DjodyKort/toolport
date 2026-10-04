@@ -1,0 +1,6 @@
+apply
+teacher
+--client
+zed
+--path
+{repo}

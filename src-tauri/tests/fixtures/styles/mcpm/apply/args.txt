@@ -1,0 +1,4 @@
+apply
+concise
+--path
+{repo}

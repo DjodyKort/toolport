@@ -1,0 +1,6 @@
+repo/.claude/output-styles/ok.md
+repo/.roomodes
+repo/mcpm-skills.lock
+repo/mcpm-skills.yaml
+repo/styles/nostyle/README.md
+repo/styles/ok/STYLE.md

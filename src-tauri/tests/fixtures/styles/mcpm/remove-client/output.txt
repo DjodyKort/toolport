@@ -1,0 +1,3 @@
+Removing style 'concise' from cursor
+
+Done. Removed active style from 1 client(s).

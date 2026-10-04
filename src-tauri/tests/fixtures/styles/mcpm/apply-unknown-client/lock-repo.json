@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "synced_at": "<ts>",
+  "scope": "",
+  "output_root": "",
+  "skills": {},
+  "rules": {},
+  "agents": {},
+  "styles": {
+    "concise": {
+      "source": "local",
+      "version": null,
+      "hash": "sha256:c3bd726d6be9d89e",
+      "clients_synced": [],
+      "warnings": [],
+      "output_files": {},
+      "hooks_installed": {}
+    }
+  },
+  "active_styles": {}
+}
