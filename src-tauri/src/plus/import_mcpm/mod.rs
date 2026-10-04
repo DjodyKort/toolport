@@ -22,24 +22,25 @@ mod servers;
 #[cfg(test)]
 mod tests;
 
-pub use clients::{
-    map_clients, ClientConfig, ClientEntries, ClientMapping, ClientProfile, ClientSkip, MappedEntry,
-};
-pub use ids::{exposed_prefix, short_id, tool_name_fits, MAX_TOOL_NAME_LEN, TOOL_NAME_PREFIX};
-pub use launch::{relocate_entry, relocate_script, scripts_dir, screen_entry, SCRIPTS_SUBDIR};
-pub use name_map::{
-    build_name_map, name_map, name_map_handler, NameMap, NameMapError, ToolManifest,
-};
-pub use rename_refs::{
-    rename_refs, rename_refs_handler, rewrite_text, FileRewrite, Orphan, RenameReport,
-};
-pub use run::{
-    load_input, run, run_handler, Action, Change, ClientChange, Plan, Reject, RunOptions,
-};
+pub use clients::{map_clients, ClientConfig, ClientEntries, ClientMapping, ClientSkip};
+pub use ids::{exposed_prefix, MAX_TOOL_NAME_LEN, TOOL_NAME_PREFIX};
+pub use launch::{relocate_entry, screen_entry};
+pub use name_map::{name_map, name_map_handler, NameMap};
+pub use rename_refs::{rename_refs, rename_refs_handler};
+pub use run::{load_input, run, run_handler, RunOptions};
 pub use servers::{map_servers, MappedServer, McpmInput, SecretWrite, Warning, IMPORT_SOURCE};
 
-use crate::registry::{Profile, ServerEntry};
+#[cfg(test)]
+pub use {
+    ids::{short_id, tool_name_fits},
+    name_map::{build_name_map, ToolManifest},
+    rename_refs::rewrite_text,
+    run::{Action, Plan},
+};
+
+use crate::registry::Profile;
 use serde::Serialize;
+#[cfg(test)]
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
@@ -56,14 +57,11 @@ pub struct Mapping {
 }
 
 impl Mapping {
-    pub fn entries(&self) -> Vec<&ServerEntry> {
-        self.servers.iter().map(|s| &s.entry).collect()
-    }
-
     pub fn secret_writes(&self) -> Vec<&SecretWrite> {
         self.servers.iter().flat_map(|s| &s.secrets).collect()
     }
 
+    #[cfg(test)]
     pub fn golden(&self) -> Value {
         let servers: Vec<Value> = self
             .servers

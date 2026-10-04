@@ -92,6 +92,7 @@ pub struct Plan {
 }
 
 impl Plan {
+    #[cfg(test)]
     pub fn changed(&self) -> bool {
         self.count(Action::Created) > 0 || self.count(Action::Updated) > 0
     }
