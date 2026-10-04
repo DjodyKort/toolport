@@ -766,7 +766,7 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert!(!d["checks"].as_array().unwrap().is_empty());
         }),
         case("mcp", &["mcp", "tools"], 0, |_, d| {
-            assert_eq!(d["tools"].as_array().unwrap().len(), 49);
+            assert_eq!(d["tools"].as_array().unwrap().len(), 55);
             assert_eq!(d["resources"].as_array().unwrap().len(), 11);
         }),
         case(

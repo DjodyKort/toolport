@@ -12,6 +12,8 @@ mod redact;
 pub mod register;
 mod servers;
 #[cfg(test)]
+mod tap_tools_tests;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod wired_tests;

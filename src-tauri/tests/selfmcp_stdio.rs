@@ -20,7 +20,7 @@ use serde_json::{json, Value};
 
 const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
-const TOOL_COUNT: usize = 49;
+const TOOL_COUNT: usize = 55;
 const RESOURCE_COUNT: usize = 11;
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -478,6 +478,8 @@ fn tier_one_calls() -> BTreeMap<&'static str, Value> {
         ("skills_lint", json!({})),
         ("skills_status", json!({})),
         ("skills_list_transpilers", json!({})),
+        ("skills_tap_list", json!({})),
+        ("skills_search", json!({"query": "review"})),
         ("agents_list", json!({})),
         ("agents_get", json!({"name": "helper"})),
         ("agents_lint", json!({})),
@@ -532,6 +534,9 @@ fn tier_one_tools_read_without_confirm_and_never_write() {
 
     assert_eq!(results["skills_list"]["skills"][0]["name"], "demo");
     assert_eq!(results["skills_get"]["body"], "Body text");
+    assert_eq!(results["skills_tap_list"]["taps"], json!([]));
+    assert_eq!(results["skills_search"]["tapCount"], 0);
+    assert_eq!(results["skills_search"]["results"], json!([]));
     assert_eq!(results["agents_list"]["agents"][0]["name"], "helper");
     assert_eq!(results["styles_list"]["styles"][0]["name"], "plain");
     assert!(results["skills_list_transpilers"]["transpilers"]
@@ -649,6 +654,56 @@ fn tier_two_tools_write_additive_state_without_confirm() {
             .error_kind(),
         "not_found"
     );
+    assert!(client.close().success());
+}
+
+#[test]
+fn the_tap_tools_that_write_default_to_a_dry_run() {
+    let world = World::new("taps");
+    let mut client = Client::spawn(&world);
+    client.handshake();
+    let listed = listed_tools(&mut client);
+    for name in [
+        "skills_tap_add",
+        "skills_tap_remove",
+        "skills_tap_update",
+        "skills_install",
+    ] {
+        let tool = listed.iter().find(|t| t["name"] == name).unwrap();
+        assert_eq!(
+            tool["inputSchema"]["properties"]["dry_run"]["default"], true,
+            "{name}"
+        );
+    }
+    let before = world.snapshot();
+
+    let add = client.call("skills_tap_add", json!({"repo": "acme/skills"}));
+    assert_eq!(add.ok()["dryRun"], true);
+    assert_eq!(add.ok()["cloned"], false);
+    assert_eq!(add.ok()["url"], "https://github.com/acme/skills.git");
+    let install = client.call("skills_install", json!({"spec": "@acme/skills"}));
+    assert_eq!(install.ok()["dryRun"], true);
+    assert_eq!(install.ok()["tapMissing"], true);
+    assert_eq!(
+        client
+            .call("skills_tap_remove", json!({"name": "acme-skills"}))
+            .error_kind(),
+        "not_found"
+    );
+    assert_eq!(
+        client.call("skills_tap_update", json!({})).ok()["results"],
+        json!([])
+    );
+    assert_eq!(
+        client
+            .call(
+                "skills_tap_add",
+                json!({"repo": "acme/skills", "name": "../x"})
+            )
+            .error_kind(),
+        "invalid_arguments"
+    );
+    assert_eq!(world.snapshot(), before, "a default call must not write");
     assert!(client.close().success());
 }
 

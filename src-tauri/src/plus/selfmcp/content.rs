@@ -24,6 +24,8 @@ use crate::plus::skills::styles::{
     all_style_transpilers, discover_styles, parse_style_file, Style, Tier,
 };
 use crate::plus::skills::sync_report::sync_report;
+use crate::plus::skills::tap_handlers as taps;
+use crate::plus::skills::tap_ops::{Kind, TapError};
 use crate::plus::skills::transpiler::TranspilerRegistry;
 use crate::plus::skills::transpilers::registry_with_home;
 use crate::plus::skills::{sync_skills, SyncOptions, SystemClock};
@@ -278,6 +280,12 @@ pub(super) fn run(name: &str, args: &Value) -> Option<Outcome> {
     Some(match name {
         "skills_status" => skills_status(args),
         "skills_scaffold" => skills_scaffold(args),
+        "skills_tap_list" => tapped(taps::tap_list_value(args)),
+        "skills_search" => tapped(taps::search_value(args)),
+        "skills_tap_add" => tap_add(args),
+        "skills_tap_remove" => tap_remove(args),
+        "skills_tap_update" => tap_update(args),
+        "skills_install" => skills_install(args),
         "skills_sync" => skills_sync(args),
         "skills_edit_body" => edit_body(args, "skill"),
         "skills_edit_frontmatter" => skills_edit_frontmatter(args),
@@ -373,6 +381,57 @@ fn skills_status(args: &Value) -> Outcome {
             .map(|row| json!({"name": row.name, "client": row.client, "present": row.present}))
             .collect::<Vec<_>>(),
     }))
+}
+
+fn tapped(outcome: Result<Value, TapError>) -> Outcome {
+    outcome.map_err(|e| {
+        let kind = match e.kind {
+            Kind::Invalid => "invalid_arguments",
+            Kind::NotFound => "not_found",
+            Kind::Conflict => "conflict",
+            Kind::Backend => "backend_error",
+        };
+        ToolError::new(kind, e.message)
+    })
+}
+
+/// The tap tools that write apply only when `dry_run` is passed as false.
+fn applies(args: &Value) -> bool {
+    !flag_or(args, "dry_run", true)
+}
+
+fn tap_add(args: &Value) -> Outcome {
+    tapped(taps::tap_add_value(&json!({
+        "repo": str_arg(args, "repo"),
+        "name": str_arg(args, "name"),
+        "dry_run": !applies(args),
+    })))
+}
+
+fn tap_remove(args: &Value) -> Outcome {
+    tapped(taps::tap_remove_value(&json!({
+        "name": str_arg(args, "name"),
+        "dry_run": !applies(args),
+    })))
+}
+
+fn tap_update(args: &Value) -> Outcome {
+    tapped(taps::tap_update_value(&json!({
+        "name": str_arg(args, "name"),
+        "dry_run": !applies(args),
+    })))
+}
+
+/// Installs into the discovered skills repository, never into the working directory, and always
+/// with the audit on.
+fn skills_install(args: &Value) -> Outcome {
+    let repo = skills_repo(args)?;
+    tapped(taps::install_value(&json!({
+        "spec": str_arg(args, "spec"),
+        "repo_path": repo.to_string_lossy(),
+        "dry_run": !applies(args),
+        "no_audit": false,
+    })))
 }
 
 fn skills_scaffold(args: &Value) -> Outcome {
