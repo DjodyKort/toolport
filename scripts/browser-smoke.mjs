@@ -22,6 +22,16 @@ const server = await createServer({
   },
   logLevel: "error",
 });
+// `npm run screenshots:gui` sets TOOLPORT_SCREENSHOT_DIR so the screens of the app that
+// docs and reviews cite (docs/assets/gui-<screen>.png) come from this run, not from a hand copy.
+const screenshotDir = process.env.TOOLPORT_SCREENSHOT_DIR;
+async function guiShot(target, screen, options = {}) {
+  const file = `gui-${screen}.png`;
+  await target.screenshot({ path: path.join(output, file), ...options });
+  if (!screenshotDir) return;
+  await mkdir(screenshotDir, { recursive: true });
+  await target.screenshot({ path: path.join(screenshotDir, file), ...options });
+}
 let browser;
 let context;
 let page;
@@ -68,11 +78,11 @@ try {
     authRows.getByRole("button", { name: "Sign in to figma again" }),
   ).toBeVisible();
   await authRows.scrollIntoViewIfNeeded();
-  await authRows.screenshot({ path: path.join(output, "auth-rows.png") });
+  await guiShot(authRows, "auth-rows");
   const whatLoads = page.getByRole("region", { name: "What loads" });
   await expect(whatLoads.getByText("~1738 tokens")).toBeVisible();
   await whatLoads.scrollIntoViewIfNeeded();
-  await whatLoads.screenshot({ path: path.join(output, "what-loads.png") });
+  await guiShot(whatLoads, "what-loads");
   const fixture = await page.evaluate(() => window.toolportFixture);
   expect(fixture.missing).toEqual([]);
   expect(errors).toEqual([]);

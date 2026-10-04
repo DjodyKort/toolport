@@ -1,0 +1,13 @@
+{
+  "argv": ["client", "sync", "--dry-run"],
+  "envelope": {
+    "command": "client sync",
+    "data": {
+      "clients": [],
+      "dryRun": true
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

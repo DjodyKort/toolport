@@ -1,0 +1,12 @@
+{
+  "argv": ["context", "profile", "list"],
+  "envelope": {
+    "command": "context profile list",
+    "data": {
+      "profiles": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

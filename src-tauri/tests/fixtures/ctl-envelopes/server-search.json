@@ -1,0 +1,48 @@
+{
+  "argv": ["server", "search", "--offline", "--limit", "3"],
+  "envelope": {
+    "command": "server search",
+    "data": {
+      "query": "",
+      "results": [
+        {
+          "args": [],
+          "category": "Apps & productivity",
+          "command": null,
+          "description": "Payments, customers, charges, and balances.",
+          "envKeys": [],
+          "name": "Stripe",
+          "source": "curated",
+          "transport": "http",
+          "url": "https://mcp.stripe.com"
+        },
+        {
+          "args": ["-y", "toolport-mcp-servers", "stripe"],
+          "category": "Apps & productivity",
+          "command": "npx",
+          "description": "Toolport overlay: all 587 Stripe endpoints as intent-named tools, with the full write coverage the official MCP lacks (your API key, runs locally).",
+          "envKeys": ["STRIPE_API_KEY"],
+          "name": "Stripe (Full API)",
+          "source": "curated",
+          "transport": "stdio",
+          "url": null
+        },
+        {
+          "args": [],
+          "category": "Code & infrastructure",
+          "command": null,
+          "description": "Repos, issues, PRs, and code search.",
+          "envKeys": [],
+          "name": "GitHub",
+          "source": "curated",
+          "transport": "http",
+          "url": "https://api.githubcopilot.com/mcp/"
+        }
+      ],
+      "total": 56
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,25 @@
+{
+  "argv": ["context", "folders"],
+  "envelope": {
+    "command": "context folders",
+    "data": {
+      "enabled": false,
+      "folders": [
+        {
+          "applies": false,
+          "launchProfile": null,
+          "profile": null,
+          "reason": "no mapping matches this folder",
+          "root": "<WORLD>/home",
+          "rule": null,
+          "tokens": 0,
+          "wouldApply": null
+        }
+      ],
+      "mappings": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

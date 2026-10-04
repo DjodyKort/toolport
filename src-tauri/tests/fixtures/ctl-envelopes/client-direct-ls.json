@@ -1,0 +1,12 @@
+{
+  "argv": ["client", "direct", "ls"],
+  "envelope": {
+    "command": "client direct ls",
+    "data": {
+      "entries": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

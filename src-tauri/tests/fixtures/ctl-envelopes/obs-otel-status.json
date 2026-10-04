@@ -1,0 +1,35 @@
+{
+  "argv": ["obs", "otel", "status"],
+  "envelope": {
+    "command": "obs otel status",
+    "data": {
+      "enabled": false,
+      "endpoint": "http://127.0.0.1:4318",
+      "events": {
+        "count": 0,
+        "latest": null
+      },
+      "port": 4318,
+      "receiver": {
+        "listening": false,
+        "state": "disabled"
+      },
+      "settings": {
+        "exists": false,
+        "keys": {
+          "CLAUDE_CODE_ENABLE_TELEMETRY": "missing",
+          "OTEL_EXPORTER_OTLP_ENDPOINT": "missing",
+          "OTEL_EXPORTER_OTLP_PROTOCOL": "missing",
+          "OTEL_LOGS_EXPORTER": "missing",
+          "OTEL_METRICS_EXPORTER": "missing"
+        },
+        "path": "<WORLD>/home/.claude/settings.json",
+        "state": "missing",
+        "warnings": []
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

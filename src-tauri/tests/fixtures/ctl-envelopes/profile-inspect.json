@@ -1,0 +1,55 @@
+{
+  "argv": ["profile", "inspect"],
+  "envelope": {
+    "command": "profile inspect",
+    "data": {
+      "profile": "default",
+      "servers": [
+        {
+          "id": "srv-alpha",
+          "tools": [
+            {
+              "description": "Echo back the text argument.",
+              "name": "echo"
+            },
+            {
+              "description": "Add two numbers a and b.",
+              "name": "add"
+            },
+            {
+              "description": "Add a new tool and announce tools/list_changed.",
+              "name": "grow"
+            },
+            {
+              "description": "Exit the process to simulate a mid-session crash.",
+              "name": "die"
+            },
+            {
+              "description": "Return the process working directory.",
+              "name": "pwd"
+            },
+            {
+              "description": "Return the request's params._meta verbatim.",
+              "name": "echo_meta"
+            },
+            {
+              "description": "Emit notifications/progress, then reply.",
+              "name": "progress_ping"
+            },
+            {
+              "description": "Require one elicitation round before replying.",
+              "name": "mrtr_confirm"
+            },
+            {
+              "description": "Issue a legacy server-to-client elicitation request.",
+              "name": "legacy_elicitation"
+            }
+          ]
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

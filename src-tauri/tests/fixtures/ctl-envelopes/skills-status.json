@@ -1,0 +1,47 @@
+{
+  "argv": ["skills", "status", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills status",
+    "data": {
+      "drift": false,
+      "entries": [
+        {
+          "clientsSynced": [],
+          "currentHash": "sha256:97acfa6525aa502a",
+          "drifted": false,
+          "knownToLockfile": false,
+          "lockfileHash": null,
+          "name": "demo",
+          "type": "skill"
+        }
+      ],
+      "lockedCount": 0,
+      "lockfilePresent": false,
+      "lockfileSyncedAt": null,
+      "outputRoot": null,
+      "outputs": [],
+      "rejected": [],
+      "repo": "<WORLD>/skills-repo",
+      "targetedClients": [
+        "agents-md",
+        "aider",
+        "amazon-q",
+        "claude-code",
+        "cline",
+        "codex-cli",
+        "continue",
+        "cursor",
+        "gemini-cli",
+        "goose-cli",
+        "jetbrains",
+        "roo-code",
+        "trae",
+        "windsurf",
+        "zed"
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

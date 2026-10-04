@@ -1,0 +1,16 @@
+{
+  "argv": ["server", "uninstall", "alpha", "--dry-run"],
+  "envelope": {
+    "command": "server uninstall",
+    "data": {
+      "clients": [],
+      "dryRun": true,
+      "id": "srv-alpha",
+      "name": "alpha",
+      "secretsRemoved": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

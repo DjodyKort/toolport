@@ -1,0 +1,42 @@
+{
+  "argv": ["council", "doctor"],
+  "envelope": {
+    "command": "council",
+    "data": {
+      "checks": [
+        {
+          "detail": "run `toolportctl council install`",
+          "name": "registry_entry",
+          "ok": false
+        },
+        {
+          "detail": "uvx",
+          "name": "launcher_on_path",
+          "ok": false
+        },
+        {
+          "detail": "default",
+          "name": "enabled_in_active_profile",
+          "ok": false
+        },
+        {
+          "detail": "OPENROUTER_API_KEY",
+          "name": "key_declared_secret",
+          "ok": false
+        },
+        {
+          "detail": "council::OPENROUTER_API_KEY",
+          "name": "key_in_vault",
+          "ok": false
+        }
+      ]
+    },
+    "error": {
+      "code": "unhealthy",
+      "message": "one or more checks failed"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

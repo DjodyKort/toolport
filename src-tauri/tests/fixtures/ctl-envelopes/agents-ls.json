@@ -1,0 +1,22 @@
+{
+  "argv": ["agents", "ls", "--repo", "{repo}"],
+  "envelope": {
+    "command": "agents ls",
+    "data": {
+      "agents": [
+        {
+          "description": "A synthetic helper agent",
+          "model": "inherit",
+          "name": "helper",
+          "path": "<WORLD>/skills-repo/agents/helper/AGENT.md",
+          "tools": []
+        }
+      ],
+      "discoveryWarnings": [],
+      "repo": "<WORLD>/skills-repo"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

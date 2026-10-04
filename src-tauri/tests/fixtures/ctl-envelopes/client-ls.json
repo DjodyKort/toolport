@@ -1,0 +1,33 @@
+{
+  "argv": ["client", "ls"],
+  "envelope": {
+    "command": "client ls",
+    "data": {
+      "clients": [
+        {
+          "entries": ["direct-one"],
+          "gateway": "absent",
+          "id": "cursor",
+          "launchers": [],
+          "managed": false,
+          "name": "Cursor",
+          "path": "<WORLD>/home/.cursor/mcp.json",
+          "scope": null
+        },
+        {
+          "entries": [],
+          "gateway": "absent",
+          "id": "claude-code",
+          "launchers": [],
+          "managed": false,
+          "name": "Claude Code",
+          "path": "<WORLD>/home/.claude/.claude.json",
+          "scope": null
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

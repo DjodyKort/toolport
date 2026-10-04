@@ -1,0 +1,18 @@
+{
+  "argv": ["compression", "env"],
+  "envelope": {
+    "command": "compression env",
+    "data": {
+      "cwd": "<WORLD>/home",
+      "env": {},
+      "launch": "plain",
+      "lines": ["HRCOMPRESS_LAUNCH=plain"],
+      "port": null,
+      "preset": "interactive",
+      "provider": "none"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,31 @@
+{
+  "argv": ["update", "--apply", "--dry-run"],
+  "envelope": {
+    "command": "update",
+    "data": {
+      "counts": {
+        "skipped": 2
+      },
+      "mode": "dry-run",
+      "servers": [
+        {
+          "detected": false,
+          "id": "srv-alpha",
+          "kind": "unknown",
+          "message": "unknown source (synthetic fixture); run update --init",
+          "status": "skipped"
+        },
+        {
+          "detected": true,
+          "id": "srv-beta",
+          "kind": "remote",
+          "message": "remote server, nothing to update [no stored source; run update --init]",
+          "status": "skipped"
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

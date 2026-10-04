@@ -1,0 +1,562 @@
+{
+  "argv": ["mcp", "tools"],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "resources": [
+        {
+          "description": "Canonical, sync and output roots",
+          "mimeType": "application/json",
+          "name": "paths",
+          "uri": "mcpm://paths"
+        },
+        {
+          "description": "Registry summary and drift counts",
+          "mimeType": "application/json",
+          "name": "status",
+          "uri": "mcpm://status"
+        },
+        {
+          "description": "Data-flow diagram",
+          "mimeType": "text/markdown",
+          "name": "flow",
+          "uri": "mcpm://flow"
+        },
+        {
+          "description": "Skills, name and description",
+          "mimeType": "text/plain",
+          "name": "inventory-skills",
+          "uri": "mcpm://inventory/skills"
+        },
+        {
+          "description": "Agents, name and description",
+          "mimeType": "text/plain",
+          "name": "inventory-agents",
+          "uri": "mcpm://inventory/agents"
+        },
+        {
+          "description": "Styles, name and description",
+          "mimeType": "text/plain",
+          "name": "inventory-styles",
+          "uri": "mcpm://inventory/styles"
+        },
+        {
+          "description": "Servers, transport and source",
+          "mimeType": "text/plain",
+          "name": "inventory-servers",
+          "uri": "mcpm://inventory/servers"
+        },
+        {
+          "description": "Supported client keys",
+          "mimeType": "application/json",
+          "name": "clients",
+          "uri": "mcpm://clients"
+        },
+        {
+          "description": "Architecture reference",
+          "mimeType": "text/markdown",
+          "name": "architecture",
+          "uri": "mcpm://architecture"
+        },
+        {
+          "description": "Recipes for multi-step operations",
+          "mimeType": "text/markdown",
+          "name": "workflows",
+          "uri": "mcpm://workflows"
+        },
+        {
+          "description": "Live gateway state",
+          "mimeType": "application/json",
+          "name": "router-status",
+          "uri": "mcpm://router/status"
+        }
+      ],
+      "server": "toolport-plus-self",
+      "tools": [
+        {
+          "description": "List skills and rules in the repository",
+          "gate": "none",
+          "name": "skills_list",
+          "tier": 1
+        },
+        {
+          "description": "Read one skill including its body",
+          "gate": "none",
+          "name": "skills_get",
+          "tier": 1
+        },
+        {
+          "description": "Lint skills",
+          "gate": "none",
+          "name": "skills_lint",
+          "tier": 1
+        },
+        {
+          "description": "Drift between repository and client outputs",
+          "gate": "none",
+          "name": "skills_status",
+          "tier": 1
+        },
+        {
+          "description": "List client transpilers",
+          "gate": "none",
+          "name": "skills_list_transpilers",
+          "tier": 1
+        },
+        {
+          "description": "Create a new skill skeleton",
+          "gate": "none",
+          "name": "skills_scaffold",
+          "tier": 2
+        },
+        {
+          "description": "Transpile skills to client outputs",
+          "gate": "none",
+          "name": "skills_sync",
+          "tier": 2
+        },
+        {
+          "description": "List the registered skill taps (git sources) and whether each is cloned",
+          "gate": "none",
+          "name": "skills_tap_list",
+          "tier": 1
+        },
+        {
+          "description": "Search the cloned taps for skills by name, description or tags",
+          "gate": "none",
+          "name": "skills_search",
+          "tier": 1
+        },
+        {
+          "description": "Register a tap and clone it; dry_run is on by default",
+          "gate": "none",
+          "name": "skills_tap_add",
+          "tier": 2
+        },
+        {
+          "description": "Unregister a tap and delete its clone; dry_run is on by default",
+          "gate": "none",
+          "name": "skills_tap_remove",
+          "tier": 2
+        },
+        {
+          "description": "Pull one tap or all of them; dry_run is on by default",
+          "gate": "none",
+          "name": "skills_tap_update",
+          "tier": 2
+        },
+        {
+          "description": "Install the skills of @user/repo[/skill] from a tap into the skills repository after a security audit; dry_run is on by default",
+          "gate": "none",
+          "name": "skills_install",
+          "tier": 2
+        },
+        {
+          "description": "Compare the skills with the lockfile: new, modified, removed and unchanged",
+          "gate": "none",
+          "name": "skills_diff",
+          "tier": 1
+        },
+        {
+          "description": "Scan skills for prompt injection and risky commands",
+          "gate": "none",
+          "name": "skills_audit",
+          "tier": 1
+        },
+        {
+          "description": "Pack skills into a new .zip bundle; never overwrites a file; dry_run is on by default",
+          "gate": "none",
+          "name": "skills_bundle",
+          "tier": 2
+        },
+        {
+          "description": "Extract a skills bundle into the repository, overwriting files of the same name; refuses a bundle with files outside skills/ and rules/; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "gate": "unless-dry-run",
+          "name": "skills_unbundle",
+          "tier": 3
+        },
+        {
+          "description": "Remove the synced skill outputs and the lockfile; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "gate": "unless-dry-run",
+          "name": "skills_clean",
+          "tier": 4
+        },
+        {
+          "description": "Delete one skill or rule from the repository with its synced outputs and lock entry; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "gate": "unless-dry-run",
+          "name": "skills_uninstall",
+          "tier": 4
+        },
+        {
+          "description": "Find files that shadow synced skills; migrate=true backs them up and replaces them, otherwise they are only reported; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "gate": "unless-dry-run",
+          "name": "skills_resolve",
+          "tier": 3
+        },
+        {
+          "description": "Replace a skill body in the canonical repository",
+          "gate": "always",
+          "name": "skills_edit_body",
+          "tier": 3
+        },
+        {
+          "description": "Patch a skill's frontmatter",
+          "gate": "always",
+          "name": "skills_edit_frontmatter",
+          "tier": 3
+        },
+        {
+          "description": "Delete a skill from the canonical repository",
+          "gate": "always",
+          "name": "skills_delete",
+          "tier": 3
+        },
+        {
+          "description": "Commit and push the skills repository to its remote",
+          "gate": "always",
+          "name": "skills_git_push",
+          "tier": 4
+        },
+        {
+          "description": "List agents",
+          "gate": "none",
+          "name": "agents_list",
+          "tier": 1
+        },
+        {
+          "description": "Read one agent including its body",
+          "gate": "none",
+          "name": "agents_get",
+          "tier": 1
+        },
+        {
+          "description": "Lint agents",
+          "gate": "none",
+          "name": "agents_lint",
+          "tier": 1
+        },
+        {
+          "description": "List agent transpilers",
+          "gate": "none",
+          "name": "agents_list_transpilers",
+          "tier": 1
+        },
+        {
+          "description": "Create a new agent skeleton",
+          "gate": "none",
+          "name": "agents_scaffold",
+          "tier": 2
+        },
+        {
+          "description": "Transpile agents to client outputs",
+          "gate": "none",
+          "name": "agents_sync",
+          "tier": 2
+        },
+        {
+          "description": "Compare the agents with the lockfile: new, modified, removed and unchanged",
+          "gate": "none",
+          "name": "agents_diff",
+          "tier": 1
+        },
+        {
+          "description": "Scan agents for prompt injection and risky commands",
+          "gate": "none",
+          "name": "agents_audit",
+          "tier": 1
+        },
+        {
+          "description": "Show which synced agent outputs are present for each client",
+          "gate": "none",
+          "name": "agents_status",
+          "tier": 1
+        },
+        {
+          "description": "Remove the synced agent outputs; the lockfile stays; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "gate": "unless-dry-run",
+          "name": "agents_clean",
+          "tier": 4
+        },
+        {
+          "description": "Delete one agent from the repository with its synced outputs and lock entry; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "gate": "unless-dry-run",
+          "name": "agents_uninstall",
+          "tier": 4
+        },
+        {
+          "description": "Replace an agent body in the canonical repository",
+          "gate": "always",
+          "name": "agents_edit_body",
+          "tier": 3
+        },
+        {
+          "description": "List styles",
+          "gate": "none",
+          "name": "styles_list",
+          "tier": 1
+        },
+        {
+          "description": "Read one style including its body",
+          "gate": "none",
+          "name": "styles_get",
+          "tier": 1
+        },
+        {
+          "description": "Lint styles",
+          "gate": "none",
+          "name": "styles_lint",
+          "tier": 1
+        },
+        {
+          "description": "Show the applied style per client",
+          "gate": "none",
+          "name": "styles_active",
+          "tier": 1
+        },
+        {
+          "description": "List style transpilers",
+          "gate": "none",
+          "name": "styles_list_transpilers",
+          "tier": 1
+        },
+        {
+          "description": "Create a new style skeleton",
+          "gate": "none",
+          "name": "styles_scaffold",
+          "tier": 2
+        },
+        {
+          "description": "Sync tier-1 style outputs",
+          "gate": "none",
+          "name": "styles_sync_tier1",
+          "tier": 2
+        },
+        {
+          "description": "Apply a style to tier-2 clients",
+          "gate": "always",
+          "name": "styles_apply",
+          "tier": 3
+        },
+        {
+          "description": "Compare the styles with the lockfile: new, modified, removed and unchanged",
+          "gate": "none",
+          "name": "styles_diff",
+          "tier": 1
+        },
+        {
+          "description": "Show the styles synced to native clients and the applied style per client",
+          "gate": "none",
+          "name": "styles_status",
+          "tier": 1
+        },
+        {
+          "description": "Remove the synced style outputs and clear the applied styles; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "gate": "unless-dry-run",
+          "name": "styles_clean",
+          "tier": 4
+        },
+        {
+          "description": "Replace a style body in the canonical repository",
+          "gate": "always",
+          "name": "styles_edit_body",
+          "tier": 3
+        },
+        {
+          "description": "Remove the applied style from tier-2 clients",
+          "gate": "always",
+          "name": "styles_remove",
+          "tier": 4
+        },
+        {
+          "description": "Show the compression provider, active preset, engine pin and shims",
+          "gate": "none",
+          "name": "compression_status",
+          "tier": 1
+        },
+        {
+          "description": "Enable compression: writes the policy config, the shell shims and the registry entry of the provider (default headroom); dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "gate": "unless-dry-run",
+          "name": "compression_enable",
+          "tier": 3
+        },
+        {
+          "description": "Switch compression off (provider none) and remove the generated shims and registry entry; presets and the pin stay and the engine is not torn down; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "gate": "unless-dry-run",
+          "name": "compression_disable",
+          "tier": 4
+        },
+        {
+          "description": "Switch the compression provider and re-apply the policy; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "gate": "unless-dry-run",
+          "name": "compression_set_provider",
+          "tier": 3
+        },
+        {
+          "description": "Make a compression preset active and re-apply the policy; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "gate": "unless-dry-run",
+          "name": "compression_use",
+          "tier": 3
+        },
+        {
+          "description": "Re-apply the stored compression policy to the shims, the registry entry and the engine, adopting a legacy mcpm policy when none is stored; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "gate": "unless-dry-run",
+          "name": "compression_sync",
+          "tier": 3
+        },
+        {
+          "description": "Read the running proxy's /health and record the settings the policy never declared into the preset; needs a running proxy; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "gate": "unless-dry-run",
+          "name": "compression_seal",
+          "tier": 3
+        },
+        {
+          "description": "List registered servers",
+          "gate": "none",
+          "name": "servers_list",
+          "tier": 1
+        },
+        {
+          "description": "Read one server entry without secret values",
+          "gate": "none",
+          "name": "servers_get",
+          "tier": 1
+        },
+        {
+          "description": "List profiles and their enabled servers",
+          "gate": "none",
+          "name": "servers_list_profiles",
+          "tier": 1
+        },
+        {
+          "description": "Detect where a server was installed from",
+          "gate": "none",
+          "name": "servers_detect_source",
+          "tier": 1
+        },
+        {
+          "description": "Git status of a source-installed server",
+          "gate": "none",
+          "name": "servers_git_status",
+          "tier": 1
+        },
+        {
+          "description": "Check servers for available updates",
+          "gate": "none",
+          "name": "servers_check_updates",
+          "tier": 1
+        },
+        {
+          "description": "Add a server to a profile",
+          "gate": "none",
+          "name": "servers_add_profile_tag",
+          "tier": 2
+        },
+        {
+          "description": "Remove a server from a profile",
+          "gate": "none",
+          "name": "servers_remove_profile_tag",
+          "tier": 2
+        },
+        {
+          "description": "Register a new server",
+          "gate": "always",
+          "name": "servers_install",
+          "tier": 3
+        },
+        {
+          "description": "Patch a server's configuration",
+          "gate": "always",
+          "name": "servers_update_config",
+          "tier": 3
+        },
+        {
+          "description": "Apply an available server update",
+          "gate": "always",
+          "name": "servers_apply_update",
+          "tier": 3
+        },
+        {
+          "description": "Change how a server is exposed to clients",
+          "gate": "always",
+          "name": "servers_set_mode",
+          "tier": 3
+        },
+        {
+          "description": "Sync a forked source server with its upstream",
+          "gate": "always",
+          "name": "servers_fork_sync",
+          "tier": 3
+        },
+        {
+          "description": "Start the authorization flow for a server",
+          "gate": "always",
+          "name": "servers_auth",
+          "tier": 3
+        },
+        {
+          "description": "Remove a server and its client entries",
+          "gate": "always",
+          "name": "servers_uninstall",
+          "tier": 4
+        },
+        {
+          "description": "List supported client keys",
+          "gate": "none",
+          "name": "clients_list",
+          "tier": 1
+        },
+        {
+          "description": "Reconcile client configs with the registry",
+          "gate": "unless-dry-run",
+          "name": "clients_sync",
+          "tier": 2
+        },
+        {
+          "description": "List direct client entries that start one server through the stdio launcher, bypassing the gateway",
+          "gate": "none",
+          "name": "client_direct_ls",
+          "tier": 1
+        },
+        {
+          "description": "Add an entry for one stdio server to one client that runs the toolportctl launcher instead of the gateway; it bypasses profile tool scopes, approvals, receipts and lazy discovery, and each client starts its own process; dry_run is on by default",
+          "gate": "none",
+          "name": "client_direct_add",
+          "tier": 2
+        },
+        {
+          "description": "Remove the direct entry of one server from one client; dry_run is on by default",
+          "gate": "none",
+          "name": "client_direct_rm",
+          "tier": 2
+        },
+        {
+          "description": "Publish the encrypted sync bundle to its remote",
+          "gate": "unless-dry-run",
+          "name": "sync_push",
+          "tier": 4
+        },
+        {
+          "description": "Absolute paths and state of this installation",
+          "gate": "none",
+          "name": "where_am_i",
+          "tier": 1
+        },
+        {
+          "description": "Read-only health checks",
+          "gate": "none",
+          "name": "doctor",
+          "tier": 1
+        },
+        {
+          "description": "Data-flow diagram of skills and servers",
+          "gate": "none",
+          "name": "flow_diagram",
+          "tier": 1
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

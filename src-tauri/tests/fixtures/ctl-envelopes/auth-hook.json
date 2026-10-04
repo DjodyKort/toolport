@@ -1,0 +1,21 @@
+{
+  "argv": ["auth", "hook"],
+  "envelope": {
+    "command": "auth hook",
+    "data": {
+      "auth": {
+        "expiring": 0,
+        "misconfigured": 0,
+        "needs_reauth": 0,
+        "ok": 0,
+        "revoked": 0,
+        "text": "auth ok (0)",
+        "unreachable": 0,
+        "worst": []
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

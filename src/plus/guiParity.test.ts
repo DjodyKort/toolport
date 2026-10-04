@@ -17,7 +17,7 @@ function snapshot(): RegistrySnapshot {
       "utf8",
     ),
   );
-  return envelope.data;
+  return envelope.envelope.data;
 }
 
 describe("gui parity manifest", () => {
