@@ -101,10 +101,12 @@ impl AuthProber {
         }
     }
 
+    #[cfg(test)]
     pub fn store(&self) -> &AuthStore {
         &self.store
     }
 
+    #[cfg(test)]
     pub fn waiters(&self, server: &str) -> usize {
         self.flight.waiters(server)
     }

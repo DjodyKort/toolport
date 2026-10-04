@@ -266,10 +266,6 @@ impl Session {
         }
     }
 
-    pub fn tail(&self) -> &[String] {
-        &self.tail
-    }
-
     pub fn kill(&mut self) {
         #[cfg(unix)]
         let running = self.poll_exit().is_none();
@@ -350,6 +346,7 @@ impl Default for StdioProbe {
 }
 
 impl StdioProbe {
+    #[cfg(test)]
     pub fn with_wait(mut self, wait: Duration) -> Self {
         self.wait = wait;
         self

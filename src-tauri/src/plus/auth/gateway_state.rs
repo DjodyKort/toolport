@@ -72,11 +72,6 @@ fn refresh_failure(error: &str) -> ProbeOutcome {
 }
 
 impl GatewayStateProbe {
-    pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
-        self.clock = clock;
-        self
-    }
-
     fn ttl(&self, expires_at: u64) -> i64 {
         i64::try_from(expires_at)
             .unwrap_or(i64::MAX)

@@ -56,6 +56,7 @@ impl Scheduler {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
+    #[cfg(test)]
     pub fn running(&self) -> bool {
         self.state().running
     }

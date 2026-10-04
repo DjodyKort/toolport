@@ -17,27 +17,26 @@ pub mod stdio;
 pub mod surfaces;
 mod types;
 
-pub use cache::{AuthStore, EdgeEvent, ServerEntry, StatusFile};
-pub use flight::SingleFlight;
-pub use gateway_state::{gateway_registry, GatewayStateProbe};
-pub use google::GoogleRefreshProbe;
-pub use http_probes::{combined_registry, http_registry, CompositeProbe, HttpProbe};
-pub use issues::{compute_issues, AuthIssue};
-pub use machine::{
-    classify, step, Classification, EXPIRING_WINDOW_SECS, UNREACHABLE_MIN_FAILURES,
-    UNREACHABLE_WINDOW_SECS,
-};
-pub use probe::{
-    Clock, FakeClock, MockProbe, Probe, ProbeKind, ProbeRegistry, ProbeSpec, SystemClock,
-};
+pub use cache::{AuthStore, StatusFile};
+pub use probe::{Clock, ProbeKind, ProbeRegistry, SystemClock};
 pub use login::login_handler;
 pub use notify::notifications_handler;
 pub use surfaces::rows_handler;
-pub use prober::{
-    backoff_delay, probe_all, probe_due, status_handler, AuthProber, ProbeReport, Trigger,
-};
+pub use prober::{status_handler, AuthProber};
 pub use scan::probe_handler;
-pub use types::{AuthKind, AuthState, ProbeOutcome, Tracked, TransientRun};
+
+#[cfg(test)]
+pub use {
+    cache::{EdgeEvent, ServerEntry},
+    flight::SingleFlight,
+    gateway_state::{gateway_registry, GatewayStateProbe},
+    http_probes::{combined_registry, CompositeProbe},
+    issues::{compute_issues, AuthIssue},
+    machine::{classify, step, Classification, EXPIRING_WINDOW_SECS},
+    probe::{FakeClock, MockProbe, Probe, ProbeSpec},
+    prober::{backoff_delay, ProbeReport, Trigger},
+    types::{AuthKind, AuthState, ProbeOutcome, Tracked, TransientRun},
+};
 
 const MAX_BODY_BYTES: u64 = 64 * 1024;
 

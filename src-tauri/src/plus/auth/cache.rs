@@ -78,6 +78,7 @@ impl AuthStore {
         }
     }
 
+    #[cfg(test)]
     pub fn with_event_caps(mut self, max_bytes: u64, keep_lines: usize) -> Self {
         self.events_max_bytes = max_bytes;
         self.events_keep_lines = keep_lines;

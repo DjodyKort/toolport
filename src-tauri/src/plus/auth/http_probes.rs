@@ -255,10 +255,12 @@ impl Default for HttpProbe {
 }
 
 impl HttpProbe {
+    #[cfg(test)]
     pub fn new() -> Self {
         Self::default()
     }
 
+    #[cfg(test)]
     pub fn with_base(mut self, service: Service, url: &str) -> Result<Self, String> {
         if !endpoint_allowed(url) {
             return Err("base url must be https or loopback http".to_string());
@@ -267,16 +269,19 @@ impl HttpProbe {
         Ok(self)
     }
 
+    #[cfg(test)]
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self
     }
 
+    #[cfg(test)]
     pub fn with_vault(mut self, vault: Box<dyn ClientVault>) -> Self {
         self.vault = vault;
         self
     }
 
+    #[cfg(test)]
     pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
         self.clock = clock;
         self

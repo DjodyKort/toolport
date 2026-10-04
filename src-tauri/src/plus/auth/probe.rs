@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
+#[cfg(test)]
 use std::sync::atomic::{AtomicI64, Ordering};
+#[cfg(test)]
 use std::sync::Mutex;
 
 use super::types::ProbeOutcome;
@@ -86,8 +88,10 @@ impl Clock for SystemClock {
     }
 }
 
+#[cfg(test)]
 pub struct FakeClock(AtomicI64);
 
+#[cfg(test)]
 impl FakeClock {
     pub fn new(now: i64) -> Self {
         FakeClock(AtomicI64::new(now))
@@ -98,6 +102,7 @@ impl FakeClock {
     }
 }
 
+#[cfg(test)]
 impl Clock for FakeClock {
     fn now(&self) -> i64 {
         self.0.load(Ordering::SeqCst)
@@ -127,6 +132,7 @@ impl ProbeRegistry {
     }
 }
 
+#[cfg(test)]
 pub struct MockProbe {
     script: Mutex<Vec<ProbeOutcome>>,
     fallback: ProbeOutcome,
@@ -134,6 +140,7 @@ pub struct MockProbe {
     on_run: Option<Box<dyn Fn() + Send + Sync>>,
 }
 
+#[cfg(test)]
 impl MockProbe {
     pub fn always(outcome: ProbeOutcome) -> Self {
         MockProbe {
@@ -165,6 +172,7 @@ impl MockProbe {
     }
 }
 
+#[cfg(test)]
 impl Probe for MockProbe {
     fn run(&self, spec: &ProbeSpec) -> ProbeOutcome {
         self.calls.lock().unwrap().push(spec.server.clone());
