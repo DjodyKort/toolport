@@ -8,6 +8,7 @@ mod http_probes;
 mod issues;
 pub mod login;
 mod machine;
+pub mod notify;
 mod prober;
 mod probe;
 pub mod scan;
@@ -30,6 +31,7 @@ pub use probe::{
     Clock, FakeClock, MockProbe, Probe, ProbeKind, ProbeRegistry, ProbeSpec, SystemClock,
 };
 pub use login::login_handler;
+pub use notify::notifications_handler;
 pub use surfaces::rows_handler;
 pub use prober::{
     backoff_delay, probe_all, probe_due, status_handler, AuthProber, ProbeReport, Trigger,
@@ -88,3 +90,6 @@ mod scheduler_tests;
 
 #[cfg(test)]
 mod login_tests;
+
+#[cfg(test)]
+mod notify_tests;

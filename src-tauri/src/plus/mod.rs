@@ -43,6 +43,7 @@ const HANDLERS: &[(&str, Handler)] = &[
     ("plus.auth.probe", auth::probe_handler),
     ("plus.auth.rows", auth::rows_handler),
     ("plus.auth.login", auth::login_handler),
+    ("plus.auth.notifications", auth::notifications_handler),
     ("plus.context.plan", context::plan_handler),
     ("plus.context.apply", context::apply_handler),
     ("plus.skills.sync", skills::handlers::sync_handler),
