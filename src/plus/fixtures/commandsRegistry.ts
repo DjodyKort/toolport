@@ -4,9 +4,9 @@ type Tier = "read" | "write" | "destructive";
 type RowInit = Partial<CommandRow> & Pick<CommandRow, "id" | "summary">;
 
 const NO_PREVIEW = { mode: "none", flag: null } as const;
-const DRY_RUN = { mode: "flag", flag: "--dry-run" } as const;
+export const DRY_RUN = { mode: "flag", flag: "--dry-run" } as const;
 
-function flag(name: string, init: Partial<CommandFlag> = {}): CommandFlag {
+export function flag(name: string, init: Partial<CommandFlag> = {}): CommandFlag {
   return {
     name,
     aliases: [],
@@ -23,7 +23,7 @@ function flag(name: string, init: Partial<CommandFlag> = {}): CommandFlag {
 
 const dryRunFlag = flag("--dry-run", { effect: "Preview the change and write nothing" });
 
-function command(init: RowInit): CommandRow {
+export function command(init: RowInit): CommandRow {
   const path = init.id.split(" ");
   const tier: Tier | null = init.tier === undefined ? "read" : init.tier;
   return {
