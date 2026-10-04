@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "mcp",
+    "call",
+    "skills_edit_body",
+    "--args",
+    "{\"name\":\"demo\",\"new_body\":\"Changed body\\n\",\"repo_path\":\"{repo}\"}"
+  ],
+  "envelope": {
+    "command": "mcp",
+    "error": {
+      "code": "refused",
+      "message": "Refused: skills_edit_body (tier 3). Pass confirm=true to proceed."
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

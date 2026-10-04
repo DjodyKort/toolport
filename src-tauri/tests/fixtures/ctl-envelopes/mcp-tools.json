@@ -75,512 +75,2059 @@
       "tools": [
         {
           "description": "List skills and rules in the repository",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "skills_list",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "List where skills, commands, agents, rules and CLAUDE.md files come from: repos, clients, plugins, the org sync, the library and loose files",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "sources_ls",
+          "params": [
+            {
+              "description": "Only this source id, detector or origin kind",
+              "name": "source",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Only items of this kind: skill, command, agent, rule or memory",
+              "name": "kind",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Include the items of every source",
+              "name": "items",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Add the repository around this directory to the scan",
+              "name": "cwd",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Double the depth and time budgets",
+              "name": "deep",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Ignore the scan cache",
+              "name": "refresh",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Measure what a folder really loads, in tokens, by asking Claude Code itself: one request per variant, which spends model tokens and is cached per Claude Code version, model and settings. Returns the as-is total, the signed deltas of each without, and the skills the model is not offered",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "context_measure",
+          "params": [
+            {
+              "description": "The folder to measure",
+              "name": "cwd",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Variants to measure besides as-is: plugin:<id> or skill:<name or glob>",
+              "name": "without",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "A bundle from the skills repository's profiles to measure as one variant",
+              "name": "bundle",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Model to ask, haiku by default",
+              "name": "model",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Measure again instead of answering from the cache",
+              "name": "force",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 2
         },
         {
           "description": "List the installed Claude Code plugins with what each brings (skills, agents, commands, hooks, MCP servers), whether it is on in the folder, its token cost and its MCP servers that sit outside the gateway",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "plugins_ls",
+          "params": [
+            {
+              "description": "Folder where Claude Code starts; its project and local settings decide which plugins are on",
+              "name": "cwd",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Run claude plugin marketplace update first",
+              "name": "refresh",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Show one installed plugin: components, hooks, MCP servers with their deny state, options and token cost. Option values marked sensitive are never returned",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "plugins_show",
+          "params": [
+            {
+              "description": "Plugin id such as ecc@ecc, or a bare plugin name when it is unique",
+              "name": "id",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Folder where Claude Code starts; its project and local settings decide whether the plugin is on and its MCP servers denied",
+              "name": "cwd",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "List every hook Claude Code would start in a folder, read from settings, plugins and Toolport files; a hook is never run. Counts the processes per tool and flags PreToolUse hooks of different owners on the same tool",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "hooks_ls",
+          "params": [
+            {
+              "description": "Folder where Claude Code starts; without it only user and managed settings apply",
+              "name": "cwd",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Only hooks that fire for this tool: Bash, Edit, Write or Read",
+              "name": "tool",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Only hooks on this event, for example PreToolUse",
+              "name": "event",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Only hooks of this owner kind: plugin, user, project, local, skill, toolport or managed",
+              "name": "owner",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Read one skill including its body",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "skills_get",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Lint skills",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "skills_lint",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Limit to these skills",
+              "name": "names",
+              "required": false,
+              "type": "string[]"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Drift between repository and client outputs",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "skills_status",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Client keys to target",
+              "name": "client_keys",
+              "required": false,
+              "type": "string[]"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "List client transpilers",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "skills_list_transpilers",
+          "params": [],
           "tier": 1
         },
         {
           "description": "Create a new skill skeleton",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "skills_scaffold",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "skill or rule",
+              "name": "skill_type",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 2
         },
         {
           "description": "Transpile skills to client outputs",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "skills_sync",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Client keys to target",
+              "name": "client_keys",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Report without writing",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Write to user-level locations",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Back up and replace files that shadow a synced skill; otherwise they are only reported",
+              "name": "migrate",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 2
         },
         {
           "description": "List the registered skill taps (git sources) and whether each is cloned",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "skills_tap_list",
+          "params": [],
           "tier": 1
         },
         {
           "description": "Search the cloned taps for skills by name, description or tags",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "skills_search",
+          "params": [
+            {
+              "description": "Text to look for",
+              "name": "query",
+              "required": true,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Register a tap and clone it; dry_run is on by default",
+          "dryRunDefault": true,
           "gate": "none",
           "name": "skills_tap_add",
+          "params": [
+            {
+              "description": "user/repo on GitHub, or an https, ssh or file git URL",
+              "name": "repo",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Tap name, default derived from the source",
+              "name": "name",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 2
         },
         {
           "description": "Unregister a tap and delete its clone; dry_run is on by default",
+          "dryRunDefault": true,
           "gate": "none",
           "name": "skills_tap_remove",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 2
         },
         {
           "description": "Pull one tap or all of them; dry_run is on by default",
+          "dryRunDefault": true,
           "gate": "none",
           "name": "skills_tap_update",
+          "params": [
+            {
+              "description": "Limit to one tap",
+              "name": "name",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 2
         },
         {
           "description": "Install the skills of @user/repo[/skill] from a tap into the skills repository after a security audit; dry_run is on by default",
+          "dryRunDefault": true,
           "gate": "none",
           "name": "skills_install",
+          "params": [
+            {
+              "description": "@user/repo, @user/repo/skill or with @version",
+              "name": "spec",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 2
         },
         {
           "description": "Compare the skills with the lockfile: new, modified, removed and unchanged",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "skills_diff",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Scan skills for prompt injection and risky commands",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "skills_audit",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Pack skills into a new .zip bundle; never overwrites a file; dry_run is on by default",
+          "dryRunDefault": true,
           "gate": "none",
           "name": "skills_bundle",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Path of the .zip to create, default <repository folder>-bundle.zip inside the repository",
+              "name": "output",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Limit to these skills",
+              "name": "skills",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 2
         },
         {
           "description": "Extract a skills bundle into the repository, overwriting files of the same name; refuses a bundle with files outside skills/ and rules/; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "skills_unbundle",
+          "params": [
+            {
+              "description": "Path of the .zip bundle",
+              "name": "bundle_path",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 3
         },
         {
           "description": "Remove the synced skill outputs and the lockfile; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "skills_clean",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Limit to one client key",
+              "name": "client",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "User-level locations, the default; false works inside the repository",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 4
         },
         {
           "description": "Delete one skill or rule from the repository with its synced outputs and lock entry; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "skills_uninstall",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "User-level locations, the default; false works inside the repository",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 4
         },
         {
           "description": "Find files that shadow synced skills; migrate=true backs them up and replaces them, otherwise they are only reported; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "skills_resolve",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Limit to one client key",
+              "name": "client",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "User-level locations, the default; false works inside the repository",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Back up and replace the shadowing files",
+              "name": "migrate",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 3
         },
         {
           "description": "Replace a skill body in the canonical repository",
+          "dryRunDefault": false,
           "gate": "always",
           "name": "skills_edit_body",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Replacement body",
+              "name": "new_body",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 3
         },
         {
           "description": "Patch a skill's frontmatter",
+          "dryRunDefault": false,
           "gate": "always",
           "name": "skills_edit_frontmatter",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Frontmatter fields to set",
+              "name": "patch",
+              "required": true,
+              "type": "object"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 3
         },
         {
           "description": "Delete a skill from the canonical repository",
+          "dryRunDefault": false,
           "gate": "always",
           "name": "skills_delete",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 3
         },
         {
           "description": "Commit and push the skills repository to its remote",
+          "dryRunDefault": false,
           "gate": "always",
           "name": "skills_git_push",
+          "params": [
+            {
+              "description": "Commit message",
+              "name": "commit_message",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 4
         },
         {
           "description": "List agents",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "agents_list",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Read one agent including its body",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "agents_get",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Lint agents",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "agents_lint",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "List agent transpilers",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "agents_list_transpilers",
+          "params": [],
           "tier": 1
         },
         {
           "description": "Create a new agent skeleton",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "agents_scaffold",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Model, default inherit",
+              "name": "model",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 2
         },
         {
           "description": "Transpile agents to client outputs",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "agents_sync",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Client keys to target",
+              "name": "client_keys",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Report without writing",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Write to user-level locations",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 2
         },
         {
           "description": "Compare the agents with the lockfile: new, modified, removed and unchanged",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "agents_diff",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Scan agents for prompt injection and risky commands",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "agents_audit",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Show which synced agent outputs are present for each client",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "agents_status",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Remove the synced agent outputs; the lockfile stays; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "agents_clean",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Limit to one client key",
+              "name": "client",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "User-level locations, the default; false works inside the repository",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 4
         },
         {
           "description": "Delete one agent from the repository with its synced outputs and lock entry; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "agents_uninstall",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "User-level locations, the default; false works inside the repository",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 4
         },
         {
           "description": "Replace an agent body in the canonical repository",
+          "dryRunDefault": false,
           "gate": "always",
           "name": "agents_edit_body",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Replacement body",
+              "name": "new_body",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 3
         },
         {
           "description": "List styles",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "styles_list",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Read one style including its body",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "styles_get",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Lint styles",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "styles_lint",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Show the applied style per client",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "styles_active",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "List style transpilers",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "styles_list_transpilers",
+          "params": [],
           "tier": 1
         },
         {
           "description": "Create a new style skeleton",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "styles_scaffold",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 2
         },
         {
           "description": "Sync tier-1 style outputs",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "styles_sync_tier1",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Client keys to target",
+              "name": "client_keys",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Report without writing",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 2
         },
         {
           "description": "Apply a style to tier-2 clients",
+          "dryRunDefault": false,
           "gate": "always",
           "name": "styles_apply",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Client keys to target",
+              "name": "client_keys",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Report without writing",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 3
         },
         {
           "description": "Compare the styles with the lockfile: new, modified, removed and unchanged",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "styles_diff",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Show the styles synced to native clients and the applied style per client",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "styles_status",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Remove the synced style outputs and clear the applied styles; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "styles_clean",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "User-level locations, the default; false works inside the repository",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 4
         },
         {
           "description": "Replace a style body in the canonical repository",
+          "dryRunDefault": false,
           "gate": "always",
           "name": "styles_edit_body",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Replacement body",
+              "name": "new_body",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 3
         },
         {
           "description": "Remove the applied style from tier-2 clients",
+          "dryRunDefault": false,
           "gate": "always",
           "name": "styles_remove",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Client keys to target",
+              "name": "client_keys",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Report without writing",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 4
         },
         {
           "description": "Show the compression provider, active preset, engine pin and shims",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "compression_status",
+          "params": [],
           "tier": 1
         },
         {
           "description": "Enable compression: writes the policy config, the shell shims and the registry entry of the provider (default headroom); dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "compression_enable",
+          "params": [
+            {
+              "description": "headroom, rtk-only, parsec or none",
+              "name": "provider",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Proxy port of the active preset",
+              "name": "port",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "description": "on or off",
+              "name": "telemetry",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Preset to make active",
+              "name": "preset",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "cache or token",
+              "name": "mode",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 3
         },
         {
           "description": "Switch compression off (provider none) and remove the generated shims and registry entry; presets and the pin stay and the engine is not torn down; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "compression_disable",
+          "params": [
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 4
         },
         {
           "description": "Switch the compression provider and re-apply the policy; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "compression_set_provider",
+          "params": [
+            {
+              "description": "headroom, rtk-only, parsec or none",
+              "name": "provider",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 3
         },
         {
           "description": "Make a compression preset active and re-apply the policy; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "compression_use",
+          "params": [
+            {
+              "description": "Preset name",
+              "name": "preset",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 3
         },
         {
           "description": "Re-apply the stored compression policy to the shims, the registry entry and the engine, adopting a legacy mcpm policy when none is stored; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "compression_sync",
+          "params": [
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 3
         },
         {
           "description": "Read the running proxy's /health and record the settings the policy never declared into the preset; needs a running proxy; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "compression_seal",
+          "params": [
+            {
+              "description": "Preset to seal, default the active one",
+              "name": "preset",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 3
         },
         {
           "description": "List registered servers",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "servers_list",
+          "params": [
+            {
+              "description": "Include source information",
+              "name": "include_sources",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Read one server entry without secret values",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "servers_get",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "List profiles and their enabled servers",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "servers_list_profiles",
+          "params": [],
           "tier": 1
         },
         {
           "description": "Detect where a server was installed from",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "servers_detect_source",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Git status of a source-installed server",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "servers_git_status",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Check servers for available updates",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "servers_check_updates",
+          "params": [
+            {
+              "description": "Limit to one server",
+              "name": "name",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Consider prereleases",
+              "name": "include_prerelease",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Add a server to a profile",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "servers_add_profile_tag",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Profile name",
+              "name": "profile_tag",
+              "required": true,
+              "type": "string"
+            }
+          ],
           "tier": 2
         },
         {
           "description": "Remove a server from a profile",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "servers_remove_profile_tag",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Profile name",
+              "name": "profile_tag",
+              "required": true,
+              "type": "string"
+            }
+          ],
           "tier": 2
         },
         {
           "description": "Register a new server",
+          "dryRunDefault": false,
           "gate": "always",
           "name": "servers_install",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Server configuration",
+              "name": "config",
+              "required": true,
+              "type": "object"
+            },
+            {
+              "description": "Profiles to join",
+              "name": "profile_tags",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Replace an existing entry",
+              "name": "force",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 3
         },
         {
           "description": "Patch a server's configuration",
+          "dryRunDefault": false,
           "gate": "always",
           "name": "servers_update_config",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Fields to change",
+              "name": "patch",
+              "required": true,
+              "type": "object"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 3
         },
         {
           "description": "Apply an available server update",
+          "dryRunDefault": false,
           "gate": "always",
           "name": "servers_apply_update",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Rebase local changes",
+              "name": "rebase",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Consider prereleases",
+              "name": "include_prerelease",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 3
         },
         {
           "description": "Change how a server is exposed to clients",
+          "dryRunDefault": false,
           "gate": "always",
           "name": "servers_set_mode",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "auto, direct, router, legacy or bridge",
+              "name": "mode",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 3
         },
         {
           "description": "Sync a forked source server with its upstream",
+          "dryRunDefault": false,
           "gate": "always",
           "name": "servers_fork_sync",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Default upstream",
+              "name": "upstream_remote",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Default main",
+              "name": "upstream_branch",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Default rebase",
+              "name": "mode",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Commit author email",
+              "name": "author_email",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Branch to update",
+              "name": "target_branch",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Run the post-update command",
+              "name": "run_post_update",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 3
         },
         {
           "description": "Start the authorization flow for a server",
+          "dryRunDefault": false,
           "gate": "always",
           "name": "servers_auth",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 3
         },
         {
           "description": "Remove a server and its client entries",
+          "dryRunDefault": false,
           "gate": "always",
           "name": "servers_uninstall",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Remove client entries too",
+              "name": "propagate_to_clients",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 4
         },
         {
           "description": "List supported client keys",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "clients_list",
+          "params": [],
           "tier": 1
         },
         {
           "description": "Reconcile client configs with the registry",
+          "dryRunDefault": false,
           "gate": "unless-dry-run",
           "name": "clients_sync",
+          "params": [
+            {
+              "description": "Single client key",
+              "name": "client",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Skip risky rewrites",
+              "name": "safe",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Use the legacy entry shape",
+              "name": "force_legacy",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Keep unmatched entries",
+              "name": "keep_orphans",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 2
         },
         {
           "description": "List direct client entries that start one server through the stdio launcher, bypassing the gateway",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "client_direct_ls",
+          "params": [
+            {
+              "description": "Limit to one client key",
+              "name": "client",
+              "required": false,
+              "type": "string"
+            }
+          ],
           "tier": 1
         },
         {
           "description": "Add an entry for one stdio server to one client that runs the toolportctl launcher instead of the gateway; it bypasses profile tool scopes, approvals, receipts and lazy discovery, and each client starts its own process; dry_run is on by default",
+          "dryRunDefault": true,
           "gate": "none",
           "name": "client_direct_add",
+          "params": [
+            {
+              "description": "Server name or id",
+              "name": "server",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Client key",
+              "name": "client",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Replace an entry this tool did not create",
+              "name": "force",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 2
         },
         {
           "description": "Remove the direct entry of one server from one client; dry_run is on by default",
+          "dryRunDefault": true,
           "gate": "none",
           "name": "client_direct_rm",
+          "params": [
+            {
+              "description": "Server name or id",
+              "name": "server",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Client key",
+              "name": "client",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Remove an entry that was changed after it was written",
+              "name": "force",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 2
         },
         {
           "description": "Publish the encrypted sync bundle to its remote",
+          "dryRunDefault": false,
           "gate": "unless-dry-run",
           "name": "sync_push",
+          "params": [
+            {
+              "description": "Report without writing",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
           "tier": 4
         },
         {
           "description": "Absolute paths and state of this installation",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "where_am_i",
+          "params": [],
           "tier": 1
         },
         {
           "description": "Read-only health checks",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "doctor",
+          "params": [],
           "tier": 1
         },
         {
           "description": "Data-flow diagram of skills and servers",
+          "dryRunDefault": false,
           "gate": "none",
           "name": "flow_diagram",
+          "params": [],
           "tier": 1
         }
       ]

@@ -1,0 +1,13 @@
+{
+  "argv": ["mcp", "call", "servers_fork_sync", "--args", "{\"name\":\"forked\"}"],
+  "envelope": {
+    "command": "mcp",
+    "error": {
+      "code": "refused",
+      "message": "Refused: servers_fork_sync (tier 3). Pass confirm=true to proceed."
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

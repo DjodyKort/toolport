@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "mcp",
+    "call",
+    "agents_edit_body",
+    "--args",
+    "{\"name\":\"helper\",\"new_body\":\"Changed prompt\\n\",\"repo_path\":\"{repo}\"}"
+  ],
+  "envelope": {
+    "command": "mcp",
+    "error": {
+      "code": "refused",
+      "message": "Refused: agents_edit_body (tier 3). Pass confirm=true to proceed."
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

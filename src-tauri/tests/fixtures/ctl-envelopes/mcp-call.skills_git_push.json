@@ -1,0 +1,25 @@
+{
+  "argv": [
+    "mcp",
+    "call",
+    "skills_git_push",
+    "--args",
+    "{\"commit_message\":\"add extra\",\"repo_path\":\"{repo}\",\"confirm\":true}"
+  ],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "commitSha": "<masked>",
+        "pushed": true,
+        "repo": "<WORLD>/skills-repo"
+      },
+      "tier": 4,
+      "tool": "skills_git_push"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

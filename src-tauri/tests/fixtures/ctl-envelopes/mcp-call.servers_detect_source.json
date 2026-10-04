@@ -1,0 +1,26 @@
+{
+  "argv": ["mcp", "call", "servers_detect_source", "--args", "{\"name\":\"forked\"}"],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "detected": {
+          "kind": "git",
+          "meta": {
+            "branch": "main",
+            "path": "<WORLD>/fork-work",
+            "type": "git"
+          }
+        },
+        "name": "forked",
+        "stored": true
+      },
+      "tier": 1,
+      "tool": "servers_detect_source"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

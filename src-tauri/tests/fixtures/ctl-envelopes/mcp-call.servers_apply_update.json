@@ -1,0 +1,35 @@
+{
+  "argv": [
+    "mcp",
+    "call",
+    "servers_apply_update",
+    "--args",
+    "{\"name\":\"alpha\",\"confirm\":true}"
+  ],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "counts": {
+          "skipped": 1
+        },
+        "mode": "apply",
+        "servers": [
+          {
+            "detected": false,
+            "id": "srv-alpha",
+            "kind": "unknown",
+            "message": "unknown source (synthetic fixture); run update --init",
+            "status": "skipped"
+          }
+        ]
+      },
+      "tier": 3,
+      "tool": "servers_apply_update"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

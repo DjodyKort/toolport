@@ -1,0 +1,28 @@
+{
+  "argv": [
+    "mcp",
+    "call",
+    "agents_get",
+    "--args",
+    "{\"name\":\"helper\",\"repo_path\":\"{repo}\"}"
+  ],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "body": "Agent prompt",
+        "description": "A synthetic helper agent",
+        "model": "inherit",
+        "name": "helper",
+        "path": "<WORLD>/skills-repo/agents/helper/AGENT.md",
+        "tools": []
+      },
+      "tier": 1,
+      "tool": "agents_get"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

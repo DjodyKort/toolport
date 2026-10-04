@@ -1,0 +1,27 @@
+{
+  "argv": [
+    "mcp",
+    "call",
+    "styles_get",
+    "--args",
+    "{\"name\":\"plain\",\"repo_path\":\"{repo}\"}"
+  ],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "body": "Style text",
+        "description": "A synthetic plain style",
+        "keepCodingInstructions": true,
+        "name": "plain",
+        "path": "<WORLD>/skills-repo/styles/plain/STYLE.md"
+      },
+      "tier": 1,
+      "tool": "styles_get"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

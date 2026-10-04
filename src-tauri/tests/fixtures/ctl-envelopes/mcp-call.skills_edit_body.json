@@ -1,0 +1,24 @@
+{
+  "argv": [
+    "mcp",
+    "call",
+    "skills_edit_body",
+    "--args",
+    "{\"name\":\"demo\",\"new_body\":\"Changed body\\n\",\"repo_path\":\"{repo}\",\"confirm\":true}"
+  ],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "newHash": "sha256:e2c2f8d41371269f",
+        "sourcePath": "<WORLD>/skills-repo/skills/demo/SKILL.md"
+      },
+      "tier": 3,
+      "tool": "skills_edit_body"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

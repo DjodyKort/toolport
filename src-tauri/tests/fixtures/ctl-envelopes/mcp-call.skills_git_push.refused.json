@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "mcp",
+    "call",
+    "skills_git_push",
+    "--args",
+    "{\"commit_message\":\"add extra\",\"repo_path\":\"{repo}\"}"
+  ],
+  "envelope": {
+    "command": "mcp",
+    "error": {
+      "code": "refused",
+      "message": "Refused: skills_git_push (tier 4). Pass confirm=true to proceed. WARNING: this modifies remote state or removes entries."
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

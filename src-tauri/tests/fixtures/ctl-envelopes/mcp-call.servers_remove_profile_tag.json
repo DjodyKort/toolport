@@ -1,0 +1,24 @@
+{
+  "argv": [
+    "mcp",
+    "call",
+    "servers_remove_profile_tag",
+    "--args",
+    "{\"name\":\"beta\",\"profile_tag\":\"Default\"}"
+  ],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "name": "beta",
+        "profileTags": []
+      },
+      "tier": 2,
+      "tool": "servers_remove_profile_tag"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

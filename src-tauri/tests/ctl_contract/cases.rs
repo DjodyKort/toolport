@@ -5,8 +5,10 @@
 //! without a terminal, a browser or an engine, and says so next to its case.
 
 use crate::ctl_fixtures::{
-    git_world, health_proxy, import_world, loads_home, measure_home, transcripts_world,
+    fork_world, git_world, health_proxy, import_world, loads_home, measure_home,
+    skills_repo_remote_world, transcripts_world,
 };
+use crate::ctl_world::CtlWorld;
 
 use super::{
     apply, case, plugins_home, prepared, read, setup, usage, Case, COUNCIL_KEY, PASSPHRASE,
@@ -49,7 +51,55 @@ const SYNC_INIT: &[&str] = &[
 
 const FILES_ONLY: &[(&str, &str)] = &[("TOOLPORT_CLAUDE_BIN", "/nonexistent/claude")];
 
+fn mcp_call_world(world: &CtlWorld) {
+    fork_world(world);
+    skills_repo_remote_world(world);
+}
+
 pub const MORE: &[Case] = &[
+    // mcp call (contract section 15): one step per tool that no command covers, a read, a
+    // refusal without `confirm` or a dry run, and an apply on the scratch world for the writers
+    prepared(
+        "mcp call",
+        mcp_call_world,
+        &[
+            read("agents_get", &["mcp", "call", "agents_get", "--args", r#"{"name":"helper","repo_path":"{repo}"}"#]),
+            read("agents_list_transpilers", &["mcp", "call", "agents_list_transpilers"]),
+            read("flow_diagram", &["mcp", "call", "flow_diagram", "--args", "{}"]),
+            read("skills_get", &["mcp", "call", "skills_get", "--args", r#"{"name":"demo","repo_path":"{repo}"}"#]),
+            read("skills_list_transpilers", &["mcp", "call", "skills_list_transpilers"]),
+            read("styles_active", &["mcp", "call", "styles_active", "--args", r#"{"repo_path":"{repo}"}"#]),
+            read("styles_get", &["mcp", "call", "styles_get", "--args", r#"{"name":"plain","repo_path":"{repo}"}"#]),
+            read("styles_list_transpilers", &["mcp", "call", "styles_list_transpilers"]),
+            read("where_am_i", &["mcp", "call", "where_am_i"]),
+            read("servers_check_updates", &["mcp", "call", "servers_check_updates", "--args", r#"{"name":"alpha"}"#]),
+            read("servers_detect_source", &["mcp", "call", "servers_detect_source", "--args", r#"{"name":"forked"}"#]),
+            read("servers_git_status", &["mcp", "call", "servers_git_status", "--args", r#"{"name":"forked"}"#]),
+            read("missing", &["mcp", "call", "skills_get", "--args", r#"{"name":"nope","repo_path":"{repo}"}"#]).exit(1),
+            read("invalid", &["mcp", "call", "skills_get", "--args", "{}"]).exit(1),
+            usage("unknown", &["mcp", "call", "skils_get"]),
+            usage("operand", &["mcp", "call"]),
+            usage("secret", &["mcp", "call", "servers_install", "--args", r#"{"config":{"env":{"API_KEY":"FAKE-inline-secret-9d41"}}}"#]),
+            read("agents_edit_body.refused", &["mcp", "call", "agents_edit_body", "--args", r#"{"name":"helper","new_body":"Changed prompt\n","repo_path":"{repo}"}"#]).exit(1),
+            apply("agents_edit_body", &["mcp", "call", "agents_edit_body", "--args", r#"{"name":"helper","new_body":"Changed prompt\n","repo_path":"{repo}","confirm":true}"#]),
+            read("skills_edit_body.refused", &["mcp", "call", "skills_edit_body", "--args", r#"{"name":"demo","new_body":"Changed body\n","repo_path":"{repo}"}"#]).exit(1),
+            apply("skills_edit_body", &["mcp", "call", "skills_edit_body", "--args", r#"{"name":"demo","new_body":"Changed body\n","repo_path":"{repo}","confirm":true}"#]),
+            apply("skills_edit_frontmatter", &["mcp", "call", "skills_edit_frontmatter", "--args", r#"{"name":"demo","patch":{"description":"Edited description"},"repo_path":"{repo}","confirm":true}"#]),
+            apply("styles_edit_body", &["mcp", "call", "styles_edit_body", "--args", r#"{"name":"plain","new_body":"Short\n","repo_path":"{repo}","confirm":true}"#]),
+            apply("servers_add_profile_tag", &["mcp", "call", "servers_add_profile_tag", "--args", r#"{"name":"beta","profile_tag":"Default"}"#]),
+            apply("servers_remove_profile_tag", &["mcp", "call", "servers_remove_profile_tag", "--args", r#"{"name":"beta","profile_tag":"Default"}"#]),
+            read("servers_set_mode.refused", &["mcp", "call", "servers_set_mode", "--args", r#"{"name":"alpha","mode":"direct"}"#]).exit(1),
+            apply("servers_set_mode", &["mcp", "call", "servers_set_mode", "--args", r#"{"name":"alpha","mode":"direct","confirm":true}"#]),
+            apply("servers_apply_update", &["mcp", "call", "servers_apply_update", "--args", r#"{"name":"alpha","confirm":true}"#]),
+            read("servers_fork_sync.refused", &["mcp", "call", "servers_fork_sync", "--args", r#"{"name":"forked"}"#]).exit(1),
+            apply("servers_fork_sync", &["mcp", "call", "servers_fork_sync", "--args", r#"{"name":"forked","target_branch":"main-synced","confirm":true}"#]),
+            read("skills_delete.refused", &["mcp", "call", "skills_delete", "--args", r#"{"name":"demo","repo_path":"{repo}"}"#]).exit(1),
+            apply("skills_delete", &["mcp", "call", "skills_delete", "--args", r#"{"name":"demo","repo_path":"{repo}","confirm":true}"#]),
+            read("skills_git_push.refused", &["mcp", "call", "skills_git_push", "--args", r#"{"commit_message":"add extra","repo_path":"{repo}"}"#]).exit(1),
+            apply("skills_git_push", &["mcp", "call", "skills_git_push", "--args", r#"{"commit_message":"add extra","repo_path":"{repo}","confirm":true}"#]),
+            apply("stdin", &["mcp", "call", "where_am_i", "--args-stdin"]).stdin("{}"),
+        ],
+    ),
     // plugins and hooks (contract section 14): the recorded `claude` stub, and the same world with
     // `claude` missing, where the CLI-only figures are null
     prepared(

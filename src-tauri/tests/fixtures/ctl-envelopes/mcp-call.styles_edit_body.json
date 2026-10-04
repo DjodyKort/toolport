@@ -1,0 +1,24 @@
+{
+  "argv": [
+    "mcp",
+    "call",
+    "styles_edit_body",
+    "--args",
+    "{\"name\":\"plain\",\"new_body\":\"Short\\n\",\"repo_path\":\"{repo}\",\"confirm\":true}"
+  ],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "newHash": "sha256:d299bf9bcabd0693",
+        "sourcePath": "<WORLD>/skills-repo/styles/plain/STYLE.md"
+      },
+      "tier": 3,
+      "tool": "styles_edit_body"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

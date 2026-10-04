@@ -1,0 +1,17 @@
+{
+  "argv": ["mcp", "call", "flow_diagram", "--args", "{}"],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "markdown": "# Data flow\n\ncanonical skills repository -> transpilers -> per-client outputs\nregistry (servers, profiles) -> gateway -> every client\nencrypted sync bundle <-> remote (push and pull)\n"
+      },
+      "tier": 1,
+      "tool": "flow_diagram"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

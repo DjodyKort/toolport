@@ -1,0 +1,27 @@
+{
+  "argv": [
+    "mcp",
+    "call",
+    "servers_set_mode",
+    "--args",
+    "{\"name\":\"alpha\",\"mode\":\"direct\",\"confirm\":true}"
+  ],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "changed": false,
+        "dropped": true,
+        "mode": "direct",
+        "name": "alpha",
+        "note": "Toolport+ has no per-server proxy modes; the shared gateway daemon exposes every server (D-008)."
+      },
+      "tier": 3,
+      "tool": "servers_set_mode"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}
