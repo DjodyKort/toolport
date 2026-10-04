@@ -16,6 +16,7 @@ pub(crate) mod context;
 mod flags;
 mod folders;
 mod mcp;
+mod obs;
 mod output;
 mod secret;
 mod server;
@@ -347,6 +348,23 @@ pub const COMMANDS: &[Command] = &[
         "Token and MCP usage from Claude Code transcripts (--root <dir>, --no-refresh)",
         usage::run,
     ),
+    cmd(
+        &["obs", "otel", "enable"],
+        "Send Claude Code telemetry to the local receiver (--port <n>, --home <dir>, --dry-run)",
+        obs::otel_enable,
+    ),
+    cmd(
+        &["obs", "otel", "disable"],
+        "Stop the receiver and remove the telemetry keys Toolport wrote (--home <dir>, --dry-run)",
+        obs::otel_disable,
+    ),
+    cmd(
+        &["obs", "otel", "status"],
+        "Show the receiver, the Claude settings and the stored OTel events (--home <dir>)",
+        obs::otel_status,
+    ),
+    cmd(&["obs", "otel"], "OTel receiver: enable disable status", obs::otel_group),
+    cmd(&["obs"], "Observability: otel enable|disable|status", obs::group),
 ];
 
 #[derive(Debug, Default, PartialEq, Eq)]

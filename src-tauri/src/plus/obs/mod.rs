@@ -2,10 +2,14 @@
 
 pub mod monitor_db;
 pub mod otel;
+pub mod otel_host;
+pub mod otel_setup;
 pub mod receiver;
 pub mod store;
 pub mod transcript;
 
+#[cfg(test)]
+mod otel_setup_tests;
 #[cfg(test)]
 mod receiver_tests;
 

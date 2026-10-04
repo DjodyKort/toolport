@@ -19266,6 +19266,9 @@ fn main() {
         });
     }
 
+    // Local OTLP receiver for Claude Code telemetry, opt-in through `toolportctl obs otel enable`.
+    conduit_lib::plus::obs::otel_host::spawn();
+
     let state = GatewayState {
         host,
         profile: Arc::clone(&profile),

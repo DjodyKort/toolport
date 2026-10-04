@@ -328,6 +328,13 @@ impl World {
             s(&["update", "--dry-run"]),
             s(&["usage", "--root", &work]),
             s(&["usage", "--no-refresh", "--root", &work]),
+            s(&["obs"]),
+            s(&["obs", "otel"]),
+            s(&["obs", "otel", "status", "--home", &home]),
+            s(&["obs", "otel", "enable", "--home", &home, "--dry-run"]),
+            s(&["obs", "otel", "enable", "--home", &home]),
+            s(&["obs", "otel", "status", "--home", &home]),
+            s(&["obs", "otel", "disable", "--home", &home]),
         ]
     }
 
