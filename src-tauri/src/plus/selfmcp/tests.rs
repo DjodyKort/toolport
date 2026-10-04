@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
-const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
+pub(super) const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 
 const EXPECTED_TOOLS: &[&str] = &[
     "skills_list",

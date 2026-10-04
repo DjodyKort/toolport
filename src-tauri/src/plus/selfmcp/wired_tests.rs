@@ -15,7 +15,7 @@ fn kind(result: Result<Value, ToolError>) -> &'static str {
     }
 }
 
-fn git(dir: &Path, args: &[&str]) -> String {
+pub(super) fn git(dir: &Path, args: &[&str]) -> String {
     let out = Command::new("git")
         .arg("-C")
         .arg(dir)
@@ -31,7 +31,7 @@ fn git(dir: &Path, args: &[&str]) -> String {
     String::from_utf8_lossy(&out.stdout).trim().to_string()
 }
 
-fn git_identity(dir: &Path) {
+pub(super) fn git_identity(dir: &Path) {
     git(dir, &["config", "user.email", "tester@example.invalid"]);
     git(dir, &["config", "user.name", "Tester"]);
     git(dir, &["config", "commit.gpgsign", "false"]);
