@@ -22,6 +22,11 @@ use std::time::Duration;
 /// (bytes); set it to 0 to disable shaping entirely.
 pub const DEFAULT_BUDGET_BYTES: usize = 48 * 1024;
 
+/// Largest `structuredContent`, in serialized bytes, that [`shape_result_keeping_structured`]
+/// keeps in a result. A bigger one is stashed behind the cursor like any other
+/// oversized payload, so the gateway never forwards an unbounded one.
+pub const MAX_KEPT_STRUCTURED_BYTES: usize = 1024 * 1024;
+
 /// How long a cached full result stays fetchable.
 const CACHE_TTL: Duration = Duration::from_secs(15 * 60);
 
@@ -342,6 +347,35 @@ pub fn shape_result_preserving_prefix(
 
     *result = shaped;
     true
+}
+
+/// [`shape_result`] for a tool that declares an `outputSchema`. The MCP spec has such
+/// a tool's `structuredContent` conform to that schema, and a client may validate it,
+/// so a successful result keeps it whole and only the text content is held to the
+/// budget; a kept payload is not counted against it. A failed result, a payload over
+/// [`MAX_KEPT_STRUCTURED_BYTES`] and a result without `structuredContent` are shaped
+/// by [`shape_result`] as usual.
+pub fn shape_result_keeping_structured(
+    result: &mut Value,
+    budget: usize,
+    owner: Option<&str>,
+) -> bool {
+    let failed = result.get("isError").and_then(Value::as_bool) == Some(true);
+    let keeps_structured = !failed
+        && result
+            .get("structuredContent")
+            .is_some_and(|structured| value_size(structured) <= MAX_KEPT_STRUCTURED_BYTES);
+    if !keeps_structured {
+        return shape_result(result, budget, owner);
+    }
+    let structured = result
+        .as_object_mut()
+        .and_then(|fields| fields.remove("structuredContent"));
+    let shaped = shape_result(result, budget, owner);
+    if let (Some(structured), Some(fields)) = (structured, result.as_object_mut()) {
+        fields.insert("structuredContent".to_string(), structured);
+    }
+    shaped
 }
 
 /// Stash a Toolport-authored payload and return a cursor readable through
@@ -1059,5 +1093,144 @@ mod tests {
 
         let text = projected["content"][0]["text"].as_str().unwrap();
         assert_eq!(text, "40");
+    }
+
+    fn typed_result(text_bytes: usize, structured_bytes: usize) -> Value {
+        json!({
+            "content": [{ "type": "text", "text": "t".repeat(text_bytes) }],
+            "structuredContent": { "blob": "s".repeat(structured_bytes) },
+            "isError": false
+        })
+    }
+
+    fn size_of(value: &Value) -> usize {
+        serde_json::to_string(value).unwrap().len()
+    }
+
+    #[test]
+    fn a_kept_structured_payload_is_not_counted_against_the_text_budget() {
+        let mut r = typed_result(1_000, 60_000);
+        let before = r.clone();
+        assert!(!shape_result_keeping_structured(&mut r, 8 * 1024, None));
+        assert_eq!(r, before, "text within the budget leaves the result whole");
+    }
+
+    #[test]
+    fn text_over_the_budget_is_shaped_while_the_structured_payload_stays_whole() {
+        let mut r = typed_result(30_000, 20_000);
+        let structured = r["structuredContent"].clone();
+        assert!(shape_result_keeping_structured(&mut r, 8 * 1024, None));
+
+        assert_eq!(r["structuredContent"], structured);
+        assert_eq!(r["isError"], json!(false));
+        let text = r["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("toolport_fetch_result"), "{text}");
+        let mut text_only = r.clone();
+        text_only
+            .as_object_mut()
+            .unwrap()
+            .remove("structuredContent");
+        assert!(size_of(&text_only) <= 8 * 1024, "{}", size_of(&text_only));
+    }
+
+    #[test]
+    fn a_kept_result_stashes_only_the_text_for_the_cursor() {
+        let mut r = typed_result(30_000, 100);
+        assert!(shape_result_keeping_structured(&mut r, 8 * 1024, None));
+        let shown = r["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .split("\n\n[Toolport shaped")
+            .next()
+            .unwrap()
+            .len();
+        let rest = fetch_result(&cursor_of(&r), shown, 0, None, None);
+        let rest = rest["content"][0]["text"].as_str().unwrap();
+        assert!(rest.starts_with("tttt"), "{}", &rest[..40]);
+        assert!(
+            rest.contains("end of result (30000 characters)"),
+            "the stash holds the text and no second copy of the structured payload: {}",
+            &rest[rest.len() - 80..]
+        );
+    }
+
+    #[test]
+    fn a_failed_result_gets_the_plain_shaping() {
+        let mut r = typed_result(30_000, 20_000);
+        r["isError"] = json!(true);
+        assert!(shape_result_keeping_structured(&mut r, 8 * 1024, None));
+        assert!(r.get("structuredContent").is_none(), "{r}");
+        assert_eq!(r["isError"], json!(true));
+    }
+
+    #[test]
+    fn a_structured_payload_is_kept_up_to_the_ceiling_and_stashed_past_it() {
+        let envelope = value_size(&json!({ "blob": "" }));
+        let mut at_ceiling = typed_result(30_000, MAX_KEPT_STRUCTURED_BYTES - envelope);
+        assert!(shape_result_keeping_structured(
+            &mut at_ceiling,
+            8 * 1024,
+            None
+        ));
+        assert_eq!(
+            value_size(&at_ceiling["structuredContent"]),
+            MAX_KEPT_STRUCTURED_BYTES
+        );
+
+        let mut past = typed_result(30_000, MAX_KEPT_STRUCTURED_BYTES - envelope + 1);
+        assert!(shape_result_keeping_structured(&mut past, 8 * 1024, None));
+        assert!(
+            past.get("structuredContent").is_none(),
+            "{}",
+            size_of(&past)
+        );
+        let projected = fetch_result(&cursor_of(&past), 0, 0, None, Some("blob"));
+        assert_eq!(
+            projected["content"][0]["text"].as_str().unwrap().len(),
+            MAX_KEPT_STRUCTURED_BYTES - envelope + 1 + 2
+        );
+    }
+
+    #[test]
+    fn keeping_structured_content_without_any_shapes_like_shape_result() {
+        let mut keeping = big_text_result(10_000);
+        let mut plain = big_text_result(10_000);
+        assert!(shape_result_keeping_structured(&mut keeping, 2048, None));
+        assert!(shape_result(&mut plain, 2048, None));
+        assert!(keeping.get("structuredContent").is_none());
+        assert_eq!(keeping["isError"], plain["isError"]);
+        let head = |r: &Value| {
+            r["content"][0]["text"]
+                .as_str()
+                .unwrap()
+                .split("\"cursor\"")
+                .next()
+                .unwrap()
+                .to_string()
+        };
+        assert_eq!(head(&keeping), head(&plain));
+    }
+
+    #[test]
+    fn a_zero_budget_keeps_every_result_whole() {
+        let mut r = typed_result(30_000, 20_000);
+        let before = r.clone();
+        assert!(!shape_result_keeping_structured(&mut r, 0, None));
+        assert_eq!(r, before);
+    }
+
+    #[test]
+    fn non_text_blocks_are_never_shaped_and_the_structured_payload_survives() {
+        let mut r = json!({
+            "content": [
+                { "type": "text", "text": "t".repeat(30_000) },
+                { "type": "resource_link", "uri": "odh://x", "name": "x" }
+            ],
+            "structuredContent": { "blob": "s".repeat(100) },
+            "isError": false
+        });
+        let before = r.clone();
+        assert!(!shape_result_keeping_structured(&mut r, 8 * 1024, None));
+        assert_eq!(r, before);
     }
 }

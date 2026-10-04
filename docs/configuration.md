@@ -17,7 +17,9 @@ gateway entry, written for you when you connect a client:
   launch with this override keeps its startup migration within that instance:
   it does not rewrite client configs or agent hooks in the user's normal home.
 - `TOOLPORT_RESULT_BUDGET=<bytes>` - cap oversized tool results at this many bytes
-  (0 disables it). Optional; default budget applies when unset.
+  (0 disables it). Optional; default budget applies when unset. A tool that declares an
+  `outputSchema` keeps its `structuredContent` (up to 1 MiB) in a successful result: only
+  its text is cut, and the cursor pages the text.
 - `TOOLPORT_HTTP=<port>` (with optional `TOOLPORT_HTTP_HOST`, default `127.0.0.1`,
   and `TOOLPORT_HTTP_TOKEN` for the required bearer token) - run the gateway in
   HTTP/OpenAPI mode instead of stdio, for Open WebUI and other OpenAPI clients (see [Open WebUI](openwebui.md)). The in-app Settings -> Integrations toggle sets these for you, and the
