@@ -132,6 +132,11 @@ fn parse_value_line(
             cache_creation: u64_of(usage, "cache_creation_input_tokens"),
             cache_read: u64_of(usage, "cache_read_input_tokens"),
             tools,
+            request_id: v
+                .get("requestId")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
         },
     })
 }
@@ -280,6 +285,12 @@ pub fn index_state(lock: &Locked, root: &Path) -> Result<(IndexReport, State), S
 #[cfg(test)]
 pub(crate) mod fixtures {
     use serde_json::{json, Value};
+
+    pub fn with_request_id(line: &str, request_id: &str) -> String {
+        let mut value: Value = serde_json::from_str(line).unwrap();
+        value["requestId"] = json!(request_id);
+        value.to_string()
+    }
 
     pub fn assistant(
         id: &str,

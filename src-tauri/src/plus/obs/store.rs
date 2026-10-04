@@ -24,6 +24,8 @@ pub struct MsgRecord {
     pub cache_read: u64,
     #[serde(default)]
     pub tools: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub request_id: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -154,12 +156,7 @@ impl Locked {
     }
 
     pub fn events(&self) -> impl Iterator<Item = Event> {
-        File::open(self.events_path()).into_iter().flat_map(|file| {
-            BufReader::new(file)
-                .lines()
-                .map_while(Result::ok)
-                .filter_map(|line| serde_json::from_str::<Event>(&line).ok())
-        })
+        stream_events(&self.dir)
     }
 
     pub fn read_events(&self) -> Vec<Event> {
@@ -181,6 +178,80 @@ impl Locked {
         crate::registry::atomic_write(&self.events_path(), &text)?;
         Ok(removed)
     }
+}
+
+/// Reads the event log without the lock: appends are single writes, so a reader sees at worst a
+/// torn last line, which parsing skips.
+pub fn stream_events(dir: &Path) -> impl Iterator<Item = Event> {
+    File::open(dir.join("events.jsonl"))
+        .into_iter()
+        .flat_map(|file| {
+            BufReader::new(file)
+                .lines()
+                .map_while(Result::ok)
+                .filter_map(|line| serde_json::from_str::<Event>(&line).ok())
+        })
+}
+
+fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146_097 + doe - 719_468
+}
+
+pub fn iso_to_ms(ts: &str) -> Option<i64> {
+    let b = ts.as_bytes();
+    let shape_ok = b.len() >= 19
+        && b[4] == b'-'
+        && b[7] == b'-'
+        && (b[10] == b'T' || b[10] == b' ')
+        && b[13] == b':'
+        && b[16] == b':';
+    if !shape_ok {
+        return None;
+    }
+    let num = |from: usize, to: usize| ts.get(from..to)?.parse::<i64>().ok();
+    let (y, m, d) = (num(0, 4)?, num(5, 7)?, num(8, 10)?);
+    let (h, mi, s) = (num(11, 13)?, num(14, 16)?, num(17, 19)?);
+    if !(1..=12).contains(&m) || !(1..=31).contains(&d) || h > 23 || mi > 59 || s > 60 {
+        return None;
+    }
+    let mut rest = &ts[19..];
+    let mut millis = 0;
+    if let Some(frac) = rest.strip_prefix('.') {
+        let digits = frac.bytes().take_while(u8::is_ascii_digit).count();
+        let head = &frac[..digits.min(3)];
+        millis = head.parse::<i64>().ok()? * 10_i64.pow(3 - head.len() as u32);
+        rest = &frac[digits..];
+    }
+    let offset_min = match rest {
+        "" | "Z" | "z" => 0,
+        _ => {
+            let sign = match rest.as_bytes()[0] {
+                b'+' => 1,
+                b'-' => -1,
+                _ => return None,
+            };
+            let (oh, om) = (rest.get(1..3)?.parse::<i64>().ok()?, rest.get(4..6)?.parse::<i64>().ok()?);
+            sign * (oh * 60 + om)
+        }
+    };
+    let secs = days_from_civil(y, m, d) * 86_400 + h * 3600 + mi * 60 + s - offset_min * 60;
+    Some(secs * 1000 + millis)
+}
+
+pub fn iso_from_ms(ms: i64) -> String {
+    let rem = ms.div_euclid(1000).rem_euclid(86_400);
+    format!(
+        "{}T{:02}:{:02}:{:02}Z",
+        day_from_ms(ms),
+        rem / 3600,
+        rem % 3600 / 60,
+        rem % 60
+    )
 }
 
 pub fn day_from_ms(ms: i64) -> String {
@@ -213,6 +284,25 @@ mod tests {
         );
         assert_eq!(day_from_iso("garbage"), None);
         assert_eq!(day_from_iso("2026/10/03x"), None);
+    }
+
+    #[test]
+    fn iso_timestamps_convert_both_ways() {
+        assert_eq!(iso_to_ms("1970-01-01T00:00:00Z"), Some(0));
+        assert_eq!(iso_to_ms("2025-10-03T12:00:00Z"), Some(1_759_492_800_000));
+        assert_eq!(iso_to_ms("2025-10-03T12:00:00.250Z"), Some(1_759_492_800_250));
+        assert_eq!(iso_to_ms("2025-10-03T12:00:00.5Z"), Some(1_759_492_800_500));
+        assert_eq!(iso_to_ms("2025-10-03T14:00:00+02:00"), Some(1_759_492_800_000));
+        assert_eq!(iso_to_ms("2025-10-03T12:00:00"), Some(1_759_492_800_000));
+        assert_eq!(iso_to_ms("2024-02-29T23:59:59.999Z"), Some(1_709_251_199_999));
+        for bad in ["", "garbage", "2025-13-03T12:00:00Z", "2025-10-03T25:00:00Z", "2025-10-03T12:00:00Q"] {
+            assert_eq!(iso_to_ms(bad), None, "{bad}");
+        }
+        assert_eq!(iso_from_ms(1_759_492_801_500), "2025-10-03T12:00:01Z");
+        assert_eq!(iso_from_ms(0), "1970-01-01T00:00:00Z");
+        for ms in [0, 1_709_251_199_000, 1_759_492_800_000, 4_102_444_799_000] {
+            assert_eq!(iso_to_ms(&iso_from_ms(ms)), Some(ms));
+        }
     }
 
     #[test]
