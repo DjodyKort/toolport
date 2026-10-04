@@ -12,6 +12,11 @@
       "view": "control",
       "status": "built",
       "component": "src/plus/servers/ServersScreen.tsx"
+    },
+    "logins": {
+      "title": "Logins & secrets",
+      "status": "built",
+      "component": "src/plus/logins/LoginsScreen.tsx"
     }
   },
   "actions": {
@@ -169,6 +174,48 @@
       "status": "built",
       "test": "src/plus/servers/ClientsTab.test.tsx",
       "summary": "Start a server over stdio for a direct client entry: copy the command, terminal only"
+    },
+    "logins.signin": {
+      "route": "logins",
+      "status": "built",
+      "test": "src/plus/logins/LoginsTab.test.tsx",
+      "summary": "Sign in to an OAuth server in the browser, with the address and a Copy button when the browser cannot open"
+    },
+    "logins.probe": {
+      "route": "logins",
+      "status": "built",
+      "test": "src/plus/logins/LoginsTab.test.tsx",
+      "summary": "Probe every login or one server, with or without the cache"
+    },
+    "logins.secret-set": {
+      "route": "logins",
+      "status": "built",
+      "test": "src/plus/logins/SecretsTab.test.tsx",
+      "summary": "Set or replace a secret through a write-only field; the value goes to stdin only"
+    },
+    "logins.secret-reveal": {
+      "route": "logins",
+      "status": "built",
+      "test": "src/plus/logins/SecretsTab.test.tsx",
+      "summary": "Reveal a secret after a confirmation that follows the policy tier; it hides after 10 seconds"
+    },
+    "logins.secret-remove": {
+      "route": "logins",
+      "status": "built",
+      "test": "src/plus/logins/SecretsTab.test.tsx",
+      "summary": "Remove a secret after a confirmation, typed when the policy tier is destructive"
+    },
+    "logins.statusline": {
+      "route": "logins",
+      "status": "built",
+      "test": "src/plus/logins/IntegrationsTab.test.tsx",
+      "summary": "Show the live statusline output and the Claude Code statusline snippet"
+    },
+    "logins.hook": {
+      "route": "logins",
+      "status": "built",
+      "test": "src/plus/logins/IntegrationsTab.test.tsx",
+      "summary": "Show the live session start hook output and the Claude Code hook snippet"
     }
   },
   "owners": {
@@ -246,23 +293,23 @@
       "surface": "screen"
     },
     "auth hook": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "logins",
+      "action": "logins.hook",
       "surface": "screen"
     },
     "auth login": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "logins",
+      "action": "logins.signin",
       "surface": "screen"
     },
     "auth probe": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "logins",
+      "action": "logins.probe",
       "surface": "screen"
     },
     "auth statusline": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "logins",
+      "action": "logins.statusline",
       "surface": "screen"
     },
     "cc list": {
@@ -606,18 +653,18 @@
       "surface": "screen"
     },
     "secret get": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "logins",
+      "action": "logins.secret-reveal",
       "surface": "screen"
     },
     "secret rm": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "logins",
+      "action": "logins.secret-remove",
       "surface": "screen"
     },
     "secret set": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "logins",
+      "action": "logins.secret-set",
       "surface": "screen"
     },
     "server edit": {
