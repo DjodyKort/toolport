@@ -2,6 +2,8 @@
 //! enforcement, JSON-RPC dispatch and the backends onto skills, the registry, client sync and
 //! encrypted sync.
 
+#[cfg(test)]
+mod apply_update_tests;
 mod backend;
 mod catalog;
 mod compression;
