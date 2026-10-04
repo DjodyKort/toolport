@@ -345,7 +345,7 @@ fn skills_status(args: &Value) -> Outcome {
         let current = compute_skill_hash(skill).ok();
         entries.push(json!({
             "name": skill.name(),
-            "type": format!("{:?}", skill.skill_type).to_lowercase(),
+            "type": skill.skill_type.as_str(),
             "knownToLockfile": entry.is_some(),
             "currentHash": current,
             "lockfileHash": entry.map(|e| e.hash.clone()),

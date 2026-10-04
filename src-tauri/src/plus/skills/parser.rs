@@ -11,6 +11,15 @@ pub enum SkillType {
     Rule,
 }
 
+impl SkillType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SkillType::Skill => "skill",
+            SkillType::Rule => "rule",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Activation {
     Always,

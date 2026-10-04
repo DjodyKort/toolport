@@ -67,7 +67,7 @@ pub(super) fn skill_row(skill: &Skill) -> Value {
         "name": skill.name(),
         "description": skill.frontmatter.description,
         "activation": skill.frontmatter.activation.as_str(),
-        "type": format!("{:?}", skill.skill_type).to_lowercase(),
+        "type": skill.skill_type.as_str(),
         "path": skill.source_path.to_string_lossy(),
     })
 }

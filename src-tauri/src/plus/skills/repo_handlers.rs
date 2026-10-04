@@ -119,7 +119,7 @@ pub fn bundle_handler(args: Value) -> Result<Value, String> {
             .sum::<u64>();
         rows.push(json!({
             "name": skill.name(),
-            "type": format!("{:?}", skill.skill_type).to_lowercase(),
+            "type": skill.skill_type.as_str(),
             "files": list.len(),
         }));
     }

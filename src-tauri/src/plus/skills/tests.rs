@@ -773,3 +773,18 @@ fn managed_block_injection_normalises_the_whitespace_around_the_block() {
     );
     assert_eq!(inject_managed_block(&twice, "new"), twice);
 }
+
+#[test]
+fn skill_type_and_activation_keep_their_wire_strings() {
+    use super::parser::{Activation, SkillType};
+    assert_eq!(SkillType::Skill.as_str(), "skill");
+    assert_eq!(SkillType::Rule.as_str(), "rule");
+    for (activation, wire) in [
+        (Activation::Always, "always"),
+        (Activation::Auto, "auto"),
+        (Activation::Agent, "agent"),
+        (Activation::Manual, "manual"),
+    ] {
+        assert_eq!(activation.as_str(), wire);
+    }
+}
