@@ -6,6 +6,7 @@ use crate::plus::auth::login::{self, LoginError, LoginOptions};
 use crate::plus::auth::scan::{self, ProbeRun, Selector};
 use crate::plus::auth::surfaces::{self, AuthRow};
 use crate::plus::auth::{AuthProber, Clock, StatusFile, SystemClock};
+use crate::plus::servers;
 use serde_json::Value;
 
 const PROBE_USAGE: &str = "usage: auth probe [--server <id>] [--force]";
@@ -124,7 +125,7 @@ fn selector(flags: &super::flags::Flags, prober: &AuthProber) -> Result<Selector
     };
     let by_name = || {
         let registry = scan::read_registry().ok()?;
-        let server = login::resolve(&registry, key)?;
+        let server = servers::find(&registry, key)?;
         prober.has_probe(&server.id).then(|| server.id.clone())
     };
     let id = if prober.has_probe(key) {
