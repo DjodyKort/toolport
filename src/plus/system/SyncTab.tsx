@@ -199,7 +199,7 @@ export function SyncTab() {
                           argv: ["sync", "reset"],
                           confirmLabel: "Reset sync",
                           planned: planOfSyncReset(s.repoUrl),
-                          done: "Sync data removed",
+                          done: "Local sync setup removed",
                         })
                       }
                     >

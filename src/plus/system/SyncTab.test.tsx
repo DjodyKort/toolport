@@ -277,16 +277,14 @@ describe("Sync tab: push, pull, reset, rotate", () => {
     await screen.findByText("m-test");
     await user.click(screen.getByRole("button", { name: "Reset…" }));
     const box = await screen.findByRole("dialog");
-    expect(
-      within(box).getByText("Remove the remote sync data and the local sync state"),
-    ).toBeInTheDocument();
+    expect(within(box).getByText("Remove the local sync setup")).toBeInTheDocument();
     expect(within(box).getByLabelText("Command line")).toHaveTextContent(
       "toolportctl sync reset",
     );
     expect(within(box).getByText(/no preview/)).toBeInTheDocument();
     await user.type(within(box).getByRole("textbox"), "sync reset");
     await user.click(within(box).getByRole("button", { name: "Reset sync" }));
-    expect(await screen.findByText("Sync data removed")).toBeInTheDocument();
+    expect(await screen.findByText("Local sync setup removed")).toBeInTheDocument();
     expect(bridge.ran()).toContain("sync reset");
   });
 
