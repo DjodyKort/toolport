@@ -1,0 +1,84 @@
+{
+  "area": "context",
+  "entry": "context_scenario",
+  "args": {
+    "steps": [
+      {
+        "op": "cli",
+        "label": "profile-list0",
+        "argv": [
+          "profile",
+          "list"
+        ]
+      },
+      {
+        "op": "cli",
+        "label": "status0-orphan",
+        "argv": [
+          "status"
+        ]
+      },
+      {
+        "op": "cli",
+        "label": "profile-remove-unknown",
+        "argv": [
+          "profile",
+          "remove",
+          "nope"
+        ]
+      },
+      {
+        "op": "cli",
+        "label": "status1-after",
+        "argv": [
+          "status"
+        ]
+      },
+      {
+        "op": "cli",
+        "label": "profile-remove-purge-orphan",
+        "argv": [
+          "profile",
+          "remove",
+          "stale",
+          "--purge"
+        ]
+      },
+      {
+        "op": "cli",
+        "label": "profile-remove-purge-ghost",
+        "argv": [
+          "profile",
+          "remove",
+          "ghost",
+          "--purge"
+        ]
+      }
+    ]
+  },
+  "comparison": "A",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ],
+  "env": {
+    "MCPM_CONFIG_DIR": "{HOME}/.config/mcpm",
+    "MCPM_CONTEXT_CLAUDE_HOME": "{HOME}/.claude",
+    "MCPM_CONTEXT_CLAUDE_JSON": "{HOME}/.claude.json",
+    "MCPM_CONTEXT_CACHE_DIR": "{HOME}/.cache/mcpm/context",
+    "MCPM_CONTEXT_CF_DIR": "{HOME}/.local/share/corp-dev-tools"
+  },
+  "exclude": [
+    ".cache/*",
+    ".git/*",
+    "*/.git/*",
+    ".config/mcpm/auth.json",
+    ".config/mcpm/config.json"
+  ],
+  "overrides": {
+    "*.json": "B",
+    "*/.mcpm-context-state.json": "B",
+    "*.report": "B"
+  }
+}

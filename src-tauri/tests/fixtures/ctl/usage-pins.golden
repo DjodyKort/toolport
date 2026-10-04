@@ -37,7 +37,17 @@ Commands:
   context plan   Preview the context deploy (--home <dir>, --rules)
   context apply  Apply the context deploy (--home <dir>, --rules, --no-persist, --dry-run)
   context sync   Plan then apply the context deploy (--home <dir>, --rules, --dry-run)
-  context        Context: loads checkpoint-status plan apply sync
+  context init   Scaffold the personal layer and save context.json (--home <dir>, --dry-run, --yes)
+  context status Show layers, profiles, legacy MCP duplicates and the shims file (--home <dir>)
+  context client add Scaffold a path-scoped client layer (<name>, --glob <pattern>, --home <dir>, --dry-run)
+  context client list List the context layers with their path globs (--home <dir>)
+  context client Client layers: add list
+  context profile add Define a launch profile and generate it (<name>, --no-org, --rules, --servers, --dry-run)
+  context profile list List the configured launch profiles (--home <dir>)
+  context profile remove Drop a launch profile; --purge deletes its directory (<name>, --purge, --dry-run)
+  context profile Launch profiles: add list remove
+  context disable Remove the generated shims; --purge-profiles also the profile directories (--dry-run)
+  context        Context: init status client profile disable loads checkpoint-status plan apply sync
   compression status Show the compression policy, pin and drift
   compression presets List presets (--refresh re-snapshots knobs, --dry-run)
   compression enable Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)
@@ -131,7 +141,17 @@ Commands:
   context plan   Preview the context deploy (--home <dir>, --rules)
   context apply  Apply the context deploy (--home <dir>, --rules, --no-persist, --dry-run)
   context sync   Plan then apply the context deploy (--home <dir>, --rules, --dry-run)
-  context        Context: loads checkpoint-status plan apply sync
+  context init   Scaffold the personal layer and save context.json (--home <dir>, --dry-run, --yes)
+  context status Show layers, profiles, legacy MCP duplicates and the shims file (--home <dir>)
+  context client add Scaffold a path-scoped client layer (<name>, --glob <pattern>, --home <dir>, --dry-run)
+  context client list List the context layers with their path globs (--home <dir>)
+  context client Client layers: add list
+  context profile add Define a launch profile and generate it (<name>, --no-org, --rules, --servers, --dry-run)
+  context profile list List the configured launch profiles (--home <dir>)
+  context profile remove Drop a launch profile; --purge deletes its directory (<name>, --purge, --dry-run)
+  context profile Launch profiles: add list remove
+  context disable Remove the generated shims; --purge-profiles also the profile directories (--dry-run)
+  context        Context: init status client profile disable loads checkpoint-status plan apply sync
   compression status Show the compression policy, pin and drift
   compression presets List presets (--refresh re-snapshots knobs, --dry-run)
   compression enable Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)
@@ -225,7 +245,17 @@ Commands:
   context plan   Preview the context deploy (--home <dir>, --rules)
   context apply  Apply the context deploy (--home <dir>, --rules, --no-persist, --dry-run)
   context sync   Plan then apply the context deploy (--home <dir>, --rules, --dry-run)
-  context        Context: loads checkpoint-status plan apply sync
+  context init   Scaffold the personal layer and save context.json (--home <dir>, --dry-run, --yes)
+  context status Show layers, profiles, legacy MCP duplicates and the shims file (--home <dir>)
+  context client add Scaffold a path-scoped client layer (<name>, --glob <pattern>, --home <dir>, --dry-run)
+  context client list List the context layers with their path globs (--home <dir>)
+  context client Client layers: add list
+  context profile add Define a launch profile and generate it (<name>, --no-org, --rules, --servers, --dry-run)
+  context profile list List the configured launch profiles (--home <dir>)
+  context profile remove Drop a launch profile; --purge deletes its directory (<name>, --purge, --dry-run)
+  context profile Launch profiles: add list remove
+  context disable Remove the generated shims; --purge-profiles also the profile directories (--dry-run)
+  context        Context: init status client profile disable loads checkpoint-status plan apply sync
   compression status Show the compression policy, pin and drift
   compression presets List presets (--refresh re-snapshots knobs, --dry-run)
   compression enable Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)
@@ -319,7 +349,17 @@ Commands:
   context plan   Preview the context deploy (--home <dir>, --rules)
   context apply  Apply the context deploy (--home <dir>, --rules, --no-persist, --dry-run)
   context sync   Plan then apply the context deploy (--home <dir>, --rules, --dry-run)
-  context        Context: loads checkpoint-status plan apply sync
+  context init   Scaffold the personal layer and save context.json (--home <dir>, --dry-run, --yes)
+  context status Show layers, profiles, legacy MCP duplicates and the shims file (--home <dir>)
+  context client add Scaffold a path-scoped client layer (<name>, --glob <pattern>, --home <dir>, --dry-run)
+  context client list List the context layers with their path globs (--home <dir>)
+  context client Client layers: add list
+  context profile add Define a launch profile and generate it (<name>, --no-org, --rules, --servers, --dry-run)
+  context profile list List the configured launch profiles (--home <dir>)
+  context profile remove Drop a launch profile; --purge deletes its directory (<name>, --purge, --dry-run)
+  context profile Launch profiles: add list remove
+  context disable Remove the generated shims; --purge-profiles also the profile directories (--dry-run)
+  context        Context: init status client profile disable loads checkpoint-status plan apply sync
   compression status Show the compression policy, pin and drift
   compression presets List presets (--refresh re-snapshots knobs, --dry-run)
   compression enable Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)
@@ -1184,18 +1224,18 @@ Run `toolportctl --help` for usage.
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: context loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--dry-run])
+toolportctl: usage: context init|status|client|profile|disable|loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--dry-run])
 Run `toolportctl --help` for usage.
 === ["--json","context"]
 exit 2
 --- stdout
-{"command":"context","error":{"code":"usage","message":"usage: context loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--dry-run])"},"ok":false,"schemaVersion":1}
+{"command":"context","error":{"code":"usage","message":"usage: context init|status|client|profile|disable|loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--dry-run])"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["context","nope"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: context loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--dry-run])
+toolportctl: usage: context init|status|client|profile|disable|loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--dry-run])
 Run `toolportctl --help` for usage.
 === ["context","loads","--bogus"]
 exit 2
@@ -1464,6 +1504,344 @@ exit 2
 --- stdout
 {"command":"context folders","error":{"code":"usage","message":"--enable and --disable are exclusive"},"ok":false,"schemaVersion":1}
 --- stderr
+=== ["context","init","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: context init [--home <dir>] [--dry-run] [--yes]
+Run `toolportctl --help` for usage.
+=== ["context","init","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: context init [--home <dir>] [--dry-run] [--yes]
+Run `toolportctl --help` for usage.
+=== ["context","init","--home"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --home requires a value
+Run `toolportctl --help` for usage.
+=== ["context","init","--yes=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --yes takes no value
+Run `toolportctl --help` for usage.
+=== ["context","init","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --dry-run takes no value
+Run `toolportctl --help` for usage.
+=== ["--json","context","init","--bogus"]
+exit 2
+--- stdout
+{"command":"context init","error":{"code":"usage","message":"unexpected argument: --bogus\nusage: context init [--home <dir>] [--dry-run] [--yes]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["context","status","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: context status [--home <dir>]
+Run `toolportctl --help` for usage.
+=== ["context","status","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: context status [--home <dir>]
+Run `toolportctl --help` for usage.
+=== ["context","status","--home"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --home requires a value
+Run `toolportctl --help` for usage.
+=== ["context","status","--dry-run"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --dry-run
+usage: context status [--home <dir>]
+Run `toolportctl --help` for usage.
+=== ["context","client"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: context client add|list (add: <name> [--glob <pattern>] [--home <dir>] [--dry-run]; list: [--home <dir>])
+Run `toolportctl --help` for usage.
+=== ["--json","context","client"]
+exit 2
+--- stdout
+{"command":"context client","error":{"code":"usage","message":"usage: context client add|list (add: <name> [--glob <pattern>] [--home <dir>] [--dry-run]; list: [--home <dir>])"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["context","client","nope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: context client add|list (add: <name> [--glob <pattern>] [--home <dir>] [--dry-run]; list: [--home <dir>])
+Run `toolportctl --help` for usage.
+=== ["context","client","add"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing client name
+usage: context client add <name> [--glob <pattern>] [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["context","client","add","--glob"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --glob requires a value
+Run `toolportctl --help` for usage.
+=== ["context","client","add","acme","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: context client add <name> [--glob <pattern>] [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["context","client","add","acme","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: context client add <name> [--glob <pattern>] [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["context","client","add","acme","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --dry-run takes no value
+Run `toolportctl --help` for usage.
+=== ["context","client","add","acme","--glob"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --glob requires a value
+Run `toolportctl --help` for usage.
+=== ["context","client","add","a\nb"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: client name must not contain control characters
+Run `toolportctl --help` for usage.
+=== ["context","client","add","a---b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: client name must not contain '---' (it would end the frontmatter)
+Run `toolportctl --help` for usage.
+=== ["context","client","add","acme","--glob","x\n---\ny"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: glob must not contain control characters
+Run `toolportctl --help` for usage.
+=== ["context","client","add"," "]
+exit 2
+--- stdout
+--- stderr
+toolportctl: client name must not be empty
+Run `toolportctl --help` for usage.
+=== ["--json","context","client","add","a\nb"]
+exit 2
+--- stdout
+{"command":"context client add","error":{"code":"usage","message":"client name must not contain control characters"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["context","client","list","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: context client list [--home <dir>]
+Run `toolportctl --help` for usage.
+=== ["context","client","list","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: context client list [--home <dir>]
+Run `toolportctl --help` for usage.
+=== ["context","client","list","--home"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --home requires a value
+Run `toolportctl --help` for usage.
+=== ["context","profile"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: context profile add|list|remove (add: <name> [--no-org] [--org-mode import|copy] [--rules inherit|none|<a,b>] [--servers inherit|none|<a,b>] [--no-commands] [--no-skills] [--home <dir>] [--dry-run]; list: [--home <dir>]; remove: <name> [--purge] [--home <dir>] [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["--json","context","profile"]
+exit 2
+--- stdout
+{"command":"context profile","error":{"code":"usage","message":"usage: context profile add|list|remove (add: <name> [--no-org] [--org-mode import|copy] [--rules inherit|none|<a,b>] [--servers inherit|none|<a,b>] [--no-commands] [--no-skills] [--home <dir>] [--dry-run]; list: [--home <dir>]; remove: <name> [--purge] [--home <dir>] [--dry-run])"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["context","profile","nope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: context profile add|list|remove (add: <name> [--no-org] [--org-mode import|copy] [--rules inherit|none|<a,b>] [--servers inherit|none|<a,b>] [--no-commands] [--no-skills] [--home <dir>] [--dry-run]; list: [--home <dir>]; remove: <name> [--purge] [--home <dir>] [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["context","profile","add"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing profile name
+usage: context profile add <name> [--no-org] [--org-mode import|copy] [--rules inherit|none|<a,b>] [--servers inherit|none|<a,b>] [--no-commands] [--no-skills] [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["context","profile","add","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: context profile add <name> [--no-org] [--org-mode import|copy] [--rules inherit|none|<a,b>] [--servers inherit|none|<a,b>] [--no-commands] [--no-skills] [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["context","profile","add","Bad Name"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: profile name "Bad Name" must match [a-z0-9][a-z0-9-]* (it becomes a shell function)
+Run `toolportctl --help` for usage.
+=== ["context","profile","add","../x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: profile name "../x" must match [a-z0-9][a-z0-9-]* (it becomes a shell function)
+Run `toolportctl --help` for usage.
+=== ["context","profile","add","ok","--org-mode","weird"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --org-mode must be import or copy, not weird
+Run `toolportctl --help` for usage.
+=== ["context","profile","add","ok","--org-mode"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --org-mode requires a value
+Run `toolportctl --help` for usage.
+=== ["context","profile","add","ok","--rules"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --rules requires a value
+Run `toolportctl --help` for usage.
+=== ["context","profile","add","ok","--servers"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --servers requires a value
+Run `toolportctl --help` for usage.
+=== ["context","profile","add","ok","--no-org=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --no-org takes no value
+Run `toolportctl --help` for usage.
+=== ["context","profile","add","ok","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: context profile add <name> [--no-org] [--org-mode import|copy] [--rules inherit|none|<a,b>] [--servers inherit|none|<a,b>] [--no-commands] [--no-skills] [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["--json","context","profile","add","Bad Name"]
+exit 2
+--- stdout
+{"command":"context profile add","error":{"code":"usage","message":"profile name \"Bad Name\" must match [a-z0-9][a-z0-9-]* (it becomes a shell function)"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["context","profile","list","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: context profile list [--home <dir>]
+Run `toolportctl --help` for usage.
+=== ["context","profile","list","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: context profile list [--home <dir>]
+Run `toolportctl --help` for usage.
+=== ["context","profile","remove"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing profile name
+usage: context profile remove <name> [--purge] [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["context","profile","remove","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: context profile remove <name> [--purge] [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["context","profile","remove","../x","--purge"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: profile name "../x" is not a directory name under the profiles root
+Run `toolportctl --help` for usage.
+=== ["context","profile","remove","a/b","--purge"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: profile name "a/b" is not a directory name under the profiles root
+Run `toolportctl --help` for usage.
+=== ["context","profile","remove","x","--purge=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --purge takes no value
+Run `toolportctl --help` for usage.
+=== ["context","profile","remove","x","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: context profile remove <name> [--purge] [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["--json","context","profile","remove","..","--purge"]
+exit 2
+--- stdout
+{"command":"context profile remove","error":{"code":"usage","message":"profile name \"..\" is not a directory name under the profiles root"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["context","disable","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: context disable [--purge-profiles] [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["context","disable","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: context disable [--purge-profiles] [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["context","disable","--purge-profiles=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --purge-profiles takes no value
+Run `toolportctl --help` for usage.
+=== ["context","disable","--home"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --home requires a value
+Run `toolportctl --help` for usage.
 === ["compression"]
 exit 2
 --- stdout

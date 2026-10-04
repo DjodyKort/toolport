@@ -27,6 +27,6 @@
     "layer 'client-acme' not found at <HOME>/.claude/rules/client-acme.md — run `toolportctl skills sync`?",
     "layer 'missing-layer' not found at <HOME>/.claude/rules/missing-layer.md — run `toolportctl skills sync`?",
     "server 'nope-not-registered' not in mcpm registry nor in .claude.json — skipped",
-    "orphan profile dir <HOME>/.config/mcpm/claude-profiles/stale-orphan (not in config) — delete the directory or add the profile to context.json"
+    "orphan profile dir <HOME>/.config/mcpm/claude-profiles/stale-orphan (not in config) — `toolportctl context profile remove stale-orphan --purge`"
   ]
 }

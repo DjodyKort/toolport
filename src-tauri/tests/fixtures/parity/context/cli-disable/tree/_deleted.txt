@@ -1,0 +1,3 @@
+.config/mcpm/claude-profiles/a/CLAUDE.md
+.config/mcpm/claude-profiles/b/CLAUDE.md
+.config/mcpm/context-shims.zsh

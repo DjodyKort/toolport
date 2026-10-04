@@ -1,0 +1,4 @@
+rc=0
+  ! no profile 'ghost' in config
+  ✓ wrote shims: <HOME>/.config/mcpm/context-shims.zsh
+  ✓ saved config (0 profile(s))

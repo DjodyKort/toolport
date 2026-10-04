@@ -18,6 +18,12 @@ Command text deviates from mcpm on purpose (D-042): the generator's names layer 
 user to run onto their `toolportctl` equivalents, so `context/` goldens say `toolportctl context sync`, not `mcpm context sync`.
 Paths, file names and identifiers such as `.config/mcpm` stay as mcpm writes them.
 
+The `context/cli-*` cases (MIG-CTX-9) record the text of the real `mcpm context <command>` (`rc=<exit code>` first, then
+what a terminal shows at `COLUMNS=10000`, trailing spaces stripped); `tests/parity_context.rs` runs `toolportctl context`
+in-process on the same inputs and compares. `profiles-reconcile` is replayed too, on the lines both engines produce:
+launch profiles (D-022) are not mcpm's `CLAUDE_CONFIG_DIR` profile dirs, so the generated profile files, the shims text, the
+`links*.json` observations and the profile action lines are skipped.
+
 Other intentional deviations are applied the same way, by the generator's per-case `goldenlib/deviations.py` layer (not
 by hand), and the case's `manifest.json` lists them under `deviations`. Currently one: DEV-HRD11-1 (D-049), where
 `skills/zed-append-existing` `repo/.rules` ends the text after the managed block with one newline instead of mcpm's extra one.

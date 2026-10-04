@@ -11,7 +11,7 @@ fn vendored_goldens_match_parity_lock() {
 #[test]
 fn every_case_has_a_loadable_manifest() {
     let cases = case_dirs(&fixtures_root()).unwrap();
-    assert_eq!(cases.len(), 79);
+    assert_eq!(cases.len(), 82);
     for dir in cases {
         let case = GoldenCase::load(&dir).unwrap_or_else(|e| panic!("{e}"));
         assert!(case.tree().is_dir() || case.classes.is_empty(), "{}", dir.display());

@@ -1,0 +1,64 @@
+{
+  "area": "context",
+  "case": "context/cli-orphans",
+  "comparison": "A",
+  "entry": "context_scenario",
+  "files": {
+    ".claude.json": {
+      "bytes": 118,
+      "class": "B",
+      "sha256": "083506ef76a7449cb397a9c4436b0f26caea4f77ab978cfb37c63afddf88d538"
+    },
+    ".config/mcpm/context-shims.zsh": {
+      "bytes": 1952,
+      "class": "A",
+      "sha256": "d7df090ec9ea83573fbe951b6bf5c42fbd767cc30eebed4f2bb210b01c7c6850"
+    },
+    ".config/mcpm/context.json": {
+      "bytes": 399,
+      "class": "B",
+      "sha256": "8066b97952c04f16a77afccb57ca084cb13e3ea1628869c62c8abaf906f70cb5"
+    },
+    "_deleted.txt": {
+      "bytes": 45,
+      "class": "A",
+      "sha256": "73ea545a74564b63a3a150f9338546f4fe3d0d027a00e92e143b51a7675276b9"
+    },
+    "_golden/profile-list0.txt": {
+      "bytes": 64,
+      "class": "A",
+      "sha256": "c12f03c0de05db047c713a2dca845b7b74a2f75d4509acfaf6306be44cd485e9"
+    },
+    "_golden/profile-remove-purge-ghost.txt": {
+      "bytes": 129,
+      "class": "A",
+      "sha256": "c130e7de5006ba01562ea53dcc0882d58ef048d48eed8eb28bb75e3bc64dcc2a"
+    },
+    "_golden/profile-remove-purge-orphan.txt": {
+      "bytes": 197,
+      "class": "A",
+      "sha256": "45132e823319a19831068465b901686cabcc4ba4ba3b5280e5a131cd339776e6"
+    },
+    "_golden/profile-remove-unknown.txt": {
+      "bytes": 325,
+      "class": "A",
+      "sha256": "6da4f73685da9bd234646f953b047520669d474e8655396373091432953041b7"
+    },
+    "_golden/status0-orphan.txt": {
+      "bytes": 169,
+      "class": "A",
+      "sha256": "6bdbf1b6b3c995427d325b32de89d56e0e4b2c4a6a5b89001db7bf9e0ec0e145"
+    },
+    "_golden/status1-after.txt": {
+      "bytes": 165,
+      "class": "A",
+      "sha256": "f792bfb547eecee5a3aeae516318209236553f8fcbadc4c0129840acfac0b51c"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

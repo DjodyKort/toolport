@@ -35,14 +35,14 @@
       "sha256": "34ea38aaa86ecd9fcd1a3871968c82582188497f50e81ed9f21699971935b1d4"
     },
     "_golden/apply2-nothing.report.json": {
-      "bytes": 273,
+      "bytes": 267,
       "class": "B",
-      "sha256": "fb1be0ae88f3f339cd0d60b6188f2e1254f6a1f19611b322fe6d31770bb1a8aa"
+      "sha256": "a84b9367fbe9a407c6e9795189e325b21e0a894adbe6336936eed70ed7911d6f"
     },
     "_golden/apply3-nothing-again.report.json": {
-      "bytes": 220,
+      "bytes": 214,
       "class": "B",
-      "sha256": "6877bbe5afa11134e477238fd5d95a1eccfe8645e84edb5daa337c3a86098a3f"
+      "sha256": "2e798b774dbf8e81921d1135fdd9af2b0c23e940e3c4d1eac756fc77465a4c26"
     },
     "_golden/exists.after-removal.json": {
       "bytes": 46,

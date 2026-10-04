@@ -1,0 +1,29 @@
+{
+  "area": "context",
+  "case": "context/cli-disable",
+  "comparison": "A",
+  "entry": "context_scenario",
+  "files": {
+    "_deleted.txt": {
+      "bytes": 113,
+      "class": "A",
+      "sha256": "b39402720c169213c0514a4dbf4dd7b65e05be60fffdfaca66afcc00b35db4fa"
+    },
+    "_golden/disable-purge.txt": {
+      "bytes": 133,
+      "class": "A",
+      "sha256": "9290ac4e0ab9044d265398bbdaf12d277b7259c34cdf4596fd541f8c16363aaa"
+    },
+    "_golden/disable-shims.txt": {
+      "bytes": 30,
+      "class": "A",
+      "sha256": "b21ffd8559ed55279d71cd480da0c69422ef86955e1c44beb59e785c0be96934"
+    }
+  },
+  "mcpm_sha": "d3757fe5b48af0f4e8970c12c134a72d9bb5aa5e",
+  "normalizers": [
+    "lf",
+    "root_paths",
+    "lock_fields"
+  ]
+}

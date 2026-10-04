@@ -13,6 +13,7 @@ pub mod folders;
 pub mod launch;
 pub mod layers;
 pub mod loads;
+pub mod manage;
 pub mod roots;
 pub mod rules;
 pub mod settings;
@@ -32,6 +33,8 @@ mod tests_folders;
 mod tests_hardening;
 #[cfg(test)]
 mod tests_hooks;
+#[cfg(test)]
+mod tests_manage;
 
 pub use config::{load_config, preserve_unreadable, save_config, ContextConfig};
 pub use roots::Roots;
@@ -107,7 +110,7 @@ fn warn_orphans(roots: &Roots, config: &ContextConfig, report: &mut Report) {
             .unwrap_or_default();
         if !config.profiles.contains_key(&name) {
             report.warn(format!(
-                "orphan profile dir {} (not in config) — delete the directory or add the profile to context.json",
+                "orphan profile dir {} (not in config) — `toolportctl context profile remove {name} --purge`",
                 dir.display()
             ));
         }

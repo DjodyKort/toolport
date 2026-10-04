@@ -47,6 +47,11 @@ const NOT_READ_ONLY: &[(&str, &str)] = &[
     ("usage", "indexes transcripts into the data dir; ctl::usage unit tests"),
     ("obs otel enable", "writes the Claude settings and the receiver config; obs::otel_e2e_tests round trip"),
     ("obs otel disable", "removes what enable wrote; obs::otel_e2e_tests round trip"),
+    ("context init", "scaffolds the personal layer and writes context.json; context management round trip test"),
+    ("context client add", "scaffolds a client layer rule; context management round trip test"),
+    ("context profile add", "writes context.json, a launch profile and the shims; context management round trip test"),
+    ("context profile remove", "writes context.json and can delete a profile dir; context management round trip test"),
+    ("context disable", "removes the shims file and optionally the profile dirs; context management round trip test"),
 ];
 
 struct World {
@@ -557,6 +562,32 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             },
         ),
         case(
+            "context status",
+            &["context", "status", "--home", &home],
+            0,
+            |_, d| {
+                assert_eq!(d["layers"], json!([]));
+                assert_eq!(d["profiles"], json!([]));
+                assert_eq!(d["shims"]["exists"], false);
+            },
+        ),
+        case(
+            "context client list",
+            &["context", "client", "list", "--home", &home],
+            0,
+            |_, d| {
+                assert_eq!(d["layers"], json!([]));
+            },
+        ),
+        case(
+            "context profile list",
+            &["context", "profile", "list", "--home", &home],
+            0,
+            |_, d| {
+                assert_eq!(d["profiles"], json!([]));
+            },
+        ),
+        case(
             "compression status",
             &["compression", "status"],
             0,
@@ -958,6 +989,69 @@ fn bare_groups_report_usage_or_not_implemented() {
         assert_envelope(&key, &run, &value, &key, exit);
         assert_eq!(value["error"]["code"], code, "{key}");
     }
+}
+
+#[test]
+fn context_management_commands_round_trip_on_a_synthetic_home() {
+    let world = World::new("context-manage");
+    let home = world.path(&world.home);
+    let dry_runs: [(&str, &[&str]); 5] = [
+        ("context init", &["context", "init"]),
+        ("context client add", &["context", "client", "add", "acme"]),
+        (
+            "context profile add",
+            &["context", "profile", "add", "work", "--rules", "none", "--servers", "none"],
+        ),
+        (
+            "context profile remove",
+            &["context", "profile", "remove", "work", "--purge"],
+        ),
+        ("context disable", &["context", "disable", "--purge-profiles"]),
+    ];
+    let before = world.snapshot();
+    for (key, argv) in dry_runs {
+        let mut full: Vec<&str> = argv.to_vec();
+        full.extend(["--dry-run", "--home", &home]);
+        let (run, value) = world.json(&full);
+        assert_envelope(&full.join(" "), &run, &value, key, 0);
+        assert_eq!(value["data"]["dryRun"], true, "{key}");
+        assert_eq!(world.snapshot(), before, "{key} --dry-run must write nothing");
+    }
+
+    let (run, value) = world.json(&["context", "init", "--home", &home]);
+    assert_envelope("context init", &run, &value, "context init", 0);
+    assert_eq!(value["data"]["personal"]["created"], true);
+    let personal = Path::new(value["data"]["personal"]["path"].as_str().unwrap()).to_path_buf();
+    assert!(personal.is_file());
+    assert!(world.home.join(".config/mcpm/context.json").is_file());
+
+    let (run, value) = world.json(&["context", "client", "add", "acme", "--home", &home]);
+    assert_envelope("context client add", &run, &value, "context client add", 0);
+    assert_eq!(value["data"]["rule"], "client-acme");
+    let (_, listed) = world.json(&["context", "client", "list", "--home", &home]);
+    assert_eq!(listed["data"]["layers"].as_array().unwrap().len(), 2);
+
+    let (run, value) = world.json(&[
+        "context", "profile", "add", "work", "--rules", "none", "--servers", "none", "--home", &home,
+    ]);
+    assert_envelope("context profile add", &run, &value, "context profile add", 0);
+    assert_eq!(value["data"]["profile"]["generated"], true);
+    assert!(world.home.join(".config/mcpm/context-shims.zsh").is_file());
+    let (_, status) = world.json(&["context", "status", "--home", &home]);
+    assert_eq!(status["data"]["profiles"][0]["name"], "work");
+    assert_eq!(status["data"]["shims"]["exists"], true);
+
+    let (run, value) = world.json(&["context", "profile", "remove", "work", "--purge", "--home", &home]);
+    assert_envelope("context profile remove", &run, &value, "context profile remove", 0);
+    assert_eq!(value["data"]["inConfig"], true);
+    assert_eq!(value["data"]["purged"], true);
+    assert!(!world.home.join(".config/mcpm/claude-profiles/work").exists());
+
+    let (run, value) = world.json(&["context", "disable", "--home", &home]);
+    assert_envelope("context disable", &run, &value, "context disable", 0);
+    assert_eq!(value["data"]["shims"]["removed"], true);
+    assert!(!world.home.join(".config/mcpm/context-shims.zsh").exists());
+    assert!(personal.is_file(), "disable never touches the layers");
 }
 
 #[test]

@@ -35,9 +35,9 @@
       "sha256": "8c567e2dcec18bcccdb860350ec8e70058e45aaf8435927c85f6d2f19918e14d"
     },
     "_golden/doctor.corrupt.json": {
-      "bytes": 322,
+      "bytes": 303,
       "class": "B",
-      "sha256": "5e5677f9d3ce9e409df135fbb1248ac131b59fda2ac349fddbd181787ad6b653"
+      "sha256": "1512c5f73b17eb106266094beb5e0466ab6ef33a9f3cf585788a2ee233ac105b"
     },
     "_golden/pure.json": {
       "bytes": 504,

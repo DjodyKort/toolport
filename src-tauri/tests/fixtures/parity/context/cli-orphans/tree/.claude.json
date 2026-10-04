@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "keep": {
+      "command": "y"
+    },
+    "mcpm_context7": {
+      "command": "x"
+    }
+  }
+}

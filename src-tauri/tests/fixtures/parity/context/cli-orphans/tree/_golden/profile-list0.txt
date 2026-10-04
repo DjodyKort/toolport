@@ -1,0 +1,2 @@
+rc=0
+  no profiles — `toolportctl context profile add <name>`

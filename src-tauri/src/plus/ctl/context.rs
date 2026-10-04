@@ -116,7 +116,7 @@ pub fn checkpoint_status(rest: &[String]) -> Result<Output, CtlError> {
     checkpoint_status_from(rest, &mut std::io::stdin().lock(), &roots)
 }
 
-const GROUP_USAGE: &str = "usage: context loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--dry-run])";
+const GROUP_USAGE: &str = "usage: context init|status|client|profile|disable|loads|checkpoint-status|plan|apply|sync (plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--dry-run])";
 
 const DEPLOY: Spec = Spec {
     flags: &[value("--home"), switch("--rules"), switch("--no-persist")],

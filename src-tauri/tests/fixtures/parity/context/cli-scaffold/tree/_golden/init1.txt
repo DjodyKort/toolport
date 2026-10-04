@@ -1,0 +1,13 @@
+rc=0
+  ✓ scaffolded personal layer: <HOME>/skills-repo/rules/personal/SKILL.md
+
+  ! <HOME>/.claude/settings.local.json is not read by Claude Code at user level (unsupported).
+      3 allow entr(y/ies) found; 3 migratable.
+  ✓ migrated 3 entries into ensure_allow
+  ✓ saved context.json
+
+Next steps:
+  1. Edit your personal layer, then:  toolportctl skills sync
+  2. Per-client layer:                toolportctl context client add <name>
+  3. Profiles:                        toolportctl context profile add bare --no-org --rules none --servers none
+  4. Apply everything:                toolportctl context sync
