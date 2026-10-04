@@ -2,8 +2,12 @@
 //! and the selfmcp server tools. Each surface keeps its own argument parsing and error wording.
 
 use crate::catalog::CatalogEntry;
+use crate::plus::client_sync::{prune_launchers, prune_matching, Prune};
+use crate::plus::op::OpError;
+use crate::plus::status::readable_registry;
 use crate::registry::{self, Registry, ServerEntry};
 use crate::registry_controller::{self, ServerFields};
+use serde_json::{json, Value};
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum AddError {
@@ -138,6 +142,75 @@ pub(crate) fn stdio_entry(name: &str, command: Option<String>, source: &str) -> 
         initialize_timeout_ms: None,
         unknown_fields: Default::default(),
     }
+}
+
+pub(crate) struct UninstallArgs<'a> {
+    pub key: &'a str,
+    pub dry_run: bool,
+    pub keep_clients: bool,
+    pub keep_secrets: bool,
+}
+
+pub(crate) struct Uninstalled {
+    pub id: String,
+    pub name: String,
+    pub dry_run: bool,
+    pub plans: Vec<Prune>,
+    pub secrets_removed: Vec<String>,
+}
+
+impl Uninstalled {
+    pub(crate) fn failed(&self) -> bool {
+        self.plans.iter().any(|p| p.error.is_some())
+    }
+
+    pub(crate) fn to_value(&self) -> Value {
+        json!({
+            "id": self.id,
+            "name": self.name,
+            "dryRun": self.dry_run,
+            "clients": self.plans.iter().map(Prune::to_value).collect::<Vec<_>>(),
+            "secretsRemoved": self.secrets_removed,
+        })
+    }
+}
+
+pub(crate) fn uninstall(args: &UninstallArgs) -> Result<Uninstalled, OpError> {
+    let reg = readable_registry()?;
+    let server = find(&reg, args.key)
+        .ok_or_else(|| OpError::not_found(format!("no server '{}'", args.key)))?
+        .clone();
+    let names = [server.name.clone(), server.id.clone()];
+    let mut plans = Vec::new();
+    if !args.keep_clients {
+        plans = prune_matching(&names, args.dry_run);
+        prune_launchers(&server.id, args.dry_run, &mut plans);
+    }
+    let secret_keys: Vec<String> = server
+        .env
+        .iter()
+        .filter(|e| e.secret)
+        .map(|e| e.key.clone())
+        .collect();
+    let mut secrets_removed = Vec::new();
+    if !args.dry_run {
+        registry_controller::remove_server(&server.id)
+            .map_err(|e| OpError::failed("uninstall", e))?;
+        if !args.keep_secrets {
+            for k in &secret_keys {
+                if crate::secrets::delete_secret(&server.id, k).is_ok() {
+                    secrets_removed.push(k.clone());
+                }
+            }
+        }
+    }
+    Ok(Uninstalled {
+        id: server.id,
+        name: server.name,
+        dry_run: args.dry_run,
+        plans,
+        secrets_removed,
+    })
 }
 
 #[cfg(test)]

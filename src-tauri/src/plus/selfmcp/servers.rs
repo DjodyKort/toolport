@@ -1,10 +1,11 @@
-use super::backend::{ctl, read_registry, skills_repo};
+use super::backend::{read_registry, skills_repo};
 use super::ToolError;
 use crate::plus::profiles;
 use crate::plus::args::{flag, flag_or, list, str_arg, str_nonempty};
 use crate::plus::auth::login;
 use crate::plus::auth::stdio::{self, LaunchFault};
-use crate::plus::servers::{self, AddError, Patch};
+use crate::plus::client_sync::{self, SyncArgs};
+use crate::plus::servers::{self, AddError, Patch, UninstallArgs};
 use crate::plus::update::exec::{CmdOutput, GitRunner, ShellRunner, SystemGit, SystemShell};
 use crate::plus::update::source::{self, Source};
 use crate::plus::update::{execute, gitops, Mode, Options};
@@ -312,28 +313,29 @@ pub(super) fn set_mode(args: &Value) -> Outcome {
 pub(super) fn uninstall(args: &Value) -> Outcome {
     let name = name_arg(args)?;
     let propagate = flag_or(args, "propagate_to_clients", true);
-    let mut cmd = vec!["server", "uninstall", name];
-    if !propagate {
-        cmd.push("--keep-clients");
-    }
-    ctl(&cmd)
+    let done = servers::uninstall(&UninstallArgs {
+        key: name,
+        dry_run: false,
+        keep_clients: !propagate,
+        keep_secrets: false,
+    })?;
+    Ok(done.to_value())
 }
 
 pub(super) fn clients_sync(args: &Value) -> Outcome {
-    let mut cmd = vec!["client", "sync"];
+    let mut clients = Vec::new();
     if let Some(client) = str_nonempty(args, "client") {
         if !safe_token(client) {
             return Err(ToolError::new("invalid_arguments", "invalid client key"));
         }
-        cmd.extend(["--client", client]);
+        clients.push(client.to_string());
     }
-    if flag(args, "dry_run") {
-        cmd.push("--dry-run");
-    }
-    if flag(args, "keep_orphans") {
-        cmd.push("--keep-orphans");
-    }
-    let mut out = ctl(&cmd)?;
+    let mut out = client_sync::sync(&SyncArgs {
+        clients,
+        dry_run: flag(args, "dry_run"),
+        keep_orphans: flag(args, "keep_orphans"),
+    })?
+    .to_value();
     let ignored: Vec<&str> = ["safe", "force_legacy"]
         .into_iter()
         .filter(|k| flag(args, k))

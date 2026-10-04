@@ -1,9 +1,8 @@
-use super::client;
-use crate::plus::status::snapshot;
 use super::flags::{switch, value, Flags, Spec};
 use super::output::{CtlError, Output};
 use crate::catalog::{self, CatalogEntry};
-use crate::plus::servers::{self, AddError, Patch};
+use crate::plus::servers::{self, AddError, Patch, UninstallArgs};
+use crate::plus::status::readable_registry;
 use crate::registry::{Registry, ServerEntry};
 use crate::registry_controller;
 use serde_json::{json, Value};
@@ -56,18 +55,10 @@ const UNINSTALL: Spec = Spec {
     ..Spec::PLAIN
 };
 
-fn load_registry() -> Result<Registry, CtlError> {
-    let snap = snapshot();
-    match snap.registry_error {
-        Some(error) => Err(CtlError::failed("registry_error", error)),
-        None => Ok(snap.registry.unwrap_or_default()),
-    }
-}
-
 /// A write must not run over an unreadable registry: the locked loader would restore it from
 /// the backup instead of refusing.
 fn require_readable() -> Result<(), CtlError> {
-    load_registry().map(drop)
+    readable_registry().map(drop)
 }
 
 pub(super) fn resolve<'a>(reg: &'a Registry, key: &str) -> Result<&'a ServerEntry, CtlError> {
@@ -210,7 +201,7 @@ pub fn edit(rest: &[String]) -> Result<Output, CtlError> {
         return Err(CtlError::usage(EDIT_USAGE));
     }
     let patch = patch_from(&flags, None)?;
-    let reg = load_registry()?;
+    let reg = readable_registry()?;
     let server = resolve(&reg, key)?;
     let id = server.id.clone();
     let fields = servers::fields_from(patch, Some(server));
@@ -253,7 +244,7 @@ pub fn edit(rest: &[String]) -> Result<Output, CtlError> {
 pub fn info(rest: &[String]) -> Result<Output, CtlError> {
     let flags = Spec::PLAIN.parse(rest)?;
     let key = flags.single(INFO_USAGE)?;
-    let reg = load_registry()?;
+    let reg = readable_registry()?;
     let s = resolve(&reg, key)?;
     let profiles: Vec<&str> = reg
         .profiles
@@ -323,66 +314,35 @@ pub fn info(rest: &[String]) -> Result<Output, CtlError> {
 pub fn uninstall(rest: &[String]) -> Result<Output, CtlError> {
     let flags = UNINSTALL.parse(rest)?;
     let key = flags.single(UNINSTALL_USAGE)?;
-    let dry_run = flags.on("--dry-run");
-    let reg = load_registry()?;
-    let server = resolve(&reg, key)?.clone();
-    let names = [server.name.clone(), server.id.clone()];
-    let mut plans = Vec::new();
-    if !flags.on("--keep-clients") {
-        plans = client::prune_matching(&names, dry_run);
-        client::prune_launchers(&server.id, dry_run, &mut plans);
-    }
-    let secret_keys: Vec<String> = server
-        .env
-        .iter()
-        .filter(|e| e.secret)
-        .map(|e| e.key.clone())
-        .collect();
-    let mut secrets_removed = Vec::new();
-    if !dry_run {
-        registry_controller::remove_server(&server.id)
-            .map_err(|e| CtlError::failed("uninstall", e))?;
-        if !flags.on("--keep-secrets") {
-            for k in &secret_keys {
-                if crate::secrets::delete_secret(&server.id, k).is_ok() {
-                    secrets_removed.push(k.clone());
-                }
-            }
-        }
-    }
-    let failed = plans.iter().any(|p| p.error.is_some());
+    let done = servers::uninstall(&UninstallArgs {
+        key,
+        dry_run: flags.on("--dry-run"),
+        keep_clients: flags.on("--keep-clients"),
+        keep_secrets: flags.on("--keep-secrets"),
+    })?;
     let mut human = format!(
         "{} {} ({}).",
-        if dry_run {
+        if done.dry_run {
             "Would uninstall"
         } else {
             "Uninstalled"
         },
-        server.name,
-        server.id
+        done.name,
+        done.id
     );
-    for plan in &plans {
+    for plan in &done.plans {
         human.push('\n');
-        human.push_str(&plan.line(dry_run));
+        human.push_str(&plan.line(done.dry_run));
     }
-    let mut output = Output::new(
-        json!({
-            "id": server.id,
-            "name": server.name,
-            "dryRun": dry_run,
-            "clients": plans.iter().map(client::Prune::to_value).collect::<Vec<_>>(),
-            "secretsRemoved": secrets_removed,
-        }),
-        human,
-    );
-    output.failed = failed;
+    let mut output = Output::new(done.to_value(), human);
+    output.failed = done.failed();
     Ok(output)
 }
 
 pub fn inspect(rest: &[String]) -> Result<Output, CtlError> {
     let flags = Spec::PLAIN.parse(rest)?;
     let key = flags.single("usage: inspect <server id|name>")?;
-    let reg = load_registry()?;
+    let reg = readable_registry()?;
     let server = resolve(&reg, key)?;
     let tools =
         crate::playground::list_tools(&server.id).map_err(|e| CtlError::failed("inspect", e))?;
@@ -394,7 +354,7 @@ pub fn profile_inspect(rest: &[String]) -> Result<Output, CtlError> {
     if flags.operands().len() > 1 {
         return Err(CtlError::usage("usage: profile inspect [<profile id>]"));
     }
-    let reg = load_registry()?;
+    let reg = readable_registry()?;
     let profile_id = match flags.operands().first() {
         Some(id) => reg
             .canonical_profile_id(id)

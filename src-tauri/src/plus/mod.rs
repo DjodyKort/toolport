@@ -21,6 +21,7 @@ pub mod sync;
 pub mod update;
 
 pub(crate) mod args;
+pub(crate) mod client_sync;
 pub(crate) mod exec;
 pub(crate) mod fswalk;
 pub(crate) mod hashing;
