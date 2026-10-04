@@ -228,6 +228,12 @@ MIG-GUI-1 edits:
 | `src/plus/fixtures/plusCtl.ts`             | the `status` and `commands` rows come from `fixtures/servers.ts`; a `FixtureFailure` makes a failed envelope                                                                                                                     |
 | `scripts/browser-smoke.mjs`                | `serversScreen` opens the Servers entry, walks the tabs and dialogs, writes the `gui-servers-*` shots and checks the Classic view round trip                                                                                     |
 | `scripts/screenshots.mjs`                  | the `gui-servers-*` page shots are checked for size                                                                                                                                                                              |
+| `src/plus/PlusViews.tsx` (library)   | `library` renders the lazy `LibraryScreen`: the Skills tab, a placeholder for the tabs not built yet                                                         |
+| `src/plus/NotBuilt.tsx`              | `Placeholder` is exported as `NotBuiltPanel` for the Library tabs that are not built yet                                                                     |
+| `src/plus/fixtures/plusCtl.ts`       | spreads `skillsBrowserFixtures` (the stateful skills world); a function row is called; `commands` is `commandsWithSkills`                                    |
+| `plus/fixtures/commandsRegistry.ts`  | exports `command`, `flag` and `DRY_RUN` for `skills/commandRows.ts`                                                                                          |
+| `scripts/browser-smoke.mjs` (skills) | Library opens on Skills and Plugins is the not-built tab; the Skills walk in both themes; `screenshots.mjs` lists its eight shots                            |
+| `src/plus/gui-parity.json` (library) | the `library` route and its 19 actions are `built`; 19 skills commands and 18 skills tools point at them                                                     |
 
 ## Sources
 
@@ -239,6 +245,30 @@ MIG-GUI-1 edits:
 - **Cached** in `<data dir>/plus/cache/sources.json`, keyed on mtime and size per file, on the commit of a git tree, and on the clone head for the library; `--refresh` ignores the cache. The cache is derived state: deleting it changes nothing but speed.
 - `org` hash-compares `~/.claude/CLAUDE.md` and the deployed commands against the corp-tools clone and never writes there; `shadowedBy` on a library skill names the org command that shadows it (`org:command:<name>`). `CLAUDE_CONFIG_DIR` moves the Claude home that the plugin, org, account and loose detectors read, and `CLAUDE_SYNC_INTERVAL` (seconds, default 14400) is the interval `managedBy` names.
 - Repo and client items carry an `audit` value from `skills::audit`; a high finding is shown, never fixed.
+
+## Library: the Skills tab
+
+`src/plus/skills/` builds the Library screen of the approved mockup (nav item "Library", layout B). `LibraryScreen` has the five tabs Skills, Agents, Styles, Plugins and Sources; `PANELS` in it lists the tabs that are built (today `skills`), the others stay the marked placeholder of `NOT_BUILT_TABS` until their item adds its panel to that map. `PlusViews` lazy-loads the screen, so the whole tab is one chunk.
+
+`SkillsTab` has four sections, one `useWrite` and one `WriteDialogs` for all of them:
+
+| Section          | Reads                                                                                                                                                | Writes (policy tier from `toolportctl commands`)                                                                                                                                       |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Installed        | `skills ls`, `sources ls`, `skills ls --source <id>`, `skills status`, `lint` (and `--name`), `audit`, `diff`, `sync --dry-run`, `resolve --dry-run` | `skills sync --client <k>...`, `skills add <name>`, `skills resolve --migrate`, `skills init` (write); `skills clean` and `skills uninstall <name>` (destructive: the phrase is typed) |
+| Taps             | `skills tap ls`                                                                                                                                      | `tap add <user/repo or url> [--name]`, `tap update [name]`, `tap remove <name>` (all write: a plain confirmation)                                                                      |
+| Find and install | `skills search <query>`                                                                                                                              | `skills install <@user/repo[/skill]>` (write); a high audit finding blocks it, and only `--no-audit` with a typed phrase gets past                                                     |
+| Bundles          | none                                                                                                                                                 | `skills bundle --skills <a,b> --output <zip>` and `skills unbundle <zip> --path <dir>` (write; the files an unbundle overwrites are listed in the plan)                                |
+
+- Every write is the D-059 flow: the command's own `--dry-run`, a plan worded from its answer (`plans.ts`: these commands answer in their own shape, not as `data.plan`), the confirmation, the apply in `JobProgress`, then every read of the open section runs again. A failed preview never applies, a command the registry does not classify is refused with a message, and `--home` is never sent.
+- A sync always asks for the clients. The picker starts with the clients of the lock (or Claude Code when no sync has chosen yet, said on the screen), never all of them. The dropped fields (`allowed-tools` for Cursor) come from the warnings of the dry run and show before the sync.
+- Scope: "your user level" or "one project" (a folder) for sync, clean, resolve and uninstall (`--project [--repo <dir>]`). The reads have no `--project` flag, so they stay at the user level; the preview of each write is run with the scope.
+- `skills diff`, `lint` and `audit` exit 1 with a normal `data`; the panels read that data instead of showing an error. `Retry` on a failed list reads every failed read again, so Sync is not left disabled by an outage.
+- A tap URL with a credential (`https://user:token@host/...`) is refused in the form: it would go on a command line and on the screen. Use an SSH URL or git's credential helper.
+- With no repository, the list is the empty state "No skills repository yet" with "Create repository..." (`skills init`, folder through the native picker or typed).
+- Editing a body or frontmatter and `skills_git_push` have no CLI command: their buttons are disabled with the reason (`mcp call`, MIG-GUI-14). `skills_scaffold` is `skills add --with-progressive`, so New skill covers it.
+- Tests: `testkit.ts` is a fake `plus_ctl` bridge over the static fixtures (a command without a reply fails the test). `createBridge({ world: true })` and the dev browser fixture use `world.ts` instead, where an applied write changes the next read: a sync clears the drift, a clean removes the outputs and the lock, an uninstall or install changes the list, a resolve ends the collision; a preview changes nothing. `SkillsTab.e2e.test.tsx` walks the real screen through that world, one test per parity action id (keyboard use, bridge down then Retry and a credential canary included); `world.test.ts` checks every world reply against the golden shapes and `commandRows.test.ts` checks the browser registry rows against the golden registry.
+
+Screenshots (1280x800, from `npm run screenshots:gui`): `docs/assets/gui-skills-light.png` and `gui-skills-dark.png` (35 items, source chips, one skill with its sync state), `gui-skills-checks-light.png` and `gui-skills-checks-dark.png` (lint, audit, changes since the last sync and drift), `gui-skills-sync-plan-light.png` (the sync plan with the dropped field), `gui-skills-uninstall-light.png` (the typed confirmation), `gui-skills-taps-light.png` and `gui-skills-install-blocked-light.png` (an install blocked by the audit). `gui-library-light.png` is now the not-built Plugins tab.
 
 ## OTel receiver
 
