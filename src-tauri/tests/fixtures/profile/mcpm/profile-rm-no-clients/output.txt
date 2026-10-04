@@ -1,0 +1,3 @@
+✅ Profile 'work' removed successfully
+2 server(s) remain available in global configuration
+[exit 0]

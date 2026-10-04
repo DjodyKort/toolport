@@ -1,0 +1,9 @@
+\nFound 3 profile(s)\n
+┏━━━━━━━┳━━━━━━━━━━━━━┓
+┃ Name  ┃ Servers     ┃
+┡━━━━━━━╇━━━━━━━━━━━━━┩
+│ work  │ alpha, beta │
+│ play  │ beta        │
+│ empty │             │
+└───────┴─────────────┘
+[exit 0]

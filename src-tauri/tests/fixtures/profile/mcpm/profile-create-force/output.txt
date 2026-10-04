@@ -1,0 +1,3 @@
+\nProfile 'work' created successfully.\n
+You can now edit this profile to add servers using 'mcpm profile edit work'\n
+[exit 0]

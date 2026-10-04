@@ -1,0 +1,6 @@
+Error: Profile 'ghost' not found
+
+Available options:
+  • Run 'mcpm profile ls' to see available profiles
+  • Run 'mcpm profile create {name}' to create a profile
+[exit 1]

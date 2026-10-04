@@ -1,0 +1,10 @@
+Cursor Configuration Import
+Config file: <HOME>/.cursor/mcp.json
+
+Found 3 server(s) in Cursor configuration:
+  MCPM-managed servers: 0
+  Non-MCPM servers: 3
+
+Non-MCPM servers available for import:
+No servers selected for import.
+[exit 0]

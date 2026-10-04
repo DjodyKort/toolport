@@ -17,10 +17,16 @@ Commands:
   server edit    Edit a server's name, command, args, url or cwd
   inspect        List the tools a server exposes (connects live)
   profile inspect List the tools of every server in a profile (connects live)
-  profile        Profiles (not implemented)
+  profile ls     List profiles and their servers (--verbose)
+  profile create Create an empty profile (<name>, --force, --dry-run)
+  profile edit   Rename a profile or change its servers (--name, --servers, --add-server, --remove-server, --dry-run)
+  profile rm     Delete a profile and clean the client entries scoped to it (--no-clients, --dry-run)
+  profile        Profiles: ls create edit rm inspect
   client ls      List detected clients and their direct entries
   client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
-  client         Client configs (not implemented)
+  client edit    Point a client at a profile (<client>, --add-profile, --remove-profile, --set-profiles, --force, --dry-run)
+  client import  Import a client's direct entries into the registry (<client>, --select, --all, --profile, --dry-run)
+  client         Client configs: ls edit import sync
   server         Manage servers (mutations) (not implemented)
   auth statusline Compact auth-health JSON for a Claude Code statusline
   auth hook      Auth-health JSON for a Claude Code SessionStart hook
@@ -131,10 +137,16 @@ Commands:
   server edit    Edit a server's name, command, args, url or cwd
   inspect        List the tools a server exposes (connects live)
   profile inspect List the tools of every server in a profile (connects live)
-  profile        Profiles (not implemented)
+  profile ls     List profiles and their servers (--verbose)
+  profile create Create an empty profile (<name>, --force, --dry-run)
+  profile edit   Rename a profile or change its servers (--name, --servers, --add-server, --remove-server, --dry-run)
+  profile rm     Delete a profile and clean the client entries scoped to it (--no-clients, --dry-run)
+  profile        Profiles: ls create edit rm inspect
   client ls      List detected clients and their direct entries
   client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
-  client         Client configs (not implemented)
+  client edit    Point a client at a profile (<client>, --add-profile, --remove-profile, --set-profiles, --force, --dry-run)
+  client import  Import a client's direct entries into the registry (<client>, --select, --all, --profile, --dry-run)
+  client         Client configs: ls edit import sync
   server         Manage servers (mutations) (not implemented)
   auth statusline Compact auth-health JSON for a Claude Code statusline
   auth hook      Auth-health JSON for a Claude Code SessionStart hook
@@ -245,10 +257,16 @@ Commands:
   server edit    Edit a server's name, command, args, url or cwd
   inspect        List the tools a server exposes (connects live)
   profile inspect List the tools of every server in a profile (connects live)
-  profile        Profiles (not implemented)
+  profile ls     List profiles and their servers (--verbose)
+  profile create Create an empty profile (<name>, --force, --dry-run)
+  profile edit   Rename a profile or change its servers (--name, --servers, --add-server, --remove-server, --dry-run)
+  profile rm     Delete a profile and clean the client entries scoped to it (--no-clients, --dry-run)
+  profile        Profiles: ls create edit rm inspect
   client ls      List detected clients and their direct entries
   client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
-  client         Client configs (not implemented)
+  client edit    Point a client at a profile (<client>, --add-profile, --remove-profile, --set-profiles, --force, --dry-run)
+  client import  Import a client's direct entries into the registry (<client>, --select, --all, --profile, --dry-run)
+  client         Client configs: ls edit import sync
   server         Manage servers (mutations) (not implemented)
   auth statusline Compact auth-health JSON for a Claude Code statusline
   auth hook      Auth-health JSON for a Claude Code SessionStart hook
@@ -359,10 +377,16 @@ Commands:
   server edit    Edit a server's name, command, args, url or cwd
   inspect        List the tools a server exposes (connects live)
   profile inspect List the tools of every server in a profile (connects live)
-  profile        Profiles (not implemented)
+  profile ls     List profiles and their servers (--verbose)
+  profile create Create an empty profile (<name>, --force, --dry-run)
+  profile edit   Rename a profile or change its servers (--name, --servers, --add-server, --remove-server, --dry-run)
+  profile rm     Delete a profile and clean the client entries scoped to it (--no-clients, --dry-run)
+  profile        Profiles: ls create edit rm inspect
   client ls      List detected clients and their direct entries
   client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
-  client         Client configs (not implemented)
+  client edit    Point a client at a profile (<client>, --add-profile, --remove-profile, --set-profiles, --force, --dry-run)
+  client import  Import a client's direct entries into the registry (<client>, --select, --all, --profile, --dry-run)
+  client         Client configs: ls edit import sync
   server         Manage servers (mutations) (not implemented)
   auth statusline Compact auth-health JSON for a Claude Code statusline
   auth hook      Auth-health JSON for a Claude Code SessionStart hook
@@ -1006,20 +1030,22 @@ exit 1
 {"command":"inspect","error":{"code":"not_found","message":"no server 'nope'"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["profile"]
-exit 1
+exit 2
 --- stdout
 --- stderr
-toolportctl: profile: not implemented
+toolportctl: usage: profile ls|create|edit|rm|inspect (ls: [--verbose|-v]; create: <name> [--force] [--dry-run]; edit: <profile> [--name <new>] [--servers <a,b>] [--set-servers <a,b>] [--add-server <a,b>] [--remove-server <a,b>] [--force] [--dry-run]; rm: <profile> [--no-clients] [--force|-f] [--dry-run]; inspect: [<profile>])
+Run `toolportctl --help` for usage.
 === ["--json","profile"]
-exit 1
+exit 2
 --- stdout
-{"command":"profile","error":{"code":"not_implemented","message":"profile: not implemented"},"ok":false,"schemaVersion":1}
+{"command":"profile","error":{"code":"usage","message":"usage: profile ls|create|edit|rm|inspect (ls: [--verbose|-v]; create: <name> [--force] [--dry-run]; edit: <profile> [--name <new>] [--servers <a,b>] [--set-servers <a,b>] [--add-server <a,b>] [--remove-server <a,b>] [--force] [--dry-run]; rm: <profile> [--no-clients] [--force|-f] [--dry-run]; inspect: [<profile>])"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["profile","--bogus"]
-exit 1
+exit 2
 --- stdout
 --- stderr
-toolportctl: profile: not implemented
+toolportctl: usage: profile ls|create|edit|rm|inspect (ls: [--verbose|-v]; create: <name> [--force] [--dry-run]; edit: <profile> [--name <new>] [--servers <a,b>] [--set-servers <a,b>] [--add-server <a,b>] [--remove-server <a,b>] [--force] [--dry-run]; rm: <profile> [--no-clients] [--force|-f] [--dry-run]; inspect: [<profile>])
+Run `toolportctl --help` for usage.
 === ["profile","inspect","a","b"]
 exit 2
 --- stdout
@@ -1042,21 +1068,297 @@ exit 1
 --- stdout
 {"command":"profile inspect","error":{"code":"not_found","message":"no profile 'nope'"},"ok":false,"schemaVersion":1}
 --- stderr
-=== ["client"]
+=== ["profile","ls"]
+exit 0
+--- stdout
+Found 2 profile(s)
+
+┏━━━━━━━━━┳━━━━━━━━━┓
+┃ Name    ┃ Servers ┃
+┡━━━━━━━━━╇━━━━━━━━━┩
+│ Default │ alpha   │
+│ Work    │         │
+└─────────┴─────────┘
+Active profile: Default
+--- stderr
+=== ["--json","profile","ls"]
+exit 0
+--- stdout
+{"command":"profile ls","data":{"activeProfile":"default","profiles":[{"active":true,"clients":[],"id":"default","name":"Default","servers":[{"id":"srv-alpha","name":"alpha","target":"alpha-mcp"}]},{"active":false,"clients":[],"id":"work","name":"Work","servers":[]}]},"ok":true,"schemaVersion":1}
+--- stderr
+=== ["profile","ls","-v"]
+exit 0
+--- stdout
+Found 2 profile(s)
+
+┏━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
+┃ Name    ┃ Servers ┃ Server Details   ┃
+┡━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
+│ Default │ alpha   │ alpha: alpha-mcp │
+│ Work    │         │                  │
+└─────────┴─────────┴──────────────────┘
+Active profile: Default
+--- stderr
+=== ["profile","ls","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: profile ls [--verbose|-v]
+Run `toolportctl --help` for usage.
+=== ["profile","ls","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: profile ls [--verbose|-v]
+Run `toolportctl --help` for usage.
+=== ["profile","ls","--verbose=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --verbose takes no value
+Run `toolportctl --help` for usage.
+=== ["profile","create"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing profile name
+usage: profile create <name> [--force] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["profile","create","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: profile create <name> [--force] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["profile","create","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: profile create <name> [--force] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["profile","create"," "]
+exit 2
+--- stdout
+--- stderr
+toolportctl: give the profile a name
+Run `toolportctl --help` for usage.
+=== ["profile","create","x","--force=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --force takes no value
+Run `toolportctl --help` for usage.
+=== ["profile","create","x","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --dry-run takes no value
+Run `toolportctl --help` for usage.
+=== ["profile","create","Demo","--dry-run"]
+exit 0
+--- stdout
+Would create profile 'Demo'.
+Dry run: nothing was written.
+--- stderr
+=== ["--json","profile","create","Demo","--dry-run"]
+exit 0
+--- stdout
+{"command":"profile create","data":{"created":true,"dryRun":true,"id":"demo","name":"Demo"},"ok":true,"schemaVersion":1}
+--- stderr
+=== ["profile","create","work"]
 exit 1
 --- stdout
 --- stderr
-toolportctl: client: not implemented
-=== ["--json","client"]
+toolportctl: Profile 'work' already exists.
+=== ["--json","profile","create","work"]
 exit 1
 --- stdout
-{"command":"client","error":{"code":"not_implemented","message":"client: not implemented"},"ok":false,"schemaVersion":1}
+{"command":"profile create","error":{"code":"conflict","message":"Profile 'work' already exists."},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["profile","edit"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing profile
+usage: profile edit <profile> [--name <new>] [--servers <a,b>] [--set-servers <a,b>] [--add-server <a,b>] [--remove-server <a,b>] [--force] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["profile","edit","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: profile edit <profile> [--name <new>] [--servers <a,b>] [--set-servers <a,b>] [--add-server <a,b>] [--remove-server <a,b>] [--force] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["profile","edit","a","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: profile edit <profile> [--name <new>] [--servers <a,b>] [--set-servers <a,b>] [--add-server <a,b>] [--remove-server <a,b>] [--force] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["profile","edit","a","--name"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --name requires a value
+Run `toolportctl --help` for usage.
+=== ["profile","edit","a","--servers"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --servers requires a value
+Run `toolportctl --help` for usage.
+=== ["profile","edit","work","--servers","x","--add-server","y"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: Cannot use multiple server options simultaneously
+Use either --servers, --add-server, --remove-server, or --set-servers
+Run `toolportctl --help` for usage.
+=== ["--json","profile","edit","work","--servers","x","--add-server","y"]
+exit 2
+--- stdout
+{"command":"profile edit","error":{"code":"usage","message":"Cannot use multiple server options simultaneously\nUse either --servers, --add-server, --remove-server, or --set-servers"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["profile","edit","work","--name",""]
+exit 2
+--- stdout
+--- stderr
+toolportctl: give the profile a name
+Run `toolportctl --help` for usage.
+=== ["profile","edit","nope","--name","x"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: Profile 'nope' not found
+=== ["--json","profile","edit","nope","--name","x"]
+exit 1
+--- stdout
+{"command":"profile edit","error":{"code":"not_found","message":"Profile 'nope' not found"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["profile","edit","work","--add-server","ghost"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: Server(s) not found: ghost
+
+Available servers:
+  • alpha
+  • beta
+=== ["profile","edit","work","--name","default"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: Profile 'default' already exists
+=== ["profile","edit","work"]
+exit 0
+--- stdout
+Updating profile 'Work':
+No changes specified
+--- stderr
+=== ["profile","edit","work","--remove-server","beta"]
+exit 0
+--- stdout
+Warning: Server(s) not in profile: beta
+
+Updating profile 'Work':
+No changes specified
+--- stderr
+=== ["profile","edit","work","--name","Job","--add-server","alpha","--dry-run"]
+exit 0
+--- stdout
+Updating profile 'Work':
+Name: Work → Job
+Servers: 0 servers → 1 servers
+  + Added: alpha
+
+Dry run: nothing was written.
+--- stderr
+=== ["--json","profile","edit","work","--set-servers","alpha,beta","--dry-run"]
+exit 0
+--- stdout
+{"command":"profile edit","data":{"changed":true,"dryRun":true,"id":"work","name":"Work","notInProfile":[],"oldName":"Work","renamed":false,"servers":{"added":["alpha","beta"],"after":["alpha","beta"],"before":[],"removed":[]}},"ok":true,"schemaVersion":1}
+--- stderr
+=== ["profile","rm"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing profile
+usage: profile rm <profile> [--no-clients] [--force|-f] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["profile","rm","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: profile rm <profile> [--no-clients] [--force|-f] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["profile","rm","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: profile rm <profile> [--no-clients] [--force|-f] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["profile","rm","a","--no-clients=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --no-clients takes no value
+Run `toolportctl --help` for usage.
+=== ["profile","rm","a","--force=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --force takes no value
+Run `toolportctl --help` for usage.
+=== ["profile","rm","nope","--dry-run"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: Profile 'nope' not found
+=== ["profile","rm","nope","-f"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: Profile 'nope' not found
+=== ["--json","profile","rm","nope"]
+exit 1
+--- stdout
+{"command":"profile rm","error":{"code":"not_found","message":"Profile 'nope' not found"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["profile","rm","work","--dry-run"]
+exit 0
+--- stdout
+Would remove profile 'Work'.
+Dry run: nothing was written.
+--- stderr
+=== ["--json","profile","rm","default","--dry-run","--no-clients"]
+exit 0
+--- stdout
+{"command":"profile rm","data":{"clients":[],"dryRun":true,"id":"default","left":[],"name":"Default","servers":1},"ok":true,"schemaVersion":1}
+--- stderr
+=== ["client"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: client ls|edit|import|sync (edit: <client> [--add-profile <p>] [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]; import: <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]; sync: [--client <id>] [--dry-run] [--keep-orphans])
+Run `toolportctl --help` for usage.
+=== ["--json","client"]
+exit 2
+--- stdout
+{"command":"client","error":{"code":"usage","message":"usage: client ls|edit|import|sync (edit: <client> [--add-profile <p>] [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]; import: <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]; sync: [--client <id>] [--dry-run] [--keep-orphans])"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["client","--bogus"]
-exit 1
+exit 2
 --- stdout
 --- stderr
-toolportctl: client: not implemented
+toolportctl: usage: client ls|edit|import|sync (edit: <client> [--add-profile <p>] [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]; import: <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]; sync: [--client <id>] [--dry-run] [--keep-orphans])
+Run `toolportctl --help` for usage.
 === ["client","ls","--bogus"]
 exit 2
 --- stdout
@@ -1110,6 +1412,118 @@ exit 2
 --- stdout
 {"command":"client sync","error":{"code":"usage","message":"usage: client sync [--client <id>]... [--dry-run] [--keep-orphans]"},"ok":false,"schemaVersion":1}
 --- stderr
+=== ["client","edit"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing client
+usage: client edit <client> [--add-profile <p>] [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["client","edit","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: client edit <client> [--add-profile <p>] [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["client","edit","x","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: client edit <client> [--add-profile <p>] [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["client","edit","x","--add-profile"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --add-profile requires a value
+Run `toolportctl --help` for usage.
+=== ["client","edit","x","--force=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --force takes no value
+Run `toolportctl --help` for usage.
+=== ["client","edit","x","--add-profile","a","--remove-profile","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: Cannot use multiple profile options simultaneously
+Use either --add-profile, --remove-profile, or --set-profiles
+Run `toolportctl --help` for usage.
+=== ["--json","client","edit","x","--add-profile","a","--set-profiles","b"]
+exit 2
+--- stdout
+{"command":"client edit","error":{"code":"usage","message":"Cannot use multiple profile options simultaneously\nUse either --add-profile, --remove-profile, or --set-profiles"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["client","edit","x","--add-server","s"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --add-server has no counterpart: a client reaches servers through the Toolport gateway and the profile it follows
+Use `toolportctl profile edit <profile> --add-server <name>` to change what a profile serves
+Run `toolportctl --help` for usage.
+=== ["client","edit","x","-e"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --external has no counterpart: a client reaches servers through the Toolport gateway and the profile it follows
+Use `toolportctl profile edit <profile> --add-server <name>` to change what a profile serves
+Run `toolportctl --help` for usage.
+=== ["client","edit","x","--file","f"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --file has no counterpart: a client reaches servers through the Toolport gateway and the profile it follows
+Use `toolportctl profile edit <profile> --add-server <name>` to change what a profile serves
+Run `toolportctl --help` for usage.
+=== ["client","import"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing client
+usage: client import <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["client","import","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: client import <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["client","import","x","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: client import <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["client","import","x","--select"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --select requires a value
+Run `toolportctl --help` for usage.
+=== ["client","import","x","--all=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --all takes no value
+Run `toolportctl --help` for usage.
+=== ["client","import","x","--all","--select","a"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: Use either --select or --all, not both
+Run `toolportctl --help` for usage.
+=== ["client","import","x","--select",","]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --select needs at least one server name
+usage: client import <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]
+Run `toolportctl --help` for usage.
 === ["secret"]
 exit 1
 --- stdout

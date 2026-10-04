@@ -1,0 +1,2 @@
+No configuration found for Cursor.
+[exit 0]

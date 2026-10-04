@@ -1,0 +1,2 @@
+Error: Profile 'play' already exists
+[exit 1]

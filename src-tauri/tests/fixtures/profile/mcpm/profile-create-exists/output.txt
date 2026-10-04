@@ -1,0 +1,3 @@
+Error: Profile 'work' already exists.
+Use '--force' to overwrite the existing profile.
+[exit 0]

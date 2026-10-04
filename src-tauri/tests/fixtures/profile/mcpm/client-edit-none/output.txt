@@ -1,0 +1,7 @@
+Cursor Configuration Management
+Config file: <HOME>/.cursor/mcp.json
+
+
+Updating Cursor configuration:
+No changes specified
+[exit 0]

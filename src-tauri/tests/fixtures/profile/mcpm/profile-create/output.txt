@@ -1,0 +1,3 @@
+\nProfile 'demo' created successfully.\n
+You can now edit this profile to add servers using 'mcpm profile edit demo'\n
+[exit 0]

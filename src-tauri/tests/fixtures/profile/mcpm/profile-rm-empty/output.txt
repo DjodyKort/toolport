@@ -1,0 +1,2 @@
+✅ Profile 'empty' removed successfully
+[exit 0]

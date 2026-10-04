@@ -1,0 +1,10 @@
+
+Updating profile 'work':
+Servers: 2 servers → 2 servers
+  + Added: gamma
+  - Removed: alpha
+
+Applying changes...
+✅ Profile 'work' updated
+✅ 2 servers configured in profile
+[exit 0]

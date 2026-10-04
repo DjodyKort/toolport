@@ -1,0 +1,10 @@
+
+Updating profile 'play':
+Name: play → fun
+Servers: 1 servers → 2 servers
+  + Added: alpha
+
+Applying changes...
+✅ Profile renamed from 'play' to 'fun'
+✅ 2 servers configured in profile
+[exit 0]

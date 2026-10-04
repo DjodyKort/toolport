@@ -180,8 +180,18 @@ impl World {
             s(&["inspect", "alpha"]),
             s(&["inspect", "gamma"]),
             s(&["profile", "inspect", "default"]),
+            s(&["profile", "ls"]),
+            s(&["profile", "ls", "--verbose"]),
+            s(&["profile", "create", "leakcheck", "--dry-run"]),
+            s(&["profile", "create", "leakcheck"]),
+            s(&["profile", "edit", "leakcheck", "--add-server", "alpha", "--dry-run"]),
+            s(&["profile", "edit", "leakcheck", "--name", "leakcheck2", "--add-server", "alpha,gamma"]),
+            s(&["profile", "rm", "leakcheck2", "--dry-run"]),
+            s(&["profile", "rm", "leakcheck2"]),
             s(&["profile"]),
             s(&["client", "ls"]),
+            s(&["client", "edit", "cursor", "--set-profiles", "default", "--dry-run"]),
+            s(&["client", "import", "cursor"]),
             s(&["client", "sync", "--dry-run"]),
             s(&["client", "sync"]),
             s(&["client"]),
@@ -468,6 +478,68 @@ fn ctl_commands_never_print_or_store_a_canary() {
         .arg(&sync_clone)
         .output();
 
+    let leaks = scan_tree(&world.sb.tree(), &world.canary.all());
+    assert!(leaks.is_empty(), "canary reached the disk: {leaks:#?}");
+}
+
+#[test]
+fn client_import_never_prints_or_stores_a_client_config_canary() {
+    let world = World::new();
+    let c = &world.canary;
+    let cursor = world.sb.home.join(".cursor");
+    std::fs::create_dir_all(&cursor).unwrap();
+    std::fs::write(
+        cursor.join("mcp.json"),
+        json!({"mcpServers": {
+            "direct-env": {"command": "direct-server", "args": ["--serve"],
+                           "env": {"DIRECT_API_KEY": c.val("client-env")}},
+            "direct-arg": {"command": "direct-arg",
+                           "args": [format!("--api-key={}", c.val("client-arg"))]},
+            "direct-split": {"command": "direct-split",
+                             "args": ["--token", c.val("client-split")]},
+            "direct-url": {"url": format!("https://user:{}@direct.example.invalid/mcp",
+                                          c.val("client-url"))},
+            "direct-query": {"url": format!("https://direct.example.invalid/mcp?token={}",
+                                            c.val("client-query"))}
+        }})
+        .to_string(),
+    )
+    .unwrap();
+    let cases: [&[&str]; 5] = [
+        &["client", "import", "cursor"],
+        &["client", "import", "cursor", "--all", "--dry-run"],
+        &["client", "edit", "cursor", "--set-profiles", "default", "--dry-run"],
+        &["client", "import", "cursor", "--all", "--profile", "leak-import"],
+        &["client", "import", "cursor", "--select", "direct-env,direct-arg"],
+    ];
+    for json_mode in [true, false] {
+        for case in cases {
+            let mut args: Vec<&str> = Vec::new();
+            if json_mode {
+                args.push("--json");
+            }
+            args.extend(case);
+            let run = world.sb.ctl(&args);
+            run.assert_orderly();
+            world.assert_clean(&run, &case.join(" "));
+        }
+    }
+    let registry = world.sb.registry();
+    let server = registry["servers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["name"] == "direct-env")
+        .expect("direct-env was imported");
+    assert_eq!(server["env"][0]["key"], "DIRECT_API_KEY");
+    assert!(server["env"][0]["value"].is_null(), "{server}");
+    for name in ["direct-arg", "direct-split", "direct-url", "direct-query"] {
+        assert!(
+            registry["servers"].as_array().unwrap().iter().all(|s| s["name"] != name),
+            "{name} holds an inline credential and must not be imported"
+        );
+    }
+    std::fs::remove_dir_all(&cursor).unwrap();
     let leaks = scan_tree(&world.sb.tree(), &world.canary.all());
     assert!(leaks.is_empty(), "canary reached the disk: {leaks:#?}");
 }

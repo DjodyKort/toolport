@@ -1,0 +1,6 @@
+✅ Profile 'work' removed successfully
+2 server(s) remain available in global configuration
+Cleaned 1 entry from 1 client(s):
+  • Cursor: mcpm_profile_work
+Restart your MCP clients for the changes to take effect.
+[exit 0]

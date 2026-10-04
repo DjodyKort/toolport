@@ -1,0 +1,8 @@
+
+Updating profile 'work':
+Name: work → job
+
+Applying changes...
+✅ Profile renamed from 'work' to 'job'
+✅ 2 servers configured in profile
+[exit 0]

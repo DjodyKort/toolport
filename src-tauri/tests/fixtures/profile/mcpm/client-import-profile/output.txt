@@ -1,0 +1,27 @@
+Cursor Configuration Import
+Config file: <HOME>/.cursor/mcp.json
+
+Found 3 server(s) in Cursor configuration:
+  MCPM-managed servers: 0
+  Non-MCPM servers: 3
+
+Non-MCPM servers available for import:
+
+Importing 2 server(s) to global configuration...
+┏━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┓
+┃ Server Name ┃ Command                           ┃ Status      ┃
+┡━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━┩
+│ direct1     │ npx -y direct-mcp                 │ ✅ Imported │
+│ direct2     │ uvx tool-mcp --option value-th... │ ✅ Imported │
+└─────────────┴───────────────────────────────────┴─────────────┘
+
+Successfully imported 2 server(s) from cursor.
+Created profile 'cursor'.
+Profile 'cursor' created with 2 server(s).
+
+This will replace the original server configurations with a single 'mcpm profile run cursor' command.
+You can always manually edit the config later using 'mcpm client edit cursor -e'
+
+This will replace the original server configurations with 'mcpm run <server-name>' commands.
+You can always manually edit the config later using 'mcpm client edit cursor -e'
+[exit 0]

@@ -1,0 +1,1 @@
+profile edit play --name fun --add-server alpha

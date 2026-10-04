@@ -1,0 +1,9 @@
+
+Updating profile 'work':
+Servers: 2 servers → 3 servers
+  + Added: gamma
+
+Applying changes...
+✅ Profile 'work' updated
+✅ 3 servers configured in profile
+[exit 0]
