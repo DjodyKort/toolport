@@ -6,7 +6,10 @@
 
 pub mod backup;
 pub mod bundle;
+pub mod bundle_apply;
 pub mod bundle_io;
+pub mod bundle_json;
+pub mod bundle_ledger;
 pub mod bundle_store;
 pub mod compact;
 pub mod config;
@@ -33,6 +36,8 @@ mod loads_extra;
 mod tests;
 #[cfg(test)]
 mod tests_bundle;
+#[cfg(test)]
+mod tests_bundle_apply;
 #[cfg(test)]
 mod tests_compact;
 #[cfg(test)]
