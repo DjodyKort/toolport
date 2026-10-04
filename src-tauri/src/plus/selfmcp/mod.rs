@@ -10,6 +10,9 @@ mod compression;
 #[cfg(test)]
 mod compression_tests;
 mod content;
+mod context;
+#[cfg(all(test, unix))]
+mod context_tests;
 #[cfg(test)]
 mod coverage_tests;
 mod direct;

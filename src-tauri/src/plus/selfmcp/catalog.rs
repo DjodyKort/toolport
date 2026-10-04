@@ -1,4 +1,4 @@
-use super::{backend, compression, content, direct, servers, skills, sources, state, ToolError};
+use super::{backend, compression, content, context, direct, servers, skills, sources, state, ToolError};
 use serde_json::{json, Map, Value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -116,6 +116,20 @@ pub const TOOLS: &[ToolDef] = &[
             p("refresh", Ty::Bool, false, "Ignore the scan cache")
         ],
         sources::ls
+    ),
+    tool!(
+        "context_measure",
+        2,
+        None,
+        "Measure what a folder really loads, in tokens, by asking Claude Code itself: one request per variant, which spends model tokens and is cached per Claude Code version, model and settings. Returns the as-is total, the signed deltas of each without, and the skills the model is not offered",
+        [
+            p("cwd", Ty::Str, true, "The folder to measure"),
+            p("without", Ty::StrList, false, "Variants to measure besides as-is: plugin:<id> or skill:<name or glob>"),
+            p("bundle", Ty::Str, false, "A bundle from the skills repository's profiles to measure as one variant"),
+            p("model", Ty::Str, false, "Model to ask, haiku by default"),
+            p("force", Ty::Bool, false, "Measure again instead of answering from the cache")
+        ],
+        context::measure_tool
     ),
     tool!(
         "skills_get",

@@ -691,6 +691,7 @@ impl ToolRow {
 pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("skills_list", R, "skills ls"),
     maps("sources_ls", R, "sources ls"),
+    maps("context_measure", W, "context measure"),
     own("skills_get", R),
     maps("skills_lint", R, "skills lint"),
     maps("skills_status", R, "skills status"),
