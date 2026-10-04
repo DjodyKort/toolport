@@ -864,7 +864,12 @@ mod tests {
             "a silent daemon's descriptor must survive untouched"
         );
         assert!(
-            started.elapsed() < Duration::from_secs(25),
+            started.elapsed() >= SILENT_RETRY_TIMEOUT,
+            "silence ended the retry before its budget: {:?}",
+            started.elapsed()
+        );
+        assert!(
+            started.elapsed() < SILENT_RETRY_TIMEOUT * 4,
             "the bounded retry must stay bounded: {:?}",
             started.elapsed()
         );
