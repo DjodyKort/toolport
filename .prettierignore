@@ -17,4 +17,5 @@ src-tauri/tests/fixtures/parity/
 src-tauri/tests/fixtures/skills-core/
 src-tauri/tests/fixtures/context-cases/
 src-tauri/tests/fixtures/compression/
+src-tauri/tests/fixtures/bundles/
 src-tauri/src/plus/sync/fixtures/rust-bundle/
