@@ -7,9 +7,9 @@
   "result": {
     "error": {
       "kind": "backend_error",
-      "message": "no proxy on :49213 — start one first (toolportctl compression proxy up). /health is the only truthful source for what a build actually runs."
+      "message": "no proxy on :29213 — start one first (toolportctl compression proxy up). /health is the only truthful source for what a build actually runs."
     }
   },
-  "text": "backend_error: no proxy on :49213 — start one first (toolportctl compression proxy up). /health is the only truthful source for what a build actually runs.",
+  "text": "backend_error: no proxy on :29213 — start one first (toolportctl compression proxy up). /health is the only truthful source for what a build actually runs.",
   "tool": "compression_seal"
 }

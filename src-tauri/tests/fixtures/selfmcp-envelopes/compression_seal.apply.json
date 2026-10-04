@@ -18,7 +18,7 @@
       }
     ],
     "dryRun": false,
-    "port": 49214,
+    "port": 29214,
     "preset": "interactive",
     "sealed": 2,
     "unset": ["HEADROOM_PROTECT_RECENT"],

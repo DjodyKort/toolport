@@ -340,7 +340,7 @@ pub fn health_proxy(port: u16) {
     if started.contains(&port) {
         return;
     }
-    // The proxy ports sit in the ephemeral range, where another test's socket can hold one briefly.
+    // Callers pick ports below the ephemeral range, where a child process's outbound socket could hold one.
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
     let listener = loop {
         match TcpListener::bind(("127.0.0.1", port)) {

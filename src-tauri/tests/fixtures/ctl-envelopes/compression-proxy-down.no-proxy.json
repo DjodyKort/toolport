@@ -4,7 +4,7 @@
     "command": "compression proxy",
     "error": {
       "code": "proxy_down",
-      "message": "no proxy listening on :49213"
+      "message": "no proxy listening on :29213"
     },
     "ok": false,
     "schemaVersion": 1
