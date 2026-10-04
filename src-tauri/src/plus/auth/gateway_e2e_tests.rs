@@ -363,6 +363,7 @@ fn remote(id: &str, url: &str) -> ServerEntry {
         cwd: None,
         client_credentials: None,
         request_timeout_ms: None,
+        max_request_timeout_ms: None,
         initialize_timeout_ms: None,
         launch: None,
         unknown_fields: serde_json::Map::new(),
