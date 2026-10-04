@@ -167,12 +167,149 @@ pub fn command_text(command: &str, home: &Path) -> String {
         prefix.push_str(&format!("{name}=… "));
         rest = value[end..].trim_start();
     }
-    let mut text = format!("{prefix}{rest}").trim_end().to_string();
+    let mut text = format!("{prefix}{}", mask_command_line(rest))
+        .trim_end()
+        .to_string();
     let home = home.to_string_lossy();
     if home.len() > 1 {
         text = text.replace(home.as_ref(), "~");
     }
     crate::plus::redact::scrub_text(text)
+}
+
+fn quote_chars(text: &str) -> &str {
+    text.trim_start_matches(['"', '\''])
+}
+
+fn trailing_quotes(text: &str) -> &str {
+    &text[text.trim_end_matches(['"', '\'']).len()..]
+}
+
+/// The words of a command line with the whitespace in front of each, quoted runs kept whole.
+fn words(text: &str) -> Vec<(&str, &str)> {
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < text.len() {
+        let gap = i;
+        while let Some(c) = text[i..].chars().next().filter(|c| c.is_whitespace()) {
+            i += c.len_utf8();
+        }
+        let start = i;
+        let mut quote: Option<char> = None;
+        while let Some(c) = text[i..].chars().next() {
+            match quote {
+                Some(q) if c == q => quote = None,
+                Some(_) => {}
+                None if c == '"' || c == '\'' => quote = Some(c),
+                None if c.is_whitespace() => break,
+                None => {}
+            }
+            i += c.len_utf8();
+        }
+        out.push((&text[gap..start], &text[start..i]));
+    }
+    out
+}
+
+fn sensitive_assignment(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    [
+        "token", "secret", "pass", "key", "auth", "credential", "cookie", "session",
+    ]
+    .iter()
+    .any(|s| lower.contains(s))
+}
+
+/// Values that look like credentials replaced: `--api-key=x`, `--token x`, `Authorization: x`,
+/// `Bearer x`, `NAME_KEY=x` anywhere in the line and the userinfo and query of URLs. This is a
+/// best effort on free text; the hooks file itself is never rewritten.
+fn mask_command_line(text: &str) -> String {
+    let mask = manifest::MASK;
+    let mut out = String::new();
+    let mut hide_next = false;
+    for (gap, word) in words(text) {
+        out.push_str(gap);
+        if std::mem::take(&mut hide_next) {
+            let plain = word.trim_matches(['"', '\'']);
+            if plain.eq_ignore_ascii_case("bearer") || plain.eq_ignore_ascii_case("basic") {
+                out.push_str(word);
+                hide_next = true;
+                continue;
+            }
+            let opened = word.chars().next().filter(|c| matches!(c, '"' | '\''));
+            let tail = if opened.is_some() {
+                ""
+            } else {
+                trailing_quotes(word)
+            };
+            out.push_str(mask);
+            out.push_str(tail);
+            continue;
+        }
+        if let Some(q) = word.chars().next().filter(|c| matches!(c, '"' | '\'')) {
+            if word.len() > 1 && word.ends_with(q) {
+                out.push(q);
+                out.push_str(&mask_command_line(&word[1..word.len() - 1]));
+                out.push(q);
+                continue;
+            }
+        }
+        let bare = quote_chars(word);
+        let lead = &word[..word.len() - bare.len()];
+        if let Some((name, value)) = bare.split_once('=') {
+            let flag = name.starts_with('-') && manifest::secret_name(name);
+            let var = !name.starts_with('-')
+                && !name.is_empty()
+                && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+                && sensitive_assignment(name);
+            if flag || var {
+                let tail = if value.starts_with(['"', '\'']) {
+                    ""
+                } else {
+                    trailing_quotes(value)
+                };
+                out.push_str(&format!("{lead}{name}={mask}{tail}"));
+                continue;
+            }
+        }
+        if bare.starts_with('-') && !bare.contains('=') && manifest::secret_name(bare) {
+            hide_next = true;
+        } else if bare.ends_with(':') && manifest::secret_name(bare) {
+            hide_next = true;
+        } else if bare.trim_end_matches(['"', '\'']).eq_ignore_ascii_case("bearer")
+            || bare.trim_end_matches(['"', '\'']).eq_ignore_ascii_case("basic")
+        {
+            hide_next = true;
+        }
+        out.push_str(&clean_urls(word));
+    }
+    out
+}
+
+fn clean_urls(word: &str) -> String {
+    let Some(at) = word.find("://") else {
+        return word.to_string();
+    };
+    let start = word[..at]
+        .rfind(|c: char| !(c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.')))
+        .map(|p| p + 1)
+        .unwrap_or(0);
+    let end = word[at..]
+        .find(['"', '\'', '`'])
+        .map(|p| at + p)
+        .unwrap_or(word.len());
+    let url = &word[start..end];
+    let query = url.contains(['?', '#']);
+    let cleaned = manifest::clean_url(url);
+    if cleaned == url {
+        return word.to_string();
+    }
+    format!(
+        "{}{cleaned}{}{}",
+        &word[..start],
+        if query { "?…" } else { "" },
+        &word[end..]
+    )
 }
 
 struct Raw {
@@ -533,12 +670,12 @@ impl Filter {
     pub fn validate(&self) -> Result<(), String> {
         if let Some(tool) = &self.tool {
             if !TOOLS.iter().any(|t| t.eq_ignore_ascii_case(tool)) {
-                return Err(format!("--tool must be one of {}", TOOLS.join(", ")));
+                return Err(format!("tool must be one of {}", TOOLS.join(", ")));
             }
         }
         if let Some(owner) = &self.owner {
             if !OWNER_KINDS.contains(&owner.as_str()) {
-                return Err(format!("--owner must be one of {}", OWNER_KINDS.join(", ")));
+                return Err(format!("owner must be one of {}", OWNER_KINDS.join(", ")));
             }
         }
         Ok(())
@@ -732,6 +869,35 @@ mod tests {
         assert_eq!(command_text("a=b", home), "a=…");
         assert_eq!(command_text("echo a=b", home), "echo a=b");
         assert_eq!(command_text("/usr/bin/true", Path::new("/")), "/usr/bin/true");
+    }
+
+    #[test]
+    fn command_text_masks_credentials_in_flags_headers_and_urls() {
+        let home = Path::new("/home/u");
+        let text = |c: &str| command_text(c, home);
+        assert_eq!(
+            text("./check.sh --api-key=abc123 --verbose"),
+            "./check.sh --api-key=[redacted] --verbose"
+        );
+        assert_eq!(text("run --token abc123 --x"), "run --token [redacted] --x");
+        assert_eq!(text("run --token=\"a b\" --x"), "run --token=[redacted] --x");
+        assert_eq!(
+            text("curl -H \"Authorization: Bearer abc123\" https://svc.example.invalid/x"),
+            "curl -H \"Authorization: Bearer [redacted]\" https://svc.example.invalid/x"
+        );
+        assert_eq!(
+            text("sh -c \"notify --password=hunter2 && echo ok\""),
+            "sh -c \"notify --password=[redacted] && echo ok\""
+        );
+        assert_eq!(
+            text("curl https://user:pw@svc.example.invalid/hook?key=abc123"),
+            "curl https://svc.example.invalid/hook?…"
+        );
+        assert_eq!(
+            text("export SERVICE_KEY=abc123 && go"),
+            "export SERVICE_KEY=[redacted] && go"
+        );
+        assert_eq!(text("node x.js --keep=1 --port 80"), "node x.js --keep=1 --port 80");
     }
 
     #[test]
