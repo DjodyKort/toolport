@@ -105,7 +105,8 @@ fn status_data(snap: &Snapshot) -> Value {
         None => (0, 0, None),
     };
     let gateway = gateway_binary(snap.data_dir.as_ref());
-    json!({
+    let direct_entries = snap.registry.as_ref().map_or(0, crate::plus::direct::count);
+    let mut data = json!({
         "version": env!("CARGO_PKG_VERSION"),
         "dataDir": path_str(&snap.data_dir),
         "registry": {
@@ -123,7 +124,11 @@ fn status_data(snap: &Snapshot) -> Value {
             "present": gateway.is_some(),
             "path": path_str(&gateway),
         },
-    })
+    });
+    if direct_entries > 0 {
+        data["directEntries"] = json!(direct_entries);
+    }
+    data
 }
 
 pub fn status(rest: &[String]) -> Result<Output, CtlError> {
@@ -145,6 +150,10 @@ pub fn status(rest: &[String]) -> Result<Output, CtlError> {
         data["secretsBackend"].as_str().unwrap_or(""),
         data["gateway"]["path"].as_str().unwrap_or("not found"),
     );
+    let human = match data["directEntries"].as_u64() {
+        Some(count) if count > 0 => format!("{human}\nDirect entries:  {count} (client direct ls)"),
+        _ => human,
+    };
     Ok(Output::new(data, human))
 }
 
@@ -159,6 +168,29 @@ fn check(name: &'static str, status: Health, detail: String) -> Check {
         name,
         status,
         detail,
+    }
+}
+
+fn direct_check(reg: &crate::registry::Registry) -> Check {
+    use crate::plus::direct;
+    let rows = direct::assess(reg, &crate::clients::detect_clients());
+    let bad: Vec<String> = rows
+        .iter()
+        .filter(|row| !row.state.healthy())
+        .map(|row| format!("{}/{} {}", row.client, row.entry, row.state.as_str()))
+        .collect();
+    if bad.is_empty() {
+        check(
+            "directEntries",
+            Health::Ok,
+            format!("{} direct launcher entries", rows.len()),
+        )
+    } else {
+        check(
+            "directEntries",
+            Health::Warn,
+            format!("{} of {} need attention: {}", bad.len(), rows.len(), bad.join(", ")),
+        )
     }
 }
 
@@ -234,6 +266,9 @@ pub fn doctor(rest: &[String]) -> Result<Output, CtlError> {
             "toolport-gateway not found".into(),
         ),
     });
+    if let Some(reg) = snap.registry.as_ref().filter(|r| crate::plus::direct::count(r) > 0) {
+        checks.push(direct_check(reg));
+    }
 
     let failed = checks.iter().any(|c| c.status == Health::Fail);
     let human = checks

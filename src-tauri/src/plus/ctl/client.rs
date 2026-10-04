@@ -2,8 +2,10 @@ use super::commands::snapshot;
 use super::flags::{switch, value, Inline, Operands, Spec, Unknown};
 use super::output::{no_args, CtlError, Output};
 use crate::clients::{self, DetectedClient, GatewayEntryState};
+use crate::plus::direct::{self, Removing};
 use crate::registry::{self, Registry};
 use serde_json::{json, Value};
+use std::collections::HashSet;
 
 const SYNC_USAGE: &str = "usage: client sync [--client <id>]... [--dry-run] [--keep-orphans]";
 
@@ -39,21 +41,35 @@ impl Prune {
     }
 }
 
-fn direct_entries(client: &DetectedClient) -> impl Iterator<Item = &str> {
+type Claimed = HashSet<(String, String)>;
+
+fn direct_entries<'a>(
+    client: &'a DetectedClient,
+    claimed: &'a Claimed,
+) -> impl Iterator<Item = &'a str> {
     client
         .servers
         .iter()
         .filter(|s| !clients::detected_is_gateway(s))
+        .filter(move |s| !claimed.contains(&(client.id.clone(), s.name.clone())))
         .map(|s| s.name.as_str())
+}
+
+fn claimed_entries(reg: Option<&Registry>, detected: &[DetectedClient]) -> Claimed {
+    reg.map(|reg| direct::claimed(reg, detected))
+        .unwrap_or_default()
 }
 
 pub(super) fn prune_matching(names: &[String], dry_run: bool) -> Vec<Prune> {
     let mut out = Vec::new();
-    for client in clients::detect_clients() {
+    let detected = clients::detect_clients();
+    let reg = crate::plus::registry_ro::read_opt();
+    let claimed = claimed_entries(reg.as_ref(), &detected);
+    for client in &detected {
         if !client.config_exists || client.uses_connectors {
             continue;
         }
-        let hits: Vec<String> = direct_entries(&client)
+        let hits: Vec<String> = direct_entries(client, &claimed)
             .filter(|n| names.iter().any(|m| m.eq_ignore_ascii_case(n)))
             .map(String::from)
             .collect();
@@ -63,6 +79,37 @@ pub(super) fn prune_matching(names: &[String], dry_run: bool) -> Vec<Prune> {
         out.push(prune_one(&client.id, &hits, dry_run));
     }
     out
+}
+
+/// The launcher entries `server uninstall` takes out with the server, folded into the rows of
+/// the clients that also had plain direct entries to prune.
+pub(super) fn prune_launchers(server_id: &str, dry_run: bool, plans: &mut Vec<Prune>) {
+    for (client_id, result) in direct::remove_recorded(Removing::Server(server_id), dry_run) {
+        let (removed, path, backup, error) = match result {
+            Ok(outcome) if outcome.changed() => (
+                vec![outcome.entry.clone()],
+                Some(outcome.path.clone()).filter(|p| !p.is_empty()),
+                outcome.backup.clone(),
+                None,
+            ),
+            Ok(_) => continue,
+            Err(error) => (Vec::new(), None, None, Some(error.message)),
+        };
+        match plans.iter_mut().find(|p| p.client_id == client_id) {
+            Some(plan) => {
+                plan.removed.extend(removed);
+                plan.backup = plan.backup.take().or(backup);
+                plan.error = plan.error.take().or(error);
+            }
+            None => plans.push(Prune {
+                client_id,
+                path,
+                removed,
+                backup,
+                error,
+            }),
+        }
+    }
 }
 
 fn prune_one(client_id: &str, names: &[String], dry_run: bool) -> Prune {
@@ -88,7 +135,10 @@ pub fn ls(rest: &[String]) -> Result<Output, CtlError> {
     no_args(rest)?;
     let snap = snapshot();
     let reg = snap.registry.unwrap_or_default();
-    let rows: Vec<Value> = clients::detect_clients()
+    let detected = clients::detect_clients();
+    let claimed = claimed_entries(Some(&reg), &detected);
+    let launchers = direct::assess(&reg, &detected);
+    let rows: Vec<Value> = detected
         .iter()
         .filter(|c| c.config_exists || c.app_present)
         .map(|c| {
@@ -97,7 +147,12 @@ pub fn ls(rest: &[String]) -> Result<Output, CtlError> {
                 "name": c.name,
                 "path": c.config_path,
                 "gateway": gateway_state(c),
-                "entries": direct_entries(c).collect::<Vec<_>>(),
+                "entries": direct_entries(c, &claimed).collect::<Vec<_>>(),
+                "launchers": launchers
+                    .iter()
+                    .filter(|l| l.client == c.id)
+                    .map(direct::Row::to_value)
+                    .collect::<Vec<_>>(),
                 "scope": reg.client_scopes.get(&c.id).filter(|s| !s.is_empty()),
                 "managed": reg.client_managed_entry(&c.id).is_some(),
             })
@@ -108,12 +163,17 @@ pub fn ls(rest: &[String]) -> Result<Output, CtlError> {
     } else {
         rows.iter()
             .map(|r| {
-                format!(
+                let mut line = format!(
                     "{:<16} {:<11} {} direct entries",
                     r["id"].as_str().unwrap_or(""),
                     r["gateway"].as_str().unwrap_or(""),
                     r["entries"].as_array().map_or(0, Vec::len)
-                )
+                );
+                let launchers = r["launchers"].as_array().map_or(0, Vec::len);
+                if launchers > 0 {
+                    line.push_str(&format!(", {launchers} direct launcher entries"));
+                }
+                line
             })
             .collect::<Vec<_>>()
             .join("\n")
@@ -156,6 +216,8 @@ pub fn sync(rest: &[String]) -> Result<Output, CtlError> {
     }
     let reg = snap.registry.unwrap_or_default();
     let detected = clients::detect_clients();
+    let claimed = claimed_entries(Some(&reg), &detected);
+    let launchers = direct::assess(&reg, &detected);
     let mut targets: Vec<String> = if ids.is_empty() {
         let mut ids: Vec<String> = reg.client_managed_entries.keys().cloned().collect();
         ids.sort();
@@ -181,6 +243,7 @@ pub fn sync(rest: &[String]) -> Result<Output, CtlError> {
             "gateway": gateway_state(client),
             "removed": [],
             "kept": [],
+            "direct": [],
             "backups": [],
             "error": null,
         });
@@ -217,7 +280,7 @@ pub fn sync(rest: &[String]) -> Result<Output, CtlError> {
         if error.is_none() {
             let mut removals: Vec<(String, &str)> = Vec::new();
             let mut kept: Vec<String> = Vec::new();
-            for name in direct_entries(client) {
+            for name in direct_entries(client, &claimed) {
                 if is_registered(&reg, name) {
                     removals.push((name.to_string(), "redundant"));
                 } else if flags.on("--keep-orphans") {
@@ -238,7 +301,37 @@ pub fn sync(rest: &[String]) -> Result<Output, CtlError> {
                         .collect::<Vec<_>>());
                 }
             }
+            let ours = launchers.iter().filter(|l| l.client == *id);
+            let mut left_alone: Vec<String> = Vec::new();
+            for launcher in ours {
+                match launcher.state {
+                    direct::State::Orphan if flags.on("--keep-orphans") => {
+                        kept.push(launcher.entry.clone())
+                    }
+                    direct::State::Orphan => {}
+                    direct::State::Unrecorded if launcher.server_name.is_none() => {}
+                    _ => left_alone.push(launcher.entry.clone()),
+                }
+            }
+            if error.is_none() && !flags.on("--keep-orphans") {
+                let mut orphans = Vec::new();
+                for (_, result) in direct::remove_recorded(Removing::Orphans(Some(id)), dry_run) {
+                    match result {
+                        Ok(done) => {
+                            backups.extend(done.backup.clone());
+                            orphans.push(json!({"name": done.entry, "reason": "orphan"}));
+                        }
+                        Err(e) => error = Some(e.message),
+                    }
+                }
+                if !orphans.is_empty() {
+                    let mut listed = row["removed"].as_array().cloned().unwrap_or_default();
+                    listed.extend(orphans);
+                    row["removed"] = json!(listed);
+                }
+            }
             row["kept"] = json!(kept);
+            row["direct"] = json!(left_alone);
         }
         row["backups"] = json!(backups);
         if let Some(e) = error {
@@ -298,6 +391,10 @@ fn sync_line(dry_run: bool) -> impl Fn(&Value) -> String {
         let kept = row["kept"].as_array().map_or(0, Vec::len);
         if kept > 0 {
             line.push_str(&format!(", kept {kept} orphan(s)"));
+        }
+        let direct = row["direct"].as_array().map_or(0, Vec::len);
+        if direct > 0 {
+            line.push_str(&format!(", left {direct} direct launcher entr(ies) alone"));
         }
         if let Some(e) = row["error"].as_str() {
             line.push_str(&format!(", error: {e}"));

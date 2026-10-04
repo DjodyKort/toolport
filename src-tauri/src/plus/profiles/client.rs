@@ -472,7 +472,12 @@ pub fn import(client_id: &str, spec: &ImportSpec, dry_run: bool) -> Result<Impor
         .servers
         .iter()
         .partition(|s| clients::detected_is_gateway(s));
-    let direct: Vec<McpServer> = direct.into_iter().cloned().collect();
+    let claimed = crate::plus::direct::claimed(&reg, std::slice::from_ref(&client));
+    let direct: Vec<McpServer> = direct
+        .into_iter()
+        .filter(|s| !claimed.contains(&(client.id.clone(), s.name.clone())))
+        .cloned()
+        .collect();
     let mut out = Imported {
         client: client.id.clone(),
         name: client.name.clone(),

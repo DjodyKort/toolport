@@ -327,11 +327,11 @@ pub fn uninstall(rest: &[String]) -> Result<Output, CtlError> {
     let reg = load_registry()?;
     let server = resolve(&reg, key)?.clone();
     let names = [server.name.clone(), server.id.clone()];
-    let plans = if flags.on("--keep-clients") {
-        Vec::new()
-    } else {
-        client::prune_matching(&names, dry_run)
-    };
+    let mut plans = Vec::new();
+    if !flags.on("--keep-clients") {
+        plans = client::prune_matching(&names, dry_run);
+        client::prune_launchers(&server.id, dry_run, &mut plans);
+    }
     let secret_keys: Vec<String> = server
         .env
         .iter()

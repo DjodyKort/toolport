@@ -5,6 +5,7 @@ mod agents;
 mod auth;
 mod cc;
 mod client;
+mod client_direct;
 mod client_edit;
 mod commands;
 pub(crate) mod compression;
@@ -146,7 +147,29 @@ pub const COMMANDS: &[Command] = &[
         "Import a client's direct entries into the registry (<client>, --select, --all, --profile, --dry-run)",
         client_edit::import,
     ),
-    cmd(&["client"], "Client configs: ls edit import sync", client_edit::group),
+    cmd(
+        &["client", "direct", "add"],
+        "Give a client one server as its own direct entry (<server>, --client <id>, --force, --dry-run)",
+        client_direct::add,
+    ),
+    cmd(
+        &["client", "direct", "rm"],
+        "Remove a direct entry Toolport wrote (<server>, --client <id>, --force, --dry-run)",
+        client_direct::rm,
+    ),
+    cmd(
+        &["client", "direct", "ls"],
+        "List the direct launcher entries and their state (--client <id>)",
+        client_direct::ls,
+    ),
+    cmd(&["client", "direct"], "Direct entries: add rm ls", client_direct::group),
+    cmd(&["client"], "Client configs: ls edit import sync direct", client_edit::group),
+    cmd(
+        &["direct", "run"],
+        "Start a server over stdio for a direct client entry (<server id>)",
+        client_direct::run,
+    ),
+    cmd(&["direct"], "Direct launchers: run", client_direct::run_group),
     cmd(&["server"], "Manage servers (mutations) (not implemented)", server_group),
     cmd(
         &["auth", "statusline"],
@@ -786,6 +809,8 @@ mod usage_pins_tests;
 
 #[cfg(test)]
 mod server_tests;
+#[cfg(test)]
+mod client_direct_tests;
 
 #[cfg(test)]
 mod import_tests;
