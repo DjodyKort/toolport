@@ -10,6 +10,7 @@ import {
 import { serversCtlFixtures } from "./servers";
 import { skillsBrowserFixtures } from "../skills/browserFixtures";
 import { compressionBrowserFixtures } from "../compression/browserFixtures";
+import { usageCtlFixtures } from "../usage/browserFixtures";
 import { createAgentsWorld } from "./agentsWorld";
 import { contextBrowserFixtures } from "../context/browserFixtures";
 
@@ -52,6 +53,8 @@ export const plusCtlFixtures = new Map<string, unknown>([
   ...serversCtlFixtures,
   // The two synthetic worlds share their servers; where both answer a command, Servers wins.
   ...loginsCtlFixtures.filter(([key]) => !serversCtlFixtures.has(key)),
+  // The Usage tab reads and, for the OTel receiver, changes a small world of its own.
+  ...usageCtlFixtures,
   // The Library screen drives a stateful skills world, so its commands win over the static Health fixtures.
   ...skillsBrowserFixtures,
   ...createAgentsWorld(),
