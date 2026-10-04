@@ -16,6 +16,7 @@ pub mod direct;
 pub mod gateway_build;
 pub mod import_mcpm;
 pub mod obs;
+pub mod plugins;
 pub mod profiles;
 pub mod selfmcp;
 pub mod skills;

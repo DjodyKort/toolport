@@ -1,55 +1,12 @@
 use crate::plus::args::flag;
-use crate::plus::jsonfs::read_json;
-use crate::plus::update::exec::{is_not_found, run_command, CmdOutput};
-use serde::Serialize;
+use crate::plus::plugins::installed::{self, NET_TIMEOUT};
+use crate::plus::plugins::settings::Layers;
+pub use crate::plus::plugins::{ClaudeRunner, PluginStatus, SystemClaude};
 use serde_json::{json, Value};
-use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::time::Duration;
 
 #[cfg(all(test, unix))]
 mod tests;
-
-const LIST_TIMEOUT: Duration = Duration::from_secs(30);
-const NET_TIMEOUT: Duration = Duration::from_secs(120);
-
-pub trait ClaudeRunner {
-    fn run(&self, args: &[&str], timeout: Duration) -> Result<CmdOutput, String>;
-}
-
-pub struct SystemClaude {
-    bin: String,
-}
-
-impl SystemClaude {
-    pub fn from_env() -> Self {
-        let bin = std::env::var("TOOLPORT_CLAUDE_BIN")
-            .ok()
-            .filter(|b| !b.is_empty())
-            .unwrap_or_else(|| "claude".to_string());
-        Self { bin }
-    }
-
-    #[cfg(test)]
-    pub fn with_bin(bin: impl Into<String>) -> Self {
-        Self { bin: bin.into() }
-    }
-}
-
-impl ClaudeRunner for SystemClaude {
-    fn run(&self, args: &[&str], timeout: Duration) -> Result<CmdOutput, String> {
-        let mut cmd = Command::new(&self.bin);
-        cmd.args(args);
-        run_command(cmd, timeout).map_err(|e| {
-            if is_not_found(&e) {
-                "claude not found on PATH".to_string()
-            } else {
-                e
-            }
-        })
-    }
-}
 
 #[derive(Debug, Clone, Default)]
 pub struct Options {
@@ -58,24 +15,6 @@ pub struct Options {
     pub dry_run: bool,
     pub refresh: bool,
     pub claude_root: Option<PathBuf>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum PluginStatus {
-    Update,
-    Current,
-    Unknown,
-}
-
-impl PluginStatus {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            PluginStatus::Update => "update",
-            PluginStatus::Current => "current",
-            PluginStatus::Unknown => "unknown",
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -188,106 +127,10 @@ pub fn claude_root(over: Option<&Path>) -> PathBuf {
     dirs::home_dir().unwrap_or_default().join(".claude")
 }
 
-fn entry_version(entry: &Value) -> Option<String> {
-    if let Some(v) = entry.get("version").filter(|v| !v.is_null()) {
-        let s = v
-            .as_str()
-            .map(String::from)
-            .unwrap_or_else(|| v.to_string());
-        if !s.is_empty() {
-            return Some(s);
-        }
-    }
-    let source = entry.get("source")?.as_object()?;
-    if let Some(sha) = source.get("sha").and_then(Value::as_str) {
-        return Some(sha.chars().take(12).collect());
-    }
-    source.get("ref").and_then(Value::as_str).map(String::from)
-}
-
-fn catalog_versions(root: &Path) -> BTreeMap<(String, String), Option<String>> {
-    let mut map = BTreeMap::new();
-    let Some(Value::Object(known)) = read_json(&root.join("plugins/known_marketplaces.json"))
-    else {
-        return map;
-    };
-    for (mkt, meta) in known {
-        let Some(loc) = meta.get("installLocation").and_then(Value::as_str) else {
-            continue;
-        };
-        let Some(catalog) = read_json::<Value>(&Path::new(loc).join(".claude-plugin/marketplace.json"))
-        else {
-            continue;
-        };
-        for entry in catalog
-            .get("plugins")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-        {
-            if let Some(name) = entry.get("name").and_then(Value::as_str) {
-                map.insert((mkt.clone(), name.to_string()), entry_version(entry));
-            }
-        }
-    }
-    map
-}
-
-fn enabled_plugins(root: &Path) -> BTreeMap<String, bool> {
-    read_json::<Value>(&root.join("settings.json"))
-        .and_then(|v| v.get("enabledPlugins").cloned())
-        .and_then(|v| v.as_object().cloned())
-        .map(|o| {
-            o.into_iter()
-                .filter_map(|(k, v)| v.as_bool().map(|b| (k, b)))
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-fn blocked_plugins(root: &Path) -> BTreeSet<String> {
-    read_json::<Value>(&root.join("plugins/blocklist.json"))
-        .and_then(|v| v.get("plugins").cloned())
-        .and_then(|v| v.as_array().cloned())
-        .map(|a| {
-            a.iter()
-                .filter_map(|e| e.get("plugin").and_then(Value::as_str).map(String::from))
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-fn str_field(entry: &Value, keys: &[&str]) -> Option<String> {
-    keys.iter()
-        .find_map(|k| entry.get(*k).and_then(Value::as_str))
-        .map(String::from)
-}
-
-fn parse_installed(stdout: &str) -> Result<Vec<Value>, String> {
-    let data: Value =
-        serde_json::from_str(stdout).map_err(|e| format!("unparseable plugin list: {e}"))?;
-    let arr = match data {
-        Value::Array(a) => a,
-        Value::Object(mut o) => match o.remove("plugins") {
-            Some(Value::Array(a)) => a,
-            _ => return Err("unexpected plugin list shape".into()),
-        },
-        _ => return Err("unexpected plugin list shape".into()),
-    };
-    Ok(arr.into_iter().filter(Value::is_object).collect())
-}
-
-fn valid_ident(s: &str) -> bool {
-    !s.is_empty()
-        && !s.starts_with('-')
-        && s.chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '@'))
-}
-
 fn validate(opts: &Options) -> Result<(), String> {
     for (label, v) in [("plugin", &opts.plugin), ("marketplace", &opts.marketplace)] {
         if let Some(v) = v {
-            if !valid_ident(v) {
+            if !installed::valid_ident(v) {
                 return Err(format!("invalid {label} name: {v}"));
             }
         }
@@ -300,93 +143,48 @@ fn survey(
     opts: &Options,
 ) -> Result<(Vec<PluginRow>, Option<String>), String> {
     validate(opts)?;
-    let mut refresh_error = None;
-    if opts.refresh {
-        let mut args = vec!["plugin", "marketplace", "update"];
-        if let Some(m) = &opts.marketplace {
-            args.push(m);
-        }
-        match runner.run(&args, NET_TIMEOUT) {
-            Ok(o) if o.ok() => {}
-            Ok(o) => {
-                let e = o.first_error_line();
-                refresh_error = Some(if e.is_empty() {
-                    format!("marketplace update exited {}", o.code)
-                } else {
-                    e
-                });
-            }
-            Err(e) => refresh_error = Some(e),
-        }
-    }
-    let listed = runner.run(&["plugin", "list", "--json"], LIST_TIMEOUT)?;
-    if !listed.ok() {
-        let e = listed.first_error_line();
-        return Err(if e.is_empty() {
-            format!("claude plugin list exited {}", listed.code)
-        } else {
-            e
-        });
-    }
-    let installed = parse_installed(&listed.stdout)?;
+    let refresh_error = if opts.refresh {
+        installed::refresh_marketplaces(runner, opts.marketplace.as_deref())
+    } else {
+        None
+    };
+    let listed = installed::cli_list(runner)?;
     let root = claude_root(opts.claude_root.as_deref());
-    let catalog = catalog_versions(&root);
-    let enabled = enabled_plugins(&root);
-    let blocked = blocked_plugins(&root);
+    let catalog = installed::catalog_versions(&root);
+    let layers = Layers::load(&root, None, None, None);
+    let blocked = installed::blocked(&root);
 
     let mut rows = Vec::new();
-    for entry in installed {
-        let Some(name) = str_field(&entry, &["name", "plugin", "id"]) else {
-            continue;
-        };
-        let (name, id_mkt) = match name.split_once('@') {
-            Some((n, m)) => (n.to_string(), Some(m.to_string())),
-            None => (name, None),
-        };
-        let marketplace =
-            str_field(&entry, &["marketplace", "marketplaceName", "source"]).or(id_mkt);
-        if opts.plugin.as_deref().is_some_and(|p| p != name) {
+    for plugin in listed {
+        if opts.plugin.as_deref().is_some_and(|p| p != plugin.name) {
             continue;
         }
-        if opts.marketplace.is_some() && opts.marketplace != marketplace {
+        if opts.marketplace.is_some() && opts.marketplace != plugin.marketplace {
             continue;
         }
-        let installed_v = entry
-            .get("version")
-            .or_else(|| entry.get("installedVersion"))
-            .filter(|v| !v.is_null())
-            .map(|v| {
-                v.as_str()
-                    .map(String::from)
-                    .unwrap_or_else(|| v.to_string())
-            });
-        let available = marketplace
-            .as_ref()
-            .and_then(|m| catalog.get(&(m.clone(), name.clone())).cloned().flatten());
-        let status = match (&installed_v, &available) {
-            (Some(a), Some(b)) if a != b => PluginStatus::Update,
-            (Some(_), Some(_)) => PluginStatus::Current,
-            _ => PluginStatus::Unknown,
-        };
-        let mut row = PluginRow {
-            name,
-            marketplace,
-            installed: installed_v,
+        let available = plugin.marketplace.as_ref().and_then(|m| {
+            catalog
+                .get(&(m.clone(), plugin.name.clone()))
+                .cloned()
+                .flatten()
+        });
+        let status = PluginStatus::of(plugin.version.as_deref(), available.as_deref());
+        let enabled = layers
+            .enabled(&plugin.id)
+            .user
+            .or(plugin.flagged_enabled)
+            .unwrap_or(true);
+        rows.push(PluginRow {
+            blocked: blocked.contains(&plugin.id),
+            name: plugin.name,
+            marketplace: plugin.marketplace,
+            installed: plugin.version,
             available,
             status,
-            enabled: true,
-            blocked: false,
+            enabled,
             outcome: None,
             error: None,
-        };
-        let id = row.id();
-        row.enabled = enabled
-            .get(&id)
-            .copied()
-            .or_else(|| entry.get("enabled").and_then(Value::as_bool))
-            .unwrap_or(true);
-        row.blocked = blocked.contains(&id);
-        rows.push(row);
+        });
     }
     Ok((rows, refresh_error))
 }

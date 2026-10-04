@@ -1,66 +1,15 @@
-//! `plugin`: the skills, commands and agents of installed plugins. `installed_plugins.json` names
-//! each install; whether it is switched on comes from `enabledPlugins` in the user settings and,
-//! when a folder is given, the project and project-local settings (the local file wins).
+//! `plugin`: the skills, commands and agents of installed plugins. The installs and whether each
+//! is switched on (`enabledPlugins` in the user settings and, when a folder is given, the project
+//! and project-local settings; the local file wins) come from `plus::plugins`, the reader that
+//! `cc` and `plugins ls` share. This detector reads files only and starts no process.
 
 use super::fsx;
 use super::item::{self, Placement};
 use super::layout;
 use super::model::{Item, Origin, SourceMeta};
 use super::{DetectorOutput, ScanCtx, SourceDetector};
-use serde_json::Value;
-use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
-
-fn read_json(path: &Path) -> Option<Value> {
-    serde_json::from_str(&fsx::read_text(path, 4 * 1024 * 1024)?).ok()
-}
-
-struct Install {
-    id: String,
-    path: PathBuf,
-    version: Option<String>,
-}
-
-fn installs(doc: &Value) -> Vec<Install> {
-    let Some(plugins) = doc.get("plugins").and_then(Value::as_object) else {
-        return Vec::new();
-    };
-    plugins
-        .iter()
-        .filter_map(|(id, entry)| {
-            let record = match entry {
-                Value::Array(list) => list
-                    .iter()
-                    .find(|r| r["scope"] == "user")
-                    .or_else(|| list.first())?,
-                other => other,
-            };
-            Some(Install {
-                id: id.clone(),
-                path: PathBuf::from(record.get("installPath")?.as_str()?),
-                version: record
-                    .get("version")
-                    .and_then(Value::as_str)
-                    .map(String::from),
-            })
-        })
-        .collect()
-}
-
-fn enabled_map(path: &Path) -> BTreeMap<String, bool> {
-    read_json(path)
-        .and_then(|doc| {
-            doc.get("enabledPlugins")
-                .and_then(Value::as_object)
-                .cloned()
-        })
-        .map(|map| {
-            map.into_iter()
-                .filter_map(|(k, v)| Some((k, v.as_bool()?)))
-                .collect()
-        })
-        .unwrap_or_default()
-}
+use crate::plus::plugins::installed;
+use crate::plus::plugins::settings::Layers;
 
 pub struct PluginDetector;
 
@@ -71,30 +20,25 @@ impl SourceDetector for PluginDetector {
 
     fn scan(&self, ctx: &ScanCtx) -> DetectorOutput {
         let mut out = DetectorOutput::default();
-        let Some(doc) = read_json(&ctx.roots.claude_home.join("plugins/installed_plugins.json"))
-        else {
+        let installs = installed::file_list(&ctx.roots.claude_home);
+        if installs.is_empty() {
             return out;
-        };
-        let user = enabled_map(&ctx.roots.claude_home.join("settings.json"));
-        let (project, local) = match ctx.cwd {
-            Some(cwd) => (
-                enabled_map(&cwd.join(".claude/settings.json")),
-                enabled_map(&cwd.join(".claude/settings.local.json")),
-            ),
-            None => Default::default(),
-        };
-        for install in installs(&doc) {
+        }
+        let layers = Layers::load(
+            &ctx.roots.claude_home,
+            ctx.cwd,
+            ctx.roots.managed_settings.as_deref(),
+            Some(&ctx.roots.home),
+        );
+        for install in installs {
             if ctx.budget.spent() {
                 break;
             }
-            let (enabled, layer) = [
-                (&local, "project-local"),
-                (&project, "project"),
-                (&user, "user"),
-            ]
-            .into_iter()
-            .find_map(|(map, name)| map.get(&install.id).map(|on| (*on, name)))
-            .map_or((false, "no settings file"), |(on, name)| (on, name));
+            let Some(path) = install.install_path.clone() else {
+                continue;
+            };
+            let on = layers.enabled(&install.id);
+            let (enabled, layer) = (on.effective, on.layer());
             let id = format!("plugin:{}", install.id);
             let origin = Origin::new("plugin", install.id.clone());
             let place = Placement {
@@ -104,10 +48,10 @@ impl SourceDetector for PluginDetector {
                 audited: false,
                 memory_lazy: false,
             };
-            let reachable = fsx::is_dir(&install.path);
+            let reachable = fsx::is_dir(&path);
             let mut items: Vec<Item> = Vec::new();
             if reachable {
-                for found in layout::scan_layout(&install.path, ctx.budget) {
+                for found in layout::scan_layout(&path, ctx.budget) {
                     if let Some(parsed) = item::parse_file(ctx.cache, found.kind, &found.path) {
                         items.push(item::make_item(
                             &place,
@@ -123,7 +67,7 @@ impl SourceDetector for PluginDetector {
             let (state, detail) = if !reachable {
                 (
                     "unreachable",
-                    format!("install folder is missing: {}", install.path.display()),
+                    format!("install folder is missing: {}", path.display()),
                 )
             } else if enabled {
                 ("ok", format!("{version}; enabled in {layer} settings"))
@@ -134,7 +78,7 @@ impl SourceDetector for PluginDetector {
                 id: id.clone(),
                 origin,
                 detector: "plugin",
-                root: Some(fsx::display(&install.path)),
+                root: Some(fsx::display(&path)),
                 owner: "third-party",
                 writable: false,
                 managed_by: Some("marketplace".into()),
