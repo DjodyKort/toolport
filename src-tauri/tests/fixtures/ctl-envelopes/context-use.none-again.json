@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "context",
+    "use",
+    "--none",
+    "--cwd",
+    "{home}/work/erp/clients/acme-two",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "context use",
+    "error": {
+      "code": "conflict",
+      "message": "no bundle and no server routing is set for <WORLD>/home/work/erp/clients/acme-two"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

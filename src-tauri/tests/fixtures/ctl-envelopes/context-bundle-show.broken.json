@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "bundle", "show", "broken"],
+  "envelope": {
+    "command": "context bundle show",
+    "error": {
+      "code": "invalid",
+      "message": "bundle broken: skills must be a mapping"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

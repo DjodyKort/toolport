@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "bundle", "rm", "default", "--dry-run"],
+  "envelope": {
+    "command": "context bundle rm",
+    "error": {
+      "code": "not_found",
+      "message": "unknown bundle: default"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

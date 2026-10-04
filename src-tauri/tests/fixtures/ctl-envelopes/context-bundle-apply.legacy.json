@@ -1,0 +1,62 @@
+{
+  "argv": [
+    "context",
+    "bundle",
+    "apply",
+    "default",
+    "--cwd",
+    "{home}/work/erp/clients/acme-two",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "context bundle apply",
+    "data": {
+      "bundle": "default",
+      "conflicts": [],
+      "cwd": "<WORLD>/home/work/erp/clients/acme-two",
+      "dryRun": true,
+      "plan": {
+        "effects": {
+          "tokens": {
+            "after": 16370,
+            "basis": "estimate",
+            "before": 19697
+          }
+        },
+        "steps": [
+          {
+            "detail": "34 key(s) owned by bundle default",
+            "diff": {
+              "after": "skillOverrides.long-guide: \"off\"\nskillOverrides.notes-helper: \"off\"\nskillOverrides.scratch-one: \"off\"\nskillOverrides.scratch-two: \"off\"\nskillOverrides.skill-01: \"off\"\nskillOverrides.skill-02: \"off\"\nskillOverrides.skill-03: \"off\"\nskillOverrides.skill-04: \"off\"\nskillOverrides.skill-05: \"off\"\nskillOverrides.skill-06: \"off\"\nskillOverrides.skill-07: \"off\"\nskillOverrides.skill-08: \"off\"\nskillOverrides.skill-09: \"off\"\nskillOverrides.skill-10: \"off\"\nskillOverrides.skill-11: \"off\"\nskillOverrides.skill-12: \"off\"\nskillOverrides.skill-13: \"off\"\nskillOverrides.skill-14: \"off\"\nskillOverrides.skill-15: \"off\"\nskillOverrides.skill-16: \"off\"\nskillOverrides.skill-17: \"off\"\nskillOverrides.skill-18: \"off\"\nskillOverrides.skill-19: \"off\"\nskillOverrides.skill-20: \"off\"\nskillOverrides.skill-21: \"off\"\nskillOverrides.skill-22: \"off\"\nskillOverrides.skill-23: \"off\"\nskillOverrides.skill-24: \"off\"\nskillOverrides.skill-25: \"off\"\nskillOverrides.skill-26: \"off\"\nskillOverrides.skill-27: \"off\"\nskillOverrides.skill-28: \"off\"\nskillOverrides.skill-29: \"off\"\nskillOverrides.skill-30: \"off\"\n",
+              "before": "skillOverrides.long-guide: (absent)\nskillOverrides.notes-helper: (absent)\nskillOverrides.scratch-one: (absent)\nskillOverrides.scratch-two: (absent)\nskillOverrides.skill-01: (absent)\nskillOverrides.skill-02: (absent)\nskillOverrides.skill-03: (absent)\nskillOverrides.skill-04: (absent)\nskillOverrides.skill-05: (absent)\nskillOverrides.skill-06: (absent)\nskillOverrides.skill-07: (absent)\nskillOverrides.skill-08: (absent)\nskillOverrides.skill-09: (absent)\nskillOverrides.skill-10: (absent)\nskillOverrides.skill-11: (absent)\nskillOverrides.skill-12: (absent)\nskillOverrides.skill-13: (absent)\nskillOverrides.skill-14: (absent)\nskillOverrides.skill-15: (absent)\nskillOverrides.skill-16: (absent)\nskillOverrides.skill-17: (absent)\nskillOverrides.skill-18: (absent)\nskillOverrides.skill-19: (absent)\nskillOverrides.skill-20: (absent)\nskillOverrides.skill-21: (absent)\nskillOverrides.skill-22: (absent)\nskillOverrides.skill-23: (absent)\nskillOverrides.skill-24: (absent)\nskillOverrides.skill-25: (absent)\nskillOverrides.skill-26: (absent)\nskillOverrides.skill-27: (absent)\nskillOverrides.skill-28: (absent)\nskillOverrides.skill-29: (absent)\nskillOverrides.skill-30: (absent)\n"
+            },
+            "keys": ["skillOverrides"],
+            "op": "merge",
+            "path": "<WORLD>/home/work/erp/clients/acme-two/.claude/settings.local.json"
+          },
+          {
+            "detail": "git-ignore .claude/settings.local.json",
+            "op": "update",
+            "path": "<WORLD>/home/work/erp/clients/acme-two/.git/info/exclude"
+          },
+          {
+            "detail": "record every key Toolport owns with the value it replaces, so undo restores exactly that",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          },
+          {
+            "detail": "Hiding skills is hygiene, not savings (F0 measured 59 tokens for ten skills); the tokens are in plugins, agents and memory files",
+            "op": "note"
+          }
+        ],
+        "summary": "Apply bundle default in <WORLD>/home/work/erp/clients/acme-two",
+        "undo": "toolportctl context bundle undo --cwd <WORLD>/home/work/erp/clients/acme-two",
+        "warnings": []
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "context",
+    "bundle",
+    "apply",
+    "acme-dev",
+    "--cwd",
+    "{home}/no-such-folder",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "context bundle apply",
+    "error": {
+      "code": "usage",
+      "message": "--cwd is not a folder"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

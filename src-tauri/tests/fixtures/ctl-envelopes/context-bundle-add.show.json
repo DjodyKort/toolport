@@ -1,0 +1,35 @@
+{
+  "argv": ["context", "bundle", "show", "ops-lite"],
+  "envelope": {
+    "command": "context bundle show",
+    "data": {
+      "agents": {
+        "off": []
+      },
+      "appliedTo": [],
+      "bind": ["~/work/erp/clients/*"],
+      "description": "Operations work",
+      "issues": [],
+      "layers": {
+        "add": ["acme-knowledge"],
+        "exclude": []
+      },
+      "legacy": false,
+      "name": "ops-lite",
+      "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/ops-lite.yaml",
+      "plugins": {
+        "off": ["tools-pack@tools-market"]
+      },
+      "servers": null,
+      "skills": {
+        "allow": [],
+        "nameOnly": [],
+        "off": ["scratch-one", "scratch-two"]
+      },
+      "yaml": "format: 1\nname: ops-lite\ndescription: Operations work\nskills:\n  off:\n  - scratch-one\n  - scratch-two\nplugins:\n  off:\n  - tools-pack@tools-market\nlayers:\n  add:\n  - acme-knowledge\nbind:\n- ~/work/erp/clients/*\n"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

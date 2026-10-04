@@ -1,0 +1,41 @@
+{
+  "argv": ["context", "bundle", "show", "default"],
+  "envelope": {
+    "command": "context bundle show",
+    "data": {
+      "agents": {
+        "off": []
+      },
+      "appliedTo": [],
+      "bind": [],
+      "description": "",
+      "issues": [
+        {
+          "key": "skills",
+          "level": "warning",
+          "message": "a plain skills list is read as skills.allow"
+        }
+      ],
+      "layers": {
+        "add": [],
+        "exclude": []
+      },
+      "legacy": true,
+      "name": "default",
+      "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/default.yaml",
+      "plugins": {
+        "off": []
+      },
+      "servers": null,
+      "skills": {
+        "allow": ["erp-core", "erp-reports"],
+        "nameOnly": [],
+        "off": []
+      },
+      "yaml": "skills:\n  - erp-core\n  - erp-reports\n"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

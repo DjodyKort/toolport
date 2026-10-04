@@ -1,0 +1,87 @@
+{
+  "argv": ["context", "bundle", "ls"],
+  "envelope": {
+    "command": "context bundle ls",
+    "data": {
+      "bundles": [
+        {
+          "agents": {
+            "off": ["reviewer-bot"]
+          },
+          "appliedTo": [],
+          "bind": ["~/work/acme-erp/clients/*"],
+          "description": "ERP work: no marketplace plugins, only the ERP skills",
+          "issues": 0,
+          "layers": {
+            "add": ["acme-knowledge"],
+            "exclude": ["**/acme-erp/CLAUDE.md"]
+          },
+          "name": "acme-dev",
+          "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/acme-dev.yaml",
+          "plugins": {
+            "off": ["tools-pack@tools-market", "loop-runner@official"]
+          },
+          "servers": "acme-dev",
+          "skills": {
+            "allow": 0,
+            "nameOnly": 1,
+            "off": 2
+          }
+        },
+        {
+          "agents": {
+            "off": []
+          },
+          "appliedTo": [],
+          "bind": [],
+          "description": "",
+          "error": "skills must be a mapping",
+          "issues": 1,
+          "layers": {
+            "add": [],
+            "exclude": []
+          },
+          "name": "broken",
+          "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/broken.yaml",
+          "plugins": {
+            "off": []
+          },
+          "servers": null,
+          "skills": {
+            "allow": 0,
+            "nameOnly": 0,
+            "off": 0
+          }
+        },
+        {
+          "agents": {
+            "off": []
+          },
+          "appliedTo": [],
+          "bind": [],
+          "description": "",
+          "issues": 1,
+          "layers": {
+            "add": [],
+            "exclude": []
+          },
+          "name": "default",
+          "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/default.yaml",
+          "plugins": {
+            "off": []
+          },
+          "servers": null,
+          "skills": {
+            "allow": 2,
+            "nameOnly": 0,
+            "off": 0
+          }
+        }
+      ],
+      "directory": "<WORLD>/home/.config/mcpm/skills_repo/profiles"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

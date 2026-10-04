@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "bundle", "config", "--auto-apply", "sometimes"],
+  "envelope": {
+    "command": "context bundle config",
+    "error": {
+      "code": "usage",
+      "message": "--auto-apply takes on or off"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

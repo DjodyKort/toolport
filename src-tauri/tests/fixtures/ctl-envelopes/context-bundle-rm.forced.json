@@ -1,0 +1,30 @@
+{
+  "argv": ["context", "bundle", "rm", "acme-dev", "--force", "--dry-run"],
+  "envelope": {
+    "command": "context bundle rm",
+    "data": {
+      "dryRun": true,
+      "name": "acme-dev",
+      "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/acme-dev.yaml",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "delete the definition of bundle acme-dev",
+            "op": "delete",
+            "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/acme-dev.yaml"
+          }
+        ],
+        "summary": "Remove bundle acme-dev",
+        "undo": "git checkout -- <WORLD>/home/.config/mcpm/skills_repo/profiles/acme-dev.yaml (the file is yours to commit)",
+        "warnings": [
+          "still applied in 1 folder(s): their files stay until `context bundle undo`"
+        ]
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

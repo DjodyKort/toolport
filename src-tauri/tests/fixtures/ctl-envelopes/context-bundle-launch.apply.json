@@ -1,0 +1,25 @@
+{
+  "argv": [
+    "context",
+    "bundle",
+    "launch",
+    "acme-dev",
+    "--cwd",
+    "{home}/work/erp/clients/acme-erp"
+  ],
+  "envelope": {
+    "command": "context bundle launch",
+    "data": {
+      "bundle": "acme-dev",
+      "command": "claude --settings <WORLD>/home/.config/toolport/profiles/acme-dev.settings.json",
+      "cwd": "<WORLD>/home/work/erp/clients/acme-erp",
+      "notes": [
+        "layers.add (acme-knowledge) rides CLAUDE.local.md, which --settings cannot carry; `context bundle apply` delivers it"
+      ],
+      "settingsFile": "<WORLD>/home/.config/toolport/profiles/acme-dev.settings.json"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

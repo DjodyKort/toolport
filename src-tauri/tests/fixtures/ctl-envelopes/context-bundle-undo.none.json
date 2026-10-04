@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "context",
+    "bundle",
+    "undo",
+    "--cwd",
+    "{home}/work/erp/clients/acme-erp",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "context bundle undo",
+    "error": {
+      "code": "conflict",
+      "message": "no bundle is applied in <WORLD>/home/work/erp/clients/acme-erp"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

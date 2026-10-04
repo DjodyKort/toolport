@@ -173,6 +173,77 @@
           "tier": 2
         },
         {
+          "description": "List the context bundles (profiles/<name>.yaml in the skills repository) with what each hides and adds and the folders it is applied in",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "context_bundle_ls",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "Report which context bundle is applied in a folder, whether a key it owns changed since, and the keys an undo would leave alone",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "context_bundle_status",
+          "params": [
+            {
+              "description": "The folder where Claude Code starts",
+              "name": "cwd",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Apply a context bundle in a folder: skill, plugin, agent and CLAUDE.md hiding goes into the folder's git-ignored .claude/settings.local.json and layers into one managed block of CLAUDE.local.md, with a ledger that undo restores from. Pass dry_run to see the plan and write nothing",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "context_bundle_apply",
+          "params": [
+            {
+              "description": "The bundle's name (profiles/<name>.yaml)",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "The folder where Claude Code starts; nothing is written above it",
+              "name": "cwd",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Undo the bundle applied in a folder: put back the keys it replaced and remove its block; a key changed since is left alone and listed in conflicts. Pass dry_run to see the plan and write nothing",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "context_bundle_undo",
+          "params": [
+            {
+              "description": "The folder where Claude Code starts",
+              "name": "cwd",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
           "description": "List the installed Claude Code plugins with what each brings (skills, agents, commands, hooks, MCP servers), whether it is on in the folder, its token cost and its MCP servers that sit outside the gateway",
           "dryRunDefault": false,
           "gate": "none",

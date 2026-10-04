@@ -1,0 +1,42 @@
+{
+  "argv": [
+    "context",
+    "bundle",
+    "add",
+    "from-client",
+    "--from-folder",
+    "{home}/work/erp/clients/acme-erp",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "context bundle add",
+    "data": {
+      "created": true,
+      "dryRun": true,
+      "issues": [],
+      "name": "from-client",
+      "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/from-client.yaml",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "write the new bundle from-client",
+            "diff": {
+              "after": "format: 1\nname: from-client\n",
+              "before": ""
+            },
+            "op": "create",
+            "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/from-client.yaml"
+          }
+        ],
+        "summary": "Add bundle from-client",
+        "undo": "toolportctl context bundle rm from-client",
+        "warnings": []
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "context",
+    "use",
+    "no-such-name",
+    "--cwd",
+    "{home}/work/erp/clients/acme-two",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "context use",
+    "error": {
+      "code": "not_found",
+      "message": "nothing is called no-such-name: no bundle in the skills repo's profiles/ and no server profile"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

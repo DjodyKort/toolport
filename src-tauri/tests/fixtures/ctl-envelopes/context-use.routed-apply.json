@@ -1,0 +1,96 @@
+{
+  "argv": ["context", "use", "acme-dev", "--cwd", "{home}/work/erp/clients/acme-two"],
+  "envelope": {
+    "command": "context use",
+    "data": {
+      "bundle": "acme-dev",
+      "bundlePart": true,
+      "conflicts": [],
+      "cwd": "<WORLD>/home/work/erp/clients/acme-two",
+      "dryRun": false,
+      "name": "acme-dev",
+      "plan": {
+        "effects": {
+          "tokens": {
+            "after": 19697,
+            "basis": "estimate",
+            "before": 19697
+          }
+        },
+        "steps": [
+          {
+            "detail": "8 key(s) owned by bundle acme-dev",
+            "diff": {
+              "after": "skillOverrides.long-guide: \"name-only\"\nskillOverrides.notes-helper: \"off\"\nskillOverrides.scratch-one: \"off\"\nskillOverrides.scratch-two: \"off\"\nenabledPlugins.tools-pack@tools-market: false\nenabledPlugins.loop-runner@official: false\nclaudeMdExcludes: \"**/acme-erp/CLAUDE.md\"\npermissions.deny: \"Agent(reviewer-bot)\"\n",
+              "before": "skillOverrides.long-guide: (absent)\nskillOverrides.notes-helper: (absent)\nskillOverrides.scratch-one: (absent)\nskillOverrides.scratch-two: (absent)\nenabledPlugins.tools-pack@tools-market: (absent)\nenabledPlugins.loop-runner@official: (absent)\nclaudeMdExcludes: (absent)\npermissions.deny: (absent)\n"
+            },
+            "keys": [
+              "skillOverrides",
+              "enabledPlugins",
+              "claudeMdExcludes",
+              "permissions.deny"
+            ],
+            "op": "merge",
+            "path": "<WORLD>/home/work/erp/clients/acme-two/.claude/settings.local.json"
+          },
+          {
+            "detail": "one managed block with 1 layer(s)",
+            "diff": {
+              "after": "<!-- toolport:bundle:begin acme-dev -->\n<!-- Written by `toolportctl context bundle apply acme-dev`; `context bundle undo` removes this block. -->\n\n## acme-knowledge\n\nPost invoices before closing the period.\n<!-- toolport:bundle:end acme-dev -->\n",
+              "before": ""
+            },
+            "op": "create",
+            "path": "<WORLD>/home/work/erp/clients/acme-two/CLAUDE.local.md"
+          },
+          {
+            "detail": "git-ignore .claude/settings.local.json",
+            "op": "update",
+            "path": "<WORLD>/home/work/erp/clients/acme-two/.git/info/exclude"
+          },
+          {
+            "detail": "git-ignore CLAUDE.local.md",
+            "op": "update",
+            "path": "<WORLD>/home/work/erp/clients/acme-two/.git/info/exclude"
+          },
+          {
+            "detail": "record every key Toolport owns with the value it replaces, so undo restores exactly that",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          },
+          {
+            "detail": "Hiding skills is hygiene, not savings (F0 measured 59 tokens for ten skills); the tokens are in plugins, agents and memory files",
+            "op": "note"
+          },
+          {
+            "detail": "route <WORLD>/home/work/erp/clients/acme-two to the server profile acme-dev",
+            "op": "update",
+            "path": "<WORLD>/data/registry.json"
+          }
+        ],
+        "summary": "Use acme-dev in <WORLD>/home/work/erp/clients/acme-two",
+        "undo": "toolportctl context use --none --cwd <WORLD>/home/work/erp/clients/acme-two",
+        "warnings": []
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [
+          "<WORLD>/home/work/erp/clients/acme-two/.claude/settings.local.json",
+          "<WORLD>/home/work/erp/clients/acme-two/CLAUDE.local.md",
+          "<WORLD>/home/work/erp/clients/acme-two/.git/info/exclude",
+          "<WORLD>/data/registry.json"
+        ],
+        "ledger": "<WORLD>/data/plus/profile-ledger.json",
+        "undo": "toolportctl context use --none --cwd <WORLD>/home/work/erp/clients/acme-two"
+      },
+      "server": {
+        "bound": true,
+        "foldersEnabled": true,
+        "profile": "acme-dev"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}
