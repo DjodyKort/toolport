@@ -170,6 +170,7 @@ The Servers screen (MIG-GUI-1) adds:
 - `ui/` is the kit every Toolport+ screen is built from (below).
 - `nav.ts` holds the grouped sidebar B (`NAV_GROUPS`, 16 items, labels as in the approved mockup; the Servers entry opens the Toolport+ view `control`, and the upstream `servers` view is lit under it), the title and subtitle of each Toolport+ screen (`PLUS_SCREENS`) and the item that builds each. The tabs of the mockup live in `notBuiltTabs.ts`, which only the placeholder reads, so they stay out of the startup bundle. `SidebarNav.tsx` draws the groups with the sidebar's own row, `attention.ts` reads the Attention counter.
 - `PlusViews.tsx` is the one entry for Toolport+ screens; each is a `React.lazy` chunk. `NotBuilt.tsx` is the marked placeholder (tabs of the mockup, a "Not built yet" notice naming the item, a button to the All commands page on the right command group).
+- `src/plus/compression/` (MIG-GUI-5) is the Tokens screen: `TokensScreen.tsx` holds the Usage and Compression tabs and a `PANELS` map (MIG-GUI-7 adds `usage`); `PlusViews.tsx` lazy-loads it for the `tokens` view; `NotBuilt.tsx` exports `NotBuiltPanel` so a built screen can keep the marked placeholder for its other tabs.
 - `allcommands/` is the All commands page.
 - `servers/` is the Servers screen (MIG-GUI-1, below).
 
