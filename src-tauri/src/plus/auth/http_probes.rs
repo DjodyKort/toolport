@@ -49,62 +49,33 @@ pub enum Service {
     MiroCommunity,
 }
 
-impl Service {
-    pub fn name(self) -> &'static str {
-        match self {
-            Service::Slack => "slack",
-            Service::Odoo => "odoo",
-            Service::Moodle => "moodle",
-            Service::Stitch => "stitch",
-            Service::Framelink => "framelink",
-            Service::MiroCommunity => "miro-community",
+enum BaseUrl {
+    Fixed(&'static str),
+    Config { url_env: &'static str },
+}
+
+type RunFn = fn(&HttpProbe, &ProbeSpec) -> Probed;
+
+struct ServiceDef {
+    service: Service,
+    name: &'static str,
+    token_keys: &'static [&'static str],
+    base: BaseUrl,
+    min_interval: i64,
+    params: &'static [(&'static str, &'static str, &'static str)],
+    run: RunFn,
+}
+
+impl ServiceDef {
+    fn default_token_key(&self) -> &'static str {
+        self.token_keys[0]
+    }
+
+    fn url_env(&self) -> Option<&'static str> {
+        match self.base {
+            BaseUrl::Config { url_env } => Some(url_env),
+            BaseUrl::Fixed(_) => None,
         }
-    }
-
-    pub fn parse(name: &str) -> Option<Service> {
-        [
-            Service::Slack,
-            Service::Odoo,
-            Service::Moodle,
-            Service::Stitch,
-            Service::Framelink,
-            Service::MiroCommunity,
-        ]
-        .into_iter()
-        .find(|s| s.name() == name)
-    }
-
-    fn default_token_key(self) -> &'static str {
-        match self {
-            Service::Slack => "SLACK_BOT_TOKEN",
-            Service::Odoo => "ODOO_API_KEY",
-            Service::Moodle => "MOODLE_TOKEN",
-            Service::Stitch => "STITCH_API_KEY",
-            Service::Framelink => "FIGMA_API_KEY",
-            Service::MiroCommunity => "MIRO_ACCESS_TOKEN",
-        }
-    }
-
-    fn min_interval(self) -> i64 {
-        match self {
-            Service::Odoo => ODOO_MIN_INTERVAL_SECS,
-            Service::Slack | Service::Moodle => SLOW_MIN_INTERVAL_SECS,
-            Service::Stitch | Service::Framelink | Service::MiroCommunity => FAST_MIN_INTERVAL_SECS,
-        }
-    }
-
-    fn default_base(self) -> Option<&'static str> {
-        match self {
-            Service::Slack => Some(SLACK_BASE),
-            Service::Stitch => Some(STITCH_BASE),
-            Service::Framelink => Some(FIGMA_BASE),
-            Service::MiroCommunity => Some(MIRO_BASE),
-            Service::Odoo | Service::Moodle => None,
-        }
-    }
-
-    fn needs_base_url(self) -> bool {
-        matches!(self, Service::Odoo | Service::Moodle)
     }
 }
 
@@ -114,6 +85,88 @@ const SLACK_TOKEN_KEYS: [&str; 4] = [
     "SLACK_MCP_XOXP_TOKEN",
     "SLACK_MCP_XOXB_TOKEN",
 ];
+
+const ODOO_PARAMS: [(&str, &str, &str); 3] = [
+    (PARAM_DB, "db", "ODOO_DB"),
+    (PARAM_USER, "user", "ODOO_USER"),
+    (PARAM_UID, "uid", "ODOO_UID"),
+];
+
+/// In the order `infer` tries them, which is also the order of the `Service` variants.
+static SERVICES: [ServiceDef; 6] = [
+    ServiceDef {
+        service: Service::Slack,
+        name: "slack",
+        token_keys: &SLACK_TOKEN_KEYS,
+        base: BaseUrl::Fixed(SLACK_BASE),
+        min_interval: SLOW_MIN_INTERVAL_SECS,
+        params: &[],
+        run: HttpProbe::slack,
+    },
+    ServiceDef {
+        service: Service::Odoo,
+        name: "odoo",
+        token_keys: &["ODOO_API_KEY"],
+        base: BaseUrl::Config {
+            url_env: "ODOO_URL",
+        },
+        min_interval: ODOO_MIN_INTERVAL_SECS,
+        params: &ODOO_PARAMS,
+        run: HttpProbe::odoo,
+    },
+    ServiceDef {
+        service: Service::Moodle,
+        name: "moodle",
+        token_keys: &["MOODLE_TOKEN"],
+        base: BaseUrl::Config {
+            url_env: "MOODLE_URL",
+        },
+        min_interval: SLOW_MIN_INTERVAL_SECS,
+        params: &[],
+        run: HttpProbe::moodle,
+    },
+    ServiceDef {
+        service: Service::Stitch,
+        name: "stitch",
+        token_keys: &["STITCH_API_KEY"],
+        base: BaseUrl::Fixed(STITCH_BASE),
+        min_interval: FAST_MIN_INTERVAL_SECS,
+        params: &[],
+        run: HttpProbe::stitch,
+    },
+    ServiceDef {
+        service: Service::Framelink,
+        name: "framelink",
+        token_keys: &["FIGMA_API_KEY"],
+        base: BaseUrl::Fixed(FIGMA_BASE),
+        min_interval: FAST_MIN_INTERVAL_SECS,
+        params: &[],
+        run: HttpProbe::framelink,
+    },
+    ServiceDef {
+        service: Service::MiroCommunity,
+        name: "miro-community",
+        token_keys: &["MIRO_ACCESS_TOKEN"],
+        base: BaseUrl::Fixed(MIRO_BASE),
+        min_interval: FAST_MIN_INTERVAL_SECS,
+        params: &[],
+        run: HttpProbe::miro,
+    },
+];
+
+impl Service {
+    fn def(self) -> &'static ServiceDef {
+        &SERVICES[self as usize]
+    }
+
+    pub fn name(self) -> &'static str {
+        self.def().name
+    }
+
+    pub fn parse(name: &str) -> Option<Service> {
+        SERVICES.iter().find(|d| d.name == name).map(|d| d.service)
+    }
+}
 
 type Probed = Result<ProbeOutcome, ProbeOutcome>;
 
@@ -230,13 +283,14 @@ impl HttpProbe {
     }
 
     fn base(&self, service: Service, spec: &ProbeSpec) -> Result<String, ProbeOutcome> {
-        let chosen = if service.needs_base_url() {
-            spec.params.get(PARAM_BASE_URL).cloned()
-        } else {
-            self.bases
-                .get(service.name())
-                .cloned()
-                .or_else(|| service.default_base().map(str::to_string))
+        let chosen = match service.def().base {
+            BaseUrl::Config { .. } => spec.params.get(PARAM_BASE_URL).cloned(),
+            BaseUrl::Fixed(default) => Some(
+                self.bases
+                    .get(service.name())
+                    .cloned()
+                    .unwrap_or_else(|| default.to_string()),
+            ),
         };
         match chosen {
             Some(url) if endpoint_allowed(&url) => Ok(base_of(&url)),
@@ -250,7 +304,7 @@ impl HttpProbe {
             .params
             .get(PARAM_TOKEN_KEY)
             .map(String::as_str)
-            .unwrap_or_else(|| service.default_token_key());
+            .unwrap_or_else(|| service.def().default_token_key());
         self.vault
             .get(&spec.server, key)
             .filter(|t| !t.is_empty())
@@ -628,12 +682,7 @@ impl Probe for HttpProbe {
             .get(PARAM_SERVICE)
             .and_then(|s| Service::parse(s))
         {
-            Some(Service::Slack) => self.slack(spec),
-            Some(Service::Odoo) => self.odoo(spec),
-            Some(Service::Moodle) => self.moodle(spec),
-            Some(Service::Stitch) => self.stitch(spec),
-            Some(Service::Framelink) => self.framelink(spec),
-            Some(Service::MiroCommunity) => self.miro(spec),
+            Some(service) => (service.def().run)(self, spec),
             None => Err(fail("missing_config")),
         };
         probed.unwrap_or_else(|outcome| outcome)
@@ -673,19 +722,11 @@ fn has_env(server: &crate::registry::ServerEntry, key: &str) -> bool {
 }
 
 fn infer(server: &crate::registry::ServerEntry) -> Option<(Service, String)> {
-    if let Some(key) = SLACK_TOKEN_KEYS.iter().find(|k| has_env(server, k)) {
-        return Some((Service::Slack, key.to_string()));
-    }
-    let candidates = [
-        (Service::Odoo, "ODOO_API_KEY", Some("ODOO_URL")),
-        (Service::Moodle, "MOODLE_TOKEN", Some("MOODLE_URL")),
-        (Service::Stitch, "STITCH_API_KEY", None),
-        (Service::Framelink, "FIGMA_API_KEY", None),
-        (Service::MiroCommunity, "MIRO_ACCESS_TOKEN", None),
-    ];
-    candidates.into_iter().find_map(|(service, key, needs)| {
-        (has_env(server, key) && needs.is_none_or(|n| has_env(server, n)))
-            .then(|| (service, key.to_string()))
+    SERVICES.iter().find_map(|def| {
+        let key = def.token_keys.iter().find(|k| has_env(server, k))?;
+        def.url_env()
+            .is_none_or(|env| has_env(server, env))
+            .then(|| (def.service, key.to_string()))
     })
 }
 
@@ -715,7 +756,7 @@ pub fn http_registry(registry: &crate::registry::Registry) -> ProbeRegistry {
                 Some(service) => {
                     let key = hint
                         .and_then(|h| hint_str(h, "tokenKey"))
-                        .unwrap_or(service.default_token_key());
+                        .unwrap_or(service.def().default_token_key());
                     Some((service, key.to_string()))
                 }
                 None => None,
@@ -726,36 +767,27 @@ pub fn http_registry(registry: &crate::registry::Registry) -> ProbeRegistry {
             continue;
         };
         let from_hint = |key: &str| hint.and_then(|h| hint_str(h, key)).map(str::to_string);
-        let url_env = match service {
-            Service::Odoo => Some("ODOO_URL"),
-            Service::Moodle => Some("MOODLE_URL"),
-            _ => None,
-        };
-        let base_url = url_env
-            .and_then(|k| plain_env(server, k).map(str::to_string))
-            .or_else(|| from_hint("baseUrl").filter(|_| service.needs_base_url()));
-        if service.needs_base_url() && base_url.is_none() {
+        let def = service.def();
+        let base_url = def.url_env().and_then(|env| {
+            plain_env(server, env)
+                .map(str::to_string)
+                .or_else(|| from_hint("baseUrl"))
+        });
+        if def.url_env().is_some() && base_url.is_none() {
             continue;
         }
         let mut spec = ProbeSpec::new(&server.id, ProbeKind::Http)
-            .with_param(PARAM_SERVICE, service.name())
+            .with_param(PARAM_SERVICE, def.name)
             .with_param(PARAM_TOKEN_KEY, &token_key)
-            .with_min_interval(service.min_interval());
+            .with_min_interval(def.min_interval);
         if let Some(url) = base_url {
             spec = spec.with_param(PARAM_BASE_URL, &url);
         }
-        if service == Service::Odoo {
-            let pairs = [
-                (PARAM_DB, "db", "ODOO_DB"),
-                (PARAM_USER, "user", "ODOO_USER"),
-                (PARAM_UID, "uid", "ODOO_UID"),
-            ];
-            for (param, hint_key, env_key) in pairs {
-                let value =
-                    from_hint(hint_key).or_else(|| plain_env(server, env_key).map(str::to_string));
-                if let Some(value) = value {
-                    spec = spec.with_param(param, &value);
-                }
+        for &(param, hint_key, env_key) in def.params {
+            let value =
+                from_hint(hint_key).or_else(|| plain_env(server, env_key).map(str::to_string));
+            if let Some(value) = value {
+                spec = spec.with_param(param, &value);
             }
         }
         reg.register(spec);
@@ -775,6 +807,76 @@ fn merge_missing(reg: &mut ProbeRegistry, extra: &ProbeRegistry) {
     for spec in extra.iter() {
         if reg.get(&spec.server).is_none() {
             reg.register(spec.clone());
+        }
+    }
+}
+
+#[cfg(test)]
+mod table_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn server_with(keys: &[&str]) -> crate::registry::ServerEntry {
+        let env: Vec<_> = keys
+            .iter()
+            .map(|k| json!({"key": k, "value": "https://x.example.test", "secret": false}))
+            .collect();
+        serde_json::from_value(json!({
+            "id": "s", "name": "s", "transport": "stdio", "env": env,
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn every_service_has_one_row_at_its_variant_index() {
+        for (i, def) in SERVICES.iter().enumerate() {
+            assert_eq!(def.service as usize, i, "{}", def.name);
+            assert_eq!(def.service.name(), def.name);
+            assert_eq!(Service::parse(def.name), Some(def.service));
+            assert!(!def.token_keys.is_empty(), "{}", def.name);
+        }
+        let mut names: Vec<_> = SERVICES.iter().map(|d| d.name).collect();
+        names.sort_unstable();
+        names.dedup();
+        assert_eq!(names.len(), SERVICES.len());
+        assert_eq!(Service::parse("bogus"), None);
+    }
+
+    #[test]
+    fn each_service_is_inferred_from_every_one_of_its_token_keys() {
+        for def in &SERVICES {
+            for key in def.token_keys {
+                let mut keys = vec![*key];
+                keys.extend(def.url_env());
+                assert_eq!(
+                    infer(&server_with(&keys)),
+                    Some((def.service, key.to_string())),
+                    "{} via {key}",
+                    def.name
+                );
+            }
+            if let Some(url_env) = def.url_env() {
+                assert_eq!(infer(&server_with(&[def.token_keys[0]])), None, "{url_env}");
+            }
+        }
+    }
+
+    #[test]
+    fn slack_keys_win_over_other_services_and_the_first_key_is_the_default() {
+        let server = server_with(&["MIRO_ACCESS_TOKEN", "SLACK_MCP_XOXB_TOKEN"]);
+        assert_eq!(
+            infer(&server),
+            Some((Service::Slack, "SLACK_MCP_XOXB_TOKEN".to_string()))
+        );
+        assert_eq!(Service::Slack.def().default_token_key(), "SLACK_BOT_TOKEN");
+    }
+
+    #[test]
+    fn only_odoo_and_moodle_take_a_configured_base_url() {
+        for def in &SERVICES {
+            let configured = matches!(def.service, Service::Odoo | Service::Moodle);
+            assert_eq!(def.url_env().is_some(), configured, "{}", def.name);
+            assert_eq!(def.params.is_empty(), def.service != Service::Odoo);
         }
     }
 }
