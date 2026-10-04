@@ -1,0 +1,11 @@
+
+Found 3 agent(s) in <root>/repo
+
+┏━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Name     ┃ Model   ┃ Tools            ┃ Description                                        ┃
+┡━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ helper   │ default │ all              │ A helper agent that does many different helpful    │
+│          │         │                  │ th...                                              │
+│ planner  │ opus    │ all              │ Plans work                                         │
+│ reviewer │ sonnet  │ Read, Grep, Glob │ Reviews code changes for correctness and style     │
+└──────────┴─────────┴──────────────────┴────────────────────────────────────────────────────┘

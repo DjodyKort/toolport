@@ -1,0 +1,9 @@
+  Removed .claude/agents/helper.md
+  Removed .codex/agents/helper.toml
+  Removed .cursor/agents/helper.md
+  Removed .gemini/agents/helper.md
+  Removed .roomodes
+  Removed .github/agents/helper.agent.md
+  Removed agents/helper
+
+Uninstalled 'helper' and removed 6 output file(s).

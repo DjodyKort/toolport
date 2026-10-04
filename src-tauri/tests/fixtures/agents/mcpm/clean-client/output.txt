@@ -1,0 +1,5 @@
+  Removed .claude/agents/helper.md
+  Removed .claude/agents/planner.md
+  Removed .claude/agents/reviewer.md
+
+Cleaned 3 file(s).

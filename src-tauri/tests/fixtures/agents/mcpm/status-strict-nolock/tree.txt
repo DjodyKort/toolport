@@ -1,0 +1,4 @@
+repo/agents/helper/AGENT.md
+repo/agents/planner/AGENT.md
+repo/agents/reviewer/AGENT.md
+repo/mcpm-skills.yaml

@@ -1,0 +1,12 @@
+Global mode -- writing to user-level paths.
+
+
+Synced 3 agent(s) to 4 client(s).
+
+┏━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Agent    ┃ Model   ┃ Clients synced                             ┃ Warnings                                                                                                                                                        ┃
+┡━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ helper   │ default │ claude-code, codex-cli, cursor, gemini-cli │ --                                                                                                                                                              │
+│ planner  │ opus    │ claude-code, codex-cli, cursor, gemini-cli │ --                                                                                                                                                              │
+│ reviewer │ sonnet  │ claude-code, codex-cli, cursor, gemini-cli │ codex-cli: 'tools' field not supported in agent TOML, dropped; cursor: 'tools' field not supported, dropped; cursor: 'mcp-servers' field not supported, dropped │
+└──────────┴─────────┴────────────────────────────────────────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘

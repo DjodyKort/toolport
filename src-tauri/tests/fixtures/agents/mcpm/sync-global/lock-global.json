@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "synced_at": "<ts>",
+  "scope": "global",
+  "output_root": "<root>/home",
+  "skills": {},
+  "rules": {},
+  "agents": {
+    "helper": {
+      "source": "local",
+      "version": null,
+      "hash": "sha256:06c28bdf5ba8b634",
+      "clients_synced": ["claude-code", "codex-cli", "cursor", "gemini-cli"],
+      "warnings": [],
+      "output_files": {
+        "claude-code": [".claude/agents/helper.md"],
+        "codex-cli": [".codex/agents/helper.toml"],
+        "cursor": [".cursor/agents/helper.md"],
+        "gemini-cli": [".gemini/agents/helper.md"]
+      },
+      "hooks_installed": {}
+    },
+    "planner": {
+      "source": "local",
+      "version": null,
+      "hash": "sha256:53123fd90bbb8739",
+      "clients_synced": ["claude-code", "codex-cli", "cursor", "gemini-cli"],
+      "warnings": [],
+      "output_files": {
+        "claude-code": [".claude/agents/planner.md"],
+        "codex-cli": [".codex/agents/planner.toml"],
+        "cursor": [".cursor/agents/planner.md"],
+        "gemini-cli": [".gemini/agents/planner.md"]
+      },
+      "hooks_installed": {}
+    },
+    "reviewer": {
+      "source": "local",
+      "version": null,
+      "hash": "sha256:3026d24c7989ed0d",
+      "clients_synced": ["claude-code", "codex-cli", "cursor", "gemini-cli"],
+      "warnings": [
+        "codex-cli: 'tools' field not supported in agent TOML, dropped",
+        "cursor: 'tools' field not supported, dropped",
+        "cursor: 'mcp-servers' field not supported, dropped"
+      ],
+      "output_files": {
+        "claude-code": [".claude/agents/reviewer.md"],
+        "codex-cli": [".codex/agents/reviewer.toml"],
+        "cursor": [".cursor/agents/reviewer.md"],
+        "gemini-cli": [".gemini/agents/reviewer.md"]
+      },
+      "hooks_installed": {}
+    }
+  },
+  "styles": {},
+  "active_styles": {}
+}

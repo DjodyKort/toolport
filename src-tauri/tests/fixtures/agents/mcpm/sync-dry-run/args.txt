@@ -1,0 +1,4 @@
+sync
+--dry-run
+--path
+{repo}

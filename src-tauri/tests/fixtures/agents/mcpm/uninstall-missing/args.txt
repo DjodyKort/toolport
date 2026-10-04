@@ -1,0 +1,4 @@
+uninstall
+nope
+--path
+{repo}

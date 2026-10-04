@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "synced_at": "<ts>",
+  "scope": "",
+  "output_root": "",
+  "skills": {},
+  "rules": {},
+  "agents": {
+    "planner": {
+      "source": "local",
+      "version": null,
+      "hash": "sha256:53123fd90bbb8739",
+      "clients_synced": [
+        "claude-code",
+        "codex-cli",
+        "cursor",
+        "gemini-cli",
+        "vscode",
+        "roomodes"
+      ],
+      "warnings": [
+        "roomodes: 'model' not directly supported, included in customInstructions",
+        "roomodes: 'model' not directly supported, included in customInstructions"
+      ],
+      "output_files": {
+        "claude-code": [".claude/agents/planner.md"],
+        "codex-cli": [".codex/agents/planner.toml"],
+        "cursor": [".cursor/agents/planner.md"],
+        "gemini-cli": [".gemini/agents/planner.md"],
+        "vscode": [".github/agents/planner.agent.md"],
+        "roomodes": [".roomodes"]
+      },
+      "hooks_installed": {}
+    },
+    "reviewer": {
+      "source": "local",
+      "version": null,
+      "hash": "sha256:3026d24c7989ed0d",
+      "clients_synced": [
+        "claude-code",
+        "codex-cli",
+        "cursor",
+        "gemini-cli",
+        "vscode",
+        "roomodes"
+      ],
+      "warnings": [
+        "codex-cli: 'tools' field not supported in agent TOML, dropped",
+        "cursor: 'tools' field not supported, dropped",
+        "cursor: 'mcp-servers' field not supported, dropped",
+        "roomodes: 'model' not directly supported, included in customInstructions",
+        "roomodes: 'model' not directly supported, included in customInstructions"
+      ],
+      "output_files": {
+        "claude-code": [".claude/agents/reviewer.md"],
+        "codex-cli": [".codex/agents/reviewer.toml"],
+        "cursor": [".cursor/agents/reviewer.md"],
+        "gemini-cli": [".gemini/agents/reviewer.md"],
+        "vscode": [".github/agents/reviewer.agent.md"],
+        "roomodes": [".roomodes"]
+      },
+      "hooks_installed": {}
+    }
+  },
+  "styles": {},
+  "active_styles": {}
+}

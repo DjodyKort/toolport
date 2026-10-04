@@ -1,0 +1,4 @@
+uninstall
+helper
+--path
+{repo}

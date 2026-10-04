@@ -390,6 +390,9 @@ fn version_and_usage_errors_use_the_documented_exit_codes() {
         (vec!["skills", "ls", "--bogus"], "skills ls"),
         (vec!["skills", "add"], "skills add"),
         (vec!["skills", "unbundle"], "skills unbundle"),
+        (vec!["agents", "ls", "--bogus"], "agents ls"),
+        (vec!["agents", "add"], "agents add"),
+        (vec!["agents", "uninstall"], "agents uninstall"),
     ] {
         let (run, value) = world.json(&argv);
         assert_envelope(&argv.join(" "), &run, &value, command, 2);
@@ -850,6 +853,101 @@ fn read_only_cases(w: &World) -> Vec<Case> {
                 assert_eq!(d["dryRun"], true);
                 assert_eq!(d["skillCount"], 1);
                 assert_eq!(d["collisions"], json!([]));
+            },
+        ),
+        case(
+            "agents ls",
+            &["agents", "ls", "--path", &repo],
+            0,
+            |_, d| {
+                assert_eq!(d["agents"][0]["name"], "helper");
+                assert_eq!(d["discoveryWarnings"], json!([]));
+            },
+        ),
+        case(
+            "agents lint",
+            &["agents", "lint", "--path", &repo],
+            0,
+            |_, d| {
+                assert_eq!(d["errors"], 0);
+                assert_eq!(d["agentCount"], 1);
+            },
+        ),
+        case(
+            "agents audit",
+            &["agents", "audit", "--path", &repo],
+            0,
+            |_, d| {
+                assert_eq!(d["agentCount"], 1);
+                assert_eq!(d["clean"], true);
+            },
+        ),
+        case(
+            "agents diff",
+            &["agents", "diff", "--path", &repo],
+            0,
+            |_, d| {
+                assert_eq!(d["noLockfile"], true);
+                assert_eq!(d["new"], json!(["helper"]));
+            },
+        ),
+        case(
+            "agents status",
+            &["agents", "status", "--path", &repo, "--home", &home],
+            0,
+            |_, d| {
+                assert_eq!(d["lockfilePresent"], false);
+                assert_eq!(d["drift"], false);
+            },
+        ),
+        case(
+            "agents add",
+            &["agents", "add", "fresh-agent", "--path", &repo, "--dry-run"],
+            0,
+            |_, d| {
+                assert_eq!(d["dryRun"], true);
+                let path = d["path"].as_str().unwrap();
+                assert!(path.ends_with("agents/fresh-agent/AGENT.md"), "{path}");
+            },
+        ),
+        case(
+            "agents sync",
+            &["agents", "sync", "--path", &repo, "--home", &home, "--dry-run"],
+            0,
+            |_, d| {
+                assert_eq!(d["dryRun"], true);
+                assert_eq!(d["scope"], "global");
+                assert_eq!(d["foundCount"], 1);
+            },
+        ),
+        case(
+            "agents clean",
+            &["agents", "clean", "--path", &repo, "--home", &home, "--dry-run"],
+            0,
+            |_, d| {
+                assert_eq!(d["dryRun"], true);
+                assert_eq!(d["lockfilePresent"], false);
+                assert_eq!(d["removed"], json!([]));
+            },
+        ),
+        case(
+            "agents uninstall",
+            &[
+                "agents",
+                "uninstall",
+                "helper",
+                "--path",
+                &repo,
+                "--home",
+                &home,
+                "--dry-run",
+            ],
+            0,
+            |w, d| {
+                assert_eq!(d["dryRun"], true);
+                assert_eq!(d["name"], "helper");
+                assert_eq!(d["lockUpdated"], false);
+                same_path(&d["sourcePath"], &w.repo.join("agents/helper"));
             },
         ),
         case("sync", &["sync", "status"], 0, |_, d| {
@@ -1345,6 +1443,74 @@ fn mutating_commands_round_trip_on_a_synthetic_data_dir() {
         &home,
     ]);
     assert_envelope("skills uninstall refused", &run, &value, "skills uninstall", 1);
+
+    let (run, value) = world.json(&[
+        "agents", "sync", "--path", &repo, "--home", &home, "--client", "claude-code",
+    ]);
+    assert_envelope("agents sync", &run, &value, "agents sync", 0);
+    let agent_output = world.home.join(".claude/agents/helper.md");
+    assert!(agent_output.is_file());
+    let (run, value) = world.json(&["agents", "diff", "--path", &repo]);
+    assert_envelope("agents diff after sync", &run, &value, "agents diff", 0);
+    assert_eq!(value["data"]["clean"], true);
+    let (run, value) = world.json(&["agents", "status", "--path", &repo, "--home", &home]);
+    assert_envelope("agents status", &run, &value, "agents status", 0);
+    assert_eq!(value["data"]["lockedCount"], 1);
+    assert_eq!(value["data"]["drift"], false);
+    std::fs::remove_file(&agent_output).unwrap();
+    let (run, value) = world.json(&[
+        "agents", "status", "--path", &repo, "--home", &home, "--strict",
+    ]);
+    assert_envelope("agents status drift", &run, &value, "agents status", 1);
+    assert_eq!(value["data"]["drift"], true);
+    let (run, value) = world.json(&["agents", "sync", "--path", &repo, "--home", &home]);
+    assert_envelope("agents resync", &run, &value, "agents sync", 0);
+    assert!(agent_output.is_file());
+
+    let before = world.snapshot();
+    let (run, value) = world.json(&[
+        "agents", "clean", "--path", &repo, "--home", &home, "--dry-run",
+    ]);
+    assert_envelope("agents clean dry", &run, &value, "agents clean", 0);
+    assert!(!value["data"]["removed"].as_array().unwrap().is_empty());
+    assert_eq!(world.snapshot(), before, "an agents clean dry run writes nothing");
+    let (run, value) = world.json(&["agents", "clean", "--path", &repo, "--home", &home]);
+    assert_envelope("agents clean", &run, &value, "agents clean", 0);
+    assert!(!agent_output.exists());
+    assert!(world.repo.join("agents/helper/AGENT.md").is_file());
+
+    let (run, value) = world.json(&["agents", "add", "smoke-agent", "--path", &fresh]);
+    assert_envelope("agents add", &run, &value, "agents add", 0);
+    let source = world.base.join("fresh-skills/agents/smoke-agent");
+    assert!(source.join("AGENT.md").is_file());
+    let (run, value) = world.json(&["agents", "lint", "--path", &fresh]);
+    assert_envelope("agents lint fresh", &run, &value, "agents lint", 0);
+    let (run, value) = world.json(&["agents", "audit", "--path", &fresh]);
+    assert_envelope("agents audit fresh", &run, &value, "agents audit", 0);
+    assert_eq!(value["data"]["agentCount"], 1);
+    let (run, value) = world.json(&[
+        "agents", "sync", "--path", &fresh, "--home", &home, "--client", "claude-code",
+    ]);
+    assert_envelope("agents sync fresh", &run, &value, "agents sync", 0);
+    let installed = world.home.join(".claude/agents/smoke-agent.md");
+    assert!(installed.is_file());
+    let before = world.snapshot();
+    let (run, value) = world.json(&[
+        "agents", "uninstall", "smoke-agent", "--path", &fresh, "--home", &home, "--dry-run",
+    ]);
+    assert_envelope("agents uninstall dry", &run, &value, "agents uninstall", 0);
+    assert_eq!(world.snapshot(), before, "an agents uninstall dry run writes nothing");
+    let (run, value) = world.json(&[
+        "agents", "uninstall", "smoke-agent", "--path", &fresh, "--home", &home,
+    ]);
+    assert_envelope("agents uninstall", &run, &value, "agents uninstall", 0);
+    assert_eq!(value["data"]["lockUpdated"], true);
+    assert!(!installed.exists());
+    assert!(!source.exists());
+    let (run, value) = world.json(&[
+        "agents", "uninstall", "../escape", "--path", &fresh, "--home", &home,
+    ]);
+    assert_envelope("agents uninstall refused", &run, &value, "agents uninstall", 1);
 
     let (run, value) = world.json(&["client", "sync", "--client", "cursor"]);
     assert_envelope("client sync", &run, &value, "client sync", 0);

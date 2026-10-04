@@ -1,0 +1,5 @@
+repo/agents/exact-fifty/AGENT.md
+repo/agents/one-word/AGENT.md
+repo/agents/over-fifty/AGENT.md
+repo/agents/spaced/AGENT.md
+repo/mcpm-skills.yaml

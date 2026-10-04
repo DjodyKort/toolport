@@ -1,0 +1,24 @@
+┏━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━┓
+┃ Agent    ┃ Client      ┃ Status ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━┩
+│ helper   │ claude-code │ ok     │
+│ helper   │ codex-cli   │ ok     │
+│ helper   │ cursor      │ ok     │
+│ helper   │ gemini-cli  │ ok     │
+│ helper   │ vscode      │ ok     │
+│ helper   │ roomodes    │ ok     │
+│ planner  │ claude-code │ ok     │
+│ planner  │ codex-cli   │ ok     │
+│ planner  │ cursor      │ ok     │
+│ planner  │ gemini-cli  │ ok     │
+│ planner  │ vscode      │ ok     │
+│ planner  │ roomodes    │ ok     │
+│ reviewer │ claude-code │ ok     │
+│ reviewer │ codex-cli   │ ok     │
+│ reviewer │ cursor      │ ok     │
+│ reviewer │ gemini-cli  │ ok     │
+│ reviewer │ vscode      │ ok     │
+│ reviewer │ roomodes    │ ok     │
+└──────────┴─────────────┴────────┘
+
+All output files in sync.

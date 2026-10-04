@@ -1,0 +1,10 @@
+
+Synced 3 agent(s) to 1 client(s).
+
+┏━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━┓
+┃ Agent    ┃ Model   ┃ Clients synced ┃ Warnings ┃
+┡━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━┩
+│ helper   │ default │ claude-code    │ --       │
+│ planner  │ opus    │ claude-code    │ --       │
+│ reviewer │ sonnet  │ claude-code    │ --       │
+└──────────┴─────────┴────────────────┴──────────┘

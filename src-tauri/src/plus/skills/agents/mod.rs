@@ -1,10 +1,12 @@
 //! Agents: AGENT.md parsing, per-client transpilers, sync into the shared lockfile, lint.
 
+pub mod handlers;
 pub mod lint;
+pub mod manage;
 pub mod sync;
 pub mod transpilers;
 
-pub use sync::{sync_agents, AgentSyncOptions};
+pub use sync::{sync_agents, sync_scoped, AgentSyncOptions, ScopedSync};
 pub use transpilers::{all_agent_transpilers, AgentTranspiler};
 
 use super::parser::parse_frontmatter;

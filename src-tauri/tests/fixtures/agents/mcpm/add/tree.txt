@@ -1,0 +1,2 @@
+repo/agents/code-reviewer/AGENT.md
+repo/mcpm-skills.yaml

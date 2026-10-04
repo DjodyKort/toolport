@@ -13,15 +13,15 @@ use crate::plus::args::{flag, flag_or, str_nonempty};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 
-fn display(path: &Path) -> String {
+pub(in crate::plus::skills) fn display(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 
-fn paths(list: &[PathBuf]) -> Vec<String> {
+pub(in crate::plus::skills) fn paths(list: &[PathBuf]) -> Vec<String> {
     list.iter().map(|p| display(p)).collect()
 }
 
-fn scope_name(global: bool) -> &'static str {
+pub(in crate::plus::skills) fn scope_name(global: bool) -> &'static str {
     if global {
         "global"
     } else {
@@ -29,7 +29,7 @@ fn scope_name(global: bool) -> &'static str {
     }
 }
 
-fn literal_repo(args: &Value) -> PathBuf {
+pub(in crate::plus::skills) fn literal_repo(args: &Value) -> PathBuf {
     resolve_path(Path::new(str_nonempty(args, "repo_path").unwrap_or(".")))
 }
 

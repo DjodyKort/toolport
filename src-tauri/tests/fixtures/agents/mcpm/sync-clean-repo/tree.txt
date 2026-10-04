@@ -1,0 +1,15 @@
+repo/.claude/agents/tester.md
+repo/.claude/agents/writer.md
+repo/.codex/agents/tester.toml
+repo/.codex/agents/writer.toml
+repo/.cursor/agents/tester.md
+repo/.cursor/agents/writer.md
+repo/.gemini/agents/tester.md
+repo/.gemini/agents/writer.md
+repo/.github/agents/tester.agent.md
+repo/.github/agents/writer.agent.md
+repo/.roomodes
+repo/agents/tester/AGENT.md
+repo/agents/writer/AGENT.md
+repo/mcpm-skills.lock
+repo/mcpm-skills.yaml

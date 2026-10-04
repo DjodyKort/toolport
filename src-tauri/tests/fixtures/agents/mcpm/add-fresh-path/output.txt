@@ -1,0 +1,4 @@
+
+Agent 'newagent' created at <root>/fresh/agents/newagent/AGENT.md
+
+Edit the AGENT.md file, then run 'mcpm agents sync' to transpile to all clients.

@@ -1,0 +1,5 @@
+sync
+--global
+--dry-run
+--path
+{repo}

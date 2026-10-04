@@ -1,0 +1,2 @@
+fresh/agents/newagent/AGENT.md
+repo/mcpm-skills.yaml

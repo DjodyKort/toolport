@@ -58,7 +58,7 @@ const RESOLVE: Spec = spec(
     RESOLVE_USAGE,
 );
 
-fn global_mode(args: &Flags) -> Result<bool, CtlError> {
+pub(super) fn global_mode(args: &Flags) -> Result<bool, CtlError> {
     if args.on("--global") && args.on("--project") {
         return Err(CtlError::usage(
             "--global and --project are mutually exclusive",
@@ -67,7 +67,7 @@ fn global_mode(args: &Flags) -> Result<bool, CtlError> {
     Ok(!args.on("--project"))
 }
 
-fn shown(path: &str, base: &str) -> String {
+pub(super) fn shown(path: &str, base: &str) -> String {
     Path::new(path)
         .strip_prefix(base)
         .map_or_else(|_| path.to_string(), |rel| rel.display().to_string())

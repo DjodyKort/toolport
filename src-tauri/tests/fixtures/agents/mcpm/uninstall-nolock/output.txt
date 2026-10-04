@@ -1,0 +1,3 @@
+  Removed agents/helper
+
+Uninstalled 'helper' and removed 0 output file(s).

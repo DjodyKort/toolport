@@ -1,0 +1,5 @@
+No lockfile found. All agents are new.
+
+  + helper
+  + planner
+  + reviewer
