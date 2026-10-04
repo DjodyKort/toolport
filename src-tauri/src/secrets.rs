@@ -1093,7 +1093,8 @@ mod file {
     /// data-protection keychain — the "keys never on disk" property we sell — and
     /// reading that master item across an app update is itself a prompt source.
     fn key_material() -> Option<[u8; 32]> {
-        let secret = crate::brand::env_var("TOOLPORT_SECRET_KEY", "CONDUIT_SECRET_KEY")?;
+        let secret =
+            crate::brand::env_var(crate::brand::SECRET_KEY, crate::brand::SECRET_KEY_LEGACY)?;
         if secret.is_empty() {
             return None;
         }
