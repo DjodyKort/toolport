@@ -8,6 +8,7 @@ import {
   plusSourcesRootFixture,
 } from "./sources";
 import { serversCtlFixtures } from "./servers";
+import { skillsBrowserFixtures } from "../skills/fixtures";
 
 /** Envelope `data` the dev browser fixture returns per `toolportctl` argv (joined with spaces).
  * A command a screen runs needs a row here or the fixture rejects it as unimplemented. */
@@ -40,6 +41,7 @@ const uninstallPlan = {
 };
 
 export const plusCtlFixtures = new Map<string, unknown>([
+  ...skillsBrowserFixtures,
   ["sources ls", plusSourcesFixture],
   ["sources ls --items", plusSourcesItemsFixture],
   ["sources root ls", plusSourcesRootFixture],
