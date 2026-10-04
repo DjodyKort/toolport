@@ -1,6 +1,7 @@
 use super::flags::{switch, value, Spec};
 use super::output::{CtlError, Output};
 use crate::plus::registry_ro;
+use crate::registry_controller;
 use serde_json::json;
 use std::io::{IsTerminal, Read};
 
@@ -24,7 +25,12 @@ fn resolve_target(operands: &[String], usage: &str, must_exist: bool) -> Result<
     let [server, key] = operands else {
         return Err(CtlError::usage(usage));
     };
-    if key.is_empty() || key.contains("::") || (key.starts_with("__") && key.ends_with("__")) {
+    if key.is_empty()
+        || key.trim() != key
+        || key.contains(['=', '\0'])
+        || key.contains("::")
+        || (key.starts_with("__") && key.ends_with("__"))
+    {
         return Err(CtlError::usage(format!("invalid secret key: {key}")));
     }
     let registry = registry_ro::read_opt();
@@ -46,6 +52,27 @@ fn resolve_target(operands: &[String], usage: &str, must_exist: bool) -> Result<
     Ok(Target {
         server: server_id,
         key: key.clone(),
+    })
+}
+
+fn is_registered(server_id: &str) -> bool {
+    registry_ro::read_opt().is_some_and(|reg| reg.servers.iter().any(|s| s.id == server_id))
+}
+
+/// Launch inputs are vaulted without declaring an environment variable, like the app's
+/// `set_launch_secret`; every other key is an environment secret, like its `set_secret`.
+fn is_launch_secret(target: &Target) -> bool {
+    registry_ro::read_opt().is_some_and(|reg| {
+        reg.servers
+            .iter()
+            .find(|s| s.id == target.server)
+            .and_then(|s| s.launch.as_ref())
+            .is_some_and(|launch| {
+                launch
+                    .inputs
+                    .iter()
+                    .any(|input| input.key == target.key && input.secret)
+            })
     })
 }
 
@@ -106,8 +133,12 @@ fn set_from(rest: &[String], reader: &mut dyn Read, interactive: bool) -> Result
         true,
     )?;
     let value = read_value(flags.one("--value-env"), reader, interactive)?;
-    crate::secrets::set_secret(&target.server, &target.key, &value)
-        .map_err(|e| CtlError::failed("vault", e))?;
+    let stored = if is_launch_secret(&target) {
+        registry_controller::set_launch_secret(&target.server, &target.key, &value)
+    } else {
+        registry_controller::set_server_secret(&target.server, &target.key, &value)
+    };
+    stored.map_err(|e| CtlError::failed("vault", e))?;
     Ok(Output::new(
         json!({"server": target.server, "key": target.key, "stored": true}),
         format!("Stored {} for {}", target.key, target.server),
@@ -141,8 +172,12 @@ pub fn get(rest: &[String]) -> Result<Output, CtlError> {
 pub fn rm(rest: &[String]) -> Result<Output, CtlError> {
     let flags = Spec::PLAIN.parse(rest)?;
     let target = resolve_target(flags.operands(), "usage: secret rm <server> <KEY>", false)?;
-    crate::secrets::delete_secret(&target.server, &target.key)
-        .map_err(|e| CtlError::failed("vault", e))?;
+    let removed = if is_registered(&target.server) {
+        registry_controller::delete_server_secret(&target.server, &target.key).map(|_| ())
+    } else {
+        crate::secrets::delete_secret(&target.server, &target.key)
+    };
+    removed.map_err(|e| CtlError::failed("vault", e))?;
     Ok(Output::new(
         json!({"server": target.server, "key": target.key, "removed": true}),
         format!("Removed {} for {}", target.key, target.server),
@@ -167,7 +202,10 @@ mod tests {
             let reg = json!({
                 "version": 1,
                 "servers": [
-                    {"id": "srv-alpha", "name": "alpha", "transport": "stdio", "command": "x", "args": []}
+                    {"id": "srv-alpha", "name": "alpha", "transport": "stdio", "command": "x", "args": []},
+                    {"id": "srv-beta", "name": "beta", "transport": "stdio", "command": "x", "args": ["<launch-input>"],
+                     "launch": {"inputs": [{"key": "LAUNCH_TOKEN", "label": "Token", "secret": true}],
+                                "bindings": [{"index": 0, "parts": [{"kind": "input", "key": "LAUNCH_TOKEN"}]}]}}
                 ],
                 "profiles": [{"id": "default", "name": "Default", "enabledServerIds": []}],
                 "activeProfileId": "default"
@@ -210,13 +248,79 @@ mod tests {
         });
     }
 
+    fn generation() -> u64 {
+        registry_ro::read().unwrap().secrets_generation
+    }
+
+    fn env_of(server_id: &str) -> Vec<(String, bool, Option<String>)> {
+        registry_ro::read()
+            .unwrap()
+            .servers
+            .into_iter()
+            .find(|s| s.id == server_id)
+            .unwrap()
+            .env
+            .into_iter()
+            .map(|e| (e.key, e.secret, e.value))
+            .collect()
+    }
+
+    #[test]
+    fn set_and_rm_bump_secrets_generation_like_the_app_commands() {
+        with_vault(|| {
+            assert_eq!(generation(), 0);
+            set_from(&args(&["alpha", "API_KEY"]), &mut stdin(FAKE), false).unwrap();
+            assert_eq!(generation(), 1, "a CLI set must wake a running gateway");
+            assert_eq!(
+                env_of("srv-alpha"),
+                [("API_KEY".to_string(), true, None)],
+                "the key is declared as a vaulted env secret, as the app's set_secret does"
+            );
+
+            set_from(&args(&["alpha", "API_KEY"]), &mut stdin("FAKE-rotated"), false).unwrap();
+            assert_eq!(generation(), 2, "a rotation bumps again");
+
+            rm(&args(&["alpha", "API_KEY"])).unwrap();
+            assert_eq!(generation(), 3, "a CLI rm must wake a running gateway too");
+            assert!(env_of("srv-alpha").is_empty(), "rm drops the declaration, as the app's delete_secret does");
+            assert!(get(&args(&["alpha", "API_KEY"])).is_err());
+        });
+    }
+
+    #[test]
+    fn launch_secrets_bump_without_declaring_an_env_var() {
+        with_vault(|| {
+            set_from(&args(&["beta", "LAUNCH_TOKEN"]), &mut stdin(FAKE), false).unwrap();
+            assert_eq!(generation(), 1);
+            assert!(env_of("srv-beta").is_empty(), "a launch input is not an env var");
+            let shown = get(&args(&["beta", "LAUNCH_TOKEN", "--reveal"])).unwrap();
+            assert_eq!(shown.data["value"], FAKE);
+        });
+    }
+
+    #[test]
+    fn failed_input_and_unregistered_cleanup_leave_the_generation_alone() {
+        with_vault(|| {
+            assert!(set_from(&args(&["alpha", "K"]), &mut stdin(""), false).is_err());
+            assert_eq!(generation(), 0);
+            crate::secrets::set_secret("orphan", "K", FAKE).unwrap();
+            rm(&args(&["orphan", "K"])).unwrap();
+            assert_eq!(generation(), 0, "no registered server reads an orphaned vault entry");
+            assert!(crate::secrets::get_vault_secret_result("orphan", "K").unwrap().is_none());
+        });
+    }
+
     #[test]
     fn value_is_stored_encrypted_not_in_registry_or_plaintext() {
         with_vault(|| {
             set_from(&args(&["alpha", "TOKEN"]), &mut stdin(FAKE), false).unwrap();
             let dir = registry::conduit_dir().unwrap();
             for entry in std::fs::read_dir(&dir).unwrap() {
-                let bytes = std::fs::read(entry.unwrap().path()).unwrap();
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    continue;
+                }
+                let bytes = std::fs::read(&path).unwrap();
                 let text = String::from_utf8_lossy(&bytes);
                 assert!(!text.contains(FAKE));
             }
@@ -251,6 +355,8 @@ mod tests {
                 (args(&["alpha"]), "x", "usage"),
                 (args(&["alpha", "__http_auth__"]), "x", "usage"),
                 (args(&["alpha", "A::B"]), "x", "usage"),
+                (args(&["alpha", "A=B"]), "x", "usage"),
+                (args(&["alpha", " K"]), "x", "usage"),
                 (args(&["alpha", "--bogus"]), "x", "usage"),
                 (args(&["ghost", "K"]), "x", "not_found"),
                 (args(&["alpha", "K"]), "", "input"),
