@@ -1,0 +1,24 @@
+{
+  "argv": ["profile", "edit", "default", "--add-server", "beta"],
+  "envelope": {
+    "command": "profile edit",
+    "data": {
+      "changed": true,
+      "dryRun": false,
+      "id": "default",
+      "name": "Default",
+      "notInProfile": [],
+      "oldName": "Default",
+      "renamed": false,
+      "servers": {
+        "added": ["beta"],
+        "after": ["alpha", "beta"],
+        "before": ["alpha"],
+        "removed": []
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

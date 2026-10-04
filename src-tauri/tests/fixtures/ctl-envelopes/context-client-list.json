@@ -1,0 +1,12 @@
+{
+  "argv": ["context", "client", "list"],
+  "envelope": {
+    "command": "context client list",
+    "data": {
+      "layers": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

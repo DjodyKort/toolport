@@ -1,0 +1,55 @@
+{
+  "argv": ["mcp", "doctor"],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "activeProfile": null,
+      "checks": [
+        {
+          "detail": "run `toolportctl mcp install`",
+          "name": "registry_entry",
+          "ok": false
+        },
+        {
+          "detail": "<BIN>/toolport-selfmcp",
+          "name": "command_matches_binary",
+          "ok": false
+        },
+        {
+          "detail": "<BIN>/toolport-selfmcp",
+          "name": "binary_present",
+          "ok": true
+        },
+        {
+          "detail": "-",
+          "name": "enabled_in_active_profile",
+          "ok": false
+        },
+        {
+          "detail": "no client is scoped to a profile",
+          "name": "enabled_in_client_profiles",
+          "ok": true
+        },
+        {
+          "detail": "toolport-plus-self",
+          "name": "handshake",
+          "ok": true
+        },
+        {
+          "detail": "80 tools, 11 resources",
+          "name": "catalog",
+          "ok": true
+        }
+      ],
+      "clientProfiles": [],
+      "state": "missing"
+    },
+    "error": {
+      "code": "unhealthy",
+      "message": "one or more checks failed"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

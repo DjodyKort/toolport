@@ -1,0 +1,18 @@
+{
+  "argv": ["agents", "lint", "--repo", "{repo}"],
+  "envelope": {
+    "command": "agents lint",
+    "data": {
+      "agentCount": 1,
+      "discoveryWarnings": [],
+      "errors": 0,
+      "infos": 0,
+      "messages": [],
+      "repo": "<WORLD>/skills-repo",
+      "warnings": 0
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

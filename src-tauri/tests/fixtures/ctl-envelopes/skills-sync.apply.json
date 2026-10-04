@@ -1,0 +1,49 @@
+{
+  "argv": ["skills", "sync", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills sync",
+    "data": {
+      "backupRoot": "<WORLD>/home/.mcpm-backups",
+      "cleaned": [],
+      "clientCount": 13,
+      "collisions": [],
+      "dryRun": false,
+      "entries": [
+        {
+          "clientsSynced": [
+            "aider",
+            "amazon-q",
+            "claude-code",
+            "cline",
+            "codex-cli",
+            "continue",
+            "cursor",
+            "gemini-cli",
+            "goose-cli",
+            "jetbrains",
+            "roo-code",
+            "trae",
+            "windsurf"
+          ],
+          "name": "demo",
+          "type": "skill",
+          "warnings": [
+            "aider: activation 'auto' downgraded to 'always'",
+            "amazon-q: activation 'auto' downgraded to 'always' (no frontmatter support)"
+          ]
+        }
+      ],
+      "globalMode": true,
+      "kept": 0,
+      "outputRoot": "<WORLD>/home",
+      "replaced": 0,
+      "repo": "<WORLD>/skills-repo",
+      "ruleCount": 0,
+      "skillCount": 1,
+      "syncedAt": "<TIME>"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

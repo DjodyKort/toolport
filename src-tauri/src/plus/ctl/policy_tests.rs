@@ -203,8 +203,17 @@ fn declared_flags_operands_and_groups_name_real_flags() {
                 "{}: reads_by_default on a read row",
                 row.id
             );
-            assert!(!row.escalators.is_empty(), "{}", row.id);
+            assert!(
+                !row.escalators.is_empty() || row.operand_escalates,
+                "{}",
+                row.id
+            );
         } else {
+            assert!(
+                !row.operand_escalates,
+                "{}: operand_escalates needs reads_by_default",
+                row.id
+            );
             assert!(
                 row.escalators.is_empty() || matches!(row.preview, Preview::UnlessApplied(_)),
                 "{}",

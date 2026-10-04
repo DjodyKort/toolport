@@ -1,0 +1,15 @@
+{
+  "argv": ["styles", "status", "--repo", "{repo}"],
+  "envelope": {
+    "command": "styles status",
+    "data": {
+      "applyRemove": [],
+      "lockfilePresent": false,
+      "native": [],
+      "repo": "<WORLD>/skills-repo"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

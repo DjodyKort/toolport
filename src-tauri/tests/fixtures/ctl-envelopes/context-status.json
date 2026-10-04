@@ -1,0 +1,22 @@
+{
+  "argv": ["context", "status"],
+  "envelope": {
+    "command": "context status",
+    "data": {
+      "config": {
+        "exists": false,
+        "path": "<WORLD>/home/.config/mcpm/context.json"
+      },
+      "layers": [],
+      "legacyDupes": [],
+      "profiles": [],
+      "shims": {
+        "exists": false,
+        "path": "<WORLD>/home/.config/mcpm/context-shims.zsh"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

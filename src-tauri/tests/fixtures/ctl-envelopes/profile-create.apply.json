@@ -1,0 +1,15 @@
+{
+  "argv": ["profile", "create", "demo"],
+  "envelope": {
+    "command": "profile create",
+    "data": {
+      "created": true,
+      "dryRun": false,
+      "id": "demo",
+      "name": "demo"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

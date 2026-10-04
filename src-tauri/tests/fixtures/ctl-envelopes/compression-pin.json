@@ -1,0 +1,20 @@
+{
+  "argv": ["compression", "pin"],
+  "envelope": {
+    "command": "compression pin",
+    "data": {
+      "adopted": null,
+      "drift": false,
+      "dryRun": false,
+      "install": null,
+      "installed": null,
+      "pin": "0.29.0",
+      "refresh": null,
+      "requirement": "headroom-ai[proxy,code,ml]==0.29.0",
+      "set": false
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

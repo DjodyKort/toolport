@@ -1,0 +1,43 @@
+{
+  "argv": ["council", "tools"],
+  "envelope": {
+    "command": "council",
+    "data": {
+      "resources": [
+        {
+          "summary": "Wired-up members, chairman and key state",
+          "uri": "council://config"
+        },
+        {
+          "summary": "Guidance on when to invoke a council",
+          "uri": "council://how-to-use"
+        }
+      ],
+      "tools": [
+        {
+          "name": "council_models_list",
+          "summary": "Inspect the configured council members and chairman",
+          "tier": 1
+        },
+        {
+          "name": "council_ask",
+          "summary": "Fan a question out to the members and synthesise a verdict",
+          "tier": 1
+        },
+        {
+          "name": "council_review",
+          "summary": "Code-review framing with security, performance and maintainability roles",
+          "tier": 2
+        },
+        {
+          "name": "council_config_set",
+          "summary": "Persist council defaults (refuses without confirm=true)",
+          "tier": 3
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

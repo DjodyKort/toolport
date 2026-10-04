@@ -1,0 +1,18 @@
+{
+  "argv": ["styles", "lint", "--repo", "{repo}"],
+  "envelope": {
+    "command": "styles lint",
+    "data": {
+      "discoveryWarnings": [],
+      "errors": 0,
+      "infos": 0,
+      "messages": [],
+      "repo": "<WORLD>/skills-repo",
+      "styleCount": 1,
+      "warnings": 0
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

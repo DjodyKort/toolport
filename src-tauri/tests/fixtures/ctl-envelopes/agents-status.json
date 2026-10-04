@@ -1,0 +1,17 @@
+{
+  "argv": ["agents", "status", "--repo", "{repo}"],
+  "envelope": {
+    "command": "agents status",
+    "data": {
+      "drift": false,
+      "lockedCount": 0,
+      "lockfilePresent": false,
+      "outputRoot": null,
+      "outputs": [],
+      "repo": "<WORLD>/skills-repo"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

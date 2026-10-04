@@ -1,0 +1,29 @@
+{
+  "argv": ["server", "info", "alpha"],
+  "envelope": {
+    "command": "server info",
+    "data": {
+      "args": [],
+      "command": "<MOCK>",
+      "cwd": null,
+      "declareClientCapabilities": false,
+      "disabledTools": [],
+      "env": [
+        {
+          "key": "API_KEY",
+          "secret": true
+        }
+      ],
+      "forwardInstructions": false,
+      "id": "srv-alpha",
+      "name": "alpha",
+      "profiles": ["default"],
+      "source": null,
+      "transport": "stdio",
+      "url": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

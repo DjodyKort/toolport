@@ -1,0 +1,39 @@
+{
+  "argv": ["doctor"],
+  "envelope": {
+    "command": "doctor",
+    "data": {
+      "checks": [
+        {
+          "detail": "<WORLD>/data is writable",
+          "name": "dataDir",
+          "status": "ok"
+        },
+        {
+          "detail": "2 servers, 1 profiles",
+          "name": "registry",
+          "status": "ok"
+        },
+        {
+          "detail": "default",
+          "name": "activeProfile",
+          "status": "ok"
+        },
+        {
+          "detail": "encrypted-file",
+          "name": "secretsBackend",
+          "status": "ok"
+        },
+        {
+          "detail": "<BIN>/toolport-gateway",
+          "name": "gatewayBinary",
+          "status": "ok"
+        }
+      ],
+      "healthy": true
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

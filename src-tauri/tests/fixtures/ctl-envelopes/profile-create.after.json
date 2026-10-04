@@ -1,0 +1,34 @@
+{
+  "argv": ["profile", "ls"],
+  "envelope": {
+    "command": "profile ls",
+    "data": {
+      "activeProfile": "default",
+      "profiles": [
+        {
+          "active": true,
+          "clients": [],
+          "id": "default",
+          "name": "Default",
+          "servers": [
+            {
+              "id": "srv-alpha",
+              "name": "alpha",
+              "target": "<MOCK>"
+            }
+          ]
+        },
+        {
+          "active": false,
+          "clients": [],
+          "id": "demo",
+          "name": "demo",
+          "servers": []
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

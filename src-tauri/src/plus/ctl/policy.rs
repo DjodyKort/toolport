@@ -124,6 +124,7 @@ pub(super) struct Row {
     pub tier: Tier,
     pub reads_by_default: bool,
     pub escalators: &'static [&'static str],
+    pub operand_escalates: bool,
     pub preview: Preview,
     pub needs: &'static [Needs],
     pub cost: bool,
@@ -142,6 +143,7 @@ const fn row(id: &'static str, tier: Tier) -> Row {
         tier,
         reads_by_default: false,
         escalators: &[],
+        operand_escalates: false,
         preview: Preview::None,
         needs: &[],
         cost: false,
@@ -181,6 +183,14 @@ impl Row {
         Self {
             reads_by_default: true,
             escalators,
+            ..self
+        }
+    }
+
+    /// A positional operand also turns the bare read into a write (`compression pin <version>`).
+    const fn operand_writes(self) -> Self {
+        Self {
+            operand_escalates: true,
             ..self
         }
     }
@@ -410,6 +420,8 @@ pub(super) const ROWS: &[Row] = &[
         .dry()
         .spec(&[&compression_cfg::SYNC]),
     row("compression pin", W)
+        .reads(&["--install", "--refresh"])
+        .operand_writes()
         .dry()
         .needs(&[Network, LongRunning])
         .spec(&[&compression_cfg::PIN])

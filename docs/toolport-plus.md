@@ -114,9 +114,22 @@ The policy is data in `ctl/policy.rs`; flag types and effect text are in `ctl/co
 - A row is pending while its route is `all-commands` or its action is `planned`. The tests print the pending count per owner; `GUI_PARITY_STRICT=1` makes any pending row a failure (MIG-GUI-9 sets it).
 - `owners` maps each command group to the item that gives it a screen.
 
-`cargo test --test gui_parity` (Rust) and `vitest src/plus/guiParity.test.ts` (reads the blessed `src-tauri/tests/fixtures/ctl-envelopes/commands.json`) fail on a command or tool without an entry (printing the line to paste), an entry for something that no longer exists, a missing route or action, an action that belongs to another route, a surface that differs from the registry, and a built route or action without its file or test. A change to the registry changes `commands.json` (bless it with `CTL_ENVELOPE_BLESS=1`, rejected when `CI` is set), which in turn makes the manifest test ask for the new entry.
+`cargo test --test gui_parity` (Rust) and `vitest src/plus/guiParity.test.ts` (reads the blessed `src-tauri/tests/fixtures/ctl-envelopes/commands.json`) fail on a command or tool without an entry (printing the line to paste), an entry for something that no longer exists, a missing route or action, an action that belongs to another route, a surface that differs from the registry, and a built route or action without its file or test. A change to the registry changes `commands.json`, the golden of `toolportctl commands` (bless it with `CTL_ENVELOPE_BLESS=1 cargo test --test ctl_contract`, rejected when `CI` is set), which in turn makes the manifest test ask for the new entry.
 
 A screen item adds its routes and actions, points its rows at them, and flips `status` to `built` together with the component and its test. A command that does not exist yet has no entry: whoever adds the command adds the row.
+
+### Command contract: golden envelopes and TS shapes
+
+The GUI parses what `toolportctl --json` prints, so each command has a golden envelope and a TS shape for its `data` (D-058).
+
+- `src-tauri/tests/ctl_contract.rs` runs the real `toolportctl` against the synthetic world in `tests/common/ctl_world.rs` (no real credentials, the child's home, data directory and working directory all inside the world). One `case(<command id>, steps)` per command; a writer has a `--dry-run` step, which must leave the world byte-identical, and then the apply step. Every step also checks the single-line envelope, the exit code, and that no secret value reaches stdout or stderr.
+- Goldens live in `tests/fixtures/ctl-envelopes/<id>[.<step>].json` as `{argv, exitCode, envelope}`. Paths, times and the keys `version`, `pid`, `elapsedMs`, `durationMs`, `tookMs` are replaced by placeholders. They are compared as JSON, so a formatter does not matter. `CTL_ENVELOPE_BLESS=1 cargo test --no-default-features --test ctl_contract` rewrites them and is rejected when `CI` is set; review the diff like any contract change.
+- `src/plus/bridge/data.ts` holds one shape per golden (`obj`, `arr`, `nullable`, `opt`, `lit`, ...: the TS type is `Infer<typeof shape>`). `src/plus/bridge/data.test.ts` validates every golden against its shape, strictly, so a field added to the CLI output fails the test until the shape follows. A golden without a shape is listed by the test; `CTL_CONTRACT_STRICT=1` turns the list into a failure (also for commands without a case in `ctl_contract`).
+- A failed command may still carry `data` next to `error` (`skills diff` exits 1 with the drift list), so a screen reads `data` of a failed envelope too (`CtlError.data`).
+
+To add a command: one `case(...)` row, bless, read the new file, add the shape to `data.ts` and its stem to `ctlShapes`. A command that needs more of the world than `CtlWorld` offers gets a setup step or a fixture added to `CtlWorld`.
+
+`npm run screenshots:gui` runs the browser smoke and keeps its `gui-<screen>.png` files in `docs/assets/` (`guiShot` in `scripts/browser-smoke.mjs`; a screen adds one line there).
 
 ## OTel receiver
 

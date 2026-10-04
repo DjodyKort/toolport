@@ -1,0 +1,37 @@
+{
+  "argv": ["compression", "status"],
+  "envelope": {
+    "command": "compression status",
+    "data": {
+      "configExists": false,
+      "configPath": "<WORLD>/data/compression.json",
+      "contexts": 0,
+      "migrationNotes": [],
+      "pin": {
+        "drift": null,
+        "installed": null,
+        "package": "headroom-ai",
+        "pin": "0.29.0",
+        "requirement": "headroom-ai[proxy,code,ml]==0.29.0"
+      },
+      "preset": {
+        "knobCount": 0,
+        "mode": "cache",
+        "name": "interactive",
+        "port": 8787,
+        "savingsProfile": null,
+        "snapshotVersion": null
+      },
+      "provider": "none",
+      "runtime": "none",
+      "scope": ["default"],
+      "shims": {
+        "exists": false,
+        "path": "<WORLD>/data/compression-shims.zsh"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

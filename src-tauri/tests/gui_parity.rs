@@ -15,8 +15,6 @@ use serde_json::Value;
 mod ctl_world;
 #[path = "common/exec.rs"]
 mod exec;
-#[path = "common/golden.rs"]
-mod golden;
 
 use ctl_world::CtlWorld;
 
@@ -196,20 +194,6 @@ fn terminal_only_rows_agree_with_the_bridge_guard() {
         );
     }
     assert!(terminal_only(&argv(&["compression", "run", "--plan", "claude"])).is_none());
-}
-
-fn envelope_of_registry() -> Value {
-    serde_json::json!({
-        "ok": true,
-        "command": "commands",
-        "schemaVersion": SCHEMA_VERSION,
-        "data": registry(),
-    })
-}
-
-#[test]
-fn the_registry_envelope_matches_its_golden() {
-    golden::assert_golden("commands", &envelope_of_registry());
 }
 
 fn repo_root() -> PathBuf {
