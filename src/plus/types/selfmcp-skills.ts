@@ -10,6 +10,7 @@ import {
   type Infer,
   type Shape,
 } from "../bridge/shape";
+import { origin } from "../bridge/data";
 
 /** Results of the skills self-MCP tools, checked against the golden results by `selfmcp.test.ts`. */
 
@@ -147,9 +148,13 @@ export const skillsListResult = obj({
     obj({
       activation: str,
       description: str,
+      invisibleReason: nullable(str),
       name: str,
+      origin,
       path: str,
       type: str,
+      visible: bool,
+      writable: bool,
     }),
   ),
 });

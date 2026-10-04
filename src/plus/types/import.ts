@@ -46,6 +46,7 @@ export const importMcpmNameMapData = obj({
 export type ImportMcpmNameMapData = Infer<typeof importMcpmNameMapData>;
 
 export const importRenameRefsData = obj({
+  dead: arr(any),
   dryRun: bool,
   files: arr(
     obj({
