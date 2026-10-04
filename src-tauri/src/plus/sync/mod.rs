@@ -9,9 +9,12 @@ pub mod kdf;
 pub mod origins;
 pub mod schema;
 
+pub use bundle::SyncError;
+
+#[cfg(test)]
 pub use bundle::{
-    import_bundle, read_bundle, write_bundle, BundleFile, Credential, ImportReport, ImportTargets,
-    Manifest, ManifestEntry, PortableRoots, SourceFile, SyncError,
+    import_bundle, read_bundle, write_bundle, BundleFile, Credential, ImportTargets, Manifest,
+    PortableRoots, SourceFile,
 };
 
 #[cfg(test)] mod bundle_prop_tests;

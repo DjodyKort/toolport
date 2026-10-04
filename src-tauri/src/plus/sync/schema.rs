@@ -131,6 +131,7 @@ pub struct Changes {
 }
 
 impl Changes {
+    #[cfg(test)]
     pub fn is_clean(&self) -> bool {
         self.new.is_empty()
             && self.modified.is_empty()

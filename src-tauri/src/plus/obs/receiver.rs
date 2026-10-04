@@ -91,10 +91,12 @@ impl Receiver {
         })
     }
 
+    #[cfg(test)]
     pub fn port(&self) -> u16 {
         self.addr.port()
     }
 
+    #[cfg(test)]
     pub fn local_addr(&self) -> SocketAddr {
         self.addr
     }
