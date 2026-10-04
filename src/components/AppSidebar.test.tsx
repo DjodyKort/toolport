@@ -404,7 +404,7 @@ const NAV_B = [
   {
     group: "Servers",
     items: [
-      ["Servers", "servers"],
+      ["Servers", "control"],
       ["Clients", "clients"],
       ["Browse catalog", "catalog"],
       ["Playground", "playground"],
@@ -491,6 +491,27 @@ describe("AppSidebar grouped navigation (sidebar B)", () => {
       .getAllByRole("button")
       .filter((button) => button.getAttribute("aria-current") === "page");
     expect(current.map((button) => button.textContent)).toEqual(["Library"]);
+  });
+
+  it("lights the Servers entry on the Servers screen and on the classic page under it", () => {
+    for (const view of ["control", "servers"]) {
+      const { unmount } = render(
+        <TooltipProvider>
+          <AppSidebar
+            registry={null}
+            onRegistryChange={vi.fn()}
+            view={view as never}
+            onSelectView={vi.fn()}
+            onReplayOnboarding={vi.fn()}
+          />
+        </TooltipProvider>,
+      );
+      const current = within(screen.getByRole("navigation", { name: "Views" }))
+        .getAllByRole("button")
+        .filter((button) => button.getAttribute("aria-current") === "page");
+      expect(current.map((button) => button.textContent)).toEqual(["Servers"]);
+      unmount();
+    }
   });
 
   it("keeps Settings current on the All commands page, which has no entry of its own", () => {

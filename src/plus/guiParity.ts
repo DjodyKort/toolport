@@ -5,6 +5,8 @@ export type GuiStatus = "planned" | "built";
 
 export interface GuiRoute {
   title: string;
+  /** The view id `PlusViews` renders for the route, when it is not the route id itself. */
+  view?: string;
   status: GuiStatus;
   /** Repo-relative path of the component; required once the route is built. */
   component?: string;

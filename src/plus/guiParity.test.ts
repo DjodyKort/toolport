@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { guiParity, type GuiParityManifest } from "./guiParity";
+import { NAV_GROUPS, PLUS_VIEWS, isPlusView, navItemActive } from "./nav";
 import { checkParity, pendingSummary, type RegistrySnapshot } from "./guiParityCheck";
 
 const repo = join(__dirname, "../..");
@@ -37,6 +38,33 @@ describe("gui parity manifest", () => {
           `are only on the All commands page (${pendingSummary(guiParity, report).join(", ")})`,
       );
     }
+  });
+});
+
+describe("gui parity routes", () => {
+  it("resolves every built route to a view that PlusViews renders and the sidebar reaches", () => {
+    const items = NAV_GROUPS.flatMap((group) => group.items);
+    for (const [id, route] of Object.entries(guiParity.routes)) {
+      if (route.status !== "built") continue;
+      const view = route.view ?? id;
+      expect(isPlusView(view), `route ${id} -> view ${view}`).toBe(true);
+      expect(PLUS_VIEWS).toContain(view);
+      if (id === "all-commands") continue;
+      expect(
+        items.some((item) => item.view === view),
+        `route ${id}: no sidebar entry opens view ${view}`,
+      ).toBe(true);
+    }
+  });
+
+  it("sends the servers route to the control view, with the classic page under the same entry", () => {
+    expect(guiParity.routes.servers.view).toBe("control");
+    expect(guiParity.routes["all-commands"].view).toBe("commands");
+    const entry = NAV_GROUPS.flatMap((group) => group.items).find(
+      (item) => item.view === "control",
+    );
+    expect(entry?.label).toBe("Servers");
+    expect(entry && navItemActive(entry, "servers")).toBe(true);
   });
 });
 

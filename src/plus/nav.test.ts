@@ -54,12 +54,35 @@ describe("sidebar B", () => {
       expect(new Set(ids).size).toBe(ids.length);
     }
     expect(isPlusView("servers")).toBe(false);
+    expect(isPlusView("catalog")).toBe(false);
     expect(isPlusView("settings")).toBe(false);
   });
 
   it("keeps every view the number keys open reachable from the sidebar", () => {
-    const reachable = new Set(items.map((item) => item.view));
-    for (const view of SHORTCUT_VIEWS) expect(reachable.has(view)).toBe(true);
+    for (const view of SHORTCUT_VIEWS) {
+      expect(items.some((item) => navItemActive(item, view))).toBe(true);
+    }
+  });
+
+  it("opens the Servers screen from the Servers entry and keeps the classic page under it", () => {
+    const servers = items.find((item) => item.label === "Servers") as NavItem;
+    expect(servers.view).toBe("control");
+    expect(isPlusView("control")).toBe(true);
+    expect(isPlusView("servers")).toBe(false);
+    expect(navItemActive(servers, "control")).toBe(true);
+    expect(navItemActive(servers, "servers")).toBe(true);
+    expect(navItemActive(servers, "clients")).toBe(false);
+    for (const item of items) {
+      if (item === servers) continue;
+      expect(navItemActive(item, "control")).toBe(false);
+      expect(navItemActive(item, "servers")).toBe(false);
+    }
+  });
+
+  it("highlights exactly one entry for every view of the sidebar", () => {
+    for (const view of new Set([...items.map((item) => item.view), "servers" as const])) {
+      expect(items.filter((item) => navItemActive(item, view))).toHaveLength(1);
+    }
   });
 
   it("puts the counters on Attention and Settings only", () => {

@@ -6,6 +6,9 @@ import { ScreenSkeleton } from "./ui/States";
 const AllCommandsPage = lazy(() =>
   import("./allcommands/AllCommandsPage").then((m) => ({ default: m.AllCommandsPage })),
 );
+const ServersScreen = lazy(() =>
+  import("./servers/ServersScreen").then((m) => ({ default: m.ServersScreen })),
+);
 const NotBuilt = lazy(() => import("./NotBuilt").then((m) => ({ default: m.NotBuilt })));
 
 /** The single entry for every Toolport+ screen. Each screen is its own chunk, so the app
@@ -27,6 +30,11 @@ export function PlusViews({
     <Suspense fallback={<ScreenSkeleton label="Loading screen" />}>
       {view === "commands" ? (
         <AllCommandsPage key={group ?? ""} initialGroup={group} />
+      ) : view === "control" ? (
+        <ServersScreen
+          onOpenCommands={openCommands}
+          onOpenClassic={() => onSelectView("servers")}
+        />
       ) : (
         <NotBuilt view={view} onOpenCommands={openCommands} />
       )}
