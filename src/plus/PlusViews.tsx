@@ -15,6 +15,9 @@ const LoginsScreen = lazy(() =>
 const LibraryScreen = lazy(() =>
   import("./skills/LibraryScreen").then((m) => ({ default: m.LibraryScreen })),
 );
+const AgentsScreen = lazy(() =>
+  import("./agents/AgentsScreen").then((m) => ({ default: m.AgentsScreen })),
+);
 const NotBuilt = lazy(() => import("./NotBuilt").then((m) => ({ default: m.NotBuilt })));
 
 /** The single entry for every Toolport+ screen. Each screen is its own chunk, so the app
@@ -45,8 +48,10 @@ export function PlusViews({
         <LoginsScreen onOpenCommands={openCommands} />
       ) : view === "library" ? (
         <LibraryScreen onOpenCommands={openCommands} />
+      ) : view === "agents" ? (
+        <AgentsScreen />
       ) : (
-        <NotBuilt view={view} onOpenCommands={openCommands} />
+        <NotBuilt view={view} onOpenCommands={openCommands} onOpenView={onSelectView} />
       )}
     </Suspense>
   );
