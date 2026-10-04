@@ -78,6 +78,7 @@ pub fn server_entry() -> ServerEntry {
         disabled_tools: Vec::new(),
         client_credentials: None,
         request_timeout_ms: Some(300_000),
+        max_request_timeout_ms: None,
         initialize_timeout_ms: Some(120_000),
         unknown_fields: Default::default(),
     }

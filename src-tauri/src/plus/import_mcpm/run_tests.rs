@@ -289,6 +289,7 @@ fn user_owned_server_with_same_id_is_a_conflict() {
             disabled_tools: vec![],
             client_credentials: None,
             request_timeout_ms: None,
+            max_request_timeout_ms: None,
             initialize_timeout_ms: None,
             unknown_fields: Default::default(),
         };

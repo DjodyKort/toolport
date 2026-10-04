@@ -583,6 +583,7 @@ fn mock_server_entry(id: &str, transcript: &Path, cwd: Option<&str>) -> ServerEn
         cwd: cwd.map(str::to_string),
         client_credentials: None,
         request_timeout_ms: None,
+        max_request_timeout_ms: None,
         initialize_timeout_ms: None,
         launch: None,
         unknown_fields: serde_json::Map::new(),

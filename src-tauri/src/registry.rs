@@ -571,6 +571,11 @@ impl LaunchConfig {
 /// single HTTP worker draining for an effectively unlimited period.
 pub(crate) const MAX_REQUEST_TIMEOUT_MS: u64 = 24 * 60 * 60 * 1000;
 pub(crate) const MAX_INITIALIZE_TIMEOUT_MS: u64 = 24 * 60 * 60 * 1000;
+/// Historical per-call deadline of a server without `requestTimeoutMs`.
+pub(crate) const DEFAULT_REQUEST_TIMEOUT_MS: u64 = 30_000;
+/// Absolute cap on one stdio call that progress notifications keep alive, for a
+/// server without `maxRequestTimeoutMs`.
+pub(crate) const DEFAULT_MAX_REQUEST_TIMEOUT_MS: u64 = 60 * 60 * 1000;
 
 pub(crate) fn validate_request_timeout_ms(milliseconds: u64) -> Result<u64, String> {
     if milliseconds == 0 {
@@ -647,6 +652,15 @@ pub struct ServerEntry {
     /// transports.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request_timeout_ms: Option<u64>,
+    /// Absolute cap on one call to a stdio server, in milliseconds. A
+    /// `notifications/progress` for the call's token re-arms `requestTimeoutMs`,
+    /// and this bounds the total however long progress keeps arriving. Time spent
+    /// waiting for the human to answer a server-initiated request is not counted.
+    /// Valid values are 1 through 86,400,000 (24 hours). Unset means 1 hour; a
+    /// `requestTimeoutMs` above the cap raises it to that value. Ignored for
+    /// HTTP/SSE servers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_request_timeout_ms: Option<u64>,
     /// Deadline for the initial MCP `initialize` request, in milliseconds.
     /// Unset preserves the transport default: 120 seconds for download launchers,
     /// 10 seconds for other stdio commands, and the HTTP request timeout for
@@ -666,6 +680,37 @@ impl ServerEntry {
     pub(crate) fn require_team_enable_review(&mut self) {
         self.unknown_fields
             .insert("teamEnableReview".into(), serde_json::Value::Bool(true));
+    }
+
+    /// The per-call deadline this server runs with.
+    pub fn request_timeout(&self) -> std::time::Duration {
+        std::time::Duration::from_millis(
+            self.request_timeout_ms
+                .unwrap_or(DEFAULT_REQUEST_TIMEOUT_MS)
+                .max(1),
+        )
+    }
+
+    /// The longest one call to this server can run when progress keeps
+    /// re-arming its deadline. Never below `requestTimeoutMs`.
+    pub fn max_request_timeout(&self) -> std::time::Duration {
+        let cap = self
+            .max_request_timeout_ms
+            .unwrap_or(DEFAULT_MAX_REQUEST_TIMEOUT_MS)
+            .clamp(1, MAX_REQUEST_TIMEOUT_MS);
+        std::time::Duration::from_millis(cap).max(self.request_timeout())
+    }
+
+    /// The longest a request to this server can legitimately stay open. Only a
+    /// stdio server's deadline is re-armed by progress, so only it can reach the
+    /// cap.
+    pub fn call_ceiling(&self) -> std::time::Duration {
+        let ceiling = if self.command.is_some() {
+            self.max_request_timeout()
+        } else {
+            self.request_timeout()
+        };
+        ceiling.min(std::time::Duration::from_millis(MAX_REQUEST_TIMEOUT_MS))
     }
 
     pub fn initialize_timeout(&self) -> Result<Option<std::time::Duration>, String> {
@@ -4633,6 +4678,7 @@ mod tests {
             cwd: None,
             client_credentials: None,
             request_timeout_ms: None,
+            max_request_timeout_ms: None,
             initialize_timeout_ms: None,
             launch: None,
             unknown_fields: serde_json::Map::new(),
@@ -5491,6 +5537,57 @@ mod tests {
 
         // Exact reuse still renames the same way it always did.
         assert_eq!(r.add_server(sample_server("GH API")), "gh-api-3");
+    }
+
+    #[test]
+    fn max_request_timeout_is_optional_and_never_undercuts_the_call_deadline() {
+        use std::time::Duration;
+        let server = sample_server("local");
+        let json = serde_json::to_value(&server).unwrap();
+        assert!(
+            json.get("maxRequestTimeoutMs").is_none(),
+            "an unset cap must not add a registry field"
+        );
+        assert_eq!(server.request_timeout(), Duration::from_secs(30));
+        assert_eq!(server.max_request_timeout(), Duration::from_secs(3_600));
+
+        let mut capped = server.clone();
+        capped.max_request_timeout_ms = Some(90_000);
+        let json = serde_json::to_value(&capped).unwrap();
+        assert_eq!(json["maxRequestTimeoutMs"], 90_000);
+        let loaded: ServerEntry = serde_json::from_value(json).unwrap();
+        assert_eq!(loaded.max_request_timeout_ms, Some(90_000));
+        assert_eq!(loaded.max_request_timeout(), Duration::from_secs(90));
+
+        capped.request_timeout_ms = Some(120_000);
+        assert_eq!(
+            capped.max_request_timeout(),
+            Duration::from_secs(120),
+            "a cap below requestTimeoutMs is raised to it"
+        );
+        capped.request_timeout_ms = None;
+        capped.max_request_timeout_ms = Some(0);
+        assert_eq!(capped.max_request_timeout(), Duration::from_secs(30));
+        capped.max_request_timeout_ms = Some(u64::MAX);
+        assert_eq!(
+            capped.max_request_timeout(),
+            Duration::from_millis(MAX_REQUEST_TIMEOUT_MS)
+        );
+    }
+
+    #[test]
+    fn only_a_stdio_server_can_reach_its_progress_cap() {
+        use std::time::Duration;
+        let mut stdio = sample_server("local");
+        stdio.command = Some("uv".into());
+        stdio.max_request_timeout_ms = Some(7_200_000);
+        stdio.request_timeout_ms = Some(60_000);
+        assert_eq!(stdio.call_ceiling(), Duration::from_secs(7_200));
+
+        let mut remote = stdio.clone();
+        remote.command = None;
+        remote.url = Some("https://example.invalid/mcp".into());
+        assert_eq!(remote.call_ceiling(), Duration::from_secs(60));
     }
 
     #[test]
@@ -6604,6 +6701,7 @@ mod tests {
             cwd: None,
             client_credentials: None,
             request_timeout_ms: None,
+            max_request_timeout_ms: None,
             initialize_timeout_ms: None,
             launch: None,
             unknown_fields: serde_json::Map::new(),

@@ -396,6 +396,9 @@ export interface ServerEntry {
   /** Total deadline for each HTTP request, in milliseconds.
    * Valid values are 1 ms through 24 hours; unset preserves the 30-second default. */
   requestTimeoutMs?: number | null;
+  /** Absolute cap on one stdio call that progress notifications keep alive, in
+   * milliseconds (1 ms through 24 hours). Unset means 1 hour. */
+  maxRequestTimeoutMs?: number | null;
   /** Deadline for the initial MCP initialize request, in milliseconds.
    * Unset keeps the launcher-aware transport default. */
   initializeTimeoutMs?: number | null;
