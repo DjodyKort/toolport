@@ -14,6 +14,7 @@ mod import;
 mod skills;
 mod skills_repo;
 mod skills_state;
+mod skills_taps;
 pub(crate) mod context;
 mod context_manage;
 mod flags;
@@ -415,8 +416,35 @@ pub const COMMANDS: &[Command] = &[
         skills_state::resolve,
     ),
     cmd(
+        &["skills", "tap", "add"],
+        "Register and clone a tap (<user/repo|url>, --name <alias>, --dry-run)",
+        skills_taps::tap_add,
+    ),
+    cmd(&["skills", "tap", "ls"], "List the registered taps", skills_taps::tap_ls),
+    cmd(
+        &["skills", "tap", "remove"],
+        "Unregister a tap and delete its clone (<name>, --dry-run)",
+        skills_taps::tap_remove,
+    ),
+    cmd(
+        &["skills", "tap", "update"],
+        "Pull one or all taps; exits 1 if one fails (<name>, --dry-run)",
+        skills_taps::tap_update,
+    ),
+    cmd(&["skills", "tap"], "Taps: add ls remove update", skills_taps::tap_group),
+    cmd(
+        &["skills", "search"],
+        "Search the taps for skills by name, description or tags (<query>)",
+        skills_taps::search,
+    ),
+    cmd(
+        &["skills", "install"],
+        "Install skills from a tap; a high-severity audit finding blocks it (<@user/repo[/skill]>, --path, --no-audit, --dry-run)",
+        skills_taps::install,
+    ),
+    cmd(
         &["skills"],
-        "Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve",
+        "Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve tap search install",
         skills::group,
     ),
     cmd(

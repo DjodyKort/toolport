@@ -897,6 +897,59 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             },
         ),
         case(
+            "skills tap add",
+            &["skills", "tap", "add", "acme/skills", "--dry-run"],
+            0,
+            |_, d| {
+                assert_eq!(d["dryRun"], true);
+                assert_eq!(d["name"], "acme-skills");
+                assert_eq!(d["cloned"], false);
+            },
+        ),
+        case("skills tap ls", &["skills", "tap", "ls"], 0, |_, d| {
+            assert_eq!(d["taps"], json!([]));
+        }),
+        case(
+            "skills tap remove",
+            &["skills", "tap", "remove", "acme-skills", "--dry-run"],
+            1,
+            |_, _| {},
+        ),
+        case(
+            "skills tap update",
+            &["skills", "tap", "update", "--dry-run"],
+            0,
+            |_, d| {
+                assert_eq!(d["dryRun"], true);
+                assert_eq!(d["results"], json!([]));
+            },
+        ),
+        case(
+            "skills search",
+            &["skills", "search", "review"],
+            0,
+            |_, d| {
+                assert_eq!(d["tapCount"], 0);
+                assert_eq!(d["results"], json!([]));
+            },
+        ),
+        case(
+            "skills install",
+            &[
+                "skills",
+                "install",
+                "@acme/skills",
+                "--path",
+                &repo,
+                "--dry-run",
+            ],
+            0,
+            |_, d| {
+                assert_eq!(d["dryRun"], true);
+                assert_eq!(d["tapMissing"], true);
+            },
+        ),
+        case(
             "agents ls",
             &["agents", "ls", "--path", &repo],
             0,

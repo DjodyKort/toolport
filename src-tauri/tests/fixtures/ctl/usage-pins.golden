@@ -89,7 +89,14 @@ Commands:
   skills clean   Remove synced outputs and the lockfile (--repo, --home, --client <key>, --project, --dry-run)
   skills uninstall Remove a skill, its outputs and its lock entry (<name>, --repo, --home, --project, --dry-run)
   skills resolve Find files shadowing synced skills; --migrate backs them up (--repo, --home, --client <key>, --project, --dry-run)
-  skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve
+  skills tap add Register and clone a tap (<user/repo|url>, --name <alias>, --dry-run)
+  skills tap ls  List the registered taps
+  skills tap remove Unregister a tap and delete its clone (<name>, --dry-run)
+  skills tap update Pull one or all taps; exits 1 if one fails (<name>, --dry-run)
+  skills tap     Taps: add ls remove update
+  skills search  Search the taps for skills by name, description or tags (<query>)
+  skills install Install skills from a tap; a high-severity audit finding blocks it (<@user/repo[/skill]>, --path, --no-audit, --dry-run)
+  skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve tap search install
   agents add     Create an agent from a template (<name>, --path, --dry-run)
   agents ls      List agents (--path <dir>)
   agents lint    Lint agents; exits 1 on errors (--path <dir>)
@@ -219,7 +226,14 @@ Commands:
   skills clean   Remove synced outputs and the lockfile (--repo, --home, --client <key>, --project, --dry-run)
   skills uninstall Remove a skill, its outputs and its lock entry (<name>, --repo, --home, --project, --dry-run)
   skills resolve Find files shadowing synced skills; --migrate backs them up (--repo, --home, --client <key>, --project, --dry-run)
-  skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve
+  skills tap add Register and clone a tap (<user/repo|url>, --name <alias>, --dry-run)
+  skills tap ls  List the registered taps
+  skills tap remove Unregister a tap and delete its clone (<name>, --dry-run)
+  skills tap update Pull one or all taps; exits 1 if one fails (<name>, --dry-run)
+  skills tap     Taps: add ls remove update
+  skills search  Search the taps for skills by name, description or tags (<query>)
+  skills install Install skills from a tap; a high-severity audit finding blocks it (<@user/repo[/skill]>, --path, --no-audit, --dry-run)
+  skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve tap search install
   agents add     Create an agent from a template (<name>, --path, --dry-run)
   agents ls      List agents (--path <dir>)
   agents lint    Lint agents; exits 1 on errors (--path <dir>)
@@ -349,7 +363,14 @@ Commands:
   skills clean   Remove synced outputs and the lockfile (--repo, --home, --client <key>, --project, --dry-run)
   skills uninstall Remove a skill, its outputs and its lock entry (<name>, --repo, --home, --project, --dry-run)
   skills resolve Find files shadowing synced skills; --migrate backs them up (--repo, --home, --client <key>, --project, --dry-run)
-  skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve
+  skills tap add Register and clone a tap (<user/repo|url>, --name <alias>, --dry-run)
+  skills tap ls  List the registered taps
+  skills tap remove Unregister a tap and delete its clone (<name>, --dry-run)
+  skills tap update Pull one or all taps; exits 1 if one fails (<name>, --dry-run)
+  skills tap     Taps: add ls remove update
+  skills search  Search the taps for skills by name, description or tags (<query>)
+  skills install Install skills from a tap; a high-severity audit finding blocks it (<@user/repo[/skill]>, --path, --no-audit, --dry-run)
+  skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve tap search install
   agents add     Create an agent from a template (<name>, --path, --dry-run)
   agents ls      List agents (--path <dir>)
   agents lint    Lint agents; exits 1 on errors (--path <dir>)
@@ -479,7 +500,14 @@ Commands:
   skills clean   Remove synced outputs and the lockfile (--repo, --home, --client <key>, --project, --dry-run)
   skills uninstall Remove a skill, its outputs and its lock entry (<name>, --repo, --home, --project, --dry-run)
   skills resolve Find files shadowing synced skills; --migrate backs them up (--repo, --home, --client <key>, --project, --dry-run)
-  skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve
+  skills tap add Register and clone a tap (<user/repo|url>, --name <alias>, --dry-run)
+  skills tap ls  List the registered taps
+  skills tap remove Unregister a tap and delete its clone (<name>, --dry-run)
+  skills tap update Pull one or all taps; exits 1 if one fails (<name>, --dry-run)
+  skills tap     Taps: add ls remove update
+  skills search  Search the taps for skills by name, description or tags (<query>)
+  skills install Install skills from a tap; a high-severity audit finding blocks it (<@user/repo[/skill]>, --path, --no-audit, --dry-run)
+  skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve tap search install
   agents add     Create an agent from a template (<name>, --path, --dry-run)
   agents ls      List agents (--path <dir>)
   agents lint    Lint agents; exits 1 on errors (--path <dir>)
@@ -3289,24 +3317,24 @@ exit 2
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|diff|status|clean|uninstall|resolve (sync|ls|lint|diff: [--repo <dir>] [--home <dir>]; sync: [--client <key>]... [--project] [--dry-run] [--migrate|--no-migrate]; lint: [--name <skill>]...; init: [--path <dir>] [--name <name>] [--dry-run]; add: <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]; audit: [--path <dir>]; bundle: [--output <zip>] [--path <dir>] [--skills <a,b>] [--dry-run]; unbundle: <bundle.zip> [--path <dir>] [--dry-run]; status: [--repo <dir>] [--client <key>]... [--strict]; clean: [--repo <dir>] [--client <key>] [--project] [--dry-run]; uninstall: <name> [--repo <dir>] [--project] [--dry-run]; resolve: [--repo <dir>] [--client <key>] [--project] [--dry-run] [--migrate|--no-migrate])
+toolportctl: usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|diff|status|clean|uninstall|resolve|tap|search|install (sync|ls|lint|diff: [--repo <dir>] [--home <dir>]; sync: [--client <key>]... [--project] [--dry-run] [--migrate|--no-migrate]; lint: [--name <skill>]...; init: [--path <dir>] [--name <name>] [--dry-run]; add: <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]; audit: [--path <dir>]; bundle: [--output <zip>] [--path <dir>] [--skills <a,b>] [--dry-run]; unbundle: <bundle.zip> [--path <dir>] [--dry-run]; status: [--repo <dir>] [--client <key>]... [--strict]; clean: [--repo <dir>] [--client <key>] [--project] [--dry-run]; uninstall: <name> [--repo <dir>] [--project] [--dry-run]; resolve: [--repo <dir>] [--client <key>] [--project] [--dry-run] [--migrate|--no-migrate]; tap: add <user/repo|url> [--name <alias>] [--dry-run] | ls | remove <name> [--dry-run] | update [<name>] [--dry-run]; search: <query>; install: <@user/repo[/skill][@version]> [--path <dir>] [--no-audit] [--dry-run])
 Run `toolportctl --help` for usage.
 === ["--json","skills"]
 exit 2
 --- stdout
-{"command":"skills","error":{"code":"usage","message":"usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|diff|status|clean|uninstall|resolve (sync|ls|lint|diff: [--repo <dir>] [--home <dir>]; sync: [--client <key>]... [--project] [--dry-run] [--migrate|--no-migrate]; lint: [--name <skill>]...; init: [--path <dir>] [--name <name>] [--dry-run]; add: <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]; audit: [--path <dir>]; bundle: [--output <zip>] [--path <dir>] [--skills <a,b>] [--dry-run]; unbundle: <bundle.zip> [--path <dir>] [--dry-run]; status: [--repo <dir>] [--client <key>]... [--strict]; clean: [--repo <dir>] [--client <key>] [--project] [--dry-run]; uninstall: <name> [--repo <dir>] [--project] [--dry-run]; resolve: [--repo <dir>] [--client <key>] [--project] [--dry-run] [--migrate|--no-migrate])"},"ok":false,"schemaVersion":1}
+{"command":"skills","error":{"code":"usage","message":"usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|diff|status|clean|uninstall|resolve|tap|search|install (sync|ls|lint|diff: [--repo <dir>] [--home <dir>]; sync: [--client <key>]... [--project] [--dry-run] [--migrate|--no-migrate]; lint: [--name <skill>]...; init: [--path <dir>] [--name <name>] [--dry-run]; add: <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]; audit: [--path <dir>]; bundle: [--output <zip>] [--path <dir>] [--skills <a,b>] [--dry-run]; unbundle: <bundle.zip> [--path <dir>] [--dry-run]; status: [--repo <dir>] [--client <key>]... [--strict]; clean: [--repo <dir>] [--client <key>] [--project] [--dry-run]; uninstall: <name> [--repo <dir>] [--project] [--dry-run]; resolve: [--repo <dir>] [--client <key>] [--project] [--dry-run] [--migrate|--no-migrate]; tap: add <user/repo|url> [--name <alias>] [--dry-run] | ls | remove <name> [--dry-run] | update [<name>] [--dry-run]; search: <query>; install: <@user/repo[/skill][@version]> [--path <dir>] [--no-audit] [--dry-run])"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["skills","nope"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|diff|status|clean|uninstall|resolve (sync|ls|lint|diff: [--repo <dir>] [--home <dir>]; sync: [--client <key>]... [--project] [--dry-run] [--migrate|--no-migrate]; lint: [--name <skill>]...; init: [--path <dir>] [--name <name>] [--dry-run]; add: <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]; audit: [--path <dir>]; bundle: [--output <zip>] [--path <dir>] [--skills <a,b>] [--dry-run]; unbundle: <bundle.zip> [--path <dir>] [--dry-run]; status: [--repo <dir>] [--client <key>]... [--strict]; clean: [--repo <dir>] [--client <key>] [--project] [--dry-run]; uninstall: <name> [--repo <dir>] [--project] [--dry-run]; resolve: [--repo <dir>] [--client <key>] [--project] [--dry-run] [--migrate|--no-migrate])
+toolportctl: usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|diff|status|clean|uninstall|resolve|tap|search|install (sync|ls|lint|diff: [--repo <dir>] [--home <dir>]; sync: [--client <key>]... [--project] [--dry-run] [--migrate|--no-migrate]; lint: [--name <skill>]...; init: [--path <dir>] [--name <name>] [--dry-run]; add: <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]; audit: [--path <dir>]; bundle: [--output <zip>] [--path <dir>] [--skills <a,b>] [--dry-run]; unbundle: <bundle.zip> [--path <dir>] [--dry-run]; status: [--repo <dir>] [--client <key>]... [--strict]; clean: [--repo <dir>] [--client <key>] [--project] [--dry-run]; uninstall: <name> [--repo <dir>] [--project] [--dry-run]; resolve: [--repo <dir>] [--client <key>] [--project] [--dry-run] [--migrate|--no-migrate]; tap: add <user/repo|url> [--name <alias>] [--dry-run] | ls | remove <name> [--dry-run] | update [<name>] [--dry-run]; search: <query>; install: <@user/repo[/skill][@version]> [--path <dir>] [--no-audit] [--dry-run])
 Run `toolportctl --help` for usage.
 === ["skills","--bogus"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|diff|status|clean|uninstall|resolve (sync|ls|lint|diff: [--repo <dir>] [--home <dir>]; sync: [--client <key>]... [--project] [--dry-run] [--migrate|--no-migrate]; lint: [--name <skill>]...; init: [--path <dir>] [--name <name>] [--dry-run]; add: <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]; audit: [--path <dir>]; bundle: [--output <zip>] [--path <dir>] [--skills <a,b>] [--dry-run]; unbundle: <bundle.zip> [--path <dir>] [--dry-run]; status: [--repo <dir>] [--client <key>]... [--strict]; clean: [--repo <dir>] [--client <key>] [--project] [--dry-run]; uninstall: <name> [--repo <dir>] [--project] [--dry-run]; resolve: [--repo <dir>] [--client <key>] [--project] [--dry-run] [--migrate|--no-migrate])
+toolportctl: usage: skills init|add|ls|lint|audit|bundle|unbundle|sync|diff|status|clean|uninstall|resolve|tap|search|install (sync|ls|lint|diff: [--repo <dir>] [--home <dir>]; sync: [--client <key>]... [--project] [--dry-run] [--migrate|--no-migrate]; lint: [--name <skill>]...; init: [--path <dir>] [--name <name>] [--dry-run]; add: <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]; audit: [--path <dir>]; bundle: [--output <zip>] [--path <dir>] [--skills <a,b>] [--dry-run]; unbundle: <bundle.zip> [--path <dir>] [--dry-run]; status: [--repo <dir>] [--client <key>]... [--strict]; clean: [--repo <dir>] [--client <key>] [--project] [--dry-run]; uninstall: <name> [--repo <dir>] [--project] [--dry-run]; resolve: [--repo <dir>] [--client <key>] [--project] [--dry-run] [--migrate|--no-migrate]; tap: add <user/repo|url> [--name <alias>] [--dry-run] | ls | remove <name> [--dry-run] | update [<name>] [--dry-run]; search: <query>; install: <@user/repo[/skill][@version]> [--path <dir>] [--no-audit] [--dry-run])
 Run `toolportctl --help` for usage.
 === ["skills","sync","--bogus"]
 exit 2
@@ -3818,6 +3846,164 @@ exit 2
 --- stderr
 toolportctl: --client requires a value
 Run `toolportctl --help` for usage.
+=== ["skills","tap"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: skills tap add|ls|remove|update (add: <user/repo|url> [--name <alias>] [--dry-run]; ls; remove: <name> [--dry-run]; update: [<name>] [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["--json","skills","tap"]
+exit 2
+--- stdout
+{"command":"skills tap","error":{"code":"usage","message":"usage: skills tap add|ls|remove|update (add: <user/repo|url> [--name <alias>] [--dry-run]; ls; remove: <name> [--dry-run]; update: [<name>] [--dry-run])"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["skills","tap","nope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: skills tap add|ls|remove|update (add: <user/repo|url> [--name <alias>] [--dry-run]; ls; remove: <name> [--dry-run]; update: [<name>] [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["skills","tap","add"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing tap source
+usage: skills tap add <user/repo|url> [--name <alias>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","tap","add","a/b","c/d"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: c/d
+usage: skills tap add <user/repo|url> [--name <alias>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","tap","add","a/b","--name"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --name requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","tap","add","a/b","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: skills tap add <user/repo|url> [--name <alias>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","tap","add","a/b","--dry-run=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --dry-run takes no value
+Run `toolportctl --help` for usage.
+=== ["skills","tap","ls","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: skills tap ls
+Run `toolportctl --help` for usage.
+=== ["skills","tap","ls","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: skills tap ls
+Run `toolportctl --help` for usage.
+=== ["skills","tap","remove"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing tap name
+usage: skills tap remove <name> [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","tap","remove","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: skills tap remove <name> [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","tap","remove","a","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: skills tap remove <name> [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","tap","update","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: skills tap update [<name>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","tap","update","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: skills tap update [<name>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","search"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing query
+usage: skills search <query>
+Run `toolportctl --help` for usage.
+=== ["skills","search","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: skills search <query>
+Run `toolportctl --help` for usage.
+=== ["skills","search","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: skills search <query>
+Run `toolportctl --help` for usage.
+=== ["skills","install"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing install spec
+usage: skills install <@user/repo[/skill][@version]> [--path <dir>] [--no-audit] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","install","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: b
+usage: skills install <@user/repo[/skill][@version]> [--path <dir>] [--no-audit] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","install","a","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: skills install <@user/repo[/skill][@version]> [--path <dir>] [--no-audit] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["skills","install","a","--path"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --path requires a value
+Run `toolportctl --help` for usage.
+=== ["skills","install","a","--no-audit=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --no-audit takes no value
+Run `toolportctl --help` for usage.
+=== ["--json","skills","install"]
+exit 2
+--- stdout
+{"command":"skills install","error":{"code":"usage","message":"missing install spec\nusage: skills install <@user/repo[/skill][@version]> [--path <dir>] [--no-audit] [--dry-run]"},"ok":false,"schemaVersion":1}
+--- stderr
 === ["agents"]
 exit 2
 --- stdout
