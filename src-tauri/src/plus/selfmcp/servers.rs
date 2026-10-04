@@ -2,6 +2,7 @@ use super::backend::{ctl, read_registry, skills_repo};
 use super::ToolError;
 use crate::plus::profiles;
 use crate::plus::args::{flag, flag_or, list, str_arg, str_nonempty};
+use crate::plus::servers::{self, AddError, Patch};
 use crate::plus::update::exec::{CmdOutput, GitRunner, ShellRunner, SystemGit, SystemShell};
 use crate::plus::update::source::{self, Source};
 use crate::plus::update::{execute, gitops, Mode, Options};
@@ -54,14 +55,7 @@ fn name_arg(args: &Value) -> Result<&str, ToolError> {
 }
 
 fn resolve(reg: &Registry, key: &str) -> Result<ServerEntry, ToolError> {
-    reg.servers
-        .iter()
-        .find(|s| s.id == key)
-        .or_else(|| {
-            reg.servers
-                .iter()
-                .find(|s| s.name.eq_ignore_ascii_case(key))
-        })
+    servers::find(reg, key)
         .cloned()
         .ok_or_else(|| ToolError::new("not_found", format!("server not found: {key}")))
 }
@@ -195,35 +189,34 @@ fn fields_from(
 ) -> Result<ServerFields, ToolError> {
     check_config(cfg)?;
     let args = match cfg.get("args") {
-        None => base.map(|b| b.args.clone()).unwrap_or_default(),
-        Some(Value::Array(items)) => items
-            .iter()
-            .map(|v| v.as_str().map(String::from))
-            .collect::<Option<Vec<_>>>()
-            .ok_or_else(|| ToolError::new("invalid_arguments", "args must be strings"))?,
+        None => None,
+        Some(Value::Array(items)) => Some(
+            items
+                .iter()
+                .map(|v| v.as_str().map(String::from))
+                .collect::<Option<Vec<_>>>()
+                .ok_or_else(|| ToolError::new("invalid_arguments", "args must be strings"))?,
+        ),
         Some(_) => return Err(ToolError::new("invalid_arguments", "args must be a list")),
     };
-    let pick = |key: &str, from_base: Option<String>| -> Result<Option<String>, ToolError> {
-        Ok(config_strings(cfg, key)?.or(from_base))
+    let command = config_strings(cfg, "command")?;
+    let url = config_strings(cfg, "url")?;
+    // A patch never moves a server between transports on its own, unlike `toolportctl server edit`.
+    let transport = match (config_strings(cfg, "transport")?, base) {
+        (Some(t), _) => t,
+        (None, Some(b)) => b.transport.clone(),
+        (None, None) if command.is_some() => "stdio".into(),
+        (None, None) => "http".into(),
     };
-    let command = pick("command", base.and_then(|b| b.command.clone()))?;
-    let url = pick("url", base.and_then(|b| b.url.clone()))?;
-    let transport = match config_strings(cfg, "transport")? {
-        Some(t) => t,
-        None => match base {
-            Some(b) => b.transport.clone(),
-            None if command.is_some() => "stdio".into(),
-            None => "http".into(),
-        },
-    };
-    Ok(ServerFields {
-        name: name.to_string(),
-        transport,
+    let patch = Patch {
+        name: Some(name.to_string()),
+        transport: Some(transport),
         command,
         args,
         url,
-        cwd: pick("cwd", base.and_then(|b| b.cwd.clone()))?,
-    })
+        cwd: config_strings(cfg, "cwd")?,
+    };
+    Ok(servers::fields_from(patch, base))
 }
 
 fn install(args: &Value) -> Outcome {
@@ -241,33 +234,24 @@ fn install(args: &Value) -> Outcome {
         }
     }
     let reg = read_registry()?;
-    let existing = reg
-        .servers
-        .iter()
-        .find(|s| s.name.eq_ignore_ascii_case(name))
-        .cloned();
+    let existing = servers::named(&reg, name).cloned();
     let fields = fields_from(name, cfg, existing.as_ref())?;
+    let exists = || {
+        ToolError::new(
+            "conflict",
+            format!("server {name} already exists; pass force=true to replace"),
+        )
+    };
     let id = match existing {
-        Some(_) if !flag(args, "force") => {
-            return Err(ToolError::new(
-                "conflict",
-                format!("server {name} already exists; pass force=true to replace"),
-            ))
-        }
+        Some(_) if !flag(args, "force") => return Err(exists()),
         Some(server) => {
             registry_controller::update_server_fields(&server.id, fields).map_err(ToolError::backend)?;
             server.id
         }
-        None => {
-            let before: Vec<String> = reg.servers.iter().map(|s| s.id.clone()).collect();
-            let after = registry_controller::add_server(fields).map_err(ToolError::backend)?;
-            after
-                .servers
-                .iter()
-                .find(|s| !before.contains(&s.id))
-                .map(|s| s.id.clone())
-                .ok_or_else(|| ToolError::backend("server was not added"))?
-        }
+        None => servers::add_returning_id(fields).map_err(|e| match e {
+            AddError::Exists => exists(),
+            AddError::Failed(message) => ToolError::backend(message),
+        })?,
     };
     let server = resolve(&read_registry()?, &id)?;
     if let Some(tags) = list(args, "profile_tags") {
@@ -619,4 +603,120 @@ fn auth(args: &Value) -> Outcome {
         "stderrTail": tail,
         "hint": url.as_ref().map(|_| "Open authUrl in a browser; the server's local callback saves the token on completion."),
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::call_tool;
+    use super::super::tests::Fixture;
+    use serde_json::{json, Value};
+
+    fn call(name: &str, args: Value) -> Result<Value, super::ToolError> {
+        call_tool(name, &args)
+    }
+
+    fn failure(name: &str, args: Value) -> (&'static str, String) {
+        let error = call(name, args).unwrap_err();
+        (error.kind, error.message)
+    }
+
+    #[test]
+    fn a_patch_keeps_the_transport_it_does_not_name() {
+        let _fixture = Fixture::new("servers-patch");
+        call(
+            "servers_update_config",
+            json!({"name": "alpha", "patch": {"url": "https://example.invalid/m"}, "confirm": true}),
+        )
+        .unwrap();
+        let alpha = call("servers_get", json!({"name": "alpha"})).unwrap();
+        assert_eq!(alpha["transport"], "stdio");
+        assert_eq!(alpha["command"], "alpha-mcp");
+        assert_eq!(alpha["url"], Value::Null);
+
+        call(
+            "servers_update_config",
+            json!({"name": "beta", "patch": {"command": "beta-mcp"}, "confirm": true}),
+        )
+        .unwrap();
+        let beta = call("servers_get", json!({"name": "beta"})).unwrap();
+        assert_eq!(beta["transport"], "http");
+        assert_eq!(beta["url"], "https://example.invalid/mcp");
+
+        call(
+            "servers_update_config",
+            json!({"name": "alpha", "patch": {"args": []}, "confirm": true}),
+        )
+        .unwrap();
+        let cleared = call("servers_get", json!({"name": "alpha"})).unwrap();
+        assert_eq!(cleared["args"], json!([]));
+    }
+
+    #[test]
+    fn install_defaults_a_new_server_to_http_without_a_command() {
+        let _fixture = Fixture::new("servers-install");
+        let (kind, message) = failure(
+            "servers_install",
+            json!({"name": "gamma", "config": {}, "confirm": true}),
+        );
+        assert_eq!(
+            (kind, message.as_str()),
+            ("backend_error", "enter an http:// or https:// server URL")
+        );
+        let added = call(
+            "servers_install",
+            json!({"name": "gamma", "config": {"url": "https://example.invalid/g"}, "confirm": true}),
+        )
+        .unwrap();
+        assert_eq!(added["installed"], true);
+        let got = call("servers_get", json!({"name": "gamma"})).unwrap();
+        assert_eq!(got["transport"], "http");
+        assert_eq!(got["id"], added["id"]);
+    }
+
+    #[test]
+    fn install_names_the_existing_server_and_force_keeps_its_id() {
+        let _fixture = Fixture::new("servers-force");
+        let (kind, message) = failure(
+            "servers_install",
+            json!({"name": "ALPHA", "config": {"command": "other"}, "confirm": true}),
+        );
+        assert_eq!(
+            (kind, message.as_str()),
+            (
+                "conflict",
+                "server ALPHA already exists; pass force=true to replace"
+            )
+        );
+        let replaced = call(
+            "servers_install",
+            json!({"name": "ALPHA", "config": {"command": "other"}, "force": true, "confirm": true}),
+        )
+        .unwrap();
+        assert_eq!(replaced["id"], "srv-alpha");
+        assert_eq!(replaced["name"], "ALPHA");
+        let got = call("servers_get", json!({"name": "srv-alpha"})).unwrap();
+        assert_eq!(got["command"], "other");
+    }
+
+    #[test]
+    fn a_missing_server_is_not_found_for_every_server_tool() {
+        let _fixture = Fixture::new("servers-missing");
+        for (tool, args) in [
+            ("servers_detect_source", json!({"name": "ghost"})),
+            ("servers_git_status", json!({"name": "ghost"})),
+            ("servers_auth", json!({"name": "ghost", "confirm": true})),
+        ] {
+            let (kind, message) = failure(tool, args);
+            assert_eq!(
+                (kind, message.as_str()),
+                ("not_found", "server not found: ghost"),
+                "{tool}"
+            );
+        }
+        let (kind, _) = failure(
+            "servers_update_config",
+            json!({"name": "ghost", "patch": {"cwd": "/tmp"}, "confirm": true}),
+        );
+        assert_eq!(kind, "not_found");
+    }
 }
