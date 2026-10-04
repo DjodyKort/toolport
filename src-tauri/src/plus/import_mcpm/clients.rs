@@ -8,6 +8,9 @@ use std::collections::BTreeMap;
 pub struct ClientConfig {
     pub client_id: String,
     pub servers: Map<String, Value>,
+    /// Read from the client's own config because the mcpm root holds no snapshot of it. Such a
+    /// client is only switched when it has an entry mcpm launched.
+    pub live: bool,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -81,6 +84,18 @@ fn by_url(servers: &[MappedServer], url: &str) -> Option<String> {
         .map(|s| s.entry.id.clone())
 }
 
+fn command_is_mcpm(command: &str) -> bool {
+    std::path::Path::new(command)
+        .file_name()
+        .is_some_and(|name| name == "mcpm")
+}
+
+fn launches_mcpm(raw: &Value) -> bool {
+    raw.get("command")
+        .and_then(Value::as_str)
+        .is_some_and(command_is_mcpm)
+}
+
 fn resolve(servers: &[MappedServer], obj: &Map<String, Value>) -> Resolved {
     if let Some(url) = obj.get("url").and_then(Value::as_str) {
         return match by_url(servers, url) {
@@ -94,7 +109,7 @@ fn resolve(servers: &[MappedServer], obj: &Map<String, Value>) -> Resolved {
         .and_then(Value::as_array)
         .map(|a| a.iter().filter_map(Value::as_str).collect())
         .unwrap_or_default();
-    if command == "mcpm" {
+    if command_is_mcpm(command) {
         return match args.as_slice() {
             ["run", name] => by_name(servers, name)
                 .map(|id| Resolved::Servers(vec![id]))
@@ -146,6 +161,7 @@ pub fn map_clients(
         let mut ids: Vec<String> = Vec::new();
         let mut mapped = Vec::new();
         let mut orphans = Vec::new();
+        let mut client_skipped = Vec::new();
         for (key, raw) in &client.servers {
             let resolved = match raw.as_object() {
                 Some(obj) => resolve(servers, obj),
@@ -165,7 +181,7 @@ pub fn map_clients(
                 }
                 Resolved::Skip(reason) => {
                     orphans.push(key.clone());
-                    skipped.push(ClientSkip {
+                    client_skipped.push(ClientSkip {
                         client_id: client.client_id.clone(),
                         entry: key.clone(),
                         reason: reason.into(),
@@ -173,6 +189,10 @@ pub fn map_clients(
                 }
             }
         }
+        if client.live && mapped.is_empty() && !client.servers.values().any(launches_mcpm) {
+            continue;
+        }
+        skipped.extend(client_skipped);
         ids.sort();
         let pid = slugify(&client.client_id);
         profiles.push(profile(&pid, &client.client_id, ids));

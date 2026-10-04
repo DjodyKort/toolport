@@ -47,6 +47,7 @@ fn fixture_clients() -> Vec<ClientConfig> {
                 .and_then(Value::as_object)
                 .cloned()
                 .unwrap_or_default(),
+            live: false,
         })
         .collect()
 }

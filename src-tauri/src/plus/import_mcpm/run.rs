@@ -183,7 +183,49 @@ fn read_object(path: &Path, required: bool) -> Result<Map<String, Value>, String
     }
 }
 
-pub fn load_input(opts: &RunOptions) -> Result<(McpmInput, Vec<ClientConfig>), String> {
+pub struct Loaded {
+    pub input: McpmInput,
+    pub clients: Vec<ClientConfig>,
+    pub notes: Vec<Warning>,
+}
+
+/// A real mcpm root has no `<client>.json` snapshots, so a client without one is read from its
+/// own config file, the one the switch rewrites. Only names, commands, arguments and URLs are
+/// taken from it; the toolport entry itself is not an mcpm entry and is left out.
+fn live_client(
+    id: &str,
+    detected: &[crate::clients::DetectedClient],
+) -> Result<Option<ClientConfig>, String> {
+    let Some(client) = detected.iter().find(|c| c.id == id && c.config_exists) else {
+        return Ok(None);
+    };
+    if let Some(error) = &client.error {
+        return Err(format!("{id}: {error}"));
+    }
+    let servers = client
+        .servers
+        .iter()
+        .filter(|s| !crate::clients::detected_is_gateway(s))
+        .map(|s| {
+            let mut entry = Map::new();
+            if let Some(command) = &s.command {
+                entry.insert("command".into(), json!(command));
+                entry.insert("args".into(), json!(s.args));
+            }
+            if let Some(url) = &s.url {
+                entry.insert("url".into(), json!(url));
+            }
+            (s.name.clone(), Value::Object(entry))
+        })
+        .collect();
+    Ok(Some(ClientConfig {
+        client_id: id.to_string(),
+        servers,
+        live: true,
+    }))
+}
+
+pub fn load_all(opts: &RunOptions) -> Result<Loaded, String> {
     let servers = read_object(&opts.root.join("servers.json"), true)?;
     let sources = read_object(&opts.root.join("sources.json"), false)?;
     let mut short_ids = BTreeMap::new();
@@ -201,31 +243,48 @@ pub fn load_input(opts: &RunOptions) -> Result<(McpmInput, Vec<ClientConfig>), S
         .or_else(|| std::env::var("HOME").ok())
         .unwrap_or_default();
     let mut clients = Vec::new();
+    let mut notes = Vec::new();
+    let mut detected: Option<Vec<crate::clients::DetectedClient>> = None;
     for (file, id) in CLIENT_FILES {
         let path = opts.root.join(format!("{file}.json"));
-        if !path.exists() {
-            continue;
+        if path.exists() {
+            let root = read_object(&path, true)?;
+            let servers = ["mcpServers", "servers"]
+                .iter()
+                .find_map(|key| root.get(*key).and_then(Value::as_object))
+                .cloned()
+                .unwrap_or_default();
+            clients.push(ClientConfig {
+                client_id: (*id).to_string(),
+                servers,
+                live: false,
+            });
+        } else if opts.write_clients {
+            let detected = detected.get_or_insert_with(crate::clients::detect_clients);
+            match live_client(id, detected) {
+                Ok(found) => clients.extend(found),
+                Err(detail) => notes.push(Warning {
+                    server: String::new(),
+                    kind: "client-unreadable".into(),
+                    detail,
+                }),
+            }
         }
-        let root = read_object(&path, true)?;
-        let servers = ["mcpServers", "servers"]
-            .iter()
-            .find_map(|key| root.get(*key).and_then(Value::as_object))
-            .cloned()
-            .unwrap_or_default();
-        clients.push(ClientConfig {
-            client_id: (*id).to_string(),
-            servers,
-        });
     }
-    Ok((
-        McpmInput {
+    Ok(Loaded {
+        input: McpmInput {
             servers,
             sources,
             home,
             short_ids,
         },
         clients,
-    ))
+        notes,
+    })
+}
+
+pub fn load_input(opts: &RunOptions) -> Result<(McpmInput, Vec<ClientConfig>), String> {
+    load_all(opts).map(|loaded| (loaded.input, loaded.clients))
 }
 
 fn upsert_server(reg: &mut Registry, mut entry: ServerEntry) -> Action {
@@ -524,8 +583,13 @@ fn apply_clients(
 }
 
 pub fn run(opts: &RunOptions) -> Result<Plan, String> {
-    let (input, clients) = load_input(opts)?;
+    let Loaded {
+        input,
+        clients,
+        notes,
+    } = load_all(opts)?;
     let mut mapping = map_all(&input, &clients);
+    mapping.warnings.extend(notes);
     let data_dir = registry::conduit_dir().ok_or("Could not resolve data directory")?;
     let (rejects, moves) = prepare_launch(&mut mapping, &input.home, &data_dir);
     let mut preview = read_registry()?;
