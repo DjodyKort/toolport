@@ -5,6 +5,7 @@ use crate::plus::args::str_arg;
 use crate::plus::profiles;
 use crate::plus::registry_ro;
 use crate::plus::skills::api;
+use crate::plus::status;
 use crate::registry::{self, Registry};
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -97,8 +98,8 @@ pub fn run_tool(tool: &ToolDef, args: &Value) -> Result<Value, ToolError> {
             }))
         }
         "clients_list" => Ok(json!({"clients": detected_clients()})),
-        "where_am_i" => ctl(&["status"]),
-        "doctor" => ctl(&["doctor"]),
+        "where_am_i" => Ok(status::status(&status::snapshot())),
+        "doctor" => Ok(status::doctor(&status::snapshot()).to_value()),
         "flow_diagram" => Ok(json!({"markdown": FLOW})),
         other => Err(ToolError::not_implemented(other)),
     }
@@ -117,7 +118,7 @@ fn as_text(value: Value) -> String {
 
 pub fn read_resource(def: &ResourceDef) -> Result<String, ToolError> {
     match def.uri {
-        "mcpm://paths" | "mcpm://status" => ctl(&["status"]).map(as_text),
+        "mcpm://paths" | "mcpm://status" => Ok(as_text(status::status(&status::snapshot()))),
         "mcpm://flow" => Ok(FLOW.to_string()),
         "mcpm://inventory/skills" => content::inventory("skills"),
         "mcpm://inventory/servers" => {

@@ -1,5 +1,5 @@
 use super::client;
-use super::commands::snapshot;
+use crate::plus::status::snapshot;
 use super::flags::{switch, value, Flags, Spec};
 use super::output::{CtlError, Output};
 use crate::catalog::{self, CatalogEntry};
