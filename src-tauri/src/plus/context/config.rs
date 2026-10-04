@@ -122,6 +122,20 @@ pub struct ContextConfig {
     pub corp_tools_dir: Option<String>,
     #[serde(default)]
     pub cf_wrapper_hash: Option<String>,
+    #[serde(
+        default,
+        rename = "sourceRoots",
+        alias = "source_roots",
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub source_roots: Vec<String>,
+    #[serde(
+        default,
+        rename = "inertPatterns",
+        alias = "inert_patterns",
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub inert_patterns: Vec<String>,
 }
 
 impl Default for ContextConfig {
@@ -134,6 +148,8 @@ impl Default for ContextConfig {
             clients_root: default_clients_root(),
             corp_tools_dir: None,
             cf_wrapper_hash: None,
+            source_roots: Vec::new(),
+            inert_patterns: Vec::new(),
         }
     }
 }
