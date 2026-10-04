@@ -262,6 +262,69 @@ describe("ServerDialog", () => {
     );
   });
 
+  it("keeps the gateway settings it has no control for when editing a server", async () => {
+    const initial: ServerEntry = {
+      id: "odh",
+      name: "Odh",
+      transport: "stdio",
+      command: "odh-server",
+      args: ["--flag"],
+      env: [],
+      url: null,
+      source: "manual",
+      maxRequestTimeoutMs: 900_000,
+      declareClientCapabilities: true,
+      forwardInstructions: true,
+      disabledTools: ["dangerous_tool"],
+      futureSetting: { kept: true },
+    } as ServerEntry;
+    api.updateServer.mockResolvedValueOnce(savedRegistry("odh"));
+    const user = userEvent.setup();
+
+    render(<ServerDialog autoOpen editId="odh" initial={initial} onSaved={vi.fn()} />);
+    await user.clear(screen.getByLabelText("Name"));
+    await user.type(screen.getByLabelText("Name"), "Odh renamed");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(api.updateServer).toHaveBeenCalledTimes(1));
+    expect(api.updateServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "odh",
+        name: "Odh renamed",
+        command: "odh-server",
+        maxRequestTimeoutMs: 900_000,
+        declareClientCapabilities: true,
+        forwardInstructions: true,
+        disabledTools: ["dangerous_tool"],
+        futureSetting: { kept: true },
+      }),
+    );
+  });
+
+  it("does not invent gateway settings for an edited server that has none", async () => {
+    const initial: ServerEntry = {
+      id: "plain",
+      name: "Plain",
+      transport: "stdio",
+      command: "plain-server",
+      args: [],
+      env: [],
+      url: null,
+      source: "manual",
+    };
+    api.updateServer.mockResolvedValueOnce(savedRegistry("plain"));
+    const user = userEvent.setup();
+
+    render(<ServerDialog autoOpen editId="plain" initial={initial} onSaved={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(api.updateServer).toHaveBeenCalledTimes(1));
+    const saved = api.updateServer.mock.calls[0][0] as ServerEntry;
+    expect(saved.maxRequestTimeoutMs).toBeUndefined();
+    expect(saved.declareClientCapabilities).toBeUndefined();
+    expect(saved.forwardInstructions).toBeUndefined();
+  });
+
   it("closes on Cancel when it owns its open state (header add flow)", async () => {
     render(<ServerDialog trigger={<button>Add server</button>} onSaved={vi.fn()} />);
     await userEvent.click(screen.getByRole("button", { name: "Add server" }));

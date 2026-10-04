@@ -399,6 +399,14 @@ export interface ServerEntry {
   /** Absolute cap on one stdio call that progress notifications keep alive, in
    * milliseconds (1 ms through 24 hours). Unset means 1 hour. */
   maxRequestTimeoutMs?: number | null;
+  /** Declare to this stdio/remote server the client capabilities (roots, sampling,
+   * elicitation) the real client declared, so a server that gates a feature on
+   * them can use it. Unset or false keeps the empty declaration. */
+  declareClientCapabilities?: boolean;
+  /** Include this server's `instructions` in the gateway's own, under a heading
+   * with the server name (capped at 4096 characters). Unset or false forwards
+   * nothing. */
+  forwardInstructions?: boolean;
   /** Deadline for the initial MCP initialize request, in milliseconds.
    * Unset keeps the launcher-aware transport default. */
   initializeTimeoutMs?: number | null;
