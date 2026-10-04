@@ -9,7 +9,7 @@
 
 use super::flags::{switch, value, Flag, Spec};
 use super::{agents, auth, cc, client, client_direct, client_edit, compression, compression_cfg};
-use super::{context, context_manage, council, folders, import, mcp, obs, profile, secret};
+use super::{context, context_bundle, context_manage, council, folders, import, mcp, obs, profile, secret};
 use super::{
     hooks, plugins, server, skills, skills_repo, skills_state, skills_taps, sources, styles, sync,
     update,
@@ -408,6 +408,40 @@ pub(super) const ROWS: &[Row] = &[
         .dry()
         .spec(&[&context_manage::PROFILE_REMOVE])
         .args(&[req("name")]),
+    row("context bundle ls", R).spec(&[&context_bundle::LS]),
+    row("context bundle show", R)
+        .spec(&[&context_bundle::SHOW])
+        .args(&[req("name")]),
+    row("context bundle add", W)
+        .dry()
+        .spec(&[&context_bundle::ADD])
+        .args(&[req("name")]),
+    row("context bundle edit", W)
+        .dry()
+        .spec(&[&context_bundle::EDIT])
+        .args(&[req("name")]),
+    row("context bundle rm", D)
+        .dry()
+        .spec(&[&context_bundle::RM])
+        .args(&[req("name")]),
+    row("context bundle apply", W)
+        .dry()
+        .spec(&[&context_bundle::APPLY])
+        .args(&[req("name")]),
+    row("context bundle undo", W)
+        .dry()
+        .spec(&[&context_bundle::UNDO]),
+    row("context bundle status", R).spec(&[&context_bundle::STATUS]),
+    row("context bundle launch", W)
+        .spec(&[&context_bundle::LAUNCH])
+        .args(&[req("name")]),
+    row("context bundle config", W)
+        .reads(&["--auto-apply"])
+        .spec(&[&context_bundle::CONFIG]),
+    row("context use", W)
+        .dry()
+        .spec(&[&context_bundle::USE])
+        .args(&[opt("name")]),
     row("context disable", D)
         .dry()
         .spec(&[&context_manage::DISABLE]),

@@ -297,7 +297,7 @@ pub fn checkpoint_status(rest: &[String]) -> Result<Output, CtlError> {
     checkpoint_status_from(rest, &mut std::io::stdin().lock(), &roots)
 }
 
-const GROUP_USAGE: &str = "usage: context init|status|client|profile|disable|loads|measure|checkpoint-status|plan|apply|sync (measure: [--cwd <dir>] [--without plugin:<id>|skill:<name>]... [--bundle <name>] [--model <id>] [--force] [--yes]; plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])";
+const GROUP_USAGE: &str = "usage: context init|status|client|profile|bundle|use|disable|loads|measure|checkpoint-status|plan|apply|sync (bundle: ls|show|add|edit|rm|apply|undo|status|launch|config; use: <name>|--none [--cwd <dir>] [--dry-run]; measure: [--cwd <dir>] [--without plugin:<id>|skill:<name>]... [--bundle <name>] [--model <id>] [--force] [--yes]; plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])";
 
 pub(super) const DEPLOY: Spec = Spec {
     flags: &[
@@ -391,9 +391,18 @@ pub fn sync(rest: &[String]) -> Result<Output, CtlError> {
         ));
     }
     let applied = deploy("plus.context.apply", args)?;
-    let human = format!("plan:\n{}\napply:\n{}", render(&plan), render(&applied));
-    Ok(Output::new(
-        serde_json::json!({"dryRun": false, "plan": plan, "apply": applied}),
-        human,
-    ))
+    let mut human = format!("plan:\n{}\napply:\n{}", render(&plan), render(&applied));
+    let mut data = serde_json::json!({"dryRun": false, "plan": plan, "apply": applied});
+    if let Some(bundles) = crate::plus::context::bundle_api::sync_bundles(false) {
+        for b in bundles.as_array().into_iter().flatten() {
+            human.push_str(&format!(
+                "\nbundle {} in {}: {}",
+                b["bundle"].as_str().unwrap_or(""),
+                b["folder"].as_str().unwrap_or(""),
+                b["error"].as_str().unwrap_or(if b["applied"] == true { "applied" } else { "not applied" })
+            ));
+        }
+        data["bundles"] = bundles;
+    }
+    Ok(Output::new(data, human))
 }
