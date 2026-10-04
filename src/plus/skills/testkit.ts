@@ -13,6 +13,7 @@ import {
   uninstallData,
 } from "./fixtures";
 import { tapsCtlFixtures } from "./fixturesTaps";
+import { Failure, createSkillsWorld, type WorldOptions } from "./world";
 
 const dir = join(__dirname, "../../../src-tauri/tests/fixtures/ctl-envelopes");
 
@@ -22,14 +23,7 @@ export const goldenData = (stem: string) =>
 
 export type Reply = unknown | ((argv: string[]) => unknown | Promise<unknown>);
 
-/** A reply that is a failed envelope; `data` is what a command that exits 1 still prints. */
-export class Failure {
-  constructor(
-    readonly code: string,
-    readonly message: string,
-    readonly data?: unknown,
-  ) {}
-}
+export { Failure };
 
 export const failure = (code: string, message: string, data?: unknown) =>
   new Failure(code, message, data);
@@ -43,34 +37,42 @@ interface Call {
  * and an argv without one fails the test: a screen that runs a command it should not shows up
  * as a missing reply. A test overrides a reply with `set`, or makes it a function that changes
  * the world (a write that edits what the next read returns). */
-export function createBridge() {
+export function createBridge(options: { world?: boolean | WorldOptions } = {}) {
   const registry = JSON.parse(readFileSync(join(dir, "commands.json"), "utf8")).envelope
     .data;
-  const replies = new Map<string, Reply>([
-    ...skillsCtlFixtures,
-    ...tapsCtlFixtures,
-    ["commands", registry],
-    ["skills clean --dry-run", cleanData(true)],
-    ["skills clean", cleanData(false)],
-    ["skills resolve --migrate --dry-run", resolveData(true, true)],
-    ["skills resolve --migrate", resolveData(true, false)],
-    ["skills sync --client claude-code --dry-run", syncData(["claude-code"], true)],
-    ["skills sync --client claude-code", syncData(["claude-code"], false)],
-    ["skills add reviewer --type skill --dry-run", addData("reviewer", "skill", true)],
-    ["skills add reviewer --type skill", addData("reviewer", "skill", false)],
-    ...["api-review", "deploy-helper"].flatMap((name): Array<[string, unknown]> => [
-      [`skills uninstall ${name} --dry-run`, uninstallData(name, true)],
-      [`skills uninstall ${name}`, uninstallData(name, false)],
-    ]),
-    ["skills diff", new Failure("unhealthy", "one or more checks failed", diffData)],
-    ...libraryRows.map((row): [string, unknown] => [
-      `skills lint --name ${row.name}`,
-      {
-        ...lintData,
-        messages: lintData.messages.filter((m) => m.name === row.name),
-      },
-    ]),
-  ]);
+  const stateful = options.world
+    ? new Map<string, Reply>([
+        ...createSkillsWorld(options.world === true ? {} : options.world),
+        ["commands", registry],
+      ])
+    : null;
+  const replies =
+    stateful ??
+    new Map<string, Reply>([
+      ...skillsCtlFixtures,
+      ...tapsCtlFixtures,
+      ["commands", registry],
+      ["skills clean --dry-run", cleanData(true)],
+      ["skills clean", cleanData(false)],
+      ["skills resolve --migrate --dry-run", resolveData(true, true)],
+      ["skills resolve --migrate", resolveData(true, false)],
+      ["skills sync --client claude-code --dry-run", syncData(["claude-code"], true)],
+      ["skills sync --client claude-code", syncData(["claude-code"], false)],
+      ["skills add reviewer --type skill --dry-run", addData("reviewer", "skill", true)],
+      ["skills add reviewer --type skill", addData("reviewer", "skill", false)],
+      ...["api-review", "deploy-helper"].flatMap((name): Array<[string, unknown]> => [
+        [`skills uninstall ${name} --dry-run`, uninstallData(name, true)],
+        [`skills uninstall ${name}`, uninstallData(name, false)],
+      ]),
+      ["skills diff", new Failure("unhealthy", "one or more checks failed", diffData)],
+      ...libraryRows.map((row): [string, unknown] => [
+        `skills lint --name ${row.name}`,
+        {
+          ...lintData,
+          messages: lintData.messages.filter((m) => m.name === row.name),
+        },
+      ]),
+    ]);
   const calls: Call[] = [];
   const missing: string[] = [];
   const jobs = new Map<string, Call>();

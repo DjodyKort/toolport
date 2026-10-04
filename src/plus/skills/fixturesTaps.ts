@@ -223,8 +223,3 @@ export const tapsCtlFixtures: Array<[string, unknown]> = [
   ),
   ...pair("skills init --path /fixture/new --name team", initData(true), initData(false)),
 ];
-
-export const tapsBrowserFixtures: Array<[string, unknown]> = [
-  ["skills tap ls", tapLs],
-  ["skills search review", searchData],
-];
