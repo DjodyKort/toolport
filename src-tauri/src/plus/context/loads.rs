@@ -1,7 +1,8 @@
 //! "What loads": which memory layers, rules, settings, MCP servers, skills, commands, agents and
 //! plugins a `claude` session gets for a launch profile and working directory, with a token
 //! estimate, provenance and the override ("clobber") relations between layers. Pure: it only
-//! reads files under [`Roots`]. Every number is `bytes / 4`: good for ordering, not a saving.
+//! reads files under [`Roots`]. Every number is `bytes / 4` (`basis: "estimate"`): good for
+//! ordering, not a saving; only `context measure` produces a number a screen may call one.
 
 use super::config::{ContextConfig, ProfileSpec};
 use super::globs::glob_match;
@@ -27,6 +28,7 @@ pub struct LoadItem {
     pub loaded: bool,
     pub reason: String,
     pub tokens: u64,
+    pub basis: &'static str,
     pub origin: Origin,
     pub writable: bool,
     pub lazy: bool,
@@ -52,6 +54,7 @@ impl LoadItem {
             loaded: true,
             reason: reason.into(),
             tokens,
+            basis: "estimate",
             origin: Origin::new("user", ""),
             writable: false,
             lazy: false,
@@ -111,6 +114,8 @@ pub struct Clobber {
 /// Claude Code lists skills up to 1% of the context window; the rest keep only their name.
 pub const SKILL_BUDGET_FRACTION: f64 = 0.01;
 pub const DEFAULT_CONTEXT_WINDOW: u64 = 200_000;
+/// The name of the origin of everything in the user's own Claude folder, as `sources` spells it.
+pub(super) const USER_DIR: &str = "~/.claude";
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct SkillBudget {
@@ -151,6 +156,7 @@ pub struct WhatLoads {
     pub tokens_by_kind: BTreeMap<String, u64>,
     pub total_tokens: u64,
     pub tokens_lazy: u64,
+    pub basis: &'static str,
     pub skill_budget: SkillBudget,
     pub partial: bool,
     pub notes: Vec<String>,
@@ -281,8 +287,8 @@ impl Ctx<'_> {
     }
 }
 
-fn user_origin(ctx: &Ctx) -> Origin {
-    Origin::new("user", show(&ctx.roots.claude_home))
+fn user_origin() -> Origin {
+    Origin::new("user", USER_DIR)
 }
 
 fn managed_origin() -> Origin {
@@ -296,7 +302,7 @@ fn memory(ctx: &mut Ctx, effective_settings: &Map<String, Value>) {
         let owner = if extra::org_provides_claude_md(ctx) {
             (Origin::new("org", ctx.corp_name.clone()), false)
         } else {
-            (Origin::new("loose", show(&ctx.roots.claude_home)), true)
+            (Origin::new("loose", USER_DIR), true)
         };
         ctx.push(
             LoadItem::new(
@@ -410,7 +416,7 @@ fn rules(ctx: &mut Ctx) {
             } else if layer {
                 (managed_origin(), false)
             } else {
-                (Origin::new("loose", show(&ctx.roots.claude_home)), true)
+                (Origin::new("loose", USER_DIR), true)
             };
             let label = path.display().to_string();
             if let Some(prev) = seen.get(&name) {
@@ -542,7 +548,7 @@ fn settings(ctx: &mut Ctx) -> Map<String, Value> {
     for (label, source, map) in &layers {
         if label.ends_with("settings.json") || label.ends_with("settings.local.json") {
             let (origin, writable) = if *source == "user" {
-                (user_origin(ctx), true)
+                (user_origin(), true)
             } else {
                 ctx.project_origin(Path::new(label))
             };
@@ -666,7 +672,7 @@ fn mcp(ctx: &mut Ctx, legacy_names: &[String]) {
             let (origin, writable) = if org {
                 (Origin::new("org", ctx.corp_name.clone()), false)
             } else if source == "user" {
-                (user_origin(ctx), true)
+                (user_origin(), true)
             } else {
                 ctx.project_origin(Path::new(label.trim_end_matches(" [project]")))
             };
@@ -732,7 +738,7 @@ fn skills(ctx: &mut Ctx) {
             } else {
                 (
                     "loose",
-                    Origin::new("loose", show(&ctx.roots.claude_home)),
+                    Origin::new("loose", USER_DIR),
                     true,
                 )
             };
@@ -871,6 +877,7 @@ pub fn what_loads_with(
         tokens_by_kind: by_kind,
         total_tokens: total,
         tokens_lazy: lazy,
+        basis: "estimate",
         skill_budget: budget,
         partial: ctx.partial,
         notes: ctx.notes,

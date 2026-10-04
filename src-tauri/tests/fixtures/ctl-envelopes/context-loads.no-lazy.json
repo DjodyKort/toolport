@@ -1,0 +1,1025 @@
+{
+  "argv": ["context", "loads", "--cwd", "{home}/work/erp/clients/acme-erp", "--no-lazy"],
+  "envelope": {
+    "command": "context loads",
+    "data": {
+      "basis": "estimate",
+      "clobbers": [
+        {
+          "key": "permissions",
+          "kind": "settings",
+          "overridden": ["<WORLD>/home/.claude/settings.json"],
+          "relation": "merges",
+          "winner": "<WORLD>/home/work/erp/clients/acme-erp/.claude/settings.json"
+        }
+      ],
+      "cwd": "<WORLD>/home/work/erp/clients/acme-erp",
+      "items": [
+        {
+          "basis": "estimate",
+          "kind": "settings",
+          "lazy": false,
+          "loaded": true,
+          "name": "settings.json",
+          "origin": {
+            "kind": "user",
+            "name": "~/.claude"
+          },
+          "path": "<WORLD>/home/.claude/settings.json",
+          "reason": "configuration only, no prompt tokens",
+          "scope": "always",
+          "source": "user",
+          "tokens": 0,
+          "via": [],
+          "visible": null,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "settings",
+          "lazy": false,
+          "loaded": true,
+          "name": "settings.json",
+          "origin": {
+            "kind": "client",
+            "name": "acme-erp"
+          },
+          "path": "<WORLD>/home/work/erp/clients/acme-erp/.claude/settings.json",
+          "reason": "configuration only, no prompt tokens",
+          "scope": "always",
+          "source": "project",
+          "tokens": 0,
+          "via": [],
+          "visible": null,
+          "writable": false
+        },
+        {
+          "basis": "estimate",
+          "kind": "memory",
+          "lazy": false,
+          "loaded": true,
+          "name": "CLAUDE.md",
+          "origin": {
+            "kind": "org",
+            "name": "corp-tools"
+          },
+          "path": "<WORLD>/home/.claude/CLAUDE.md",
+          "reason": "user memory",
+          "scope": "always",
+          "source": "org",
+          "tokens": 10070,
+          "via": [],
+          "visible": null,
+          "writable": false
+        },
+        {
+          "basis": "estimate",
+          "kind": "memory",
+          "lazy": false,
+          "loaded": true,
+          "name": "CLAUDE.md",
+          "origin": {
+            "kind": "repo",
+            "name": "erp"
+          },
+          "path": "<WORLD>/home/work/erp/CLAUDE.md",
+          "reason": "directory walk to cwd",
+          "scope": "always",
+          "source": "project",
+          "tokens": 5610,
+          "via": [],
+          "visible": null,
+          "writable": false
+        },
+        {
+          "basis": "estimate",
+          "kind": "import",
+          "lazy": false,
+          "loaded": true,
+          "name": "docs/conventions.md",
+          "origin": {
+            "kind": "repo",
+            "name": "erp"
+          },
+          "path": "<WORLD>/home/work/erp/docs/conventions.md",
+          "reason": "@import, hop 1",
+          "scope": "always",
+          "source": "project",
+          "tokens": 100,
+          "via": ["<WORLD>/home/work/erp/CLAUDE.md"],
+          "visible": null,
+          "writable": false
+        },
+        {
+          "basis": "estimate",
+          "kind": "import",
+          "lazy": false,
+          "loaded": true,
+          "name": "naming.md",
+          "origin": {
+            "kind": "repo",
+            "name": "erp"
+          },
+          "path": "<WORLD>/home/work/erp/docs/naming.md",
+          "reason": "@import, hop 2",
+          "scope": "always",
+          "source": "project",
+          "tokens": 75,
+          "via": [
+            "<WORLD>/home/work/erp/CLAUDE.md",
+            "<WORLD>/home/work/erp/docs/conventions.md"
+          ],
+          "visible": null,
+          "writable": false
+        },
+        {
+          "basis": "estimate",
+          "kind": "import",
+          "lazy": false,
+          "loaded": true,
+          "name": "glossary.md",
+          "origin": {
+            "kind": "repo",
+            "name": "erp"
+          },
+          "path": "<WORLD>/home/work/erp/docs/glossary.md",
+          "reason": "@import, hop 3",
+          "scope": "always",
+          "source": "project",
+          "tokens": 50,
+          "via": [
+            "<WORLD>/home/work/erp/CLAUDE.md",
+            "<WORLD>/home/work/erp/docs/conventions.md",
+            "<WORLD>/home/work/erp/docs/naming.md"
+          ],
+          "visible": null,
+          "writable": false
+        },
+        {
+          "basis": "estimate",
+          "kind": "memory",
+          "lazy": false,
+          "loaded": true,
+          "name": "CLAUDE.local.md",
+          "origin": {
+            "kind": "managed",
+            "name": "toolportctl"
+          },
+          "path": "<WORLD>/home/work/erp/clients/acme-erp/CLAUDE.local.md",
+          "reason": "directory walk to cwd",
+          "scope": "always",
+          "source": "client-layer",
+          "tokens": 83,
+          "via": [],
+          "visible": null,
+          "writable": false
+        },
+        {
+          "basis": "estimate",
+          "kind": "memory-index",
+          "lazy": false,
+          "loaded": true,
+          "name": "MEMORY.md",
+          "origin": {
+            "kind": "user",
+            "name": "~/.claude"
+          },
+          "path": "<WORLD>/home/.claude/projects/<WORLD-SLUG>-home-work-erp-clients-acme-erp/memory/MEMORY.md",
+          "reason": "first 200 of 300 lines (Claude Code loads at most 200 lines or 25 KB)",
+          "scope": "always",
+          "source": "user",
+          "tokens": 1823,
+          "via": [],
+          "visible": null,
+          "writable": false
+        },
+        {
+          "basis": "estimate",
+          "kind": "rule",
+          "lazy": false,
+          "loaded": true,
+          "name": "personal",
+          "origin": {
+            "kind": "managed",
+            "name": "toolportctl"
+          },
+          "path": "<WORLD>/home/.claude/rules/personal.md",
+          "reason": "always on",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 47,
+          "via": [],
+          "visible": null,
+          "writable": false
+        },
+        {
+          "basis": "estimate",
+          "kind": "mcp",
+          "lazy": false,
+          "loaded": true,
+          "name": "docs-search",
+          "origin": {
+            "kind": "user",
+            "name": "~/.claude"
+          },
+          "path": "<WORLD>/home/.claude.json",
+          "reason": "server definition; tool schemas are not included in the estimate",
+          "scope": "always",
+          "source": "user",
+          "tokens": 40,
+          "via": [],
+          "visible": null,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-01",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-01/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-02",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-02/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-03",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-03/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-04",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-04/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-05",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-05/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-06",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-06/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-07",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-07/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-08",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-08/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-09",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-09/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-10",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-10/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-11",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-11/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-12",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-12/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-13",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-13/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-14",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-14/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-15",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-15/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-16",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-16/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-17",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-17/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-18",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-18/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-19",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-19/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-20",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-20/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-21",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-21/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-22",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-22/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-23",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-23/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-24",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-24/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-25",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-25/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-26",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-26/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-27",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-27/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 111,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-28",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-28/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 110,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-29",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-29/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 110,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-30",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-30/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 110,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-31",
+          "origin": {
+            "kind": "loose",
+            "name": "~/.claude"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-31/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "loose",
+          "tokens": 110,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-32",
+          "origin": {
+            "kind": "loose",
+            "name": "~/.claude"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-32/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "loose",
+          "tokens": 110,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "skill",
+          "lazy": false,
+          "loaded": true,
+          "name": "skill-33",
+          "origin": {
+            "kind": "loose",
+            "name": "~/.claude"
+          },
+          "path": "<WORLD>/home/.claude/skills/skill-33/SKILL.md",
+          "reason": "name and description load at start; body on demand",
+          "scope": "always",
+          "source": "loose",
+          "tokens": 110,
+          "via": [],
+          "visible": true,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "command",
+          "lazy": false,
+          "loaded": true,
+          "name": "local-note",
+          "origin": {
+            "kind": "loose",
+            "name": "~/.claude"
+          },
+          "path": "<WORLD>/home/.claude/commands/local-note.md",
+          "reason": "description loads at start; body when the command runs",
+          "scope": "always",
+          "source": "loose",
+          "tokens": 7,
+          "via": [],
+          "visible": null,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "command",
+          "lazy": false,
+          "loaded": true,
+          "name": "ship",
+          "origin": {
+            "kind": "org",
+            "name": "corp-tools"
+          },
+          "path": "<WORLD>/home/.claude/commands/ship.md",
+          "reason": "description loads at start; body when the command runs",
+          "scope": "always",
+          "source": "org",
+          "tokens": 5,
+          "via": [],
+          "visible": null,
+          "writable": false
+        },
+        {
+          "basis": "estimate",
+          "kind": "agent",
+          "lazy": false,
+          "loaded": true,
+          "name": "reviewer",
+          "origin": {
+            "kind": "library",
+            "name": "skills_repo"
+          },
+          "path": "<WORLD>/home/.claude/agents/reviewer.md",
+          "reason": "name and description load at start; body when the agent runs",
+          "scope": "always",
+          "source": "personal",
+          "tokens": 6,
+          "via": [],
+          "visible": null,
+          "writable": true
+        },
+        {
+          "basis": "estimate",
+          "kind": "command",
+          "lazy": false,
+          "loaded": true,
+          "name": "local-only",
+          "origin": {
+            "kind": "client",
+            "name": "acme-erp"
+          },
+          "path": "<WORLD>/home/work/erp/clients/acme-erp/.claude/commands/local-only.md",
+          "reason": "description loads at start; body when the command runs",
+          "scope": "always",
+          "source": "project",
+          "tokens": 8,
+          "via": [],
+          "visible": null,
+          "writable": false
+        },
+        {
+          "basis": "estimate",
+          "kind": "plugin",
+          "lazy": false,
+          "loaded": false,
+          "name": "idle@market",
+          "origin": {
+            "kind": "plugin",
+            "name": "idle@market"
+          },
+          "path": "<WORLD>/home/.claude/plugins/cache/market/idle/0.3.0",
+          "reason": "turned off in <WORLD>/home/.claude/settings.json",
+          "scope": "always",
+          "source": "plugin",
+          "tokens": 5,
+          "via": [],
+          "visible": null,
+          "writable": false
+        },
+        {
+          "basis": "estimate",
+          "kind": "plugin",
+          "lazy": false,
+          "loaded": true,
+          "name": "kit@market",
+          "origin": {
+            "kind": "plugin",
+            "name": "kit@market"
+          },
+          "path": "<WORLD>/home/.claude/plugins/cache/market/kit/1.0.0",
+          "reason": "2 skills, 1 agents, 2 commands",
+          "scope": "always",
+          "source": "plugin",
+          "tokens": 30,
+          "via": [],
+          "visible": null,
+          "writable": false
+        }
+      ],
+      "notes": [
+        "the skill list is over its budget (1998 of 2000 tokens): 17 skills lose their description; which ones is a guess until `context measure` counts them"
+      ],
+      "partial": false,
+      "profile": null,
+      "skill_budget": {
+        "capped": [
+          "skill-19",
+          "skill-20",
+          "skill-21",
+          "skill-22",
+          "skill-23",
+          "skill-24",
+          "skill-25",
+          "skill-26",
+          "skill-27",
+          "skill-28",
+          "skill-29",
+          "skill-30",
+          "skill-31",
+          "skill-32",
+          "skill-33",
+          "kit:kit-build",
+          "kit:kit-test"
+        ],
+        "context_window": 200000,
+        "fraction": 0.01,
+        "limit_tokens": 2000,
+        "used_tokens": 1998
+      },
+      "tokens_by_kind": {
+        "agent": 6,
+        "command": 20,
+        "import": 225,
+        "mcp": 40,
+        "memory": 15763,
+        "memory-index": 1823,
+        "plugin": 30,
+        "rule": 47,
+        "settings": 0,
+        "skill": 3657
+      },
+      "tokens_lazy": 0,
+      "total_tokens": 21611
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

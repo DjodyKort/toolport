@@ -311,6 +311,71 @@ export const sourcesLsData = obj({
 });
 export type SourcesLsData = Infer<typeof sourcesLsData>;
 
+const loadKind = lit(
+  "memory",
+  "memory-index",
+  "import",
+  "rule",
+  "skill",
+  "command",
+  "agent",
+  "plugin",
+  "mcp",
+  "settings",
+);
+
+export const loadItem = obj({
+  kind: loadKind,
+  name: str,
+  path: nullable(str),
+  source: str,
+  loaded: bool,
+  reason: str,
+  tokens: num,
+  basis: tokenBasis,
+  origin,
+  writable: bool,
+  lazy: bool,
+  via: arr(str),
+  scope: lit("always", "paths"),
+  visible: nullable(bool),
+});
+export type LoadItem = Infer<typeof loadItem>;
+
+export const skillBudget = obj({
+  fraction: num,
+  context_window: num,
+  limit_tokens: num,
+  used_tokens: num,
+  capped: arr(str),
+});
+export type SkillBudget = Infer<typeof skillBudget>;
+
+/** `context loads`: every number is an estimate (`basis`), good for ordering, not a saving. */
+export const loadsData = obj({
+  profile: nullable(str),
+  cwd: str,
+  items: arr(loadItem),
+  clobbers: arr(
+    obj({
+      kind: str,
+      key: str,
+      winner: str,
+      overridden: arr(str),
+      relation: lit("overrides", "merges"),
+    }),
+  ),
+  tokens_by_kind: rec(num),
+  total_tokens: num,
+  tokens_lazy: num,
+  basis: tokenBasis,
+  skill_budget: skillBudget,
+  partial: bool,
+  notes: arr(str),
+  compact: opt(any),
+});
+export type LoadsData = Infer<typeof loadsData>;
+
 export const sourcesRootLsData = obj({
   roots: arr(
     obj({
@@ -558,6 +623,8 @@ export const ctlShapes: Record<string, Shape<unknown>> = {
   "sources-ls.items": sourcesLsData,
   "sources-ls.partial": sourcesLsData,
   "sources-ls.org": sourcesLsData,
+  "context-loads.folder": loadsData,
+  "context-loads.no-lazy": loadsData,
   "sources-root-ls": sourcesRootLsData,
   "sources-root-add.preview": sourcesRootChangeData,
   "sources-root-add.apply": sourcesRootChangeData,

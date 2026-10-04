@@ -1,4 +1,16 @@
-import type { WhatLoads } from "../api";
+import type { LoadItem, WhatLoads } from "../api";
+
+const user = { kind: "user", name: "~/.claude" } as const;
+const repo = { kind: "repo", name: "app" } as const;
+
+const base = {
+  basis: "estimate",
+  writable: false,
+  lazy: false,
+  via: [],
+  scope: "always",
+  visible: null,
+} as const satisfies Partial<LoadItem>;
 
 export const plusWhatLoadsFixture: WhatLoads = {
   profile: "lean",
@@ -9,63 +21,77 @@ export const plusWhatLoadsFixture: WhatLoads = {
       name: "CLAUDE.md",
       path: "/home/demo/.claude/CLAUDE.md",
       source: "user",
+      origin: user,
       loaded: true,
       reason: "user memory",
       tokens: 520,
+      ...base,
     },
     {
       kind: "memory",
       name: "CLAUDE.md",
       path: "/home/demo/work/app/CLAUDE.md",
       source: "project-local",
+      origin: repo,
       loaded: true,
       reason: "project memory",
       tokens: 260,
+      ...base,
     },
     {
       kind: "rule",
       name: "org-style",
       path: "/home/demo/work/app/.claude/rules/org-style.md",
       source: "project-local",
+      origin: repo,
       loaded: true,
       reason: "always-on rule",
       tokens: 40,
+      ...base,
     },
     {
       kind: "rule",
       name: "scoped",
       path: "/home/demo/.claude/rules/scoped.md",
       source: "user",
+      origin: user,
       loaded: false,
       reason: "path-scoped, no match",
       tokens: 12,
+      ...base,
     },
     {
       kind: "skill",
       name: "one",
       path: "/home/demo/work/app/.claude/skills/one/SKILL.md",
       source: "project-local",
+      origin: repo,
       loaded: true,
       reason: "description only",
       tokens: 18,
+      ...base,
     },
     {
       kind: "mcp",
       name: "alpha",
       path: "/home/demo/work/app/.mcp.json",
       source: "project-local",
+      origin: repo,
       loaded: true,
       reason: "project server",
       tokens: 900,
+      ...base,
     },
     {
       kind: "mcp",
       name: "beta",
       path: "/home/demo/.claude.json",
       source: "user",
+      origin: user,
       loaded: false,
       reason: "excluded by strict-mcp-config",
       tokens: 700,
+      ...base,
     },
   ],
   clobbers: [
@@ -79,5 +105,15 @@ export const plusWhatLoadsFixture: WhatLoads = {
   ],
   tokens_by_kind: { memory: 780, rule: 40, skill: 18, mcp: 900 },
   total_tokens: 1738,
+  tokens_lazy: 0,
+  basis: "estimate",
+  skill_budget: {
+    fraction: 0.01,
+    context_window: 200000,
+    limit_tokens: 2000,
+    used_tokens: 18,
+    capped: [],
+  },
+  partial: false,
   notes: ["strict-mcp-config: only profile servers load"],
 };

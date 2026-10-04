@@ -5,7 +5,7 @@
 
 use super::globs::glob_match;
 use super::layers::is_managed_local;
-use super::loads::{excluded, show, skill_dirs, text_tokens, Ctx, LoadItem};
+use super::loads::{excluded, show, skill_dirs, text_tokens, Ctx, LoadItem, USER_DIR};
 use crate::plus::sources::budget::{Budget, DETECTOR_TIME, MAX_DEPTH};
 use crate::plus::sources::cache::Cache;
 use crate::plus::sources::fsx::{self, Kind};
@@ -205,7 +205,7 @@ pub(super) fn memory_index(ctx: &mut Ctx) {
             kept.push('\n');
             lines += 1;
         }
-        let origin = Origin::new("user", show(&ctx.roots.claude_home));
+        let origin = Origin::new("user", USER_DIR);
         ctx.push(
             LoadItem::new(
                 "memory-index",
@@ -366,7 +366,7 @@ pub(super) fn commands_and_agents(ctx: &mut Ctx) {
             } else {
                 (
                     "loose",
-                    Origin::new("loose", show(&ctx.roots.claude_home)),
+                    Origin::new("loose", USER_DIR),
                     true,
                 )
             };

@@ -35,6 +35,8 @@ mod ctl_world;
 mod exec;
 #[path = "common/golden.rs"]
 mod golden;
+#[path = "common/loads_world.rs"]
+mod loads_world;
 #[path = "common/normalize.rs"]
 mod normalize;
 #[path = "common/sources_world.rs"]
@@ -138,6 +140,13 @@ const fn case(id: &'static str, steps: &'static [Step]) -> Case {
 
 fn sources_home(world: &CtlWorld) {
     sources_world::build_in(&world.base);
+}
+
+fn loads_home(world: &CtlWorld) {
+    loads_world::build_in(
+        &world.base,
+        conduit_lib::plus::context::layers::MANAGED_LOCAL_HEADER,
+    );
 }
 
 /// A case that runs over the sources fixture home of the GUI-wave contract, section 13.
