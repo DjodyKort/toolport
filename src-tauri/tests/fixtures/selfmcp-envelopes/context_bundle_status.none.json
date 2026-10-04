@@ -1,0 +1,12 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/work/erp"
+  },
+  "isError": false,
+  "result": {
+    "applied": null,
+    "conflicts": [],
+    "folder": "<WORLD>/home/work/erp"
+  },
+  "tool": "context_bundle_status"
+}

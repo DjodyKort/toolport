@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/work/erp/clients/acme-erp"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "missing required argument: name"
+    }
+  },
+  "text": "invalid_arguments: missing required argument: name",
+  "tool": "context_bundle_apply"
+}

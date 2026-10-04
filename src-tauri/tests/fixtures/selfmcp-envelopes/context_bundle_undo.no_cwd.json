@@ -1,0 +1,12 @@
+{
+  "arguments": {},
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "missing required argument: cwd"
+    }
+  },
+  "text": "invalid_arguments: missing required argument: cwd",
+  "tool": "context_bundle_undo"
+}

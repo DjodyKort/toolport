@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/nowhere",
+    "dry_run": true,
+    "name": "acme-dev"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "cwd is not a folder"
+    }
+  },
+  "text": "invalid_arguments: cwd is not a folder",
+  "tool": "context_bundle_apply"
+}

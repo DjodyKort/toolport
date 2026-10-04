@@ -1,0 +1,23 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/work/erp/clients/acme-erp"
+  },
+  "isError": false,
+  "result": {
+    "applied": {
+      "appliedAt": "<TIME>",
+      "bundle": "acme-dev",
+      "changedKeys": [],
+      "drift": false,
+      "ownedKeys": {
+        "claudeMdExcludes": ["**/acme-erp/CLAUDE.md"],
+        "enabledPlugins": ["loop-runner@official", "tools-pack@tools-market"],
+        "permissionsDeny": ["Agent(reviewer-bot)"],
+        "skillOverrides": ["long-guide", "notes-helper", "scratch-one", "scratch-two"]
+      }
+    },
+    "conflicts": [],
+    "folder": "<WORLD>/home/work/erp/clients/acme-erp"
+  },
+  "tool": "context_bundle_status"
+}
