@@ -42,12 +42,12 @@ describe("readAttentionCount", () => {
   it("reads what needs the user from attention ls and asks the registry only once", async () => {
     serve({
       registry: withAttention,
-      attention: { counts: { needsYou: 4, worthALook: 9 } },
+      attention: { counts: { needsYou: 4, look: 9, fyi: 0 } },
     });
     await expect(readAttentionCount()).resolves.toBe(4);
     serve({
       registry: withAttention,
-      attention: { counts: { needsYou: 0, worthALook: 9 } },
+      attention: { counts: { needsYou: 0, look: 9, fyi: 0 } },
     });
     await expect(readAttentionCount()).resolves.toBe(0);
     expect(ctlData.mock.calls.map(([argv]) => argv.join(" "))).toEqual([
@@ -62,7 +62,7 @@ describe("readAttentionCount", () => {
     await expect(readAttentionCount()).rejects.toThrow("no cli");
     serve({
       registry: withAttention,
-      attention: { counts: { needsYou: 2, worthALook: 0 } },
+      attention: { counts: { needsYou: 2, look: 0, fyi: 0 } },
     });
     await expect(readAttentionCount()).resolves.toBe(2);
   });
