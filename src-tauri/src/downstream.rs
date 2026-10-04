@@ -3219,9 +3219,9 @@ pub fn normalize_invocation(command: &str, args: &[String]) -> (String, Vec<Stri
 
 /// True when the invocation is a download-then-run launcher: the command may have
 /// to resolve and download the actual server package before it can respond (npx /
-/// bunx from the npm registry, uvx / pipx from PyPI, and the package managers'
-/// dlx/exec forms). Matches the executable's basename so absolute paths and
-/// Windows shims (`npx.cmd`, `npx.exe`) count too.
+/// bunx from the npm registry, uvx / pipx from PyPI, `uv run` / `uv tool run`, and
+/// the package managers' dlx/exec forms). Matches the executable's basename so
+/// absolute paths and Windows shims (`npx.cmd`, `npx.exe`) count too.
 pub fn is_download_launcher(command: &str, args: &[String]) -> bool {
     let (command, args) = normalize_invocation(command, args);
     // Split on both separators so Windows paths (e.g. `C:\...\npx.cmd`) match on
@@ -3245,6 +3245,12 @@ pub fn is_download_launcher(command: &str, args: &[String]) -> bool {
         "pnpm" | "yarn" => first == Some("dlx"),
         "npm" => matches!(first, Some("exec") | Some("x")),
         "pipx" => first == Some("run"),
+        // `uv run` syncs the project environment (and may fetch an interpreter and
+        // dependencies) before it execs the server; `uv tool run` is `uvx`.
+        "uv" => {
+            first == Some("run")
+                || (first == Some("tool") && args.get(1).map(String::as_str) == Some("run"))
+        }
         _ => false,
     }
 }

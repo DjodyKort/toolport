@@ -101,20 +101,46 @@ fn registry_add_path_stores_the_form_unchanged_and_launch_resolution_accepts_it(
 }
 
 #[test]
-fn uv_run_is_not_a_download_launcher_and_gets_the_tight_connect_budget() {
+fn uv_run_and_uv_tool_run_are_download_launchers_and_get_the_long_connect_budget() {
     use crate::downstream::{is_download_launcher, stdio_connect_timeout};
+    let long = std::time::Duration::from_secs(120);
+    let tight = std::time::Duration::from_secs(10);
+    let args = |list: &[&str]| list.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+
     let argv = odh_argv();
-    assert!(!is_download_launcher("uv", &argv));
-    assert!(is_download_launcher("uvx", &["odh-mcp".to_string()]));
-    let tight = stdio_connect_timeout("uv", &argv);
-    assert_eq!(tight, std::time::Duration::from_secs(10));
+    assert!(is_download_launcher("uv", &argv));
+    assert_eq!(stdio_connect_timeout("uv", &argv), long);
     assert_eq!(
-        tight,
-        stdio_connect_timeout("node", &["server.js".to_string()])
+        stdio_connect_timeout("uv", &args(&["tool", "run", "odh-mcp"])),
+        long
     );
+    for command in ["/home/user/.local/bin/uv", "UV.EXE", r"C:\tools\uv.exe"] {
+        assert_eq!(stdio_connect_timeout(command, &argv), long, "{command}");
+    }
     assert_eq!(
-        stdio_connect_timeout("uvx", &["odh-mcp".to_string()]),
-        std::time::Duration::from_secs(120)
+        stdio_connect_timeout("uv run --directory x odh-mcp", &[]),
+        long
+    );
+    assert_eq!(stdio_connect_timeout("uvx", &["odh-mcp".to_string()]), long);
+
+    for rest in [
+        &[][..],
+        &["sync"],
+        &["pip", "install", "odh-mcp"],
+        &["tool", "install", "odh-mcp"],
+        &["tool"],
+        &["tool", "list"],
+        &["python", "install"],
+    ] {
+        assert_eq!(
+            stdio_connect_timeout("uv", &args(rest)),
+            tight,
+            "uv {rest:?} does not start a server"
+        );
+    }
+    assert_eq!(
+        stdio_connect_timeout("node", &["server.js".to_string()]),
+        tight
     );
 }
 

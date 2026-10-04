@@ -972,3 +972,71 @@ fn toolportctl_and_the_gateway_read_the_same_file_under_toolport_registry() {
         "{status}"
     );
 }
+
+fn slow_uv(scratch: &Scratch, delay_secs: u32) -> String {
+    let uv = scratch.0.join("bin").join("uv");
+    std::fs::create_dir_all(uv.parent().unwrap()).unwrap();
+    exec::write_executable(
+        &uv,
+        &format!(
+            "#!/bin/sh\nsleep {delay_secs}\nexec '{}'\n",
+            env!("CARGO_BIN_EXE_mock-mcp-server")
+        ),
+    );
+    uv.display().to_string()
+}
+
+fn uv_run_args() -> Vec<String> {
+    ["run", "--directory", "<repo>/mcp-server", "odh-mcp"]
+        .into_iter()
+        .map(String::from)
+        .collect()
+}
+
+#[test]
+fn a_cold_uv_run_that_needs_over_ten_seconds_to_answer_initialize_still_connects() {
+    let scratch = Scratch::new("uv-cold");
+    let uv = slow_uv(&scratch, 12);
+    write_registry(
+        &scratch,
+        odh_entry(&uv, uv_run_args(), &scratch.transcript()),
+        |_| {},
+    );
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", json!({}));
+
+    client.wait_for_tool("odh__odoo_search_read");
+    let log = std::fs::read_to_string(scratch.0.join("gateway.log")).unwrap_or_default();
+    assert!(log.contains("connected 'odh'"), "{log}");
+    assert!(
+        !log.contains("timed out waiting for 'initialize'"),
+        "the first connect took the launcher budget, not 10 s: {log}"
+    );
+}
+
+#[test]
+fn initialize_timeout_ms_still_overrides_the_uv_run_launcher_budget() {
+    let scratch = Scratch::new("uv-override");
+    let uv = slow_uv(&scratch, 12);
+    let mut entry = odh_entry(&uv, uv_run_args(), &scratch.transcript());
+    entry.initialize_timeout_ms = Some(3_000);
+    write_registry(&scratch, entry, |_| {});
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", json!({}));
+
+    let deadline = Instant::now() + Duration::from_secs(60);
+    let log = loop {
+        let log = std::fs::read_to_string(scratch.0.join("gateway.log")).unwrap_or_default();
+        if log.contains("timed out waiting for 'initialize'") || Instant::now() > deadline {
+            break log;
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    };
+    assert!(
+        log.contains(
+            "timed out waiting for 'initialize'; the launcher is likely still downloading"
+        ),
+        "the 3 s setting cut the first initialize short and `uv run` is named a launcher: {log}"
+    );
+    assert!(!log.contains("connected 'odh'"), "{log}");
+}
