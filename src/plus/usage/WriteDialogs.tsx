@@ -10,7 +10,7 @@ import { Callout } from "@/components/Callout";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CommandLine } from "../allcommands/RunFlow";
 import { JobProgress, PlanPreview, TypedConfirmDialog } from "../ui";
-import type { WriteControl, WriteSpec } from "./useWrite";
+import { dialogPhases, type WriteControl, type WriteSpec } from "./useWrite";
 
 const shown = (spec: WriteSpec, data: unknown) => {
   const plan = spec.plan?.(data);
@@ -84,11 +84,7 @@ function Direct({ write, spec }: { write: WriteControl; spec: WriteSpec }) {
 export function WriteDialogs({ write }: { write: WriteControl }) {
   const { flow, spec, refused } = write;
   const { dialog, preview, apply } = flow;
-  const previewOk = !!preview.state.result?.envelope?.ok;
-  const previewing =
-    apply.state.phase === "idle" &&
-    (preview.state.phase === "running" || (preview.state.phase === "done" && !previewOk));
-  const applying = apply.state.phase !== "idle";
+  const { previewOk, previewing, applying } = dialogPhases(flow);
   const closeable = !flow.busy;
   return (
     <>
