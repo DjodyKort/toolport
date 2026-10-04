@@ -59,6 +59,14 @@ const NOT_READ_ONLY: &[(&str, &str)] = &[
     ("context profile add", "writes context.json, a launch profile and the shims; context management round trip test"),
     ("context profile remove", "writes context.json and can delete a profile dir; context management round trip test"),
     ("context disable", "removes the shims file and optionally the profile dirs; context management round trip test"),
+    ("context bundle add", "writes profiles/<name>.yaml in the skills repository; tests/ctl_contract.rs and tests/context_bundle.rs"),
+    ("context bundle edit", "rewrites profiles/<name>.yaml in the skills repository; tests/ctl_contract.rs"),
+    ("context bundle rm", "deletes profiles/<name>.yaml and refuses while applied; tests/ctl_contract.rs"),
+    ("context bundle apply", "writes settings.local.json, CLAUDE.local.md, the git exclude and the ledger of one folder; tests/context_bundle.rs"),
+    ("context bundle undo", "puts back the keys apply wrote in one folder; tests/context_bundle.rs"),
+    ("context bundle launch", "writes the --settings file under ~/.config/toolport/profiles; tests/ctl_contract.rs"),
+    ("context bundle config", "writes bundleAutoApply in context.json; tests/context_bundle.rs"),
+    ("context use", "applies a bundle and routes the folder to the paired server profile; tests/ctl_contract.rs"),
 ];
 
 struct World {
@@ -470,7 +478,7 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert!(d["checks"].as_array().unwrap().len() >= 4);
         }),
         case("commands", &["commands"], 0, |_, d| {
-            assert_eq!(d["counts"]["tools"], 85);
+            assert_eq!(d["counts"]["tools"], 89);
             let rows = d["commands"].as_array().unwrap();
             assert!(rows.iter().any(|r| r["id"] == "profile edit" && r["tier"] == "write"));
             assert!(rows.iter().any(|r| r["id"] == "sync push" && r["parent"] == "sync"));
@@ -637,6 +645,28 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             },
         ),
         case(
+            "context bundle ls",
+            &["context", "bundle", "ls"],
+            0,
+            |_, d| {
+                assert_eq!(d["bundles"], json!([]));
+            },
+        ),
+        case(
+            "context bundle show",
+            &["context", "bundle", "show", "no-such-bundle"],
+            1,
+            |_, _| {},
+        ),
+        case(
+            "context bundle status",
+            &["context", "bundle", "status", "--cwd", &home],
+            0,
+            |_, d| {
+                assert!(d["applied"].is_null());
+            },
+        ),
+        case(
             "context client list",
             &["context", "client", "list", "--home", &home],
             0,
@@ -787,7 +817,7 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert!(!d["checks"].as_array().unwrap().is_empty());
         }),
         case("mcp", &["mcp", "tools"], 0, |_, d| {
-            assert_eq!(d["tools"].as_array().unwrap().len(), 85);
+            assert_eq!(d["tools"].as_array().unwrap().len(), 89);
             assert_eq!(d["resources"].as_array().unwrap().len(), 11);
         }),
         case(

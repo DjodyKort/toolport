@@ -488,6 +488,18 @@ pub(super) const GLOBAL: &[Meta] = &[
     )
     .repeats(),
     m("--yes", Bool, COMPAT).hidden(),
+    m("--agents-off", List, "Agents to deny in the folder (comma separated names)"),
+    m("--auto-apply", ON_OFF, "Let context sync apply a bound bundle to matching folders that have none"),
+    m("--bind", List, "Folder patterns the bundle is offered for (comma separated, * is one folder name)"),
+    m("--description", Str, "One line that says what the bundle is for"),
+    m("--from-folder", Path, "Start from what this folder's .claude/settings.local.json hides today"),
+    m("--layers-add", List, "Layers delivered through CLAUDE.local.md (comma separated)"),
+    m("--layers-exclude", List, "claudeMdExcludes globs (comma separated)"),
+    m("--none", Bool, "Drop the bundle and the server routing of the folder"),
+    m("--plugins-off", List, "Plugins to turn off in the folder (comma separated ids)"),
+    m("--skills-allow", List, "Keep only these library skills on (comma separated); every other one is turned off"),
+    m("--skills-name-only", List, "Skills reduced to their name (comma separated names or globs)"),
+    m("--skills-off", List, "Skills to turn off (comma separated names or globs)"),
 ];
 
 const SKILLS_REPO: &str = "Skills repository (default: the configured one)";
@@ -739,6 +751,14 @@ pub(super) const OVERRIDES: &[(&str, Meta)] = &[
             "Read the tool's arguments as one JSON object from stdin; nothing reaches argv",
         ),
     ),
+    ("context bundle add", m("--servers", Str, "Server profile paired with the bundle (default: the profile with the same name)")),
+    ("context bundle edit", m("--servers", Str, "Server profile paired with the bundle (empty removes the pairing)")),
+    ("context bundle rm", m("--force", Bool, "Delete even while the bundle is applied in a folder")),
+    ("context bundle apply", m("--cwd", Path, "Folder where Claude Code starts (default: the current folder)")),
+    ("context bundle undo", m("--cwd", Path, "Folder where Claude Code starts (default: the current folder)")),
+    ("context bundle status", m("--cwd", Path, "Folder where Claude Code starts (default: the current folder)")),
+    ("context bundle launch", m("--cwd", Path, "Folder the command is meant for; the settings file is the same everywhere")),
+    ("context use", m("--cwd", Path, "Folder where Claude Code starts (default: the current folder)")),
 ];
 
 pub(super) fn meta_for(row: &str, flag: &str) -> Option<&'static Meta> {

@@ -19,6 +19,7 @@ mod skills_state;
 mod skills_taps;
 mod sources;
 pub(crate) mod context;
+mod context_bundle;
 mod context_manage;
 mod flags;
 mod folders;
@@ -295,13 +296,73 @@ pub const COMMANDS: &[Command] = &[
         context_manage::profile_group,
     ),
     cmd(
+        &["context", "bundle", "ls"],
+        "List the context bundles with where each is applied",
+        context_bundle::ls,
+    ),
+    cmd(
+        &["context", "bundle", "show"],
+        "Show one bundle's definition and lint (<name>)",
+        context_bundle::show,
+    ),
+    cmd(
+        &["context", "bundle", "add"],
+        "Write a new bundle (<name>, --from-folder, --description, --skills-off, --skills-name-only, --skills-allow, --plugins-off, --layers-add, --layers-exclude, --agents-off, --servers, --bind, --dry-run)",
+        context_bundle::add,
+    ),
+    cmd(
+        &["context", "bundle", "edit"],
+        "Change a bundle; each given list replaces that list (<name>, same flags as add, --dry-run)",
+        context_bundle::edit,
+    ),
+    cmd(
+        &["context", "bundle", "rm"],
+        "Delete a bundle definition; refuses while applied unless --force (<name>, --force, --dry-run)",
+        context_bundle::rm,
+    ),
+    cmd(
+        &["context", "bundle", "apply"],
+        "Apply a bundle in the folder where Claude starts, through git-ignored local files (<name>, --cwd, --dry-run)",
+        context_bundle::apply,
+    ),
+    cmd(
+        &["context", "bundle", "undo"],
+        "Undo the applied bundle in a folder; keys changed since are left alone (--cwd, --dry-run)",
+        context_bundle::undo,
+    ),
+    cmd(
+        &["context", "bundle", "status"],
+        "Show the bundle applied in a folder and any drift (--cwd)",
+        context_bundle::status,
+    ),
+    cmd(
+        &["context", "bundle", "launch"],
+        "Write the --settings file of a bundle and print the claude command (<name>, --cwd)",
+        context_bundle::launch,
+    ),
+    cmd(
+        &["context", "bundle", "config"],
+        "Show or set whether context sync applies bound bundles (--auto-apply on|off)",
+        context_bundle::config,
+    ),
+    cmd(
+        &["context", "bundle"],
+        "Context bundles: ls show add edit rm apply undo status launch config",
+        context_bundle::group,
+    ),
+    cmd(
+        &["context", "use"],
+        "Apply a bundle and its paired server set to a folder, or drop both (<name>, --none, --cwd, --dry-run)",
+        context_bundle::use_bundle,
+    ),
+    cmd(
         &["context", "disable"],
         "Remove the generated shims; --purge-profiles also the profile directories (--dry-run)",
         context_manage::disable,
     ),
     cmd(
         &["context"],
-        "Context: init status client profile disable loads checkpoint-status plan apply sync",
+        "Context: init status client profile bundle use disable loads checkpoint-status plan apply sync",
         context::group,
     ),
     cmd(
