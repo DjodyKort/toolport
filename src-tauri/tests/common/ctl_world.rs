@@ -4,6 +4,7 @@
 //! repository and a stub `claude`. Nothing in it is a real credential.
 
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -104,6 +105,31 @@ impl CtlWorld {
             ("TOOLPORT_CLAUDE_BIN", self.path(&self.claude)),
             ("TOOLPORT_SOURCES_TIME_SCALE", "20".to_string()),
         ]
+    }
+
+    /// Every file of the scratch tree, for "this step changed nothing" checks. Lock files and
+    /// git's own bookkeeping are left out: a plan that fetches or checks out in a clone moves
+    /// FETCH_HEAD and ORIG_HEAD, and what a user can see lies outside `.git`.
+    pub fn snapshot(&self) -> BTreeMap<PathBuf, Vec<u8>> {
+        fn collect(dir: &Path, files: &mut BTreeMap<PathBuf, Vec<u8>>) {
+            for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    if path.file_name().is_none_or(|name| name != ".git")
+                        && !path.ends_with("plus/cache")
+                    {
+                        collect(&path, files);
+                    }
+                } else if path.extension().is_some_and(|ext| ext == "lock") {
+                    continue;
+                } else if let Ok(bytes) = std::fs::read(&path) {
+                    files.insert(path, bytes);
+                }
+            }
+        }
+        let mut files = BTreeMap::new();
+        collect(&self.base, &mut files);
+        files
     }
 
     pub fn registry(&self) -> Value {

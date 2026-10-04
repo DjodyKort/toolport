@@ -16,50 +16,37 @@
 
 #![cfg(unix)]
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::io::Write;
-use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
 use std::time::Duration;
 
 use conduit_lib::plus::ctl::{registry, SCHEMA_VERSION};
-use regex::Regex;
 use serde_json::{json, Value};
 
+#[path = "common/ctl_fixtures.rs"]
+mod ctl_fixtures;
 #[path = "common/ctl_world.rs"]
 mod ctl_world;
 #[path = "common/exec.rs"]
 mod exec;
 #[path = "common/golden.rs"]
 mod golden;
+#[path = "common/normalize.rs"]
+mod normalize;
 #[path = "common/sources_world.rs"]
 mod sources_world;
 #[path = "ctl_contract/cases.rs"]
 mod cases;
 
+use ctl_fixtures::PASSPHRASE;
 use ctl_world::{CtlWorld, FAKE_SECRET};
 
 const VAULTED: &str = "FAKE-vaulted-value-1c9e";
 const CANARY: &str = "FAKE-canary-in-the-vault-5b07";
-const PASSPHRASE: &str = "FAKE-sync-passphrase-31d8";
 const COUNCIL_KEY: &str = "FAKE-council-key-77c2";
 const RUN_TIMEOUT: Duration = Duration::from_secs(120);
-
-/// Keys whose value changes between machines or releases; the golden keeps only that they exist.
-const MASKED_KEYS: &[&str] = &[
-    "version",
-    "pid",
-    "elapsedMs",
-    "durationMs",
-    "tookMs",
-    "head",
-    "bundleBytes",
-    "nextDueAt",
-    "lastProbe",
-    "since",
-    "expiresAt",
-];
 
 #[derive(Clone, Copy)]
 struct Step {
@@ -456,94 +443,9 @@ fn run_ctl(
     }
 }
 
-fn snapshot(world: &CtlWorld) -> BTreeMap<PathBuf, Vec<u8>> {
-    fn collect(dir: &std::path::Path, files: &mut BTreeMap<PathBuf, Vec<u8>>) {
-        for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                // a plan that fetches or checks out in a clone moves git's own bookkeeping
-                // (FETCH_HEAD, ORIG_HEAD); what a user can see is outside `.git`
-                if path.file_name().is_none_or(|name| name != ".git")
-                    && !path.ends_with("plus/cache")
-                {
-                    collect(&path, files);
-                }
-            } else if path.extension().is_some_and(|ext| ext == "lock") {
-                continue;
-            } else if let Ok(bytes) = std::fs::read(&path) {
-                files.insert(path, bytes);
-            }
-        }
-    }
-    let mut files = BTreeMap::new();
-    collect(&world.base, &mut files);
-    files
-}
-
-/// A masked value keeps its JSON type, so the TS shape of the field stays honest.
-fn mask(value: &mut Value) {
-    match value {
-        Value::Object(map) => {
-            for (key, inner) in map.iter_mut() {
-                if MASKED_KEYS.contains(&key.as_str()) && !inner.is_null() {
-                    *inner = if inner.is_number() {
-                        json!(0)
-                    } else {
-                        json!("<masked>")
-                    };
-                } else {
-                    mask(inner);
-                }
-            }
-        }
-        Value::Array(items) => items.iter_mut().for_each(mask),
-        _ => {}
-    }
-}
-
-fn world_roots(world: &CtlWorld) -> Vec<String> {
-    let mut roots = Vec::new();
-    if let Ok(real) = std::fs::canonicalize(&world.base) {
-        roots.push(real.to_string_lossy().into_owned());
-    }
-    roots.push(world.path(&world.base));
-    roots.dedup();
-    roots
-}
-
-fn bin_dirs() -> Vec<String> {
-    let dir = std::path::Path::new(env!("CARGO_BIN_EXE_toolportctl"))
-        .parent()
-        .unwrap();
-    let mut dirs = vec![dir.to_string_lossy().into_owned()];
-    if let Ok(real) = std::fs::canonicalize(dir) {
-        dirs.push(real.to_string_lossy().into_owned());
-    }
-    dirs
-}
-
-/// Paths, times and backup stamps that differ per run become placeholders (`<WORLD>`, `<TIME>`,
-/// `<STAMP>`, `<BIN>`), so the golden holds the shape and the stable values only.
-fn normalize(world: &CtlWorld, envelope: &Value) -> Value {
-    let time =
-        Regex::new(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?").unwrap();
-    let backup_stamp = Regex::new(r"/\d{13}-").unwrap();
-    let mut text = serde_json::to_string(envelope).unwrap();
-    for root in world_roots(world) {
-        text = text.replace(&root, "<WORLD>");
-    }
-    text = text.replace(&world.mock, "<MOCK>");
-    for dir in bin_dirs() {
-        text = text.replace(&dir, "<BIN>");
-    }
-    let text = text.replace(VAULTED, "<VAULTED>");
-    let text = time.replace_all(&text, "<TIME>").into_owned();
-    let stamp = Regex::new(r"\b\d{8}-\d{6}\b").unwrap();
-    let text = stamp.replace_all(&text, "<STAMP>").into_owned();
-    let text = backup_stamp.replace_all(&text, "/<STAMP>-").into_owned();
-    let mut value: Value = serde_json::from_str(&text).unwrap();
-    mask(&mut value);
-    value
+fn scrub(envelope: &Value) -> Value {
+    let text = serde_json::to_string(envelope).unwrap();
+    serde_json::from_str(&text.replace(VAULTED, "<VAULTED>")).unwrap()
 }
 
 fn stem(case: &Case, step: &Step) -> String {
@@ -570,7 +472,7 @@ fn run_case(case: &Case) {
     let world = world_for(case);
     for step in case.steps {
         let argv: Vec<String> = step.argv.iter().map(|w| expand(&world, w)).collect();
-        let before = snapshot(&world);
+        let before = world.snapshot();
         let run = run_ctl(&world, &argv, step.stdin, step.env);
         let name = format!("{} {}", case.id, step.label);
 
@@ -619,7 +521,7 @@ fn run_case(case: &Case) {
             );
         }
         if !step.writes {
-            let after = snapshot(&world);
+            let after = world.snapshot();
             let changed: Vec<String> = after
                 .iter()
                 .filter(|(path, bytes)| before.get(*path) != Some(*bytes))
@@ -631,7 +533,7 @@ fn run_case(case: &Case) {
                         .map(|p| format!("removed {}", p.display())),
                 )
                 .map(|p| {
-                    world_roots(&world)
+                    normalize::world_roots(&world)
                         .iter()
                         .fold(p, |acc, root| acc.replace(root, "<WORLD>"))
                 })
@@ -648,7 +550,7 @@ fn run_case(case: &Case) {
                 &json!({
                     "argv": step.argv,
                     "exitCode": step.exit,
-                    "envelope": normalize(&world, &envelope),
+                    "envelope": normalize::normalize(&world, &scrub(&envelope)),
                 }),
             );
         }
@@ -845,7 +747,7 @@ fn no_output_carries_a_canary_secret() {
             }
             secrets.extend(step.env.iter().map(|(_, value)| *value));
         }
-        for (path, bytes) in snapshot(&world) {
+        for (path, bytes) in world.snapshot() {
             for secret in secrets.iter().chain(&[VAULTED]) {
                 assert!(
                     !contains(&bytes, secret),
