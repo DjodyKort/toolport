@@ -120,6 +120,9 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthNotifier } from "@/plus/AuthNotifier";
 import { AuthPanel } from "@/plus/AuthRows";
 import { WhatLoadsPanel } from "@/plus/WhatLoads";
+import { AllCommandsLink } from "@/plus/AllCommandsLink";
+import { PlusViews } from "@/plus/PlusViews";
+import { PLUS_SCREENS, isPlusView } from "@/plus/nav";
 import { useTheme } from "@/lib/theme";
 import { fmtTs } from "@/lib/utils";
 import { createSingleFlight } from "@/lib/singleFlight";
@@ -815,7 +818,9 @@ function App() {
                                   ? "Settings"
                                   : view === "clients"
                                     ? (selectedClient?.name ?? "Clients")
-                                    : "Servers"}
+                                    : isPlusView(view)
+                                      ? PLUS_SCREENS[view].title
+                                      : "Servers"}
                 </h1>
                 <p className="truncate text-sm text-muted-foreground">
                   {view === "activity"
@@ -838,9 +843,11 @@ function App() {
                                     ? selectedClient
                                       ? "MCP client"
                                       : "Manage Toolport in your installed AI tools"
-                                    : loading || !registry
-                                      ? "Loading…"
-                                      : "One gateway in front of every MCP server you run"}
+                                    : isPlusView(view)
+                                      ? PLUS_SCREENS[view].subtitle
+                                      : loading || !registry
+                                        ? "Loading…"
+                                        : "One gateway in front of every MCP server you run"}
                 </p>
               </div>
             </div>
@@ -1020,7 +1027,10 @@ function App() {
                         <AuthPanel />
                         <WhatLoadsPanel />
                       </div>
+                      <AllCommandsLink onOpen={() => selectView("commands")} />
                     </>
+                  ) : isPlusView(view) ? (
+                    <PlusViews view={view} onSelectView={selectView} />
                   ) : loading && registry === null ? (
                     <div className="flex flex-col gap-2">
                       {Array.from({ length: 6 }).map((_, i) => (

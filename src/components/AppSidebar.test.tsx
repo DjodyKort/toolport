@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 
@@ -14,7 +14,12 @@ const toastInfo = vi.fn();
 const toastError = vi.fn();
 const openDataDir = vi.fn();
 const openExternal = vi.fn();
+const useAttentionCount = vi.fn();
 const eventListeners = new Map<string, (event: { payload: unknown }) => void>();
+
+vi.mock("@/plus/attention", () => ({
+  useAttentionCount: (...args: unknown[]) => useAttentionCount(...args),
+}));
 
 vi.mock("sonner", () => ({
   toast: {
@@ -73,6 +78,7 @@ beforeEach(() => {
   toastError.mockReset();
   openDataDir.mockReset();
   openExternal.mockReset().mockResolvedValue(undefined);
+  useAttentionCount.mockReset().mockReturnValue(null);
   eventListeners.clear();
   checkForUpdate.mockResolvedValue({ kind: "current" });
   getSavingsSummary.mockResolvedValue({
@@ -390,6 +396,171 @@ describe("AppSidebar accessibility", () => {
 
     expect(toastInfo).toHaveBeenCalledWith("An update is already in progress");
     expect(checkForUpdate).toHaveBeenCalledTimes(1);
+  });
+});
+
+const NAV_B = [
+  { group: null, items: [["Attention", "attention"]] },
+  {
+    group: "Servers",
+    items: [
+      ["Servers", "servers"],
+      ["Clients", "clients"],
+      ["Browse catalog", "catalog"],
+      ["Playground", "playground"],
+    ],
+  },
+  {
+    group: "Claude",
+    items: [
+      ["Library", "library"],
+      ["Context", "context"],
+      ["Tokens", "tokens"],
+      ["Tasks", "tasks"],
+    ],
+  },
+  {
+    group: "Agents",
+    items: [
+      ["Agent rules", "rules"],
+      ["Agent activity", "hooks"],
+      ["Agent permissions", "permissions"],
+    ],
+  },
+  {
+    group: "More",
+    items: [
+      ["Activity", "activity"],
+      ["Teams", "teams"],
+      ["System", "system"],
+      ["Settings", "settings"],
+    ],
+  },
+] as const;
+
+function renderSidebar(view: string, onSelectView = vi.fn()) {
+  render(
+    <TooltipProvider>
+      <AppSidebar
+        registry={null}
+        onRegistryChange={vi.fn()}
+        view={view as never}
+        onSelectView={onSelectView}
+        onReplayOnboarding={vi.fn()}
+      />
+    </TooltipProvider>,
+  );
+  return onSelectView;
+}
+
+describe("AppSidebar grouped navigation (sidebar B)", () => {
+  it("lists the 16 entries in the approved order under Servers, Claude, Agents and More", () => {
+    renderSidebar("servers");
+    const nav = screen.getByRole("navigation", { name: "Views" });
+    const labels = within(nav)
+      .getAllByRole("button")
+      .map((button) => button.textContent);
+    expect(labels).toEqual(NAV_B.flatMap((group) => group.items.map(([label]) => label)));
+    expect(labels).toHaveLength(16);
+    for (const { group, items } of NAV_B) {
+      if (!group) continue;
+      const box = within(nav).getByRole("group", { name: group });
+      expect(
+        within(box)
+          .getAllByRole("button")
+          .map((button) => button.textContent),
+      ).toEqual(items.map(([label]) => label));
+    }
+    expect(within(nav).getAllByRole("group")).toHaveLength(4);
+  });
+
+  it("routes every entry to its view, the upstream views included", async () => {
+    const onSelectView = renderSidebar("servers");
+    for (const { items } of NAV_B) {
+      for (const [label, view] of items) {
+        await userEvent.click(screen.getByRole("button", { name: label }));
+        expect(onSelectView).toHaveBeenLastCalledWith(view);
+      }
+    }
+    expect(onSelectView).toHaveBeenCalledTimes(16);
+  });
+
+  it("marks exactly one entry as the current page", () => {
+    renderSidebar("library");
+    const current = within(screen.getByRole("navigation", { name: "Views" }))
+      .getAllByRole("button")
+      .filter((button) => button.getAttribute("aria-current") === "page");
+    expect(current.map((button) => button.textContent)).toEqual(["Library"]);
+  });
+
+  it("keeps Settings current on the All commands page, which has no entry of its own", () => {
+    renderSidebar("commands");
+    expect(screen.getByRole("button", { name: "Settings" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(
+      screen
+        .getAllByRole("button")
+        .filter((button) => button.getAttribute("aria-current") === "page"),
+    ).toHaveLength(1);
+  });
+
+  it("shows the Attention counter only when something needs the user", () => {
+    useAttentionCount.mockReturnValue(null);
+    const { unmount } = render(
+      <TooltipProvider>
+        <AppSidebar
+          registry={null}
+          onRegistryChange={vi.fn()}
+          view="servers"
+          onSelectView={vi.fn()}
+          onReplayOnboarding={vi.fn()}
+        />
+      </TooltipProvider>,
+    );
+    const button = () => screen.getByRole("button", { name: /^Attention/ });
+    expect(button()).toHaveTextContent(/^Attention$/);
+    unmount();
+
+    for (const [count, text] of [
+      [0, null],
+      [1, "1 needs you"],
+      [3, "3 need you"],
+    ] as const) {
+      useAttentionCount.mockReturnValue(count);
+      const view = render(
+        <TooltipProvider>
+          <AppSidebar
+            registry={null}
+            onRegistryChange={vi.fn()}
+            view="servers"
+            onSelectView={vi.fn()}
+            onReplayOnboarding={vi.fn()}
+          />
+        </TooltipProvider>,
+      );
+      if (text === null) {
+        expect(button()).toHaveTextContent(/^Attention$/);
+        expect(screen.queryByLabelText(/need/)).not.toBeInTheDocument();
+      } else {
+        const badge = within(button()).getByLabelText(text);
+        expect(badge).toHaveTextContent(String(count));
+        expect(badge).toHaveClass("bg-destructive");
+      }
+      view.unmount();
+    }
+  });
+
+  it("keeps the blocked-tools counter on Settings", async () => {
+    listQuarantined.mockResolvedValue([{ id: "a" }, { id: "b" }]);
+    renderSidebar("servers");
+    const badge = await screen.findByLabelText("2 tools blocked");
+    expect(badge).toHaveTextContent("2");
+    expect(badge).not.toHaveClass("bg-destructive");
+    expect(screen.getByRole("button", { name: /^Settings/ })).toContainElement(
+      screen.getByLabelText("2 tools blocked"),
+    );
   });
 });
 
