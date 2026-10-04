@@ -17,6 +17,7 @@ mod skills;
 mod skills_repo;
 mod skills_state;
 mod skills_taps;
+mod sources;
 pub(crate) mod context;
 mod context_manage;
 mod flags;
@@ -395,11 +396,41 @@ pub const COMMANDS: &[Command] = &[
         mcp::run,
     ),
     cmd(
+        &["sources", "ls"],
+        "List where skills, commands, agents, rules and CLAUDE.md come from (--source, --kind, --items, --cwd, --root, --deep, --refresh)",
+        sources::ls,
+    ),
+    cmd(
+        &["sources", "root", "ls"],
+        "List the folders searched for repo checkouts",
+        sources::root_ls,
+    ),
+    cmd(
+        &["sources", "root", "add"],
+        "Search a folder for repo checkouts (<dir>, --dry-run)",
+        sources::root_add,
+    ),
+    cmd(
+        &["sources", "root", "rm"],
+        "Stop searching a folder (<dir>, --dry-run)",
+        sources::root_rm,
+    ),
+    cmd(
+        &["sources", "root"],
+        "Search folders: ls add rm",
+        sources::root_group,
+    ),
+    cmd(&["sources"], "Sources: ls root", sources::group),
+    cmd(
         &["skills", "sync"],
         "Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)",
         skills::sync,
     ),
-    cmd(&["skills", "ls"], "List skills and rules (--repo <dir>, --home <dir>)", skills::ls),
+    cmd(
+        &["skills", "ls"],
+        "List skills and rules (--repo <dir>, --home <dir>, --source <id>)",
+        skills::ls,
+    ),
     cmd(
         &["skills", "lint"],
         "Lint skills; exits 1 on errors (--repo, --home, --name <skill>)",

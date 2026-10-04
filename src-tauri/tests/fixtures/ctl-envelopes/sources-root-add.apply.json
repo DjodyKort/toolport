@@ -1,0 +1,38 @@
+{
+  "argv": ["sources", "root", "add", "{home}/work"],
+  "envelope": {
+    "command": "sources root add",
+    "data": {
+      "dryRun": false,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "add <WORLD>/home/work to sourceRoots",
+            "diff": {
+              "after": "[\"~/dups\",\"~/work\"]",
+              "before": "[\"~/dups\"]"
+            },
+            "keys": ["sourceRoots"],
+            "op": "merge",
+            "path": "<WORLD>/home/.config/mcpm/context.json"
+          }
+        ],
+        "summary": "add source root <WORLD>/home/work",
+        "undo": "toolportctl sources root rm <WORLD>/home/work",
+        "warnings": [
+          "<WORLD>/home/work is not a git checkout; its child checkouts are read, not the folder itself"
+        ]
+      },
+      "result": {
+        "applied": true,
+        "backups": ["<WORLD>/home/.cache/mcpm/context/backups/<STAMP>/context.json"],
+        "changed": ["<WORLD>/home/.config/mcpm/context.json"],
+        "undo": "toolportctl sources root rm <WORLD>/home/work"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

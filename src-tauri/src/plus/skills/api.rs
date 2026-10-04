@@ -39,6 +39,8 @@ pub struct Args {
     pub dry_run: bool,
     pub global: bool,
     pub migrate: Option<bool>,
+    /// `list`: only the items of this source (`library`, `repo:odh`, `plugin:ecc@ecc`).
+    pub source: Option<String>,
 }
 
 impl Default for Args {
@@ -51,6 +53,7 @@ impl Default for Args {
             dry_run: false,
             global: true,
             migrate: None,
+            source: None,
         }
     }
 }
@@ -72,6 +75,7 @@ impl Args {
             dry_run: crate::plus::args::flag(args, "dry_run"),
             global: crate::plus::args::flag_or(args, "global_mode", true),
             migrate: args.get("migrate").and_then(Value::as_bool),
+            source: str_arg(args, "source").map(String::from),
         }
     }
 }
@@ -123,9 +127,80 @@ pub(crate) fn lint_json(result: &LintResult) -> Value {
     })
 }
 
+fn library_origin(repo: &Path) -> Value {
+    let name = repo
+        .file_name()
+        .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+    json!({"kind": "library", "name": name})
+}
+
+fn library_row(skill: &Skill, origin: &Value, reason: Option<String>) -> Value {
+    let mut row = row(skill);
+    row["origin"] = origin.clone();
+    row["writable"] = json!(true);
+    row["visible"] = json!(reason.is_none());
+    row["invisibleReason"] = json!(reason);
+    row
+}
+
+/// The skills and rules of one source from the sources scan, in the shape of a library row.
+fn source_rows(id: &str) -> Result<Value, OpError> {
+    use crate::plus::sources::{scan_host, ScanOptions};
+    let report = scan_host(&ScanOptions {
+        source: Some(id.to_string()),
+        items: true,
+        ..ScanOptions::default()
+    })
+    .ok_or_else(|| OpError::not_found("home directory unknown"))?;
+    if report.sources.is_empty() {
+        return Err(OpError::not_found(format!("unknown source: {id}")));
+    }
+    let rows: Vec<Value> = report
+        .items
+        .iter()
+        .filter(|i| i.kind == "skill" || i.kind == "rule")
+        .map(|i| {
+            json!({
+                "name": i.name,
+                "description": i.description,
+                "activation": i.activation.as_deref().unwrap_or("auto"),
+                "type": i.kind,
+                "path": i.path,
+                "origin": i.origin,
+                "writable": i.writable,
+                "visible": i.visible,
+                "invisibleReason": i.invisible_reason,
+            })
+        })
+        .collect();
+    let repo = report.sources.first().and_then(|s| s.root.clone());
+    Ok(json!({
+        "repo": repo,
+        "skills": rows,
+        "partial": report.partial,
+        "skipped": report.skipped,
+    }))
+}
+
 pub fn list_skills(args: &Args) -> Result<Value, OpError> {
+    if let Some(id) = args.source.as_deref().filter(|s| *s != "library") {
+        return source_rows(id);
+    }
     let (repo, skills) = load(args)?;
-    Ok(json!({"repo": repo.to_string_lossy(), "skills": skills.iter().map(row).collect::<Vec<_>>()}))
+    let origin = library_origin(&repo);
+    let home = home()?;
+    let registry = registry_with_home(Some(home.clone()));
+    let rows: Vec<Value> = skills
+        .iter()
+        .map(|s| {
+            library_row(
+                s,
+                &origin,
+                crate::plus::sources::invisible_reason(&registry, s, &home),
+            )
+        })
+        .collect();
+    Ok(json!({"repo": repo.to_string_lossy(), "skills": rows}))
 }
 
 pub fn get(args: &Args) -> Result<Value, OpError> {

@@ -10,7 +10,10 @@
 use super::flags::{switch, value, Flag, Spec};
 use super::{agents, auth, cc, client, client_direct, client_edit, compression, compression_cfg};
 use super::{context, context_manage, council, folders, import, mcp, obs, profile, secret};
-use super::{server, skills, skills_repo, skills_state, skills_taps, styles, sync, update, usage};
+use super::{
+    server, skills, skills_repo, skills_state, skills_taps, sources, styles, sync, update,
+};
+use super::usage;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tier {
@@ -456,8 +459,18 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&import::RENAME])
         .args(&[req("config-root")])
         .requires(&["--tools", "--paths"]),
+    row("sources ls", R).spec(&[&sources::LS]),
+    row("sources root ls", R).spec(&[&sources::ROOT_LS]),
+    row("sources root add", W)
+        .dry()
+        .spec(&[&sources::ROOT_CHANGE])
+        .args(&[req("dir")]),
+    row("sources root rm", W)
+        .dry()
+        .spec(&[&sources::ROOT_CHANGE])
+        .args(&[req("dir")]),
     row("skills sync", W).dry().spec(&[&skills::SYNC]),
-    row("skills ls", R).spec(&[&skills::LS]),
+    row("skills ls", R).spec(&[&skills::LS_SOURCE]),
     row("skills lint", R).spec(&[&skills::LINT]),
     row("skills diff", R).spec(&[&skills::LS]),
     row("skills init", W).dry().spec(&[&skills_repo::INIT]),
@@ -668,6 +681,7 @@ impl ToolRow {
 
 pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("skills_list", R, "skills ls"),
+    maps("sources_ls", R, "sources ls"),
     own("skills_get", R),
     maps("skills_lint", R, "skills lint"),
     maps("skills_status", R, "skills status"),

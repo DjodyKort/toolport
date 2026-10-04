@@ -8,9 +8,16 @@
         {
           "activation": "auto",
           "description": "A synthetic demo skill",
+          "invisibleReason": null,
           "name": "demo",
+          "origin": {
+            "kind": "library",
+            "name": "skills-repo"
+          },
           "path": "<WORLD>/skills-repo/skills/demo/SKILL.md",
-          "type": "skill"
+          "type": "skill",
+          "visible": true,
+          "writable": true
         }
       ]
     },

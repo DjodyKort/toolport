@@ -31,6 +31,8 @@ mod ctl_world;
 mod exec;
 #[path = "common/golden.rs"]
 mod golden;
+#[path = "common/sources_world.rs"]
+mod sources_world;
 
 use ctl_world::{CtlWorld, FAKE_SECRET};
 
@@ -92,10 +94,23 @@ impl Step {
 struct Case {
     id: &'static str,
     steps: &'static [Step],
+    sources: bool,
 }
 
 const fn case(id: &'static str, steps: &'static [Step]) -> Case {
-    Case { id, steps }
+    Case {
+        id,
+        steps,
+        sources: false,
+    }
+}
+
+/// A case that runs over the sources fixture home of the GUI-wave contract, section 13.
+const fn sources_case(id: &'static str, steps: &'static [Step]) -> Case {
+    Case {
+        sources: true,
+        ..case(id, steps)
+    }
 }
 
 /// `{repo}`, `{home}`, `{data}` and `{mock}` in an argv word stand for the synthetic world.
@@ -108,9 +123,40 @@ const CASES: &[Case] = &[
     case("profile ls", &[read("", &["profile", "ls"])]),
     case("client ls", &[read("", &["client", "ls"])]),
     case("client direct ls", &[read("", &["client", "direct", "ls"])]),
-    case(
+    sources_case(
         "skills ls",
-        &[read("", &["skills", "ls", "--repo", "{repo}"])],
+        &[
+            read("repo", &["skills", "ls", "--repo", "{repo}"]),
+            read("library", &["skills", "ls", "--source", "library"]),
+            read("source", &["skills", "ls", "--source", "repo:odh"]),
+        ],
+    ),
+    sources_case(
+        "sources ls",
+        &[
+            read("summary", &["sources", "ls"]),
+            read("items", &["sources", "ls", "--items"]),
+            read("partial", &["sources", "ls", "--budget", "repo=0"]),
+            read("org", &["sources", "ls", "--source", "org", "--items"]),
+        ],
+    ),
+    sources_case(
+        "sources root ls",
+        &[read("", &["sources", "root", "ls"])],
+    ),
+    sources_case(
+        "sources root add",
+        &[
+            read("preview", &["sources", "root", "add", "{home}/work", "--dry-run"]),
+            apply("apply", &["sources", "root", "add", "{home}/work"]),
+        ],
+    ),
+    sources_case(
+        "sources root rm",
+        &[
+            read("preview", &["sources", "root", "rm", "{home}/dups", "--dry-run"]),
+            apply("apply", &["sources", "root", "rm", "{home}/dups"]),
+        ],
     ),
     case(
         "skills lint",
@@ -349,7 +395,9 @@ fn snapshot(world: &CtlWorld) -> BTreeMap<PathBuf, Vec<u8>> {
         for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
             let path = entry.path();
             if path.is_dir() {
-                collect(&path, files);
+                if !path.ends_with("plus/cache") {
+                    collect(&path, files);
+                }
             } else if path.extension().is_some_and(|ext| ext == "lock") {
                 continue;
             } else if let Ok(bytes) = std::fs::read(&path) {
@@ -415,6 +463,8 @@ fn normalize(world: &CtlWorld, envelope: &Value) -> Value {
         text = text.replace(&dir, "<BIN>");
     }
     let text = time.replace_all(&text, "<TIME>").into_owned();
+    let stamp = Regex::new(r"\b\d{8}-\d{6}\b").unwrap();
+    let text = stamp.replace_all(&text, "<STAMP>").into_owned();
     let mut value: Value = serde_json::from_str(&text).unwrap();
     mask(&mut value);
     value
@@ -430,6 +480,9 @@ fn stem(case: &Case, step: &Step) -> String {
 
 fn run_case(case: &Case) {
     let world = world(&golden::file_stem(case.id));
+    if case.sources {
+        sources_world::build_in(&world.base);
+    }
     for step in case.steps {
         let argv: Vec<String> = step.argv.iter().map(|w| expand(&world, w)).collect();
         let before = snapshot(&world);

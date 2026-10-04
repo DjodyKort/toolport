@@ -18,9 +18,12 @@ use std::time::{Duration, Instant};
 use conduit_lib::plus::selfmcp::{Gate, RESOURCES, TOOLS};
 use serde_json::{json, Value};
 
+#[path = "common/sources_world.rs"]
+mod sources_world;
+
 const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
-const TOOL_COUNT: usize = 80;
+const TOOL_COUNT: usize = 81;
 const RESOURCE_COUNT: usize = 11;
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -133,7 +136,9 @@ fn collect(dir: &Path, into: &mut BTreeMap<PathBuf, Vec<u8>>) {
     for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
         let path = entry.path();
         if path.is_dir() {
-            collect(&path, into);
+            if !path.ends_with("plus/cache") {
+                collect(&path, into);
+            }
         } else if path.file_name().and_then(|n| n.to_str()) != Some("registry.json.lock") {
             // the registry lock file is a flock sentinel that a read path may create
             into.insert(path.clone(), std::fs::read(&path).unwrap_or_default());
@@ -478,6 +483,7 @@ fn confirm_must_be_a_boolean_and_unknown_arguments_are_rejected() {
 fn tier_one_calls() -> BTreeMap<&'static str, Value> {
     BTreeMap::from([
         ("skills_list", json!({})),
+        ("sources_ls", json!({"items": true})),
         ("skills_get", json!({"name": "demo"})),
         ("skills_lint", json!({})),
         ("skills_status", json!({})),
@@ -546,6 +552,8 @@ fn tier_one_tools_read_without_confirm_and_never_write() {
     );
 
     assert_eq!(results["skills_list"]["skills"][0]["name"], "demo");
+    assert_eq!(results["sources_ls"]["partial"], false);
+    assert!(results["sources_ls"]["items"].is_array());
     assert_eq!(results["skills_get"]["body"], "Body text");
     assert_eq!(results["skills_diff"]["noLockfile"], true);
     assert_eq!(results["skills_diff"]["new"], json!(["demo"]));
@@ -1237,4 +1245,62 @@ fn malformed_and_unsupported_requests_get_errors_and_the_server_keeps_serving() 
     assert_eq!(tools.len(), TOOL_COUNT);
     let status = client.close();
     assert!(status.success(), "{status:?}");
+}
+
+#[test]
+fn sources_ls_maps_the_fixture_home_and_filters_by_source_and_kind() {
+    let world = World::new("sources");
+    let fixture = sources_world::build_in(&world.base);
+    let mut client = Client::spawn(&world);
+    client.handshake();
+    let before = world.snapshot();
+
+    let all = client.call("sources_ls", json!({"items": true}));
+    let all = all.ok();
+    let ids: Vec<&str> = all["sources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["id"].as_str().unwrap())
+        .collect();
+    for id in ["repo:odh", "client:acme", "org", "library", "loose", "inert"] {
+        assert!(ids.contains(&id), "{id} in {ids:?}");
+    }
+    let odh = all["sources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["id"] == "repo:odh")
+        .unwrap();
+    assert_eq!(odh["freshness"]["behind"], sources_world::ODH_BEHIND);
+    assert_eq!(odh["freshness"]["inCheckout"], false);
+    assert_eq!(
+        odh["tokens"]["basis"], "estimate",
+        "the token object is not scrubbed as a secret"
+    );
+    assert!(odh["tokens"]["value"].as_u64().unwrap() > 0);
+
+    let library = client.call("sources_ls", json!({"source": "library", "items": true}));
+    let library = library.ok();
+    assert_eq!(library["sources"].as_array().unwrap().len(), 1);
+    assert!(library["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|i| i["sourceId"] == "library"));
+
+    let rules = client.call("sources_ls", json!({"kind": "rule", "items": true}));
+    let rules = rules.ok();
+    assert!(!rules["items"].as_array().unwrap().is_empty());
+    assert!(rules["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|i| i["kind"] == "rule"));
+
+    let bad = client.call("sources_ls", json!({"kind": "bogus"}));
+    assert_eq!(bad.error_kind(), "invalid_arguments");
+    assert_eq!(world.snapshot(), before, "sources_ls writes nothing but its cache");
+    assert!(fixture.library.starts_with(&world.home));
+    assert!(client.close().success());
 }

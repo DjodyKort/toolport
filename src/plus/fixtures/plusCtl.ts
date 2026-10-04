@@ -1,4 +1,9 @@
 import type { CtlEnvelope, CtlResult } from "../bridge/ctl";
+import {
+  plusSourcesFixture,
+  plusSourcesItemsFixture,
+  plusSourcesRootFixture,
+} from "./sources";
 
 /** Envelope `data` the dev browser fixture returns per `toolportctl` argv (joined with spaces).
  * A command a screen runs needs a row here or the fixture rejects it as unimplemented. */
@@ -14,6 +19,9 @@ export const plusCtlFixtures = new Map<string, unknown>([
       secretsBackend: "encrypted-file",
     },
   ],
+  ["sources ls", plusSourcesFixture],
+  ["sources ls --items", plusSourcesItemsFixture],
+  ["sources root ls", plusSourcesRootFixture],
 ]);
 
 const jobs = new Map<string, string>();

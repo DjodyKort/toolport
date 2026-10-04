@@ -4221,6 +4221,276 @@
           "tools": []
         },
         {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Only this source or detector (library, plugin, repo:odh)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--source",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "choices": ["skill", "command", "agent", "rule", "memory"],
+              "effect": "Only items of this kind",
+              "escalates": false,
+              "hidden": false,
+              "name": "--kind",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            },
+            {
+              "aliases": [],
+              "effect": "Also list every item (skill, command, agent, rule, memory), not only the sources",
+              "escalates": false,
+              "hidden": false,
+              "name": "--items",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Folder where Claude Code starts (default: the current folder)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--cwd",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Also look for checkouts in this folder (repeatable)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--root",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Double the time and depth budget of every detector",
+              "escalates": false,
+              "hidden": false,
+              "name": "--deep",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Ignore the scan cache and read everything again",
+              "escalates": false,
+              "hidden": false,
+              "name": "--refresh",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Test seam: <detector>=<milliseconds> time budget for one detector",
+              "escalates": false,
+              "hidden": true,
+              "name": "--budget",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            }
+          ],
+          "group": "sources",
+          "id": "sources ls",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "sources",
+          "path": ["sources", "ls"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "List where skills, commands, agents, rules and CLAUDE.md come from (--source, --kind, --items, --cwd, --root, --deep, --refresh)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["sources_ls"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "sources",
+          "id": "sources root ls",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "sources root",
+          "path": ["sources", "root", "ls"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "List the folders searched for repo checkouts",
+          "surface": "screen",
+          "tier": "read",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "sources",
+          "id": "sources root add",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "dir",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "sources root",
+          "path": ["sources", "root", "add"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Search a folder for repo checkouts (<dir>, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "sources",
+          "id": "sources root rm",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "dir",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "sources root",
+          "path": ["sources", "root", "rm"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Stop searching a folder (<dir>, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": null,
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "sources",
+          "id": "sources root",
+          "kind": "group",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "sources",
+          "path": ["sources", "root"],
+          "planned": false,
+          "preview": null,
+          "summary": "Search folders: ls add rm",
+          "surface": null,
+          "tier": null,
+          "tools": []
+        },
+        {
+          "baseTier": null,
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "sources",
+          "id": "sources",
+          "kind": "group",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["sources"],
+          "planned": false,
+          "preview": null,
+          "summary": "Sources: ls root",
+          "surface": null,
+          "tier": null,
+          "tools": []
+        },
+        {
           "baseTier": "write",
           "cost": false,
           "dryRun": true,
@@ -4360,6 +4630,17 @@
               "required": false,
               "sensitive": false,
               "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Only the items of this source (library, repo:odh, plugin:ecc@ecc)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--source",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
             }
           ],
           "group": "skills",
@@ -4377,7 +4658,7 @@
             "flag": null,
             "mode": "none"
           },
-          "summary": "List skills and rules (--repo <dir>, --home <dir>)",
+          "summary": "List skills and rules (--repo <dir>, --home <dir>, --source <id>)",
           "surface": "screen",
           "tier": "read",
           "tools": ["skills_list"]
@@ -7669,10 +7950,10 @@
         }
       ],
       "counts": {
-        "commands": 129,
-        "groups": 24,
-        "rows": 153,
-        "tools": 80
+        "commands": 133,
+        "groups": 26,
+        "rows": 159,
+        "tools": 81
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
       "tiers": ["read", "write", "destructive"],
@@ -7681,6 +7962,13 @@
           "command": "skills ls",
           "dryRun": "none",
           "name": "skills_list",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "sources ls",
+          "dryRun": "none",
+          "name": "sources_ls",
           "tier": "read",
           "toolTier": 1
         },

@@ -51,6 +51,10 @@ pub(super) const LS: Spec = Spec {
     flags: &[value("--repo"), value("--home")],
     ..BASE
 };
+pub(super) const LS_SOURCE: Spec = Spec {
+    flags: &[value("--repo"), value("--home"), value("--source")],
+    ..BASE
+};
 pub(super) const LINT: Spec = Spec {
     flags: &[value("--repo"), value("--home"), value("--name")],
     ..BASE
@@ -203,9 +207,13 @@ fn sync_text(data: &Value) -> String {
 }
 
 pub fn ls(rest: &[String]) -> Result<Output, CtlError> {
-    let flags = LS.parse(rest)?;
+    let flags = LS_SOURCE.parse(rest)?;
     apply_home(flags.one("--home"));
-    let data = served(api::list_skills(&repo_args(&flags)))?;
+    let args = Args {
+        source: flags.one("--source").map(String::from),
+        ..repo_args(&flags)
+    };
+    let data = served(api::list_skills(&args))?;
     let mut human = String::new();
     for row in data["skills"].as_array().into_iter().flatten() {
         human.push_str(&format!(

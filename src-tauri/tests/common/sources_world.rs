@@ -152,6 +152,12 @@ fn clone(from: &Path, to: &Path) {
 
 pub fn build(base: &Path) -> SourcesWorld {
     let _ = std::fs::remove_dir_all(base);
+    build_in(base)
+}
+
+/// Builds the world into an existing directory without clearing it, so a test that has its own
+/// data directory and home can add the sources fixture to them.
+pub fn build_in(base: &Path) -> SourcesWorld {
     let home = base.join("home");
     let data = base.join("data");
     let claude = home.join(".claude");

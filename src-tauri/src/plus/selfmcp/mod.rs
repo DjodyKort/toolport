@@ -23,6 +23,7 @@ mod enable_tests;
 pub mod register;
 mod servers;
 mod skills;
+mod sources;
 mod state;
 #[cfg(test)]
 mod state_agent_style_tests;
