@@ -1,4 +1,4 @@
-use super::{direct, servers, ToolError};
+use super::{content, direct, servers, state, ToolError};
 use serde_json::{json, Map, Value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -71,6 +71,13 @@ const DRY_ON: Param = on_by_default(p(
     "Report without writing; true unless you pass false to apply",
 ));
 const COMMIT: Param = p("commit_message", Ty::Str, true, "Commit message");
+const CLIENT: Param = p("client", Ty::Str, false, "Limit to one client key");
+const GLOBAL: Param = p(
+    "global_mode",
+    Ty::Bool,
+    false,
+    "User-level locations, the default; false works inside the repository",
+);
 
 macro_rules! tool {
     (@def $name:literal, $tier:literal, $gate:ident, $desc:literal, [$($param:expr),*], $run:expr) => {
@@ -209,6 +216,77 @@ pub const TOOLS: &[ToolDef] = &[
             REPO,
             DRY_ON
         ]
+    ),
+    tool!(
+        "skills_diff",
+        1,
+        None,
+        "Compare the skills with the lockfile: new, modified, removed and unchanged",
+        [REPO],
+        content::skills_diff
+    ),
+    tool!(
+        "skills_audit",
+        1,
+        None,
+        "Scan skills for prompt injection and risky commands",
+        [REPO],
+        state::skills_audit
+    ),
+    tool!(
+        "skills_bundle",
+        2,
+        None,
+        "Pack skills into a new .zip bundle; never overwrites a file; dry_run is on by default",
+        [
+            REPO,
+            p("output", Ty::Str, false, "Path of the .zip to create, default <repository folder>-bundle.zip inside the repository"),
+            p("skills", Ty::StrList, false, "Limit to these skills"),
+            DRY_ON
+        ],
+        state::skills_bundle
+    ),
+    tool!(
+        "skills_unbundle",
+        3,
+        UnlessDryRun,
+        "Extract a skills bundle into the repository, overwriting files of the same name; refuses a bundle with files outside skills/ and rules/; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("bundle_path", Ty::Str, true, "Path of the .zip bundle"),
+            REPO,
+            DRY_ON
+        ],
+        state::skills_unbundle
+    ),
+    tool!(
+        "skills_clean",
+        4,
+        UnlessDryRun,
+        "Remove the synced skill outputs and the lockfile; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [REPO, CLIENT, GLOBAL, DRY_ON],
+        state::skills_clean
+    ),
+    tool!(
+        "skills_uninstall",
+        4,
+        UnlessDryRun,
+        "Delete one skill or rule from the repository with its synced outputs and lock entry; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [NAME, REPO, GLOBAL, DRY_ON],
+        state::skills_uninstall
+    ),
+    tool!(
+        "skills_resolve",
+        3,
+        UnlessDryRun,
+        "Find files that shadow synced skills; migrate=true backs them up and replaces them, otherwise they are only reported; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            REPO,
+            CLIENT,
+            GLOBAL,
+            p("migrate", Ty::Bool, false, "Back up and replace the shadowing files"),
+            DRY_ON
+        ],
+        state::skills_resolve
     ),
     tool!(
         "skills_edit_body",

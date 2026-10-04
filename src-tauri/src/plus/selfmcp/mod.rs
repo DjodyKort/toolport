@@ -14,6 +14,9 @@ mod enable_tests;
 mod redact;
 pub mod register;
 mod servers;
+mod state;
+#[cfg(test)]
+mod state_tests;
 #[cfg(test)]
 mod tap_tools_tests;
 #[cfg(test)]
@@ -23,7 +26,7 @@ mod wired_tests;
 
 pub use catalog::{find_resource, find_tool, Gate, ResourceDef, ToolDef, RESOURCES, TOOLS};
 
-use crate::plus::args::flag;
+use crate::plus::args::{flag, flag_or};
 use serde_json::{json, Value};
 
 pub const SERVER_NAME: &str = "toolport-plus-self";
@@ -32,8 +35,9 @@ pub const PROTOCOL_VERSION: &str = "2025-06-18";
 
 pub const INSTRUCTIONS: &str = "Toolport+ self-management. Read the mcpm://paths resource first. \
 Tier 1 tools only read. Tier 2 tools write generated or additive state. Tier 3 and tier 4 tools \
-refuse unless confirm=true; tier 4 touches remote state or removes entries. Secret values are \
-never returned.";
+refuse unless confirm=true; tier 4 touches remote state or removes entries. A tool whose dry_run \
+defaults to true only previews until you pass dry_run=false, and such a tier 3 or 4 tool needs \
+confirm=true only to apply. Secret values are never returned.";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ToolError {
@@ -142,8 +146,14 @@ fn gate_passes(tool: &ToolDef, args: &Value) -> bool {
     match tool.gate {
         Gate::None => true,
         Gate::Always => confirmed,
-        Gate::UnlessDryRun => confirmed || flag(args, "dry_run"),
+        Gate::UnlessDryRun => confirmed || flag_or(args, "dry_run", previews_by_default(tool)),
     }
+}
+
+fn previews_by_default(tool: &ToolDef) -> bool {
+    tool.params
+        .iter()
+        .any(|p| p.name == "dry_run" && p.default == Some(true))
 }
 
 fn refusal(tool: &ToolDef) -> ToolError {
