@@ -5,11 +5,13 @@ import {
   nullable,
   num,
   obj,
+  opt,
   str,
   type Infer,
   type Shape,
 } from "../bridge/shape";
 import { loadsData, type LoadsData } from "../bridge/data";
+import { contextSyncBundles } from "./context-bundle";
 
 /** `data` of the context commands, checked against the golden envelopes by `data.test.ts`. */
 
@@ -168,6 +170,7 @@ export const contextStatusData = obj({
 export type ContextStatusData = Infer<typeof contextStatusData>;
 
 export const contextSyncData = obj({
+  bundles: opt(contextSyncBundles),
   apply: nullable(
     obj({
       actions: arr(str),
