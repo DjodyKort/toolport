@@ -20,7 +20,6 @@ mod docs;
 mod effect_tests;
 #[cfg(test)]
 mod enable_tests;
-mod redact;
 pub mod register;
 mod servers;
 mod state;
@@ -38,6 +37,8 @@ mod wired_tests;
 pub use catalog::{find_resource, find_tool, Gate, ResourceDef, ToolDef, RESOURCES, TOOLS};
 
 use crate::plus::args::{flag, flag_or};
+use crate::plus::op::{ErrorKind, OpError};
+use crate::plus::redact;
 use serde_json::{json, Value};
 
 pub const SERVER_NAME: &str = "toolport-plus-self";
@@ -73,6 +74,18 @@ impl ToolError {
             "not_implemented",
             format!("{what} is not available yet: its backing capability lands in a later item"),
         )
+    }
+}
+
+impl From<OpError> for ToolError {
+    fn from(error: OpError) -> Self {
+        let kind = match error.kind {
+            ErrorKind::NotFound => "not_found",
+            ErrorKind::Conflict => "conflict",
+            ErrorKind::Usage => "invalid_arguments",
+            _ => "backend_error",
+        };
+        Self::new(kind, error.message)
     }
 }
 

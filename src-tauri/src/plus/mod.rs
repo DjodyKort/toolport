@@ -26,6 +26,8 @@ pub(crate) mod fswalk;
 pub(crate) mod hashing;
 pub(crate) mod health;
 pub(crate) mod jsonfs;
+pub(crate) mod op;
+pub(crate) mod redact;
 pub(crate) mod registry_ro;
 pub(crate) mod servers;
 pub(crate) mod tags;
