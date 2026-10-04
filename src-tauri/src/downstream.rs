@@ -2128,6 +2128,10 @@ pub trait Transport: Send {
     /// connect handshake fast. Default no-op: transports with their own request
     /// timeout (for example HTTP) manage phase changes through dedicated hooks.
     fn set_read_timeout(&mut self, _timeout: Duration) {}
+    /// Let progress notifications for a call's own token re-arm the read
+    /// deadline, up to `cap` in total. Default no-op: only the stdio transport
+    /// can re-arm a deadline it enforces itself.
+    fn set_call_cap(&mut self, _cap: Duration) {}
     /// Budget for the connect handshake's `initialize`. Stdio invocations that
     /// download their package before running (npx and friends) report the long
     /// launcher budget; everything else keeps the tight default so one hung
@@ -2233,6 +2237,13 @@ fn progress_notification(line: &str) -> Option<Value> {
     // dropped, so filter it here rather than waking the gateway for nothing.
     v.get("params").and_then(|p| p.get("progressToken"))?;
     Some(v)
+}
+
+/// True when `message` is a `notifications/progress` for `token`, the one the
+/// request in flight carries.
+fn is_progress_for(message: &Value, token: &Value) -> bool {
+    message.get("method").and_then(Value::as_str) == Some("notifications/progress")
+        && message.get("params").and_then(|p| p.get("progressToken")) == Some(token)
 }
 
 /// Forward one drained stdout line to the request loop, first flagging `dirty` if
@@ -3011,6 +3022,9 @@ pub struct StdioTransport {
     /// How long a single request waits for its response. Lowered during the
     /// connect handshake, then restored for (potentially slow) live tool calls.
     read_timeout: Duration,
+    /// Absolute cap on a call whose `progressToken` keeps receiving progress.
+    /// `None` leaves the deadline fixed at `read_timeout`.
+    call_cap: Option<Duration>,
     /// Per-server override for the first `initialize` request. Defaults to the
     /// launcher-aware policy derived from the configured command.
     connect_timeout: Duration,
@@ -3528,6 +3542,7 @@ impl StdioTransport {
             stderr: stderr_buf,
             next_id: 1,
             read_timeout: STDIO_READ_TIMEOUT,
+            call_cap: None,
             connect_timeout: stdio_connect_timeout(command, args),
             armed,
             launcher,
@@ -3669,7 +3684,15 @@ impl Transport for StdioTransport {
         // Read until the response with our id arrives, skipping notifications.
         // The deadline bounds the whole wait so an unresponsive server fails fast
         // instead of hanging the thread (and the batch probe) indefinitely.
-        let deadline = Instant::now() + self.read_timeout;
+        let started = Instant::now();
+        let mut deadline = started + self.read_timeout;
+        let call_cap = self.call_cap.map(|cap| cap.max(self.read_timeout));
+        let mut hard_deadline = call_cap.and_then(|cap| started.checked_add(cap));
+        let progress_token = params
+            .get("_meta")
+            .and_then(|meta| meta.get("progressToken"))
+            .cloned();
+        let mut rearmed = false;
         loop {
             let remaining = deadline
                 .checked_duration_since(Instant::now())
@@ -3691,6 +3714,15 @@ impl Transport for StdioTransport {
                                 .to_string(),
                         ));
                     }
+                    if let Some(cap) =
+                        call_cap.filter(|_| rearmed && hard_deadline == Some(deadline))
+                    {
+                        return Err(TransportError::Unavailable(format!(
+                            "timed out waiting for '{method}' response: the call reached its \
+                             {cap:?} absolute cap (maxRequestTimeoutMs) while the server was \
+                             still reporting progress"
+                        )));
+                    }
                     return Err(TransportError::Unavailable(format!(
                         "timed out waiting for '{method}' response"
                     )));
@@ -3707,6 +3739,17 @@ impl Transport for StdioTransport {
                 Ok(v) => v,
                 Err(_) => continue,
             };
+            if let (Some(token), Some(hard)) = (&progress_token, hard_deadline) {
+                if is_progress_for(&value, token) {
+                    let extended = Instant::now()
+                        .checked_add(self.read_timeout)
+                        .map_or(hard, |at| at.min(hard));
+                    if extended > deadline {
+                        deadline = extended;
+                        rearmed = true;
+                    }
+                }
+            }
             if is_server_initiated_request(&value) {
                 screen_url_elicitation_request(&mut value).map_err(|message| {
                     TransportError::Fatal(format!(
@@ -3714,7 +3757,14 @@ impl Transport for StdioTransport {
                     ))
                 })?;
                 if let Some(handler) = &self.server_handler {
-                    match handler(&value) {
+                    // The handler blocks while the human answers; that wait is not
+                    // the server's time, so neither the deadline nor the cap pays it.
+                    let asked = Instant::now();
+                    let action = handler(&value);
+                    let waited = asked.elapsed();
+                    deadline += waited;
+                    hard_deadline = hard_deadline.map(|hard| hard + waited);
+                    match action {
                         Some(ServerRequestAction::Respond(response)) => {
                             let mut stdin = self.stdin.lock().map_err(|_| {
                                 TransportError::Unavailable("downstream stdin lock poisoned".into())
@@ -3794,6 +3844,10 @@ impl Transport for StdioTransport {
 
     fn set_read_timeout(&mut self, timeout: Duration) {
         self.read_timeout = timeout;
+    }
+
+    fn set_call_cap(&mut self, cap: Duration) {
+        self.call_cap = Some(cap);
     }
 
     fn connect_timeout(&self) -> Duration {
@@ -5785,6 +5839,12 @@ impl DownstreamServer {
         self.transport.set_read_timeout(timeout);
     }
 
+    /// Let progress notifications for a call's own token re-arm that call's
+    /// deadline (stdio only), up to `cap` for the whole call.
+    pub fn set_call_cap(&mut self, cap: Duration) {
+        self.transport.set_call_cap(cap);
+    }
+
     /// Install the upstream request bridge on both this server wrapper and its
     /// transport. The transport consumes real legacy server-initiated requests;
     /// the wrapper consumes modern `input_required` results for legacy clients.
@@ -6647,6 +6707,7 @@ mod tests {
     use std::collections::{HashMap, VecDeque};
     use std::path::Path;
     use std::sync::{Arc, Mutex};
+    use std::time::Duration;
 
     struct MrtrTransport {
         responses: VecDeque<Result<Value, TransportError>>,
@@ -8893,10 +8954,17 @@ mod tests {
         stdin: Arc<Mutex<std::process::ChildStdin>>,
         response: &Value,
     ) -> super::StdioTransport {
-        use std::sync::atomic::AtomicBool;
         let (tx, rx) = std::sync::mpsc::channel();
         tx.send(response.to_string()).expect("queue the response");
         drop(tx);
+        stdio_transport_fed(stdin, rx)
+    }
+
+    fn stdio_transport_fed(
+        stdin: Arc<Mutex<std::process::ChildStdin>>,
+        rx: std::sync::mpsc::Receiver<String>,
+    ) -> super::StdioTransport {
+        use std::sync::atomic::AtomicBool;
         super::StdioTransport {
             child: placeholder_child(),
             #[cfg(windows)]
@@ -8906,6 +8974,7 @@ mod tests {
             stderr: Arc::new(Mutex::new(String::new())),
             next_id: 1,
             read_timeout: std::time::Duration::from_secs(30),
+            call_cap: None,
             connect_timeout: super::STDIO_CONNECT_TIMEOUT,
             armed: Arc::new(AtomicBool::new(false)),
             launcher: false,
@@ -8915,6 +8984,169 @@ mod tests {
             protocol_meta: None,
             subscription_listener_id: None,
         }
+    }
+
+    /// A transport that reads whatever is sent to the returned sender, with an
+    /// 800 ms call deadline and the given absolute cap.
+    fn timed_transport(
+        recorder: &StdinRecorder,
+        cap: Option<std::time::Duration>,
+    ) -> (super::StdioTransport, std::sync::mpsc::Sender<String>) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut transport = stdio_transport_fed(Arc::clone(&recorder.stdin), rx);
+        transport.read_timeout = std::time::Duration::from_millis(800);
+        transport.call_cap = cap;
+        (transport, tx)
+    }
+
+    fn progress_line(token: &str) -> String {
+        json!({ "jsonrpc": "2.0", "method": "notifications/progress",
+                "params": { "progressToken": token, "progress": 1 } })
+        .to_string()
+    }
+
+    fn call_with_token(
+        transport: &mut super::StdioTransport,
+    ) -> (Result<Value, TransportError>, std::time::Duration) {
+        let started = std::time::Instant::now();
+        let result = transport.request(
+            "tools/call",
+            json!({ "name": "slow", "_meta": { "progressToken": "tp-1" } }),
+        );
+        (result, started.elapsed())
+    }
+
+    /// Reports progress for `token` every 100 ms for `lasts`, then answers id 1.
+    fn feed_progress(
+        tx: std::sync::mpsc::Sender<String>,
+        token: &'static str,
+        lasts: std::time::Duration,
+    ) -> std::thread::JoinHandle<()> {
+        std::thread::spawn(move || {
+            let started = std::time::Instant::now();
+            while started.elapsed() < lasts {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                if tx.send(progress_line(token)).is_err() {
+                    return;
+                }
+            }
+            let _ =
+                tx.send(json!({ "jsonrpc": "2.0", "id": 1, "result": { "ok": true } }).to_string());
+            std::thread::sleep(std::time::Duration::from_millis(200));
+        })
+    }
+
+    #[test]
+    fn progress_for_the_calls_token_re_arms_the_deadline_up_to_the_cap() {
+        let recorder = StdinRecorder::new("rearm");
+        let (mut transport, tx) = timed_transport(&recorder, Some(Duration::from_secs(10)));
+        let feeder = feed_progress(tx, "tp-1", Duration::from_millis(2_000));
+        let (result, took) = call_with_token(&mut transport);
+        assert_eq!(
+            result.expect("progress kept the call alive"),
+            json!({ "ok": true })
+        );
+        assert!(
+            took >= Duration::from_millis(1_900),
+            "the call ran well past the 800 ms deadline: {took:?}"
+        );
+        feeder.join().unwrap();
+        drop(transport);
+        recorder.finish();
+    }
+
+    #[test]
+    fn progress_for_another_token_leaves_the_deadline_alone() {
+        let recorder = StdinRecorder::new("other-token");
+        let (mut transport, tx) = timed_transport(&recorder, Some(Duration::from_secs(10)));
+        let feeder = feed_progress(tx, "tp-other", Duration::from_millis(2_000));
+        let (result, took) = call_with_token(&mut transport);
+        let Err(TransportError::Unavailable(message)) = result else {
+            panic!("expected the deadline to fire, got {result:?}");
+        };
+        assert_eq!(message, "timed out waiting for 'tools/call' response");
+        assert!(took < Duration::from_millis(1_500), "{took:?}");
+        drop(transport);
+        feeder.join().unwrap();
+        recorder.finish();
+    }
+
+    #[test]
+    fn without_a_cap_progress_never_re_arms_the_deadline() {
+        let recorder = StdinRecorder::new("no-cap");
+        let (mut transport, tx) = timed_transport(&recorder, None);
+        let feeder = feed_progress(tx, "tp-1", Duration::from_millis(2_000));
+        let (result, took) = call_with_token(&mut transport);
+        let Err(TransportError::Unavailable(message)) = result else {
+            panic!("expected the deadline to fire, got {result:?}");
+        };
+        assert_eq!(message, "timed out waiting for 'tools/call' response");
+        assert!(took < Duration::from_millis(1_500), "{took:?}");
+        drop(transport);
+        feeder.join().unwrap();
+        recorder.finish();
+    }
+
+    #[test]
+    fn the_cap_ends_a_call_that_keeps_reporting_progress() {
+        let recorder = StdinRecorder::new("cap");
+        let (mut transport, tx) = timed_transport(&recorder, Some(Duration::from_millis(1_500)));
+        let feeder = feed_progress(tx, "tp-1", Duration::from_secs(30));
+        let (result, took) = call_with_token(&mut transport);
+        let Err(TransportError::Unavailable(message)) = result else {
+            panic!("expected the cap to fire, got {result:?}");
+        };
+        assert!(
+            message.starts_with("timed out waiting for 'tools/call' response: ")
+                && message.contains("1.5s absolute cap (maxRequestTimeoutMs)"),
+            "{message}"
+        );
+        assert!(
+            took >= Duration::from_millis(1_400) && took < Duration::from_millis(2_500),
+            "{took:?}"
+        );
+        drop(transport);
+        feeder.join().unwrap();
+        recorder.finish();
+    }
+
+    #[test]
+    fn the_wait_for_a_server_request_answer_is_not_charged_to_the_deadline() {
+        let recorder = StdinRecorder::new("elicit-wait");
+        let (mut transport, tx) = timed_transport(&recorder, None);
+        transport.server_handler = Some(Arc::new(|_| {
+            std::thread::sleep(Duration::from_millis(1_200));
+            Some(ServerRequestAction::Respond(
+                json!({ "jsonrpc": "2.0", "id": "srv-1", "result": { "action": "accept" } }),
+            ))
+        }));
+        tx.send(
+            json!({ "jsonrpc": "2.0", "id": "srv-1", "method": "elicitation/create",
+                    "params": { "message": "Continue?" } })
+            .to_string(),
+        )
+        .unwrap();
+        let answer = tx.clone();
+        let late = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(1_500));
+            let _ = answer
+                .send(json!({ "jsonrpc": "2.0", "id": 1, "result": { "ok": true } }).to_string());
+        });
+        let started = std::time::Instant::now();
+        let result = transport.request("tools/call", json!({ "name": "ask" }));
+        assert_eq!(
+            result.expect("the human's wait was not charged"),
+            json!({ "ok": true })
+        );
+        assert!(started.elapsed() >= Duration::from_millis(1_400));
+        late.join().unwrap();
+        drop(transport);
+        drop(tx);
+        let frames = recorder.finish();
+        assert_eq!(
+            frames[1]["id"], "srv-1",
+            "the answer reached the server: {frames:?}"
+        );
     }
 
     /// SBS-644. The cancel-before-registration race: the client cancels while the

@@ -9525,6 +9525,7 @@ fn connect_one(
             if let Some(ms) = server.request_timeout_ms {
                 ds.set_call_timeout(Duration::from_millis(ms.max(1)));
             }
+            ds.set_call_cap(server.max_request_timeout());
             let msg = format!("connected '{}' ({} tools)", server.id, ds.tools.len());
             eprintln!("toolport: {msg}");
             glog(&msg);
