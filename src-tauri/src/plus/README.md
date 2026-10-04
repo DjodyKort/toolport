@@ -12,7 +12,7 @@ Toolport+ additions (D-010). Full overview: `docs/toolport-plus.md`.
 - `import_mcpm/`: mcpm to registry mapping and tool-reference rewrite.
 - `selfmcp/`: self-management MCP server.
 - `update/`: server update checks and apply.
-- `obs/`: transcript indexer and local OTel sink.
+- `obs/`: transcript indexer, loopback OTLP receiver (`receiver`, hosted by the gateway through `otel_host`), `otel_setup` (the `obs otel` enable, disable and status core) and `combine` (OTel and transcript dedupe).
 - `cc/`: Claude Code plugin list and update.
 - `council/`: council downstream server definition.
 - `jsonfs.rs`: `read_json`, tolerant typed JSON read (None on missing or invalid).
