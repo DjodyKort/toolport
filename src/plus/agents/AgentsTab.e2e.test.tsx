@@ -69,6 +69,29 @@ describe("Agents tab, end to end", () => {
     expect(bridge.missing).toEqual([]);
   });
 
+  it("agents.list: says so when toolportctl cannot run, and recovers on Retry", async () => {
+    let down = true;
+    invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => {
+      if (down && command === "plus_ctl")
+        throw new Error("toolportctl could not be started");
+      return bridge.invoke(command, args);
+    });
+    const user = await openFromLibrary("Agents");
+    const failed = (await screen.findByText("Couldn't list agents")).closest(
+      '[role="alert"]',
+    ) as HTMLElement;
+    expect(failed).toHaveTextContent(/toolportctl could not be started/);
+    expect(screen.queryByRole("list", { name: "Output of scout per client" })).toBeNull();
+    down = false;
+    await user.click(within(failed).getByRole("button", { name: "Retry" }));
+    expect(
+      await screen.findByRole("list", { name: "Output of scout per client" }),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Sync…" }));
+    expect(await screen.findByText("Write 1 agent to 4 clients")).toBeVisible();
+    expect(screen.queryByText(/has not loaded yet/)).toBeNull();
+  });
+
   it("agents.lint, agents.audit: both checks read without writing anything", async () => {
     await open();
     expect(

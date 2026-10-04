@@ -102,6 +102,30 @@ describe("Styles tab, end to end", () => {
     expect(bridge.count("styles add terse")).toBe(1);
   });
 
+  it("styles.list: says so when toolportctl cannot run, and recovers on Retry", async () => {
+    let down = true;
+    invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => {
+      if (down && command === "plus_ctl")
+        throw new Error("toolportctl could not be started");
+      return bridge.invoke(command, args);
+    });
+    const user = await openFromLibrary("Styles");
+    const failed = (await screen.findByText("Couldn't list styles")).closest(
+      '[role="alert"]',
+    ) as HTMLElement;
+    expect(failed).toHaveTextContent(/toolportctl could not be started/);
+    expect(screen.queryByText("No output styles yet")).toBeNull();
+    down = false;
+    await user.click(within(failed).getByRole("button", { name: "Retry" }));
+    await screen.findByText("No output styles yet");
+    await user.click(screen.getByRole("button", { name: "Create your first style" }));
+    const form = await screen.findByRole("dialog");
+    await user.type(within(form).getByRole("textbox"), "terse");
+    await user.click(within(form).getByRole("button", { name: "Preview" }));
+    expect(await screen.findByText(/Create the style 'terse'/)).toBeVisible();
+    expect(screen.queryByText(/has not loaded yet/)).toBeNull();
+  });
+
   it("styles.add: the name dialog opens from the keyboard and Escape gives focus back", async () => {
     const user = await open();
     const first = screen.getByRole("button", { name: "Create your first style" });
