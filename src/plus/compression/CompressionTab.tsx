@@ -1,9 +1,21 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { CompressionStatusData } from "../bridge/data";
-import type { CompressionPresetsData } from "../types/compression";
+import type {
+  CompressionDoctorData,
+  CompressionLedgerSummaryData,
+  CompressionPinData,
+  CompressionPresetsData,
+} from "../types/compression";
 import { AsyncView, useCtlQuery, type CtlQuery } from "../ui";
-import { PROVIDERS, ctl, planOfWrite } from "./model";
+import { HealthCard, VerifyDialog } from "./HealthCard";
+import { LedgerCard } from "./LedgerCard";
+import { ManageCard } from "./ManageCard";
+import { PinCard } from "./PinCard";
+import { RunCard } from "./RunCard";
+import { PROVIDERS, ctl, planOfPresets, planOfWrite } from "./model";
+import { useRead } from "./useRead";
 import { WriteDialogs, useRegistryRows, useWrite, type WriteControl } from "./useWrite";
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
@@ -120,7 +132,25 @@ function Presets({
   const undo = `toolportctl compression use ${status.preset.name}`;
   return (
     <section aria-label="Presets" className="flex flex-col gap-2">
-      <h3 className="text-sm font-semibold">Presets</h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">Presets</h3>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() =>
+            write.begin({
+              command: "compression presets",
+              title: "Refresh the preset knobs",
+              argv: ctl("presets", "--refresh"),
+              confirmLabel: "Refresh",
+              phrase: "refresh",
+              plan: (data) => planOfPresets(data, ""),
+            })
+          }
+        >
+          Refresh presets
+        </Button>
+      </div>
       <AsyncView query={query} errorTitle="Couldn't load the presets">
         {(data) => (
           <ul className="divide-y rounded-lg border">
@@ -170,20 +200,34 @@ function Presets({
   );
 }
 
-/** The Compression tab of the Tokens screen. PHASE 1 so far: status, provider switch and
- * presets; the other cards are listed in the item's progress file. */
+/** The Compression tab of the Tokens screen: the policy, the engine, its health, what it
+ * saved and how to run Claude under it. Every write goes through `useWrite`. */
 export function CompressionTab() {
   const rows = useRegistryRows();
   const status = useCtlQuery<CompressionStatusData>(ctl("status"));
   const presets = useCtlQuery<CompressionPresetsData>(ctl("presets"));
-  const { reload: reloadStatus } = status;
-  const { reload: reloadPresets } = presets;
-  const write = useWrite(rows, () => {
-    reloadStatus();
-    reloadPresets();
-  });
+  const pin = useCtlQuery<CompressionPinData>(ctl("pin"));
+  const ledger = useCtlQuery<CompressionLedgerSummaryData>(ctl("ledger", "summary"));
+  const doctor = useRead<CompressionDoctorData>(ctl("doctor"));
+  const [verifying, setVerifying] = useState(false);
+  const reloads = [
+    status.reload,
+    presets.reload,
+    pin.reload,
+    ledger.reload,
+    doctor.reload,
+  ];
+  const write = useWrite(rows, () => reloads.forEach((reload) => reload()));
   return (
     <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button size="sm" variant="outline" onClick={doctor.reload}>
+          Run doctor
+        </Button>
+        <Button size="sm" onClick={() => setVerifying(true)}>
+          Verify…
+        </Button>
+      </div>
       <AsyncView
         query={status}
         errorTitle="Couldn't read the compression policy"
@@ -193,10 +237,22 @@ export function CompressionTab() {
           <>
             <StatusStrip status={data} />
             <ProviderSwitcher status={data} write={write} />
+            <ManageCard
+              status={data}
+              presets={presets.data?.presets.map((preset) => preset.name) ?? []}
+              write={write}
+            />
             <Presets status={data} query={presets} write={write} />
           </>
         )}
       </AsyncView>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <PinCard query={pin} write={write} />
+        <HealthCard query={doctor} />
+        <LedgerCard query={ledger} write={write} />
+        <RunCard />
+      </div>
+      {verifying && <VerifyDialog onClose={() => setVerifying(false)} />}
       <WriteDialogs write={write} />
     </div>
   );
