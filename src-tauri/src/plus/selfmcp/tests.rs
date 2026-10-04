@@ -95,7 +95,16 @@ impl std::ops::Deref for Fixture {
 
 impl Fixture {
     pub(super) fn new(tag: &str) -> Self {
-        let base = crate::plus::testutil::DataDirFx::new("selfmcp", tag);
+        Self::build(crate::plus::testutil::DataDirFx::new("selfmcp", tag))
+    }
+
+    pub(super) fn with_vault(tag: &str) -> Self {
+        Self::build(
+            crate::plus::testutil::DataDirFx::new("selfmcp", tag).with_secret_key(&"cd".repeat(32)),
+        )
+    }
+
+    fn build(base: crate::plus::testutil::DataDirFx) -> Self {
         let dir = base.dir.clone();
         base.write_registry(&json!({
             "version": 1,

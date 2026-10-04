@@ -732,17 +732,34 @@ fn fork_sync_replays_local_commits_onto_a_second_remote() {
 }
 
 #[cfg(unix)]
-#[test]
-fn servers_auth_captures_the_consent_url_from_stderr() {
-    let fixture = Fixture::new("wired-auth");
+fn add_server(fixture: &Fixture, server: Value) {
     let registry_path = fixture.dir.join("registry.json");
     let mut reg: Value =
         serde_json::from_str(&std::fs::read_to_string(&registry_path).unwrap()).unwrap();
-    reg["servers"].as_array_mut().unwrap().push(json!({
-        "id": "srv-auth", "name": "authy", "transport": "stdio", "command": "sh",
-        "args": ["-c", "echo 'Visit https://example.invalid/consent?x=1 to log in.' >&2; sleep 0.2"]
-    }));
+    reg["servers"].as_array_mut().unwrap().push(server);
     std::fs::write(&registry_path, reg.to_string()).unwrap();
+}
+
+#[cfg(unix)]
+fn script_server(fixture: &Fixture, id: &str, body: &str) -> Value {
+    let script = fixture.dir.join(format!("{id}.sh"));
+    std::fs::write(&script, body).unwrap();
+    json!({
+        "id": id, "name": id, "transport": "stdio", "command": "sh",
+        "args": [script.to_string_lossy()]
+    })
+}
+
+#[cfg(unix)]
+#[test]
+fn servers_auth_captures_the_consent_url_from_stderr() {
+    let fixture = Fixture::new("wired-auth");
+    let server = script_server(
+        &fixture,
+        "authy",
+        "echo 'Visit https://example.invalid/consent?x=1 to log in.' >&2\nsleep 0.2\n",
+    );
+    add_server(&fixture, server);
     assert_eq!(
         kind(call("servers_auth", json!({"name": "authy"}))),
         "refused"
@@ -757,6 +774,91 @@ fn servers_auth_captures_the_consent_url_from_stderr() {
         )),
         "invalid_input"
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn servers_auth_goes_through_the_gateway_spawn_screening() {
+    let fixture = Fixture::new("wired-auth-screen");
+    let marker = fixture.dir.join("ran");
+    add_server(
+        &fixture,
+        json!({
+            "id": "inline", "name": "inline", "transport": "stdio", "command": "sh",
+            "args": ["-c", format!("touch {}; echo https://example.invalid/c >&2", marker.display())]
+        }),
+    );
+    let refused = call("servers_auth", json!({"name": "inline", "confirm": true})).unwrap_err();
+    assert_eq!(refused.kind, "refused");
+    assert!(refused.message.contains("refusing to launch"), "{refused:?}");
+    assert!(!marker.exists(), "a screened command must never start");
+
+    add_server(
+        &fixture,
+        json!({
+            "id": "wrapped", "name": "wrapped", "transport": "stdio", "command": "sudo",
+            "args": ["true"]
+        }),
+    );
+    assert_eq!(
+        kind(call("servers_auth", json!({"name": "wrapped", "confirm": true}))),
+        "refused"
+    );
+
+    add_server(
+        &fixture,
+        json!({
+            "id": "preload", "name": "preload", "transport": "stdio", "command": "true",
+            "args": [], "env": [{"key": "LD_PRELOAD", "value": "/tmp/x.so"}]
+        }),
+    );
+    let refused = call("servers_auth", json!({"name": "preload", "confirm": true})).unwrap_err();
+    assert_eq!(refused.kind, "refused");
+    assert!(refused.message.contains("LD_PRELOAD"), "{refused:?}");
+}
+
+#[cfg(unix)]
+#[test]
+fn servers_auth_never_returns_a_vault_secret_from_the_stderr_tail() {
+    const TOKEN: &str = "synthetic-vault-token-6c1e";
+    let fixture = Fixture::with_vault("wired-auth-leak");
+    crate::secrets::set_secret("leaky", "AUTH_TOKEN", TOKEN).unwrap();
+    let mut server = script_server(
+        &fixture,
+        "leaky",
+        "echo \"rejected key $AUTH_TOKEN\" >&2\necho 'Visit https://example.invalid/consent to log in.' >&2\nsleep 0.2\n",
+    );
+    server["env"] = json!([{"key": "AUTH_TOKEN", "secret": true}]);
+    add_server(&fixture, server);
+    let out = call("servers_auth", json!({"name": "leaky", "confirm": true})).unwrap();
+    assert_eq!(out["authUrl"], "https://example.invalid/consent");
+    let text = out.to_string();
+    assert!(!text.contains(TOKEN), "{text}");
+    assert!(text.contains("<redacted>"), "{text}");
+}
+
+#[cfg(unix)]
+#[test]
+fn servers_auth_does_not_start_a_team_server_that_awaits_review() {
+    let fixture = Fixture::new("wired-auth-review");
+    let marker = fixture.dir.join("ran");
+    let mut server = script_server(
+        &fixture,
+        "teamy",
+        &format!("touch {}\necho https://example.invalid/c >&2\n", marker.display()),
+    );
+    server["source"] = json!("team:acme");
+    add_server(&fixture, server);
+    let review = crate::plus::registry_ro::read()
+        .unwrap()
+        .servers
+        .iter()
+        .find(|s| s.id == "teamy")
+        .map(|s| s.needs_team_enable_review());
+    assert_eq!(review, Some(true), "the fixture must be a team server");
+    let refused = call("servers_auth", json!({"name": "teamy", "confirm": true})).unwrap_err();
+    assert_eq!(refused.kind, "refused");
+    assert!(!marker.exists());
 }
 
 #[test]
