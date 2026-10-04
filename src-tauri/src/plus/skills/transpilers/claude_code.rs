@@ -120,10 +120,12 @@ impl Transpiler for ClaudeCode {
                 fields.push(("paths", Field::Raw(p)));
             }
             let frontmatter = render_frontmatter(&fields);
+            let body = crate::plus::context::layer_spec::rule_body(root, &skill.source_path)
+                .unwrap_or_else(|| skill.body.clone());
             if frontmatter.is_empty() {
-                format!("{}\n", skill.body)
+                format!("{body}\n")
             } else {
-                format!("{frontmatter}\n\n{}\n", skill.body)
+                format!("{frontmatter}\n\n{body}\n")
             }
         } else {
             let mut fields = vec![

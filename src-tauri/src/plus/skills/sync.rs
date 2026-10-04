@@ -110,6 +110,17 @@ pub fn sync_skills(
     opts: &SyncOptions<'_>,
 ) -> Result<SyncResult, String> {
     let output_root = opts.output_root.as_path();
+    let delivered_elsewhere = |s: &Skill| {
+        s.skill_type == SkillType::Rule
+            && crate::plus::context::layer_spec::is_folder_rule(&s.source_path)
+    };
+    let kept: Vec<Skill>;
+    let skills = if skills.iter().any(delivered_elsewhere) {
+        kept = skills.iter().filter(|s| !delivered_elsewhere(s)).cloned().collect();
+        kept.as_slice()
+    } else {
+        skills
+    };
     let mut lock = LockFile::new(opts.clock.now().isoformat());
     lock.scope = if opts.global_mode {
         "global"

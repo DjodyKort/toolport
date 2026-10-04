@@ -9,7 +9,7 @@ use super::{
     apply, dedupe, launch, load_config, lock_real_run, preserve_unreadable, roots_from_args,
     save_config, settings, shims, zshrc, ApplyOptions, Report, Roots,
 };
-use crate::plus::args::{flag, flag_or, str_arg, str_nonempty};
+use crate::plus::args::{flag, flag_or, str_arg};
 use serde_json::{json, Map, Value};
 use std::fs;
 use std::path::{Component, Path};
@@ -158,39 +158,17 @@ fn layer_value(layer: &Layer) -> Value {
     })
 }
 
-/// `plus.context.clientAdd`: scaffolds `rules/client-<slug>/SKILL.md` with a path glob. Names the
-/// skills pipeline would reject or that cannot sit in the frontmatter are refused.
+/// `plus.context.clientAdd`: scaffolds `rules/client-<slug>/SKILL.md` with a path glob, a scope,
+/// imports and a delivery (`layer_manage`). Names the skills pipeline would reject or that cannot
+/// sit in the frontmatter are refused.
 pub fn client_add_handler(args: Value) -> Result<Value, String> {
-    let roots = roots_from_args(&args)?;
-    let name = required(&args, "name")?;
-    if name.trim().is_empty() {
-        return Err("client name must not be empty".into());
-    }
-    let glob = str_nonempty(&args, "glob");
-    let rule = layers::plan_client_rule(&roots, name, glob)?;
-    let dry = dry_run(&args);
-    let created = !rule.path.exists();
-    if created && !dry {
-        layers::scaffold_client_rule(&roots, name, glob)?;
-    }
-    Ok(json!({
-        "dryRun": dry,
-        "name": name,
-        "rule": format!("client-{}", layers::slug(name)),
-        "path": path_text(&rule.path),
-        "glob": rule.glob,
-        "created": created,
-    }))
+    super::layer_manage::add(&args).map_err(|e| e.message)
 }
 
-/// `plus.context.clientList`: every context layer with its path globs (always on without any).
+/// `plus.context.clientList`: every context layer with its path globs (always on without any), its
+/// scope, imports, delivery and where it is deployed.
 pub fn client_list_handler(args: Value) -> Result<Value, String> {
-    let roots = roots_from_args(&args)?;
-    let layers: Vec<Value> = layers::list_layers(&roots)
-        .iter()
-        .map(layer_value)
-        .collect();
-    Ok(json!({"layers": layers}))
+    super::layer_manage::list(&args).map_err(|e| e.message)
 }
 
 /// Profile names become shell function names and directory names.

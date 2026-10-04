@@ -102,6 +102,23 @@ pub struct SettingsPolicy {
     pub ensure_ask: Vec<String>,
 }
 
+/// What `context client add <name>` fills in for a layer the user named in `layerScaffolds`, so a
+/// layer that always has the same imports and folders (a knowledge layer for a client tree) is one
+/// short command, and the paths live in the user's config and not in the code.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct LayerScaffold {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub glob: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub folders: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub imports: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delivery: Option<String>,
+}
+
 fn default_clients_root() -> String {
     "~/Documents/GitHub/ExampleWorkspace/clients".into()
 }
@@ -142,6 +159,12 @@ pub struct ContextConfig {
         skip_serializing_if = "std::ops::Not::not"
     )]
     pub bundle_auto_apply: bool,
+    #[serde(
+        default,
+        rename = "layerScaffolds",
+        skip_serializing_if = "BTreeMap::is_empty"
+    )]
+    pub layer_scaffolds: BTreeMap<String, LayerScaffold>,
 }
 
 impl Default for ContextConfig {
@@ -157,6 +180,7 @@ impl Default for ContextConfig {
             source_roots: Vec::new(),
             inert_patterns: Vec::new(),
             bundle_auto_apply: false,
+            layer_scaffolds: BTreeMap::new(),
         }
     }
 }
