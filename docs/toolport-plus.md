@@ -8,6 +8,7 @@ Toolport+ is a fork of Toolport. Everything the fork adds lives under `src-tauri
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `mod.rs`                       | Handler table (`plus.*` names) and `dispatch`; the only IPC surface (`plus_invoke`).                                                                       |
 | `ctl/`                         | `toolportctl` command line: parsing, the `COMMANDS` table, JSON envelope output, per-area command files.                                                   |
+| `direct/`                      | Opt-in direct client entries: ownership record, `direct run` launcher, core of `client direct`.                                                            |
 | `auth/`                        | Expired-login detection: stdio and remote auth probes, status cache, gateway state, Google OAuth refresh, status surfaces (statusline, SessionStart hook). |
 | `context/`                     | Context engine: layered rules, `CLAUDE.local.md` deploy, settings union, legacy MCP dedupe, shims, "what loads" viewer, folder profiles.                   |
 | `compression/`                 | Compression policy, provider health, shims, launch plan and the token-savings ledger.                                                                      |
@@ -36,6 +37,8 @@ Global flag `--json` prints one envelope (`schemaVersion`, `command`, `data`). E
 | `inspect`, `profile inspect`                                            | List tools of a server or of a whole profile (connects live)       |
 | `profile ls / create / edit / rm`                                       | List, create, edit and remove profiles; `rm` cleans clients        |
 | `client ls / sync / edit / import`                                      | Detect clients; sync; set a client's profile; import entries       |
+| `client direct add / rm / ls`                                           | Opt-in: give one client a direct entry for one stdio server        |
+| `direct run`                                                            | Stdio launcher a direct client entry starts (not run by hand)      |
 | `auth statusline / hook / probe / login`                                | Auth-health JSON; probe now (`--server`, `--force`); sign in again |
 | `secret set / get / rm`                                                 | Server secrets (stdin or `--value-env`; `get --reveal` prints)     |
 | `context loads / folders / checkpoint-status / plan / apply / sync`     | What a session loads, folder profiles, checkpoint, context deploy  |
@@ -73,9 +76,9 @@ It binds `127.0.0.1` only and answers `POST /v1/metrics` and `POST /v1/logs` (`a
 
 ## Self-management MCP server
 
-`toolport-plus-self` is the `toolport-selfmcp` binary registered as a stdio server: 55 tools and 11 `mcpm://` resources for skills, agents, styles, servers, clients and sync. `import mcpm`, `toolportctl mcp install` and `plus.selfmcp.ensure` register it and switch it on in the active (default) profile and in the profile of every connected client (`clientScopes`), so every client connected through the gateway sees its tools. A profile created later (a new client) gets it the next time one of those runs. The binary must sit next to `toolportctl` or in `<data dir>/bin`; `toolportctl mcp doctor` checks it.
+`toolport-plus-self` is the `toolport-selfmcp` binary registered as a stdio server: 58 tools and 11 `mcpm://` resources for skills, agents, styles, servers, clients and sync. `import mcpm`, `toolportctl mcp install` and `plus.selfmcp.ensure` register it and switch it on in the active (default) profile and in the profile of every connected client (`clientScopes`), so every client connected through the gateway sees its tools. A profile created later (a new client) gets it the next time one of those runs. The binary must sit next to `toolportctl` or in `<data dir>/bin`; `toolportctl mcp doctor` checks it.
 
-**What it costs.** The 55 tool definitions are about 23 KB of JSON, roughly 5,700 tokens, in every client that lists all tools (full discovery, which import sets for Claude Code). A client in lazy discovery (the import default for every other client) lists none of them and pays only when it searches with `toolport_search_tools`. Exposed names are at most 46 characters (`toolport_plus_self__servers_remove_profile_tag`), which keeps `mcp__toolport__...` inside the 64 character limit of Claude Code. Tier 3 and tier 4 tools refuse unless `confirm` is true.
+**What it costs.** The 58 tool definitions are about 25 KB of JSON, roughly 6,100 tokens, in every client that lists all tools (full discovery, which import sets for Claude Code). A client in lazy discovery (the import default for every other client) lists none of them and pays only when it searches with `toolport_search_tools`. Exposed names are at most 46 characters (`toolport_plus_self__servers_remove_profile_tag`), which keeps `mcp__toolport__...` inside the 64 character limit of Claude Code. Tier 3 and tier 4 tools refuse unless `confirm` is true.
 
 **Turning it off.**
 
@@ -88,6 +91,32 @@ It binds `127.0.0.1` only and answers `POST /v1/metrics` and `POST /v1/logs` (`a
 `toolportctl mcp doctor` reports the state: `enabled`, `disabled` (switched off on purpose in a profile, healthy), `opted-out` (uninstalled, healthy), `not-enabled` and `missing` (both fail with exit code 1, and `toolportctl mcp install` repairs them).
 
 The gateway removes every `TOOLPORT_*` variable from the servers it starts. If you move the data directory with `TOOLPORT_DATA_DIR`, give the self server the same variable in its own `env`, or its tools manage the default data directory instead.
+
+## Direct client entries (opt-in)
+
+By default every client reaches every server through the one gateway entry. For a few servers that is the wrong shape, for example a local stdio server a single client should start itself. `toolportctl client direct add <server> --client <id>` gives that client an entry named after the server, next to the gateway entry:
+
+```
+toolportctl client direct add odoo --client claude-code --dry-run   # plan, write nothing
+toolportctl client direct add odoo --client claude-code
+toolportctl client direct ls [--client claude-code]
+toolportctl client direct rm odoo --client claude-code
+```
+
+The entry runs `toolportctl direct run <server id>`, never the server's own command, and holds no secret. The launcher reads the server's command, arguments and environment from the registry and the secret store when the client starts it, applies the same spawn checks as the gateway, removes `TOOLPORT_*` from the child's environment, hands over stdin and stdout and gives back the server's exit status (on Unix it replaces itself with the server, so nothing sits between the client and the server). If you moved the data directory with `TOOLPORT_DATA_DIR`, that one variable is repeated in the entry's `env`; the encrypted secret file's `TOOLPORT_SECRET_KEY` never is, so a client that uses it must have it in its own environment.
+
+**What you give up.** A direct entry bypasses the gateway. Its tools are not covered by profile tool scopes, approvals (HITL), receipts or lazy discovery, and every client with a direct entry starts its own process of the server instead of sharing one. `direct add` prints this, and so does its dry run.
+
+**What is allowed.** Local stdio servers only. A remote (http, sse) server, a server whose sign-in Toolport manages (OAuth) and a server with a `${ROOT}` working directory only work through the gateway; `direct add` refuses them with the reason, exits with code 1 and writes nothing. An existing entry with the same name that Toolport did not write needs `--force`.
+
+**Ownership.** The registry records every entry it wrote under `plus.directEntries.<client>.<entry>`. Because of that record:
+
+- `client sync` leaves the entry alone, and still prunes foreign direct entries that duplicate or orphan registered servers.
+- `client ls`, `status` and `doctor` report launcher entries; `client direct ls` gives each a state: `ok`, `stale` (the launcher binary moved), `customized` (edited after it was written; `rm` and `add` need `--force`), `missing` (recorded, gone from the client), `orphan` (the server was removed) or `unrecorded` (launcher-shaped but not recorded).
+- `server uninstall` removes the entries in every client, and `client import` does not import them back.
+- Writes use the normal client writers: a backup first, every other key and server kept, every supported format, and JSON comments kept where the format has them.
+
+The desktop handlers are `plus.client.directAdd`, `plus.client.directRm` and `plus.client.directLs` (arguments `server`, `client`, `force`, `dryRun`); the self-management server has `client_direct_ls` (tier 1) and `client_direct_add` and `client_direct_rm` (tier 2). Like the tap tools, the two writing tools plan only unless `dry_run` is passed as false.
 
 ## Login health
 
