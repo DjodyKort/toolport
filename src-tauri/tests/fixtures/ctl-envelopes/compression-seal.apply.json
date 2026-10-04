@@ -1,0 +1,29 @@
+{
+  "argv": ["compression", "seal", "--apply"],
+  "envelope": {
+    "command": "compression seal",
+    "data": {
+      "apply": true,
+      "complete": false,
+      "declarable": [
+        {
+          "knob": "HEADROOM_MAX_ITEMS",
+          "value": "50"
+        },
+        {
+          "knob": "HEADROOM_ACCURACY_GUARD",
+          "value": "1"
+        }
+      ],
+      "dryRun": false,
+      "port": 49214,
+      "preset": "interactive",
+      "sealed": 2,
+      "unset": ["HEADROOM_PROTECT_RECENT"],
+      "version": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

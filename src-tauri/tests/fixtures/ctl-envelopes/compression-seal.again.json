@@ -1,0 +1,20 @@
+{
+  "argv": ["compression", "seal", "--apply"],
+  "envelope": {
+    "command": "compression seal",
+    "data": {
+      "apply": true,
+      "complete": false,
+      "declarable": [],
+      "dryRun": false,
+      "port": 49214,
+      "preset": "interactive",
+      "sealed": 0,
+      "unset": ["HEADROOM_PROTECT_RECENT"],
+      "version": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

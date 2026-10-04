@@ -4,7 +4,7 @@
 //! (`direct run`, `auth login`, `compression proxy`, `compression run`) records what it prints
 //! without a terminal, a browser or an engine, and says so next to its case.
 
-use crate::ctl_fixtures::{git_world, import_world, transcripts_world};
+use crate::ctl_fixtures::{git_world, health_proxy, import_world, transcripts_world};
 
 use super::{apply, case, prepared, read, setup, usage, Case, COUNCIL_KEY, PASSPHRASE, VAULTED};
 
@@ -108,7 +108,11 @@ pub const MORE: &[Case] = &[
                 ],
             ),
             read("after", &["server", "info", "gamma"]),
-            apply("unknown", &["server", "edit", "no-such-server", "--arg", "q"]).exit(1),
+            apply(
+                "unknown",
+                &["server", "edit", "no-such-server", "--arg", "q"],
+            )
+            .exit(1),
             usage("usage", &["server", "edit"]),
         ],
     ),
@@ -172,7 +176,14 @@ pub const MORE: &[Case] = &[
             ),
             apply(
                 "apply",
-                &["client", "direct", "add", "alpha", "--client", "claude-code"],
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                ],
             ),
             read("after", &["client", "direct", "ls"]),
             usage("usage", &["client", "direct", "add"]),
@@ -183,7 +194,14 @@ pub const MORE: &[Case] = &[
         &[
             setup(
                 "setup",
-                &["client", "direct", "add", "alpha", "--client", "claude-code"],
+                &[
+                    "client",
+                    "direct",
+                    "add",
+                    "alpha",
+                    "--client",
+                    "claude-code",
+                ],
             ),
             read(
                 "preview",
@@ -235,7 +253,11 @@ pub const MORE: &[Case] = &[
         &[
             setup("setup", &["secret", "set", "alpha", "API_TOKEN"]).stdin(VAULTED),
             read("set", &["secret", "get", "alpha", "API_TOKEN"]),
-            read("reveal", &["secret", "get", "alpha", "API_TOKEN", "--reveal"]).reveals(),
+            read(
+                "reveal",
+                &["secret", "get", "alpha", "API_TOKEN", "--reveal"],
+            )
+            .reveals(),
             read("unset", &["secret", "get", "alpha", "NO_SUCH_KEY"]).exit(1),
             usage("usage", &["secret", "get"]),
         ],
@@ -256,7 +278,11 @@ pub const MORE: &[Case] = &[
             // the walk up from the folder reads project settings of every ancestor, so the
             // golden starts at the filesystem root instead of the machine's temp directory
             read("root", &["context", "loads", "--cwd", "/"]),
-            read("profile", &["context", "loads", "--profile", "no-such-profile"]).exit(1),
+            read(
+                "profile",
+                &["context", "loads", "--profile", "no-such-profile"],
+            )
+            .exit(1),
         ],
     ),
     case(
@@ -295,7 +321,10 @@ pub const MORE: &[Case] = &[
     case(
         "context client add",
         &[
-            read("preview", &["context", "client", "add", "acme", "--dry-run"]),
+            read(
+                "preview",
+                &["context", "client", "add", "acme", "--dry-run"],
+            ),
             apply("apply", &["context", "client", "add", "acme"]),
             usage("usage", &["context", "client", "add"]),
         ],
@@ -306,14 +335,28 @@ pub const MORE: &[Case] = &[
             read(
                 "preview",
                 &[
-                    "context", "profile", "add", "work", "--rules", "none", "--servers", "none",
+                    "context",
+                    "profile",
+                    "add",
+                    "work",
+                    "--rules",
+                    "none",
+                    "--servers",
+                    "none",
                     "--dry-run",
                 ],
             ),
             apply(
                 "apply",
                 &[
-                    "context", "profile", "add", "work", "--rules", "none", "--servers", "none",
+                    "context",
+                    "profile",
+                    "add",
+                    "work",
+                    "--rules",
+                    "none",
+                    "--servers",
+                    "none",
                 ],
             ),
             usage("usage", &["context", "profile", "add"]),
@@ -325,14 +368,31 @@ pub const MORE: &[Case] = &[
             setup(
                 "setup",
                 &[
-                    "context", "profile", "add", "work", "--rules", "none", "--servers", "none",
+                    "context",
+                    "profile",
+                    "add",
+                    "work",
+                    "--rules",
+                    "none",
+                    "--servers",
+                    "none",
                 ],
             ),
             read(
                 "preview",
-                &["context", "profile", "remove", "work", "--purge", "--dry-run"],
+                &[
+                    "context",
+                    "profile",
+                    "remove",
+                    "work",
+                    "--purge",
+                    "--dry-run",
+                ],
             ),
-            apply("apply", &["context", "profile", "remove", "work", "--purge"]),
+            apply(
+                "apply",
+                &["context", "profile", "remove", "work", "--purge"],
+            ),
             usage("usage", &["context", "profile", "remove"]),
         ],
     ),
@@ -342,7 +402,14 @@ pub const MORE: &[Case] = &[
             setup(
                 "setup",
                 &[
-                    "context", "profile", "add", "work", "--rules", "none", "--servers", "none",
+                    "context",
+                    "profile",
+                    "add",
+                    "work",
+                    "--rules",
+                    "none",
+                    "--servers",
+                    "none",
                 ],
             ),
             read(
@@ -358,9 +425,18 @@ pub const MORE: &[Case] = &[
         &[
             read(
                 "preview",
-                &["compression", "enable", "--provider", "rtk-only", "--dry-run"],
+                &[
+                    "compression",
+                    "enable",
+                    "--provider",
+                    "rtk-only",
+                    "--dry-run",
+                ],
             ),
-            apply("apply", &["compression", "enable", "--provider", "rtk-only"]),
+            apply(
+                "apply",
+                &["compression", "enable", "--provider", "rtk-only"],
+            ),
         ],
     ),
     case(
@@ -389,13 +465,28 @@ pub const MORE: &[Case] = &[
             apply("apply", &["compression", "sync"]),
         ],
     ),
-    // reads the proxy's /health; the preset moves to a port nothing listens on, so a proxy of the
-    // machine that runs the test is never touched
-    case(
+    // reads the proxy's /health; the preset moves to a port nothing listens on, then to a port
+    // that answers like the proxy, so a proxy of the machine that runs the test is never touched
+    prepared(
         "compression seal",
+        |_| health_proxy(49214),
         &[
             setup("setup", OFF_PORT_PROXY),
             read("no-proxy", &["compression", "seal"]).exit(1),
+            setup(
+                "proxy",
+                &[
+                    "compression",
+                    "enable",
+                    "--provider",
+                    "headroom",
+                    "--port",
+                    "49214",
+                ],
+            ),
+            read("preview", &["compression", "seal", "--dry-run"]),
+            apply("apply", &["compression", "seal", "--apply"]),
+            apply("again", &["compression", "seal", "--apply"]),
         ],
     ),
     case(
@@ -584,11 +675,26 @@ pub const MORE: &[Case] = &[
         &[
             read(
                 "preview",
-                &["skills", "init", "--path", "{base}/fresh", "--name", "contract", "--dry-run"],
+                &[
+                    "skills",
+                    "init",
+                    "--path",
+                    "{base}/fresh",
+                    "--name",
+                    "contract",
+                    "--dry-run",
+                ],
             ),
             apply(
                 "apply",
-                &["skills", "init", "--path", "{base}/fresh", "--name", "contract"],
+                &[
+                    "skills",
+                    "init",
+                    "--path",
+                    "{base}/fresh",
+                    "--name",
+                    "contract",
+                ],
             ),
         ],
     ),
@@ -597,11 +703,25 @@ pub const MORE: &[Case] = &[
         &[
             setup(
                 "setup",
-                &["skills", "init", "--path", "{base}/fresh", "--name", "contract"],
+                &[
+                    "skills",
+                    "init",
+                    "--path",
+                    "{base}/fresh",
+                    "--name",
+                    "contract",
+                ],
             ),
             read(
                 "preview",
-                &["skills", "add", "fresh-skill", "--path", "{base}/fresh", "--dry-run"],
+                &[
+                    "skills",
+                    "add",
+                    "fresh-skill",
+                    "--path",
+                    "{base}/fresh",
+                    "--dry-run",
+                ],
             ),
             apply(
                 "apply",
@@ -613,10 +733,20 @@ pub const MORE: &[Case] = &[
     case(
         "skills bundle",
         &[
-            read("preview", &["skills", "bundle", "--repo", "{repo}", "--dry-run"]),
+            read(
+                "preview",
+                &["skills", "bundle", "--repo", "{repo}", "--dry-run"],
+            ),
             apply(
                 "apply",
-                &["skills", "bundle", "--repo", "{repo}", "--output", "{base}/demo.zip"],
+                &[
+                    "skills",
+                    "bundle",
+                    "--repo",
+                    "{repo}",
+                    "--output",
+                    "{base}/demo.zip",
+                ],
             ),
         ],
     ),
@@ -625,19 +755,46 @@ pub const MORE: &[Case] = &[
         &[
             setup(
                 "bundle",
-                &["skills", "bundle", "--repo", "{repo}", "--output", "{base}/demo.zip"],
+                &[
+                    "skills",
+                    "bundle",
+                    "--repo",
+                    "{repo}",
+                    "--output",
+                    "{base}/demo.zip",
+                ],
             ),
             setup(
                 "init",
-                &["skills", "init", "--path", "{base}/fresh", "--name", "contract"],
+                &[
+                    "skills",
+                    "init",
+                    "--path",
+                    "{base}/fresh",
+                    "--name",
+                    "contract",
+                ],
             ),
             read(
                 "preview",
-                &["skills", "unbundle", "{base}/demo.zip", "--path", "{base}/fresh", "--dry-run"],
+                &[
+                    "skills",
+                    "unbundle",
+                    "{base}/demo.zip",
+                    "--path",
+                    "{base}/fresh",
+                    "--dry-run",
+                ],
             ),
             apply(
                 "apply",
-                &["skills", "unbundle", "{base}/demo.zip", "--path", "{base}/fresh"],
+                &[
+                    "skills",
+                    "unbundle",
+                    "{base}/demo.zip",
+                    "--path",
+                    "{base}/fresh",
+                ],
             ),
             usage("usage", &["skills", "unbundle"]),
         ],
@@ -646,7 +803,10 @@ pub const MORE: &[Case] = &[
         "skills clean",
         &[
             setup("setup", &["skills", "sync", "--repo", "{repo}"]),
-            read("preview", &["skills", "clean", "--repo", "{repo}", "--dry-run"]),
+            read(
+                "preview",
+                &["skills", "clean", "--repo", "{repo}", "--dry-run"],
+            ),
             apply("apply", &["skills", "clean", "--repo", "{repo}"]),
         ],
     ),
@@ -656,10 +816,24 @@ pub const MORE: &[Case] = &[
             setup("setup", &["skills", "sync", "--repo", "{repo}"]),
             read(
                 "preview",
-                &["skills", "uninstall", "demo", "--repo", "{repo}", "--dry-run"],
+                &[
+                    "skills",
+                    "uninstall",
+                    "demo",
+                    "--repo",
+                    "{repo}",
+                    "--dry-run",
+                ],
             ),
-            apply("apply", &["skills", "uninstall", "demo", "--repo", "{repo}"]),
-            apply("unknown", &["skills", "uninstall", "demo", "--repo", "{repo}"]).exit(1),
+            apply(
+                "apply",
+                &["skills", "uninstall", "demo", "--repo", "{repo}"],
+            ),
+            apply(
+                "unknown",
+                &["skills", "uninstall", "demo", "--repo", "{repo}"],
+            )
+            .exit(1),
             usage("usage", &["skills", "uninstall"]),
         ],
     ),
@@ -667,7 +841,10 @@ pub const MORE: &[Case] = &[
         "skills resolve",
         &[
             setup("setup", &["skills", "sync", "--repo", "{repo}"]),
-            read("preview", &["skills", "resolve", "--repo", "{repo}", "--dry-run"]),
+            read(
+                "preview",
+                &["skills", "resolve", "--repo", "{repo}", "--dry-run"],
+            ),
             apply("apply", &["skills", "resolve", "--repo", "{repo}"]),
         ],
     ),
@@ -677,7 +854,15 @@ pub const MORE: &[Case] = &[
         &[
             read(
                 "preview",
-                &["skills", "tap", "add", "{base}/tap-src", "--name", "local", "--dry-run"],
+                &[
+                    "skills",
+                    "tap",
+                    "add",
+                    "{base}/tap-src",
+                    "--name",
+                    "local",
+                    "--dry-run",
+                ],
             ),
             apply(
                 "apply",
@@ -695,7 +880,10 @@ pub const MORE: &[Case] = &[
                 "setup",
                 &["skills", "tap", "add", "{base}/tap-src", "--name", "local"],
             ),
-            read("preview", &["skills", "tap", "remove", "local", "--dry-run"]),
+            read(
+                "preview",
+                &["skills", "tap", "remove", "local", "--dry-run"],
+            ),
             apply("apply", &["skills", "tap", "remove", "local"]),
             apply("unknown", &["skills", "tap", "remove", "local"]).exit(1),
             usage("usage", &["skills", "tap", "remove"]),
@@ -742,7 +930,10 @@ pub const MORE: &[Case] = &[
     case(
         "agents add",
         &[
-            read("preview", &["agents", "add", "scout", "--repo", "{repo}", "--dry-run"]),
+            read(
+                "preview",
+                &["agents", "add", "scout", "--repo", "{repo}", "--dry-run"],
+            ),
             apply("apply", &["agents", "add", "scout", "--repo", "{repo}"]),
             usage("usage", &["agents", "add"]),
         ],
@@ -754,7 +945,10 @@ pub const MORE: &[Case] = &[
     case(
         "agents sync",
         &[
-            read("preview", &["agents", "sync", "--repo", "{repo}", "--dry-run"]),
+            read(
+                "preview",
+                &["agents", "sync", "--repo", "{repo}", "--dry-run"],
+            ),
             apply("apply", &["agents", "sync", "--repo", "{repo}"]),
         ],
     ),
@@ -762,7 +956,10 @@ pub const MORE: &[Case] = &[
         "agents clean",
         &[
             setup("setup", &["agents", "sync", "--repo", "{repo}"]),
-            read("preview", &["agents", "clean", "--repo", "{repo}", "--dry-run"]),
+            read(
+                "preview",
+                &["agents", "clean", "--repo", "{repo}", "--dry-run"],
+            ),
             apply("apply", &["agents", "clean", "--repo", "{repo}"]),
         ],
     ),
@@ -772,9 +969,19 @@ pub const MORE: &[Case] = &[
             setup("setup", &["agents", "sync", "--repo", "{repo}"]),
             read(
                 "preview",
-                &["agents", "uninstall", "helper", "--repo", "{repo}", "--dry-run"],
+                &[
+                    "agents",
+                    "uninstall",
+                    "helper",
+                    "--repo",
+                    "{repo}",
+                    "--dry-run",
+                ],
             ),
-            apply("apply", &["agents", "uninstall", "helper", "--repo", "{repo}"]),
+            apply(
+                "apply",
+                &["agents", "uninstall", "helper", "--repo", "{repo}"],
+            ),
             usage("usage", &["agents", "uninstall"]),
         ],
     ),
@@ -782,7 +989,10 @@ pub const MORE: &[Case] = &[
     case(
         "styles add",
         &[
-            read("preview", &["styles", "add", "terse", "--repo", "{repo}", "--dry-run"]),
+            read(
+                "preview",
+                &["styles", "add", "terse", "--repo", "{repo}", "--dry-run"],
+            ),
             apply("apply", &["styles", "add", "terse", "--repo", "{repo}"]),
             usage("usage", &["styles", "add"]),
         ],
@@ -790,7 +1000,10 @@ pub const MORE: &[Case] = &[
     case(
         "styles sync",
         &[
-            read("preview", &["styles", "sync", "--repo", "{repo}", "--dry-run"]),
+            read(
+                "preview",
+                &["styles", "sync", "--repo", "{repo}", "--dry-run"],
+            ),
             apply("apply", &["styles", "sync", "--repo", "{repo}"]),
         ],
     ),
@@ -809,7 +1022,10 @@ pub const MORE: &[Case] = &[
         "styles remove",
         &[
             setup("setup", &["styles", "apply", "plain", "--repo", "{repo}"]),
-            read("preview", &["styles", "remove", "--repo", "{repo}", "--dry-run"]),
+            read(
+                "preview",
+                &["styles", "remove", "--repo", "{repo}", "--dry-run"],
+            ),
             apply("apply", &["styles", "remove", "--repo", "{repo}"]),
         ],
     ),
@@ -817,7 +1033,10 @@ pub const MORE: &[Case] = &[
         "styles clean",
         &[
             setup("setup", &["styles", "sync", "--repo", "{repo}"]),
-            read("preview", &["styles", "clean", "--repo", "{repo}", "--dry-run"]),
+            read(
+                "preview",
+                &["styles", "clean", "--repo", "{repo}", "--dry-run"],
+            ),
             apply("apply", &["styles", "clean", "--repo", "{repo}"]),
         ],
     ),
@@ -978,7 +1197,10 @@ pub const MORE: &[Case] = &[
     case(
         "obs otel enable",
         &[
-            read("preview", &["obs", "otel", "enable", "--port", "4999", "--dry-run"]),
+            read(
+                "preview",
+                &["obs", "otel", "enable", "--port", "4999", "--dry-run"],
+            ),
             apply("apply", &["obs", "otel", "enable", "--port", "4999"]),
         ],
     ),
