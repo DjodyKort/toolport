@@ -234,6 +234,12 @@ MIG-GUI-1 edits:
 | `plus/fixtures/commandsRegistry.ts`        | exports `command`, `flag` and `DRY_RUN` for `skills/commandRows.ts`                                                                                                                                                              |
 | `scripts/browser-smoke.mjs` (skills)       | Library opens on Skills and Plugins is the not-built tab; the Skills walk in both themes; `screenshots.mjs` lists its eight shots                                                                                                |
 | `src/plus/gui-parity.json` (library)       | the `library` route and its 19 actions are `built`; 19 skills commands and 18 skills tools point at them                                                                                                                         |
+| `src/plus/nav.ts` (agents)           | `agents` is a Plus view ("Agents & styles") that lights Library; `PlusViews.tsx` lazy-loads `AgentsScreen`                                                   |
+| `src/plus/notBuiltTabs.ts`           | `PlusTab.opens`: the Agents and Styles tabs of the Library placeholder open the `agents` view                                                                |
+| `src/plus/NotBuilt.tsx`              | `onOpenView` prop: an "Open Agents & styles" button on a tab that has `opens`                                                                                |
+| `src/plus/fixtures/plusCtl.ts`       | `commands` appends `agentsCommandRows`; the agents rows are `createAgentsWorld()`; a function row is called                                                  |
+| `scripts/browser-smoke.mjs` (agents) | the Agents and Styles walk in both themes; `screenshots.mjs` lists the seven shots                                                                           |
+| `src/plus/gui-parity.json` (agents)  | the `agents` route and its 18 actions are `built`; the 18 agents and styles commands point at them                                                           |
 
 ## Sources
 
@@ -343,6 +349,24 @@ The entry runs `toolportctl direct run <server id>`, never the server's own comm
 - Writes use the normal client writers: a backup first, every other key and server kept, every supported format, and JSON comments kept where the format has them.
 
 The desktop handlers are `plus.client.directAdd`, `plus.client.directRm` and `plus.client.directLs` (arguments `server`, `client`, `force`, `dryRun`); the self-management server has `client_direct_ls` (tier 1) and `client_direct_add` and `client_direct_rm` (tier 2). Like the tap tools, the two writing tools plan only unless `dry_run` is passed as false.
+
+## Agents & styles
+
+`src/plus/agents/` builds the two tabs of the approved mockup nav item "Agents & styles": `AgentsTab` and `StylesTab` (no props), and `AgentsScreen`, a host with both. The Library shell (MIG-GUI-3) mounts the same two panels as its Agents and Styles tabs; until it does, the Agents and Styles tabs of the Library placeholder lead to the `agents` view.
+
+| Tab    | Reads                                                                                                                  | Writes (policy tier from `toolportctl commands`)                                                                                               |
+| ------ | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Agents | `agents ls`, `agents sync --dry-run` (the per-client output and the dropped fields), `status`, `lint`, `audit`, `diff` | `agents sync [--client]` (write), `agents add <name>` (write), `agents clean` and `agents uninstall <name>` (destructive: the phrase is typed) |
+| Styles | `styles ls`, `status`, `lint`, `diff`                                                                                  | `styles add <name>`, `sync`, `apply <name>` (write), `styles remove` and `styles clean` (destructive: the phrase is typed)                     |
+
+- Every write is the D-059 flow: the command's own `--dry-run`, a plan worded from its answer (`plans.ts`: these commands answer in their own shape, not as `data.plan`; a `data.plan` wins when a command starts sending one), the confirmation, the apply in `JobProgress`, then every read of the tab runs again. A failed preview never applies, and a command the registry does not classify is refused with a message.
+- `--home` and `--path` are never sent: the app uses the configured skills repository and the real home. The dropped fields come from the warnings of `agents sync --dry-run`, which writes nothing, so they show before the first sync.
+- Lint, audit and `status --strict` exit 1 with a normal `data`; the panels read that data instead of showing an error.
+- Editing a body has no CLI command: the button is disabled and says it waits for `mcp call agents_edit_body` and `styles_edit_body` (MIG-GUI-14), with the path and Copy path next to it.
+- The Styles tab starts empty with one action, "Create your first style", and nothing else to press.
+- Tests: `testkit.ts` is a fake `plus_ctl` bridge over `src/plus/fixtures/agents.ts` (a command without a reply fails the test). `createBridge({ world: true })` and the dev browser fixture use `src/plus/fixtures/agentsWorld.ts` instead, where an applied write changes the next read: a sync writes the outputs, a clean removes them but keeps the lockfile (so the drift shows), a created style appears in the list. `AgentsTab.e2e.test.tsx` and `StylesTab.e2e.test.tsx` walk the real screen through that world, one test per parity action id; `agentsWorld.test.ts` checks every world reply against the golden shapes.
+
+Screenshots (1280x800, from `npm run screenshots:gui`): `docs/assets/gui-agents-light.png` and `gui-agents-dark.png` (one agent in four clients with the dropped `tools` of Codex CLI and Cursor), `gui-agents-plan-light.png` (the sync plan with its warnings), `gui-agents-clean-light.png` (the typed confirmation of a clean), `gui-styles-empty-light.png` (no styles yet) and `gui-styles-light.png`, `gui-styles-dark.png` (a style synced to the native clients and always on in four others).
 
 ## Login health
 
