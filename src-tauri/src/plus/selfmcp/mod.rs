@@ -78,6 +78,12 @@ impl ToolError {
     }
 }
 
+impl From<std::io::Error> for ToolError {
+    fn from(error: std::io::Error) -> Self {
+        Self::backend(error.to_string())
+    }
+}
+
 impl From<OpError> for ToolError {
     fn from(error: OpError) -> Self {
         let kind = match error.kind {
