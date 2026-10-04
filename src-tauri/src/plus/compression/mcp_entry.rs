@@ -5,6 +5,7 @@
 use super::model::ProviderName;
 use super::provider::mcp_server_config;
 use crate::plus::registry_ro;
+use crate::plus::servers::stdio_entry;
 use crate::registry::{self, Registry, ServerEntry};
 use serde_json::Value;
 
@@ -29,11 +30,8 @@ pub trait McpHost {
 fn desired() -> ServerEntry {
     let config = mcp_server_config(ProviderName::Headroom).unwrap_or(Value::Null);
     let text = |key: &str| config.get(key).and_then(Value::as_str).map(str::to_string);
+    let name = text("name").unwrap_or_else(|| MCP_NAME.into());
     ServerEntry {
-        id: String::new(),
-        name: text("name").unwrap_or_else(|| MCP_NAME.into()),
-        transport: "stdio".into(),
-        command: text("command"),
         args: config
             .get("args")
             .and_then(Value::as_array)
@@ -43,17 +41,7 @@ fn desired() -> ServerEntry {
                     .collect()
             })
             .unwrap_or_default(),
-        launch: None,
-        env: Vec::new(),
-        url: None,
-        cwd: None,
-        source: Some(MCP_SOURCE.into()),
-        disabled_tools: Vec::new(),
-        client_credentials: None,
-        request_timeout_ms: None,
-        max_request_timeout_ms: None,
-        initialize_timeout_ms: None,
-        unknown_fields: Default::default(),
+        ..stdio_entry(&name, text("command"), MCP_SOURCE)
     }
 }
 

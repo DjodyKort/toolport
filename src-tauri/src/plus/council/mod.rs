@@ -2,6 +2,7 @@
 //! external command; this module owns its registry definition and a static
 //! manifest of what it exposes.
 
+use crate::plus::servers::stdio_entry;
 use crate::registry::{self, EnvVar, Registry, ServerEntry};
 use serde_json::{json, Value};
 
@@ -62,25 +63,15 @@ pub const RESOURCES: &[(&str, &str)] = &[
 pub fn server_entry() -> ServerEntry {
     ServerEntry {
         id: COUNCIL_ID.into(),
-        name: COUNCIL_ID.into(),
-        transport: "stdio".into(),
-        command: Some(COMMAND.into()),
         args: ARGS.iter().map(|s| s.to_string()).collect(),
-        launch: None,
         env: vec![EnvVar {
             key: API_KEY_ENV.into(),
             value: None,
             secret: true,
         }],
-        url: None,
-        cwd: None,
-        source: Some(COUNCIL_SOURCE.into()),
-        disabled_tools: Vec::new(),
-        client_credentials: None,
         request_timeout_ms: Some(300_000),
-        max_request_timeout_ms: None,
         initialize_timeout_ms: Some(120_000),
-        unknown_fields: Default::default(),
+        ..stdio_entry(COUNCIL_ID, Some(COMMAND.into()), COUNCIL_SOURCE)
     }
 }
 
