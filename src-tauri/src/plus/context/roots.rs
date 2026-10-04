@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 pub const ENV_CORP_TOOLS_DIR: &str = "TOOLPORT_CORP_TOOLS_DIR";
 pub const ENV_CLIENTS_ROOT: &str = "TOOLPORT_CLIENTS_ROOT";
 const DEFAULT_CORP_TOOLS_REL: &str = ".local/share/corp-dev-tools";
+pub const CONTEXT_SHIMS_FILE: &str = "context-shims.zsh";
 
 #[derive(Clone, Debug)]
 pub struct Roots {
@@ -14,6 +15,9 @@ pub struct Roots {
     pub claude_home: PathBuf,
     pub claude_json: PathBuf,
     pub config_dir: PathBuf,
+    /// Where Toolport writes its generated shell files. `from_home` keeps mcpm's directory so the
+    /// replayed mcpm goldens stay byte-identical; `roots_from_args` points it at the data dir.
+    pub shims_dir: PathBuf,
     pub cache_dir: PathBuf,
     pub cf_dir: PathBuf,
     pub env_corp_tools_dir: Option<String>,
@@ -30,6 +34,7 @@ impl Roots {
             claude_home: home.join(".claude"),
             claude_json: home.join(".claude.json"),
             config_dir: home.join(".config/mcpm"),
+            shims_dir: home.join(".config/mcpm"),
             cache_dir: home.join(".cache/mcpm/context"),
             cf_dir: home.join(DEFAULT_CORP_TOOLS_REL),
             env_corp_tools_dir: None,
@@ -81,7 +86,15 @@ impl Roots {
     }
 
     pub fn shims_path(&self) -> PathBuf {
-        self.config_dir.join("context-shims.zsh")
+        self.shims_dir.join(CONTEXT_SHIMS_FILE)
+    }
+
+    pub fn legacy_shims_path(&self) -> PathBuf {
+        self.config_dir.join(CONTEXT_SHIMS_FILE)
+    }
+
+    pub fn zshrc_path(&self) -> PathBuf {
+        self.home.join(".zshrc")
     }
 
     pub fn backups_dir(&self) -> PathBuf {

@@ -9,7 +9,7 @@ use super::skills_repo::{no_operands, operand, spec};
 use crate::plus::context::{layers, manage};
 use serde_json::{json, Value};
 
-const INIT_USAGE: &str = "usage: context init [--home <dir>] [--dry-run] [--yes]";
+const INIT_USAGE: &str = "usage: context init [--home <dir>] [--dry-run] [--yes] [--rewrite-zshrc]";
 const STATUS_USAGE: &str = "usage: context status [--home <dir>]";
 const CLIENT_ADD_USAGE: &str =
     "usage: context client add <name> [--glob <pattern>] [--home <dir>] [--dry-run]";
@@ -30,7 +30,12 @@ pub const PROFILE_GROUP_USAGE: &str = "usage: context profile add|list|remove (a
      list: [--home <dir>]; remove: <name> [--purge] [--home <dir>] [--dry-run])";
 
 pub(super) const INIT: Spec = spec(
-    &[value("--home"), switch("--dry-run"), switch("--yes")],
+    &[
+        value("--home"),
+        switch("--dry-run"),
+        switch("--yes"),
+        switch("--rewrite-zshrc"),
+    ],
     INIT_USAGE,
 );
 pub(super) const STATUS: Spec = spec(&[value("--home")], STATUS_USAGE);
@@ -124,6 +129,16 @@ fn report_lines(data: &Value) -> Vec<String> {
     lines
 }
 
+fn zshrc_lines(zshrc: &Value) -> Vec<String> {
+    let mut lines = Vec::new();
+    for (key, mark) in [("actions", ""), ("warnings", "! ")] {
+        for line in zshrc[key].as_array().into_iter().flatten() {
+            lines.push(format!("  {mark}{}", line.as_str().unwrap_or("")));
+        }
+    }
+    lines
+}
+
 fn finish(data: Value, mut lines: Vec<String>) -> Output {
     if data["dryRun"] == json!(true) {
         lines.push(DRY_NOTE.to_string());
@@ -174,9 +189,13 @@ pub fn init(rest: &[String]) -> Result<Output, CtlError> {
     let flags = INIT.parse(rest)?;
     no_operands(&flags, INIT_USAGE)?;
     let dry = flags.on("--dry-run");
+    let mut request = json!({});
+    if flags.on("--rewrite-zshrc") {
+        request["rewriteZshrc"] = json!(true);
+    }
     let data = call(
         "plus.context.init",
-        args_with(flags.one("--home"), dry, json!({})),
+        args_with(flags.one("--home"), dry, request),
     )?;
     let mut lines = Vec::new();
     let personal = &data["personal"];
@@ -236,6 +255,10 @@ pub fn init(rest: &[String]) -> Result<Output, CtlError> {
     } else {
         "  ✓ saved context.json".to_string()
     });
+    if data["zshrc"].is_object() {
+        lines.push(String::new());
+        lines.extend(zshrc_lines(&data["zshrc"]));
+    }
     lines.push(String::new());
     lines.push("Next steps:".to_string());
     for (n, step) in data["nextSteps"]
@@ -330,6 +353,35 @@ pub fn status(rest: &[String]) -> Result<Output, CtlError> {
             "none".into()
         },
     ));
+    let zshrc = &data["zshrc"];
+    let pointing: Vec<String> = zshrc["legacyLines"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|p| format!("line {} {}", p["line"], text(p, "file")))
+        .collect();
+    if !pointing.is_empty() {
+        rows.push((
+            "zshrc".into(),
+            format!(
+                "{} line(s) still point into mcpm's config directory: {} — `toolportctl context sync --rewrite-zshrc --dry-run` previews the new paths",
+                pointing.len(),
+                pointing.join(", ")
+            ),
+        ));
+    }
+    for alias in zshrc["deadAliases"].as_array().into_iter().flatten() {
+        rows.push((
+            "mcpm alias".into(),
+            format!(
+                "{} ({}:{}) runs `{}`; remove it when mcpm is gone",
+                text(alias, "name"),
+                text(alias, "file"),
+                alias["line"],
+                text(alias, "command")
+            ),
+        ));
+    }
     let width = rows
         .iter()
         .map(|(label, _)| label.chars().count())

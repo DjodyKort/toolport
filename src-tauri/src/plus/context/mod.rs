@@ -18,6 +18,7 @@ pub mod roots;
 pub mod rules;
 pub mod settings;
 pub mod shims;
+pub mod zshrc;
 
 #[cfg(test)] mod layers_prop_tests;
 #[cfg(test)] mod settings_prop_tests;
@@ -35,6 +36,8 @@ mod tests_hardening;
 mod tests_hooks;
 #[cfg(test)]
 mod tests_manage;
+#[cfg(test)]
+mod tests_zshrc;
 
 pub use config::{load_config, preserve_unreadable, save_config, ContextConfig};
 pub use roots::Roots;
@@ -226,6 +229,9 @@ fn roots_from_args(args: &Value) -> Result<Roots, String> {
     if let Some(p) = over("cfDir") {
         roots.cf_dir = p;
     }
+    roots.shims_dir = over("shimsDir")
+        .or_else(crate::registry::conduit_dir)
+        .unwrap_or_else(|| roots.config_dir.clone());
     roots.read_env();
     roots.env_claude_config_dir = std::env::var("CLAUDE_CONFIG_DIR").ok();
     compact::apply_env(&mut roots);
@@ -266,8 +272,21 @@ fn run(args: &Value, dry_run: bool) -> Result<Value, String> {
             report.add(format!("deployed rule {}", path.display()));
         }
     }
+    let zshrc = if flag(args, "rewriteZshrc") {
+        let will_write = !config.profiles.is_empty() || config.wrap_default_claude;
+        let outcome = zshrc::apply(zshrc::plan(&roots, will_write)?, dry_run)?;
+        let (actions, warnings) = outcome.lines();
+        report.actions.extend(actions);
+        report.warnings.extend(warnings);
+        Some(outcome.to_value())
+    } else {
+        None
+    };
     let mut out = report.to_value();
     out["dryRun"] = json!(dry_run);
+    if let Some(zshrc) = zshrc {
+        out["zshrc"] = zshrc;
+    }
     out["checks"] = json!(doctor::run_checks(&roots, &config));
     Ok(out)
 }

@@ -5,7 +5,8 @@ use super::config::ContextConfig;
 use super::dedupe::plan_dedupe;
 use super::launch;
 use super::layers::PERSONAL_RULE_NAME;
-use super::roots::Roots;
+use super::roots::{Roots, CONTEXT_SHIMS_FILE};
+use super::zshrc;
 use crate::plus::skills::json::{parse, J};
 use crate::plus::hashing::sha256_hex;
 use crate::plus::health::Health;
@@ -38,6 +39,7 @@ pub fn run_checks(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
     checks.extend(check_settings_policy(roots, config));
     checks.extend(check_profiles(roots, config));
     checks.extend(check_shims(roots, config));
+    checks.extend(check_zshrc_legacy(roots));
     checks.extend(check_env(roots));
     checks.extend(check_cf_drift(roots, config));
     checks
@@ -206,15 +208,34 @@ fn check_shims(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
         )];
     }
     let shown = path.display().to_string();
-    let zshrc = fs::read_to_string(roots.home.join(".zshrc")).ok();
-    let Some(content) = zshrc.filter(|c| c.contains(&shown)) else {
+    let content = fs::read_to_string(roots.zshrc_path()).unwrap_or_default();
+    let ours = zshrc::source_line_of(roots, &content, &path)
+        .map(|line| (line, offset_of_line(&content, line)))
+        .or_else(|| content.find(&shown).map(|at| (0, at)));
+    let Some((_, ours)) = ours else {
+        let legacy = roots.legacy_shims_path();
+        if roots.shims_dir != roots.config_dir
+            && zshrc::source_line_of(roots, &content, &legacy).is_some()
+        {
+            return vec![check(
+                Health::Warn,
+                format!(
+                    "context-shims is still sourced from {} (a copy Toolport no longer updates) — run `toolportctl context sync --rewrite-zshrc --dry-run` to preview the new line",
+                    legacy.display()
+                ),
+            )];
+        }
+        let hint = if shown.contains(char::is_whitespace) {
+            zshrc::shell_path(&roots.home, &path)
+        } else {
+            shown.clone()
+        };
         return vec![check(
             Health::Warn,
-            format!("shims not sourced — add to ~/.zshrc:  source {shown}"),
+            format!("shims not sourced — add to ~/.zshrc:  source {hint}"),
         )];
     };
     if config.wrap_default_claude {
-        let ours = content.find(&shown).unwrap_or(0);
         for other in ["shell-wrapper.sh", "compression-shims.zsh"] {
             if content.find(other).is_some_and(|pos| pos > ours) {
                 return vec![check(
@@ -225,6 +246,34 @@ fn check_shims(roots: &Roots, config: &ContextConfig) -> Vec<Check> {
         }
     }
     vec![check(Health::Ok, "shims written and sourced (last)")]
+}
+
+fn offset_of_line(content: &str, line: usize) -> usize {
+    content
+        .split_inclusive('\n')
+        .take(line.saturating_sub(1))
+        .map(str::len)
+        .sum()
+}
+
+fn check_zshrc_legacy(roots: &Roots) -> Vec<Check> {
+    let content = fs::read_to_string(roots.zshrc_path()).unwrap_or_default();
+    let others: Vec<String> = zshrc::legacy_pointers(roots, &content)
+        .into_iter()
+        .filter(|p| p.file != CONTEXT_SHIMS_FILE)
+        .map(|p| format!("line {} {}", p.line, p.file))
+        .collect();
+    if others.is_empty() {
+        return Vec::new();
+    }
+    vec![check(
+        Health::Warn,
+        format!(
+            "~/.zshrc still points into {}: {} — `toolportctl context sync --rewrite-zshrc --dry-run` previews the new paths",
+            roots.config_dir.display(),
+            others.join(", ")
+        ),
+    )]
 }
 
 fn check_env(roots: &Roots) -> Vec<Check> {

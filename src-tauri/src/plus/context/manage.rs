@@ -7,7 +7,7 @@ use super::config::{ContextConfig, ProfileSpec};
 use super::layers::{self, Layer};
 use super::{
     apply, dedupe, launch, load_config, lock_real_run, preserve_unreadable, roots_from_args,
-    save_config, settings, shims, ApplyOptions, Report, Roots,
+    save_config, settings, shims, zshrc, ApplyOptions, Report, Roots,
 };
 use crate::plus::args::{flag, flag_or, str_arg, str_nonempty};
 use serde_json::{json, Map, Value};
@@ -95,7 +95,8 @@ fn read_settings_local(path: &Path, config: &ContextConfig) -> LocalSettings {
 
 /// `plus.context.init`: scaffolds the personal layer, moves the allow entries of the unsupported
 /// user-level `settings.local.json` into `ensure_allow` (never removing the file, never moving an
-/// entry that embeds a credential) and saves `context.json`.
+/// entry that embeds a credential) and saves `context.json`. With `rewriteZshrc` it also moves the
+/// `~/.zshrc` source lines that point into mcpm's config directory (see [`zshrc`]).
 pub fn init_handler(args: Value) -> Result<Value, String> {
     let roots = roots_from_args(&args)?;
     let dry = dry_run(&args);
@@ -135,13 +136,17 @@ pub fn init_handler(args: Value) -> Result<Value, String> {
         }
         save_config(&config_path, &config)?;
     }
-    Ok(json!({
+    let mut out = json!({
         "dryRun": dry,
         "personal": {"path": path_text(&personal), "created": created},
         "migration": migration,
         "config": {"path": path_text(&config_path), "saved": !dry, "keptUnreadable": kept},
         "nextSteps": NEXT_STEPS.iter().map(|(label, command)| json!({"label": label, "command": command})).collect::<Vec<_>>(),
-    }))
+    });
+    if flag(&args, "rewriteZshrc") {
+        out["zshrc"] = zshrc::apply(zshrc::plan(&roots, false)?, dry)?.to_value();
+    }
+    Ok(out)
 }
 
 fn layer_value(layer: &Layer) -> Value {
@@ -357,7 +362,8 @@ pub fn profile_remove_handler(args: Value) -> Result<Value, String> {
     }))
 }
 
-/// `plus.context.status`: layers, profiles, legacy MCP duplicates and the shims file.
+/// `plus.context.status`: layers, profiles, legacy MCP duplicates, the shims file and the
+/// `~/.zshrc` lines that still point into mcpm's config directory, with the mcpm aliases.
 pub fn status_handler(args: Value) -> Result<Value, String> {
     let roots = roots_from_args(&args)?;
     let config = load_config(&roots.context_config_path());
@@ -372,11 +378,18 @@ pub fn status_handler(args: Value) -> Result<Value, String> {
         .collect();
     let dupes = dedupe::plan_dedupe(&roots.claude_json, &config.dedupe);
     let shims_path = roots.shims_path();
+    let legacy_path = roots.legacy_shims_path();
     Ok(json!({
         "layers": layers,
         "profiles": profiles,
         "legacyDupes": dupes,
-        "shims": {"path": path_text(&shims_path), "exists": shims_path.exists()},
+        "shims": {
+            "path": path_text(&shims_path),
+            "exists": shims_path.exists(),
+            "legacyPath": path_text(&legacy_path),
+            "legacyExists": legacy_path != shims_path && legacy_path.exists(),
+        },
+        "zshrc": zshrc::inspect(&roots).to_value(),
         "config": {
             "path": path_text(&roots.context_config_path()),
             "exists": roots.context_config_path().is_file(),

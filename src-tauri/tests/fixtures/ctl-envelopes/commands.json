@@ -1976,6 +1976,17 @@
               "required": false,
               "sensitive": false,
               "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Point the source lines in ~/.zshrc at the data directory (backs the file up first)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--rewrite-zshrc",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
             }
           ],
           "group": "context",
@@ -2031,6 +2042,17 @@
               "escalates": false,
               "hidden": false,
               "name": "--no-persist",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Point the source lines in ~/.zshrc at the data directory (backs the file up first)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--rewrite-zshrc",
               "repeatable": false,
               "required": false,
               "sensitive": false,
@@ -2108,6 +2130,17 @@
             },
             {
               "aliases": [],
+              "effect": "Point the source lines in ~/.zshrc at the data directory (backs the file up first)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--rewrite-zshrc",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
               "effect": "Preview the change and write nothing",
               "escalates": false,
               "hidden": false,
@@ -2171,6 +2204,17 @@
               "escalates": false,
               "hidden": true,
               "name": "--yes",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Point the source lines in ~/.zshrc at the data directory (backs the file up first)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--rewrite-zshrc",
               "repeatable": false,
               "required": false,
               "sensitive": false,

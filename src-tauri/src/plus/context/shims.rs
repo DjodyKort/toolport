@@ -7,11 +7,17 @@
 use super::config::ProfileSpec;
 use super::launch::launch_argv;
 use super::roots::Roots;
+use super::zshrc::shell_path;
 use crate::plus::skills::pyfs::write_text;
 use std::collections::BTreeMap;
 use std::fs;
 
-const HEADER: &str = "# Managed by `toolportctl context` — do not edit by hand.\n# Source from ~/.zshrc AFTER cf's shell-wrapper.sh and compression-shims.zsh:\n#   source ~/.config/mcpm/context-shims.zsh\n";
+fn header(roots: &Roots) -> String {
+    format!(
+        "# Managed by `toolportctl context` — do not edit by hand.\n# Source from ~/.zshrc AFTER cf's shell-wrapper.sh and compression-shims.zsh:\n#   source {}\n",
+        shell_path(&roots.home, &roots.shims_path())
+    )
+}
 
 const PRESYNC: &str = r##"mcpm_context_presync() {
     local now; now=$(date +%s)
@@ -75,7 +81,7 @@ pub fn shim_snippet(
     profiles: &BTreeMap<String, ProfileSpec>,
     wrap_default: bool,
 ) -> String {
-    let mut lines: Vec<String> = vec![HEADER.to_string()];
+    let mut lines: Vec<String> = vec![header(roots)];
     if wrap_default {
         lines.push(presync_block(roots));
     }

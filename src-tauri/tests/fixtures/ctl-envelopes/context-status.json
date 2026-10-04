@@ -12,7 +12,15 @@
       "profiles": [],
       "shims": {
         "exists": false,
-        "path": "<WORLD>/home/.config/mcpm/context-shims.zsh"
+        "legacyExists": false,
+        "legacyPath": "<WORLD>/home/.config/mcpm/context-shims.zsh",
+        "path": "<WORLD>/data/context-shims.zsh"
+      },
+      "zshrc": {
+        "deadAliases": [],
+        "exists": false,
+        "legacyLines": [],
+        "path": "<WORLD>/home/.zshrc"
       }
     },
     "ok": true,

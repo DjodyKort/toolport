@@ -25,6 +25,10 @@ impl Fx {
         Roots::from_home(&self.home)
     }
 
+    fn shims_path(&self) -> PathBuf {
+        self.base.dir.join("context-shims.zsh")
+    }
+
     fn put(&self, rel: &str, text: &str) -> PathBuf {
         let path = self.home.join(rel);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -320,7 +324,7 @@ fn profile_add_defines_generates_and_lists() {
         .any(|a| a.starts_with("generated launch profile work (0 server(s)) in ")));
     assert!(actions.iter().any(|a| a.starts_with("wrote shims: ")));
     assert!(actions.contains(&"saved config (1 profile(s))".to_string()));
-    assert!(fx.roots().shims_path().is_file());
+    assert!(fx.shims_path().is_file());
 
     let list = fx.ok("profileList", json!({}));
     assert_eq!(list["profiles"].as_array().unwrap().len(), 1);
@@ -528,7 +532,7 @@ fn disable_removes_the_shims_and_only_with_the_flag_the_profile_dirs() {
     assert_eq!(out["shims"]["removed"], true);
     assert_eq!(out["purgedProfiles"], json!([]));
     assert_eq!(strings(&out["actions"]), ["removed shims file"]);
-    assert!(!fx.roots().shims_path().exists());
+    assert!(!fx.shims_path().exists());
     assert!(fx.profile_dir("a").is_dir());
 
     let nothing = fx.ok("disable", json!({}));
