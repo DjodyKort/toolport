@@ -519,6 +519,30 @@ struct ServerSlot {
     /// needlessly re-spawned on a transient blip. `None` = not reconnectable (e.g. a
     /// test fixture), in which case a dead server just stays fast-failed as before.
     reconnect: Option<Reconnect>,
+    /// The server's own handshake `instructions`, kept beside the connection so
+    /// reading them never waits behind a call that holds `inner`.
+    instructions: Mutex<Option<String>>,
+}
+
+impl ServerSlot {
+    fn new(server: DownstreamServer, reconnect: Option<Reconnect>) -> Self {
+        Self {
+            id: server.id.clone(),
+            instructions: Mutex::new(server.instructions().map(str::to_string)),
+            inner: Mutex::new(server),
+            tool_revision: AtomicU64::new(0),
+            breaker: Mutex::new(Breaker::default()),
+            reconnect,
+        }
+    }
+
+    fn adopt_instructions(&self, server: &DownstreamServer) {
+        *self
+            .instructions
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) =
+            server.instructions().map(str::to_string);
+    }
 }
 
 /// An opaque reference to one live downstream launch. The gateway's launch
@@ -919,13 +943,8 @@ impl Router {
             route_mcp_apps,
         );
         let idx = self.servers.len();
-        self.servers.push(Arc::new(ServerSlot {
-            id: id.clone(),
-            inner: Mutex::new(server),
-            tool_revision: AtomicU64::new(0),
-            breaker: Mutex::new(Breaker::default()),
-            reconnect,
-        }));
+        self.servers
+            .push(Arc::new(ServerSlot::new(server, reconnect)));
         self.by_id.insert(id, idx);
     }
 
@@ -941,13 +960,7 @@ impl Router {
         if let Some(&index) = view.by_id.get(&server.id) {
             view.restored_candidates
                 .retain(|candidate| candidate.server != server.id);
-            view.servers[index] = Arc::new(ServerSlot {
-                id: server.id.clone(),
-                inner: Mutex::new(server),
-                tool_revision: AtomicU64::new(0),
-                breaker: Mutex::new(Breaker::default()),
-                reconnect,
-            });
+            view.servers[index] = Arc::new(ServerSlot::new(server, reconnect));
             view.rebuild_preserving_restored();
         } else {
             view.add_with_reconnect(server, reconnect);
@@ -1686,18 +1699,25 @@ impl Router {
     /// Returns whether the fresh connection is now live; `false` falls through to the
     /// normal breaker-failure path, like [`Self::reconnect_and_retry`] returning `None`.
     fn respawn_without_retry(&self, slot: &Arc<ServerSlot>) -> bool {
-        let Some(factory) = slot.reconnect.as_ref() else {
+        if slot.reconnect.is_none() {
             return false;
-        };
+        }
         eprintln!(
             "conduit: server '{}' is down; re-spawning it without replaying the call",
             slot.id
         );
+        self.replace_connection(slot)
+    }
+
+    /// Swap a slot's connection for a fresh one from its factory. `false` when
+    /// there is no factory or the server cannot be reached; the old connection
+    /// stays in place then.
+    fn replace_connection(&self, slot: &Arc<ServerSlot>) -> bool {
+        let Some(factory) = slot.reconnect.as_ref() else {
+            return false;
+        };
         let Some(fresh) = factory() else {
-            eprintln!(
-                "conduit: re-spawn of '{}' failed; leaving it fast-failed",
-                slot.id
-            );
+            eprintln!("conduit: re-spawn of '{}' failed", slot.id);
             return false;
         };
         {
@@ -1705,6 +1725,7 @@ impl Router {
                 .inner
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
+            slot.adopt_instructions(&fresh);
             *server = fresh;
             slot.tool_revision.fetch_add(1, Ordering::AcqRel);
         }
@@ -1713,6 +1734,39 @@ impl Router {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .replaced_connection();
         true
+    }
+
+    /// Re-spawn each server that was connected declaring client capabilities other
+    /// than `wanted`, so it declares what its clients have declared since. A
+    /// server not set to declare any (`declared_client_capabilities` is `None`) is
+    /// left alone. Returns the ids of the servers it re-spawned.
+    pub fn redeclare_client_capabilities(&self, wanted: &Value) -> Vec<String> {
+        let mut respawned = Vec::new();
+        for slot in &self.servers {
+            let stale = slot
+                .inner
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .declared_client_capabilities()
+                .is_some_and(|declared| declared != wanted);
+            if stale && self.replace_connection(slot) {
+                eprintln!(
+                    "conduit: re-spawned '{}' to declare its client's capabilities",
+                    slot.id
+                );
+                respawned.push(slot.id.clone());
+            }
+        }
+        respawned
+    }
+
+    /// The `instructions` the server `server_id` returned from its handshake.
+    pub fn server_instructions(&self, server_id: &str) -> Option<String> {
+        let slot = self.servers.get(*self.by_id.get(server_id)?)?;
+        slot.instructions
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
     }
 
     /// Re-spawn a slot's downstream connection and retry the call once on the fresh
@@ -1748,6 +1802,7 @@ impl Router {
                 .inner
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
+            slot.adopt_instructions(&fresh);
             *server = fresh; // swap the live child/connection for the fresh one
             slot.tool_revision.fetch_add(1, Ordering::AcqRel);
             f(&mut server)
@@ -2902,15 +2957,10 @@ mod tests {
     }
 
     fn dead_slot(reconnect: Option<Reconnect>) -> Arc<ServerSlot> {
-        Arc::new(ServerSlot {
-            id: "s".into(),
-            inner: Mutex::new(
-                DownstreamServer::connect("s".into(), Box::new(DeadOnCallTransport)).unwrap(),
-            ),
-            tool_revision: AtomicU64::new(0),
-            breaker: Mutex::new(Breaker::default()),
+        Arc::new(ServerSlot::new(
+            DownstreamServer::connect("s".into(), Box::new(DeadOnCallTransport)).unwrap(),
             reconnect,
-        })
+        ))
     }
 
     #[test]
@@ -3016,6 +3066,133 @@ mod tests {
         let out: Option<Result<Value, String>> =
             router.reconnect_and_retry(&slot, None, &mut |ds| ds.call("echo", json!({})));
         assert!(out.is_none());
+    }
+
+    /// A server whose handshake records what it was told and answers with `instructions`.
+    struct HandshakeServer {
+        instructions: &'static str,
+        declared: Arc<Mutex<Vec<Value>>>,
+    }
+
+    impl Transport for HandshakeServer {
+        fn request(&mut self, method: &str, params: Value) -> Result<Value, TransportError> {
+            match method {
+                "initialize" => {
+                    self.declared
+                        .lock()
+                        .unwrap()
+                        .push(params["capabilities"].clone());
+                    Ok(json!({
+                        "protocolVersion": crate::downstream::PROTOCOL_VERSION,
+                        "capabilities": {},
+                        "instructions": self.instructions
+                    }))
+                }
+                "tools/list" => Ok(json!({ "tools": [] })),
+                other => Err(TransportError::Fatal(format!("unexpected method {other}"))),
+            }
+        }
+
+        fn notify(&mut self, _method: &str, _params: Value) -> Result<(), TransportError> {
+            Ok(())
+        }
+    }
+
+    fn handshaking(
+        id: &str,
+        declares: bool,
+        wanted: &Arc<Mutex<Value>>,
+        instructions: &'static str,
+        declared: &Arc<Mutex<Vec<Value>>>,
+    ) -> DownstreamServer {
+        let to_declare = declares.then(|| wanted.lock().unwrap().clone());
+        DownstreamServer::connect_declaring(
+            id.to_string(),
+            Box::new(HandshakeServer {
+                instructions,
+                declared: Arc::clone(declared),
+            }),
+            to_declare,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn a_server_declaring_the_client_is_re_spawned_when_the_declaration_has_grown() {
+        let wanted = Arc::new(Mutex::new(json!({})));
+        let declared_by_a = Arc::new(Mutex::new(Vec::new()));
+        let declared_by_b = Arc::new(Mutex::new(Vec::new()));
+        let mut router = Router::new();
+        for (id, declares, declared, first, then) in [
+            ("a", true, &declared_by_a, "FAKE-a first", "FAKE-a second"),
+            ("b", false, &declared_by_b, "FAKE-b first", "FAKE-b second"),
+        ] {
+            let (w, d) = (Arc::clone(&wanted), Arc::clone(declared));
+            let reconnect: Reconnect =
+                Box::new(move || Some(handshaking(id, declares, &w, then, &d)));
+            router.add_with_reconnect(
+                handshaking(id, declares, &wanted, first, declared),
+                Some(reconnect),
+            );
+        }
+        assert_eq!(
+            router.server_instructions("a").as_deref(),
+            Some("FAKE-a first")
+        );
+
+        assert!(
+            router.redeclare_client_capabilities(&json!({})).is_empty(),
+            "a server that declared the empty set is current while nothing was declared"
+        );
+
+        let grown = json!({ "elicitation": {} });
+        *wanted.lock().unwrap() = grown.clone();
+        assert_eq!(
+            router.redeclare_client_capabilities(&grown),
+            vec!["a".to_string()]
+        );
+        assert_eq!(
+            *declared_by_a.lock().unwrap(),
+            vec![json!({}), grown.clone()]
+        );
+        assert_eq!(
+            *declared_by_b.lock().unwrap(),
+            vec![json!({})],
+            "a server that does not declare is never re-spawned"
+        );
+        assert_eq!(
+            router.server_instructions("a").as_deref(),
+            Some("FAKE-a second")
+        );
+        assert_eq!(
+            router.server_instructions("b").as_deref(),
+            Some("FAKE-b first")
+        );
+        assert_eq!(router.server_instructions("ghost"), None);
+
+        assert!(
+            router.redeclare_client_capabilities(&grown).is_empty(),
+            "once current it is left alone"
+        );
+    }
+
+    #[test]
+    fn a_server_that_cannot_be_re_spawned_keeps_its_connection() {
+        let declared = Arc::new(Mutex::new(Vec::new()));
+        let wanted = Arc::new(Mutex::new(json!({})));
+        let mut router = Router::new();
+        let reconnect: Reconnect = Box::new(|| None);
+        router.add_with_reconnect(
+            handshaking("a", true, &wanted, "FAKE-a first", &declared),
+            Some(reconnect),
+        );
+        assert!(router
+            .redeclare_client_capabilities(&json!({ "roots": {} }))
+            .is_empty());
+        assert_eq!(
+            router.server_instructions("a").as_deref(),
+            Some("FAKE-a first")
+        );
     }
 
     /// Counts every `tools/call` and `resources/read` that reaches it; when `timing_out`

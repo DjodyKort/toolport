@@ -21,6 +21,11 @@
 //!   the modern revision rejects `initialize`/`ping` and demands per-request
 //!   `_meta` protocol fields. Off by default so the permissive fixture that
 //!   existing tests rely on is unchanged.
+//! - `MOCK_MCP_GATE_ELICITATION=1` — `legacy_elicitation` asks the client only
+//!   when its legacy `initialize` declared `elicitation`; otherwise it answers
+//!   that elicitation is unavailable.
+//! - `MOCK_MCP_INSTRUCTIONS` — the `instructions` the `odh` profile returns from
+//!   `initialize`, in place of its fixed text.
 //! - `MOCK_MCP_TRANSCRIPT` — path to append every received request to, one JSON
 //!   object per line. This is what lets a test assert exactly what bytes the
 //!   gateway sent downstream, which is the regression net for the envelope
@@ -123,6 +128,8 @@ struct State {
     /// Original legacy tools/call waiting for the client to answer a
     /// server-initiated elicitation request.
     pending_legacy_elicitation: Option<Value>,
+    /// Whether the legacy `initialize` declared the `elicitation` capability.
+    client_elicitation: bool,
     subscribed_resources: std::collections::HashSet<String>,
 }
 
@@ -197,6 +204,13 @@ fn council_profile() -> bool {
 /// `odh://` resources and `resources/read` on top of the default surface.
 fn odh_profile() -> bool {
     std::env::var("MOCK_MCP_PROFILE").as_deref() == Ok("odh")
+}
+
+/// `MOCK_MCP_GATE_ELICITATION=1` makes `legacy_elicitation` ask only when the
+/// legacy `initialize` declared the `elicitation` capability, as a spec-following
+/// server does. Without it the tool always asks.
+fn gates_elicitation() -> bool {
+    std::env::var("MOCK_MCP_GATE_ELICITATION").as_deref() == Ok("1")
 }
 
 const ODH_INSTRUCTIONS: &str = "FAKE-odh-downstream-instructions";
@@ -544,13 +558,15 @@ fn handle(cfg: &Config, state: &mut State, req: &Value, pre: &mut Vec<Value>) ->
     let result = match method {
         "initialize" => {
             state.initialized = true;
+            state.client_elicitation = req["params"]["capabilities"].get("elicitation").is_some();
             let mut result = json!({
                 "protocolVersion": cfg.revision.as_str(),
                 "capabilities": capabilities(),
                 "serverInfo": { "name": SERVER_NAME, "version": SERVER_VERSION }
             });
             if odh_profile() {
-                result["instructions"] = json!(ODH_INSTRUCTIONS);
+                result["instructions"] = json!(std::env::var("MOCK_MCP_INSTRUCTIONS")
+                    .unwrap_or_else(|_| ODH_INSTRUCTIONS.to_string()));
             }
             result
         }
@@ -673,6 +689,19 @@ fn handle(cfg: &Config, state: &mut State, req: &Value, pre: &mut Vec<Value>) ->
                     })
                 };
                 return Some(success(id, decorate(cfg, method, result)));
+            }
+            if name == "legacy_elicitation"
+                && !cfg.revision.is_modern()
+                && gates_elicitation()
+                && !state.client_elicitation
+            {
+                return Some(success(
+                    id,
+                    json!({
+                        "content": [{ "type": "text", "text": "elicitation unavailable: the client did not declare it" }],
+                        "isError": false
+                    }),
+                ));
             }
             if name == "legacy_elicitation" && !cfg.revision.is_modern() {
                 state.pending_legacy_elicitation = Some(id);
@@ -839,6 +868,7 @@ fn serve_http(cfg: &Config) {
         grown: false,
         initialized: false,
         pending_legacy_elicitation: None,
+        client_elicitation: false,
         subscribed_resources: std::collections::HashSet::new(),
     };
     for mut request in server.incoming_requests() {
@@ -911,6 +941,7 @@ fn main() {
         grown: false,
         initialized: false,
         pending_legacy_elicitation: None,
+        client_elicitation: false,
         subscribed_resources: std::collections::HashSet::new(),
     };
     for line in stdin.lock().lines() {

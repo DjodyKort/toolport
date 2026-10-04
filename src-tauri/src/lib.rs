@@ -18,6 +18,7 @@ pub mod downstream;
 pub mod downstream_backoff;
 pub mod gateway_publish;
 pub mod gatewaylog;
+pub mod handshake;
 pub mod hooks;
 pub mod hostenv;
 pub mod http_bridge;

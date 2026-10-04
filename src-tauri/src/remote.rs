@@ -1072,7 +1072,12 @@ pub fn connect_remote_with_handler(
     transport.set_resource_updated_sink(resource_updated.clone());
     transport.set_progress_sink(progress.clone());
     transport.set_change_sink(change_dirty.clone());
-    match DownstreamServer::connect(server_id.to_string(), Box::new(transport)) {
+    let declared = crate::handshake::declaration_for(server);
+    match DownstreamServer::connect_declaring(
+        server_id.to_string(),
+        Box::new(transport),
+        declared.clone(),
+    ) {
         Ok(mut ds) => {
             ds.set_call_timeout(request_timeout);
             Ok(ds)
@@ -1128,12 +1133,15 @@ pub fn connect_remote_with_handler(
                     transport.set_resource_updated_sink(resource_updated);
                     transport.set_progress_sink(progress);
                     transport.set_change_sink(change_dirty);
-                    DownstreamServer::connect(server_id.to_string(), Box::new(transport)).map(
-                        |mut ds| {
-                            ds.set_call_timeout(request_timeout);
-                            ds
-                        },
+                    DownstreamServer::connect_declaring(
+                        server_id.to_string(),
+                        Box::new(transport),
+                        declared,
                     )
+                    .map(|mut ds| {
+                        ds.set_call_timeout(request_timeout);
+                        ds
+                    })
                 }
                 Err(_) => Err(e),
             }
