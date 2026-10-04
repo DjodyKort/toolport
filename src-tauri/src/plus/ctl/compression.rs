@@ -5,10 +5,10 @@ use super::flags::{switch, value, Dashes, Flag, Inline, Spec};
 use super::output::{no_args, CtlError, Output};
 use crate::plus::compression::engine::{self, EngineOps};
 use crate::plus::compression::launch::{
-    plan_launch, run_plan, LaunchOps, LaunchPlan, LedgerEntry, Probe, ProxySpec, SystemOps,
+    plan_launch, run_plan, LaunchOps, LaunchPlan, LedgerEntry, ProxySpec, SystemOps,
 };
 use crate::plus::compression::ledger::{self, SavingsEntry};
-use crate::plus::compression::manage::{self, Ctx};
+use crate::plus::compression::manage::{self, preset_json, with_system, Ctx};
 use crate::plus::compression::model::{env_for_preset, CompressionConfig, ProviderName};
 use crate::plus::compression::store::{self, Loaded, Paths};
 use crate::plus::compression::verify::{self, HealthProbe};
@@ -21,46 +21,11 @@ fn load() -> Result<(Paths, Loaded), CtlError> {
     Ok((paths, loaded))
 }
 
-fn preset_json(name: &str, config: &CompressionConfig) -> Value {
-    let p = config.preset_for(Some(name));
-    json!({
-        "name": name,
-        "mode": p.mode.as_str(),
-        "savingsProfile": p.savings_profile,
-        "port": p.port,
-        "knobCount": p.knobs.len(),
-        "snapshotVersion": p.snapshot_version,
-    })
-}
-
 pub fn status(rest: &[String]) -> Result<Output, CtlError> {
     no_args(rest)?;
-    let (paths, loaded) = load()?;
-    let config = &loaded.config;
-    let installed = (config.provider == ProviderName::Headroom)
-        .then(|| SystemOps::new().headroom_version())
-        .flatten();
-    let drift = (config.provider == ProviderName::Headroom)
-        .then(|| installed.as_deref() != Some(config.provider_version.pin.as_str()));
+    let report = with_system(|cx| manage::status(cx).map_err(CtlError::from))?;
+    let config = &report.config;
     let pv = &config.provider_version;
-    let data = json!({
-        "configPath": paths.config().to_string_lossy(),
-        "configExists": loaded.existed,
-        "migrationNotes": loaded.notes,
-        "provider": config.provider.as_str(),
-        "runtime": config.runtime,
-        "preset": preset_json(&config.active_preset, config),
-        "scope": config.scope,
-        "contexts": config.contexts.len(),
-        "pin": {
-            "package": pv.package,
-            "pin": pv.pin,
-            "requirement": pv.requirement(),
-            "installed": installed,
-            "drift": drift,
-        },
-        "shims": {"path": paths.shims().to_string_lossy(), "exists": paths.shims().exists()},
-    });
     let preset = config.preset_for(None);
     let mut human = format!(
         "provider  {}\nruntime   {}\npreset    {} (mode={}, profile={}, port={})\npin       {} ({})",
@@ -73,17 +38,17 @@ pub fn status(rest: &[String]) -> Result<Output, CtlError> {
         pv.pin,
         pv.requirement(),
     );
-    if let Some(drift) = drift {
-        human.push_str(&match (&installed, drift) {
+    if let Some(drift) = report.drift {
+        human.push_str(&match (&report.installed, drift) {
             (Some(v), false) => format!("\nheadroom  {v} (pinned)"),
             (Some(v), true) => format!("\nheadroom  {v} != pin {} (drift)", pv.pin),
             (None, _) => format!("\nheadroom  not on PATH (pin {})", pv.pin),
         });
     }
-    if !loaded.existed {
+    if !report.existed {
         human.push_str("\n(no compression.json yet: defaults)");
     }
-    Ok(Output::new(data, human))
+    Ok(Output::new(report.data, human))
 }
 
 fn preset_rows(config: &CompressionConfig) -> Vec<Value> {
@@ -700,10 +665,6 @@ fn handler_argv(args: &Value, keys: &[(&str, &str)]) -> Vec<String> {
         }
     }
     out
-}
-
-pub fn status_handler(_args: Value) -> Result<Value, String> {
-    handler_value(status(&[]))
 }
 
 pub fn verify_handler(args: Value) -> Result<Value, String> {

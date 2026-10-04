@@ -91,7 +91,7 @@ const HANDLERS: &[(&str, Handler)] = &[
     ("plus.styles.sync", skills::styles::handlers::sync_handler),
     ("plus.styles.apply", skills::styles::handlers::apply_handler),
     ("plus.styles.remove", skills::styles::handlers::remove_handler),
-    ("plus.compression.status", ctl::compression::status_handler),
+    ("plus.compression.status", compression::handlers::status_handler),
     ("plus.compression.verify", ctl::compression::verify_handler),
     ("plus.compression.ledger", ctl::compression::ledger_handler),
     ("plus.compression.plan", ctl::compression::plan_handler),

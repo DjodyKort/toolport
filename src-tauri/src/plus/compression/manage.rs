@@ -489,3 +489,60 @@ pub fn doctor(cx: &mut Ctx, probe: &dyn HealthProbe) -> CmdResult {
         "checks": checks,
     }))
 }
+
+pub fn preset_json(name: &str, config: &CompressionConfig) -> Value {
+    let p = config.preset_for(Some(name));
+    json!({
+        "name": name,
+        "mode": p.mode.as_str(),
+        "savingsProfile": p.savings_profile,
+        "port": p.port,
+        "knobCount": p.knobs.len(),
+        "snapshotVersion": p.snapshot_version,
+    })
+}
+
+/// The status JSON plus the pieces a surface needs to word it.
+pub struct StatusReport {
+    pub data: Value,
+    pub config: CompressionConfig,
+    pub installed: Option<String>,
+    pub drift: Option<bool>,
+    pub existed: bool,
+}
+
+pub fn status(cx: &Ctx) -> Result<StatusReport, CmdError> {
+    let loaded = store::read(cx.paths).map_err(|e| CmdError::failed("config_invalid", e))?;
+    let config = &loaded.config;
+    let installed = (config.provider == ProviderName::Headroom)
+        .then(|| cx.engine.installed_version())
+        .flatten();
+    let drift = (config.provider == ProviderName::Headroom)
+        .then(|| installed.as_deref() != Some(config.provider_version.pin.as_str()));
+    let pv = &config.provider_version;
+    let data = json!({
+        "configPath": cx.paths.config().to_string_lossy(),
+        "configExists": loaded.existed,
+        "migrationNotes": loaded.notes,
+        "provider": config.provider.as_str(),
+        "runtime": config.runtime,
+        "preset": preset_json(&config.active_preset, config),
+        "scope": config.scope,
+        "contexts": config.contexts.len(),
+        "pin": {
+            "package": pv.package,
+            "pin": pv.pin,
+            "requirement": pv.requirement(),
+            "installed": installed,
+            "drift": drift,
+        },
+        "shims": {"path": cx.paths.shims().to_string_lossy(), "exists": cx.paths.shims().exists()},
+    });
+    Ok(StatusReport {
+        data,
+        existed: loaded.existed,
+        config: loaded.config,
+        installed,
+        drift,
+    })
+}
