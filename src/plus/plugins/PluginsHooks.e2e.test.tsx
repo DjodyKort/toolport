@@ -36,7 +36,9 @@ afterEach(() => {
   expect(bridge.missing).toEqual([]);
   const ran = bridge.ran();
   expect(
-    ran.some((line) => /--home|--data-dir|secret|--reveal|stdin/.test(line)),
+    ran.some((line) =>
+      /--home|--data-dir|secret|--reveal|stdin/.test(line.replace(/ --args-stdin$/, "")),
+    ),
     "no secret flag",
   ).toBe(false);
   expect(

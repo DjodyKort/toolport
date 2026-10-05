@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import type { CtlResult } from "../bridge/ctl";
 import { CtlReplyFailure } from "../fixtures/ctlReply";
 import { PlusViews } from "../PlusViews";
+import { createMcpWorld } from "../agents/mcpWorld";
 import { createContextWorld } from "../context/world";
 import { createSkillsWorld } from "../skills/world";
 import { createSystemWorld } from "../system/world";
@@ -39,6 +40,7 @@ export function createBridge(seed: Partial<PluginsState> = {}) {
   const skills = createSkillsWorld({});
   const context = createContextWorld({});
   const system = createSystemWorld({});
+  const mcp = new Map(createMcpWorld());
   const replies = new Map<string, Reply>([["commands", registry]]);
   const calls: Array<{ job: string; argv: string[] }> = [];
   const missing: string[] = [];
@@ -53,6 +55,8 @@ export function createBridge(seed: Partial<PluginsState> = {}) {
     }
     const own = world.reply(argv);
     if (own !== undefined) return own;
+    const tool = mcp.get(key);
+    if (tool) return tool(argv);
     if (argv[0] === "context") return context.run(argv, null);
     const row = skills.get(key);
     return row ? row() : system.reply(argv, null);
