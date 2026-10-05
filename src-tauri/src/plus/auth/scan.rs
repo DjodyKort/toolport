@@ -87,6 +87,13 @@ pub fn default_prober() -> Result<AuthProber, String> {
     ))
 }
 
+/// Every server the live registry has a probe for, which is exactly what a probe run can show
+/// in `rows_for`.
+pub fn probed_servers() -> Result<Vec<String>, String> {
+    let registry = combined_registry(&read_registry()?);
+    Ok(registry.iter().map(|spec| spec.server.clone()).collect())
+}
+
 fn request_guarded(
     prober: &AuthProber,
     server: &str,
@@ -143,6 +150,7 @@ pub fn run(
     force: bool,
     parallel: usize,
 ) -> Result<ProbeRun, String> {
+    prober.prune_unregistered()?;
     let trigger = if force || *selector == Selector::All {
         Trigger::UserForce
     } else {

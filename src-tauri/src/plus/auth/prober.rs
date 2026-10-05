@@ -166,6 +166,21 @@ impl AuthProber {
         probe_all(&self.registry)
     }
 
+    /// A cache entry outlives its server unless someone removes it: this is that someone. It
+    /// touches nothing on disk when there is no cache yet or nothing in it is stale.
+    pub fn prune_unregistered(&self) -> Result<bool, String> {
+        if !self.store.status_path().exists() {
+            return Ok(false);
+        }
+        let guard = self.store.lock()?;
+        let mut status = guard.load_status();
+        if !status.prune(&self.registry) {
+            return Ok(false);
+        }
+        guard.save_status(&status)?;
+        Ok(true)
+    }
+
     pub fn due(&self) -> Result<Vec<String>, String> {
         if self.registry.iter().next().is_none() {
             return Ok(Vec::new());

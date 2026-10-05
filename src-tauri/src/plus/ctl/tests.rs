@@ -392,10 +392,10 @@ fn write_auth_status(dir: &std::path::Path) {
     let status = json!({
         "version": 1,
         "servers": {
-            "alpha": {"tracked": {"state": "ok", "reason": "ok", "since": now, "transient": null},
-                      "lastProbeAt": now, "nextDueAt": now + 60},
-            "beta": {"tracked": {"state": "needs_reauth", "reason": "invalid_grant", "since": now, "transient": null},
-                     "lastProbeAt": now, "nextDueAt": now + 60}
+            "srv-alpha": {"tracked": {"state": "ok", "reason": "ok", "since": now, "transient": null},
+                          "lastProbeAt": now, "nextDueAt": now + 60},
+            "srv-beta": {"tracked": {"state": "needs_reauth", "reason": "invalid_grant", "since": now, "transient": null},
+                         "lastProbeAt": now, "nextDueAt": now + 60}
         },
         "profiles": {}
     });
@@ -419,7 +419,7 @@ fn status_json_includes_auth_rows_without_secrets() {
     let auth = &value["data"]["auth"];
     assert_eq!(auth["counts"]["ok"], 1);
     assert_eq!(auth["counts"]["needs_reauth"], 1);
-    assert_eq!(auth["servers"][0]["server"], "beta");
+    assert_eq!(auth["servers"][0]["server"], "srv-beta");
     assert_eq!(auth["servers"][0]["fix"]["action"], "reauth");
     assert!(auth["servers"][0].get("token").is_none());
     assert!(!value.to_string().contains(FAKE_SECRET));
@@ -433,7 +433,7 @@ fn auth_statusline_and_hook_print_compact_json() {
     assert_eq!(code, 0);
     let line: Value = serde_json::from_str(out.trim()).unwrap();
     assert_eq!(line["auth"]["needs_reauth"], 1);
-    assert_eq!(line["auth"]["worst"], json!(["beta"]));
+    assert_eq!(line["auth"]["worst"], json!(["srv-beta"]));
     assert_eq!(out.trim().lines().count(), 1);
 
     let (code, value) = json_of(&["--json", "auth", "hook"]);

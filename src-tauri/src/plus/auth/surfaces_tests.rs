@@ -34,6 +34,10 @@ fn entry_with_hint(
     }
 }
 
+fn keys(status: &StatusFile) -> Vec<String> {
+    status.servers.keys().cloned().collect()
+}
+
 fn sample() -> StatusFile {
     let mut status = StatusFile::default();
     for (name, e) in [
@@ -196,7 +200,7 @@ fn hook_context_uses_secret_set_label_for_api_token_kind() {
             Some("STITCH_API_KEY"),
         ),
     );
-    let loud = hook(&status, NOW);
+    let loud = hook(&status, NOW, &keys(&status));
     let context = loud["hookSpecificOutput"]["additionalContext"]
         .as_str()
         .unwrap();
@@ -230,15 +234,15 @@ fn statusline_is_identical_regardless_of_hint_kind() {
         ),
     );
     assert_eq!(
-        statusline(&oauth_status, NOW),
-        statusline(&api_token_status, NOW)
+        statusline(&oauth_status, NOW, &keys(&oauth_status)),
+        statusline(&api_token_status, NOW, &keys(&api_token_status))
     );
 }
 
 #[test]
 fn statusline_golden() {
     assert_eq!(
-        statusline(&sample(), NOW),
+        statusline(&sample(), NOW, &keys(&sample())),
         json!({"auth": {
             "ok": 1, "expiring": 1, "needs_reauth": 1, "revoked": 1,
             "misconfigured": 1, "unreachable": 1,
@@ -254,11 +258,11 @@ fn hook_is_quiet_when_healthy_and_adds_context_otherwise() {
     healthy
         .servers
         .insert("alpha".into(), entry(AuthState::Ok, "ok", None));
-    let quiet = hook(&healthy, NOW);
+    let quiet = hook(&healthy, NOW, &keys(&healthy));
     assert!(quiet.get("hookSpecificOutput").is_none());
     assert_eq!(quiet["auth"]["text"], "auth ok (1)");
 
-    let loud = hook(&sample(), NOW);
+    let loud = hook(&sample(), NOW, &keys(&sample()));
     assert_eq!(loud["hookSpecificOutput"]["hookEventName"], "SessionStart");
     let context = loud["hookSpecificOutput"]["additionalContext"]
         .as_str()
@@ -269,10 +273,10 @@ fn hook_is_quiet_when_healthy_and_adds_context_otherwise() {
 
 #[test]
 fn hook_extends_the_statusline_without_changing_it() {
-    let loud = hook(&sample(), NOW);
+    let loud = hook(&sample(), NOW, &keys(&sample()));
     let mut stripped = loud.clone();
     stripped.as_object_mut().unwrap().remove("hookSpecificOutput");
-    assert_eq!(stripped, statusline(&sample(), NOW));
+    assert_eq!(stripped, statusline(&sample(), NOW, &keys(&sample())));
     let context = loud["hookSpecificOutput"]["additionalContext"].as_str().unwrap();
     assert_eq!(context.lines().next(), loud["auth"]["text"].as_str());
 
@@ -280,8 +284,72 @@ fn hook_extends_the_statusline_without_changing_it() {
     healthy
         .servers
         .insert("alpha".into(), entry(AuthState::Ok, "ok", None));
-    assert_eq!(hook(&healthy, NOW), statusline(&healthy, NOW));
-    assert_eq!(hook(&StatusFile::default(), NOW), statusline(&StatusFile::default(), NOW));
+    let healthy_keys = keys(&healthy);
+    assert_eq!(
+        hook(&healthy, NOW, &healthy_keys),
+        statusline(&healthy, NOW, &healthy_keys)
+    );
+    let empty = StatusFile::default();
+    assert_eq!(hook(&empty, NOW, &[]), statusline(&empty, NOW, &[]));
+}
+
+#[test]
+fn statusline_and_hook_count_exactly_the_registered_rows() {
+    let status = sample();
+    let registered: Vec<String> = ["alpha", "beta", "gamma", "ghost"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let shown = rows_for(&status, NOW, &registered);
+    assert_eq!(shown.len(), 3, "a registered server without a cache entry has no row");
+
+    let line = statusline(&status, NOW, &registered);
+    let wanted = counts(&shown);
+    assert_eq!(line["auth"]["ok"], wanted.ok);
+    assert_eq!(line["auth"]["expiring"], wanted.expiring);
+    assert_eq!(line["auth"]["needs_reauth"], wanted.needs_reauth);
+    assert_eq!(line["auth"]["revoked"], 0);
+    assert_eq!(line["auth"]["misconfigured"], 0);
+    assert_eq!(line["auth"]["unreachable"], 0);
+    assert_eq!(line["auth"]["worst"], json!(["beta", "gamma"]));
+    assert_eq!(
+        line["auth"]["text"],
+        "auth: 1 need re-auth, 1 expiring [beta, gamma]"
+    );
+
+    let loud = hook(&status, NOW, &registered);
+    let context = loud["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap();
+    for removed in ["delta", "epsilon", "zeta", "eta"] {
+        let line = format!("{removed}:");
+        assert!(
+            !context.lines().any(|l| l.starts_with(&line)),
+            "{removed} leaked into {context}"
+        );
+    }
+    assert!(context.contains("beta: needs_reauth"));
+}
+
+#[test]
+fn a_cached_failure_of_a_removed_server_is_neither_counted_nor_nagged() {
+    let mut status = StatusFile::default();
+    status
+        .servers
+        .insert("slack".into(), entry(AuthState::Ok, "ok", Some(NOW - 5)));
+    status.servers.insert(
+        "figma".into(),
+        entry(AuthState::NeedsReauth, "no_token", Some(NOW - 5)),
+    );
+    let both = ["figma".to_string(), "slack".to_string()];
+    assert_eq!(statusline(&status, NOW, &both)["auth"]["needs_reauth"], 1);
+
+    let only_slack = ["slack".to_string()];
+    let line = statusline(&status, NOW, &only_slack);
+    assert_eq!(line["auth"]["needs_reauth"], 0);
+    assert_eq!(line["auth"]["worst"], json!([]));
+    assert_eq!(line["auth"]["text"], "auth ok (1)");
+    assert_eq!(hook(&status, NOW, &only_slack), line);
 }
 
 fn edge(server: &str, to: &str) -> EdgeEvent {
@@ -345,8 +413,8 @@ fn surfaces_never_contain_token_values() {
     let mut all = vec![
         rows_value(&status, NOW).to_string(),
         status_summary(&status, NOW).to_string(),
-        statusline(&status, NOW).to_string(),
-        hook(&status, NOW).to_string(),
+        statusline(&status, NOW, &keys(&status)).to_string(),
+        hook(&status, NOW, &keys(&status)).to_string(),
         serde_json::to_string(&plan_notifications(&events, &BTreeMap::new(), NOW, 1)).unwrap(),
     ];
     all.push(FAKE_TOKEN.len().to_string());
