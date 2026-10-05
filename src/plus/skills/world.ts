@@ -30,6 +30,7 @@ import {
   unbundleData,
 } from "./fixturesTaps";
 import type { SkillRow } from "./model";
+import { createSourcesWorld } from "./sources/world";
 
 /** A reply that is a failed envelope; `data` is what a command that exits 1 still prints. */
 export class Failure {
@@ -517,5 +518,6 @@ export function createSkillsWorld(
     () => unbundleData(true),
     () => unbundleData(false),
   );
+  for (const [argv, reply] of createSourcesWorld()) rows.set(argv, reply);
   return rows;
 }
