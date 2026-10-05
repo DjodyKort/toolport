@@ -488,6 +488,9 @@ pub(super) const GLOBAL: &[Meta] = &[
     )
     .repeats(),
     m("--yes", Bool, COMPAT).hidden(),
+    m("--wait", Bool, "Stay until the run ends or waits for you; step lines go to stderr"),
+    m("--from-command", Path, "A Claude command file to turn into a disabled draft (a prompt step plus needs-you markers)"),
+    m("--run", Str, "Show this one run with its step logs"),
     m("--agents-off", List, "Agents to deny in the folder (comma separated names)"),
     m("--auto-apply", ON_OFF, "Let context sync apply a bound bundle to matching folders that have none"),
     m("--bind", List, "Folder patterns the bundle is offered for (comma separated, * is one folder name)"),
@@ -789,6 +792,9 @@ pub(super) const OVERRIDES: &[(&str, Meta)] = &[
     ("context bundle status", m("--cwd", Path, "Folder where Claude Code starts (default: the current folder)")),
     ("context bundle launch", m("--cwd", Path, "Folder the command is meant for; the settings file is the same everywhere")),
     ("context use", m("--cwd", Path, "Folder where Claude Code starts (default: the current folder)")),
+    ("task ls", m("--all", Bool, "Include disabled tasks (drafts made from a command file)")),
+    ("task add", m("--file", Path, "A task definition (JSON); the id inside must equal <id>")),
+    ("task edit", m("--file", Path, "The complete new task definition (JSON); the id inside must equal <id>")),
 ];
 
 pub(super) fn meta_for(row: &str, flag: &str) -> Option<&'static Meta> {

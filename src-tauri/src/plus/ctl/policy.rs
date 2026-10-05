@@ -10,6 +10,7 @@
 use super::flags::{switch, value, Flag, Spec};
 use super::{agents, auth, cc, client, client_direct, client_edit, compression, compression_cfg};
 use super::{context, context_bundle, context_manage, council, folders, import, mcp, obs, profile, secret};
+use super::task;
 use super::{
     hooks, plugins, server, skills, skills_repo, skills_state, skills_taps, sources, styles, sync,
     update,
@@ -454,6 +455,32 @@ pub(super) const ROWS: &[Row] = &[
     row("context disable", D)
         .dry()
         .spec(&[&context_manage::DISABLE]),
+    row("task ls", R).spec(&[&task::LS]),
+    row("task show", R).spec(&[&task::SHOW]).args(&[req("id")]),
+    row("task run", W)
+        .dry()
+        .needs(&[LongRunning])
+        .spec(&[&task::RUN])
+        .args(&[req("id")]),
+    row("task resume", W).spec(&[&task::RESUME]).args(&[req("runId")]),
+    row("task cancel", W).spec(&[&task::CANCEL]).args(&[req("runId")]),
+    row("task add", W)
+        .dry()
+        .spec(&[&task::ADD])
+        .args(&[req("id")])
+        .one_of(&[&["--file", "--from-command"]]),
+    row("task edit", W)
+        .dry()
+        .spec(&[&task::EDIT])
+        .args(&[req("id")])
+        .requires(&["--file"]),
+    row("task rm", D)
+        .dry()
+        .spec(&[&task::RM])
+        .args(&[req("id")]),
+    row("task history", R)
+        .spec(&[&task::HISTORY])
+        .args(&[opt("id")]),
     row("compression status", R),
     row("compression presets", W)
         .reads(&["--refresh"])

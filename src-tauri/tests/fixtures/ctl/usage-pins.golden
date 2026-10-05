@@ -77,6 +77,16 @@ Commands:
   context use    Apply a bundle and its paired server set to a folder, or drop both (<name>, --none, --cwd, --dry-run)
   context disable Remove the generated shims; --purge-profiles also the profile directories (--dry-run)
   context        Context: init status client profile bundle use compose disable loads checkpoint-status plan apply sync
+  task ls        List the tasks with their last run and next scheduled run (--all includes disabled ones)
+  task show      Show a task's definition and its last runs (<id>)
+  task run       Start a task; --dry-run lists the steps, secrets and servers (<id>, --dry-run, --wait, --yes)
+  task resume    Continue a run that waits for you (<run-id>)
+  task cancel    Stop a run and its child process (<run-id>)
+  task add       Add a task from a definition file or a Claude command file (<id>, --file, --from-command, --dry-run)
+  task edit      Replace a task's definition (<id>, --file, --dry-run)
+  task rm        Remove a task; its run history stays (<id>, --dry-run)
+  task history   List the runs of a task, or one run with its step logs ([<id>], --run, --limit)
+  task           Tasks: ls show run resume cancel add edit rm history
   compression status Show the compression policy, pin and drift
   compression presets List presets (--refresh re-snapshots knobs, --dry-run)
   compression enable Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)
@@ -250,6 +260,16 @@ Commands:
   context use    Apply a bundle and its paired server set to a folder, or drop both (<name>, --none, --cwd, --dry-run)
   context disable Remove the generated shims; --purge-profiles also the profile directories (--dry-run)
   context        Context: init status client profile bundle use compose disable loads checkpoint-status plan apply sync
+  task ls        List the tasks with their last run and next scheduled run (--all includes disabled ones)
+  task show      Show a task's definition and its last runs (<id>)
+  task run       Start a task; --dry-run lists the steps, secrets and servers (<id>, --dry-run, --wait, --yes)
+  task resume    Continue a run that waits for you (<run-id>)
+  task cancel    Stop a run and its child process (<run-id>)
+  task add       Add a task from a definition file or a Claude command file (<id>, --file, --from-command, --dry-run)
+  task edit      Replace a task's definition (<id>, --file, --dry-run)
+  task rm        Remove a task; its run history stays (<id>, --dry-run)
+  task history   List the runs of a task, or one run with its step logs ([<id>], --run, --limit)
+  task           Tasks: ls show run resume cancel add edit rm history
   compression status Show the compression policy, pin and drift
   compression presets List presets (--refresh re-snapshots knobs, --dry-run)
   compression enable Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)
@@ -423,6 +443,16 @@ Commands:
   context use    Apply a bundle and its paired server set to a folder, or drop both (<name>, --none, --cwd, --dry-run)
   context disable Remove the generated shims; --purge-profiles also the profile directories (--dry-run)
   context        Context: init status client profile bundle use compose disable loads checkpoint-status plan apply sync
+  task ls        List the tasks with their last run and next scheduled run (--all includes disabled ones)
+  task show      Show a task's definition and its last runs (<id>)
+  task run       Start a task; --dry-run lists the steps, secrets and servers (<id>, --dry-run, --wait, --yes)
+  task resume    Continue a run that waits for you (<run-id>)
+  task cancel    Stop a run and its child process (<run-id>)
+  task add       Add a task from a definition file or a Claude command file (<id>, --file, --from-command, --dry-run)
+  task edit      Replace a task's definition (<id>, --file, --dry-run)
+  task rm        Remove a task; its run history stays (<id>, --dry-run)
+  task history   List the runs of a task, or one run with its step logs ([<id>], --run, --limit)
+  task           Tasks: ls show run resume cancel add edit rm history
   compression status Show the compression policy, pin and drift
   compression presets List presets (--refresh re-snapshots knobs, --dry-run)
   compression enable Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)
@@ -596,6 +626,16 @@ Commands:
   context use    Apply a bundle and its paired server set to a folder, or drop both (<name>, --none, --cwd, --dry-run)
   context disable Remove the generated shims; --purge-profiles also the profile directories (--dry-run)
   context        Context: init status client profile bundle use compose disable loads checkpoint-status plan apply sync
+  task ls        List the tasks with their last run and next scheduled run (--all includes disabled ones)
+  task show      Show a task's definition and its last runs (<id>)
+  task run       Start a task; --dry-run lists the steps, secrets and servers (<id>, --dry-run, --wait, --yes)
+  task resume    Continue a run that waits for you (<run-id>)
+  task cancel    Stop a run and its child process (<run-id>)
+  task add       Add a task from a definition file or a Claude command file (<id>, --file, --from-command, --dry-run)
+  task edit      Replace a task's definition (<id>, --file, --dry-run)
+  task rm        Remove a task; its run history stays (<id>, --dry-run)
+  task history   List the runs of a task, or one run with its step logs ([<id>], --run, --limit)
+  task           Tasks: ls show run resume cancel add edit rm history
   compression status Show the compression policy, pin and drift
   compression presets List presets (--refresh re-snapshots knobs, --dry-run)
   compression enable Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)
@@ -6068,3 +6108,87 @@ exit 2
 --- stdout
 {"command":"obs otel status","error":{"code":"usage","message":"unexpected argument: --bogus\nusage: obs otel status [--home <dir>]"},"ok":false,"schemaVersion":1}
 --- stderr
+=== ["task"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: task ls|show|run|resume|cancel|add|edit|rm|history (ls: [--all]; show|rm: <id>; run: <id> [--dry-run] [--wait] [--yes]; resume|cancel: <run-id>; add: <id> (--file <task.json> | --from-command <path>) [--dry-run]; edit: <id> --file <task.json> [--dry-run]; history: [<id>] [--run <run-id>] [--limit <n>])
+Run `toolportctl --help` for usage.
+=== ["task","ls","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["task","show"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: task show <id>
+Run `toolportctl --help` for usage.
+=== ["task","run"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: task run <id> [--dry-run] [--wait] [--yes]
+Run `toolportctl --help` for usage.
+=== ["task","run","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: task run <id> [--dry-run] [--wait] [--yes]
+Run `toolportctl --help` for usage.
+=== ["task","run","a","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["task","resume"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: task resume <run-id>
+Run `toolportctl --help` for usage.
+=== ["task","cancel","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: task cancel <run-id>
+Run `toolportctl --help` for usage.
+=== ["task","add","a"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: task add <id> (--file <task.json> | --from-command <path>) [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["task","add","a","--file","x","--from-command","y"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: task add <id> (--file <task.json> | --from-command <path>) [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["task","edit","a"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: task edit <id> --file <task.json> [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["task","rm"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: task rm <id> [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["task","history","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: task history [<id>] [--run <run-id>] [--limit <n>]
+Run `toolportctl --help` for usage.
+=== ["task","history","--limit","many"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --limit needs a whole number
+Run `toolportctl --help` for usage.
