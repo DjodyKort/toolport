@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Callout } from "@/components/Callout";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -44,6 +44,40 @@ function Row({
   );
 }
 
+/** The detail of the chosen plugin. It mounts once the list names one, so no read ever runs
+ * with an empty plugin id. */
+function Selected({
+  id,
+  cwd,
+  onChanged,
+  onTerminal,
+  onOpenHooks,
+}: {
+  id: string;
+  cwd: string;
+  onChanged: () => void;
+  onTerminal: ComponentProps<typeof PluginDetail>["onTerminal"];
+  onOpenHooks?: () => void;
+}) {
+  const show = useRead<PluginsShowData>(["plugins", "show", id, ...cwdArgs(cwd)]);
+  const write = useWrite(useRegistryRows(), () => {
+    onChanged();
+    show.reload();
+  });
+  return (
+    <>
+      <PluginDetail
+        query={show}
+        cwd={cwd}
+        write={write}
+        onTerminal={onTerminal}
+        onOpenHooks={onOpenHooks}
+      />
+      <WriteDialogs write={write} />
+    </>
+  );
+}
+
 /** Library > Plugins: every plugin Claude Code has installed, what it costs and the switches
  * that really exist (D-075). Reads are local; a change is a plan you confirm first. */
 export function PluginsTab({ onOpenHooks }: { onOpenHooks?: () => void }) {
@@ -54,12 +88,6 @@ export function PluginsTab({ onOpenHooks }: { onOpenHooks?: () => void }) {
   const [picked, setPicked] = useState<string | null>(null);
   const rows = list.data?.plugins ?? [];
   const id = rows.find((row) => row.id === picked)?.id ?? rows[0]?.id ?? "";
-  const show = useRead<PluginsShowData>(["plugins", "show", id, ...cwdArgs(cwd)]);
-  const registry = useRegistryRows();
-  const write = useWrite(registry, () => {
-    list.reload();
-    show.reload();
-  });
   const terminal = useTerminalStep();
   const folderLine = cwd
     ? `Folder ${cwd}`
@@ -123,18 +151,17 @@ export function PluginsTab({ onOpenHooks }: { onOpenHooks?: () => void }) {
                 />
               ))}
             </ul>
-            <PluginDetail
+            <Selected
               key={`${id}|${cwd}`}
-              query={show}
+              id={id}
               cwd={cwd}
-              write={write}
+              onChanged={list.reload}
               onTerminal={terminal.open}
               onOpenHooks={onOpenHooks}
             />
           </div>
         )}
       </AsyncView>
-      <WriteDialogs write={write} />
       <TerminalDialog step={terminal.step} onClose={terminal.close} />
     </div>
   );
