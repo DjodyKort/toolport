@@ -50,6 +50,25 @@ pub fn kill_group(pid: u32) {
     let _ = pid;
 }
 
+pub fn alive(pid: u32) -> bool {
+    #[cfg(unix)]
+    unsafe {
+        libc::kill(pid as i32, 0) == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = pid;
+        true
+    }
+}
+
+pub fn abandon(run_id: &str) -> Result<Run, OpError> {
+    let started = store::load_run(run_id).ok().and_then(|r| super::cron::parse_rfc3339(&r.started_at));
+    mark_cancelled(run_id, 0, Instant::now())?;
+    let ms = started.map(|s| ((super::cron::now() - s).max(0) as u64) * 1000);
+    store::update_run(run_id, |r| r.duration_ms = ms).map(|(r, ())| r)
+}
+
 fn read_capped(mut from: impl Read + Send + 'static) -> Arc<Mutex<Vec<u8>>> {
     let buf = Arc::new(Mutex::new(Vec::new()));
     let sink = Arc::clone(&buf);

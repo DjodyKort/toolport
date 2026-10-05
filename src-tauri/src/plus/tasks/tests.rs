@@ -8,11 +8,11 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-const CANARY: &str = "CANARY-9f3a61c07b2d";
+pub(super) const CANARY: &str = "CANARY-9f3a61c07b2d";
 
 #[derive(Default)]
-struct Fake {
-    vault: Mutex<HashMap<(String, String), String>>,
+pub(super) struct Fake {
+    pub(super) vault: Mutex<HashMap<(String, String), String>>,
 }
 
 impl Host for Fake {
@@ -47,12 +47,12 @@ impl Host for Fake {
 static SHARED: std::sync::OnceLock<Fake> = std::sync::OnceLock::new();
 
 impl Fake {
-    fn shared() -> &'static Fake {
+    pub(super) fn shared() -> &'static Fake {
         SHARED.get_or_init(Fake::default)
     }
 }
 
-fn task(extra: Value) -> Task {
+pub(super) fn task(extra: Value) -> Task {
     let mut base = json!({
         "id": "moodle-token", "title": "Refresh the token", "description": "", "enabled": true,
         "requires": {"servers": ["acme"], "commands": ["sleep"]},
@@ -72,7 +72,7 @@ fn task(extra: Value) -> Task {
     t
 }
 
-fn until(what: &str, mut ok: impl FnMut() -> bool) {
+pub(super) fn until(what: &str, mut ok: impl FnMut() -> bool) {
     let end = Instant::now() + Duration::from_secs(20);
     while !ok() {
         assert!(Instant::now() < end, "timed out waiting for {what}");
@@ -80,7 +80,7 @@ fn until(what: &str, mut ok: impl FnMut() -> bool) {
     }
 }
 
-fn world(tag: &str) -> DataDirFx {
+pub(super) fn world(tag: &str) -> DataDirFx {
     std::env::set_var("TOOLPORT_TASK_POLL_MS", "20");
     DataDirFx::new("tasks", tag).with_secret_key("synthetic-test-key-0123456789")
 }

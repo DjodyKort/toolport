@@ -89,6 +89,10 @@ impl Host for RealHost {
         cmd.args(["task", "__run", run_id]).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
         #[cfg(unix)]
         std::os::unix::process::CommandExt::process_group(&mut cmd, 0);
-        cmd.spawn().map(|_| ()).map_err(|e| format!("cannot start the task runner: {e}"))
+        let mut child = cmd.spawn().map_err(|e| format!("cannot start the task runner: {e}"))?;
+        std::thread::spawn(move || {
+            let _ = child.wait();
+        });
+        Ok(())
     }
 }

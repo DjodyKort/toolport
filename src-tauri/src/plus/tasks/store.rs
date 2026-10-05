@@ -160,7 +160,7 @@ pub fn new_run(task: &Task, trigger: &str) -> Run {
     }
 }
 
-fn run_path(id: &str) -> Result<PathBuf, OpError> {
+pub fn run_path(id: &str) -> Result<PathBuf, OpError> {
     if !valid_run_id(id) {
         return Err(OpError::usage(format!("{id:?} is not a run id")));
     }
