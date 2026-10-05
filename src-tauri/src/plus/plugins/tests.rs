@@ -6,12 +6,12 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
 
-struct Fx {
-    base: PathBuf,
+pub(super) struct Fx {
+    pub(super) base: PathBuf,
 }
 
 impl Fx {
-    fn new(tag: &str) -> Self {
+    pub(super) fn new(tag: &str) -> Self {
         let raw = std::env::temp_dir().join(format!("plugins-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&raw);
         std::fs::create_dir_all(&raw).unwrap();
@@ -20,7 +20,7 @@ impl Fx {
         }
     }
 
-    fn env(&self) -> Env {
+    pub(super) fn env(&self) -> Env {
         Env {
             home: self.base.join("home"),
             claude_home: self.base.join("home/.claude"),
@@ -30,26 +30,26 @@ impl Fx {
         }
     }
 
-    fn path(&self, rel: &str) -> PathBuf {
+    pub(super) fn path(&self, rel: &str) -> PathBuf {
         self.base.join(rel)
     }
 
-    fn put(&self, rel: &str, body: &str) -> PathBuf {
+    pub(super) fn put(&self, rel: &str, body: &str) -> PathBuf {
         let p = self.path(rel);
         std::fs::create_dir_all(p.parent().unwrap()).unwrap();
         std::fs::write(&p, body).unwrap();
         p
     }
 
-    fn put_json(&self, rel: &str, body: Value) -> PathBuf {
+    pub(super) fn put_json(&self, rel: &str, body: Value) -> PathBuf {
         self.put(rel, &body.to_string())
     }
 
-    fn user_settings(&self, body: Value) {
+    pub(super) fn user_settings(&self, body: Value) {
         self.put_json("home/.claude/settings.json", body);
     }
 
-    fn project(&self, rel: &str) -> PathBuf {
+    pub(super) fn project(&self, rel: &str) -> PathBuf {
         let dir = self.path(rel);
         std::fs::create_dir_all(dir.join(".claude")).unwrap();
         dir
@@ -57,7 +57,7 @@ impl Fx {
 
     /// An installed plugin with two skills, an agent, two commands, three hook handlers and two
     /// MCP servers. `sentinel` is what every command in it points at.
-    fn plugin(&self, name: &str, marketplace: &str, sentinel: &str) -> PathBuf {
+    pub(super) fn plugin(&self, name: &str, marketplace: &str, sentinel: &str) -> PathBuf {
         let id = format!("{name}@{marketplace}");
         let dir = self.path(&format!("home/.claude/plugins/cache/{marketplace}/{name}/1.0.0"));
         let at = |rel: &str| dir.join(rel);

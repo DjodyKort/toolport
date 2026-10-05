@@ -457,3 +457,92 @@ fn apply_then_undo_is_byte_identical_for_any_foreign_settings_file() {
         assert_eq!(fx.text(".git/info/exclude").unwrap(), "# local\n");
     });
 }
+
+const CONTROLS: &str = "format: 1\nname: ctl\nplugins:\n  config:\n    ecc@ecc: {gateguard: off, hook_profile: minimal, gateguard_exempt_globs: [\"a/**\", \"b/**\"], hooks_enabled: false}\nmcp:\n  deny: [\"plugin:ecc:chrome-devtools\"]\n";
+
+#[test]
+fn a_bundle_applies_plugin_knobs_and_mcp_denials_and_undoes_them() {
+    let fx = Fx::new("bundle-controls");
+    put(&fx.roots.skills_repo_path().join("profiles/ctl.yaml"), CONTROLS);
+    put(&fx.settings(), "{\n  \"deniedMcpServers\": [{\"serverName\": \"other\"}],\n  \"env\": {\"FOO\": \"1\", \"ECC_HOOK_PROFILE\": \"strict\"}\n}\n");
+    let before = tree_snapshot(&fx.cwd);
+    let plan = bundle_apply::apply(&fx.world(), "ctl", &fx.cwd, true).unwrap();
+    assert_eq!(plan["plan"]["steps"][0]["keys"], json!(["env", "deniedMcpServers"]));
+    assert_eq!(tree_snapshot(&fx.cwd), before);
+
+    fx.apply("ctl");
+    let v: Value = serde_json::from_str(&fx.text(".claude/settings.local.json").unwrap()).unwrap();
+    assert_eq!(
+        v["env"],
+        json!({"FOO": "1", "ECC_HOOK_PROFILE": "minimal", "ECC_GATEGUARD": "off", "GATEGUARD_EXEMPT_GLOBS": "a/**,b/**", "ECC_HOOKS_ENABLED": "false"})
+    );
+    assert_eq!(v["deniedMcpServers"], json!([{"serverName": "other"}, {"serverName": "plugin:ecc:chrome-devtools"}]));
+    let owned = &fx.status()["applied"]["ownedKeys"];
+    assert_eq!(owned["env"], json!(["ECC_GATEGUARD", "ECC_HOOKS_ENABLED", "ECC_HOOK_PROFILE", "GATEGUARD_EXEMPT_GLOBS"]));
+    assert_eq!(owned["deniedMcpServers"], json!(["plugin:ecc:chrome-devtools"]));
+    assert_eq!(fx.status()["applied"]["drift"], false);
+
+    let mut t = fx.text(".claude/settings.local.json").unwrap();
+    json::set(&mut t, &["env", "ECC_GATEGUARD"], "\"on\"").unwrap();
+    fs::write(fx.settings(), &t).unwrap();
+    let drifted = fx.status();
+    assert_eq!(drifted["applied"]["drift"], true);
+    assert_eq!(drifted["applied"]["changedKeys"], json!(["env.ECC_GATEGUARD"]));
+    let undone = fx.undo();
+    assert_eq!(undone["conflicts"], json!(["env.ECC_GATEGUARD"]), "a changed owned key is a reported conflict");
+    let left: Value = serde_json::from_str(&fx.text(".claude/settings.local.json").unwrap()).unwrap();
+    assert_eq!(left["env"], json!({"FOO": "1", "ECC_HOOK_PROFILE": "strict", "ECC_GATEGUARD": "on"}));
+    assert_eq!(left["deniedMcpServers"], json!([{"serverName": "other"}]));
+}
+
+#[test]
+fn bundles_and_plugin_controls_share_a_folder_and_leave_in_any_order() {
+    use super::bundle_controls as controls;
+    for first_bundle in [true, false] {
+        let fx = Fx::new("bundle-with-controls");
+        put(&fx.roots.skills_repo_path().join("profiles/ctl.yaml"), CONTROLS);
+        let before = tree_snapshot(&fx.cwd);
+        let want = bundle_apply::Desired { deny_servers: vec!["plugin:ecc:other".into()], env: vec![("ECC_DISABLED_HOOKS".into(), "pre:x".into())], ..Default::default() };
+        controls::apply(&fx.data, &fx.cwd, "config:ecc@ecc", &want, false).unwrap();
+        fx.apply("ctl");
+        let v: Value = serde_json::from_str(&fx.text(".claude/settings.local.json").unwrap()).unwrap();
+        assert_eq!(v["env"]["ECC_DISABLED_HOOKS"], "pre:x");
+        assert_eq!(v["env"]["ECC_GATEGUARD"], "off");
+        if first_bundle {
+            fx.undo();
+            assert!(fx.text(".claude/settings.local.json").unwrap().contains("ECC_DISABLED_HOOKS"));
+            controls::undo(&fx.data, &fx.cwd, "config:ecc@ecc", false).unwrap();
+        } else {
+            controls::undo(&fx.data, &fx.cwd, "config:ecc@ecc", false).unwrap();
+            assert!(fx.text(".claude/settings.local.json").unwrap().contains("ECC_GATEGUARD"));
+            fx.undo();
+        }
+        assert_eq!(tree_snapshot(&fx.cwd), before, "first_bundle {first_bundle}");
+        assert_eq!(ledger::load(&fx.data), ledger::Ledger::default());
+    }
+}
+
+#[test]
+fn launch_settings_carry_the_plugin_env_and_the_denied_servers() {
+    let fx = Fx::new("bundle-launch-controls");
+    put(&fx.roots.skills_repo_path().join("profiles/ctl.yaml"), CONTROLS);
+    let out = super::bundle_use::launch(&fx.world(), "ctl", Some(&fx.cwd)).unwrap();
+    let file: Value = serde_json::from_str(&fs::read_to_string(out["settingsFile"].as_str().unwrap()).unwrap()).unwrap();
+    assert_eq!(file["env"]["ECC_GATEGUARD"], "off");
+    assert_eq!(file["env"]["GATEGUARD_EXEMPT_GLOBS"], "a/**,b/**");
+    assert_eq!(file["deniedMcpServers"], json!([{"serverName": "plugin:ecc:chrome-devtools"}]));
+}
+
+#[test]
+fn lint_reports_unknown_knobs_unknown_plugins_and_bare_server_names() {
+    use crate::plus::plugins::adapters::Registry;
+    let text = "plugins:\n  config:\n    ecc@ecc: {nope: 1, hook_profile: wild, gateguard: off}\n    ghost@market: {a: b}\nmcp:\n  deny: [chrome-devtools, \"plugin:ecc:chrome-devtools\"]\n";
+    let issues = super::bundle::lint_with("x", text, &Registry::load(None));
+    let got: Vec<(&str, &str)> = issues.iter().map(|i| (i.level, i.key.as_str())).collect();
+    assert_eq!(
+        got,
+        [("error", "plugins.config.ecc@ecc.nope"), ("error", "plugins.config.ecc@ecc.hook_profile"), ("error", "plugins.config.ghost@market"), ("error", "mcp.deny")]
+    );
+    assert!(issues[0].message.contains("unknown knob") && issues[0].message.contains("gateguard"));
+    assert!(issues[3].message.contains("bare name does not block"));
+}

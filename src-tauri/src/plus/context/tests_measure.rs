@@ -412,7 +412,7 @@ fn a_bundle_becomes_settings_keys_and_layers_add_is_reported() {
     let w = world();
     w.h.put(
         ".config/mcpm/skills_repo/profiles/odoo-dev.yaml",
-        "format: 1\nname: odoo-dev\nskills:\n  off: [\"scratch-*\", legacy]\n  name_only: [wide]\nplugins:\n  off: [\"ecc@ecc\"]\nmcp:\n  deny: [\"plugin:ecc:chrome-devtools\"]\nlayers:\n  add: [odh-knowledge]\n  exclude: [\"**/parent/CLAUDE.md\"]\nagents:\n  off: [reviewer]\n",
+        "format: 1\nname: odoo-dev\nskills:\n  off: [\"scratch-*\", legacy]\n  name_only: [wide]\nplugins:\n  off: [\"ecc@ecc\"]\n  config:\n    ecc@ecc: {hook_profile: minimal, gateguard: off}\nmcp:\n  deny: [\"plugin:ecc:chrome-devtools\"]\nlayers:\n  add: [odh-knowledge]\n  exclude: [\"**/parent/CLAUDE.md\"]\nagents:\n  off: [reviewer]\n",
     );
     w.h.put(".config/mcpm/skills_repo/skills/scratch-one/SKILL.md", &skill("scratch-one", "x"));
     w.h.put(".config/mcpm/skills_repo/skills/wide/SKILL.md", &skill("wide", "x"));
@@ -429,6 +429,7 @@ fn a_bundle_becomes_settings_keys_and_layers_add_is_reported() {
             "skillOverrides": {"legacy": "off", "scratch-one": "off", "wide": "name-only"},
             "enabledPlugins": {"ecc@ecc": false},
             "claudeMdExcludes": ["**/parent/CLAUDE.md"],
+            "env": {"ECC_GATEGUARD": "off", "ECC_HOOK_PROFILE": "minimal"},
             "deniedMcpServers": [{"serverName": "plugin:ecc:chrome-devtools"}],
             "permissions": {"deny": ["Agent(reviewer)"]},
         }))

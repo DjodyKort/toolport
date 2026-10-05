@@ -1,0 +1,22 @@
+{
+  "pluginId": "ecc@ecc",
+  "displayName": "ecc",
+  "schema": {
+    "hook_profile": {
+      "type": "string",
+      "title": "Hook profile",
+      "description": "d",
+      "default": "standard"
+    },
+    "api_token": {
+      "type": "string",
+      "title": "Token",
+      "description": "t",
+      "sensitive": true
+    }
+  },
+  "inputs": { "hook_profile": "standard", "api_token": "" },
+  "choices": { "hook_profile": ["minimal", "standard", "strict"] },
+  "configured": ["hook_profile"],
+  "unconfigured": []
+}

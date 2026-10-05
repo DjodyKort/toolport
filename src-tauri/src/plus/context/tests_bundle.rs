@@ -1,3 +1,4 @@
+use crate::plus::plugins::adapters::Registry;
 use super::bundle::{self, Edit};
 use super::bundle_store;
 use super::Roots;
@@ -48,12 +49,13 @@ fn a_plain_skills_list_is_read_as_the_allow_list() {
 }
 
 #[test]
-fn lint_reports_unknown_and_reserved_keys_and_edit_keeps_them() {
-    let issues = bundle::lint("unknown-keys", UNKNOWN);
+fn lint_reports_unknown_keys_and_unknown_plugins_and_edit_keeps_them() {
+    let issues = bundle::lint_with("unknown-keys", UNKNOWN, &Registry::load(None));
     let keys: Vec<&str> = issues.iter().map(|i| i.key.as_str()).collect();
-    assert_eq!(keys, ["extra", "plugins.config", "mcp.deny", "skills.future"]);
-    assert!(issues.iter().all(|i| i.level == "warning"));
-    assert!(issues[1].message.contains("reserved"));
+    assert_eq!(keys, ["plugins.config.tools-pack@tools-market", "extra", "skills.future"]);
+    assert_eq!(issues[0].level, "error");
+    assert!(issues[0].message.contains("no adapter"));
+    assert!(issues[1..].iter().all(|i| i.level == "warning"));
     let edit = Edit {
         plugins_off: list(&["other@market"]),
         ..Edit::default()
