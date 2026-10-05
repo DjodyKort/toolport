@@ -150,6 +150,7 @@ const SIDE_EFFECT_TESTS: &[(&str, &str, &str)] = &[
     ("servers_install", "wired_tests.rs", SERVER_MUTATIONS),
     ("servers_update_config", "wired_tests.rs", SERVER_MUTATIONS),
     ("servers_set_mode", "wired_tests.rs", SERVER_MUTATIONS),
+    ("servers_set_source", "wired_tests.rs", SERVER_MUTATIONS),
     ("servers_uninstall", "wired_tests.rs", SERVER_MUTATIONS),
     (
         "servers_apply_update",

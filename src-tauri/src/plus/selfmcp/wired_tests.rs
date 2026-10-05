@@ -576,6 +576,21 @@ fn server_mutations_follow_their_tiers() {
     );
 
     assert_eq!(
+        kind(call(
+            "servers_set_source",
+            json!({"name": "gamma", "branch": "main"})
+        )),
+        "refused"
+    );
+    assert_eq!(
+        kind(call(
+            "servers_set_source",
+            json!({"name": "gamma", "branch": "main", "confirm": true})
+        )),
+        "invalid_input"
+    );
+
+    assert_eq!(
         kind(call("servers_uninstall", json!({"name": "gamma"}))),
         "refused"
     );
