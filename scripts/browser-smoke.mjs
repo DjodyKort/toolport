@@ -261,6 +261,11 @@ async function contextScreen(shot, theme) {
   const nav = shot.getByRole("navigation", { name: "Views" });
   await nav.getByRole("button", { name: "Context", exact: true }).click();
   const tabs = shot.getByRole("tablist", { name: "Context sections" });
+  await expect(tabs.getByRole("tab", { name: "This folder" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await tabs.getByRole("tab", { name: "Launch & shell" }).click();
   await expect(tabs.getByRole("tab", { name: "Launch & shell" })).toHaveAttribute(
     "aria-selected",
     "true",
