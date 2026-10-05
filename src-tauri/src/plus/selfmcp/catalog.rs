@@ -1,4 +1,4 @@
-use super::{backend, compression, content, context, context_bundle, direct, plugins, servers, skills, sources, state, ToolError};
+use super::{backend, compression, content, context, context_bundle, context_compose, direct, plugins, servers, skills, sources, state, ToolError};
 use serde_json::{json, Map, Value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -166,6 +166,14 @@ pub const TOOLS: &[ToolDef] = &[
         "Undo the bundle applied in a folder: put back the keys it replaced and remove its block; a key changed since is left alone and listed in conflicts. Pass dry_run to see the plan and write nothing",
         [p("cwd", Ty::Str, true, "The folder where Claude Code starts"), DRY],
         context_bundle::undo
+    ),
+    tool!(
+        "context_compose",
+        1,
+        None,
+        "Show the instruction text Claude Code gets when it starts in a folder, part by part in load order (memory files, the files they import, rules), each with its origin, whether it loads lazily and an estimated token count. Read only",
+        [p("cwd", Ty::Str, true, "The folder where Claude Code starts")],
+        context_compose::compose
     ),
     tool!(
         "plugins_ls",

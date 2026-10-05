@@ -29,7 +29,7 @@ mod sources_world;
 
 const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
-const TOOL_COUNT: usize = 89;
+const TOOL_COUNT: usize = 90;
 const RESOURCE_COUNT: usize = 11;
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);

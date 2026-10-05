@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/nowhere"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "<WORLD>/home/nowhere is not a folder"
+    }
+  },
+  "text": "invalid_arguments: <WORLD>/home/nowhere is not a folder",
+  "tool": "context_compose"
+}

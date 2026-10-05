@@ -5,7 +5,7 @@
 
 use crate::ctl_fixtures::{
     bundle_drift_home, bundle_home, fork_back_to_main, fork_world, git_world, health_proxy,
-    measure_home, skills_repo_remote_world, sync_setup,
+    layers_deployed_home, measure_home, skills_repo_remote_world, sync_setup,
 };
 
 use super::{case, fails, hook, prepared, read, refused, setup, write, Case};
@@ -1109,6 +1109,22 @@ pub const ALL: &[Case] = &[
                 r#"{"cwd":"{home}/work/erp/clients/acme-erp","dry_run":true}"#,
             ),
             fails("no_cwd", "invalid_arguments", "context_bundle_undo", "{}"),
+        ],
+    ),
+    // layer composition (MIG-CTX-11)
+    prepared(
+        "context_compose",
+        layers_deployed_home,
+        &[
+            read("client", "context_compose", r#"{"cwd":"{home}/work/erp/clients/acme-two"}"#),
+            read("outside", "context_compose", r#"{"cwd":"{home}/work/other"}"#),
+            fails("no_cwd", "invalid_arguments", "context_compose", "{}"),
+            fails(
+                "bad_cwd",
+                "invalid_arguments",
+                "context_compose",
+                r#"{"cwd":"{home}/nowhere"}"#,
+            ),
         ],
     ),
 ];

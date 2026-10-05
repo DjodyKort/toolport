@@ -244,6 +244,21 @@
           "tier": 2
         },
         {
+          "description": "Show the instruction text Claude Code gets when it starts in a folder, part by part in load order (memory files, the files they import, rules), each with its origin, whether it loads lazily and an estimated token count. Read only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "context_compose",
+          "params": [
+            {
+              "description": "The folder where Claude Code starts",
+              "name": "cwd",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
           "description": "List the installed Claude Code plugins with what each brings (skills, agents, commands, hooks, MCP servers), whether it is on in the folder, its token cost and its MCP servers that sit outside the gateway",
           "dryRunDefault": false,
           "gate": "none",
