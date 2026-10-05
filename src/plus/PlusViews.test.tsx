@@ -4,8 +4,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { View } from "@/lib/types";
 import { commandsFixture } from "./fixtures/commandsRegistry";
-import { PLUS_SCREENS, PLUS_VIEWS, type PlusView } from "./nav";
-import { NOT_BUILT_TABS } from "./notBuiltTabs";
+import { PLUS_VIEWS, type PlusView } from "./nav";
 
 const { invoke, listen } = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
@@ -21,6 +20,8 @@ vi.mock("./usage/UsageTab", () => ({ UsageTab: () => <p>Usage panel</p> }));
 import { PlusViews } from "./PlusViews";
 import { createBridge } from "./servers/testkit";
 import { createBridge as createSystemBridge } from "./system/testkit";
+import { createBridge as createAttentionBridge } from "./attention/testkit";
+import { ServersScreen } from "./servers/ServersScreen";
 
 beforeEach(() => {
   listen.mockReset().mockResolvedValue(() => {});
@@ -59,29 +60,6 @@ function Harness({ start }: { start: PlusView }) {
 }
 
 describe("PlusViews", () => {
-  it.each(
-    PLUS_VIEWS.filter(
-      (view) =>
-        view !== "commands" &&
-        view !== "control" &&
-        view !== "logins" &&
-        view !== "library" &&
-        view !== "tokens" &&
-        view !== "context" &&
-        view !== "system" &&
-        view !== "tasks",
-    ),
-  )("marks %s as not built yet and names the item that builds it", async (view) => {
-    render(<Harness start={view} />);
-    const screenInfo = PLUS_SCREENS[view];
-    const first = NOT_BUILT_TABS[view]?.[0];
-    expect(await screen.findByText("Not built yet")).toBeInTheDocument();
-    expect(
-      screen.getByText(new RegExp(`built by ${first?.builtBy ?? screenInfo.builtBy}\\b`)),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open All commands" })).toBeInTheDocument();
-  });
-
   it("opens the Servers screen on the control view and the classic page from it", async () => {
     invoke.mockReset().mockImplementation(createBridge().invoke);
     const user = userEvent.setup();
@@ -124,12 +102,28 @@ describe("PlusViews", () => {
     expect(await screen.findByText("Compression panel")).toBeInTheDocument();
   });
 
-  it("opens the All commands page from the placeholder of a tab that is not built", async () => {
+  it("opens the Attention screen from the sidebar view and the All commands page from its offline state", async () => {
+    const bridge = createAttentionBridge();
+    bridge.down = true;
+    invoke.mockReset().mockImplementation(bridge.invoke);
     const user = userEvent.setup();
     render(<Harness start="attention" />);
-    await user.click(await screen.findByRole("button", { name: "Open All commands" }));
+    expect(await screen.findByText("Toolport can't run toolportctl")).toBeInTheDocument();
+    expect(screen.queryByText("Not built yet")).toBeNull();
+    bridge.down = false;
+    await user.click(screen.getByRole("button", { name: "Open doctor" }));
     expect(screen.getByLabelText("view")).toHaveTextContent("commands");
     expect(await screen.findByRole("list", { name: "Commands" })).toBeInTheDocument();
+  });
+
+  it("opens the Servers screen on the tab a link names", async () => {
+    invoke.mockReset().mockImplementation(createBridge().invoke);
+    render(<ServersScreen initialTab="secrets" onOpenCommands={() => {}} pollMs={0} />);
+    const tabs = await screen.findByRole("tablist", { name: "Servers sections" });
+    expect(within(tabs).getByRole("tab", { name: "Secrets" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   it("opens the System screen with its five tabs and the plugin updates", async () => {

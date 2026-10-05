@@ -1,6 +1,7 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import type { View } from "@/lib/types";
 import type { PlusView } from "./nav";
+import type { TabId } from "./servers/useServers";
 import { ScreenSkeleton } from "./ui/States";
 
 const AllCommandsPage = lazy(() =>
@@ -28,6 +29,9 @@ const TasksScreen = lazy(() =>
   import("./tasks/TasksScreen").then((m) => ({ default: m.TasksScreen })),
 );
 const NotBuilt = lazy(() => import("./NotBuilt").then((m) => ({ default: m.NotBuilt })));
+const AttentionScreen = lazy(() =>
+  import("./attention/AttentionScreen").then((m) => ({ default: m.AttentionScreen })),
+);
 
 /** The single entry for every Toolport+ screen. Each screen is its own chunk, so the app
  * only loads the one that is open. A screen no item has built yet is a marked placeholder
@@ -40,15 +44,18 @@ export function PlusViews({
   onSelectView: (view: View) => void;
 }) {
   const [group, setGroup] = useState<string | undefined>();
-  const [target, setTarget] = useState<{ view: PlusView; tab: string } | null>(null);
-  useEffect(() => {
-    if (target && view !== target.view) setTarget(null);
-  }, [view, target]);
-  const openTab = (next: PlusView, tab: string) => {
-    setTarget({ view: next, tab });
+  const [target, setTarget] = useState<{
+    view: PlusView;
+    params: Record<string, string>;
+  } | null>(null);
+  if (target && target.view !== view) setTarget(null);
+  const navigate = (next: PlusView, params: Record<string, string>) => {
+    setTarget({ view: next, params });
     onSelectView(next);
   };
-  const tabOf = (own: PlusView) => (target?.view === own ? target.tab : undefined);
+  const openTab = (next: PlusView, tab: string) => navigate(next, { tab });
+  const params = target?.view === view ? target.params : undefined;
+  const tabOf = (own: PlusView) => (target?.view === own ? target.params.tab : undefined);
   const openCommands = (next?: string) => {
     setGroup(next);
     onSelectView("commands");
@@ -59,6 +66,7 @@ export function PlusViews({
         <AllCommandsPage key={group ?? ""} initialGroup={group} />
       ) : view === "control" ? (
         <ServersScreen
+          initialTab={params?.tab as TabId | undefined}
           onOpenCommands={openCommands}
           onOpenClassic={() => onSelectView("servers")}
         />
@@ -72,7 +80,7 @@ export function PlusViews({
           onOpenHooks={() => openTab("context", "hooks")}
         />
       ) : view === "tokens" ? (
-        <TokensScreen onOpenCommands={openCommands} />
+        <TokensScreen initialTab={params?.tab} onOpenCommands={openCommands} />
       ) : view === "context" ? (
         <ContextScreen
           key={tabOf("context") ?? ""}
@@ -81,9 +89,15 @@ export function PlusViews({
           onOpenPlugins={() => openTab("library", "plugins")}
         />
       ) : view === "system" ? (
-        <SystemScreen onOpenCommands={openCommands} />
+        <SystemScreen initialTab={params?.tab} onOpenCommands={openCommands} />
       ) : view === "tasks" ? (
-        <TasksScreen onOpenCommands={openCommands} />
+        <TasksScreen
+          initialTab={params?.tab}
+          initialTask={params?.task}
+          onOpenCommands={openCommands}
+        />
+      ) : view === "attention" ? (
+        <AttentionScreen onNavigate={navigate} onOpenCommands={openCommands} />
       ) : (
         <NotBuilt view={view} onOpenCommands={openCommands} />
       )}
