@@ -737,6 +737,88 @@ async function pluginsScreen(shot, theme) {
   expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
 }
 
+// The Attention screen on the stateful Attention world: the counter in the sidebar, the list in
+// its three groups, the plan of an action and of a dismissal (a read-only look, then the
+// dismissal applied), the link of a row into the Tasks screen and, in light, the empty state
+// once every row is hidden.
+async function attentionScreen(shot, theme) {
+  const snap = async (name) => {
+    await shot.mouse.move(900, 20);
+    await shot.evaluate(() => document.fonts.ready);
+    await guiShot(shot, name, { animations: "disabled" });
+  };
+  const dialog = shot.getByRole("dialog");
+  const nav = shot.getByRole("navigation", { name: "Views" });
+  const entry = nav.getByRole("button", { name: /^Attention/ });
+  await expect(entry.getByLabel("3 need you")).toBeVisible();
+  await entry.click();
+  const rows = shot.locator("li[data-level]");
+  await expect(rows).toHaveCount(10);
+  const section = (name) => shot.getByRole("region", { name, exact: true });
+  await expect(section("Needs you").locator("li[data-level]")).toHaveCount(3);
+  await expect(section("Worth a look").locator("li[data-level]")).toHaveCount(5);
+  await expect(section("For your information").locator("li[data-level]")).toHaveCount(2);
+  await snap(theme === "light" ? "attention" : "attention-dark");
+
+  const bundle = "Bundle acme-dev changed since it was applied";
+  const reapply = shot
+    .getByRole("listitem", { name: bundle })
+    .getByRole("button", { name: `Apply again: ${bundle}` });
+  await reapply.click();
+  await expect(
+    dialog.getByText("Run context bundle apply acme-dev --cwd /home/demo/work/acme-erp"),
+  ).toBeVisible();
+  await shot.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(reapply).toBeFocused();
+  await expect(rows).toHaveCount(10);
+
+  const alpha = shot.getByRole("listitem", { name: "alpha is missing a secret" });
+  const hide = alpha.getByRole("button", { name: "Dismiss alpha is missing a secret" });
+  await hide.click();
+  await dialog.getByRole("button", { name: "Show plan" }).click();
+  await expect(dialog.getByText(/^Hide secrets:srv-alpha:missing until /)).toBeVisible();
+  if (theme === "light") await snap("attention-dismiss-light");
+  await shot.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(rows).toHaveCount(10);
+  await hide.click();
+  await dialog.getByRole("button", { name: "Show plan" }).click();
+  await dialog.getByRole("button", { name: "Hide", exact: true }).click();
+  await expect(dialog.getByText("Done")).toBeVisible();
+  await dialog.getByRole("button", { name: "Close", exact: true }).last().click();
+  await expect(dialog).toHaveCount(0);
+  await expect(rows).toHaveCount(9);
+  await expect(entry.getByLabel("2 need you")).toBeVisible();
+
+  await shot
+    .getByRole("button", { name: "Open Task portal-token is waiting for you" })
+    .click();
+  await expect(shot.getByRole("tablist", { name: "Tasks sections" })).toBeVisible();
+  await entry.click();
+  await expect(rows).toHaveCount(9);
+
+  if (theme === "light") {
+    while ((await rows.count()) > 0) {
+      const before = await rows.count();
+      await rows
+        .first()
+        .getByRole("button", { name: /^Dismiss/ })
+        .click();
+      await dialog.getByRole("button", { name: "Show plan" }).click();
+      await dialog.getByRole("button", { name: "Hide", exact: true }).click();
+      await expect(dialog.getByText("Done")).toBeVisible();
+      await dialog.getByRole("button", { name: "Close", exact: true }).last().click();
+      await expect(dialog).toHaveCount(0);
+      await expect(rows).toHaveCount(before - 1);
+    }
+    await expect(shot.getByText("Nothing needs you")).toBeVisible();
+    await expect(entry.getByLabel(/need you$/)).toHaveCount(0);
+    await snap("attention-empty-light");
+  }
+  expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
+}
+
 let browser;
 let context;
 let page;
@@ -1211,6 +1293,7 @@ try {
     await watch(shot);
     await shot.goto(`${baseURL}/fixtures/`);
     await pluginsScreen(shot, theme);
+    await attentionScreen(shot, theme);
     await shot.close();
   }
   expect(errors).toEqual([]);

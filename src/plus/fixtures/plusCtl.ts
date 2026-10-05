@@ -64,6 +64,9 @@ export const plusCtlFixtures = new Map<string, unknown>([
   // The Library screen drives a stateful skills world, so its commands win over the static Health fixtures.
   ...skillsBrowserFixtures,
   ...createAgentsWorld(),
+  // Attention only previews the actions of its rows in the dev browser, so where a screen's own
+  // world answers the same argv (task run, compression presets), that world wins.
+  ...attentionBrowserFixtures,
   ...compressionBrowserFixtures,
   ...contextBrowserFixtures,
   ...systemBrowserFixtures,
@@ -71,7 +74,6 @@ export const plusCtlFixtures = new Map<string, unknown>([
   ...createMcpWorld(),
   // Plugins, hooks and the plugin card of System > Updates share one world; its cc rows win over the System ones.
   ...pluginsBrowserFixtures,
-  ...attentionBrowserFixtures,
 ]);
 
 const jobs = new Map<string, string>();
