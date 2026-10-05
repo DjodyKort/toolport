@@ -33,6 +33,7 @@ export const bundleShow = (name = "acme-dev") => {
 export const layerList = () => goldenData("context-client-add.list");
 export const orgSources = () => {
   const data = goldenData("sources-ls.org");
+  data.sources[0].freshness.lastSync = "2026-10-05T04:00:00Z";
   return { ...data, items: [] };
 };
 
