@@ -156,3 +156,38 @@ fn schedule_and_auth_failure_never_start_a_task_with_a_needs_you_step() {
     auto["triggers"]["schedule"]["autoRun"] = json!(true);
     assert!(model::validate(&model::parse(&auto.to_string()).unwrap()).unwrap_err().contains("autoRun is not allowed"));
 }
+
+#[test]
+fn the_gateway_watch_loop_drives_the_task_scheduler_and_the_auth_scan_hands_failures_over() {
+    let source = include_str!("../../bin/toolport-gateway.rs");
+    let start = source.find("\nfn watch_registry(").expect("watch_registry");
+    let rest = &source[start + 1..];
+    let end = rest.find("\nfn ").map_or(rest.len(), |at| at + 1);
+    assert!(rest[..end].contains("conduit_lib::plus::tasks::scheduler::tick();"));
+    assert!(include_str!("../auth/scheduler.rs").contains("tasks::triggers::on_auth_failure_once"));
+}
+
+#[test]
+fn a_due_auto_run_task_starts_once_a_minute_and_a_broken_login_acts_once_per_failure() {
+    let _fx = world("auto");
+    let sched = json!({"cron": "* * * * *", "autoRun": true});
+    let t = task(json!({
+        "requires": {"servers": ["acme-edge"], "commands": ["true"]}, "writesSecrets": [],
+        "steps": [{"id": "ok", "type": "exec", "title": "Fine", "program": "true", "args": []}],
+        "triggers": {"manual": true, "cli": false, "selfMcp": {"enabled": false, "approval": "every-run"}, "schedule": sched, "onAuthFailure": ["acme-edge"]}
+    }));
+    store::save_task(&t).unwrap();
+    let epoch = 4_102_444_800;
+    let first = super::scheduler::tick_at(epoch, Fake::shared());
+    assert!(matches!(first.as_slice(), [triggers::Raised::Started(_)]), "{first:?}");
+    assert!(super::scheduler::tick_at(epoch + 5, Fake::shared()).is_empty());
+    until("the scheduled run", || store::list_runs(None).unwrap().iter().all(|r| r.status.finished()));
+    let started = triggers::on_auth_failure_once("acme-edge", 100, Fake::shared());
+    assert!(matches!(started.as_slice(), [triggers::Raised::Started(_)]), "{started:?}");
+    assert!(triggers::on_auth_failure_once("acme-edge", 100, Fake::shared()).is_empty());
+    until("the login run", || store::list_runs(None).unwrap().iter().all(|r| r.status.finished()));
+    assert!(!triggers::on_auth_failure_once("acme-edge", 200, Fake::shared()).is_empty());
+    let runs = store::list_runs(None).unwrap();
+    assert_eq!(runs.iter().filter(|r| r.trigger == "schedule").count(), 1);
+    assert_eq!(runs.iter().filter(|r| r.trigger == "onAuthFailure").count(), 2);
+}

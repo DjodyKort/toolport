@@ -93,6 +93,7 @@ impl Scheduler {
                 for failure in &run.failures {
                     eprintln!("toolport: auth scan: {}: {}", failure.server, failure.error);
                 }
+                let _ = catch_unwind(AssertUnwindSafe(|| hand_failed_logins_to_tasks(&run)));
             }
         }
         self.finish();
@@ -110,6 +111,15 @@ impl Scheduler {
             }
         }
         began
+    }
+}
+
+fn hand_failed_logins_to_tasks(run: &ProbeRun) {
+    use super::types::AuthState;
+    for report in &run.reports {
+        if report.ran && matches!(report.tracked.state, AuthState::NeedsReauth | AuthState::Revoked) {
+            crate::plus::tasks::triggers::on_auth_failure_once(&report.server, report.tracked.since, &crate::plus::tasks::host::RealHost);
+        }
     }
 }
 

@@ -9,6 +9,7 @@ pub mod redactor;
 pub mod store;
 pub mod host;
 pub mod runner;
+pub mod scheduler;
 pub mod triggers;
 #[cfg(test)]
 mod api_tests;
