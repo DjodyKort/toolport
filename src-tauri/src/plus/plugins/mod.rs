@@ -9,6 +9,7 @@ pub mod adapters;
 pub mod api;
 pub mod claude;
 pub mod cli;
+pub mod config;
 pub mod hooks;
 pub mod installed;
 pub mod manifest;

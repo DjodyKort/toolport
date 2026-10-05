@@ -11,7 +11,7 @@ use crate::plus::sources::fsx;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 
-fn op(e: BundleError) -> OpError {
+pub fn op(e: BundleError) -> OpError {
     match e.code {
         "usage" => OpError::usage(e.message),
         "not_found" => OpError::not_found(e.message),

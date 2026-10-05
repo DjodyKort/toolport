@@ -255,6 +255,10 @@ impl Adapter {
         self.knobs.iter().find(|k| k.key == key)
     }
 
+    pub fn knob_names(&self) -> String {
+        self.knobs.iter().map(|k| k.key.as_str()).collect::<Vec<_>>().join(", ")
+    }
+
     /// The plugin's own hook ids from its hooks file, in file order, without repeats.
     pub fn hook_ids_of(&self, install: &Path) -> Vec<String> {
         let Some(spec) = &self.hook_ids else {

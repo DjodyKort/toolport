@@ -70,10 +70,24 @@ pub struct FolderRec {
     pub excludes: Vec<ExcludeRec>,
 }
 
+/// A plugin control (`plugins config`, `plugins mcp`): its own record next to the bundle's, so a
+/// bundle apply or undo never touches the keys a control owns and the other way round.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ControlRec {
+    pub applied_at: String,
+    pub settings: SettingsRec,
+    #[serde(default)]
+    pub excludes: Vec<ExcludeRec>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ledger {
     pub version: u32,
     pub folders: BTreeMap<String, FolderRec>,
+    /// Per folder, per control id (`config:<plugin>`, `mcp:<plugin>:<server>`).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub controls: BTreeMap<String, BTreeMap<String, ControlRec>>,
 }
 
 impl Default for Ledger {
@@ -81,6 +95,7 @@ impl Default for Ledger {
         Self {
             version: 1,
             folders: BTreeMap::new(),
+            controls: BTreeMap::new(),
         }
     }
 }

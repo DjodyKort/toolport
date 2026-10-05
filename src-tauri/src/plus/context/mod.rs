@@ -8,6 +8,7 @@ pub mod backup;
 pub mod bundle;
 pub mod bundle_api;
 pub mod bundle_apply;
+pub mod bundle_controls;
 pub mod bundle_io;
 pub mod bundle_json;
 pub mod bundle_ledger;
