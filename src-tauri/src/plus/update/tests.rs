@@ -310,6 +310,51 @@ fn detection_covers_each_launch_shape() {
 }
 
 #[test]
+fn docker_sources_are_detected_with_image_tag_and_digest() {
+    let d = |e: ServerEntry| source::detect(&e, None);
+    let src = d(entry(json!({"command": "docker",
+        "args": ["run", "--rm", "-i", "-e", "API_KEY=x", "someorg/docker-pkg:1.2.3"]})));
+    assert_eq!(
+        src,
+        source::Source::Docker {
+            image: "someorg/docker-pkg".into(),
+            tag: Some("1.2.3".into()),
+            digest: None,
+        }
+    );
+    let src = d(entry(json!({"command": "docker",
+        "args": ["run", "docker-pkg@sha256:abc123"]})));
+    assert_eq!(
+        src,
+        source::Source::Docker {
+            image: "docker-pkg".into(),
+            tag: None,
+            digest: Some("sha256:abc123".into()),
+        }
+    );
+    let src = d(entry(json!({"command": "docker", "args": ["run", "bare-pkg"]})));
+    assert_eq!(
+        src,
+        source::Source::Docker {
+            image: "bare-pkg".into(),
+            tag: Some("latest".into()),
+            digest: None,
+        }
+    );
+    let src = d(entry(json!({"command": "docker",
+        "args": ["run", "-v", "/host:/container", "-p", "8080:80", "docker-pkg:2.0.0"]})));
+    assert_eq!(
+        src,
+        source::Source::Docker {
+            image: "docker-pkg".into(),
+            tag: Some("2.0.0".into()),
+            digest: None,
+        },
+        "flag values that contain a colon are not mistaken for the image"
+    );
+}
+
+#[test]
 fn stored_metadata_wins_over_detection() {
     let e = entry(json!({"command": "npx", "args": ["pkg"],
         "mcpmSource": {"type": "git", "path": "/srv/x", "post_update": "make"}}));
@@ -1254,4 +1299,251 @@ fn apply_and_init_stay_serial_and_a_single_lookup_skips_the_pool() {
     let report = run(&env, &mut one, &Options::new(Mode::Check)).unwrap();
     assert_eq!(report.servers.len(), 2);
     assert_eq!(http.peak.load(SeqCst), 1);
+}
+
+// MIG-UPD-8: ranges, git+URL refs, docker tags and asset globs, reproducing
+// the framelink/anna/serena shapes from research/2026-10-05-mac-session.md
+// with neutral fixture names.
+
+#[test]
+fn github_release_asset_pattern_matches_a_glob_anywhere_in_the_name() {
+    let w = release_world("glob-release");
+    w.http.text(
+        LATEST,
+        &release_json(
+            "1.2.0",
+            &[
+                "glob-release-tool-1.2.0-glob_release_arm64.tar.gz",
+                "glob-release-tool-1.2.0-amd64.tar.gz",
+            ],
+        ),
+    );
+    let e = release_entry(
+        &w.target,
+        "1.0.0",
+        json!({"asset_pattern": "*glob_release_arm64*"}),
+    );
+    let (report, _) = run_release(&w, e, Options::new(Mode::Check));
+    assert_eq!(report.servers[0].status, Status::UpdateAvailable);
+    assert!(report.servers[0]
+        .plan
+        .iter()
+        .any(|p| p.contains("glob-release-tool-1.2.0-glob_release_arm64.tar.gz")));
+}
+
+#[test]
+fn ranges_classify_and_resolve_highest_in_range() {
+    assert_eq!(
+        pins::classify("^0.12.0"),
+        pins::VersionSpec::Range("^0.12.0".into())
+    );
+    assert_eq!(
+        pins::classify("~1.2.3"),
+        pins::VersionSpec::Range("~1.2.3".into())
+    );
+    assert_eq!(
+        pins::classify("1.2.3"),
+        pins::VersionSpec::Exact("1.2.3".into())
+    );
+    assert_eq!(pins::classify("latest"), pins::VersionSpec::Floating);
+    assert_eq!(pins::classify(""), pins::VersionSpec::Floating);
+
+    let req = semver::VersionReq::parse("^0.12.0").unwrap();
+    let versions: Vec<String> = ["0.11.9", "0.12.0", "0.12.9", "0.13.0"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    assert_eq!(
+        pins::highest_matching(&req, &versions).as_deref(),
+        Some("0.12.9")
+    );
+    assert!(pins::parse_semver("0.13.0").is_some_and(|v| !req.matches(&v)));
+
+    let tilde = semver::VersionReq::parse("~1.2.3").unwrap();
+    let versions: Vec<String> = ["1.2.3", "1.2.9", "1.3.0"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    assert_eq!(
+        pins::highest_matching(&tilde, &versions).as_deref(),
+        Some("1.2.9")
+    );
+}
+
+fn npm_packument(latest: &str, versions: &[&str]) -> String {
+    let vs: serde_json::Map<String, Value> =
+        versions.iter().map(|v| (v.to_string(), json!({}))).collect();
+    json!({"dist-tags": {"latest": latest}, "versions": vs}).to_string()
+}
+
+#[test]
+fn a_caret_range_pin_covering_the_latest_release_is_up_to_date() {
+    let http = MockHttp::default();
+    http.text(
+        "https://npm.example.invalid/caret-pkg/latest",
+        r#"{"version":"0.12.5"}"#,
+    );
+    http.text(
+        "https://npm.example.invalid/caret-pkg",
+        &npm_packument("0.12.5", &["0.11.0", "0.12.0", "0.12.5"]),
+    );
+    let env = env_with(&http, &MockShell::default(), Box::new(SystemGit));
+    let mut entries = vec![entry(
+        json!({"name": "n", "command": "npx", "args": ["-y", "caret-pkg@^0.12.0"]}),
+    )];
+    let done = run(&env, &mut entries, &Options::new(Mode::Check)).unwrap();
+    assert_eq!(done.servers[0].status, Status::UpToDate);
+    assert_eq!(done.servers[0].current.as_deref(), Some("^0.12.0"));
+    assert_eq!(done.servers[0].latest.as_deref(), Some("0.12.5"));
+    assert!(done.servers[0].message.contains("covers the latest"));
+}
+
+#[test]
+fn a_caret_range_pin_outside_the_latest_release_offers_the_highest_in_range() {
+    let http = MockHttp::default();
+    http.text(
+        "https://npm.example.invalid/caret-pkg/latest",
+        r#"{"version":"0.13.0"}"#,
+    );
+    http.text(
+        "https://npm.example.invalid/caret-pkg",
+        &npm_packument("0.13.0", &["0.12.0", "0.12.9", "0.13.0"]),
+    );
+    let env = env_with(&http, &MockShell::default(), Box::new(SystemGit));
+    let mut entries = vec![entry(
+        json!({"name": "n", "command": "npx", "args": ["-y", "caret-pkg@^0.12.0"]}),
+    )];
+    let done = run(&env, &mut entries, &Options::new(Mode::Check)).unwrap();
+    assert_eq!(done.servers[0].status, Status::UpdateAvailable);
+    assert!(done.servers[0].message.contains("outside range ^0.12.0"));
+    assert!(done.servers[0].message.contains("0.12.9"));
+    assert!(done.servers[0].plan[0].contains("range change, not applied automatically"));
+
+    // Apply never rewrites a range on its own: only an exact pin keeps that path.
+    let applied = run(&env, &mut entries, &Options::new(Mode::Apply)).unwrap();
+    assert_eq!(applied.servers[0].status, Status::UpdateAvailable);
+    assert_eq!(entries[0].args[1], "caret-pkg@^0.12.0");
+}
+
+#[test]
+fn git_ssh_user_info_is_not_mistaken_for_the_ref_separator() {
+    let a = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    let s = pins::parse_spec(
+        &a(&[
+            "--from",
+            "git+ssh://git@git-ref-pkg.example.invalid/repo@release",
+            "git-ref-pkg",
+        ]),
+        true,
+    )
+    .unwrap();
+    assert_eq!(s.name, "git+ssh://git@git-ref-pkg.example.invalid/repo");
+    assert_eq!(s.version.as_deref(), Some("release"));
+}
+
+#[test]
+fn a_git_url_package_with_no_ref_tracks_the_default_branch_and_offers_a_pin() {
+    let url = "https://git-ref-pkg.example.invalid/repo";
+    let sha = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2";
+    let runner = ScriptedGit(Box::new(move |args| {
+        assert_eq!(args[0], "ls-remote");
+        assert_eq!(args[2], "HEAD");
+        out(0, &format!("{sha}\tHEAD\n"))
+    }));
+    let env = env_with(&MockHttp::default(), &MockShell::default(), Box::new(runner));
+    let mut entries = vec![entry(json!({"name": "r", "command": "uvx",
+        "args": ["--from", format!("git+{url}"), "git-ref-pkg"]}))];
+    let done = run(&env, &mut entries, &Options::new(Mode::Check)).unwrap();
+    assert_eq!(done.servers[0].status, Status::Auto);
+    assert_eq!(done.servers[0].latest.as_deref(), Some(sha));
+    assert!(done.servers[0].plan[0].contains(&format!("git+{url}@{sha}")));
+}
+
+#[test]
+fn a_git_url_package_pinned_to_a_branch_reports_its_tip() {
+    let url = "https://git-ref-pkg.example.invalid/repo";
+    let sha = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
+    let runner = ScriptedGit(Box::new(move |args| {
+        assert_eq!(args[2], "develop");
+        out(0, &format!("{sha}\trefs/heads/develop\n"))
+    }));
+    let env = env_with(&MockHttp::default(), &MockShell::default(), Box::new(runner));
+    let mut entries = vec![entry(json!({"name": "r", "command": "uvx",
+        "args": ["--from", format!("git+{url}@develop"), "git-ref-pkg"]}))];
+    let done = run(&env, &mut entries, &Options::new(Mode::Check)).unwrap();
+    assert_eq!(done.servers[0].status, Status::Auto);
+    assert_eq!(done.servers[0].current.as_deref(), Some("develop"));
+    assert_eq!(done.servers[0].latest.as_deref(), Some(sha));
+}
+
+#[test]
+fn a_git_url_package_pinned_to_a_commit_compares_against_ls_remote() {
+    let url = "https://git-ref-pkg.example.invalid/repo";
+    let sha = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2";
+    let runner = ScriptedGit(Box::new(move |_args| out(0, &format!("{sha}\tHEAD\n"))));
+    let env = env_with(&MockHttp::default(), &MockShell::default(), Box::new(runner));
+
+    let short = &sha[..12];
+    let mut up_to_date = vec![entry(json!({"name": "r", "command": "uvx",
+        "args": ["--from", format!("git+{url}@{short}"), "git-ref-pkg"]}))];
+    let done = run(&env, &mut up_to_date, &Options::new(Mode::Check)).unwrap();
+    assert_eq!(done.servers[0].status, Status::UpToDate);
+
+    let mut outdated = vec![entry(json!({"name": "r", "command": "uvx",
+        "args": ["--from", format!("git+{url}@0000000000000000000000000000000000000000"), "git-ref-pkg"]}))];
+    let done = run(&env, &mut outdated, &Options::new(Mode::Check)).unwrap();
+    assert_eq!(done.servers[0].status, Status::UpdateAvailable);
+    assert!(done.servers[0].plan[0].contains("rewrite ref"));
+}
+
+#[test]
+fn docker_tag_resolves_a_digest_from_docker_hub_and_offers_a_pin() {
+    let http = MockHttp::default();
+    http.text(
+        "https://auth.docker.io/token?service=registry.docker.io&scope=repository:someorg/docker-pkg:pull",
+        r#"{"token":"tok"}"#,
+    );
+    let manifest = r#"{"schemaVersion":2,"mediaType":"x"}"#;
+    http.text(
+        "https://registry-1.docker.io/v2/someorg/docker-pkg/manifests/1.2.3",
+        manifest,
+    );
+    let env = env_with(&http, &MockShell::default(), Box::new(SystemGit));
+    let mut entries = vec![entry(json!({"name": "d", "command": "docker",
+        "args": ["run", "--rm", "-i", "someorg/docker-pkg:1.2.3"]}))];
+    let done = run(&env, &mut entries, &Options::new(Mode::Check)).unwrap();
+    let expected_digest = format!("sha256:{}", sha_hex(manifest.as_bytes()));
+    assert_eq!(done.servers[0].status, Status::Auto);
+    assert_eq!(done.servers[0].current.as_deref(), Some("1.2.3"));
+    assert_eq!(done.servers[0].latest.as_deref(), Some(expected_digest.as_str()));
+    assert!(done.servers[0].plan[0].contains(&expected_digest));
+}
+
+#[test]
+fn docker_pinned_by_digest_is_always_exact_and_never_checked() {
+    let env = env_with(
+        &MockHttp::default(),
+        &MockShell::default(),
+        Box::new(SystemGit),
+    );
+    let mut entries = vec![entry(json!({"name": "d", "command": "docker",
+        "args": ["run", "docker-pkg@sha256:deadbeef"]}))];
+    let done = run(&env, &mut entries, &Options::new(Mode::Check)).unwrap();
+    assert_eq!(done.servers[0].status, Status::UpToDate);
+    assert_eq!(done.servers[0].current.as_deref(), Some("sha256:deadbeef"));
+}
+
+#[test]
+fn docker_on_another_registry_is_a_precise_not_supported_skip() {
+    let env = env_with(
+        &MockHttp::default(),
+        &MockShell::default(),
+        Box::new(SystemGit),
+    );
+    let mut entries = vec![entry(json!({"name": "d", "command": "docker",
+        "args": ["run", "ghcr.io/someorg/docker-pkg:latest"]}))];
+    let done = run(&env, &mut entries, &Options::new(Mode::Check)).unwrap();
+    assert_eq!(done.servers[0].status, Status::Skipped);
+    assert!(done.servers[0].message.contains("not supported in this environment"));
+    assert!(done.servers[0].message.contains("ghcr.io"));
 }
