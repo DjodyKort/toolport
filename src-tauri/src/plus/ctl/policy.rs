@@ -319,6 +319,9 @@ pub(super) const ROWS: &[Row] = &[
     row("server edit", W)
         .spec(&[&server::EDIT])
         .args(&[req("server")]),
+    row("server source set", W)
+        .spec(&[&server::SOURCE_SET])
+        .args(&[req("server")]),
     row("inspect", R)
         .needs(&[LongRunning, Network])
         .args(&[req("server")]),
@@ -897,6 +900,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("servers_update_config", W, "server edit"),
     own("servers_apply_update", W),
     own("servers_set_mode", W),
+    maps("servers_set_source", W, "server source set"),
     own("servers_fork_sync", W),
     maps("servers_auth", W, "auth login"),
     maps("servers_uninstall", D, "server uninstall"),

@@ -782,6 +782,42 @@ pub(super) const OVERRIDES: &[(&str, Meta)] = &[
     ),
     ("skills diff", m("--repo", Path, SKILLS_REPO)),
     ("server edit", m("--name", Str, "New name for the server")),
+    (
+        "server source set",
+        m("--remote", Str, "Git remote this server tracks"),
+    ),
+    (
+        "server source set",
+        m(
+            "--upstream-remote",
+            Str,
+            "Remote the fork is upstream of (set together with --upstream-branch)",
+        ),
+    ),
+    (
+        "server source set",
+        m("--upstream-branch", Str, "Branch on the upstream remote"),
+    ),
+    (
+        "server source set",
+        m(
+            "--clear-upstream",
+            Bool,
+            "Remove the stored upstream remote and branch",
+        ),
+    ),
+    (
+        "server source set",
+        m(
+            "--post-update",
+            Str,
+            "Command to run in the repository after an update",
+        ),
+    ),
+    (
+        "server source set",
+        m("--clear-post-update", Bool, "Remove the stored post-update command"),
+    ),
     ("skills status", m("--client", Str, CLIENT_KEYS).repeats()),
     ("agents sync", m("--client", Str, CLIENT_KEYS).repeats()),
     ("styles sync", m("--client", Str, CLIENT_KEYS).repeats()),

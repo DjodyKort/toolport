@@ -3,6 +3,9 @@ use super::output::{CtlError, Output};
 use crate::catalog::{self, CatalogEntry};
 use crate::plus::servers::{self, AddError, Patch, UninstallArgs};
 use crate::plus::status::readable_registry;
+use crate::plus::update::exec::SystemGit;
+use crate::plus::update::source::{self, Source};
+use crate::plus::update::gitops;
 use crate::registry::{Registry, ServerEntry};
 use crate::registry_controller;
 use serde_json::{json, Value};
@@ -14,6 +17,7 @@ const EDIT_USAGE: &str = "usage: server edit <id|name> [--name <n>] [--command <
 const INFO_USAGE: &str = "usage: server info <id|name>";
 const UNINSTALL_USAGE: &str =
     "usage: server uninstall <id|name> [--dry-run] [--keep-clients] [--keep-secrets]";
+const SOURCE_SET_USAGE: &str = "usage: server source set <id|name> [--path <dir>] [--remote <name>] [--branch <name>] [--upstream-remote <name>] [--upstream-branch <name>] [--clear-upstream] [--post-update <cmd>] [--clear-post-update]";
 
 pub(super) const SEARCH: Spec = Spec {
     flags: &[value("--limit"), switch("--offline")],
@@ -51,6 +55,19 @@ pub(super) const UNINSTALL: Spec = Spec {
         switch("--dry-run"),
         switch("--keep-clients"),
         switch("--keep-secrets"),
+    ],
+    ..Spec::PLAIN
+};
+pub(super) const SOURCE_SET: Spec = Spec {
+    flags: &[
+        value("--path"),
+        value("--remote"),
+        value("--branch"),
+        value("--upstream-remote"),
+        value("--upstream-branch"),
+        switch("--clear-upstream"),
+        value("--post-update"),
+        switch("--clear-post-update"),
     ],
     ..Spec::PLAIN
 };
@@ -249,6 +266,124 @@ pub fn edit(rest: &[String]) -> Result<Output, CtlError> {
         } else {
             format!("Updated {id}: {}.", changed.join(", "))
         },
+    ))
+}
+
+fn safe_token(value: &str) -> bool {
+    !value.is_empty() && !value.starts_with('-')
+}
+
+/// Parses the editable fields `server source set` accepts into a `SourceEdit`, rejecting
+/// combinations that cannot mean anything (clearing a field while also setting it) and values
+/// that would otherwise be misread as flags.
+fn source_edit_from(flags: &Flags) -> Result<source::SourceEdit, CtlError> {
+    let own = |flag: &str| flags.one(flag).filter(|v| !v.is_empty()).map(String::from);
+    let edit = source::SourceEdit {
+        path: own("--path"),
+        remote: own("--remote"),
+        branch: own("--branch"),
+        upstream_remote: own("--upstream-remote"),
+        upstream_branch: own("--upstream-branch"),
+        clear_upstream: flags.on("--clear-upstream"),
+        post_update: own("--post-update"),
+        clear_post_update: flags.on("--clear-post-update"),
+    };
+    for (label, value) in [
+        ("--remote", &edit.remote),
+        ("--branch", &edit.branch),
+        ("--upstream-remote", &edit.upstream_remote),
+        ("--upstream-branch", &edit.upstream_branch),
+    ] {
+        if value.as_deref().is_some_and(|v| !safe_token(v)) {
+            return Err(CtlError::usage(format!("invalid value for {label}")));
+        }
+    }
+    if edit.clear_upstream && (edit.upstream_remote.is_some() || edit.upstream_branch.is_some()) {
+        return Err(CtlError::usage(
+            "--clear-upstream cannot be combined with --upstream-remote or --upstream-branch",
+        ));
+    }
+    if edit.clear_post_update && edit.post_update.is_some() {
+        return Err(CtlError::usage(
+            "--clear-post-update cannot be combined with --post-update",
+        ));
+    }
+    Ok(edit)
+}
+
+/// When the resulting checkout is a real, reachable git repository, checks that the remote(s)
+/// and branch(es) the edit asks for actually exist there -- a stale path (or one phase 1's
+/// docker placeholder will eventually cover) skips this and trusts the edit as given. Kept
+/// separate from the selfmcp tool's identical check since the two layers use different error
+/// types (`CtlError` vs `ToolError`).
+fn validate_source_against_repo(updated: &Source, home: Option<&std::path::Path>) -> Result<(), CtlError> {
+    let Source::Git {
+        path,
+        remote,
+        branch,
+        upstream,
+        ..
+    } = updated
+    else {
+        return Ok(());
+    };
+    let repo = source::expand_path(path, home);
+    if !gitops::is_repo(&SystemGit, &repo) {
+        return Ok(());
+    }
+    let remotes = gitops::list_remotes(&SystemGit, &repo);
+    let branch_exists = |remote: &str, branch: &str| {
+        gitops::remote_branches(&SystemGit, &repo, remote)
+            .iter()
+            .any(|b| b == branch)
+    };
+    if !remotes.iter().any(|r| r == remote) {
+        return Err(CtlError::usage(format!("no such remote: {remote}")));
+    }
+    if !branch.is_empty() && !branch_exists(remote, branch) {
+        return Err(CtlError::usage(format!(
+            "remote {remote} has no branch {branch}"
+        )));
+    }
+    if let Some(u) = upstream {
+        if !remotes.iter().any(|r| r == &u.remote) {
+            return Err(CtlError::usage(format!("no such remote: {}", u.remote)));
+        }
+        if !branch_exists(&u.remote, &u.branch) {
+            return Err(CtlError::usage(format!(
+                "remote {} has no branch {}",
+                u.remote, u.branch
+            )));
+        }
+    }
+    Ok(())
+}
+
+pub fn source_set(rest: &[String]) -> Result<Output, CtlError> {
+    let flags = SOURCE_SET.parse(rest)?;
+    let key = flags.single(SOURCE_SET_USAGE)?;
+    let edit = source_edit_from(&flags)?;
+    if edit.is_empty() {
+        return Err(CtlError::usage(SOURCE_SET_USAGE));
+    }
+    let reg = readable_registry()?;
+    let server = resolve(&reg, key)?;
+    let home = crate::clients::home();
+    let (current, _) = source::effective(server, home.as_deref(), &SystemGit);
+    if !matches!(current, Source::Git { .. }) {
+        return Err(CtlError::failed(
+            "input",
+            format!("server {} is not git-backed", server.name),
+        ));
+    }
+    let updated = source::apply_edit(&current, &edit).map_err(|e| CtlError::failed("input", e))?;
+    validate_source_against_repo(&updated, home.as_deref())?;
+    let rechecked = source::recheck_drift(&updated, server, home.as_deref(), &SystemGit);
+    registry_controller::set_server_source(&server.id, rechecked.to_meta())
+        .map_err(|e| CtlError::failed("input", e))?;
+    Ok(Output::new(
+        json!({"id": server.id, "source": {"kind": rechecked.kind(), "meta": rechecked.to_meta()}}),
+        format!("{}: source updated.", server.id),
     ))
 }
 
