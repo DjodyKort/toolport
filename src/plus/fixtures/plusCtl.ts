@@ -15,6 +15,7 @@ import { createAgentsWorld } from "./agentsWorld";
 import { contextBrowserFixtures } from "../context/browserFixtures";
 import { systemBrowserFixtures } from "../system/browserFixtures";
 import { tasksBrowserFixtures } from "../tasks/browserFixtures";
+import { createMcpWorld } from "../agents/mcpWorld";
 
 /** Envelope `data` the dev browser fixture returns per `toolportctl` argv (joined with spaces).
  * A command a screen runs needs a row here or the fixture rejects it as unimplemented. */
@@ -64,18 +65,21 @@ export const plusCtlFixtures = new Map<string, unknown>([
   ...contextBrowserFixtures,
   ...systemBrowserFixtures,
   ...tasksBrowserFixtures,
+  ...createMcpWorld(),
 ]);
 
 const jobs = new Map<string, string>();
+const stdins = new Map<string, string>();
 const held = new Map<string, (result: CtlResult) => void>();
 let counter = 0;
 
-export function plusCtlStart(argv: string[]): string {
+export function plusCtlStart(argv: string[], stdin?: string): string {
   const key = argv.join(" ");
   if (!plusCtlFixtures.has(key))
     throw new Error(`Unimplemented fixture command: plus_ctl ${key}`);
   const job = `fixture-job-${++counter}`;
   jobs.set(job, key);
+  if (stdin !== undefined) stdins.set(job, stdin);
   const reply = plusCtlFixtures.get(key);
   if (reply instanceof CtlReplyHeld) {
     reply.lines.forEach((line, index) => {
@@ -119,8 +123,14 @@ export function plusCtlResult(job: string): CtlResult {
   const key = jobs.get(job);
   if (key === undefined) throw new Error(`unknown job: ${job}`);
   jobs.delete(job);
+  const stdin = stdins.get(job);
+  stdins.delete(job);
   const reply = plusCtlFixtures.get(key);
-  return resultFor(job, key, typeof reply === "function" ? reply() : reply);
+  const value =
+    typeof reply === "function"
+      ? (reply as (argv: string[], stdin?: string) => unknown)(key.split(" "), stdin)
+      : reply;
+  return resultFor(job, key, value);
 }
 
 /** A run that waits (a sign-in waiting for the browser) answers only once it is cancelled. */

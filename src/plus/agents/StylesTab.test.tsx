@@ -70,7 +70,7 @@ describe("Styles tab: empty", () => {
         .ran()
         .filter((l) => !l.startsWith("styles "))
         .sort(),
-    ).toEqual(["commands"]);
+    ).toEqual(["commands", "mcp call styles_list_transpilers --args-stdin"]);
   });
 
   it("creates the first style: name, preview, confirm, then re-reads the list", async () => {
@@ -121,7 +121,7 @@ describe("Styles tab: with a style", () => {
     expect(within(table).getAllByText("Cursor")[0].closest("tr")).toHaveTextContent(
       "plain",
     );
-    expect(screen.getByRole("button", { name: "Edit body of plain" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Edit body of plain" })).toBeEnabled();
   });
 
   it("applies a style to the other clients after a preview", async () => {

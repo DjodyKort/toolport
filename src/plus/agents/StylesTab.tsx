@@ -8,6 +8,8 @@ import type { StylesDiffData, StylesLintData, StylesStatusData } from "../types/
 import { AsyncView, type CtlQuery } from "../ui";
 import { reloadAll, useRead, useRegistry, useWrite, type WriteControl } from "./hooks";
 import { byClient, clientName, type ActiveRow, type NativeRow } from "./model";
+import { BodyEditor } from "./BodyEditor";
+import { ConvertedFor } from "./ConvertedFor";
 import { NewDialog } from "./NewDialog";
 import { Card, Chips, DiffBody, Discovery, LintBody, PathLine, Section } from "./parts";
 import { useRestoreFocus } from "./useRestoreFocus";
@@ -19,10 +21,12 @@ function StyleCard({
   style,
   active,
   write,
+  onEdit,
 }: {
   style: Style;
   active: StylesLsData["active"];
   write: WriteControl;
+  onEdit: (name: string) => void;
 }) {
   const on = active.filter((a) => a.style === style.name).map((a) => a.client);
   return (
@@ -57,9 +61,9 @@ function StyleCard({
         <Button
           size="sm"
           variant="outline"
-          disabled
+          disabled={write.busy}
+          onClick={() => onEdit(style.name)}
           aria-label={`Edit body of ${style.name}`}
-          title="Editing the body needs `mcp call styles_edit_body` (MIG-GUI-14). Open the file in your editor for now."
         >
           Edit body
         </Button>
@@ -180,10 +184,12 @@ function Actions({ write, onNew }: { write: WriteControl; onNew: () => void }) {
 function Styles({
   write,
   onNew,
+  onEdit,
   registry,
 }: {
   write: WriteControl;
   onNew: () => void;
+  onEdit: (name: string) => void;
   registry: CtlQuery<unknown>;
 }) {
   const list = useRead<StylesLsData>(["styles", "ls"]);
@@ -227,6 +233,7 @@ function Styles({
                     style={style}
                     active={data.active}
                     write={write}
+                    onEdit={onEdit}
                   />
                 ))}
               </ul>
@@ -260,6 +267,7 @@ export function StylesTab() {
   const rows = registry.data?.commands ?? null;
   const [epoch, setEpoch] = useState(0);
   const [naming, setNaming] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const write = useWrite(rows, () => setEpoch((n) => n + 1));
   useRestoreFocus();
   return (
@@ -271,6 +279,15 @@ export function StylesTab() {
         </p>
       </div>
       <WriteDialogs write={write} />
+      {editing && (
+        <BodyEditor
+          kind="styles"
+          name={editing}
+          registry={registry.data}
+          onClose={() => setEditing(null)}
+          onSaved={() => setEpoch((n) => n + 1)}
+        />
+      )}
       {naming && (
         <NewDialog
           kind="style"
@@ -291,8 +308,10 @@ export function StylesTab() {
         key={epoch}
         write={write}
         onNew={() => setNaming(true)}
+        onEdit={setEditing}
         registry={registry}
       />
+      <ConvertedFor kind="styles" />
     </div>
   );
 }
