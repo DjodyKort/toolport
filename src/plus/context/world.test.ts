@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { check } from "../bridge/shape";
 import { contextShapes } from "../types/context";
+import { contextLayerShapes } from "../types/context-layers";
 import { Failure, createContextWorld } from "./world";
 
 const ok = (value: unknown) => {
   expect(value).not.toBeInstanceOf(Failure);
   return value as Record<string, unknown>;
 };
+const shapes = { ...contextShapes, ...contextLayerShapes };
 const fails = (value: unknown) => {
   expect(value).toBeInstanceOf(Failure);
   return value as Failure;
@@ -26,6 +28,30 @@ describe("context world", () => {
       ["context-init.apply", ["context", "init", "--yes"]],
       ["context-client-list", ["context", "client", "list"]],
       ["context-client-add.preview", ["context", "client", "add", "acme", "--dry-run"]],
+      [
+        "context-client-add.folder-preview",
+        [
+          "context",
+          "client",
+          "add",
+          "kb",
+          "--scope",
+          "folder",
+          "--folder",
+          "/fixture/kb",
+          "--import",
+          "/fixture/kb/CLAUDE.md",
+          "--dry-run",
+        ],
+      ],
+      [
+        "context-client-edit.preview",
+        ["context", "client", "edit", "client-acme", "--delivery", "import", "--dry-run"],
+      ],
+      [
+        "context-client-rm.preview",
+        ["context", "client", "rm", "client-acme", "--dry-run"],
+      ],
       ["context-profile-list", ["context", "profile", "list"]],
       [
         "context-profile-add.preview",
@@ -41,11 +67,25 @@ describe("context world", () => {
       ["context-folders", ["context", "folders"]],
       ["context-profile-remove.apply", ["context", "profile", "remove", "work"]],
       ["context-client-add.apply", ["context", "client", "add", "partner"]],
+      [
+        "context-client-edit.apply",
+        [
+          "context",
+          "client",
+          "edit",
+          "partner",
+          "--delivery",
+          "import",
+          "--import",
+          "~/kb/a.md",
+        ],
+      ],
+      ["context-client-rm.apply", ["context", "client", "rm", "partner"]],
       ["context-disable.apply", ["context", "disable", "--purge-profiles"]],
     ];
     for (const [stem, argv] of argvs) {
       const data = world.run(argv);
-      expect(check(contextShapes[stem], data), `${stem}: ${argv.join(" ")}`).toEqual([]);
+      expect(check(shapes[stem], data), `${stem}: ${argv.join(" ")}`).toEqual([]);
     }
     expect(
       check(
@@ -104,6 +144,119 @@ describe("context world", () => {
     ok(world.run(["context", "apply"]));
     expect(world.snapshot().shims).toBe(true);
     expect(world.snapshot().profiles[0].generated).toBe(true);
+  });
+
+  it("keeps scope, folders, imports and delivery of a layer, and edit and rm change the next list", () => {
+    const world = createContextWorld();
+    type Layer = {
+      name: string;
+      scope: string;
+      folders: string[];
+      imports: string[];
+      delivery: string;
+      deployedTo: string[];
+      issues: unknown[];
+    };
+    const layers = () =>
+      (ok(world.run(["context", "client", "list"])) as { layers: Layer[] }).layers;
+    const before = JSON.stringify(layers());
+    ok(
+      world.run([
+        "context",
+        "client",
+        "add",
+        "kb",
+        "--scope",
+        "folder",
+        "--folder",
+        "/f/a",
+        "--folder",
+        "/f/b",
+        "--import",
+        "/f/kb.md",
+        "--dry-run",
+      ]),
+    );
+    expect(JSON.stringify(layers())).toBe(before);
+    const added = ok(
+      world.run([
+        "context",
+        "client",
+        "add",
+        "kb",
+        "--scope",
+        "folder",
+        "--folder",
+        "/f/a",
+        "--folder",
+        "/f/b",
+        "--import",
+        "/f/kb.md",
+      ]),
+    ) as { result: { changed: string[] }; plan: { undo: string } };
+    expect(added.plan.undo).toBe("toolportctl context client rm kb");
+    expect(added.result.changed).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("client-kb/SKILL.md"),
+        "/f/a/CLAUDE.local.md",
+        "/f/b/CLAUDE.local.md",
+      ]),
+    );
+    const kb = layers().find((layer) => layer.name === "client-kb")!;
+    expect(kb).toMatchObject({
+      scope: "folder",
+      folders: ["/f/a", "/f/b"],
+      imports: ["/f/kb.md"],
+      delivery: "copy",
+      deployedTo: ["/f/a/CLAUDE.local.md", "/f/b/CLAUDE.local.md"],
+      issues: [],
+    });
+    expect(
+      (ok(world.run(["context", "client", "add", "kb"])) as { created: boolean }).created,
+    ).toBe(false);
+
+    const edited = ok(
+      world.run(["context", "client", "edit", "kb", "--delivery", "import"]),
+    ) as {
+      changed: boolean;
+    };
+    expect(edited.changed).toBe(true);
+    const after = layers().find((layer) => layer.name === "client-kb")!;
+    expect(after.delivery).toBe("import");
+    expect(after.issues).toHaveLength(1);
+    expect(
+      (
+        ok(world.run(["context", "client", "edit", "kb", "--delivery", "import"])) as {
+          changed: boolean;
+        }
+      ).changed,
+    ).toBe(false);
+
+    ok(world.run(["context", "client", "rm", "client-kb", "--dry-run"]));
+    expect(layers().some((layer) => layer.name === "client-kb")).toBe(true);
+    ok(world.run(["context", "client", "rm", "kb"]));
+    expect(layers().some((layer) => layer.name === "client-kb")).toBe(false);
+  });
+
+  it("refuses a bad scope, a folder layer without folders, a missing layer and rm of a rule that is not a client layer", () => {
+    const world = createContextWorld();
+    expect(
+      fails(world.run(["context", "client", "add", "x", "--scope", "sideways"])).message,
+    ).toBe("--scope must be one of global, glob, folder, not sideways");
+    expect(
+      fails(world.run(["context", "client", "add", "x", "--delivery", "move"])).code,
+    ).toBe("usage");
+    expect(
+      fails(world.run(["context", "client", "add", "x", "--scope", "folder"])).code,
+    ).toBe("context_invalid");
+    expect(
+      fails(world.run(["context", "client", "edit", "nope", "--scope", "global"])).code,
+    ).toBe("not_found");
+    expect(fails(world.run(["context", "client", "rm", "nope"])).code).toBe("not_found");
+    expect(fails(world.run(["context", "client", "rm", "personal"])).message).toMatch(
+      /only client-\* layers/,
+    );
+    expect(fails(world.run(["context", "client", "edit"])).code).toBe("usage");
   });
 
   it("moves the legacy shell lines only with --rewrite-zshrc", () => {

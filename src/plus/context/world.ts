@@ -46,7 +46,15 @@ const VALUED = new Set([
   "--window",
   "--checkpoint-at",
   "--home",
+  "--scope",
+  "--folder",
+  "--import",
+  "--delivery",
 ]);
+const SCOPES = ["global", "glob", "folder"];
+const DELIVERIES = ["import", "copy"];
+const IMPORT_WARNING =
+  "an import outside the folder Claude starts in is skipped by a headless session and may ask for approval once in an interactive one; copy is safe everywhere";
 
 const legacyLine: ZshrcLine = {
   line: 3,
@@ -64,6 +72,8 @@ interface Parsed {
   path: string;
   words: string[];
   flags: Map<string, string | true>;
+  /** Every value of a flag given more than once, in order. */
+  multi: Map<string, string[]>;
 }
 
 function parse(argv: string[]): Parsed {
@@ -71,18 +81,21 @@ function parse(argv: string[]): Parsed {
   const path = argv.slice(0, group ? 3 : 2).join(" ");
   const words: string[] = [];
   const flags = new Map<string, string | true>();
+  const multi = new Map<string, string[]>();
   const tokens = argv.slice(group ? 3 : 2);
   for (let i = 0; i < tokens.length; i += 1) {
     const token = tokens[i];
     if (!token.startsWith("--")) {
       words.push(token);
     } else if (VALUED.has(token) && !(token === "--rules" && DEPLOY.has(path))) {
-      flags.set(token, tokens[(i += 1)] ?? "");
+      const value = tokens[(i += 1)] ?? "";
+      flags.set(token, value);
+      multi.set(token, [...(multi.get(token) ?? []), value]);
     } else {
       flags.set(token, true);
     }
   }
-  return { path, words, flags };
+  return { path, words, flags, multi };
 }
 
 const selection = (value: string | true | undefined): Selection =>
@@ -94,9 +107,25 @@ const selection = (value: string | true | undefined): Selection =>
 
 const serverCount = (value: Selection) => (Array.isArray(value) ? value.length : 0);
 
+interface LayerMeta {
+  scope: string;
+  folders: string[];
+  imports: string[];
+  delivery: string;
+}
+
+const slug = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "") || "client";
+
 interface State {
   config: boolean;
   layers: LayerRow[];
+  /** What the layers say beyond the four fields of `context status`. */
+  meta: Record<string, LayerMeta>;
   profiles: ProfileRow[];
   shims: boolean;
   legacy: ZshrcLine[];
@@ -109,6 +138,7 @@ const seed = (fresh: boolean): State =>
     ? {
         config: false,
         layers: [],
+        meta: {},
         profiles: [],
         shims: false,
         legacy: [],
@@ -118,6 +148,20 @@ const seed = (fresh: boolean): State =>
     : {
         config: true,
         layers: [personalLayer, clientLayer],
+        meta: {
+          [personalLayer.name]: {
+            scope: "glob",
+            folders: [],
+            imports: [],
+            delivery: "copy",
+          },
+          [clientLayer.name]: {
+            scope: "glob",
+            folders: [],
+            imports: [],
+            delivery: "copy",
+          },
+        },
         profiles: [bareProfile as ProfileRow],
         shims: true,
         legacy: [legacyLine],
@@ -453,6 +497,94 @@ export function createContextWorld(options: WorldOptions = {}): ContextWorld {
     };
   };
 
+  const metaOf = (name: string): LayerMeta =>
+    s.meta[name] ?? { scope: "glob", folders: [], imports: [], delivery: "copy" };
+  const layerPath = (rule: string) => `${BASE}/skills_repo/rules/${rule}/SKILL.md`;
+  const findLayer = (name: string) =>
+    s.layers.find(
+      (layer) => layer.name === name || layer.name === `client-${slug(name)}`,
+    );
+  const issuesOf = (meta: LayerMeta) =>
+    meta.delivery === "import" && meta.imports.length > 0
+      ? [{ key: "delivery", level: "warning", message: IMPORT_WARNING }]
+      : [];
+  const layerPlan = (
+    summary: string,
+    steps: Array<Record<string, unknown>>,
+    undo: string,
+  ) => ({ effects: {}, steps, summary, undo, warnings: [] as string[] });
+  const deliverSteps = (rule: string, meta: LayerMeta) =>
+    meta.scope === "folder"
+      ? meta.folders.flatMap((folder) => [
+          {
+            op: "create",
+            path: `${folder}/CLAUDE.local.md`,
+            detail: `deliver ${rule} into the managed CLAUDE.local.md`,
+          },
+          {
+            op: "update",
+            path: `${folder}/.git/info/exclude`,
+            detail: "git-ignore CLAUDE.local.md",
+          },
+        ])
+      : [];
+  const layerResult = (changed: string[], undo: string) => ({
+    applied: true,
+    backups: [] as string[],
+    changed,
+    undo,
+  });
+  const layerText = (name: string, glob: string, meta: LayerMeta) =>
+    [
+      "---",
+      `name: ${name}`,
+      `description: "Synthetic ${name}"`,
+      "activation: always",
+      ...(meta.scope === "glob" ? [`globs: "${glob}"`] : [`scope: ${meta.scope}`]),
+      ...(meta.folders.length ? [`folders: [${meta.folders.join(", ")}]`] : []),
+      ...(meta.imports.length ? [`imports: [${meta.imports.join(", ")}]`] : []),
+      "---",
+      "",
+      `## ${name}`,
+      "",
+    ].join("\n");
+  const layerFlagProblem = (parsed: Parsed) => {
+    const scope = parsed.flags.get("--scope");
+    if (scope !== undefined && !SCOPES.includes(String(scope)))
+      return new Failure(
+        "usage",
+        `--scope must be one of ${SCOPES.join(", ")}, not ${String(scope)}`,
+      );
+    const delivery = parsed.flags.get("--delivery");
+    if (delivery !== undefined && !DELIVERIES.includes(String(delivery)))
+      return new Failure(
+        "usage",
+        `--delivery must be one of ${DELIVERIES.join(", ")}, not ${String(delivery)}`,
+      );
+    return null;
+  };
+  const listOf = (parsed: Parsed, flag: string) =>
+    (parsed.multi.get(flag) ?? []).filter(Boolean);
+  const layerRows = () =>
+    s.layers.map((layer) => {
+      const meta = metaOf(layer.name);
+      return {
+        delivery: meta.delivery,
+        deployedTo:
+          meta.scope === "folder"
+            ? meta.folders.map((folder) => `${folder}/CLAUDE.local.md`)
+            : [],
+        description: layer.description,
+        folders: meta.folders,
+        globs: layer.globs,
+        imports: meta.imports,
+        issues: issuesOf(meta),
+        name: layer.name,
+        path: layer.path,
+        scope: meta.scope,
+      };
+    });
+
   const usage = (what: string, line: string) =>
     new Failure("usage", `missing ${what}\nusage: ${line}`);
 
@@ -467,7 +599,7 @@ export function createContextWorld(options: WorldOptions = {}): ContextWorld {
       case "context profile list":
         return { profiles: s.profiles };
       case "context client list":
-        return { layers: s.layers };
+        return { layers: layerRows() };
       case "context plan":
         return deploy(true, parsed.flags, false);
       case "context apply": {
@@ -512,23 +644,221 @@ export function createContextWorld(options: WorldOptions = {}): ContextWorld {
         if (!name)
           return usage(
             "client name",
-            "context client add <name> [--glob <pattern>] [--home <dir>] [--dry-run]",
+            "context client add <name> [--glob <pattern>] [--scope global|glob|folder] [--folder <dir>]... [--import <path-or-layer>]... [--delivery import|copy] [--home <dir>] [--dry-run]",
           );
-        const rule = `client-${name}`;
-        const glob = String(parsed.flags.get("--glob") ?? `**/clients/${name}/**`);
-        const path = `${BASE}/skills_repo/rules/${rule}/SKILL.md`;
-        const created = !s.layers.some((layer) => layer.name === rule);
-        if (!dry && created)
+        const bad = layerFlagProblem(parsed);
+        if (bad) return bad;
+        const rule = `client-${slug(name)}`;
+        const meta: LayerMeta = {
+          scope: String(parsed.flags.get("--scope") ?? "glob"),
+          folders: listOf(parsed, "--folder"),
+          imports: listOf(parsed, "--import"),
+          delivery: String(parsed.flags.get("--delivery") ?? "copy"),
+        };
+        const glob = String(parsed.flags.get("--glob") ?? `**/clients/${slug(name)}/**`);
+        if (meta.scope === "folder" && meta.folders.length === 0)
+          return new Failure(
+            "context_invalid",
+            "folders: scope folder needs at least one folder",
+          );
+        const path = layerPath(rule);
+        const base = {
+          delivery: meta.delivery,
+          dryRun: dry,
+          folders: meta.folders,
+          glob,
+          imports: meta.imports,
+          issues: issuesOf(meta),
+          name,
+          path,
+          rule,
+          scope: meta.scope,
+        };
+        if (s.layers.some((layer) => layer.name === rule))
+          return {
+            ...base,
+            created: false,
+            plan: layerPlan(`Client layer ${name} already exists`, [], ""),
+            result: null,
+          };
+        const steps = [
+          {
+            op: "create",
+            path,
+            detail: `scaffold the layer ${rule} (${meta.scope} scope, ${meta.delivery} delivery)`,
+            diff: { before: "", after: layerText(rule, glob, meta) },
+          },
+          ...deliverSteps(rule, meta),
+        ];
+        const plan = layerPlan(
+          `Add the client layer ${name}`,
+          steps,
+          `toolportctl context client rm ${name}`,
+        );
+        if (!dry) {
           s.layers = [
             ...s.layers,
             {
               name: rule,
               path,
-              globs: [glob],
-              description: `Rules for the ${name} client`,
+              globs: meta.scope === "global" ? [] : [glob],
+              description: `Client context: ${name}`,
             },
           ];
-        return { created, dryRun: dry, glob, name, path, rule };
+          s.meta[rule] = meta;
+        }
+        return {
+          ...base,
+          created: true,
+          plan,
+          result: dry
+            ? null
+            : layerResult(
+                steps.flatMap((step) => (step.op === "create" ? [step.path] : [])),
+                plan.undo,
+              ),
+        };
+      }
+      case "context client edit": {
+        if (!name)
+          return usage(
+            "client name",
+            "context client edit <name> [--glob <pattern>] [--scope global|glob|folder] [--folder <dir>]... [--import <path-or-layer>]... [--delivery import|copy] [--home <dir>] [--dry-run]",
+          );
+        const bad = layerFlagProblem(parsed);
+        if (bad) return bad;
+        const layer = findLayer(name);
+        if (!layer)
+          return new Failure(
+            "not_found",
+            `no layer named ${name} in the skills repository's rules/`,
+          );
+        const before = metaOf(layer.name);
+        const next: LayerMeta = {
+          scope: String(parsed.flags.get("--scope") ?? before.scope),
+          folders: parsed.multi.has("--folder")
+            ? listOf(parsed, "--folder")
+            : before.folders,
+          imports: parsed.multi.has("--import")
+            ? listOf(parsed, "--import")
+            : before.imports,
+          delivery: String(parsed.flags.get("--delivery") ?? before.delivery),
+        };
+        const glob = parsed.flags.get("--glob");
+        const globs = typeof glob === "string" && glob ? [glob] : layer.globs;
+        if (next.scope === "folder" && next.folders.length === 0)
+          return new Failure(
+            "invalid",
+            "folders: scope folder needs at least one folder",
+          );
+        const base = {
+          delivery: next.delivery,
+          dryRun: dry,
+          folders: next.folders,
+          imports: next.imports,
+          issues: issuesOf(next),
+          name: layer.name,
+          path: layer.path,
+          scope: next.scope,
+        };
+        const changed =
+          JSON.stringify([before, layer.globs]) !== JSON.stringify([next, globs]);
+        if (!changed)
+          return {
+            ...base,
+            changed: false,
+            plan: layerPlan(`Nothing to change in ${layer.name}`, [], ""),
+            result: null,
+          };
+        const undo = [
+          `toolportctl context client edit ${layer.name}`,
+          `--scope ${before.scope}`,
+          `--delivery ${before.delivery}`,
+          ...before.folders.map((folder) => `--folder ${folder}`),
+          ...before.imports.map((path) => `--import ${path}`),
+        ].join(" ");
+        const steps = [
+          {
+            op: "update",
+            path: layer.path,
+            detail: `change the delivery of ${layer.name}: ${next.scope} scope, ${next.delivery} delivery`,
+            diff: {
+              before: layerText(layer.name, layer.globs[0] ?? "", before),
+              after: layerText(layer.name, globs[0] ?? "", next),
+            },
+          },
+          ...deliverSteps(layer.name, next),
+        ];
+        const plan = layerPlan(`Edit the client layer ${layer.name}`, steps, undo);
+        if (!dry) {
+          s.layers = s.layers.map((row) => (row === layer ? { ...row, globs } : row));
+          s.meta[layer.name] = next;
+        }
+        return {
+          ...base,
+          changed: true,
+          plan,
+          result: dry
+            ? null
+            : layerResult(
+                [
+                  layer.path,
+                  ...steps.flatMap((step) =>
+                    step.op === "create" && step.path ? [step.path] : [],
+                  ),
+                ],
+                undo,
+              ),
+        };
+      }
+      case "context client rm": {
+        if (!name)
+          return usage(
+            "client name",
+            "context client rm <name> [--home <dir>] [--dry-run]",
+          );
+        const layer = findLayer(name);
+        if (!layer)
+          return new Failure(
+            "not_found",
+            `no layer named ${name} in the skills repository's rules/`,
+          );
+        if (!layer.name.startsWith("client-"))
+          return new Failure(
+            "usage",
+            `${layer.name} is not a client layer; only client-* layers can be removed here`,
+          );
+        const meta = metaOf(layer.name);
+        const undo = [
+          `toolportctl context client add ${layer.name.slice("client-".length)}`,
+          `--scope ${meta.scope}`,
+          `--delivery ${meta.delivery}`,
+          ...meta.folders.map((folder) => `--folder ${folder}`),
+          ...meta.imports.map((path) => `--import ${path}`),
+        ].join(" ");
+        const steps = [
+          {
+            op: "delete",
+            path: layer.path,
+            detail: `delete the layer ${layer.name}`,
+            diff: {
+              before: layerText(layer.name, layer.globs[0] ?? "", meta),
+              after: "",
+            },
+          },
+        ];
+        const plan = layerPlan(`Remove the client layer ${layer.name}`, steps, undo);
+        if (!dry) {
+          s.layers = s.layers.filter((row) => row !== layer);
+          delete s.meta[layer.name];
+        }
+        return {
+          dryRun: dry,
+          name: layer.name,
+          path: layer.path,
+          plan,
+          result: dry ? null : layerResult([layer.path], undo),
+        };
       }
       case "context profile add": {
         if (!name)
@@ -656,6 +986,8 @@ export function createContextWorld(options: WorldOptions = {}): ContextWorld {
       row(`context disable --purge-profiles${preview}`);
       row(`context init --yes${preview}`);
       row(`context client add partner${preview}`);
+      row(`context client edit client-acme --delivery import${preview}`);
+      row(`context client rm client-acme${preview}`);
       for (const form of [
         "",
         " --no-org --rules none --servers none",
