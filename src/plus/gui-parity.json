@@ -1111,6 +1111,48 @@
       "status": "built",
       "test": "src/plus/servers/ServerTools.test.tsx",
       "summary": "Add a server to a profile by name; a new name creates the profile, which profile edit cannot do (servers_add_profile_tag)"
+    },
+    "plugins.ls": {
+      "route": "library",
+      "summary": "Library > Plugins: every installed plugin with version, source, where it is on, update state and the projected and measured cost; refresh (--refresh); the list for a folder (--cwd); partial, empty, error and offline states",
+      "status": "built",
+      "test": "src/plus/plugins/PluginsHooks.e2e.test.tsx"
+    },
+    "plugins.show": {
+      "route": "library",
+      "summary": "Plugin detail: what it brings, cost labelled projected or measured, where it is on or off, its settings knobs with where each value comes from, its hooks, and its MCP servers marked not governed; a plugin without an adapter says Claude Code has no per-hook switch",
+      "status": "built",
+      "test": "src/plus/plugins/PluginsHooks.e2e.test.tsx"
+    },
+    "plugins.config": {
+      "route": "library",
+      "summary": "Apply the settings of a plugin to a folder (hook profile, master switch, GateGuard and its exempt paths, hooks switched off): plan with the written-where text and the process warning, confirm, apply, Undo in a folder; an unchanged form sends nothing",
+      "status": "built",
+      "test": "src/plus/plugins/PluginsHooks.e2e.test.tsx"
+    },
+    "plugins.mcp": {
+      "route": "library",
+      "summary": "Deny a plugin MCP server in a folder and allow it again: plan, confirm, apply; the server is listed as not governed by the gateway",
+      "status": "built",
+      "test": "src/plus/plugins/PluginsHooks.e2e.test.tsx"
+    },
+    "hooks.ls": {
+      "route": "context",
+      "summary": "Context > Hooks: folder and tool pickers, the strip (processes for the tool, per answer besides tool calls, run order, who can switch), the before and after lists with owner, background or waits and switch method, the conflicts callout; counted from matchers, not timed",
+      "status": "built",
+      "test": "src/plus/plugins/PluginsHooks.e2e.test.tsx"
+    },
+    "system.cc-list": {
+      "route": "system",
+      "summary": "System > Updates plugin card: the Claude Code plugins with installed version, update state and enabled, read with cc list; the Library plugin rows read the same world",
+      "status": "built",
+      "test": "src/plus/plugins/PluginsHooks.e2e.test.tsx"
+    },
+    "system.cc-update": {
+      "route": "system",
+      "summary": "Update one plugin or all plugins from System > Updates and from Library > Plugins: dry-run plan, confirm, apply, restart note; Toolport does not roll plugins back",
+      "status": "built",
+      "test": "src/plus/plugins/PluginsHooks.e2e.test.tsx"
     }
   },
   "owners": {
@@ -1211,13 +1253,13 @@
       "surface": "screen"
     },
     "cc list": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.cc-list",
       "surface": "screen"
     },
     "cc update": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "system",
+      "action": "system.cc-update",
       "surface": "screen"
     },
     "client direct add": {
@@ -1531,8 +1573,8 @@
       "surface": "screen"
     },
     "hooks ls": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "hooks.ls",
       "surface": "screen"
     },
     "import mcpm": {
@@ -1591,8 +1633,8 @@
       "surface": "screen"
     },
     "plugins config": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "plugins.config",
       "surface": "screen"
     },
     "plugins disable": {
@@ -1606,13 +1648,13 @@
       "surface": "screen"
     },
     "plugins ls": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "plugins.ls",
       "surface": "screen"
     },
     "plugins mcp": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "plugins.mcp",
       "surface": "screen"
     },
     "plugins off": {
@@ -1626,8 +1668,8 @@
       "surface": "screen"
     },
     "plugins show": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "plugins.show",
       "surface": "screen"
     },
     "profile create": {
@@ -2168,28 +2210,28 @@
       "surface": "screen"
     },
     "hooks_ls": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "context",
+      "action": "hooks.ls",
       "surface": "screen"
     },
     "plugins_config": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "library",
+      "action": "plugins.config",
       "surface": "screen"
     },
     "plugins_ls": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "library",
+      "action": "plugins.ls",
       "surface": "screen"
     },
     "plugins_mcp": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "library",
+      "action": "plugins.mcp",
       "surface": "screen"
     },
     "plugins_show": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "library",
+      "action": "plugins.show",
       "surface": "screen"
     },
     "servers_add_profile_tag": {
