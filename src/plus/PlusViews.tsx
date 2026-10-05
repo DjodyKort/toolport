@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import type { View } from "@/lib/types";
 import type { PlusView } from "./nav";
 import { ScreenSkeleton } from "./ui/States";
@@ -40,6 +40,15 @@ export function PlusViews({
   onSelectView: (view: View) => void;
 }) {
   const [group, setGroup] = useState<string | undefined>();
+  const [target, setTarget] = useState<{ view: PlusView; tab: string } | null>(null);
+  useEffect(() => {
+    if (target && view !== target.view) setTarget(null);
+  }, [view, target]);
+  const openTab = (next: PlusView, tab: string) => {
+    setTarget({ view: next, tab });
+    onSelectView(next);
+  };
+  const tabOf = (own: PlusView) => (target?.view === own ? target.tab : undefined);
   const openCommands = (next?: string) => {
     setGroup(next);
     onSelectView("commands");
@@ -56,11 +65,21 @@ export function PlusViews({
       ) : view === "logins" ? (
         <LoginsScreen onOpenCommands={openCommands} />
       ) : view === "library" ? (
-        <LibraryScreen onOpenCommands={openCommands} />
+        <LibraryScreen
+          key={tabOf("library") ?? ""}
+          initialTab={tabOf("library")}
+          onOpenCommands={openCommands}
+          onOpenHooks={() => openTab("context", "hooks")}
+        />
       ) : view === "tokens" ? (
         <TokensScreen onOpenCommands={openCommands} />
       ) : view === "context" ? (
-        <ContextScreen onOpenCommands={openCommands} />
+        <ContextScreen
+          key={tabOf("context") ?? ""}
+          initialTab={tabOf("context")}
+          onOpenCommands={openCommands}
+          onOpenPlugins={() => openTab("library", "plugins")}
+        />
       ) : view === "system" ? (
         <SystemScreen onOpenCommands={openCommands} />
       ) : view === "tasks" ? (

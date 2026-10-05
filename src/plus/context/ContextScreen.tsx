@@ -15,16 +15,17 @@ import { RowsContext, RowsReloadContext } from "./parts";
 interface PanelProps {
   openTab: (id: string) => void;
   here: FolderChoice;
+  onOpenPlugins?: () => void;
 }
 
 const HooksTabLazy = lazy(() =>
   import("../hooks/HooksTab").then((m) => ({ default: m.HooksTab })),
 );
 
-function HooksPanel({ here }: PanelProps) {
+function HooksPanel({ here, onOpenPlugins }: PanelProps) {
   return (
     <Suspense fallback={<ScreenSkeleton label="Loading tab" />}>
-      <HooksTabLazy here={here} />
+      <HooksTabLazy here={here} onOpenPlugins={onOpenPlugins} />
     </Suspense>
   );
 }
@@ -43,9 +44,11 @@ const TABS = NOT_BUILT_TABS.context ?? [];
 export function ContextScreen({
   initialTab = "here",
   onOpenCommands,
+  onOpenPlugins,
 }: {
   initialTab?: string;
   onOpenCommands: (group?: string) => void;
+  onOpenPlugins?: () => void;
 }) {
   const [tab, setTab] = useState(initialTab);
   const here = useFolderChoice();
@@ -62,7 +65,7 @@ export function ContextScreen({
           label="Context sections"
         >
           {Panel ? (
-            <Panel openTab={setTab} here={here} />
+            <Panel openTab={setTab} here={here} onOpenPlugins={onOpenPlugins} />
           ) : (
             current && (
               <NotBuiltPanel
