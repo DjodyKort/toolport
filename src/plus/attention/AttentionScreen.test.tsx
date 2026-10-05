@@ -226,3 +226,99 @@ describe("Attention screen links", () => {
     expect(row.getByRole("button", { name: /^Dismiss/ })).toBeEnabled();
   });
 });
+
+const pressAction = async (
+  user: Awaited<ReturnType<typeof openAttention>>,
+  label: string,
+  title: string,
+) => user.click((await rowOf(title)).getByRole("button", { name: `${label}: ${title}` }));
+
+describe("Attention screen actions", () => {
+  it("previews a writer with its dry run, then runs exactly that argv after the confirmation", async () => {
+    const user = await openAttention(bridge);
+    const title = "Task nightly-report failed";
+    await pressAction(user, "Run again", title);
+    const confirm = within(
+      await screen.findByRole("dialog", { name: `Run again: ${title}?` }),
+    );
+    expect(confirm.getByText("Run task run nightly-report")).toBeInTheDocument();
+    expect(writes()).toEqual(["task run nightly-report --dry-run"]);
+    await user.click(confirm.getByRole("button", { name: "Run again" }));
+    await waitFor(() =>
+      expect(writes()).toEqual([
+        "task run nightly-report --dry-run",
+        "task run nightly-report",
+      ]),
+    );
+    await waitFor(() =>
+      expect(bridge.world.state.ran).toEqual(["task run nightly-report"]),
+    );
+  });
+
+  it("runs a command of the read tier at once, without a preview or a confirmation", async () => {
+    const user = await openAttention(bridge);
+    await pressAction(user, "Check again", "beta needs a new sign-in");
+    expect(
+      await screen.findByRole("dialog", { name: /^Check again: beta/ }),
+    ).toBeVisible();
+    expect(writes()).toEqual(["auth probe --server srv-beta --force"]);
+  });
+
+  it("asks first for a writer that has no preview and says so", async () => {
+    const user = await openAttention(bridge);
+    const title = "Task portal-token is waiting for you";
+    await pressAction(user, "Continue", title);
+    const confirm = within(
+      await screen.findByRole("dialog", { name: `Continue: ${title}?` }),
+    );
+    expect(confirm.getByText(/no preview/)).toBeInTheDocument();
+    expect(writes()).toEqual([]);
+    await user.click(confirm.getByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(writes()).toEqual(["task resume run-fixture-waiting"]));
+  });
+
+  it.each([
+    [
+      "a command the registry does not know",
+      ["toolportctl", "nuke", "--all"],
+      /does not know how safe/,
+    ],
+    ["a command that is not toolportctl", ["rm", "-rf", "/"], /does not run toolportctl/],
+  ])("refuses %s and runs nothing", async (_name, command, message) => {
+    setup({
+      items: [makeItem({ title: "Odd row", action: { label: "Fix it", command } })],
+    });
+    const user = await openAttention(bridge);
+    await pressAction(user, "Fix it", "Odd row");
+    expect(await screen.findByRole("status")).toHaveTextContent(message);
+    expect(writes()).toEqual([]);
+  });
+
+  it("shows the command line and a disabled Open in Terminal for a command only a terminal can run", async () => {
+    setup({
+      items: [
+        makeItem({
+          title: "Odd row",
+          action: { label: "Run it", command: ["toolportctl", "direct", "run", "tool"] },
+        }),
+      ],
+    });
+    await openAttention(bridge);
+    const row = await rowOf("Odd row");
+    expect(row.queryByRole("button", { name: /^Run it/ })).toBeNull();
+    expect(row.getByLabelText("Command line")).toHaveTextContent(
+      "toolportctl direct run tool",
+    );
+    expect(row.getByRole("button", { name: "Open in Terminal" })).toBeDisabled();
+    expect(writes()).toEqual([]);
+  });
+
+  it("does not run an action before the command list has loaded", async () => {
+    setup();
+    bridge.set("commands", () => new Promise(() => {}));
+    const user = await openAttention(bridge);
+    await pressAction(user, "Run again", "Task nightly-report failed");
+    expect(await screen.findByRole("status")).toHaveTextContent(/has not loaded yet/);
+    expect(writes()).toEqual([]);
+  });
+});
