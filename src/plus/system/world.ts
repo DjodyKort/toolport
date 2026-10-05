@@ -704,6 +704,40 @@ export function createSystemWorld(initial: Partial<SystemState> = {}) {
     unchanged: [],
   });
 
+  const plugin = {
+    available: "1.1.0" as string | null,
+    blocked: false,
+    enabled: true,
+    error: null,
+    id: "demo-plugin@fake-market",
+    installed: "1.0.0",
+    marketplace: "fake-market",
+    name: "demo-plugin",
+    outcome: null as string | null,
+    status: "update",
+  };
+
+  function ccReply(argv: string[]): unknown {
+    const dry = argv.includes("--dry-run");
+    const named = argv.slice(2).filter((word) => !word.startsWith("--"));
+    if (named.length > 0 && named[0] !== plugin.name)
+      return fail("cc", `plugin '${named[0]}' is not installed`);
+    const data = (mode: string, restartRequired = false) => ({
+      mode,
+      plugins: [{ ...plugin }],
+      refreshError: null,
+      restartRequired,
+    });
+    if (argv[1] === "list") return data("list");
+    if (argv[1] !== "update") return undefined;
+    if (dry) return data("dry-run");
+    plugin.outcome = "updated";
+    plugin.installed = plugin.available ?? plugin.installed;
+    plugin.available = null;
+    plugin.status = "current";
+    return data("update", true);
+  }
+
   /** The reply to an argv, or undefined when the world does not run it. `stdin` is what the
    * run was given on its standard input: a passphrase or a key, never kept. */
   function reply(argv: string[], stdin?: string | null): unknown {
@@ -712,6 +746,8 @@ export function createSystemWorld(initial: Partial<SystemState> = {}) {
         return syncReply(argv, stdin);
       case "update":
         return updateReply(argv);
+      case "cc":
+        return ccReply(argv);
       case "council":
         return councilReply(argv);
       case "mcp":

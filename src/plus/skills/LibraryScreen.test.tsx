@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("./SkillsTab", () => ({ SkillsTab: () => <p>Skills panel</p> }));
+vi.mock("../plugins/PluginsTab", () => ({ PluginsTab: () => <p>Plugins panel</p> }));
 vi.mock("./sources/SourcesTab", () => ({ SourcesTab: () => <p>Sources panel</p> }));
 vi.mock("../agents", () => ({
   AgentsTab: () => <p>Agents panel</p>,
@@ -27,18 +28,6 @@ describe("Library screen", () => {
     expect(screen.getByText("Skills panel")).toBeInTheDocument();
   });
 
-  it("marks the tabs no item has built yet and names the item that builds each", async () => {
-    const user = userEvent.setup();
-    render(<LibraryScreen onOpenCommands={vi.fn()} />);
-    const tabs = await screen.findByRole("tablist", { name: "Library sections" });
-    for (const [tab, item] of [["Plugins", "MIG-GUI-12"]]) {
-      await user.click(within(tabs).getByRole("tab", { name: tab }));
-      expect(screen.getByText("Not built yet")).toBeInTheDocument();
-      expect(screen.getByText(new RegExp(`built by ${item}\\b`))).toBeInTheDocument();
-      expect(screen.queryByText("Skills panel")).toBeNull();
-    }
-  });
-
   it("mounts the Agents and Styles panels as tabs", async () => {
     const user = userEvent.setup();
     render(<LibraryScreen onOpenCommands={vi.fn()} />);
@@ -58,13 +47,12 @@ describe("Library screen", () => {
     expect(screen.queryByText("Not built yet")).toBeNull();
   });
 
-  it("offers the All commands page on a tab nobody has built", async () => {
+  it("mounts the Plugins panel lazily when its tab is opened", async () => {
     const user = userEvent.setup();
-    const open = vi.fn();
-    render(<LibraryScreen onOpenCommands={open} />);
+    render(<LibraryScreen onOpenCommands={vi.fn()} />);
     await user.click(await screen.findByRole("tab", { name: "Plugins" }));
-    await user.click(screen.getByRole("button", { name: "Open All commands" }));
-    expect(open).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText("Plugins panel")).toBeInTheDocument();
+    expect(screen.queryByText("Not built yet")).toBeNull();
   });
 
   it("starts on the tab it is asked to and moves between tabs with the arrow keys", async () => {
