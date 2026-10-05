@@ -45,8 +45,9 @@ describe("Self-management tab: reading", () => {
     bridge.set("mcp doctor", installedDoctor());
     await open(<SelfTab />, bridge);
     expect(await screen.findByText("Enabled")).toBeInTheDocument();
-    expect(screen.getByText("default")).toBeInTheDocument();
-    expect(screen.getByText("work")).toBeInTheDocument();
+    const state = within(screen.getByRole("group", { name: "Self-management MCP" }));
+    expect(state.getByText("default")).toBeInTheDocument();
+    expect(state.getByText("work")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Turn off…" })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Enable in a profile…" }),

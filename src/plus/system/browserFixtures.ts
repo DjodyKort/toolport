@@ -35,6 +35,8 @@ const argvs = [
   `secret set council ${COUNCIL_KEY}`,
   "mcp doctor",
   "mcp tools",
+  "mcp call where_am_i --args-stdin",
+  "mcp call flow_diagram --args-stdin",
   "mcp install",
   "mcp uninstall",
   ...both(`import mcpm ${ROOT}`),

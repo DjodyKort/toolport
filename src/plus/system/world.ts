@@ -7,13 +7,17 @@ import { ctlReplyFailure } from "../fixtures/ctlReply";
 import councilTools from "../../../src-tauri/tests/fixtures/ctl-envelopes/council-tools.json";
 import mcpTools from "../../../src-tauri/tests/fixtures/ctl-envelopes/mcp-tools.json";
 import nameMap from "../../../src-tauri/tests/fixtures/ctl-envelopes/import-mcpm.name-map.json";
+import flowDiagram from "../../../src-tauri/tests/fixtures/ctl-envelopes/mcp-call.flow_diagram.json";
+import whereAmI from "../../../src-tauri/tests/fixtures/ctl-envelopes/mcp-call.where_am_i.json";
 
 type Golden = { envelope: { data: unknown } };
 type Loose = Record<string, unknown>;
 const data = (golden: unknown) => (golden as Golden).envelope.data;
+const resultOf = (golden: unknown) => (data(golden) as { result: unknown }).result;
 
 const STAMP = "2026-10-04T10:00:00Z";
 const BINARY = "/fixture/bin/toolport-selfmcp";
+const DATA_DIR = "/fixture/data";
 export const COUNCIL_KEY = "OPENROUTER_API_KEY";
 export const SELF_ID = "toolport-plus-self";
 
@@ -541,9 +545,38 @@ export function createSystemWorld(initial: Partial<SystemState> = {}) {
     optedOut: s.self.state === "opted-out",
   });
 
-  function mcpReply(argv: string[]) {
+  /** `mcp call <tool> --args-stdin` for the read tools of the Self-management tab. What
+   * `where_am_i` counts follows the world: a profile the self-management server was enabled
+   * in exists, and the servers are the ones the Updates tab lists. */
+  function callReply(argv: string[], stdin: string | null | undefined) {
+    if (!has(argv, "--args-stdin")) return undefined;
+    try {
+      JSON.parse(stdin || "{}");
+    } catch {
+      return fail("usage", "stdin is not valid JSON");
+    }
+    const tool = argv[2];
+    const call = (result: unknown) => ({ isError: false, result, tier: 1, tool });
+    if (tool === "flow_diagram") return call(resultOf(flowDiagram));
+    if (tool !== "where_am_i") return undefined;
+    const base = resultOf(whereAmI) as Loose;
+    const profiles = new Set(["default", ...s.self.profiles]);
+    return call({
+      ...base,
+      dataDir: DATA_DIR,
+      gateway: { ...(base.gateway as Loose), path: "/fixture/bin/toolport-gateway" },
+      profileCount: profiles.size,
+      registry: { ...(base.registry as Loose), path: `${DATA_DIR}/registry.json` },
+      serverCount: s.updates.length,
+      version: "0.0.0-fixture",
+    });
+  }
+
+  function mcpReply(argv: string[], stdin?: string | null) {
     const self = s.self;
     switch (argv[1]) {
+      case "call":
+        return callReply(argv, stdin);
       case "doctor": {
         const installed = self.state === "enabled";
         return doctorReply(
@@ -682,7 +715,7 @@ export function createSystemWorld(initial: Partial<SystemState> = {}) {
       case "council":
         return councilReply(argv);
       case "mcp":
-        return mcpReply(argv);
+        return mcpReply(argv, stdin);
       case "import":
         return importReply(argv);
       case "secret":
