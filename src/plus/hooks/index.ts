@@ -1,0 +1,1 @@
+export { HooksTab } from "./HooksTab";

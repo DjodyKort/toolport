@@ -1,7 +1,7 @@
-import { useState, type ComponentType } from "react";
+import { lazy, Suspense, useState, type ComponentType } from "react";
 import { NotBuiltPanel } from "../NotBuilt";
 import { NOT_BUILT_TABS } from "../notBuiltTabs";
-import { Tabs, useCtlQuery } from "../ui";
+import { ScreenSkeleton, Tabs, useCtlQuery } from "../ui";
 import type { CommandsData } from "../bridge/data";
 import { useFolderChoice, type FolderChoice } from "./folder";
 import { HereTab } from "./HereTab";
@@ -17,10 +17,23 @@ interface PanelProps {
   here: FolderChoice;
 }
 
+const HooksTabLazy = lazy(() =>
+  import("../hooks/HooksTab").then((m) => ({ default: m.HooksTab })),
+);
+
+function HooksPanel({ here }: PanelProps) {
+  return (
+    <Suspense fallback={<ScreenSkeleton label="Loading tab" />}>
+      <HooksTabLazy here={here} />
+    </Suspense>
+  );
+}
+
 const PANELS: Record<string, ComponentType<PanelProps>> = {
   here: HereTab,
   profiles: ProfilesTab,
   layers: LayersTab,
+  hooks: HooksPanel,
   launch: LaunchTab,
 };
 
