@@ -615,6 +615,96 @@ async function tasksScreen(shot, theme) {
   expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
 }
 
+// Library > Plugins, Context > Hooks and the System > Updates plugin card on the stateful plugins
+// world: the list and the detail of ecc, its settings in a folder up to the plan, the server
+// that is not governed and the deny plan, the hooks per tool with their conflicts, and the
+// plugin update state next to the server updates. Nothing is applied, so both themes see the
+// same world.
+async function pluginsScreen(shot, theme) {
+  const snap = async (name) => {
+    await shot.mouse.move(900, 20);
+    await shot.evaluate(() => document.fonts.ready);
+    await guiShot(shot, name, { animations: "disabled" });
+  };
+  const toTop = (locator) =>
+    locator.evaluate((el) => el.scrollIntoView({ block: "start" }));
+  const dialog = shot.getByRole("dialog");
+  const nav = shot.getByRole("navigation", { name: "Views" });
+  const folder = "/home/demo/work/acme-erp";
+  await nav.getByRole("button", { name: "Library", exact: true }).click();
+  await shot
+    .getByRole("tablist", { name: "Library sections" })
+    .getByRole("tab", { name: "Plugins", exact: true })
+    .click();
+  const list = shot.getByRole("list", { name: "Plugins", exact: true });
+  await expect(list.getByRole("listitem")).toHaveCount(2);
+  const detail = shot.getByRole("region", { name: "Plugin ecc" });
+  await expect(detail.getByText("Projected by Claude Code")).toBeVisible();
+  await snap(`plugins-list-${theme}`);
+  if (theme === "light") {
+    await toTop(detail.getByRole("list", { name: "What it brings" }));
+    await expect(detail.getByText("Measured by Toolport")).toBeInViewport();
+    await snap("plugins-detail-light");
+  }
+  await shot.getByLabel("Folder").fill(folder);
+  await shot.getByRole("button", { name: "Use folder" }).click();
+  await expect(shot.getByRole("region", { name: "Plugin ecc" })).toBeVisible();
+  await shot.getByLabel("Hook profile").selectOption("minimal");
+  await shot.getByLabel("GateGuard", { exact: true }).selectOption("off");
+  const settings = shot.getByRole("group", { name: "Plugin settings" });
+  if (theme === "light") {
+    await toTop(settings);
+    await expect(settings.getByText(/still start/).first()).toBeVisible();
+    await snap("plugins-settings-light");
+  }
+  const apply = shot.getByRole("button", { name: "Apply to a folder…" });
+  await apply.click();
+  const plan = shot.getByRole("dialog", { name: "Apply ecc settings to a folder?" });
+  await expect(plan.getByText(/Set 2 knob\(s\) of ecc@ecc/)).toBeVisible();
+  if (theme === "light") await snap("plugins-plan-light");
+  await shot.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(apply).toBeFocused();
+  const servers = shot.getByRole("list", { name: "MCP servers of the plugin" });
+  await expect(servers.getByText("not governed")).toHaveCount(2);
+  if (theme === "light") {
+    await toTop(servers);
+    await snap("plugins-mcp-light");
+  }
+  await servers.getByRole("button", { name: "Deny in a folder…" }).first().click();
+  await expect(
+    shot.getByRole("dialog", { name: "Deny chrome-devtools in this folder?" }),
+  ).toBeVisible();
+  await shot.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await nav.getByRole("button", { name: "Context", exact: true }).click();
+  await shot
+    .getByRole("tablist", { name: "Context sections" })
+    .getByRole("tab", { name: "Hooks", exact: true })
+    .click();
+  const counts = shot.getByRole("group", { name: "Hook counts" });
+  await expect(counts.getByText("Processes for one Bash call")).toBeVisible();
+  await snap(`hooks-${theme}`);
+  if (theme === "light") {
+    await toTop(shot.getByText(/Hooks of different owners watch the same Bash call/));
+    await snap("hooks-conflicts-light");
+  }
+  await shot.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(shot.getByRole("region", { name: "Before Edit runs" })).toBeVisible();
+  await nav.getByRole("button", { name: "System", exact: true }).click();
+  await shot
+    .getByRole("tablist", { name: "System sections" })
+    .getByRole("tab", { name: "Updates", exact: true })
+    .click();
+  const updates = shot.getByRole("list", { name: "Plugin updates" });
+  await expect(updates.getByText("ecc")).toBeVisible();
+  if (theme === "light") {
+    await toTop(updates);
+    await snap("plugins-updates-light");
+  }
+  expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
+}
+
 let browser;
 let context;
 let page;
@@ -675,8 +765,7 @@ try {
   await nav.getByRole("button", { name: "Library", exact: true }).click();
   await expect(page.getByRole("list", { name: "Skills" })).toBeVisible();
   await page.getByRole("tab", { name: "Plugins" }).click();
-  await expect(page.getByText("Not built yet")).toBeVisible();
-  await expect(page.getByText(/built by MIG-GUI-12/)).toBeVisible();
+  await expect(page.getByRole("list", { name: "Plugins", exact: true })).toBeVisible();
   await nav.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Open All commands" }).click();
   await expect(page.getByRole("heading", { name: "All commands" })).toBeVisible();
@@ -734,7 +823,9 @@ try {
       await shot.getByRole("button", { name: "Library", exact: true }).click();
       await expect(shot.getByRole("tablist", { name: "Library sections" })).toBeVisible();
       await shot.getByRole("tab", { name: "Plugins" }).click();
-      await expect(shot.getByText("Not built yet")).toBeVisible();
+      await expect(
+        shot.getByRole("list", { name: "Plugins", exact: true }),
+      ).toBeVisible();
       await guiShot(shot, "library-light");
     }
     await shot.getByRole("button", { name: "Settings", exact: true }).click();
@@ -1077,6 +1168,17 @@ try {
     await watch(shot);
     await shot.goto(`${baseURL}/fixtures/`);
     await tasksScreen(shot, theme);
+    await shot.close();
+  }
+  for (const theme of ["light", "dark"]) {
+    const shot = await context.newPage();
+    await shot.addInitScript((choice) => {
+      localStorage.setItem("toolport-theme", choice);
+    }, theme);
+    await shot.setViewportSize({ width: 1280, height: 800 });
+    await watch(shot);
+    await shot.goto(`${baseURL}/fixtures/`);
+    await pluginsScreen(shot, theme);
     await shot.close();
   }
   expect(errors).toEqual([]);
