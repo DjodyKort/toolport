@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "level": "fyi"
+  },
+  "isError": false,
+  "result": {
+    "counts": {
+      "fyi": 0,
+      "look": 0,
+      "needsYou": 2
+    },
+    "items": []
+  },
+  "tool": "attention_ls"
+}
