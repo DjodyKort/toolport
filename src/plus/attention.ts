@@ -4,6 +4,14 @@ import type { CommandsData } from "./bridge/data";
 
 const POLL_MS = 60_000;
 
+const listeners = new Set<() => void>();
+
+/** Reads the number again now; the Attention screen calls it after a row is hidden or an
+ * action ran, so the sidebar does not wait for the next minute. */
+export function refreshAttentionCount() {
+  listeners.forEach((listener) => listener());
+}
+
 let probe: Promise<boolean> | null = null;
 
 /** Whether this build of the CLI has an `attention ls` row. Asked once: the registry is large
@@ -27,7 +35,12 @@ export function forgetAttentionProbe() {
  * one function that decides where the number comes from. */
 export async function readAttentionCount(): Promise<number | null> {
   if (!(await hasAttentionRow())) return null;
-  const data = await ctlData<{ counts: { needsYou: number } }>(["attention", "ls"]);
+  const data = await ctlData<{ counts: { needsYou: number } }>([
+    "attention",
+    "ls",
+    "--level",
+    "needs-you",
+  ]);
   return data.counts.needsYou;
 }
 
@@ -46,8 +59,10 @@ export function useAttentionCount(
       );
     void load();
     const id = setInterval(() => void load(), POLL_MS);
+    listeners.add(load);
     return () => {
       alive = false;
+      listeners.delete(load);
       clearInterval(id);
     };
   }, [read]);

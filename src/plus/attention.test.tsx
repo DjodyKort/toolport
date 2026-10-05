@@ -5,7 +5,12 @@ import { commandsFixture, commandsFixtureWithMcpCall } from "./fixtures/commands
 const { ctlData } = vi.hoisted(() => ({ ctlData: vi.fn() }));
 vi.mock("./bridge/ctl", () => ({ ctlData }));
 
-import { forgetAttentionProbe, readAttentionCount, useAttentionCount } from "./attention";
+import {
+  forgetAttentionProbe,
+  readAttentionCount,
+  refreshAttentionCount,
+  useAttentionCount,
+} from "./attention";
 
 const withAttention = {
   ...commandsFixtureWithMcpCall,
@@ -52,8 +57,8 @@ describe("readAttentionCount", () => {
     await expect(readAttentionCount()).resolves.toBe(0);
     expect(ctlData.mock.calls.map(([argv]) => argv.join(" "))).toEqual([
       "commands",
-      "attention ls",
-      "attention ls",
+      "attention ls --level needs-you",
+      "attention ls --level needs-you",
     ]);
   });
 
@@ -90,6 +95,28 @@ describe("useAttentionCount", () => {
         await vi.advanceTimersByTimeAsync(60_000);
       });
       expect(result.current).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reads again at once when the screen asks, and stops listening when the sidebar goes away", async () => {
+    vi.useFakeTimers();
+    try {
+      const read = vi
+        .fn<() => Promise<number | null>>()
+        .mockResolvedValueOnce(3)
+        .mockResolvedValueOnce(2)
+        .mockResolvedValue(0);
+      const { result, unmount } = renderHook(() => useAttentionCount(read));
+      await act(async () => {});
+      expect(result.current).toBe(3);
+      await act(async () => refreshAttentionCount());
+      expect(result.current).toBe(2);
+      expect(read).toHaveBeenCalledTimes(2);
+      unmount();
+      refreshAttentionCount();
+      expect(read).toHaveBeenCalledTimes(2);
     } finally {
       vi.useRealTimers();
     }
