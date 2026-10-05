@@ -32,6 +32,7 @@ const NOT_READ_ONLY: &[(&str, &str)] = &[
     ("server install", "adds a catalog server; round trip test"),
     ("server new", "adds a server; round trip test"),
     ("server edit", "changes a server; round trip test"),
+    ("server source set", "writes the server's source metadata; round trip test"),
     ("client direct add", "writes the client config and the registry record; tests/direct_launcher.rs"),
     ("client direct rm", "writes the client config and the registry record; tests/direct_launcher.rs"),
     ("direct run", "replaces itself with the server process; tests/direct_launcher.rs"),
@@ -510,7 +511,7 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert!(d["checks"].as_array().unwrap().len() >= 4);
         }),
         case("commands", &["commands"], 0, |_, d| {
-            assert_eq!(d["counts"]["tools"], 100);
+            assert_eq!(d["counts"]["tools"], 101);
             let rows = d["commands"].as_array().unwrap();
             assert!(rows.iter().any(|r| r["id"] == "profile edit" && r["tier"] == "write"));
             assert!(rows.iter().any(|r| r["id"] == "sync push" && r["parent"] == "sync"));
@@ -865,7 +866,7 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert!(!d["checks"].as_array().unwrap().is_empty());
         }),
         case("mcp", &["mcp", "tools"], 0, |_, d| {
-            assert_eq!(d["tools"].as_array().unwrap().len(), 100);
+            assert_eq!(d["tools"].as_array().unwrap().len(), 101);
             assert_eq!(d["resources"].as_array().unwrap().len(), 11);
         }),
         case(
