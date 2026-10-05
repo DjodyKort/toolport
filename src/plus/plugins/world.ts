@@ -1,25 +1,28 @@
 import { CtlReplyFailure } from "../fixtures/ctlReply";
 import type { CcUpdateData } from "../types/cc";
 import type {
+  HookEntry,
   HooksLsData,
   PluginRow,
   PluginsConfigData,
+  PluginsFolderSwitchData,
   PluginsLsData,
   PluginsMcpData,
   PluginsShowData,
+  PluginsUserSwitchData,
 } from "../types/plugins";
 
-/** A stateful plugins and hooks world shaped like the goldens of `plugins ls|show|config|mcp`,
- * `hooks ls` and `cc list|update`: an applied `plugins config`, `plugins mcp` or `cc update`
- * changes what the next `plugins ls`, `plugins show`, `hooks ls` and `cc list` answer, and a
- * preview never does. Browser safe (the goldens come in through `import.meta.glob`); the
+/** A stateful plugins and hooks world shaped like the goldens of `plugins ls|show|config|mcp|
+ * off|on|disable|enable`, `hooks ls` and `cc list|update`: an applied `plugins config`,
+ * `plugins mcp`, `plugins off|on`, `plugins disable|enable` or `cc update` changes what the
+ * next `plugins ls`, `plugins show`, `hooks ls` and `cc list` answer, and a preview never does. Browser safe (the goldens come in through `import.meta.glob`); the
  * folder is whatever `--cwd` says. */
 interface Golden {
   envelope: { data: unknown };
 }
 
 const files = import.meta.glob<Golden>(
-  "../../../src-tauri/tests/fixtures/ctl-envelopes/{plugins-ls.measured,plugins-show.cli,hooks-ls.full,plugins-config.folder.plan,plugins-mcp.deny.plan,plugins-mcp.deny.apply,plugins-mcp.allow.plan,plugins-mcp.allow.apply}.json",
+  "../../../src-tauri/tests/fixtures/ctl-envelopes/{plugins-ls.measured,plugins-show.cli,hooks-ls.full,plugins-config.folder.plan,plugins-mcp.deny.plan,plugins-mcp.deny.apply,plugins-mcp.allow.plan,plugins-mcp.allow.apply,plugins-off.plan,plugins-off.apply,plugins-off.again,plugins-on.plan,plugins-on.apply,plugins-on.nothing,plugins-disable.plan,plugins-disable.apply,plugins-enable.plan,plugins-enable.apply}.json",
   { eager: true, import: "default" },
 );
 
@@ -43,10 +46,40 @@ function golden<T>(stem: string): T {
 }
 
 const fail = (message: string) => new CtlReplyFailure("usage", message);
+const notInstalled = (id: string) =>
+  new CtlReplyFailure("not_found", `plugin '${id}' is not installed`);
+
+/** The counts of `hooks ls` without the hooks a switched-off plugin no longer brings. */
+function withoutHooks(
+  counts: HooksLsData["counts"],
+  gone: HookEntry[],
+): HooksLsData["counts"] {
+  const next = structuredClone(counts);
+  for (const hook of gone) {
+    const owner = `${hook.owner.kind}:${hook.owner.name}`;
+    delete next.byOwner[owner];
+    delete next.otherEventsByOwner[owner];
+    const tracked = hook.event === "PreToolUse" || hook.event === "PostToolUse";
+    for (const tool of hook.tools) {
+      const row = next.perTool[tool as keyof typeof next.perTool];
+      if (!row || !tracked) continue;
+      if (hook.event === "PreToolUse") row.pre -= 1;
+      else row.post -= 1;
+      row.total -= 1;
+    }
+  }
+  next.otherEvents = {};
+  for (const events of Object.values(next.otherEventsByOwner))
+    for (const [event, n] of Object.entries(events))
+      next.otherEvents[event] = (next.otherEvents[event] ?? 0) + n;
+  return next;
+}
 
 interface FolderState {
   env: Record<string, string>;
   denied: string[];
+  /** Plugins `plugins off` turned off in this folder (`enabledPlugins.<id> = false`). */
+  off: string[];
 }
 
 interface PluginState {
@@ -58,6 +91,8 @@ interface PluginState {
 export interface PluginsState {
   plugins: PluginState[];
   folders: Record<string, FolderState>;
+  /** Plugins `plugins disable` turned off in the user settings. */
+  disabledUser: string[];
   restartRequired: boolean;
 }
 
@@ -71,6 +106,7 @@ function initial(): PluginsState {
       { id: DEMO, installed: "1.0.0", available: null },
     ],
     folders: {},
+    disabledUser: [],
     restartRequired: false,
   };
 }
@@ -88,7 +124,7 @@ const positional = (argv: string[], skip: number) =>
 export function createPluginsWorld(seed: Partial<PluginsState> = {}) {
   const state: PluginsState = { ...initial(), ...structuredClone(seed) };
   const folder = (cwd: string): FolderState =>
-    (state.folders[cwd] ??= { env: {}, denied: [] });
+    (state.folders[cwd] ??= { env: {}, denied: [], off: [] });
   const plugin = (id: string) => state.plugins.find((p) => p.id === id);
 
   const update = (p: PluginState) => ({
@@ -96,12 +132,24 @@ export function createPluginsWorld(seed: Partial<PluginsState> = {}) {
     available: p.available,
   });
 
+  function enabledOf(base: PluginRow["enabled"], id: string, cwd: string) {
+    const user = state.disabledUser.includes(id) ? false : base.user;
+    const local = cwd !== "" && folder(cwd).off.includes(id) ? false : base.local;
+    return {
+      user,
+      project: base.project,
+      local,
+      effective: local ?? base.project ?? user ?? true,
+    };
+  }
+
   function rowOf<T extends PluginRow>(base: T, p: PluginState, cwd: string): T {
     const denied = folder(cwd).denied;
     return {
       ...base,
       version: p.installed,
       update: update(p),
+      enabled: enabledOf(base.enabled, p.id, cwd),
       mcpOutsideGateway: base.mcpOutsideGateway.map((s) => ({
         ...s,
         denied: cwd !== "" && denied.includes(s.key),
@@ -144,7 +192,7 @@ export function createPluginsWorld(seed: Partial<PluginsState> = {}) {
     const [id] = positional(argv, 2);
     const cwd = cwdOf(argv);
     const p = plugin(id);
-    if (!p) return new CtlReplyFailure("not-found", `no plugin ${id} is installed`);
+    if (!p) return notInstalled(id);
     const data = golden<PluginsShowData>("plugins-show.cli");
     const shown = id === DEMO ? plain(data) : data;
     const f = folder(cwd);
@@ -175,12 +223,29 @@ export function createPluginsWorld(seed: Partial<PluginsState> = {}) {
       env.ECC_HOOKS_ENABLED === "false" ||
       (env.ECC_GATEGUARD === "off" && command.includes("gateguard")) ||
       ids.some((id) => command.includes(id));
+    const listed = enabledOf(
+      { user: true, project: null, local: null, effective: true },
+      ECC,
+      cwd,
+    ).effective;
+    const gone = listed ? [] : data.hooks.filter((hook) => hook.owner.name === ECC);
+    const kept = data.hooks.filter((hook) => !gone.includes(hook));
     return {
       ...data,
       cwd: cwd || null,
-      hooks: data.hooks.map((hook) =>
+      hooks: kept.map((hook) =>
         hook.owner.name === ECC && off(hook.command) ? { ...hook, active: false } : hook,
       ),
+      counts: gone.length > 0 ? withoutHooks(data.counts, gone) : data.counts,
+      conflicts:
+        gone.length > 0
+          ? data.conflicts
+              .map((c) => ({
+                ...c,
+                hooks: c.hooks.filter((h) => !h.startsWith(`${ECC}:`)),
+              }))
+              .filter((c) => new Set(c.hooks.map((h) => h.split(":")[0])).size > 1)
+          : data.conflicts,
     };
   }
 
@@ -305,14 +370,95 @@ export function createPluginsWorld(seed: Partial<PluginsState> = {}) {
     return data;
   }
 
+  const bringsText = (id: string) => {
+    const b =
+      id === DEMO
+        ? demo(golden<PluginsLsData>("plugins-ls.measured").plugins[0]).brings
+        : null;
+    return b
+      ? [
+          [b.skills, "skills"],
+          [b.agents, "agents"],
+          [b.commands, "commands"],
+        ]
+          .filter(([n]) => n)
+          .map(([n, word]) => `${n} ${word}`)
+          .join(", ")
+      : null;
+  };
+
+  /** A golden envelope of a switch, for this plugin and folder. */
+  function switched<T>(stem: string, id: string, cwd: string | null): T {
+    const text = JSON.stringify(golden<T>(stem))
+      .split(GOLDEN_FOLDER)
+      .join(cwd ?? GOLDEN_FOLDER)
+      .split(ECC)
+      .join(id);
+    const data = JSON.parse(text) as { plan: { steps: Array<{ detail: string }> } };
+    const brings = bringsText(id);
+    if (brings)
+      for (const step of data.plan.steps)
+        step.detail = step.detail.replace(
+          /^(goes away[^:]*|comes back[^:]*): .*$/,
+          `$1: ${brings}`,
+        );
+    return data as T;
+  }
+
+  function folderSwitch(argv: string[], action: "off" | "on"): unknown {
+    const [id] = positional(argv, 2);
+    const cwd = cwdOf(argv);
+    const dry = argv.includes("--dry-run");
+    if (!id) return fail(`usage: plugins ${action} <id> --cwd <dir> [--dry-run]`);
+    if (!cwd)
+      return fail(
+        "--cwd is required: a plugin is turned off or on per folder (user scope: plugins disable|enable)",
+      );
+    if (!plugin(id)) return notInstalled(id);
+    const f = folder(cwd);
+    const has = f.off.includes(id);
+    const nothing = action === "off" ? has : !has;
+    const stem = nothing
+      ? action === "off"
+        ? "plugins-off.again"
+        : "plugins-on.nothing"
+      : `plugins-${action}.${dry ? "plan" : "apply"}`;
+    const data = switched<PluginsFolderSwitchData>(stem, id, cwd);
+    if (!nothing && !dry)
+      f.off = action === "off" ? [...f.off, id] : f.off.filter((off) => off !== id);
+    if (nothing && !dry) data.dryRun = false;
+    return data;
+  }
+
+  function userSwitch(argv: string[], action: "disable" | "enable"): unknown {
+    const [id] = positional(argv, 2);
+    const dry = argv.includes("--dry-run");
+    if (!id) return fail(`usage: plugins ${action} <id> [--dry-run]`);
+    if (!plugin(id)) return notInstalled(id);
+    const data = switched<PluginsUserSwitchData>(
+      `plugins-${action}.${dry ? "plan" : "apply"}`,
+      id,
+      null,
+    );
+    const off = state.disabledUser.includes(id);
+    if (action === "enable" && off)
+      data.plan.warnings = data.plan.warnings.filter((w) => !w.startsWith("already on"));
+    if (!dry) {
+      state.disabledUser =
+        action === "disable"
+          ? [...new Set([...state.disabledUser, id])]
+          : state.disabledUser.filter((disabled) => disabled !== id);
+    }
+    return data;
+  }
+
   function cc(argv: string[]): unknown {
     const dry = argv.includes("--dry-run");
     const [name] = positional(argv, 2);
     const chosen = state.plugins.filter(
       (p) => !name || p.id.split("@")[0] === name || p.id === name,
     );
-    if (name && chosen.length === 0)
-      return new CtlReplyFailure("not-found", `plugin '${name}' is not installed`);
+    if (name && chosen.length === 0) return notInstalled(name);
     const row = (p: PluginState, outcome: string | null) => ({
       available: p.available,
       blocked: false,
@@ -364,6 +510,14 @@ export function createPluginsWorld(seed: Partial<PluginsState> = {}) {
         return config(argv);
       case "plugins mcp":
         return mcp(argv);
+      case "plugins off":
+        return folderSwitch(argv, "off");
+      case "plugins on":
+        return folderSwitch(argv, "on");
+      case "plugins disable":
+        return userSwitch(argv, "disable");
+      case "plugins enable":
+        return userSwitch(argv, "enable");
       case "hooks ls":
         return hooks(argv);
       case "cc list":
