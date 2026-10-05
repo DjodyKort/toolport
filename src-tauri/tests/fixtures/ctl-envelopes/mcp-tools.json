@@ -352,6 +352,36 @@
           "tier": 2
         },
         {
+          "description": "Show the skills library against its remote: branch, commits ahead and behind, uncommitted files, how git authenticates (gh, a credential helper or ssh) and any other clone of the same remote with its own counts. Pass fetch to contact the remote and test the credentials; without it nothing touches the network. Read only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "library_status",
+          "params": [
+            {
+              "description": "Contact the remote (ls-remote, then fetch) to refresh the counts and test the credentials",
+              "name": "fetch",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Fast-forward the skills library from its remote (fetches first). Refuses over uncommitted changes and never merges or rewrites history. dry_run is on by default and only reports the plan; pass dry_run false to apply",
+          "dryRunDefault": true,
+          "gate": "none",
+          "name": "library_pull",
+          "params": [
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
           "description": "List the installed Claude Code plugins with what each brings (skills, agents, commands, hooks, MCP servers), whether it is on in the folder, its token cost and its MCP servers that sit outside the gateway",
           "dryRunDefault": false,
           "gate": "none",

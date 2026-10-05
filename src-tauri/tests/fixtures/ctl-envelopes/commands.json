@@ -6080,6 +6080,139 @@
           "flags": [
             {
               "aliases": [],
+              "effect": "Contact the remote (a read-only ls-remote, then a fetch) to test the credentials and refresh the counts; the only network call of library status",
+              "escalates": false,
+              "hidden": false,
+              "name": "--fetch",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "library",
+          "id": "library status",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "library",
+          "path": ["library", "status"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Show the skills library against its remote: ahead, behind, uncommitted, credentials, duplicate clones (--fetch contacts the remote)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["library_status"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "library",
+          "id": "library pull",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": ["network"],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "library",
+          "path": ["library", "pull"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Fast-forward the skills library from its remote; refuses over uncommitted changes (--dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["library_pull"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "library",
+          "id": "library push",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": ["network"],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "library",
+          "path": ["library", "push"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Audit and secret-scan, then push the skills library; never forces (--dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": null,
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "library",
+          "id": "library",
+          "kind": "group",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["library"],
+          "planned": false,
+          "preview": null,
+          "summary": "Library: status pull push",
+          "surface": null,
+          "tier": null,
+          "tools": []
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
               "effect": "Folder whose project and local settings decide which plugins are on (default: user settings only)",
               "escalates": false,
               "hidden": false,
@@ -9888,10 +10021,10 @@
         }
       ],
       "counts": {
-        "commands": 163,
-        "groups": 30,
-        "rows": 193,
-        "tools": 97
+        "commands": 166,
+        "groups": 31,
+        "rows": 197,
+        "tools": 99
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
       "tiers": ["read", "write", "destructive"],
@@ -9984,6 +10117,20 @@
           "command": "task cancel",
           "dryRun": "none",
           "name": "tasks_cancel",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": "library status",
+          "dryRun": "none",
+          "name": "library_status",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "library pull",
+          "dryRun": "default-on",
+          "name": "library_pull",
           "tier": "write",
           "toolTier": 2
         },
