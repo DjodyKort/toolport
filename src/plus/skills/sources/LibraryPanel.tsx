@@ -164,20 +164,6 @@ export function LibraryPanel({ write }: { write: WriteControl }) {
   const status = remote.data ?? query.data;
   const off = reasonOff(status, query.status === "loading");
   const busy = write.busy || remote.phase === "running";
-  const trigger = useRef<HTMLButtonElement | null>(null);
-  const open = useRef(false);
-  useEffect(() => {
-    if (write.spec) open.current = true;
-    else if (open.current) {
-      open.current = false;
-      trigger.current?.focus();
-    }
-  }, [write.spec]);
-  const begin = (spec: typeof PULL, button: HTMLButtonElement) => {
-    trigger.current = button;
-    write.begin(spec);
-  };
-
   return (
     <div role="group" aria-label="Library remote" className="flex flex-col gap-3">
       {query.status === "error" && status === null && (
@@ -235,7 +221,7 @@ export function LibraryPanel({ write }: { write: WriteControl }) {
           disabled={busy || off !== null}
           title={off ?? "Fetches the remote and shows the commits it would bring"}
           aria-describedby={off ? "library-reason" : undefined}
-          onClick={(event) => begin(PULL, event.currentTarget)}
+          onClick={() => write.begin(PULL)}
         >
           <ArrowDownToLine /> Pull
         </Button>
@@ -245,7 +231,7 @@ export function LibraryPanel({ write }: { write: WriteControl }) {
           disabled={busy || off !== null}
           title={off ?? "Checks for secrets, then shows the commits it would send"}
           aria-describedby={off ? "library-reason" : undefined}
-          onClick={(event) => begin(PUSH, event.currentTarget)}
+          onClick={() => write.begin(PUSH)}
         >
           <ArrowUpFromLine /> Push…
         </Button>
