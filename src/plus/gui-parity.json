@@ -1021,7 +1021,8 @@
     "plugins": "MIG-GUI-12",
     "hooks": "MIG-GUI-12",
     "task": "MIG-AUTO-2",
-    "library": "MIG-GUI-10"
+    "library": "MIG-GUI-10",
+    "attention": "MIG-GUI-11"
   },
   "commands": {
     "agents add": {
@@ -1853,6 +1854,16 @@
       "route": "library",
       "action": "sources.library.status",
       "surface": "screen"
+    },
+    "attention ls": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "attention dismiss": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
     }
   },
   "tools": {
@@ -2349,6 +2360,11 @@
     "library_status": {
       "route": "library",
       "action": "sources.library.status",
+      "surface": "screen"
+    },
+    "attention_ls": {
+      "route": "all-commands",
+      "action": "all-commands.tool",
       "surface": "screen"
     }
   }
