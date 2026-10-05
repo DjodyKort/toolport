@@ -11,22 +11,6 @@
     },
     "items": [
       {
-        "action": null,
-        "detail": "Not set yet: API_KEY. The server cannot start without it.",
-        "from": "doctor",
-        "id": "secrets:srv-alpha:missing",
-        "level": "needs-you",
-        "since": "<masked>",
-        "target": {
-          "params": {
-            "server": "srv-alpha",
-            "tab": "secrets"
-          },
-          "route": "servers"
-        },
-        "title": "alpha is missing a secret"
-      },
-      {
         "action": {
           "command": ["toolportctl", "task", "resume", "run-fixture-waiting"],
           "label": "Continue"
@@ -45,6 +29,22 @@
           "route": "tasks"
         },
         "title": "Task portal-token is waiting for you"
+      },
+      {
+        "action": null,
+        "detail": "Not set yet: API_KEY. The server cannot start without it.",
+        "from": "doctor",
+        "id": "secrets:srv-alpha:missing",
+        "level": "needs-you",
+        "since": "<masked>",
+        "target": {
+          "params": {
+            "server": "srv-alpha",
+            "tab": "secrets"
+          },
+          "route": "servers"
+        },
+        "title": "alpha is missing a secret"
       }
     ]
   },
