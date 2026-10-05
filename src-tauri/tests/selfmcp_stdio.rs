@@ -29,7 +29,7 @@ mod sources_world;
 
 const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
-const TOOL_COUNT: usize = 99;
+const TOOL_COUNT: usize = 100;
 const RESOURCE_COUNT: usize = 11;
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -582,6 +582,7 @@ fn tier_one_calls() -> BTreeMap<&'static str, Value> {
         ("tasks_get", json!({"id": "portal-task"})),
         ("tasks_history", json!({"id": "portal-task"})),
         ("library_status", json!({})),
+        ("attention_ls", json!({})),
     ])
 }
 
@@ -645,6 +646,8 @@ fn tier_one_tools_read_without_confirm_and_never_write() {
     assert_eq!(results["library_status"]["behind"], 0);
     assert_eq!(results["library_status"]["uncommitted"], 0);
     assert_eq!(results["library_status"]["fetch"]["requested"], false);
+    assert!(results["attention_ls"]["items"].is_array());
+    assert!(results["attention_ls"]["counts"]["needsYou"].is_u64());
     assert_eq!(results["skills_get"]["body"], "Body text");
     assert_eq!(results["skills_diff"]["noLockfile"], true);
     assert_eq!(results["skills_diff"]["new"], json!(["demo"]));
