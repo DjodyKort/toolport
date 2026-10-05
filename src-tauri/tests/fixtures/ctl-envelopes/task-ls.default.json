@@ -13,6 +13,7 @@
         {
           "enabled": true,
           "id": "nightly-report",
+          "kind": "script",
           "lastRun": {
             "durationMs": 0,
             "runId": "run-fixture-ok",
@@ -20,6 +21,7 @@
             "status": "ok"
           },
           "nextRun": "<TIME>",
+          "refreshes": [],
           "title": "Nightly report",
           "triggers": {
             "cli": false,
@@ -39,6 +41,7 @@
         {
           "enabled": true,
           "id": "portal-token",
+          "kind": "login",
           "lastRun": {
             "durationMs": null,
             "runId": "run-fixture-waiting",
@@ -46,6 +49,7 @@
             "status": "waiting"
           },
           "nextRun": null,
+          "refreshes": ["srv-alpha"],
           "title": "Refresh the portal token",
           "triggers": {
             "cli": true,

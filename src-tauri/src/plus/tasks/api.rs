@@ -60,7 +60,8 @@ pub fn ls(all: bool) -> Result<Value, OpError> {
         match item {
             Ok(t) if t.enabled || all => {
                 let waiting = runs.iter().any(|r| r.task == t.id && r.status == Status::Waiting);
-                tasks.push(json!({"id": t.id, "title": t.title, "enabled": t.enabled, "triggers": t.triggers, "lastRun": last_run(&runs, &t.id), "nextRun": next_run(&t), "waiting": waiting}));
+                let kind = if t.triggers.on_auth_failure.is_empty() && t.writes_secrets.is_empty() { "script" } else { "login" };
+                tasks.push(json!({"id": t.id, "title": t.title, "enabled": t.enabled, "triggers": t.triggers, "lastRun": last_run(&runs, &t.id), "nextRun": next_run(&t), "waiting": waiting, "refreshes": t.triggers.on_auth_failure, "kind": kind}));
             }
             Ok(_) => {}
             Err((id, error)) => invalid.push(json!({"id": id, "error": error})),

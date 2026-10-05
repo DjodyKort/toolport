@@ -14,6 +14,7 @@
       {
         "enabled": false,
         "id": "draft-cleanup",
+        "kind": "script",
         "lastRun": {
           "durationMs": null,
           "runId": "run-fixture-stale",
@@ -21,6 +22,7 @@
           "status": "running"
         },
         "nextRun": null,
+        "refreshes": [],
         "title": "Clean up",
         "triggers": {
           "cli": false,
@@ -37,8 +39,10 @@
       {
         "enabled": false,
         "id": "moodle-token",
+        "kind": "login",
         "lastRun": null,
         "nextRun": null,
+        "refreshes": ["moodle"],
         "title": "Refresh the Moodle token",
         "triggers": {
           "cli": true,
@@ -55,6 +59,7 @@
       {
         "enabled": true,
         "id": "nightly-report",
+        "kind": "script",
         "lastRun": {
           "durationMs": 0,
           "runId": "run-fixture-ok",
@@ -62,6 +67,7 @@
           "status": "ok"
         },
         "nextRun": "<TIME>",
+        "refreshes": [],
         "title": "Nightly report",
         "triggers": {
           "cli": false,
@@ -81,6 +87,7 @@
       {
         "enabled": true,
         "id": "portal-token",
+        "kind": "login",
         "lastRun": {
           "durationMs": null,
           "runId": "run-fixture-waiting",
@@ -88,6 +95,7 @@
           "status": "waiting"
         },
         "nextRun": null,
+        "refreshes": ["srv-alpha"],
         "title": "Refresh the portal token",
         "triggers": {
           "cli": true,
