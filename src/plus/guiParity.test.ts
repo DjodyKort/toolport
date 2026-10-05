@@ -4,7 +4,13 @@ import { describe, expect, it } from "vitest";
 import type { View } from "@/lib/types";
 import { guiParity, type GuiParityManifest } from "./guiParity";
 import { NAV_GROUPS, PLUS_VIEWS, isPlusView, navItemActive } from "./nav";
-import { checkParity, pendingSummary, type RegistrySnapshot } from "./guiParityCheck";
+import {
+  checkParity,
+  paritySummary,
+  pendingSummary,
+  summaryLine,
+  type RegistrySnapshot,
+} from "./guiParityCheck";
 
 const repo = join(__dirname, "../..");
 const files = {
@@ -23,22 +29,24 @@ function snapshot(): RegistrySnapshot {
 }
 
 describe("gui parity manifest", () => {
-  it("has an entry for every registry command and tool and nothing stale", () => {
+  it("has a built screen action for every registry command and tool and nothing stale", () => {
     const registry = snapshot();
     expect(registry.commands.length).toBeGreaterThan(100);
     expect(registry.tools.length).toBeGreaterThan(70);
     const report = checkParity(guiParity, registry, files);
-    expect(report.errors).toEqual([]);
+    const summary = paritySummary(guiParity, registry, report);
+    console.info(summaryLine(summary));
 
-    const pending = [...report.pendingCommands, ...report.pendingTools];
-    if (process.env.GUI_PARITY_STRICT) {
-      expect(pending, "rows still only on the All commands page").toEqual([]);
-    } else {
-      console.info(
-        `gui parity: ${report.pendingCommands.length} commands and ${report.pendingTools.length} tools ` +
-          `are only on the All commands page (${pendingSummary(guiParity, report).join(", ")})`,
-      );
-    }
+    expect(report.errors).toEqual([]);
+    expect(
+      [...report.pendingCommands, ...report.pendingTools],
+      `rows without a built screen action (${pendingSummary(guiParity, report).join(", ")})`,
+    ).toEqual([]);
+    expect(summary.commandRows).toBe(summary.commands);
+    expect(summary.toolRows).toBe(summary.tools);
+    expect(summary.actionsBuilt).toBe(Object.keys(guiParity.actions).length);
+    expect(summary.pending).toBe(0);
+    expect(summary.waivers).toBe(0);
   });
 });
 
@@ -84,17 +92,17 @@ describe("gui parity check", () => {
   const good = (): GuiParityManifest => ({
     schemaVersion: 1,
     routes: {
-      "all-commands": { title: "All commands", status: "planned" },
+      pending: { title: "Pending", status: "planned" },
       servers: { title: "Servers", status: "built", component: "src/plus/guiParity.ts" },
     },
     actions: {
-      "all-commands.run": { route: "all-commands", status: "planned", summary: "run" },
-      "all-commands.terminal": {
-        route: "all-commands",
+      "pending.run": { route: "pending", status: "planned", summary: "run" },
+      "pending.terminal": {
+        route: "pending",
         status: "planned",
         summary: "term",
       },
-      "all-commands.tool": { route: "all-commands", status: "planned", summary: "tool" },
+      "pending.tool": { route: "pending", status: "planned", summary: "tool" },
       "servers.list": {
         route: "servers",
         status: "built",
@@ -104,18 +112,18 @@ describe("gui parity check", () => {
     },
     owners: { status: "MIG-GUI-1", server: "MIG-GUI-1", direct: "MIG-GUI-1" },
     commands: {
-      status: { route: "all-commands", action: "all-commands.run", surface: "screen" },
+      status: { route: "pending", action: "pending.run", surface: "screen" },
       "server ls": { route: "servers", action: "servers.list", surface: "screen" },
       "direct run": {
-        route: "all-commands",
-        action: "all-commands.terminal",
+        route: "pending",
+        action: "pending.terminal",
         surface: "terminal",
       },
     },
     tools: {
       where_am_i: {
-        route: "all-commands",
-        action: "all-commands.tool",
+        route: "pending",
+        action: "pending.tool",
         surface: "screen",
       },
       servers_list: { route: "servers", action: "servers.list", surface: "screen" },
@@ -134,9 +142,31 @@ describe("gui parity check", () => {
     expect(report.pendingTools).toEqual(["where_am_i"]);
   });
 
+  it("counts the pending rows and the waivers for the summary line", () => {
+    const manifest = good();
+    (manifest.commands.status as { surface: string }).surface = "waived";
+    const report = checkParity(manifest, registry, files);
+    const summary = paritySummary(manifest, registry, report);
+    expect(summary).toEqual({
+      commands: 3,
+      tools: 2,
+      commandRows: 3,
+      toolRows: 2,
+      actionsBuilt: 1,
+      pending: 3,
+      waivers: 1,
+    });
+    expect(summaryLine(summary)).toBe(
+      "gui parity: 3 commands, 2 tools, 5 manifest rows, 1 screen actions built, 3 pending, 1 waivers",
+    );
+    expect(report.errors.join("\n")).toContain("neither screen nor terminal");
+  });
+
   it("fails on a command or tool without an entry and prints the line to add", () => {
-    expect(errorsOf((m) => delete m.commands["server ls"])).toContain(
-      '"server ls": {"route":"all-commands","action":"all-commands.run","surface":"screen"}',
+    const message = errorsOf((m) => delete m.commands["server ls"]);
+    expect(message).toContain("map it to a built route and action");
+    expect(message).toContain(
+      '"server ls": {"route":"<route>","action":"<route>.<action>","surface":"screen"}',
     );
     expect(errorsOf((m) => delete m.tools.where_am_i)).toContain("tool `where_am_i`");
   });

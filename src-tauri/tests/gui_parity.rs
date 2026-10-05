@@ -213,7 +213,7 @@ struct Report {
     pending_tools: Vec<String>,
 }
 
-const ALL_COMMANDS: &str = "all-commands";
+const HINT: &str = "map it to a built route and action";
 
 fn field<'a>(value: &'a Value, key: &str) -> &'a str {
     value[key].as_str().unwrap_or("")
@@ -270,7 +270,7 @@ fn check_parity(manifest: &Value, registry: &Value, repo: &Path) -> Report {
     for (id, surface) in &surface_of {
         if !commands.contains_key(id.as_str()) {
             fail(format!(
-                "command `{id}` has no entry in commands; add \"{id}\": {{\"route\":\"{ALL_COMMANDS}\",\"action\":\"all-commands.run\",\"surface\":\"{surface}\"}}"
+                "command `{id}` has no entry in commands; {HINT}, e.g. \"{id}\": {{\"route\":\"<route>\",\"action\":\"<route>.<action>\",\"surface\":\"{surface}\"}}"
             ));
         }
     }
@@ -284,7 +284,7 @@ fn check_parity(manifest: &Value, registry: &Value, repo: &Path) -> Report {
     for name in tool_command.keys() {
         if !tools.contains_key(name.as_str()) {
             fail(format!(
-                "tool `{name}` has no entry in tools; add \"{name}\": {{\"route\":\"{ALL_COMMANDS}\",\"action\":\"all-commands.tool\",\"surface\":\"screen\"}}"
+                "tool `{name}` has no entry in tools; {HINT}, e.g. \"{name}\": {{\"route\":\"<route>\",\"action\":\"<route>.<action>\",\"surface\":\"screen\"}}"
             ));
         }
     }
@@ -424,11 +424,10 @@ fn check_parity(manifest: &Value, registry: &Value, repo: &Path) -> Report {
     let pending = |entry: Option<&&Value>| match entry {
         None => true,
         Some(entry) => {
-            field(entry, "route") == ALL_COMMANDS
-                || actions
-                    .get(field(entry, "action"))
-                    .map(|a| field(a, "status"))
-                    != Some("built")
+            actions
+                .get(field(entry, "action"))
+                .map(|a| field(a, "status"))
+                != Some("built")
         }
     };
     report.pending_commands = surface_of
@@ -444,31 +443,77 @@ fn check_parity(manifest: &Value, registry: &Value, repo: &Path) -> Report {
     report
 }
 
-#[test]
-fn the_manifest_covers_every_command_and_tool_of_the_registry() {
-    let manifest = manifest();
-    let report = check_parity(&manifest, &registry(), &repo_root());
-    assert!(report.errors.is_empty(), "{}", report.errors.join("\n"));
+/// The counts of the parity gate, the same numbers as `paritySummary` in `guiParityCheck.ts`.
+#[derive(Debug, PartialEq)]
+struct Summary {
+    commands: usize,
+    tools: usize,
+    command_rows: usize,
+    tool_rows: usize,
+    actions_built: usize,
+    pending: usize,
+    waivers: usize,
+}
 
-    let pending = report.pending_commands.len() + report.pending_tools.len();
-    if std::env::var_os("GUI_PARITY_STRICT").is_some_and(|v| !v.is_empty() && v != "0") {
-        assert_eq!(
-            pending, 0,
-            "rows still only on the All commands page: {report:?}"
-        );
-    } else {
-        let mut by_owner: BTreeMap<String, usize> = BTreeMap::new();
-        for id in &report.pending_commands {
-            let group = id.split(' ').next().unwrap();
-            let owner = manifest["owners"][group].as_str().unwrap_or("unowned");
-            *by_owner.entry(owner.to_string()).or_default() += 1;
+impl Summary {
+    fn of(manifest: &Value, registry: &Value, report: &Report) -> Summary {
+        let commands = entries(manifest, "commands");
+        let tools = entries(manifest, "tools");
+        let waivers = commands
+            .values()
+            .chain(tools.values())
+            .filter(|entry| !["screen", "terminal"].contains(&field(entry, "surface")))
+            .count();
+        Summary {
+            commands: registry["commands"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|row| row["kind"] == "command")
+                .count(),
+            tools: registry["tools"].as_array().unwrap().len(),
+            command_rows: commands.len(),
+            tool_rows: tools.len(),
+            actions_built: entries(manifest, "actions")
+                .values()
+                .filter(|action| field(action, "status") == "built")
+                .count(),
+            pending: report.pending_commands.len() + report.pending_tools.len(),
+            waivers,
         }
-        eprintln!(
-            "gui parity: {} commands and {} tools are only on the All commands page {by_owner:?}",
-            report.pending_commands.len(),
-            report.pending_tools.len()
-        );
     }
+
+    fn line(&self) -> String {
+        format!(
+            "gui parity: {} commands, {} tools, {} manifest rows, {} screen actions built, {} pending, {} waivers",
+            self.commands,
+            self.tools,
+            self.command_rows + self.tool_rows,
+            self.actions_built,
+            self.pending,
+            self.waivers
+        )
+    }
+}
+
+#[test]
+fn the_manifest_gives_every_command_and_tool_a_built_screen_action() {
+    let manifest = manifest();
+    let registry = registry();
+    let report = check_parity(&manifest, &registry, &repo_root());
+    let summary = Summary::of(&manifest, &registry, &report);
+    println!("{}", summary.line());
+
+    assert!(report.errors.is_empty(), "{}", report.errors.join("\n"));
+    assert!(
+        report.pending_commands.is_empty() && report.pending_tools.is_empty(),
+        "rows without a built screen action: {report:?}"
+    );
+    assert_eq!(summary.command_rows, summary.commands);
+    assert_eq!(summary.tool_rows, summary.tools);
+    assert_eq!(summary.actions_built, entries(&manifest, "actions").len());
+    assert_eq!(summary.pending, 0);
+    assert_eq!(summary.waivers, 0);
 }
 
 #[test]
@@ -531,24 +576,24 @@ mod checker {
         json!({
             "schemaVersion": 1,
             "routes": {
-                "all-commands": {"title": "All commands", "status": "planned"},
+                "pending": {"title": "Pending", "status": "planned"},
                 "servers": {"title": "Servers", "status": "built", "component": "src/plus/guiParity.ts"},
             },
             "actions": {
-                "all-commands.run": {"route": "all-commands", "status": "planned", "summary": "run"},
-                "all-commands.terminal": {"route": "all-commands", "status": "planned", "summary": "t"},
-                "all-commands.tool": {"route": "all-commands", "status": "planned", "summary": "tool"},
+                "pending.run": {"route": "pending", "status": "planned", "summary": "run"},
+                "pending.terminal": {"route": "pending", "status": "planned", "summary": "t"},
+                "pending.tool": {"route": "pending", "status": "planned", "summary": "tool"},
                 "servers.list": {"route": "servers", "status": "built", "summary": "list",
                                  "test": "src/plus/guiParity.test.ts"},
             },
             "owners": {"status": "MIG-GUI-1", "server": "MIG-GUI-1", "direct": "MIG-GUI-1"},
             "commands": {
-                "status": {"route": "all-commands", "action": "all-commands.run", "surface": "screen"},
+                "status": {"route": "pending", "action": "pending.run", "surface": "screen"},
                 "server ls": {"route": "servers", "action": "servers.list", "surface": "screen"},
-                "direct run": {"route": "all-commands", "action": "all-commands.terminal", "surface": "terminal"},
+                "direct run": {"route": "pending", "action": "pending.terminal", "surface": "terminal"},
             },
             "tools": {
-                "where_am_i": {"route": "all-commands", "action": "all-commands.tool", "surface": "screen"},
+                "where_am_i": {"route": "pending", "action": "pending.tool", "surface": "screen"},
                 "servers_list": {"route": "servers", "action": "servers.list", "surface": "screen"},
             },
         })
@@ -571,13 +616,47 @@ mod checker {
     }
 
     #[test]
+    fn the_summary_counts_pending_rows_and_waivers() {
+        let mut manifest = good();
+        manifest["commands"]["status"]["surface"] = "waived".into();
+        let report = check_parity(&manifest, &registry(), &repo_root());
+        let summary = Summary::of(&manifest, &registry(), &report);
+        assert_eq!(
+            summary,
+            Summary {
+                commands: 3,
+                tools: 2,
+                command_rows: 3,
+                tool_rows: 2,
+                actions_built: 1,
+                pending: 3,
+                waivers: 1,
+            }
+        );
+        assert_eq!(
+            summary.line(),
+            "gui parity: 3 commands, 2 tools, 5 manifest rows, 1 screen actions built, 3 pending, 1 waivers"
+        );
+        assert!(report
+            .errors
+            .join("\n")
+            .contains("neither screen nor terminal"));
+    }
+
+    #[test]
     fn a_command_or_tool_without_an_entry_fails_with_the_line_to_add() {
         let message = errors(|m| {
             m["commands"].as_object_mut().unwrap().remove("server ls");
             m["tools"].as_object_mut().unwrap().remove("where_am_i");
         });
         assert!(
-            message.contains("\"server ls\": {\"route\":\"all-commands\""),
+            message.contains("map it to a built route and action"),
+            "{message}"
+        );
+        assert!(
+            message.contains(
+                "\"server ls\": {\"route\":\"<route>\",\"action\":\"<route>.<action>\",\"surface\":\"screen\"}"
+            ),
             "{message}"
         );
         assert!(

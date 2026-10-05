@@ -1,5 +1,4 @@
 import type { GuiEntry, GuiParityManifest } from "./guiParity";
-import { ALL_COMMANDS_ROUTE } from "./guiParity";
 
 /** The part of `toolportctl commands --json` the parity check needs. */
 export interface RegistrySnapshot {
@@ -25,6 +24,8 @@ function paste(id: string, entry: GuiEntry) {
   return `"${id}": ${JSON.stringify(entry)}`;
 }
 
+const HINT = "map it to a built route and action";
+
 /** Every rule of R3 that a test can prove. All problems are reported, not only the first. */
 export function checkParity(
   manifest: GuiParityManifest,
@@ -44,7 +45,7 @@ export function checkParity(
   for (const [id, surface] of surfaceOf) {
     if (!(id in manifest.commands)) {
       fail(
-        `command \`${id}\` has no entry in commands; add ${paste(id, { route: ALL_COMMANDS_ROUTE, action: "all-commands.run", surface: surface as GuiEntry["surface"] })}`,
+        `command \`${id}\` has no entry in commands; ${HINT}, e.g. ${paste(id, { route: "<route>", action: "<route>.<action>", surface: surface as GuiEntry["surface"] })}`,
       );
     }
   }
@@ -55,7 +56,7 @@ export function checkParity(
   for (const name of toolCommand.keys()) {
     if (!(name in manifest.tools)) {
       fail(
-        `tool \`${name}\` has no entry in tools; add ${paste(name, { route: ALL_COMMANDS_ROUTE, action: "all-commands.tool", surface: "screen" })}`,
+        `tool \`${name}\` has no entry in tools; ${HINT}, e.g. ${paste(name, { route: "<route>", action: "<route>.<action>", surface: "screen" })}`,
       );
     }
   }
@@ -141,9 +142,7 @@ export function checkParity(
   }
 
   const pending = (entry: GuiEntry | undefined) =>
-    !entry ||
-    entry.route === ALL_COMMANDS_ROUTE ||
-    manifest.actions[entry.action]?.status !== "built";
+    !entry || manifest.actions[entry.action]?.status !== "built";
   return {
     errors,
     pendingCommands: [...surfaceOf.keys()]
@@ -166,4 +165,41 @@ export function pendingSummary(
     byOwner.set(owner, (byOwner.get(owner) ?? 0) + 1);
   }
   return [...byOwner].sort().map(([owner, count]) => `${owner}: ${count}`);
+}
+
+export interface ParitySummary {
+  commands: number;
+  tools: number;
+  commandRows: number;
+  toolRows: number;
+  actionsBuilt: number;
+  pending: number;
+  waivers: number;
+}
+
+/** The counts of the parity gate: the registry on one side, the manifest on the other. A waiver is
+ * a row that is neither on a screen nor a terminal-only command. */
+export function paritySummary(
+  manifest: GuiParityManifest,
+  registry: RegistrySnapshot,
+  report: ParityReport,
+): ParitySummary {
+  const rows = [...Object.values(manifest.commands), ...Object.values(manifest.tools)];
+  return {
+    commands: registry.commands.filter((c) => c.kind === "command").length,
+    tools: registry.tools.length,
+    commandRows: Object.keys(manifest.commands).length,
+    toolRows: Object.keys(manifest.tools).length,
+    actionsBuilt: Object.values(manifest.actions).filter((a) => a.status === "built")
+      .length,
+    pending: report.pendingCommands.length + report.pendingTools.length,
+    waivers: rows.filter((entry) => !SURFACES.includes(entry.surface)).length,
+  };
+}
+
+export function summaryLine(s: ParitySummary): string {
+  return (
+    `gui parity: ${s.commands} commands, ${s.tools} tools, ${s.commandRows + s.toolRows} manifest rows, ` +
+    `${s.actionsBuilt} screen actions built, ${s.pending} pending, ${s.waivers} waivers`
+  );
 }
