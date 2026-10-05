@@ -25,8 +25,8 @@
       },
       "result": null,
       "run": null,
-      "secrets": [],
-      "task": "draft-cleanup"
+      "task": "draft-cleanup",
+      "writesSecrets": []
     },
     "ok": true,
     "schemaVersion": 1

@@ -491,7 +491,7 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert!(d["checks"].as_array().unwrap().len() >= 4);
         }),
         case("commands", &["commands"], 0, |_, d| {
-            assert_eq!(d["counts"]["tools"], 92);
+            assert_eq!(d["counts"]["tools"], 97);
             let rows = d["commands"].as_array().unwrap();
             assert!(rows.iter().any(|r| r["id"] == "profile edit" && r["tier"] == "write"));
             assert!(rows.iter().any(|r| r["id"] == "sync push" && r["parent"] == "sync"));
@@ -846,7 +846,7 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert!(!d["checks"].as_array().unwrap().is_empty());
         }),
         case("mcp", &["mcp", "tools"], 0, |_, d| {
-            assert_eq!(d["tools"].as_array().unwrap().len(), 92);
+            assert_eq!(d["tools"].as_array().unwrap().len(), 97);
             assert_eq!(d["resources"].as_array().unwrap().len(), 11);
         }),
         case(

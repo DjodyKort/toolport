@@ -29,7 +29,7 @@ mod sources_world;
 
 const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
-const TOOL_COUNT: usize = 92;
+const TOOL_COUNT: usize = 97;
 const RESOURCE_COUNT: usize = 11;
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -538,6 +538,9 @@ fn tier_one_calls() -> BTreeMap<&'static str, Value> {
         ("plugins_ls", json!({})),
         ("plugins_show", json!({"id": "ecc@ecc"})),
         ("hooks_ls", json!({})),
+        ("tasks_list", json!({})),
+        ("tasks_get", json!({"id": "portal-task"})),
+        ("tasks_history", json!({"id": "portal-task"})),
     ])
 }
 
@@ -554,6 +557,19 @@ fn tier_one_tools_read_without_confirm_and_never_write() {
         ],
     );
     client.handshake();
+    let task = world.data.join("plus/tasks/portal-task.json");
+    std::fs::create_dir_all(task.parent().unwrap()).unwrap();
+    std::fs::write(
+        &task,
+        json!({
+            "id": "portal-task", "title": "Portal task", "description": "", "enabled": true,
+            "requires": {"servers": [], "commands": ["echo"]}, "writesSecrets": [],
+            "steps": [{"id": "say", "title": "Say", "type": "exec", "program": "echo", "args": ["hi"]}],
+            "triggers": {"manual": true, "cli": false, "selfMcp": {"enabled": true, "approval": "every-run"}, "schedule": null, "onAuthFailure": []}
+        })
+        .to_string(),
+    )
+    .unwrap();
     let calls = tier_one_calls();
     let catalog: BTreeSet<&str> = TOOLS
         .iter()
@@ -634,6 +650,9 @@ fn tier_one_tools_read_without_confirm_and_never_write() {
     assert_eq!(counts["byOwner"]["plugin:ecc@ecc"], 23);
     assert_eq!(counts["byOwner"]["user:settings.json"], 27);
     assert_eq!(results["hooks_ls"]["disabledAll"], false);
+    assert_eq!(results["tasks_list"]["tasks"][0]["id"], "portal-task");
+    assert_eq!(results["tasks_get"]["task"]["steps"][0]["type"], "exec");
+    assert_eq!(results["tasks_history"]["runs"], json!([]));
     assert!(client.close().success());
 }
 

@@ -31,12 +31,12 @@ describe("Self-management tab: reading", () => {
       await screen.findByText("Not installed", { selector: "p" }),
     ).toBeInTheDocument();
     expect(
-      await screen.findByText("92 tools, 11 resources", { selector: "dd" }),
+      await screen.findByText("97 tools, 11 resources", { selector: "dd" }),
     ).toBeInTheDocument();
     const checks = screen.getByRole("list", { name: "Self-management checks" });
     expect(within(checks).getAllByRole("listitem")).toHaveLength(7);
     expect(within(checks).getAllByText("Fix")).toHaveLength(3);
-    expect(within(checks).getByText("92 tools, 11 resources")).toBeInTheDocument();
+    expect(within(checks).getByText("97 tools, 11 resources")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Install…" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Turn off…" })).toBeNull();
   });
@@ -59,7 +59,7 @@ describe("Self-management tab: reading", () => {
     expect(within(tiers).getByText("Read-only")).toBeInTheDocument();
     expect(within(tiers).getByText("Destructive")).toBeInTheDocument();
     const list = await screen.findByRole("list", { name: "Tools" });
-    expect(within(list).getAllByRole("listitem")).toHaveLength(92);
+    expect(within(list).getAllByRole("listitem")).toHaveLength(97);
     expect(
       within(list).getAllByText("Needs confirmation every time").length,
     ).toBeGreaterThan(0);
@@ -132,7 +132,7 @@ describe("Self-management tab: install and turn off", () => {
   it("installs with a confirmation that says there is no preview", async () => {
     bridge.set("mcp install", golden("mcp-install.apply"));
     const { user } = await open(<SelfTab />, bridge);
-    await screen.findByText("92 tools, 11 resources", { selector: "dd" });
+    await screen.findByText("97 tools, 11 resources", { selector: "dd" });
     await user.click(screen.getByRole("button", { name: "Install…" }));
     const box = await screen.findByRole("dialog");
     expect(
@@ -149,7 +149,7 @@ describe("Self-management tab: install and turn off", () => {
   it("enables it in a named profile", async () => {
     bridge.set("mcp install --profile default", golden("mcp-install.profile"));
     const { user } = await open(<SelfTab />, bridge);
-    await screen.findByText("92 tools, 11 resources", { selector: "dd" });
+    await screen.findByText("97 tools, 11 resources", { selector: "dd" });
     await user.type(screen.getByLabelText("Profile (optional)"), "default");
     await write(user, "Install…", "Install", {
       plan: /Register the self-management server and enable it in default/,
@@ -173,11 +173,11 @@ describe("Self-management tab: install and turn off", () => {
 
   it("runs the doctor again on request", async () => {
     const { user } = await open(<SelfTab />, bridge);
-    await screen.findByText("92 tools, 11 resources", { selector: "dd" });
+    await screen.findByText("97 tools, 11 resources", { selector: "dd" });
     await user.click(
       screen.getByRole("button", { name: "Run the self-management doctor again" }),
     );
-    await screen.findByText("92 tools, 11 resources", { selector: "dd" });
+    await screen.findByText("97 tools, 11 resources", { selector: "dd" });
     expect(bridge.count("mcp doctor")).toBe(2);
   });
 });

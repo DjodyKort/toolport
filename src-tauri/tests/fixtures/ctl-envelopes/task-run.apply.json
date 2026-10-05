@@ -46,8 +46,8 @@
         "task": "nightly-report",
         "trigger": "manual"
       },
-      "secrets": [],
-      "task": "nightly-report"
+      "task": "nightly-report",
+      "writesSecrets": []
     },
     "ok": true,
     "schemaVersion": 1
