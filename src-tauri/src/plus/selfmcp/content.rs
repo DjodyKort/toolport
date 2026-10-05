@@ -1,6 +1,6 @@
 use super::backend::skills_repo;
 use super::ToolError;
-use crate::plus::args::{flag, flag_or, nonempty_strings, str_arg};
+use crate::plus::args::{flag_or, nonempty_strings, str_arg};
 use crate::plus::hashing::lock_hash;
 use crate::plus::skills::agents::lint::lint_agents;
 use crate::plus::skills::agents::{
@@ -40,7 +40,7 @@ fn global_mode(args: &Value) -> bool {
 }
 
 fn dry_run(args: &Value) -> bool {
-    flag(args, "dry_run")
+    flag_or(args, "dry_run", true)
 }
 
 fn lock_for_read(repo: &Path) -> Option<LockFile> {

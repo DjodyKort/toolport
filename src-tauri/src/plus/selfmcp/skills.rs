@@ -1,6 +1,7 @@
 //! The read and sync tools of `skills_*`: adapters over the typed operations in `skills::api`.
 
 use super::ToolError;
+use crate::plus::args::flag_or;
 use crate::plus::skills::api::{self, Args};
 use serde_json::Value;
 
@@ -27,7 +28,9 @@ pub(super) fn diff(args: &Value) -> Outcome {
 }
 
 pub(super) fn sync(args: &Value) -> Outcome {
-    Ok(api::sync(&Args::from_json(args))?)
+    let mut sync = Args::from_json(args);
+    sync.dry_run = flag_or(args, "dry_run", true);
+    Ok(api::sync(&sync)?)
 }
 
 pub(super) fn list_transpilers(_args: &Value) -> Outcome {

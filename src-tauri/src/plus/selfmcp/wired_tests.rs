@@ -1,3 +1,4 @@
+use super::state_tests::{apply, without_confirm};
 use super::tests::Fixture;
 use super::*;
 use serde_json::{json, Value};
@@ -90,8 +91,19 @@ fn skills_scaffold_sync_and_status_round_trip() {
     .unwrap();
     assert_eq!(dry["dryRun"], true);
     assert!(!fixture.dir.join("mcpm-skills.lock").exists());
+    let by_default = call("skills_sync", json!({"client_keys": ["claude-code"]})).unwrap();
+    assert_eq!(by_default["dryRun"], true);
+    assert_eq!(
+        kind(without_confirm(
+            "skills_sync",
+            json!({"client_keys": ["claude-code"]})
+        )),
+        "refused"
+    );
+    assert!(!fixture.dir.join("mcpm-skills.lock").exists());
 
-    let synced = call("skills_sync", json!({"client_keys": ["claude-code"]})).unwrap();
+    let synced = apply("skills_sync", json!({"client_keys": ["claude-code"]})).unwrap();
+    assert_eq!(synced["dryRun"], false);
     assert_eq!(synced["skillCount"], 2);
     assert_eq!(synced["ruleCount"], 1);
     assert!(fixture.dir.join("mcpm-skills.lock").exists());
@@ -128,7 +140,7 @@ fn skills_scaffold_sync_and_status_round_trip() {
     let missing = call("skills_status", json!({})).unwrap();
     assert_eq!(missing["drift"], true);
     assert_eq!(present(&missing), Some(json!(false)));
-    call("skills_sync", json!({"client_keys": ["claude-code"]})).unwrap();
+    apply("skills_sync", json!({"client_keys": ["claude-code"]})).unwrap();
 
     call(
         "skills_edit_body",
@@ -242,7 +254,10 @@ fn agents_flow_scaffold_sync_edit() {
         "conflict"
     );
 
-    let synced = call("agents_sync", json!({"client_keys": ["claude-code"]})).unwrap();
+    let planned = call("agents_sync", json!({"client_keys": ["claude-code"]})).unwrap();
+    assert_eq!(planned["dryRun"], true);
+    assert!(!fixture.home.join(".claude/agents/helper.md").exists());
+    let synced = apply("agents_sync", json!({"client_keys": ["claude-code"]})).unwrap();
     assert_eq!(synced["agentCount"], 2);
     assert!(fixture.home.join(".claude/agents/helper.md").exists());
     assert!(fixture.dir.join("mcpm-skills.lock").exists());
@@ -286,18 +301,20 @@ fn styles_flow_with_apply_and_remove_tiers() {
         "conflict"
     );
 
-    let synced = call("styles_sync_tier1", json!({})).unwrap();
+    let synced = apply("styles_sync_tier1", json!({})).unwrap();
     assert_eq!(synced["styleCount"], 2);
 
+    let planned = call("styles_apply", json!({"name": "plain"})).unwrap();
+    assert_eq!(planned["dryRun"], true);
     assert_eq!(
-        kind(call("styles_apply", json!({"name": "plain"}))),
+        kind(without_confirm("styles_apply", json!({"name": "plain"}))),
         "refused"
     );
     assert_eq!(
         call("styles_active", json!({})).unwrap()["activeStyles"],
         json!({})
     );
-    let applied = call("styles_apply", json!({"name": "plain", "confirm": true})).unwrap();
+    let applied = apply("styles_apply", json!({"name": "plain"})).unwrap();
     assert_eq!(applied["applied"], "plain");
     let active = call("styles_active", json!({})).unwrap();
     assert!(!active["activeStyles"].as_object().unwrap().is_empty());
@@ -307,15 +324,17 @@ fn styles_flow_with_apply_and_remove_tiers() {
         .values()
         .all(|v| v == "plain"));
     assert_eq!(
-        kind(call(
-            "styles_apply",
-            json!({"name": "ghost", "confirm": true})
-        )),
+        kind(apply("styles_apply", json!({"name": "ghost"}))),
         "not_found"
     );
 
-    assert_eq!(kind(call("styles_remove", json!({}))), "refused");
-    call("styles_remove", json!({"confirm": true})).unwrap();
+    assert_eq!(call("styles_remove", json!({})).unwrap()["dryRun"], true);
+    assert!(!call("styles_active", json!({})).unwrap()["activeStyles"]
+        .as_object()
+        .unwrap()
+        .is_empty());
+    assert_eq!(kind(without_confirm("styles_remove", json!({}))), "refused");
+    apply("styles_remove", json!({})).unwrap();
     assert_eq!(
         call("styles_active", json!({})).unwrap()["activeStyles"],
         json!({})
@@ -583,7 +602,8 @@ fn server_mutations_follow_their_tiers() {
 #[test]
 fn clients_sync_is_tier_two_and_reports_ignored_legacy_flags() {
     let _fixture = Fixture::new("wired-clients");
-    assert_eq!(kind(call("clients_sync", json!({}))), "refused");
+    assert_eq!(call("clients_sync", json!({})).unwrap()["dryRun"], true);
+    assert_eq!(kind(without_confirm("clients_sync", json!({}))), "refused");
     let dry = call(
         "clients_sync",
         json!({"dry_run": true, "safe": true, "force_legacy": true}),
@@ -598,16 +618,21 @@ fn clients_sync_is_tier_two_and_reports_ignored_legacy_flags() {
         )),
         "not_found"
     );
-    let applied = call("clients_sync", json!({"confirm": true})).unwrap();
+    let applied = apply("clients_sync", json!({})).unwrap();
     assert_eq!(applied["dryRun"], false);
 }
 
 #[test]
-fn sync_push_dry_run_waives_the_gate_and_reaches_the_sync_engine() {
+fn sync_push_previews_without_confirm_and_reaches_the_sync_engine() {
     let _fixture = Fixture::new("wired-sync");
-    assert_eq!(kind(call("sync_push", json!({}))), "refused");
-    let outcome = call("sync_push", json!({"dry_run": true}));
-    assert!(matches!(kind(outcome), "backend_error" | "ok"));
+    assert_eq!(
+        kind(without_confirm("sync_push", json!({}))),
+        "refused"
+    );
+    for args in [json!({}), json!({"dry_run": true})] {
+        let outcome = call("sync_push", args);
+        assert!(matches!(kind(outcome), "backend_error" | "ok"));
+    }
 }
 
 #[test]
@@ -886,7 +911,7 @@ fn skills_sync_reports_and_migrates_files_that_shadow_a_skill() {
             == std::fs::canonicalize(expected).unwrap()
     };
 
-    let kept = call("skills_sync", json!({"client_keys": ["claude-code"]})).unwrap();
+    let kept = apply("skills_sync", json!({"client_keys": ["claude-code"]})).unwrap();
     assert_eq!(kept["kept"], 1);
     assert_eq!(kept["replaced"], 0);
     assert_eq!(kept["collisions"][0]["skill"], "demo");
@@ -906,7 +931,7 @@ fn skills_sync_reports_and_migrates_files_that_shadow_a_skill() {
     assert_eq!((dry["replaced"].clone(), dry["kept"].clone()), (json!(0), json!(0)));
     assert!(shadow.exists());
 
-    let moved = call(
+    let moved = apply(
         "skills_sync",
         json!({"client_keys": ["claude-code"], "migrate": true}),
     )
@@ -917,7 +942,7 @@ fn skills_sync_reports_and_migrates_files_that_shadow_a_skill() {
     assert_eq!(std::fs::read_to_string(backup).unwrap(), "hand written");
     assert!(!shadow.exists());
 
-    let clean = call("skills_sync", json!({"client_keys": ["claude-code"]})).unwrap();
+    let clean = apply("skills_sync", json!({"client_keys": ["claude-code"]})).unwrap();
     assert_eq!(clean["collisions"], json!([]));
     assert_eq!(
         kind(call("skills_sync", json!({"migrate": "yes"}))),

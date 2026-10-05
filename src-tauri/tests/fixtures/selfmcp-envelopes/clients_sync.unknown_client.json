@@ -1,7 +1,6 @@
 {
   "arguments": {
-    "client": "no-such-client",
-    "dry_run": true
+    "client": "no-such-client"
   },
   "isError": true,
   "result": {

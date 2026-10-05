@@ -1,7 +1,5 @@
 {
-  "arguments": {
-    "dry_run": true
-  },
+  "arguments": {},
   "isError": false,
   "result": {
     "committed": false,

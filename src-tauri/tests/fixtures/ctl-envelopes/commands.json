@@ -10206,7 +10206,7 @@
         },
         {
           "command": "skills sync",
-          "dryRun": "param",
+          "dryRun": "default-on",
           "name": "skills_sync",
           "tier": "write",
           "toolTier": 2
@@ -10367,7 +10367,7 @@
         },
         {
           "command": "agents sync",
-          "dryRun": "param",
+          "dryRun": "default-on",
           "name": "agents_sync",
           "tier": "write",
           "toolTier": 2
@@ -10458,14 +10458,14 @@
         },
         {
           "command": "styles sync",
-          "dryRun": "param",
+          "dryRun": "default-on",
           "name": "styles_sync_tier1",
           "tier": "write",
           "toolTier": 2
         },
         {
           "command": "styles apply",
-          "dryRun": "param",
+          "dryRun": "default-on",
           "name": "styles_apply",
           "tier": "write",
           "toolTier": 3
@@ -10500,7 +10500,7 @@
         },
         {
           "command": "styles remove",
-          "dryRun": "param",
+          "dryRun": "default-on",
           "name": "styles_remove",
           "tier": "destructive",
           "toolTier": 4
@@ -10668,7 +10668,7 @@
         },
         {
           "command": "client sync",
-          "dryRun": "param",
+          "dryRun": "default-on",
           "name": "clients_sync",
           "tier": "write",
           "toolTier": 2
@@ -10696,7 +10696,7 @@
         },
         {
           "command": "sync push",
-          "dryRun": "param",
+          "dryRun": "default-on",
           "name": "sync_push",
           "tier": "destructive",
           "toolTier": 4

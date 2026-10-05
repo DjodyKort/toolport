@@ -344,12 +344,12 @@ pub const TOOLS: &[ToolDef] = &[
     tool!(
         "skills_sync",
         2,
-        None,
-        "Transpile skills to client outputs",
+        UnlessDryRun,
+        "Transpile skills to client outputs; dry_run is on by default (apply with dry_run=false and confirm=true)",
         [
             REPO,
             CLIENTS,
-            DRY,
+            DRY_ON,
             p(
                 "global_mode",
                 Ty::Bool,
@@ -561,12 +561,12 @@ pub const TOOLS: &[ToolDef] = &[
     tool!(
         "agents_sync",
         2,
-        None,
-        "Transpile agents to client outputs",
+        UnlessDryRun,
+        "Transpile agents to client outputs; dry_run is on by default (apply with dry_run=false and confirm=true)",
         [
             REPO,
             CLIENTS,
-            DRY,
+            DRY_ON,
             p(
                 "global_mode",
                 Ty::Bool,
@@ -661,17 +661,17 @@ pub const TOOLS: &[ToolDef] = &[
     tool!(
         "styles_sync_tier1",
         2,
-        None,
-        "Sync tier-1 style outputs",
-        [REPO, CLIENTS, DRY],
+        UnlessDryRun,
+        "Sync tier-1 style outputs; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [REPO, CLIENTS, DRY_ON],
         content::styles_sync_tier1
     ),
     tool!(
         "styles_apply",
         3,
-        Always,
-        "Apply a style to tier-2 clients",
-        [NAME, REPO, CLIENTS, DRY],
+        UnlessDryRun,
+        "Apply a style to tier-2 clients; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [NAME, REPO, CLIENTS, DRY_ON],
         content::styles_apply
     ),
     tool!(
@@ -709,9 +709,9 @@ pub const TOOLS: &[ToolDef] = &[
     tool!(
         "styles_remove",
         4,
-        Always,
-        "Remove the applied style from tier-2 clients",
-        [REPO, CLIENTS, DRY],
+        UnlessDryRun,
+        "Remove the applied style from tier-2 clients; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [REPO, CLIENTS, DRY_ON],
         content::styles_remove
     ),
     tool!(
@@ -964,7 +964,7 @@ pub const TOOLS: &[ToolDef] = &[
         "clients_sync",
         2,
         UnlessDryRun,
-        "Reconcile client configs with the registry",
+        "Reconcile client configs with the registry; dry_run is on by default (apply with dry_run=false and confirm=true)",
         [
             p("client", Ty::Str, false, "Single client key"),
             p("safe", Ty::Bool, false, "Skip risky rewrites"),
@@ -975,7 +975,7 @@ pub const TOOLS: &[ToolDef] = &[
                 "Use the legacy entry shape"
             ),
             p("keep_orphans", Ty::Bool, false, "Keep unmatched entries"),
-            DRY
+            DRY_ON
         ],
         servers::clients_sync
     ),
@@ -1017,8 +1017,8 @@ pub const TOOLS: &[ToolDef] = &[
         "sync_push",
         4,
         UnlessDryRun,
-        "Publish the encrypted sync bundle to its remote",
-        [DRY],
+        "Publish the encrypted sync bundle to its remote; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [DRY_ON],
         servers::sync_push
     ),
     tool!(

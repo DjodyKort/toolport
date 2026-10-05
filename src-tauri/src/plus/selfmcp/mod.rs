@@ -66,8 +66,8 @@ pub const PROTOCOL_VERSION: &str = "2025-06-18";
 pub const INSTRUCTIONS: &str = "Toolport+ self-management. Read the mcpm://paths resource first. \
 Tier 1 tools only read. Tier 2 tools write generated or additive state. Tier 3 and tier 4 tools \
 refuse unless confirm=true; tier 4 touches remote state or removes entries. A tool whose dry_run \
-defaults to true only previews until you pass dry_run=false, and such a tier 3 or 4 tool needs \
-confirm=true only to apply. Secret values are never returned.";
+defaults to true only previews until you pass dry_run=false, and such a tool that asks for confirm \
+needs confirm=true only to apply. Secret values are never returned.";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ToolError {

@@ -5,11 +5,11 @@ use crate::plus::testutil::tree_snapshot;
 use serde_json::{json, Value};
 
 fn sync_agents() {
-    call("agents_sync", json!({"client_keys": ["claude-code"]})).unwrap();
+    apply("agents_sync", json!({"client_keys": ["claude-code"]})).unwrap();
 }
 
 fn sync_styles() -> Value {
-    call("styles_sync_tier1", json!({})).unwrap()
+    apply("styles_sync_tier1", json!({})).unwrap()
 }
 
 fn write_agent(fixture: &Fixture, name: &str, body: &str) {
