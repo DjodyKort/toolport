@@ -796,9 +796,9 @@ try {
       .filter({ has: shot.locator("b", { hasText: /^ai-skills$/ }) })
       .click();
     const library = shot.getByRole("region", { name: "Source ai-skills" });
-    await expect(library.getByRole("button", { name: "Pull" })).toBeDisabled();
-    await expect(library.getByRole("button", { name: "Push…" })).toBeDisabled();
-    await expect(library.getByText(/needs MIG-SRC-3/).first()).toBeVisible();
+    await expect(library.getByText("2 commits behind, 2 commits ahead")).toBeVisible();
+    await expect(library.getByRole("button", { name: "Pull" })).toBeEnabled();
+    await expect(library.getByRole("button", { name: "Push…" })).toBeEnabled();
     await shot
       .getByRole("tablist", { name: "Library sections" })
       .scrollIntoViewIfNeeded();
@@ -806,6 +806,27 @@ try {
     await guiShot(shot, `skills-sources-${theme}`);
     if (theme === "light") {
       const dialog = shot.getByRole("dialog");
+      await library
+        .getByRole("group", { name: "Library remote" })
+        .scrollIntoViewIfNeeded();
+      await shot.evaluate(() => document.fonts.ready);
+      await guiShot(shot, "sources-library-light");
+      await library.getByRole("button", { name: "Pull" }).click();
+      await expect(
+        dialog.getByText("Fast-forward 2 commit(s) from origin/main"),
+      ).toBeVisible();
+      await guiShot(shot, "sources-pull-plan-light");
+      await shot.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+      await expect(library.getByRole("button", { name: "Pull" })).toBeFocused();
+      await library.getByRole("button", { name: "Push…" }).click();
+      await expect(dialog.getByRole("alert")).toContainText("looks like a secret");
+      await expect(dialog.getByRole("button", { name: "Push", exact: true })).toHaveCount(
+        0,
+      );
+      await guiShot(shot, "sources-push-blocked-light");
+      await dialog.getByRole("button", { name: "Close", exact: true }).last().click();
+      await expect(dialog).toHaveCount(0);
       await shot.getByRole("button", { name: "Add folder to scan…" }).click();
       await dialog
         .getByRole("textbox", { name: "Folder" })
