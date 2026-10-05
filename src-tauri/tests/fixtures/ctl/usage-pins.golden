@@ -126,7 +126,11 @@ Commands:
   plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
   plugins config Set or unset a plugin's own switches: env keys in a folder, plugin options without one (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)
   plugins mcp    Deny or allow a plugin's MCP server in a folder (deny|allow <id> <server>, --cwd, --dry-run)
-  plugins        Plugins: ls show config mcp
+  plugins off    Turn a plugin off in one folder: enabledPlugins in .claude/settings.local.json, undone by `plugins on` (<id>, --cwd, --dry-run)
+  plugins on     Turn a plugin back on in a folder: removes the entry `plugins off` wrote (<id>, --cwd, --dry-run)
+  plugins disable Disable a plugin for every project through claude plugin disable --scope user (<id>, --dry-run)
+  plugins enable Enable a plugin at user scope through claude plugin enable --scope user (<id>, --dry-run)
+  plugins        Plugins: ls show config mcp off on disable enable
   hooks ls       List every hook Claude Code would start in a folder, from files (--cwd, --tool, --event, --owner)
   hooks          Hooks: ls
   skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
@@ -316,7 +320,11 @@ Commands:
   plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
   plugins config Set or unset a plugin's own switches: env keys in a folder, plugin options without one (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)
   plugins mcp    Deny or allow a plugin's MCP server in a folder (deny|allow <id> <server>, --cwd, --dry-run)
-  plugins        Plugins: ls show config mcp
+  plugins off    Turn a plugin off in one folder: enabledPlugins in .claude/settings.local.json, undone by `plugins on` (<id>, --cwd, --dry-run)
+  plugins on     Turn a plugin back on in a folder: removes the entry `plugins off` wrote (<id>, --cwd, --dry-run)
+  plugins disable Disable a plugin for every project through claude plugin disable --scope user (<id>, --dry-run)
+  plugins enable Enable a plugin at user scope through claude plugin enable --scope user (<id>, --dry-run)
+  plugins        Plugins: ls show config mcp off on disable enable
   hooks ls       List every hook Claude Code would start in a folder, from files (--cwd, --tool, --event, --owner)
   hooks          Hooks: ls
   skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
@@ -506,7 +514,11 @@ Commands:
   plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
   plugins config Set or unset a plugin's own switches: env keys in a folder, plugin options without one (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)
   plugins mcp    Deny or allow a plugin's MCP server in a folder (deny|allow <id> <server>, --cwd, --dry-run)
-  plugins        Plugins: ls show config mcp
+  plugins off    Turn a plugin off in one folder: enabledPlugins in .claude/settings.local.json, undone by `plugins on` (<id>, --cwd, --dry-run)
+  plugins on     Turn a plugin back on in a folder: removes the entry `plugins off` wrote (<id>, --cwd, --dry-run)
+  plugins disable Disable a plugin for every project through claude plugin disable --scope user (<id>, --dry-run)
+  plugins enable Enable a plugin at user scope through claude plugin enable --scope user (<id>, --dry-run)
+  plugins        Plugins: ls show config mcp off on disable enable
   hooks ls       List every hook Claude Code would start in a folder, from files (--cwd, --tool, --event, --owner)
   hooks          Hooks: ls
   skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
@@ -696,7 +708,11 @@ Commands:
   plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
   plugins config Set or unset a plugin's own switches: env keys in a folder, plugin options without one (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)
   plugins mcp    Deny or allow a plugin's MCP server in a folder (deny|allow <id> <server>, --cwd, --dry-run)
-  plugins        Plugins: ls show config mcp
+  plugins off    Turn a plugin off in one folder: enabledPlugins in .claude/settings.local.json, undone by `plugins on` (<id>, --cwd, --dry-run)
+  plugins on     Turn a plugin back on in a folder: removes the entry `plugins off` wrote (<id>, --cwd, --dry-run)
+  plugins disable Disable a plugin for every project through claude plugin disable --scope user (<id>, --dry-run)
+  plugins enable Enable a plugin at user scope through claude plugin enable --scope user (<id>, --dry-run)
+  plugins        Plugins: ls show config mcp off on disable enable
   hooks ls       List every hook Claude Code would start in a folder, from files (--cwd, --tool, --event, --owner)
   hooks          Hooks: ls
   skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
@@ -4213,18 +4229,18 @@ Run `toolportctl --help` for usage.
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: plugins ls|show|config|mcp (ls: [--cwd <dir>] [--refresh]; show: <id> [--cwd <dir>]; config: <id> [--cwd <dir>] [--set <knob>=<value>]... [--unset <knob>]... [--dry-run]; mcp: deny|allow <id> <server> --cwd <dir> [--dry-run])
+toolportctl: usage: plugins ls|show|config|mcp|off|on|disable|enable (ls: [--cwd <dir>] [--refresh]; show: <id> [--cwd <dir>]; config: <id> [--cwd <dir>] [--set <knob>=<value>]... [--unset <knob>]... [--dry-run]; mcp: deny|allow <id> <server> --cwd <dir> [--dry-run]; off|on: <id> --cwd <dir> [--dry-run]; disable|enable: <id> [--dry-run])
 Run `toolportctl --help` for usage.
 === ["--json","plugins"]
 exit 2
 --- stdout
-{"command":"plugins","error":{"code":"usage","message":"usage: plugins ls|show|config|mcp (ls: [--cwd <dir>] [--refresh]; show: <id> [--cwd <dir>]; config: <id> [--cwd <dir>] [--set <knob>=<value>]... [--unset <knob>]... [--dry-run]; mcp: deny|allow <id> <server> --cwd <dir> [--dry-run])"},"ok":false,"schemaVersion":1}
+{"command":"plugins","error":{"code":"usage","message":"usage: plugins ls|show|config|mcp|off|on|disable|enable (ls: [--cwd <dir>] [--refresh]; show: <id> [--cwd <dir>]; config: <id> [--cwd <dir>] [--set <knob>=<value>]... [--unset <knob>]... [--dry-run]; mcp: deny|allow <id> <server> --cwd <dir> [--dry-run]; off|on: <id> --cwd <dir> [--dry-run]; disable|enable: <id> [--dry-run])"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["plugins","nope"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: plugins ls|show|config|mcp (ls: [--cwd <dir>] [--refresh]; show: <id> [--cwd <dir>]; config: <id> [--cwd <dir>] [--set <knob>=<value>]... [--unset <knob>]... [--dry-run]; mcp: deny|allow <id> <server> --cwd <dir> [--dry-run])
+toolportctl: usage: plugins ls|show|config|mcp|off|on|disable|enable (ls: [--cwd <dir>] [--refresh]; show: <id> [--cwd <dir>]; config: <id> [--cwd <dir>] [--set <knob>=<value>]... [--unset <knob>]... [--dry-run]; mcp: deny|allow <id> <server> --cwd <dir> [--dry-run]; off|on: <id> --cwd <dir> [--dry-run]; disable|enable: <id> [--dry-run])
 Run `toolportctl --help` for usage.
 === ["plugins","ls","--bogus"]
 exit 2

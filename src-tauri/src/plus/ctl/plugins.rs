@@ -7,7 +7,7 @@ use super::output::{CtlError, ErrorKind, Output};
 use crate::plus::plugins::config::McpOp;
 use crate::plus::plugins::{api, report};
 
-const GROUP_USAGE: &str = "usage: plugins ls|show|config|mcp (ls: [--cwd <dir>] [--refresh]; show: <id> [--cwd <dir>]; config: <id> [--cwd <dir>] [--set <knob>=<value>]... [--unset <knob>]... [--dry-run]; mcp: deny|allow <id> <server> --cwd <dir> [--dry-run])";
+const GROUP_USAGE: &str = "usage: plugins ls|show|config|mcp|off|on|disable|enable (ls: [--cwd <dir>] [--refresh]; show: <id> [--cwd <dir>]; config: <id> [--cwd <dir>] [--set <knob>=<value>]... [--unset <knob>]... [--dry-run]; mcp: deny|allow <id> <server> --cwd <dir> [--dry-run]; off|on: <id> --cwd <dir> [--dry-run]; disable|enable: <id> [--dry-run])";
 const SHOW_USAGE: &str = "usage: plugins show <id> [--cwd <dir>]";
 const CONFIG_USAGE: &str = "usage: plugins config <id> [--cwd <dir>] [--set <knob>=<value>]... [--unset <knob>]... [--dry-run]";
 const MCP_USAGE: &str = "usage: plugins mcp deny|allow <id> <server> --cwd <dir> [--dry-run]";
