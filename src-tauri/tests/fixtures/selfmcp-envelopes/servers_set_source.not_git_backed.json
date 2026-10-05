@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "alpha",
+    "remote": "upstream"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_input",
+      "message": "server alpha is not git-backed"
+    }
+  },
+  "text": "invalid_input: server alpha is not git-backed",
+  "tool": "servers_set_source"
+}

@@ -1,0 +1,22 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "forked",
+    "remote": "upstream"
+  },
+  "isError": false,
+  "result": {
+    "name": "forked",
+    "source": {
+      "kind": "git",
+      "meta": {
+        "branch": "main",
+        "drift": false,
+        "path": "<WORLD>/fork-work",
+        "remote": "upstream",
+        "type": "git"
+      }
+    }
+  },
+  "tool": "servers_set_source"
+}

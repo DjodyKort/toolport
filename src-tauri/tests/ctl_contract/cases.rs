@@ -5,8 +5,9 @@
 //! without a terminal, a browser or an engine, and says so next to its case.
 
 use crate::ctl_fixtures::{
-    bundle_drift_home, bundle_home, fork_world, git_world, health_proxy, import_world, loads_home,
-    layers_home, measure_home, skills_repo_remote_world, tasks_home, transcripts_world,
+    bundle_drift_home, bundle_home, fork_world, fork_world_upstream_fetched, git_world,
+    health_proxy, import_world, loads_home, layers_home, measure_home, skills_repo_remote_world,
+    tasks_home, transcripts_world,
 };
 use crate::ctl_world::CtlWorld;
 use crate::library_world::{self, library_home};
@@ -358,6 +359,32 @@ pub const MORE: &[Case] = &[
             )
             .exit(1),
             usage("usage", &["server", "edit"]),
+        ],
+    ),
+    prepared(
+        "server source set",
+        fork_world_upstream_fetched,
+        &[
+            apply(
+                "apply",
+                &["server", "source", "set", "forked", "--remote", "upstream"],
+            ),
+            read(
+                "after",
+                &[
+                    "mcp",
+                    "call",
+                    "servers_detect_source",
+                    "--args",
+                    r#"{"name":"forked"}"#,
+                ],
+            ),
+            apply(
+                "unknown",
+                &["server", "source", "set", "no-such-server", "--remote", "upstream"],
+            )
+            .exit(1),
+            usage("usage", &["server", "source", "set"]),
         ],
     ),
     // client

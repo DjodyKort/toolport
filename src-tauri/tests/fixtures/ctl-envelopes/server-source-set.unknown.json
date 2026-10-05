@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "source", "set", "no-such-server", "--remote", "upstream"],
+  "envelope": {
+    "command": "server source set",
+    "error": {
+      "code": "not_found",
+      "message": "no server 'no-such-server'"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

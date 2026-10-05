@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "forked",
+    "remote": "no-such-remote"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "no such remote: no-such-remote"
+    }
+  },
+  "text": "invalid_arguments: no such remote: no-such-remote",
+  "tool": "servers_set_source"
+}

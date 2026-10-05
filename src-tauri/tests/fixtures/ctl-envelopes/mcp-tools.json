@@ -2236,6 +2236,75 @@
           "tier": 3
         },
         {
+          "description": "Change a git-backed server's tracked remote, branch, upstream or post-update command",
+          "dryRunDefault": false,
+          "gate": "always",
+          "name": "servers_set_source",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "New checkout path",
+              "name": "path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "New tracked remote name",
+              "name": "remote",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "New tracked branch name",
+              "name": "branch",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Upstream remote name",
+              "name": "upstream_remote",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Upstream branch name",
+              "name": "upstream_branch",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Remove the stored upstream",
+              "name": "clear_upstream",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "New post-update command",
+              "name": "post_update",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Remove the stored post-update command",
+              "name": "clear_post_update",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
           "description": "Start the authorization flow for a server",
           "dryRunDefault": false,
           "gate": "always",

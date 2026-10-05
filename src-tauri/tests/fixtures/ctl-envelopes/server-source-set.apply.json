@@ -1,0 +1,22 @@
+{
+  "argv": ["server", "source", "set", "forked", "--remote", "upstream"],
+  "envelope": {
+    "command": "server source set",
+    "data": {
+      "id": "srv-fork",
+      "source": {
+        "kind": "git",
+        "meta": {
+          "branch": "main",
+          "drift": false,
+          "path": "<WORLD>/fork-work",
+          "remote": "upstream",
+          "type": "git"
+        }
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

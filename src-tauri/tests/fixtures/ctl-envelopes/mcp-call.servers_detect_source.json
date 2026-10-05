@@ -5,6 +5,10 @@
     "data": {
       "isError": false,
       "result": {
+        "branches": {
+          "origin": ["main"],
+          "upstream": []
+        },
         "detected": {
           "kind": "git",
           "meta": {
@@ -16,6 +20,7 @@
           }
         },
         "name": "forked",
+        "remotes": ["origin", "upstream"],
         "stored": true
       },
       "tier": 1,
