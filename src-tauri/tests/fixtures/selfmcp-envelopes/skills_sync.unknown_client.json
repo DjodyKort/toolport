@@ -1,6 +1,8 @@
 {
   "arguments": {
-    "client_keys": ["no-such-client"]
+    "client_keys": ["no-such-client"],
+    "confirm": true,
+    "dry_run": false
   },
   "isError": false,
   "result": {

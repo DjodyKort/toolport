@@ -1,4 +1,4 @@
-use super::state_tests::{call, kind};
+use super::state_tests::{apply, call, kind, without_confirm};
 use crate::plus::testutil::tree_snapshot;
 use super::tests::Fixture;
 use super::wired_tests::git;
@@ -48,8 +48,10 @@ fn clients_sync_writes_the_gateway_entry_and_prunes_orphans_only_when_applied() 
     let seeded = std::fs::read(claude_file(&fixture)).unwrap();
     let backups = fixture.dir.join("backups");
 
+    let by_default = call("clients_sync", json!({"client": "claude-code"})).unwrap();
+    assert_eq!(by_default["dryRun"], true);
     assert_eq!(
-        kind(call("clients_sync", json!({"client": "claude-code"}))),
+        kind(without_confirm("clients_sync", json!({"client": "claude-code"}))),
         "refused"
     );
     assert_eq!(
@@ -57,6 +59,7 @@ fn clients_sync_writes_the_gateway_entry_and_prunes_orphans_only_when_applied() 
         "invalid_arguments"
     );
     assert_eq!(std::fs::read(claude_file(&fixture)).unwrap(), seeded);
+    assert!(!backups.exists(), "a preview writes no backup");
 
     let planned = call(
         "clients_sync",
@@ -72,11 +75,7 @@ fn clients_sync_writes_the_gateway_entry_and_prunes_orphans_only_when_applied() 
     assert_eq!(std::fs::read(claude_file(&fixture)).unwrap(), seeded);
     assert!(!backups.exists(), "a dry run writes no backup");
 
-    let applied = call(
-        "clients_sync",
-        json!({"client": "claude-code", "confirm": true}),
-    )
-    .unwrap();
+    let applied = apply("clients_sync", json!({"client": "claude-code"})).unwrap();
     assert_eq!(applied["dryRun"], false);
     let row = &applied["clients"][0];
     assert_eq!(row["gateway"], "installed");
@@ -91,22 +90,18 @@ fn clients_sync_writes_the_gateway_entry_and_prunes_orphans_only_when_applied() 
     let mut doc = claude_doc(&fixture);
     doc["mcpServers"]["second-stray"] = json!({"command": "stray-mcp"});
     std::fs::write(claude_file(&fixture), serde_json::to_vec_pretty(&doc).unwrap()).unwrap();
-    let kept = call(
+    let kept = apply(
         "clients_sync",
-        json!({"client": "claude-code", "keep_orphans": true, "confirm": true}),
+        json!({"client": "claude-code", "keep_orphans": true}),
     )
     .unwrap();
     assert_eq!(names(&kept["clients"][0], "kept"), ["second-stray"]);
     assert_eq!(claude_servers(&fixture), ["second-stray", "toolport"]);
-    call(
-        "clients_sync",
-        json!({"client": "claude-code", "confirm": true}),
-    )
-    .unwrap();
+    apply("clients_sync", json!({"client": "claude-code"})).unwrap();
     assert_eq!(claude_servers(&fixture), ["toolport"]);
 
     let again = std::fs::read(claude_file(&fixture)).unwrap();
-    call("clients_sync", json!({"client": "claude-code", "confirm": true})).unwrap();
+    apply("clients_sync", json!({"client": "claude-code"})).unwrap();
     assert_eq!(
         std::fs::read(claude_file(&fixture)).unwrap(),
         again,
@@ -135,8 +130,10 @@ fn sync_push_commits_an_encrypted_bundle_only_when_confirmed() {
     .unwrap();
     assert_eq!(remote_commits(&remote), "0");
 
-    assert_eq!(kind(call("sync_push", json!({}))), "refused");
-    assert_eq!(kind(call("sync_push", json!({"dry_run": false}))), "refused");
+    assert_eq!(kind(without_confirm("sync_push", json!({}))), "refused");
+    assert_eq!(kind(call("sync_push", json!({"confirm": true}))), "ok");
+    assert_eq!(remote_commits(&remote), "0", "confirm alone still previews");
+    assert_eq!(call("sync_push", json!({})).unwrap()["dryRun"], true);
     assert_eq!(remote_commits(&remote), "0");
 
     let planned = call("sync_push", json!({"dry_run": true})).unwrap();
@@ -152,7 +149,7 @@ fn sync_push_commits_an_encrypted_bundle_only_when_confirmed() {
     );
     assert_eq!(remote_commits(&remote), "0", "a dry run pushes nothing");
 
-    let pushed = call("sync_push", json!({"confirm": true})).unwrap();
+    let pushed = apply("sync_push", json!({})).unwrap();
     assert_eq!(pushed["pushed"], true);
     assert_eq!(pushed["committed"], true);
     assert_eq!(remote_commits(&remote), "1");
@@ -180,12 +177,12 @@ fn sync_push_commits_an_encrypted_bundle_only_when_confirmed() {
     }
     assert!(!pushed.to_string().contains(PASSPHRASE));
 
-    let again = call("sync_push", json!({"confirm": true})).unwrap();
+    let again = apply("sync_push", json!({})).unwrap();
     assert_eq!(again["committed"], false, "nothing changed, nothing committed");
     assert_eq!(remote_commits(&remote), "1");
 
     std::fs::write(&skill, "---\nname: synthetic\n---\nCHANGED-BODY\n").unwrap();
-    let changed = call("sync_push", json!({"confirm": true})).unwrap();
+    let changed = apply("sync_push", json!({})).unwrap();
     assert_eq!(changed["committed"], true);
     assert_eq!(remote_commits(&remote), "2");
 }
@@ -204,8 +201,19 @@ fn agents_and_styles_sync_write_nothing_on_a_dry_run_and_stay_inside_the_named_c
         assert_eq!(planned[count], 1, "{tool}");
         assert_eq!(tree_snapshot(&fixture.dir), before, "{tool} dry run wrote");
     }
+    for (tool, _) in tools {
+        let by_default = call(tool, json!({"client_keys": ["claude-code"]})).unwrap();
+        assert_eq!(by_default["dryRun"], true, "{tool}");
+        assert_eq!(tree_snapshot(&fixture.dir), before, "{tool} wrote by default");
+        assert_eq!(
+            kind(without_confirm(tool, json!({"client_keys": ["claude-code"]}))),
+            "refused",
+            "{tool}"
+        );
+        assert_eq!(tree_snapshot(&fixture.dir), before, "{tool} wrote unconfirmed");
+    }
     for (tool, count) in tools {
-        let done = call(tool, json!({"client_keys": ["claude-code"]})).unwrap();
+        let done = apply(tool, json!({"client_keys": ["claude-code"]})).unwrap();
         assert_eq!(done["dryRun"], false, "{tool}");
         assert_eq!(done[count], 1, "{tool}");
     }

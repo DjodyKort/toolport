@@ -359,16 +359,21 @@ fn gated_tools_refuse_without_confirmation() {
 #[test]
 fn dry_run_waives_the_gate_only_where_declared() {
     let _fixture = Fixture::new("dryrun");
-    for name in ["clients_sync", "sync_push"] {
-        assert_eq!(err_kind(call_tool(name, &json!({}))), "refused", "{name}");
-        assert_ne!(
-            err_kind(call_tool(name, &json!({"dry_run": true}))),
+    for name in ["clients_sync", "sync_push", "styles_remove"] {
+        for preview in [json!({}), json!({"dry_run": true})] {
+            assert_ne!(
+                err_kind(call_tool(name, &preview)),
+                "refused",
+                "{name} {preview}"
+            );
+        }
+        assert_eq!(
+            err_kind(call_tool(name, &json!({"dry_run": false}))),
             "refused",
             "{name}"
         );
     }
-    let refused = call_tool("styles_remove", &json!({"dry_run": true})).unwrap_err();
-    assert_eq!(refused.kind, "refused");
+    let refused = call_tool("styles_remove", &json!({"dry_run": false})).unwrap_err();
     assert!(refused.message.contains("WARNING"));
 }
 
@@ -409,6 +414,13 @@ fn a_dry_run_that_is_on_by_default_previews_without_confirm_and_applies_only_wit
 }
 
 const DEFAULT_DRY_RUN_TOOLS: &[&str] = &[
+    "skills_sync",
+    "agents_sync",
+    "styles_sync_tier1",
+    "styles_apply",
+    "styles_remove",
+    "clients_sync",
+    "sync_push",
     "library_pull",
     "skills_tap_add",
     "skills_tap_remove",
@@ -467,7 +479,7 @@ fn every_tool_whose_dry_run_defaults_to_true_says_so_and_the_list_is_closed() {
     }
     for tool in TOOLS.iter().filter(|t| t.gate == Gate::UnlessDryRun) {
         assert!(
-            found.contains(tool.name) || tool.name == "clients_sync" || tool.name == "sync_push",
+            found.contains(tool.name),
             "{} gates on dry_run without defaulting it to true",
             tool.name
         );

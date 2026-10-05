@@ -27,7 +27,7 @@ pub(super) fn without_confirm(name: &str, mut args: Value) -> Result<Value, Tool
 }
 
 fn sync_claude() {
-    call("skills_sync", json!({"client_keys": ["claude-code"]})).unwrap();
+    apply("skills_sync", json!({"client_keys": ["claude-code"]})).unwrap();
 }
 
 fn lockfile(fixture: &Fixture) -> std::path::PathBuf {

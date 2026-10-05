@@ -332,7 +332,7 @@ pub(super) fn clients_sync(args: &Value) -> Outcome {
     }
     let mut out = client_sync::sync(&SyncArgs {
         clients,
-        dry_run: flag(args, "dry_run"),
+        dry_run: flag_or(args, "dry_run", true),
         keep_orphans: flag(args, "keep_orphans"),
     })?
     .to_value();
@@ -347,7 +347,7 @@ pub(super) fn clients_sync(args: &Value) -> Outcome {
 }
 
 pub(super) fn sync_push(args: &Value) -> Outcome {
-    crate::plus::sync::handlers::push_handler(json!({"dryRun": flag(args, "dry_run")}))
+    crate::plus::sync::handlers::push_handler(json!({"dryRun": flag_or(args, "dry_run", true)}))
         .map_err(ToolError::backend)
 }
 

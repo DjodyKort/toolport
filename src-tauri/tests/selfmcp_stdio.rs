@@ -743,17 +743,37 @@ fn tier_two_tools_write_additive_state_without_confirm() {
     );
     assert_eq!(dry.ok()["dryRun"], true);
     assert!(!world.home.join(".claude/skills").exists());
-    let synced = client.call("skills_sync", json!({"client_keys": ["claude-code"]}));
+    let by_default = client.call("skills_sync", json!({"client_keys": ["claude-code"]}));
+    assert_eq!(by_default.ok()["dryRun"], true);
+    assert!(!world.home.join(".claude/skills").exists());
+    let unconfirmed = client.call(
+        "skills_sync",
+        json!({"dry_run": false, "client_keys": ["claude-code"]}),
+    );
+    assert_eq!(unconfirmed.error_kind(), "refused");
+    assert!(!world.home.join(".claude/skills").exists());
+    let synced = client.call(
+        "skills_sync",
+        json!({"dry_run": false, "confirm": true, "client_keys": ["claude-code"]}),
+    );
     assert_eq!(synced.ok()["skillCount"], 2);
     assert!(world.home.join(".claude/skills/demo/SKILL.md").is_file());
     assert!(
         world.data.join("mcpm-skills.lock").is_file(),
         "sync records a lockfile"
     );
-    let agents = client.call("agents_sync", json!({"client_keys": ["claude-code"]}));
+    let agents = client.call(
+        "agents_sync",
+        json!({"dry_run": false, "confirm": true, "client_keys": ["claude-code"]}),
+    );
     assert_eq!(agents.ok()["agentCount"], 2);
     assert!(world.home.join(".claude/agents/helper.md").is_file());
-    client.call("styles_sync_tier1", json!({})).ok();
+    client
+        .call(
+            "styles_sync_tier1",
+            json!({"dry_run": false, "confirm": true}),
+        )
+        .ok();
 
     let tagged = client.call(
         "servers_add_profile_tag",
@@ -773,9 +793,16 @@ fn tier_two_tools_write_additive_state_without_confirm() {
     assert_eq!(untagged.ok()["profileTags"], json!([]));
 
     assert_eq!(
-        client.call("clients_sync", json!({})).error_kind(),
+        client.call("clients_sync", json!({})).ok()["dryRun"],
+        true,
+        "clients_sync previews unless it is told to apply"
+    );
+    assert_eq!(
+        client
+            .call("clients_sync", json!({"dry_run": false}))
+            .error_kind(),
         "refused",
-        "clients_sync is gated unless it is a dry run"
+        "applying clients_sync needs confirm"
     );
     let dry = client.call(
         "clients_sync",
@@ -1070,7 +1097,10 @@ fn the_destructive_skills_tools_plan_by_default_and_apply_only_when_confirmed() 
         );
     }
     client
-        .call("skills_sync", json!({"client_keys": ["claude-code"]}))
+        .call(
+            "skills_sync",
+            json!({"dry_run": false, "confirm": true, "client_keys": ["claude-code"]}),
+        )
         .ok();
     let output = world.home.join(".claude/skills/demo/SKILL.md");
     let lockfile = world.data.join("mcpm-skills.lock");
@@ -1136,7 +1166,10 @@ fn the_destructive_skills_tools_plan_by_default_and_apply_only_when_confirmed() 
     assert_eq!(std::fs::read(world.skill_file()).unwrap(), original);
 
     client
-        .call("skills_sync", json!({"client_keys": ["claude-code"]}))
+        .call(
+            "skills_sync",
+            json!({"dry_run": false, "confirm": true, "client_keys": ["claude-code"]}),
+        )
         .ok();
     assert!(output.is_file());
     let before = world.snapshot();
@@ -1179,9 +1212,17 @@ fn the_agent_and_style_clean_and_uninstall_tools_plan_by_default_and_apply_when_
         );
     }
     client
-        .call("agents_sync", json!({"client_keys": ["claude-code"]}))
+        .call(
+            "agents_sync",
+            json!({"dry_run": false, "confirm": true, "client_keys": ["claude-code"]}),
+        )
         .ok();
-    client.call("styles_sync_tier1", json!({})).ok();
+    client
+        .call(
+            "styles_sync_tier1",
+            json!({"dry_run": false, "confirm": true}),
+        )
+        .ok();
     let agent_output = world.home.join(".claude/agents/helper.md");
     let style_output = world.home.join(".claude/output-styles/plain.md");
     assert!(agent_output.is_file() && style_output.is_file());
@@ -1381,13 +1422,20 @@ fn tier_three_and_four_tools_run_only_when_confirmed() {
         "not_found"
     );
 
-    assert_eq!(client.call("sync_push", json!({})).error_kind(), "refused");
-    let waived = client.call("sync_push", json!({"dry_run": true}));
-    assert_ne!(
-        waived.0["structuredContent"]["error"]["kind"], "refused",
-        "a dry run waives the tier 4 gate: {}",
-        waived.0
+    assert_eq!(
+        client
+            .call("sync_push", json!({"dry_run": false}))
+            .error_kind(),
+        "refused"
     );
+    for args in [json!({}), json!({"dry_run": true})] {
+        let waived = client.call("sync_push", args.clone());
+        assert_ne!(
+            waived.0["structuredContent"]["error"]["kind"], "refused",
+            "a preview waives the tier 4 gate {args}: {}",
+            waived.0
+        );
+    }
     assert_eq!(
         client
             .call("skills_git_push", json!({"commit_message": "msg"}))

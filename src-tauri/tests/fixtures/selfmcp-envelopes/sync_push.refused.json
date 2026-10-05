@@ -1,5 +1,7 @@
 {
-  "arguments": {},
+  "arguments": {
+    "dry_run": false
+  },
   "isError": true,
   "result": {
     "error": {

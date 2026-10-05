@@ -2,6 +2,7 @@
   "arguments": {
     "client_keys": ["aider"],
     "confirm": true,
+    "dry_run": false,
     "name": "plain"
   },
   "isError": false,

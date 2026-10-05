@@ -13,9 +13,14 @@ use crate::library_world::{self, library_home};
 use super::{case, fails, hook, prepared, read, refused, setup, write, Call, Case};
 
 const CLAUDE: &str = r#"{"client_keys":["claude-code"]}"#;
-const CLAUDE_PREVIEW: &str = r#"{"client_keys":["claude-code"],"dry_run":true}"#;
-const AIDER: &str = r#"{"name":"plain","client_keys":["aider"],"confirm":true}"#;
-const AIDER_PREVIEW_CONFIRMED: &str = r#"{"client_keys":["aider"],"dry_run":true,"confirm":true}"#;
+const CLAUDE_UNCONFIRMED: &str = r#"{"client_keys":["claude-code"],"dry_run":false}"#;
+const CLAUDE_APPLY: &str = r#"{"client_keys":["claude-code"],"dry_run":false,"confirm":true}"#;
+const AIDER: &str =
+    r#"{"name":"plain","client_keys":["aider"],"dry_run":false,"confirm":true}"#;
+const AIDER_STYLE: &str = r#"{"name":"plain","client_keys":["aider"]}"#;
+const AIDER_STYLE_UNCONFIRMED: &str =
+    r#"{"name":"plain","client_keys":["aider"],"dry_run":false}"#;
+const AIDER_REMOVE_PREVIEW: &str = r#"{"client_keys":["aider"]}"#;
 const AIDER_REMOVE_UNCONFIRMED: &str = r#"{"client_keys":["aider"],"dry_run":false}"#;
 const AIDER_REMOVE: &str = r#"{"client_keys":["aider"],"dry_run":false,"confirm":true}"#;
 const APPLY: &str = r#"{"dry_run":false,"confirm":true}"#;
@@ -208,7 +213,7 @@ pub const ALL: &[Case] = &[
         "skills_status",
         &[
             read("fresh", "skills_status", "{}"),
-            setup("skills_sync", CLAUDE),
+            setup("skills_sync", CLAUDE_APPLY),
             read("synced", "skills_status", CLAUDE),
         ],
     ),
@@ -248,12 +253,13 @@ pub const ALL: &[Case] = &[
     case(
         "skills_sync",
         &[
-            read("preview", "skills_sync", CLAUDE_PREVIEW),
-            write("apply", "skills_sync", CLAUDE),
+            read("preview", "skills_sync", CLAUDE),
+            refused("refused", "skills_sync", CLAUDE_UNCONFIRMED),
+            write("apply", "skills_sync", CLAUDE_APPLY),
             read(
                 "unknown_client",
                 "skills_sync",
-                r#"{"client_keys":["no-such-client"]}"#,
+                r#"{"client_keys":["no-such-client"],"dry_run":false,"confirm":true}"#,
             ),
         ],
     ),
@@ -335,7 +341,7 @@ pub const ALL: &[Case] = &[
         "skills_diff",
         &[
             read("fresh", "skills_diff", "{}"),
-            setup("skills_sync", CLAUDE),
+            setup("skills_sync", CLAUDE_APPLY),
             read("synced", "skills_diff", "{}"),
         ],
     ),
@@ -383,7 +389,7 @@ pub const ALL: &[Case] = &[
     case(
         "skills_clean",
         &[
-            setup("skills_sync", CLAUDE),
+            setup("skills_sync", CLAUDE_APPLY),
             read("preview", "skills_clean", "{}"),
             refused("refused", "skills_clean", UNCONFIRMED),
             write("apply", "skills_clean", APPLY),
@@ -392,7 +398,7 @@ pub const ALL: &[Case] = &[
     case(
         "skills_uninstall",
         &[
-            setup("skills_sync", CLAUDE),
+            setup("skills_sync", CLAUDE_APPLY),
             read("preview", "skills_uninstall", r#"{"name":"demo"}"#),
             refused(
                 "refused",
@@ -421,7 +427,7 @@ pub const ALL: &[Case] = &[
     case(
         "skills_resolve",
         &[
-            setup("skills_sync", CLAUDE),
+            setup("skills_sync", CLAUDE_APPLY),
             read("preview", "skills_resolve", "{}"),
             refused("refused", "skills_resolve", UNCONFIRMED),
             write("apply", "skills_resolve", APPLY),
@@ -582,15 +588,16 @@ pub const ALL: &[Case] = &[
     case(
         "agents_sync",
         &[
-            read("preview", "agents_sync", CLAUDE_PREVIEW),
-            write("apply", "agents_sync", CLAUDE),
+            read("preview", "agents_sync", CLAUDE),
+            refused("refused", "agents_sync", CLAUDE_UNCONFIRMED),
+            write("apply", "agents_sync", CLAUDE_APPLY),
         ],
     ),
     case(
         "agents_diff",
         &[
             read("fresh", "agents_diff", "{}"),
-            setup("agents_sync", CLAUDE),
+            setup("agents_sync", CLAUDE_APPLY),
             read("synced", "agents_diff", "{}"),
         ],
     ),
@@ -599,14 +606,14 @@ pub const ALL: &[Case] = &[
         "agents_status",
         &[
             read("fresh", "agents_status", "{}"),
-            setup("agents_sync", CLAUDE),
+            setup("agents_sync", CLAUDE_APPLY),
             read("synced", "agents_status", "{}"),
         ],
     ),
     case(
         "agents_clean",
         &[
-            setup("agents_sync", CLAUDE),
+            setup("agents_sync", CLAUDE_APPLY),
             read("preview", "agents_clean", "{}"),
             refused("refused", "agents_clean", UNCONFIRMED),
             write("apply", "agents_clean", APPLY),
@@ -615,7 +622,7 @@ pub const ALL: &[Case] = &[
     case(
         "agents_uninstall",
         &[
-            setup("agents_sync", CLAUDE),
+            setup("agents_sync", CLAUDE_APPLY),
             read("preview", "agents_uninstall", r#"{"name":"helper"}"#),
             refused(
                 "refused",
@@ -687,33 +694,22 @@ pub const ALL: &[Case] = &[
     case(
         "styles_sync_tier1",
         &[
-            read("preview", "styles_sync_tier1", CLAUDE_PREVIEW),
-            write("apply", "styles_sync_tier1", CLAUDE),
+            read("preview", "styles_sync_tier1", CLAUDE),
+            refused("refused", "styles_sync_tier1", CLAUDE_UNCONFIRMED),
+            write("apply", "styles_sync_tier1", CLAUDE_APPLY),
         ],
     ),
     case(
         "styles_apply",
         &[
-            read(
-                "preview",
-                "styles_apply",
-                r#"{"name":"plain","client_keys":["aider"],"dry_run":true,"confirm":true}"#,
-            ),
-            refused(
-                "refused",
-                "styles_apply",
-                r#"{"name":"plain","client_keys":["aider"]}"#,
-            ),
-            write(
-                "apply",
-                "styles_apply",
-                r#"{"name":"plain","client_keys":["aider"],"confirm":true}"#,
-            ),
+            read("preview", "styles_apply", AIDER_STYLE),
+            refused("refused", "styles_apply", AIDER_STYLE_UNCONFIRMED),
+            write("apply", "styles_apply", AIDER),
             fails(
                 "missing",
                 "not_found",
                 "styles_apply",
-                r#"{"name":"nope","client_keys":["aider"],"confirm":true}"#,
+                r#"{"name":"nope","client_keys":["aider"],"dry_run":false,"confirm":true}"#,
             ),
         ],
     ),
@@ -721,7 +717,7 @@ pub const ALL: &[Case] = &[
         "styles_diff",
         &[
             read("fresh", "styles_diff", "{}"),
-            setup("styles_sync_tier1", CLAUDE),
+            setup("styles_sync_tier1", CLAUDE_APPLY),
             read("synced", "styles_diff", "{}"),
         ],
     ),
@@ -729,14 +725,14 @@ pub const ALL: &[Case] = &[
         "styles_status",
         &[
             read("fresh", "styles_status", "{}"),
-            setup("styles_sync_tier1", CLAUDE),
+            setup("styles_sync_tier1", CLAUDE_APPLY),
             read("synced", "styles_status", "{}"),
         ],
     ),
     case(
         "styles_clean",
         &[
-            setup("styles_sync_tier1", CLAUDE),
+            setup("styles_sync_tier1", CLAUDE_APPLY),
             read("preview", "styles_clean", "{}"),
             refused("refused", "styles_clean", UNCONFIRMED),
             write("apply", "styles_clean", APPLY),
@@ -761,7 +757,7 @@ pub const ALL: &[Case] = &[
         "styles_remove",
         &[
             setup("styles_apply", AIDER),
-            read("preview", "styles_remove", AIDER_PREVIEW_CONFIRMED),
+            read("preview", "styles_remove", AIDER_REMOVE_PREVIEW),
             refused("refused", "styles_remove", AIDER_REMOVE_UNCONFIRMED),
             write("apply", "styles_remove", AIDER_REMOVE),
         ],
@@ -1072,15 +1068,15 @@ pub const ALL: &[Case] = &[
     case(
         "clients_sync",
         &[
-            refused("refused", "clients_sync", "{}"),
-            read("preview", "clients_sync", r#"{"dry_run":true}"#),
+            refused("refused", "clients_sync", UNCONFIRMED),
+            read("preview", "clients_sync", "{}"),
             fails(
                 "unknown_client",
                 "not_found",
                 "clients_sync",
-                r#"{"dry_run":true,"client":"no-such-client"}"#,
+                r#"{"client":"no-such-client"}"#,
             ),
-            read("apply", "clients_sync", r#"{"confirm":true}"#),
+            read("apply", "clients_sync", APPLY),
         ],
     ),
     case(
@@ -1128,16 +1124,11 @@ pub const ALL: &[Case] = &[
         "sync_push",
         git_world,
         &[
-            refused("refused", "sync_push", "{}"),
-            fails(
-                "unconfigured",
-                "backend_error",
-                "sync_push",
-                r#"{"dry_run":true}"#,
-            ),
+            refused("refused", "sync_push", UNCONFIRMED),
+            fails("unconfigured", "backend_error", "sync_push", "{}"),
             hook(sync_setup),
-            read("preview", "sync_push", r#"{"dry_run":true}"#),
-            write("apply", "sync_push", r#"{"confirm":true}"#),
+            read("preview", "sync_push", "{}"),
+            write("apply", "sync_push", APPLY),
         ],
     ),
     // reads of the whole setup

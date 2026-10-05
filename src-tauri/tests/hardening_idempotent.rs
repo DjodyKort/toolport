@@ -367,16 +367,19 @@ fn selfmcp_content_writers_second_call_changes_nothing() {
     let calls = [
         (
             "skills_sync",
-            json!({"repo_path": repo, "client_keys": ["claude-code"], "global_mode": true}),
+            json!({"repo_path": repo, "client_keys": ["claude-code"], "global_mode": true, "dry_run": false, "confirm": true}),
         ),
         (
             "agents_sync",
-            json!({"repo_path": repo, "client_keys": ["claude-code"], "global_mode": true}),
+            json!({"repo_path": repo, "client_keys": ["claude-code"], "global_mode": true, "dry_run": false, "confirm": true}),
         ),
-        ("styles_sync_tier1", json!({"repo_path": repo})),
+        (
+            "styles_sync_tier1",
+            json!({"repo_path": repo, "dry_run": false, "confirm": true}),
+        ),
         (
             "styles_apply",
-            json!({"repo_path": repo, "name": "plain", "client_keys": ["claude-code"], "confirm": true}),
+            json!({"repo_path": repo, "name": "plain", "client_keys": ["claude-code"], "dry_run": false, "confirm": true}),
         ),
     ];
     for (tool, args) in &calls {

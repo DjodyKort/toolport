@@ -1,6 +1,7 @@
 {
   "arguments": {
-    "confirm": true
+    "confirm": true,
+    "dry_run": false
   },
   "isError": false,
   "result": {

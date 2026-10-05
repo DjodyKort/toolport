@@ -946,6 +946,7 @@ fn tool_args(name: &str, schema: &Value, world: &World) -> Value {
             &[("preset", json!("agent")), ("dry_run", json!(false))],
         ),
         "compression_disable" | "compression_sync" => set(&mut args, &[("dry_run", json!(false))]),
+        "clients_sync" | "sync_push" => set(&mut args, &[("dry_run", json!(false))]),
         "skills_clean" | "skills_resolve" | "agents_clean" | "styles_clean" => {
             set(&mut args, &[("dry_run", json!(false))])
         }
@@ -962,11 +963,16 @@ fn tool_args(name: &str, schema: &Value, world: &World) -> Value {
             &[
                 ("client_keys", json!(["claude-code"])),
                 ("global_mode", json!(true)),
+                ("dry_run", json!(false)),
             ],
         ),
-        "styles_apply" | "styles_remove" | "styles_sync_tier1" => {
-            set(&mut args, &[("client_keys", json!(["claude-code"]))])
-        }
+        "styles_apply" | "styles_remove" | "styles_sync_tier1" => set(
+            &mut args,
+            &[
+                ("client_keys", json!(["claude-code"])),
+                ("dry_run", json!(false)),
+            ],
+        ),
         "servers_install" => set(
             &mut args,
             &[
