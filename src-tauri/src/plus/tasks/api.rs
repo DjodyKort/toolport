@@ -147,12 +147,12 @@ pub fn run(id: &str, trigger: &str, dry_run: bool, host: &dyn Host) -> Result<Va
     let task = store::load_task(id)?;
     let (plan, secrets, needs) = run_plan(&task);
     if dry_run {
-        return Ok(json!({"dryRun": true, "task": id, "plan": plan, "secrets": secrets, "requires": needs, "run": null, "result": null}));
+        return Ok(json!({"dryRun": true, "task": id, "plan": plan, "writesSecrets": secrets, "requires": needs, "run": null, "result": null}));
     }
     let run = triggers::start(&task, trigger, host)?;
     let path = store::run_path(&run.id)?.display().to_string();
     let result = json!({"applied": true, "changed": [path], "undo": format!("toolportctl task cancel {}", run.id), "backups": []});
-    Ok(json!({"dryRun": false, "task": id, "plan": plan, "secrets": secrets, "requires": needs, "run": run_view(&run, false), "result": result}))
+    Ok(json!({"dryRun": false, "task": id, "plan": plan, "writesSecrets": secrets, "requires": needs, "run": run_view(&run, false), "result": result}))
 }
 
 pub fn resume(run_id: &str) -> Result<Value, OpError> {

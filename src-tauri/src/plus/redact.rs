@@ -13,7 +13,7 @@ const SENSITIVE_KEYS: &[&str] = &[
     "private_key",
     "passphrase",
 ];
-const EXEMPT_KEYS: &[&str] = &["secretsbackend", "tokens"];
+const EXEMPT_KEYS: &[&str] = &["secretsbackend", "tokens", "writessecrets"];
 const MASK: &str = "[redacted]";
 
 pub(crate) fn sensitive_key(key: &str) -> bool {
@@ -86,6 +86,13 @@ mod tests {
         assert_eq!(scrubbed["tokens"]["value"], 12);
         assert_eq!(scrubbed["tokens"]["accessToken"], MASK);
         assert_eq!(scrubbed["token"], MASK);
+    }
+
+    #[test]
+    fn the_names_a_task_may_write_are_not_secrets() {
+        let scrubbed = scrub(serde_json::json!({"writesSecrets": [{"server": "acme", "key": "API_KEY"}], "secrets": [1]}));
+        assert_eq!(scrubbed["writesSecrets"][0]["key"], "API_KEY");
+        assert_eq!(scrubbed["secrets"], MASK);
     }
 
     #[test]

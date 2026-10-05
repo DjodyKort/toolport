@@ -42,13 +42,13 @@
       },
       "result": null,
       "run": null,
-      "secrets": [
+      "task": "portal-token",
+      "writesSecrets": [
         {
           "key": "API_KEY",
           "server": "srv-alpha"
         }
-      ],
-      "task": "portal-token"
+      ]
     },
     "ok": true,
     "schemaVersion": 1

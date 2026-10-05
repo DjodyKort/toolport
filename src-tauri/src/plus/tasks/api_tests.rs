@@ -42,7 +42,7 @@ fn a_dry_run_lists_steps_secrets_and_servers_and_starts_nothing() {
     assert!(details.iter().any(|d| d.contains("pause for you")), "{details:?}");
     assert!(details.iter().any(|d| d.contains("may write the secret acme/API_PASSWORD")), "{details:?}");
     assert!(details.iter().any(|d| d.contains("needs the server acme")), "{details:?}");
-    assert_eq!(out["secrets"][0]["key"], "API_PASSWORD");
+    assert_eq!(out["writesSecrets"][0]["key"], "API_PASSWORD");
     assert_eq!(out["requires"]["servers"][0], "acme");
     assert!(store::list_runs(None).unwrap().is_empty());
     let text = out.to_string();
@@ -189,7 +189,7 @@ fn tasks_run_asks_every_time_and_a_denial_runs_nothing() {
     assert_eq!((first.server.as_str(), first.tool.as_str()), ("toolport", "tasks_run"));
     assert_eq!(first.arguments["task"], "moodle-token");
     assert!(first.arguments["steps"].as_array().unwrap().len() >= 3);
-    assert_eq!(first.arguments["secrets"][0]["key"], "API_PASSWORD");
+    assert_eq!(first.arguments["writesSecrets"][0]["key"], "API_PASSWORD");
     assert!(!first.arguments.to_string().contains(CANARY));
 }
 

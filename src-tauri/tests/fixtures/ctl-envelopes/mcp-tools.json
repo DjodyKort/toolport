@@ -259,6 +259,99 @@
           "tier": 1
         },
         {
+          "description": "List the tasks (named, repeatable jobs of steps) with their triggers, last run, next scheduled run and whether a run waits for the person. Disabled drafts only with all",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "tasks_list",
+          "params": [
+            {
+              "description": "Include disabled tasks",
+              "name": "all",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Show one task's definition (steps, the secrets it may write, the servers and commands it needs, triggers) and its last five runs. Secret values are never part of it",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "tasks_get",
+          "params": [
+            {
+              "description": "The task id",
+              "name": "id",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "List the runs of a task, newest first, or one run with its step logs (already redacted) when run is given",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "tasks_history",
+          "params": [
+            {
+              "description": "Only the runs of this task",
+              "name": "id",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "One run id: returns that run with the log of every step",
+              "name": "run",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "At most this many runs (default 20)",
+              "name": "limit",
+              "required": false,
+              "type": "integer"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Start a task. The person is asked to approve every run through the approval broker; a denial, a timeout or a missing broker starts nothing. The result is the run record (steps and statuses); a task with a step that needs the person pauses as waiting until they resume it. Pass dry_run to see the steps, the secrets it may write and the servers it needs, without asking and without starting",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "tasks_run",
+          "params": [
+            {
+              "description": "The task id",
+              "name": "id",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Cancel a running or waiting task run and stop its child process",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "tasks_cancel",
+          "params": [
+            {
+              "description": "The run id (from tasks_list, tasks_get or tasks_history)",
+              "name": "run",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "tier": 2
+        },
+        {
           "description": "List the installed Claude Code plugins with what each brings (skills, agents, commands, hooks, MCP servers), whether it is on in the folder, its token cost and its MCP servers that sit outside the gateway",
           "dryRunDefault": false,
           "gate": "none",

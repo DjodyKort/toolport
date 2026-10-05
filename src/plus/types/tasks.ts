@@ -144,7 +144,7 @@ export const taskRunData = obj({
   dryRun: bool,
   task: str,
   plan: planV1,
-  secrets: arr(secretRef),
+  writesSecrets: arr(secretRef),
   requires: obj({ servers: arr(str), commands: arr(str) }),
   run: nullable(taskRun),
   result: nullable(resultV1),

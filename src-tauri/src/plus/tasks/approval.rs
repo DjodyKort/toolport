@@ -21,7 +21,7 @@ fn request(id: &str, plan: &Value, data: &Value) -> ApprovalRequest {
         server: "toolport".into(),
         tool: "tasks_run".into(),
         reason: ApprovalReason::Destructive,
-        arguments: json!({"task": id, "steps": steps, "secrets": data["secrets"], "requires": data["requires"]}),
+        arguments: json!({"task": id, "steps": steps, "writesSecrets": data["writesSecrets"], "requires": data["requires"]}),
         tool_fingerprint: None,
         url_elicitation: None,
         pii_release: None,

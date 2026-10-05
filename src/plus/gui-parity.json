@@ -2127,6 +2127,31 @@
       "action": "system.sync-push",
       "surface": "screen"
     },
+    "tasks_cancel": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "tasks_get": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "tasks_history": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "tasks_list": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "tasks_run": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
     "where_am_i": {
       "route": "all-commands",
       "action": "all-commands.tool",

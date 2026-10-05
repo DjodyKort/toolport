@@ -35,12 +35,15 @@ mod servers;
 mod skills;
 mod sources;
 mod state;
+mod tasks;
 #[cfg(test)]
 mod state_agent_style_tests;
 #[cfg(test)]
 mod state_tests;
 #[cfg(test)]
 mod tap_tools_tests;
+#[cfg(test)]
+mod tasks_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

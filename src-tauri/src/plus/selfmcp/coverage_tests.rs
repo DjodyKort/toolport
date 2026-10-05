@@ -15,6 +15,7 @@ const SOURCES: &[(&str, &str)] = &[
     ),
     ("state_tests.rs", include_str!("state_tests.rs")),
     ("tap_tools_tests.rs", include_str!("tap_tools_tests.rs")),
+    ("tasks_tests.rs", include_str!("tasks_tests.rs")),
     ("wired_tests.rs", include_str!("wired_tests.rs")),
 ];
 
@@ -32,7 +33,11 @@ const PLUGIN_CONTROLS: &str =
     "plugin_control_tools_preview_by_default_and_write_only_inside_the_folder";
 const BUNDLE_FLOW: &str = "bundle_tools_follow_their_tiers_and_apply_and_undo_only_inside_the_folder";
 
+const TASKS_FLOW: &str = "task_tools_follow_their_tiers_and_a_run_without_an_approval_starts_nothing";
+
 const SIDE_EFFECT_TESTS: &[(&str, &str, &str)] = &[
+    ("tasks_run", "tasks_tests.rs", TASKS_FLOW),
+    ("tasks_cancel", "tasks_tests.rs", TASKS_FLOW),
     ("context_bundle_apply", "context_bundle_tests.rs", BUNDLE_FLOW),
     ("context_bundle_undo", "context_bundle_tests.rs", BUNDLE_FLOW),
     ("plugins_config", "plugins_tests.rs", PLUGIN_CONTROLS),
