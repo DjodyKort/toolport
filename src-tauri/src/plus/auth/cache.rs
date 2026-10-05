@@ -11,12 +11,27 @@ pub const STATUS_VERSION: u32 = 1;
 pub const EVENTS_MAX_BYTES: u64 = 128 * 1024;
 pub const EVENTS_KEEP_LINES: usize = 500;
 
+/// Which dead-end `fix_action` (surfaces.rs) must route around: OAuth-style
+/// probes reach `toolportctl auth login`; API-token probes (`ProbeKind::Http`)
+/// refuse it, so they need `secret set` instead (see `login::plan`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProbeHintKind {
+    #[default]
+    OAuth,
+    ApiToken,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServerEntry {
     pub tracked: Tracked,
     pub last_probe_at: Option<i64>,
     pub next_due_at: i64,
+    #[serde(default)]
+    pub hint_kind: ProbeHintKind,
+    #[serde(default)]
+    pub token_key: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

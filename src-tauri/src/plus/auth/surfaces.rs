@@ -8,7 +8,7 @@ use std::path::Path;
 use serde::Serialize;
 use serde_json::{json, Value};
 
-use super::cache::{EdgeEvent, StatusFile, STATUS_VERSION};
+use super::cache::{EdgeEvent, ProbeHintKind, StatusFile, STATUS_VERSION};
 use super::types::{AuthKind, AuthState};
 
 pub const NOTIFY_DEDUPE_SECS: i64 = 6 * 3600;
@@ -70,7 +70,12 @@ fn severity(state: &AuthState) -> u8 {
     }
 }
 
-pub fn fix_action(server: &str, state: &AuthState) -> Option<FixAction> {
+pub fn fix_action(
+    server: &str,
+    state: &AuthState,
+    hint_kind: ProbeHintKind,
+    token_key: Option<&str>,
+) -> Option<FixAction> {
     let make = |action, label: String, command: Option<String>, ipc: Option<Value>| FixAction {
         action,
         server: server.to_string(),
@@ -78,19 +83,39 @@ pub fn fix_action(server: &str, state: &AuthState) -> Option<FixAction> {
         command,
         ipc,
     };
+    // API-token probes (`ProbeKind::Http`, e.g. stitch) refuse `auth login`
+    // (`login::plan` returns `Plan::Unsupported`), so their hint must point at
+    // the `secret set` step `plan` actually tells the user to run instead.
+    let secret_set = || {
+        let key = token_key.unwrap_or("<KEY>");
+        make(
+            "fix_config",
+            format!("Set the API token for {server}"),
+            Some(format!(
+                "toolportctl secret set {server} {key} (value on stdin or --value-env <VAR>), then toolportctl auth probe --server {server} --force"
+            )),
+            None,
+        )
+    };
     match state {
-        AuthState::Expiring { .. } | AuthState::NeedsReauth => Some(make(
-            "reauth",
-            format!("Sign in to {server} again"),
-            Some(format!("toolportctl auth login {server}")),
-            None,
-        )),
-        AuthState::Revoked => Some(make(
-            "reconsent",
-            format!("Re-consent access for {server}"),
-            Some(format!("toolportctl auth login {server}")),
-            None,
-        )),
+        AuthState::Expiring { .. } | AuthState::NeedsReauth => Some(match hint_kind {
+            ProbeHintKind::ApiToken => secret_set(),
+            ProbeHintKind::OAuth => make(
+                "reauth",
+                format!("Sign in to {server} again"),
+                Some(format!("toolportctl auth login {server}")),
+                None,
+            ),
+        }),
+        AuthState::Revoked => Some(match hint_kind {
+            ProbeHintKind::ApiToken => secret_set(),
+            ProbeHintKind::OAuth => make(
+                "reconsent",
+                format!("Re-consent access for {server}"),
+                Some(format!("toolportctl auth login {server}")),
+                None,
+            ),
+        }),
         AuthState::Misconfigured => Some(make(
             "fix_config",
             format!("Check the OAuth client configuration of {server}"),
@@ -130,7 +155,7 @@ pub fn rows(status: &StatusFile, now: i64) -> Vec<AuthRow> {
                     expires_at,
                     ttl_secs: expires_at.map(|eta| eta - now),
                     last_probe: entry.last_probe_at,
-                    fix: fix_action(server, &state),
+                    fix: fix_action(server, &state, entry.hint_kind, entry.token_key.as_deref()),
                 },
             )
         })

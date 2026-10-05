@@ -337,6 +337,8 @@ fn every_state() -> StatusFile {
                 tracked,
                 last_probe_at: Some(1_000),
                 next_due_at: 2_000,
+                hint_kind: crate::plus::auth::ProbeHintKind::default(),
+                token_key: None,
             },
         );
     }
@@ -428,7 +430,7 @@ fn every_toolportctl_command_the_auth_surfaces_print_is_a_real_command() {
         AuthState::Revoked,
         AuthState::Expiring { eta: 1 },
     ] {
-        let fix = fix_action("acme", &state).unwrap();
+        let fix = fix_action("acme", &state, crate::plus::auth::ProbeHintKind::OAuth, None).unwrap();
         assert_eq!(fix.command.as_deref(), Some("toolportctl auth login acme"));
     }
 }
