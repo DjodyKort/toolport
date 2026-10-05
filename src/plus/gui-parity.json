@@ -851,7 +851,8 @@
     "mcp": "MIG-GUI-8",
     "sources": "MIG-GUI-10",
     "plugins": "MIG-GUI-12",
-    "hooks": "MIG-GUI-12"
+    "hooks": "MIG-GUI-12",
+    "task": "MIG-AUTO-2"
   },
   "commands": {
     "agents add": {
@@ -1612,6 +1613,51 @@
     "sync status": {
       "route": "system",
       "action": "system.sync-status",
+      "surface": "screen"
+    },
+    "task add": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "task cancel": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "task edit": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "task history": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "task ls": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "task resume": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "task rm": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "task run": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "task show": {
+      "route": "all-commands",
+      "action": "all-commands.run",
       "surface": "screen"
     },
     "update": {
