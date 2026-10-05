@@ -83,12 +83,14 @@
   --destructive: oklch(0.55 0.21 27.325);
   /* Semantic accent tokens, one shade each, so success/warning/info/owned render
        identically across every view (the audit found these drifting 300/400/500).
-       LIGHT uses the darker *-600 shades: the *-400 palette is tuned for dark navy and
-       reads as neon/low-contrast on white. Dark restores the *-400 values below. */
-  --success: oklch(0.6 0.14 163.223);
-  --warning: oklch(0.68 0.145 70);
-  --info: oklch(0.56 0.2 293.541);
-  --owned: oklch(0.6 0.15 232.661);
+       LIGHT uses darker shades: the *-400 palette is tuned for dark navy and reads as
+       neon/low-contrast on white. Fork: they are darkened further (D-099) so each tone
+       reaches 4.5:1 as badge text on its own 12-14% tint; the guard is
+       src/plus/toneContrast.test.ts. Dark restores the *-400 values below. */
+  --success: oklch(0.49 0.106 163.223);
+  --warning: oklch(0.5 0.107 70);
+  --info: oklch(0.53 0.2 293.541);
+  --owned: oklch(0.49 0.1 232.661);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
