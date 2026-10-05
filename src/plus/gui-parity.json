@@ -420,7 +420,7 @@
       "route": "library",
       "status": "built",
       "test": "src/plus/skills/sources/SourcesTab.e2e.test.tsx",
-      "summary": "Push the library: the dry run lists commits, audit and secret scan; a secret finding blocks it with the rule, file and line and no apply button, an audit finding only warns, never forced"
+      "summary": "Push the library: the dry run lists commits, audit and secret scan; a secret finding blocks it with the rule, file and line and no apply button, an audit finding only warns, never forced; the same push as the self-MCP tool skills_git_push, whose result fields (pushed, commitSha, checks, repo) are the ones this dialog reads"
     },
     "agents.list": {
       "route": "agents",
@@ -480,7 +480,7 @@
       "route": "agents",
       "status": "built",
       "test": "src/plus/agents/StylesTab.e2e.test.tsx",
-      "summary": "List output styles with where each is synced and always on; empty state with one action"
+      "summary": "List output styles with where each is synced and always on; empty state with one action; the Always-on in line reads the active style of every client from `styles ls`, the same lockfile entries that the tool styles_active reports"
     },
     "styles.lint": {
       "route": "agents",
@@ -1021,6 +1021,54 @@
       "status": "built",
       "test": "src/plus/tasks/TasksScreen.e2e.test.tsx",
       "summary": "Delete a task with the dry-run plan and the typed id"
+    },
+    "skills.edit-body": {
+      "route": "library",
+      "summary": "Open editor on a library skill: reads the file with skills_get, shows the body in an editor dialog, previews the change, and writes with skills_edit_body after a confirmation; the text stays in the dialog and travels on stdin",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.edit.e2e.test.tsx"
+    },
+    "skills.edit-frontmatter": {
+      "route": "library",
+      "summary": "The description field of the editor: previewed as its own step and written with skills_edit_frontmatter (patch of the description) after the same confirmation",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.edit.e2e.test.tsx"
+    },
+    "skills.delete": {
+      "route": "library",
+      "summary": "Delete from library on a library skill: preview of the folder, typed confirmation of the skill name, then skills_delete; unlike Uninstall it leaves the synced copies in the clients",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.edit.e2e.test.tsx"
+    },
+    "skills.transpilers": {
+      "route": "library",
+      "summary": "Converted for: the clients skills are converted for, from skills_list_transpilers, with loading, error and retry states",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.edit.e2e.test.tsx"
+    },
+    "agents.edit-body": {
+      "route": "agents",
+      "summary": "Edit body on an agent card: reads the file with agents_get, previews the change and writes with agents_edit_body after a confirmation; the text stays in the dialog",
+      "status": "built",
+      "test": "src/plus/agents/BodyEditor.test.tsx"
+    },
+    "agents.transpilers": {
+      "route": "agents",
+      "summary": "Converted for: the clients agents are converted for, from agents_list_transpilers",
+      "status": "built",
+      "test": "src/plus/agents/BodyEditor.test.tsx"
+    },
+    "styles.edit-body": {
+      "route": "agents",
+      "summary": "Edit body on a style card: reads the file with styles_get, previews the change and writes with styles_edit_body after a confirmation",
+      "status": "built",
+      "test": "src/plus/agents/BodyEditor.test.tsx"
+    },
+    "styles.transpilers": {
+      "route": "agents",
+      "summary": "Converted for: the native-toggle clients and the always-on clients, from styles_list_transpilers",
+      "status": "built",
+      "test": "src/plus/agents/BodyEditor.test.tsx"
     }
   },
   "owners": {
@@ -1933,13 +1981,13 @@
       "surface": "screen"
     },
     "agents_edit_body": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "agents",
+      "action": "agents.edit-body",
       "surface": "screen"
     },
     "agents_get": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "agents",
+      "action": "agents.edit-body",
       "surface": "screen"
     },
     "agents_lint": {
@@ -1953,8 +2001,8 @@
       "surface": "screen"
     },
     "agents_list_transpilers": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "agents",
+      "action": "agents.transpilers",
       "surface": "screen"
     },
     "agents_scaffold": {
@@ -2193,8 +2241,8 @@
       "surface": "screen"
     },
     "skills_delete": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "library",
+      "action": "skills.delete",
       "surface": "screen"
     },
     "skills_diff": {
@@ -2203,23 +2251,23 @@
       "surface": "screen"
     },
     "skills_edit_body": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "library",
+      "action": "skills.edit-body",
       "surface": "screen"
     },
     "skills_edit_frontmatter": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "library",
+      "action": "skills.edit-frontmatter",
       "surface": "screen"
     },
     "skills_get": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "library",
+      "action": "skills.edit-body",
       "surface": "screen"
     },
     "skills_git_push": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "library",
+      "action": "sources.library.push",
       "surface": "screen"
     },
     "skills_install": {
@@ -2238,8 +2286,8 @@
       "surface": "screen"
     },
     "skills_list_transpilers": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "library",
+      "action": "skills.transpilers",
       "surface": "screen"
     },
     "skills_resolve": {
@@ -2303,8 +2351,8 @@
       "surface": "screen"
     },
     "styles_active": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "agents",
+      "action": "styles.list",
       "surface": "screen"
     },
     "styles_apply": {
@@ -2323,13 +2371,13 @@
       "surface": "screen"
     },
     "styles_edit_body": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "agents",
+      "action": "styles.edit-body",
       "surface": "screen"
     },
     "styles_get": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "agents",
+      "action": "styles.edit-body",
       "surface": "screen"
     },
     "styles_lint": {
@@ -2343,8 +2391,8 @@
       "surface": "screen"
     },
     "styles_list_transpilers": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "agents",
+      "action": "styles.transpilers",
       "surface": "screen"
     },
     "styles_remove": {
