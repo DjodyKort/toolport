@@ -172,6 +172,7 @@ export interface ParitySummary {
   tools: number;
   commandRows: number;
   toolRows: number;
+  rowsOnBuilt: number;
   actionsBuilt: number;
   pending: number;
   waivers: number;
@@ -190,6 +191,9 @@ export function paritySummary(
     tools: registry.tools.length,
     commandRows: Object.keys(manifest.commands).length,
     toolRows: Object.keys(manifest.tools).length,
+    rowsOnBuilt: rows.filter(
+      (entry) => manifest.actions[entry.action]?.status === "built",
+    ).length,
     actionsBuilt: Object.values(manifest.actions).filter((a) => a.status === "built")
       .length,
     pending: report.pendingCommands.length + report.pendingTools.length,
@@ -199,7 +203,8 @@ export function paritySummary(
 
 export function summaryLine(s: ParitySummary): string {
   return (
-    `gui parity: ${s.commands} commands, ${s.tools} tools, ${s.commandRows + s.toolRows} manifest rows, ` +
-    `${s.actionsBuilt} screen actions built, ${s.pending} pending, ${s.waivers} waivers`
+    `gui parity: ${s.commands} commands + ${s.tools} tools = ${s.commandRows + s.toolRows} manifest rows, ` +
+    `${s.rowsOnBuilt} rows on built screen actions (${s.actionsBuilt} distinct actions), ` +
+    `${s.pending} pending, ${s.waivers} waivers`
   );
 }
