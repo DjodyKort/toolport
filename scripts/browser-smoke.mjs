@@ -631,13 +631,14 @@ async function pluginsScreen(shot, theme) {
   const dialog = shot.getByRole("dialog");
   const nav = shot.getByRole("navigation", { name: "Views" });
   const folder = "/home/demo/work/acme-erp";
+  await shot.evaluate(() => localStorage.removeItem("toolport.context.recent-folders"));
   await nav.getByRole("button", { name: "Library", exact: true }).click();
   await shot
     .getByRole("tablist", { name: "Library sections" })
     .getByRole("tab", { name: "Plugins", exact: true })
     .click();
   const list = shot.getByRole("list", { name: "Plugins", exact: true });
-  await expect(list.getByRole("listitem")).toHaveCount(2);
+  await expect(list.getByRole("button")).toHaveCount(2);
   const detail = shot.getByRole("region", { name: "Plugin ecc" });
   await expect(detail.getByText("Projected by Claude Code")).toBeVisible();
   await snap(`plugins-list-${theme}`);
@@ -646,7 +647,7 @@ async function pluginsScreen(shot, theme) {
     await expect(detail.getByText("Measured by Toolport")).toBeInViewport();
     await snap("plugins-detail-light");
   }
-  await shot.getByLabel("Folder").fill(folder);
+  await shot.getByLabel("Folder", { exact: true }).first().fill(folder);
   await shot.getByRole("button", { name: "Use folder" }).click();
   await expect(shot.getByRole("region", { name: "Plugin ecc" })).toBeVisible();
   await shot.getByLabel("Hook profile").selectOption("minimal");
@@ -677,11 +678,14 @@ async function pluginsScreen(shot, theme) {
   ).toBeVisible();
   await shot.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
+  await shot.evaluate(() => localStorage.removeItem("toolport.context.recent-folders"));
   await nav.getByRole("button", { name: "Context", exact: true }).click();
   await shot
     .getByRole("tablist", { name: "Context sections" })
     .getByRole("tab", { name: "Hooks", exact: true })
     .click();
+  await shot.getByLabel("Folder", { exact: true }).first().fill(folder);
+  await shot.getByRole("button", { name: "Show", exact: true }).click();
   const counts = shot.getByRole("group", { name: "Hook counts" });
   await expect(counts.getByText("Processes for one Bash call")).toBeVisible();
   await snap(`hooks-${theme}`);
@@ -697,7 +701,7 @@ async function pluginsScreen(shot, theme) {
     .getByRole("tab", { name: "Updates", exact: true })
     .click();
   const updates = shot.getByRole("list", { name: "Plugin updates" });
-  await expect(updates.getByText("ecc")).toBeVisible();
+  await expect(updates.getByText("ecc", { exact: true })).toBeVisible();
   if (theme === "light") {
     await toTop(updates);
     await snap("plugins-updates-light");
