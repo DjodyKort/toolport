@@ -501,6 +501,120 @@ async function systemScreen(shot, theme) {
   expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
 }
 
+// The Tasks screen on the stateful Tasks world: the list with a run that waits for you, that run
+// opened and continued, a scheduled task run from its plan to its end, the history with a log,
+// a draft made from a command, and the Refresh task action in Logins.
+async function tasksScreen(shot, theme) {
+  const snap = async (name) => {
+    await shot.mouse.move(900, 20);
+    await shot.evaluate(() => document.fonts.ready);
+    await guiShot(shot, name, { animations: "disabled" });
+  };
+  const dialog = shot.getByRole("dialog");
+  const nav = shot.getByRole("navigation", { name: "Views" });
+  await nav.getByRole("button", { name: "Tasks", exact: true }).click();
+  const tabs = shot.getByRole("tablist", { name: "Tasks sections" });
+  await expect(tabs).toBeVisible();
+  const list = shot.getByRole("list", { name: "Tasks", exact: true });
+  await expect(list.getByRole("listitem")).toHaveCount(5);
+  const summary = shot.getByRole("group", { name: "Summary" });
+  await expect(summary.getByText("Needs you")).toBeVisible();
+  await list.getByRole("button", { name: /Refresh the portal token/ }).click();
+  const detail = shot.getByRole("group", { name: "Refresh the portal token" });
+  await expect(detail.getByText("A run waits for you.")).toBeVisible();
+  await snap(`tasks-list-${theme}`);
+  if (theme === "light") {
+    await detail
+      .getByRole("region", { name: "What it does" })
+      .evaluate((element) => element.scrollIntoView({ block: "start" }));
+    await expect(detail.getByRole("list", { name: "Recent runs" })).toBeInViewport();
+    await snap("tasks-detail-light");
+  }
+  const open = detail.getByRole("button", { name: "Open run" });
+  await open.click();
+  const waiting = shot.getByRole("dialog", { name: "Run Refresh the portal token" });
+  await expect(waiting.getByRole("button", { name: "Continue" })).toBeVisible();
+  if (theme === "light") await snap("tasks-run-waiting-light");
+  await shot.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(open).toBeFocused();
+  await open.click();
+  await waiting.getByRole("button", { name: "Continue" }).click();
+  await expect(waiting.getByRole("listitem", { name: "1. Sign in" })).toHaveAttribute(
+    "data-status",
+    "ok",
+  );
+  await expect(waiting.getByRole("button", { name: "Continue" })).toHaveCount(0);
+  await waiting.getByRole("button", { name: "Close", exact: true }).last().click();
+  await expect(dialog).toHaveCount(0);
+
+  const row = list.getByRole("button", { name: /Nightly report/ });
+  await row.focus();
+  await shot.keyboard.press("Enter");
+  await expect(row).toHaveAttribute("aria-current", "true");
+  const nightly = shot.getByRole("group", { name: "Nightly report" });
+  await expect(nightly.getByRole("list", { name: "Recent runs" })).toBeVisible();
+  const runNow = nightly.getByRole("button", { name: "Run now…" });
+  await runNow.click();
+  await expect(dialog.getByText("Run task nightly-report (1 step)")).toBeVisible();
+  await expect(
+    dialog.getByText("Secret values are never shown or logged."),
+  ).toBeVisible();
+  if (theme === "light") await snap("tasks-run-plan-light");
+  await shot.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(runNow).toBeFocused();
+  await shot.keyboard.press("Enter");
+  await expect(dialog.getByText("Run task nightly-report (1 step)")).toBeVisible();
+  await dialog.getByRole("button", { name: "Run now", exact: true }).click();
+  await expect(dialog.getByText("The run finished.")).toBeVisible({ timeout: 20000 });
+  await dialog.getByRole("button", { name: "Close", exact: true }).last().click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    nightly.getByRole("list", { name: "Recent runs" }).getByRole("listitem"),
+  ).toHaveCount(2);
+
+  await tabs.getByRole("tab", { name: "History" }).click();
+  const runs = shot.getByRole("table", { name: "Runs" });
+  await expect(runs.getByRole("row")).toHaveCount(5);
+  await expect(runs.getByRole("button", { name: "Log of run-004" })).toBeVisible();
+  if (theme === "light") await snap("tasks-history-light");
+  await runs.getByRole("button", { name: "Log of run-004" }).click();
+  await expect(dialog.getByRole("heading")).toBeVisible();
+  await shot.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+
+  await tabs.getByRole("tab", { name: "Tasks", exact: true }).click();
+  await shot.getByRole("button", { name: "Create from a command…" }).click();
+  await dialog.getByRole("radio", { name: /odoo-upgrade/ }).check();
+  await dialog.getByRole("button", { name: "Review draft" }).click();
+  await expect(dialog.getByText("write the new task odoo-upgrade")).toBeVisible();
+  await dialog.getByRole("button", { name: "Create draft" }).click();
+  await expect(dialog.getByText("Done")).toBeVisible();
+  await dialog.getByRole("button", { name: "Close", exact: true }).last().click();
+  await expect(dialog).toHaveCount(0);
+  await expect(list.getByRole("listitem")).toHaveCount(6);
+  await expect(list.getByRole("button", { name: /Run odoo-upgrade/ })).toBeVisible();
+
+  await nav.getByRole("button", { name: "Settings", exact: true }).click();
+  await shot.getByRole("button", { name: "Open Logins & secrets" }).click();
+  await expect(shot.getByRole("table", { name: "Logins" })).toBeVisible();
+  const refresh = shot.getByRole("button", { name: "Refresh task for acme-erp" });
+  await expect(refresh).toBeVisible();
+  await expect(
+    shot.getByRole("button", { name: "Refresh task for issue-tracker" }),
+  ).toBeVisible();
+  if (theme === "light") {
+    await refresh.scrollIntoViewIfNeeded();
+    await snap("logins-refresh-task-light");
+  }
+  await refresh.click();
+  await expect(dialog.getByText("Run task erp-token (1 step)")).toBeVisible();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
+}
+
 let browser;
 let context;
 let page;
@@ -952,6 +1066,17 @@ try {
     await shot.goto(`${baseURL}/fixtures/`);
     await contextTabsScreen(shot, theme);
     expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
+    await shot.close();
+  }
+  for (const theme of ["light", "dark"]) {
+    const shot = await context.newPage();
+    await shot.addInitScript((choice) => {
+      localStorage.setItem("toolport-theme", choice);
+    }, theme);
+    await shot.setViewportSize({ width: 1280, height: 800 });
+    await watch(shot);
+    await shot.goto(`${baseURL}/fixtures/`);
+    await tasksScreen(shot, theme);
     await shot.close();
   }
   expect(errors).toEqual([]);

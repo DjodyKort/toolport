@@ -26,13 +26,22 @@ const argvs = [
   "task show portal-token",
   "task show nightly-report",
   "task show draft-cleanup",
+  "task show erp-token",
+  "task show issues-token",
+  "task show odoo-upgrade",
   "task history --run run-fixture-ok",
   "task history --run run-fixture-waiting",
   ...both("task run portal-token"),
   ...both("task run nightly-report"),
+  ...both("task run erp-token"),
+  ...both("task run issues-token"),
+  ...[4, 5, 6].map((n) => `task history --run run-00${n}`),
   "task resume run-fixture-waiting",
   "task cancel run-fixture-waiting",
   ...both("task rm draft-cleanup"),
+  ...both(
+    "task add odoo-upgrade --from-command /home/demo/.claude/commands/odoo-upgrade.md",
+  ),
 ];
 
 export const tasksBrowserFixtures: Array<[string, unknown]> = argvs.map(
