@@ -1136,6 +1136,30 @@
       "status": "built",
       "test": "src/plus/plugins/PluginsHooks.e2e.test.tsx"
     },
+    "plugins.off": {
+      "route": "library",
+      "summary": "Turn a plugin off in the chosen folder (Library > Plugins, and Off here on a plugin row of Context > This folder): dry-run plan with what goes away and what stays, confirm, apply, the undo command; a plan that would write nothing says so",
+      "status": "built",
+      "test": "src/plus/plugins/PluginsHooks.e2e.test.tsx"
+    },
+    "plugins.on": {
+      "route": "library",
+      "summary": "Turn a plugin back on in the folder where it was turned off: plan, confirm, apply, the undo command; a setting Toolport did not write is left alone and said so",
+      "status": "built",
+      "test": "src/plus/plugins/PluginsHooks.e2e.test.tsx"
+    },
+    "plugins.disable": {
+      "route": "library",
+      "summary": "Disable a plugin for every project (user scope, the exact claude plugin command shown): plan, then a typed confirmation of the plugin id, apply, the undo command; a missing claude or an unknown plugin is shown as the refusal",
+      "status": "built",
+      "test": "src/plus/plugins/PluginsHooks.e2e.test.tsx"
+    },
+    "plugins.enable": {
+      "route": "library",
+      "summary": "Enable a plugin again for every project (user scope): plan, confirm, apply, the undo command",
+      "status": "built",
+      "test": "src/plus/plugins/PluginsHooks.e2e.test.tsx"
+    },
     "hooks.ls": {
       "route": "context",
       "summary": "Context > Hooks: folder and tool pickers, the strip (processes for the tool, per answer besides tool calls, run order, who can switch), the before and after lists with owner, background or waits and switch method, the conflicts callout; counted from matchers, not timed",
@@ -1638,13 +1662,13 @@
       "surface": "screen"
     },
     "plugins disable": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "plugins.disable",
       "surface": "screen"
     },
     "plugins enable": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "plugins.enable",
       "surface": "screen"
     },
     "plugins ls": {
@@ -1658,13 +1682,13 @@
       "surface": "screen"
     },
     "plugins off": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "plugins.off",
       "surface": "screen"
     },
     "plugins on": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "plugins.on",
       "surface": "screen"
     },
     "plugins show": {
