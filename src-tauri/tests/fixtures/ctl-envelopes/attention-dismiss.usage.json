@@ -1,0 +1,13 @@
+{
+  "argv": ["attention", "dismiss", "tasks:portal-token:waiting", "--until", "soon"],
+  "envelope": {
+    "command": "attention dismiss",
+    "error": {
+      "code": "usage",
+      "message": "--until must be a calendar date like 2026-10-31, got \"soon\""
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

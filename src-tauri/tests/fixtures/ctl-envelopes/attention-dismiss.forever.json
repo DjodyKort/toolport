@@ -1,0 +1,20 @@
+{
+  "argv": ["attention", "dismiss", "later:feed"],
+  "envelope": {
+    "command": "attention dismiss",
+    "data": {
+      "dryRun": false,
+      "id": "later:feed",
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["<WORLD>/data/plus/attention.json"],
+        "undo": "toolportctl attention dismiss later:feed --until 2026-10-05"
+      },
+      "until": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

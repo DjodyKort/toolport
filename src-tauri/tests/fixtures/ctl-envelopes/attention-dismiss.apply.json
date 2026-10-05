@@ -1,0 +1,20 @@
+{
+  "argv": ["attention", "dismiss", "tasks:portal-token:waiting", "--until", "2099-01-01"],
+  "envelope": {
+    "command": "attention dismiss",
+    "data": {
+      "dryRun": false,
+      "id": "tasks:portal-token:waiting",
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["<WORLD>/data/plus/attention.json"],
+        "undo": "toolportctl attention dismiss tasks:portal-token:waiting --until 2026-10-05"
+      },
+      "until": "2099-01-01"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

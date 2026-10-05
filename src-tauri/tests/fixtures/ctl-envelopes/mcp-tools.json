@@ -352,6 +352,21 @@
           "tier": 2
         },
         {
+          "description": "List everything that wants a decision across Toolport, most urgent first: needs-you (a login that expired, a task waiting for you or failed, a missing secret), look (skills Claude cannot see, a source behind its remote, a duplicate clone, compression drift, a bundle waiting to be applied, a plugin server that bypasses the gateway) and fyi. Reads local state only, never the network. Rows the user dismissed are left out. Read only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "attention_ls",
+          "params": [
+            {
+              "description": "Only rows of this level: needs-you, look or fyi",
+              "name": "level",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
           "description": "Show the skills library against its remote: branch, commits ahead and behind, uncommitted files, how git authenticates (gh, a credential helper or ssh) and any other clone of the same remote with its own counts. Pass fetch to contact the remote and test the credentials; without it nothing touches the network. Read only",
           "dryRunDefault": false,
           "gate": "none",

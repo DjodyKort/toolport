@@ -1,0 +1,28 @@
+{
+  "argv": ["attention", "dismiss", "tasks:portal-token:waiting", "--dry-run"],
+  "envelope": {
+    "command": "attention dismiss",
+    "data": {
+      "dryRun": true,
+      "id": "tasks:portal-token:waiting",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "write the entry in <WORLD>/data/plus/attention.json",
+            "keys": ["dismissed"],
+            "op": "merge",
+            "path": "<WORLD>/data/plus/attention.json"
+          }
+        ],
+        "summary": "Hide tasks:portal-token:waiting for good",
+        "undo": "toolportctl attention dismiss tasks:portal-token:waiting --until 2026-10-05",
+        "warnings": []
+      },
+      "until": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

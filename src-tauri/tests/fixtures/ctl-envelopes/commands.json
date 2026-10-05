@@ -6213,6 +6213,120 @@
           "flags": [
             {
               "aliases": [],
+              "choices": ["needs-you", "look", "fyi"],
+              "effect": "Only rows of this level",
+              "escalates": false,
+              "hidden": false,
+              "name": "--level",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            }
+          ],
+          "group": "attention",
+          "id": "attention ls",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "attention",
+          "path": ["attention", "ls"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "List what wants a decision, most urgent first: needs-you, look, fyi (--level filters; reads local state only)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["attention_ls"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Hide the row until this date (YYYY-MM-DD); it returns on that day. Without it the row stays hidden",
+              "escalates": false,
+              "hidden": false,
+              "name": "--until",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "attention",
+          "id": "attention dismiss",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "id",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "attention",
+          "path": ["attention", "dismiss"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Hide one attention row until a date or for good (--until, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": null,
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "attention",
+          "id": "attention",
+          "kind": "group",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["attention"],
+          "planned": false,
+          "preview": null,
+          "summary": "Attention: ls dismiss",
+          "surface": null,
+          "tier": null,
+          "tools": []
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
               "effect": "Folder whose project and local settings decide which plugins are on (default: user settings only)",
               "escalates": false,
               "hidden": false,
@@ -10021,10 +10135,10 @@
         }
       ],
       "counts": {
-        "commands": 166,
-        "groups": 31,
-        "rows": 197,
-        "tools": 99
+        "commands": 168,
+        "groups": 32,
+        "rows": 200,
+        "tools": 100
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
       "tiers": ["read", "write", "destructive"],
@@ -10119,6 +10233,13 @@
           "name": "tasks_cancel",
           "tier": "write",
           "toolTier": 2
+        },
+        {
+          "command": "attention ls",
+          "dryRun": "none",
+          "name": "attention_ls",
+          "tier": "read",
+          "toolTier": 1
         },
         {
           "command": "library status",
