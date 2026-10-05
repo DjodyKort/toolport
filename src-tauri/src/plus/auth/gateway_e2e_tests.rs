@@ -767,3 +767,37 @@ fn auth_login_without_a_browser_leaves_the_consent_url_to_the_caller() {
         assert!(vaulted("figma", "__oauth_state__").is_some());
     });
 }
+
+/// MIG-AUTH-11 regression: a `GatewayState` remote (generic vault-secret server, MIG-AUTH-9)
+/// whose vendor is known to authenticate with a static API token (e.g. miro) must not be
+/// hinted with the dead-end `auth login` (`login::plan` refuses it); it needs `secret set`.
+/// `revenuecat` stands in for miro here (`vendors.rs`'s `force_kind: Some("token")`), which
+/// classifies deterministically without any live network probe, keeping this test hermetic.
+#[test]
+fn a_static_token_vendor_remote_is_hinted_with_secret_set_not_auth_login() {
+    with_world(|| {
+        write_remote(&remote("revenuecat", "https://mcp.revenuecat.ai/mcp"));
+        let prober = super::scan::default_prober().unwrap();
+        let run = super::scan::run(
+            &prober,
+            &super::scan::Selector::One("revenuecat".into()),
+            true,
+            1,
+        )
+        .unwrap();
+        assert_eq!(run.reports[0].tracked.state, AuthState::NeedsReauth);
+        assert_eq!(run.reports[0].tracked.reason, "no_token");
+
+        let status = prober.store().lock().unwrap().load_status();
+        assert_eq!(
+            status.servers["revenuecat"].hint_kind,
+            ProbeHintKind::ApiToken,
+            "a static-token vendor must not fall back to the OAuth hint"
+        );
+
+        let value = super::scan::report_value(&run, "server", &status, 0);
+        let command = value["servers"][0]["fix"]["command"].as_str().unwrap();
+        assert!(command.contains("secret set revenuecat"), "{command}");
+        assert!(!command.contains("auth login"), "{command}");
+    });
+}

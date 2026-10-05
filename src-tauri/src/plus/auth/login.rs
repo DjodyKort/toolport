@@ -128,7 +128,10 @@ pub fn plan(
     )
 }
 
-fn remote_facts(server: &ServerEntry) -> RemoteFacts {
+/// `pub(crate)`: also reused by `prober::gateway_hint_kind` to route a `GatewayState`
+/// probe's dead `auth login` hint to `secret set` for API-token remotes (MIG-AUTH-11),
+/// so the two surfaces never classify the same remote's auth mechanism differently.
+pub(crate) fn remote_facts(server: &ServerEntry) -> RemoteFacts {
     let held = |key: &str| {
         crate::secrets::get_secret_result(&server.id, key)
             .ok()
