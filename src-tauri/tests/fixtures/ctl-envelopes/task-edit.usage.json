@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "edit", "nightly-report"],
+  "envelope": {
+    "command": "task edit",
+    "error": {
+      "code": "usage",
+      "message": "usage: task edit <id> --file <task.json> [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

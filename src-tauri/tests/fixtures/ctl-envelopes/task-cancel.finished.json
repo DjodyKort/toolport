@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "cancel", "run-fixture-ok"],
+  "envelope": {
+    "command": "task cancel",
+    "error": {
+      "code": "conflict",
+      "message": "run run-fixture-ok already ended"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

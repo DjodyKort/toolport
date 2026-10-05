@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "history", "--limit", "many"],
+  "envelope": {
+    "command": "task history",
+    "error": {
+      "code": "usage",
+      "message": "--limit needs a whole number"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

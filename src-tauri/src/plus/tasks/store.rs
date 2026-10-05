@@ -69,7 +69,8 @@ pub fn backup_task(id: &str) -> Result<Option<PathBuf>, OpError> {
     let path = task_path(id)?;
     let Ok(text) = fs::read_to_string(&path) else { return Ok(None) };
     let dir = tasks_dir()?.join(".backups");
-    let backup = dir.join(format!("{id}.{}.json", now()));
+    let millis = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+    let backup = dir.join(format!("{millis:013}-{id}.json"));
     write(&backup, &text)?;
     Ok(Some(backup))
 }

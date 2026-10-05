@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "history", "portal-token", "--run", "run-fixture-ok"],
+  "envelope": {
+    "command": "task history",
+    "error": {
+      "code": "not_found",
+      "message": "run run-fixture-ok belongs to task \"nightly-report\", not \"portal-token\""
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "rm", "no-such-task", "--dry-run"],
+  "envelope": {
+    "command": "task rm",
+    "error": {
+      "code": "not_found",
+      "message": "no task \"no-such-task\""
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

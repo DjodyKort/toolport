@@ -1,0 +1,56 @@
+{
+  "argv": ["task", "run", "nightly-report"],
+  "envelope": {
+    "command": "task run",
+    "data": {
+      "dryRun": false,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "1. Say hello (exec): run echo report",
+            "op": "exec"
+          }
+        ],
+        "summary": "Run task nightly-report (1 step)",
+        "undo": "toolportctl task cancel <run-id>",
+        "warnings": []
+      },
+      "requires": {
+        "commands": ["echo"],
+        "servers": []
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["<WORLD>/data/plus/task-runs/run-<RUN>.json"],
+        "undo": "toolportctl task cancel run-<RUN>"
+      },
+      "run": {
+        "durationMs": null,
+        "endedAt": null,
+        "error": null,
+        "id": "run-<RUN>",
+        "startedAt": "<TIME>",
+        "status": "running",
+        "steps": [
+          {
+            "endedAt": null,
+            "id": "say",
+            "startedAt": null,
+            "status": "pending",
+            "title": "Say hello",
+            "type": "exec"
+          }
+        ],
+        "task": "nightly-report",
+        "trigger": "manual"
+      },
+      "secrets": [],
+      "task": "nightly-report"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

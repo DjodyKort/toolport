@@ -1,0 +1,32 @@
+{
+  "argv": ["task", "history", "--run", "run-fixture-ok"],
+  "envelope": {
+    "command": "task history",
+    "data": {
+      "run": {
+        "durationMs": 0,
+        "endedAt": "<TIME>",
+        "error": null,
+        "id": "run-fixture-ok",
+        "startedAt": "<TIME>",
+        "status": "ok",
+        "steps": [
+          {
+            "endedAt": "<TIME>",
+            "id": "say",
+            "output": "report",
+            "startedAt": "<TIME>",
+            "status": "ok",
+            "title": "Say hello",
+            "type": "exec"
+          }
+        ],
+        "task": "nightly-report",
+        "trigger": "schedule"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

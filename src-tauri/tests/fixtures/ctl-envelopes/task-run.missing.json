@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "run", "no-such-task"],
+  "envelope": {
+    "command": "task run",
+    "error": {
+      "code": "not_found",
+      "message": "no task \"no-such-task\" (looked in <WORLD>/data/plus/tasks/no-such-task.json)"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

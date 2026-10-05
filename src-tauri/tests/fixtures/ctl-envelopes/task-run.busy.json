@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "run", "portal-token"],
+  "envelope": {
+    "command": "task run",
+    "error": {
+      "code": "conflict",
+      "message": "task \"portal-token\" is already running as run-fixture-waiting"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

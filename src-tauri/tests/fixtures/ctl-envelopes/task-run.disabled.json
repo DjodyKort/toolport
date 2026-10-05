@@ -1,0 +1,35 @@
+{
+  "argv": ["task", "run", "draft-cleanup", "--dry-run"],
+  "envelope": {
+    "command": "task run",
+    "data": {
+      "dryRun": true,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "1. Ask Claude (prompt): ask Claude: Ask Claude (tools: Read)",
+            "op": "note"
+          }
+        ],
+        "summary": "Run task draft-cleanup (1 step)",
+        "undo": "toolportctl task cancel <run-id>",
+        "warnings": [
+          "task \"draft-cleanup\" is disabled: enable it first (task edit)",
+          "task \"draft-cleanup\" is already running as run-fixture-stale"
+        ]
+      },
+      "requires": {
+        "commands": [],
+        "servers": []
+      },
+      "result": null,
+      "run": null,
+      "secrets": [],
+      "task": "draft-cleanup"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}
