@@ -109,6 +109,8 @@ const PAGES = [
   "plugins-settings-light",
   "plugins-plan-light",
   "plugins-mcp-light",
+  "plugins-off-plan-light",
+  "plugins-disable-confirm-light",
   "hooks-light",
   "hooks-dark",
   "hooks-conflicts-light",
