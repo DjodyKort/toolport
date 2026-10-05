@@ -169,7 +169,9 @@ export function createTabsWorld(host: TabsHost, fresh: boolean) {
 
   const ownedKeys = (b: Bundle) => ({
     claudeMdExcludes: b.layersExclude,
+    deniedMcpServers: [] as string[],
     enabledPlugins: b.pluginsOff,
+    env: [] as string[],
     permissionsDeny: b.agentsOff.map((agent) => `Agent(${agent})`),
     skillOverrides: [...b.skillsOff, ...b.skillsNameOnly],
   });
@@ -488,9 +490,10 @@ export function createTabsWorld(host: TabsHost, fresh: boolean) {
     issues: issuesOf(b),
     layers: { add: b.layersAdd, exclude: b.layersExclude },
     legacy: b.legacy,
+    mcp: { deny: [] as string[] },
     name: b.name,
     path: pathOf(b.name),
-    plugins: { off: b.pluginsOff },
+    plugins: { config: {}, off: b.pluginsOff },
     servers: b.servers,
     skills: { allow: b.skillsAllow, nameOnly: b.skillsNameOnly, off: b.skillsOff },
     yaml: yamlOf(b),
