@@ -283,15 +283,27 @@ impl Probe for GoogleRefreshProbe {
 pub fn google_registry(registry: &crate::registry::Registry) -> super::ProbeRegistry {
     let mut reg = super::ProbeRegistry::new();
     for server in &registry.servers {
-        let profile = server
-            .env
-            .iter()
-            .find(|e| e.key == "GOOGLE_MCP_PROFILE" && !e.secret)
+        let profile_env = server.env.iter().find(|e| e.key == "GOOGLE_MCP_PROFILE");
+        let profile = profile_env
+            .filter(|e| !e.secret)
             .and_then(|e| e.value.as_deref())
             .filter(|p| valid_profile(p));
+        // No GOOGLE_MCP_PROFILE at all (not just unusable) means the default
+        // account; google-docs-mcp's own client id/secret env keys identify it
+        // as a google server even then.
+        let is_default_account = profile_env.is_none()
+            && server
+                .env
+                .iter()
+                .any(|e| e.key == VAULT_CLIENT_ID || e.key == VAULT_CLIENT_SECRET);
         if let Some(profile) = profile {
             reg.register(
                 ProbeSpec::new(&server.id, super::ProbeKind::GoogleRefresh).with_profile(profile),
+            );
+        } else if is_default_account {
+            reg.register(
+                ProbeSpec::new(&server.id, super::ProbeKind::GoogleRefresh)
+                    .with_profile("default"),
             );
         }
     }
