@@ -112,7 +112,7 @@ pub fn bundle_env(registry: &Registry, config: &[(String, Vec<(String, String)>)
     (env.into_iter().collect(), warnings)
 }
 
-fn quote(text: &str) -> String {
+pub(super) fn quote(text: &str) -> String {
     if !text.is_empty() && text.chars().all(|c| c.is_ascii_alphanumeric() || "_./-:@%+=,~*".contains(c)) {
         text.to_string()
     } else {
@@ -128,7 +128,7 @@ pub struct ConfigArgs<'a> {
     pub dry_run: bool,
 }
 
-fn host_failure(f: Failure) -> OpError {
+pub(super) fn host_failure(f: Failure) -> OpError {
     match f {
         Failure::Missing(m) => OpError::not_found(m),
         Failure::Failed(m) => OpError::conflict(m),
@@ -152,7 +152,7 @@ fn adapter_of<'a>(registry: &'a Registry, plugin: &Installed) -> Result<&'a Adap
     })
 }
 
-fn folder(cwd: &Path) -> Result<PathBuf, OpError> {
+pub(super) fn folder(cwd: &Path) -> Result<PathBuf, OpError> {
     if !fsx::is_dir(cwd) {
         return Err(OpError::usage(format!("cwd is not a folder: {}", cwd.display())));
     }
@@ -164,7 +164,7 @@ fn plan_of(summary: String, run: &Run, mut warnings: Vec<String>, undo: String) 
     PlanV1 { summary, steps: run.steps.clone(), effects: Effects::default(), warnings, undo }
 }
 
-fn envelope(id: &str, scope: &str, cwd: Option<&Path>, dry: bool, plan: &PlanV1, result: Option<ResultV1>, extra: Value) -> Value {
+pub(super) fn envelope(id: &str, scope: &str, cwd: Option<&Path>, dry: bool, plan: &PlanV1, result: Option<ResultV1>, extra: Value) -> Value {
     let mut out = json!({
         "id": id, "scope": scope, "cwd": cwd.map(fsx::display), "dryRun": dry,
         "plan": plan, "result": result,

@@ -7,11 +7,11 @@ use crate::plus::op::OpError;
 use serde_json::Value;
 use std::path::PathBuf;
 
-fn env() -> Result<Env, OpError> {
+pub(super) fn env() -> Result<Env, OpError> {
     Env::host().ok_or_else(|| OpError::failed("no_home", "home directory could not be resolved"))
 }
 
-fn folder(raw: Option<&str>) -> Result<Option<PathBuf>, OpError> {
+pub(super) fn folder(raw: Option<&str>) -> Result<Option<PathBuf>, OpError> {
     let cwd = absolute_cwd(raw).map_err(OpError::usage)?;
     match cwd {
         Some(dir) if !dir.is_dir() => Err(OpError::usage(format!(

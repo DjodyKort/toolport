@@ -2,6 +2,7 @@
 
 use crate::plus::exec::run_command_input;
 use crate::plus::update::exec::{is_not_found, run_command, CmdOutput};
+use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
 
@@ -14,6 +15,11 @@ pub trait ClaudeRunner: Sync {
     /// showing up in an argument list.
     fn run_with_input(&self, _args: &[&str], _input: &str, _timeout: Duration) -> Result<CmdOutput, String> {
         Err("this runner cannot feed stdin".to_string())
+    }
+
+    /// Whether the binary can be found, without starting it.
+    fn present(&self) -> bool {
+        true
     }
 }
 
@@ -55,5 +61,15 @@ impl ClaudeRunner for SystemClaude {
 
     fn run_with_input(&self, args: &[&str], input: &str, timeout: Duration) -> Result<CmdOutput, String> {
         self.start(args, Some(input), timeout)
+    }
+
+    fn present(&self) -> bool {
+        let bin = Path::new(&self.bin);
+        if bin.components().count() > 1 {
+            return bin.is_file();
+        }
+        std::env::var_os("PATH").is_some_and(|path| {
+            std::env::split_paths(&path).any(|dir| dir.join(bin).is_file() || dir.join(bin).with_extension("exe").is_file())
+        })
     }
 }
