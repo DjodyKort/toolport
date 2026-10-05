@@ -162,7 +162,7 @@
       "route": "servers",
       "status": "built",
       "test": "src/plus/servers/ProfilesTab.test.tsx",
-      "summary": "Rename a profile or change its servers with a client-impact preview (profile edit)"
+      "summary": "Rename a profile or change its servers with a client-impact preview (profile edit); its switch is also servers_remove_profile_tag (both end in apply_server_enabled)"
     },
     "servers.profile-delete": {
       "route": "servers",
@@ -1069,6 +1069,48 @@
       "summary": "Converted for: the native-toggle clients and the always-on clients, from styles_list_transpilers",
       "status": "built",
       "test": "src/plus/agents/BodyEditor.test.tsx"
+    },
+    "servers.detect-source": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ServerTools.test.tsx",
+      "summary": "Where a server came from: kind, stored or only detected, path and branch (servers_detect_source, read on request)"
+    },
+    "servers.git-status": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ServerTools.test.tsx",
+      "summary": "Git state of a checkout: branch, upstream, ahead and behind, uncommitted changes and the upstream commits (servers_git_status, read after the source is git)"
+    },
+    "servers.check-updates": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ServerTools.test.tsx",
+      "summary": "Check one server for updates from its detail, with the update command it would run (servers_check_updates; System > Updates lists every server through the update command)"
+    },
+    "servers.apply-update": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ServerTools.test.tsx",
+      "summary": "Update one server after a plan that names its stored update command (servers_apply_update, confirm=true, D-079)"
+    },
+    "servers.fork-sync": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ServerTools.test.tsx",
+      "summary": "Sync a git checkout with its upstream onto a new branch after a plan (servers_fork_sync, confirm=true; a conflict is shown as a stopped sync)"
+    },
+    "servers.set-mode": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ServerTools.test.tsx",
+      "summary": "Mode of a server: Toolport+ has no per-server modes, so the confirmed call changes nothing and says so (servers_set_mode, D-008)"
+    },
+    "servers.add-profile-tag": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ServerTools.test.tsx",
+      "summary": "Add a server to a profile by name; a new name creates the profile, which profile edit cannot do (servers_add_profile_tag)"
     }
   },
   "owners": {
@@ -2151,13 +2193,13 @@
       "surface": "screen"
     },
     "servers_add_profile_tag": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "servers",
+      "action": "servers.add-profile-tag",
       "surface": "screen"
     },
     "servers_apply_update": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "servers",
+      "action": "servers.apply-update",
       "surface": "screen"
     },
     "servers_auth": {
@@ -2166,18 +2208,18 @@
       "surface": "screen"
     },
     "servers_check_updates": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "servers",
+      "action": "servers.check-updates",
       "surface": "screen"
     },
     "servers_detect_source": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "servers",
+      "action": "servers.detect-source",
       "surface": "screen"
     },
     "servers_fork_sync": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "servers",
+      "action": "servers.fork-sync",
       "surface": "screen"
     },
     "servers_get": {
@@ -2186,8 +2228,8 @@
       "surface": "screen"
     },
     "servers_git_status": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "servers",
+      "action": "servers.git-status",
       "surface": "screen"
     },
     "servers_install": {
@@ -2206,13 +2248,13 @@
       "surface": "screen"
     },
     "servers_remove_profile_tag": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "servers",
+      "action": "servers.profile-edit",
       "surface": "screen"
     },
     "servers_set_mode": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "servers",
+      "action": "servers.set-mode",
       "surface": "screen"
     },
     "servers_uninstall": {
