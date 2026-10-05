@@ -3,12 +3,28 @@ use serde_json::{json, Value};
 use std::path::Path;
 use std::sync::Arc;
 
-use super::cache::{AuthStore, EdgeEvent, ServerEntry, StatusFile};
+use super::cache::{AuthStore, EdgeEvent, ProbeHintKind, ServerEntry, StatusFile};
 use super::flight::SingleFlight;
+use super::http_probes::PARAM_TOKEN_KEY;
 use super::issues::compute_issues;
 use super::machine::step;
-use super::probe::{Clock, Probe, ProbeRegistry, ProbeSpec, BACKOFF_CAP_SECS};
+use super::probe::{Clock, Probe, ProbeKind, ProbeRegistry, ProbeSpec, BACKOFF_CAP_SECS};
 use super::types::Tracked;
+
+impl From<ProbeKind> for ProbeHintKind {
+    fn from(kind: ProbeKind) -> Self {
+        match kind {
+            ProbeKind::Http => ProbeHintKind::ApiToken,
+            // GoogleRefresh, GatewayState and Stdio all resolve to `Plan::Browser`
+            // or `Plan::Stdio` in `login::plan`, so `auth login` works for them.
+            // No probe kind models the "gcloud" step from D-104 yet (it is not
+            // implemented: STITCH_USE_SYSTEM_GCLOUD is not read by any probe).
+            ProbeKind::GoogleRefresh | ProbeKind::GatewayState | ProbeKind::Stdio => {
+                ProbeHintKind::OAuth
+            }
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Trigger {
@@ -187,6 +203,8 @@ impl AuthProber {
             tracked: next.clone(),
             last_probe_at: Some(finished),
             next_due_at: finished + delay,
+            hint_kind: ProbeHintKind::from(spec.kind),
+            token_key: spec.params.get(PARAM_TOKEN_KEY).cloned(),
         };
         status.servers.insert(spec.server.clone(), entry.clone());
         guard.save_status(&status)?;
@@ -214,6 +232,8 @@ fn fresh_entry(now: i64) -> ServerEntry {
         tracked: Tracked::unknown(now),
         last_probe_at: None,
         next_due_at: 0,
+        hint_kind: ProbeHintKind::default(),
+        token_key: None,
     }
 }
 

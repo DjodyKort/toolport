@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use serde_json::json;
 
-use super::cache::ServerEntry;
+use super::cache::{ProbeHintKind, ServerEntry};
 use super::surfaces::*;
 use super::*;
 
@@ -10,6 +10,16 @@ const NOW: i64 = 2_000_000;
 const FAKE_TOKEN: &str = "FAKE-REFRESH-TOKEN-do-not-print-91c2";
 
 fn entry(state: AuthState, reason: &str, last: Option<i64>) -> ServerEntry {
+    entry_with_hint(state, reason, last, ProbeHintKind::OAuth, None)
+}
+
+fn entry_with_hint(
+    state: AuthState,
+    reason: &str,
+    last: Option<i64>,
+    hint_kind: ProbeHintKind,
+    token_key: Option<&str>,
+) -> ServerEntry {
     ServerEntry {
         tracked: Tracked {
             state,
@@ -19,6 +29,8 @@ fn entry(state: AuthState, reason: &str, last: Option<i64>) -> ServerEntry {
         },
         last_probe_at: last,
         next_due_at: NOW + 60,
+        hint_kind,
+        token_key: token_key.map(str::to_string),
     }
 }
 
@@ -101,13 +113,125 @@ fn fix_descriptor_per_state() {
         (AuthState::Unknown, None),
     ];
     for (state, expected) in cases {
-        let fix = fix_action("alpha", &state);
+        let fix = fix_action("alpha", &state, ProbeHintKind::OAuth, None);
         assert_eq!(fix.as_ref().map(|f| f.action), expected, "{state:?}");
     }
-    let retry = fix_action("alpha", &AuthState::Unreachable).unwrap();
+    let retry = fix_action("alpha", &AuthState::Unreachable, ProbeHintKind::OAuth, None).unwrap();
     assert_eq!(
         retry.ipc.unwrap(),
         json!({"command": "plus.auth.probe", "args": {"server": "alpha", "force": true}})
+    );
+}
+
+#[test]
+fn fix_descriptor_api_token_kind_points_at_secret_set_not_login() {
+    for state in [
+        AuthState::NeedsReauth,
+        AuthState::Expiring { eta: 1 },
+        AuthState::Revoked,
+    ] {
+        let fix = fix_action(
+            "stitch",
+            &state,
+            ProbeHintKind::ApiToken,
+            Some("STITCH_API_KEY"),
+        )
+        .unwrap();
+        assert_eq!(fix.action, "fix_config", "{state:?}");
+        assert_eq!(
+            fix.command.as_deref(),
+            Some(
+                "toolportctl secret set stitch STITCH_API_KEY (value on stdin or --value-env <VAR>), then toolportctl auth probe --server stitch --force"
+            ),
+            "{state:?}"
+        );
+        assert!(!fix.label.contains("Sign in"), "{state:?}: {}", fix.label);
+    }
+    let no_key = fix_action("stitch", &AuthState::Revoked, ProbeHintKind::ApiToken, None).unwrap();
+    assert!(no_key.command.unwrap().contains("secret set stitch <KEY>"));
+    let oauth_unaffected =
+        fix_action("stitch", &AuthState::NeedsReauth, ProbeHintKind::OAuth, None).unwrap();
+    assert_eq!(
+        oauth_unaffected.command.as_deref(),
+        Some("toolportctl auth login stitch")
+    );
+}
+
+#[test]
+fn rows_value_api_token_row_shows_secret_set_not_login() {
+    let mut status = StatusFile::default();
+    status.servers.insert(
+        "stitch".to_string(),
+        entry_with_hint(
+            AuthState::NeedsReauth,
+            "invalid_grant",
+            Some(NOW - 10),
+            ProbeHintKind::ApiToken,
+            Some("STITCH_API_KEY"),
+        ),
+    );
+    let value = rows_value(&status, NOW);
+    assert_eq!(
+        value["rows"][0]["fix"],
+        json!({
+            "action": "fix_config",
+            "server": "stitch",
+            "label": "Set the API token for stitch",
+            "command": "toolportctl secret set stitch STITCH_API_KEY (value on stdin or --value-env <VAR>), then toolportctl auth probe --server stitch --force",
+            "ipc": null
+        })
+    );
+}
+
+#[test]
+fn hook_context_uses_secret_set_label_for_api_token_kind() {
+    let mut status = StatusFile::default();
+    status.servers.insert(
+        "stitch".to_string(),
+        entry_with_hint(
+            AuthState::Revoked,
+            "invalid_grant",
+            Some(NOW - 10),
+            ProbeHintKind::ApiToken,
+            Some("STITCH_API_KEY"),
+        ),
+    );
+    let loud = hook(&status, NOW);
+    let context = loud["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap();
+    assert!(context.contains("stitch: revoked (Set the API token for stitch)"));
+    assert!(!context.contains("Sign in"));
+    assert!(!context.contains("auth login"));
+}
+
+#[test]
+fn statusline_is_identical_regardless_of_hint_kind() {
+    let mut oauth_status = StatusFile::default();
+    oauth_status.servers.insert(
+        "stitch".to_string(),
+        entry_with_hint(
+            AuthState::NeedsReauth,
+            "invalid_grant",
+            Some(NOW - 10),
+            ProbeHintKind::OAuth,
+            None,
+        ),
+    );
+    let mut api_token_status = StatusFile::default();
+    api_token_status.servers.insert(
+        "stitch".to_string(),
+        entry_with_hint(
+            AuthState::NeedsReauth,
+            "invalid_grant",
+            Some(NOW - 10),
+            ProbeHintKind::ApiToken,
+            Some("STITCH_API_KEY"),
+        ),
+    );
+    assert_eq!(
+        statusline(&oauth_status, NOW),
+        statusline(&api_token_status, NOW)
     );
 }
 

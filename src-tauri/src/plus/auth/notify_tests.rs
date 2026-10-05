@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use super::cache::{EdgeEvent, ServerEntry};
+use super::cache::{EdgeEvent, ProbeHintKind, ServerEntry};
 use super::notify::{due, notifications_at, Notified};
 use super::surfaces::NOTIFY_DEDUPE_SECS;
 use super::*;
@@ -21,6 +21,8 @@ fn status_of(states: &[(&str, AuthState)]) -> StatusFile {
                 },
                 last_probe_at: Some(NOW - 10),
                 next_due_at: NOW + 60,
+                hint_kind: ProbeHintKind::default(),
+                token_key: None,
             },
         );
     }

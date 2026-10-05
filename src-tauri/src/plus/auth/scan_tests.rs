@@ -332,9 +332,11 @@ fn the_report_carries_counts_and_rows_for_the_probed_servers() {
     assert_eq!(value["counts"]["ok"], 1);
     assert_eq!(value["counts"]["needs_reauth"], 1);
     assert_eq!(value["servers"][0]["server"], "beta");
+    // `beta` is an API-token (`ProbeKind::Http`) probe: `auth login` would refuse
+    // it (see `login::plan`), so the hint must point at `secret set` instead.
     assert_eq!(
         value["servers"][0]["fix"]["command"],
-        "toolportctl auth login beta"
+        "toolportctl secret set beta <KEY> (value on stdin or --value-env <VAR>), then toolportctl auth probe --server beta --force"
     );
     assert_eq!(value["probes"].as_array().unwrap().len(), 2);
     assert_eq!(value["failures"], json!([]));

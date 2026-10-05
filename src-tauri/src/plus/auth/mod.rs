@@ -27,7 +27,7 @@ pub use scan::probe_handler;
 
 #[cfg(test)]
 pub use {
-    cache::{EdgeEvent, ServerEntry},
+    cache::{EdgeEvent, ProbeHintKind, ServerEntry},
     flight::SingleFlight,
     gateway_state::{gateway_registry, GatewayStateProbe},
     http_probes::{combined_registry, CompositeProbe},
