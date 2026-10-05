@@ -274,7 +274,7 @@ fn detection_covers_each_launch_shape() {
     let home = tmp.path("home");
     std::fs::create_dir_all(home.join(".local/bin")).unwrap();
     std::fs::write(home.join(".local/bin/tool"), "").unwrap();
-    let k = |e: ServerEntry| source::detect(&e, Some(&home)).kind();
+    let k = |e: ServerEntry| source::detect(&e, Some(&home), &SystemGit).kind();
     assert_eq!(
         k(entry(
             json!({"command": "npx", "args": ["-y", "pkg@1.0.0"]})
@@ -313,7 +313,7 @@ fn detection_covers_each_launch_shape() {
 fn stored_metadata_wins_over_detection() {
     let e = entry(json!({"command": "npx", "args": ["pkg"],
         "mcpmSource": {"type": "git", "path": "/srv/x", "post_update": "make"}}));
-    let (src, from_meta) = source::effective(&e, None);
+    let (src, from_meta) = source::effective(&e, None, &SystemGit);
     assert!(from_meta);
     assert_eq!(src.kind(), "git");
 }
@@ -864,8 +864,9 @@ fn init_detects_stores_and_respects_force() {
     let meta = &entries[0].unknown_fields["mcpmSource"];
     assert_eq!(meta["type"], "git");
     assert_eq!(meta["branch"], "main");
+    assert_eq!(meta["remote"], "origin");
     assert_eq!(meta["post_update"], "npm install && npm run build");
-    assert!(meta["remote_url"].as_str().unwrap().ends_with("origin.git"));
+    assert!(meta["upstream"].is_null());
     assert_eq!(entries[1].unknown_fields["mcpmSource"]["package"], "pkg");
 
     let again = run(&env, &mut entries, &Options::new(Mode::Init)).unwrap();
@@ -1017,7 +1018,7 @@ fn serial_reference(env: &Env, entries: &mut [ServerEntry], opts: &Options) -> R
                 .is_none_or(|w| &e.id == w || &e.name == w)
         })
         .map(|e| {
-            let (src, from_meta) = source::effective(e, env.home.as_deref());
+            let (src, from_meta) = source::effective(e, env.home.as_deref(), env.git.as_ref());
             check_planned(env, opts, (e, src, from_meta))
         })
         .collect();

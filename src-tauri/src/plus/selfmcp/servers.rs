@@ -57,13 +57,13 @@ fn source_value(source: &Source) -> Value {
 
 pub(super) fn detect_source(args: &Value) -> Outcome {
     let server = load(args)?;
-    let (src, stored) = source::effective(&server, crate::clients::home().as_deref());
+    let (src, stored) = source::effective(&server, crate::clients::home().as_deref(), &SystemGit);
     Ok(json!({"name": server.name, "stored": stored, "detected": source_value(&src)}))
 }
 
 pub(super) fn git_status(args: &Value) -> Outcome {
     let server = load(args)?;
-    let (src, _) = source::effective(&server, crate::clients::home().as_deref());
+    let (src, _) = source::effective(&server, crate::clients::home().as_deref(), &SystemGit);
     let Source::Git { path, branch, .. } = src else {
         return Ok(json!({
             "name": server.name,
@@ -75,7 +75,8 @@ pub(super) fn git_status(args: &Value) -> Outcome {
     if !expanded.exists() {
         return Ok(json!({"name": server.name, "isGit": true, "pathExists": false, "path": path}));
     }
-    match gitops::check(&SystemGit, &expanded, branch.as_deref()) {
+    let branch_hint = (!branch.is_empty()).then(|| branch.as_str());
+    match gitops::check(&SystemGit, &expanded, branch_hint) {
         Ok(s) => Ok(json!({
             "name": server.name,
             "isGit": true,
@@ -446,7 +447,7 @@ fn fork_onto_author(repo: &Path, target: &str, upstream: &str, email: &str) -> O
 
 pub(super) fn fork_sync(args: &Value) -> Outcome {
     let server = load(args)?;
-    let (src, _) = source::effective(&server, crate::clients::home().as_deref());
+    let (src, _) = source::effective(&server, crate::clients::home().as_deref(), &SystemGit);
     let Source::Git {
         path, post_update, ..
     } = src

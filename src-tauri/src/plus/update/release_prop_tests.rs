@@ -6,7 +6,7 @@ use super::pins::{
     compare_versions, is_floating, latest_npm, latest_pypi, parse_spec, rewrite, PinSpec,
 };
 use super::release::{check, expected_hash, resolve_pattern, valid_repo, Checked, ReleaseCheck};
-use super::source::{expand_path, from_meta, Source};
+use super::source::{expand_path, from_meta, Source, Upstream};
 use crate::plus::randutil::{run_cases, Rng};
 use regex::Regex;
 use serde_json::{json, Map, Value};
@@ -1210,9 +1210,14 @@ fn random_source(rng: &mut Rng) -> Source {
     match rng.below(6) {
         0 => Source::Git {
             path: some_text(rng),
-            remote_url: opt(rng),
-            branch: opt(rng),
+            remote: some_text(rng),
+            branch: some_text(rng),
+            upstream: rng.chance(50).then(|| Upstream {
+                remote: some_text(rng),
+                branch: some_text(rng),
+            }),
             post_update: opt(rng),
+            drift: rng.chance(50),
         },
         1 => Source::GithubRelease {
             path: some_text(rng),
@@ -1257,7 +1262,10 @@ fn meta_value(rng: &mut Rng, depth: usize) -> Value {
                 "path",
                 "package",
                 "repo",
-                "remote_url",
+                "remote",
+                "branch",
+                "upstream",
+                "drift",
                 "reason",
                 "x",
             ] {
