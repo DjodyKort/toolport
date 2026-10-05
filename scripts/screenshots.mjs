@@ -7,7 +7,8 @@
 // the System screen (sync, the push plan, updates, the council key form, the import preview,
 // the self-management card), the Tasks screen (the list with a run that waits for you, the
 // task detail, the plan of a run, a run that waits on a step with Continue, the history and the
-// Refresh task action in Logins), the Context tabs This folder, Profiles and Layers (the stack with
+// Refresh task action in Logins), the Attention screen (the list in light and dark, the plan to hide
+// a row, the empty state), the Context tabs This folder, Profiles and Layers (the stack with
 // its measure confirm, the profiles with the plan to apply one, the layers with the org file),
 // and the element shots of the smoke. Fails when a page shot is missing or not 1280x800. The PNGs come out of
 // Chromium already deflated tighter than zlib level 9 can do, so they are kept as they are.
@@ -116,6 +117,10 @@ const PAGES = [
   "hooks-conflicts-light",
   "plugins-updates-light",
   "logins-refresh-task-light",
+  "attention",
+  "attention-dark",
+  "attention-dismiss-light",
+  "attention-empty-light",
 ];
 const SIZE = [1280, 800];
 
