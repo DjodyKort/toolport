@@ -11,7 +11,9 @@
       "drift": false,
       "ownedKeys": {
         "claudeMdExcludes": ["**/acme-erp/CLAUDE.md"],
+        "deniedMcpServers": [],
         "enabledPlugins": ["loop-runner@official", "tools-pack@tools-market"],
+        "env": [],
         "permissionsDeny": ["Agent(reviewer-bot)"],
         "skillOverrides": ["long-guide", "notes-helper", "scratch-one", "scratch-two"]
       }
