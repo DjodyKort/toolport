@@ -311,7 +311,7 @@ fn detection_covers_each_launch_shape() {
 
 #[test]
 fn docker_sources_are_detected_with_image_tag_and_digest() {
-    let d = |e: ServerEntry| source::detect(&e, None);
+    let d = |e: ServerEntry| source::detect(&e, None, &SystemGit);
     let src = d(entry(json!({"command": "docker",
         "args": ["run", "--rm", "-i", "-e", "API_KEY=x", "someorg/docker-pkg:1.2.3"]})));
     assert_eq!(

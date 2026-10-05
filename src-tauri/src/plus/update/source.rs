@@ -120,8 +120,8 @@ impl Source {
                 m.insert("package".into(), json!(package));
             }
             Source::Docker { image, tag, digest } => {
-                put("tag", tag);
-                put("digest", digest);
+                put(&mut m, "tag", tag);
+                put(&mut m, "digest", digest);
                 m.insert("image".into(), json!(image));
             }
             Source::Remote => {}

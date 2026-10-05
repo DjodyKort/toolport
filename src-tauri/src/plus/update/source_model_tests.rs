@@ -92,13 +92,17 @@ fn a_bare_long_flag_before_the_script_is_also_skipped() {
 }
 
 #[test]
-fn docker_is_recognized_and_left_for_mig_upd_8() {
+fn docker_is_recognized_with_an_image_and_tag() {
     let e = entry(json!({"command": "docker", "args": ["run", "--rm", "image"]}));
     let src = source::detect(&e, None, &SystemGit);
-    let Source::Unknown { reason } = src else {
-        panic!("expected unknown, got {src:?}");
-    };
-    assert!(reason.contains("docker"), "{reason}");
+    assert_eq!(
+        src,
+        Source::Docker {
+            image: "image".into(),
+            tag: Some("latest".into()),
+            digest: None,
+        }
+    );
 }
 
 #[test]
