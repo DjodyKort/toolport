@@ -32,6 +32,92 @@ pub fn remote_url(git: &dyn GitRunner, repo: &Path) -> Option<String> {
     (out.ok() && !url.is_empty()).then_some(url)
 }
 
+pub fn list_remotes(git: &dyn GitRunner, repo: &Path) -> Vec<String> {
+    local(git, repo, &["remote"])
+        .map(|o| {
+            o.stdout
+                .lines()
+                .map(|l| l.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The branch actually checked out, or `None` when detached. Unlike `default_branch`, this
+/// never looks at a remote: it is the same name MIG-UPD-4 needs for the stored `branch` field.
+pub fn current_branch(git: &dyn GitRunner, repo: &Path) -> Option<String> {
+    local(git, repo, &["branch", "--show-current"])
+        .ok()
+        .map(|o| o.stdout.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// The remote and branch the current branch tracks (`@{u}`), parsed from
+/// `refs/remotes/<remote>/<branch>`. `None` when the branch has no upstream configured.
+pub fn tracking_upstream(git: &dyn GitRunner, repo: &Path) -> Option<(String, String)> {
+    let out = local(
+        git,
+        repo,
+        &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+    )
+    .ok()
+    .filter(CmdOutput::ok)?;
+    let full = out.stdout.trim();
+    let (remote, branch) = full.split_once('/')?;
+    (!remote.is_empty() && !branch.is_empty()).then(|| (remote.to_string(), branch.to_string()))
+}
+
+pub fn remote_branch_sha(git: &dyn GitRunner, repo: &Path, remote: &str, branch: &str) -> Option<String> {
+    local(
+        git,
+        repo,
+        &[
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            &format!("refs/remotes/{remote}/{branch}"),
+        ],
+    )
+    .ok()
+    .filter(CmdOutput::ok)
+    .map(|o| o.stdout.trim().to_string())
+    .filter(|s| !s.is_empty())
+}
+
+/// Like `default_branch`, but for any remote, not only `origin` (a fork's upstream is rarely
+/// named `origin`).
+pub fn remote_default_branch(git: &dyn GitRunner, repo: &Path, remote: &str) -> Option<String> {
+    if let Ok(out) = local(
+        git,
+        repo,
+        &["symbolic-ref", "--short", &format!("refs/remotes/{remote}/HEAD")],
+    ) {
+        let prefix = format!("{remote}/");
+        if let Some(b) = out.stdout.trim().strip_prefix(&prefix).filter(|_| out.ok()) {
+            return Some(b.to_string());
+        }
+    }
+    for candidate in ["main", "master"] {
+        let r = format!("refs/remotes/{remote}/{candidate}");
+        if local(git, repo, &["rev-parse", "--verify", "--quiet", &r])
+            .map(|o| o.ok())
+            .unwrap_or(false)
+        {
+            return Some(candidate.to_string());
+        }
+    }
+    None
+}
+
+pub fn head_sha(git: &dyn GitRunner, repo: &Path) -> Option<String> {
+    local(git, repo, &["rev-parse", "HEAD"])
+        .ok()
+        .filter(CmdOutput::ok)
+        .map(|o| o.stdout.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
 pub fn default_branch(git: &dyn GitRunner, repo: &Path) -> Option<String> {
     if let Ok(out) = local(
         git,
