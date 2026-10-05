@@ -10,6 +10,7 @@ import { contextLayerShapes } from "./context-layers";
 import { councilShapes } from "./council";
 import { importShapes } from "./import";
 import { inspectShapes } from "./inspect";
+import { libraryShapes } from "./library";
 import { mcpShapes } from "./mcp";
 import { obsShapes } from "./obs";
 import { pluginsShapes } from "./plugins";
@@ -34,6 +35,7 @@ export * from "./tasks";
 export * from "./council";
 export * from "./import";
 export * from "./inspect";
+export * from "./library";
 export * from "./mcp";
 export * from "./obs";
 export * from "./plugins";
@@ -72,6 +74,7 @@ export const ctlTypeShapes: Record<string, Shape<unknown>> = {
   ...councilShapes,
   ...importShapes,
   ...inspectShapes,
+  ...libraryShapes,
   ...mcpShapes,
   ...obsShapes,
   ...pluginsShapes,
