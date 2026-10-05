@@ -13,16 +13,11 @@ import {
   personalLayer,
   zshrcPlan,
 } from "./fixtures";
+import { Failure } from "./failure";
+import { createTabsWorld } from "./worldTabs";
 import type { Check, LayerRow, ProfileRow, Selection, ZshrcLine } from "./model";
 
-/** A reply that is a failed envelope; `data` is what a command that exits 1 still prints. */
-export class Failure {
-  constructor(
-    readonly code: string,
-    readonly message: string,
-    readonly data?: unknown,
-  ) {}
-}
+export { Failure };
 
 export interface WorldOptions {
   /** A home where nothing is set up: no layers, no profiles, no shims file. */
@@ -50,6 +45,33 @@ const VALUED = new Set([
   "--folder",
   "--import",
   "--delivery",
+  "--without",
+  "--description",
+  "--skills-off",
+  "--skills-name-only",
+  "--skills-allow",
+  "--plugins-off",
+  "--layers-add",
+  "--layers-exclude",
+  "--agents-off",
+  "--bind",
+  "--from-folder",
+  "--auto-apply",
+]);
+const TABS = new Set([
+  "context compose",
+  "context measure",
+  "context use",
+  "context bundle ls",
+  "context bundle show",
+  "context bundle add",
+  "context bundle edit",
+  "context bundle rm",
+  "context bundle apply",
+  "context bundle undo",
+  "context bundle status",
+  "context bundle launch",
+  "context bundle config",
 ]);
 const SCOPES = ["global", "glob", "folder"];
 const DELIVERIES = ["import", "copy"];
@@ -77,7 +99,7 @@ interface Parsed {
 }
 
 function parse(argv: string[]): Parsed {
-  const group = argv[1] === "profile" || argv[1] === "client";
+  const group = argv[1] === "profile" || argv[1] === "client" || argv[1] === "bundle";
   const path = argv.slice(0, group ? 3 : 2).join(" ");
   const words: string[] = [];
   const flags = new Map<string, string | true>();
@@ -499,6 +521,17 @@ export function createContextWorld(options: WorldOptions = {}): ContextWorld {
 
   const metaOf = (name: string): LayerMeta =>
     s.meta[name] ?? { scope: "glob", folders: [], imports: [], delivery: "copy" };
+  const tabs = createTabsWorld(
+    {
+      home: HOME,
+      base: BASE,
+      layers: () => s.layers,
+      layerMeta: metaOf,
+      foldersEnabled: () => s.folders,
+    },
+    options.fresh === true,
+  );
+  const rawLoads = (cwd: string) => loads(null, cwd) as LoadsData;
   const layerPath = (rule: string) => `${BASE}/skills_repo/rules/${rule}/SKILL.md`;
   const findLayer = (name: string) =>
     s.layers.find(
@@ -593,6 +626,12 @@ export function createContextWorld(options: WorldOptions = {}): ContextWorld {
     const parsed = parse(argv);
     const dry = parsed.flags.has("--dry-run");
     const [name] = parsed.words;
+    if (TABS.has(parsed.path))
+      return tabs.run(
+        parsed.path,
+        { words: parsed.words, flags: parsed.flags, dry },
+        rawLoads,
+      );
     switch (parsed.path) {
       case "context status":
         return status();
@@ -924,10 +963,11 @@ export function createContextWorld(options: WorldOptions = {}): ContextWorld {
       case "context loads": {
         const profile = parsed.flags.get("--profile");
         const cwd = parsed.flags.get("--cwd");
-        return loads(
-          typeof profile === "string" ? profile : null,
-          typeof cwd === "string" ? cwd : HOME,
-        );
+        const where = typeof cwd === "string" ? cwd : HOME;
+        const data = loads(typeof profile === "string" ? profile : null, where);
+        return data instanceof Failure || !parsed.flags.has("--measured")
+          ? data
+          : tabs.shapeLoads(data, where, true);
       }
       case "context folders": {
         if (parsed.flags.has("--enable")) s.folders = true;
@@ -975,6 +1015,26 @@ export function createContextWorld(options: WorldOptions = {}): ContextWorld {
       }
       row(`context apply${base} --no-persist`);
       row(`context apply${base} --no-persist --dry-run`);
+    }
+    const folder = "/fixture/work/erp/clients/acme-erp";
+    for (const where of ["", ` --cwd ${folder}`]) row(`context loads${where} --measured`);
+    for (const where of [HOME, folder]) {
+      row(`context compose --cwd ${where}`);
+      row(`context bundle status --cwd ${where}`);
+    }
+    for (const read of ["ls", "show acme-dev", "show default", "config"]) {
+      row(`context bundle ${read}`);
+    }
+    for (const flag of ["on", "off"]) row(`context bundle config --auto-apply ${flag}`);
+    row("context bundle launch acme-dev");
+    row(`context measure --cwd ${folder} --yes`);
+    row(`context measure --cwd ${folder} --without plugin:kit@market --yes`);
+    for (const preview of ["", " --dry-run"]) {
+      row(`context bundle apply acme-dev --cwd ${folder}${preview}`);
+      row(`context use acme-dev --cwd ${folder}${preview}`);
+      row(`context use --none --cwd ${folder}${preview}`);
+      row(`context bundle undo --cwd ${folder}${preview}`);
+      row(`context bundle rm default${preview}`);
     }
     for (const preview of ["", " --dry-run"]) {
       for (const purge of ["", " --purge"]) {
