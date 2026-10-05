@@ -47,6 +47,12 @@
       "view": "system",
       "status": "built",
       "component": "src/plus/system/SystemScreen.tsx"
+    },
+    "tasks": {
+      "title": "Tasks",
+      "view": "tasks",
+      "status": "built",
+      "component": "src/plus/tasks/TasksScreen.tsx"
     }
   },
   "actions": {
@@ -931,6 +937,60 @@
       "status": "built",
       "test": "src/plus/system/SelfTab.e2e.test.tsx",
       "summary": "Tool catalogue with tiers and gates, resources, connect-a-client snippet"
+    },
+    "tasks.list": {
+      "route": "tasks",
+      "status": "built",
+      "test": "src/plus/tasks/TasksScreen.e2e.test.tsx",
+      "summary": "Task list with trigger chips, last run, next run and the waiting-for-you state; invalid task files named"
+    },
+    "tasks.detail": {
+      "route": "tasks",
+      "status": "built",
+      "test": "src/plus/tasks/TasksScreen.e2e.test.tsx",
+      "summary": "Task detail: the steps with the needs-you ones marked, the secrets it may write by name, what it needs, triggers and the recent runs with their redacted logs"
+    },
+    "tasks.history": {
+      "route": "tasks",
+      "status": "built",
+      "test": "src/plus/tasks/TasksScreen.e2e.test.tsx",
+      "summary": "History tab: every run with result and trigger, and the redacted step log of one run"
+    },
+    "tasks.run": {
+      "route": "tasks",
+      "status": "built",
+      "test": "src/plus/tasks/TasksScreen.e2e.test.tsx",
+      "summary": "Run: dry-run plan (steps, secrets it may write, servers needed, whether it waits), confirm, then the run with live steps, a wait at a needs-you step, a result or a failure with the redacted log; also the Refresh task action in Logins"
+    },
+    "tasks.continue": {
+      "route": "tasks",
+      "status": "built",
+      "test": "src/plus/tasks/TasksScreen.e2e.test.tsx",
+      "summary": "Continue on a step that waits for you (task resume), then the run goes on to its end"
+    },
+    "tasks.cancel": {
+      "route": "tasks",
+      "status": "built",
+      "test": "src/plus/tasks/TasksScreen.e2e.test.tsx",
+      "summary": "Cancel a running or waiting run (task cancel)"
+    },
+    "tasks.add": {
+      "route": "tasks",
+      "status": "built",
+      "test": "src/plus/tasks/TasksScreen.e2e.test.tsx",
+      "summary": "New task, Duplicate and Create from a command: form or command file, dry-run plan, confirm, add"
+    },
+    "tasks.edit": {
+      "route": "tasks",
+      "status": "built",
+      "test": "src/plus/tasks/TasksScreen.e2e.test.tsx",
+      "summary": "Edit a task through the same form: the whole definition, dry-run diff, confirm, save"
+    },
+    "tasks.delete": {
+      "route": "tasks",
+      "status": "built",
+      "test": "src/plus/tasks/TasksScreen.e2e.test.tsx",
+      "summary": "Delete a task with the dry-run plan and the typed id"
     }
   },
   "owners": {
@@ -1725,48 +1785,48 @@
       "surface": "screen"
     },
     "task add": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tasks",
+      "action": "tasks.add",
       "surface": "screen"
     },
     "task cancel": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tasks",
+      "action": "tasks.cancel",
       "surface": "screen"
     },
     "task edit": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tasks",
+      "action": "tasks.edit",
       "surface": "screen"
     },
     "task history": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tasks",
+      "action": "tasks.history",
       "surface": "screen"
     },
     "task ls": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tasks",
+      "action": "tasks.list",
       "surface": "screen"
     },
     "task resume": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tasks",
+      "action": "tasks.continue",
       "surface": "screen"
     },
     "task rm": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tasks",
+      "action": "tasks.delete",
       "surface": "screen"
     },
     "task run": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tasks",
+      "action": "tasks.run",
       "surface": "screen"
     },
     "task show": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tasks",
+      "action": "tasks.detail",
       "surface": "screen"
     },
     "update": {
@@ -2252,28 +2312,28 @@
       "surface": "screen"
     },
     "tasks_cancel": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tasks",
+      "action": "tasks.cancel",
       "surface": "screen"
     },
     "tasks_get": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tasks",
+      "action": "tasks.detail",
       "surface": "screen"
     },
     "tasks_history": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tasks",
+      "action": "tasks.history",
       "surface": "screen"
     },
     "tasks_list": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tasks",
+      "action": "tasks.list",
       "surface": "screen"
     },
     "tasks_run": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "tasks",
+      "action": "tasks.run",
       "surface": "screen"
     },
     "where_am_i": {
