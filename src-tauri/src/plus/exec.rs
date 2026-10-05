@@ -75,8 +75,14 @@ fn drain<R: Read + Send + 'static>(pipe: Option<R>) -> std::thread::JoinHandle<S
     })
 }
 
-pub fn run_command(mut cmd: Command, timeout: Duration) -> Result<CmdOutput, String> {
-    cmd.stdin(Stdio::null())
+pub fn run_command(cmd: Command, timeout: Duration) -> Result<CmdOutput, String> {
+    run_command_input(cmd, None, timeout)
+}
+
+/// [`run_command`] with `input` written to the child's stdin (then closed), for values that must
+/// not appear in an argument list.
+pub fn run_command_input(mut cmd: Command, input: Option<&str>, timeout: Duration) -> Result<CmdOutput, String> {
+    cmd.stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut child = spawn_retrying(&mut cmd).map_err(|e| {
@@ -88,6 +94,13 @@ pub fn run_command(mut cmd: Command, timeout: Duration) -> Result<CmdOutput, Str
     })?;
     let out_thread = drain(child.stdout.take());
     let err_thread = drain(child.stderr.take());
+    let feed = input.zip(child.stdin.take()).map(|(text, mut pipe)| {
+        let text = text.to_string();
+        std::thread::spawn(move || {
+            use std::io::Write;
+            let _ = pipe.write_all(text.as_bytes());
+        })
+    });
     let started = Instant::now();
     let mut nap = FIRST_POLL;
     let status = loop {
@@ -105,6 +118,9 @@ pub fn run_command(mut cmd: Command, timeout: Duration) -> Result<CmdOutput, Str
             Err(e) => return Err(format!("wait failed: {e}")),
         }
     };
+    if let Some(feed) = feed {
+        let _ = feed.join();
+    }
     Ok(CmdOutput {
         code: status.code().unwrap_or(-1),
         stdout: out_thread.join().unwrap_or_default(),
