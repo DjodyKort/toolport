@@ -106,4 +106,6 @@ export const systemCtlFixtures: Array<[string, unknown]> = [
   ["council tools", goldenReply("council-tools")],
   ["mcp doctor", goldenReply("mcp-doctor")],
   ["mcp tools", goldenReply("mcp-tools")],
+  ["mcp call where_am_i --args-stdin", goldenReply("mcp-call.where_am_i")],
+  ["mcp call flow_diagram --args-stdin", goldenReply("mcp-call.flow_diagram")],
 ];

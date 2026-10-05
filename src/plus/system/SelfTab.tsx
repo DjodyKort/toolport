@@ -20,6 +20,7 @@ import {
   profileStates,
   toolEntries,
 } from "./model";
+import { HowItConnects, WhereAmI } from "./SelfReads";
 import { ToolList } from "./Tools";
 import { WriteDialogs } from "./WriteDialogs";
 
@@ -226,6 +227,11 @@ export function SelfTab() {
             time or only when it is not a dry run.
           </Intro>
         </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <WhereAmI />
+        <HowItConnects />
       </div>
 
       <Card title="Tool catalogue">

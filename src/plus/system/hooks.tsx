@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CtlError, runCtl, type CtlResult } from "../bridge/ctl";
 import type { CommandRow, CommandsData } from "../bridge/data";
-import { commandLine } from "../allcommands/model";
+import { commandLine, toolCallArgv } from "../allcommands/model";
 import { useRunFlow, type RunFlowControl } from "../allcommands/useRunFlow";
 import { PlanPreview, outcomeOf, useCtlQuery, type CtlQuery, type PlanV1 } from "../ui";
+import type { SelfToolCallData } from "../types";
 import { policyOf } from "./model";
 
 type Settled<T> = { key: string; tick: number; data: T | null; error: unknown };
@@ -22,17 +23,18 @@ function failure(result: CtlResult): CtlError {
  * show beside it. */
 export function useRead<T>(
   argv: readonly string[],
-  options: { enabled?: boolean } = {},
+  options: { enabled?: boolean; stdin?: string } = {},
 ): CtlQuery<T> {
   const key = JSON.stringify(argv);
   const enabled = options.enabled ?? true;
+  const stdin = options.stdin;
   const [tick, setTick] = useState(0);
   const [settled, setSettled] = useState<Settled<T> | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
     let alive = true;
-    runCtl<T>(JSON.parse(key) as string[]).result.then(
+    runCtl<T>(JSON.parse(key) as string[], { stdinSecret: stdin }).result.then(
       (result) => {
         if (!alive) return;
         const data = result.envelope?.data ?? null;
@@ -49,7 +51,7 @@ export function useRead<T>(
     return () => {
       alive = false;
     };
-  }, [key, tick, enabled]);
+  }, [key, tick, enabled, stdin]);
 
   const reload = useCallback(() => setTick((n) => n + 1), []);
   const same = settled?.key === key;
@@ -61,6 +63,19 @@ export function useRead<T>(
     error: fresh ? settled.error : null,
     reload,
   };
+}
+
+/** One read-only self-management tool through `toolportctl mcp call`: its arguments go on
+ * stdin, never into argv, and the data is the tool's own `result`. A tool that fails fails the
+ * query with the tool's message. */
+export function useToolRead<T>(
+  tool: string,
+  args: Record<string, unknown> = {},
+): CtlQuery<T> {
+  const query = useRead<SelfToolCallData<T>>(toolCallArgv(tool), {
+    stdin: JSON.stringify(args),
+  });
+  return { ...query, data: query.data?.result ?? null };
 }
 
 /** The registry the policy of each write is read from. */
