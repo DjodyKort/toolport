@@ -360,7 +360,7 @@
       "route": "library",
       "status": "built",
       "test": "src/plus/skills/sources/SourcesTab.e2e.test.tsx",
-      "summary": "Library > Sources: every place Toolport looks with kind, owner, folder, cost labelled estimate, how it is found, read-only marking, status and freshness; items on demand (--items); Rescan (--refresh); partial, empty, error and offline states; the library row with Pull and Push off until library status|pull|push exists"
+      "summary": "Library > Sources: every place Toolport looks with kind, owner, folder, cost labelled estimate, how it is found, read-only marking, status and freshness; items on demand (--items); Rescan (--refresh); partial, empty, error and offline states; the library row with its remote status, Pull and Push (see sources.library.*)"
     },
     "sources.root.ls": {
       "route": "library",
@@ -379,6 +379,24 @@
       "status": "built",
       "test": "src/plus/skills/sources/SourcesTab.e2e.test.tsx",
       "summary": "Stop scanning a folder you added: preview, typed confirmation of its name, apply; default folders cannot be removed and say why"
+    },
+    "sources.library.status": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/sources/SourcesTab.e2e.test.tsx",
+      "summary": "Sources > library row: remote, branch, ahead and behind, files changed here, last fetch, sign-in and duplicate clones from library status; the fetching variant only on Check the remote"
+    },
+    "sources.library.pull": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/sources/SourcesTab.e2e.test.tsx",
+      "summary": "Pull the library clone: the dry run fetches and lists the commits, Already up to date and a dirty clone offer nothing to confirm, apply shows the files it changed and the undo"
+    },
+    "sources.library.push": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/sources/SourcesTab.e2e.test.tsx",
+      "summary": "Push the library: the dry run lists commits, audit and secret scan; a secret finding blocks it with the rule, file and line and no apply button, an audit finding only warns, never forced"
     },
     "agents.list": {
       "route": "agents",
@@ -1762,18 +1780,18 @@
       "surface": "screen"
     },
     "library pull": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "sources.library.pull",
       "surface": "screen"
     },
     "library push": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "sources.library.push",
       "surface": "screen"
     },
     "library status": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "sources.library.status",
       "surface": "screen"
     }
   },
@@ -2264,13 +2282,13 @@
       "surface": "screen"
     },
     "library_pull": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "library",
+      "action": "sources.library.pull",
       "surface": "screen"
     },
     "library_status": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "library",
+      "action": "sources.library.status",
       "surface": "screen"
     }
   }
