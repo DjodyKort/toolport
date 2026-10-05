@@ -1,0 +1,64 @@
+{
+  "recognised": [
+    {
+      "file": "moodle-token.command.md",
+      "id": "moodle-token",
+      "title": "Refresh the Moodle token",
+      "description": "Refresh the Moodle token through the Playwright server",
+      "stepTypes": ["needs-you", "prompt"],
+      "needsYou": [
+        {
+          "id": "sign-in",
+          "instructions": "Ask the user to sign in with SSO in the browser window and wait for them."
+        }
+      ],
+      "requiresServers": ["playwright"],
+      "allowedTools": [
+        "mcp__toolport__playwright__browser_navigate",
+        "mcp__toolport__playwright__browser_evaluate"
+      ]
+    },
+    {
+      "file": "hoot-test.command.md",
+      "id": "hoot-test",
+      "title": "Quiz smoke test",
+      "description": "Run the quiz smoke test in the browser",
+      "stepTypes": ["needs-you", "prompt"],
+      "needsYou": [
+        {
+          "id": "log-in",
+          "instructions": "1. Log in to the quiz site with the test account in the browser window."
+        }
+      ],
+      "requiresServers": ["playwright"],
+      "allowedTools": []
+    },
+    {
+      "file": "plain.command.md",
+      "id": "weekly-summary",
+      "title": "Weekly summary",
+      "description": "",
+      "stepTypes": ["prompt"],
+      "needsYou": [],
+      "requiresServers": [],
+      "allowedTools": []
+    }
+  ],
+  "neverInferred": [
+    "enabled",
+    "writesSecrets",
+    "requires.commands",
+    "schedule",
+    "selfMcp",
+    "onAuthFailure"
+  ],
+  "refused": [
+    { "file": "empty.command.md", "id": "empty-command", "error": "prompt is empty" },
+    {
+      "file": "moodle-token.command.md",
+      "id": "Moodle Token",
+      "error": "not a valid id"
+    },
+    { "file": "no-such-file.command.md", "id": "missing-file", "error": "cannot read" }
+  ]
+}
