@@ -14,7 +14,7 @@ const SourcesTab = lazy(() =>
 
 /** The tabs of the Library screen that are built. A tab not listed here is still the marked
  * placeholder of `NOT_BUILT_TABS`; the item that builds a tab adds its panel to this map. */
-const PANELS: Record<string, ComponentType> = {
+const PANELS: Record<string, ComponentType<{ onOpenHooks?: () => void }>> = {
   skills: SkillsTab,
   agents: AgentsTab,
   styles: StylesTab,
@@ -28,9 +28,11 @@ const TABS = NOT_BUILT_TABS.library ?? [];
 export function LibraryScreen({
   initialTab = "skills",
   onOpenCommands,
+  onOpenHooks,
 }: {
   initialTab?: string;
   onOpenCommands: (group?: string) => void;
+  onOpenHooks?: () => void;
 }) {
   const [tab, setTab] = useState(initialTab);
   const current = TABS.find((item) => item.id === tab) ?? TABS[0];
@@ -44,7 +46,7 @@ export function LibraryScreen({
     >
       {Panel ? (
         <Suspense fallback={<ScreenSkeleton label="Loading tab" />}>
-          <Panel />
+          <Panel onOpenHooks={onOpenHooks} />
         </Suspense>
       ) : (
         current && (

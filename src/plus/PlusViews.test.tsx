@@ -11,6 +11,7 @@ const { invoke, listen } = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn() 
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
+vi.mock("./plugins/PluginsTab", () => ({ PluginsTab: () => <p>Plugins panel</p> }));
 vi.mock("./skills/SkillsTab", () => ({ SkillsTab: () => <p>Skills panel</p> }));
 vi.mock("./compression/CompressionTab", () => ({
   CompressionTab: () => <p>Compression panel</p>,
@@ -93,7 +94,7 @@ describe("PlusViews", () => {
     expect(screen.getByText("upstream")).toBeInTheDocument();
   });
 
-  it("shows the tabs of the mockup, the Skills panel and a placeholder per tab that is not built", async () => {
+  it("shows the tabs of the mockup and the Skills panel", async () => {
     const user = userEvent.setup();
     render(<Harness start="library" />);
     const tabs = await screen.findByRole("tablist", { name: "Library sections" });
@@ -104,7 +105,8 @@ describe("PlusViews", () => {
     ).toEqual(["Skills", "Agents", "Styles", "Plugins", "Sources"]);
     expect(await screen.findByText("Skills panel")).toBeInTheDocument();
     await user.click(within(tabs).getByRole("tab", { name: "Plugins" }));
-    expect(screen.getByText(/built by MIG-GUI-12\b/)).toBeInTheDocument();
+    expect(await screen.findByText("Plugins panel")).toBeInTheDocument();
+    expect(screen.queryByText("Not built yet")).toBeNull();
   });
 
   it("shows the Tokens screen with the Usage and Compression panels", async () => {
@@ -130,7 +132,7 @@ describe("PlusViews", () => {
     expect(await screen.findByRole("list", { name: "Commands" })).toBeInTheDocument();
   });
 
-  it("opens the System screen with its five tabs and the plugin updates as a placeholder", async () => {
+  it("opens the System screen with its five tabs and the plugin updates", async () => {
     invoke.mockReset().mockImplementation(createSystemBridge().invoke);
     const user = userEvent.setup();
     render(<Harness start="system" />);
@@ -141,6 +143,8 @@ describe("PlusViews", () => {
         .map((tab) => tab.textContent),
     ).toEqual(["Sync", "Updates", "Council", "Import", "Self-management"]);
     await user.click(within(tabs).getByRole("tab", { name: "Updates" }));
-    expect(await screen.findByText(/MIG-GUI-12 builds this section/)).toBeInTheDocument();
+    expect(
+      await screen.findByRole("group", { name: "Claude Code plugins" }),
+    ).toBeInTheDocument();
   });
 });
