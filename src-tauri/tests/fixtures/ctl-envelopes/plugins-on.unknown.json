@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "on", "nope@nowhere", "--cwd", "{home}/work/acme-erp", "--dry-run"],
+  "envelope": {
+    "command": "plugins on",
+    "error": {
+      "code": "not_found",
+      "message": "plugin 'nope@nowhere' is not installed"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

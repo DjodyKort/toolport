@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "disable", "ecc@ecc", "--dry-run"],
+  "envelope": {
+    "command": "plugins disable",
+    "error": {
+      "code": "conflict",
+      "message": "claude not found on PATH: `claude plugin disable ecc@ecc --scope user` needs it"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

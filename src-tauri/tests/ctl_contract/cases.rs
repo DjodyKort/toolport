@@ -54,6 +54,13 @@ const SYNC_INIT: &[&str] = &[
 
 const FILES_ONLY: &[(&str, &str)] = &[("TOOLPORT_CLAUDE_BIN", "/nonexistent/claude")];
 
+fn flip_ecc(world: &CtlWorld) {
+    let file = world.base.join("home/work/acme-erp/.claude/settings.local.json");
+    let mut doc: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+    doc["enabledPlugins"]["ecc@ecc"] = serde_json::json!(true);
+    std::fs::write(&file, doc.to_string()).unwrap();
+}
+
 fn mcp_call_world(world: &CtlWorld) {
     fork_world(world);
     skills_repo_remote_world(world);
@@ -212,6 +219,60 @@ pub const MORE: &[Case] = &[
             usage("no-cwd", &["plugins", "mcp", "deny", "ecc@ecc", "chrome-devtools"]),
             usage("bad-action", &["plugins", "mcp", "block", "ecc@ecc", "chrome-devtools", "--cwd", "{home}/work/acme-erp"]),
             usage("usage", &["plugins", "mcp", "deny"]),
+        ],
+    ),
+    prepared(
+        "plugins off",
+        plugins_home,
+        &[
+            read("plan", &["plugins", "off", "ecc@ecc", "--cwd", "{home}/work/acme-erp", "--dry-run"]),
+            apply("apply", &["plugins", "off", "ecc@ecc", "--cwd", "{home}/work/acme-erp"]),
+            read("again", &["plugins", "off", "ecc@ecc", "--cwd", "{home}/work/acme-erp", "--dry-run"]),
+            read("foreign", &["plugins", "off", "ecc@ecc", "--cwd", "{home}/work/side-project", "--dry-run"]),
+            read("unknown", &["plugins", "off", "nope@nowhere", "--cwd", "{home}/work/acme-erp", "--dry-run"]).exit(1),
+            usage("no-cwd", &["plugins", "off", "ecc@ecc"]),
+            usage("bad-cwd", &["plugins", "off", "ecc@ecc", "--cwd", "{home}/work/nowhere"]),
+            usage("usage", &["plugins", "off"]),
+        ],
+    ),
+    prepared(
+        "plugins on",
+        plugins_home,
+        &[
+            read("nothing", &["plugins", "on", "ecc@ecc", "--cwd", "{home}/work/acme-erp", "--dry-run"]),
+            apply("setup", &["plugins", "off", "ecc@ecc", "--cwd", "{home}/work/acme-erp"]),
+            read("plan", &["plugins", "on", "ecc@ecc", "--cwd", "{home}/work/acme-erp", "--dry-run"]),
+            apply("apply", &["plugins", "on", "ecc@ecc", "--cwd", "{home}/work/acme-erp"]),
+            read("foreign", &["plugins", "on", "ecc@ecc", "--cwd", "{home}/work/side-project", "--dry-run"]),
+            apply("setup-conflict", &["plugins", "off", "ecc@ecc", "--cwd", "{home}/work/acme-erp"]),
+            hook("flip", flip_ecc),
+            read("conflict.plan", &["plugins", "on", "ecc@ecc", "--cwd", "{home}/work/acme-erp", "--dry-run"]),
+            apply("conflict", &["plugins", "on", "ecc@ecc", "--cwd", "{home}/work/acme-erp"]),
+            read("unknown", &["plugins", "on", "nope@nowhere", "--cwd", "{home}/work/acme-erp", "--dry-run"]).exit(1),
+            usage("no-cwd", &["plugins", "on", "ecc@ecc"]),
+            usage("usage", &["plugins", "on"]),
+        ],
+    ),
+    prepared(
+        "plugins disable",
+        plugins_home,
+        &[
+            read("plan", &["plugins", "disable", "ecc@ecc", "--dry-run"]),
+            apply("apply", &["plugins", "disable", "ecc@ecc"]),
+            read("no-claude", &["plugins", "disable", "ecc@ecc", "--dry-run"]).env(FILES_ONLY).exit(1),
+            read("unknown", &["plugins", "disable", "nope@nowhere", "--dry-run"]).exit(1),
+            usage("usage", &["plugins", "disable"]),
+        ],
+    ),
+    prepared(
+        "plugins enable",
+        plugins_home,
+        &[
+            read("plan", &["plugins", "enable", "ecc@ecc", "--dry-run"]),
+            apply("apply", &["plugins", "enable", "ecc@ecc"]),
+            read("no-claude", &["plugins", "enable", "ecc@ecc", "--dry-run"]).env(FILES_ONLY).exit(1),
+            read("unknown", &["plugins", "enable", "nope@nowhere", "--dry-run"]).exit(1),
+            usage("usage", &["plugins", "enable"]),
         ],
     ),
     prepared(

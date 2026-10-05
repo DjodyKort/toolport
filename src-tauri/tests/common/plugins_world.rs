@@ -156,6 +156,7 @@ pub fn build_in(base: &Path, claude: &Path) -> PluginsWorld {
              \"plugin configure ecc@ecc --json\") cat \"$d/configure-ecc.json\";;\n\
              \"plugin configure ecc@ecc --values-stdin\") cat > \"$d/values-stdin.json\"; echo \"$*\" > \"$d/values-argv.txt\"; echo configured;;\n\
              \"plugin marketplace update \"*) echo refreshed;;\n\
+             \"plugin disable ecc@ecc --scope\"|\"plugin enable ecc@ecc --scope\") [ \"$5\" = user ] || {{ echo \"unexpected: $*\" >&2; exit 9; }}; echo \"$*\" >> \"$d/user-scope.log\"; echo ok;;\n\
              *) echo \"unexpected: $*\" >&2; exit 9;;\nesac\n",
             recorded.display()
         ),

@@ -1,0 +1,63 @@
+{
+  "argv": ["plugins", "off", "ecc@ecc", "--cwd", "{home}/work/acme-erp", "--dry-run"],
+  "envelope": {
+    "command": "plugins off",
+    "data": {
+      "changes": [
+        {
+          "action": "set",
+          "key": "enabledPlugins.ecc@ecc",
+          "value": false
+        }
+      ],
+      "conflicts": [],
+      "cwd": "<WORLD>/home/work/acme-erp",
+      "dryRun": true,
+      "id": "ecc@ecc",
+      "ledger": "<WORLD>/data/plus/profile-ledger.json",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "1 key(s) owned by off:ecc@ecc",
+            "diff": {
+              "after": "enabledPlugins.ecc@ecc: false\n",
+              "before": "enabledPlugins.ecc@ecc: (absent)\n"
+            },
+            "keys": ["enabledPlugins"],
+            "op": "create",
+            "path": "<WORLD>/home/work/acme-erp/.claude/settings.local.json"
+          },
+          {
+            "detail": "git-ignore .claude/settings.local.json",
+            "op": "update",
+            "path": "<WORLD>/home/work/acme-erp/.git/info/exclude"
+          },
+          {
+            "detail": "record every key Toolport owns with the value it replaces, so undo restores exactly that",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          },
+          {
+            "detail": "goes away in this folder: 3 skills (arch-review, debug-loop, release-notes), 2 agents (code-reviewer, planner), 2 commands (plan, review), 23 hook handlers, 2 MCP servers (plugin:ecc:chrome-devtools, plugin:ecc:memory)",
+            "op": "note"
+          },
+          {
+            "detail": "stays: your own skills, agents, commands and hooks, every other plugin and the servers behind the Toolport gateway; the setting in your user settings (on) is not changed",
+            "op": "note"
+          }
+        ],
+        "summary": "Turn off ecc@ecc in <WORLD>/home/work/acme-erp",
+        "undo": "toolportctl plugins on ecc@ecc --cwd <WORLD>/home/work/acme-erp",
+        "warnings": [
+          "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart"
+        ]
+      },
+      "result": null,
+      "scope": "folder"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}
