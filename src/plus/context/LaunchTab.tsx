@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/Callout";
 import { Input } from "@/components/ui/input";
 import type {
-  ContextClientListData,
   ContextPlanData,
   ContextProfileListData,
   ContextStatusData,
 } from "../types/context";
+import type { ContextClientListData } from "../types/context-layers";
 import { CopyButton, PlanPreview, type PlanV1 } from "../ui";
 import { useRead, useWrite, type WriteControl } from "./hooks";
 import { FoldersSection, LoadsSection } from "./InsightCards";
