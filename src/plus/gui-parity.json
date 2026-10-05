@@ -662,6 +662,96 @@
       "test": "src/plus/context/ContextScreen.e2e.test.tsx",
       "summary": "Show the profile per folder and turn routing on or off: no preview, so a confirmation with the exact command line"
     },
+    "context.measure": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextTabs.e2e.test.tsx",
+      "summary": "Measure what Claude really loads in a folder: a confirm first, because it spends requests, then the real number labelled measured"
+    },
+    "context.compose": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextTabs.e2e.test.tsx",
+      "summary": "Read the composed instruction text of a folder, in load order, part by part"
+    },
+    "context.use": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextTabs.e2e.test.tsx",
+      "summary": "Apply a profile (server set and context bundle) to a folder: plan, confirm, result, undo"
+    },
+    "context.bundle.ls": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextTabs.e2e.test.tsx",
+      "summary": "List the profiles with where each is applied"
+    },
+    "context.bundle.show": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ProfilesTab.test.tsx",
+      "summary": "Show what a profile hides, pairs and where it is applied"
+    },
+    "context.bundle.add": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ProfilesTab.test.tsx",
+      "summary": "Create a profile from a folder or from the lists, or duplicate one, after a plan"
+    },
+    "context.bundle.edit": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ProfilesTab.test.tsx",
+      "summary": "Change the lists of a profile after a plan, sending only what changed"
+    },
+    "context.bundle.rm": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ProfilesTab.test.tsx",
+      "summary": "Delete a profile after a plan and the typed name, with force when it is applied"
+    },
+    "context.bundle.apply": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextTabs.e2e.test.tsx",
+      "summary": "Apply a profile without a paired server set to a folder: plan, confirm, result"
+    },
+    "context.bundle.undo": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextTabs.e2e.test.tsx",
+      "summary": "Undo an applied profile in a folder: plan, confirm, result"
+    },
+    "context.bundle.status": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ContextTabs.e2e.test.tsx",
+      "summary": "Read the profile applied in a folder and whether it drifted"
+    },
+    "context.bundle.launch": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ProfilesTab.test.tsx",
+      "summary": "Prepare the launch line of a profile to copy; Open in Terminal stays off"
+    },
+    "context.bundle.config": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/ProfilesTab.test.tsx",
+      "summary": "Read and switch the Apply automatically setting, default off"
+    },
+    "context.client-edit": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/LayersTab.test.tsx",
+      "summary": "Change a layer's scope, folders, imports or delivery after a plan"
+    },
+    "context.client-rm": {
+      "route": "context",
+      "status": "built",
+      "test": "src/plus/context/LayersTab.test.tsx",
+      "summary": "Delete a client layer after a plan and the typed name"
+    },
     "context.checkpoint-status": {
       "route": "context",
       "status": "built",
@@ -1072,53 +1162,53 @@
       "surface": "screen"
     },
     "context bundle add": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.bundle.add",
       "surface": "screen"
     },
     "context bundle apply": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.bundle.apply",
       "surface": "screen"
     },
     "context bundle config": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.bundle.config",
       "surface": "screen"
     },
     "context bundle edit": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.bundle.edit",
       "surface": "screen"
     },
     "context bundle launch": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.bundle.launch",
       "surface": "screen"
     },
     "context bundle ls": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.bundle.ls",
       "surface": "screen"
     },
     "context bundle rm": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.bundle.rm",
       "surface": "screen"
     },
     "context bundle show": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.bundle.show",
       "surface": "screen"
     },
     "context bundle status": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.bundle.status",
       "surface": "screen"
     },
     "context bundle undo": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.bundle.undo",
       "surface": "screen"
     },
     "context checkpoint-status": {
@@ -1132,8 +1222,8 @@
       "surface": "screen"
     },
     "context client edit": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.client-edit",
       "surface": "screen"
     },
     "context client list": {
@@ -1142,13 +1232,13 @@
       "surface": "screen"
     },
     "context client rm": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.client-rm",
       "surface": "screen"
     },
     "context compose": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.compose",
       "surface": "screen"
     },
     "context disable": {
@@ -1172,8 +1262,8 @@
       "surface": "screen"
     },
     "context measure": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.measure",
       "surface": "screen"
     },
     "context plan": {
@@ -1207,8 +1297,8 @@
       "surface": "screen"
     },
     "context use": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.use",
       "surface": "screen"
     },
     "council doctor": {

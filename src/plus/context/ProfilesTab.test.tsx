@@ -55,7 +55,7 @@ async function press(user: UserEvent, name: string | RegExp) {
 }
 
 describe("Profiles: reading", () => {
-  it("lists the profiles with their server set and where they are applied, and selects the first", async () => {
+  it("context.bundle.ls, context.bundle.status: lists the profiles with their server set and where they are applied, and selects the first", async () => {
     await open();
     const list = within(screen.getByRole("list", { name: "Profile list" }));
     const items = list.getAllByRole("listitem");
@@ -72,7 +72,7 @@ describe("Profiles: reading", () => {
     expect(bridge.ran().filter((line) => /--dry-run|--yes/.test(line))).toEqual([]);
   });
 
-  it("shows what the profile hides, pairs it with its server set and lists where it is applied", async () => {
+  it("context.bundle.show: shows what the profile hides, pairs it with its server set and lists where it is applied", async () => {
     await open();
     const box = detail();
     expect(box.getByText("off: notes-helper")).toBeVisible();
@@ -180,7 +180,7 @@ describe("Profiles: states", () => {
 });
 
 describe("Profiles: creating", () => {
-  it("creates a profile from a folder through the preview and shows it in the list", async () => {
+  it("context.bundle.add: creates a profile from a folder through the preview and shows it in the list", async () => {
     const created = goldenData("context-bundle-add.apply");
     const list = bundleList();
     bridge.set(
@@ -262,7 +262,7 @@ describe("Profiles: creating", () => {
 });
 
 describe("Profiles: editing and duplicating", () => {
-  it("sends only the lists that changed, and shows the plan before it saves", async () => {
+  it("context.bundle.edit: sends only the lists that changed, and shows the plan before it saves", async () => {
     const edit = "context bundle edit acme-dev --agents-off reviewer-bot,planner";
     bridge.set(`${edit} --dry-run`, goldenData("context-bundle-edit.preview"));
     bridge.set(edit, goldenData("context-bundle-edit.apply"));
@@ -322,7 +322,7 @@ describe("Profiles: editing and duplicating", () => {
 describe("Profiles: deleting", () => {
   const rm = "context bundle rm acme-dev --force";
 
-  it("needs the force box for a profile that is applied, and the name typed before it deletes", async () => {
+  it("context.bundle.rm: needs the force box for a profile that is applied, and the name typed before it deletes", async () => {
     bridge.set(`${rm} --dry-run`, goldenData("context-bundle-rm.forced"));
     bridge.set(rm, goldenData("context-bundle-rm.apply"));
     const user = await open();
@@ -473,7 +473,7 @@ describe("Profiles: applying and undoing", () => {
 });
 
 describe("Profiles: apply automatically and launch", () => {
-  it("is off by default, and turning it on asks first because that command has no preview", async () => {
+  it("context.bundle.config: is off by default, and turning it on asks first because that command has no preview", async () => {
     bridge.set(
       "context bundle config --auto-apply on",
       goldenData("context-bundle-config.on"),
@@ -498,7 +498,7 @@ describe("Profiles: apply automatically and launch", () => {
     );
   });
 
-  it("prepares the launch line, shows it to copy, and keeps Open in Terminal off", async () => {
+  it("context.bundle.launch: prepares the launch line, shows it to copy, and keeps Open in Terminal off", async () => {
     const launch = goldenData("context-bundle-launch.apply");
     bridge.set("context bundle launch acme-dev", launch);
     const user = await open();

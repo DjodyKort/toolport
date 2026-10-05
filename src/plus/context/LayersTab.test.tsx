@@ -290,7 +290,7 @@ describe("Layers: adding", () => {
 describe("Layers: editing", () => {
   const edit = "context client edit client-chain --delivery import";
 
-  it("sends only the fields that changed, and needs a change before it can be reviewed", async () => {
+  it("context.client-edit: sends only the fields that changed, and needs a change before it can be reviewed", async () => {
     bridge.set(`${edit} --dry-run`, goldenData("context-client-edit.delivery"));
     bridge.set(edit, goldenData("context-client-edit.apply"));
     const user = await open();
@@ -333,7 +333,7 @@ describe("Layers: editing", () => {
 describe("Layers: deleting", () => {
   const rm = "context client rm client-chain";
 
-  it("asks for the name before it deletes, after the plan, and drops the layer from the list", async () => {
+  it("context.client-rm: asks for the name before it deletes, after the plan, and drops the layer from the list", async () => {
     const preview = goldenData("context-client-rm.preview");
     bridge.set(`${rm} --dry-run`, preview);
     bridge.set(rm, () => {
