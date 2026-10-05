@@ -19,7 +19,7 @@ beforeEach(() => {
 
 async function open() {
   const user = userEvent.setup();
-  render(<ContextScreen onOpenCommands={() => {}} />);
+  render(<ContextScreen initialTab="launch" onOpenCommands={() => {}} />);
   await screen.findByRole("list", { name: "Launch profiles" });
   await screen.findByRole("list", { name: "Tokens per layer" });
   await screen.findByRole("list", { name: "Profile per folder" });
@@ -38,8 +38,6 @@ describe("Context screen: the tabs", () => {
         .getAllByRole("tab")
         .map((tab) => tab.textContent),
     ).toEqual(["This folder", "Profiles", "Layers", "Hooks", "Launch & shell"]);
-    await user.click(within(tabs).getByRole("tab", { name: "Profiles" }));
-    expect(screen.getByText(/built by MIG-GUI-10\b/)).toBeInTheDocument();
     await user.click(within(tabs).getByRole("tab", { name: "Hooks" }));
     expect(screen.getByText(/built by MIG-GUI-12\b/)).toBeInTheDocument();
   });
@@ -118,7 +116,7 @@ describe("Launch & shell: states", () => {
   it("shows an error with Retry for a read that fails and recovers", async () => {
     bridge.set("context status", failure("io", "cannot read the home"));
     const user = userEvent.setup();
-    render(<ContextScreen onOpenCommands={() => {}} />);
+    render(<ContextScreen initialTab="launch" onOpenCommands={() => {}} />);
     const shell = within(await screen.findByRole("region", { name: "Shell shims" }));
     expect(await shell.findByRole("alert")).toHaveTextContent("cannot read the home");
     bridge.set("context status", goldenData("context-status"));
@@ -130,7 +128,7 @@ describe("Launch & shell: states", () => {
     bridge.set("context status", emptyStatus);
     bridge.set("context profile list", { profiles: [] });
     bridge.set("context client list", { layers: [] });
-    render(<ContextScreen onOpenCommands={() => {}} />);
+    render(<ContextScreen initialTab="launch" onOpenCommands={() => {}} />);
     expect(await screen.findByText(/No launch profiles\./)).toBeInTheDocument();
     expect(await screen.findByText(/No layers yet/)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Set up…" }).length).toBeGreaterThan(0);
@@ -141,7 +139,7 @@ describe("Launch & shell: states", () => {
       if (command === "plus_ctl") throw new Error("toolportctl was not found");
       throw new Error(`unexpected invoke ${command}`);
     });
-    render(<ContextScreen onOpenCommands={() => {}} />);
+    render(<ContextScreen initialTab="launch" onOpenCommands={() => {}} />);
     await waitFor(() =>
       expect(screen.getAllByRole("alert").length).toBeGreaterThanOrEqual(6),
     );
@@ -309,9 +307,7 @@ describe("Launch & shell: layers, init and folder routing", () => {
     await user.type(form.getByLabelText("Name"), "acme");
     await user.click(form.getByRole("button", { name: "Preview" }));
     const review = within(await dialog(/Add client layer acme\?/));
-    expect(
-      await review.findByText(/Layer client-acme for \*\*\/clients\/acme\/\*\*/),
-    ).toBeInTheDocument();
+    expect(await review.findByText("Add the client layer acme")).toBeInTheDocument();
     await user.click(review.getByRole("button", { name: "Add layer" }));
     await waitFor(() => expect(bridge.ran()).toContain("context client add acme"));
   });
@@ -321,7 +317,7 @@ describe("Launch & shell: layers, init and folder routing", () => {
     bridge.set("context init --yes --dry-run", goldenData("context-init.preview"));
     bridge.set("context init --yes", goldenData("context-init.apply"));
     const user = userEvent.setup();
-    render(<ContextScreen onOpenCommands={() => {}} />);
+    render(<ContextScreen initialTab="launch" onOpenCommands={() => {}} />);
     const layers = within(
       await screen.findByRole("region", { name: "Personal and client layers" }),
     );

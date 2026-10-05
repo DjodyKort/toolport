@@ -346,8 +346,9 @@ describe("Context screen, Layers", () => {
     await user.type(form.getByLabelText("Folder pattern"), "**/work/partner/**");
     await user.click(form.getByRole("button", { name: "Preview" }));
     const box = await review(/Add client layer partner\?/);
+    expect(await box.findByText("Add the client layer partner")).toBeVisible();
     expect(
-      await box.findByText(/Layer client-partner for \*\*\/work\/partner\/\*\*/),
+      box.getByText("scaffold the layer client-partner (glob scope, copy delivery)"),
     ).toBeVisible();
     expect(ran("context client add partner --glob **/work/partner/** --dry-run")).toBe(1);
     await escape(user);
@@ -361,7 +362,7 @@ describe("Context screen, Layers", () => {
     await user.type(next.getByLabelText("Folder pattern"), "**/work/partner/**");
     await user.click(next.getByRole("button", { name: "Preview" }));
     await finish(user, /Add client layer partner\?/, "Add layer", {
-      done: "Client layer added",
+      done: "Done",
     });
     expect(ran("context client add partner --glob **/work/partner/**")).toBe(1);
     await waitFor(() => expect(items("Layers")).toHaveLength(3));
@@ -422,7 +423,7 @@ describe("Context screen, What loads", () => {
     await user.type(form.getByLabelText("Name"), "partner");
     await user.click(form.getByRole("button", { name: "Preview" }));
     await finish(user, /Add client layer partner\?/, "Add layer", {
-      done: "Client layer added",
+      done: "Done",
     });
     expect(await loads.findByText(/5,666 more load on demand/)).toBeVisible();
   });
