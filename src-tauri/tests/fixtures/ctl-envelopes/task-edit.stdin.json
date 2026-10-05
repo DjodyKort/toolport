@@ -1,0 +1,38 @@
+{
+  "argv": ["task", "edit", "nightly-report", "--file", "-"],
+  "envelope": {
+    "command": "task edit",
+    "data": {
+      "created": false,
+      "dryRun": false,
+      "path": "<WORLD>/data/plus/tasks/nightly-report.json",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "change task nightly-report",
+            "diff": {
+              "after": "{\n  \"id\": \"nightly-report\",\n  \"title\": \"Nightly report (from stdin)\",\n  \"description\": \"\",\n  \"enabled\": true,\n  \"requires\": {\n    \"servers\": [],\n    \"commands\": [\n      \"echo\"\n    ]\n  },\n  \"writesSecrets\": [],\n  \"steps\": [\n    {\n      \"type\": \"exec\",\n      \"id\": \"say\",\n      \"title\": \"Say hello\",\n      \"program\": \"echo\",\n      \"args\": [\n        \"report\"\n      ]\n    }\n  ],\n  \"triggers\": {\n    \"manual\": true,\n    \"cli\": false,\n    \"selfMcp\": {\n      \"enabled\": false,\n      \"approval\": \"every-run\"\n    },\n    \"schedule\": {\n      \"cron\": \"0 3 * * *\",\n      \"autoRun\": true\n    },\n    \"onAuthFailure\": []\n  },\n  \"createdFrom\": null\n}\n",
+              "before": "{\n  \"id\": \"nightly-report\",\n  \"title\": \"Nightly report (changed)\",\n  \"description\": \"\",\n  \"enabled\": true,\n  \"requires\": {\n    \"servers\": [],\n    \"commands\": [\n      \"echo\"\n    ]\n  },\n  \"writesSecrets\": [],\n  \"steps\": [\n    {\n      \"type\": \"exec\",\n      \"id\": \"say\",\n      \"title\": \"Say hello\",\n      \"program\": \"echo\",\n      \"args\": [\n        \"report\"\n      ]\n    }\n  ],\n  \"triggers\": {\n    \"manual\": true,\n    \"cli\": false,\n    \"selfMcp\": {\n      \"enabled\": false,\n      \"approval\": \"every-run\"\n    },\n    \"schedule\": {\n      \"cron\": \"0 3 * * *\",\n      \"autoRun\": true\n    },\n    \"onAuthFailure\": []\n  },\n  \"createdFrom\": null\n}\n"
+            },
+            "op": "update",
+            "path": "<WORLD>/data/plus/tasks/nightly-report.json"
+          }
+        ],
+        "summary": "Edit task nightly-report",
+        "undo": "cp <WORLD>/data/plus/tasks/.backups/<STAMP>-nightly-report.json <WORLD>/data/plus/tasks/nightly-report.json",
+        "warnings": []
+      },
+      "result": {
+        "applied": true,
+        "backups": ["<WORLD>/data/plus/tasks/.backups/<STAMP>-nightly-report.json"],
+        "changed": ["<WORLD>/data/plus/tasks/nightly-report.json"],
+        "undo": "cp <WORLD>/data/plus/tasks/.backups/<STAMP>-nightly-report.json <WORLD>/data/plus/tasks/nightly-report.json"
+      },
+      "task": "nightly-report"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

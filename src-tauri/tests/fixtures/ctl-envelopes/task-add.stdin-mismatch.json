@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "add", "other-name", "--file", "-", "--dry-run"],
+  "envelope": {
+    "command": "task add",
+    "error": {
+      "code": "usage",
+      "message": "the definition on stdin defines the task \"piped-cleanup\", not \"other-name\""
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}
