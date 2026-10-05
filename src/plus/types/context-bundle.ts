@@ -106,7 +106,9 @@ export const contextBundleStatusData = obj({
       drift: bool,
       ownedKeys: obj({
         claudeMdExcludes: arr(str),
+        deniedMcpServers: arr(str),
         enabledPlugins: arr(str),
+        env: arr(str),
         permissionsDeny: arr(str),
         skillOverrides: arr(str),
       }),

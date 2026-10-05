@@ -6,7 +6,7 @@
       "partial": false,
       "plugins": [
         {
-          "adapter": null,
+          "adapter": "ecc@ecc",
           "brings": {
             "agents": 2,
             "commands": 2,

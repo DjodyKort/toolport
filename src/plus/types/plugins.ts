@@ -114,6 +114,21 @@ export const pluginOption = obj({
 });
 export type PluginOption = Infer<typeof pluginOption>;
 
+export const adapterKnob = obj({
+  key: str,
+  label: str,
+  kind: lit("enum", "bool", "bool-off", "csv", "globs", "hook-ids"),
+  env: str,
+  option: nullable(str),
+  choices: nullable(arr(str)),
+  default: nullable(str),
+  current: obj({
+    value: nullable(str),
+    from: lit("folder-env", "user-env", "option", "default"),
+  }),
+});
+export type AdapterKnob = Infer<typeof adapterKnob>;
+
 export const pluginsShowData = obj({
   ...rowProps,
   description: str,
@@ -135,8 +150,8 @@ export const pluginsShowData = obj({
     }),
   ),
   options: arr(pluginOption),
-  /** Reserved for the adapter knobs of `plugins config`. */
-  knobs: arr(any),
+  knobs: arr(adapterKnob),
+  adapterProblems: arr(obj({ file: str, message: str })),
   warnings: arr(str),
 });
 export type PluginsShowData = Infer<typeof pluginsShowData>;

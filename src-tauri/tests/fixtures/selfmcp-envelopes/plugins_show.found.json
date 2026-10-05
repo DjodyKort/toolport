@@ -5,7 +5,8 @@
   },
   "isError": false,
   "result": {
-    "adapter": null,
+    "adapter": "ecc@ecc",
+    "adapterProblems": [],
     "brings": {
       "agents": 2,
       "commands": 2,
@@ -525,7 +526,73 @@
     ],
     "id": "ecc@ecc",
     "installPath": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0",
-    "knobs": [],
+    "knobs": [
+      {
+        "choices": ["minimal", "standard", "strict"],
+        "current": {
+          "from": "option",
+          "value": "strict"
+        },
+        "default": "standard",
+        "env": "ECC_HOOK_PROFILE",
+        "key": "hook_profile",
+        "kind": "enum",
+        "label": "Hook profile",
+        "option": "hook_profile"
+      },
+      {
+        "choices": null,
+        "current": {
+          "from": "option",
+          "value": "true"
+        },
+        "default": "true",
+        "env": "ECC_HOOKS_ENABLED",
+        "key": "hooks_enabled",
+        "kind": "bool",
+        "label": "Hooks",
+        "option": "hooks_enabled"
+      },
+      {
+        "choices": null,
+        "current": {
+          "from": "default",
+          "value": "on"
+        },
+        "default": "on",
+        "env": "ECC_GATEGUARD",
+        "key": "gateguard",
+        "kind": "bool-off",
+        "label": "GateGuard",
+        "option": null
+      },
+      {
+        "choices": null,
+        "current": {
+          "from": "default",
+          "value": null
+        },
+        "default": null,
+        "env": "GATEGUARD_EXEMPT_GLOBS",
+        "key": "gateguard_exempt_globs",
+        "kind": "globs",
+        "label": "GateGuard exempt paths",
+        "option": null
+      },
+      {
+        "choices": null,
+        "current": {
+          "from": "default",
+          "value": null
+        },
+        "default": null,
+        "env": "ECC_DISABLED_HOOKS",
+        "key": "disabled_hooks",
+        "kind": "hook-ids",
+        "label": "Hooks switched off",
+        "option": null
+      }
+    ],
     "marketplace": "ecc",
     "mcpOutsideGateway": [
       {
