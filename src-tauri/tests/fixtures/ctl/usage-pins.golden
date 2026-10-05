@@ -115,6 +115,10 @@ Commands:
   sources root rm Stop searching a folder (<dir>, --dry-run)
   sources root   Search folders: ls add rm
   sources        Sources: ls root
+  library status Show the skills library against its remote: ahead, behind, uncommitted, credentials, duplicate clones (--fetch contacts the remote)
+  library pull   Fast-forward the skills library from its remote; refuses over uncommitted changes (--dry-run)
+  library push   Audit and secret-scan, then push the skills library; never forces (--dry-run)
+  library        Library: status pull push
   plugins ls     List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)
   plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
   plugins config Set or unset a plugin's own switches: env keys in a folder, plugin options without one (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)
@@ -298,6 +302,10 @@ Commands:
   sources root rm Stop searching a folder (<dir>, --dry-run)
   sources root   Search folders: ls add rm
   sources        Sources: ls root
+  library status Show the skills library against its remote: ahead, behind, uncommitted, credentials, duplicate clones (--fetch contacts the remote)
+  library pull   Fast-forward the skills library from its remote; refuses over uncommitted changes (--dry-run)
+  library push   Audit and secret-scan, then push the skills library; never forces (--dry-run)
+  library        Library: status pull push
   plugins ls     List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)
   plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
   plugins config Set or unset a plugin's own switches: env keys in a folder, plugin options without one (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)
@@ -481,6 +489,10 @@ Commands:
   sources root rm Stop searching a folder (<dir>, --dry-run)
   sources root   Search folders: ls add rm
   sources        Sources: ls root
+  library status Show the skills library against its remote: ahead, behind, uncommitted, credentials, duplicate clones (--fetch contacts the remote)
+  library pull   Fast-forward the skills library from its remote; refuses over uncommitted changes (--dry-run)
+  library push   Audit and secret-scan, then push the skills library; never forces (--dry-run)
+  library        Library: status pull push
   plugins ls     List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)
   plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
   plugins config Set or unset a plugin's own switches: env keys in a folder, plugin options without one (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)
@@ -664,6 +676,10 @@ Commands:
   sources root rm Stop searching a folder (<dir>, --dry-run)
   sources root   Search folders: ls add rm
   sources        Sources: ls root
+  library status Show the skills library against its remote: ahead, behind, uncommitted, credentials, duplicate clones (--fetch contacts the remote)
+  library pull   Fast-forward the skills library from its remote; refuses over uncommitted changes (--dry-run)
+  library push   Audit and secret-scan, then push the skills library; never forces (--dry-run)
+  library        Library: status pull push
   plugins ls     List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)
   plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
   plugins config Set or unset a plugin's own switches: env keys in a folder, plugin options without one (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)
@@ -3859,6 +3875,72 @@ exit 2
 --- stdout
 --- stderr
 toolportctl: --source requires a value
+Run `toolportctl --help` for usage.
+=== ["library"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: library status|pull|push (status: [--fetch]; pull|push: [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["library","bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: library status|pull|push (status: [--fetch]; pull|push: [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["library","status","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["library","status","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["library","status","--dry-run"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --dry-run
+Run `toolportctl --help` for usage.
+=== ["library","pull","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["library","pull","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["library","pull","--fetch"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --fetch
+Run `toolportctl --help` for usage.
+=== ["library","push","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["library","push","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["library","push","--force"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --force
 Run `toolportctl --help` for usage.
 === ["sources"]
 exit 2

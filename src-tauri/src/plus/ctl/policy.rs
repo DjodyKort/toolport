@@ -12,7 +12,7 @@ use super::{agents, auth, cc, client, client_direct, client_edit, compression, c
 use super::{context, context_bundle, context_manage, council, folders, import, mcp, obs, profile, secret};
 use super::task;
 use super::{
-    hooks, plugins, server, skills, skills_repo, skills_state, skills_taps, sources, styles, sync,
+    hooks, library, plugins, server, skills, skills_repo, skills_state, skills_taps, sources, styles, sync,
     update,
 };
 use super::usage;
@@ -555,6 +555,15 @@ pub(super) const ROWS: &[Row] = &[
         .args(&[req("action"), req("id"), req("server")])
         .requires(&["--cwd"]),
     row("hooks ls", R).spec(&[&hooks::LS]),
+    row("library status", R).spec(&[&library::STATUS]),
+    row("library pull", W)
+        .dry()
+        .needs(&[Network])
+        .spec(&[&library::CHANGE]),
+    row("library push", W)
+        .dry()
+        .needs(&[Network])
+        .spec(&[&library::CHANGE]),
     row("sources root ls", R).spec(&[&sources::ROOT_LS]),
     row("sources root add", W)
         .dry()
@@ -778,6 +787,8 @@ impl ToolRow {
 pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("skills_list", R, "skills ls"),
     maps("sources_ls", R, "sources ls"),
+    maps("library_status", R, "library status"),
+    maps("library_pull", W, "library pull").on(),
     maps("context_measure", W, "context measure"),
     maps("context_bundle_ls", R, "context bundle ls"),
     maps("context_bundle_status", R, "context bundle status"),

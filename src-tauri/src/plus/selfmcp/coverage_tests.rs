@@ -9,6 +9,7 @@ const SOURCES: &[(&str, &str)] = &[
     ("direct_tests.rs", include_str!("direct_tests.rs")),
     ("plugins_tests.rs", include_str!("plugins_tests.rs")),
     ("effect_tests.rs", include_str!("effect_tests.rs")),
+    ("library_tests.rs", include_str!("library_tests.rs")),
     (
         "state_agent_style_tests.rs",
         include_str!("state_agent_style_tests.rs"),
@@ -85,6 +86,11 @@ const SIDE_EFFECT_TESTS: &[(&str, &str, &str)] = &[
         "skills_git_push",
         "wired_tests.rs",
         "skills_git_push_commits_and_pushes_only_when_confirmed",
+    ),
+    (
+        "library_pull",
+        "library_tests.rs",
+        "library_pull_previews_by_default_and_fast_forwards_only_when_applied",
     ),
     ("agents_scaffold", "wired_tests.rs", AGENTS_FLOW),
     ("agents_sync", "effect_tests.rs", SYNC_DRY_RUN),

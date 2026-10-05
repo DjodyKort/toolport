@@ -380,14 +380,17 @@ pub(super) fn skills_git_push(args: &Value) -> Outcome {
             "commit_message is empty",
         ));
     }
-    git_ok(&repo, &["add", "-A"])?;
-    if git_ok(&repo, &["status", "--porcelain"])?.trim().is_empty() {
-        return Ok(json!({"pushed": false, "message": "working tree clean; nothing to commit"}));
+    let done = super::library::push(&repo, message)?;
+    if done["pushed"] == true {
+        Ok(json!({
+            "pushed": true,
+            "commitSha": done["commitSha"],
+            "repo": repo.to_string_lossy(),
+            "checks": done["checks"],
+        }))
+    } else {
+        Ok(json!({"pushed": false, "message": done["message"]}))
     }
-    git_ok(&repo, &["commit", "-m", message])?;
-    let sha = git_ok(&repo, &["rev-parse", "HEAD"])?.trim().to_string();
-    git_ok(&repo, &["push"])?;
-    Ok(json!({"pushed": true, "commitSha": sha, "repo": repo.to_string_lossy()}))
 }
 
 fn conflict_report(repo: &Path, branch: &str, resume: &str) -> Value {

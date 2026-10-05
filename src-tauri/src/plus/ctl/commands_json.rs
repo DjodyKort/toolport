@@ -179,6 +179,11 @@ pub(super) const GLOBAL: &[Meta] = &[
     m("--disable", Bool, "Turn folder profiles off"),
     m("--disabled", Str, REFUSED).hidden(),
     m("--dry-run", Bool, "Preview the change and write nothing"),
+    m(
+        "--fetch",
+        Bool,
+        "Contact the remote (a read-only ls-remote, then a fetch) to test the credentials and refresh the counts; the only network call of library status",
+    ),
     m("--enable", Bool, "Turn folder profiles on"),
     m(
         "--event",
