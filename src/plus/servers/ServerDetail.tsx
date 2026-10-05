@@ -9,7 +9,9 @@ import type { InspectData } from "../types/inspect";
 import { ErrorState, ScreenSkeleton, outcomeOf, useCtlJob, useCtlQuery } from "../ui";
 import { Chip, Code, Kv, Pill, StateBadge } from "./atoms";
 import { launchLine, looksLikeLogin, type ServerInfo, type ServerView } from "./model";
+import { ServerTools } from "./ServerTools";
 import { useServers } from "./useServers";
+import type { WriteControl } from "./useWrite";
 
 const SHOWN_TOOLS = 60;
 
@@ -142,6 +144,8 @@ export function ServerDetail({
   onRemove,
   onToggleProfile,
   busy,
+  write,
+  onChanged,
 }: {
   view: ServerView;
   profiles: ProfileLsData;
@@ -149,6 +153,8 @@ export function ServerDetail({
   onRemove: (info: ServerInfo | null) => void;
   onToggleProfile: (profileId: string, on: boolean) => void;
   busy: boolean;
+  write: WriteControl;
+  onChanged: () => void;
 }) {
   const { go } = useServers();
   const info = useCtlQuery<ServerInfo>(["server", "info", view.id]);
@@ -274,6 +280,13 @@ export function ServerDetail({
           })}
         </ul>
       </div>
+      <ServerTools
+        key={`tools:${view.id}`}
+        view={view}
+        profiles={profiles}
+        write={write}
+        onChanged={onChanged}
+      />
       <LiveTools key={view.id} view={view} />
       <div className="flex flex-wrap gap-2 border-t pt-3">
         <Button
