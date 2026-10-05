@@ -17,4 +17,6 @@ mod api_tests;
 #[cfg(test)]
 mod builtin_tests;
 #[cfg(test)]
+mod host_tests;
+#[cfg(test)]
 mod tests;

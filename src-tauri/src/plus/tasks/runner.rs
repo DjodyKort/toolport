@@ -216,7 +216,7 @@ impl State<'_> {
                     Ok(result) => self.finish_value(&result, capture, result["isError"] == Value::Bool(true)),
                 }
             }
-            Step::Routine { routine_id, script, args, capture, .. } => match self.host.run_routine(routine_id.as_deref(), script.as_deref(), args.clone().unwrap_or(Value::Null)) {
+            Step::Routine { routine_id, script, args, capture, .. } => match self.host.run_routine(routine_id.as_deref(), script.as_deref(), args.clone().unwrap_or(Value::Null), &self.task.requires.servers) {
                 Err(e) => Outcome::Failed(self.red.scrub(&e)),
                 Ok(value) => self.finish_value(&value, capture, false),
             },
