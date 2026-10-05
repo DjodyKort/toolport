@@ -39,9 +39,16 @@ fn read_status() -> StatusFile {
     }
 }
 
-fn render(rest: &[String], build: fn(&StatusFile, i64) -> Value) -> Result<Output, CtlError> {
+fn render(
+    rest: &[String],
+    build: fn(&StatusFile, i64, &[String]) -> Value,
+) -> Result<Output, CtlError> {
     no_args(rest)?;
-    let data = build(&read_status(), SystemClock.now());
+    let status = read_status();
+    // An unreadable registry must not blank the warnings, so fall back to what is cached.
+    let registered = scan::probed_servers()
+        .unwrap_or_else(|_| status.servers.keys().cloned().collect());
+    let data = build(&status, SystemClock.now(), &registered);
     let human = serde_json::to_string(&data).unwrap_or_default();
     Ok(Output::new(data, human))
 }

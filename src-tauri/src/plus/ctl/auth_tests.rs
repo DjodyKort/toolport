@@ -108,6 +108,42 @@ fn auth_probe_prints_state_rows_and_writes_the_cache() {
 }
 
 #[test]
+fn a_removed_server_leaves_the_statusline_hook_and_cache() {
+    with_isolated_vault(|| {
+        two_remotes();
+        run_cli(&["auth", "probe"]);
+        let status_path = data_dir().join("auth/status.json");
+        let cached = |id: &str| {
+            let value: Value =
+                serde_json::from_str(&std::fs::read_to_string(&status_path).unwrap()).unwrap();
+            value["servers"].get(id).is_some()
+        };
+        let statusline = || json_of(&["auth", "statusline"]).1;
+        assert_eq!(statusline()["auth"]["needs_reauth"], 1);
+        assert!(cached("srv-figma") && cached("srv-slack"));
+
+        write_registry(vec![remote("srv-slack", "slack")], &[]);
+
+        let line = statusline();
+        assert_eq!(line["auth"]["needs_reauth"], 0);
+        assert_eq!(line["auth"]["worst"], json!([]));
+        assert_eq!(line["auth"]["text"], "auth ok (1)");
+        let (code, hook) = json_of(&["auth", "hook"]);
+        assert_eq!(code, 0);
+        assert!(hook.get("hookSpecificOutput").is_none(), "{hook}");
+        assert_eq!(hook["auth"], line["auth"]);
+        assert!(cached("srv-figma"), "inspection surfaces never write");
+
+        let (code, out, _) = run_cli(&["auth", "probe"]);
+        assert_eq!(code, 0);
+        assert_eq!(out.trim(), "auth probe: nothing due (1 registered)");
+        assert!(!cached("srv-figma"), "the probe run prunes the cache");
+        assert!(cached("srv-slack"));
+        assert_eq!(statusline()["auth"], line["auth"]);
+    });
+}
+
+#[test]
 fn auth_probe_server_and_force_follow_the_cache() {
     with_isolated_vault(|| {
         two_remotes();
@@ -348,9 +384,10 @@ fn every_state() -> StatusFile {
 #[test]
 fn every_toolportctl_command_the_auth_surfaces_print_is_a_real_command() {
     let status = every_state();
+    let registered: Vec<String> = status.servers.keys().cloned().collect();
     let mut printed = vec![
-        surfaces::statusline(&status, 1_500).to_string(),
-        surfaces::hook(&status, 1_500).to_string(),
+        surfaces::statusline(&status, 1_500, &registered).to_string(),
+        surfaces::hook(&status, 1_500, &registered).to_string(),
         serde_json::to_string(&surfaces::rows(&status, 1_500)).unwrap(),
     ];
     for row in surfaces::rows(&status, 1_500) {

@@ -223,8 +223,8 @@ fn summary_text(counts: &AuthCounts, worst: &[String]) -> String {
     format!("auth: {} [{}]", parts.join(", "), worst.join(", "))
 }
 
-pub fn statusline(status: &StatusFile, now: i64) -> Value {
-    let rows = rows(status, now);
+pub fn statusline(status: &StatusFile, now: i64, registered: &[String]) -> Value {
+    let rows = rows_for(status, now, registered);
     statusline_from(&counts(&rows), &worst(&rows))
 }
 
@@ -243,8 +243,8 @@ fn statusline_from(counts: &AuthCounts, worst: &[String]) -> Value {
     })
 }
 
-pub fn hook(status: &StatusFile, now: i64) -> Value {
-    let rows = rows(status, now);
+pub fn hook(status: &StatusFile, now: i64, registered: &[String]) -> Value {
+    let rows = rows_for(status, now, registered);
     let counts = counts(&rows);
     let worst = worst(&rows);
     let mut value = statusline_from(&counts, &worst);

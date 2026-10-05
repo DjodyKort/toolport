@@ -1,10 +1,11 @@
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
+use super::probe::ProbeRegistry;
 use super::types::Tracked;
 
 pub const STATUS_VERSION: u32 = 1;
@@ -60,6 +61,19 @@ impl StatusFile {
             .iter()
             .map(|(id, entry)| (id.clone(), entry.tracked.clone()))
             .collect()
+    }
+
+    /// Drops what no probe of `registry` can refresh any more, so a server removed from the
+    /// registry cannot keep reporting its last state. Returns whether anything was dropped.
+    pub fn prune(&mut self, registry: &ProbeRegistry) -> bool {
+        let gates: BTreeSet<String> = registry
+            .iter()
+            .filter_map(|spec| spec.profile_gate_key())
+            .collect();
+        let before = (self.servers.len(), self.profiles.len());
+        self.servers.retain(|id, _| registry.get(id).is_some());
+        self.profiles.retain(|key, _| gates.contains(key));
+        before != (self.servers.len(), self.profiles.len())
     }
 }
 

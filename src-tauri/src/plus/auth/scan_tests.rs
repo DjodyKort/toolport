@@ -6,6 +6,7 @@ use std::time::Duration;
 use serde_json::json;
 
 use super::scan::{report_value, run, ProbeRun, Selector, MAX_PARALLEL};
+use super::surfaces;
 use super::*;
 
 const T0: i64 = 3_000_000;
@@ -352,5 +353,122 @@ fn the_report_carries_counts_and_rows_for_the_probed_servers() {
     );
     assert_eq!(only["servers"].as_array().unwrap().len(), 1);
     assert_eq!(only["servers"][0]["server"], "alpha");
+    let _ = std::fs::remove_dir_all(&rig.dir);
+}
+
+fn servers_of(registry: &ProbeRegistry) -> Vec<String> {
+    registry.iter().map(|spec| spec.server.clone()).collect()
+}
+
+fn trimmed_registry() -> ProbeRegistry {
+    let mut reg = ProbeRegistry::new();
+    reg.register(ProbeSpec::new("files", ProbeKind::Stdio));
+    reg.register(ProbeSpec::new("gdocs-a", ProbeKind::GoogleRefresh).with_profile("work"));
+    reg.register(ProbeSpec::new("gdocs-b", ProbeKind::GoogleRefresh).with_profile("work"));
+    reg
+}
+
+#[test]
+fn removing_a_server_drops_it_from_the_counts_and_from_the_cache() {
+    let invalid_grant = ProbeOutcome::OauthError {
+        code: "invalid_grant".into(),
+        description: String::new(),
+    };
+    let rig = rig(
+        "prune",
+        registry(),
+        MockProbe::scripted(vec![
+            ProbeOutcome::Success,
+            ProbeOutcome::Success,
+            ProbeOutcome::Success,
+            invalid_grant,
+        ]),
+    );
+    run(&rig.prober, &Selector::Due, false, 1).unwrap();
+    let load = || rig.prober.store().lock().unwrap().load_status();
+    let before = load();
+    assert_eq!(
+        before.servers.keys().collect::<Vec<_>>(),
+        ["files", "gdocs-a", "gdocs-c", "slack"]
+    );
+    assert_eq!(
+        before.profiles.keys().collect::<Vec<_>>(),
+        ["google:home", "google:work"]
+    );
+    let line = surfaces::statusline(&before, T0, &servers_of(&registry()));
+    assert_eq!(line["auth"]["needs_reauth"], 1);
+    assert_eq!(line["auth"]["worst"], json!(["slack"]));
+
+    let kept = trimmed_registry();
+    let after_removal = AuthProber::new(
+        AuthStore::new(&rig.dir),
+        kept.clone(),
+        rig.probe.clone(),
+        rig.clock.clone(),
+    );
+    let stale = load();
+    assert!(stale.servers.contains_key("slack"), "nothing pruned it yet");
+    for line in [
+        surfaces::statusline(&stale, T0, &servers_of(&kept)),
+        surfaces::hook(&stale, T0, &servers_of(&kept)),
+    ] {
+        assert_eq!(line["auth"]["needs_reauth"], 0);
+        assert_eq!(line["auth"]["text"], "auth ok (2)");
+    }
+    assert!(surfaces::hook(&stale, T0, &servers_of(&kept))
+        .get("hookSpecificOutput")
+        .is_none());
+
+    let calls = rig.probe.call_count();
+    let scan = run(&after_removal, &Selector::Due, false, 1).unwrap();
+    assert!(scan.reports.is_empty() && scan.failures.is_empty(), "{scan:?}");
+    assert_eq!(rig.probe.call_count(), calls, "pruning probes nothing");
+
+    let after = load();
+    assert!(after.servers.get("slack").is_none());
+    assert!(after.servers.get("gdocs-c").is_none());
+    assert_eq!(after.servers.keys().collect::<Vec<_>>(), ["files", "gdocs-a"]);
+    assert_eq!(after.profiles.keys().collect::<Vec<_>>(), ["google:work"]);
+    assert_eq!(after.servers["files"], before.servers["files"]);
+    assert_eq!(after.servers["gdocs-a"], before.servers["gdocs-a"]);
+    assert_eq!(after.profiles["google:work"], before.profiles["google:work"]);
+
+    let on_disk = surfaces::read_status(&rig.dir);
+    assert_eq!(on_disk, after);
+    let unfiltered = surfaces::rows(&on_disk, T0);
+    assert!(unfiltered.iter().all(|row| row.server != "slack"));
+    assert_eq!(
+        surfaces::statusline(&on_disk, T0, &servers_of(&kept)),
+        surfaces::statusline(&on_disk, T0, &on_disk.servers.keys().cloned().collect::<Vec<_>>())
+    );
+    let _ = std::fs::remove_dir_all(&rig.dir);
+}
+
+#[test]
+fn pruning_touches_the_cache_only_when_something_is_stale() {
+    let rig = rig(
+        "prune-quiet",
+        registry(),
+        MockProbe::always(ProbeOutcome::Success),
+    );
+    assert!(!rig.prober.prune_unregistered().unwrap());
+    assert!(!rig.dir.exists(), "no cache, nothing created");
+
+    run(&rig.prober, &Selector::Due, false, 1).unwrap();
+    let path = rig.prober.store().status_path();
+    let bytes = std::fs::read(&path).unwrap();
+    assert!(!rig.prober.prune_unregistered().unwrap());
+    assert_eq!(std::fs::read(&path).unwrap(), bytes);
+
+    let nothing = AuthProber::new(
+        AuthStore::new(&rig.dir),
+        ProbeRegistry::new(),
+        rig.probe.clone(),
+        rig.clock.clone(),
+    );
+    assert!(nothing.prune_unregistered().unwrap());
+    let emptied = surfaces::read_status(&rig.dir);
+    assert!(emptied.servers.is_empty() && emptied.profiles.is_empty());
+    assert!(!nothing.prune_unregistered().unwrap());
     let _ = std::fs::remove_dir_all(&rig.dir);
 }
