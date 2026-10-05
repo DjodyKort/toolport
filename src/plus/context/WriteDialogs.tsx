@@ -9,7 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/Callout";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CommandLine } from "../allcommands/RunFlow";
-import { JobProgress, PlanPreview, TypedConfirmDialog, planOf as planV1Of } from "../ui";
+import {
+  DataView,
+  JobProgress,
+  PlanPreview,
+  TypedConfirmDialog,
+  planOf as planV1Of,
+  resultOf,
+} from "../ui";
 import { contextPlan } from "./plans";
 import type { WriteControl, WriteSpec } from "./hooks";
 
@@ -33,7 +40,7 @@ function Confirm({
     <div className="flex flex-col gap-3">
       {data === null ? flow.spec?.detail : <PlanPreview data={data} />}
       <CommandLine line={line} />
-      {data === null && (
+      {data === null && spec.warnNoPreview !== false && (
         <Callout variant="warning">
           This command has no preview. It makes its changes as soon as you confirm.
         </Callout>
@@ -61,6 +68,18 @@ function Confirm({
       confirmLabel={spec.confirmLabel ?? "Apply"}
       onConfirm={flow.confirm}
     />
+  );
+}
+
+/** The result of a command that answers with a plan and a `ResultV1`: what it did, the files
+ * it changed and the command that reverts it. */
+function ResultBody({ data }: { data: unknown }) {
+  const plan = planV1Of(data);
+  return (
+    <section aria-label="Result" className="flex flex-col gap-2">
+      {plan && <p className="text-sm font-medium">{plan.summary}</p>}
+      <DataView data={{ result: resultOf(data) }} />
+    </section>
   );
 }
 
@@ -123,7 +142,15 @@ export function WriteDialogs({ write }: { write: WriteControl }) {
               state={apply.state}
               onCancel={() => void apply.cancel()}
               title="Applying"
-              renderResult={(data) => <PlanPreview data={shown(spec, data, true)} />}
+              renderResult={(data) =>
+                spec.renderResult ? (
+                  spec.renderResult(data)
+                ) : resultOf(data) ? (
+                  <ResultBody data={data} />
+                ) : (
+                  <PlanPreview data={shown(spec, data, true)} />
+                )
+              }
             />
             {closeable && (
               <DialogFooter>
