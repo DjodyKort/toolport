@@ -24,6 +24,9 @@ const ContextScreen = lazy(() =>
 const SystemScreen = lazy(() =>
   import("./system/SystemScreen").then((m) => ({ default: m.SystemScreen })),
 );
+const TasksScreen = lazy(() =>
+  import("./tasks/TasksScreen").then((m) => ({ default: m.TasksScreen })),
+);
 const NotBuilt = lazy(() => import("./NotBuilt").then((m) => ({ default: m.NotBuilt })));
 
 /** The single entry for every Toolport+ screen. Each screen is its own chunk, so the app
@@ -60,6 +63,8 @@ export function PlusViews({
         <ContextScreen onOpenCommands={openCommands} />
       ) : view === "system" ? (
         <SystemScreen onOpenCommands={openCommands} />
+      ) : view === "tasks" ? (
+        <TasksScreen onOpenCommands={openCommands} />
       ) : (
         <NotBuilt view={view} onOpenCommands={openCommands} />
       )}

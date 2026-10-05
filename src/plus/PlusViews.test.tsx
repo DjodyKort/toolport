@@ -67,7 +67,8 @@ describe("PlusViews", () => {
         view !== "library" &&
         view !== "tokens" &&
         view !== "context" &&
-        view !== "system",
+        view !== "system" &&
+        view !== "tasks",
     ),
   )("marks %s as not built yet and names the item that builds it", async (view) => {
     render(<Harness start={view} />);
@@ -123,7 +124,7 @@ describe("PlusViews", () => {
 
   it("opens the All commands page from the placeholder of a tab that is not built", async () => {
     const user = userEvent.setup();
-    render(<Harness start="tasks" />);
+    render(<Harness start="attention" />);
     await user.click(await screen.findByRole("button", { name: "Open All commands" }));
     expect(screen.getByLabelText("view")).toHaveTextContent("commands");
     expect(await screen.findByRole("list", { name: "Commands" })).toBeInTheDocument();

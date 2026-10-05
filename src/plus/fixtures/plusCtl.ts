@@ -14,6 +14,7 @@ import { usageCtlFixtures } from "../usage/browserFixtures";
 import { createAgentsWorld } from "./agentsWorld";
 import { contextBrowserFixtures } from "../context/browserFixtures";
 import { systemBrowserFixtures } from "../system/browserFixtures";
+import { tasksBrowserFixtures } from "../tasks/browserFixtures";
 
 /** Envelope `data` the dev browser fixture returns per `toolportctl` argv (joined with spaces).
  * A command a screen runs needs a row here or the fixture rejects it as unimplemented. */
@@ -62,6 +63,7 @@ export const plusCtlFixtures = new Map<string, unknown>([
   ...compressionBrowserFixtures,
   ...contextBrowserFixtures,
   ...systemBrowserFixtures,
+  ...tasksBrowserFixtures,
 ]);
 
 const jobs = new Map<string, string>();
