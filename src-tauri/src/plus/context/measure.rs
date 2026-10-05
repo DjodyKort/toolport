@@ -358,6 +358,7 @@ impl Default for SkillsDef {
 #[serde(default)]
 struct Switches {
     off: Vec<String>,
+    config: serde_yaml::Value,
 }
 
 #[derive(Default, Deserialize)]
@@ -483,6 +484,18 @@ fn bundle_settings(
     }
     if !def.layers.exclude.is_empty() {
         settings.insert("claudeMdExcludes".into(), json!(def.layers.exclude));
+    }
+    match super::bundle::plugins_config(Some(&def.plugins.config)) {
+        Ok(config) if !config.is_empty() => {
+            let registry = crate::plus::plugins::adapters::Registry::load(crate::registry::conduit_dir().as_deref());
+            let (env, mut skipped) = crate::plus::plugins::config::bundle_env(&registry, &config);
+            notes.append(&mut skipped);
+            if !env.is_empty() {
+                settings.insert("env".into(), Value::Object(env.into_iter().map(|(n, v)| (n, json!(v))).collect()));
+            }
+        }
+        Ok(_) => {}
+        Err(e) => notes.push(e),
     }
     if !def.mcp.deny.is_empty() {
         settings.insert(

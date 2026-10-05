@@ -52,6 +52,18 @@ pub fn settings_value(want: &apply::Desired) -> Value {
     if !want.denies.is_empty() {
         out.insert("permissions".into(), json!({ "deny": want.denies }));
     }
+    if !want.env.is_empty() {
+        out.insert(
+            "env".into(),
+            Value::Object(want.env.iter().map(|(n, v)| (n.clone(), json!(v))).collect()),
+        );
+    }
+    if !want.deny_servers.is_empty() {
+        out.insert(
+            "deniedMcpServers".into(),
+            Value::Array(want.deny_servers.iter().map(|s| json!({ "serverName": s })).collect()),
+        );
+    }
     Value::Object(out)
 }
 

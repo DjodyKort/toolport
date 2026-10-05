@@ -1,8 +1,9 @@
 //! Context bundles (D-064, D-066): `profiles/<name>.yaml` in the skills repository. A bundle says
 //! what to hide and add for a folder; `bundle_apply` writes it into git-ignored local files. This
 //! file is the format: parse, lint, edit and render. Unknown keys stay in the document and are
-//! reported by lint; `plugins.config` and `mcp.deny` are reserved for the plugin controls.
+//! reported by lint; `plugins.config` (adapter knobs) and `mcp.deny` ride the same ledger.
 
+use crate::plus::plugins::adapters::Registry;
 use serde::Serialize;
 use serde_yaml::{Mapping, Value as Yaml};
 
@@ -35,6 +36,9 @@ pub struct Bundle {
     pub skills_name_only: Vec<String>,
     pub skills_allow: Vec<String>,
     pub plugins_off: Vec<String>,
+    /// `plugins.config`: per plugin id, the knob and its value as text (a list is comma-joined).
+    pub plugins_config: Vec<(String, Vec<(String, String)>)>,
+    pub mcp_deny: Vec<String>,
     pub layers_add: Vec<String>,
     pub layers_exclude: Vec<String>,
     pub agents_off: Vec<String>,
@@ -76,6 +80,49 @@ fn strings(doc: &Mapping, path: &[&str]) -> Result<Vec<String>, String> {
             .collect(),
         Some(_) => Err(format!("{label} must be a list of strings")),
     }
+}
+
+fn knob_text(plugin: &str, knob: &str, value: &Yaml) -> Result<String, String> {
+    let one = |v: &Yaml| match v {
+        Yaml::String(s) => Some(s.clone()),
+        Yaml::Bool(b) => Some(b.to_string()),
+        Yaml::Number(n) => Some(n.to_string()),
+        _ => None,
+    };
+    match value {
+        Yaml::Sequence(items) => items
+            .iter()
+            .map(one)
+            .collect::<Option<Vec<_>>>()
+            .map(|l| l.join(","))
+            .ok_or_else(|| format!("plugins.config.{plugin}.{knob} must be a value or a list of values")),
+        v => one(v).ok_or_else(|| format!("plugins.config.{plugin}.{knob} must be a value or a list of values")),
+    }
+}
+
+/// `plugins.config`: `{<plugin id>: {<knob>: value | [values]}}` as ordered text pairs.
+pub fn plugins_config(node: Option<&Yaml>) -> Result<Vec<(String, Vec<(String, String)>)>, String> {
+    let map = match node {
+        None | Some(Yaml::Null) => return Ok(Vec::new()),
+        Some(Yaml::Mapping(m)) => m,
+        Some(_) => return Err("plugins.config must be a mapping of plugin id to knobs".into()),
+    };
+    let mut out = Vec::new();
+    for (plugin, knobs) in map {
+        let plugin = plugin.as_str().ok_or("plugins.config keys must be plugin ids")?;
+        let knobs = match knobs {
+            Yaml::Null => continue,
+            Yaml::Mapping(m) => m,
+            _ => return Err(format!("plugins.config.{plugin} must be a mapping of knob to value")),
+        };
+        let mut pairs = Vec::new();
+        for (knob, value) in knobs {
+            let knob = knob.as_str().ok_or_else(|| format!("plugins.config.{plugin} keys must be knob names"))?;
+            pairs.push((knob.to_string(), knob_text(plugin, knob, value)?));
+        }
+        out.push((plugin.to_string(), pairs));
+    }
+    Ok(out)
 }
 
 pub fn parse(name: &str, text: &str) -> Result<Bundle, String> {
@@ -120,6 +167,8 @@ pub fn parse(name: &str, text: &str) -> Result<Bundle, String> {
         },
         skills_allow,
         plugins_off: strings(&doc, &["plugins", "off"])?,
+        plugins_config: plugins_config(at(&doc, &["plugins", "config"]))?,
+        mcp_deny: strings(&doc, &["mcp", "deny"])?,
         layers_add: strings(&doc, &["layers", "add"])?,
         layers_exclude: strings(&doc, &["layers", "exclude"])?,
         agents_off: strings(&doc, &["agents", "off"])?,
@@ -149,11 +198,7 @@ fn check_keys(map: &Mapping, prefix: &str, known: &[&str], reserved: &[&str], ou
             format!("{prefix}.{k}")
         };
         if reserved.contains(&k) {
-            out.push(issue(
-                "warning",
-                &full,
-                "reserved for the plugin controls: kept in the file, not applied by `context bundle apply`",
-            ));
+            out.push(issue("warning", &full, "reserved: kept in the file, not applied"));
         } else if !known.contains(&k) {
             out.push(issue("warning", &full, "unknown key (kept when the file is written)"));
         }
@@ -172,6 +217,10 @@ fn repeated(list: &[String], key: &str, out: &mut Vec<Issue>) {
 
 /// Everything a reader of the file should know, errors first. An unreadable file is one error.
 pub fn lint(name: &str, text: &str) -> Vec<Issue> {
+    lint_with(name, text, &Registry::load(crate::registry::conduit_dir().as_deref()))
+}
+
+pub fn lint_with(name: &str, text: &str, registry: &Registry) -> Vec<Issue> {
     let bundle = match parse(name, text) {
         Ok(b) => b,
         Err(message) => return vec![issue("error", "", message)],
@@ -179,8 +228,8 @@ pub fn lint(name: &str, text: &str) -> Vec<Issue> {
     let mut out = Vec::new();
     check_keys(&bundle.doc, "", &TOP_KEYS, &[], &mut out);
     for (section, known, reserved) in [
-        ("plugins", &PLUGINS_KEYS[..], &["config"][..]),
-        ("mcp", &MCP_KEYS[..], &["deny"][..]),
+        ("plugins", &PLUGINS_KEYS[..], &[][..]),
+        ("mcp", &MCP_KEYS[..], &[][..]),
         ("layers", &LAYERS_KEYS[..], &[][..]),
         ("agents", &AGENTS_KEYS[..], &[][..]),
     ] {
@@ -224,6 +273,31 @@ pub fn lint(name: &str, text: &str) -> Vec<Issue> {
     }
     if bundle.legacy_list {
         out.push(issue("warning", "skills", "a plain skills list is read as skills.allow"));
+    }
+    for (plugin, knobs) in &bundle.plugins_config {
+        let at = format!("plugins.config.{plugin}");
+        let Some(adapter) = registry.for_plugin(plugin) else {
+            out.push(issue("error", &at, format!("no adapter for {plugin}: its knobs cannot be written")));
+            continue;
+        };
+        for (knob, value) in knobs {
+            let key = format!("{at}.{knob}");
+            match adapter.knob(knob) {
+                None => out.push(issue("error", &key, format!("unknown knob; {plugin} has {}", adapter.knob_names()))),
+                Some(k) => {
+                    if let Err(e) = crate::plus::plugins::config::check_value(k, value) {
+                        out.push(issue("error", &key, e));
+                    }
+                }
+            }
+        }
+    }
+    repeated(&bundle.mcp_deny, "mcp.deny", &mut out);
+    for entry in &bundle.mcp_deny {
+        let parts: Vec<&str> = entry.split(':').collect();
+        if parts.len() < 3 || parts[0] != "plugin" || parts[1..].iter().any(|p| p.is_empty()) {
+            out.push(issue("error", "mcp.deny", format!("{entry} must look like plugin:<plugin>:<server>; the bare name does not block anything")));
+        }
     }
     out.sort_by_key(|i| i.level != "error");
     out

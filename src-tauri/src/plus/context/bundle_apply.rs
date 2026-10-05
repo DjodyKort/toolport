@@ -14,6 +14,7 @@ use super::globs::glob_match;
 use super::layers;
 use super::loads::{what_loads_with, LoadsOptions};
 use super::roots::Roots;
+use crate::plus::plugins::adapters::Registry;
 use crate::plus::hashing::sha256_hex;
 use crate::plus::plan::{Diff, Effects, PlanV1, ResultV1, Step, TokenEffect};
 use crate::plus::sources::fsx;
@@ -41,7 +42,7 @@ fn failed(message: impl Into<String>) -> BundleError {
     BundleError::new("failed", message)
 }
 
-fn settings_path(cwd: &Path) -> PathBuf {
+pub(super) fn settings_path(cwd: &Path) -> PathBuf {
     cwd.join(SETTINGS_REL)
 }
 
@@ -66,6 +67,8 @@ pub struct Desired {
     pub plugins: Vec<String>,
     pub excludes: Vec<String>,
     pub denies: Vec<String>,
+    pub env: Vec<(String, String)>,
+    pub deny_servers: Vec<String>,
     pub layers: Vec<(String, String)>,
     pub warnings: Vec<String>,
 }
@@ -95,24 +98,6 @@ fn expand(label: &str, patterns: &[String], known: &BTreeSet<String>, warnings: 
         }
     }
     out.into_iter().collect()
-}
-
-fn reserved_in_use(bundle: &Bundle) -> Vec<&'static str> {
-    let has = |a: &str, b: &str| {
-        bundle
-            .doc
-            .get(a)
-            .and_then(|v| v.as_mapping())
-            .is_some_and(|m| m.get(b).is_some_and(|v| !v.is_null()))
-    };
-    let mut out = Vec::new();
-    if has("plugins", "config") {
-        out.push("plugins.config");
-    }
-    if has("mcp", "deny") {
-        out.push("mcp.deny");
-    }
-    out
 }
 
 pub fn desired(w: &World, bundle: &Bundle, cwd: &Path) -> Desired {
@@ -151,10 +136,11 @@ pub fn desired(w: &World, bundle: &Bundle, cwd: &Path) -> Desired {
                 .push(format!("layers.add: no layer named {name} in the skills repo's rules/")),
         }
     }
-    for key in reserved_in_use(bundle) {
-        out.warnings
-            .push(format!("{key} is reserved for the plugin controls and is not applied here"));
-    }
+    let registry = Registry::load(Some(w.data_dir));
+    let (env, mut notes) = crate::plus::plugins::config::bundle_env(&registry, &bundle.plugins_config);
+    out.env = env;
+    out.warnings.append(&mut notes);
+    out.deny_servers = bundle.mcp_deny.clone();
     out
 }
 
@@ -216,7 +202,25 @@ fn undo_block(working: &mut String, name: &str, rec: &BlockRec) -> Result<(), ()
     Ok(())
 }
 
-fn undo_settings(working: &mut String, rec: &SettingsRec) -> Result<Vec<String>, String> {
+/// What undoing a settings record does to the file's current text: the keys put back, the file
+/// deleted when Toolport created it and nothing else is left in it.
+pub(super) fn undo_action(text: Option<&str>, rec: &SettingsRec) -> Result<(Action, Vec<String>), String> {
+    let Some(text) = text else {
+        return Ok((Action::Keep, Vec::new()));
+    };
+    let mut working = text.to_string();
+    let conflicts = undo_settings(&mut working, rec)?;
+    let action = if rec.created_file && !json::has_members(&working, &[]) {
+        Action::Delete
+    } else if working == text {
+        Action::Keep
+    } else {
+        Action::Write(working)
+    };
+    Ok((action, conflicts))
+}
+
+pub(super) fn undo_settings(working: &mut String, rec: &SettingsRec) -> Result<Vec<String>, String> {
     let mut conflicts = Vec::new();
     for owned in rec.owned.iter().rev() {
         let path: Vec<&str> = owned.path.iter().map(String::as_str).collect();
@@ -274,7 +278,10 @@ fn own_set(text: &mut String, rec: &mut SettingsRec, path: &[&str], written: &st
 }
 
 fn own_entry(text: &mut String, rec: &mut SettingsRec, path: &[&str], entry: &str, warnings: &mut Vec<String>) {
-    let item = Value::String(entry.to_string());
+    own_item(text, rec, path, Value::String(entry.to_string()), warnings);
+}
+
+pub(super) fn own_item(text: &mut String, rec: &mut SettingsRec, path: &[&str], item: Value, warnings: &mut Vec<String>) {
     match json::value(text, path) {
         Some(Value::Array(items)) if items.contains(&item) => return,
         Some(Value::Array(_)) | None => {}
@@ -299,16 +306,16 @@ fn own_entry(text: &mut String, rec: &mut SettingsRec, path: &[&str], entry: &st
     }
 }
 
-struct SettingsOut {
-    action: Action,
-    rec: SettingsRec,
-    conflicts: Vec<String>,
-    warnings: Vec<String>,
+pub(super) struct SettingsOut {
+    pub action: Action,
+    pub rec: SettingsRec,
+    pub conflicts: Vec<String>,
+    pub warnings: Vec<String>,
 }
 
-fn compute_settings(
+pub(super) fn compute_settings(
     text: Option<&str>,
-    prior: Option<&FolderRec>,
+    prior: Option<&SettingsRec>,
     want: &Desired,
     cwd: &Path,
     dir_missing: bool,
@@ -321,9 +328,9 @@ fn compute_settings(
     let (mut created_file, mut created_dir) = (!existed, dir_missing);
     let mut conflicts = Vec::new();
     if let Some(p) = prior {
-        conflicts = undo_settings(&mut working, &p.settings)?;
-        created_file = !existed || (p.settings.created_file && !json::has_members(&working, &[]));
-        created_dir = created_dir || p.settings.created_dir;
+        conflicts = undo_settings(&mut working, p)?;
+        created_file = !existed || (p.created_file && !json::has_members(&working, &[]));
+        created_dir = created_dir || p.created_dir;
     }
     let mut rec = SettingsRec {
         file: fsx::display(&settings_path(cwd)),
@@ -343,6 +350,12 @@ fn compute_settings(
     }
     for deny in &want.denies {
         own_entry(&mut working, &mut rec, &["permissions", "deny"], deny, &mut warnings);
+    }
+    for (name, value) in &want.env {
+        own_set(&mut working, &mut rec, &["env", name], &json!(value).to_string(), &mut warnings);
+    }
+    for server in &want.deny_servers {
+        own_item(&mut working, &mut rec, &["deniedMcpServers"], json!({"serverName": server}), &mut warnings);
     }
     let action = if rec.owned.is_empty() && created_file {
         if existed {
@@ -419,12 +432,12 @@ fn compute_block(
     Ok(BlockOut { action, rec })
 }
 
-fn git_dir(cwd: &Path) -> Option<PathBuf> {
+pub(super) fn git_dir(cwd: &Path) -> Option<PathBuf> {
     let dir = cwd.join(".git");
     dir.is_dir().then_some(dir)
 }
 
-fn exclude_file(cwd: &Path) -> PathBuf {
+pub(super) fn exclude_file(cwd: &Path) -> PathBuf {
     cwd.join(".git").join("info").join("exclude")
 }
 
@@ -434,6 +447,31 @@ fn exclude_lines(want_block: bool) -> Vec<&'static str> {
         lines.push(BLOCK_FILE);
     }
     lines
+}
+
+/// Whether any plugin control still owns keys in the folder (the git-ignore lines stay then).
+pub(super) fn controls_in(data_dir: &Path, folder: &str) -> bool {
+    ledger::load(data_dir).controls.get(folder).is_some_and(|m| !m.is_empty())
+}
+
+pub(super) fn remove_excludes(excludes: &[ExcludeRec], changed: &mut Vec<String>) -> Result<(), String> {
+    for e in excludes {
+        let file = PathBuf::from(&e.file);
+        if let Ok(Some(text)) = bundle_io::read_exact(&file) {
+            if let Some(after) = remove_line(&text, &e.line) {
+                let created = excludes.iter().any(|x| x.file == e.file && x.created_file);
+                if after.is_empty() && created {
+                    let _ = fs::remove_file(&file);
+                } else {
+                    bundle_io::write_atomic(&file, after.as_bytes()).map_err(|x| format!("{}: {x}", file.display()))?;
+                }
+                if !changed.contains(&e.file) {
+                    changed.push(e.file.clone());
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 fn remove_line(text: &str, line: &str) -> Option<String> {
@@ -453,7 +491,7 @@ fn shown(raw: Option<&str>) -> String {
     raw.map_or_else(|| "(absent)".to_string(), str::to_string)
 }
 
-fn settings_diff(rec: &SettingsRec) -> Diff {
+pub(super) fn settings_diff(rec: &SettingsRec) -> Diff {
     let mut before = String::new();
     let mut after = String::new();
     for o in &rec.owned {
@@ -468,7 +506,7 @@ fn settings_diff(rec: &SettingsRec) -> Diff {
     Diff { before, after }
 }
 
-fn top_keys(rec: &SettingsRec) -> Vec<String> {
+pub(super) fn top_keys(rec: &SettingsRec) -> Vec<String> {
     let mut keys: Vec<String> = Vec::new();
     for o in &rec.owned {
         let key = if o.path[0] == "permissions" { "permissions.deny".to_string() } else { o.path[0].clone() };
@@ -507,14 +545,14 @@ fn estimate(w: &World, cwd: &Path, bundle: &Bundle, want: &Desired) -> Option<To
     })
 }
 
-fn checked_cwd(cwd: &Path) -> Result<PathBuf, BundleError> {
+pub(super) fn checked_cwd(cwd: &Path) -> Result<PathBuf, BundleError> {
     if !fsx::is_dir(cwd) {
         return Err(BundleError::new("usage", "cwd is not a folder"));
     }
     Ok(fsx::canonical(cwd))
 }
 
-fn read(path: &Path) -> Result<Option<String>, BundleError> {
+pub(super) fn read(path: &Path) -> Result<Option<String>, BundleError> {
     bundle_io::read_exact(path).map_err(failed)
 }
 
@@ -530,7 +568,7 @@ pub fn apply(w: &World, name: &str, cwd: &Path, dry_run: bool) -> Result<Value, 
 
     let s_now = read(&settings_file)?;
     let m_now = read(&md_file)?;
-    let s_plan = compute_settings(s_now.as_deref(), prior.as_ref(), &want, &cwd, dir_missing).map_err(failed)?;
+    let s_plan = compute_settings(s_now.as_deref(), prior.as_ref().map(|p| &p.settings), &want, &cwd, dir_missing).map_err(failed)?;
     let m_plan = compute_block(m_now.as_deref(), prior.as_ref(), name, &want, &cwd).map_err(failed)?;
 
     let mut steps = Vec::new();
@@ -623,7 +661,7 @@ pub fn apply(w: &World, name: &str, cwd: &Path, dry_run: bool) -> Result<Value, 
 
     let mut changed = Vec::new();
     let s_out = bundle_io::update(&settings_file, TRIES, |text| {
-        let out = compute_settings(text, prior.as_ref(), &want, &cwd, dir_missing)?;
+        let out = compute_settings(text, prior.as_ref().map(|p| &p.settings), &want, &cwd, dir_missing)?;
         Ok((out.action.clone(), out))
     })
     .map_err(failed)?;
@@ -694,21 +732,7 @@ pub fn undo(w: &World, cwd: &Path, dry_run: bool) -> Result<Value, BundleError> 
     let mut conflicts = Vec::new();
     let mut steps = Vec::new();
 
-    let compute_s = |text: Option<&str>| -> Result<(Action, Vec<String>), String> {
-        let Some(text) = text else {
-            return Ok((Action::Keep, Vec::new()));
-        };
-        let mut working = text.to_string();
-        let conflicts = undo_settings(&mut working, &prior.settings)?;
-        let action = if prior.settings.created_file && !json::has_members(&working, &[]) {
-            Action::Delete
-        } else if working == text {
-            Action::Keep
-        } else {
-            Action::Write(working)
-        };
-        Ok((action, conflicts))
-    };
+    let compute_s = |text: Option<&str>| undo_action(text, &prior.settings);
     let compute_m = |text: Option<&str>| -> Result<(Action, bool), String> {
         let (Some(text), Some(rec)) = (text, prior.block.as_ref()) else {
             return Ok((Action::Keep, false));
@@ -816,22 +840,7 @@ pub fn undo(w: &World, cwd: &Path, dry_run: bool) -> Result<Value, BundleError> 
     if !matches!(m_done, Action::Keep) {
         changed.push(fsx::display(&md_file));
     }
-    for e in &prior.excludes {
-        let file = PathBuf::from(&e.file);
-        if let Ok(Some(text)) = bundle_io::read_exact(&file) {
-            if let Some(after) = remove_line(&text, &e.line) {
-                let created = prior.excludes.iter().any(|x| x.file == e.file && x.created_file);
-                if after.is_empty() && created {
-                    let _ = fs::remove_file(&file);
-                } else {
-                    bundle_io::write_atomic(&file, after.as_bytes()).map_err(|x| failed(format!("{}: {x}", file.display())))?;
-                }
-                if !changed.contains(&e.file) {
-                    changed.push(e.file.clone());
-                }
-            }
-        }
-    }
+    let settings_gone = matches!(s_done, Action::Delete);
     let mut conflicts = s_conflicts;
     if m_conflict {
         conflicts.push(BLOCK_FILE.to_string());
@@ -840,6 +849,7 @@ pub fn undo(w: &World, cwd: &Path, dry_run: bool) -> Result<Value, BundleError> 
         l.folders.remove(&key);
     })
     .map_err(failed)?;
+    super::bundle_controls::leave(w.data_dir, &key, settings_gone, &prior.settings, &prior.excludes, &mut changed).map_err(failed)?;
     let mut result = serde_json::to_value(ResultV1 { applied: true, changed, undo: reapply, backups: Vec::new() })
         .map_err(|e| failed(e.to_string()))?;
     result["ledger"] = json!(fsx::display(&ledger::path(w.data_dir)));
@@ -850,11 +860,13 @@ pub fn undo(w: &World, cwd: &Path, dry_run: bool) -> Result<Value, BundleError> 
 }
 
 /// The keys of a folder's record whose value is no longer what Toolport wrote.
-pub fn drift_of(rec: &FolderRec, cwd: &Path) -> (Vec<String>, Vec<String>) {
+/// The owned keys of a settings record whose value is no longer what Toolport wrote, and those of
+/// them that now hold something else (as opposed to being gone).
+pub(super) fn settings_drift(rec: &SettingsRec, cwd: &Path) -> (Vec<String>, Vec<String>) {
     let mut changed = Vec::new();
     let mut conflicts = Vec::new();
     let text = fs::read_to_string(settings_path(cwd)).unwrap_or_default();
-    for owned in &rec.settings.owned {
+    for owned in &rec.owned {
         let path: Vec<&str> = owned.path.iter().map(String::as_str).collect();
         if owned.kind == "entry" {
             let item: Value = serde_json::from_str(&owned.written).unwrap_or(Value::Null);
@@ -873,6 +885,11 @@ pub fn drift_of(rec: &FolderRec, cwd: &Path) -> (Vec<String>, Vec<String>) {
             }
         }
     }
+    (changed, conflicts)
+}
+
+pub fn drift_of(rec: &FolderRec, cwd: &Path) -> (Vec<String>, Vec<String>) {
+    let (mut changed, mut conflicts) = settings_drift(&rec.settings, cwd);
     if let Some(block) = &rec.block {
         let md = fs::read_to_string(block_path(cwd)).unwrap_or_default();
         if !block_intact(&md, &rec.bundle, block) {
@@ -885,7 +902,7 @@ pub fn drift_of(rec: &FolderRec, cwd: &Path) -> (Vec<String>, Vec<String>) {
     (changed, conflicts)
 }
 
-fn names_under(rec: &FolderRec, top: &str) -> Vec<String> {
+pub(super) fn names_under(rec: &FolderRec, top: &str) -> Vec<String> {
     let mut out: Vec<String> = rec
         .settings
         .owned
@@ -893,7 +910,11 @@ fn names_under(rec: &FolderRec, top: &str) -> Vec<String> {
         .filter(|o| o.path.first().map(String::as_str) == Some(top))
         .map(|o| {
             if o.kind == "entry" {
-                serde_json::from_str::<String>(&o.written).unwrap_or_default()
+                match serde_json::from_str::<Value>(&o.written) {
+                    Ok(Value::String(s)) => s,
+                    Ok(item) => item["serverName"].as_str().unwrap_or_default().to_string(),
+                    Err(_) => String::new(),
+                }
             } else {
                 o.path[1].clone()
             }
@@ -922,6 +943,8 @@ pub fn status(w: &World, cwd: &Path) -> Result<Value, BundleError> {
                 "enabledPlugins": names_under(&rec, "enabledPlugins"),
                 "claudeMdExcludes": names_under(&rec, "claudeMdExcludes"),
                 "permissionsDeny": names_under(&rec, "permissions"),
+                "env": names_under(&rec, "env"),
+                "deniedMcpServers": names_under(&rec, "deniedMcpServers"),
             },
         },
         "conflicts": conflicts,

@@ -326,7 +326,7 @@ pub fn ls(env: &Env, runner: Option<&dyn ClaudeRunner>, opts: &Opts) -> Value {
     })
 }
 
-fn find<'a>(plugins: &'a [Installed], id: &str) -> Result<&'a Installed, Failure> {
+pub(super) fn find<'a>(plugins: &'a [Installed], id: &str) -> Result<&'a Installed, Failure> {
     if let Some(p) = plugins.iter().find(|p| p.id == id) {
         return Ok(p);
     }
