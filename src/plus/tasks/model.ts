@@ -8,7 +8,7 @@ export type Triggers = TaskDefinition["triggers"];
 
 export const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 /** The task file goes to the child's stdin (it holds no secret value, only names). */
-export const STDIN_FILE = "/dev/stdin";
+export const STDIN_FILE = "-";
 
 const STAMP = new Intl.DateTimeFormat("en", {
   month: "short",
@@ -156,10 +156,7 @@ export function summarize(tasks: LsTask[]) {
 /** The enabled task that renews the login of a server: the one that starts when that
  * server's login fails. */
 export function refreshTaskFor(tasks: LsTask[] | null, server: string): LsTask | null {
-  return (
-    tasks?.find((task) => task.enabled && task.triggers.onAuthFailure.includes(server)) ??
-    null
-  );
+  return tasks?.find((task) => task.enabled && task.refreshes.includes(server)) ?? null;
 }
 
 export function slugFromPath(path: string): string {

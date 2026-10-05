@@ -130,11 +130,11 @@ describe("task world", () => {
   it("changes the next read after an applied write and not after a preview", () => {
     const world = createTasksWorld();
     const file = JSON.stringify({ ...draftCleanup, id: "extra" });
-    world.reply(["task", "add", "extra", "--file", "/dev/stdin", "--dry-run"], file);
+    world.reply(["task", "add", "extra", "--file", "-", "--dry-run"], file);
     const count = () =>
       (world.reply(["task", "ls", "--all"]) as { tasks: unknown[] }).tasks.length;
     const before = count();
-    world.reply(["task", "add", "extra", "--file", "/dev/stdin"], file);
+    world.reply(["task", "add", "extra", "--file", "-"], file);
     expect(count()).toBe(before + 1);
   });
 });

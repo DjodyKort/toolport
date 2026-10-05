@@ -391,7 +391,7 @@ describe("Add, edit and delete", () => {
     );
     expect(await box.findByText("Add task weekly-check")).toBeInTheDocument();
     expect(box.getByText(/the task is disabled/)).toBeInTheDocument();
-    const dry = "task add weekly-check --file /dev/stdin --dry-run";
+    const dry = "task add weekly-check --file - --dry-run";
     expect(bridge.count(dry)).toBe(1);
     const sent = JSON.parse(bridge.stdin(dry)[0]!);
     expect(sent).toMatchObject({
@@ -414,7 +414,7 @@ describe("Add, edit and delete", () => {
   it("keeps the form when the preview is refused", async () => {
     const user = await open();
     bridge.set(
-      "task add weekly-check --file /dev/stdin --dry-run",
+      "task add weekly-check --file - --dry-run",
       new CtlReplyFailure("invalid_task", "the definition is not valid"),
     );
     const form = await fillNew(user);

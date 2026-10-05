@@ -132,12 +132,12 @@ describe("Tasks end to end against the task world", () => {
       expect(bridge.world.state.tasks.map((t) => t.id)).toContain("tidy-up"),
     );
     expect(calls(bridge, "task add")).toEqual([
-      "task add tidy-up --file /dev/stdin --dry-run",
-      "task add tidy-up --file /dev/stdin",
+      "task add tidy-up --file - --dry-run",
+      "task add tidy-up --file -",
     ]);
     const [dry, apply] = [
-      bridge.stdin("task add tidy-up --file /dev/stdin --dry-run")[0],
-      bridge.stdin("task add tidy-up --file /dev/stdin")[0],
+      bridge.stdin("task add tidy-up --file - --dry-run")[0],
+      bridge.stdin("task add tidy-up --file -")[0],
     ];
     expect(dry).toBe(apply);
   });
@@ -182,7 +182,7 @@ describe("Tasks end to end against the task world", () => {
     );
     await box.findByText("Change task nightly-report");
     const sent = JSON.parse(
-      bridge.stdin("task edit nightly-report --file /dev/stdin --dry-run")[0]!,
+      bridge.stdin("task edit nightly-report --file - --dry-run")[0]!,
     );
     expect(sent).toEqual(nightlyReport);
     await user.click(box.getByRole("button", { name: "Save task" }));
