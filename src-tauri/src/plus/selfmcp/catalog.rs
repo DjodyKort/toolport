@@ -950,6 +950,29 @@ pub const TOOLS: &[ToolDef] = &[
         servers::fork_sync
     ),
     tool!(
+        "servers_set_source",
+        3,
+        Always,
+        "Change a git-backed server's tracked remote, branch, upstream or post-update command",
+        [
+            NAME,
+            p("path", Ty::Str, false, "New checkout path"),
+            p("remote", Ty::Str, false, "New tracked remote name"),
+            p("branch", Ty::Str, false, "New tracked branch name"),
+            p("upstream_remote", Ty::Str, false, "Upstream remote name"),
+            p("upstream_branch", Ty::Str, false, "Upstream branch name"),
+            p("clear_upstream", Ty::Bool, false, "Remove the stored upstream"),
+            p("post_update", Ty::Str, false, "New post-update command"),
+            p(
+                "clear_post_update",
+                Ty::Bool,
+                false,
+                "Remove the stored post-update command"
+            )
+        ],
+        servers::set_source
+    ),
+    tool!(
         "servers_auth",
         3,
         Always,

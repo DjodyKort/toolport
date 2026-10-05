@@ -57,8 +57,132 @@ fn source_value(source: &Source) -> Value {
 
 pub(super) fn detect_source(args: &Value) -> Outcome {
     let server = load(args)?;
-    let (src, stored) = source::effective(&server, crate::clients::home().as_deref(), &SystemGit);
-    Ok(json!({"name": server.name, "stored": stored, "detected": source_value(&src)}))
+    let home = crate::clients::home();
+    let (src, stored) = source::effective(&server, home.as_deref(), &SystemGit);
+    let mut out = json!({"name": server.name, "stored": stored, "detected": source_value(&src)});
+    if let Source::Git { path, .. } = &src {
+        let repo = source::expand_path(path, home.as_deref());
+        if gitops::is_repo(&SystemGit, &repo) {
+            let remotes = gitops::list_remotes(&SystemGit, &repo);
+            let mut branches = serde_json::Map::new();
+            for remote in &remotes {
+                branches.insert(remote.clone(), json!(gitops::remote_branches(&SystemGit, &repo, remote)));
+            }
+            out["remotes"] = json!(remotes);
+            out["branches"] = Value::Object(branches);
+        }
+    }
+    Ok(out)
+}
+
+/// Parses the editable fields `servers_set_source` accepts into a `SourceEdit`, rejecting
+/// combinations that cannot mean anything (clearing a field while also setting it) and names
+/// that would otherwise be misread as git flags.
+fn source_edit_from(args: &Value) -> Result<source::SourceEdit, ToolError> {
+    let edit = source::SourceEdit {
+        path: str_nonempty(args, "path").map(String::from),
+        remote: str_nonempty(args, "remote").map(String::from),
+        branch: str_nonempty(args, "branch").map(String::from),
+        upstream_remote: str_nonempty(args, "upstream_remote").map(String::from),
+        upstream_branch: str_nonempty(args, "upstream_branch").map(String::from),
+        clear_upstream: flag(args, "clear_upstream"),
+        post_update: str_nonempty(args, "post_update").map(String::from),
+        clear_post_update: flag(args, "clear_post_update"),
+    };
+    for (label, value) in [
+        ("remote", &edit.remote),
+        ("branch", &edit.branch),
+        ("upstream_remote", &edit.upstream_remote),
+        ("upstream_branch", &edit.upstream_branch),
+    ] {
+        if value.as_deref().is_some_and(|v| !safe_token(v)) {
+            return Err(ToolError::new("invalid_arguments", format!("invalid {label}")));
+        }
+    }
+    if edit.clear_upstream && (edit.upstream_remote.is_some() || edit.upstream_branch.is_some()) {
+        return Err(ToolError::new(
+            "invalid_arguments",
+            "clear_upstream cannot be combined with upstream_remote or upstream_branch",
+        ));
+    }
+    if edit.clear_post_update && edit.post_update.is_some() {
+        return Err(ToolError::new(
+            "invalid_arguments",
+            "clear_post_update cannot be combined with post_update",
+        ));
+    }
+    Ok(edit)
+}
+
+/// When the resulting checkout is a real, reachable git repository, checks that the remote(s)
+/// and branch(es) the edit asks for actually exist there -- a stale path (or one phase 1's
+/// docker placeholder will eventually cover) skips this and trusts the edit as given.
+fn validate_against_repo(updated: &Source, home: Option<&Path>) -> Result<(), ToolError> {
+    let Source::Git {
+        path,
+        remote,
+        branch,
+        upstream,
+        ..
+    } = updated
+    else {
+        return Ok(());
+    };
+    let repo = source::expand_path(path, home);
+    if !gitops::is_repo(&SystemGit, &repo) {
+        return Ok(());
+    }
+    let remotes = gitops::list_remotes(&SystemGit, &repo);
+    let branch_exists = |remote: &str, branch: &str| {
+        gitops::remote_branches(&SystemGit, &repo, remote)
+            .iter()
+            .any(|b| b == branch)
+    };
+    if !remotes.iter().any(|r| r == remote) {
+        return Err(ToolError::new("invalid_arguments", format!("no such remote: {remote}")));
+    }
+    if !branch.is_empty() && !branch_exists(remote, branch) {
+        return Err(ToolError::new(
+            "invalid_arguments",
+            format!("remote {remote} has no branch {branch}"),
+        ));
+    }
+    if let Some(u) = upstream {
+        if !remotes.iter().any(|r| r == &u.remote) {
+            return Err(ToolError::new(
+                "invalid_arguments",
+                format!("no such remote: {}", u.remote),
+            ));
+        }
+        if !branch_exists(&u.remote, &u.branch) {
+            return Err(ToolError::new(
+                "invalid_arguments",
+                format!("remote {} has no branch {}", u.remote, u.branch),
+            ));
+        }
+    }
+    Ok(())
+}
+
+pub(super) fn set_source(args: &Value) -> Outcome {
+    let server = load(args)?;
+    let home = crate::clients::home();
+    let (current, _) = source::effective(&server, home.as_deref(), &SystemGit);
+    if !matches!(current, Source::Git { .. }) {
+        return Err(ToolError::new(
+            "invalid_input",
+            format!("server {} is not git-backed", server.name),
+        ));
+    }
+    let edit = source_edit_from(args)?;
+    if edit.is_empty() {
+        return Err(ToolError::new("invalid_arguments", "no changes requested"));
+    }
+    let updated = source::apply_edit(&current, &edit).map_err(|e| ToolError::new("invalid_arguments", e))?;
+    validate_against_repo(&updated, home.as_deref())?;
+    let rechecked = source::recheck_drift(&updated, &server, home.as_deref(), &SystemGit);
+    registry_controller::set_server_source(&server.id, rechecked.to_meta()).map_err(ToolError::backend)?;
+    Ok(json!({"name": server.name, "source": source_value(&rechecked)}))
 }
 
 pub(super) fn git_status(args: &Value) -> Outcome {
@@ -565,9 +689,15 @@ pub(super) fn auth(args: &Value) -> Outcome {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/fixtures/update_source.rs"]
+mod update_source;
+
+#[cfg(test)]
 mod tests {
     use super::super::call_tool;
     use super::super::tests::Fixture;
+    use super::update_source;
+    use crate::registry_controller;
     use serde_json::{json, Value};
 
     fn call(name: &str, args: Value) -> Result<Value, super::ToolError> {
@@ -663,6 +793,7 @@ mod tests {
         for (tool, args) in [
             ("servers_detect_source", json!({"name": "ghost"})),
             ("servers_git_status", json!({"name": "ghost"})),
+            ("servers_set_source", json!({"name": "ghost", "branch": "main", "confirm": true})),
             ("servers_auth", json!({"name": "ghost", "confirm": true})),
         ] {
             let (kind, message) = failure(tool, args);
@@ -677,5 +808,160 @@ mod tests {
             json!({"name": "ghost", "patch": {"cwd": "/tmp"}, "confirm": true}),
         );
         assert_eq!(kind, "not_found");
+    }
+
+    fn seed_git_meta(id: &str, meta: Value) {
+        registry_controller::set_server_source(id, meta.as_object().unwrap().clone()).unwrap();
+    }
+
+    #[test]
+    fn set_source_requires_a_git_backed_server() {
+        let _fixture = Fixture::new("source-set-non-git");
+        let (kind, message) = failure(
+            "servers_set_source",
+            json!({"name": "beta", "branch": "main", "confirm": true}),
+        );
+        assert_eq!(kind, "invalid_input");
+        assert!(message.contains("not git-backed"), "{message}");
+    }
+
+    #[test]
+    fn set_source_rejects_an_empty_edit() {
+        let fixture = Fixture::new("source-set-empty");
+        seed_git_meta(
+            "srv-alpha",
+            json!({
+                "type": "git",
+                "path": fixture.dir.join("nowhere").to_string_lossy(),
+                "remote": "origin",
+                "branch": "main",
+            }),
+        );
+        let (kind, message) = failure("servers_set_source", json!({"name": "alpha", "confirm": true}));
+        assert_eq!((kind, message.as_str()), ("invalid_arguments", "no changes requested"));
+    }
+
+    #[test]
+    fn set_source_rejects_clear_upstream_combined_with_upstream_fields() {
+        let fixture = Fixture::new("source-set-conflict");
+        seed_git_meta(
+            "srv-alpha",
+            json!({
+                "type": "git",
+                "path": fixture.dir.join("nowhere").to_string_lossy(),
+                "remote": "origin",
+                "branch": "main",
+            }),
+        );
+        let (kind, _) = failure(
+            "servers_set_source",
+            json!({"name": "alpha", "clear_upstream": true, "upstream_branch": "main", "confirm": true}),
+        );
+        assert_eq!(kind, "invalid_arguments");
+    }
+
+    #[test]
+    fn set_source_persists_cleared_upstream_and_post_update() {
+        let fixture = Fixture::new("source-set-clear");
+        let path = fixture.dir.join("nowhere").to_string_lossy().into_owned();
+        seed_git_meta(
+            "srv-alpha",
+            json!({
+                "type": "git", "path": path, "remote": "origin", "branch": "main",
+                "upstream": {"remote": "upstream", "branch": "main"},
+                "post_update": "npm install",
+            }),
+        );
+        let out = call(
+            "servers_set_source",
+            json!({"name": "alpha", "clear_upstream": true, "clear_post_update": true, "confirm": true}),
+        )
+        .unwrap();
+        assert_eq!(out["source"]["meta"]["upstream"], Value::Null);
+        assert_eq!(out["source"]["meta"]["post_update"], Value::Null);
+        let detected = call("servers_detect_source", json!({"name": "alpha"})).unwrap();
+        let meta = detected["detected"]["meta"].as_object().unwrap();
+        assert!(!meta.contains_key("upstream"), "{meta:?}");
+        assert!(!meta.contains_key("post_update"), "{meta:?}");
+    }
+
+    #[test]
+    fn detect_source_lists_remote_branches_for_a_real_repo() {
+        let fixture = Fixture::new("source-detect-real-repo");
+        let repo = update_source::build(&fixture.dir.join("three-remotes"));
+        seed_git_meta(
+            "srv-alpha",
+            json!({"type": "git", "path": repo.work.to_string_lossy(), "remote": "fork", "branch": "main"}),
+        );
+        let detected = call("servers_detect_source", json!({"name": "alpha"})).unwrap();
+        let remotes: Vec<&str> = detected["remotes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        assert!(remotes.contains(&"fork"), "{remotes:?}");
+        assert!(remotes.contains(&"upstream"), "{remotes:?}");
+        assert!(remotes.contains(&"local"), "{remotes:?}");
+        let fork_branches: Vec<&str> = detected["branches"]["fork"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        assert!(fork_branches.contains(&"main"), "{fork_branches:?}");
+        assert!(fork_branches.contains(&"feature-x"), "{fork_branches:?}");
+    }
+
+    #[test]
+    fn set_source_switches_branch_and_rejects_one_missing_on_the_remote() {
+        let fixture = Fixture::new("source-set-real-repo");
+        let repo = update_source::build(&fixture.dir.join("three-remotes"));
+        seed_git_meta(
+            "srv-alpha",
+            json!({"type": "git", "path": repo.work.to_string_lossy(), "remote": "fork", "branch": "main"}),
+        );
+        let out = call(
+            "servers_set_source",
+            json!({"name": "alpha", "branch": "feature-x", "confirm": true}),
+        )
+        .unwrap();
+        assert_eq!(out["source"]["meta"]["branch"], "feature-x");
+
+        let (kind, message) = failure(
+            "servers_set_source",
+            json!({"name": "alpha", "branch": "no-such-branch", "confirm": true}),
+        );
+        assert_eq!(kind, "invalid_arguments");
+        assert!(message.contains("no-such-branch"), "{message}");
+
+        let (kind, _) = failure(
+            "servers_set_source",
+            json!({"name": "alpha", "remote": "ghost", "confirm": true}),
+        );
+        assert_eq!(kind, "invalid_arguments");
+    }
+
+    #[test]
+    fn set_source_can_add_and_validate_an_upstream() {
+        let fixture = Fixture::new("source-set-upstream");
+        let repo = update_source::build(&fixture.dir.join("three-remotes"));
+        seed_git_meta(
+            "srv-alpha",
+            json!({"type": "git", "path": repo.work.to_string_lossy(), "remote": "fork", "branch": "main"}),
+        );
+        let out = call(
+            "servers_set_source",
+            json!({"name": "alpha", "upstream_remote": "upstream", "upstream_branch": "main", "confirm": true}),
+        )
+        .unwrap();
+        assert_eq!(out["source"]["meta"]["upstream"]["remote"], "upstream");
+        assert_eq!(out["source"]["meta"]["upstream"]["branch"], "main");
+
+        let (kind, _) = failure(
+            "servers_set_source",
+            json!({"name": "alpha", "upstream_branch": "no-such-branch", "confirm": true}),
+        );
+        assert_eq!(kind, "invalid_arguments");
     }
 }
