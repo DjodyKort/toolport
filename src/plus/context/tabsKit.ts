@@ -18,7 +18,11 @@ export const composeFor = (cwd = FOLDER) => ({
   ...goldenData("context-compose.layers"),
   cwd,
 });
-export const bundleList = () => goldenData("context-bundle-ls.applied");
+export const bundleList = () => {
+  const data = goldenData("context-bundle-ls.applied");
+  data.bundles[0].appliedTo[0].folder = FOLDER;
+  return data;
+};
 export const bundleShow = (name = "acme-dev") => {
   const show = goldenData(
     name === "default" ? "context-bundle-show.legacy" : "context-bundle-show.bundle",
