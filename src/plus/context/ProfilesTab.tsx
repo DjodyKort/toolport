@@ -21,6 +21,29 @@ import { Code, Kv, QuerySection, Section, useDialog, useRows } from "./parts";
 
 type Dialog = "apply" | "delete" | ProfileMode;
 
+function PluginSettingsList({
+  config,
+}: {
+  config: Record<string, Record<string, string>>;
+}) {
+  const plugins = Object.entries(config);
+  if (plugins.length === 0) return <span className="text-muted-foreground">none</span>;
+  return (
+    <ul aria-label="Plugin settings" className="flex flex-col gap-1">
+      {plugins.map(([plugin, knobs]) => (
+        <li key={plugin} className="flex flex-wrap items-center gap-1.5">
+          <b className="font-mono text-xs">{plugin}</b>
+          {Object.entries(knobs).map(([knob, value]) => (
+            <Badge key={knob} variant="outline" className="font-mono">
+              {knob}: {value}
+            </Badge>
+          ))}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function Chips({ items, empty }: { items: string[]; empty: string }) {
   return items.length === 0 ? (
     <span className="text-muted-foreground">{empty}</span>
@@ -105,6 +128,11 @@ function Detail({
           ],
           ["Plugins off", <Chips key="p" items={show.plugins.off} empty="unchanged" />],
           [
+            "Plugin settings",
+            <PluginSettingsList key="pc" config={show.plugins.config} />,
+          ],
+          ["MCP denies", <Chips key="md" items={show.mcp.deny} empty="none" />],
+          [
             "CLAUDE.md layers",
             <Chips
               key="l"
@@ -119,6 +147,13 @@ function Detail({
           ["Applies to", <Chips key="b" items={show.bind} empty="no folder pattern" />],
         ]}
       />
+      <p className="text-xs text-muted-foreground">
+        Plugin settings and MCP denies come from the profile&apos;s yaml, because{" "}
+        <code>context bundle edit</code> has no flag for them. Edit{" "}
+        <code className="break-all">{show.path}</code>; the change applies the next time
+        you apply the profile. Settings are written as <code>env</code> keys and denies as{" "}
+        <code>deniedMcpServers</code> in the folder&apos;s settings.local.json.
+      </p>
       <div>
         <h4 className="mb-1 text-xs font-semibold text-muted-foreground">Applied in</h4>
         {show.appliedTo.length === 0 ? (
@@ -305,7 +340,10 @@ export function ProfilesTab() {
         </Button>
         <span className="text-sm text-muted-foreground">
           A profile is a named bundle: which skills, plugins, CLAUDE.md layers and agents
-          load in a folder, paired with a server set.
+          load in a folder, paired with a server set. Example, not created for you:{" "}
+          <code>light-hooks</code> keeps ecc on but quiet with <code>plugins.config</code>{" "}
+          <code>ecc@ecc: hook_profile: minimal</code> and the observe hook off; write it
+          as a profile yaml if you want it.
         </span>
       </div>
       <QuerySection
