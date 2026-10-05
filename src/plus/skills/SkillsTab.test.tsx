@@ -133,6 +133,18 @@ describe("Skills tab: reading", () => {
     expect(within(box).getByText(/Rejects the Claude Code copy/)).toBeInTheDocument();
   });
 
+  it("links an invisible skill to the lint output", async () => {
+    const user = await open();
+    await user.click(rowButton("incident-notes"));
+    const box = detail("incident-notes");
+    await user.click(within(box).getByRole("button", { name: "See the lint output" }));
+    expect(screen.getByRole("group", { name: "Lint" })).toHaveFocus();
+    await user.click(rowButton("api-review"));
+    expect(
+      within(detail("api-review")).queryByRole("button", { name: "See the lint output" }),
+    ).toBeNull();
+  });
+
   it("shows the checks: lint, audit, changes since the last sync and drift", async () => {
     await open();
     const card = (name: string) => within(screen.getByRole("group", { name }));
