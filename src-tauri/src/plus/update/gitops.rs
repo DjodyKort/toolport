@@ -85,6 +85,30 @@ pub fn remote_branch_sha(git: &dyn GitRunner, repo: &Path, remote: &str, branch:
     .filter(|s| !s.is_empty())
 }
 
+/// Every branch a remote has, for a branch picker: the short names under `refs/remotes/<remote>`
+/// with the synthetic `HEAD` ref filtered out.
+pub fn remote_branches(git: &dyn GitRunner, repo: &Path, remote: &str) -> Vec<String> {
+    let prefix = format!("{remote}/");
+    local(
+        git,
+        repo,
+        &[
+            "for-each-ref",
+            "--format=%(refname:short)",
+            &format!("refs/remotes/{remote}"),
+        ],
+    )
+    .map(|o| {
+        o.stdout
+            .lines()
+            .filter_map(|l| l.trim().strip_prefix(&prefix))
+            .filter(|b| *b != "HEAD")
+            .map(String::from)
+            .collect()
+    })
+    .unwrap_or_default()
+}
+
 /// Like `default_branch`, but for any remote, not only `origin` (a fork's upstream is rarely
 /// named `origin`).
 pub fn remote_default_branch(git: &dyn GitRunner, repo: &Path, remote: &str) -> Option<String> {

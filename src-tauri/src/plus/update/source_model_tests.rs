@@ -253,3 +253,165 @@ fn effective_prefers_stored_metadata_and_detect_otherwise() {
     assert_eq!(path, "/configured/elsewhere");
     assert_eq!(remote, "upstream");
 }
+
+#[test]
+fn set_can_switch_the_tracked_remote_to_another_configured_remote() {
+    let r = update_source::build(&tmp("setremote"));
+    let e = node_entry(&r.work.join("x.js"));
+    let detected = source::detect(&e, None, &SystemGit);
+    assert!(gitops::remote_branches(&SystemGit, &r.work, "upstream").contains(&"main".to_string()));
+
+    let edit = source::SourceEdit {
+        remote: Some("upstream".into()),
+        ..Default::default()
+    };
+    let Source::Git { remote, branch, upstream, post_update, .. } =
+        source::apply_edit(&detected, &edit).unwrap()
+    else {
+        panic!("expected git");
+    };
+    assert_eq!(remote, "upstream");
+    assert_eq!(branch, "main", "an untouched field carries over as-is");
+    assert_eq!(upstream, None);
+    assert_eq!(post_update, None);
+}
+
+#[test]
+fn set_can_switch_to_a_branch_that_only_exists_on_the_new_remote() {
+    let r = update_source::build(&tmp("setbranch"));
+    let e = node_entry(&r.work.join("x.js"));
+    let detected = source::detect(&e, None, &SystemGit);
+    assert!(gitops::remote_branches(&SystemGit, &r.work, "fork").contains(&"feature-x".to_string()));
+
+    let edit = source::SourceEdit {
+        branch: Some("feature-x".into()),
+        ..Default::default()
+    };
+    let Source::Git { remote, branch, .. } = source::apply_edit(&detected, &edit).unwrap() else {
+        panic!("expected git");
+    };
+    assert_eq!(remote, "fork");
+    assert_eq!(branch, "feature-x");
+}
+
+#[test]
+fn set_requires_both_halves_of_an_upstream_the_first_time_it_is_set() {
+    let current = Source::Git {
+        path: "/srv/x".into(),
+        remote: "fork".into(),
+        branch: "main".into(),
+        upstream: None,
+        post_update: None,
+        drift: false,
+    };
+    let edit = source::SourceEdit {
+        upstream_remote: Some("upstream".into()),
+        ..Default::default()
+    };
+    let err = source::apply_edit(&current, &edit).unwrap_err();
+    assert!(err.contains("branch"), "{err}");
+}
+
+#[test]
+fn set_can_update_only_the_named_half_of_an_existing_upstream() {
+    let current = Source::Git {
+        path: "/srv/x".into(),
+        remote: "fork".into(),
+        branch: "main".into(),
+        upstream: Some(source::Upstream {
+            remote: "upstream".into(),
+            branch: "main".into(),
+        }),
+        post_update: None,
+        drift: false,
+    };
+    let edit = source::SourceEdit {
+        upstream_branch: Some("develop".into()),
+        ..Default::default()
+    };
+    let Source::Git { upstream, .. } = source::apply_edit(&current, &edit).unwrap() else {
+        panic!("expected git");
+    };
+    let upstream = upstream.unwrap();
+    assert_eq!(upstream.remote, "upstream", "untouched half carries over");
+    assert_eq!(upstream.branch, "develop");
+}
+
+#[test]
+fn set_can_clear_upstream_and_post_update_together() {
+    let current = Source::Git {
+        path: "/srv/x".into(),
+        remote: "fork".into(),
+        branch: "main".into(),
+        upstream: Some(source::Upstream {
+            remote: "upstream".into(),
+            branch: "main".into(),
+        }),
+        post_update: Some("make".into()),
+        drift: false,
+    };
+    let edit = source::SourceEdit {
+        clear_upstream: true,
+        clear_post_update: true,
+        ..Default::default()
+    };
+    let Source::Git { upstream, post_update, remote, branch, .. } =
+        source::apply_edit(&current, &edit).unwrap()
+    else {
+        panic!("expected git");
+    };
+    assert_eq!(upstream, None);
+    assert_eq!(post_update, None);
+    assert_eq!(remote, "fork", "clearing other fields does not touch remote/branch");
+    assert_eq!(branch, "main");
+}
+
+#[test]
+fn set_rejects_a_source_that_is_not_git_backed() {
+    let current = Source::Npx { package: "some-pkg".into() };
+    let err = source::apply_edit(&current, &source::SourceEdit::default()).unwrap_err();
+    assert!(err.contains("git"), "{err}");
+}
+
+#[test]
+fn set_then_recheck_drift_reports_drift_against_the_new_path() {
+    let r = update_source::build(&tmp("setdrift"));
+    let e = node_entry(&r.work.join("x.js"));
+    let detected = source::detect(&e, None, &SystemGit);
+    let edit = source::SourceEdit {
+        path: Some(r.base.join("nowhere").to_string_lossy().into_owned()),
+        ..Default::default()
+    };
+    let edited = source::apply_edit(&detected, &edit).unwrap();
+    let Source::Git { drift, path, .. } = source::recheck_drift(&edited, &e, None, &SystemGit) else {
+        panic!("expected git");
+    };
+    assert!(drift, "the edited path no longer matches the launch directory");
+    assert_eq!(path, r.base.join("nowhere").to_string_lossy());
+}
+
+#[test]
+fn replace_meta_drops_keys_that_set_meta_fields_would_have_left_behind() {
+    let mut e = node_entry(Path::new("/srv/x.js"));
+    source::set_meta_fields(
+        &mut e,
+        json!({"type": "git", "path": "/srv/x", "remote": "fork", "branch": "main", "upstream": {"remote": "upstream", "branch": "main"}, "post_update": "make"})
+            .as_object()
+            .unwrap()
+            .clone(),
+    );
+    let stored = source::stored(&e).unwrap();
+    let edit = source::SourceEdit {
+        clear_upstream: true,
+        clear_post_update: true,
+        ..Default::default()
+    };
+    let edited = source::apply_edit(&stored, &edit).unwrap();
+    source::replace_meta(&mut e, edited.to_meta());
+    let reloaded = source::stored(&e).unwrap();
+    let Source::Git { upstream, post_update, .. } = reloaded else {
+        panic!("expected git");
+    };
+    assert_eq!(upstream, None);
+    assert_eq!(post_update, None);
+}
