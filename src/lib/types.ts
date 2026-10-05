@@ -339,6 +339,22 @@ export interface CatalogEntry {
   urlHint?: string;
 }
 
+/** A live MCP Registry call that did not come back with fresh results. Curated
+ * and cached hits in `CatalogSearchResult.entries` are never dropped because of
+ * this: it rides along so the caller can decide what to show. */
+export interface RegistryError {
+  /** "timeout" (reachable but slow), "connectionFailed" (genuinely
+   * unreachable), or "other". */
+  kind: "timeout" | "connectionFailed" | "other";
+  message: string;
+}
+
+/** Result of `searchCatalog`. */
+export interface CatalogSearchResult {
+  entries: CatalogEntry[];
+  registryError?: RegistryError | null;
+}
+
 /** A curated "stack": a role-based bundle of catalog servers for guided setup. */
 export interface Stack {
   id: string;

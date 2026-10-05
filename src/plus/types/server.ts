@@ -4,6 +4,7 @@ import {
   nullable,
   num,
   obj,
+  opt,
   str,
   type Infer,
   type Shape,
@@ -48,6 +49,9 @@ export const serverSearchData = obj({
     }),
   ),
   total: num,
+  // Present only when the live MCP Registry call failed; curated/cached
+  // `results` are reported regardless (D-101).
+  registryError: opt(obj({ kind: str, message: str })),
 });
 export type ServerSearchData = Infer<typeof serverSearchData>;
 

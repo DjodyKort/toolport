@@ -4,6 +4,7 @@ import type {
   AuditStats,
   AuthInfo,
   CatalogEntry,
+  CatalogSearchResult,
   DetectedClient,
   FolderProfile,
   HookEvent,
@@ -51,9 +52,11 @@ export function listStacks(): Promise<Stack[]> {
   return invoke<Stack[]>("list_stacks");
 }
 
-/** Search the catalog (your picks + curated, then the MCP Registry). */
-export function searchCatalog(query: string): Promise<CatalogEntry[]> {
-  return invoke<CatalogEntry[]>("search_catalog", { query });
+/** Search the catalog (your picks + curated, then the MCP Registry). Curated
+ * and cached hits are returned even if the live registry call failed; check
+ * `registryError` rather than relying on a rejection to notice a failure. */
+export function searchCatalog(query: string): Promise<CatalogSearchResult> {
+  return invoke<CatalogSearchResult>("search_catalog", { query });
 }
 
 /** Recent tool-call audit entries (newest first). */

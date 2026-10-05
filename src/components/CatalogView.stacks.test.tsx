@@ -56,7 +56,7 @@ function deferred<T>() {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(popularCatalog).mockResolvedValue([entry]);
-  vi.mocked(searchCatalog).mockResolvedValue([]);
+  vi.mocked(searchCatalog).mockResolvedValue({ entries: [] });
   vi.mocked(addServer).mockResolvedValue(registry);
 });
 
