@@ -34,6 +34,7 @@ mod secret;
 mod server;
 mod styles;
 mod sync;
+mod task;
 mod update;
 mod usage;
 
@@ -379,6 +380,56 @@ pub const COMMANDS: &[Command] = &[
         &["context"],
         "Context: init status client profile bundle use compose disable loads checkpoint-status plan apply sync",
         context::group,
+    ),
+    cmd(
+        &["task", "ls"],
+        "List the tasks with their last run and next scheduled run (--all includes disabled ones)",
+        task::ls,
+    ),
+    cmd(
+        &["task", "show"],
+        "Show a task's definition and its last runs (<id>)",
+        task::show,
+    ),
+    cmd(
+        &["task", "run"],
+        "Start a task; --dry-run lists the steps, secrets and servers (<id>, --dry-run, --wait, --yes)",
+        task::run,
+    ),
+    cmd(
+        &["task", "resume"],
+        "Continue a run that waits for you (<run-id>)",
+        task::resume,
+    ),
+    cmd(
+        &["task", "cancel"],
+        "Stop a run and its child process (<run-id>)",
+        task::cancel,
+    ),
+    cmd(
+        &["task", "add"],
+        "Add a task from a definition file or a Claude command file (<id>, --file, --from-command, --dry-run)",
+        task::add,
+    ),
+    cmd(
+        &["task", "edit"],
+        "Replace a task's definition (<id>, --file, --dry-run)",
+        task::edit,
+    ),
+    cmd(
+        &["task", "rm"],
+        "Remove a task; its run history stays (<id>, --dry-run)",
+        task::rm,
+    ),
+    cmd(
+        &["task", "history"],
+        "List the runs of a task, or one run with its step logs ([<id>], --run, --limit)",
+        task::history,
+    ),
+    cmd(
+        &["task"],
+        "Tasks: ls show run resume cancel add edit rm history",
+        task::group,
     ),
     cmd(
         &["compression", "status"],
@@ -870,6 +921,12 @@ pub fn run_with(
         );
     }
     let name = parsed.positional.join(" ");
+    if task::is_runner(&parsed.positional) {
+        if let Some(dir) = &parsed.data_dir {
+            std::env::set_var("TOOLPORT_DATA_DIR", dir);
+        }
+        return task::runner_main(&parsed.positional);
+    }
     let Some((command, rest)) = find_command(&parsed.positional) else {
         return emit_usage(
             parsed.json,

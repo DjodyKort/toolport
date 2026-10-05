@@ -969,6 +969,20 @@ const CASES: &[&[&str]] = &[
     &["obs", "otel", "status", "--dry-run"],
     &["obs", "otel", "status", "extra"],
     &["--json", "obs", "otel", "status", "--bogus"],
+    &["task"],
+    &["task", "ls", "extra"],
+    &["task", "show"],
+    &["task", "run"],
+    &["task", "run", "a", "b"],
+    &["task", "run", "a", "--bogus"],
+    &["task", "resume"],
+    &["task", "cancel", "a", "b"],
+    &["task", "add", "a"],
+    &["task", "add", "a", "--file", "x", "--from-command", "y"],
+    &["task", "edit", "a"],
+    &["task", "rm"],
+    &["task", "history", "a", "b"],
+    &["task", "history", "--limit", "many"],
 ];
 
 fn sample_registry() -> Value {
