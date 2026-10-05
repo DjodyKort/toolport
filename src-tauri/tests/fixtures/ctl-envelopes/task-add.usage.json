@@ -4,7 +4,7 @@
     "command": "task add",
     "error": {
       "code": "usage",
-      "message": "usage: task add <id> (--file <task.json> | --from-command <path>) [--dry-run]"
+      "message": "usage: task add <id> (--file <task.json|-> | --from-command <path>) [--dry-run]"
     },
     "ok": false,
     "schemaVersion": 1

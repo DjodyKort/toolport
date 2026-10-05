@@ -223,3 +223,37 @@ fn a_dry_run_or_a_task_that_refuses_self_mcp_never_asks() {
     assert_eq!(err.code(), "conflict");
     assert!(store::list_runs(None).unwrap().is_empty());
 }
+
+#[test]
+fn a_definition_from_stdin_is_validated_and_planned_like_a_file() {
+    let fx = world("api-stdin");
+    let mut value = serde_json::to_value(task(json!({"id": "fresh"}))).unwrap();
+    let text = value.to_string();
+    let dry = api::add("fresh", api::Source::Stdin(&text), true).unwrap();
+    assert_eq!((dry["dryRun"].clone(), dry["result"].clone()), (json!(true), Value::Null));
+    assert_eq!(dry["plan"]["summary"], "Add task fresh");
+    assert!(!store::task_path("fresh").unwrap().exists());
+    let file = write_json(&fx.dir.join("t.json"), &value);
+    assert_eq!(api::add("fresh", api::Source::File(&file), true).unwrap()["plan"], dry["plan"], "stdin and a file give the same plan");
+
+    let mismatch = api::add("other", api::Source::Stdin(&text), true).unwrap_err();
+    assert_eq!(mismatch.code(), "usage");
+    assert!(mismatch.message.contains("stdin") && mismatch.message.contains("\"fresh\""), "{}", mismatch.message);
+    assert_eq!(api::add("fresh", api::Source::Stdin("{"), true).unwrap_err().code(), "invalid_task");
+    value["steps"][2]["key"] = json!("UNDECLARED");
+    let bad = api::add("fresh", api::Source::Stdin(&value.to_string()), true).unwrap_err();
+    assert!(bad.message.contains("not listed in writesSecrets"), "{}", bad.message);
+
+    assert_eq!(api::add("fresh", api::Source::Stdin(&text), false).unwrap()["result"]["applied"], true);
+    assert_eq!(api::add("fresh", api::Source::Stdin(&text), false).unwrap_err().code(), "conflict");
+    let mut changed = serde_json::to_value(task(json!({"id": "fresh"}))).unwrap();
+    changed["title"] = json!("From stdin");
+    let preview = api::edit_with("fresh", api::Source::Stdin(&changed.to_string()), true).unwrap();
+    assert_eq!(store::load_task("fresh").unwrap().title, "Refresh the token");
+    assert!(preview["plan"]["steps"][0]["diff"]["after"].as_str().unwrap().contains("From stdin"));
+    let done = api::edit_with("fresh", api::Source::Stdin(&changed.to_string()), false).unwrap();
+    assert_eq!(store::load_task("fresh").unwrap().title, "From stdin");
+    assert!(std::fs::read_to_string(done["result"]["backups"][0].as_str().unwrap()).unwrap().contains("Refresh the token"));
+    assert_eq!(api::edit_with("nope", api::Source::Stdin(&changed.to_string()), true).unwrap_err().code(), "usage");
+    assert_eq!(api::edit_with("fresh", api::Source::Command("x.md"), true).unwrap_err().code(), "usage");
+}
