@@ -151,6 +151,30 @@ describe("This folder: reading", () => {
     expect(options).toContain(FOLDER);
   });
 
+  it("keeps its folder when another tab is opened and back", async () => {
+    seedProfiles(bridge);
+    const user = await open();
+    await showFolder(user, FOLDER);
+    await user.click(screen.getByRole("tab", { name: "Profiles" }));
+    await screen.findByRole("region", { name: "Profile acme-dev" });
+    await user.click(screen.getByRole("tab", { name: "This folder" }));
+    expect(await screen.findByLabelText("Folder")).toHaveValue(FOLDER);
+    await screen.findByRole("group", { name: "Skill list budget" });
+    expect(screen.getByText(FOLDER, { selector: "code" })).toBeVisible();
+  });
+
+  it("starts from the newest recent folder", async () => {
+    window.localStorage.setItem(
+      "toolport.context.recent-folders",
+      JSON.stringify([OTHER, FOLDER]),
+    );
+    mountContext("here");
+    await screen.findByRole("group", { name: "Skill list budget" });
+    expect(screen.getByLabelText("Folder")).toHaveValue(OTHER);
+    expect(bridge.ran()).toContain(`context loads --cwd ${OTHER} --measured`);
+    expect(bridge.ran()).not.toContain("context loads --measured");
+  });
+
   it("keeps working when browser storage is blocked", async () => {
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = () => {

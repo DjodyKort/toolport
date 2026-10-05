@@ -9,7 +9,7 @@ import type {
 } from "../types/context-bundle";
 import { Stat } from "../logins/atoms";
 import { ComposedView } from "./ComposedView";
-import { FolderField, suggestions, useRecentFolders } from "./folder";
+import { FolderField, suggestions, useRecentFolders, type FolderChoice } from "./folder";
 import { useRead, useWrite, type WriteControl } from "./hooks";
 import { WriteDialogs } from "./WriteDialogs";
 import { formatTokens, plural } from "./model";
@@ -352,11 +352,16 @@ function AppliedHere({
 /** The Context tab "This folder": the stack of what loads in a folder with the source and the
  * cost of every row, the real measurement behind a confirm, the composed text and the profile
  * applied here. */
-export function HereTab({ openTab }: { openTab?: (id: string) => void }) {
+export function HereTab({
+  openTab,
+  here,
+}: {
+  openTab?: (id: string) => void;
+  here: FolderChoice;
+}) {
   const rows = useRows();
   const { recent, remember } = useRecentFolders();
-  const [draft, setDraft] = useState("");
-  const [folder, setFolder] = useState("");
+  const { draft, folder, setDraft, show } = here;
   const loads = useRead<LoadsData>([
     "context",
     "loads",
@@ -385,7 +390,7 @@ export function HereTab({ openTab }: { openTab?: (id: string) => void }) {
           placeholder={cwd ?? "Folder where Claude starts"}
           submitLabel="Show"
           onSubmit={() => {
-            setFolder(draft.trim());
+            show(draft);
             remember(draft);
           }}
         />
