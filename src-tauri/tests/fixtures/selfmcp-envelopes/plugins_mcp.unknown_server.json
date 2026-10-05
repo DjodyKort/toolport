@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "action": "deny",
+    "cwd": "<WORLD>/home/work/acme-erp",
+    "id": "ecc@ecc",
+    "server": "nope"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "ecc@ecc has no MCP server 'nope' (it has: chrome-devtools, memory)"
+    }
+  },
+  "text": "not_found: ecc@ecc has no MCP server 'nope' (it has: chrome-devtools, memory)",
+  "tool": "plugins_mcp"
+}

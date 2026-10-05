@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "id": "ecc@ecc",
+    "set": {
+      "gateguard_exempt_globs": "docs/**"
+    }
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "knob 'gateguard_exempt_globs' is folder-only (no plugin option behind it); pass --cwd <dir> to set it as an env key in that folder"
+    }
+  },
+  "text": "invalid_arguments: knob 'gateguard_exempt_globs' is folder-only (no plugin option behind it); pass --cwd <dir> to set it as an env key in that folder",
+  "tool": "plugins_config"
+}

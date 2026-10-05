@@ -6,11 +6,13 @@ import {
   nullable,
   num,
   obj,
+  opt,
   rec,
   str,
   type Infer,
   type Shape,
 } from "../bridge/shape";
+import { planV1, resultV1 } from "../bridge/data";
 
 /** `data` of `plugins ls`, `plugins show` and `hooks ls`, checked against the golden envelopes by
  * `data.test.ts`. The reader prefers `claude plugin ...` and falls back to the files; a figure
@@ -156,6 +158,46 @@ export const pluginsShowData = obj({
 });
 export type PluginsShowData = Infer<typeof pluginsShowData>;
 
+/** `plugins config` and `plugins mcp`: the plan, then the result once applied. A folder write
+ * goes through the bundle ledger (`ledger` is its path); a global option change does not. */
+const controlProps = {
+  id: str,
+  scope: lit("folder", "global"),
+  cwd: nullable(str),
+  dryRun: bool,
+  plan: planV1,
+  result: nullable(resultV1),
+  conflicts: arr(str),
+  ledger: opt(str),
+};
+
+export const knobChange = obj({
+  knob: str,
+  action: lit("set", "remove", "unset"),
+  /** The environment variable of a folder write. */
+  env: opt(str),
+  /** The plugin option of a global write. */
+  option: opt(str),
+  value: nullable(str),
+});
+export type KnobChange = Infer<typeof knobChange>;
+
+export const pluginsConfigData = obj({
+  ...controlProps,
+  adapter: str,
+  changes: arr(knobChange),
+});
+export type PluginsConfigData = Infer<typeof pluginsConfigData>;
+
+export const pluginsMcpData = obj({
+  ...controlProps,
+  server: str,
+  /** The `deniedMcpServers` entry, `plugin:<plugin>:<server>`. */
+  serverName: str,
+  toolPrefix: str,
+});
+export type PluginsMcpData = Infer<typeof pluginsMcpData>;
+
 const perTool = obj({ pre: num, post: num, total: num });
 
 export const hooksLsData = obj({
@@ -197,6 +239,17 @@ export const pluginsShapes: Record<string, Shape<unknown>> = {
   "plugins-show.cli": pluginsShowData,
   "plugins-show.denied": pluginsShowData,
   "plugins-show.files": pluginsShowData,
+  "plugins-config.folder.plan": pluginsConfigData,
+  "plugins-config.folder.apply": pluginsConfigData,
+  "plugins-config.folder.unset-plan": pluginsConfigData,
+  "plugins-config.folder.unset": pluginsConfigData,
+  "plugins-config.global.plan": pluginsConfigData,
+  "plugins-config.global.apply": pluginsConfigData,
+  "plugins-mcp.deny.plan": pluginsMcpData,
+  "plugins-mcp.deny.apply": pluginsMcpData,
+  "plugins-mcp.deny.foreign": pluginsMcpData,
+  "plugins-mcp.allow.plan": pluginsMcpData,
+  "plugins-mcp.allow.apply": pluginsMcpData,
   "hooks-ls.bash": hooksLsData,
   "hooks-ls.disabled": hooksLsData,
   "hooks-ls.full": hooksLsData,

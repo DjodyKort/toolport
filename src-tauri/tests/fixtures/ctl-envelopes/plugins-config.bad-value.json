@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "plugins",
+    "config",
+    "ecc@ecc",
+    "--cwd",
+    "{home}/work/acme-erp",
+    "--set",
+    "hook_profile=loud"
+  ],
+  "envelope": {
+    "command": "plugins config",
+    "error": {
+      "code": "usage",
+      "message": "hook_profile must be one of minimal, standard, strict"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "config", "ecc@ecc"],
+  "envelope": {
+    "command": "plugins config",
+    "error": {
+      "code": "usage",
+      "message": "nothing to do: give --set <knob>=<value> or --unset <knob>"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

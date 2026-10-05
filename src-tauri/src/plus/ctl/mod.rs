@@ -514,7 +514,17 @@ pub const COMMANDS: &[Command] = &[
         "Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)",
         plugins::show,
     ),
-    cmd(&["plugins"], "Plugins: ls show", plugins::group),
+    cmd(
+        &["plugins", "config"],
+        "Set or unset a plugin's own switches: env keys in a folder, plugin options without one (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)",
+        plugins::config,
+    ),
+    cmd(
+        &["plugins", "mcp"],
+        "Deny or allow a plugin's MCP server in a folder (deny|allow <id> <server>, --cwd, --dry-run)",
+        plugins::mcp,
+    ),
+    cmd(&["plugins"], "Plugins: ls show config mcp", plugins::group),
     cmd(
         &["hooks", "ls"],
         "List every hook Claude Code would start in a folder, from files (--cwd, --tool, --event, --owner)",

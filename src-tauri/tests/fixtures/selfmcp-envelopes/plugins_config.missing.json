@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/work/acme-erp",
+    "id": "nope@nowhere",
+    "set": {
+      "gateguard": false
+    }
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "plugin 'nope@nowhere' is not installed"
+    }
+  },
+  "text": "not_found: plugin 'nope@nowhere' is not installed",
+  "tool": "plugins_config"
+}

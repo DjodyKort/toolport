@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/work/acme-erp",
+    "id": "ecc@ecc",
+    "set": {
+      "no_such_knob": "1"
+    }
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "ecc@ecc has no knob 'no_such_knob' (it has: hook_profile, hooks_enabled, gateguard, gateguard_exempt_globs, disabled_hooks)"
+    }
+  },
+  "text": "invalid_arguments: ecc@ecc has no knob 'no_such_knob' (it has: hook_profile, hooks_enabled, gateguard, gateguard_exempt_globs, disabled_hooks)",
+  "tool": "plugins_config"
+}

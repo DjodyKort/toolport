@@ -506,6 +506,8 @@ pub(super) const GLOBAL: &[Meta] = &[
         "How imports reach the layer: copy inlines them and refreshes on context sync (default), import writes @path lines",
     ),
     m("--folder", Path, "Folder the layer is delivered into when its scope is folder (repeatable)").repeats(),
+    m("--set", Str, "Knob and value as <knob>=<value> (repeatable)").repeats(),
+    m("--unset", Str, "Knob whose Toolport-written value is removed (repeatable)").repeats(),
     m("--import", Str, "File or layer whose text the layer carries (repeatable; an empty value clears the list)").repeats(),
     m(
         "--scope",
@@ -705,6 +707,22 @@ pub(super) const OVERRIDES: &[(&str, Meta)] = &[
             "--cwd",
             Path,
             "Folder whose project and local settings decide whether the plugin is on and its MCP servers denied (default: user settings only)",
+        ),
+    ),
+    (
+        "plugins config",
+        m(
+            "--cwd",
+            Path,
+            "Folder whose .claude/settings.local.json gets the env keys (without it only plugin options are set, globally)",
+        ),
+    ),
+    (
+        "plugins mcp",
+        m(
+            "--cwd",
+            Path,
+            "Folder whose .claude/settings.local.json lists the denied server (required)",
         ),
     ),
     (

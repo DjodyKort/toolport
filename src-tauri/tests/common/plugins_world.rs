@@ -154,6 +154,7 @@ pub fn build_in(base: &Path, claude: &Path) -> PluginsWorld {
              \"plugin list --json \"*) cat \"$d/list.json\";;\n\
              \"plugin details ecc@ecc \"*) cat \"$d/details-ecc.txt\";;\n\
              \"plugin configure ecc@ecc --json\") cat \"$d/configure-ecc.json\";;\n\
+             \"plugin configure ecc@ecc --values-stdin\") cat > \"$d/values-stdin.json\"; echo \"$*\" > \"$d/values-argv.txt\"; echo configured;;\n\
              \"plugin marketplace update \"*) echo refreshed;;\n\
              *) echo \"unexpected: $*\" >&2; exit 9;;\nesac\n",
             recorded.display()

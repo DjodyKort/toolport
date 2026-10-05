@@ -1299,7 +1299,17 @@
       "action": "usage.otel-status",
       "surface": "screen"
     },
+    "plugins config": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
     "plugins ls": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "plugins mcp": {
       "route": "all-commands",
       "action": "all-commands.run",
       "surface": "screen"
@@ -1781,7 +1791,17 @@
       "action": "all-commands.tool",
       "surface": "screen"
     },
+    "plugins_config": {
+      "route": "all-commands",
+      "action": "all-commands.tool",
+      "surface": "screen"
+    },
     "plugins_ls": {
+      "route": "all-commands",
+      "action": "all-commands.tool",
+      "surface": "screen"
+    },
+    "plugins_mcp": {
       "route": "all-commands",
       "action": "all-commands.tool",
       "surface": "screen"

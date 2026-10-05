@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "config"],
+  "envelope": {
+    "command": "plugins config",
+    "error": {
+      "code": "usage",
+      "message": "usage: plugins config <id> [--cwd <dir>] [--set <knob>=<value>]... [--unset <knob>]... [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

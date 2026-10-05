@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "action": "block",
+    "cwd": "<WORLD>/home/work/acme-erp",
+    "id": "ecc@ecc",
+    "server": "chrome-devtools"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "action is deny or allow, got 'block'"
+    }
+  },
+  "text": "invalid_arguments: action is deny or allow, got 'block'",
+  "tool": "plugins_mcp"
+}

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/work/acme-erp"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "missing required argument: id"
+    }
+  },
+  "text": "invalid_arguments: missing required argument: id",
+  "tool": "plugins_config"
+}

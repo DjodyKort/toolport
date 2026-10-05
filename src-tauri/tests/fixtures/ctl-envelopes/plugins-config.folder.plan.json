@@ -1,0 +1,82 @@
+{
+  "argv": [
+    "plugins",
+    "config",
+    "ecc@ecc",
+    "--cwd",
+    "{home}/work/acme-erp",
+    "--set",
+    "hook_profile=minimal",
+    "--set",
+    "gateguard=off",
+    "--set",
+    "gateguard_exempt_globs=docs/**,scripts/*.sh",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "plugins config",
+    "data": {
+      "adapter": "ecc@ecc",
+      "changes": [
+        {
+          "action": "set",
+          "env": "ECC_HOOK_PROFILE",
+          "knob": "hook_profile",
+          "value": "minimal"
+        },
+        {
+          "action": "set",
+          "env": "ECC_GATEGUARD",
+          "knob": "gateguard",
+          "value": "off"
+        },
+        {
+          "action": "set",
+          "env": "GATEGUARD_EXEMPT_GLOBS",
+          "knob": "gateguard_exempt_globs",
+          "value": "docs/**,scripts/*.sh"
+        }
+      ],
+      "conflicts": [],
+      "cwd": "<WORLD>/home/work/acme-erp",
+      "dryRun": true,
+      "id": "ecc@ecc",
+      "ledger": "<WORLD>/data/plus/profile-ledger.json",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "3 key(s) owned by config:ecc@ecc",
+            "diff": {
+              "after": "env.ECC_GATEGUARD: \"off\"\nenv.ECC_HOOK_PROFILE: \"minimal\"\nenv.GATEGUARD_EXEMPT_GLOBS: \"docs/**,scripts/*.sh\"\n",
+              "before": "env.ECC_GATEGUARD: (absent)\nenv.ECC_HOOK_PROFILE: (absent)\nenv.GATEGUARD_EXEMPT_GLOBS: (absent)\n"
+            },
+            "keys": ["env"],
+            "op": "create",
+            "path": "<WORLD>/home/work/acme-erp/.claude/settings.local.json"
+          },
+          {
+            "detail": "git-ignore .claude/settings.local.json",
+            "op": "update",
+            "path": "<WORLD>/home/work/acme-erp/.git/info/exclude"
+          },
+          {
+            "detail": "record every key Toolport owns with the value it replaces, so undo restores exactly that",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          }
+        ],
+        "summary": "Set 3 knob(s) of ecc@ecc in <WORLD>/home/work/acme-erp",
+        "undo": "toolportctl plugins config ecc@ecc --cwd <WORLD>/home/work/acme-erp --unset hook_profile --unset gateguard --unset gateguard_exempt_globs",
+        "warnings": [
+          "A switched-off hook still starts a process and exits at once; only turning the plugin off removes it"
+        ]
+      },
+      "result": null,
+      "scope": "folder"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

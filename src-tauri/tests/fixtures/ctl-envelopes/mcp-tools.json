@@ -301,6 +301,84 @@
           "tier": 1
         },
         {
+          "description": "Set or unset a plugin's own switches (its adapter's knobs). With cwd they become env keys in that folder's git-ignored .claude/settings.local.json, ledgered so undo restores only what Toolport wrote; without cwd only knobs that are plugin options are set, through claude plugin configure. A switched-off hook still starts a process; only turning the plugin off removes it. dry_run is on by default: pass dry_run=false to apply",
+          "dryRunDefault": true,
+          "gate": "none",
+          "name": "plugins_config",
+          "params": [
+            {
+              "description": "Plugin id such as ecc@ecc, or a bare plugin name when it is unique",
+              "name": "id",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Folder where Claude Code starts; omit to set plugin options globally",
+              "name": "cwd",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Knobs to set, as {knob: value}; a value is a string, a boolean or a list of strings",
+              "name": "set",
+              "required": false,
+              "type": "object"
+            },
+            {
+              "description": "Knobs whose Toolport-written value is removed",
+              "name": "unset",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Deny or allow one MCP server of a plugin in a folder: deny writes {serverName: plugin:<plugin>:<server>} into deniedMcpServers of the folder's git-ignored .claude/settings.local.json, allow removes only that entry. The server stays outside the gateway. dry_run is on by default: pass dry_run=false to apply",
+          "dryRunDefault": true,
+          "gate": "none",
+          "name": "plugins_mcp",
+          "params": [
+            {
+              "description": "deny or allow",
+              "name": "action",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Plugin id such as ecc@ecc, or a bare plugin name when it is unique",
+              "name": "id",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "The plugin's MCP server name (see plugins_show)",
+              "name": "server",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Folder where Claude Code starts; nothing is written above it",
+              "name": "cwd",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
           "description": "List every hook Claude Code would start in a folder, read from settings, plugins and Toolport files; a hook is never run. Counts the processes per tool and flags PreToolUse hooks of different owners on the same tool",
           "dryRunDefault": false,
           "gate": "none",

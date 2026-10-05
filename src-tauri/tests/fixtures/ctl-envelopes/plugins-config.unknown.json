@@ -1,0 +1,22 @@
+{
+  "argv": [
+    "plugins",
+    "config",
+    "nope@nowhere",
+    "--cwd",
+    "{home}/work/acme-erp",
+    "--set",
+    "gateguard=off",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "plugins config",
+    "error": {
+      "code": "not_found",
+      "message": "plugin 'nope@nowhere' is not installed"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "mcp", "deny", "ecc@ecc", "chrome-devtools"],
+  "envelope": {
+    "command": "plugins mcp",
+    "error": {
+      "code": "usage",
+      "message": "--cwd is required: a server is denied per folder"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

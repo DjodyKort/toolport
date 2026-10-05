@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "action": "deny",
+    "id": "ecc@ecc",
+    "server": "chrome-devtools"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "missing required argument: cwd"
+    }
+  },
+  "text": "invalid_arguments: missing required argument: cwd",
+  "tool": "plugins_mcp"
+}

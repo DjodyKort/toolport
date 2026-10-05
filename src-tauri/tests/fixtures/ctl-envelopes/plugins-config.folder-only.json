@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "config", "ecc@ecc", "--set", "gateguard_exempt_globs=docs/**"],
+  "envelope": {
+    "command": "plugins config",
+    "error": {
+      "code": "usage",
+      "message": "knob 'gateguard_exempt_globs' is folder-only (no plugin option behind it); pass --cwd <dir> to set it as an env key in that folder"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

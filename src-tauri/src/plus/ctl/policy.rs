@@ -518,6 +518,15 @@ pub(super) const ROWS: &[Row] = &[
     row("plugins show", R)
         .spec(&[&plugins::SHOW])
         .args(&[req("id")]),
+    row("plugins config", W)
+        .dry()
+        .spec(&[&plugins::CONFIG])
+        .args(&[req("id")]),
+    row("plugins mcp", W)
+        .dry()
+        .spec(&[&plugins::MCP])
+        .args(&[req("action"), req("id"), req("server")])
+        .requires(&["--cwd"]),
     row("hooks ls", R).spec(&[&hooks::LS]),
     row("sources root ls", R).spec(&[&sources::ROOT_LS]),
     row("sources root add", W)
@@ -750,6 +759,8 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("context_compose", R, "context compose"),
     maps("plugins_ls", R, "plugins ls"),
     maps("plugins_show", R, "plugins show"),
+    maps("plugins_config", W, "plugins config").on(),
+    maps("plugins_mcp", W, "plugins mcp").on(),
     maps("hooks_ls", R, "hooks ls"),
     own("skills_get", R),
     maps("skills_lint", R, "skills lint"),
