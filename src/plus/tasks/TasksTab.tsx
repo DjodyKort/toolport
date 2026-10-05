@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Plus, RefreshCw, ListPlus, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/Callout";
@@ -116,8 +116,23 @@ function Row({
   );
 }
 
-function Selected({ listed, actions }: { listed: LsTask; actions: DetailActions }) {
+function Selected({
+  listed,
+  version,
+  actions,
+}: {
+  listed: LsTask;
+  version: number;
+  actions: DetailActions;
+}) {
   const query = useCtlQuery<TaskShowData>(["task", "show", listed.id]);
+  const { reload } = query;
+  const seen = useRef(version);
+  useEffect(() => {
+    if (seen.current === version) return;
+    seen.current = version;
+    reload();
+  }, [version, reload]);
   return <TaskDetail listed={listed} query={query} actions={actions} />;
 }
 
@@ -137,6 +152,7 @@ export function TasksTab({
   const [version, setVersion] = useState(0);
   const [run, setRun] = useState<TaskDefinition | null>(null);
   const [log, setLog] = useState<string | null>(null);
+  const [live, setLive] = useState<{ task: TaskDefinition; runId: string } | null>(null);
   const [form, setForm] = useState<{ mode: "add" | "edit"; form: TaskForm } | null>(null);
   const [fromCommand, setFromCommand] = useState(false);
   const { reload } = list;
@@ -178,6 +194,7 @@ export function TasksTab({
         },
       }),
     onLog: (item: TaskRun) => setLog(item.id),
+    onOpenRun: (task: TaskDefinition, item: TaskRun) => setLive({ task, runId: item.id }),
   };
 
   const startForm = () => setForm({ mode: "add", form: blankForm() });
@@ -253,8 +270,9 @@ export function TasksTab({
               </ul>
               {current && (
                 <Selected
-                  key={`${current.id}:${version}`}
+                  key={current.id}
                   listed={current}
+                  version={version}
                   actions={actions}
                 />
               )}
@@ -270,6 +288,16 @@ export function TasksTab({
           pollMs={pollMs}
           onChanged={refresh}
           onClose={() => setRun(null)}
+        />
+      )}
+      {live && (
+        <RunTaskDialog
+          taskId={live.task.id}
+          task={live.task}
+          runId={live.runId}
+          pollMs={pollMs}
+          onChanged={refresh}
+          onClose={() => setLive(null)}
         />
       )}
       {log && <LogDialog runId={log} onClose={() => setLog(null)} />}
