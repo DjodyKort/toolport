@@ -5,6 +5,9 @@ import { NOT_BUILT_TABS } from "../notBuiltTabs";
 import { ScreenSkeleton, Tabs } from "../ui";
 import { SkillsTab } from "./SkillsTab";
 
+const PluginsTab = lazy(() =>
+  import("../plugins/PluginsTab").then((m) => ({ default: m.PluginsTab })),
+);
 const SourcesTab = lazy(() =>
   import("./sources/SourcesTab").then((m) => ({ default: m.SourcesTab })),
 );
@@ -15,6 +18,7 @@ const PANELS: Record<string, ComponentType> = {
   skills: SkillsTab,
   agents: AgentsTab,
   styles: StylesTab,
+  plugins: PluginsTab,
   sources: SourcesTab,
 };
 
