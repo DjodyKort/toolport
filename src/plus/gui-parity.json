@@ -1899,33 +1899,33 @@
       "surface": "screen"
     },
     "context_bundle_apply": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.bundle.apply",
       "surface": "screen"
     },
     "context_bundle_ls": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.bundle.ls",
       "surface": "screen"
     },
     "context_bundle_status": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.bundle.status",
       "surface": "screen"
     },
     "context_bundle_undo": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.bundle.undo",
       "surface": "screen"
     },
     "context_compose": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "context",
+      "action": "context.compose",
       "surface": "screen"
     },
     "context_measure": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "context",
+      "action": "context.measure",
       "surface": "screen"
     },
     "doctor": {

@@ -266,6 +266,10 @@ MIG-GUI-1 edits:
 | `src/plus/PlusViews.tsx` (system)          | `system` renders the lazy `SystemScreen`: the five tabs Sync, Updates, Council, Import and Self-management are built; the plugins section of Updates is a placeholder for MIG-GUI-12                                             |
 | `src/plus/PlusViews.test.tsx` (system)     | System leaves the not-built list; the All commands round trip starts from the Tokens placeholder; one test opens the System tabs                                                                                                 |
 | `src/plus/fixtures/plusCtl.ts` (system)    | spreads `systemBrowserFixtures` (the golden envelopes of the System commands, the update list and the importer for `/old/mcpm`)                                                                                                  |
+| `src/plus/gui-parity.json` (context tabs)  | 15 more `context.*` actions are `built` on the `context` route (`loads` stays, `measure`, `compose`, `use` and `bundle.ls                                                                                                        | show | add | edit | rm  | apply | undo | status | launch | config`, `client-edit`, `client-rm`); the 15 commands and the 6 tools `context_measure`, `context_compose`and`context_bundle_ls | status | apply | undo` point at them, off All commands |
+| `scripts/browser-smoke.mjs` (context tabs) | `contextTabsScreen` walks This folder (stack, measure confirm), Profiles (the apply plan) and Layers (the org file) in both themes and cancels every dialog; `contextScreen` now expects This folder as the first tab            |
+| `scripts/screenshots.mjs` (context tabs)   | lists the eight `gui-context-folder\|profiles\|layers-*`, `gui-context-apply-plan-light` and `gui-context-measure-confirm-light` shots                                                                                           |
+| `src/plus/fixtures/plusCtl.ts` (context)   | `contextBrowserFixtures` also answers `sources ls --source org` (the org row of the sources fixture), which the Layers tab reads                                                                                                 |
 
 ## Sources
 
@@ -504,7 +508,7 @@ Screenshots (1280x800, from `npm run screenshots:gui`): `docs/assets/gui-usage-l
 
 ## Context: Launch & shell
 
-`src/plus/context/` builds the screen of the approved mockup nav item "Context" (layout B). `ContextScreen` has the five tabs of the mockup; `PANELS` in it lists the tabs that are built (today `launch`, the default), the others stay the marked placeholder of `NOT_BUILT_TABS` until MIG-GUI-10 and MIG-GUI-12 add their panels. `PlusViews` lazy-loads the screen.
+`src/plus/context/` builds the screen of the approved mockup nav item "Context" (layout B). `ContextScreen` has the five tabs of the mockup; `PANELS` in it lists the tabs that are built (`here`, the default, `profiles`, `layers` and `launch`), the others stay the marked placeholder of `NOT_BUILT_TABS` until MIG-GUI-12 adds its panel. `PlusViews` lazy-loads the screen.
 
 | Section         | Reads                                                                                | Writes (policy tier from `toolportctl commands`)                                                                                                       |
 | --------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -521,6 +525,41 @@ Screenshots (1280x800, from `npm run screenshots:gui`): `docs/assets/gui-usage-l
 - Tests: `testkit.ts` is a fake `plus_ctl` bridge over `fixtures.ts` and the real goldens. `createBridge({ world: true })` and the dev browser fixture use `world.ts` instead, a small pure-TS home where an applied sync, profile add or remove, init, client add, disable or folders flag changes the next read and a preview never does (`createContextWorld({ fresh: true })` starts with nothing set up). `ContextScreen.e2e.test.tsx` walks the real screen through that world, one test per parity action id, with Escape, the typed confirmations, the bridge down and the leak canary for the statusline JSON; `world.test.ts` checks every world reply against the golden shapes.
 
 Screenshots (1280x800, from `npm run screenshots:gui`): `docs/assets/gui-context-light.png` and `gui-context-dark.png` (deploy, launch profile, shims), `gui-context-plan-light.png` (the sync plan with the shell diff), `gui-context-remove-light.png` (the typed removal of a launch profile), `gui-context-move-light.png` (moving the old shell lines) and `gui-context-loads-light.png` (tokens per layer).
+
+## Context: This folder
+
+`HereTab` answers "what does Claude load in this folder, and what does it cost" from `context loads [--cwd <dir>] --measured`. The folder is a path field with the recent folders as suggestions (the bridge has no native folder dialog); it lives in `ContextScreen`, so it survives a tab switch, and it starts from the newest recent folder (kept in browser storage, which may be blocked). `--home` is never sent.
+
+- **Stack.** `stackModel.ts` groups the rows in the order Claude Code builds them: Instructions, Skills, commands and agents, Plugins, Tools (MCP), Memory and Settings. Every row has its origin badge (org, user, plugin, library, managed...) and, for an imported file, the chain it came through. Rows that load on demand and rows that are not loaded in this folder are listed apart, never in the total.
+- **Numbers.** Every token number is labelled `estimate`, `measured` or `projected` (D-065). The strip shows what was measured (or "not measured yet"), the estimated size of your files, what loads on demand and the plugin that is the biggest switch-off. The skill-list budget is a meter (`role="meter"`); a size estimate overstates skills because Claude Code caps the list. A saving is only shown when it was measured.
+- **Measure for real.** "Measure for real..." and "Measure without it..." (per plugin) open a confirmation first, because the command spends requests on the plan. Only after Measure does `context measure --cwd <dir> [--without plugin:<id>] --yes` run, with `JobProgress`, and the result (the real input tokens, the lists Claude Code reported, the delta of the plugin) is read again into the stack. A kept measurement is marked `stale` when the estimate moved since.
+- **Profile applied here.** `context bundle status --cwd <dir>` names the applied profile and its drift; "Apply a profile..." remembers the folder and opens the Profiles tab.
+- **Composed text.** `ComposedView` reads `context compose --cwd <dir>` part by part, collapsed, in load order. This is the only place file text is rendered; nothing else shows the contents of a file.
+- Tests: `HereTab.test.tsx` (states, groups, numbers, measure confirm, no `--home`, the leak canary, the folder across tabs), `stackModel.test.ts`, and `ContextTabs.e2e.test.tsx` against the stateful world: `context.measure` (confirm, progress, result, the stack read again), `context.measure-without`, `context.compose`, and the profile applied here through `context.use`.
+
+## Context: Profiles
+
+`ProfilesTab` is the screen of the profile, which pairs a server set and a context bundle under one name (D-066). It reads `context bundle ls` and `context bundle show <name>`; a profile that cannot be read is marked and the others stay usable. `bundleModel.ts` turns the lists into the flags of `context bundle add|edit`, and an edit sends only the lists that changed (a cleared list is its flag with an empty value).
+
+- **Create.** "Create from a folder..." runs `context bundle add <name> --from-folder <dir>`; "New profile" and "Duplicate" run `bundle add` with the lists. A taken or invalid name is refused before anything runs.
+- **Edit and delete.** "Edit" is `bundle edit` (off for a legacy plain skill list). "Delete..." is `bundle rm`; a profile that is applied needs the force box, and the name is typed (destructive tier).
+- **Apply to a folder.** The plan is `context use <name> --cwd <dir> --dry-run` when the profile has a server set, else `context bundle apply`; confirm, `JobProgress`, then the result with the changed files, the backups and the undo line. "Undo..." per applied folder is `bundle undo --cwd <dir>` (plan, confirm, result); drift is a badge and the conflicting keys are listed.
+- **Apply automatically.** A switch, off by default, is `context bundle config [--auto-apply on|off]`. It has no preview, so the confirmation shows the exact command line.
+- **Or launch with it.** "Prepare the launch line..." is `bundle launch <name>`, a write that only creates the `--settings` file. The command comes back with a Copy button; "Open in Terminal" is always disabled (D-062: the terminal part is copy only).
+- **Not built.** The measured effect of a profile on a folder (it needs `context measure --bundle <name>`, which does not exist), the plugin settings row and the MCP denies (MIG-GUI-12).
+- Tests: `ProfilesTab.test.tsx` (every state and write against the real goldens) and `ContextTabs.e2e.test.tsx` against the stateful world, one test per action id: `context.bundle.add` (from the lists and from a folder), `context.bundle.edit`, `context.bundle.rm` (unapplied, and applied with force), `context.bundle.launch`, `context.bundle.config`, and, through This folder, `context.use`, `context.bundle.apply`, `context.bundle.undo`, `context.bundle.status` and `context.bundle.ls`. A preview never changes the world and the next read shows an apply.
+
+## Context: Layers
+
+`LayersTab` lists the layers from `context client list` with their scope (everywhere, a folder pattern, chosen folders), folders, imports, delivery, where they are deployed and their lint issues. The org file is a read-only card from `sources ls --source org` with its owner, who manages it and when it was last synced; Toolport never edits it (the card says so) and "Preview the stack for a folder" opens This folder.
+
+- **Add and edit.** `context client add|edit <name>` with `--scope`, `--glob`, `--folder`, `--import` and `--delivery`; the dialog shows the plan first (`--dry-run`), and an edit sends only the fields that changed. A name that maps to an existing layer or that the CLI would reject is refused before the plan.
+- **Delete.** `context client rm <name>` after the plan and the typed name. Only `client-*` layers are deleted here; the button says why it is off for the others.
+- **Composed preview.** A folder field shows `context compose --cwd <dir>` and reads it again after every applied write.
+- **Not fixed.** The `layerScaffolds` rows of the mockup are not shown as fixed rows: the scaffold comes from `context.json` (D-040).
+- Tests: `LayersTab.test.tsx` and `ContextTabs.e2e.test.tsx` (`context.client-add`, `context.client-edit`, `context.client-rm`, each against the world where the next list and compose read the change).
+
+Screenshots (1280x800, from `npm run screenshots:gui`): `docs/assets/gui-context-folder-light.png` and `gui-context-folder-dark.png` (the stack with its origins and the skill-list meter), `gui-context-measure-confirm-light.png` (the confirmation that the measurement spends requests), `gui-context-profiles-light.png` and `gui-context-profiles-dark.png` (a profile with what it hides and the launch line), `gui-context-apply-plan-light.png` (the plan to apply it to a folder), `gui-context-layers-light.png` and `gui-context-layers-dark.png` (the layers and the read-only org file).
 
 ## System
 
