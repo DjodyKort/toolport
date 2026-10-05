@@ -1356,6 +1356,103 @@ fn the_compression_tools_plan_by_default_and_apply_when_confirmed() {
 }
 
 #[test]
+fn compression_teardown_and_mcpm_root_are_planned_first_and_applied_when_confirmed() {
+    use std::os::unix::fs::PermissionsExt;
+    let world = World::new("cmp-teardown");
+    let bin = world.base.join("sentinel-bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    let log = world.base.join("headroom-calls.log");
+    let script = bin.join("headroom");
+    std::fs::write(
+        &script,
+        format!("#!/bin/sh\necho \"$*\" >> '{}'\necho done\n", log.display()),
+    )
+    .unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let path = format!("{}:/usr/bin:/bin", bin.display());
+    let mut client = Client::spawn_with(&world, &[("PATH", Path::new(&path))]);
+    client.handshake();
+    let listed = listed_tools(&mut client);
+    let param = |tool: &str, name: &str| {
+        listed.iter().find(|t| t["name"] == tool).unwrap()["inputSchema"]["properties"][name]
+            .clone()
+    };
+    assert_eq!(param("compression_disable", "teardown")["type"], "boolean");
+    assert_eq!(param("compression_sync", "mcpm_root")["type"], "string");
+
+    let legacy_dir = world.base.join("legacy-mcpm");
+    std::fs::create_dir_all(&legacy_dir).unwrap();
+    let legacy = legacy_dir.join("compression.json");
+    let policy = r#"{"provider": "rtk-only", "runtime": "hook", "active_preset": "agent",
+        "presets": {"agent": {"mode": "token", "savings_profile": "agent-90",
+        "env": {"HEADROOM_MODE": "token"}, "code_aware": false, "port": 8788}}}"#;
+    std::fs::write(&legacy, policy).unwrap();
+    let before = world.snapshot();
+    for bad in [
+        json!("relative/legacy"),
+        json!(world.base.join("missing").to_string_lossy()),
+        json!(legacy.to_string_lossy()),
+    ] {
+        assert_eq!(
+            client
+                .call("compression_sync", json!({"mcpm_root": bad}))
+                .error_kind(),
+            "invalid_arguments",
+            "{bad}"
+        );
+    }
+    let planned = client.call(
+        "compression_sync",
+        json!({"mcpm_root": legacy_dir.to_string_lossy()}),
+    );
+    assert_eq!(planned.ok()["dryRun"], true);
+    same_path(&planned.ok()["mcpmRoot"], &legacy_dir);
+    same_path(&planned.ok()["adopted"]["from"], &legacy);
+    assert_eq!(world.snapshot(), before, "a preview must not write");
+    let done = client.call(
+        "compression_sync",
+        json!({"mcpm_root": legacy_dir.to_string_lossy(), "dry_run": false, "confirm": true}),
+    );
+    assert_eq!(done.ok()["dryRun"], false);
+    assert_eq!(
+        client.call("compression_status", json!({})).ok()["provider"],
+        "rtk-only"
+    );
+    assert_eq!(std::fs::read_to_string(&legacy).unwrap(), policy);
+
+    let before = world.snapshot();
+    let planned = client.call("compression_disable", json!({"teardown": true}));
+    assert_eq!(planned.ok()["teardown"], true);
+    let actions: Vec<&str> = planned.ok()["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(Value::as_str)
+        .collect();
+    assert!(actions.contains(&"would run `headroom mcp uninstall`"), "{actions:?}");
+    assert!(actions.contains(&"would run `headroom unwrap claude`"), "{actions:?}");
+    assert_eq!(
+        client
+            .call("compression_disable", json!({"teardown": true, "dry_run": false}))
+            .error_kind(),
+        "refused"
+    );
+    assert_eq!(world.snapshot(), before);
+    assert!(!log.exists(), "a preview started headroom");
+
+    let done = client.call(
+        "compression_disable",
+        json!({"teardown": true, "dry_run": false, "confirm": true}),
+    );
+    assert_eq!(done.ok()["provider"], "none");
+    assert_eq!(
+        std::fs::read_to_string(&log).unwrap(),
+        "mcp uninstall\nunwrap claude\n"
+    );
+    assert!(client.close().success());
+}
+
+#[test]
 fn tier_three_and_four_tools_run_only_when_confirmed() {
     let world = World::new("tier34");
     let mut client = Client::spawn(&world);

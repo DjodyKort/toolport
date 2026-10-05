@@ -1,0 +1,30 @@
+{
+  "arguments": {
+    "teardown": true
+  },
+  "isError": false,
+  "result": {
+    "actions": [
+      "would save config (provider=none)",
+      "would remove MCP server 'headroom' from the registry",
+      "would remove artifact <WORLD>/data/compression-env.sh",
+      "would run `headroom mcp uninstall`",
+      "would run `headroom unwrap claude`"
+    ],
+    "adopted": null,
+    "dryRun": true,
+    "preset": {
+      "mode": "cache",
+      "name": "interactive",
+      "port": 29213,
+      "savingsProfile": null
+    },
+    "provider": "none",
+    "removed": ["<WORLD>/data/compression-env.sh"],
+    "runtime": "none",
+    "teardown": true,
+    "warnings": [],
+    "written": []
+  },
+  "tool": "compression_disable"
+}

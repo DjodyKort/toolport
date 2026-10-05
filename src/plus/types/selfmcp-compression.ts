@@ -5,6 +5,7 @@ import {
   nullable,
   num,
   obj,
+  opt,
   str,
   type Infer,
   type Shape,
@@ -120,6 +121,7 @@ export const compressionSyncResult = obj({
   actions: arr(str),
   adopted: nullable(any),
   dryRun: bool,
+  mcpmRoot: opt(str),
   preset: obj({
     mode: str,
     name: str,

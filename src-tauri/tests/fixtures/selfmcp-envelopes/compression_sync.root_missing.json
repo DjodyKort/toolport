@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "mcpm_root": "<WORLD>/home/absent"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "mcpm_root must be an absolute path of an existing directory: the path does not exist"
+    }
+  },
+  "text": "invalid_arguments: mcpm_root must be an absolute path of an existing directory: the path does not exist",
+  "tool": "compression_sync"
+}
