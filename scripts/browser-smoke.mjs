@@ -354,6 +354,74 @@ async function contextScreen(shot, theme) {
   }
 }
 
+// The Context tabs This folder, Profiles and Layers on the stateful Context world: the stack of
+// a folder with its measure confirm, the profiles with the plan to apply one to a folder, and
+// the layers with the read-only org file. Nothing is written: every dialog is cancelled.
+async function contextTabsScreen(shot, theme) {
+  const snap = (name) => guiShot(shot, name, { animations: "disabled" });
+  const folder = "/fixture/work/erp/clients/acme-erp";
+  const nav = shot.getByRole("navigation", { name: "Views" });
+  await nav.getByRole("button", { name: "Context", exact: true }).click();
+  const tabs = shot.getByRole("tablist", { name: "Context sections" });
+  const tab = (name) => tabs.getByRole("tab", { name, exact: true });
+  const dialog = shot.getByRole("dialog");
+  await expect(tab("This folder")).toHaveAttribute("aria-selected", "true");
+  await shot.getByLabel("Folder", { exact: true }).fill(folder);
+  await shot.getByRole("button", { name: "Show", exact: true }).click();
+  await expect(shot.getByRole("meter", { name: "Skill list budget" })).toBeVisible();
+  await expect(
+    shot
+      .getByRole("region", { name: "Stack" })
+      .getByText(/kit@market/)
+      .first(),
+  ).toBeVisible();
+  await expect(shot.getByRole("list", { name: "Composed parts" })).toBeVisible();
+  await tabs.scrollIntoViewIfNeeded();
+  await shot.evaluate(() => document.fonts.ready);
+  await guiShot(shot, `context-folder-${theme}`, { animations: "disabled" });
+  if (theme === "light") {
+    await shot.getByRole("button", { name: "Measure for real…" }).click();
+    await expect(dialog.getByText(/spends model tokens/)).toBeVisible();
+    await shot.evaluate(() => document.fonts.ready);
+    await snap("context-measure-confirm-light");
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toHaveCount(0);
+  }
+
+  await tab("Profiles").click();
+  const profile = shot.getByRole("region", { name: "Profile acme-dev" });
+  await expect(profile).toBeVisible();
+  await expect(profile.getByRole("button", { name: "Open in Terminal" })).toBeDisabled();
+  await expect(
+    shot.getByRole("switch", { name: "Apply automatically" }),
+  ).not.toBeChecked();
+  await shot.evaluate(() => document.fonts.ready);
+  await snap(`context-profiles-${theme}`);
+  if (theme === "light") {
+    await profile.getByRole("button", { name: "Apply to a folder…" }).click();
+    const form = shot.getByRole("dialog", { name: "Apply profile acme-dev to a folder" });
+    await form.getByLabel("Folder", { exact: true }).fill(folder);
+    await form.getByRole("button", { name: "Review the plan" }).click();
+    const plan = shot.getByRole("dialog", { name: /Apply profile acme-dev to / });
+    await expect(plan.getByRole("list", { name: "Changes" })).toBeVisible();
+    await shot.evaluate(() => document.fonts.ready);
+    await snap("context-apply-plan-light");
+    await plan.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toHaveCount(0);
+  }
+
+  await tab("Layers").click();
+  const layers = shot.getByRole("list", { name: "Layer list" });
+  await expect(layers).toBeVisible();
+  await expect(
+    shot
+      .getByRole("region", { name: "Org file" })
+      .getByText("corp-tools", { exact: true }),
+  ).toBeVisible();
+  await shot.evaluate(() => document.fonts.ready);
+  await snap(`context-layers-${theme}`);
+}
+
 // The System screen on the stateful System world: a machine that has not set sync up, the
 // init with its passphrase on stdin, a push (the plan, the typed confirmation, the apply that
 // moves the last sync), the updates with the update command of a server, the council with the
@@ -850,6 +918,18 @@ try {
     await watch(shot);
     await shot.goto(`${baseURL}/fixtures/`);
     await contextScreen(shot, theme);
+    expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
+    await shot.close();
+  }
+  for (const theme of ["light", "dark"]) {
+    const shot = await context.newPage();
+    await shot.addInitScript((choice) => {
+      localStorage.setItem("toolport-theme", choice);
+    }, theme);
+    await shot.setViewportSize({ width: 1280, height: 800 });
+    await watch(shot);
+    await shot.goto(`${baseURL}/fixtures/`);
+    await contextTabsScreen(shot, theme);
     expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
     await shot.close();
   }
