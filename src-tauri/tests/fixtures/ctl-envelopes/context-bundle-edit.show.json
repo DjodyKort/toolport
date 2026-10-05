@@ -15,9 +15,13 @@
         "exclude": ["**/acme-erp/CLAUDE.md"]
       },
       "legacy": false,
+      "mcp": {
+        "deny": []
+      },
       "name": "acme-dev",
       "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/acme-dev.yaml",
       "plugins": {
+        "config": {},
         "off": ["tools-pack@tools-market", "loop-runner@official"]
       },
       "servers": "acme-dev",

@@ -5,6 +5,7 @@ import {
   num,
   obj,
   opt,
+  rec,
   str,
   type Infer,
   type Shape,
@@ -58,7 +59,9 @@ export const contextBundleShowData = obj({
   legacy: bool,
   name: str,
   path: str,
-  plugins: obj({ off: arr(str) }),
+  mcp: obj({ deny: arr(str) }),
+  /** `config` is `plugins.config`: plugin id to knob to value. */
+  plugins: obj({ off: arr(str), config: rec(rec(str)) }),
   servers: nullable(str),
   skills: obj({ allow: arr(str), nameOnly: arr(str), off: arr(str) }),
   yaml: str,

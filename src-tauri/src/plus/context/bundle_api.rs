@@ -79,6 +79,17 @@ pub fn ls() -> Result<Value, OpError> {
     })
 }
 
+fn plugins_config_value(config: &[(String, Vec<(String, String)>)]) -> Value {
+    let plugins: serde_json::Map<String, Value> = config
+        .iter()
+        .map(|(plugin, knobs)| {
+            let knobs: serde_json::Map<String, Value> = knobs.iter().map(|(k, v)| (k.clone(), json!(v))).collect();
+            (plugin.clone(), Value::Object(knobs))
+        })
+        .collect();
+    Value::Object(plugins)
+}
+
 pub fn show(name: &str) -> Result<Value, OpError> {
     with_world(|w| {
         let l = bundle_store::load(w.roots, name)?;
@@ -86,7 +97,8 @@ pub fn show(name: &str) -> Result<Value, OpError> {
         Ok(json!({
             "name": name, "path": fsx::display(&l.path), "description": b.description, "servers": b.servers,
             "skills": { "off": b.skills_off, "nameOnly": b.skills_name_only, "allow": b.skills_allow },
-            "plugins": { "off": b.plugins_off },
+            "plugins": { "off": b.plugins_off, "config": plugins_config_value(&b.plugins_config) },
+            "mcp": { "deny": b.mcp_deny },
             "layers": { "add": b.layers_add, "exclude": b.layers_exclude },
             "agents": { "off": b.agents_off }, "bind": b.bind, "legacy": b.legacy_list,
             "yaml": l.text, "issues": issues_value(&bundle::lint(name, &l.text)),
