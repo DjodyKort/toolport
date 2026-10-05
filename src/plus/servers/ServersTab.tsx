@@ -201,6 +201,8 @@ export function ServersTab() {
                     view={current}
                     profiles={profiles.data}
                     busy={write.busy}
+                    write={write}
+                    onChanged={() => setVersion((n) => n + 1)}
                     onEdit={setEditing}
                     onRemove={(info) => setRemoving({ view: current, info })}
                     onToggleProfile={(profileId, on) =>
