@@ -1,0 +1,55 @@
+{
+  "argv": ["context", "client", "add", "tree-knowledge", "--dry-run"],
+  "envelope": {
+    "command": "context client add",
+    "data": {
+      "created": true,
+      "delivery": "copy",
+      "dryRun": true,
+      "folders": ["~/work/erp/clients/acme-two", "~/work/other"],
+      "glob": "**/clients/tree-knowledge/**",
+      "imports": ["~/kb/CLAUDE.md"],
+      "issues": [],
+      "name": "tree-knowledge",
+      "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-tree-knowledge/SKILL.md",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "scaffold the layer client-tree-knowledge (folder scope, copy delivery)",
+            "diff": {
+              "after": "---\nname: client-tree-knowledge\ndescription: \"Client context: tree-knowledge\"\nactivation: always\nglobs: \"**/clients/tree-knowledge/**\"\nscope: folder\nfolders: [\"~/work/erp/clients/acme-two\", \"~/work/other\"]\nimports: [\"~/kb/CLAUDE.md\"]\n---\n\n## tree-knowledge — client context\n\n<!-- Project knowledge for this client that doesn't belong in the repo's own\n     CLAUDE.md: contacts, conventions, environment quirks, gotchas. -->\n",
+              "before": ""
+            },
+            "op": "create",
+            "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-tree-knowledge/SKILL.md"
+          },
+          {
+            "detail": "deliver client-chain, client-linked, client-tree-knowledge into the managed CLAUDE.local.md",
+            "op": "create",
+            "path": "<WORLD>/home/work/erp/clients/acme-two/CLAUDE.local.md"
+          },
+          {
+            "detail": "git-ignore CLAUDE.local.md",
+            "op": "update",
+            "path": "<WORLD>/home/work/erp/clients/acme-two/.git/info/exclude"
+          },
+          {
+            "detail": "deliver client-acme-kb, client-erp-knowledge, client-tree-knowledge into the managed CLAUDE.local.md",
+            "op": "update",
+            "path": "<WORLD>/home/work/other/CLAUDE.local.md"
+          }
+        ],
+        "summary": "Add the client layer tree-knowledge",
+        "undo": "toolportctl context client rm tree-knowledge",
+        "warnings": []
+      },
+      "result": null,
+      "rule": "client-tree-knowledge",
+      "scope": "folder"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

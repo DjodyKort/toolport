@@ -4,11 +4,34 @@
     "command": "context client add",
     "data": {
       "created": true,
+      "delivery": "copy",
       "dryRun": true,
+      "folders": [],
       "glob": "**/clients/acme/**",
+      "imports": [],
+      "issues": [],
       "name": "acme",
       "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-acme/SKILL.md",
-      "rule": "client-acme"
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "scaffold the layer client-acme (glob scope, copy delivery)",
+            "diff": {
+              "after": "---\nname: client-acme\ndescription: \"Client context: acme\"\nactivation: always\nglobs: \"**/clients/acme/**\"\n---\n\n## acme — client context\n\n<!-- Project knowledge for this client that doesn't belong in the repo's own\n     CLAUDE.md: contacts, conventions, environment quirks, gotchas. -->\n",
+              "before": ""
+            },
+            "op": "create",
+            "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-acme/SKILL.md"
+          }
+        ],
+        "summary": "Add the client layer acme",
+        "undo": "toolportctl context client rm acme",
+        "warnings": []
+      },
+      "result": null,
+      "rule": "client-acme",
+      "scope": "glob"
     },
     "ok": true,
     "schemaVersion": 1

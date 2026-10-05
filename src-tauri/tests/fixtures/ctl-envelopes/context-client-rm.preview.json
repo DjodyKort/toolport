@@ -1,0 +1,37 @@
+{
+  "argv": ["context", "client", "rm", "client-chain", "--dry-run"],
+  "envelope": {
+    "command": "context client rm",
+    "data": {
+      "dryRun": true,
+      "name": "client-chain",
+      "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-chain/SKILL.md",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "delete the layer client-chain",
+            "diff": {
+              "after": "",
+              "before": "---\nname: client-chain\ndescription: \"Synthetic client-chain\"\nactivation: always\nscope: folder\nfolders: [\"~/work/erp/clients/acme-two\"]\nimports: [\"~/kb/chain/hop-1.md\"]\n---\n\n## Accounting chain\n"
+            },
+            "op": "delete",
+            "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-chain/SKILL.md"
+          },
+          {
+            "detail": "deliver client-linked into the managed CLAUDE.local.md",
+            "op": "update",
+            "path": "<WORLD>/home/work/erp/clients/acme-two/CLAUDE.local.md"
+          }
+        ],
+        "summary": "Remove the client layer client-chain",
+        "undo": "toolportctl context client add chain --scope folder --delivery copy --folder ~/work/erp/clients/acme-two --import ~/kb/chain/hop-1.md (the body comes back from the skills repository's git history)",
+        "warnings": []
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

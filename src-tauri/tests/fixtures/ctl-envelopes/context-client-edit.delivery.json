@@ -1,0 +1,59 @@
+{
+  "argv": [
+    "context",
+    "client",
+    "edit",
+    "erp-knowledge",
+    "--delivery",
+    "import",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "context client edit",
+    "data": {
+      "changed": true,
+      "delivery": "import",
+      "dryRun": true,
+      "folders": ["<WORLD>/home/work/erp/clients/acme-two"],
+      "imports": ["~/kb/CLAUDE.md"],
+      "issues": [
+        {
+          "key": "delivery",
+          "level": "warning",
+          "message": "an import outside the folder Claude starts in is skipped by a headless session and may ask for approval once in an interactive one; copy is safe everywhere"
+        }
+      ],
+      "name": "client-erp-knowledge",
+      "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-erp-knowledge/SKILL.md",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "change the delivery of client-erp-knowledge: folder scope, import delivery",
+            "diff": {
+              "after": "---\nname: client-erp-knowledge\ndescription: \"Synthetic client-erp-knowledge\"\nactivation: always\nscope: folder\nfolders: [\"<WORLD>/home/work/erp/clients/acme-two\"]\nimports: [\"~/kb/CLAUDE.md\"]\ndelivery: import\n---\n\n## ERP knowledge\n",
+              "before": "---\nname: client-erp-knowledge\ndescription: \"Synthetic client-erp-knowledge\"\nactivation: always\nscope: folder\nfolders: [\"<WORLD>/home/work/erp/clients/acme-two\"]\nimports: [\"~/kb/CLAUDE.md\"]\n---\n\n## ERP knowledge\n"
+            },
+            "op": "update",
+            "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-erp-knowledge/SKILL.md"
+          },
+          {
+            "detail": "deliver client-chain, client-erp-knowledge, client-linked into the managed CLAUDE.local.md",
+            "op": "update",
+            "path": "<WORLD>/home/work/erp/clients/acme-two/CLAUDE.local.md"
+          }
+        ],
+        "summary": "Edit the client layer client-erp-knowledge",
+        "undo": "toolportctl context client edit client-erp-knowledge --scope folder --delivery copy --folder <WORLD>/home/work/erp/clients/acme-two --import ~/kb/CLAUDE.md",
+        "warnings": [
+          "delivery: an import outside the folder Claude starts in is skipped by a headless session and may ask for approval once in an interactive one; copy is safe everywhere"
+        ]
+      },
+      "result": null,
+      "scope": "folder"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

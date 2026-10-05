@@ -1,0 +1,58 @@
+{
+  "argv": ["context", "compose", "--cwd", "{home}/work/erp/clients/acme-two"],
+  "envelope": {
+    "command": "context compose",
+    "data": {
+      "cwd": "<WORLD>/home/work/erp/clients/acme-two",
+      "notes": [],
+      "parts": [
+        {
+          "kind": "memory",
+          "layers": [],
+          "lazy": false,
+          "name": "CLAUDE.md",
+          "origin": {
+            "kind": "org",
+            "name": "corp-tools"
+          },
+          "path": "<WORLD>/home/.claude/CLAUDE.md",
+          "source": "org",
+          "text": "# Corp rules\nBe brief.\n",
+          "tokens": {
+            "basis": "estimate",
+            "value": 6
+          },
+          "via": [],
+          "writable": false
+        },
+        {
+          "kind": "memory",
+          "layers": [],
+          "lazy": false,
+          "name": "CLAUDE.md",
+          "origin": {
+            "kind": "loose",
+            "name": "<WORLD>/home/work/erp"
+          },
+          "path": "<WORLD>/home/work/erp/CLAUDE.md",
+          "source": "project",
+          "text": "# Workspace\nUse the shared test database.\n",
+          "tokens": {
+            "basis": "estimate",
+            "value": 11
+          },
+          "via": [],
+          "writable": true
+        }
+      ],
+      "skipped": [],
+      "total": {
+        "basis": "estimate",
+        "value": 17
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -500,6 +500,18 @@ pub(super) const GLOBAL: &[Meta] = &[
     m("--skills-allow", List, "Keep only these library skills on (comma separated); every other one is turned off"),
     m("--skills-name-only", List, "Skills reduced to their name (comma separated names or globs)"),
     m("--skills-off", List, "Skills to turn off (comma separated names or globs)"),
+    m(
+        "--delivery",
+        Ty::Choice(&["import", "copy"]),
+        "How imports reach the layer: copy inlines them and refreshes on context sync (default), import writes @path lines",
+    ),
+    m("--folder", Path, "Folder the layer is delivered into when its scope is folder (repeatable)").repeats(),
+    m("--import", Str, "File or layer whose text the layer carries (repeatable; an empty value clears the list)").repeats(),
+    m(
+        "--scope",
+        Ty::Choice(&["global", "glob", "folder"]),
+        "Where the layer applies: every folder, a path pattern (default), or the listed folders",
+    ),
 ];
 
 const SKILLS_REPO: &str = "Skills repository (default: the configured one)";

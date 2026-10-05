@@ -1,0 +1,28 @@
+{
+  "argv": ["context", "client", "edit", "client-chain", "--dry-run"],
+  "envelope": {
+    "command": "context client edit",
+    "data": {
+      "changed": false,
+      "delivery": "copy",
+      "dryRun": true,
+      "folders": ["~/work/erp/clients/acme-two"],
+      "imports": ["~/kb/chain/hop-1.md"],
+      "issues": [],
+      "name": "client-chain",
+      "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-chain/SKILL.md",
+      "plan": {
+        "effects": {},
+        "steps": [],
+        "summary": "Nothing to change in client-chain",
+        "undo": "",
+        "warnings": []
+      },
+      "result": null,
+      "scope": "folder"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

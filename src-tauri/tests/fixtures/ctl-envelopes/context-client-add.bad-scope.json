@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "client", "add", "acme-bad", "--scope", "sideways"],
+  "envelope": {
+    "command": "context client add",
+    "error": {
+      "code": "usage",
+      "message": "--scope must be one of global, glob, folder, not sideways"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "client", "edit"],
+  "envelope": {
+    "command": "context client edit",
+    "error": {
+      "code": "usage",
+      "message": "missing client name\nusage: context client edit <name> [--glob <pattern>] [--scope global|glob|folder] [--folder <dir>]... [--import <path-or-layer>]... [--delivery import|copy] [--home <dir>] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

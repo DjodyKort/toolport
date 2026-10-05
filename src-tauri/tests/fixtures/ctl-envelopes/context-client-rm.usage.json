@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "client", "rm"],
+  "envelope": {
+    "command": "context client rm",
+    "error": {
+      "code": "usage",
+      "message": "missing client name\nusage: context client rm <name> [--home <dir>] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

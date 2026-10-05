@@ -1,0 +1,96 @@
+{
+  "argv": ["context", "compose", "--cwd", "{home}/work/erp/clients/acme-two"],
+  "envelope": {
+    "command": "context compose",
+    "data": {
+      "cwd": "<WORLD>/home/work/erp/clients/acme-two",
+      "notes": [],
+      "parts": [
+        {
+          "kind": "memory",
+          "layers": [],
+          "lazy": false,
+          "name": "CLAUDE.md",
+          "origin": {
+            "kind": "org",
+            "name": "corp-tools"
+          },
+          "path": "<WORLD>/home/.claude/CLAUDE.md",
+          "source": "org",
+          "text": "# Corp rules\nBe brief.\n",
+          "tokens": {
+            "basis": "estimate",
+            "value": 6
+          },
+          "via": [],
+          "writable": false
+        },
+        {
+          "kind": "memory",
+          "layers": [],
+          "lazy": false,
+          "name": "CLAUDE.md",
+          "origin": {
+            "kind": "loose",
+            "name": "<WORLD>/home/work/erp"
+          },
+          "path": "<WORLD>/home/work/erp/CLAUDE.md",
+          "source": "project",
+          "text": "# Workspace\nUse the shared test database.\n",
+          "tokens": {
+            "basis": "estimate",
+            "value": 11
+          },
+          "via": [],
+          "writable": true
+        },
+        {
+          "kind": "memory",
+          "layers": ["client-chain", "client-linked"],
+          "lazy": false,
+          "name": "CLAUDE.local.md",
+          "origin": {
+            "kind": "managed",
+            "name": "toolportctl"
+          },
+          "path": "<WORLD>/home/work/erp/clients/acme-two/CLAUDE.local.md",
+          "source": "client-layer",
+          "text": "<!-- Managed by `toolportctl context` — edit the canonical layer (skills_repo/rules/client-*/SKILL.md); `toolportctl context sync` regenerates. -->\n\n<!-- toolport:layer:begin client-chain -->\n## Accounting chain\n\n<!-- imported from ~/kb/chain/hop-1.md -->\nHop one: the chart of accounts.\nHop two: the tax codes.\nHop three: the journals.\nHop four: the period locks.\n<!-- toolport:layer:end client-chain -->\n\n<!-- toolport:layer:begin client-linked -->\n## Linked knowledge\n\n@~/kb/CLAUDE.md\n<!-- toolport:layer:end client-linked -->\n",
+          "tokens": {
+            "basis": "estimate",
+            "value": 133
+          },
+          "via": [],
+          "writable": false
+        },
+        {
+          "kind": "import",
+          "layers": [],
+          "lazy": false,
+          "name": "~/kb/CLAUDE.md",
+          "origin": {
+            "kind": "managed",
+            "name": "toolportctl"
+          },
+          "path": "<WORLD>/home/kb/CLAUDE.md",
+          "source": "client-layer",
+          "text": "# Tree knowledge\nPost invoices before closing the period.\n",
+          "tokens": {
+            "basis": "estimate",
+            "value": 15
+          },
+          "via": ["<WORLD>/home/work/erp/clients/acme-two/CLAUDE.local.md"],
+          "writable": false
+        }
+      ],
+      "skipped": [],
+      "total": {
+        "basis": "estimate",
+        "value": 165
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

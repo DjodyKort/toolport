@@ -6,7 +6,7 @@
 
 use crate::ctl_fixtures::{
     bundle_drift_home, bundle_home, fork_world, git_world, health_proxy, import_world, loads_home,
-    measure_home, skills_repo_remote_world, transcripts_world,
+    layers_home, measure_home, skills_repo_remote_world, transcripts_world,
 };
 use crate::ctl_world::CtlWorld;
 
@@ -480,15 +480,101 @@ pub const MORE: &[Case] = &[
             apply("apply", &["context", "init"]),
         ],
     ),
-    case(
+    prepared(
         "context client add",
+        layers_home,
+        &[
+            read("preview", &["context", "client", "add", "acme", "--dry-run"]),
+            apply("apply", &["context", "client", "add", "acme"]),
+            read(
+                "folder-preview",
+                &[
+                    "context", "client", "add", "acme-kb", "--scope", "folder", "--folder",
+                    "{home}/work/other", "--import", "{home}/kb/CLAUDE.md", "--dry-run",
+                ],
+            ),
+            apply(
+                "folder",
+                &[
+                    "context", "client", "add", "acme-kb", "--scope", "folder", "--folder",
+                    "{home}/work/other", "--import", "{home}/kb/CLAUDE.md",
+                ],
+            ),
+            read("scaffold", &["context", "client", "add", "tree-knowledge", "--dry-run"]),
+            read("exists", &["context", "client", "add", "acme-erp", "--dry-run"]),
+            read(
+                "no-folder",
+                &["context", "client", "add", "acme-nowhere", "--scope", "folder", "--dry-run"],
+            )
+            .exit(1),
+            usage(
+                "bad-scope",
+                &["context", "client", "add", "acme-bad", "--scope", "sideways"],
+            )
+            .exit(2),
+            read("list", &["context", "client", "list"]),
+            usage("usage", &["context", "client", "add"]),
+        ],
+    ),
+    prepared(
+        "context client edit",
+        layers_home,
         &[
             read(
                 "preview",
-                &["context", "client", "add", "acme", "--dry-run"],
+                &[
+                    "context", "client", "edit", "client-erp-knowledge", "--folder",
+                    "{home}/work/erp/clients/acme-two", "--dry-run",
+                ],
             ),
-            apply("apply", &["context", "client", "add", "acme"]),
-            usage("usage", &["context", "client", "add"]),
+            apply(
+                "apply",
+                &[
+                    "context", "client", "edit", "client-erp-knowledge", "--folder",
+                    "{home}/work/erp/clients/acme-two",
+                ],
+            ),
+            read(
+                "delivery",
+                &["context", "client", "edit", "erp-knowledge", "--delivery", "import", "--dry-run"],
+            ),
+            read("unchanged", &["context", "client", "edit", "client-chain", "--dry-run"]),
+            read(
+                "no-folder",
+                &["context", "client", "edit", "client-chain", "--folder", "", "--dry-run"],
+            )
+            .exit(1),
+            read("missing", &["context", "client", "edit", "nope", "--scope", "global", "--dry-run"]).exit(1),
+            read("list", &["context", "client", "list"]),
+            usage("usage", &["context", "client", "edit"]),
+        ],
+    ),
+    prepared(
+        "context client rm",
+        layers_home,
+        &[
+            setup("deploy", &["context", "sync"]),
+            read("preview", &["context", "client", "rm", "client-chain", "--dry-run"]),
+            apply("apply", &["context", "client", "rm", "chain"]),
+            read("shared", &["context", "client", "rm", "client-linked", "--dry-run"]),
+            read("missing", &["context", "client", "rm", "nope", "--dry-run"]).exit(1),
+            read("not-a-client", &["context", "client", "rm", "personal", "--dry-run"]).exit(2),
+            read("list", &["context", "client", "list"]),
+            usage("usage", &["context", "client", "rm"]),
+        ],
+    ),
+    prepared(
+        "context compose",
+        layers_home,
+        &[
+            read("before", &["context", "compose", "--cwd", "{home}/work/erp/clients/acme-two"]),
+            setup("deploy", &["context", "sync"]),
+            read("client", &["context", "compose", "--cwd", "{home}/work/erp/clients/acme-two"]),
+            read("layers", &["context", "compose", "--cwd", "{home}/work/erp/clients/acme-erp"]),
+            read("outside", &["context", "compose", "--cwd", "{home}/work/other"]),
+            read("list", &["context", "client", "list"]),
+            read("missing", &["context", "compose", "--cwd", "{home}/no/such/folder"]).exit(2),
+            usage("usage", &["context", "compose", "extra"]),
         ],
     ),
     case(

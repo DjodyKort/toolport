@@ -4,7 +4,7 @@
     "command": "context client add",
     "error": {
       "code": "usage",
-      "message": "missing client name\nusage: context client add <name> [--glob <pattern>] [--home <dir>] [--dry-run]"
+      "message": "missing client name\nusage: context client add <name> [--glob <pattern>] [--scope global|glob|folder] [--folder <dir>]... [--import <path-or-layer>]... [--delivery import|copy] [--home <dir>] [--dry-run]"
     },
     "ok": false,
     "schemaVersion": 1

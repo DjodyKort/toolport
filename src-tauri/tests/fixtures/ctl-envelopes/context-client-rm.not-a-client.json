@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "client", "rm", "personal", "--dry-run"],
+  "envelope": {
+    "command": "context client rm",
+    "error": {
+      "code": "usage",
+      "message": "personal is not a client layer; only client-* layers can be removed here"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

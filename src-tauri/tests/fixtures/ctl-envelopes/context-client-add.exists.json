@@ -1,0 +1,30 @@
+{
+  "argv": ["context", "client", "add", "acme-erp", "--dry-run"],
+  "envelope": {
+    "command": "context client add",
+    "data": {
+      "created": false,
+      "delivery": "copy",
+      "dryRun": true,
+      "folders": [],
+      "glob": "**/clients/acme-erp/**",
+      "imports": [],
+      "issues": [],
+      "name": "acme-erp",
+      "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-acme-erp/SKILL.md",
+      "plan": {
+        "effects": {},
+        "steps": [],
+        "summary": "Client layer acme-erp already exists",
+        "undo": "",
+        "warnings": []
+      },
+      "result": null,
+      "rule": "client-acme-erp",
+      "scope": "glob"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

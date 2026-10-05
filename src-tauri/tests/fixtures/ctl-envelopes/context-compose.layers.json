@@ -1,0 +1,77 @@
+{
+  "argv": ["context", "compose", "--cwd", "{home}/work/erp/clients/acme-erp"],
+  "envelope": {
+    "command": "context compose",
+    "data": {
+      "cwd": "<WORLD>/home/work/erp/clients/acme-erp",
+      "notes": [],
+      "parts": [
+        {
+          "kind": "memory",
+          "layers": [],
+          "lazy": false,
+          "name": "CLAUDE.md",
+          "origin": {
+            "kind": "org",
+            "name": "corp-tools"
+          },
+          "path": "<WORLD>/home/.claude/CLAUDE.md",
+          "source": "org",
+          "text": "# Corp rules\nBe brief.\n",
+          "tokens": {
+            "basis": "estimate",
+            "value": 6
+          },
+          "via": [],
+          "writable": false
+        },
+        {
+          "kind": "memory",
+          "layers": [],
+          "lazy": false,
+          "name": "CLAUDE.md",
+          "origin": {
+            "kind": "loose",
+            "name": "<WORLD>/home/work/erp"
+          },
+          "path": "<WORLD>/home/work/erp/CLAUDE.md",
+          "source": "project",
+          "text": "# Workspace\nUse the shared test database.\n",
+          "tokens": {
+            "basis": "estimate",
+            "value": 11
+          },
+          "via": [],
+          "writable": true
+        },
+        {
+          "kind": "memory",
+          "layers": ["client-acme-erp", "client-erp-knowledge"],
+          "lazy": false,
+          "name": "CLAUDE.local.md",
+          "origin": {
+            "kind": "managed",
+            "name": "toolportctl"
+          },
+          "path": "<WORLD>/home/work/erp/clients/acme-erp/CLAUDE.local.md",
+          "source": "client-layer",
+          "text": "<!-- Managed by `toolportctl context` — edit the canonical layer (skills_repo/rules/client-*/SKILL.md); `toolportctl context sync` regenerates. -->\n\n<!-- toolport:layer:begin client-acme-erp -->\n## acme-erp\n\nThe fiscal year starts in April.\n<!-- toolport:layer:end client-acme-erp -->\n\n<!-- toolport:layer:begin client-erp-knowledge -->\n## ERP knowledge\n\n<!-- imported from ~/kb/CLAUDE.md -->\n# Tree knowledge\nPost invoices before closing the period.\n<!-- toolport:layer:end client-erp-knowledge -->\n",
+          "tokens": {
+            "basis": "estimate",
+            "value": 126
+          },
+          "via": [],
+          "writable": false
+        }
+      ],
+      "skipped": [],
+      "total": {
+        "basis": "estimate",
+        "value": 143
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}
