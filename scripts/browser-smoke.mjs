@@ -678,6 +678,34 @@ async function pluginsScreen(shot, theme) {
   ).toBeVisible();
   await shot.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
+  const turnOff = shot.getByRole("button", { name: "Turn off in a folder…" });
+  await turnOff.click();
+  const offPlan = shot.getByRole("dialog", { name: "Turn ecc off in this folder?" });
+  await expect(offPlan.getByText(/goes away in this folder: 3 skills/)).toBeVisible();
+  await expect(offPlan.getByText(/stays: your own skills/)).toBeVisible();
+  await expect(offPlan.getByLabel("Command line")).toContainText(
+    `plugins off ecc@ecc --cwd ${folder}`,
+  );
+  if (theme === "light") await snap("plugins-off-plan-light");
+  await shot.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(turnOff).toBeFocused();
+  const disable = shot.getByRole("button", { name: "Disable everywhere…" });
+  await disable.click();
+  const disablePlan = shot.getByRole("dialog", { name: "Disable ecc everywhere?" });
+  await expect(
+    disablePlan.getByText("claude plugin disable ecc@ecc --scope user"),
+  ).toBeVisible();
+  const disableButton = disablePlan.getByRole("button", { name: "Disable", exact: true });
+  await expect(disableButton).toBeDisabled();
+  await disablePlan.getByRole("textbox").fill("ecc");
+  await expect(disableButton).toBeDisabled();
+  await disablePlan.getByRole("textbox").fill("ecc@ecc");
+  await expect(disableButton).toBeEnabled();
+  if (theme === "light") await snap("plugins-disable-confirm-light");
+  await shot.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(disable).toBeFocused();
   await shot.evaluate(() => localStorage.removeItem("toolport.context.recent-folders"));
   await nav.getByRole("button", { name: "Context", exact: true }).click();
   await shot
