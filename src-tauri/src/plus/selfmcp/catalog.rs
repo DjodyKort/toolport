@@ -891,7 +891,7 @@ pub const TOOLS: &[ToolDef] = &[
         "servers_apply_update",
         3,
         Always,
-        "Apply an available server update",
+        "Apply an available server update; the stored post_update command runs too (D-079), so it needs confirm=true",
         [
             NAME,
             p("rebase", Ty::Bool, false, "Rebase local changes"),

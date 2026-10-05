@@ -2104,7 +2104,7 @@
           "tier": 3
         },
         {
-          "description": "Apply an available server update",
+          "description": "Apply an available server update; the stored post_update command runs too (D-079), so it needs confirm=true",
           "dryRunDefault": false,
           "gate": "always",
           "name": "servers_apply_update",
