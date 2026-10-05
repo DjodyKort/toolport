@@ -2,6 +2,9 @@ use super::*;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 
+#[path = "../../../tests/fixtures/update_source.rs"]
+mod update_source;
+
 fn args(list: &[&str]) -> Vec<String> {
     list.iter().map(|s| s.to_string()).collect()
 }
@@ -603,6 +606,106 @@ fn server_edit_moves_the_transport_with_the_endpoint_flag() {
         assert_eq!(code, 0, "{value}");
         let (_, info) = cli_json(&["server", "info", "epsilon"]);
         assert_eq!(info["data"]["transport"], "http");
+    });
+}
+
+fn seed_git_meta(id: &str, meta: Value) {
+    crate::registry_controller::set_server_source(id, meta.as_object().unwrap().clone()).unwrap();
+}
+
+#[test]
+fn server_source_set_switches_branch_and_rejects_one_missing_on_the_remote() {
+    world(|w| {
+        let repo = update_source::build(&w.home.join("three-remotes"));
+        seed_git_meta(
+            "alpha",
+            json!({"type": "git", "path": repo.work.to_string_lossy(), "remote": "fork", "branch": "main"}),
+        );
+
+        let (code, value) =
+            cli_json(&["server", "source", "set", "alpha", "--branch", "feature-x"]);
+        assert_eq!(code, 0, "{value}");
+        assert_eq!(value["data"]["source"]["meta"]["branch"], "feature-x");
+
+        let (code, value) = cli_json(&[
+            "server",
+            "source",
+            "set",
+            "alpha",
+            "--branch",
+            "no-such-branch",
+        ]);
+        assert_eq!(
+            (code, value["error"]["code"].as_str()),
+            (2, Some("usage")),
+            "{value}"
+        );
+        assert!(
+            value["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("no-such-branch"),
+            "{value}"
+        );
+
+        let (code, value) =
+            cli_json(&["server", "source", "set", "alpha", "--remote", "ghost"]);
+        assert_eq!(
+            (code, value["error"]["code"].as_str()),
+            (2, Some("usage")),
+            "{value}"
+        );
+        assert!(
+            value["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("no such remote: ghost"),
+            "{value}"
+        );
+    });
+}
+
+#[test]
+fn server_source_set_can_add_and_validate_an_upstream() {
+    world(|w| {
+        let repo = update_source::build(&w.home.join("three-remotes"));
+        seed_git_meta(
+            "alpha",
+            json!({"type": "git", "path": repo.work.to_string_lossy(), "remote": "fork", "branch": "main"}),
+        );
+
+        let (code, value) = cli_json(&[
+            "server",
+            "source",
+            "set",
+            "alpha",
+            "--upstream-remote",
+            "upstream",
+            "--upstream-branch",
+            "main",
+        ]);
+        assert_eq!(code, 0, "{value}");
+        assert_eq!(value["data"]["source"]["meta"]["upstream"]["remote"], "upstream");
+        assert_eq!(value["data"]["source"]["meta"]["upstream"]["branch"], "main");
+
+        let (code, value) = cli_json(&[
+            "server",
+            "source",
+            "set",
+            "alpha",
+            "--upstream-branch",
+            "no-such-branch",
+        ]);
+        assert_eq!(
+            (code, value["error"]["code"].as_str()),
+            (2, Some("usage")),
+            "{value}"
+        );
+
+        let (code, value) =
+            cli_json(&["server", "source", "set", "alpha", "--clear-upstream"]);
+        assert_eq!(code, 0, "{value}");
+        assert_eq!(value["data"]["source"]["meta"]["upstream"], Value::Null);
     });
 }
 

@@ -133,6 +133,11 @@ pub const COMMANDS: &[Command] = &[
     cmd(&["server", "info"], "Show one server's definition and profiles", server::info),
     cmd(&["server", "new"], "Add a custom server (--command or --url)", server::new),
     cmd(&["server", "edit"], "Edit a server's name, command, args, url or cwd", server::edit),
+    cmd(
+        &["server", "source", "set"],
+        "Set a git-backed server's remote, branch, upstream or post-update command",
+        server::source_set,
+    ),
     cmd(&["inspect"], "List the tools a server exposes (connects live)", server::inspect),
     cmd(
         &["profile", "inspect"],

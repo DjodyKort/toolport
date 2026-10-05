@@ -16,6 +16,7 @@ Commands:
   server info    Show one server's definition and profiles
   server new     Add a custom server (--command or --url)
   server edit    Edit a server's name, command, args, url or cwd
+  server source set Set a git-backed server's remote, branch, upstream or post-update command
   inspect        List the tools a server exposes (connects live)
   profile inspect List the tools of every server in a profile (connects live)
   profile ls     List profiles and their servers (--verbose)
@@ -210,6 +211,7 @@ Commands:
   server info    Show one server's definition and profiles
   server new     Add a custom server (--command or --url)
   server edit    Edit a server's name, command, args, url or cwd
+  server source set Set a git-backed server's remote, branch, upstream or post-update command
   inspect        List the tools a server exposes (connects live)
   profile inspect List the tools of every server in a profile (connects live)
   profile ls     List profiles and their servers (--verbose)
@@ -404,6 +406,7 @@ Commands:
   server info    Show one server's definition and profiles
   server new     Add a custom server (--command or --url)
   server edit    Edit a server's name, command, args, url or cwd
+  server source set Set a git-backed server's remote, branch, upstream or post-update command
   inspect        List the tools a server exposes (connects live)
   profile inspect List the tools of every server in a profile (connects live)
   profile ls     List profiles and their servers (--verbose)
@@ -598,6 +601,7 @@ Commands:
   server info    Show one server's definition and profiles
   server new     Add a custom server (--command or --url)
   server edit    Edit a server's name, command, args, url or cwd
+  server source set Set a git-backed server's remote, branch, upstream or post-update command
   inspect        List the tools a server exposes (connects live)
   profile inspect List the tools of every server in a profile (connects live)
   profile ls     List profiles and their servers (--verbose)
@@ -1299,6 +1303,69 @@ exit 1
 --- stdout
 {"command":"server edit","error":{"code":"not_found","message":"no server 'nope'"},"ok":false,"schemaVersion":1}
 --- stderr
+=== ["server","source","set"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: server source set <id|name> [--path <dir>] [--remote <name>] [--branch <name>] [--upstream-remote <name>] [--upstream-branch <name>] [--clear-upstream] [--post-update <cmd>] [--clear-post-update]
+Run `toolportctl --help` for usage.
+=== ["server","source","set","a"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: server source set <id|name> [--path <dir>] [--remote <name>] [--branch <name>] [--upstream-remote <name>] [--upstream-branch <name>] [--clear-upstream] [--post-update <cmd>] [--clear-post-update]
+Run `toolportctl --help` for usage.
+=== ["server","source","set","a","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["server","source","set","a","--remote"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --remote requires a value
+Run `toolportctl --help` for usage.
+=== ["server","source","set","a","--remote","-x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: invalid value for --remote
+Run `toolportctl --help` for usage.
+=== ["server","source","set","a","b","--branch","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: server source set <id|name> [--path <dir>] [--remote <name>] [--branch <name>] [--upstream-remote <name>] [--upstream-branch <name>] [--clear-upstream] [--post-update <cmd>] [--clear-post-update]
+Run `toolportctl --help` for usage.
+=== ["server","source","set","a","--clear-upstream","--upstream-remote","x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --clear-upstream cannot be combined with --upstream-remote or --upstream-branch
+Run `toolportctl --help` for usage.
+=== ["server","source","set","a","--post-update","x","--clear-post-update"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --clear-post-update cannot be combined with --post-update
+Run `toolportctl --help` for usage.
+=== ["server","source","set","nope","--branch","x"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: no server 'nope'
+=== ["--json","server","source","set","nope","--branch","x"]
+exit 1
+--- stdout
+{"command":"server source set","error":{"code":"not_found","message":"no server 'nope'"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["server","source","set","alpha","--branch","x"]
+exit 1
+--- stdout
+--- stderr
+toolportctl: server alpha is not git-backed
 === ["inspect"]
 exit 2
 --- stdout
