@@ -85,6 +85,21 @@ pub fn on_auth_failure(server: &str, host: &dyn Host) -> Vec<Raised> {
         .collect()
 }
 
+static SEEN: std::sync::Mutex<Vec<(String, i64)>> = std::sync::Mutex::new(Vec::new());
+
+/// Reacts once per failure: a login that stays broken is probed again and again, and each probe
+/// carries the same `since`.
+pub fn on_auth_failure_once(server: &str, since: i64, host: &dyn Host) -> Vec<Raised> {
+    let mut seen = SEEN.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    if seen.iter().any(|(s, at)| s == server && *at == since) {
+        return Vec::new();
+    }
+    seen.retain(|(s, _)| s != server);
+    seen.push((server.to_string(), since));
+    drop(seen);
+    on_auth_failure(server, host)
+}
+
 pub fn run_due(epoch: i64, host: &dyn Host) -> Vec<Raised> {
     let minute = epoch.div_euclid(60);
     let tasks = store::list_tasks().unwrap_or_default();

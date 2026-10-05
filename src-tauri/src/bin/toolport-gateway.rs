@@ -11623,6 +11623,7 @@ fn watch_registry(
         );
         // Hands the login-health scan to its own thread at most once a minute; never waits.
         conduit_lib::plus::auth::scheduler::tick();
+        conduit_lib::plus::tasks::scheduler::tick();
     }
 }
 
