@@ -299,6 +299,7 @@ pub fn execute(run_id: &str, host: &dyn Host) -> Result<Run, OpError> {
         let outcome = state.step(run_id, index, step);
         let (status, output) = match outcome {
             Outcome::Ok(o) => (Status::Ok, o),
+            Outcome::Failed(_) if cancelled(run_id) => return mark_cancelled(run_id, index, started),
             Outcome::Failed(o) => (Status::Failed, o),
             Outcome::Cancelled => return mark_cancelled(run_id, index, started),
         };
