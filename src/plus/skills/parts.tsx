@@ -70,14 +70,23 @@ export function Stat({
 export function Card<T>({
   title,
   query,
+  id,
   children,
 }: {
   title: string;
   query: CtlQuery<T>;
+  /** Makes the card something a link can bring focus to. */
+  id?: string;
   children: (data: T) => ReactNode;
 }) {
   return (
-    <div role="group" aria-label={title} className="rounded-lg border bg-card p-4">
+    <div
+      id={id}
+      tabIndex={id ? -1 : undefined}
+      role="group"
+      aria-label={title}
+      className="rounded-lg border bg-card p-4 outline-none focus-visible:ring-1 focus-visible:ring-ring"
+    >
       <div className="mb-2 flex items-center justify-between gap-2">
         <h4 className="text-sm font-medium">{title}</h4>
         <Button

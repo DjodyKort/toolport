@@ -115,6 +115,28 @@ function SkillLint({ name }: { name: string }) {
   return <LintSummary data={lint.data} noun={name} />;
 }
 
+const LINT_CARD = "skills-lint-output";
+
+/** Brings the reader to the lint card of the Checks section, where the lint output of every
+ * skill is listed. */
+function LintLink() {
+  return (
+    <Button
+      type="button"
+      size="xs"
+      variant="link"
+      className="self-start px-0"
+      onClick={() => {
+        const card = document.getElementById(LINT_CARD);
+        card?.scrollIntoView?.({ block: "center" });
+        card?.focus();
+      }}
+    >
+      See the lint output
+    </Button>
+  );
+}
+
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <>
@@ -184,6 +206,7 @@ function SkillDetail({
             <span className="flex flex-col gap-1">
               <Badge variant="destructive">no: slash command only</Badge>
               <span className="text-xs text-muted-foreground">{row.invisibleReason}</span>
+              <LintLink />
             </span>
           )}
         </Row>
@@ -713,7 +736,7 @@ function Body({ write, scope }: { write: WriteControl; scope: Scope }) {
       </Section>
       <Section title="Checks">
         <div className="grid gap-3 lg:grid-cols-2">
-          <Card title="Lint" query={lint}>
+          <Card title="Lint" query={lint} id={LINT_CARD}>
             {(data) => <LintSummary data={data} noun="your skills" />}
           </Card>
           <Card title="Audit" query={audit}>
