@@ -1,0 +1,56 @@
+{
+  "arguments": {
+    "dry_run": true,
+    "id": "portal-token"
+  },
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "1. Sign in (needs-you): pause for you: Sign in (until you resume (up to 900s))",
+          "op": "note"
+        },
+        {
+          "detail": "2. Read the token (mcp): call srv-alpha/get_token",
+          "op": "note"
+        },
+        {
+          "detail": "3. Store the token (secret-set): write the secret srv-alpha/API_KEY from a captured value (never shown)",
+          "op": "update"
+        },
+        {
+          "detail": "4. Restart the server (restart-server): restart srv-alpha",
+          "op": "exec"
+        },
+        {
+          "detail": "may write the secret srv-alpha/API_KEY (writesSecrets)",
+          "op": "note"
+        },
+        {
+          "detail": "needs the server srv-alpha",
+          "op": "note"
+        }
+      ],
+      "summary": "Run task portal-token (4 steps)",
+      "undo": "toolportctl task cancel <run-id>",
+      "warnings": ["task \"portal-token\" is already running as run-fixture-waiting"]
+    },
+    "requires": {
+      "commands": [],
+      "servers": ["srv-alpha"]
+    },
+    "result": null,
+    "run": null,
+    "task": "portal-token",
+    "writesSecrets": [
+      {
+        "key": "API_KEY",
+        "server": "srv-alpha"
+      }
+    ]
+  },
+  "tool": "tasks_run"
+}

@@ -20,11 +20,14 @@ import { skillsToolShapes } from "./selfmcp-skills";
 import { sourcesToolShapes } from "./selfmcp-sources";
 import { stylesToolShapes } from "./selfmcp-styles";
 import { syncToolShapes } from "./selfmcp-sync";
+import { tasksToolShapes } from "./selfmcp-tasks";
 
 /** What `tools/call` answers with when a tool fails: `structuredContent` of an error result. */
 export const toolErrorShape = obj({
   error: obj({
     kind: lit(
+      "approval_denied",
+      "approval_unavailable",
       "backend_error",
       "conflict",
       "invalid_arguments",
@@ -70,4 +73,5 @@ export const selfmcpToolShapes: Record<string, Shape<unknown>> = {
   ...sourcesToolShapes,
   ...stylesToolShapes,
   ...syncToolShapes,
+  ...tasksToolShapes,
 };

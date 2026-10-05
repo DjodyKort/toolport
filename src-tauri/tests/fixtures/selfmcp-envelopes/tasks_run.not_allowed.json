@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "id": "nightly-report"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "task \"nightly-report\" does not allow the self-MCP trigger"
+    }
+  },
+  "text": "conflict: task \"nightly-report\" does not allow the self-MCP trigger",
+  "tool": "tasks_run"
+}

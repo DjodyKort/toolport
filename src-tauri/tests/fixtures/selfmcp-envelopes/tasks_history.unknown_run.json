@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "run": "run-nothing"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no run \"run-nothing\""
+    }
+  },
+  "text": "not_found: no run \"run-nothing\"",
+  "tool": "tasks_history"
+}
