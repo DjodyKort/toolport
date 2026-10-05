@@ -127,6 +127,10 @@ export const taskLsData = obj({
       ),
       nextRun: nullable(str),
       waiting: bool,
+      /** Servers whose auth failure (`triggers.onAuthFailure`) this task answers. */
+      refreshes: arr(str),
+      /** `login` when the task refreshes a server's sign-in or writes a secret, else `script`. */
+      kind: lit("login", "script"),
     }),
   ),
   /** Task files that do not parse, with the reason. */

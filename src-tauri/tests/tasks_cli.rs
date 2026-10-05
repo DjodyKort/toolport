@@ -276,6 +276,9 @@ fn file_dash_reads_the_definition_from_stdin_for_add_and_edit() {
     let stored: Value = serde_json::from_str(&std::fs::read_to_string(w.data.join("plus/tasks/piped-token.json")).unwrap()).unwrap();
     assert_eq!(stored["title"], "Refresh the portal token");
 
+    let row = ctl(&w, &["task", "ls"]).data()["tasks"][0].clone();
+    assert_eq!((row["kind"].clone(), row["refreshes"].clone()), (json!("login"), json!(["srv-alpha"])));
+
     task["title"] = json!("Changed over stdin");
     let preview = ctl_in(&w, &["task", "edit", "piped-token", "--file", "-", "--dry-run"], &task.to_string());
     assert_eq!(preview.code, 0, "{}{}", preview.stdout, preview.stderr);
@@ -291,4 +294,29 @@ fn file_dash_reads_the_definition_from_stdin_for_add_and_edit() {
     assert_eq!(empty.code, 1, "{}{}", empty.stdout, empty.stderr);
     assert!(empty.stdout.contains("nothing on stdin"), "{}", empty.stdout);
     assert_eq!(ctl(&w, &["task", "show", "piped-token"]).data()["task"]["title"], "Changed over stdin");
+}
+
+#[test]
+fn task_ls_marks_a_script_task_and_a_task_that_writes_a_secret_or_refreshes_a_login() {
+    let w = world("kinds");
+    let mut plain = portal_task();
+    plain["id"] = json!("plain-script");
+    plain["writesSecrets"] = json!([]);
+    plain["steps"] = json!([{"id": "say", "title": "Say", "type": "exec", "program": "true"}]);
+    plain["requires"] = json!({"servers": [], "commands": ["true"]});
+    let mut refresher = plain.clone();
+    refresher["id"] = json!("refresher");
+    refresher["triggers"]["onAuthFailure"] = json!(["srv-alpha", "srv-beta"]);
+    let mut writer = portal_task();
+    writer["id"] = json!("writer");
+    for task in [&plain, &refresher, &writer] {
+        let file = write_task(&w, "t.json", task);
+        let id = task["id"].as_str().unwrap();
+        assert_eq!(ctl(&w, &["task", "add", id, "--file", &file]).code, 0);
+    }
+    let rows = ctl(&w, &["task", "ls"]).data()["tasks"].clone();
+    let by_id = |id: &str| rows.as_array().unwrap().iter().find(|r| r["id"] == id).unwrap().clone();
+    assert_eq!((by_id("plain-script")["kind"].clone(), by_id("plain-script")["refreshes"].clone()), (json!("script"), json!([])));
+    assert_eq!((by_id("refresher")["kind"].clone(), by_id("refresher")["refreshes"].clone()), (json!("login"), json!(["srv-alpha", "srv-beta"])));
+    assert_eq!((by_id("writer")["kind"].clone(), by_id("writer")["refreshes"].clone()), (json!("login"), json!([])));
 }
