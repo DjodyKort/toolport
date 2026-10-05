@@ -85,16 +85,18 @@ function Body({
  * `toolportctl` (D-060); the Logins, Secrets and Integrations tabs are the panels of
  * `src/plus/logins`. */
 export function ServersScreen({
+  initialTab,
   onOpenCommands,
   onOpenClassic,
   pollMs,
 }: {
+  initialTab?: TabId;
   onOpenCommands: (group?: string) => void;
   /** Opens the upstream Servers page, which keeps the health filter and the team review. */
   onOpenClassic?: () => void;
   pollMs?: number;
 }) {
-  const [tab, setTab] = useState<TabId>("servers");
+  const [tab, setTab] = useState<TabId>(initialTab ?? "servers");
   return (
     <ServersProvider go={setTab} pollMs={pollMs}>
       <Body
