@@ -576,6 +576,12 @@ fn check_pin(
             }
         }
         pins::VersionSpec::Floating => {
+            // A floating pin never had a registry round trip before this item,
+            // and it is still correct without one (npx/uvx resolve it at
+            // launch regardless); enrich the message with the latest version
+            // and a pin-to-X offer when the lookup succeeds, but a lookup
+            // failure falls back to that same plain, always-true message
+            // rather than reporting a server that works fine as an error.
             let latest = if uvx {
                 pins::latest_pypi(env.http.as_ref(), &env.pypi_index, &spec.name)
             } else {
@@ -596,7 +602,10 @@ fn check_pin(
                         ),
                     );
                 }
-                Err(e) => rep.set(Status::Error, e),
+                Err(_) => rep.set(
+                    Status::Auto,
+                    format!("unpinned: {} resolves at runtime", spec.name),
+                ),
             }
         }
     }
@@ -654,9 +663,22 @@ fn check_git_ref(env: &Env, spec: &pins::PinSpec, rep: &mut ServerReport) {
                 }
             }
         }
+        Ok(None) if want_ref.is_none() => rep.set(
+            Status::Auto,
+            format!("unpinned: {} resolves at runtime", spec.name),
+        ),
         Ok(None) => rep.set(
             Status::Error,
             format!("ref not found on remote: {}", want_ref.unwrap_or("HEAD")),
+        ),
+        // An unpinned git+URL never had a network round trip before this item
+        // either (same `is_floating` bucket as npm/PyPI); keep that contract
+        // when `ls-remote` itself cannot be reached, same as check_pin's
+        // floating case. A branch or commit the caller did pin is worth a
+        // real error when it cannot be verified.
+        Err(_) if want_ref.is_none() => rep.set(
+            Status::Auto,
+            format!("unpinned: {} resolves at runtime", spec.name),
         ),
         Err(e) => rep.set(Status::Error, e),
     }
