@@ -7,6 +7,12 @@
       "status": "built",
       "component": "src/plus/allcommands/AllCommandsPage.tsx"
     },
+    "catalog": {
+      "title": "Command catalog",
+      "view": "commands",
+      "status": "built",
+      "component": "src/plus/allcommands/AllCommandsPage.tsx"
+    },
     "servers": {
       "title": "Servers",
       "view": "control",
@@ -67,6 +73,18 @@
       "status": "built",
       "test": "src/plus/allcommands/AllCommandsPage.test.tsx",
       "summary": "Call a self-management tool that has no command through mcp call: JSON arguments on stdin, dry run first (no parameter form yet)"
+    },
+    "catalog.commands": {
+      "route": "catalog",
+      "status": "built",
+      "test": "src/plus/allcommands/AllCommandsPage.test.tsx",
+      "summary": "The registry listing (toolportctl commands): every command with its tier, search, group filter, and a form per command"
+    },
+    "catalog.mcp-call": {
+      "route": "catalog",
+      "status": "built",
+      "test": "src/plus/allcommands/AllCommandsPage.test.tsx",
+      "summary": "Run a tool: any self-management tool through mcp call with its arguments as JSON on stdin, dry run first, typed confirmation for the destructive tier"
     },
     "servers.gateway": {
       "route": "servers",
@@ -938,6 +956,18 @@
       "test": "src/plus/system/SelfTab.e2e.test.tsx",
       "summary": "Tool catalogue with tiers and gates, resources, connect-a-client snippet"
     },
+    "system.where-am-i": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/SelfTab.e2e.test.tsx",
+      "summary": "Where am I: data folder, registry, gateway binary, secret store, profile and server counts and login states, read through mcp call where_am_i"
+    },
+    "system.flow-diagram": {
+      "route": "system",
+      "status": "built",
+      "test": "src/plus/system/SelfTab.e2e.test.tsx",
+      "summary": "How the pieces connect: the flow_diagram markdown drawn as boxes and arrows, read through mcp call"
+    },
     "tasks.list": {
       "route": "tasks",
       "status": "built",
@@ -1136,8 +1166,8 @@
       "surface": "screen"
     },
     "commands": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "catalog",
+      "action": "catalog.commands",
       "surface": "screen"
     },
     "compression disable": {
@@ -1431,8 +1461,8 @@
       "surface": "screen"
     },
     "mcp call": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "catalog",
+      "action": "catalog.mcp-call",
       "surface": "screen"
     },
     "mcp doctor": {
@@ -2043,8 +2073,8 @@
       "surface": "screen"
     },
     "flow_diagram": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "system",
+      "action": "system.flow-diagram",
       "surface": "screen"
     },
     "hooks_ls": {
@@ -2368,8 +2398,8 @@
       "surface": "screen"
     },
     "where_am_i": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "system",
+      "action": "system.where-am-i",
       "surface": "screen"
     },
     "library_pull": {

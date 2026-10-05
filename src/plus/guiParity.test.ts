@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import type { View } from "@/lib/types";
 import { guiParity, type GuiParityManifest } from "./guiParity";
 import { NAV_GROUPS, PLUS_VIEWS, isPlusView, navItemActive } from "./nav";
 import { checkParity, pendingSummary, type RegistrySnapshot } from "./guiParityCheck";
@@ -49,9 +50,8 @@ describe("gui parity routes", () => {
       const view = route.view ?? id;
       expect(isPlusView(view), `route ${id} -> view ${view}`).toBe(true);
       expect(PLUS_VIEWS).toContain(view);
-      if (id === "all-commands") continue;
       expect(
-        items.some((item) => item.view === view),
+        items.some((item) => navItemActive(item, view as View)),
         `route ${id}: no sidebar entry opens view ${view}`,
       ).toBe(true);
     }
@@ -60,6 +60,7 @@ describe("gui parity routes", () => {
   it("sends the servers route to the control view, with the classic page under the same entry", () => {
     expect(guiParity.routes.servers.view).toBe("control");
     expect(guiParity.routes["all-commands"].view).toBe("commands");
+    expect(guiParity.routes.catalog.view).toBe("commands");
     const entry = NAV_GROUPS.flatMap((group) => group.items).find(
       (item) => item.view === "control",
     );

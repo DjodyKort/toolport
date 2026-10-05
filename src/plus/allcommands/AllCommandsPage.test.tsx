@@ -13,6 +13,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
 
+import { guiParity } from "../guiParity";
 import { AllCommandsPage } from "./AllCommandsPage";
 
 const CANARY = "CANARY-allcmds-77c1";
@@ -622,5 +623,110 @@ describe("all-commands.tool", () => {
     await user.click(within(box).getByRole("button", { name: "Run" }));
     expect(await within(box).findByRole("alert")).toHaveTextContent(/one JSON object/);
     expect(ran()).toEqual([]);
+  });
+});
+
+describe("catalog.commands", () => {
+  const realRegistry = () => golden("commands") as typeof commandsFixture;
+
+  it("catalog.commands: lists the whole registry, the commands command and mcp call included, with a tier badge each", async () => {
+    const registry = realRegistry();
+    answer("commands", { data: registry });
+    render(<AllCommandsPage />);
+    const list = await screen.findByRole("list", { name: "Commands" });
+    const runnable = registry.commands.filter((row) => row.kind === "command");
+    expect(within(list).getAllByRole("listitem")).toHaveLength(runnable.length);
+    expect(
+      within(list).getByRole("button", { name: /^commands(?![\w-])/ }),
+    ).toHaveTextContent("Read");
+    expect(within(list).getByRole("button", { name: /^mcp call/ })).toHaveTextContent(
+      "Write",
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      `${runnable.length} of ${runnable.length} commands`,
+    );
+    expect(calls.map((call) => call.argv)).toEqual([["commands"]]);
+  });
+
+  it("catalog.commands: picking the commands command offers its form and runs nothing until Run", async () => {
+    answer("commands", { data: realRegistry() });
+    const { panel, button } = await open("commands");
+    expect(within(panel).getByRole("button", { name: "Run" })).toBeEnabled();
+    expect(button("Run")).toBeInTheDocument();
+    expect(calls).toHaveLength(1);
+  });
+
+  it("catalog.commands: the parity manifest points the commands and mcp call rows at this page as a built route of its own", () => {
+    const route = guiParity.routes.catalog;
+    expect(route).toMatchObject({
+      status: "built",
+      view: "commands",
+      component: "src/plus/allcommands/AllCommandsPage.tsx",
+    });
+    expect(guiParity.commands.commands).toEqual({
+      route: "catalog",
+      action: "catalog.commands",
+      surface: "screen",
+    });
+    expect(guiParity.commands["mcp call"]).toEqual({
+      route: "catalog",
+      action: "catalog.mcp-call",
+      surface: "screen",
+    });
+  });
+});
+
+describe("catalog.mcp-call", () => {
+  const withRealRegistry = () => answer("commands", { data: golden("commands") });
+
+  async function openRealTool(name: string) {
+    withRealRegistry();
+    const user = userEvent.setup();
+    render(<AllCommandsPage />);
+    const box = await screen.findByRole("region", { name: "Run a tool" });
+    await user.click(within(box).getByRole("combobox", { name: "Tool" }));
+    await user.click(screen.getByRole("option", { name }));
+    return { user, box };
+  }
+
+  it("catalog.mcp-call: a read tool runs through mcp call with {} on stdin and its answer is shown", async () => {
+    answer("mcp call where_am_i --args-stdin", {
+      data: golden("mcp-call.where_am_i"),
+    });
+    const { user, box } = await openRealTool("where_am_i");
+    await user.click(within(box).getByRole("button", { name: "Run" }));
+    expect(await screen.findByText("Done")).toBeInTheDocument();
+    expect(ran()).toHaveLength(1);
+    expect(ran()[0]).toMatchObject({
+      argv: ["mcp", "call", "where_am_i", "--args-stdin"],
+      stdin: "{}",
+    });
+    expect(screen.getByRole("region", { name: "Run result" })).toHaveTextContent(
+      '"dataDir": "<WORLD>/data"',
+    );
+  });
+
+  it("catalog.mcp-call: a tool that fails is shown with its error code and message, and the box stays usable", async () => {
+    answer("mcp call skills_get --args-stdin", {
+      error: { code: "invalid_arguments", message: "missing required argument: name" },
+    });
+    const { user, box } = await openRealTool("skills_get");
+    await user.click(within(box).getByRole("button", { name: "Run" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("invalid_arguments");
+    expect(alert).toHaveTextContent("missing required argument: name");
+    expect(within(box).getByRole("button", { name: "Run" })).toBeEnabled();
+    expect(ran()).toHaveLength(1);
+  });
+
+  it("catalog.mcp-call: the arguments never reach argv, only stdin", async () => {
+    answer("mcp call skills_get --args-stdin", { data: { name: "demo" } });
+    const { user, box } = await openRealTool("skills_get");
+    await user.click(within(box).getByRole("textbox"));
+    await user.paste(`{"name":"${CANARY}"}`);
+    await user.click(within(box).getByRole("button", { name: "Run" }));
+    await waitFor(() => expect(ran()).toHaveLength(1));
+    expect(JSON.stringify(ran()[0].argv)).not.toContain(CANARY);
+    expect(ran()[0].stdin).toContain(CANARY);
   });
 });
