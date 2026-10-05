@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "resume", "run-no-such"],
+  "envelope": {
+    "command": "task resume",
+    "error": {
+      "code": "not_found",
+      "message": "no run \"run-no-such\""
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

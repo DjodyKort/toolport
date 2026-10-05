@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "add", "x", "--file", "{home}/defs/none.json", "--dry-run"],
+  "envelope": {
+    "command": "task add",
+    "error": {
+      "code": "read",
+      "message": "cannot read <WORLD>/home/defs/none.json: No such file or directory (os error 2)"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

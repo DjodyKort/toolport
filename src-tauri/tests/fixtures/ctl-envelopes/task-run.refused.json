@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "run", "draft-cleanup"],
+  "envelope": {
+    "command": "task run",
+    "error": {
+      "code": "conflict",
+      "message": "task \"draft-cleanup\" is disabled: enable it first (task edit)"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

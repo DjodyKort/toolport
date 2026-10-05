@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "rm"],
+  "envelope": {
+    "command": "task rm",
+    "error": {
+      "code": "usage",
+      "message": "usage: task rm <id> [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

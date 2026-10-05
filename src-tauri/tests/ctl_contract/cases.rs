@@ -6,7 +6,7 @@
 
 use crate::ctl_fixtures::{
     bundle_drift_home, bundle_home, fork_world, git_world, health_proxy, import_world, loads_home,
-    layers_home, measure_home, skills_repo_remote_world, transcripts_world,
+    layers_home, measure_home, skills_repo_remote_world, tasks_home, transcripts_world,
 };
 use crate::ctl_world::CtlWorld;
 
@@ -1678,6 +1678,114 @@ pub const MORE: &[Case] = &[
             read("none-again", &["context", "use", "--none", "--cwd", "{home}/work/erp/clients/acme-two", "--dry-run"]).exit(1),
             read("missing", &["context", "use", "no-such-name", "--cwd", "{home}/work/erp/clients/acme-two", "--dry-run"]).exit(1),
             usage("usage", &["context", "use", "--cwd", "{home}/work/erp/clients/acme-two"]),
+        ],
+    ),
+    // tasks (MIG-AUTO-1): `tasks_home` holds a task that needs the user and writes one secret, a
+    // scheduled one, a disabled draft and a broken file, plus run records with fixed ids; a
+    // started run spawns `/usr/bin/true` as its runner, so no step of a golden ever runs
+    prepared(
+        "task ls",
+        tasks_home,
+        &[
+            read("default", &["task", "ls"]),
+            read("all", &["task", "ls", "--all"]),
+            usage("usage", &["task", "ls", "extra"]),
+        ],
+    ),
+    prepared(
+        "task show",
+        tasks_home,
+        &[
+            read("waiting", &["task", "show", "portal-token"]),
+            read("scheduled", &["task", "show", "nightly-report"]),
+            read("missing", &["task", "show", "no-such-task"]).exit(1),
+            usage("usage", &["task", "show"]),
+        ],
+    ),
+    prepared(
+        "task run",
+        tasks_home,
+        &[
+            read("preview", &["task", "run", "portal-token", "--dry-run"]),
+            read("disabled", &["task", "run", "draft-cleanup", "--dry-run"]),
+            apply("busy", &["task", "run", "portal-token"]).exit(1),
+            apply("refused", &["task", "run", "draft-cleanup"]).exit(1),
+            apply("missing", &["task", "run", "no-such-task"]).exit(1),
+            apply("apply", &["task", "run", "nightly-report"]).env(&[("TOOLPORT_CTL_BIN", "/usr/bin/true")]),
+            usage("usage", &["task", "run"]),
+        ],
+    ),
+    prepared(
+        "task resume",
+        tasks_home,
+        &[
+            apply("apply", &["task", "resume", "run-fixture-waiting"]),
+            apply("finished", &["task", "resume", "run-fixture-ok"]).exit(1),
+            apply("not-waiting", &["task", "resume", "run-fixture-stale"]).exit(1),
+            apply("missing", &["task", "resume", "run-no-such"]).exit(1),
+            usage("usage", &["task", "resume"]),
+        ],
+    ),
+    prepared(
+        "task cancel",
+        tasks_home,
+        &[
+            apply("apply", &["task", "cancel", "run-fixture-stale"]),
+            apply("again", &["task", "cancel", "run-fixture-stale"]).exit(1),
+            apply("finished", &["task", "cancel", "run-fixture-ok"]).exit(1),
+            apply("missing", &["task", "cancel", "run-no-such"]).exit(1),
+            usage("usage", &["task", "cancel"]),
+        ],
+    ),
+    prepared(
+        "task add",
+        tasks_home,
+        &[
+            read("preview", &["task", "add", "weekly-cleanup", "--file", "{home}/defs/weekly-cleanup.json", "--dry-run"]),
+            apply("apply", &["task", "add", "weekly-cleanup", "--file", "{home}/defs/weekly-cleanup.json"]),
+            read("exists", &["task", "add", "weekly-cleanup", "--file", "{home}/defs/weekly-cleanup.json", "--dry-run"]).exit(1),
+            read("command-preview", &["task", "add", "refresh-login", "--from-command", "{home}/defs/refresh-login.md", "--dry-run"]),
+            apply("command", &["task", "add", "refresh-login", "--from-command", "{home}/defs/refresh-login.md"]),
+            read("invalid", &["task", "add", "portal-token", "--file", "{home}/defs/undeclared.json", "--dry-run"]).exit(1),
+            read("unreadable", &["task", "add", "x", "--file", "{home}/defs/none.json", "--dry-run"]).exit(1),
+            usage("mismatch", &["task", "add", "other-name", "--file", "{home}/defs/weekly-cleanup.json", "--dry-run"]),
+            usage("usage", &["task", "add", "x"]),
+        ],
+    ),
+    prepared(
+        "task edit",
+        tasks_home,
+        &[
+            read("preview", &["task", "edit", "nightly-report", "--file", "{home}/defs/nightly-report.json", "--dry-run"]),
+            apply("apply", &["task", "edit", "nightly-report", "--file", "{home}/defs/nightly-report.json"]),
+            read("invalid", &["task", "edit", "portal-token", "--file", "{home}/defs/undeclared.json", "--dry-run"]).exit(1),
+            read("missing", &["task", "edit", "weekly-cleanup", "--file", "{home}/defs/weekly-cleanup.json", "--dry-run"]).exit(1),
+            usage("usage", &["task", "edit", "nightly-report"]),
+        ],
+    ),
+    prepared(
+        "task rm",
+        tasks_home,
+        &[
+            read("preview", &["task", "rm", "nightly-report", "--dry-run"]),
+            apply("apply", &["task", "rm", "nightly-report"]),
+            read("busy", &["task", "rm", "portal-token", "--dry-run"]).exit(1),
+            read("missing", &["task", "rm", "no-such-task", "--dry-run"]).exit(1),
+            usage("usage", &["task", "rm"]),
+        ],
+    ),
+    prepared(
+        "task history",
+        tasks_home,
+        &[
+            read("all", &["task", "history"]),
+            read("task", &["task", "history", "portal-token"]),
+            read("limit", &["task", "history", "--limit", "1"]),
+            read("run", &["task", "history", "--run", "run-fixture-ok"]),
+            read("other-task", &["task", "history", "portal-token", "--run", "run-fixture-ok"]).exit(1),
+            read("missing-run", &["task", "history", "--run", "run-no-such"]).exit(1),
+            read("missing-task", &["task", "history", "no-such-task"]).exit(1),
+            usage("bad-limit", &["task", "history", "--limit", "many"]),
         ],
     ),
 ];

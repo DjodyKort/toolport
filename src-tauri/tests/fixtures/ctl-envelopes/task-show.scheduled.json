@@ -1,0 +1,67 @@
+{
+  "argv": ["task", "show", "nightly-report"],
+  "envelope": {
+    "command": "task show",
+    "data": {
+      "runs": [
+        {
+          "durationMs": 0,
+          "endedAt": "<TIME>",
+          "error": null,
+          "id": "run-fixture-ok",
+          "startedAt": "<TIME>",
+          "status": "ok",
+          "steps": [
+            {
+              "endedAt": "<TIME>",
+              "id": "say",
+              "startedAt": "<TIME>",
+              "status": "ok",
+              "title": "Say hello",
+              "type": "exec"
+            }
+          ],
+          "task": "nightly-report",
+          "trigger": "schedule"
+        }
+      ],
+      "task": {
+        "createdFrom": null,
+        "description": "",
+        "enabled": true,
+        "id": "nightly-report",
+        "requires": {
+          "commands": ["echo"],
+          "servers": []
+        },
+        "steps": [
+          {
+            "args": ["report"],
+            "id": "say",
+            "program": "echo",
+            "title": "Say hello",
+            "type": "exec"
+          }
+        ],
+        "title": "Nightly report",
+        "triggers": {
+          "cli": false,
+          "manual": true,
+          "onAuthFailure": [],
+          "schedule": {
+            "autoRun": true,
+            "cron": "0 3 * * *"
+          },
+          "selfMcp": {
+            "approval": "every-run",
+            "enabled": false
+          }
+        },
+        "writesSecrets": []
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

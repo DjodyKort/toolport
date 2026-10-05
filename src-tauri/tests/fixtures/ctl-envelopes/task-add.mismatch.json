@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "task",
+    "add",
+    "other-name",
+    "--file",
+    "{home}/defs/weekly-cleanup.json",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "task add",
+    "error": {
+      "code": "usage",
+      "message": "<WORLD>/home/defs/weekly-cleanup.json defines the task \"weekly-cleanup\", not \"other-name\""
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

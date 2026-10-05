@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "history", "--run", "run-no-such"],
+  "envelope": {
+    "command": "task history",
+    "error": {
+      "code": "not_found",
+      "message": "no run \"run-no-such\""
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "rm", "portal-token", "--dry-run"],
+  "envelope": {
+    "command": "task rm",
+    "error": {
+      "code": "conflict",
+      "message": "task \"portal-token\" is running as run-fixture-waiting: cancel the run first"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

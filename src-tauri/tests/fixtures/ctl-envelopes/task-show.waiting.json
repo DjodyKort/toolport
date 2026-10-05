@@ -1,0 +1,122 @@
+{
+  "argv": ["task", "show", "portal-token"],
+  "envelope": {
+    "command": "task show",
+    "data": {
+      "runs": [
+        {
+          "durationMs": null,
+          "endedAt": null,
+          "error": null,
+          "id": "run-fixture-waiting",
+          "startedAt": "<TIME>",
+          "status": "waiting",
+          "steps": [
+            {
+              "endedAt": null,
+              "id": "sign-in",
+              "instructions": "Sign in to the portal in the browser window",
+              "startedAt": "<TIME>",
+              "status": "waiting",
+              "title": "Sign in",
+              "type": "needs-you"
+            },
+            {
+              "endedAt": null,
+              "id": "read-token",
+              "startedAt": null,
+              "status": "pending",
+              "title": "Read the token",
+              "type": "mcp"
+            },
+            {
+              "endedAt": null,
+              "id": "store-token",
+              "startedAt": null,
+              "status": "pending",
+              "title": "Store the token",
+              "type": "secret-set"
+            },
+            {
+              "endedAt": null,
+              "id": "restart",
+              "startedAt": null,
+              "status": "pending",
+              "title": "Restart the server",
+              "type": "restart-server"
+            }
+          ],
+          "task": "portal-token",
+          "trigger": "manual"
+        }
+      ],
+      "task": {
+        "createdFrom": {
+          "kind": "manual"
+        },
+        "description": "Sign in and store a fresh token",
+        "enabled": true,
+        "id": "portal-token",
+        "requires": {
+          "commands": [],
+          "servers": ["srv-alpha"]
+        },
+        "steps": [
+          {
+            "id": "sign-in",
+            "instructions": "Sign in to the portal in the browser window",
+            "title": "Sign in",
+            "type": "needs-you",
+            "waitFor": {
+              "kind": "manual",
+              "timeoutSec": 900
+            }
+          },
+          {
+            "args": {},
+            "capture": ["token"],
+            "id": "read-token",
+            "server": "srv-alpha",
+            "title": "Read the token",
+            "tool": "get_token",
+            "type": "mcp"
+          },
+          {
+            "from": "token",
+            "id": "store-token",
+            "key": "API_KEY",
+            "server": "srv-alpha",
+            "title": "Store the token",
+            "type": "secret-set"
+          },
+          {
+            "id": "restart",
+            "server": "srv-alpha",
+            "title": "Restart the server",
+            "type": "restart-server"
+          }
+        ],
+        "title": "Refresh the portal token",
+        "triggers": {
+          "cli": true,
+          "manual": true,
+          "onAuthFailure": ["srv-alpha"],
+          "schedule": null,
+          "selfMcp": {
+            "approval": "every-run",
+            "enabled": true
+          }
+        },
+        "writesSecrets": [
+          {
+            "key": "API_KEY",
+            "server": "srv-alpha"
+          }
+        ]
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

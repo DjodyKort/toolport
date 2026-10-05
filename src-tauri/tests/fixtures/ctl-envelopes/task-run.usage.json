@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "run"],
+  "envelope": {
+    "command": "task run",
+    "error": {
+      "code": "usage",
+      "message": "usage: task run <id> [--dry-run] [--wait] [--yes]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

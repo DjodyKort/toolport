@@ -1,0 +1,91 @@
+{
+  "argv": ["task", "ls", "--all"],
+  "envelope": {
+    "command": "task ls",
+    "data": {
+      "invalid": [
+        {
+          "error": "<WORLD>/data/plus/tasks/broken.json: not a valid task definition: key must be a string at line 1 column 3",
+          "id": "broken"
+        }
+      ],
+      "tasks": [
+        {
+          "enabled": false,
+          "id": "draft-cleanup",
+          "lastRun": {
+            "durationMs": null,
+            "runId": "run-fixture-stale",
+            "startedAt": "<TIME>",
+            "status": "running"
+          },
+          "nextRun": null,
+          "title": "Clean up",
+          "triggers": {
+            "cli": false,
+            "manual": true,
+            "onAuthFailure": [],
+            "schedule": null,
+            "selfMcp": {
+              "approval": "every-run",
+              "enabled": false
+            }
+          },
+          "waiting": false
+        },
+        {
+          "enabled": true,
+          "id": "nightly-report",
+          "lastRun": {
+            "durationMs": 0,
+            "runId": "run-fixture-ok",
+            "startedAt": "<TIME>",
+            "status": "ok"
+          },
+          "nextRun": "<TIME>",
+          "title": "Nightly report",
+          "triggers": {
+            "cli": false,
+            "manual": true,
+            "onAuthFailure": [],
+            "schedule": {
+              "autoRun": true,
+              "cron": "0 3 * * *"
+            },
+            "selfMcp": {
+              "approval": "every-run",
+              "enabled": false
+            }
+          },
+          "waiting": false
+        },
+        {
+          "enabled": true,
+          "id": "portal-token",
+          "lastRun": {
+            "durationMs": null,
+            "runId": "run-fixture-waiting",
+            "startedAt": "<TIME>",
+            "status": "waiting"
+          },
+          "nextRun": null,
+          "title": "Refresh the portal token",
+          "triggers": {
+            "cli": true,
+            "manual": true,
+            "onAuthFailure": ["srv-alpha"],
+            "schedule": null,
+            "selfMcp": {
+              "approval": "every-run",
+              "enabled": true
+            }
+          },
+          "waiting": true
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

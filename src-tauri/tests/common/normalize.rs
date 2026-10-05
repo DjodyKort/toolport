@@ -79,6 +79,7 @@ pub fn normalize(world: &CtlWorld, envelope: &Value) -> Value {
         Regex::new(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?").unwrap();
     let backup_stamp = Regex::new(r"/\d{13}-").unwrap();
     let stamp = Regex::new(r"\b\d{8}-\d{6}\b").unwrap();
+    let run_id = Regex::new(r"run-\d{10}-[0-9a-f]{8}").unwrap();
     let mut text = serde_json::to_string(envelope).unwrap();
     for root in world_roots(world) {
         text = text.replace(&root, "<WORLD>");
@@ -92,6 +93,7 @@ pub fn normalize(world: &CtlWorld, envelope: &Value) -> Value {
     }
     let text = time.replace_all(&text, "<TIME>").into_owned();
     let text = stamp.replace_all(&text, "<STAMP>").into_owned();
+    let text = run_id.replace_all(&text, "run-<RUN>").into_owned();
     let text = backup_stamp.replace_all(&text, "/<STAMP>-").into_owned();
     let mut value: Value = serde_json::from_str(&text).unwrap();
     mask(&mut value);

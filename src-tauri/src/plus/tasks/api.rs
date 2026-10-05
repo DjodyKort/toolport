@@ -137,7 +137,7 @@ fn run_plan(task: &Task) -> (Value, Value, Value) {
             }
         }
     }
-    let plan = json!({"summary": format!("Run task {} ({} steps)", task.id, task.steps.len()), "steps": steps, "effects": {}, "warnings": warnings, "undo": "toolportctl task cancel <run-id>"});
+    let plan = json!({"summary": format!("Run task {} ({} step{})", task.id, task.steps.len(), if task.steps.len() == 1 { "" } else { "s" }), "steps": steps, "effects": {}, "warnings": warnings, "undo": "toolportctl task cancel <run-id>"});
     let secrets = json!(task.writes_secrets);
     let needs = json!({"servers": task.requires.servers, "commands": task.requires.commands});
     (plan, secrets, needs)
