@@ -8,7 +8,9 @@ import type {
   ContextBundleStatusData,
 } from "../types/context-bundle";
 import { Stat } from "../logins/atoms";
-import { TerminalDialog, turnOffStep, useTerminalStep } from "../plugins/TerminalStep";
+import { offSpec } from "../plugins/switches";
+import { useWrite as usePluginWrite } from "../skills/hooks";
+import { WriteDialogs as PluginWriteDialogs } from "../skills/WriteDialogs";
 import { ComposedView } from "./ComposedView";
 import { FolderField, suggestions, useRecentFolders, type FolderChoice } from "./folder";
 import { useRead, useWrite, type WriteControl } from "./hooks";
@@ -158,13 +160,16 @@ function Stack({
   data,
   write,
   cwd,
+  onOff,
+  switching,
 }: {
   data: LoadsData;
   write: WriteControl;
   cwd: string;
+  onOff: (plugin: LoadItem) => void;
+  switching: boolean;
 }) {
   const [open, setOpen] = useState<string | null>(null);
-  const terminal = useTerminalStep();
   const groups = stackGroups(data);
   const max = Math.max(0, ...data.items.map((item) => item.tokens));
   const budget = skillBudgetState(data);
@@ -232,10 +237,8 @@ function Stack({
                   key={`${item.kind}:${item.name}:${item.path ?? ""}`}
                   item={item}
                   max={max}
-                  disabled={write.busy}
-                  onOff={(plugin) =>
-                    terminal.open(turnOffStep(plugin.name, plugin.name, cwd))
-                  }
+                  disabled={write.busy || switching}
+                  onOff={onOff}
                   onWithout={(plugin) =>
                     write.begin({
                       command: "context measure",
@@ -264,7 +267,6 @@ function Stack({
           </section>
         );
       })}
-      <TerminalDialog step={terminal.step} onClose={terminal.close} />
     </div>
   );
 }
@@ -388,6 +390,10 @@ export function HereTab({
     reload();
     setVersion((n) => n + 1);
   });
+  const pluginWrite = usePluginWrite(rows, () => {
+    reload();
+    setVersion((n) => n + 1);
+  });
   const cwd = loads.data?.cwd ?? null;
   const known = suggestions(
     recent,
@@ -414,7 +420,7 @@ export function HereTab({
           Claude Code only
         </Badge>
         <Button
-          disabled={!cwd || write.busy}
+          disabled={!cwd || write.busy || pluginWrite.busy}
           onClick={() =>
             cwd &&
             write.begin({
@@ -474,7 +480,15 @@ export function HereTab({
                   Some sources could not be read, so the list may be incomplete.
                 </Callout>
               )}
-              <Stack data={data} write={write} cwd={data.cwd} />
+              <Stack
+                data={data}
+                write={write}
+                cwd={data.cwd}
+                switching={pluginWrite.busy}
+                onOff={(plugin) =>
+                  pluginWrite.begin(offSpec(plugin.name, plugin.name, data.cwd))
+                }
+              />
               {data.notes.map((note) => (
                 <p key={note} className="text-xs text-muted-foreground">
                   {note}
@@ -486,6 +500,7 @@ export function HereTab({
       </Section>
       <ComposedView cwd={cwd} version={version} />
       <WriteDialogs write={write} />
+      <PluginWriteDialogs write={pluginWrite} />
     </div>
   );
 }
