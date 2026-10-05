@@ -15,6 +15,7 @@ import { libraryShapes } from "./library";
 import { mcpCallGenericShapes } from "./mcp-call-generic";
 import { mcpCallSystemShapes } from "./mcp-call-system";
 import { mcpShapes } from "./mcp";
+import { mcpCallLibraryShapes } from "./mcp-call-library";
 import { obsShapes } from "./obs";
 import { pluginsShapes } from "./plugins";
 import { profileShapes } from "./profile";
@@ -43,6 +44,7 @@ export * from "./library";
 export * from "./mcp-call-generic";
 export * from "./mcp-call-system";
 export * from "./mcp";
+export * from "./mcp-call-library";
 export * from "./obs";
 export * from "./plugins";
 export * from "./profile";
@@ -85,6 +87,7 @@ export const ctlTypeShapes: Record<string, Shape<unknown>> = {
   ...mcpCallGenericShapes,
   ...mcpCallSystemShapes,
   ...mcpShapes,
+  ...mcpCallLibraryShapes,
   ...obsShapes,
   ...pluginsShapes,
   ...profileShapes,

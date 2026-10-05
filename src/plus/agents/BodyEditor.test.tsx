@@ -29,7 +29,7 @@ async function openEditor(tab: "agents" | "styles", name: string) {
 
 const editor = () => screen.findByRole("dialog");
 
-describe("Agents tab: Edit body", () => {
+describe("agents.edit-body: Agents tab Edit body", () => {
   it("reads the file, previews the change, and writes it only after Save", async () => {
     const user = await openEditor("agents", "scout");
     const box = await editor();
@@ -150,7 +150,7 @@ describe("Agents tab: Edit body", () => {
   });
 });
 
-describe("Styles tab: Edit body", () => {
+describe("styles.edit-body: Styles tab Edit body", () => {
   it("writes the style body with styles_edit_body", async () => {
     bridge.set("styles ls", {
       active: [],
@@ -188,7 +188,7 @@ describe("Styles tab: Edit body", () => {
   });
 });
 
-describe("Converted for", () => {
+describe("agents.transpilers, styles.transpilers: Converted for", () => {
   it("lists what each client gets for agents and for styles", async () => {
     render(<AgentsTab />);
     expect(await screen.findByRole("list", { name: "Converters" })).toHaveTextContent(
