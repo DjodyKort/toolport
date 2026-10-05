@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "pull", "--dry-run"],
+  "envelope": {
+    "command": "library pull",
+    "error": {
+      "code": "refused",
+      "message": "2 uncommitted change(s) in <WORLD>/home/lib/ai-skills; commit or stash them first"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

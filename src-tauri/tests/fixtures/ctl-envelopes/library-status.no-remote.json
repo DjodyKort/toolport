@@ -1,0 +1,30 @@
+{
+  "argv": ["library", "status"],
+  "envelope": {
+    "command": "library status",
+    "data": {
+      "ahead": 0,
+      "auth": {
+        "checked": false,
+        "method": "git-credential",
+        "ok": false
+      },
+      "behind": 0,
+      "branch": "main",
+      "duplicateClones": [],
+      "fetch": {
+        "error": null,
+        "ok": null,
+        "requested": false
+      },
+      "lastFetch": "<TIME>",
+      "remote": null,
+      "repo": "<WORLD>/home/lib/ai-skills",
+      "uncommitted": 0,
+      "upstream": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

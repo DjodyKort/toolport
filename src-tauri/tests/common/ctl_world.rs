@@ -108,6 +108,7 @@ impl CtlWorld {
                 self.path(&self.base.join("managed-settings.json")),
             ),
             ("TOOLPORT_SOURCES_TIME_SCALE", "20".to_string()),
+            ("TOOLPORT_GITLEAKS_BIN", "/nonexistent/gitleaks".to_string()),
         ]
     }
 

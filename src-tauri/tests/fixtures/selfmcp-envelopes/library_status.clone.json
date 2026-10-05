@@ -1,0 +1,26 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "ahead": 1,
+    "auth": {
+      "checked": false,
+      "method": "git-credential",
+      "ok": true
+    },
+    "behind": 0,
+    "branch": "main",
+    "duplicateClones": [],
+    "fetch": {
+      "error": null,
+      "ok": null,
+      "requested": false
+    },
+    "lastFetch": null,
+    "remote": "<WORLD>/lib-remote.git",
+    "repo": "<WORLD>/home/lib/ai-skills",
+    "uncommitted": 0,
+    "upstream": "origin/main"
+  },
+  "tool": "library_status"
+}

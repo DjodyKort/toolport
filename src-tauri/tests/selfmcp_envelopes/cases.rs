@@ -8,6 +8,8 @@ use crate::ctl_fixtures::{
     layers_deployed_home, measure_home, skills_repo_remote_world, sync_setup, tasks_home,
 };
 
+use crate::library_world::{self, library_home};
+
 use super::{case, fails, hook, prepared, read, refused, setup, write, Call, Case};
 
 const CLAUDE: &str = r#"{"client_keys":["claude-code"]}"#;
@@ -515,6 +517,30 @@ pub const ALL: &[Case] = &[
                 "skills_git_push",
                 r#"{"commit_message":"again","confirm":true}"#,
             ),
+        ],
+    ),
+    // library (MIG-SRC-3)
+    prepared(
+        "library_status",
+        library_home,
+        &[
+            hook(library_world::ahead_one),
+            read("clone", "library_status", "{}"),
+            read("fetch", "library_status", r#"{"fetch":true}"#),
+        ],
+    ),
+    prepared(
+        "library_pull",
+        library_home,
+        &[
+            hook(library_world::behind_two),
+            hook(library_world::dirty),
+            fails("dirty", "refused", "library_pull", "{}"),
+            fails("dirty_apply", "refused", "library_pull", r#"{"dry_run":false}"#),
+            hook(library_world::clean),
+            read("preview", "library_pull", "{}"),
+            write("apply", "library_pull", r#"{"dry_run":false}"#),
+            read("current", "library_pull", "{}"),
         ],
     ),
     // agents

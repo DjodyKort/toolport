@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "dry_run": false
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "2 uncommitted change(s) in <WORLD>/home/lib/ai-skills; commit or stash them first"
+    }
+  },
+  "text": "refused: 2 uncommitted change(s) in <WORLD>/home/lib/ai-skills; commit or stash them first",
+  "tool": "library_pull"
+}
