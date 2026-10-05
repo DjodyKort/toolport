@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Callout } from "@/components/Callout";
 import { Card, Kv, Tag } from "../system/atoms";
 import { AsyncView } from "../ui";
 import type { CtlQuery } from "../ui";
@@ -116,6 +117,7 @@ export interface DetailActions {
   onDuplicate: (task: TaskDefinition) => void;
   onDelete: (task: TaskDefinition) => void;
   onLog: (run: TaskRun) => void;
+  onOpenRun: (task: TaskDefinition, run: TaskRun) => void;
 }
 
 /** One task: what it does step by step (the steps that need you are marked), the secrets it
@@ -152,6 +154,23 @@ export function TaskDetail({
           {task.description && (
             <p className="text-sm text-muted-foreground">{task.description}</p>
           )}
+          {runs[0]?.status === "waiting" || runs[0]?.status === "running" ? (
+            <Callout
+              variant="warning"
+              role="status"
+              className="flex flex-wrap items-center gap-2"
+            >
+              <span className="min-w-0 flex-1">
+                {runs[0].status === "waiting"
+                  ? "A run waits for you."
+                  : "A run is in progress."}{" "}
+                <code className="font-mono text-xs">{runs[0].id}</code>
+              </span>
+              <Button size="sm" onClick={() => actions.onOpenRun(task, runs[0])}>
+                Open run
+              </Button>
+            </Callout>
+          ) : null}
           <section aria-label="What it does" className="flex flex-col gap-2">
             <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
               What it does

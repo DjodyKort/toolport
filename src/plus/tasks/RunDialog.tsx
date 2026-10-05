@@ -99,6 +99,7 @@ export function RunTaskDialog({
   taskId,
   task,
   title: given,
+  runId: existing,
   onClose,
   onChanged,
   pollMs = RUN_POLL_MS,
@@ -106,6 +107,8 @@ export function RunTaskDialog({
   taskId: string;
   task?: TaskDefinition | null;
   title?: string;
+  /** Follow a run that already exists (one that waits for you) instead of starting one. */
+  runId?: string;
   onClose: () => void;
   onChanged?: () => void;
   pollMs?: number;
@@ -126,16 +129,16 @@ export function RunTaskDialog({
   const runArgv = useMemo(() => ["task", "run", taskId], [taskId]);
 
   useEffect(() => {
-    if (!policy || started.current) return;
+    if (!policy || started.current || existing) return;
     started.current = true;
     void startPreview([...runArgv, "--dry-run"]);
-  }, [policy, startPreview, runArgv]);
+  }, [policy, startPreview, runArgv, existing]);
 
   const previewOutcome = outcomeOf(preview.state);
   const applyOutcome = outcomeOf(apply.state);
   const started_ =
     applyOutcome?.kind === "ok" ? (applyOutcome.data as TaskRunData) : null;
-  const runId = started_?.run?.id ?? null;
+  const runId = existing ?? started_?.run?.id ?? null;
   const poll = useRunPoll(runId, pollMs, started_?.run ?? undefined);
   const run = poll.run;
   const status = run?.status;
@@ -163,7 +166,7 @@ export function RunTaskDialog({
     onClose();
   };
 
-  if (registry.status === "error" || (rows && !policy)) {
+  if (!existing && (registry.status === "error" || (rows && !policy))) {
     return (
       <Dialog open onOpenChange={(open) => !open && close()}>
         <DialogContent aria-describedby={undefined} className="sm:max-w-lg">
@@ -190,7 +193,7 @@ export function RunTaskDialog({
     );
   }
 
-  if (apply.state.phase === "idle" && previewOutcome?.kind === "ok") {
+  if (!existing && apply.state.phase === "idle" && previewOutcome?.kind === "ok") {
     return (
       <ConfirmDialog
         open
@@ -222,7 +225,7 @@ export function RunTaskDialog({
           <DialogTitle>Run {title}</DialogTitle>
         </DialogHeader>
         <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
-          {apply.state.phase === "idle" && (
+          {!existing && apply.state.phase === "idle" && (
             <JobProgress
               state={preview.state}
               onCancel={() => void preview.cancel()}

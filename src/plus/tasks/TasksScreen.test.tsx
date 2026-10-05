@@ -281,6 +281,43 @@ describe("Run", () => {
     expect(live.getByLabelText("Log of Boom")).toHaveTextContent("exit status 1");
   });
 
+  it("opens a run that already waits for you from the detail and continues it", async () => {
+    const user = await open();
+    await select(user, /Refresh the portal token/);
+    const card = within(await detail("Refresh the portal token"));
+    expect(await card.findByText(/A run waits for you/)).toBeInTheDocument();
+    await user.click(card.getByRole("button", { name: "Open run" }));
+    const live = within(
+      await screen.findByRole("dialog", { name: "Run Refresh the portal token" }),
+    );
+    expect(
+      await live.findByText(/Sign in to the portal in the browser window/),
+    ).toBeInTheDocument();
+    expect(bridge.count("task run portal-token --dry-run")).toBe(0);
+    await user.click(live.getByRole("button", { name: "Continue" }));
+    expect(await live.findByText("The run finished.")).toBeInTheDocument();
+    expect(bridge.count("task resume run-fixture-waiting")).toBe(1);
+  });
+
+  it("keeps the detail in place while a run refreshes it, so Escape gives focus back", async () => {
+    const user = await open();
+    await select(user, /Refresh the portal token/);
+    const card = within(await detail("Refresh the portal token"));
+    const opener = await card.findByRole("button", { name: "Open run" });
+    await user.click(opener);
+    const live = within(
+      await screen.findByRole("dialog", { name: "Run Refresh the portal token" }),
+    );
+    await live.findByRole("button", { name: "Continue" });
+    await waitFor(() =>
+      expect(bridge.count("task show portal-token")).toBeGreaterThan(1),
+    );
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(card.getByRole("button", { name: "Open run" })).toBe(opener);
+    await waitFor(() => expect(opener).toHaveFocus());
+  });
+
   it("cancels a run that waits for you", async () => {
     setup({ runs: withoutWaitingRun() });
     const user = await open();
