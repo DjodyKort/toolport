@@ -85,6 +85,10 @@ ureq = { version = "2", features = ["json"] }
 # gzip request bodies for the local OTLP receiver (plus::obs); already in the tree through ureq.
 flate2 = "1"
 sha2 = "0.10"
+# npm-style caret/tilde range parsing for package update checks (MIG-UPD-8);
+# already in the tree transitively (cargo_metadata and others), promoted to a
+# direct dep so pins::classify can resolve "highest version in range".
+semver = "1"
 # HMAC-SHA256 for the approval broker's challenge-response (SBS-867); already in
 # the tree transitively, promoted to a direct dep.
 hmac = "0.12"

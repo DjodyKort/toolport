@@ -867,6 +867,7 @@ dependencies = [
  "rusqlite",
  "security-framework 3.7.0",
  "security-framework-sys",
+ "semver 1.0.28",
  "serde",
  "serde_json",
  "serde_yaml",
