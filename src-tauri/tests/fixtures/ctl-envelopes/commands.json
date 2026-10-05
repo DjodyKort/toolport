@@ -3828,6 +3828,439 @@
           "baseTier": "read",
           "cost": false,
           "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Include disabled tasks (drafts made from a command file)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--all",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "task",
+          "id": "task ls",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "task",
+          "path": ["task", "ls"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "List the tasks with their last run and next scheduled run (--all includes disabled ones)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["tasks_list"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "task",
+          "id": "task show",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "id",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "task",
+          "path": ["task", "show"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Show a task's definition and its last runs (<id>)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["tasks_get"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Stay until the run ends or waits for you; step lines go to stderr",
+              "escalates": false,
+              "hidden": false,
+              "name": "--wait",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Accepted for mcpm compatibility; has no effect",
+              "escalates": false,
+              "hidden": true,
+              "name": "--yes",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "task",
+          "id": "task run",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": ["long-running"],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "id",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "task",
+          "path": ["task", "run"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Start a task; --dry-run lists the steps, secrets and servers (<id>, --dry-run, --wait, --yes)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["tasks_run"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "task",
+          "id": "task resume",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "runId",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "task",
+          "path": ["task", "resume"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Continue a run that waits for you (<run-id>)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "task",
+          "id": "task cancel",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "runId",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "task",
+          "path": ["task", "cancel"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Stop a run and its child process (<run-id>)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["tasks_cancel"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "A task definition (JSON); the id inside must equal <id>",
+              "escalates": false,
+              "hidden": false,
+              "name": "--file",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "A Claude command file to turn into a disabled draft (a prompt step plus needs-you markers)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--from-command",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "task",
+          "id": "task add",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [["--file", "--from-command"]],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "id",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "task",
+          "path": ["task", "add"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Add a task from a definition file or a Claude command file (<id>, --file, --from-command, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "The complete new task definition (JSON); the id inside must equal <id>",
+              "escalates": false,
+              "hidden": false,
+              "name": "--file",
+              "repeatable": false,
+              "required": true,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "task",
+          "id": "task edit",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "id",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "task",
+          "path": ["task", "edit"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Replace a task's definition (<id>, --file, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "destructive",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "task",
+          "id": "task rm",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "id",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "task",
+          "path": ["task", "rm"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Remove a task; its run history stays (<id>, --dry-run)",
+          "surface": "screen",
+          "tier": "destructive",
+          "tools": []
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Show this one run with its step logs",
+              "escalates": false,
+              "hidden": false,
+              "name": "--run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Show at most this many results",
+              "escalates": false,
+              "hidden": false,
+              "name": "--limit",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "integer"
+            }
+          ],
+          "group": "task",
+          "id": "task history",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "id",
+              "required": false,
+              "variadic": false
+            }
+          ],
+          "parent": "task",
+          "path": ["task", "history"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "List the runs of a task, or one run with its step logs ([<id>], --run, --limit)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["tasks_history"]
+        },
+        {
+          "baseTier": null,
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "task",
+          "id": "task",
+          "kind": "group",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["task"],
+          "planned": false,
+          "preview": null,
+          "summary": "Tasks: ls show run resume cancel add edit rm history",
+          "surface": null,
+          "tier": null,
+          "tools": []
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
           "flags": [],
           "group": "compression",
           "id": "compression status",
@@ -9455,10 +9888,10 @@
         }
       ],
       "counts": {
-        "commands": 154,
-        "groups": 29,
-        "rows": 183,
-        "tools": 92
+        "commands": 163,
+        "groups": 30,
+        "rows": 193,
+        "tools": 97
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
       "tiers": ["read", "write", "destructive"],
@@ -9518,6 +9951,41 @@
           "name": "context_compose",
           "tier": "read",
           "toolTier": 1
+        },
+        {
+          "command": "task ls",
+          "dryRun": "none",
+          "name": "tasks_list",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "task show",
+          "dryRun": "none",
+          "name": "tasks_get",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "task history",
+          "dryRun": "none",
+          "name": "tasks_history",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "task run",
+          "dryRun": "param",
+          "name": "tasks_run",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": "task cancel",
+          "dryRun": "none",
+          "name": "tasks_cancel",
+          "tier": "write",
+          "toolTier": 2
         },
         {
           "command": "plugins ls",
