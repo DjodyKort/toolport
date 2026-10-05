@@ -57,13 +57,13 @@ describe("sources.ls", () => {
     expect(bridge.count("sources ls")).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows the library row with its duplicate clone and Pull and Push off", async () => {
+  it("shows the library row with its duplicate clone and its remote", async () => {
     const user = await sources();
     await user.click(rowButton("ai-skills"));
     const box = detail("ai-skills");
     expect(within(box).getByText(/a second clone of the same remote/)).toBeVisible();
-    expect(within(box).getByRole("button", { name: "Pull" })).toBeDisabled();
-    expect(within(box).getByRole("button", { name: "Push…" })).toBeDisabled();
+    expect(await within(box).findByText("Remote")).toBeVisible();
+    expect(within(box).getByRole("list", { name: "Other clones" })).toBeVisible();
     expect(within(box).getByText("3 of 4 skills")).toBeVisible();
   });
 

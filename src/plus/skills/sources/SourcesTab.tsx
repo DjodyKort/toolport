@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { FolderPlus, Layers, RefreshCw, WifiOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,11 +6,12 @@ import { Callout } from "@/components/Callout";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { SourceRow, SourcesLsData, SourcesRootLsData } from "../../bridge/data";
 import { AsyncView } from "../../ui";
-import { useRead, useRegistryRows, useWrite } from "../hooks";
+import { useRead, useRegistryRows, useWrite, type WriteControl } from "../hooks";
 import { plural } from "../model";
 import { Section, SourceBadge, Stat } from "../parts";
 import { WriteDialogs } from "../WriteDialogs";
 import { AddRootDialog, RootsCard } from "./RootsCard";
+import { useOnline } from "./online";
 import { SourceDetail } from "./SourceDetail";
 import {
   basisText,
@@ -26,21 +27,6 @@ import {
 } from "./model";
 
 const PLANNED_ID = "planned:github";
-
-function useOnline(): boolean {
-  const [online, setOnline] = useState(() => navigator.onLine);
-  useEffect(() => {
-    const up = () => setOnline(true);
-    const down = () => setOnline(false);
-    window.addEventListener("online", up);
-    window.addEventListener("offline", down);
-    return () => {
-      window.removeEventListener("online", up);
-      window.removeEventListener("offline", down);
-    };
-  }, []);
-  return online;
-}
 
 function SourceListRow({
   row,
@@ -165,11 +151,13 @@ function Body({
   rescan,
   selected,
   setSelected,
+  write,
 }: {
   query: ReturnType<typeof useRead<SourcesLsData>>;
   rescan: () => void;
   selected: string | null;
   setSelected: (id: string) => void;
+  write: WriteControl;
 }) {
   const online = useOnline();
   return (
@@ -256,7 +244,11 @@ function Body({
                   />
                 )}
               </ul>
-              {row ? <SourceDetail key={row.id} row={row} /> : <PlannedDetail />}
+              {row ? (
+                <SourceDetail key={row.id} row={row} write={write} />
+              ) : (
+                <PlannedDetail />
+              )}
             </div>
           </>
         );
@@ -318,7 +310,7 @@ function Panel({
   setRefresh: (value: boolean) => void;
   selected: string | null;
   setSelected: (id: string) => void;
-  write: ReturnType<typeof useWrite>;
+  write: WriteControl;
   onAdd: () => void;
 }) {
   const argv = useMemo(
@@ -354,6 +346,7 @@ function Panel({
           rescan={rescan}
           selected={selected}
           setSelected={setSelected}
+          write={write}
         />
       </Section>
       <RootsCard query={roots} write={write} onAdd={onAdd} />
