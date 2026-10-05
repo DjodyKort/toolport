@@ -104,24 +104,28 @@ The policy is data in `ctl/policy.rs`; flag types and effect text are in `ctl/co
 ```json
 {
   "schemaVersion": 1,
-  "routes": { "all-commands": { "title": "All commands", "status": "planned" } },
-  "actions": {
-    "all-commands.run": { "route": "all-commands", "status": "planned", "summary": "..." }
-  },
-  "owners": { "skills": "MIG-GUI-3" },
-  "commands": {
-    "skills ls": {
-      "route": "all-commands",
-      "action": "all-commands.run",
-      "surface": "screen"
+  "routes": {
+    "servers": {
+      "title": "Servers",
+      "view": "control",
+      "status": "built",
+      "component": "src/plus/servers/ServersScreen.tsx"
     }
+  },
+  "actions": {
+    "servers.list": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ServersTab.test.tsx",
+      "summary": "Servers grouped by attention (server ls)"
+    }
+  },
+  "owners": { "server": "MIG-GUI-1" },
+  "commands": {
+    "server ls": { "route": "servers", "action": "servers.list", "surface": "screen" }
   },
   "tools": {
-    "skills_list": {
-      "route": "all-commands",
-      "action": "all-commands.run",
-      "surface": "screen"
-    }
+    "servers_list": { "route": "servers", "action": "servers.list", "surface": "screen" }
   }
 }
 ```
@@ -129,12 +133,20 @@ The policy is data in `ctl/policy.rs`; flag types and effect text are in `ctl/co
 - `commands` has one entry per registry command, sub-commands included (`sync push`, `compression ledger record`); groups have none. `tools` has one entry per self-management tool; a tool that runs a command normally uses that command's route and action.
 - `surface` is `screen` or `terminal` (D-062). It must equal the registry: only `direct run` and `compression run` are `terminal`.
 - A route is `planned` or `built`; `built` needs `component`, an existing file. An action is `planned` or `built`; `built` needs its route built and `test`, an existing component test that names the action id (a `data-action` query or the test title). Every route has an action and every action is used.
-- A row is pending while its route is `all-commands` or its action is `planned`. The tests print the pending count per owner; `GUI_PARITY_STRICT=1` makes any pending row a failure (MIG-GUI-9 sets it).
+- A row is pending while its action is `planned`. A pending row fails both tests, and there is no switch that allows one (MIG-GUI-9).
 - `owners` maps each command group to the item that gives it a screen.
 
-`cargo test --test gui_parity` (Rust) and `vitest src/plus/guiParity.test.ts` (reads the blessed `src-tauri/tests/fixtures/ctl-envelopes/commands.json`) fail on a command or tool without an entry (printing the line to paste), an entry for something that no longer exists, a missing route or action, an action that belongs to another route, a surface that differs from the registry, and a built route or action without its file or test. A change to the registry changes `commands.json`, the golden of `toolportctl commands` (bless it with `CTL_ENVELOPE_BLESS=1 cargo test --test ctl_contract`, rejected when `CI` is set), which in turn makes the manifest test ask for the new entry.
+`cargo test --test gui_parity` (Rust) and `vitest src/plus/guiParity.test.ts` (reads the blessed `src-tauri/tests/fixtures/ctl-envelopes/commands.json`) fail on a command or tool without an entry (the message says to map it to a built route and action), an entry for something that no longer exists, a missing route or action, an action that belongs to another route, a surface that differs from the registry, and a built route or action without its file or test. A change to the registry changes `commands.json`, the golden of `toolportctl commands` (bless it with `CTL_ENVELOPE_BLESS=1 cargo test --test ctl_contract`, rejected when `CI` is set), which in turn makes the manifest test ask for the new entry.
 
 A screen item adds its routes and actions, points its rows at them, and flips `status` to `built` together with the component and its test. A command that does not exist yet has no entry: whoever adds the command adds the row.
+
+**Parity gate.** The two tests are part of `npm run verify` and of fork-ci: `npm run test` runs the vitest, `cargo test --no-default-features --lib --bins --tests` runs `gui_parity`. Both are strict. Every registry command and every self-management tool has a row whose action is `built` (a built route with its component, and a component test that names the action), every row is `screen` or the registry's `terminal`, and nothing is waived. Each test prints one summary line (`cargo test --no-default-features --test gui_parity -- --nocapture`, or the console of `npx vitest run src/plus/guiParity.test.ts`):
+
+```text
+gui parity: 172 commands, 100 tools, 272 manifest rows, 186 screen actions built, 0 pending, 0 waivers
+```
+
+The commands and tools are counted in the registry, the manifest rows are its command and tool rows together, the screen actions are the actions with status `built`, and a waiver is a row whose surface is neither `screen` nor `terminal`. The test asserts that commands equal the command rows, tools equal the tool rows, and that pending and waivers are 0. To give a new command or tool its row: add the command (its golden changes, see below), run the test, which names the missing id and says to map it to a built route and action, then add the row under `commands` (or `tools`) pointing at a route and action of the screen that owns it. A new screen adds its route and its actions too, and the id of each action appears in its component test. A new command group needs an owner in `owners`. Every screenshot of those screens is indexed in [`assets/gui-index.md`](assets/gui-index.md), which `src/plus/guiIndex.test.ts` keeps complete.
 
 ### Command contract: golden envelopes and TS shapes
 
@@ -171,6 +183,25 @@ The Servers screen (MIG-GUI-1) adds:
 | `gui-servers-clients-light.png`         | The Clients tab: what each client sees, and the orphan list                     |
 | `gui-servers-health-light.png`          | The Health tab: status facts, named fixes and the doctor checks                 |
 
+## Screen map
+
+Every Toolport+ screen, the sidebar entry that opens it, its tabs, its route id in `src/plus/gui-parity.json` and the folders that hold it. Tab names are the labels of the tab bar. The screenshots of each screen are listed in [`assets/gui-index.md`](assets/gui-index.md).
+
+| Screen           | Sidebar entry                                                    | Tabs                                                                | Route id    | Folders under `src/plus/`                |
+| ---------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------- | ----------- | ---------------------------------------- |
+| Attention        | Attention                                                        | none                                                                | `attention` | `attention/`                             |
+| Servers          | Servers                                                          | Servers, Profiles, Clients, Logins, Secrets, Integrations, Health   | `servers`   | `servers/`                               |
+| Logins & secrets | Servers (the `logins` view lives under it; Settings links to it) | Logins, Secrets, Integrations                                       | `logins`    | `logins/`                                |
+| Library          | Library                                                          | Skills (with Taps and Find and install inside it), Plugins, Sources | `library`   | `skills/`, `skills/sources/`, `plugins/` |
+| Agents & styles  | Library                                                          | Agents, Styles                                                      | `agents`    | `agents/`                                |
+| Context          | Context                                                          | This folder, Profiles, Layers, Hooks, Launch & shell                | `context`   | `context/`, `hooks/`                     |
+| Tokens           | Tokens                                                           | Usage, Compression                                                  | `tokens`    | `usage/`, `compression/`                 |
+| Tasks            | Tasks                                                            | Tasks, History                                                      | `tasks`     | `tasks/`                                 |
+| System           | System                                                           | Sync, Updates, Council, Import, Self-management                     | `system`    | `system/`                                |
+| All commands     | Settings (the page lives under it and has no entry of its own)   | none                                                                | `catalog`   | `allcommands/`                           |
+
+The Library tab bar reads Skills, Agents, Styles, Plugins, Sources. The Updates tab of System also carries the plugin card, and the plugin rows of This folder and Profiles are part of Context.
+
 ## Frontend shell, UI kit and All commands page
 
 `src/plus/` after MIG-GUI-0:
@@ -203,7 +234,7 @@ The Servers screen (MIG-GUI-1) adds:
 - A read runs at once (a row that reads until a flag escalates it stays a read until the flag is set). A change runs preview (the row's own dry-run flag; `unless-applied` rows preview without their flag), plan, confirm, apply. A change without a preview, or one that reads stdin, is confirmed with its exact command line. `destructive` types a phrase: the first operand when it is short, else the command id.
 - A terminal-only command shows its exact command line and a Copy button, never a Run button.
 - "Run a tool" lists the tools that no command covers (the registry rows with `command: null`, 23 today) and calls `toolportctl mcp call <tool> --args-stdin` with the arguments as one JSON object on stdin, so a secret never reaches argv. A read runs at once; a tool with a `dry_run` parameter previews with `dry_run: true`, then applies with `dry_run: false`; a tier 3 tool sends `confirm: true` after the exact command line is confirmed; a tier 4 tool also asks for its name to be typed. The arguments are a JSON text box: the parameter form that `mcp tools` (`params`, `dryRunDefault`) makes possible is not built. The box is disabled, with a tooltip and a note, only against a `toolportctl` whose `commands --json` has no `mcp call` row. Covered by the `all-commands.tool` tests, one of them over the real registry golden.
-- The page is a built route of the parity manifest twice over: `catalog` (component `AllCommandsPage.tsx`, `view: commands`, actions `catalog.commands` for the registry listing and `catalog.mcp-call` for Run a tool) holds the `commands` and `mcp call` rows, which have no screen because this page is what implements them; `all-commands` stays the catch-all of the generic runner for the rows no screen owns yet. Both checkers (`guiParity.test.ts`, `tests/gui_parity.rs`) call a row pending only when its route is `all-commands` or its action is not built, so `catalog` needs no change in either. The route test asks `navItemActive` whether a sidebar entry reaches the view, so `commands` (under Settings) needs no name exemption.
+- The page is a built route of the parity manifest twice over: `catalog` (component `AllCommandsPage.tsx`, `view: commands`, actions `catalog.commands` for the registry listing and `catalog.mcp-call` for Run a tool) holds the `commands` and `mcp call` rows, which have no screen because this page is what implements them; The former `all-commands` route is gone: every row has a screen action. Both checkers (`guiParity.test.ts`, `tests/gui_parity.rs`) call a row pending only when its action is not built, and a pending row fails them. The route test asks `navItemActive` whether a sidebar entry reaches the view, so `commands` (under Settings) needs no name exemption.
 
 **Servers (`src/plus/servers/`).** The control center: tabs Servers, Profiles, Clients and Health (Logins, Secrets and Integrations are placeholder slots until MIG-GUI-2), a gateway strip above them, a "Run doctor" button and, on the Servers tab, a "Classic view" button. Every read is one `toolportctl --json` call through `ServersProvider` (`server ls`, `profile ls`, `client ls`, `status`, polled and kept on screen when a reload fails); every write goes through `useWrite`.
 
