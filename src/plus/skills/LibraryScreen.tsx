@@ -1,9 +1,13 @@
-import { useState, type ComponentType } from "react";
+import { lazy, Suspense, useState, type ComponentType } from "react";
 import { AgentsTab, StylesTab } from "../agents";
 import { NotBuiltPanel } from "../NotBuilt";
 import { NOT_BUILT_TABS } from "../notBuiltTabs";
-import { Tabs } from "../ui";
+import { ScreenSkeleton, Tabs } from "../ui";
 import { SkillsTab } from "./SkillsTab";
+
+const SourcesTab = lazy(() =>
+  import("./sources/SourcesTab").then((m) => ({ default: m.SourcesTab })),
+);
 
 /** The tabs of the Library screen that are built. A tab not listed here is still the marked
  * placeholder of `NOT_BUILT_TABS`; the item that builds a tab adds its panel to this map. */
@@ -11,6 +15,7 @@ const PANELS: Record<string, ComponentType> = {
   skills: SkillsTab,
   agents: AgentsTab,
   styles: StylesTab,
+  sources: SourcesTab,
 };
 
 const TABS = NOT_BUILT_TABS.library ?? [];
@@ -34,7 +39,9 @@ export function LibraryScreen({
       label="Library sections"
     >
       {Panel ? (
-        <Panel />
+        <Suspense fallback={<ScreenSkeleton label="Loading tab" />}>
+          <Panel />
+        </Suspense>
       ) : (
         current && (
           <NotBuiltPanel
