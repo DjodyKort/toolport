@@ -29,17 +29,12 @@ import {
   tapUpdateData,
   unbundleData,
 } from "./fixturesTaps";
+import { Failure } from "./failure";
 import type { SkillRow } from "./model";
 import { createSourcesWorld } from "./sources/world";
+import type { LibraryWorld } from "./sources/world";
 
-/** A reply that is a failed envelope; `data` is what a command that exits 1 still prints. */
-export class Failure {
-  constructor(
-    readonly code: string,
-    readonly message: string,
-    readonly data?: unknown,
-  ) {}
-}
+export { Failure };
 
 export const PROJECT = "/fixture/proj";
 export const NEW_REPO = "/fixture/new";
@@ -59,6 +54,8 @@ export interface WorldOptions {
   repo?: boolean;
   /** The dev browser has no exit codes: a check that exits 1 is shown as its data. */
   browser?: boolean;
+  /** The library clone of the Sources tab: how far it is from its remote, what waits to be pushed. */
+  library?: LibraryWorld;
 }
 
 const subsets = (list: string[]): string[][] =>
@@ -518,6 +515,6 @@ export function createSkillsWorld(
     () => unbundleData(true),
     () => unbundleData(false),
   );
-  for (const [argv, reply] of createSourcesWorld()) rows.set(argv, reply);
+  for (const [argv, reply] of createSourcesWorld(options.library)) rows.set(argv, reply);
   return rows;
 }

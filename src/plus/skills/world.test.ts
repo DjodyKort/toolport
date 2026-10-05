@@ -12,6 +12,15 @@ const shapes = { ...ctlShapes, ...ctlTypeShapes };
 function stem(argv: string): string | null {
   const words = argv.split(" ");
   if (words[0] === "sources") return null;
+  if (words[0] === "library") {
+    const fetch = words.includes("--fetch") ? "fetch" : "behind";
+    const dry = words.includes("--dry-run");
+    return {
+      status: `library-status.${fetch}`,
+      pull: `library-pull.${dry ? "preview" : "apply"}`,
+      push: `library-push.${dry ? "dry-run" : "apply"}`,
+    }[words[1]] as string;
+  }
   const kind = words.includes("--dry-run") ? "preview" : "apply";
   const verb = words[1] === "tap" ? `tap-${words[2]}` : words[1];
   switch (verb) {
@@ -55,7 +64,8 @@ const READS = [
 const isRead = (argv: string) =>
   argv.endsWith("--dry-run") ||
   /^skills (ls|status|lint|audit|diff|tap ls|search)/.test(argv) ||
-  argv.startsWith("sources ");
+  argv.startsWith("sources ") ||
+  argv.startsWith("library status");
 
 describe("the stateful skills world", () => {
   it("has every row of the static maps, and its first answers equal the static ones", () => {
@@ -66,7 +76,7 @@ describe("the stateful skills world", () => {
       expect(world.has(argv) || argv === "commands", argv).toBe(true);
       if (!world.has(argv)) continue;
       const first = dataOf(world.get(argv)!());
-      if (/^skills (status|diff|tap update \S)/.test(argv)) continue;
+      if (/^skills (status|diff|tap update \S)|^sources /.test(argv)) continue;
       expect(first, argv).toEqual(dataOf(data));
     }
   });
