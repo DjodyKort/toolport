@@ -21,6 +21,8 @@ pub use installed::PluginStatus;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod config_tests;
 
 use std::path::{Path, PathBuf};
 
