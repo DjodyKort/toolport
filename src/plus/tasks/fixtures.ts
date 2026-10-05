@@ -114,6 +114,8 @@ const loginTask = (id: string, server: string, enabled = true) => ({
   id,
   title: `Renew the ${server} login`,
   enabled,
+  kind: "login" as const,
+  refreshes: [server],
   triggers: { ...stockTasks[0].triggers, onAuthFailure: [server] },
   lastRun: null,
   nextRun: null,

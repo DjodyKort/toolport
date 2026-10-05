@@ -86,6 +86,11 @@ function lsRow(state: TasksState, task: TaskDefinition): TaskLsData["tasks"][num
     id: task.id,
     title: task.title,
     enabled: task.enabled,
+    kind:
+      task.triggers.onAuthFailure.length > 0 || task.writesSecrets.length > 0
+        ? "login"
+        : "script",
+    refreshes: task.triggers.onAuthFailure,
     triggers: task.triggers,
     lastRun: last && {
       runId: last.id,
@@ -229,7 +234,7 @@ export function createTasksWorld(seed: Partial<TasksState> = {}) {
         createdFrom: { kind: "command", path: from },
       };
     } else {
-      if (stdin === null) return fail("read", "cannot read /dev/stdin");
+      if (stdin === null) return fail("read", "cannot read the definition from stdin");
       try {
         task = JSON.parse(stdin) as TaskDefinition;
       } catch {
