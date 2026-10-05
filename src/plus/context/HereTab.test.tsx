@@ -327,6 +327,26 @@ describe("This folder: measuring for real", () => {
     expect(result.getByText(/1 skill Claude Code does not list: handoff/)).toBeVisible();
   });
 
+  it("opens the turn-off command of a plugin from its row, runs nothing, and returns the focus", async () => {
+    const user = await open();
+    await showFolder(user);
+    const plugins = within(screen.getByRole("region", { name: "Plugins" }));
+    const kit = rowOf(plugins, "kit@market");
+    const opener = within(kit).getByRole("button", { name: "Off here…" });
+    await user.click(opener);
+    const box = within(
+      await screen.findByRole("dialog", { name: /Turn kit@market off in a folder/ }),
+    );
+    expect(box.getByLabelText("Command line")).toHaveTextContent(
+      "claude plugin disable kit@market --scope local",
+    );
+    expect(box.getByRole("button", { name: "Open in Terminal" })).toBeDisabled();
+    expect(bridge.ran().some((line) => /disable|settings\.local/.test(line))).toBe(false);
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(opener).toHaveFocus());
+  });
+
   it("shows the failure of a measurement in the CLI's words and keeps the screen", async () => {
     bridge.set(
       `context measure --cwd ${FOLDER} --yes`,

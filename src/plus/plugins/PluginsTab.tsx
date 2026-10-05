@@ -1,22 +1,15 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Callout } from "@/components/Callout";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { PluginRow, PluginsLsData, PluginsShowData } from "../types/plugins";
 import { AsyncView } from "../ui";
 import { FolderField, useFolderChoice, useRecentFolders } from "../context/folder";
 import { useRead, useRegistryRows, useWrite } from "../skills/hooks";
 import { WriteDialogs } from "../skills/WriteDialogs";
-import { OfflineNote, TerminalCommand } from "../system/atoms";
-import { PluginDetail, type TerminalStep } from "./PluginDetail";
+import { OfflineNote } from "../system/atoms";
+import { PluginDetail } from "./PluginDetail";
+import { TerminalDialog, useTerminalStep } from "./TerminalStep";
 import { cwdArgs, updateText } from "./model";
 
 function Row({
@@ -67,19 +60,7 @@ export function PluginsTab({ onOpenHooks }: { onOpenHooks?: () => void }) {
     list.reload();
     show.reload();
   });
-  const [terminal, setTerminal] = useState<TerminalStep | null>(null);
-  const origin = useRef<HTMLElement | null>(null);
-  const openTerminal = (step: TerminalStep) => {
-    origin.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setTerminal(step);
-  };
-  const closeTerminal = () => {
-    setTerminal(null);
-    window.setTimeout(() => {
-      if (origin.current?.isConnected) origin.current.focus();
-    }, 0);
-  };
+  const terminal = useTerminalStep();
   const folderLine = cwd
     ? `Folder ${cwd}`
     : "No folder chosen: showing your own settings";
@@ -147,36 +128,14 @@ export function PluginsTab({ onOpenHooks }: { onOpenHooks?: () => void }) {
               query={show}
               cwd={cwd}
               write={write}
-              onTerminal={openTerminal}
+              onTerminal={terminal.open}
               onOpenHooks={onOpenHooks}
             />
           </div>
         )}
       </AsyncView>
       <WriteDialogs write={write} />
-      {terminal && (
-        <Dialog open onOpenChange={(open) => !open && closeTerminal()}>
-          <DialogContent aria-describedby={undefined} className="sm:max-w-xl">
-            <DialogHeader>
-              <DialogTitle>{terminal.title}</DialogTitle>
-            </DialogHeader>
-            {terminal.lines.map((line) => (
-              <p key={line} className="text-sm">
-                {line}
-              </p>
-            ))}
-            <TerminalCommand
-              line={terminal.line}
-              note="Toolport has no command for this switch yet, so it shows Claude Code's own."
-            />
-            <DialogFooter>
-              <Button variant="ghost" onClick={closeTerminal}>
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+      <TerminalDialog step={terminal.step} onClose={terminal.close} />
     </div>
   );
 }
