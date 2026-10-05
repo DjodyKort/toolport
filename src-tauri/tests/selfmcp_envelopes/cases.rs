@@ -5,10 +5,10 @@
 
 use crate::ctl_fixtures::{
     bundle_drift_home, bundle_home, fork_back_to_main, fork_world, git_world, health_proxy,
-    layers_deployed_home, measure_home, skills_repo_remote_world, sync_setup,
+    layers_deployed_home, measure_home, skills_repo_remote_world, sync_setup, tasks_home,
 };
 
-use super::{case, fails, hook, prepared, read, refused, setup, write, Case};
+use super::{case, fails, hook, prepared, read, refused, setup, write, Call, Case};
 
 const CLAUDE: &str = r#"{"client_keys":["claude-code"]}"#;
 const CLAUDE_PREVIEW: &str = r#"{"client_keys":["claude-code"],"dry_run":true}"#;
@@ -86,6 +86,51 @@ pub const ALL: &[Case] = &[
                 "context_measure",
                 r#"{"cwd":"{home}/work/erp/clients/acme-erp","without":["kit"]}"#,
             ),
+        ],
+    ),
+    prepared(
+        "tasks_list",
+        tasks_home,
+        &[read("enabled", "tasks_list", "{}"), read("all", "tasks_list", r#"{"all":true}"#)],
+    ),
+    prepared(
+        "tasks_get",
+        tasks_home,
+        &[
+            read("waiting", "tasks_get", r#"{"id":"portal-token"}"#),
+            fails("unknown", "not_found", "tasks_get", r#"{"id":"nothing"}"#),
+            fails("no_id", "invalid_arguments", "tasks_get", "{}"),
+        ],
+    ),
+    prepared(
+        "tasks_history",
+        tasks_home,
+        &[
+            read("all", "tasks_history", "{}"),
+            read("one_run", "tasks_history", r#"{"run":"run-fixture-ok"}"#),
+            fails("unknown_run", "not_found", "tasks_history", r#"{"run":"run-nothing"}"#),
+        ],
+    ),
+    prepared(
+        "tasks_run",
+        tasks_home,
+        &[
+            read("preview", "tasks_run", r#"{"id":"portal-token","dry_run":true}"#),
+            Call {
+                writes: true,
+                ..fails("no_broker", "approval_unavailable", "tasks_run", r#"{"id":"portal-token"}"#)
+            },
+            fails("not_allowed", "conflict", "tasks_run", r#"{"id":"nightly-report"}"#),
+            fails("unknown", "not_found", "tasks_run", r#"{"id":"nothing","dry_run":true}"#),
+        ],
+    ),
+    prepared(
+        "tasks_cancel",
+        tasks_home,
+        &[
+            write("stale", "tasks_cancel", r#"{"run":"run-fixture-stale"}"#),
+            fails("ended", "conflict", "tasks_cancel", r#"{"run":"run-fixture-ok"}"#),
+            fails("unknown", "not_found", "tasks_cancel", r#"{"run":"run-nothing"}"#),
         ],
     ),
     prepared(

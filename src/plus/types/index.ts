@@ -55,6 +55,7 @@ export * from "./selfmcp-skills";
 export * from "./selfmcp-sources";
 export * from "./selfmcp-styles";
 export * from "./selfmcp-sync";
+export * from "./selfmcp-tasks";
 export * from "./selfmcp-resources";
 export * from "./selfmcp";
 
