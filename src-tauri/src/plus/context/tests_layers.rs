@@ -136,7 +136,7 @@ fn a_copy_layer_inlines_what_it_imports_and_an_import_layer_writes_the_path() {
     assert!(copied.text.contains("Post before closing."));
     assert!(copied.issues.is_empty());
     let linked = fx.delivered("by-import");
-    assert!(linked.text.contains(&format!("@{}", kb.display())));
+    assert!(linked.text.contains("@~/kb/CLAUDE.md"), "{}", linked.text);
     assert!(!linked.text.contains("Post before closing."));
 }
 

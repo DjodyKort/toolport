@@ -151,6 +151,15 @@ pub fn expand_user(home: &Path, raw: &str) -> PathBuf {
     }
 }
 
+/// `~/rel` for a file under the home folder, so the delivered text does not depend on where the
+/// home folder is.
+fn shown(home: &Path, path: &Path) -> String {
+    match path.strip_prefix(home) {
+        Ok(rel) if !rel.as_os_str().is_empty() => format!("~/{}", rel.display()),
+        _ => path.display().to_string(),
+    }
+}
+
 /// An import that names a layer rather than a file: no separator, no `~`, no extension.
 fn is_layer_ref(spec: &str) -> bool {
     !spec.contains('/') && !spec.starts_with('~') && !spec.starts_with('.') && !spec.ends_with(".md")
@@ -327,7 +336,7 @@ impl Walk<'_> {
             return None;
         }
         let inlined = self.file_text(&target, &mut Vec::new(), 1)?;
-        Some(format!("<!-- imported from {} -->\n{}", target.display(), inlined.trim_end()))
+        Some(format!("<!-- imported from {} -->\n{}", shown(self.home, &target), inlined.trim_end()))
     }
 }
 
@@ -350,7 +359,7 @@ pub fn deliver(home: &Path, layers: &[Layer], layer: &Layer) -> Delivered {
                 } else {
                     let target = walk.resolve(layer.path.parent().unwrap_or(&layer.path), spec);
                     if fsx::is_file(&target) {
-                        text.push_str(&format!("\n\n@{}", target.display()));
+                        text.push_str(&format!("\n\n@{}", shown(home, &target)));
                     }
                 }
             }

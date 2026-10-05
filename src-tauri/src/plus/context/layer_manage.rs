@@ -13,7 +13,6 @@ use crate::plus::args::{flag, str_nonempty};
 use crate::plus::op::OpError;
 use crate::plus::skills::pyfs::write_text;
 use crate::plus::sources::fsx;
-use crate::savings::estimated_tokens;
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 use std::fs;
@@ -61,10 +60,6 @@ fn edit_of(args: &Value) -> Result<SpecEdit, OpError> {
         imports: strings(args, "imports"),
         delivery,
     })
-}
-
-fn tokens(text: &str) -> u64 {
-    estimated_tokens(text.len() as u64)
 }
 
 fn find<'a>(layers: &'a [Layer], name: &str) -> Result<&'a Layer, OpError> {
@@ -142,7 +137,7 @@ fn effect_steps(effects: &[FolderEffect], warnings: &mut Vec<String>) -> Vec<Val
                 steps.push(json!({
                     "op": if existing.is_some() { "update" } else { "create" },
                     "path": path,
-                    "detail": format!("deliver {} into the managed CLAUDE.local.md (about {} tokens)", e.layers.join(", "), tokens(content)),
+                    "detail": format!("deliver {} into the managed CLAUDE.local.md", e.layers.join(", ")),
                 }));
             }
             (None, Some(_)) => steps.push(json!({
