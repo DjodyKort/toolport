@@ -10,6 +10,8 @@ pub mod fsx;
 pub mod gitx;
 pub mod item;
 pub mod layout;
+pub mod library_remote;
+pub mod library_sync;
 pub mod model;
 pub mod render;
 pub mod roots;
@@ -28,6 +30,8 @@ mod vendored;
 
 #[cfg(test)]
 mod tests;
+#[cfg(all(test, unix))]
+mod library_remote_tests;
 
 use crate::plus::context::{ContextConfig, Roots};
 use budget::Budget;
@@ -302,6 +306,33 @@ fn shadow_pass(sources: &mut [Source], items: &mut [Item]) {
             }
         }
     }
+}
+
+/// A scan context over the host's roots with default budgets, for callers that need the library
+/// helpers without a full scan.
+pub fn with_ctx<T>(
+    roots: &Roots,
+    config: &ContextConfig,
+    data_dir: Option<&Path>,
+    run: impl FnOnce(&ScanCtx) -> T,
+) -> T {
+    let opts = ScanOptions::default();
+    let time = budget::DETECTOR_TIME * budget::time_scale();
+    let probe = Budget::new(time, budget::MAX_DEPTH, None);
+    let scope = scope::compute(roots, config, &opts, &probe);
+    let budget = Budget::new(time, budget::MAX_DEPTH, None);
+    let cache = Cache::memory();
+    let now = fsx::now_zulu();
+    run(&ScanCtx {
+        roots,
+        config,
+        data_dir,
+        cwd: None,
+        scope: &scope,
+        budget: &budget,
+        cache: &cache,
+        now: &now,
+    })
 }
 
 /// Runs one detector by id against a prepared context; the unit tests use it.

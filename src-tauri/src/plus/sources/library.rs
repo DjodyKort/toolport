@@ -83,7 +83,7 @@ fn looks_like_skills_repo(dir: &Path) -> bool {
         .any(|d| fsx::is_dir(&dir.join(d)))
 }
 
-fn duplicates(ctx: &ScanCtx, root: &Path, remote: &str, others: &[PathBuf]) -> Vec<PathBuf> {
+pub(super) fn duplicates(ctx: &ScanCtx, root: &Path, remote: &str, others: &[PathBuf]) -> Vec<PathBuf> {
     let own = fsx::canonical(root);
     let mut pool: Vec<PathBuf> = others.to_vec();
     for row in ctx
