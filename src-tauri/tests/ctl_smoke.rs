@@ -66,6 +66,12 @@ const NOT_READ_ONLY: &[(&str, &str)] = &[
     ("context bundle undo", "puts back the keys apply wrote in one folder; tests/context_bundle.rs"),
     ("context client edit", "rewrites one layer's frontmatter in the skills repository; tests/ctl_contract.rs"),
     ("context client rm", "deletes one layer from the skills repository; tests/ctl_contract.rs"),
+    ("task run", "starts a run: a child process that executes the steps; tests/ctl_contract.rs and tests/tasks_cli.rs"),
+    ("task resume", "marks a waiting run as resumed in its record; tests/ctl_contract.rs"),
+    ("task cancel", "stops a run and its child process; tests/ctl_contract.rs and tests/tasks_cli.rs"),
+    ("task add", "writes plus/tasks/<id>.json; tests/ctl_contract.rs"),
+    ("task edit", "rewrites plus/tasks/<id>.json after a backup; tests/ctl_contract.rs"),
+    ("task rm", "removes plus/tasks/<id>.json after a backup; tests/ctl_contract.rs"),
     ("context bundle launch", "writes the --settings file under ~/.config/toolport/profiles; tests/ctl_contract.rs"),
     ("context bundle config", "writes bundleAutoApply in context.json; tests/context_bundle.rs"),
     ("context use", "applies a bundle and routes the folder to the paired server profile; tests/ctl_contract.rs"),
@@ -665,6 +671,14 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             1,
             |_, _| {},
         ),
+        case("task ls", &["task", "ls"], 0, |_, d| {
+            assert_eq!(d["tasks"], json!([]));
+            assert_eq!(d["invalid"], json!([]));
+        }),
+        case("task show", &["task", "show", "no-such-task"], 1, |_, _| {}),
+        case("task history", &["task", "history"], 0, |_, d| {
+            assert_eq!(d["runs"], json!([]));
+        }),
         case(
             "context bundle status",
             &["context", "bundle", "status", "--cwd", &home],

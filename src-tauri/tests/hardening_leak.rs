@@ -207,6 +207,23 @@ impl World {
         let fresh = format!("{work}/fresh-skills");
         let zip = format!("{work}/skills.zip");
         let unpacked = format!("{work}/unpacked-skills");
+        let task_file = format!("{work}/leak-task.json");
+        std::fs::write(
+            &task_file,
+            json!({
+                "id": "leak-task", "title": "Leak check", "description": "", "enabled": true,
+                "requires": {"servers": ["alpha"], "commands": []},
+                "writesSecrets": [{"server": "alpha", "key": "EXTRA_KEY"}],
+                "steps": [
+                    {"id": "sign-in", "title": "Sign in", "type": "needs-you", "instructions": "Sign in first"},
+                    {"id": "read", "title": "Read", "type": "mcp", "server": "alpha", "tool": "get", "args": {}, "capture": ["value"]},
+                    {"id": "store", "title": "Store", "type": "secret-set", "server": "alpha", "key": "EXTRA_KEY", "from": "value"}
+                ],
+                "triggers": {"manual": true, "cli": false, "selfMcp": {"enabled": false, "approval": "every-run"}, "schedule": null, "onAuthFailure": []}
+            })
+            .to_string(),
+        )
+        .unwrap();
         vec![
             s(&["status"]),
             s(&["doctor"]),
@@ -280,6 +297,18 @@ impl World {
             s(&["context", "apply", "--home", &home, "--dry-run"]),
             s(&["context", "apply", "--home", &home]),
             s(&["context", "sync", "--home", &home]),
+            s(&["task", "ls"]),
+            s(&["task", "add", "leak-task", "--file", &task_file, "--dry-run"]),
+            s(&["task", "add", "leak-task", "--file", &task_file]),
+            s(&["task", "show", "leak-task"]),
+            s(&["task", "run", "leak-task", "--dry-run"]),
+            s(&["task", "history", "leak-task"]),
+            s(&["task", "resume", "run-no-such"]),
+            s(&["task", "cancel", "run-no-such"]),
+            s(&["task", "edit", "leak-task", "--file", &task_file, "--dry-run"]),
+            s(&["task", "rm", "leak-task", "--dry-run"]),
+            s(&["task", "rm", "leak-task"]),
+            s(&["task"]),
             s(&["context", "bundle", "ls"]),
             s(&["context", "bundle", "show", "leak-bundle"]),
             s(&["context", "bundle", "add", "leak-bundle", "--skills-off", "a-skill", "--dry-run"]),
