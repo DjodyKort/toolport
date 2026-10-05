@@ -7,9 +7,12 @@ use super::cache::{AuthStore, EdgeEvent, ProbeHintKind, ServerEntry, StatusFile}
 use super::flight::SingleFlight;
 use super::http_probes::PARAM_TOKEN_KEY;
 use super::issues::compute_issues;
+use super::login;
 use super::machine::step;
 use super::probe::{Clock, Probe, ProbeKind, ProbeRegistry, ProbeSpec, BACKOFF_CAP_SECS};
-use super::types::Tracked;
+use super::scan;
+use super::types::{AuthState, Tracked};
+use crate::plus::servers;
 
 impl From<ProbeKind> for ProbeHintKind {
     fn from(kind: ProbeKind) -> Self {
@@ -48,6 +51,34 @@ pub fn backoff_delay(min_interval: i64, transient_count: u32) -> i64 {
     delay
         .min(BACKOFF_CAP_SECS.max(min_interval))
         .max(min_interval)
+}
+
+/// `GatewayState` covers every generic remote vault-secret server (MIG-AUTH-9), some of
+/// which (e.g. miro) actually authenticate with a static API token rather than browser
+/// OAuth, so `auth login` refuses them (`login::plan`). Reuse that same plan's signal
+/// (`login::remote_facts`) here instead of adding a second, possibly-divergent classifier
+/// (MIG-AUTH-11), and only when the state actually needs a hint, to keep this off the hot
+/// path for healthy servers.
+fn gateway_hint_kind(server: &str, state: &AuthState) -> ProbeHintKind {
+    let needs_hint = matches!(
+        state,
+        AuthState::Expiring { .. } | AuthState::NeedsReauth | AuthState::Revoked
+    );
+    if !needs_hint {
+        return ProbeHintKind::OAuth;
+    }
+    let Ok(registry) = scan::read_registry() else {
+        return ProbeHintKind::OAuth;
+    };
+    let Some(entry) = servers::find(&registry, server) else {
+        return ProbeHintKind::OAuth;
+    };
+    let facts = login::remote_facts(entry);
+    if facts.static_token || facts.detected == "token" {
+        ProbeHintKind::ApiToken
+    } else {
+        ProbeHintKind::OAuth
+    }
 }
 
 fn gate(status: &StatusFile, spec: &ProbeSpec, now: i64) -> Option<&'static str> {
@@ -203,7 +234,10 @@ impl AuthProber {
             tracked: next.clone(),
             last_probe_at: Some(finished),
             next_due_at: finished + delay,
-            hint_kind: ProbeHintKind::from(spec.kind),
+            hint_kind: match spec.kind {
+                ProbeKind::GatewayState => gateway_hint_kind(&spec.server, &next.state),
+                other => ProbeHintKind::from(other),
+            },
             token_key: spec.params.get(PARAM_TOKEN_KEY).cloned(),
         };
         status.servers.insert(spec.server.clone(), entry.clone());
