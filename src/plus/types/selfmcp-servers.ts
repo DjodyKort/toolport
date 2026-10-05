@@ -66,9 +66,13 @@ export const serversDetectSourceResult = obj({
     kind: str,
     meta: obj({
       branch: opt(str),
+      drift: opt(bool),
       path: opt(str),
+      post_update: opt(str),
       reason: opt(str),
+      remote: opt(str),
       type: str,
+      upstream: opt(obj({ branch: str, remote: str })),
     }),
   }),
   name: str,

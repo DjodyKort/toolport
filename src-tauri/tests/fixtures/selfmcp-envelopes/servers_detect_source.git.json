@@ -8,7 +8,9 @@
       "kind": "git",
       "meta": {
         "branch": "main",
+        "drift": false,
         "path": "<WORLD>/fork-work",
+        "remote": "origin",
         "type": "git"
       }
     },
