@@ -37,6 +37,31 @@ export function useRecentFolders() {
   return { recent, remember };
 }
 
+export interface FolderChoice {
+  draft: string;
+  folder: string;
+  setDraft: (value: string) => void;
+  show: (value: string) => void;
+}
+
+/** The folder of the tab This folder, kept above the tab so switching tabs keeps it. It starts
+ * from the newest recent folder, so a person returns to where they left off. */
+export function useFolderChoice(): FolderChoice {
+  const [state, setState] = useState(() => {
+    const newest = readRecent()[0] ?? "";
+    return { draft: newest, folder: newest };
+  });
+  const setDraft = useCallback(
+    (draft: string) => setState((now) => ({ ...now, draft })),
+    [],
+  );
+  const show = useCallback(
+    (value: string) => setState({ draft: value, folder: value.trim() }),
+    [],
+  );
+  return { ...state, setDraft, show };
+}
+
 export function suggestions(...lists: Array<string[] | undefined>): string[] {
   return [...new Set(lists.flatMap((list) => list ?? []))];
 }
@@ -61,14 +86,8 @@ export function FolderField({
 }) {
   const id = useId();
   const list = `${id}-list`;
-  return (
-    <form
-      className="flex flex-wrap items-end gap-2"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSubmit?.();
-      }}
-    >
+  const body = (
+    <>
       <div className="flex min-w-[16rem] flex-1 flex-col gap-1.5">
         <label htmlFor={id} className="text-sm font-medium">
           {label}
@@ -93,6 +112,19 @@ export function FolderField({
           {submitLabel ?? "Show"}
         </Button>
       )}
+    </>
+  );
+  return onSubmit ? (
+    <form
+      className="flex flex-wrap items-end gap-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      {body}
     </form>
+  ) : (
+    <div className="flex flex-wrap items-end gap-2">{body}</div>
   );
 }
