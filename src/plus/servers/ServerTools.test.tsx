@@ -642,3 +642,23 @@ describe("the tools never put an argument in argv", () => {
     for (const line of lines) expect(line).toMatch(/^mcp call servers_\w+ --args-stdin$/);
   });
 });
+
+describe("the dev browser fixture serves the servers tools", () => {
+  it("answers a check for updates through the same screen as the browser smoke", async () => {
+    const { plusCtlCancel, plusCtlResult, plusCtlStart } =
+      await import("../fixtures/plusCtl");
+    mocks.listen.mockReset().mockResolvedValue(() => {});
+    mocks.invoke
+      .mockReset()
+      .mockImplementation(async (command: string, args: Record<string, unknown>) => {
+        if (command === "plus_ctl") return plusCtlStart(args.argv as string[]);
+        if (command === "plus_ctl_result") return plusCtlResult(args.job as string);
+        if (command === "plus_ctl_cancel") return plusCtlCancel(args.job as string);
+        throw new Error(`unexpected invoke ${command}`);
+      });
+    const { user } = renderScreen();
+    const { tools } = await openServer(user, "docs-search");
+    await user.click(tools.getByRole("button", { name: "Check for updates" }));
+    expect(await tools.findByText("Update available")).toBeInTheDocument();
+  });
+});
