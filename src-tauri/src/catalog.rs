@@ -10,8 +10,21 @@
 use crate::registry::{ArgBinding, ArgPart, LaunchConfig, LaunchInput};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 const REGISTRY_URL: &str = "https://registry.modelcontextprotocol.io/v0.1/servers";
+
+/// Connect budget: fast to fail so a down/unreachable registry surfaces quickly.
+const REGISTRY_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+/// Read budget: the registry's own search is slow on an uncached query (D-101,
+/// 5-57s observed server-side), so this has to outlast that rather than the old
+/// flat 20s, which failed a connection that was working, just slow.
+const REGISTRY_READ_TIMEOUT: Duration = Duration::from_secs(60);
+/// How long a cached registry answer stays fresh before a repeat of the same
+/// query re-hits the network instead of serving it straight back.
+const REGISTRY_CACHE_TTL: Duration = Duration::from_secs(10 * 60);
 
 /// One addable server: enough to create a registry entry, plus display metadata.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -53,6 +66,37 @@ pub struct CatalogEntry {
     /// ServerDialog instead of immediate-add so the user can enter their URL.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url_hint: Option<String>,
+}
+
+/// A live MCP Registry call that did not come back with fresh results, carried
+/// alongside whatever curated/cached entries [`search`] still has, instead of
+/// replacing them. `kind` lets a caller tell a slow-but-reachable registry from
+/// a genuine connection failure: "timeout" | "connectionFailed" | "other".
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistryError {
+    pub kind: String,
+    pub message: String,
+}
+
+impl RegistryError {
+    fn new(kind: &str, message: impl Into<String>) -> Self {
+        Self {
+            kind: kind.to_string(),
+            message: message.into(),
+        }
+    }
+}
+
+/// Result of [`search`]: curated/cached hits are never dropped just because the
+/// live registry call failed, so `registry_error` is reported alongside them
+/// rather than in their place.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CatalogSearch {
+    pub entries: Vec<CatalogEntry>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub registry_error: Option<RegistryError>,
 }
 
 /// Browse-view grouping for a curated server, keyed by name. Keeps the verified
@@ -490,22 +534,54 @@ pub fn search_curated(query: &str) -> Vec<CatalogEntry> {
 /// quality), then live MCP Registry results for the long tail, de-duplicated by
 /// name. This is why popular picks like Vercel always surface even when the
 /// registry's own search doesn't return them.
-pub fn search(query: &str) -> Result<Vec<CatalogEntry>, String> {
+///
+/// A registry failure (slow or unreachable) never drops the curated matches
+/// already found in this same call (D-101): it is reported as `registry_error`
+/// alongside whatever entries are available instead of in their place.
+pub fn search(query: &str) -> CatalogSearch {
+    search_with(
+        REGISTRY_URL,
+        query,
+        REGISTRY_CONNECT_TIMEOUT,
+        REGISTRY_READ_TIMEOUT,
+        REGISTRY_CACHE_TTL,
+    )
+}
+
+/// [`search`] parameterized over the registry endpoint, timeouts and cache TTL,
+/// so tests can point it at a local mock server with budgets measured in
+/// milliseconds instead of minutes.
+fn search_with(
+    base_url: &str,
+    query: &str,
+    connect_timeout: Duration,
+    read_timeout: Duration,
+    cache_ttl: Duration,
+) -> CatalogSearch {
     let mut out = search_curated(query);
     let mut seen: std::collections::HashSet<String> =
         out.iter().map(|e| e.name.to_lowercase()).collect();
+    let mut registry_error = None;
     if !query.trim().is_empty() {
-        // Propagate a registry/network failure instead of swallowing it: otherwise an
-        // outage renders as an innocent "no results" in the UI with no retry. An empty
-        // registry response is `Ok(empty)`, so only a real failure surfaces as an error.
-        for e in search_registry(query)? {
+        let (registry_entries, error) = registry_search_cached_from(
+            base_url,
+            query,
+            connect_timeout,
+            read_timeout,
+            cache_ttl,
+        );
+        for e in registry_entries {
             if seen.insert(e.name.to_lowercase()) {
                 out.push(e);
             }
         }
+        registry_error = error;
     }
     rank_search_results(&mut out, query);
-    Ok(out)
+    CatalogSearch {
+        entries: out,
+        registry_error,
+    }
 }
 
 fn rank_search_results(entries: &mut [CatalogEntry], query: &str) {
@@ -795,33 +871,65 @@ fn is_active(item: &Value) -> bool {
         .is_none_or(|status| status == "active")
 }
 
-fn registry_search_url(query: &str) -> String {
+fn registry_search_url(base_url: &str, query: &str) -> String {
     let q = query.trim();
     if q.is_empty() {
-        format!("{REGISTRY_URL}?limit=50&version=latest")
+        format!("{base_url}?limit=50&version=latest")
     } else {
         format!(
-            "{REGISTRY_URL}?limit=50&version=latest&search={}",
+            "{base_url}?limit=50&version=latest&search={}",
             urlencoding::encode(q)
         )
     }
 }
 
-/// Search the official MCP Registry. Empty query lists popular/recent servers.
-pub fn search_registry(query: &str) -> Result<Vec<CatalogEntry>, String> {
-    let url = registry_search_url(query);
+/// Classify a transport-level ureq failure: the body-read half of a budget
+/// surfaces as `ErrorKind::Io` with a "timed out" message (ureq normalizes
+/// `WouldBlock`/`TimedOut` this way, see `stream.rs`), while DNS and connect
+/// failures - including a connect-phase timeout - come back as
+/// `ConnectionFailed`. Anything else (bad URL, bad status line, proxy) is
+/// `"other"`: real, but not one the UI needs a dedicated message for.
+fn classify_ureq_error(error: &ureq::Error) -> RegistryError {
+    let message = error.to_string();
+    let kind = match error {
+        ureq::Error::Status(_, _) => "other",
+        ureq::Error::Transport(transport) => match transport.kind() {
+            ureq::ErrorKind::ConnectionFailed
+            | ureq::ErrorKind::Dns
+            | ureq::ErrorKind::ProxyConnect
+            | ureq::ErrorKind::ProxyUnauthorized
+            | ureq::ErrorKind::InvalidProxyUrl => "connectionFailed",
+            ureq::ErrorKind::Io if message.to_ascii_lowercase().contains("timed out") => {
+                "timeout"
+            }
+            _ => "other",
+        },
+    };
+    RegistryError::new(kind, message)
+}
+
+/// Classify a plain `io::Error` from reading the response body (the read
+/// timeout also applies here, past the point a [`ureq::Error`] would be seen).
+fn classify_io_error(error: &std::io::Error) -> RegistryError {
+    let kind = if error.kind() == std::io::ErrorKind::TimedOut {
+        "timeout"
+    } else {
+        "connectionFailed"
+    };
+    RegistryError::new(kind, error.to_string())
+}
+
+fn fetch_registry(agent: &ureq::Agent, url: &str) -> Result<Vec<CatalogEntry>, RegistryError> {
     use std::io::Read;
-    let resp = ureq::get(&url)
-        .timeout(std::time::Duration::from_secs(20))
-        .call()
-        .map_err(|e| e.to_string())?;
+    let resp = agent.get(url).call().map_err(|e| classify_ureq_error(&e))?;
     // Cap the registry response (defense in depth against a huge or MITM'd body).
     let mut buf = Vec::new();
     resp.into_reader()
         .take(8 * 1024 * 1024)
         .read_to_end(&mut buf)
-        .map_err(|e| e.to_string())?;
-    let body: Value = serde_json::from_slice(&buf).map_err(|e| e.to_string())?;
+        .map_err(|e| classify_io_error(&e))?;
+    let body: Value = serde_json::from_slice(&buf)
+        .map_err(|e| RegistryError::new("other", e.to_string()))?;
 
     let items = body
         .get("servers")
@@ -836,10 +944,140 @@ pub fn search_registry(query: &str) -> Result<Vec<CatalogEntry>, String> {
         .collect())
 }
 
+/// Search the official MCP Registry. Empty query lists popular/recent servers.
+/// Connect and read get separate budgets (D-101): the registry's own search is
+/// slow, not down, on an uncached query, so this must outlast that instead of
+/// giving up on a connection that is still working.
+pub fn search_registry(query: &str) -> Result<Vec<CatalogEntry>, RegistryError> {
+    search_registry_from(REGISTRY_URL, query, REGISTRY_CONNECT_TIMEOUT, REGISTRY_READ_TIMEOUT)
+}
+
+fn search_registry_from(
+    base_url: &str,
+    query: &str,
+    connect_timeout: Duration,
+    read_timeout: Duration,
+) -> Result<Vec<CatalogEntry>, RegistryError> {
+    let url = registry_search_url(base_url, query);
+    let agent = ureq::AgentBuilder::new()
+        .timeout_connect(connect_timeout)
+        .timeout_read(read_timeout)
+        .build();
+    fetch_registry(&agent, &url)
+}
+
+struct CachedRegistrySearch {
+    entries: Vec<CatalogEntry>,
+    fetched_at: Instant,
+}
+
+#[derive(Default)]
+struct RegistryCache {
+    // Keyed by (base url, normalized query) so tests pointed at a local mock
+    // server never share an entry with the live registry or with each other.
+    by_query: HashMap<(String, String), CachedRegistrySearch>,
+}
+
+static REGISTRY_CACHE: OnceLock<Mutex<RegistryCache>> = OnceLock::new();
+
+fn registry_cache() -> &'static Mutex<RegistryCache> {
+    REGISTRY_CACHE.get_or_init(|| Mutex::new(RegistryCache::default()))
+}
+
+/// [`search_registry_from`] in front of a per-query cache: a call within
+/// [`REGISTRY_CACHE_TTL`] of the last success is served from memory with no
+/// network call, and a failed call falls back to the last good answer for the
+/// same query (however stale) rather than losing results the user already
+/// saw. The real error is always logged, and always returned alongside
+/// whatever entries are available, so a caller can decide what to show.
+fn registry_search_cached_from(
+    base_url: &str,
+    query: &str,
+    connect_timeout: Duration,
+    read_timeout: Duration,
+    cache_ttl: Duration,
+) -> (Vec<CatalogEntry>, Option<RegistryError>) {
+    let key = (base_url.to_string(), query.trim().to_lowercase());
+    {
+        let cache = registry_cache().lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(cached) = cache.by_query.get(&key) {
+            if cached.fetched_at.elapsed() < cache_ttl {
+                return (cached.entries.clone(), None);
+            }
+        }
+    }
+    match search_registry_from(base_url, query, connect_timeout, read_timeout) {
+        Ok(entries) => {
+            registry_cache().lock().unwrap_or_else(|e| e.into_inner()).by_query.insert(
+                key,
+                CachedRegistrySearch {
+                    entries: entries.clone(),
+                    fetched_at: Instant::now(),
+                },
+            );
+            (entries, None)
+        }
+        Err(error) => {
+            crate::gatewaylog::append(&format!(
+                "toolport: registry search failed ({}): {}",
+                error.kind, error.message
+            ));
+            let stale = registry_cache()
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .by_query
+                .get(&key)
+                .map(|cached| cached.entries.clone());
+            (stale.unwrap_or_default(), Some(error))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    /// Read a request off a raw mock-server socket up to the end of its headers
+    /// (there is no body on a registry GET), so the response write that follows
+    /// isn't racing the client's own read.
+    fn read_request_headers(stream: &mut std::net::TcpStream) {
+        let mut buf = Vec::new();
+        let mut byte = [0u8; 1];
+        while stream.read(&mut byte).unwrap_or(0) > 0 {
+            buf.push(byte[0]);
+            if buf.len() >= 4 && &buf[buf.len() - 4..] == b"\r\n\r\n" {
+                break;
+            }
+        }
+    }
+
+    fn write_json_response(stream: &mut std::net::TcpStream, body: &str) {
+        let _ = write!(
+            stream,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            body.len(),
+            body
+        );
+        let _ = stream.flush();
+    }
+
+    /// One registry entry, matching the shape [`map_server`] expects, with a
+    /// dummy remote so it maps to a valid `CatalogEntry`.
+    fn mock_registry_body(name: &str) -> String {
+        json!({
+            "servers": [{
+                "name": format!("io.example/{name}"),
+                "title": name,
+                "remotes": [{"url": "https://example.com/mcp", "type": "sse"}],
+            }]
+        })
+        .to_string()
+    }
 
     #[test]
     fn curated_remote_setup_matches_supported_publisher_auth() {
@@ -861,11 +1099,11 @@ mod tests {
     #[test]
     fn registry_search_requests_only_current_versions() {
         assert_eq!(
-            registry_search_url(""),
+            registry_search_url(REGISTRY_URL, ""),
             "https://registry.modelcontextprotocol.io/v0.1/servers?limit=50&version=latest"
         );
         assert_eq!(
-            registry_search_url(" git hub "),
+            registry_search_url(REGISTRY_URL, " git hub "),
             "https://registry.modelcontextprotocol.io/v0.1/servers?limit=50&version=latest&search=git%20hub"
         );
     }
@@ -1445,5 +1683,167 @@ mod tests {
         assert!(postman.command.is_none());
         assert_eq!(postman.category, "Apps & productivity");
         assert!(postman.setup_hint.as_deref().unwrap().contains("OAuth"));
+    }
+
+    #[test]
+    fn registry_error_kinds_are_distinct_strings() {
+        use std::io;
+        let timeout = classify_io_error(&io::Error::new(io::ErrorKind::TimedOut, "slow"));
+        assert_eq!(timeout.kind, "timeout");
+        let reset = classify_io_error(&io::Error::new(io::ErrorKind::ConnectionReset, "reset"));
+        assert_eq!(reset.kind, "connectionFailed");
+        assert_ne!(timeout.kind, reset.kind);
+    }
+
+    // D-101: a registry that stalls past the read budget must not take the
+    // curated matches already found in the same call down with it.
+    #[test]
+    fn search_registry_timeout_keeps_curated_hits_and_reports_timeout() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            read_request_headers(&mut stream);
+            // Never respond: the client's own read budget must fire unaided.
+            std::thread::sleep(Duration::from_millis(400));
+        });
+        let base_url = format!("http://127.0.0.1:{port}/v0.1/servers");
+        let result = search_with(
+            &base_url,
+            "slack",
+            Duration::from_millis(300),
+            Duration::from_millis(150),
+            Duration::from_secs(600),
+        );
+        server.join().unwrap();
+        assert!(
+            result.entries.iter().any(|e| e.name == "Slack"),
+            "a curated hit must survive a stalled registry call"
+        );
+        let error = result
+            .registry_error
+            .expect("a stalled registry call must report an error");
+        assert_eq!(error.kind, "timeout");
+    }
+
+    #[test]
+    fn search_registry_connection_failure_is_classified_distinctly() {
+        // Bind then drop: the port is free again but nothing is listening, so a
+        // connect attempt there is refused rather than stalling.
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+        let base_url = format!("http://127.0.0.1:{port}/v0.1/servers");
+        let result = search_with(
+            &base_url,
+            "zzz-mock-connection-refused",
+            Duration::from_millis(300),
+            Duration::from_millis(300),
+            Duration::from_secs(600),
+        );
+        let error = result
+            .registry_error
+            .expect("a refused connection must report an error");
+        assert_eq!(error.kind, "connectionFailed");
+    }
+
+    #[test]
+    fn registry_cache_serves_a_repeat_query_without_a_new_network_call() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let hits = Arc::new(AtomicUsize::new(0));
+        let hits_server = Arc::clone(&hits);
+        let server = std::thread::spawn(move || {
+            // Exactly one connection is ever served: a second real network
+            // attempt against this address is refused, which is how the test
+            // proves the second call below never reached the network.
+            let (mut stream, _) = listener.accept().unwrap();
+            read_request_headers(&mut stream);
+            hits_server.fetch_add(1, Ordering::SeqCst);
+            write_json_response(&mut stream, &mock_registry_body("Widget"));
+        });
+        let base_url = format!("http://127.0.0.1:{port}/v0.1/servers");
+        let ttl = Duration::from_secs(600);
+        let budget = Duration::from_millis(300);
+        let first = search_with(&base_url, "zzz-mock-cache", budget, budget, ttl);
+        server.join().unwrap();
+        assert_eq!(hits.load(Ordering::SeqCst), 1);
+        assert!(first.registry_error.is_none());
+        assert!(first.entries.iter().any(|e| e.name == "Widget"));
+
+        let second = search_with(&base_url, "zzz-mock-cache", budget, budget, ttl);
+        assert_eq!(
+            hits.load(Ordering::SeqCst),
+            1,
+            "a cache hit must not reach the network again"
+        );
+        assert!(second.registry_error.is_none());
+        assert_eq!(second.entries, first.entries);
+    }
+
+    #[test]
+    fn registry_cache_expires_and_refetches_after_ttl() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let hits = Arc::new(AtomicUsize::new(0));
+        let hits_server = Arc::clone(&hits);
+        let server = std::thread::spawn(move || {
+            for stream in listener.incoming().take(2) {
+                let mut stream = stream.unwrap();
+                read_request_headers(&mut stream);
+                hits_server.fetch_add(1, Ordering::SeqCst);
+                write_json_response(&mut stream, &mock_registry_body("Widget"));
+            }
+        });
+        let base_url = format!("http://127.0.0.1:{port}/v0.1/servers");
+        let budget = Duration::from_millis(300);
+        let short_ttl = Duration::from_millis(150);
+        let first = search_with(&base_url, "zzz-mock-ttl", budget, budget, short_ttl);
+        assert!(first.registry_error.is_none());
+        assert_eq!(hits.load(Ordering::SeqCst), 1);
+
+        // Generous margin over the TTL so ordinary scheduling jitter can't
+        // make this flaky.
+        std::thread::sleep(Duration::from_millis(500));
+        let second = search_with(&base_url, "zzz-mock-ttl", budget, budget, short_ttl);
+        server.join().unwrap();
+        assert_eq!(
+            hits.load(Ordering::SeqCst),
+            2,
+            "an expired cache entry must refetch instead of serving stale data forever"
+        );
+        assert!(second.registry_error.is_none());
+    }
+
+    #[test]
+    fn registry_falls_back_to_last_good_answer_when_a_stale_refetch_fails() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = std::thread::spawn(move || {
+            // Serves exactly one request, then the listener is gone: the
+            // refetch after the cache goes stale is a genuine failure, not
+            // another good answer.
+            let (mut stream, _) = listener.accept().unwrap();
+            read_request_headers(&mut stream);
+            write_json_response(&mut stream, &mock_registry_body("Widget"));
+        });
+        let base_url = format!("http://127.0.0.1:{port}/v0.1/servers");
+        let budget = Duration::from_millis(300);
+        let short_ttl = Duration::from_millis(150);
+        let first = search_with(&base_url, "zzz-mock-stale", budget, budget, short_ttl);
+        server.join().unwrap();
+        assert!(first.registry_error.is_none());
+        assert!(first.entries.iter().any(|e| e.name == "Widget"));
+
+        std::thread::sleep(Duration::from_millis(500));
+        let second = search_with(&base_url, "zzz-mock-stale", budget, budget, short_ttl);
+        let error = second
+            .registry_error
+            .expect("a failed refetch must still report the error");
+        assert_eq!(error.kind, "connectionFailed");
+        assert!(
+            second.entries.iter().any(|e| e.name == "Widget"),
+            "the last good answer must survive a failed refetch"
+        );
     }
 }
