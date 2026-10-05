@@ -540,6 +540,32 @@ fn google_registry_reads_plain_profile_env() {
 }
 
 #[test]
+fn google_registry_registers_default_account_without_profile_env() {
+    let mut reg = crate::registry::Registry::default();
+    let mut entry: crate::registry::ServerEntry = serde_json::from_value(json!({
+        "id": "gdocs", "name": "google-docs-mcp", "transport": "stdio",
+        "env": [
+            {"key": "GOOGLE_CLIENT_ID", "secret": true},
+            {"key": "GOOGLE_CLIENT_SECRET", "secret": true},
+        ],
+    }))
+    .unwrap();
+    entry.id = "gdocs".to_string();
+    reg.servers.push(entry);
+
+    let registry = super::google::google_registry(&reg);
+    let spec = registry.get("gdocs").unwrap();
+    assert_eq!(spec.profile.as_deref(), Some("default"));
+    assert_eq!(spec.profile_gate_key().as_deref(), Some("google:default"));
+
+    let base = scratch("default-account-registry");
+    assert_eq!(
+        super::google::token_path(&base, spec.profile.as_deref().unwrap()),
+        Some(base.join("token.json"))
+    );
+}
+
+#[test]
 fn probe_handler_validates_arguments() {
     let _lock = crate::registry::data_dir_test_lock();
     let dir = scratch("handler");
