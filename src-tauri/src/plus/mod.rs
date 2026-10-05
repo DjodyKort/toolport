@@ -6,6 +6,7 @@ pub mod ctl;
 
 use serde_json::{json, Value};
 
+pub mod attention;
 pub mod auth;
 pub mod bridge;
 pub mod cc;
