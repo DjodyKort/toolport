@@ -79,11 +79,15 @@ fn catalog_row(entry: &CatalogEntry) -> Value {
     })
 }
 
-fn run_search(query: &str, offline: bool) -> Result<Vec<CatalogEntry>, CtlError> {
+/// A registry failure never fails the command outright (D-101): curated hits
+/// still come back, and the error (if any) rides along for the caller to
+/// decide what to show.
+fn run_search(query: &str, offline: bool) -> (Vec<CatalogEntry>, Option<catalog::RegistryError>) {
     if offline {
-        Ok(catalog::search_curated(query))
+        (catalog::search_curated(query), None)
     } else {
-        catalog::search(query).map_err(|e| CtlError::failed("catalog", e))
+        let found = catalog::search(query);
+        (found.entries, found.registry_error)
     }
 }
 
@@ -96,10 +100,10 @@ pub fn search(rest: &[String]) -> Result<Output, CtlError> {
         None => usize::MAX,
     };
     let query = flags.operands().join(" ");
-    let mut found = run_search(&query, flags.on("--offline"))?;
+    let (mut found, registry_error) = run_search(&query, flags.on("--offline"));
     let total = found.len();
     found.truncate(limit);
-    let human = if found.is_empty() {
+    let mut human = if found.is_empty() {
         "No matches.".to_string()
     } else {
         found
@@ -113,20 +117,27 @@ pub fn search(rest: &[String]) -> Result<Output, CtlError> {
             .collect::<Vec<_>>()
             .join("\n")
     };
-    Ok(Output::new(
-        json!({
-            "query": query,
-            "total": total,
-            "results": found.iter().map(catalog_row).collect::<Vec<_>>(),
-        }),
-        human,
-    ))
+    let mut data = json!({
+        "query": query,
+        "total": total,
+        "results": found.iter().map(catalog_row).collect::<Vec<_>>(),
+    });
+    if let Some(error) = &registry_error {
+        let reason = match error.kind.as_str() {
+            "timeout" => "is slow or unavailable right now",
+            "connectionFailed" => "could not be reached",
+            _ => "returned an error",
+        };
+        human.push_str(&format!("\n\n(the MCP Registry {reason}: {})", error.message));
+        data["registryError"] = json!({"kind": error.kind, "message": error.message});
+    }
+    Ok(Output::new(data, human))
 }
 
 pub fn install(rest: &[String]) -> Result<Output, CtlError> {
     let flags = INSTALL.parse(rest)?;
     let name = flags.single(INSTALL_USAGE)?;
-    let found = run_search(name, flags.on("--offline"))?;
+    let (found, _registry_error) = run_search(name, flags.on("--offline"));
     let entry = found
         .into_iter()
         .find(|e| e.name.eq_ignore_ascii_case(name))
