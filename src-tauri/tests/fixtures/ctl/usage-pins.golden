@@ -119,6 +119,9 @@ Commands:
   library pull   Fast-forward the skills library from its remote; refuses over uncommitted changes (--dry-run)
   library push   Audit and secret-scan, then push the skills library; never forces (--dry-run)
   library        Library: status pull push
+  attention ls   List what wants a decision, most urgent first: needs-you, look, fyi (--level filters; reads local state only)
+  attention dismiss Hide one attention row until a date or for good (--until, --dry-run)
+  attention      Attention: ls dismiss
   plugins ls     List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)
   plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
   plugins config Set or unset a plugin's own switches: env keys in a folder, plugin options without one (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)
@@ -306,6 +309,9 @@ Commands:
   library pull   Fast-forward the skills library from its remote; refuses over uncommitted changes (--dry-run)
   library push   Audit and secret-scan, then push the skills library; never forces (--dry-run)
   library        Library: status pull push
+  attention ls   List what wants a decision, most urgent first: needs-you, look, fyi (--level filters; reads local state only)
+  attention dismiss Hide one attention row until a date or for good (--until, --dry-run)
+  attention      Attention: ls dismiss
   plugins ls     List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)
   plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
   plugins config Set or unset a plugin's own switches: env keys in a folder, plugin options without one (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)
@@ -493,6 +499,9 @@ Commands:
   library pull   Fast-forward the skills library from its remote; refuses over uncommitted changes (--dry-run)
   library push   Audit and secret-scan, then push the skills library; never forces (--dry-run)
   library        Library: status pull push
+  attention ls   List what wants a decision, most urgent first: needs-you, look, fyi (--level filters; reads local state only)
+  attention dismiss Hide one attention row until a date or for good (--until, --dry-run)
+  attention      Attention: ls dismiss
   plugins ls     List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)
   plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
   plugins config Set or unset a plugin's own switches: env keys in a folder, plugin options without one (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)
@@ -680,6 +689,9 @@ Commands:
   library pull   Fast-forward the skills library from its remote; refuses over uncommitted changes (--dry-run)
   library push   Audit and secret-scan, then push the skills library; never forces (--dry-run)
   library        Library: status pull push
+  attention ls   List what wants a decision, most urgent first: needs-you, look, fyi (--level filters; reads local state only)
+  attention dismiss Hide one attention row until a date or for good (--until, --dry-run)
+  attention      Attention: ls dismiss
   plugins ls     List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)
   plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
   plugins config Set or unset a plugin's own switches: env keys in a folder, plugin options without one (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)
@@ -3941,6 +3953,88 @@ exit 2
 --- stdout
 --- stderr
 toolportctl: unexpected argument: --force
+Run `toolportctl --help` for usage.
+=== ["attention"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: attention ls|dismiss (ls: [--level needs-you|look|fyi]; dismiss: <id> [--until <YYYY-MM-DD>] [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["attention","bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: attention ls|dismiss (ls: [--level needs-you|look|fyi]; dismiss: <id> [--until <YYYY-MM-DD>] [--dry-run])
+Run `toolportctl --help` for usage.
+=== ["attention","ls","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: attention ls [--level needs-you|look|fyi]
+Run `toolportctl --help` for usage.
+=== ["attention","ls","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: attention ls [--level needs-you|look|fyi]
+Run `toolportctl --help` for usage.
+=== ["attention","ls","--level"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --level requires needs-you, look or fyi
+Run `toolportctl --help` for usage.
+=== ["attention","ls","--level","urgent"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --level must be one of needs-you, look, fyi
+Run `toolportctl --help` for usage.
+=== ["attention","ls","--until","2099-01-01"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --until
+usage: attention ls [--level needs-you|look|fyi]
+Run `toolportctl --help` for usage.
+=== ["attention","dismiss"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: attention dismiss <id> [--until <YYYY-MM-DD>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["attention","dismiss","a","b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: attention dismiss <id> [--until <YYYY-MM-DD>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["attention","dismiss","a","--until"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --until requires a date like 2026-10-31
+Run `toolportctl --help` for usage.
+=== ["attention","dismiss","a","--until","soon"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --until must be a calendar date like 2026-10-31, got "soon"
+Run `toolportctl --help` for usage.
+=== ["attention","dismiss","a","--until","2026-02-30"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --until must be a calendar date like 2026-10-31, got "2026-02-30"
+Run `toolportctl --help` for usage.
+=== ["attention","dismiss","a","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: attention dismiss <id> [--until <YYYY-MM-DD>] [--dry-run]
 Run `toolportctl --help` for usage.
 === ["sources"]
 exit 2

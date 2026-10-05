@@ -21,6 +21,7 @@ mod library_tests;
 mod context_tests;
 #[cfg(test)]
 mod coverage_tests;
+mod attention;
 mod direct;
 mod library;
 #[cfg(test)]

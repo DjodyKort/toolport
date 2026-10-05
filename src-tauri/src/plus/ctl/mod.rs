@@ -2,6 +2,7 @@
 //! parsing, dispatch and rendering live here so they are unit-testable.
 
 mod agents;
+mod attention;
 mod auth;
 mod cc;
 mod client;
@@ -572,6 +573,17 @@ pub const COMMANDS: &[Command] = &[
         library::push,
     ),
     cmd(&["library"], "Library: status pull push", library::group),
+    cmd(
+        &["attention", "ls"],
+        "List what wants a decision, most urgent first: needs-you, look, fyi (--level filters; reads local state only)",
+        attention::ls,
+    ),
+    cmd(
+        &["attention", "dismiss"],
+        "Hide one attention row until a date or for good (--until, --dry-run)",
+        attention::dismiss,
+    ),
+    cmd(&["attention"], "Attention: ls dismiss", attention::group),
     cmd(
         &["plugins", "ls"],
         "List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)",
