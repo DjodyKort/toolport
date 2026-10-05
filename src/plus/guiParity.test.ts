@@ -44,6 +44,7 @@ describe("gui parity manifest", () => {
     ).toEqual([]);
     expect(summary.commandRows).toBe(summary.commands);
     expect(summary.toolRows).toBe(summary.tools);
+    expect(summary.rowsOnBuilt).toBe(summary.commands + summary.tools);
     expect(summary.actionsBuilt).toBe(Object.keys(guiParity.actions).length);
     expect(summary.pending).toBe(0);
     expect(summary.waivers).toBe(0);
@@ -152,12 +153,13 @@ describe("gui parity check", () => {
       tools: 2,
       commandRows: 3,
       toolRows: 2,
+      rowsOnBuilt: 2,
       actionsBuilt: 1,
       pending: 3,
       waivers: 1,
     });
     expect(summaryLine(summary)).toBe(
-      "gui parity: 3 commands, 2 tools, 5 manifest rows, 1 screen actions built, 3 pending, 1 waivers",
+      "gui parity: 3 commands + 2 tools = 5 manifest rows, 2 rows on built screen actions (1 distinct actions), 3 pending, 1 waivers",
     );
     expect(report.errors.join("\n")).toContain("neither screen nor terminal");
   });

@@ -450,6 +450,7 @@ struct Summary {
     tools: usize,
     command_rows: usize,
     tool_rows: usize,
+    rows_on_built: usize,
     actions_built: usize,
     pending: usize,
     waivers: usize,
@@ -459,6 +460,7 @@ impl Summary {
     fn of(manifest: &Value, registry: &Value, report: &Report) -> Summary {
         let commands = entries(manifest, "commands");
         let tools = entries(manifest, "tools");
+        let actions = entries(manifest, "actions");
         let waivers = commands
             .values()
             .chain(tools.values())
@@ -474,7 +476,17 @@ impl Summary {
             tools: registry["tools"].as_array().unwrap().len(),
             command_rows: commands.len(),
             tool_rows: tools.len(),
-            actions_built: entries(manifest, "actions")
+            rows_on_built: commands
+                .values()
+                .chain(tools.values())
+                .filter(|entry| {
+                    actions
+                        .get(field(entry, "action"))
+                        .map(|a| field(a, "status"))
+                        == Some("built")
+                })
+                .count(),
+            actions_built: actions
                 .values()
                 .filter(|action| field(action, "status") == "built")
                 .count(),
@@ -485,10 +497,11 @@ impl Summary {
 
     fn line(&self) -> String {
         format!(
-            "gui parity: {} commands, {} tools, {} manifest rows, {} screen actions built, {} pending, {} waivers",
+            "gui parity: {} commands + {} tools = {} manifest rows, {} rows on built screen actions ({} distinct actions), {} pending, {} waivers",
             self.commands,
             self.tools,
             self.command_rows + self.tool_rows,
+            self.rows_on_built,
             self.actions_built,
             self.pending,
             self.waivers
@@ -511,6 +524,7 @@ fn the_manifest_gives_every_command_and_tool_a_built_screen_action() {
     );
     assert_eq!(summary.command_rows, summary.commands);
     assert_eq!(summary.tool_rows, summary.tools);
+    assert_eq!(summary.rows_on_built, summary.commands + summary.tools);
     assert_eq!(summary.actions_built, entries(&manifest, "actions").len());
     assert_eq!(summary.pending, 0);
     assert_eq!(summary.waivers, 0);
@@ -628,6 +642,7 @@ mod checker {
                 tools: 2,
                 command_rows: 3,
                 tool_rows: 2,
+                rows_on_built: 2,
                 actions_built: 1,
                 pending: 3,
                 waivers: 1,
@@ -635,7 +650,7 @@ mod checker {
         );
         assert_eq!(
             summary.line(),
-            "gui parity: 3 commands, 2 tools, 5 manifest rows, 1 screen actions built, 3 pending, 1 waivers"
+            "gui parity: 3 commands + 2 tools = 5 manifest rows, 2 rows on built screen actions (1 distinct actions), 3 pending, 1 waivers"
         );
         assert!(report
             .errors
