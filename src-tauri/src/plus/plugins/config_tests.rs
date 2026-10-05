@@ -1,5 +1,6 @@
 use super::config::{self, ConfigArgs, McpOp};
 use super::tests::Fx;
+#[cfg(unix)]
 use super::{ClaudeRunner, SystemClaude};
 use crate::plus::op::{ErrorKind, OpError};
 use crate::plus::randutil::{run_cases, Rng};
@@ -7,7 +8,9 @@ use crate::plus::testutil::tree_snapshot;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 
+#[cfg(unix)]
 const STUB: &str = include_str!("../../../tests/fixtures/plugins/claude-stub.sh");
+#[cfg(unix)]
 const CONFIGURE: &str = include_str!("../../../tests/fixtures/plugins/configure-ecc.json");
 
 struct World {
@@ -155,6 +158,7 @@ fn refusals_name_the_problem() {
     assert!(!w.settings().exists());
 }
 
+#[cfg(unix)]
 fn stub(w: &World) -> SystemClaude {
     let dir = w.fx.path("stub");
     std::fs::create_dir_all(dir.join("stub-data")).unwrap();
