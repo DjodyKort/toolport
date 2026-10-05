@@ -33,7 +33,9 @@ pub mod settings;
 pub mod shims;
 pub mod zshrc;
 
-mod globs;
+// Crate-visible (not just `context`-private) so `plus::update::release` can
+// reuse the same glob semantics for github-release asset patterns (MIG-UPD-8).
+pub(crate) mod globs;
 mod loads_extra;
 
 #[cfg(test)] mod layers_prop_tests;

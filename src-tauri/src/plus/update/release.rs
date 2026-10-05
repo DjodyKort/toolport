@@ -92,6 +92,19 @@ pub fn resolve_pattern(pattern: &str, version: &str, os: &str, arch: &str) -> St
         .replace("{arch}", arch)
 }
 
+/// A pattern with no glob metacharacter keeps today's behaviour (prefix match,
+/// e.g. a pattern that omits the extension because it varies by OS/arch); a
+/// pattern using `*`/`?`/`[`/`{` is matched for real, anywhere in the name, so
+/// `*darwin_arm64*` finds `tool-1.2.3-darwin_arm64.tar.gz` instead of only
+/// ever matching a literal leading asterisk (MIG-UPD-8).
+fn asset_matches(pattern: &str, name: &str) -> bool {
+    if pattern.contains(['*', '?', '[', '{']) {
+        crate::plus::context::globs::glob_match(pattern, name)
+    } else {
+        name.starts_with(pattern)
+    }
+}
+
 fn is_metadata_asset(name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
     SKIP_NAMES.contains(&lower.as_str()) || SKIP_EXTENSIONS.iter().any(|e| lower.ends_with(e))
@@ -181,7 +194,7 @@ pub fn check(
     let resolved = resolve_pattern(pattern, &version, &platform.0, &platform.1);
     let matched = assets
         .iter()
-        .filter(|(n, _)| n.starts_with(&resolved) && !is_metadata_asset(n))
+        .filter(|(n, _)| asset_matches(&resolved, n) && !is_metadata_asset(n))
         .min_by_key(|(n, _)| n.len())
         .ok_or_else(|| {
             let available: Vec<&str> = assets.iter().map(|(n, _)| n.as_str()).collect();
