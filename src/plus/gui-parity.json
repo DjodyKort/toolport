@@ -59,6 +59,11 @@
       "view": "tasks",
       "status": "built",
       "component": "src/plus/tasks/TasksScreen.tsx"
+    },
+    "attention": {
+      "title": "Attention",
+      "status": "built",
+      "component": "src/plus/attention/AttentionScreen.tsx"
     }
   },
   "actions": {
@@ -1177,6 +1182,18 @@
       "summary": "Update one plugin or all plugins from System > Updates and from Library > Plugins: dry-run plan, confirm, apply, restart note; Toolport does not roll plugins back",
       "status": "built",
       "test": "src/plus/plugins/PluginsHooks.e2e.test.tsx"
+    },
+    "attention.ls": {
+      "route": "attention",
+      "status": "built",
+      "test": "src/plus/attention/AttentionScreen.e2e.test.tsx",
+      "summary": "The list in three groups with the source, the age, the link to the screen that fixes it and the row's own action (preview first for a writer)"
+    },
+    "attention.dismiss": {
+      "route": "attention",
+      "status": "built",
+      "test": "src/plus/attention/AttentionScreen.e2e.test.tsx",
+      "summary": "Dismiss a row until tomorrow, for a week or for good: dry-run plan, confirm, apply, the undo hint"
     }
   },
   "owners": {
@@ -2062,13 +2079,13 @@
       "surface": "screen"
     },
     "attention ls": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "attention",
+      "action": "attention.ls",
       "surface": "screen"
     },
     "attention dismiss": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "attention",
+      "action": "attention.dismiss",
       "surface": "screen"
     }
   },
@@ -2569,8 +2586,8 @@
       "surface": "screen"
     },
     "attention_ls": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "attention",
+      "action": "attention.ls",
       "surface": "screen"
     }
   }
