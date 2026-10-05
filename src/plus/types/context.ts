@@ -35,21 +35,6 @@ export const contextCheckpointStatusData = obj({
 });
 export type ContextCheckpointStatusData = Infer<typeof contextCheckpointStatusData>;
 
-export const contextClientAddData = obj({
-  created: bool,
-  dryRun: bool,
-  glob: str,
-  name: str,
-  path: str,
-  rule: str,
-});
-export type ContextClientAddData = Infer<typeof contextClientAddData>;
-
-export const contextClientListData = obj({
-  layers: arr(any),
-});
-export type ContextClientListData = Infer<typeof contextClientListData>;
-
 export const contextDisableData = obj({
   actions: arr(str),
   dryRun: bool,
@@ -194,9 +179,6 @@ export const contextShapes: Record<string, Shape<unknown>> = {
   "context-apply.apply": contextApplyData,
   "context-apply.preview": contextApplyData,
   "context-checkpoint-status.status": contextCheckpointStatusData,
-  "context-client-add.apply": contextClientAddData,
-  "context-client-add.preview": contextClientAddData,
-  "context-client-list": contextClientListData,
   "context-disable.apply": contextDisableData,
   "context-disable.preview": contextDisableData,
   "context-folders": contextFoldersData,

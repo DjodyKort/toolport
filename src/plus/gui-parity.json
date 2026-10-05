@@ -1105,9 +1105,24 @@
       "action": "context.client-add",
       "surface": "screen"
     },
+    "context client edit": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
     "context client list": {
       "route": "context",
       "action": "context.client-list",
+      "surface": "screen"
+    },
+    "context client rm": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "context compose": {
+      "route": "all-commands",
+      "action": "all-commands.run",
       "surface": "screen"
     },
     "context disable": {
@@ -1713,6 +1728,11 @@
       "surface": "screen"
     },
     "context_bundle_undo": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "context_compose": {
       "route": "all-commands",
       "action": "all-commands.run",
       "surface": "screen"
