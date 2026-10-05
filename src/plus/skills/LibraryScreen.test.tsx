@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("./SkillsTab", () => ({ SkillsTab: () => <p>Skills panel</p> }));
+vi.mock("./sources/SourcesTab", () => ({ SourcesTab: () => <p>Sources panel</p> }));
 vi.mock("../agents", () => ({
   AgentsTab: () => <p>Agents panel</p>,
   StylesTab: () => <p>Styles panel</p>,
@@ -30,10 +31,7 @@ describe("Library screen", () => {
     const user = userEvent.setup();
     render(<LibraryScreen onOpenCommands={vi.fn()} />);
     const tabs = await screen.findByRole("tablist", { name: "Library sections" });
-    for (const [tab, item] of [
-      ["Plugins", "MIG-GUI-12"],
-      ["Sources", "MIG-GUI-10"],
-    ]) {
+    for (const [tab, item] of [["Plugins", "MIG-GUI-12"]]) {
       await user.click(within(tabs).getByRole("tab", { name: tab }));
       expect(screen.getByText("Not built yet")).toBeInTheDocument();
       expect(screen.getByText(new RegExp(`built by ${item}\\b`))).toBeInTheDocument();
@@ -49,6 +47,15 @@ describe("Library screen", () => {
     expect(screen.queryByText("Not built yet")).toBeNull();
     await user.click(screen.getByRole("tab", { name: "Styles" }));
     expect(screen.getByText("Styles panel")).toBeInTheDocument();
+  });
+
+  it("mounts the Sources panel lazily as a tab", async () => {
+    const user = userEvent.setup();
+    render(<LibraryScreen onOpenCommands={vi.fn()} />);
+    expect(screen.queryByText("Sources panel")).toBeNull();
+    await user.click(await screen.findByRole("tab", { name: "Sources" }));
+    expect(await screen.findByText("Sources panel")).toBeInTheDocument();
+    expect(screen.queryByText("Not built yet")).toBeNull();
   });
 
   it("offers the All commands page on a tab nobody has built", async () => {
