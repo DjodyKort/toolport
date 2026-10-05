@@ -8,6 +8,7 @@ import {
   plusSourcesRootFixture,
 } from "./sources";
 import { serversCtlFixtures } from "./servers";
+import { serversToolsBrowserFixtures } from "../servers/browserFixtures";
 import { skillsBrowserFixtures } from "../skills/browserFixtures";
 import { compressionBrowserFixtures } from "../compression/browserFixtures";
 import { usageCtlFixtures } from "../usage/browserFixtures";
@@ -54,6 +55,7 @@ export const plusCtlFixtures = new Map<string, unknown>([
   ["server uninstall acme-erp --dry-run", uninstallPlan],
   ["attention ls", { counts: { needsYou: 3, look: 2, fyi: 0 }, items: [] }],
   ...serversCtlFixtures,
+  ...serversToolsBrowserFixtures,
   // The two synthetic worlds share their servers; where both answer a command, Servers wins.
   ...loginsCtlFixtures.filter(([key]) => !serversCtlFixtures.has(key)),
   // The Usage tab reads and, for the OTel receiver, changes a small world of its own.

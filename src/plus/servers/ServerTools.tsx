@@ -300,16 +300,17 @@ export function ServerTools({
 
   function addTag(tag: string, exists: boolean) {
     const match = profileMatch(profiles, tag);
+    const label = match?.name ?? tag;
     begin(
       toolSpec("servers_add_profile_tag", {
-        title: `Add ${view.name} to ${match?.name ?? tag}`,
+        title: `Add ${view.name} to ${label}`,
         confirmLabel: exists ? "Add to profile" : "Create and add",
         stdin: toolArgs({ name: view.name, profile_tag: match?.id ?? tag }),
-        planned: addTagPlan(view.name, tag, exists),
+        planned: addTagPlan(view.name, label, exists),
         adapt: (data, done) => {
           const parsed = callResult(data);
           return parsed.ok
-            ? tagResultPlan(parsed.result, tag, done)
+            ? tagResultPlan(parsed.result, label, done)
             : failedPlan(parsed.message);
         },
         after: onChanged,

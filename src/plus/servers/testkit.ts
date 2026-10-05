@@ -12,7 +12,8 @@ export class BridgeDown {
 
 export const bridgeDown = (message: string) => new BridgeDown(message);
 
-export type Reply = unknown | ((argv: string[]) => unknown | Promise<unknown>);
+export type Reply =
+  unknown | ((argv: string[], call: Call) => unknown | Promise<unknown>);
 
 export interface Call {
   job: string;
@@ -71,7 +72,8 @@ export function createBridge() {
           throw new Error(`no fake reply for plus_ctl ${key}`);
         }
         const wanted = replies.get(key);
-        const value = typeof wanted === "function" ? await wanted(call.argv) : wanted;
+        const value =
+          typeof wanted === "function" ? await wanted(call.argv, call) : wanted;
         if (value instanceof BridgeDown) {
           return {
             job: call.job,
