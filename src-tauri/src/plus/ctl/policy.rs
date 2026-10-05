@@ -13,7 +13,7 @@ use super::{context, context_bundle, context_manage, council, folders, import, m
 use super::task;
 use super::attention;
 use super::{
-    hooks, library, plugins, server, skills, skills_repo, skills_state, skills_taps, sources, styles, sync,
+    hooks, library, plugins, plugins_switch, server, skills, skills_repo, skills_state, skills_taps, sources, styles, sync,
     update,
 };
 use super::usage;
@@ -555,6 +555,24 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&plugins::MCP])
         .args(&[req("action"), req("id"), req("server")])
         .requires(&["--cwd"]),
+    row("plugins off", W)
+        .dry()
+        .spec(&[&plugins_switch::OFF])
+        .args(&[req("id")])
+        .requires(&["--cwd"]),
+    row("plugins on", W)
+        .dry()
+        .spec(&[&plugins_switch::ON])
+        .args(&[req("id")])
+        .requires(&["--cwd"]),
+    row("plugins disable", D)
+        .dry()
+        .spec(&[&plugins_switch::DISABLE])
+        .args(&[req("id")]),
+    row("plugins enable", W)
+        .dry()
+        .spec(&[&plugins_switch::ENABLE])
+        .args(&[req("id")]),
     row("hooks ls", R).spec(&[&hooks::LS]),
     row("attention ls", R).spec(&[&attention::LS]),
     row("attention dismiss", W)

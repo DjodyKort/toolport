@@ -740,6 +740,22 @@ pub(super) const OVERRIDES: &[(&str, Meta)] = &[
         ),
     ),
     (
+        "plugins off",
+        m(
+            "--cwd",
+            Path,
+            "Folder whose .claude/settings.local.json gets enabledPlugins.<id> = false (required)",
+        ),
+    ),
+    (
+        "plugins on",
+        m(
+            "--cwd",
+            Path,
+            "Folder whose .claude/settings.local.json loses the entry `plugins off` wrote (required)",
+        ),
+    ),
+    (
         "hooks ls",
         m(
             "--cwd",

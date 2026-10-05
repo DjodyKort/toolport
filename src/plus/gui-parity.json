@@ -1475,12 +1475,32 @@
       "action": "all-commands.run",
       "surface": "screen"
     },
+    "plugins disable": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "plugins enable": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
     "plugins ls": {
       "route": "all-commands",
       "action": "all-commands.run",
       "surface": "screen"
     },
     "plugins mcp": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "plugins off": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "plugins on": {
       "route": "all-commands",
       "action": "all-commands.run",
       "surface": "screen"

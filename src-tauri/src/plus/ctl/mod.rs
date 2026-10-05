@@ -30,6 +30,7 @@ mod mcp;
 mod obs;
 mod output;
 mod plugins;
+mod plugins_switch;
 mod policy;
 mod profile;
 mod secret;
@@ -604,7 +605,27 @@ pub const COMMANDS: &[Command] = &[
         "Deny or allow a plugin's MCP server in a folder (deny|allow <id> <server>, --cwd, --dry-run)",
         plugins::mcp,
     ),
-    cmd(&["plugins"], "Plugins: ls show config mcp", plugins::group),
+    cmd(
+        &["plugins", "off"],
+        "Turn a plugin off in one folder: enabledPlugins in .claude/settings.local.json, undone by `plugins on` (<id>, --cwd, --dry-run)",
+        plugins_switch::off,
+    ),
+    cmd(
+        &["plugins", "on"],
+        "Turn a plugin back on in a folder: removes the entry `plugins off` wrote (<id>, --cwd, --dry-run)",
+        plugins_switch::on,
+    ),
+    cmd(
+        &["plugins", "disable"],
+        "Disable a plugin for every project through claude plugin disable --scope user (<id>, --dry-run)",
+        plugins_switch::disable,
+    ),
+    cmd(
+        &["plugins", "enable"],
+        "Enable a plugin at user scope through claude plugin enable --scope user (<id>, --dry-run)",
+        plugins_switch::enable,
+    ),
+    cmd(&["plugins"], "Plugins: ls show config mcp off on disable enable", plugins::group),
     cmd(
         &["hooks", "ls"],
         "List every hook Claude Code would start in a folder, from files (--cwd, --tool, --event, --owner)",
