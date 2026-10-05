@@ -269,6 +269,32 @@ pub fn check(
     })
 }
 
+const LS_REMOTE_TIMEOUT: Duration = Duration::from_secs(20);
+
+pub fn looks_like_sha(s: &str) -> bool {
+    (7..=40).contains(&s.len()) && s.chars().all(|c| c.is_ascii_hexdigit())
+}
+
+/// `git ls-remote` of a bare URL, no local clone (MIG-UPD-8: a `uvx
+/// --from git+URL[@ref]` package has no checkout to fetch into). `ref_name`
+/// is a branch/tag name, or `"HEAD"` for the remote's default branch. `cwd`
+/// only needs to exist; `ls-remote` never reads or writes it.
+pub fn ls_remote_tip(
+    git: &dyn GitRunner,
+    cwd: &Path,
+    url: &str,
+    ref_name: &str,
+) -> Result<Option<String>, String> {
+    let out = git.git(cwd, &["ls-remote", url, ref_name], LS_REMOTE_TIMEOUT)?;
+    if !out.ok() {
+        return Err(format!("git ls-remote failed: {}", out.first_error_line()));
+    }
+    Ok(out
+        .stdout
+        .lines()
+        .find_map(|l| l.split_whitespace().next().map(String::from)))
+}
+
 pub fn fast_forward(git: &dyn GitRunner, repo: &Path, remote_ref: &str) -> Result<(), String> {
     let out = git.git(repo, &["merge", "--ff-only", remote_ref], FETCH_TIMEOUT)?;
     if out.ok() {

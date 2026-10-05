@@ -39,6 +39,11 @@ pub enum Source {
     Uvx {
         package: String,
     },
+    Docker {
+        image: String,
+        tag: Option<String>,
+        digest: Option<String>,
+    },
     Remote,
     Unknown {
         reason: String,
@@ -52,6 +57,7 @@ impl Source {
             Source::GithubRelease { .. } => "github-release",
             Source::Npx { .. } => "npx",
             Source::Uvx { .. } => "uvx",
+            Source::Docker { .. } => "docker",
             Source::Remote => "remote",
             Source::Unknown { .. } => "unknown",
         }
@@ -113,6 +119,11 @@ impl Source {
             Source::Npx { package } | Source::Uvx { package } => {
                 m.insert("package".into(), json!(package));
             }
+            Source::Docker { image, tag, digest } => {
+                put("tag", tag);
+                put("digest", digest);
+                m.insert("image".into(), json!(image));
+            }
             Source::Remote => {}
             Source::Unknown { reason } => {
                 m.insert("reason".into(), json!(reason));
@@ -162,6 +173,11 @@ pub fn from_meta(meta: &Value) -> Option<Source> {
         }),
         "uvx" => Some(Source::Uvx {
             package: text(obj, "package")?,
+        }),
+        "docker" => Some(Source::Docker {
+            image: text(obj, "image")?,
+            tag: text(obj, "tag"),
+            digest: text(obj, "digest"),
         }),
         "remote" => Some(Source::Remote),
         "unknown" => Some(Source::Unknown {
@@ -254,6 +270,89 @@ fn first_path_like_arg(args: &[String]) -> Option<&str> {
         return Some(arg);
     }
     None
+}
+
+/// `docker run`/`podman run` flags that take a separate value argument, so
+/// the image reference (the first bare positional after them) is not
+/// mistaken for one of their values (MIG-UPD-8). Best-effort: covers the
+/// flags actually seen launching MCP servers, not the full CLI surface.
+fn docker_flag_takes_value(flag: &str) -> bool {
+    matches!(
+        flag,
+        "-e" | "--env"
+            | "--env-file"
+            | "-v"
+            | "--volume"
+            | "--mount"
+            | "-p"
+            | "--publish"
+            | "--name"
+            | "-w"
+            | "--workdir"
+            | "-u"
+            | "--user"
+            | "--entrypoint"
+            | "--network"
+            | "--platform"
+            | "-m"
+            | "--memory"
+            | "--add-host"
+            | "-l"
+            | "--label"
+            | "--restart"
+            | "--hostname"
+    )
+}
+
+/// The image argument of a `docker run`/`podman run` invocation: the first
+/// positional after `run` that is not a flag or a known flag's value.
+fn docker_image_arg(args: &[String]) -> Option<String> {
+    let mut iter = args.iter();
+    for a in iter.by_ref() {
+        if a == "run" {
+            break;
+        }
+    }
+    while let Some(a) = iter.next() {
+        if let Some((flag, _)) = a.split_once('=') {
+            if flag.starts_with('-') {
+                continue;
+            }
+        }
+        if let Some(flag) = a.strip_prefix('-') {
+            if docker_flag_takes_value(&format!("-{flag}")) {
+                iter.next();
+            }
+            continue;
+        }
+        return Some(a.clone());
+    }
+    None
+}
+
+/// Splits `name:tag` or `name@sha256:...` into a `Source::Docker`. A bare
+/// `host:port/name` has a colon too, so a tag is only taken when the text
+/// after it has no further `/` (a real tag never contains one).
+fn split_image_ref(image_ref: &str) -> Source {
+    if let Some((image, digest)) = image_ref.split_once('@') {
+        return Source::Docker {
+            image: image.to_string(),
+            tag: None,
+            digest: Some(digest.to_string()),
+        };
+    }
+    match image_ref.rsplit_once(':') {
+        Some((image, tag)) if !tag.contains('/') => Source::Docker {
+            image: image.to_string(),
+            tag: Some(tag.to_string()),
+            digest: None,
+        },
+        _ => Source::Docker {
+            image: image_ref.to_string(),
+            tag: Some("latest".to_string()),
+            digest: None,
+        },
+    }
 }
 
 fn git_source_for(path: &Path, git: &dyn GitRunner) -> Option<Source> {
@@ -383,9 +482,12 @@ pub fn detect(entry: &ServerEntry, home: Option<&Path>, git: &dyn GitRunner) -> 
                 },
             }
         }
-        "docker" | "docker-compose" | "docker.exe" => {
-            return Source::Unknown {
-                reason: "docker container; source tracking not implemented yet (MIG-UPD-8)".into(),
+        "docker" | "docker.exe" | "podman" => {
+            return match docker_image_arg(args) {
+                Some(image_ref) => split_image_ref(&image_ref),
+                None => Source::Unknown {
+                    reason: format!("{command} server but could not find the image argument"),
+                },
             }
         }
         _ => {}
