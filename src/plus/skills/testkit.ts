@@ -12,6 +12,8 @@ import {
   syncData,
   uninstallData,
 } from "./fixtures";
+import { CtlReplyFailure } from "../fixtures/ctlReply";
+import { createMcpWorld } from "../agents/mcpWorld";
 import { tapsCtlFixtures } from "./fixturesTaps";
 import { Failure, createSkillsWorld, type WorldOptions } from "./world";
 
@@ -21,7 +23,8 @@ const dir = join(__dirname, "../../../src-tauri/tests/fixtures/ctl-envelopes");
 export const goldenData = (stem: string) =>
   JSON.parse(readFileSync(join(dir, `${stem}.json`), "utf8")).envelope.data;
 
-export type Reply = unknown | ((argv: string[]) => unknown | Promise<unknown>);
+export type Reply =
+  unknown | ((argv: string[], stdin?: string) => unknown | Promise<unknown>);
 
 export { Failure };
 
@@ -31,6 +34,7 @@ export const failure = (code: string, message: string, data?: unknown) =>
 interface Call {
   job: string;
   argv: string[];
+  stdin?: string;
 }
 
 /** A fake `plus_ctl` bridge over the fixture world of the Skills tab. Every argv has a reply
@@ -44,6 +48,7 @@ export function createBridge(options: { world?: boolean | WorldOptions } = {}) {
     ? new Map<string, Reply>([
         ...createSkillsWorld(options.world === true ? {} : options.world),
         ["commands", registry],
+        ...createMcpWorld(),
       ])
     : null;
   const replies =
@@ -52,6 +57,7 @@ export function createBridge(options: { world?: boolean | WorldOptions } = {}) {
       ...skillsCtlFixtures,
       ...tapsCtlFixtures,
       ["commands", registry],
+      ...createMcpWorld(),
       ["skills clean --dry-run", cleanData(true)],
       ["skills clean", cleanData(false)],
       ["skills resolve --migrate --dry-run", resolveData(true, true)],
@@ -84,11 +90,20 @@ export function createBridge(options: { world?: boolean | WorldOptions } = {}) {
     set(argv: string, reply: Reply) {
       replies.set(argv, reply);
     },
+    get: (argv: string) => replies.get(argv),
     ran: () => calls.map((call) => call.argv.join(" ")),
+    /** The JSON arguments each run of a command got on stdin, in order. */
+    stdins: (argv: string) =>
+      calls
+        .filter((call) => call.argv.join(" ") === argv)
+        .map(
+          (call) => JSON.parse(call.stdin ?? "null") as Record<string, unknown> | null,
+        ),
     count: (argv: string) => calls.filter((call) => call.argv.join(" ") === argv).length,
     async invoke(command: string, args: Record<string, unknown> = {}): Promise<unknown> {
       if (command === "plus_ctl") {
-        const call = { job: `job-${++count}`, argv: args.argv as string[] };
+        const stdin = typeof args.stdinSecret === "string" ? args.stdinSecret : undefined;
+        const call: Call = { job: `job-${++count}`, argv: args.argv as string[], stdin };
         calls.push(call);
         jobs.set(call.job, call);
         return call.job;
@@ -102,8 +117,10 @@ export function createBridge(options: { world?: boolean | WorldOptions } = {}) {
           throw new Error(`no fake reply for plus_ctl ${key}`);
         }
         const wanted = replies.get(key);
-        const value = typeof wanted === "function" ? await wanted(call.argv) : wanted;
-        const failed = value instanceof Failure ? value : null;
+        const value =
+          typeof wanted === "function" ? await wanted(call.argv, call.stdin) : wanted;
+        const failed =
+          value instanceof Failure || value instanceof CtlReplyFailure ? value : null;
         return {
           job: call.job,
           exitCode: failed ? 1 : 0,

@@ -166,27 +166,9 @@ export function specProblem(spec: string): string | null {
 
 export const TOOLS_WITHOUT_CLI = [
   {
-    tool: "skills_edit_body",
-    label: "Edit SKILL.md body",
-    reason:
-      "Needs `mcp call skills_get` and `skills_edit_body` (MIG-GUI-14). Open the file in your editor for now.",
-  },
-  {
-    tool: "skills_edit_frontmatter",
-    label: "Edit frontmatter",
-    reason:
-      "Needs `mcp call skills_edit_frontmatter` (MIG-GUI-14). Open the file in your editor for now.",
-  },
-  {
     tool: "skills_scaffold",
     label: "Scaffold with progressive files",
     reason:
       "Needs `mcp call skills_scaffold` (MIG-GUI-14). New skill... (skills add) already creates a skill from the template, with progressive files if you tick the box.",
-  },
-  {
-    tool: "skills_git_push",
-    label: "Push the library",
-    reason:
-      "Needs `mcp call skills_git_push` (MIG-GUI-14). Pushing is a destructive action: it will ask for a typed confirmation after the audit, the commits and the gitleaks result are shown.",
   },
 ] as const;

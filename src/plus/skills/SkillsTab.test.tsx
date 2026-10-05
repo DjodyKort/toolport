@@ -179,11 +179,11 @@ describe("Skills tab: reading", () => {
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 
-  it("keeps the editor off until mcp call exists, and says why", async () => {
+  it("opens the editor for a library skill", async () => {
     await open();
-    const edit = screen.getByRole("button", { name: "Open editor for api-review" });
-    expect(edit).toBeDisabled();
-    expect(edit).toHaveAttribute("title", expect.stringContaining("skills_edit_body"));
+    expect(
+      screen.getByRole("button", { name: "Open editor for api-review" }),
+    ).toBeEnabled();
   });
 
   it("never reads with --home and runs no command it has no reply for", async () => {
