@@ -17,6 +17,8 @@ use super::{
 };
 
 const NEW_PASSPHRASE: &str = "FAKE-sync-passphrase-31d8-rotated";
+const PIPED_TASK: &str = r#"{"id":"piped-cleanup","title":"Cleanup from stdin","description":"","enabled":true,"requires":{"servers":[],"commands":["echo"]},"writesSecrets":[],"steps":[{"id":"say","title":"Say hello","type":"exec","program":"echo","args":["clean"]}],"triggers":{"manual":true,"cli":true,"selfMcp":{"enabled":false,"approval":"every-run"},"schedule":null,"onAuthFailure":[]},"createdFrom":{"kind":"manual"}}"#;
+const PIPED_EDIT: &str = r#"{"id":"nightly-report","title":"Nightly report (from stdin)","description":"","enabled":true,"requires":{"servers":[],"commands":["echo"]},"writesSecrets":[],"steps":[{"id":"say","title":"Say hello","type":"exec","program":"echo","args":["report"]}],"triggers":{"manual":true,"cli":false,"selfMcp":{"enabled":false,"approval":"every-run"},"schedule":{"cron":"0 3 * * *","autoRun":true},"onAuthFailure":[]},"createdFrom":null}"#;
 const STATUSLINE: &str = r#"{"context_window":{"context_window_size":200000,"current_usage":{"input_tokens":1000,"cache_read_input_tokens":500,"cache_creation_input_tokens":0}},"model":{"id":"claude-sonnet-5"}}"#;
 
 const ADD_PROJECT: &[&str] = &[
@@ -1797,6 +1799,9 @@ pub const MORE: &[Case] = &[
             read("exists", &["task", "add", "weekly-cleanup", "--file", "{home}/defs/weekly-cleanup.json", "--dry-run"]).exit(1),
             read("command-preview", &["task", "add", "refresh-login", "--from-command", "{home}/defs/refresh-login.md", "--dry-run"]),
             apply("command", &["task", "add", "refresh-login", "--from-command", "{home}/defs/refresh-login.md"]),
+            read("stdin-preview", &["task", "add", "piped-cleanup", "--file", "-", "--dry-run"]).stdin(PIPED_TASK),
+            apply("stdin", &["task", "add", "piped-cleanup", "--file", "-"]).stdin(PIPED_TASK),
+            usage("stdin-mismatch", &["task", "add", "other-name", "--file", "-", "--dry-run"]).stdin(PIPED_TASK),
             read("invalid", &["task", "add", "portal-token", "--file", "{home}/defs/undeclared.json", "--dry-run"]).exit(1),
             read("unreadable", &["task", "add", "x", "--file", "{home}/defs/none.json", "--dry-run"]).exit(1),
             usage("mismatch", &["task", "add", "other-name", "--file", "{home}/defs/weekly-cleanup.json", "--dry-run"]),
@@ -1809,6 +1814,9 @@ pub const MORE: &[Case] = &[
         &[
             read("preview", &["task", "edit", "nightly-report", "--file", "{home}/defs/nightly-report.json", "--dry-run"]),
             apply("apply", &["task", "edit", "nightly-report", "--file", "{home}/defs/nightly-report.json"]),
+            read("stdin-preview", &["task", "edit", "nightly-report", "--file", "-", "--dry-run"]).stdin(PIPED_EDIT),
+            apply("stdin", &["task", "edit", "nightly-report", "--file", "-"]).stdin(PIPED_EDIT),
+            read("stdin-empty", &["task", "edit", "nightly-report", "--file", "-", "--dry-run"]).stdin("").exit(1),
             read("invalid", &["task", "edit", "portal-token", "--file", "{home}/defs/undeclared.json", "--dry-run"]).exit(1),
             read("missing", &["task", "edit", "weekly-cleanup", "--file", "{home}/defs/weekly-cleanup.json", "--dry-run"]).exit(1),
             usage("usage", &["task", "edit", "nightly-report"]),

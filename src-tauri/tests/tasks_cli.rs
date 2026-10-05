@@ -4,6 +4,7 @@
 
 #![cfg(unix)]
 
+use std::io::Write;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
@@ -46,6 +47,27 @@ fn ctl(world: &CtlWorld, args: &[&str]) -> Out {
         .stdin(Stdio::null())
         .output()
         .unwrap();
+    Out {
+        code: out.status.code().unwrap_or(-1),
+        stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
+    }
+}
+
+fn ctl_in(world: &CtlWorld, args: &[&str], stdin: &str) -> Out {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_toolportctl"))
+        .arg("--json")
+        .args(args)
+        .env_clear()
+        .envs(world.env())
+        .current_dir(&world.home)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(stdin.as_bytes()).unwrap();
+    let out = child.wait_with_output().unwrap();
     Out {
         code: out.status.code().unwrap_or(-1),
         stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
@@ -235,4 +257,38 @@ fn a_routine_may_only_call_the_servers_the_task_lists() {
     assert!(!rogue.contains(ROGUE) && !rogue.contains("tools/call"), "the denied call reached the server: {rogue}");
     let alpha = std::fs::read_to_string(&alpha_log).unwrap_or_default();
     assert!(!alpha.contains(LATER), "a call after the denial was made: {alpha}");
+}
+
+#[test]
+fn file_dash_reads_the_definition_from_stdin_for_add_and_edit() {
+    let w = world("stdin");
+    let mut task = portal_task();
+    task["id"] = json!("piped-token");
+    task["triggers"]["onAuthFailure"] = json!(["srv-alpha"]);
+
+    let preview = ctl_in(&w, &["task", "add", "piped-token", "--file", "-", "--dry-run"], &task.to_string());
+    assert_eq!(preview.code, 0, "{}{}", preview.stdout, preview.stderr);
+    assert_eq!(preview.data()["dryRun"], true);
+    assert!(!w.data.join("plus/tasks/piped-token.json").exists(), "a dry run writes nothing");
+    let added = ctl_in(&w, &["task", "add", "piped-token", "--file", "-"], &task.to_string());
+    assert_eq!(added.code, 0, "{}{}", added.stdout, added.stderr);
+    assert_eq!(added.data()["result"]["applied"], true);
+    let stored: Value = serde_json::from_str(&std::fs::read_to_string(w.data.join("plus/tasks/piped-token.json")).unwrap()).unwrap();
+    assert_eq!(stored["title"], "Refresh the portal token");
+
+    task["title"] = json!("Changed over stdin");
+    let preview = ctl_in(&w, &["task", "edit", "piped-token", "--file", "-", "--dry-run"], &task.to_string());
+    assert_eq!(preview.code, 0, "{}{}", preview.stdout, preview.stderr);
+    assert_eq!(ctl(&w, &["task", "show", "piped-token"]).data()["task"]["title"], "Refresh the portal token");
+    let edited = ctl_in(&w, &["task", "edit", "piped-token", "--file", "-"], &task.to_string());
+    assert_eq!(edited.code, 0, "{}{}", edited.stdout, edited.stderr);
+    assert_eq!(ctl(&w, &["task", "show", "piped-token"]).data()["task"]["title"], "Changed over stdin");
+
+    let wrong = ctl_in(&w, &["task", "add", "other-name", "--file", "-"], &task.to_string());
+    assert_eq!(wrong.code, 2, "{}{}", wrong.stdout, wrong.stderr);
+    assert!(wrong.stdout.contains("the definition on stdin defines the task"), "{}", wrong.stdout);
+    let empty = ctl_in(&w, &["task", "edit", "piped-token", "--file", "-"], "");
+    assert_eq!(empty.code, 1, "{}{}", empty.stdout, empty.stderr);
+    assert!(empty.stdout.contains("nothing on stdin"), "{}", empty.stdout);
+    assert_eq!(ctl(&w, &["task", "show", "piped-token"]).data()["task"]["title"], "Changed over stdin");
 }
