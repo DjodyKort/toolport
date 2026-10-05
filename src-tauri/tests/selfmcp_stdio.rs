@@ -29,7 +29,7 @@ mod sources_world;
 
 const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
-const TOOL_COUNT: usize = 97;
+const TOOL_COUNT: usize = 99;
 const RESOURCE_COUNT: usize = 11;
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -494,6 +494,46 @@ fn confirm_must_be_a_boolean_and_unknown_arguments_are_rejected() {
     assert!(client.close().success());
 }
 
+/// A library clone one commit behind a bare remote that another clone has pushed to, found through
+/// `skills_sync.json`. Returns the library and the other clone.
+fn plant_library(world: &World, behind: bool) -> (PathBuf, PathBuf) {
+    let bare = world.base.join("library-remote.git");
+    let lib = world.home.join("lib/ai-skills");
+    let other = world.base.join("library-other");
+    std::fs::create_dir_all(&bare).unwrap();
+    sources_world::git(&bare, &["init", "-q", "--bare", "-b", "main"]);
+    sources_world::put(
+        &other.join("skills/review/SKILL.md"),
+        "---\nname: review\ndescription: Review a change\n---\nBody.\n",
+    );
+    sources_world::git(&other, &["init", "-q", "-b", "main"]);
+    sources_world::git(&other, &["add", "-A"]);
+    sources_world::git(&other, &["commit", "-q", "-m", "init"]);
+    sources_world::git(&other, &["remote", "add", "origin", bare.to_str().unwrap()]);
+    sources_world::git(&other, &["push", "-q", "-u", "origin", "main"]);
+    std::fs::create_dir_all(lib.parent().unwrap()).unwrap();
+    sources_world::git(
+        &world.home,
+        &["clone", "-q", bare.to_str().unwrap(), lib.to_str().unwrap()],
+    );
+    if behind {
+        sources_world::put(
+            &other.join("skills/second/SKILL.md"),
+            "---\nname: second\ndescription: A second skill\n---\nBody.\n",
+        );
+        sources_world::git(&other, &["add", "-A"]);
+        sources_world::git(&other, &["commit", "-q", "-m", "second"]);
+        sources_world::git(&other, &["push", "-q", "origin", "main"]);
+        sources_world::git(&lib, &["fetch", "-q"]);
+    }
+    std::fs::write(
+        world.data.join("skills_sync.json"),
+        json!({"local_path": lib.to_str().unwrap()}).to_string(),
+    )
+    .unwrap();
+    (lib, other)
+}
+
 fn tier_one_calls() -> BTreeMap<&'static str, Value> {
     BTreeMap::from([
         ("skills_list", json!({})),
@@ -541,12 +581,14 @@ fn tier_one_calls() -> BTreeMap<&'static str, Value> {
         ("tasks_list", json!({})),
         ("tasks_get", json!({"id": "portal-task"})),
         ("tasks_history", json!({"id": "portal-task"})),
+        ("library_status", json!({})),
     ])
 }
 
 #[test]
 fn tier_one_tools_read_without_confirm_and_never_write() {
     let world = World::new("tier1");
+    let (library, _) = plant_library(&world, false);
     let claude = world.base.join("plugins-world/claude");
     let plugins = plugins_world::build_in(&world.base.join("plugins-world"), &claude);
     let mut client = Client::spawn_with(
@@ -598,6 +640,11 @@ fn tier_one_tools_read_without_confirm_and_never_write() {
     assert_eq!(results["skills_list"]["skills"][0]["name"], "demo");
     assert_eq!(results["sources_ls"]["partial"], false);
     assert!(results["sources_ls"]["items"].is_array());
+    same_path(&results["library_status"]["repo"], &library);
+    assert_eq!(results["library_status"]["ahead"], 0);
+    assert_eq!(results["library_status"]["behind"], 0);
+    assert_eq!(results["library_status"]["uncommitted"], 0);
+    assert_eq!(results["library_status"]["fetch"]["requested"], false);
     assert_eq!(results["skills_get"]["body"], "Body text");
     assert_eq!(results["skills_diff"]["noLockfile"], true);
     assert_eq!(results["skills_diff"]["new"], json!(["demo"]));
@@ -829,6 +876,49 @@ fn plugin_control_tools_preview_by_default_and_send_option_values_on_stdin() {
     ] {
         assert_eq!(client.call("plugins_config", args.clone()).error_kind(), kind, "{args}");
     }
+    assert!(client.close().success());
+}
+
+#[test]
+fn library_pull_previews_by_default_and_fast_forwards_on_request() {
+    let world = World::new("library");
+    let (library, _) = plant_library(&world, true);
+    let mut client = Client::spawn(&world);
+    client.handshake();
+    let listed = listed_tools(&mut client);
+    let pull = listed.iter().find(|t| t["name"] == "library_pull").unwrap();
+    assert_eq!(pull["inputSchema"]["properties"]["dry_run"]["default"], true);
+    assert!(pull["inputSchema"]["properties"].get("confirm").is_none());
+
+    let status = client.call("library_status", json!({}));
+    assert_eq!(status.ok()["behind"], 1);
+    assert_eq!(status.ok()["ahead"], 0);
+    let files = |world: &World| -> BTreeMap<PathBuf, Vec<u8>> {
+        world
+            .snapshot()
+            .into_iter()
+            .filter(|(path, _)| !path.components().any(|c| c.as_os_str() == ".git"))
+            .collect()
+    };
+    let before = files(&world);
+    let preview = client.call("library_pull", json!({}));
+    assert_eq!(preview.ok()["dryRun"], true);
+    assert_eq!(
+        preview.ok()["plan"]["summary"],
+        "Fast-forward 1 commit(s) from origin/main"
+    );
+    assert_eq!(files(&world), before, "a preview leaves the working tree alone");
+    assert!(!library.join("skills/second/SKILL.md").exists());
+
+    let applied = client.call("library_pull", json!({"dry_run": false}));
+    assert_eq!(applied.ok()["pulled"], true);
+    assert!(library.join("skills/second/SKILL.md").is_file());
+    let status = client.call("library_status", json!({}));
+    assert_eq!(status.ok()["behind"], 0);
+
+    std::fs::write(library.join("skills/second/SKILL.md"), "edited\n").unwrap();
+    let refused = client.call("library_pull", json!({"dry_run": false}));
+    assert_eq!(refused.error_kind(), "refused");
     assert!(client.close().success());
 }
 

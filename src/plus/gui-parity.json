@@ -852,7 +852,8 @@
     "sources": "MIG-GUI-10",
     "plugins": "MIG-GUI-12",
     "hooks": "MIG-GUI-12",
-    "task": "MIG-AUTO-2"
+    "task": "MIG-AUTO-2",
+    "library": "MIG-GUI-10"
   },
   "commands": {
     "agents add": {
@@ -1669,6 +1670,21 @@
       "route": "tokens",
       "action": "usage.refresh",
       "surface": "screen"
+    },
+    "library pull": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "library push": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
+    },
+    "library status": {
+      "route": "all-commands",
+      "action": "all-commands.run",
+      "surface": "screen"
     }
   },
   "tools": {
@@ -2153,6 +2169,16 @@
       "surface": "screen"
     },
     "where_am_i": {
+      "route": "all-commands",
+      "action": "all-commands.tool",
+      "surface": "screen"
+    },
+    "library_pull": {
+      "route": "all-commands",
+      "action": "all-commands.tool",
+      "surface": "screen"
+    },
+    "library_status": {
       "route": "all-commands",
       "action": "all-commands.tool",
       "surface": "screen"
