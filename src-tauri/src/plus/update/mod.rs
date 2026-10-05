@@ -11,6 +11,8 @@ pub mod release;
 pub mod source;
 #[cfg(test)] mod release_prop_tests;
 #[cfg(test)]
+mod source_model_tests;
+#[cfg(test)]
 mod tests;
 
 use crate::registry::{self, ServerEntry};
@@ -283,7 +285,8 @@ fn check_git(
         return;
     };
     let repo = source::expand_path(path, env.home.as_deref());
-    let status = match gitops::check(env.git.as_ref(), &repo, branch.as_deref()) {
+    let branch_hint = (!branch.is_empty()).then(|| branch.as_str());
+    let status = match gitops::check(env.git.as_ref(), &repo, branch_hint) {
         Ok(s) => s,
         Err(e) => return rep.set(Status::Error, e),
     };
@@ -535,18 +538,13 @@ fn init_one(env: &Env, opts: &Options, entry: &mut ServerEntry, rep: &mut Server
         rep.kind = existing.map(|s| s.kind().to_string()).unwrap_or_default();
         return rep.set(Status::Skipped, "already configured");
     }
-    let mut detected = source::detect(entry, env.home.as_deref());
+    let mut detected = source::detect(entry, env.home.as_deref(), env.git.as_ref());
     match &mut detected {
         Source::Git {
-            path,
-            remote_url,
-            branch,
-            post_update,
+            path, post_update, ..
         } => {
             let repo = source::expand_path(path, env.home.as_deref());
             if gitops::is_repo(env.git.as_ref(), &repo) {
-                *remote_url = gitops::remote_url(env.git.as_ref(), &repo);
-                *branch = gitops::default_branch(env.git.as_ref(), &repo);
                 *post_update = source::suggest_post_update(&repo);
             }
         }
@@ -702,7 +700,7 @@ pub fn run(env: &Env, entries: &mut [ServerEntry], opts: &Options) -> Result<Rep
         let planned: Vec<Planned> = selected
             .into_iter()
             .map(|entry| {
-                let (src, from_meta) = source::effective(entry, env.home.as_deref());
+                let (src, from_meta) = source::effective(entry, env.home.as_deref(), env.git.as_ref());
                 (entry, src, from_meta)
             })
             .collect();
