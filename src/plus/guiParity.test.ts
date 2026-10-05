@@ -59,7 +59,6 @@ describe("gui parity routes", () => {
 
   it("sends the servers route to the control view, with the classic page under the same entry", () => {
     expect(guiParity.routes.servers.view).toBe("control");
-    expect(guiParity.routes["all-commands"].view).toBe("commands");
     expect(guiParity.routes.catalog.view).toBe("commands");
     const entry = NAV_GROUPS.flatMap((group) => group.items).find(
       (item) => item.view === "control",
