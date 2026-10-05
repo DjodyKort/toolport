@@ -34,6 +34,8 @@ mod ctl_world;
 mod exec;
 #[path = "common/golden.rs"]
 mod golden;
+#[path = "common/library_world.rs"]
+mod library_world;
 #[path = "common/loads_world.rs"]
 mod loads_world;
 #[path = "common/normalize.rs"]
@@ -216,7 +218,7 @@ fn changed_files(
 
 fn run_case(case: &Case) {
     let world = world_for(case);
-    let mut client = Client::spawn(&world, &[FAKE_SECRET, PASSPHRASE]);
+    let mut client = Client::spawn(&world, &[FAKE_SECRET, PASSPHRASE, library_world::SECRET]);
     client.handshake();
     for call in case.calls {
         if let Some(prepare) = call.hook {
@@ -500,7 +502,7 @@ fn contains(haystack: &[u8], needle: &str) -> bool {
 /// result, in a file a tool wrote, or in a golden. The client fails on the first line that holds one.
 #[test]
 fn no_output_carries_a_canary_secret() {
-    let secrets = [CANARY, PASSPHRASE, FAKE_SECRET];
+    let secrets = [CANARY, PASSPHRASE, FAKE_SECRET, library_world::SECRET];
     let mut calls = 0;
     for case in all_cases() {
         let world = world_for(case);

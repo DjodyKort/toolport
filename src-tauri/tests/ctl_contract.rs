@@ -37,6 +37,8 @@ mod ctl_world;
 mod exec;
 #[path = "common/golden.rs"]
 mod golden;
+#[path = "common/library_world.rs"]
+mod library_world;
 #[path = "common/loads_world.rs"]
 mod loads_world;
 #[path = "common/normalize.rs"]
@@ -64,6 +66,7 @@ struct Step {
     reveals: bool,
     golden: bool,
     env: &'static [(&'static str, &'static str)],
+    hook: Option<fn(&CtlWorld)>,
 }
 
 /// A step that must leave the world as it was: a read or a `--dry-run`.
@@ -77,6 +80,7 @@ const fn read(label: &'static str, argv: &'static [&'static str]) -> Step {
         reveals: false,
         golden: true,
         env: &[],
+        hook: None,
     }
 }
 
@@ -94,6 +98,16 @@ const fn setup(label: &'static str, argv: &'static [&'static str]) -> Step {
         writes: true,
         golden: false,
         ..read(label, argv)
+    }
+}
+
+/// Reshapes the world for the steps after it with fixture code (a state the CLI has no command
+/// for); runs no command and records no golden.
+const fn hook(label: &'static str, prepare: fn(&CtlWorld)) -> Step {
+    Step {
+        golden: false,
+        hook: Some(prepare),
+        ..read(label, &[])
     }
 }
 
@@ -482,6 +496,10 @@ fn world_for(case: &Case) -> CtlWorld {
 fn run_case(case: &Case) {
     let world = world_for(case);
     for step in case.steps {
+        if let Some(prepare) = step.hook {
+            prepare(&world);
+            continue;
+        }
         let argv: Vec<String> = step.argv.iter().map(|w| expand(&world, w)).collect();
         let before = world.snapshot();
         let run = run_ctl(&world, &argv, step.stdin, step.env);
@@ -520,7 +538,7 @@ fn run_case(case: &Case) {
             );
         }
 
-        let mut canaries = vec![FAKE_SECRET, CANARY, PASSPHRASE];
+        let mut canaries = vec![FAKE_SECRET, CANARY, PASSPHRASE, library_world::SECRET];
         canaries.extend(step.env.iter().map(|(_, value)| *value));
         if !step.reveals {
             canaries.push(VAULTED);
@@ -632,7 +650,7 @@ fn every_case_names_a_command_and_every_golden_belongs_to_a_case() {
         .filter(|row| row["kind"] == "command")
         .collect();
     for case in all_cases() {
-        for step in case.steps {
+        for step in case.steps.iter().filter(|step| step.hook.is_none()) {
             let command = rows
                 .iter()
                 .filter(|row| {
@@ -737,8 +755,12 @@ fn no_output_carries_a_canary_secret() {
             &[],
         );
         assert_eq!(seeded.code, 0, "{}: {}", case.id, seeded.stdout);
-        let mut secrets = vec![CANARY, PASSPHRASE];
+        let mut secrets = vec![CANARY, PASSPHRASE, library_world::SECRET];
         for step in case.steps {
+            if let Some(prepare) = step.hook {
+                prepare(&world);
+                continue;
+            }
             let argv: Vec<String> = step.argv.iter().map(|w| expand(&world, w)).collect();
             let run = run_ctl(&world, &argv, step.stdin, step.env);
             runs += 1;
@@ -773,7 +795,14 @@ fn no_output_carries_a_canary_secret() {
 
     for entry in std::fs::read_dir(golden::root()).unwrap().flatten() {
         let text = std::fs::read_to_string(entry.path()).unwrap();
-        for secret in [FAKE_SECRET, CANARY, VAULTED, PASSPHRASE, COUNCIL_KEY] {
+        for secret in [
+            FAKE_SECRET,
+            CANARY,
+            VAULTED,
+            PASSPHRASE,
+            COUNCIL_KEY,
+            library_world::SECRET,
+        ] {
             assert!(
                 !text.contains(secret),
                 "golden {} contains a secret value",

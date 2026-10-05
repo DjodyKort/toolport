@@ -1,0 +1,35 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "git fetch origin (refs only, network)",
+          "op": "exec",
+          "path": "<WORLD>/home/lib/ai-skills"
+        },
+        {
+          "detail": "git merge --ff-only origin/main",
+          "op": "exec",
+          "path": "<WORLD>/home/lib/ai-skills"
+        },
+        {
+          "detail": "628cdc8 Add notes-two",
+          "op": "note"
+        },
+        {
+          "detail": "e3bf666 Add notes-one",
+          "op": "note"
+        }
+      ],
+      "summary": "Fast-forward 2 commit(s) from origin/main",
+      "undo": "git -C '<WORLD>/home/lib/ai-skills' reset --hard 789e5c01712e1a018cbf8f9c24ea2b964678bda9",
+      "warnings": []
+    },
+    "repo": "<WORLD>/home/lib/ai-skills"
+  },
+  "tool": "library_pull"
+}

@@ -1,0 +1,41 @@
+{
+  "argv": ["library", "push"],
+  "envelope": {
+    "command": "library push",
+    "data": {
+      "checks": {
+        "audit": {
+          "findings": [],
+          "high": 0,
+          "ran": true,
+          "skills": 3
+        },
+        "blocked": false,
+        "builtinScan": {
+          "count": 0,
+          "findings": []
+        },
+        "gitleaks": {
+          "available": false,
+          "count": 0,
+          "error": "not installed",
+          "findings": [],
+          "ran": false
+        }
+      },
+      "commitSha": "<masked>",
+      "dryRun": false,
+      "pushed": true,
+      "repo": "<WORLD>/home/lib/ai-skills",
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [],
+        "undo": "git -C '<WORLD>/home/lib/ai-skills' revert --no-edit 789e5c01712e1a018cbf8f9c24ea2b964678bda9..HEAD"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

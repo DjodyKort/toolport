@@ -1,0 +1,22 @@
+{
+  "arguments": {
+    "dry_run": false
+  },
+  "isError": false,
+  "result": {
+    "commits": 2,
+    "dryRun": false,
+    "pulled": true,
+    "repo": "<WORLD>/home/lib/ai-skills",
+    "result": {
+      "applied": true,
+      "backups": [],
+      "changed": [
+        "<WORLD>/home/lib/ai-skills/skills/notes-one/SKILL.md",
+        "<WORLD>/home/lib/ai-skills/skills/notes-two/SKILL.md"
+      ],
+      "undo": "git -C '<WORLD>/home/lib/ai-skills' reset --hard 789e5c01712e1a018cbf8f9c24ea2b964678bda9"
+    }
+  },
+  "tool": "library_pull"
+}
