@@ -15,6 +15,7 @@ pub mod installed;
 pub mod manifest;
 pub mod report;
 pub mod settings;
+pub mod switch;
 
 pub use claude::{ClaudeRunner, SystemClaude};
 pub use installed::PluginStatus;
@@ -23,6 +24,8 @@ pub use installed::PluginStatus;
 mod tests;
 #[cfg(test)]
 mod config_tests;
+#[cfg(test)]
+mod switch_tests;
 
 use std::path::{Path, PathBuf};
 

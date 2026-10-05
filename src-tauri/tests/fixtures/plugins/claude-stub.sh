@@ -10,5 +10,8 @@ printf '%s\n' "$*" >> "$d/argv.log"
 case "$*" in
   "plugin configure "*" --json") cat "$d/configure.json" ;;
   "plugin configure "*" --values-stdin") cat > "$d/stdin.$n.json"; echo configured ;;
+  "plugin disable "*" --scope user"|"plugin enable "*" --scope user")
+    if [ -f "$d/fail" ]; then echo "plugin is managed by policy" >&2; exit 4; fi
+    echo ok ;;
   *) echo "unexpected: $*" >&2; exit 3 ;;
 esac

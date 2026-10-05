@@ -1,7 +1,7 @@
 //! The plugin controls (`plugins config`, `plugins mcp`) on the bundle ledger: the same surgical
 //! read-merge-write of `.claude/settings.local.json`, the same re-read before writing and the same
 //! git-exclude line, with a record per control (`ledger.controls`) so a bundle and a control never
-//! undo each other's keys. A control owns `env.<NAME>` keys or `deniedMcpServers` entries only.
+//! undo each other's keys. A control owns `env.<NAME>` keys, `deniedMcpServers` entries or `enabledPlugins.<id>` keys only.
 
 use super::bundle_apply::{
     checked_cwd, compute_settings, controls_in, exclude_file, folder_key, git_dir, read, remove_excludes,
@@ -63,7 +63,7 @@ fn merge_step(file: &Path, rec: &ControlRec, existed: bool, control: &str) -> St
 pub fn apply(data_dir: &Path, cwd: &Path, control: &str, want: &Desired, dry_run: bool) -> Result<Run, BundleError> {
     let cwd = checked_cwd(cwd)?;
     let folder = folder_key(&cwd);
-    if want.env.is_empty() && want.deny_servers.is_empty() {
+    if want.env.is_empty() && want.deny_servers.is_empty() && want.plugins.is_empty() {
         return undo(data_dir, &cwd, control, dry_run);
     }
     let prior = record(data_dir, &cwd, control);
