@@ -263,6 +263,20 @@ impl Layers {
         out
     }
 
+    /// An `env` value as Claude Code resolves it: local over project over user (managed too).
+    pub fn env_value(&self, name: &str) -> Option<(String, Scope)> {
+        [Scope::Managed, Scope::Local, Scope::Project, Scope::User]
+            .iter()
+            .find_map(|scope| {
+                self.files
+                    .iter()
+                    .filter(|f| f.scope == *scope)
+                    .filter_map(|f| f.get("env")?.get(name)?.as_str())
+                    .last()
+                    .map(|v| (v.to_string(), *scope))
+            })
+    }
+
     pub fn problems(&self) -> Vec<String> {
         self.files
             .iter()
