@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "mcpm_root": "<WORLD>/skills-repo/skills/demo/SKILL.md"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "mcpm_root must be an absolute path of an existing directory: the path is not a directory"
+    }
+  },
+  "text": "invalid_arguments: mcpm_root must be an absolute path of an existing directory: the path is not a directory",
+  "tool": "compression_sync"
+}

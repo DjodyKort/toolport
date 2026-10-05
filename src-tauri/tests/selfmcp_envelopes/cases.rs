@@ -25,6 +25,8 @@ const AIDER_REMOVE_UNCONFIRMED: &str = r#"{"client_keys":["aider"],"dry_run":fal
 const AIDER_REMOVE: &str = r#"{"client_keys":["aider"],"dry_run":false,"confirm":true}"#;
 const APPLY: &str = r#"{"dry_run":false,"confirm":true}"#;
 const UNCONFIRMED: &str = r#"{"dry_run":false}"#;
+const TEARDOWN: &str = r#"{"teardown":true}"#;
+const TEARDOWN_UNCONFIRMED: &str = r#"{"teardown":true,"dry_run":false}"#;
 const ADD_TAP: &str = r#"{"repo":"{base}/tap-src","name":"local","dry_run":false}"#;
 const DIRECT: &str = r#"{"server":"alpha","client":"claude-code"}"#;
 const DIRECT_APPLY: &str = r#"{"server":"alpha","client":"claude-code","dry_run":false}"#;
@@ -808,7 +810,9 @@ pub const ALL: &[Case] = &[
         &[
             setup("compression_enable", ENABLE_OFF_PORT),
             read("preview", "compression_disable", "{}"),
+            read("teardown_preview", "compression_disable", TEARDOWN),
             refused("refused", "compression_disable", UNCONFIRMED),
+            refused("teardown_refused", "compression_disable", TEARDOWN_UNCONFIRMED),
             write("apply", "compression_disable", APPLY),
         ],
     ),
@@ -852,6 +856,25 @@ pub const ALL: &[Case] = &[
         "compression_sync",
         &[
             read("preview", "compression_sync", "{}"),
+            read("root_preview", "compression_sync", r#"{"mcpm_root":"{home}"}"#),
+            fails(
+                "root_relative",
+                "invalid_arguments",
+                "compression_sync",
+                r#"{"mcpm_root":"relative/mcpm"}"#,
+            ),
+            fails(
+                "root_missing",
+                "invalid_arguments",
+                "compression_sync",
+                r#"{"mcpm_root":"{home}/absent"}"#,
+            ),
+            fails(
+                "root_file",
+                "invalid_arguments",
+                "compression_sync",
+                r#"{"mcpm_root":"{repo}/skills/demo/SKILL.md"}"#,
+            ),
             refused("refused", "compression_sync", UNCONFIRMED),
             write("apply", "compression_sync", APPLY),
         ],

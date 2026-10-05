@@ -1,16 +1,17 @@
 //! `compression_*` tools: thin adapters over the `plus::compression::manage` cores that
 //! `toolportctl compression enable|disable|set-provider|use|sync|seal` run, and over the status
 //! core behind `toolportctl compression status`. Every writing tool defaults `dry_run` to true.
-//! `teardown`, `pin --install` and `--mcpm-root` are not exposed: they drive the engine or read
-//! a caller-chosen directory.
+//! `disable` takes `teardown` and `sync` takes `mcpm_root`, both through the same cores as the
+//! CLI flags; `pin --install` is not exposed: it drives the engine.
 
 use super::ToolError;
-use crate::plus::args::{flag_or, str_nonempty};
+use crate::plus::args::{flag, flag_or, str_nonempty};
 use crate::plus::compression::manage::{
     self, parse_mode, parse_provider, parse_telemetry, with_system, CmdError, EnableReq, Kind,
     SealReq,
 };
-use serde_json::Value;
+use serde_json::{json, Value};
+use std::path::{Path, PathBuf};
 
 type Outcome = Result<Value, ToolError>;
 
@@ -65,7 +66,7 @@ pub(super) fn enable(args: &Value) -> Outcome {
 }
 
 pub(super) fn disable(args: &Value) -> Outcome {
-    with_system(|cx| Ok(manage::disable(cx, false, dry_run(args))?))
+    with_system(|cx| Ok(manage::disable(cx, flag(args, "teardown"), dry_run(args))?))
 }
 
 pub(super) fn set_provider(args: &Value) -> Outcome {
@@ -78,8 +79,38 @@ pub(super) fn use_preset(args: &Value) -> Outcome {
     with_system(|cx| Ok(manage::use_preset(cx, name, dry_run(args))?))
 }
 
+fn mcpm_root(args: &Value) -> Result<Option<PathBuf>, ToolError> {
+    let Some(value) = args.get("mcpm_root").filter(|v| !v.is_null()) else {
+        return Ok(None);
+    };
+    let refused = |why: &str| {
+        ToolError::new(
+            "invalid_arguments",
+            format!("mcpm_root must be an absolute path of an existing directory: {why}"),
+        )
+    };
+    let text = value
+        .as_str()
+        .filter(|t| !t.is_empty())
+        .ok_or_else(|| refused("it is empty"))?;
+    if !Path::new(text).is_absolute() {
+        return Err(refused("the path is relative"));
+    }
+    let root = std::fs::canonicalize(text).map_err(|_| refused("the path does not exist"))?;
+    if !root.is_dir() {
+        return Err(refused("the path is not a directory"));
+    }
+    Ok(Some(root))
+}
+
 pub(super) fn sync(args: &Value) -> Outcome {
-    with_system(|cx| Ok(manage::sync(cx, None, dry_run(args))?))
+    let root = mcpm_root(args)?;
+    let mut data: Value =
+        with_system::<_, ToolError>(|cx| Ok(manage::sync(cx, root.as_deref(), dry_run(args))?))?;
+    if let Some(root) = root {
+        data["mcpmRoot"] = json!(root.to_string_lossy());
+    }
+    Ok(data)
 }
 
 pub(super) fn seal(args: &Value) -> Outcome {

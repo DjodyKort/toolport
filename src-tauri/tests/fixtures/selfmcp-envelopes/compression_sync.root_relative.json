@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "mcpm_root": "relative/mcpm"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "mcpm_root must be an absolute path of an existing directory: the path is relative"
+    }
+  },
+  "text": "invalid_arguments: mcpm_root must be an absolute path of an existing directory: the path is relative",
+  "tool": "compression_sync"
+}

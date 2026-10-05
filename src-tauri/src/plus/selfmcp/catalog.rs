@@ -741,8 +741,11 @@ pub const TOOLS: &[ToolDef] = &[
         "compression_disable",
         4,
         UnlessDryRun,
-        "Switch compression off (provider none) and remove the generated shims and registry entry; presets and the pin stay and the engine is not torn down; dry_run is on by default (apply with dry_run=false and confirm=true)",
-        [DRY_ON],
+        "Switch compression off (provider none) and remove the generated shims and registry entry; presets and the pin stay; with teardown=true it also runs `headroom mcp uninstall` and `headroom unwrap claude`, which the plan names and a dry run only lists; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("teardown", Ty::Bool, false, "Also uninstall the engine's MCP entry and unwrap Claude; the engine's own data stays"),
+            DRY_ON
+        ],
         compression::disable
     ),
     tool!(
@@ -768,8 +771,11 @@ pub const TOOLS: &[ToolDef] = &[
         "compression_sync",
         3,
         UnlessDryRun,
-        "Re-apply the stored compression policy to the shims, the registry entry and the engine, adopting a legacy mcpm policy when none is stored; dry_run is on by default (apply with dry_run=false and confirm=true)",
-        [DRY_ON],
+        "Re-apply the stored compression policy to the shims, the registry entry and the engine, adopting a legacy mcpm policy when none is stored; mcpm_root names the directory that policy is read from (read only); dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("mcpm_root", Ty::Str, false, "Absolute path of an existing directory to read the legacy mcpm policy from instead of the default location; it is only read"),
+            DRY_ON
+        ],
         compression::sync
     ),
     tool!(

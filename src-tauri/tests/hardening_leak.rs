@@ -945,7 +945,14 @@ fn tool_args(name: &str, schema: &Value, world: &World) -> Value {
             &mut args,
             &[("preset", json!("agent")), ("dry_run", json!(false))],
         ),
-        "compression_disable" | "compression_sync" => set(&mut args, &[("dry_run", json!(false))]),
+        "compression_disable" => set(&mut args, &[("dry_run", json!(false))]),
+        "compression_sync" => set(
+            &mut args,
+            &[
+                ("dry_run", json!(false)),
+                ("mcpm_root", json!(world.sb.work.to_string_lossy())),
+            ],
+        ),
         "clients_sync" | "sync_push" => set(&mut args, &[("dry_run", json!(false))]),
         "skills_clean" | "skills_resolve" | "agents_clean" | "styles_clean" => {
             set(&mut args, &[("dry_run", json!(false))])

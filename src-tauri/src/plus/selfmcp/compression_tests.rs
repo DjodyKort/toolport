@@ -4,7 +4,7 @@ use crate::plus::testutil::tree_snapshot;
 use serde_json::{json, Value};
 use std::io::{Read, Write};
 use std::net::TcpListener;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -205,11 +205,6 @@ fn enabling_headroom_registers_its_server_and_disable_removes_it_again() {
         [snippet.to_string_lossy().into_owned()]
     );
     assert!(!snippet.exists());
-    assert_eq!(
-        kind(call("compression_disable", json!({"teardown": true}))),
-        "invalid_arguments",
-        "the engine teardown is not exposed"
-    );
 }
 
 #[test]
@@ -308,11 +303,199 @@ fn compression_sync_adopts_a_legacy_policy_only_when_applied() {
     assert_eq!(status["preset"]["name"], "agent");
     assert_eq!(status["preset"]["port"], 8788);
     assert_eq!(std::fs::read_to_string(&legacy).unwrap(), LEGACY_POLICY);
+}
+
+fn canonical(path: &Path) -> PathBuf {
+    std::fs::canonicalize(path).unwrap()
+}
+
+#[test]
+fn compression_sync_mcpm_root_refuses_anything_but_an_absolute_existing_directory() {
+    let fixture = Fixture::new("cmp-root-bad");
+    let file = fixture.dir.join("not-a-directory");
+    std::fs::write(&file, LEGACY_POLICY).unwrap();
+    let before = tree_snapshot(&fixture.dir);
+    for bad in [
+        json!("relative/legacy"),
+        json!("./legacy"),
+        json!(""),
+        json!(fixture.dir.join("missing").to_string_lossy()),
+        json!(file.to_string_lossy()),
+        json!(5),
+    ] {
+        let args = json!({"mcpm_root": bad});
+        assert_eq!(kind(call("compression_sync", args.clone())), "invalid_arguments", "{bad}");
+        assert_eq!(kind(apply("compression_sync", args)), "invalid_arguments", "{bad}");
+    }
+    assert_eq!(tree_snapshot(&fixture.dir), before);
+}
+
+#[test]
+fn compression_sync_mcpm_root_reads_only_the_named_directory() {
+    let fixture = Fixture::new("cmp-root");
+    let decoy = fixture.home.join("compression.json");
+    std::fs::write(
+        &decoy,
+        LEGACY_POLICY
+            .replace("8788", "8799")
+            .replace("rtk-only", "none"),
+    )
+    .unwrap();
+    let legacy_dir = fixture.dir.join("legacy-mcpm");
+    std::fs::create_dir_all(&legacy_dir).unwrap();
+    std::fs::write(legacy_dir.join("compression.json"), LEGACY_POLICY).unwrap();
+    let before = tree_snapshot(&fixture.dir);
+    let legacy_before = tree_snapshot(&legacy_dir);
+    let canonical_dir = canonical(&legacy_dir);
+    let expected_from = canonical_dir.join("compression.json");
+
+    let planned = call(
+        "compression_sync",
+        json!({"mcpm_root": legacy_dir.to_string_lossy()}),
+    )
+    .unwrap();
+    assert_eq!(planned["dryRun"], true);
+    assert_eq!(planned["mcpmRoot"], json!(canonical_dir.to_string_lossy()));
     assert_eq!(
-        kind(call("compression_sync", json!({"mcpm_root": "/"}))),
-        "invalid_arguments",
-        "the legacy directory is not caller-chosen"
+        planned["adopted"]["from"],
+        json!(expected_from.to_string_lossy())
     );
+    assert_eq!(tree_snapshot(&fixture.dir), before, "the preview must not write");
+    assert_eq!(status()["configExists"], false);
+    assert_eq!(
+        kind(without_confirm(
+            "compression_sync",
+            json!({"mcpm_root": legacy_dir.to_string_lossy()})
+        )),
+        "refused"
+    );
+    assert_eq!(tree_snapshot(&fixture.dir), before);
+
+    #[cfg(unix)]
+    let link = {
+        let link = fixture.dir.join("legacy-link");
+        std::os::unix::fs::symlink(&legacy_dir, &link).unwrap();
+        link
+    };
+    #[cfg(unix)]
+    {
+        let through_link = call(
+            "compression_sync",
+            json!({"mcpm_root": link.to_string_lossy()}),
+        )
+        .unwrap();
+        assert_eq!(through_link["mcpmRoot"], json!(canonical_dir.to_string_lossy()));
+    }
+
+    let done = apply(
+        "compression_sync",
+        json!({"mcpm_root": legacy_dir.to_string_lossy()}),
+    )
+    .unwrap();
+    assert_eq!(done["dryRun"], false);
+    assert_eq!(done["adopted"]["from"], json!(expected_from.to_string_lossy()));
+    let status = status();
+    assert_eq!(status["provider"], "rtk-only");
+    assert_eq!(status["preset"]["port"], 8788, "the default directory was read");
+    assert_eq!(
+        tree_snapshot(&legacy_dir),
+        legacy_before,
+        "the named directory is only read"
+    );
+}
+
+#[cfg(unix)]
+struct Sentinel {
+    _path: crate::plus::compression::manage_tests::EnvGuard,
+    log: PathBuf,
+}
+
+#[cfg(unix)]
+impl Sentinel {
+    fn new(fixture: &Fixture) -> Self {
+        use std::os::unix::fs::PermissionsExt;
+        let bin = fixture.dir.join("sentinel-bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let log = fixture.dir.join("headroom-calls.log");
+        let script = bin.join("headroom");
+        std::fs::write(
+            &script,
+            format!("#!/bin/sh\necho \"$*\" >> '{}'\necho done\n", log.display()),
+        )
+        .unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let mut dirs = vec![bin];
+        dirs.extend(std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()));
+        let joined = std::env::join_paths(dirs).unwrap();
+        Self {
+            _path: crate::plus::compression::manage_tests::EnvGuard::set(&[(
+                "PATH",
+                Path::new(&joined),
+            )]),
+            log,
+        }
+    }
+
+    fn calls(&self) -> Vec<String> {
+        std::fs::read_to_string(&self.log)
+            .map(|text| text.lines().map(String::from).collect())
+            .unwrap_or_default()
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn compression_disable_teardown_names_its_commands_and_runs_them_only_when_applied() {
+    let fixture = Fixture::new("cmp-teardown");
+    let sentinel = Sentinel::new(&fixture);
+    apply("compression_enable", json!({"provider": "rtk-only"})).unwrap();
+    assert!(sentinel.calls().is_empty(), "enabling must not start the engine");
+    let before = tree_snapshot(&fixture.dir);
+    let named = |data: &Value| {
+        let actions = strings(&data["actions"]);
+        (
+            actions.iter().any(|a| a == "would run `headroom mcp uninstall`"),
+            actions.iter().any(|a| a == "would run `headroom unwrap claude`"),
+        )
+    };
+
+    let plain = call("compression_disable", json!({})).unwrap();
+    assert_eq!(plain["teardown"], false);
+    assert_eq!(named(&plain), (false, false));
+
+    for args in [
+        json!({"teardown": true}),
+        json!({"teardown": true, "dry_run": true}),
+        json!({"teardown": true, "confirm": true}),
+    ] {
+        let planned = call("compression_disable", args.clone()).unwrap();
+        assert_eq!(planned["dryRun"], true, "{args}");
+        assert_eq!(planned["teardown"], true, "{args}");
+        assert_eq!(named(&planned), (true, true), "{args}");
+        assert!(sentinel.calls().is_empty(), "{args} started headroom");
+        assert_eq!(tree_snapshot(&fixture.dir), before, "{args} wrote");
+    }
+    assert_eq!(
+        kind(without_confirm("compression_disable", json!({"teardown": true}))),
+        "refused"
+    );
+    assert!(sentinel.calls().is_empty());
+    assert_eq!(
+        kind(call("compression_disable", json!({"teardown": "yes"}))),
+        "invalid_arguments"
+    );
+
+    let done = apply("compression_disable", json!({"teardown": true})).unwrap();
+    assert_eq!(done["dryRun"], false);
+    assert_eq!(done["teardown"], true);
+    assert_eq!(sentinel.calls(), ["mcp uninstall", "unwrap claude"]);
+    let actions = strings(&done["actions"]);
+    assert!(actions.iter().any(|a| a.starts_with("headroom mcp uninstall")), "{actions:?}");
+    assert!(actions.iter().any(|a| a.starts_with("headroom unwrap claude")), "{actions:?}");
+    assert_eq!(status()["provider"], "none");
+
+    apply("compression_disable", json!({})).unwrap();
+    assert_eq!(sentinel.calls().len(), 2, "a disable without teardown runs nothing");
 }
 
 #[test]

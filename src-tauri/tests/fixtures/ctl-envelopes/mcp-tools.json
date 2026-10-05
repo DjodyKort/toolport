@@ -1772,11 +1772,17 @@
           "tier": 3
         },
         {
-          "description": "Switch compression off (provider none) and remove the generated shims and registry entry; presets and the pin stay and the engine is not torn down; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "description": "Switch compression off (provider none) and remove the generated shims and registry entry; presets and the pin stay; with teardown=true it also runs `headroom mcp uninstall` and `headroom unwrap claude`, which the plan names and a dry run only lists; dry_run is on by default (apply with dry_run=false and confirm=true)",
           "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "compression_disable",
           "params": [
+            {
+              "description": "Also uninstall the engine's MCP entry and unwrap Claude; the engine's own data stays",
+              "name": "teardown",
+              "required": false,
+              "type": "boolean"
+            },
             {
               "description": "Report without writing; true unless you pass false to apply",
               "name": "dry_run",
@@ -1847,11 +1853,17 @@
           "tier": 3
         },
         {
-          "description": "Re-apply the stored compression policy to the shims, the registry entry and the engine, adopting a legacy mcpm policy when none is stored; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "description": "Re-apply the stored compression policy to the shims, the registry entry and the engine, adopting a legacy mcpm policy when none is stored; mcpm_root names the directory that policy is read from (read only); dry_run is on by default (apply with dry_run=false and confirm=true)",
           "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "compression_sync",
           "params": [
+            {
+              "description": "Absolute path of an existing directory to read the legacy mcpm policy from instead of the default location; it is only read",
+              "name": "mcpm_root",
+              "required": false,
+              "type": "string"
+            },
             {
               "description": "Report without writing; true unless you pass false to apply",
               "name": "dry_run",
