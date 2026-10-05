@@ -81,18 +81,43 @@ export interface SourceInfo {
   stored: boolean;
   path?: string;
   branch?: string;
+  remote?: string;
   reason?: string;
+  drift?: boolean;
+  upstream?: { remote: string; branch: string };
+  /** Every remote the checkout already knows, in the order the registry reports them. */
+  remotes: string[];
+  /** The branches known locally for each remote (`gitops::remote_branches`); a remote that
+   * was never fetched reports an empty list here, not an error. */
+  branches: Record<string, string[]>;
 }
+
+const branchesOf = (value: unknown): Record<string, string[]> => {
+  const rec = record(value);
+  if (!rec) return {};
+  const out: Record<string, string[]> = {};
+  for (const [remote, names] of Object.entries(rec)) out[remote] = strings(names);
+  return out;
+};
 
 export function sourceOf(result: Data): SourceInfo {
   const detected = record(result.detected);
   const meta = record(detected?.meta);
+  const upstream = record(meta?.upstream);
   return {
     kind: text(detected?.kind) ?? "unknown",
     stored: result.stored === true,
     path: text(meta?.path),
     branch: text(meta?.branch),
+    remote: text(meta?.remote),
     reason: text(meta?.reason),
+    drift: typeof meta?.drift === "boolean" ? meta.drift : undefined,
+    upstream:
+      upstream && text(upstream.remote) && text(upstream.branch)
+        ? { remote: text(upstream.remote)!, branch: text(upstream.branch)! }
+        : undefined,
+    remotes: strings(result.remotes),
+    branches: branchesOf(result.branches),
   };
 }
 
@@ -410,6 +435,93 @@ export function forkSyncResultPlan(result: Data, name: string): PlanV1 {
           ]
         : []),
     ],
+    effects: {},
+    warnings: [],
+    undo: "",
+  };
+}
+
+// ---- set source -------------------------------------------------------------------------
+
+export interface SetSourceOptions {
+  remote: string;
+  branch: string;
+}
+
+export function setSourceDefaults(source: SourceInfo): SetSourceOptions {
+  return {
+    remote: source.remote ?? source.remotes[0] ?? "",
+    branch: source.branch ?? "",
+  };
+}
+
+export function setSourceProblems(options: SetSourceOptions): string[] {
+  const problems: string[] = [];
+  if (!options.remote.trim()) problems.push("Pick or name a remote.");
+  if (!options.branch.trim()) problems.push("Name a branch.");
+  return problems;
+}
+
+export function setSourceArgs(
+  name: string,
+  options: SetSourceOptions,
+): Record<string, unknown> {
+  return {
+    name,
+    remote: options.remote.trim(),
+    branch: options.branch.trim(),
+    confirm: true,
+  };
+}
+
+export function setSourcePlan(
+  name: string,
+  source: SourceInfo,
+  options: SetSourceOptions,
+): PlanV1 {
+  const remote = options.remote.trim();
+  const branch = options.branch.trim();
+  const known = source.branches[remote] ?? [];
+  const steps: PlanStep[] = [
+    {
+      op: "update",
+      path: source.path ?? name,
+      detail: `Point the stored source of ${name} at ${remote}/${branch}`,
+      keys: [`servers.${name}.source`],
+    },
+  ];
+  if (!known.includes(branch)) {
+    steps.push({
+      op: "note",
+      path: source.path ?? name,
+      detail: `${remote} has no local record of ${branch} yet; this may fetch it first`,
+    });
+  }
+  const changes =
+    (source.remote && source.remote !== remote) ||
+    (source.branch && source.branch !== branch);
+  return {
+    summary: `Switch ${name} to ${remote}/${branch}`,
+    steps,
+    effects: {},
+    warnings: changes
+      ? []
+      : ["This is already the stored source; confirming re-records the same values."],
+    undo:
+      source.remote && source.branch
+        ? `Switch ${name} back to ${source.remote}/${source.branch}`
+        : "",
+  };
+}
+
+export function setSourceResultPlan(result: Data, name: string): PlanV1 {
+  const source = record(result.source);
+  const meta = record(source?.meta);
+  const remote = text(meta?.remote) ?? "its remote";
+  const branch = text(meta?.branch) ?? "its branch";
+  return {
+    summary: `${name} now points at ${remote}/${branch}`,
+    steps: [{ op: "note", path: name, detail: `Stored source: ${remote}/${branch}` }],
     effects: {},
     warnings: [],
     undo: "",

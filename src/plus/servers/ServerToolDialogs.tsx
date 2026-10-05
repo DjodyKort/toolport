@@ -18,8 +18,12 @@ import {
   forkSyncDefaults,
   forkSyncProblems,
   profileMatch,
+  setSourceDefaults,
+  setSourceProblems,
   type ForkSyncOptions,
   type GitState,
+  type SetSourceOptions,
+  type SourceInfo,
 } from "./mcpTools";
 
 export function AddProfileTagDialog({
@@ -274,6 +278,111 @@ export function ForkSyncDialog({
               </span>
             </label>
           )}
+          {shown && <Problems items={problems} />}
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit">Review</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function SetSourceDialog({
+  server,
+  source,
+  onOpenChange,
+  onContinue,
+}: {
+  server: string;
+  source: SourceInfo;
+  onOpenChange: (open: boolean) => void;
+  onContinue: (options: SetSourceOptions) => void;
+}) {
+  const [options, setOptions] = useState<SetSourceOptions>(setSourceDefaults(source));
+  const [shown, setShown] = useState(false);
+  const problems = setSourceProblems(options);
+  const set = (change: Partial<SetSourceOptions>) =>
+    setOptions((previous) => ({ ...previous, ...change }));
+  const remotes =
+    source.remotes.length > 0 ? source.remotes : options.remote ? [options.remote] : [];
+  const known = source.branches[options.remote] ?? [];
+  return (
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Switch the source of {server}</DialogTitle>
+          <DialogDescription>
+            Pick a remote and branch this checkout already knows, or type one. Next you
+            see what would change; nothing is written until you confirm.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setShown(true);
+            if (problems.length === 0) onContinue(options);
+          }}
+        >
+          <Field
+            label="Remote"
+            hint={remotes.length > 0 ? `Known: ${remotes.join(", ")}` : undefined}
+          >
+            {(id) =>
+              remotes.length > 0 ? (
+                <select
+                  id={id}
+                  className={SELECT_CLASS}
+                  value={options.remote}
+                  onChange={(event) => set({ remote: event.target.value })}
+                >
+                  {remotes.map((candidate) => (
+                    <option key={candidate} value={candidate}>
+                      {candidate}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input
+                  id={id}
+                  value={options.remote}
+                  spellCheck={false}
+                  onChange={(event) => set({ remote: event.target.value })}
+                />
+              )
+            }
+          </Field>
+          <Field
+            label="Branch"
+            hint={
+              known.length > 0
+                ? `Known on ${options.remote || "this remote"}: ${known.join(", ")}`
+                : `No branch of ${options.remote || "this remote"} is known locally yet; type one.`
+            }
+          >
+            {(id, describedBy) => (
+              <>
+                <Input
+                  id={id}
+                  aria-describedby={describedBy}
+                  list={`${id}-branches`}
+                  value={options.branch}
+                  autoFocus
+                  spellCheck={false}
+                  onChange={(event) => set({ branch: event.target.value })}
+                />
+                <datalist id={`${id}-branches`}>
+                  {known.map((candidate) => (
+                    <option key={candidate} value={candidate} />
+                  ))}
+                </datalist>
+              </>
+            )}
+          </Field>
           {shown && <Problems items={problems} />}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
