@@ -1,10 +1,11 @@
-import { useCallback, useState } from "react";
-import { KeyRound, RefreshCw } from "lucide-react";
+import { lazy, Suspense, useCallback, useState } from "react";
+import { KeyRound, RefreshCw, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/Callout";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Switch } from "@/components/ui/switch";
 import { useCtlJob } from "../ui";
+import { useRefreshTasks } from "../tasks/refreshTasks";
 import { Gate, StateBadge, WhenText } from "./atoms";
 import {
   countableLogins,
@@ -20,6 +21,10 @@ import { SetSecretDialog } from "./SetSecretDialog";
 import { Strip } from "./Strip";
 import { useProbe } from "./useProbe";
 import { POLL_MS, useRoster } from "./useRoster";
+
+const RunTaskDialog = lazy(() =>
+  import("../tasks/RunDialog").then((m) => ({ default: m.RunTaskDialog })),
+);
 
 export interface TabProps {
   /** Opens the All commands page on a command group. */
@@ -53,6 +58,7 @@ function Actions({
   onSignIn,
   onSetSecret,
   onProbe,
+  onRefreshTask,
 }: {
   row: LoginRow;
   busy: boolean;
@@ -60,10 +66,21 @@ function Actions({
   onSignIn: () => void;
   onSetSecret: () => void;
   onProbe: () => void;
+  onRefreshTask?: () => void;
 }) {
   const needs = needsSignIn(row.state);
   return (
     <div className="flex flex-wrap justify-end gap-1.5">
+      {onRefreshTask && (
+        <Button
+          size="sm"
+          variant="outline"
+          aria-label={`Refresh task for ${row.name}`}
+          onClick={onRefreshTask}
+        >
+          <Play /> Refresh task…
+        </Button>
+      )}
       {row.canSetSecret && (
         <Button
           size="sm"
@@ -110,6 +127,10 @@ export function LoginsTab({ onOpenCommands, pollMs = POLL_MS }: TabProps) {
   const signIn = useCtlJob();
   const [signing, setSigning] = useState<{ row: LoginRow; noOpen: boolean } | null>(null);
   const [secretFor, setSecretFor] = useState<LoginRow | null>(null);
+  const refreshTaskOf = useRefreshTasks();
+  const [refreshing, setRefreshing] = useState<{ id: string; title: string } | null>(
+    null,
+  );
 
   const { start: startLogin, reset: resetLogin } = signIn;
   const startSignIn = useCallback(
@@ -253,6 +274,14 @@ export function LoginsTab({ onOpenCommands, pollMs = POLL_MS }: TabProps) {
                               onSignIn={() => startSignIn(row, false)}
                               onSetSecret={() => setSecretFor(row)}
                               onProbe={() => void probe.run({ server: row.id, force })}
+                              onRefreshTask={
+                                refreshTaskOf(row.id)
+                                  ? () => {
+                                      const task = refreshTaskOf(row.id)!;
+                                      setRefreshing({ id: task.id, title: task.title });
+                                    }
+                                  : undefined
+                              }
                             />
                           </td>
                         </tr>
@@ -292,6 +321,16 @@ export function LoginsTab({ onOpenCommands, pollMs = POLL_MS }: TabProps) {
               : undefined
           }
         />
+      )}
+      {refreshing && (
+        <Suspense fallback={null}>
+          <RunTaskDialog
+            taskId={refreshing.id}
+            title={refreshing.title}
+            onChanged={reload}
+            onClose={() => setRefreshing(null)}
+          />
+        </Suspense>
       )}
       {secretFor && (
         <SetSecretDialog

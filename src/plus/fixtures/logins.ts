@@ -1,6 +1,7 @@
 import type { AuthRow } from "../api";
 import type { ServerInfoData, ServerLsData, StatusData } from "../bridge/data";
 import { CtlReplyHeld, ctlReplyFailure } from "./ctlReply";
+import { loginTasks } from "../tasks/fixtures";
 
 /** A registry for the Logins & secrets screen: two OAuth servers that answer 401, two that are
  * signed in, a server with API-token secrets (one stored, one not), a server whose token is
@@ -236,6 +237,7 @@ const loginReport = (server: string, name: string, message: string) => ({
 export const CONSENT_URL = "https://auth.example.test/authorize?client=toolport";
 
 const entries: Array<[string, unknown]> = [
+  ["task ls", loginTasks],
   ["status", loginsStatus],
   ["server ls", loginsServerLs],
   ["auth statusline", loginsStatusline],
