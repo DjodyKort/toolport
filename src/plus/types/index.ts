@@ -19,6 +19,7 @@ import { serverShapes } from "./server";
 import { skillsShapes } from "./skills";
 import { stylesShapes } from "./styles";
 import { syncShapes } from "./sync";
+import { taskShapes } from "./tasks";
 import { usageShapes } from "./usage";
 
 export * from "./agents";
@@ -29,6 +30,7 @@ export * from "./compression";
 export * from "./context";
 export * from "./context-bundle";
 export * from "./context-layers";
+export * from "./tasks";
 export * from "./council";
 export * from "./import";
 export * from "./inspect";
@@ -78,5 +80,6 @@ export const ctlTypeShapes: Record<string, Shape<unknown>> = {
   ...skillsShapes,
   ...stylesShapes,
   ...syncShapes,
+  ...taskShapes,
   ...usageShapes,
 };
