@@ -27,7 +27,7 @@ export interface GuiEntry {
 }
 
 /** `src/plus/gui-parity.json` (D-058, R3): where every registry command and self-management
- * tool lives in the app. A row that still points at the `all-commands` route is not done. */
+ * tool lives in the app. A row whose action is not `built` is not done. */
 export interface GuiParityManifest {
   schemaVersion: 1;
   routes: Record<string, GuiRoute>;
@@ -39,5 +39,3 @@ export interface GuiParityManifest {
 }
 
 export const guiParity = manifest as GuiParityManifest;
-
-export const ALL_COMMANDS_ROUTE = "all-commands";
