@@ -86,7 +86,7 @@ describe("servers.detect-source: where a server came from", () => {
     expect(await tools.findByText("git")).toBeInTheDocument();
     expect(tools.getByText("stored in the registry")).toBeInTheDocument();
     expect(tools.getByText("/fixture/home/src/docs-search")).toBeInTheDocument();
-    expect(tools.getByText(/on branch main/)).toBeInTheDocument();
+    expect(tools.getByText(/on origin\/main/)).toBeInTheDocument();
     expect(callsOf("servers_detect_source")).toEqual([
       { tool: "servers_detect_source", args: { name: "docs-search" } },
     ]);
@@ -455,6 +455,106 @@ describe("servers.fork-sync: syncing a checkout with its upstream", () => {
       ).toBeNull(),
     );
     expect(callsOf("servers_fork_sync")).toEqual([]);
+  });
+});
+
+describe("servers.set-source: switching the remote and branch a server points at", () => {
+  async function toSourceDialog(user: User) {
+    const { tools } = await openServer(user, "docs-search");
+    await user.click(tools.getByRole("button", { name: "Where did this come from?" }));
+    await tools.findByText(/on origin\/main/);
+    await user.click(tools.getByRole("button", { name: "Switch branch" }));
+    return {
+      tools,
+      form: await screen.findByRole("dialog", {
+        name: "Switch the source of docs-search",
+      }),
+    };
+  }
+
+  it("e2e: switches to a remote with no known branches yet, typed by hand", async () => {
+    const { user } = renderScreen();
+    const { tools, form } = await toSourceDialog(user);
+    expect(within(form).getByText("Known on origin: main")).toBeInTheDocument();
+    await user.selectOptions(within(form).getByLabelText("Remote"), "upstream");
+    expect(
+      within(form).getByText("No branch of upstream is known locally yet; type one."),
+    ).toBeInTheDocument();
+    await user.clear(within(form).getByLabelText("Branch"));
+    await user.type(within(form).getByLabelText("Branch"), "feature-sync");
+    await user.click(within(form).getByRole("button", { name: "Review" }));
+    const confirm = await screen.findByRole("dialog", {
+      name: "Switch the source of docs-search?",
+    });
+    expect(
+      within(confirm).getByText(
+        "Point the stored source of docs-search at upstream/feature-sync",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(confirm).getByText(
+        "upstream has no local record of feature-sync yet; this may fetch it first",
+      ),
+    ).toBeInTheDocument();
+    expect(callsOf("servers_set_source")).toEqual([]);
+
+    await user.click(within(confirm).getByRole("button", { name: "Switch" }));
+    const done = await screen.findByRole("dialog", {
+      name: "Switch the source of docs-search",
+    });
+    expect(
+      await within(done).findByText("docs-search now points at upstream/feature-sync"),
+    ).toBeInTheDocument();
+    expect(callsOf("servers_set_source")).toEqual([
+      {
+        tool: "servers_set_source",
+        args: {
+          name: "docs-search",
+          remote: "upstream",
+          branch: "feature-sync",
+          confirm: true,
+        },
+      },
+    ]);
+    await user.click(closeOf(done));
+    const after = (await openServer(user, "docs-search")).tools;
+    await user.click(after.getByRole("button", { name: "Where did this come from?" }));
+    expect(await after.findByText(/on upstream\/feature-sync/)).toBeInTheDocument();
+    expect(tools).toBeTruthy();
+  });
+
+  it("warns when the chosen remote and branch are already the stored source", async () => {
+    const { user } = renderScreen();
+    const { form } = await toSourceDialog(user);
+    expect(within(form).getByLabelText("Remote")).toHaveValue("origin");
+    expect(within(form).getByLabelText("Branch")).toHaveValue("main");
+    await user.click(within(form).getByRole("button", { name: "Review" }));
+    const confirm = await screen.findByRole("dialog", {
+      name: "Switch the source of docs-search?",
+    });
+    expect(
+      within(confirm).getByText(/already the stored source; confirming re-records/),
+    ).toBeInTheDocument();
+    await user.click(within(confirm).getByRole("button", { name: "Switch" }));
+    await waitFor(() => expect(callsOf("servers_set_source")).toHaveLength(1));
+    expect(callsOf("servers_set_source")[0].args).toEqual({
+      name: "docs-search",
+      remote: "origin",
+      branch: "main",
+      confirm: true,
+    });
+  });
+
+  it("closes the options with Escape and runs nothing", async () => {
+    const { user } = renderScreen();
+    await toSourceDialog(user);
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Switch the source of docs-search" }),
+      ).toBeNull(),
+    );
+    expect(callsOf("servers_set_source")).toEqual([]);
   });
 });
 

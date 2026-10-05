@@ -33,6 +33,13 @@ export interface WorldServer {
     ahead: number;
     behind: number;
     summaries: string[];
+    /** Defaults to "origin" when left out. */
+    remote?: string;
+    /** Defaults to `[remote]` when left out. */
+    remotes?: string[];
+    /** The branches known locally for each remote; a remote left out here reports none,
+     * the way a remote nobody fetched yet does in the real registry. */
+    branches?: Record<string, string[]>;
   };
 }
 
@@ -52,6 +59,9 @@ export const WORLD_SERVERS: WorldServer[] = [
       ahead: 1,
       behind: 2,
       summaries: ["6a4a877 upstream change", "91be2c0 fix the indexer"],
+      remote: "origin",
+      remotes: ["origin", "upstream"],
+      branches: { origin: ["main"], upstream: [] },
     },
   },
   {
@@ -106,9 +116,24 @@ export function createToolsWorld(seed: WorldServer[] = WORLD_SERVERS) {
   const find = (name: unknown) =>
     servers.find((server) => server.name === name || server.id === name);
 
+  function gitRemotes(server: WorldServer) {
+    const git = server.git!;
+    const remote = git.remote ?? "origin";
+    return {
+      remote,
+      remotes: git.remotes ?? [remote],
+      branches: git.branches ?? { [remote]: [git.branch] },
+    };
+  }
+
   function sourceMeta(server: WorldServer) {
     if (server.kind === "git" && server.git)
-      return { branch: server.git.branch, path: server.git.path, type: "git" };
+      return {
+        branch: server.git.branch,
+        path: server.git.path,
+        remote: gitRemotes(server).remote,
+        type: "git",
+      };
     if (server.kind === "unknown") return { type: "unknown", reason: "no source stored" };
     return { type: server.kind };
   }
@@ -163,12 +188,48 @@ export function createToolsWorld(seed: WorldServer[] = WORLD_SERVERS) {
     switch (tool) {
       case "servers_detect_source": {
         if (!server) return missing();
+        const known =
+          server.kind === "git" && server.git
+            ? {
+                remotes: gitRemotes(server).remotes,
+                branches: gitRemotes(server).branches,
+              }
+            : { remotes: [], branches: {} };
         return body(tool, detectGolden, {
           ...resultOf(detectGolden),
           name: server.name,
           stored: server.stored,
           detected: { kind: server.kind, meta: sourceMeta(server) },
+          ...known,
         });
+      }
+      case "servers_set_source": {
+        if (args.confirm !== true) return refused(tool, 3);
+        if (!server) return missing();
+        if (!server.git)
+          return new CtlReplyFailure(
+            "invalid_input",
+            `server ${server.name} is not git-backed`,
+          );
+        const remotes = gitRemotes(server).remotes;
+        const remote = String(args.remote ?? gitRemotes(server).remote);
+        if (!remotes.includes(remote))
+          return new CtlReplyFailure("invalid_arguments", `no such remote: ${remote}`);
+        const branch = String(args.branch ?? server.git.branch);
+        server.git.remote = remote;
+        server.git.branch = branch;
+        return {
+          isError: false,
+          result: {
+            name: server.name,
+            source: {
+              kind: "git",
+              meta: { branch, drift: false, path: server.git.path, remote, type: "git" },
+            },
+          },
+          tier: 3,
+          tool,
+        };
       }
       case "servers_git_status": {
         if (!server) return missing();
@@ -318,6 +379,7 @@ export type ToolsWorld = ReturnType<typeof createToolsWorld>;
 
 export const TOOL_NAMES = [
   "servers_detect_source",
+  "servers_set_source",
   "servers_git_status",
   "servers_check_updates",
   "servers_apply_update",

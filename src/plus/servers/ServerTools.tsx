@@ -18,6 +18,9 @@ import {
   modeResultPlan,
   profileMatch,
   setModePlan,
+  setSourceArgs,
+  setSourcePlan,
+  setSourceResultPlan,
   sourceOf,
   syncBlocker,
   tagResultPlan,
@@ -26,10 +29,16 @@ import {
   updateOf,
   type ForkSyncOptions,
   type GitState,
+  type SetSourceOptions,
   type SourceInfo,
 } from "./mcpTools";
 import type { ServerView } from "./model";
-import { AddProfileTagDialog, ForkSyncDialog, ModeDialog } from "./ServerToolDialogs";
+import {
+  AddProfileTagDialog,
+  ForkSyncDialog,
+  ModeDialog,
+  SetSourceDialog,
+} from "./ServerToolDialogs";
 import { useServers } from "./useServers";
 import type { ProfileLsData } from "../bridge/data";
 import type { WriteControl, WriteSpec } from "./useWrite";
@@ -88,7 +97,17 @@ function Row({ children }: { children: ReactNode }) {
   return <div className="flex flex-col gap-2">{children}</div>;
 }
 
-function SourceRow({ read, source }: { read: Read; source: SourceInfo | null }) {
+function SourceRow({
+  read,
+  source,
+  canSwitch,
+  onSwitch,
+}: {
+  read: Read;
+  source: SourceInfo | null;
+  canSwitch: boolean;
+  onSwitch: () => void;
+}) {
   return (
     <Row>
       <div className="flex flex-wrap items-center gap-2">
@@ -109,11 +128,28 @@ function SourceRow({ read, source }: { read: Read; source: SourceInfo | null }) 
           {source ? <RefreshCw /> : null}
           {source ? "Detect again" : "Where did this come from?"}
         </Button>
+        {source?.kind === "git" && (
+          <Button
+            size="sm"
+            disabled={!canSwitch}
+            title={canSwitch ? undefined : NO_MCP_CALL}
+            aria-label="Switch branch"
+            onClick={onSwitch}
+          >
+            Switch branch…
+          </Button>
+        )}
       </div>
       {source && (source.path || source.reason) && (
         <p className="text-xs text-muted-foreground">
           {source.path && <Code>{source.path}</Code>}
-          {source.branch && <> on branch {source.branch}</>}
+          {source.remote && source.branch && (
+            <>
+              {" "}
+              on {source.remote}/{source.branch}
+            </>
+          )}
+          {!source.remote && source.branch && <> on branch {source.branch}</>}
           {source.reason && <> {source.reason}</>}
         </p>
       )}
@@ -285,7 +321,7 @@ export function ServerTools({
   const update = check.result ? updateOf(check.result) : null;
   const hasPostUpdate = update ? postUpdateOf(update) !== null : false;
   const isGit = source?.kind === "git";
-  const [dialog, setDialog] = useState<"tag" | "mode" | "sync" | null>(null);
+  const [dialog, setDialog] = useState<"tag" | "mode" | "sync" | "source" | null>(null);
 
   const startGit = gitRead.run;
   useEffect(() => {
@@ -381,6 +417,28 @@ export function ServerTools({
     );
   }
 
+  function setSource(options: SetSourceOptions) {
+    if (!source) return;
+    begin(
+      toolSpec("servers_set_source", {
+        title: `Switch the source of ${view.name}`,
+        confirmLabel: "Switch",
+        stdin: toolArgs(setSourceArgs(view.name, options)),
+        planned: setSourcePlan(view.name, source, options),
+        adapt: (data) => {
+          const parsed = callResult(data);
+          return parsed.ok
+            ? setSourceResultPlan(parsed.result, view.name)
+            : failedPlan(parsed.message);
+        },
+        after: () => {
+          detect.run();
+          onChanged();
+        },
+      }),
+    );
+  }
+
   const memberOf = new Set(view.profiles.map((profile) => profile.id));
   return (
     <section aria-label="Source, updates and mode" className="flex flex-col gap-3">
@@ -390,7 +448,16 @@ export function ServerTools({
       {!available && <Callout variant="info">{NO_MCP_CALL}</Callout>}
       <Kv
         rows={[
-          ["Source", <SourceRow key="source" read={detect} source={source} />],
+          [
+            "Source",
+            <SourceRow
+              key="source"
+              read={detect}
+              source={source}
+              canSwitch={!!source && available && !write.busy}
+              onSwitch={() => setDialog("source")}
+            />,
+          ],
           [
             "Updates",
             <UpdatesRow
@@ -481,6 +548,14 @@ export function ServerTools({
           hasPostUpdate={hasPostUpdate}
           onOpenChange={(open) => !open && setDialog(null)}
           onContinue={sync}
+        />
+      )}
+      {dialog === "source" && source && (
+        <SetSourceDialog
+          server={view.name}
+          source={source}
+          onOpenChange={(open) => !open && setDialog(null)}
+          onContinue={setSource}
         />
       )}
     </section>
