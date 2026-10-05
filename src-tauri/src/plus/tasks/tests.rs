@@ -19,7 +19,7 @@ impl Host for Fake {
     fn call_tool(&self, _s: &str, _t: &str, _a: Value) -> Result<Value, String> {
         Ok(json!({"content": [{"type": "text", "text": format!("{{\"pw\":\"{CANARY}\",\"note\":\"logged in with {CANARY}\"}}")}]}))
     }
-    fn run_routine(&self, _: Option<&str>, _: Option<&str>, _: Value) -> Result<Value, String> {
+    fn run_routine(&self, _: Option<&str>, _: Option<&str>, _: Value, _: &[String]) -> Result<Value, String> {
         Err("no routines".into())
     }
     fn set_secret(&self, server: &str, key: &str, value: &str) -> Result<(), String> {

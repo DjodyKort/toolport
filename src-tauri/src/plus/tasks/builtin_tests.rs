@@ -11,7 +11,7 @@ impl Host for NoPlaywright {
     fn call_tool(&self, _: &str, _: &str, _: Value) -> Result<Value, String> {
         Err("no tools".into())
     }
-    fn run_routine(&self, _: Option<&str>, _: Option<&str>, _: Value) -> Result<Value, String> {
+    fn run_routine(&self, _: Option<&str>, _: Option<&str>, _: Value, _: &[String]) -> Result<Value, String> {
         Err("no routines".into())
     }
     fn set_secret(&self, _: &str, _: &str, _: &str) -> Result<(), String> {

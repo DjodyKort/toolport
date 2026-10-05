@@ -1,12 +1,12 @@
 //! What the runner needs from the outside world, behind one trait so tests use a fake MCP
 //! server and a fake vault. `RealHost` is the production implementation.
 
-use serde_json::Value;
-use std::sync::Arc;
+use serde_json::{json, Value};
+use std::sync::{Arc, Mutex};
 
 pub trait Host: Send + Sync {
     fn call_tool(&self, server: &str, tool: &str, args: Value) -> Result<Value, String>;
-    fn run_routine(&self, routine_id: Option<&str>, script: Option<&str>, args: Value) -> Result<Value, String>;
+    fn run_routine(&self, routine_id: Option<&str>, script: Option<&str>, args: Value, servers: &[String]) -> Result<Value, String>;
     fn set_secret(&self, server: &str, key: &str, value: &str) -> Result<(), String>;
     fn secret_is_set(&self, server: &str, key: &str) -> bool;
     fn restart_server(&self, server: &str) -> Result<String, String>;
@@ -18,6 +18,42 @@ pub trait Host: Send + Sync {
 }
 
 pub struct RealHost;
+
+/// Runs a routine script whose `toolport.call`s may only reach `servers`. A call to any other
+/// server is not made, every later call is refused too, and the step fails with the message
+/// whatever the script does with the error it is handed.
+pub fn run_guarded<F>(source: &str, args: Value, limits: crate::codemode::Limits, servers: &[String], inner: F) -> Result<Value, String>
+where
+    F: Fn(&str, &str, Value) -> Result<Value, String> + Send + Sync + 'static,
+{
+    let allowed = servers.to_vec();
+    let denied: Arc<Mutex<Option<String>>> = Arc::default();
+    let note = Arc::clone(&denied);
+    let call: crate::codemode::CallBinding = Arc::new(move |name: &str, args: Value| {
+        let Some((server, tool)) = crate::codemode::split_exposed_name(name) else {
+            return json!({"error": format!("{name:?} is not server__tool")});
+        };
+        {
+            let mut slot = note.lock().unwrap_or_else(|p| p.into_inner());
+            if slot.is_none() && !allowed.iter().any(|s| s == server) {
+                let list = if allowed.is_empty() { "none".to_string() } else { allowed.join(", ") };
+                *slot = Some(format!("the routine called the server {server:?}, which is not in requires.servers ({list}); the call was not made"));
+            }
+            if let Some(why) = slot.as_ref() {
+                return json!({"isError": true, "error": why});
+            }
+        }
+        inner(server, tool, args).unwrap_or_else(|e| json!({"isError": true, "error": e}))
+    });
+    let outcome = crate::codemode::run_script(source, args, call, None, limits, &[]);
+    if let Some(why) = denied.lock().unwrap_or_else(|p| p.into_inner()).take() {
+        return Err(why);
+    }
+    match outcome.error {
+        Some(error) => Err(error),
+        None => Ok(outcome.value),
+    }
+}
 
 fn is_launch_secret(server: &str, key: &str) -> bool {
     crate::plus::registry_ro::read_opt().is_some_and(|reg| reg.servers.iter().find(|s| s.id == server).and_then(|s| s.launch.as_ref()).is_some_and(|l| l.inputs.iter().any(|i| i.key == key && i.secret)))
@@ -36,7 +72,7 @@ impl Host for RealHost {
         crate::playground::call_tool(server, tool, args)
     }
 
-    fn run_routine(&self, routine_id: Option<&str>, script: Option<&str>, args: Value) -> Result<Value, String> {
+    fn run_routine(&self, routine_id: Option<&str>, script: Option<&str>, args: Value, servers: &[String]) -> Result<Value, String> {
         let (source, limits) = match (routine_id, script) {
             (Some(id), _) => {
                 let def = crate::routines::get(id)?.ok_or_else(|| format!("no routine {id:?}"))?;
@@ -45,17 +81,7 @@ impl Host for RealHost {
             (None, Some(script)) => (script.to_string(), crate::codemode::Limits::default()),
             (None, None) => return Err("routine step has neither routineId nor script".into()),
         };
-        let call: crate::codemode::CallBinding = Arc::new(|name: &str, args: Value| {
-            let Some((server, tool)) = crate::codemode::split_exposed_name(name) else {
-                return serde_json::json!({"error": format!("{name:?} is not server__tool")});
-            };
-            crate::playground::call_tool(server, tool, args).unwrap_or_else(|e| serde_json::json!({"isError": true, "error": e}))
-        });
-        let outcome = crate::codemode::run_script(&source, args, call, None, limits, &[]);
-        match outcome.error {
-            Some(error) => Err(error),
-            None => Ok(outcome.value),
-        }
+        run_guarded(&source, args, limits, servers, crate::playground::call_tool)
     }
 
     fn set_secret(&self, server: &str, key: &str, value: &str) -> Result<(), String> {
