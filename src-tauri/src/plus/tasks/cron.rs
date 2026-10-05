@@ -28,6 +28,14 @@ pub fn rfc3339(epoch: i64) -> String {
     format!("{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z", s / 3600, s % 3600 / 60, s % 60)
 }
 
+pub fn parse_rfc3339(text: &str) -> Option<i64> {
+    let b = text.strip_suffix('Z')?;
+    let (date, time) = b.split_once('T')?;
+    let d: Vec<i64> = date.split('-').filter_map(|p| p.parse().ok()).collect();
+    let t: Vec<i64> = time.split(':').filter_map(|p| p.parse().ok()).collect();
+    (d.len() == 3 && t.len() == 3).then(|| days_from_civil(d[0], d[1], d[2]) * 86400 + t[0] * 3600 + t[1] * 60 + t[2])
+}
+
 pub fn now() -> i64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0)
 }
