@@ -14,7 +14,7 @@ mod context;
 mod context_bundle;
 #[cfg(all(test, unix))]
 mod context_bundle_tests;
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod context_tests;
 #[cfg(test)]
 mod coverage_tests;
