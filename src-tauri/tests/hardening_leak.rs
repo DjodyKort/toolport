@@ -45,6 +45,66 @@ fn plant_plugin_canaries(plugins: &plugins_world::PluginsWorld, canary: &Canary)
     std::fs::write(&mcp_path, mcp.to_string()).unwrap();
 }
 
+/// The skills library with a remote URL that embeds a credential (rewritten to a local bare
+/// repository by `insteadOf`, so `--fetch` runs offline), one commit ahead, found through
+/// `skills_sync.json`. It lives under `input/`, which the disk scan skips: the fixture's own
+/// `.git/config` has to hold the credential.
+fn plant_library(sb: &Sandbox, canary: &Canary) {
+    let base = sb.input.join("library-world");
+    let bare = base.join("lib-remote.git");
+    let lib = base.join("lib/ai-skills");
+    let git = |dir: &std::path::Path, args: &[&str]| {
+        let out = sb
+            .command("git")
+            .current_dir(dir)
+            .args(args)
+            .output()
+            .expect("git is required");
+        assert!(
+            out.status.success(),
+            "git {args:?}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    };
+    std::fs::create_dir_all(&bare).unwrap();
+    std::fs::create_dir_all(&lib).unwrap();
+    git(&bare, &["init", "--quiet", "--bare", "-b", "main"]);
+    git(&lib, &["init", "--quiet", "-b", "main"]);
+    let credentialed = format!(
+        "https://library-user:{}@library.example.invalid/org/skills.git",
+        canary.val("library-url")
+    );
+    git(&lib, &["remote", "add", "origin", &credentialed]);
+    git(
+        &lib,
+        &[
+            "config",
+            "--local",
+            &format!("url.{}.insteadOf", bare.display()),
+            &credentialed,
+        ],
+    );
+    for (name, push) in [("review", true), ("local-only", false)] {
+        let skill = lib.join("skills").join(name).join("SKILL.md");
+        std::fs::create_dir_all(skill.parent().unwrap()).unwrap();
+        std::fs::write(
+            skill,
+            format!("---\nname: {name}\ndescription: The {name} skill\n---\nBody of {name}.\n"),
+        )
+        .unwrap();
+        git(&lib, &["add", "-A"]);
+        git(&lib, &["commit", "--quiet", "-m", &format!("Add {name}")]);
+        if push {
+            git(&lib, &["push", "--quiet", "-u", "origin", "main"]);
+        }
+    }
+    std::fs::write(
+        sb.data.join("skills_sync.json"),
+        json!({"local_path": lib.to_string_lossy()}).to_string(),
+    )
+    .unwrap();
+}
+
 struct World {
     sb: Sandbox,
     canary: Canary,
@@ -146,6 +206,7 @@ impl World {
         assert!(init.status.success(), "git init --bare failed");
         let bundle_dir = sb.input.join("bundle");
         std::fs::create_dir_all(&bundle_dir).unwrap();
+        plant_library(&sb, &canary);
         Self {
             repo: repo.to_string_lossy().into_owned(),
             quiet: quiet.to_string_lossy().into_owned(),
@@ -422,6 +483,13 @@ impl World {
             s(&["sources", "root", "rm", &work]),
             s(&["sources", "root"]),
             s(&["sources"]),
+            s(&["library", "status"]),
+            s(&["library", "status", "--fetch"]),
+            s(&["library", "pull", "--dry-run"]),
+            s(&["library", "pull"]),
+            s(&["library", "push", "--dry-run"]),
+            s(&["library", "push"]),
+            s(&["library"]),
             s(&["plugins", "ls"]),
             s(&["plugins", "ls", "--refresh"]),
             s(&["plugins", "ls", "--cwd", &self.project]),
@@ -651,6 +719,19 @@ fn ctl_commands_never_print_or_store_a_canary() {
             }
         }
     }
+
+    let status = world.sb.ctl(&["--json", "library", "status", "--fetch"]);
+    status.assert_ok();
+    assert_eq!(
+        status.data()["fetch"]["ok"],
+        json!(true),
+        "positive control: the library fixture is found and fetched offline"
+    );
+    let remote = status.data()["remote"].as_str().unwrap().to_string();
+    assert!(
+        remote.contains("library.example.invalid") && !remote.contains("library-user"),
+        "the remote URL is shown without its userinfo: {remote}"
+    );
 
     let sync_clone = world.sb.root.join("clone");
     let _ = world
@@ -957,6 +1038,8 @@ fn selfmcp_tools_and_resources_never_return_or_store_a_canary() {
         ("plugins_mcp", json!({"action": "allow", "id": "ecc@ecc", "server": "remote", "cwd": world.project, "dry_run": false})),
         ("hooks_ls", json!({"cwd": world.project})),
         ("hooks_ls", json!({"tool": "Bash"})),
+        ("library_status", json!({"fetch": true})),
+        ("library_pull", json!({"dry_run": false})),
     ] {
         let reply = session.call(name, args.clone());
         assert_eq!(reply["result"]["isError"], false, "{name} {args} -> {reply}");

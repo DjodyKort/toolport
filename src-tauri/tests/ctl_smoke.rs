@@ -48,6 +48,8 @@ const NOT_READ_ONLY: &[(&str, &str)] = &[
     ("compression sync", "reconciles artifacts and registry; compression round trip test"),
     ("compression seal", "reads a live proxy /health; stub engine tests in ctl::compression_cfg_tests"),
     ("skills unbundle", "extracts into the target; bundle round trip test"),
+    ("library pull", "fast-forwards the library clone; tests/ctl_contract.rs and plus::sources::library_remote_tests"),
+    ("library push", "commits and pushes the library clone; tests/ctl_contract.rs and plus::sources::library_remote_tests"),
     ("sources root add", "edits sourceRoots in context.json; tests/ctl_contract.rs and plus::sources::tests"),
     ("sources root rm", "edits sourceRoots in context.json; tests/ctl_contract.rs and plus::sources::tests"),
     ("usage", "indexes transcripts into the data dir; ctl::usage unit tests"),
@@ -430,6 +432,9 @@ fn version_and_usage_errors_use_the_documented_exit_codes() {
         (vec!["plugins", "config", "a@b"], "plugins config"),
         (vec!["plugins", "mcp", "deny"], "plugins mcp"),
         (vec!["hooks", "ls", "--tool", "Grep"], "hooks ls"),
+        (vec!["library", "status", "extra"], "library status"),
+        (vec!["library", "pull", "--force"], "library pull"),
+        (vec!["library", "push", "--message", "x"], "library push"),
     ] {
         let (run, value) = world.json(&argv);
         assert_envelope(&argv.join(" "), &run, &value, command, 2);
@@ -491,7 +496,7 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert!(d["checks"].as_array().unwrap().len() >= 4);
         }),
         case("commands", &["commands"], 0, |_, d| {
-            assert_eq!(d["counts"]["tools"], 97);
+            assert_eq!(d["counts"]["tools"], 99);
             let rows = d["commands"].as_array().unwrap();
             assert!(rows.iter().any(|r| r["id"] == "profile edit" && r["tier"] == "write"));
             assert!(rows.iter().any(|r| r["id"] == "sync push" && r["parent"] == "sync"));
@@ -846,7 +851,7 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert!(!d["checks"].as_array().unwrap().is_empty());
         }),
         case("mcp", &["mcp", "tools"], 0, |_, d| {
-            assert_eq!(d["tools"].as_array().unwrap().len(), 97);
+            assert_eq!(d["tools"].as_array().unwrap().len(), 99);
             assert_eq!(d["resources"].as_array().unwrap().len(), 11);
         }),
         case(
@@ -890,6 +895,7 @@ fn read_only_cases(w: &World) -> Vec<Case> {
                 assert!(d["items"].is_array());
             },
         ),
+        case("library status", &["library", "status"], 1, |_, _| {}),
         case("sources root ls", &["sources", "root", "ls"], 0, |_, d| {
             assert!(d["roots"].is_array());
         }),
@@ -1368,6 +1374,10 @@ fn failing_read_only_commands_still_describe_the_failure() {
     let (run, value) = world.json(&["sync", "diff"]);
     assert_envelope("sync diff", &run, &value, "sync", 1);
     assert_eq!(value["error"]["code"], "sync");
+
+    let (run, value) = world.json(&["library", "status"]);
+    assert_envelope("library status", &run, &value, "library status", 1);
+    assert_eq!(value["error"]["code"], "not_found");
 }
 
 fn subcommands_of(path: &[&str]) -> BTreeSet<&'static str> {

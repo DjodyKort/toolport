@@ -563,7 +563,7 @@ export function createSystemWorld(initial: Partial<SystemState> = {}) {
             ),
             check("enabled_in_client_profiles", true, "no client is scoped to a profile"),
             check("handshake", true, SELF_ID),
-            check("catalog", true, "97 tools, 11 resources"),
+            check("catalog", true, "99 tools, 11 resources"),
           ],
           {
             activeProfile: installed ? profileState("default") : null,

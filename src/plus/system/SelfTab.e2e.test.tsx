@@ -42,7 +42,7 @@ describe("Self-management tab, end to end", () => {
     expect(await screen.findAllByText("Not installed")).not.toHaveLength(0);
     await screen.findByRole("list", { name: "Self-management checks" });
     expect(checks()).toMatch(/FixRegistry entryrun `toolportctl mcp install`/);
-    expect(checks()).toMatch(/OKCatalogue97 tools, 11 resources/);
+    expect(checks()).toMatch(/OKCatalogue99 tools, 11 resources/);
     const tools = await screen.findByRole("list", { name: "Tools" });
     expect(within(tools).getAllByRole("listitem").length).toBeGreaterThan(50);
     expect(within(tools).getAllByText("Destructive").length).toBeGreaterThan(0);
