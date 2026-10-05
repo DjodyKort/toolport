@@ -1,10 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, ExternalLink, Loader2, Plus, Search, ShieldCheck } from "lucide-react";
+import {
+  Check,
+  ExternalLink,
+  Loader2,
+  Plus,
+  Search,
+  ShieldCheck,
+  TriangleAlert,
+} from "lucide-react";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toast";
 import { openExternal } from "@/lib/openUrl";
 import { addServer, listStacks, popularCatalog, searchCatalog } from "@/lib/api";
-import type { CatalogEntry, Registry, ServerEntry, Stack } from "@/lib/types";
+import type {
+  CatalogEntry,
+  Registry,
+  RegistryError,
+  ServerEntry,
+  Stack,
+} from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,9 +49,11 @@ export function CatalogView({ registry, onAdded }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [popularLoading, setPopularLoading] = useState(true);
   const [popularError, setPopularError] = useState(false);
-  // A failed live search is distinct from a genuinely empty result: without this a
-  // network/registry failure would render as an innocent "no results for …".
-  const [searchError, setSearchError] = useState(false);
+  // A failed live registry call is distinct from a genuinely empty result: without
+  // this it would render as an innocent "no results for …" with no way to retry.
+  // `searchCatalog` itself never rejects for a registry failure (curated/cached
+  // hits still come back), so this only holds a classified error, not a boolean.
+  const [registryError, setRegistryError] = useState<RegistryError | null>(null);
   const [searchNonce, setSearchNonce] = useState(0);
   const [stacks, setStacks] = useState<Stack[]>([]);
   const [stacksLoading, setStacksLoading] = useState(true);
@@ -79,24 +95,28 @@ export function CatalogView({ registry, onAdded }: Props) {
     const q = query.trim();
     if (!q) {
       setResults(null);
-      setSearchError(false);
+      setRegistryError(null);
       setLoading(false);
       return;
     }
     setLoading(true);
-    setSearchError(false);
+    setRegistryError(null);
     let cancelled = false;
     const t = setTimeout(() => {
       searchCatalog(q)
         .then((r) => {
-          if (!cancelled) setResults(r);
+          if (!cancelled) {
+            setResults(r.entries);
+            setRegistryError(r.registryError ?? null);
+          }
         })
         .catch(() => {
-          // Distinguish a failed search from an empty one so we can offer a retry
-          // instead of implying the registry has nothing for this query.
+          // Only an unexpected failure outside the backend's own classification
+          // (e.g. the IPC call itself) reaches here: `searchCatalog` reports a
+          // registry failure as `registryError`, not a rejection.
           if (!cancelled) {
             setResults([]);
-            setSearchError(true);
+            setRegistryError({ kind: "connectionFailed", message: "search failed" });
           }
         })
         .finally(() => {
@@ -205,6 +225,10 @@ export function CatalogView({ registry, onAdded }: Props) {
 
   const shown = results ?? popular;
   const browsing = results === null;
+  // "timeout"/"other" mean the registry was reachable, just slow or erroring -
+  // curated hits are shown with a soft banner. "connectionFailed" is the one
+  // case that keeps the old, stronger "couldn't reach" message.
+  const registryDown = !browsing && registryError?.kind === "connectionFailed";
 
   // Browse view: group the popular picks into category sections. Search results
   // stay flat (they're query-driven, including the long-tail registry).
@@ -298,6 +322,24 @@ export function CatalogView({ registry, onAdded }: Props) {
           />
         ) : null)}
 
+      {/* A registry failure never hides the curated/cached hits that came back with
+          it (D-101): it's a soft banner above them, not the blocking empty state
+          below, which is reserved for when there is truly nothing to show. */}
+      {!browsing && registryError && shown.length > 0 && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning"
+        >
+          <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
+          <span>
+            {registryDown
+              ? "Toolport couldn't reach the MCP Registry. Showing curated matches only."
+              : "The MCP Registry is slow or unavailable right now. Showing curated matches."}
+          </span>
+        </div>
+      )}
+
       {shown.length === 0 ? (
         browsing && popularLoading ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -321,7 +363,7 @@ export function CatalogView({ registry, onAdded }: Props) {
               Try again
             </Button>
           </div>
-        ) : !browsing && searchError ? (
+        ) : !browsing && registryError ? (
           <div
             role="status"
             aria-live="polite"
@@ -330,8 +372,9 @@ export function CatalogView({ registry, onAdded }: Props) {
             <div>
               <p className="font-medium">Search failed</p>
               <p className="max-w-md text-sm text-muted-foreground">
-                Toolport couldn't reach the MCP Registry. Check your connection, then
-                retry.
+                {registryDown
+                  ? "Toolport couldn't reach the MCP Registry. Check your connection, then retry."
+                  : "The MCP Registry is slow or unavailable right now. Try again in a moment."}
               </p>
             </div>
             <Button
