@@ -34,6 +34,24 @@
           "waiting": false
         },
         {
+          "enabled": false,
+          "id": "moodle-token",
+          "lastRun": null,
+          "nextRun": null,
+          "title": "Refresh the Moodle token",
+          "triggers": {
+            "cli": true,
+            "manual": true,
+            "onAuthFailure": ["moodle"],
+            "schedule": null,
+            "selfMcp": {
+              "approval": "every-run",
+              "enabled": false
+            }
+          },
+          "waiting": false
+        },
+        {
           "enabled": true,
           "id": "nightly-report",
           "lastRun": {
