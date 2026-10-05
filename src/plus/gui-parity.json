@@ -1087,6 +1087,12 @@
       "test": "src/plus/servers/ServerTools.test.tsx",
       "summary": "Sync a git checkout with its upstream onto a new branch after a plan (servers_fork_sync, confirm=true; a conflict is shown as a stopped sync)"
     },
+    "servers.set-source": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ServerTools.test.tsx",
+      "summary": "Switch a git-backed server's stored remote and branch after a plan (servers_set_source / toolportctl server source set, confirm=true; remotes and branches known from servers_detect_source seed the picker, with a free-text fallback)"
+    },
     "servers.set-mode": {
       "route": "servers",
       "status": "built",
@@ -1765,6 +1771,11 @@
       "action": "servers.search",
       "surface": "screen"
     },
+    "server source set": {
+      "route": "servers",
+      "action": "servers.set-source",
+      "surface": "screen"
+    },
     "server uninstall": {
       "route": "servers",
       "action": "servers.remove",
@@ -2320,6 +2331,11 @@
     "servers_set_mode": {
       "route": "servers",
       "action": "servers.set-mode",
+      "surface": "screen"
+    },
+    "servers_set_source": {
+      "route": "servers",
+      "action": "servers.set-source",
       "surface": "screen"
     },
     "servers_uninstall": {
