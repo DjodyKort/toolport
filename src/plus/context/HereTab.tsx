@@ -8,6 +8,7 @@ import type {
   ContextBundleStatusData,
 } from "../types/context-bundle";
 import { Stat } from "../logins/atoms";
+import { TerminalDialog, turnOffStep, useTerminalStep } from "../plugins/TerminalStep";
 import { ComposedView } from "./ComposedView";
 import { FolderField, suggestions, useRecentFolders, type FolderChoice } from "./folder";
 import { useRead, useWrite, type WriteControl } from "./hooks";
@@ -92,11 +93,13 @@ function LoadRow({
   max,
   disabled,
   onWithout,
+  onOff,
 }: {
   item: LoadItem;
   max: number;
   disabled: boolean;
   onWithout: (item: LoadItem) => void;
+  onOff: (item: LoadItem) => void;
 }) {
   const pct = max > 0 ? Math.max(2, Math.round((item.tokens / max) * 100)) : 0;
   const notes = [item.reason, item.via.length > 0 ? `via ${item.via.join(" > ")}` : ""]
@@ -131,14 +134,19 @@ function LoadRow({
         </div>
       </div>
       {item.kind === "plugin" && item.loaded ? (
-        <Button
-          size="xs"
-          variant="outline"
-          disabled={disabled}
-          onClick={() => onWithout(item)}
-        >
-          Measure without it…
-        </Button>
+        <span className="flex gap-1.5">
+          <Button
+            size="xs"
+            variant="outline"
+            disabled={disabled}
+            onClick={() => onWithout(item)}
+          >
+            Measure without it…
+          </Button>
+          <Button size="xs" variant="outline" onClick={() => onOff(item)}>
+            Off here…
+          </Button>
+        </span>
       ) : (
         <span />
       )}
@@ -156,6 +164,7 @@ function Stack({
   cwd: string;
 }) {
   const [open, setOpen] = useState<string | null>(null);
+  const terminal = useTerminalStep();
   const groups = stackGroups(data);
   const max = Math.max(0, ...data.items.map((item) => item.tokens));
   const budget = skillBudgetState(data);
@@ -224,6 +233,9 @@ function Stack({
                   item={item}
                   max={max}
                   disabled={write.busy}
+                  onOff={(plugin) =>
+                    terminal.open(turnOffStep(plugin.name, plugin.name, cwd))
+                  }
                   onWithout={(plugin) =>
                     write.begin({
                       command: "context measure",
@@ -252,6 +264,7 @@ function Stack({
           </section>
         );
       })}
+      <TerminalDialog step={terminal.step} onClose={terminal.close} />
     </div>
   );
 }

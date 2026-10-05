@@ -8,6 +8,7 @@ import type { WriteControl } from "../skills/hooks";
 import { plural } from "../skills/model";
 import { Section } from "../skills/parts";
 import { AdapterSettings } from "./AdapterSettings";
+import { disableEverywhereStep, turnOffStep, type TerminalStep } from "./TerminalStep";
 import {
   configSpec,
   draftArgs,
@@ -22,12 +23,6 @@ import {
   type Draft,
   type Scope,
 } from "./model";
-
-export interface TerminalStep {
-  title: string;
-  lines: string[];
-  line: string;
-}
 
 function Brings({ show }: { show: PluginsShowData }) {
   const b = show.brings;
@@ -301,18 +296,7 @@ export function PluginDetail({
               <Button
                 size="sm"
                 disabled={busy}
-                onClick={() =>
-                  onTerminal({
-                    title: `Turn ${show.name} off in a folder`,
-                    line: `claude plugin disable ${show.id} --scope local`,
-                    lines: [
-                      cwd
-                        ? `Run it in ${homeShort(cwd)}: Claude Code writes enabledPlugins: ${show.id} = false into that folder's .claude/settings.local.json.`
-                        : "Run it in the folder where Claude Code starts: Claude Code writes enabledPlugins into that folder's .claude/settings.local.json.",
-                      "Your other keys stay as they are. Undo with the same command and enable instead of disable.",
-                    ],
-                  })
-                }
+                onClick={() => onTerminal(turnOffStep(show.id, show.name, cwd))}
               >
                 Turn off in a folder…
               </Button>
@@ -329,16 +313,7 @@ export function PluginDetail({
                 size="sm"
                 variant="destructive"
                 disabled={busy}
-                onClick={() =>
-                  onTerminal({
-                    title: `Disable ${show.name} everywhere`,
-                    line: `claude plugin disable ${show.id} --scope user`,
-                    lines: [
-                      `This turns ${show.name} off in every folder that does not turn it on again, and its hooks and MCP servers stop with it.`,
-                      "Claude Code owns this switch, so it runs in a terminal.",
-                    ],
-                  })
-                }
+                onClick={() => onTerminal(disableEverywhereStep(show.id, show.name))}
               >
                 Disable everywhere…
               </Button>
