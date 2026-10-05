@@ -1056,6 +1056,7 @@ fn mixed_world(tag: &str) -> (ReleaseWorld, Env) {
         ("pkg1", "2.0.0"),
         ("pkg3", "3.0.1"),
         ("pkg4", "5.0.0"),
+        ("unpinned", "1.0.0"),
     ] {
         w.http.text(
             &format!("https://npm.example.invalid/{n}/latest"),
@@ -1121,6 +1122,7 @@ fn parallel_checks_report_exactly_like_a_serial_pass() {
         assert_eq!(status("g"), Status::UpdateAvailable);
         assert_eq!(status("u1"), Status::Error);
         assert_eq!(status("remote"), Status::Skipped);
+        assert_eq!(status("free"), Status::Auto);
     }
 }
 

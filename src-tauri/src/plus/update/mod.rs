@@ -3,6 +3,7 @@
 //! Commands that come from configuration (`post_update`, `verify_command`)
 //! only run when the caller passes `allow_commands`.
 
+pub mod docker;
 pub mod exec;
 pub mod gitops;
 pub mod net;
@@ -25,7 +26,7 @@ use serde_json::{json, Map, Value};
 use source::Source;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Mutex};
 use std::time::Duration;
 
@@ -484,51 +485,210 @@ fn check_pin(
             format!("{package} not found in the launch arguments"),
         );
     };
-    let pinned = match spec.version.as_deref() {
-        Some(v) if !pins::is_floating(v) => v.to_string(),
-        _ => {
-            return rep.set(
-                Status::Auto,
-                format!("unpinned: {} resolves at runtime", spec.name),
-            )
-        }
-    };
-    rep.current = Some(pinned.clone());
-    let latest = if uvx {
-        pins::latest_pypi(env.http.as_ref(), &env.pypi_index, &spec.name)
-    } else {
-        pins::latest_npm(env.http.as_ref(), &env.npm_registry, &spec.name)
-    };
-    let latest = match latest {
-        Ok(v) => v,
-        Err(e) => return rep.set(Status::Error, e),
-    };
-    rep.latest = Some(latest.clone());
-    match pins::compare_versions(&pinned, &latest) {
-        None => rep.set(
-            Status::Error,
-            format!("could not compare versions '{pinned}' and '{latest}'"),
-        ),
-        Some(Ordering::Less) => {
-            rep.plan.push(format!(
-                "rewrite arg {}{}{} -> {}{}{}",
-                spec.name, spec.separator, pinned, spec.name, spec.separator, latest
-            ));
-            rep.set(
-                Status::UpdateAvailable,
-                format!("pinned {pinned}, latest {latest}"),
-            );
-            if opts.mode == Mode::Apply && pins::rewrite(&mut entry.args, &spec, &latest) {
-                mark_updated(env, entry, None);
-                rep.step("pin", true, format!("{pinned} -> {latest}"));
-                rep.changed = true;
-                rep.set(Status::Updated, format!("pin moved {pinned} -> {latest}"));
+    if uvx && pins::is_git_url(&spec.name) {
+        return check_git_ref(env, &spec, rep);
+    }
+    let raw_version = spec.version.as_deref().unwrap_or("");
+    match pins::classify(raw_version) {
+        pins::VersionSpec::Exact(pinned) => {
+            rep.current = Some(pinned.clone());
+            let latest = if uvx {
+                pins::latest_pypi(env.http.as_ref(), &env.pypi_index, &spec.name)
+            } else {
+                pins::latest_npm(env.http.as_ref(), &env.npm_registry, &spec.name)
+            };
+            let latest = match latest {
+                Ok(v) => v,
+                Err(e) => return rep.set(Status::Error, e),
+            };
+            rep.latest = Some(latest.clone());
+            match pins::compare_versions(&pinned, &latest) {
+                None => rep.set(
+                    Status::Error,
+                    format!("could not compare versions '{pinned}' and '{latest}'"),
+                ),
+                Some(Ordering::Less) => {
+                    rep.plan.push(format!(
+                        "rewrite arg {}{}{} -> {}{}{}",
+                        spec.name, spec.separator, pinned, spec.name, spec.separator, latest
+                    ));
+                    rep.set(
+                        Status::UpdateAvailable,
+                        format!("pinned {pinned}, latest {latest}"),
+                    );
+                    if opts.mode == Mode::Apply && pins::rewrite(&mut entry.args, &spec, &latest) {
+                        mark_updated(env, entry, None);
+                        rep.step("pin", true, format!("{pinned} -> {latest}"));
+                        rep.changed = true;
+                        rep.set(Status::Updated, format!("pin moved {pinned} -> {latest}"));
+                    }
+                }
+                Some(_) => rep.set(
+                    Status::UpToDate,
+                    format!("pinned at {pinned} (latest {latest})"),
+                ),
             }
         }
-        Some(_) => rep.set(
-            Status::UpToDate,
-            format!("pinned at {pinned} (latest {latest})"),
+        // A caret/tilde range always picks up the newest release that still
+        // satisfies it with no pin rewrite at all, so there is nothing to
+        // apply; only the newest overall release landing outside the range
+        // is worth a plan entry, offered rather than rewritten automatically
+        // (unlike an exact pin, bumping the range is a product decision).
+        pins::VersionSpec::Range(req_text) => {
+            let Ok(req) = semver::VersionReq::parse(&req_text) else {
+                return rep.set(Status::Error, format!("could not parse range '{req_text}'"));
+            };
+            rep.current = Some(req_text.clone());
+            let versions = if uvx {
+                pins::pypi_versions(env.http.as_ref(), &env.pypi_index, &spec.name)
+            } else {
+                pins::npm_versions(env.http.as_ref(), &env.npm_registry, &spec.name)
+            };
+            let latest = if uvx {
+                pins::latest_pypi(env.http.as_ref(), &env.pypi_index, &spec.name)
+            } else {
+                pins::latest_npm(env.http.as_ref(), &env.npm_registry, &spec.name)
+            };
+            let (versions, latest) = match (versions, latest) {
+                (Ok(v), Ok(l)) => (v, l),
+                (Err(e), _) | (_, Err(e)) => return rep.set(Status::Error, e),
+            };
+            rep.latest = Some(latest.clone());
+            let in_range = pins::parse_semver(&latest).is_some_and(|v| req.matches(&v));
+            if in_range {
+                rep.set(
+                    Status::UpToDate,
+                    format!("range {req_text} covers the latest ({latest})"),
+                );
+            } else {
+                let highest_in_range = pins::highest_matching(&req, &versions)
+                    .unwrap_or_else(|| "none published".to_string());
+                rep.plan.push(format!(
+                    "rewrite arg {}{}{} -> {}{}{} (range change, not applied automatically)",
+                    spec.name, spec.separator, req_text, spec.name, spec.separator, latest
+                ));
+                rep.set(
+                    Status::UpdateAvailable,
+                    format!(
+                        "{latest} is outside range {req_text}; highest in range is {highest_in_range}"
+                    ),
+                );
+            }
+        }
+        pins::VersionSpec::Floating => {
+            let latest = if uvx {
+                pins::latest_pypi(env.http.as_ref(), &env.pypi_index, &spec.name)
+            } else {
+                pins::latest_npm(env.http.as_ref(), &env.npm_registry, &spec.name)
+            };
+            match latest {
+                Ok(latest) => {
+                    rep.latest = Some(latest.clone());
+                    rep.plan.push(format!(
+                        "pin {}{}{} -> {}{}{} (not applied automatically)",
+                        spec.name, spec.separator, latest, spec.name, spec.separator, latest
+                    ));
+                    rep.set(
+                        Status::Auto,
+                        format!(
+                            "unpinned: {} resolves at runtime; latest is {latest} (pin to {latest}?)",
+                            spec.name
+                        ),
+                    );
+                }
+                Err(e) => rep.set(Status::Error, e),
+            }
+        }
+    }
+}
+
+/// `uvx --from git+URL[@ref] ...`: no registry version exists, so compare the
+/// pinned ref (or the remote's default branch, if unpinned) against
+/// `git ls-remote` instead of npm/PyPI. A digest pin is always exact and
+/// never checked; everything else only ever offers a plan entry, since
+/// moving a branch/commit pin is not a mechanical version bump either.
+fn check_git_ref(env: &Env, spec: &pins::PinSpec, rep: &mut ServerReport) {
+    let url = pins::git_clone_url(&spec.name);
+    let want_ref = spec.version.as_deref().filter(|r| !r.is_empty());
+    let probe = want_ref.filter(|r| !gitops::looks_like_sha(r)).unwrap_or("HEAD");
+    let cwd = env.home.as_deref().unwrap_or_else(|| Path::new("."));
+    let tip = gitops::ls_remote_tip(env.git.as_ref(), cwd, url, probe);
+    match tip {
+        Ok(Some(sha)) => {
+            let short = |s: &str| s.get(..12.min(s.len())).unwrap_or(s).to_string();
+            rep.latest = Some(sha.clone());
+            match want_ref.filter(|r| gitops::looks_like_sha(r)) {
+                Some(pinned_sha) => {
+                    rep.current = Some(pinned_sha.to_string());
+                    if sha.starts_with(pinned_sha) {
+                        rep.set(
+                            Status::UpToDate,
+                            format!("pinned commit is the remote HEAD ({})", short(&sha)),
+                        );
+                    } else {
+                        rep.plan.push(format!(
+                            "rewrite ref {}@{} -> {}@{} (not applied automatically)",
+                            spec.name, pinned_sha, spec.name, sha
+                        ));
+                        rep.set(
+                            Status::UpdateAvailable,
+                            format!(
+                                "remote HEAD is now {} (pinned at {})",
+                                short(&sha),
+                                short(pinned_sha)
+                            ),
+                        );
+                    }
+                }
+                None => {
+                    rep.current = want_ref.map(String::from);
+                    let tracked = want_ref.unwrap_or("the default branch");
+                    rep.plan.push(format!(
+                        "pin {} -> {}@{} (not applied automatically)",
+                        spec.name, spec.name, sha
+                    ));
+                    rep.set(
+                        Status::Auto,
+                        format!("tracks {tracked}; tip is {} (pin to this commit?)", short(&sha)),
+                    );
+                }
+            }
+        }
+        Ok(None) => rep.set(
+            Status::Error,
+            format!("ref not found on remote: {}", want_ref.unwrap_or("HEAD")),
         ),
+        Err(e) => rep.set(Status::Error, e),
+    }
+}
+
+/// `docker run <image>[:tag|@digest] ...`: a digest pin is exact and
+/// immutable, nothing to check; a tag is resolved against Docker Hub only
+/// (see `update::docker`), offering a pin-to-digest action rather than
+/// rewriting the tag automatically.
+fn check_docker(env: &Env, src: &Source, rep: &mut ServerReport) {
+    let Source::Docker { image, tag, digest } = src else {
+        return;
+    };
+    if let Some(digest) = digest {
+        rep.current = Some(digest.clone());
+        return rep.set(Status::UpToDate, "pinned by digest: always exact, nothing to update");
+    }
+    let tag = tag.as_deref().unwrap_or("latest");
+    rep.current = Some(tag.to_string());
+    let image_ref = docker::parse_image(image);
+    match docker::current_digest(env.http.as_ref(), &image_ref, tag) {
+        docker::DigestCheck::Digest(digest) => {
+            rep.latest = Some(digest.clone());
+            rep.plan.push(format!(
+                "pin {image}@{digest} (not applied automatically)"
+            ));
+            rep.set(
+                Status::Auto,
+                format!("tag {tag} currently resolves to {digest} (pin to this digest?)"),
+            );
+        }
+        docker::DigestCheck::Unsupported(reason) => rep.set(Status::Skipped, reason),
     }
 }
 
@@ -577,6 +737,13 @@ fn init_one(env: &Env, opts: &Options, entry: &mut ServerEntry, rep: &mut Server
                 .unwrap_or_default()
         ),
         Source::Npx { package } | Source::Uvx { package } => format!("package {package}"),
+        Source::Docker { image, tag, digest } => format!(
+            "docker {image}{}",
+            digest
+                .as_deref()
+                .map(|d| format!("@{d}"))
+                .unwrap_or_else(|| format!(":{}", tag.as_deref().unwrap_or("latest")))
+        ),
         Source::Remote => "remote".into(),
         Source::Unknown { reason } => reason.clone(),
     };
@@ -611,6 +778,7 @@ fn check_planned(env: &Env, opts: &Options, planned: Planned) -> ServerReport {
         Source::Git { .. } => check_git(env, opts, entry, &src, &mut rep),
         Source::GithubRelease { .. } => check_release(env, opts, entry, &src, &mut rep),
         Source::Npx { .. } | Source::Uvx { .. } => check_pin(env, opts, entry, &src, &mut rep),
+        Source::Docker { .. } => check_docker(env, &src, &mut rep),
         Source::Remote => rep.set(Status::Skipped, "remote server, nothing to update"),
         Source::Unknown { reason } => rep.set(
             Status::Skipped,
@@ -627,7 +795,7 @@ fn check_planned(env: &Env, opts: &Options, planned: Planned) -> ServerReport {
 fn is_lookup(src: &Source) -> bool {
     matches!(
         src,
-        Source::GithubRelease { .. } | Source::Npx { .. } | Source::Uvx { .. }
+        Source::GithubRelease { .. } | Source::Npx { .. } | Source::Uvx { .. } | Source::Docker { .. }
     )
 }
 
