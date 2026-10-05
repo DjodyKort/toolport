@@ -1736,6 +1736,30 @@ pub const MORE: &[Case] = &[
     // tasks (MIG-AUTO-1): `tasks_home` holds a task that needs the user and writes one secret, a
     // scheduled one, a disabled draft and a broken file, plus run records with fixed ids; a
     // started run spawns `/usr/bin/true` as its runner, so no step of a golden ever runs
+    // attention (MIG-GUI-11): the tasks world gives a run that waits for you and one that failed;
+    // every other feed reads local state of the same synthetic home
+    prepared(
+        "attention ls",
+        tasks_home,
+        &[
+            read("default", &["attention", "ls"]),
+            read("needs-you", &["attention", "ls", "--level", "needs-you"]),
+            read("fyi", &["attention", "ls", "--level", "fyi"]),
+            usage("usage", &["attention", "ls", "--level", "urgent"]),
+        ],
+    ),
+    prepared(
+        "attention dismiss",
+        tasks_home,
+        &[
+            read("preview", &["attention", "dismiss", "tasks:portal-token:waiting", "--dry-run"]),
+            apply("apply", &["attention", "dismiss", "tasks:portal-token:waiting", "--until", "2099-01-01"]),
+            read("hidden", &["attention", "ls"]),
+            read("until-preview", &["attention", "dismiss", "later:feed", "--until", "2099-12-31", "--dry-run"]),
+            apply("forever", &["attention", "dismiss", "later:feed"]),
+            usage("usage", &["attention", "dismiss", "tasks:portal-token:waiting", "--until", "soon"]),
+        ],
+    ),
     prepared(
         "task ls",
         tasks_home,

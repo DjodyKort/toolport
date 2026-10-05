@@ -1,0 +1,34 @@
+{
+  "argv": ["attention", "ls"],
+  "envelope": {
+    "command": "attention ls",
+    "data": {
+      "counts": {
+        "fyi": 0,
+        "look": 0,
+        "needsYou": 1
+      },
+      "items": [
+        {
+          "action": null,
+          "detail": "Not set yet: API_KEY. The server cannot start without it.",
+          "from": "doctor",
+          "id": "secrets:srv-alpha:missing",
+          "level": "needs-you",
+          "since": "<masked>",
+          "target": {
+            "params": {
+              "server": "srv-alpha",
+              "tab": "secrets"
+            },
+            "route": "servers"
+          },
+          "title": "alpha is missing a secret"
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

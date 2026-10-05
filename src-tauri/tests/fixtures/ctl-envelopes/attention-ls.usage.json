@@ -1,0 +1,13 @@
+{
+  "argv": ["attention", "ls", "--level", "urgent"],
+  "envelope": {
+    "command": "attention ls",
+    "error": {
+      "code": "usage",
+      "message": "--level must be one of needs-you, look, fyi"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}
