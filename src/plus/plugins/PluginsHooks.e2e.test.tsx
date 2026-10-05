@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, screen, waitFor, within } from "@testing-library/react";
+import type { HooksLsData } from "../types/plugins";
 
 const { invoke, listen } = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
@@ -46,9 +47,31 @@ afterEach(() => {
     "no read without a plugin id",
   ).toBe(false);
   expect(
-    ran.some((line) => /^plugins (enable|disable|on|off)\b|^claude /.test(line)),
-    "the terminal-only steps never run from the app",
+    ran.some((line) => /^claude\b|\bclaude plugin\b/.test(line)),
+    "the app never runs claude itself",
   ).toBe(false);
+  expect(
+    invoke.mock.calls
+      .map(([command]) => String(command))
+      .filter((command) => !/^plus_ctl(_result|_cancel)?$/.test(command)),
+    "the app only talks to toolportctl",
+  ).toEqual([]);
+  const switches = ran.filter((line) => /^plugins (off|on|disable|enable)\b/.test(line));
+  expect(
+    switches.every((line) =>
+      /^plugins (off|on) \S+ --cwd \S+( --dry-run)?$|^plugins (disable|enable) \S+( --dry-run)?$/.test(
+        line,
+      ),
+    ),
+    "a switch runs with exactly the plugin id and the folder",
+  ).toBe(true);
+  ran.forEach((line, i) => {
+    if (/^plugins (off|on|disable|enable)\b/.test(line) && !line.endsWith("--dry-run")) {
+      expect(ran.slice(0, i), `${line} was previewed first`).toContain(
+        `${line} --dry-run`,
+      );
+    }
+  });
 });
 
 const dialog = (name: RegExp) => screen.findByRole("dialog", { name });
@@ -197,6 +220,207 @@ describe("plugins.mcp", () => {
     await user.click(within(back).getByRole("button", { name: "Allow again" }));
     await closeResult(user);
     await waitFor(() => expect(bridge.world.state.folders[FOLDER].denied).toEqual([]));
+  });
+});
+
+const ECC = "ecc@ecc";
+const OFF = `plugins off ecc@ecc --cwd ${FOLDER}`;
+const ON = `plugins on ecc@ecc --cwd ${FOLDER}`;
+const reseed = (seed: Parameters<typeof createBridge>[0]) => {
+  bridge = createBridge(seed);
+  invoke.mockReset().mockImplementation(bridge.invoke);
+};
+const offIn = (...cwds: string[]) =>
+  Object.fromEntries(cwds.map((cwd) => [cwd, { env: {}, denied: [], off: [ECC] }]));
+const eccHooks = (cwd: string) =>
+  (bridge.world.reply(["hooks", "ls", "--cwd", cwd]) as HooksLsData).hooks.filter(
+    (hook) => hook.owner.name === ECC,
+  );
+
+describe("plugins.off", () => {
+  it("turns ecc off in the chosen folder after the plan: the folder reads off, nothing else changes, and its hooks leave Context > Hooks", async () => {
+    const user = await openPlugins();
+    await chooseFolder(user, "Use folder");
+    const region = await screen.findByRole("region", { name: "Plugin ecc" });
+    expect(within(region).getByText("on here")).toBeVisible();
+    expect(eccHooks(FOLDER).length).toBeGreaterThan(0);
+    await user.click(
+      within(region).getByRole("button", { name: "Turn off in a folder…" }),
+    );
+    const box = await dialog(/^Turn ecc off in this folder\?$/);
+    expect(within(box).getByText(`Turn off ecc@ecc in ${FOLDER}`)).toBeVisible();
+    expect(within(box).getByText(/goes away in this folder: 3 skills/)).toBeVisible();
+    expect(within(box).getByText(/stays: your own skills/)).toBeVisible();
+    expect(bridge.count(`${OFF} --dry-run`)).toBe(1);
+    expect(bridge.count(OFF)).toBe(0);
+    expect(bridge.world.state.folders[FOLDER]?.off ?? []).toEqual([]);
+    await user.click(within(box).getByRole("button", { name: "Turn off" }));
+    await screen.findByText(`Turned ecc off in ${FOLDER}`);
+    expect(
+      screen.getByText(`toolportctl plugins on ecc@ecc --cwd ${FOLDER}`),
+    ).toBeVisible();
+    await closeResult(user);
+    expect(bridge.count(OFF)).toBe(1);
+    expect(bridge.world.state.folders[FOLDER].off).toEqual([ECC]);
+    expect(bridge.world.state.disabledUser).toEqual([]);
+    const after = await screen.findByRole("region", { name: "Plugin ecc" });
+    await waitFor(() => expect(within(after).getByText("off here")).toBeVisible());
+    expect(
+      within(screen.getByRole("list", { name: "Plugins" })).getByText("off here"),
+    ).toBeVisible();
+    expect(eccHooks(FOLDER)).toEqual([]);
+    expect(eccHooks("/home/demo/work/other").length).toBeGreaterThan(0);
+    cleanup();
+    const hooks = await openHooks();
+    await chooseFolder(hooks, "Show");
+    await screen.findByRole("group", { name: "Hook counts" });
+    expect(screen.queryAllByText(/run-with-flags\.js/)).toEqual([]);
+  });
+
+  it("applies nothing when the folder already has it off: the plan says so and offers no confirm", async () => {
+    reseed({ folders: offIn(FOLDER) });
+    const user = await openPlugins();
+    await chooseFolder(user, "Use folder");
+    await screen.findByRole("region", { name: "Plugin ecc" });
+    await user.click(
+      await screen.findByRole("button", { name: "Turn off in a folder…" }),
+    );
+    const box = await dialog(/^Turn ecc off in this folder$/);
+    expect(within(box).getByText(/Nothing to do: already turned off/)).toBeVisible();
+    expect(within(box).queryByRole("button", { name: "Turn off" })).toBeNull();
+    expect(bridge.count(OFF)).toBe(0);
+  });
+
+  it("shows a refusal of the preview as the CLI's words and applies nothing", async () => {
+    bridge.set(
+      `${OFF} --dry-run`,
+      () => new CtlReplyFailure("not_found", "plugin 'ecc@ecc' is not installed"),
+    );
+    const user = await openPlugins();
+    await chooseFolder(user, "Use folder");
+    await screen.findByRole("region", { name: "Plugin ecc" });
+    await user.click(screen.getByRole("button", { name: "Turn off in a folder…" }));
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).getByText("not_found")).toBeVisible();
+    expect(within(alert).getByText(/plugin 'ecc@ecc' is not installed/)).toBeVisible();
+    expect(bridge.count(OFF)).toBe(0);
+  });
+});
+
+describe("plugins.on", () => {
+  it("turns ecc back on in the folder after the plan, and its hooks come back", async () => {
+    reseed({ folders: offIn(FOLDER) });
+    const user = await openPlugins();
+    await chooseFolder(user, "Use folder");
+    const region = await screen.findByRole("region", { name: "Plugin ecc" });
+    expect(within(region).getByText("off here")).toBeVisible();
+    expect(eccHooks(FOLDER)).toEqual([]);
+    await user.click(
+      within(region).getByRole("button", { name: "Turn back on in this folder…" }),
+    );
+    const box = await dialog(/^Turn ecc back on in this folder\?$/);
+    expect(within(box).getByText(/comes back in this folder: 3 skills/)).toBeVisible();
+    expect(bridge.count(ON)).toBe(0);
+    await user.click(within(box).getByRole("button", { name: "Turn on" }));
+    await screen.findByText(`Turned ecc back on in ${FOLDER}`);
+    expect(
+      screen.getByText(`toolportctl plugins off ecc@ecc --cwd ${FOLDER}`),
+    ).toBeVisible();
+    await closeResult(user);
+    expect(bridge.count(ON)).toBe(1);
+    expect(bridge.world.state.folders[FOLDER].off).toEqual([]);
+    expect(eccHooks(FOLDER).length).toBeGreaterThan(0);
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: /Turn back on/ })).toBeNull(),
+    );
+  });
+});
+
+describe("plugins.disable", () => {
+  it("asks for the plugin id, runs only plugins disable, and the plugin reads off everywhere afterwards", async () => {
+    const user = await openPlugins();
+    const opener = await screen.findByRole("button", { name: "Disable everywhere…" });
+    await user.click(opener);
+    const box = await dialog(/^Disable ecc everywhere\?$/);
+    expect(
+      within(box).getByText("claude plugin disable ecc@ecc --scope user"),
+    ).toBeVisible();
+    const confirm = within(box).getByRole("button", { name: "Disable" });
+    expect(confirm).toBeDisabled();
+    const field = within(box).getByRole("textbox");
+    await user.type(field, "ecc");
+    expect(confirm).toBeDisabled();
+    await user.type(field, "@ecc");
+    expect(confirm).toBeEnabled();
+    expect(bridge.count("plugins disable ecc@ecc")).toBe(0);
+    await user.click(confirm);
+    await screen.findByText("Disabled ecc everywhere");
+    expect(screen.getByText("toolportctl plugins enable ecc@ecc")).toBeVisible();
+    await closeResult(user);
+    expect(bridge.count("plugins disable ecc@ecc")).toBe(1);
+    expect(bridge.world.state.disabledUser).toEqual([ECC]);
+    expect(Object.values(bridge.world.state.folders).flatMap((f) => f.off)).toEqual([]);
+    expect(
+      await screen.findByRole("button", { name: "Enable everywhere…" }),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Disable everywhere…" })).toBeNull();
+    expect(
+      within(screen.getByRole("list", { name: "Plugins" })).getByText("off here"),
+    ).toBeVisible();
+  });
+
+  it("runs nothing when Escape dismisses the confirmation, and the focus returns to the button", async () => {
+    const user = await openPlugins();
+    const opener = await screen.findByRole("button", { name: "Disable everywhere…" });
+    opener.focus();
+    await user.keyboard("{Enter}");
+    const box = await dialog(/^Disable ecc everywhere\?$/);
+    await user.type(within(box).getByRole("textbox"), "ecc@ecc");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(box).not.toBeInTheDocument());
+    await waitFor(() => expect(opener).toHaveFocus());
+    expect(bridge.count("plugins disable ecc@ecc")).toBe(0);
+    expect(bridge.world.state.disabledUser).toEqual([]);
+  });
+
+  it("shows a missing claude as a conflict and applies nothing", async () => {
+    bridge.set(
+      "plugins disable ecc@ecc --dry-run",
+      () =>
+        new CtlReplyFailure(
+          "conflict",
+          "claude not found on PATH: `claude plugin disable ecc@ecc --scope user` needs it",
+        ),
+    );
+    const user = await openPlugins();
+    await user.click(await screen.findByRole("button", { name: "Disable everywhere…" }));
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).getByText("conflict")).toBeVisible();
+    expect(within(alert).getByText(/claude not found on PATH/)).toBeVisible();
+    expect(bridge.count("plugins disable ecc@ecc")).toBe(0);
+  });
+});
+
+describe("plugins.enable", () => {
+  it("enables the plugin again everywhere after the plan, without a typed confirmation", async () => {
+    reseed({ disabledUser: [ECC] });
+    const user = await openPlugins();
+    expect(screen.queryByRole("button", { name: "Disable everywhere…" })).toBeNull();
+    await user.click(await screen.findByRole("button", { name: "Enable everywhere…" }));
+    const box = await dialog(/^Enable ecc everywhere\?$/);
+    expect(within(box).queryByRole("textbox")).toBeNull();
+    expect(
+      within(box).getByText("claude plugin enable ecc@ecc --scope user"),
+    ).toBeVisible();
+    expect(bridge.count("plugins enable ecc@ecc")).toBe(0);
+    await user.click(within(box).getByRole("button", { name: "Enable" }));
+    await screen.findByText("Enabled ecc everywhere");
+    await closeResult(user);
+    expect(bridge.count("plugins enable ecc@ecc")).toBe(1);
+    expect(bridge.world.state.disabledUser).toEqual([]);
+    expect(
+      await screen.findByRole("button", { name: "Disable everywhere…" }),
+    ).toBeVisible();
   });
 });
 
