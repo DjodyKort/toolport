@@ -6,9 +6,9 @@ import { ContextScreen } from "./ContextScreen";
 export const section = (name: string) => screen.getByRole("region", { name });
 
 /** Mounts the real screen without waiting for anything. */
-export function mountContext() {
+export function mountContext(initialTab = "launch") {
   const user = userEvent.setup();
-  render(<ContextScreen onOpenCommands={() => {}} />);
+  render(<ContextScreen initialTab={initialTab} onOpenCommands={() => {}} />);
   return user;
 }
 

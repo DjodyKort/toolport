@@ -22,13 +22,14 @@ function failure(result: CtlResult): CtlError {
   );
 }
 
-/** One read command. */
-export function useRead<T>(argv: readonly string[]): CtlQuery<T> {
+/** One read command; `null` waits for the argument it depends on and runs nothing. */
+export function useRead<T>(argv: readonly string[] | null): CtlQuery<T> {
   const key = JSON.stringify(argv);
   const [tick, setTick] = useState(0);
   const [settled, setSettled] = useState<Settled<T> | null>(null);
 
   useEffect(() => {
+    if (key === "null") return;
     let alive = true;
     runCtl<T>(JSON.parse(key) as string[]).result.then(
       (result) => {
