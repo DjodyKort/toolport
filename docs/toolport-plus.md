@@ -301,6 +301,14 @@ MIG-GUI-1 edits:
 | `gui-parity.json` (plugin switches)        | four more `plugins.*` actions are `built` on `library` (`off`, `on`, `disable`, `enable`); the four commands left the All commands page                                                                                                                     |
 | `browser-smoke.mjs` (plugin switches)      | `pluginsScreen` also opens the turn-off plan of a folder and the typed confirmation of Disable everywhere; `screenshots.mjs` lists two more shots                                                                                                           |
 | `context/HereTab.tsx` (plugin switches)    | Off here opens the `plugins off` plan with the shared write hook and dialogs of `skills/` instead of the copy-only terminal step, and reads the stack again                                                                                                 |
+| `src/plus/PlusViews.tsx` (attention)       | `attention` renders the lazy `AttentionScreen`; `navigate(view, params)` passes `initialTab` (and `initialTask`) to the screens a row link opens; NotBuilt stays as a fallback no view reaches                                                              |
+| `src/plus/PlusViews.test.tsx` (attention)  | the old placeholder test (Attention as the not-built example, round trip to All commands) is now the Attention offline state with Open doctor; one test opens Servers on a given tab                                                                        |
+| `src/plus/servers/ServersScreen.tsx`       | `initialTab?: TabId` seeds the tab state, so a row of Attention can open Logins or Secrets                                                                                                                                                                  |
+| `src/plus/attention.ts`                    | `refreshAttentionCount()` and a listener set that `useAttentionCount` joins; the counter reads `attention ls --level needs-you`; `attention.test.tsx` follows                                                                                               |
+| `src/plus/fixtures/plusCtl.ts` (attention) | the stub `attention ls` row is gone; `attentionBrowserFixtures` (the stateful Attention world) is spread before the compression and tasks worlds, which win on `task run` and `compression presets`                                                         |
+| `src/plus/gui-parity.json` (attention)     | the `attention` route and its two actions `attention.ls` and `attention.dismiss` are `built`; `attention ls`, `attention dismiss` and the tool `attention_ls` point at them                                                                                 |
+| `scripts/browser-smoke.mjs` (attention)    | `attentionScreen` walks the counter, the list, an action plan, the dismiss plan and apply, a row link and, in light, the empty state, in both themes                                                                                                        |
+| `scripts/screenshots.mjs` (attention)      | lists the four `gui-attention*` shots                                                                                                                                                                                                                       |
 
 ## Sources
 
@@ -514,6 +522,27 @@ Screenshots (1280x800, from `npm run screenshots:gui`): `docs/assets/gui-tasks-l
 | hooks (`context`)      | `hooks:bash` when one Bash call starts 10 or more hook processes                                                  | fyi       | `context`, Hooks             | none                                      |
 
 Not built yet, for want of a local record: update available (`update --check` keeps no result), sync finished and new skills detected. A login that is only about to expire is left out on purpose: the contract lists expired or failing logins.
+
+## Attention screen
+
+`src/plus/attention/` builds the approved mockup nav item "Attention" (MIG-GUI-11, contract section 9). `AttentionScreen` reads `attention ls` once (offline, fast) and shows the stat strip (Needs you, Worth a look, For your information, Last check: the time of the last read on this machine, since the data carries none), then the three groups in that order. The view is lazy; only the sidebar counter lives in the startup chunk.
+
+| Part     | Reads                                                                               | Writes (policy tier from `toolportctl commands`)                                                                                                       |
+| -------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The list | `attention ls`; the registry (`commands`) once, for the policy of each row's action | none                                                                                                                                                   |
+| Open     | none                                                                                | none: the row's `target` (route, `tab`, `task`, ...) opens that screen on that tab through `navigate` in `PlusViews`                                   |
+| Action   | none                                                                                | the row's own argv and nothing else: `<argv> --dry-run` first when its policy row has a dry run, then the plan, confirm, the argv; a read runs at once |
+| Dismiss  | none                                                                                | `attention dismiss <id> [--until <date>]` (write, `--dry-run`): until tomorrow, for a week or for good, with the undo line of the plan                 |
+
+- A row is the title, the detail, the source badge (`from`), the age (`since`), Open (when the route is one the app knows), the action button (primary on a needs-you row) and Dismiss. A command that does not start with `toolportctl`, that the registry does not know or that needs a terminal is never run: the first two show a notice, the last shows the command line with Copy and a disabled Open in Terminal.
+- After a dismissal or an applied action the list is read again and the sidebar counter at once (`refreshAttentionCount`); the counter is `counts.needsYou` of `attention ls --level needs-you`, polled once a minute, hidden at zero, labelled "N need(s) you" (D-095: not needs-you plus look, as the mockup note said).
+- The empty state ("Nothing needs you"), the loading skeleton, a failed read (with Retry, the last answer stays on screen) and the offline state (the CLI cannot run: Retry and Open doctor) come from the UI kit and the Logins atoms.
+- `world.ts` is the stateful stand-in for `toolportctl` behind the tests and the dev browser (`browserFixtures.ts`): a dismissal hides the row from the next list, an applied action removes the row it solves. Rows are the real goldens plus one row per feed kind in the shape the backend emits; a canary in a row detail (`leakyItem`) must never reach an argv, and no secret-shaped value is on the page.
+- Tests: `AttentionScreen.test.tsx` (groups, states, dismiss and action flows, refusals), `AttentionScreen.e2e.test.tsx` (one test per action id, `attention.ls` and `attention.dismiss`, plus the six row links, the exact argv of an action and its dry-run twin, the counter, the keyboard, bridge down then Retry, the leak canary), `model.test.ts`, `world.test.ts`.
+- Not built: the level filter (optional in the brief) and the feeds the backend does not emit yet (update available, sync finished, new skills, org shadow).
+- Real render: `attentionScreen` in `scripts/browser-smoke.mjs` walks the counter, the list, the plan of an action (Escape returns focus to its button), the dismiss plan and its apply, the Open link into Tasks and, in light, hides every row to reach the empty state.
+
+Screenshots (1280x800, from `npm run screenshots:gui`): `docs/assets/gui-attention.png` and `gui-attention-dark.png` (the list with the counter), `gui-attention-dismiss-light.png` (the plan to hide a row, with the undo line) and `gui-attention-empty-light.png` (nothing needs you).
 
 ## Self-management MCP server
 
