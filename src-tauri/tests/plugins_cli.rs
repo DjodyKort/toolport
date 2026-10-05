@@ -273,3 +273,115 @@ fn the_contract_counts_come_out_of_the_fixture() {
     assert_eq!(quiet["disabledAll"], true);
     assert_eq!(hooks_of(&quiet), 0, "disableAllHooks empties the effective list");
 }
+
+fn files(dir: &Path) -> Vec<(String, Vec<u8>)> {
+    fn walk(root: &Path, dir: &Path, out: &mut Vec<(String, Vec<u8>)>) {
+        let mut entries: Vec<_> = std::fs::read_dir(dir).unwrap().flatten().collect();
+        entries.sort_by_key(|e| e.file_name());
+        for entry in entries {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(root, &path, out);
+            } else {
+                let rel = path.strip_prefix(root).unwrap().to_string_lossy().into_owned();
+                out.push((rel, std::fs::read(&path).unwrap()));
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(dir, dir, &mut out);
+    out
+}
+
+fn ecc_effective(fx: &Fixture, cwd: &str) -> Value {
+    let data = fx.data(&["plugins", "ls", "--cwd", cwd], NO_CLAUDE);
+    data["plugins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["id"] == "ecc@ecc")
+        .expect("ecc@ecc is listed")["enabled"]["effective"]
+        .clone()
+}
+
+#[test]
+fn off_and_on_take_a_plugin_out_of_one_folder_and_bring_it_back() {
+    let fx = Fixture::new("plg-off-on");
+    let cwd = fx.project("acme-erp");
+    let folder = Path::new(&cwd);
+    let before = files(folder);
+    let user_before = std::fs::read(fx.plugins.claude_home.join("settings.json")).unwrap();
+    assert_eq!(ecc_effective(&fx, &cwd), json!(true));
+    let hooks_on = hooks_of(&fx.data(&["hooks", "ls", "--cwd", &cwd], NO_CLAUDE));
+
+    let plan = fx.data(&["plugins", "off", "ecc@ecc", "--cwd", &cwd, "--dry-run"], NO_CLAUDE);
+    assert_eq!((plan["dryRun"].clone(), plan["scope"].clone()), (json!(true), json!("folder")));
+    assert_eq!(files(folder), before, "a dry run writes nothing");
+
+    let done = fx.data(&["plugins", "off", "ecc@ecc", "--cwd", &cwd], NO_CLAUDE);
+    assert_eq!(done["result"]["applied"], true);
+    let file = folder.join(".claude/settings.local.json");
+    let written: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+    assert_eq!(written, json!({"enabledPlugins": {"ecc@ecc": false}}));
+    assert_eq!(ecc_effective(&fx, &cwd), json!(false));
+    assert!(hooks_of(&fx.data(&["hooks", "ls", "--cwd", &cwd], NO_CLAUDE)) < hooks_on, "the plugin's hooks no longer count here");
+    assert_eq!(std::fs::read(fx.plugins.claude_home.join("settings.json")).unwrap(), user_before, "user settings are not touched");
+
+    let back = fx.data(&["plugins", "on", "ecc@ecc", "--cwd", &cwd], NO_CLAUDE);
+    assert_eq!(back["result"]["applied"], true);
+    assert_eq!(files(folder), before, "on puts the folder back");
+    assert_eq!(ecc_effective(&fx, &cwd), json!(true));
+    assert_eq!(hooks_of(&fx.data(&["hooks", "ls", "--cwd", &cwd], NO_CLAUDE)), hooks_on);
+
+    let (missing, code) = fx.run(&["plugins", "off", "ecc@ecc"], NO_CLAUDE);
+    assert_eq!((code, missing["error"]["code"].clone()), (2, json!("usage")));
+    let (unknown, code) = fx.run(&["plugins", "on", "nope@nowhere", "--cwd", &cwd], NO_CLAUDE);
+    assert_eq!((code, unknown["error"]["code"].clone()), (1, json!("not_found")));
+}
+
+#[test]
+fn off_and_on_leave_the_foreign_keys_of_the_settings_file_byte_identical() {
+    let fx = Fixture::new("plg-off-foreign");
+    let cwd = fx.project("acme-erp");
+    let file = Path::new(&cwd).join(".claude/settings.local.json");
+    let original = "{\n  \"model\": \"opus\",\n  \"enabledPlugins\": {\n    \"mine@own\": true\n  },\n  \"env\": {\n    \"CANARY_ONE\": \"x y\"\n  }\n}\n";
+    std::fs::write(&file, original).unwrap();
+    fx.data(&["plugins", "off", "ecc@ecc", "--cwd", &cwd], NO_CLAUDE);
+    let now: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+    assert_eq!(now["enabledPlugins"], json!({"mine@own": true, "ecc@ecc": false}));
+    assert_eq!((now["model"].clone(), now["env"].clone()), (json!("opus"), json!({"CANARY_ONE": "x y"})));
+    fx.data(&["plugins", "on", "ecc@ecc", "--cwd", &cwd], NO_CLAUDE);
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
+
+    fx.data(&["plugins", "off", "ecc@ecc", "--cwd", &cwd], NO_CLAUDE);
+    let mut edited: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+    edited["enabledPlugins"]["ecc@ecc"] = json!(true);
+    std::fs::write(&file, edited.to_string()).unwrap();
+    let changed = std::fs::read(&file).unwrap();
+    let out = fx.data(&["plugins", "on", "ecc@ecc", "--cwd", &cwd], NO_CLAUDE);
+    assert_eq!(out["conflicts"], json!(["enabledPlugins.ecc@ecc"]));
+    assert_eq!(std::fs::read(&file).unwrap(), changed, "a changed owned key is left alone");
+}
+
+#[test]
+fn disable_and_enable_ask_claude_for_the_user_scope_and_nothing_else() {
+    let fx = Fixture::new("plg-user-scope");
+    let log = fx.plugins.recorded.join("user-scope.log");
+    let user_before = std::fs::read(fx.plugins.claude_home.join("settings.json")).unwrap();
+
+    let plan = fx.data(&["plugins", "disable", "ecc@ecc", "--dry-run"], &[]);
+    assert_eq!((plan["scope"].clone(), plan["dryRun"].clone()), (json!("user"), json!(true)));
+    assert!(!log.exists(), "a dry run does not start claude");
+
+    fx.data(&["plugins", "disable", "ecc@ecc"], &[]);
+    fx.data(&["plugins", "enable", "ecc@ecc"], &[]);
+    let calls: Vec<String> = std::fs::read_to_string(&log).unwrap().lines().map(String::from).collect();
+    assert_eq!(calls, ["plugin disable ecc@ecc --scope user", "plugin enable ecc@ecc --scope user"]);
+    assert_eq!(std::fs::read(fx.plugins.claude_home.join("settings.json")).unwrap(), user_before, "Toolport writes no settings file itself");
+
+    let (envelope, code) = fx.run(&["plugins", "disable", "ecc@ecc"], NO_CLAUDE);
+    assert_eq!((code, envelope["error"]["code"].clone()), (1, json!("conflict")));
+    let (envelope, code) = fx.run(&["plugins", "enable", "nope@nowhere"], &[]);
+    assert_eq!((code, envelope["error"]["code"].clone()), (1, json!("not_found")));
+    assert_eq!(std::fs::read_to_string(&log).unwrap().lines().count(), 2);
+}
