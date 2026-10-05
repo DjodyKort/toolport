@@ -11,8 +11,8 @@
 //!   2. `CTL_ENVELOPE_BLESS=1 cargo test --no-default-features --test ctl_contract`, read the new
 //!      files, `npx prettier --write src-tauri/tests/fixtures/ctl-envelopes`, and describe each
 //!      `data` in `src/plus/types/<group>.ts`.
-//! `contract_coverage` prints what is still uncovered; `CTL_CONTRACT_STRICT=1` turns that into a
-//! failure. `no_output_carries_a_canary_secret` runs every case again with a canary in the vault.
+//! `contract_coverage` fails for a command without a golden envelope or a policy row and prints the
+//! counts. `no_output_carries_a_canary_secret` runs every case again with a canary in the vault.
 
 #![cfg(unix)]
 
@@ -693,14 +693,44 @@ fn every_case_names_a_command_and_every_golden_belongs_to_a_case() {
 
 #[test]
 fn contract_coverage() {
-    let covered = covered_ids();
     let ids = command_ids();
+    let goldens: BTreeSet<String> = std::fs::read_dir(golden::root())
+        .unwrap()
+        .flatten()
+        .filter_map(|entry| {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            name.strip_suffix(".json").map(str::to_string)
+        })
+        .collect();
+    let with_golden: BTreeSet<&str> = all_cases()
+        .filter(|case| {
+            case.steps.iter().any(|step| {
+                step.hook.is_none() && step.golden && goldens.contains(&stem(case, step))
+            })
+        })
+        .map(|case| case.id)
+        .collect();
     let missing: Vec<&String> = ids
         .iter()
-        .filter(|id| !covered.contains(id.as_str()))
+        .filter(|id| !with_golden.contains(id.as_str()))
         .collect();
     let rows = registry();
     let rows = rows["commands"].as_array().unwrap();
+    let has_policy = |row: &Value| {
+        let tiers = ["read", "write", "destructive"];
+        row["tier"].as_str().is_some_and(|t| tiers.contains(&t))
+            && row["baseTier"].as_str().is_some_and(|t| tiers.contains(&t))
+            && row["dryRun"].is_boolean()
+            && row["needs"].is_array()
+            && row["surface"]
+                .as_str()
+                .is_some_and(|s| s == "screen" || s == "terminal")
+    };
+    let without_policy: Vec<&str> = rows
+        .iter()
+        .filter(|row| row["kind"] == "command" && !has_policy(row))
+        .map(|row| row["id"].as_str().unwrap())
+        .collect();
     let writers_without_preview: Vec<&str> = all_cases()
         .filter(|case| {
             rows.iter().any(|row| {
@@ -724,15 +754,23 @@ fn contract_coverage() {
     for case in all_cases() {
         assert!(seen.insert(case.id), "case `{}` appears twice", case.id);
     }
+    let uncovered: BTreeSet<&str> = missing
+        .iter()
+        .map(|id| id.as_str())
+        .chain(without_policy.iter().copied())
+        .collect();
     eprintln!(
-        "ctl contract: {} of {} commands have a golden envelope; {} still to add",
-        ids.len() - missing.len(),
+        "ctl contract: {} commands, {} with a golden envelope, {} with a policy row, {} uncovered",
         ids.len(),
-        missing.len()
+        ids.len() - missing.len(),
+        ids.len() - without_policy.len(),
+        uncovered.len()
     );
-    if std::env::var_os("CTL_CONTRACT_STRICT").is_some_and(|v| !v.is_empty() && v != "0") {
-        assert!(missing.is_empty(), "no golden envelope for: {missing:?}");
-    }
+    assert!(missing.is_empty(), "no golden envelope for: {missing:?}");
+    assert!(
+        without_policy.is_empty(),
+        "no policy row for: {without_policy:?}"
+    );
 }
 
 fn contains(haystack: &[u8], needle: &str) -> bool {
