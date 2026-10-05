@@ -3,6 +3,7 @@
 
 pub mod api;
 pub mod approval;
+pub mod builtin;
 pub mod cron;
 pub mod model;
 pub mod redactor;
@@ -13,5 +14,7 @@ pub mod scheduler;
 pub mod triggers;
 #[cfg(test)]
 mod api_tests;
+#[cfg(test)]
+mod builtin_tests;
 #[cfg(test)]
 mod tests;

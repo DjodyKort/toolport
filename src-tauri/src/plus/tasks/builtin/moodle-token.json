@@ -1,0 +1,45 @@
+{
+  "id": "moodle-token",
+  "title": "Refresh the Moodle token",
+  "description": "Signs in to Moodle through the Playwright server, captures the mobile-launch redirect without a model in the loop, stores MOODLE_TOKEN for the moodle server and restarts it. The capture script is set on the Mac (runbook G5); until then the capture step fails with a clear message.",
+  "enabled": false,
+  "requires": { "servers": ["playwright", "moodle"], "commands": [] },
+  "writesSecrets": [{ "server": "moodle", "key": "MOODLE_TOKEN" }],
+  "steps": [
+    {
+      "id": "sign-in",
+      "title": "Sign in with SSO",
+      "type": "needs-you",
+      "instructions": "Sign in with SSO in the browser window, then run: toolportctl task resume <run-id>"
+    },
+    {
+      "id": "capture",
+      "title": "Capture the Moodle mobile-launch redirect",
+      "type": "routine",
+      "script": "// capture: <set on the Mac, runbook G5>\n// Contract: drive the Playwright server with toolport.call(\"playwright__<tool>\", {...}), find the\n// Moodle mobile-launch redirect, decode its base64 blob (<token>:::<privatetoken>, keep the first\n// part) and return { moodleToken: \"<token>\" }. Never return, log or print the blob.\nthrow new Error(\"moodle-token: the capture script is not installed (set on the Mac, runbook G5)\");",
+      "capture": ["moodleToken"]
+    },
+    {
+      "id": "store",
+      "title": "Store MOODLE_TOKEN",
+      "type": "secret-set",
+      "server": "moodle",
+      "key": "MOODLE_TOKEN",
+      "from": "moodleToken"
+    },
+    {
+      "id": "restart",
+      "title": "Restart the moodle server",
+      "type": "restart-server",
+      "server": "moodle"
+    }
+  ],
+  "triggers": {
+    "manual": true,
+    "cli": true,
+    "selfMcp": { "enabled": false, "approval": "every-run" },
+    "schedule": null,
+    "onAuthFailure": ["moodle"]
+  },
+  "createdFrom": { "kind": "manual" }
+}

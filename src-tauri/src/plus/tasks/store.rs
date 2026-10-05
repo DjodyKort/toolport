@@ -45,12 +45,16 @@ pub fn write(path: &PathBuf, text: &str) -> Result<(), OpError> {
 pub fn save_task(task: &Task) -> Result<PathBuf, OpError> {
     let path = task_path(&task.id)?;
     write(&path, &(serde_json::to_string_pretty(task).unwrap_or_default() + "\n"))?;
+    super::builtin::claim(&task.id);
     Ok(path)
 }
 
 pub fn load_task(id: &str) -> Result<Task, OpError> {
     let path = task_path(id)?;
-    let text = fs::read_to_string(&path).map_err(|_| OpError::not_found(format!("no task {id:?} (looked in {})", path.display())))?;
+    let text = match fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(_) => super::builtin::unclaimed_text(id).map(String::from).ok_or_else(|| OpError::not_found(format!("no task {id:?} (looked in {})", path.display())))?,
+    };
     let task = model::parse(&text).map_err(|e| OpError::failed("invalid_task", format!("{}: {e}", path.display())))?;
     if task.id != id {
         return Err(OpError::failed("invalid_task", format!("{} holds the task {:?}, not {id:?}", path.display(), task.id)));
@@ -61,6 +65,7 @@ pub fn load_task(id: &str) -> Result<Task, OpError> {
 pub fn list_tasks() -> Result<Vec<Result<Task, (String, String)>>, OpError> {
     let dir = tasks_dir()?;
     let mut ids: Vec<String> = fs::read_dir(&dir).into_iter().flatten().flatten().filter_map(|e| e.file_name().to_str().and_then(|n| n.strip_suffix(".json")).map(String::from)).collect();
+    ids.extend(super::builtin::unclaimed_ids().into_iter().map(String::from).filter(|id| !ids.contains(id)).collect::<Vec<_>>());
     ids.sort();
     Ok(ids.into_iter().map(|id| load_task(&id).map_err(|e| (id, e.message))).collect())
 }
@@ -133,6 +138,8 @@ pub struct Run {
     pub runner_pid: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub child_pid: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub action: Option<Value>,
 }
 
 pub fn valid_run_id(id: &str) -> bool {
@@ -158,6 +165,7 @@ pub fn new_run(task: &Task, trigger: &str) -> Run {
         resume_requested: false,
         runner_pid: None,
         child_pid: None,
+        action: None,
     }
 }
 
