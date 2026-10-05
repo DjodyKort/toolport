@@ -51,6 +51,7 @@ export const hookEntry = obj({
   marker: nullable(str),
   switch: obj({
     method: lit(
+      "plugin-setting",
       "toolport-command",
       "skills-sync",
       "edit-settings",

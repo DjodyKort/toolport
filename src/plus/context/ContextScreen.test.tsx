@@ -30,7 +30,7 @@ const dialog = (name: RegExp) => screen.findByRole("dialog", { name });
 const section = (name: string) => screen.getByRole("region", { name });
 
 describe("Context screen: the tabs", () => {
-  it("shows the tabs of the mockup, builds Launch & shell and marks the rest", async () => {
+  it("shows the tabs of the mockup, builds Launch & shell and mounts Hooks lazily", async () => {
     const user = await open();
     const tabs = screen.getByRole("tablist", { name: "Context sections" });
     expect(
@@ -38,8 +38,27 @@ describe("Context screen: the tabs", () => {
         .getAllByRole("tab")
         .map((tab) => tab.textContent),
     ).toEqual(["This folder", "Profiles", "Layers", "Hooks", "Launch & shell"]);
+    bridge.set("hooks ls", {
+      cwd: null,
+      disabledAll: false,
+      hooks: [],
+      counts: {
+        byOwner: {},
+        perTool: {
+          Bash: { pre: 0, post: 0, total: 0 },
+          Edit: { pre: 0, post: 0, total: 0 },
+          Write: { pre: 0, post: 0, total: 0 },
+          Read: { pre: 0, post: 0, total: 0 },
+        },
+        otherEvents: {},
+        otherEventsByOwner: {},
+      },
+      conflicts: [],
+      warnings: [],
+    });
     await user.click(within(tabs).getByRole("tab", { name: "Hooks" }));
-    expect(screen.getByText(/built by MIG-GUI-12\b/)).toBeInTheDocument();
+    expect(await screen.findByRole("group", { name: "Hooks" })).toBeInTheDocument();
+    expect(screen.queryByText("Not built yet")).toBeNull();
   });
 });
 
