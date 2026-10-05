@@ -600,6 +600,7 @@ export function createTabsWorld(host: TabsHost, fresh: boolean) {
     name: string,
     cwd: string,
     raw: (cwd: string) => LoadsData,
+    undoLine?: string,
   ): { b: Bundle; data: Record<string, unknown> } | Failure {
     const b = bundles.find((one) => one.name === name);
     if (!b) return unknown(name);
@@ -649,7 +650,7 @@ export function createTabsWorld(host: TabsHost, fresh: boolean) {
     const warnings = previous
       ? [`bundle ${previous.bundle} is applied here: its keys are put back first`]
       : [];
-    const undo = `toolportctl context bundle undo --cwd ${cwd}`;
+    const undo = undoLine ?? `toolportctl context bundle undo --cwd ${cwd}`;
     const data = {
       conflicts: [] as string[],
       cwd,
@@ -791,7 +792,13 @@ export function createTabsWorld(host: TabsHost, fresh: boolean) {
             "not_found",
             `nothing is called ${name}: no bundle in the skills repo's profiles/ and no server profile`,
           );
-        const made = put(call, name, cwd, raw);
+        const made = put(
+          call,
+          name,
+          cwd,
+          raw,
+          `toolportctl context use --none --cwd ${cwd}`,
+        );
         if (made instanceof Failure) return made;
         if (!call.dry) settle(name, cwd);
         const warnings = host.foldersEnabled()
