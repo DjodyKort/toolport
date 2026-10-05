@@ -1,0 +1,74 @@
+{
+  "argv": [
+    "context",
+    "client",
+    "edit",
+    "client-erp-knowledge",
+    "--folder",
+    "{home}/work/erp/clients/acme-two"
+  ],
+  "envelope": {
+    "command": "context client edit",
+    "data": {
+      "changed": true,
+      "delivery": "copy",
+      "dryRun": false,
+      "folders": ["<WORLD>/home/work/erp/clients/acme-two"],
+      "imports": ["~/kb/CLAUDE.md"],
+      "issues": [],
+      "name": "client-erp-knowledge",
+      "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-erp-knowledge/SKILL.md",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "change the delivery of client-erp-knowledge: folder scope, copy delivery",
+            "diff": {
+              "after": "---\nname: client-erp-knowledge\ndescription: \"Synthetic client-erp-knowledge\"\nactivation: always\nscope: folder\nfolders: [\"<WORLD>/home/work/erp/clients/acme-two\"]\nimports: [\"~/kb/CLAUDE.md\"]\n---\n\n## ERP knowledge\n",
+              "before": "---\nname: client-erp-knowledge\ndescription: \"Synthetic client-erp-knowledge\"\nactivation: always\nscope: folder\nfolders: [\"~/work/erp/clients/acme-erp\", \"~/work/other\"]\nimports: [\"~/kb/CLAUDE.md\"]\n---\n\n## ERP knowledge\n"
+            },
+            "op": "update",
+            "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-erp-knowledge/SKILL.md"
+          },
+          {
+            "detail": "deliver client-acme-erp into the managed CLAUDE.local.md",
+            "op": "create",
+            "path": "<WORLD>/home/work/erp/clients/acme-erp/CLAUDE.local.md"
+          },
+          {
+            "detail": "git-ignore CLAUDE.local.md",
+            "op": "update",
+            "path": "<WORLD>/home/work/erp/clients/acme-erp/.git/info/exclude"
+          },
+          {
+            "detail": "deliver client-chain, client-erp-knowledge, client-linked into the managed CLAUDE.local.md",
+            "op": "create",
+            "path": "<WORLD>/home/work/erp/clients/acme-two/CLAUDE.local.md"
+          },
+          {
+            "detail": "git-ignore CLAUDE.local.md",
+            "op": "update",
+            "path": "<WORLD>/home/work/erp/clients/acme-two/.git/info/exclude"
+          }
+        ],
+        "summary": "Edit the client layer client-erp-knowledge",
+        "undo": "toolportctl context client edit client-erp-knowledge --scope folder --delivery copy --folder ~/work/erp/clients/acme-erp --folder ~/work/other --import ~/kb/CLAUDE.md",
+        "warnings": []
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [
+          "<WORLD>/home/.config/mcpm/skills_repo/rules/client-erp-knowledge/SKILL.md",
+          "<WORLD>/home/work/erp/clients/acme-erp/CLAUDE.local.md",
+          "<WORLD>/home/work/erp/clients/acme-two/CLAUDE.local.md"
+        ],
+        "undo": "toolportctl context client edit client-erp-knowledge --scope folder --delivery copy --folder ~/work/erp/clients/acme-erp --folder ~/work/other --import ~/kb/CLAUDE.md"
+      },
+      "scope": "folder"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -262,18 +262,33 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["context", "client", "add"],
-        "Scaffold a path-scoped client layer (<name>, --glob <pattern>, --home <dir>, --dry-run)",
+        "Scaffold a client layer (<name>, --glob <pattern>, --scope, --folder, --import, --delivery, --home <dir>, --dry-run)",
         context_manage::client_add,
     ),
     cmd(
+        &["context", "client", "edit"],
+        "Change a layer's glob, scope, folders, imports or delivery (<name>, same flags as add, --dry-run)",
+        context_manage::client_edit,
+    ),
+    cmd(
+        &["context", "client", "rm"],
+        "Delete a client layer and the CLAUDE.local.md it was delivered into (<name>, --home <dir>, --dry-run)",
+        context_manage::client_rm,
+    ),
+    cmd(
         &["context", "client", "list"],
-        "List the context layers with their path globs (--home <dir>)",
+        "List the context layers with scope, imports, delivery and where each is deployed (--home <dir>)",
         context_manage::client_list,
     ),
     cmd(
         &["context", "client"],
-        "Client layers: add list",
+        "Client layers: add edit rm list",
         context_manage::client_group,
+    ),
+    cmd(
+        &["context", "compose"],
+        "Show the instruction text Claude gets in a folder, part by part in load order (--cwd)",
+        context_manage::compose,
     ),
     cmd(
         &["context", "profile", "add"],
@@ -362,7 +377,7 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["context"],
-        "Context: init status client profile bundle use disable loads checkpoint-status plan apply sync",
+        "Context: init status client profile bundle use compose disable loads checkpoint-status plan apply sync",
         context::group,
     ),
     cmd(

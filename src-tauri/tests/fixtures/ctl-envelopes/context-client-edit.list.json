@@ -1,0 +1,109 @@
+{
+  "argv": ["context", "client", "list"],
+  "envelope": {
+    "command": "context client list",
+    "data": {
+      "layers": [
+        {
+          "delivery": "copy",
+          "deployedTo": ["<WORLD>/home/work/erp/clients/acme-erp/CLAUDE.local.md"],
+          "description": "Synthetic client-acme-erp",
+          "folders": [],
+          "globs": ["**/clients/acme-erp/**"],
+          "imports": [],
+          "issues": [],
+          "name": "client-acme-erp",
+          "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-acme-erp/SKILL.md",
+          "scope": "glob"
+        },
+        {
+          "delivery": "copy",
+          "deployedTo": ["<WORLD>/home/work/erp/clients/acme-two/CLAUDE.local.md"],
+          "description": "Synthetic client-chain",
+          "folders": ["~/work/erp/clients/acme-two"],
+          "globs": [],
+          "imports": ["~/kb/chain/hop-1.md"],
+          "issues": [],
+          "name": "client-chain",
+          "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-chain/SKILL.md",
+          "scope": "folder"
+        },
+        {
+          "delivery": "copy",
+          "deployedTo": ["<WORLD>/home/work/erp/clients/acme-two/CLAUDE.local.md"],
+          "description": "Synthetic client-erp-knowledge",
+          "folders": ["<WORLD>/home/work/erp/clients/acme-two"],
+          "globs": [],
+          "imports": ["~/kb/CLAUDE.md"],
+          "issues": [],
+          "name": "client-erp-knowledge",
+          "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-erp-knowledge/SKILL.md",
+          "scope": "folder"
+        },
+        {
+          "delivery": "import",
+          "deployedTo": ["<WORLD>/home/work/erp/clients/acme-two/CLAUDE.local.md"],
+          "description": "Synthetic client-linked",
+          "folders": ["~/work/erp/clients/acme-two"],
+          "globs": [],
+          "imports": ["~/kb/CLAUDE.md"],
+          "issues": [
+            {
+              "key": "delivery",
+              "level": "warning",
+              "message": "an import outside the folder Claude starts in is skipped by a headless session and may ask for approval once in an interactive one; copy is safe everywhere"
+            }
+          ],
+          "name": "client-linked",
+          "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-linked/SKILL.md",
+          "scope": "folder"
+        },
+        {
+          "delivery": "copy",
+          "deployedTo": [],
+          "description": "Synthetic client-loop",
+          "folders": [],
+          "globs": ["**/loop/**"],
+          "imports": ["~/kb/cycle-a.md"],
+          "issues": [
+            {
+              "key": "imports",
+              "level": "warning",
+              "message": "import cycle <WORLD>/home/kb/cycle-a.md -> <WORLD>/home/kb/cycle-b.md -> <WORLD>/home/kb/cycle-a.md (not followed)"
+            }
+          ],
+          "name": "client-loop",
+          "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-loop/SKILL.md",
+          "scope": "glob"
+        },
+        {
+          "delivery": "copy",
+          "deployedTo": [],
+          "description": "Synthetic personal",
+          "folders": [],
+          "globs": [],
+          "imports": [],
+          "issues": [],
+          "name": "personal",
+          "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/personal/SKILL.md",
+          "scope": "glob"
+        },
+        {
+          "delivery": "copy",
+          "deployedTo": [],
+          "description": "Synthetic team-conventions",
+          "folders": [],
+          "globs": [],
+          "imports": [],
+          "issues": [],
+          "name": "team-conventions",
+          "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/team-conventions/SKILL.md",
+          "scope": "global"
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,69 @@
+{
+  "argv": [
+    "context",
+    "client",
+    "add",
+    "acme-kb",
+    "--scope",
+    "folder",
+    "--folder",
+    "{home}/work/other",
+    "--import",
+    "{home}/kb/CLAUDE.md"
+  ],
+  "envelope": {
+    "command": "context client add",
+    "data": {
+      "created": true,
+      "delivery": "copy",
+      "dryRun": false,
+      "folders": ["<WORLD>/home/work/other"],
+      "glob": "**/clients/acme-kb/**",
+      "imports": ["<WORLD>/home/kb/CLAUDE.md"],
+      "issues": [],
+      "name": "acme-kb",
+      "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-acme-kb/SKILL.md",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "scaffold the layer client-acme-kb (folder scope, copy delivery)",
+            "diff": {
+              "after": "---\nname: client-acme-kb\ndescription: \"Client context: acme-kb\"\nactivation: always\nglobs: \"**/clients/acme-kb/**\"\nscope: folder\nfolders: [\"<WORLD>/home/work/other\"]\nimports: [\"<WORLD>/home/kb/CLAUDE.md\"]\n---\n\n## acme-kb — client context\n\n<!-- Project knowledge for this client that doesn't belong in the repo's own\n     CLAUDE.md: contacts, conventions, environment quirks, gotchas. -->\n",
+              "before": ""
+            },
+            "op": "create",
+            "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-acme-kb/SKILL.md"
+          },
+          {
+            "detail": "deliver client-acme-kb, client-erp-knowledge into the managed CLAUDE.local.md",
+            "op": "create",
+            "path": "<WORLD>/home/work/other/CLAUDE.local.md"
+          },
+          {
+            "detail": "git-ignore CLAUDE.local.md",
+            "op": "update",
+            "path": "<WORLD>/home/work/other/.git/info/exclude"
+          }
+        ],
+        "summary": "Add the client layer acme-kb",
+        "undo": "toolportctl context client rm acme-kb",
+        "warnings": []
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [
+          "<WORLD>/home/.config/mcpm/skills_repo/rules/client-acme-kb/SKILL.md",
+          "<WORLD>/home/work/other/CLAUDE.local.md"
+        ],
+        "undo": "toolportctl context client rm acme-kb"
+      },
+      "rule": "client-acme-kb",
+      "scope": "folder"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

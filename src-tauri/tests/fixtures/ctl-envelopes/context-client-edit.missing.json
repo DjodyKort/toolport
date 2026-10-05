@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "client", "edit", "nope", "--scope", "global", "--dry-run"],
+  "envelope": {
+    "command": "context client edit",
+    "error": {
+      "code": "not_found",
+      "message": "no layer named nope in the skills repository's rules/"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

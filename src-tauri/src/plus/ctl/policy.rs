@@ -398,7 +398,16 @@ pub(super) const ROWS: &[Row] = &[
         .dry()
         .spec(&[&context_manage::CLIENT_ADD])
         .args(&[req("name")]),
+    row("context client edit", W)
+        .dry()
+        .spec(&[&context_manage::CLIENT_EDIT])
+        .args(&[req("name")]),
+    row("context client rm", D)
+        .dry()
+        .spec(&[&context_manage::CLIENT_RM])
+        .args(&[req("name")]),
     row("context client list", R).spec(&[&context_manage::CLIENT_LIST]),
+    row("context compose", R).spec(&[&context_manage::COMPOSE]),
     row("context profile add", W)
         .dry()
         .spec(&[&context_manage::PROFILE_ADD])
@@ -738,6 +747,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("context_bundle_status", R, "context bundle status"),
     maps("context_bundle_apply", W, "context bundle apply").param(),
     maps("context_bundle_undo", W, "context bundle undo").param(),
+    maps("context_compose", R, "context compose"),
     maps("plugins_ls", R, "plugins ls"),
     maps("plugins_show", R, "plugins show"),
     maps("hooks_ls", R, "hooks ls"),

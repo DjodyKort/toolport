@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "compose", "--cwd", "{home}/no/such/folder"],
+  "envelope": {
+    "command": "context compose",
+    "error": {
+      "code": "usage",
+      "message": "--cwd <WORLD>/home/no/such/folder is not a folder"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

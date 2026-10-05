@@ -1,0 +1,37 @@
+{
+  "argv": ["context", "client", "rm", "client-linked", "--dry-run"],
+  "envelope": {
+    "command": "context client rm",
+    "data": {
+      "dryRun": true,
+      "name": "client-linked",
+      "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-linked/SKILL.md",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "delete the layer client-linked",
+            "diff": {
+              "after": "",
+              "before": "---\nname: client-linked\ndescription: \"Synthetic client-linked\"\nactivation: always\nscope: folder\nfolders: [\"~/work/erp/clients/acme-two\"]\nimports: [\"~/kb/CLAUDE.md\"]\ndelivery: import\n---\n\n## Linked knowledge\n"
+            },
+            "op": "delete",
+            "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/client-linked/SKILL.md"
+          },
+          {
+            "detail": "remove the managed CLAUDE.local.md: no layer is delivered here any more",
+            "op": "delete",
+            "path": "<WORLD>/home/work/erp/clients/acme-two/CLAUDE.local.md"
+          }
+        ],
+        "summary": "Remove the client layer client-linked",
+        "undo": "toolportctl context client add linked --scope folder --delivery import --folder ~/work/erp/clients/acme-two --import ~/kb/CLAUDE.md (the body comes back from the skills repository's git history)",
+        "warnings": []
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

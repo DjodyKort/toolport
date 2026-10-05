@@ -123,6 +123,72 @@ pub fn bundle_drift_home(world: &CtlWorld) {
     .unwrap();
 }
 
+/// The home of the layer goldens (MIG-CTX-11): a user memory file the corporate clone provides, a
+/// workspace memory, two client repositories and one repository outside the client tree, a
+/// knowledge folder with an import chain of four hops and a cycle, and a layer of every kind: one
+/// named after its client folder, one per scope, one that imports by `@path`, one with a cycle,
+/// and a scaffold in the config that fills in `tree-knowledge`. Nothing is deployed yet.
+pub fn layers_home(world: &CtlWorld) {
+    let home = &world.home;
+    let put = |rel: &str, text: &str| {
+        let path = home.join(rel);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    };
+    let layer = |dir: &str, front: &str, body: &str| {
+        put(
+            &format!(".config/mcpm/skills_repo/rules/{dir}/SKILL.md"),
+            &format!("---\nname: {dir}\ndescription: \"Synthetic {dir}\"\nactivation: always\n{front}---\n\n{body}\n"),
+        );
+    };
+    put(".claude/CLAUDE.md", "# Corp rules\nBe brief.\n");
+    put(".local/share/corp-tools/claude/CLAUDE.md", "# Corp rules\nBe brief.\n");
+    put(
+        ".config/mcpm/context.json",
+        "{\n  \"clients_root\": \"~/work/erp/clients\",\n  \"corp_tools_dir\": \"~/.local/share/corp-tools\",\n  \"layerScaffolds\": {\n    \"tree-knowledge\": {\n      \"scope\": \"folder\",\n      \"folders\": [\"~/work/erp/clients/acme-two\", \"~/work/other\"],\n      \"imports\": [\"~/kb/CLAUDE.md\"]\n    }\n  }\n}\n",
+    );
+    put("work/erp/CLAUDE.md", "# Workspace\nUse the shared test database.\n");
+    for repo in ["work/erp/clients/acme-erp", "work/erp/clients/acme-two", "work/other"] {
+        std::fs::create_dir_all(home.join(repo).join(".git/info")).unwrap();
+    }
+    put("kb/CLAUDE.md", "# Tree knowledge\nPost invoices before closing the period.\n");
+    put("kb/chain/hop-1.md", "Hop one: the chart of accounts.\n@hop-2.md\n");
+    put("kb/chain/hop-2.md", "Hop two: the tax codes.\n@hop-3.md\n");
+    put("kb/chain/hop-3.md", "Hop three: the journals.\n@hop-4.md\n");
+    put("kb/chain/hop-4.md", "Hop four: the period locks.\n");
+    put("kb/cycle-a.md", "Cycle a.\n@cycle-b.md\n");
+    put("kb/cycle-b.md", "Cycle b.\n@cycle-a.md\n");
+    layer("personal", "", "## Personal preferences\n\nKeep answers short.");
+    layer("team-conventions", "scope: global\n", "Commit messages say why.");
+    layer("client-acme-erp", "globs: \"**/clients/acme-erp/**\"\n", "## acme-erp\n\nThe fiscal year starts in April.");
+    layer(
+        "client-erp-knowledge",
+        "scope: folder\nfolders: [\"~/work/erp/clients/acme-erp\", \"~/work/other\"]\nimports: [\"~/kb/CLAUDE.md\"]\n",
+        "## ERP knowledge",
+    );
+    layer(
+        "client-chain",
+        "scope: folder\nfolders: [\"~/work/erp/clients/acme-two\"]\nimports: [\"~/kb/chain/hop-1.md\"]\n",
+        "## Accounting chain",
+    );
+    layer(
+        "client-linked",
+        "scope: folder\nfolders: [\"~/work/erp/clients/acme-two\"]\nimports: [\"~/kb/CLAUDE.md\"]\ndelivery: import\n",
+        "## Linked knowledge",
+    );
+    layer(
+        "client-loop",
+        "globs: \"**/loop/**\"\nimports: [\"~/kb/cycle-a.md\"]\n",
+        "## Loop",
+    );
+}
+
+/// `layers_home` after one `context sync`: the managed `CLAUDE.local.md` files are in place.
+pub fn layers_deployed_home(world: &CtlWorld) {
+    layers_home(world);
+    ctl(world, &["context", "sync"], None);
+}
+
 pub fn git(dir: &Path, home: &Path, args: &[&str]) {
     let status = Command::new("git")
         .args(args)

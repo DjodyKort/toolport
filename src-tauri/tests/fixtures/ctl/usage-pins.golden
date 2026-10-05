@@ -53,9 +53,12 @@ Commands:
   context sync   Plan then apply the context deploy (--home <dir>, --rules, --dry-run)
   context init   Scaffold the personal layer and save context.json (--home <dir>, --dry-run, --yes)
   context status Show layers, profiles, legacy MCP duplicates and the shims file (--home <dir>)
-  context client add Scaffold a path-scoped client layer (<name>, --glob <pattern>, --home <dir>, --dry-run)
-  context client list List the context layers with their path globs (--home <dir>)
-  context client Client layers: add list
+  context client add Scaffold a client layer (<name>, --glob <pattern>, --scope, --folder, --import, --delivery, --home <dir>, --dry-run)
+  context client edit Change a layer's glob, scope, folders, imports or delivery (<name>, same flags as add, --dry-run)
+  context client rm Delete a client layer and the CLAUDE.local.md it was delivered into (<name>, --home <dir>, --dry-run)
+  context client list List the context layers with scope, imports, delivery and where each is deployed (--home <dir>)
+  context client Client layers: add edit rm list
+  context compose Show the instruction text Claude gets in a folder, part by part in load order (--cwd)
   context profile add Define a launch profile and generate it (<name>, --no-org, --rules, --servers, --dry-run)
   context profile list List the configured launch profiles (--home <dir>)
   context profile remove Drop a launch profile; --purge deletes its directory (<name>, --purge, --dry-run)
@@ -73,7 +76,7 @@ Commands:
   context bundle Context bundles: ls show add edit rm apply undo status launch config
   context use    Apply a bundle and its paired server set to a folder, or drop both (<name>, --none, --cwd, --dry-run)
   context disable Remove the generated shims; --purge-profiles also the profile directories (--dry-run)
-  context        Context: init status client profile bundle use disable loads checkpoint-status plan apply sync
+  context        Context: init status client profile bundle use compose disable loads checkpoint-status plan apply sync
   compression status Show the compression policy, pin and drift
   compression presets List presets (--refresh re-snapshots knobs, --dry-run)
   compression enable Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)
@@ -221,9 +224,12 @@ Commands:
   context sync   Plan then apply the context deploy (--home <dir>, --rules, --dry-run)
   context init   Scaffold the personal layer and save context.json (--home <dir>, --dry-run, --yes)
   context status Show layers, profiles, legacy MCP duplicates and the shims file (--home <dir>)
-  context client add Scaffold a path-scoped client layer (<name>, --glob <pattern>, --home <dir>, --dry-run)
-  context client list List the context layers with their path globs (--home <dir>)
-  context client Client layers: add list
+  context client add Scaffold a client layer (<name>, --glob <pattern>, --scope, --folder, --import, --delivery, --home <dir>, --dry-run)
+  context client edit Change a layer's glob, scope, folders, imports or delivery (<name>, same flags as add, --dry-run)
+  context client rm Delete a client layer and the CLAUDE.local.md it was delivered into (<name>, --home <dir>, --dry-run)
+  context client list List the context layers with scope, imports, delivery and where each is deployed (--home <dir>)
+  context client Client layers: add edit rm list
+  context compose Show the instruction text Claude gets in a folder, part by part in load order (--cwd)
   context profile add Define a launch profile and generate it (<name>, --no-org, --rules, --servers, --dry-run)
   context profile list List the configured launch profiles (--home <dir>)
   context profile remove Drop a launch profile; --purge deletes its directory (<name>, --purge, --dry-run)
@@ -241,7 +247,7 @@ Commands:
   context bundle Context bundles: ls show add edit rm apply undo status launch config
   context use    Apply a bundle and its paired server set to a folder, or drop both (<name>, --none, --cwd, --dry-run)
   context disable Remove the generated shims; --purge-profiles also the profile directories (--dry-run)
-  context        Context: init status client profile bundle use disable loads checkpoint-status plan apply sync
+  context        Context: init status client profile bundle use compose disable loads checkpoint-status plan apply sync
   compression status Show the compression policy, pin and drift
   compression presets List presets (--refresh re-snapshots knobs, --dry-run)
   compression enable Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)
@@ -389,9 +395,12 @@ Commands:
   context sync   Plan then apply the context deploy (--home <dir>, --rules, --dry-run)
   context init   Scaffold the personal layer and save context.json (--home <dir>, --dry-run, --yes)
   context status Show layers, profiles, legacy MCP duplicates and the shims file (--home <dir>)
-  context client add Scaffold a path-scoped client layer (<name>, --glob <pattern>, --home <dir>, --dry-run)
-  context client list List the context layers with their path globs (--home <dir>)
-  context client Client layers: add list
+  context client add Scaffold a client layer (<name>, --glob <pattern>, --scope, --folder, --import, --delivery, --home <dir>, --dry-run)
+  context client edit Change a layer's glob, scope, folders, imports or delivery (<name>, same flags as add, --dry-run)
+  context client rm Delete a client layer and the CLAUDE.local.md it was delivered into (<name>, --home <dir>, --dry-run)
+  context client list List the context layers with scope, imports, delivery and where each is deployed (--home <dir>)
+  context client Client layers: add edit rm list
+  context compose Show the instruction text Claude gets in a folder, part by part in load order (--cwd)
   context profile add Define a launch profile and generate it (<name>, --no-org, --rules, --servers, --dry-run)
   context profile list List the configured launch profiles (--home <dir>)
   context profile remove Drop a launch profile; --purge deletes its directory (<name>, --purge, --dry-run)
@@ -409,7 +418,7 @@ Commands:
   context bundle Context bundles: ls show add edit rm apply undo status launch config
   context use    Apply a bundle and its paired server set to a folder, or drop both (<name>, --none, --cwd, --dry-run)
   context disable Remove the generated shims; --purge-profiles also the profile directories (--dry-run)
-  context        Context: init status client profile bundle use disable loads checkpoint-status plan apply sync
+  context        Context: init status client profile bundle use compose disable loads checkpoint-status plan apply sync
   compression status Show the compression policy, pin and drift
   compression presets List presets (--refresh re-snapshots knobs, --dry-run)
   compression enable Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)
@@ -557,9 +566,12 @@ Commands:
   context sync   Plan then apply the context deploy (--home <dir>, --rules, --dry-run)
   context init   Scaffold the personal layer and save context.json (--home <dir>, --dry-run, --yes)
   context status Show layers, profiles, legacy MCP duplicates and the shims file (--home <dir>)
-  context client add Scaffold a path-scoped client layer (<name>, --glob <pattern>, --home <dir>, --dry-run)
-  context client list List the context layers with their path globs (--home <dir>)
-  context client Client layers: add list
+  context client add Scaffold a client layer (<name>, --glob <pattern>, --scope, --folder, --import, --delivery, --home <dir>, --dry-run)
+  context client edit Change a layer's glob, scope, folders, imports or delivery (<name>, same flags as add, --dry-run)
+  context client rm Delete a client layer and the CLAUDE.local.md it was delivered into (<name>, --home <dir>, --dry-run)
+  context client list List the context layers with scope, imports, delivery and where each is deployed (--home <dir>)
+  context client Client layers: add edit rm list
+  context compose Show the instruction text Claude gets in a folder, part by part in load order (--cwd)
   context profile add Define a launch profile and generate it (<name>, --no-org, --rules, --servers, --dry-run)
   context profile list List the configured launch profiles (--home <dir>)
   context profile remove Drop a launch profile; --purge deletes its directory (<name>, --purge, --dry-run)
@@ -577,7 +589,7 @@ Commands:
   context bundle Context bundles: ls show add edit rm apply undo status launch config
   context use    Apply a bundle and its paired server set to a folder, or drop both (<name>, --none, --cwd, --dry-run)
   context disable Remove the generated shims; --purge-profiles also the profile directories (--dry-run)
-  context        Context: init status client profile bundle use disable loads checkpoint-status plan apply sync
+  context        Context: init status client profile bundle use compose disable loads checkpoint-status plan apply sync
   compression status Show the compression policy, pin and drift
   compression presets List presets (--refresh re-snapshots knobs, --dry-run)
   compression enable Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)
@@ -2030,18 +2042,18 @@ Run `toolportctl --help` for usage.
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: context init|status|client|profile|bundle|use|disable|loads|measure|checkpoint-status|plan|apply|sync (bundle: ls|show|add|edit|rm|apply|undo|status|launch|config; use: <name>|--none [--cwd <dir>] [--dry-run]; measure: [--cwd <dir>] [--without plugin:<id>|skill:<name>]... [--bundle <name>] [--model <id>] [--force] [--yes]; plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])
+toolportctl: usage: context init|status|client|profile|bundle|use|compose|disable|loads|measure|checkpoint-status|plan|apply|sync (bundle: ls|show|add|edit|rm|apply|undo|status|launch|config; use: <name>|--none [--cwd <dir>] [--dry-run]; compose: [--cwd <dir>]; measure: [--cwd <dir>] [--without plugin:<id>|skill:<name>]... [--bundle <name>] [--model <id>] [--force] [--yes]; plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])
 Run `toolportctl --help` for usage.
 === ["--json","context"]
 exit 2
 --- stdout
-{"command":"context","error":{"code":"usage","message":"usage: context init|status|client|profile|bundle|use|disable|loads|measure|checkpoint-status|plan|apply|sync (bundle: ls|show|add|edit|rm|apply|undo|status|launch|config; use: <name>|--none [--cwd <dir>] [--dry-run]; measure: [--cwd <dir>] [--without plugin:<id>|skill:<name>]... [--bundle <name>] [--model <id>] [--force] [--yes]; plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])"},"ok":false,"schemaVersion":1}
+{"command":"context","error":{"code":"usage","message":"usage: context init|status|client|profile|bundle|use|compose|disable|loads|measure|checkpoint-status|plan|apply|sync (bundle: ls|show|add|edit|rm|apply|undo|status|launch|config; use: <name>|--none [--cwd <dir>] [--dry-run]; compose: [--cwd <dir>]; measure: [--cwd <dir>] [--without plugin:<id>|skill:<name>]... [--bundle <name>] [--model <id>] [--force] [--yes]; plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["context","nope"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: context init|status|client|profile|bundle|use|disable|loads|measure|checkpoint-status|plan|apply|sync (bundle: ls|show|add|edit|rm|apply|undo|status|launch|config; use: <name>|--none [--cwd <dir>] [--dry-run]; measure: [--cwd <dir>] [--without plugin:<id>|skill:<name>]... [--bundle <name>] [--model <id>] [--force] [--yes]; plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])
+toolportctl: usage: context init|status|client|profile|bundle|use|compose|disable|loads|measure|checkpoint-status|plan|apply|sync (bundle: ls|show|add|edit|rm|apply|undo|status|launch|config; use: <name>|--none [--cwd <dir>] [--dry-run]; compose: [--cwd <dir>]; measure: [--cwd <dir>] [--without plugin:<id>|skill:<name>]... [--bundle <name>] [--model <id>] [--force] [--yes]; plan|apply|sync: [--home <dir>] [--rules] [--no-persist] [--rewrite-zshrc] [--dry-run])
 Run `toolportctl --help` for usage.
 === ["context","loads","--bogus"]
 exit 2
@@ -2378,25 +2390,25 @@ Run `toolportctl --help` for usage.
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: context client add|list (add: <name> [--glob <pattern>] [--home <dir>] [--dry-run]; list: [--home <dir>])
+toolportctl: usage: context client add|edit|rm|list (add|edit: <name> [--glob <pattern>] [--scope global|glob|folder] [--folder <dir>]... [--import <path-or-layer>]... [--delivery import|copy] [--home <dir>] [--dry-run]; rm: <name> [--home <dir>] [--dry-run]; list: [--home <dir>])
 Run `toolportctl --help` for usage.
 === ["--json","context","client"]
 exit 2
 --- stdout
-{"command":"context client","error":{"code":"usage","message":"usage: context client add|list (add: <name> [--glob <pattern>] [--home <dir>] [--dry-run]; list: [--home <dir>])"},"ok":false,"schemaVersion":1}
+{"command":"context client","error":{"code":"usage","message":"usage: context client add|edit|rm|list (add|edit: <name> [--glob <pattern>] [--scope global|glob|folder] [--folder <dir>]... [--import <path-or-layer>]... [--delivery import|copy] [--home <dir>] [--dry-run]; rm: <name> [--home <dir>] [--dry-run]; list: [--home <dir>])"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["context","client","nope"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: context client add|list (add: <name> [--glob <pattern>] [--home <dir>] [--dry-run]; list: [--home <dir>])
+toolportctl: usage: context client add|edit|rm|list (add|edit: <name> [--glob <pattern>] [--scope global|glob|folder] [--folder <dir>]... [--import <path-or-layer>]... [--delivery import|copy] [--home <dir>] [--dry-run]; rm: <name> [--home <dir>] [--dry-run]; list: [--home <dir>])
 Run `toolportctl --help` for usage.
 === ["context","client","add"]
 exit 2
 --- stdout
 --- stderr
 toolportctl: missing client name
-usage: context client add <name> [--glob <pattern>] [--home <dir>] [--dry-run]
+usage: context client add <name> [--glob <pattern>] [--scope global|glob|folder] [--folder <dir>]... [--import <path-or-layer>]... [--delivery import|copy] [--home <dir>] [--dry-run]
 Run `toolportctl --help` for usage.
 === ["context","client","add","--glob"]
 exit 2
@@ -2409,14 +2421,14 @@ exit 2
 --- stdout
 --- stderr
 toolportctl: unexpected argument: extra
-usage: context client add <name> [--glob <pattern>] [--home <dir>] [--dry-run]
+usage: context client add <name> [--glob <pattern>] [--scope global|glob|folder] [--folder <dir>]... [--import <path-or-layer>]... [--delivery import|copy] [--home <dir>] [--dry-run]
 Run `toolportctl --help` for usage.
 === ["context","client","add","acme","--bogus"]
 exit 2
 --- stdout
 --- stderr
 toolportctl: unexpected argument: --bogus
-usage: context client add <name> [--glob <pattern>] [--home <dir>] [--dry-run]
+usage: context client add <name> [--glob <pattern>] [--scope global|glob|folder] [--folder <dir>]... [--import <path-or-layer>]... [--delivery import|copy] [--home <dir>] [--dry-run]
 Run `toolportctl --help` for usage.
 === ["context","client","add","acme","--dry-run=1"]
 exit 2
@@ -2459,6 +2471,73 @@ exit 2
 --- stdout
 {"command":"context client add","error":{"code":"usage","message":"client name must not contain control characters"},"ok":false,"schemaVersion":1}
 --- stderr
+=== ["context","client","add","acme","--scope"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --scope requires a value
+Run `toolportctl --help` for usage.
+=== ["context","client","edit"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing client name
+usage: context client edit <name> [--glob <pattern>] [--scope global|glob|folder] [--folder <dir>]... [--import <path-or-layer>]... [--delivery import|copy] [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["context","client","edit","acme","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: context client edit <name> [--glob <pattern>] [--scope global|glob|folder] [--folder <dir>]... [--import <path-or-layer>]... [--delivery import|copy] [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["context","client","edit","a\nb"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: client name must not contain control characters
+Run `toolportctl --help` for usage.
+=== ["context","client","rm"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: missing client name
+usage: context client rm <name> [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["context","client","rm","acme","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: context client rm <name> [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["context","client","rm","acme","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: context client rm <name> [--home <dir>] [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["context","compose","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: context compose [--cwd <dir>]
+Run `toolportctl --help` for usage.
+=== ["context","compose","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: context compose [--cwd <dir>]
+Run `toolportctl --help` for usage.
+=== ["context","compose","--cwd"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --cwd requires a value
+Run `toolportctl --help` for usage.
 === ["context","client","list","extra"]
 exit 2
 --- stdout

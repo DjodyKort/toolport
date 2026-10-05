@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "client", "add", "acme-nowhere", "--scope", "folder", "--dry-run"],
+  "envelope": {
+    "command": "context client add",
+    "error": {
+      "code": "context_invalid",
+      "message": "folders: scope folder needs at least one folder"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

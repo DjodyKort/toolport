@@ -2421,6 +2421,52 @@
             },
             {
               "aliases": [],
+              "choices": ["global", "glob", "folder"],
+              "effect": "Where the layer applies: every folder, a path pattern (default), or the listed folders",
+              "escalates": false,
+              "hidden": false,
+              "name": "--scope",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            },
+            {
+              "aliases": [],
+              "effect": "Folder the layer is delivered into when its scope is folder (repeatable)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--folder",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "File or layer whose text the layer carries (repeatable; an empty value clears the list)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--import",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "choices": ["import", "copy"],
+              "effect": "How imports reach the layer: copy inlines them and refreshes on context sync (default), import writes @path lines",
+              "escalates": false,
+              "hidden": false,
+              "name": "--delivery",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            },
+            {
+              "aliases": [],
               "effect": "Preview the change and write nothing",
               "escalates": false,
               "hidden": false,
@@ -2452,9 +2498,174 @@
             "flag": "--dry-run",
             "mode": "flag"
           },
-          "summary": "Scaffold a path-scoped client layer (<name>, --glob <pattern>, --home <dir>, --dry-run)",
+          "summary": "Scaffold a client layer (<name>, --glob <pattern>, --scope, --folder, --import, --delivery, --home <dir>, --dry-run)",
           "surface": "screen",
           "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Home directory override (test seam; the GUI never passes it)",
+              "escalates": false,
+              "hidden": true,
+              "name": "--home",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Path pattern the layer applies to",
+              "escalates": false,
+              "hidden": false,
+              "name": "--glob",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "choices": ["global", "glob", "folder"],
+              "effect": "Where the layer applies: every folder, a path pattern (default), or the listed folders",
+              "escalates": false,
+              "hidden": false,
+              "name": "--scope",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            },
+            {
+              "aliases": [],
+              "effect": "Folder the layer is delivered into when its scope is folder (repeatable)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--folder",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "File or layer whose text the layer carries (repeatable; an empty value clears the list)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--import",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "choices": ["import", "copy"],
+              "effect": "How imports reach the layer: copy inlines them and refreshes on context sync (default), import writes @path lines",
+              "escalates": false,
+              "hidden": false,
+              "name": "--delivery",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "context",
+          "id": "context client edit",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "context client",
+          "path": ["context", "client", "edit"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Change a layer's glob, scope, folders, imports or delivery (<name>, same flags as add, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "destructive",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Home directory override (test seam; the GUI never passes it)",
+              "escalates": false,
+              "hidden": true,
+              "name": "--home",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "context",
+          "id": "context client rm",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "context client",
+          "path": ["context", "client", "rm"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Delete a client layer and the CLAUDE.local.md it was delivered into (<name>, --home <dir>, --dry-run)",
+          "surface": "screen",
+          "tier": "destructive",
           "tools": []
         },
         {
@@ -2489,7 +2700,7 @@
             "flag": null,
             "mode": "none"
           },
-          "summary": "List the context layers with their path globs (--home <dir>)",
+          "summary": "List the context layers with scope, imports, delivery and where each is deployed (--home <dir>)",
           "surface": "screen",
           "tier": "read",
           "tools": []
@@ -2511,10 +2722,47 @@
           "path": ["context", "client"],
           "planned": false,
           "preview": null,
-          "summary": "Client layers: add list",
+          "summary": "Client layers: add edit rm list",
           "surface": null,
           "tier": null,
           "tools": []
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Folder where Claude Code starts (default: the current folder)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--cwd",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            }
+          ],
+          "group": "context",
+          "id": "context compose",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "context",
+          "path": ["context", "compose"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Show the instruction text Claude gets in a folder, part by part in load order (--cwd)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["context_compose"]
         },
         {
           "baseTier": "write",
@@ -3571,7 +3819,7 @@
           "path": ["context"],
           "planned": false,
           "preview": null,
-          "summary": "Context: init status client profile bundle use disable loads checkpoint-status plan apply sync",
+          "summary": "Context: init status client profile bundle use compose disable loads checkpoint-status plan apply sync",
           "surface": null,
           "tier": null,
           "tools": []
@@ -9067,10 +9315,10 @@
         }
       ],
       "counts": {
-        "commands": 149,
+        "commands": 152,
         "groups": 29,
-        "rows": 178,
-        "tools": 89
+        "rows": 181,
+        "tools": 90
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
       "tiers": ["read", "write", "destructive"],
@@ -9123,6 +9371,13 @@
           "name": "context_bundle_undo",
           "tier": "write",
           "toolTier": 2
+        },
+        {
+          "command": "context compose",
+          "dryRun": "none",
+          "name": "context_compose",
+          "tier": "read",
+          "toolTier": 1
         },
         {
           "command": "plugins ls",
