@@ -256,6 +256,11 @@ pub(super) const GLOBAL: &[Meta] = &[
         "Only items of this kind",
     ),
     m("--latest", Bool, "Move to the latest release"),
+    m(
+        "--level",
+        Ty::Choice(&["needs-you", "look", "fyi"]),
+        "Only rows of this level",
+    ),
     m("--limit", Int, "Show at most this many results"),
     m(
         "--machine-id",
@@ -516,6 +521,7 @@ pub(super) const GLOBAL: &[Meta] = &[
     m("--folder", Path, "Folder the layer is delivered into when its scope is folder (repeatable)").repeats(),
     m("--set", Str, "Knob and value as <knob>=<value> (repeatable)").repeats(),
     m("--unset", Str, "Knob whose Toolport-written value is removed (repeatable)").repeats(),
+    m("--until", Str, "Hide the row until this date (YYYY-MM-DD); it returns on that day. Without it the row stays hidden"),
     m("--import", Str, "File or layer whose text the layer carries (repeatable; an empty value clears the list)").repeats(),
     m(
         "--scope",

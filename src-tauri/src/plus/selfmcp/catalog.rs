@@ -1,4 +1,4 @@
-use super::{backend, compression, content, context, context_bundle, context_compose, direct, library, plugins, servers, skills, sources, state, tasks, ToolError};
+use super::{attention, backend, compression, content, context, context_bundle, context_compose, direct, library, plugins, servers, skills, sources, state, tasks, ToolError};
 use serde_json::{json, Map, Value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -218,6 +218,14 @@ pub const TOOLS: &[ToolDef] = &[
         "Cancel a running or waiting task run and stop its child process",
         [p("run", Ty::Str, true, "The run id (from tasks_list, tasks_get or tasks_history)")],
         tasks::cancel
+    ),
+    tool!(
+        "attention_ls",
+        1,
+        None,
+        "List everything that wants a decision across Toolport, most urgent first: needs-you (a login that expired, a task waiting for you or failed, a missing secret), look (skills Claude cannot see, a source behind its remote, a duplicate clone, compression drift, a bundle waiting to be applied, a plugin server that bypasses the gateway) and fyi. Reads local state only, never the network. Rows the user dismissed are left out. Read only",
+        [p("level", Ty::Str, false, "Only rows of this level: needs-you, look or fyi")],
+        attention::ls
     ),
     tool!(
         "library_status",
