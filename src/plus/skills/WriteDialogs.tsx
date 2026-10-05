@@ -14,6 +14,8 @@ import { planOf } from "./plans";
 import type { WriteControl, WriteSpec } from "./hooks";
 
 function shown(spec: WriteSpec, data: unknown, done: boolean): unknown {
+  const viewed = spec.view?.(data, done);
+  if (viewed) return viewed;
   const plan =
     planV1Of(data) ??
     (data && typeof data === "object"
@@ -67,22 +69,39 @@ function Blocked({
   spec,
   data,
   reason,
+  lines,
+  info,
   override,
 }: {
   write: WriteControl;
   spec: WriteSpec;
   data: unknown;
   reason: string;
+  lines?: string[];
+  info?: boolean;
   override?: WriteSpec;
 }) {
   return (
     <Dialog open onOpenChange={(open) => !open && write.dismiss()}>
       <DialogContent aria-describedby={undefined} className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{spec.title} is blocked</DialogTitle>
+          <DialogTitle>{info ? spec.title : `${spec.title} is blocked`}</DialogTitle>
         </DialogHeader>
-        <Callout variant="danger" role="alert">
-          {reason}
+        <Callout
+          variant={info ? "info" : "danger"}
+          role={info ? "status" : "alert"}
+          className="flex flex-col gap-1"
+        >
+          <p>{reason}</p>
+          {lines && lines.length > 0 && (
+            <ul aria-label="Findings" className="list-disc pl-4">
+              {lines.map((line) => (
+                <li key={line}>
+                  <code className="font-mono text-xs">{line}</code>
+                </li>
+              ))}
+            </ul>
+          )}
         </Callout>
         <PlanPreview data={data} />
         <DialogFooter>

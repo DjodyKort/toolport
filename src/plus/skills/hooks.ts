@@ -8,7 +8,7 @@ import { policyOf } from "./model";
 
 type Settled<T> = { key: string; tick: number; data: T | null; error: unknown };
 
-function failure(result: CtlResult): CtlError {
+export function failure(result: CtlResult): CtlError {
   const error = result.envelope?.error;
   return new CtlError(
     error?.message ?? result.parseError ?? `toolportctl exited with ${result.exitCode}`,
@@ -78,10 +78,16 @@ export interface WriteSpec {
   typed?: boolean;
   /** Reads the preview: a reason refuses the apply and may offer another write instead. */
   gate?: (preview: unknown) => Gate | null;
+  /** Words the data of the preview and of the result as the plan the dialogs show. */
+  view?: (data: unknown, done: boolean) => unknown;
 }
 
 export interface Gate {
   reason: string;
+  /** Findings listed under the reason, one line each. */
+  lines?: string[];
+  /** Nothing to do rather than a refusal: an info note instead of a red alert. */
+  info?: boolean;
   override?: WriteSpec;
 }
 

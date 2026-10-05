@@ -130,24 +130,21 @@ describe("Sources tab: the list", () => {
       within(box).getByRole("button", { name: "Sign in with GitHub" }),
     ).toBeDisabled();
     expect(within(box).getByText(/needs MIG-SRC-3/)).toBeInTheDocument();
-    expect(bridge.ran().some((argv) => argv.includes("library"))).toBe(false);
+    expect(bridge.ran().some((argv) => argv.startsWith("library"))).toBe(false);
   });
 });
 
 describe("Sources tab: the library row", () => {
-  it("draws Pull and Push off, with the reason, because library commands are not built", async () => {
+  it("reads the library status once and runs nothing that writes or reaches the network", async () => {
     const user = await open();
     await user.click(rowButton("ai-skills"));
     const box = detail("ai-skills");
-    const pull = within(box).getByRole("button", { name: "Pull" });
-    const push = within(box).getByRole("button", { name: "Push…" });
-    expect(pull).toBeDisabled();
-    expect(push).toBeDisabled();
-    expect(pull).toHaveAttribute("title", "needs MIG-SRC-3");
-    expect(
-      within(box).getByText(/Pull and Push are needs MIG-SRC-3/),
-    ).toBeInTheDocument();
-    expect(bridge.ran().filter((argv) => argv.startsWith("library"))).toEqual([]);
+    await within(box).findByText("Remote");
+    expect(within(box).getByRole("button", { name: "Pull" })).toBeEnabled();
+    expect(within(box).getByRole("button", { name: "Push…" })).toBeEnabled();
+    expect(bridge.ran().filter((argv) => argv.startsWith("library"))).toEqual([
+      "library status",
+    ]);
   });
 
   it("shows no Pull or Push on another source", async () => {

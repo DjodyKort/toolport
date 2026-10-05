@@ -1,19 +1,19 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { ListTree, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/Callout";
 import type { SourceItem, SourceRow, SourcesLsData } from "../../bridge/data";
 import { AsyncView } from "../../ui";
-import { useRead } from "../hooks";
+import { useRead, type WriteControl } from "../hooks";
 import { plural } from "../model";
 import { PathLine, SourceBadge } from "../parts";
+import { LibraryPanel } from "./LibraryPanel";
 import {
   countsText,
   FOUND_BY,
   isGitTree,
   ITEM_NOUN,
-  LIBRARY_REASON,
   MISSING_ACTIONS,
   ownerLabel,
   plain,
@@ -22,15 +22,7 @@ import {
   timeText,
   tokenText,
 } from "./model";
-
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="min-w-0">{children}</dd>
-    </>
-  );
-}
+import { Row } from "./Row";
 
 const AUDIT_TONE = {
   clean: "success",
@@ -95,33 +87,7 @@ function Items({ id }: { id: string }) {
   );
 }
 
-function LibraryActions() {
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-2">
-        {["Pull", "Push…"].map((label) => (
-          <Button
-            key={label}
-            size="sm"
-            variant="outline"
-            disabled
-            title={LIBRARY_REASON}
-            aria-describedby="library-reason"
-          >
-            {label}
-          </Button>
-        ))}
-      </div>
-      <p id="library-reason" className="text-xs text-muted-foreground">
-        Pull and Push are {LIBRARY_REASON}: `library status|pull|push` is not built yet.
-        Push will show the audit, the commits and the gitleaks result before anything
-        leaves this Mac.
-      </p>
-    </div>
-  );
-}
-
-export function SourceDetail({ row }: { row: SourceRow }) {
+export function SourceDetail({ row, write }: { row: SourceRow; write: WriteControl }) {
   const [items, setItems] = useState(false);
   const missing = MISSING_ACTIONS[row.detector] ?? [];
   const fresh = row.freshness;
@@ -178,7 +144,7 @@ export function SourceDetail({ row }: { row: SourceRow }) {
             </span>
           </span>
         </Row>
-        {fresh && (
+        {fresh && row.detector !== "library" && (
           <Row label="Against remote">
             <span className="flex flex-col gap-0.5">
               <span>
@@ -206,6 +172,7 @@ export function SourceDetail({ row }: { row: SourceRow }) {
           </Row>
         )}
       </dl>
+      {row.detector === "library" && <LibraryPanel write={write} />}
       {row.warnings.length > 0 && (
         <Callout variant="warning" role="status">
           <ul aria-label="Warnings" className="flex flex-col gap-1">
@@ -240,7 +207,6 @@ export function SourceDetail({ row }: { row: SourceRow }) {
           </Button>
         ))}
       </div>
-      {row.detector === "library" && <LibraryActions />}
       {missing.length > 0 && (
         <ul aria-label="Actions not available yet" className="flex flex-col gap-1">
           {missing.map((action) => (
