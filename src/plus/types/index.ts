@@ -12,6 +12,8 @@ import { councilShapes } from "./council";
 import { importShapes } from "./import";
 import { inspectShapes } from "./inspect";
 import { libraryShapes } from "./library";
+import { mcpCallGenericShapes } from "./mcp-call-generic";
+import { mcpCallSystemShapes } from "./mcp-call-system";
 import { mcpShapes } from "./mcp";
 import { obsShapes } from "./obs";
 import { pluginsShapes } from "./plugins";
@@ -38,6 +40,8 @@ export * from "./council";
 export * from "./import";
 export * from "./inspect";
 export * from "./library";
+export * from "./mcp-call-generic";
+export * from "./mcp-call-system";
 export * from "./mcp";
 export * from "./obs";
 export * from "./plugins";
@@ -78,6 +82,8 @@ export const ctlTypeShapes: Record<string, Shape<unknown>> = {
   ...importShapes,
   ...inspectShapes,
   ...libraryShapes,
+  ...mcpCallGenericShapes,
+  ...mcpCallSystemShapes,
   ...mcpShapes,
   ...obsShapes,
   ...pluginsShapes,
