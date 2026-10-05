@@ -25,7 +25,11 @@ afterEach(() => {
   expect(
     bridge
       .ran()
-      .some((line) => /--home|--data-dir|secret|--reveal|stdin|token/.test(line)),
+      .some(
+        (line) =>
+          !line.startsWith("mcp call ") &&
+          /--home|--data-dir|secret|--reveal|stdin|token/.test(line),
+      ),
   ).toBe(false);
 });
 

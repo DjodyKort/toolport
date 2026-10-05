@@ -14,9 +14,12 @@ import type {
   LibraryStatusData,
 } from "../../types/library";
 import { SourcesTab } from "./SourcesTab";
+import { check } from "../../bridge/shape";
+import { skillsGitPushResult } from "../../types";
 import {
   createSourcesBridge,
   failure,
+  goldenData,
   goldenFailure,
   libraryGolden,
   wire,
@@ -314,6 +317,26 @@ describe("Library row: Push", () => {
       "library push --dry-run",
       "library push",
     ]);
+  });
+
+  it("sources.library.push, skills_git_push: the Push dialog reads the result of the tool's own answer", async () => {
+    const tool = goldenData("mcp-call.skills_git_push").result as Record<string, unknown>;
+    const apply = libraryGolden<LibraryPushData>(
+      "library-push.apply",
+    ) as unknown as Record<string, unknown>;
+    const shared = Object.fromEntries(
+      Object.entries(apply).filter(([key]) => key in tool),
+    );
+    expect(Object.keys(shared).sort()).toEqual(Object.keys(tool).sort());
+    expect(check(skillsGitPushResult, shared)).toEqual([]);
+    bridge.set("library status", status("ahead"));
+    bridge.set("library push", { ...apply, ...tool, dryRun: false });
+    const user = await open();
+    await user.click(library().getByRole("button", { name: "Push…" }));
+    const box = await dialog(/^Push the library\?$/);
+    await user.click(within(box).getByRole("button", { name: "Push" }));
+    await screen.findByText("Done");
+    expect(screen.getByText("Pushed to the remote")).toBeVisible();
   });
 
   it("blocks the push on a secret finding: the finding is listed, nothing can be applied", async () => {

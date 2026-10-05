@@ -339,20 +339,11 @@ describe("Repository, scope and tools", () => {
   it("keeps the self-MCP tools without a CLI twin off, each with its reason", async () => {
     await section("Installed");
     await screen.findByRole("list", { name: "Actions not available yet" });
-    for (const name of [
-      "Edit SKILL.md body",
-      "Edit frontmatter",
-      "Scaffold with progressive files",
-      "Push the library",
-    ]) {
+    for (const name of ["Scaffold with progressive files"]) {
       const button = screen.getByRole("button", { name });
       expect(button).toBeDisabled();
       expect(button).toHaveAttribute("title", expect.stringContaining("MIG-GUI-14"));
     }
-    expect(screen.getByRole("button", { name: "Push the library" })).toHaveAttribute(
-      "title",
-      expect.stringContaining("typed confirmation"),
-    );
   });
 
   it("runs no command the fake bridge has no reply for", async () => {

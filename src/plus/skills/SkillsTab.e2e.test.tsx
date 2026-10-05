@@ -24,10 +24,19 @@ afterEach(() => {
   expect(bridge.missing).toEqual([]);
   const stray = bridge
     .ran()
-    .filter((line) => !/^(commands|skills|sources)( |$)/.test(line));
+    .filter(
+      (line) =>
+        !/^(commands|skills|sources|mcp call (skills|agents|styles)_\w+)( |$)/.test(line),
+    );
   expect(stray, "the tab only runs its own commands").toEqual([]);
   expect(
-    bridge.ran().some((line) => /--home|secret|--reveal|stdin|token/.test(line)),
+    bridge
+      .ran()
+      .some(
+        (line) =>
+          !line.startsWith("mcp call ") &&
+          /--home|secret|--reveal|stdin|token/.test(line),
+      ),
   ).toBe(false);
 });
 

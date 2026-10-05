@@ -20,7 +20,10 @@ import { InitDialog, NewDialog, SyncDialog } from "./dialogs";
 import { ScopeBar } from "./fields";
 import { InstallPanel } from "./install";
 import { TapsPanel } from "./taps";
-import { useRead, useRegistryRows, useWrite, type WriteControl } from "./hooks";
+import { BodyEditor } from "../agents/BodyEditor";
+import { ConvertedFor } from "../agents/ConvertedFor";
+import { DeleteSkill } from "./DeleteSkill";
+import { useRead, useRegistryData, useWrite, type WriteControl } from "./hooks";
 import {
   byClient,
   clientName,
@@ -152,12 +155,16 @@ function SkillDetail({
   audit,
   write,
   writeScope,
+  onEdit,
+  onDelete,
 }: {
   row: SkillRow;
   status: SkillsStatusData | null;
   audit: SkillsAuditData | null;
   write: WriteControl;
   writeScope: WriteScope;
+  onEdit: (row: SkillRow) => void;
+  onDelete: (row: SkillRow) => void;
 }) {
   const own = isLibrary(row);
   const findings = ((audit?.findings ?? []) as AuditFinding[]).filter(
@@ -253,8 +260,9 @@ function SkillDetail({
         <Button
           size="sm"
           variant="outline"
-          disabled
-          title={EDITOR_REASON}
+          disabled={!own || write.busy}
+          title={own ? undefined : EDITOR_REASON}
+          onClick={() => onEdit(row)}
           aria-label={`Open editor for ${row.name}`}
         >
           Open editor
@@ -276,6 +284,17 @@ function SkillDetail({
             }
           >
             <Trash2 /> Uninstall…
+          </Button>
+        )}
+        {own && (
+          <Button
+            size="sm"
+            variant="outline"
+            aria-label={`Delete ${row.name} from the library`}
+            disabled={write.busy}
+            onClick={() => onDelete(row)}
+          >
+            <Trash2 /> Delete from library…
           </Button>
         )}
       </div>
@@ -431,10 +450,13 @@ interface Scope {
   setSelected: (key: string) => void;
   writeScope: WriteScope;
   setWriteScope: (scope: WriteScope) => void;
+  onEdit: (row: SkillRow) => void;
+  onDelete: (row: SkillRow) => void;
 }
 
 function Body({ write, scope }: { write: WriteControl; scope: Scope }) {
   const { filter, setFilter, selected, setSelected, writeScope, setWriteScope } = scope;
+  const { onEdit, onDelete } = scope;
   const [dialog, setDialog] = useState<"sync" | "new" | "init" | null>(null);
   const lib = useRead<SkillsLsData>(["skills", "ls"]);
   const sources = useRead<SourcesLsData>(["sources", "ls"]);
@@ -727,6 +749,8 @@ function Body({ write, scope }: { write: WriteControl; scope: Scope }) {
                   audit={audit.data}
                   write={write}
                   writeScope={writeScope}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
                 />
               )}
               <Collisions query={collisions} write={write} writeScope={writeScope} />
@@ -765,10 +789,12 @@ function Body({ write, scope }: { write: WriteControl; scope: Scope }) {
           </Card>
         </div>
       </Section>
+      <ConvertedFor kind="skills" />
       <Section title="More library actions">
         <p className="text-xs text-muted-foreground">
-          These exist only as self-MCP tools today and have no command of their own. They
-          switch on when the app can run them through `mcp call`.
+          This exists only as a self-MCP tool today and has no command of its own. Editing
+          a skill is Open editor in its detail, and Push the library is on the library row
+          of Library &gt; Sources.
         </p>
         <ul aria-label="Actions not available yet" className="flex flex-col gap-2">
           {TOOLS_WITHOUT_CLI.map((tool) => (
@@ -797,8 +823,13 @@ const SECTIONS = [
 /** The Skills panel: every skill and rule with its source, the sync state per client, drift,
  * lint and audit, collisions and the writes that go with them. Every write is previewed. */
 export function SkillsTab() {
-  const rows = useRegistryRows();
+  const registry = useRegistryData();
+  const rows = registry?.commands ?? null;
   const [epoch, setEpoch] = useState(0);
+  const [editing, setEditing] = useState<{
+    mode: "edit" | "delete";
+    row: SkillRow;
+  } | null>(null);
   const [filter, setFilter] = useState("library");
   const [selected, setSelected] = useState<string | null>(null);
   const [section, setSection] = useState("installed");
@@ -807,6 +838,24 @@ export function SkillsTab() {
   return (
     <div className="flex flex-col gap-6">
       <WriteDialogs write={write} />
+      {editing?.mode === "edit" && (
+        <BodyEditor
+          kind="skills"
+          name={editing.row.name}
+          registry={registry}
+          onClose={() => setEditing(null)}
+          onSaved={() => setEpoch((n) => n + 1)}
+        />
+      )}
+      {editing?.mode === "delete" && (
+        <DeleteSkill
+          name={editing.row.name}
+          path={editing.row.path}
+          registry={registry}
+          onClose={() => setEditing(null)}
+          onDeleted={() => setEpoch((n) => n + 1)}
+        />
+      )}
       <Tabs
         items={SECTIONS}
         value={section}
@@ -830,6 +879,8 @@ export function SkillsTab() {
                 setSelected,
                 writeScope,
                 setWriteScope,
+                onEdit: (row) => setEditing({ mode: "edit", row }),
+                onDelete: (row) => setEditing({ mode: "delete", row }),
               }}
             />
           )}

@@ -59,9 +59,12 @@ export function useRead<T>(argv: readonly string[]): CtlQuery<T> {
   };
 }
 
+export function useRegistryData(): CommandsData | null {
+  return useCtlQuery<CommandsData>(["commands"]).data;
+}
+
 export function useRegistryRows(): CommandRow[] | null {
-  const query = useCtlQuery<CommandsData>(["commands"]);
-  return query.data?.commands ?? null;
+  return useRegistryData()?.commands ?? null;
 }
 
 /** One write of the screen: preview, confirm, apply, result (D-059). */
