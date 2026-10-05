@@ -7,7 +7,7 @@
       "result": {
         "branches": {
           "origin": ["main"],
-          "upstream": []
+          "upstream": ["main"]
         },
         "detected": {
           "kind": "git",
@@ -15,7 +15,7 @@
             "branch": "main",
             "drift": false,
             "path": "<WORLD>/fork-work",
-            "remote": "origin",
+            "remote": "upstream",
             "type": "git"
           }
         },

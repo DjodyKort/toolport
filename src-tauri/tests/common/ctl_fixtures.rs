@@ -397,6 +397,14 @@ pub fn fork_back_to_main(world: &CtlWorld) {
     git(&work, &world.home, &["checkout", "-q", "main"]);
 }
 
+/// `fork_world`, with `upstream` already fetched once, so `refs/remotes/upstream/*` is
+/// populated and a source switch to that remote's `main` validates against the repo.
+pub fn fork_world_upstream_fetched(world: &CtlWorld) {
+    fork_world(world);
+    let work = world.base.join("fork-work");
+    git(&work, &world.home, &["fetch", "-q", "upstream"]);
+}
+
 fn git_identity(dir: &Path, home: &Path) {
     for (key, value) in [
         ("user.name", "fixture"),

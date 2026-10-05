@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "source", "set"],
+  "envelope": {
+    "command": "server source set",
+    "error": {
+      "code": "usage",
+      "message": "usage: server source set <id|name> [--path <dir>] [--remote <name>] [--branch <name>] [--upstream-remote <name>] [--upstream-branch <name>] [--clear-upstream] [--post-update <cmd>] [--clear-post-update]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

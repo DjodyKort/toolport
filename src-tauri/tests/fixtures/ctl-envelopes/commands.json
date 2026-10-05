@@ -509,6 +509,126 @@
           "tools": ["servers_update_config"]
         },
         {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Repository folder (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Git remote this server tracks",
+              "escalates": false,
+              "hidden": false,
+              "name": "--remote",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Git branch",
+              "escalates": false,
+              "hidden": false,
+              "name": "--branch",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Remote the fork is upstream of (set together with --upstream-branch)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--upstream-remote",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Branch on the upstream remote",
+              "escalates": false,
+              "hidden": false,
+              "name": "--upstream-branch",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Remove the stored upstream remote and branch",
+              "escalates": false,
+              "hidden": false,
+              "name": "--clear-upstream",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Command to run in the repository after an update",
+              "escalates": false,
+              "hidden": false,
+              "name": "--post-update",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Remove the stored post-update command",
+              "escalates": false,
+              "hidden": false,
+              "name": "--clear-post-update",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "server",
+          "id": "server source set",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "server",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "server",
+          "path": ["server", "source", "set"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Set a git-backed server's remote, branch, upstream or post-update command",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["servers_set_source"]
+        },
+        {
           "baseTier": "read",
           "cost": false,
           "dryRun": false,
@@ -10329,10 +10449,10 @@
         }
       ],
       "counts": {
-        "commands": 172,
+        "commands": 173,
         "groups": 32,
-        "rows": 204,
-        "tools": 100
+        "rows": 205,
+        "tools": 101
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
       "tiers": ["read", "write", "destructive"],
@@ -10957,6 +11077,13 @@
           "command": null,
           "dryRun": "none",
           "name": "servers_fork_sync",
+          "tier": "write",
+          "toolTier": 3
+        },
+        {
+          "command": "server source set",
+          "dryRun": "none",
+          "name": "servers_set_source",
           "tier": "write",
           "toolTier": 3
         },

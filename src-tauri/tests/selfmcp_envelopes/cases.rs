@@ -4,8 +4,9 @@
 //! `setup` calls build the state a tool acts on and record no golden.
 
 use crate::ctl_fixtures::{
-    bundle_drift_home, bundle_home, fork_back_to_main, fork_world, git_world, health_proxy,
-    layers_deployed_home, measure_home, skills_repo_remote_world, sync_setup, tasks_home,
+    bundle_drift_home, bundle_home, fork_back_to_main, fork_world, fork_world_upstream_fetched,
+    git_world, health_proxy, layers_deployed_home, measure_home, skills_repo_remote_world,
+    sync_setup, tasks_home,
 };
 
 use crate::library_world::{self, library_home};
@@ -1066,6 +1067,34 @@ pub const ALL: &[Case] = &[
                 "onto_author",
                 "servers_fork_sync",
                 r#"{"name":"forked","mode":"onto-author","author_email":"fixture@example.invalid","target_branch":"main-picked","confirm":true}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "servers_set_source",
+        fork_world_upstream_fetched,
+        &[
+            refused(
+                "refused",
+                "servers_set_source",
+                r#"{"name":"forked","remote":"upstream"}"#,
+            ),
+            fails(
+                "not_git_backed",
+                "invalid_input",
+                "servers_set_source",
+                r#"{"name":"alpha","remote":"upstream","confirm":true}"#,
+            ),
+            fails(
+                "no_such_remote",
+                "invalid_arguments",
+                "servers_set_source",
+                r#"{"name":"forked","remote":"no-such-remote","confirm":true}"#,
+            ),
+            write(
+                "apply",
+                "servers_set_source",
+                r#"{"name":"forked","remote":"upstream","confirm":true}"#,
             ),
         ],
     ),
