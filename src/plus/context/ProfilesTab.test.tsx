@@ -125,6 +125,45 @@ describe("Profiles: reading", () => {
   });
 });
 
+describe("Profiles: plugin settings and MCP denies", () => {
+  it("lists the plugin settings and denied servers read-only, and says where to edit", async () => {
+    const shown = goldenData("context-bundle-show.bundle");
+    bridge.set("context bundle show acme-dev", () => ({
+      ...shown,
+      plugins: {
+        ...shown.plugins,
+        config: { "ecc@ecc": { hook_profile: "minimal", disabled_hooks: "pre:observe" } },
+      },
+      mcp: { deny: ["plugin:ecc:chrome-devtools"] },
+    }));
+    await open();
+    const settings = screen.getByRole("list", { name: "Plugin settings" });
+    expect(within(settings).getByText("ecc@ecc")).toBeVisible();
+    expect(within(settings).getByText("hook_profile: minimal")).toBeVisible();
+    expect(within(settings).getByText("disabled_hooks: pre:observe")).toBeVisible();
+    expect(screen.getByText("plugin:ecc:chrome-devtools")).toBeVisible();
+    expect(screen.getByText(/has no flag for them/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: /light-hooks/ })).toBeNull();
+    expect(
+      bridge.ran().some((line) => /^context bundle (add|edit) light-hooks/.test(line)),
+    ).toBe(false);
+  });
+
+  it("says none when the profile sets no plugin option and denies no server", async () => {
+    await open();
+    expect(screen.getByText("MCP denies").nextElementSibling).toHaveTextContent("none");
+    expect(screen.getByText("Plugin settings").nextElementSibling).toHaveTextContent(
+      "none",
+    );
+  });
+
+  it("shows the light-hooks example as text only", async () => {
+    await open();
+    expect(screen.getByText("light-hooks")).toBeVisible();
+    expect(bridge.ran().some((line) => line.includes("light-hooks"))).toBe(false);
+  });
+});
+
 describe("Profiles: states", () => {
   it("shows a skeleton while the list is read", async () => {
     bridge.set("context bundle ls", () => new Promise(() => {}));
