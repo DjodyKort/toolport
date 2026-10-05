@@ -527,6 +527,17 @@ pub const ALL: &[Case] = &[
             ),
         ],
     ),
+    // attention (MIG-GUI-11)
+    prepared(
+        "attention_ls",
+        tasks_home,
+        &[
+            read("default", "attention_ls", "{}"),
+            read("needs_you", "attention_ls", r#"{"level":"needs-you"}"#),
+            read("fyi", "attention_ls", r#"{"level":"fyi"}"#),
+            fails("bad_level", "invalid_arguments", "attention_ls", r#"{"level":"urgent"}"#),
+        ],
+    ),
     // library (MIG-SRC-3)
     prepared(
         "library_status",

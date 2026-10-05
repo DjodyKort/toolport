@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "level": "urgent"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "level must be one of needs-you, look, fyi"
+    }
+  },
+  "text": "invalid_arguments: level must be one of needs-you, look, fyi",
+  "tool": "attention_ls"
+}

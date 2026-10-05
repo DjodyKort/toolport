@@ -1,0 +1,50 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "counts": {
+      "fyi": 0,
+      "look": 0,
+      "needsYou": 2
+    },
+    "items": [
+      {
+        "action": null,
+        "detail": "Not set yet: API_KEY. The server cannot start without it.",
+        "from": "doctor",
+        "id": "secrets:srv-alpha:missing",
+        "level": "needs-you",
+        "since": "<masked>",
+        "target": {
+          "params": {
+            "server": "srv-alpha",
+            "tab": "secrets"
+          },
+          "route": "servers"
+        },
+        "title": "alpha is missing a secret"
+      },
+      {
+        "action": {
+          "command": ["toolportctl", "task", "resume", "run-fixture-waiting"],
+          "label": "Continue"
+        },
+        "detail": "It stopped at a step that only you can do. Continue it when you are ready.",
+        "from": "tasks",
+        "id": "tasks:portal-token:waiting",
+        "level": "needs-you",
+        "since": "<masked>",
+        "target": {
+          "params": {
+            "run": "run-fixture-waiting",
+            "tab": "tasks",
+            "task": "portal-token"
+          },
+          "route": "tasks"
+        },
+        "title": "Task portal-token is waiting for you"
+      }
+    ]
+  },
+  "tool": "attention_ls"
+}
