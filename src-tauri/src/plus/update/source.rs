@@ -491,6 +491,95 @@ pub fn recheck_drift(stored: &Source, entry: &ServerEntry, home: Option<&Path>, 
     }
 }
 
+/// A requested change to a stored `Source::Git`. `None` leaves a field untouched; the two
+/// `clear_*` flags remove `upstream`/`post_update` outright (there is no way for an `Option<String>`
+/// alone to say "set this field back to absent" and "do not touch it" at once).
+#[derive(Debug, Clone, Default)]
+pub struct SourceEdit {
+    pub path: Option<String>,
+    pub remote: Option<String>,
+    pub branch: Option<String>,
+    pub upstream_remote: Option<String>,
+    pub upstream_branch: Option<String>,
+    pub clear_upstream: bool,
+    pub post_update: Option<String>,
+    pub clear_post_update: bool,
+}
+
+impl SourceEdit {
+    pub fn is_empty(&self) -> bool {
+        self.path.is_none()
+            && self.remote.is_none()
+            && self.branch.is_none()
+            && self.upstream_remote.is_none()
+            && self.upstream_branch.is_none()
+            && !self.clear_upstream
+            && self.post_update.is_none()
+            && !self.clear_post_update
+    }
+}
+
+/// Applies a `SourceEdit` to a stored `Source::Git`. The caller is expected to run
+/// `recheck_drift` on the result before persisting it -- editing `path`/`remote`/`branch` can
+/// move drift from one state to the other, and `drift` itself is never set here. `edit.path`
+/// changes where `recheck_drift` looks for a match, not the `drift` flag directly.
+pub fn apply_edit(current: &Source, edit: &SourceEdit) -> Result<Source, String> {
+    let Source::Git {
+        path,
+        remote,
+        branch,
+        upstream,
+        post_update,
+        drift,
+    } = current
+    else {
+        return Err("not a git-backed source".into());
+    };
+    let upstream = if edit.clear_upstream {
+        None
+    } else if edit.upstream_remote.is_some() || edit.upstream_branch.is_some() {
+        let remote = edit
+            .upstream_remote
+            .clone()
+            .or_else(|| upstream.as_ref().map(|u| u.remote.clone()))
+            .ok_or("upstream needs a remote the first time it is set")?;
+        let branch = edit
+            .upstream_branch
+            .clone()
+            .or_else(|| upstream.as_ref().map(|u| u.branch.clone()))
+            .ok_or("upstream needs a branch the first time it is set")?;
+        Some(Upstream { remote, branch })
+    } else if edit.remote.is_some() {
+        // Repointing the tracked remote makes a previously auto-detected upstream stale;
+        // it must be re-stated explicitly rather than silently carried over.
+        None
+    } else {
+        upstream.clone()
+    };
+    let post_update = if edit.clear_post_update {
+        None
+    } else {
+        edit.post_update.clone().or_else(|| post_update.clone())
+    };
+    Ok(Source::Git {
+        path: edit.path.clone().unwrap_or_else(|| path.clone()),
+        remote: edit.remote.clone().unwrap_or_else(|| remote.clone()),
+        branch: edit.branch.clone().unwrap_or_else(|| branch.clone()),
+        upstream,
+        post_update,
+        drift: *drift,
+    })
+}
+
+/// Full replace of the stored `mcpmSource` metadata. Unlike `set_meta_fields`, which only merges
+/// keys in, this can remove a key -- needed so clearing `upstream`/`post_update` via `apply_edit`
+/// actually drops them from what is persisted instead of leaving the old value behind.
+pub fn replace_meta(entry: &mut ServerEntry, meta: Map<String, Value>) {
+    entry
+        .unknown_fields
+        .insert(META_KEY.to_string(), Value::Object(meta));
+}
+
 pub fn suggest_post_update(repo: &Path) -> Option<String> {
     if repo.join("pyproject.toml").exists() {
         return Some("uv sync".into());

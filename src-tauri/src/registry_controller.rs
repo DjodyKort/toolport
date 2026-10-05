@@ -692,6 +692,29 @@ pub fn update_server_fields(server_id: &str, fields: ServerFields) -> Result<Reg
     Ok(registry)
 }
 
+pub fn apply_set_server_source(
+    registry: &mut Registry,
+    server_id: &str,
+    meta: serde_json::Map<String, serde_json::Value>,
+) -> Result<(), String> {
+    let server = registry
+        .servers
+        .iter_mut()
+        .find(|server| server.id == server_id)
+        .ok_or_else(|| format!("No server with id '{server_id}'"))?;
+    crate::plus::update::source::replace_meta(server, meta);
+    Ok(())
+}
+
+pub fn set_server_source(
+    server_id: &str,
+    meta: serde_json::Map<String, serde_json::Value>,
+) -> Result<Registry, String> {
+    let (registry, ()) =
+        registry::update(|registry| apply_set_server_source(registry, server_id, meta))?;
+    Ok(registry)
+}
+
 pub fn server_entry_for_probe(
     server_id: Option<&str>,
     fields: ServerFields,
