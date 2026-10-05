@@ -12,8 +12,8 @@
 //!   2. bless, read the new files, `npx prettier --write src-tauri/tests/fixtures/selfmcp-envelopes`
 //!      and describe each result in `src/plus/types/`.
 //! A resource needs no case: every entry of `RESOURCES` is read in the same world.
-//! `selfmcp_coverage` prints what is still uncovered; `CTL_CONTRACT_STRICT=1` turns that into a
-//! failure. `no_output_carries_a_canary_secret` runs every case again with a canary in the vault.
+//! `selfmcp_coverage` fails for a tool or resource without a golden result and prints the counts.
+//! `no_output_carries_a_canary_secret` runs every case again with a canary in the vault.
 
 #![cfg(unix)]
 
@@ -449,7 +449,13 @@ fn selfmcp_coverage() {
     client.close();
 
     let covered: BTreeSet<&str> = all_cases()
-        .filter(|case| case.calls.iter().any(|c| c.golden))
+        .filter(|case| {
+            case.calls.iter().any(|c| {
+                c.hook.is_none()
+                    && c.golden
+                    && golden::read_in(&golden::selfmcp_root(), &stem(case, c)).is_some()
+            })
+        })
         .map(|case| case.tool)
         .collect();
     let missing: Vec<&str> = tool_names()
@@ -471,25 +477,22 @@ fn selfmcp_coverage() {
         .filter(|stem| golden::read_in(&golden::selfmcp_root(), stem).is_none())
         .collect();
     eprintln!(
-        "selfmcp contract: {} of {} tools have a golden result, {} still to add; \
-         {} of {} resources have one, {} still to add; tools whose only golden is an error: {error_only:?}",
-        TOOLS.len() - missing.len(),
+        "selfmcp contract: {} tools, {} with a golden envelope, {} uncovered",
         TOOLS.len(),
-        missing.len(),
-        RESOURCES.len() - missing_resources.len(),
-        RESOURCES.len(),
-        missing_resources.len(),
+        TOOLS.len() - missing.len(),
+        missing.len() + missing_resources.len(),
     );
-    if std::env::var_os("CTL_CONTRACT_STRICT").is_some_and(|v| !v.is_empty() && v != "0") {
-        assert!(
-            missing.is_empty(),
-            "no golden result for tools: {missing:?}"
-        );
-        assert!(
-            missing_resources.is_empty(),
-            "no golden result for resources: {missing_resources:?}"
-        );
+    if !error_only.is_empty() {
+        eprintln!("selfmcp contract: tools whose only golden is an error: {error_only:?}");
     }
+    assert!(
+        missing.is_empty(),
+        "no golden result for tools: {missing:?}"
+    );
+    assert!(
+        missing_resources.is_empty(),
+        "no golden result for resources: {missing_resources:?}"
+    );
 }
 
 fn contains(haystack: &[u8], needle: &str) -> bool {
