@@ -51,3 +51,27 @@ export function visibleText(): string {
   copy.querySelectorAll("textarea, input").forEach((node) => node.remove());
   return copy.textContent ?? "";
 }
+
+/** Confirms the review dialog of a write, typing the phrase first when `typed` is given, and
+ * returns the Result section of the apply. */
+export async function confirmResult(
+  user: UserEvent,
+  title: RegExp,
+  label: string,
+  typed?: string,
+) {
+  const box = await review(title);
+  if (typed !== undefined) {
+    expect(box.getByRole("button", { name: label })).toBeDisabled();
+    await user.type(box.getByLabelText(/Type .* to confirm/), typed);
+  }
+  await user.click(box.getByRole("button", { name: label }));
+  return within(await screen.findByRole("region", { name: "Result" }));
+}
+
+/** Closes the result dialog of a write and waits until it is gone. */
+export async function closeResult(user: UserEvent) {
+  const done = screen.getByRole("dialog");
+  await user.click(within(done).getAllByRole("button", { name: "Close" }).at(-1)!);
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+}
