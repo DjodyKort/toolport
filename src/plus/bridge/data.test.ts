@@ -16,8 +16,7 @@ const golden = (stem: string) =>
 const shapes = { ...ctlShapes, ...ctlTypeShapes };
 const carriesData = (stem: string) => golden(stem).envelope.data !== undefined;
 
-/** Goldens whose `data` has no TS shape yet: a new command adds its shape to `src/plus/types/`;
- * `CTL_CONTRACT_STRICT=1` fails while any remain. */
+/** Goldens whose `data` has no TS shape: a new command adds its shape to `src/plus/types/`. */
 const UNTYPED = stems.filter((stem) => carriesData(stem) && !(stem in shapes));
 
 describe("ctl envelope goldens", () => {
@@ -51,15 +50,12 @@ describe("ctl envelope goldens", () => {
     expect(twice, "described in both bridge/data.ts and src/plus/types").toEqual([]);
   });
 
-  it("report the goldens that still have no TS shape", () => {
+  it("have a TS shape for every golden that carries data", () => {
     const withData = stems.filter(carriesData);
-    if (process.env.CTL_CONTRACT_STRICT) {
-      expect(UNTYPED, "goldens without a TS shape").toEqual([]);
-    } else {
-      console.info(
-        `ctl contract: ${withData.length - UNTYPED.length} of ${withData.length} goldens with data have a TS shape; untyped: ${UNTYPED.join(", ")}`,
-      );
-    }
+    console.info(
+      `ctl contract: ${withData.length} goldens with data, ${withData.length - UNTYPED.length} with a TS shape, ${UNTYPED.length} untyped`,
+    );
+    expect(UNTYPED, "goldens without a TS shape").toEqual([]);
   });
 });
 
