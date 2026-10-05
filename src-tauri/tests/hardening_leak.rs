@@ -296,6 +296,7 @@ impl World {
             s(&["server", "info", "import-bearer"]),
             s(&["server", "new", "newsrv", "--command", &self.quiet]),
             s(&["server", "edit", "newsrv", "--arg", "x"]),
+            s(&["server", "source", "set", "newsrv", "--remote", "origin"]),
             s(&["client", "direct", "add", "newsrv", "--client", "cursor", "--dry-run"]),
             s(&["client", "direct", "add", "newsrv", "--client", "cursor"]),
             s(&["client", "direct", "add", "alpha", "--client", "cursor"]),
