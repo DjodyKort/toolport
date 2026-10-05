@@ -572,3 +572,63 @@ fn measured_cost_comes_from_the_cached_measurement_of_the_folder() {
     let data = report::ls(&env, None, &Opts::default());
     assert_eq!(row(&data, "ecc@ecc")["cost"]["measured"], Value::Null);
 }
+
+fn knob<'a>(data: &'a Value, key: &str) -> &'a Value {
+    data["knobs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|k| k["key"] == key)
+        .unwrap_or_else(|| panic!("no knob {key}: {data}"))
+}
+
+#[test]
+fn show_lists_the_adapter_knobs_with_their_value_and_where_it_comes_from() {
+    let fx = Fx::new("knobs");
+    let install = fx.plugin("ecc", "ecc", "/bin/true");
+    std::fs::write(
+        install.join("hooks/hooks.json"),
+        json!({"hooks": {"PreToolUse": [{"hooks": [{"type": "command", "command": "node run-with-flags.js pre:bash:dispatcher x"}]}]}}).to_string(),
+    )
+    .unwrap();
+    fx.user_settings(json!({
+        "enabledPlugins": {"ecc@ecc": true},
+        "env": {"GATEGUARD_EXEMPT_GLOBS": "docs/**"},
+        "pluginConfigs": {"ecc@ecc": {"options": {"hook_profile": "strict"}}}
+    }));
+    let proj = fx.project("work/app");
+    std::fs::write(
+        proj.join(".claude/settings.local.json"),
+        json!({"env": {"ECC_HOOK_PROFILE": "minimal", "ECC_GATEGUARD": "off"}}).to_string(),
+    )
+    .unwrap();
+    let data = report::show(&fx.env(), None, "ecc@ecc", &cwd_opts(&proj)).unwrap();
+    assert_eq!(data["adapter"], "ecc@ecc");
+    assert_eq!(data["knobs"].as_array().unwrap().len(), 5);
+    assert_eq!(knob(&data, "hook_profile")["current"], json!({"value": "minimal", "from": "folder-env"}));
+    assert_eq!(knob(&data, "gateguard")["current"], json!({"value": "off", "from": "folder-env"}));
+    assert_eq!(knob(&data, "gateguard_exempt_globs")["current"], json!({"value": "docs/**", "from": "user-env"}));
+    assert_eq!(knob(&data, "hooks_enabled")["current"], json!({"value": "true", "from": "default"}));
+    assert_eq!(knob(&data, "disabled_hooks")["current"], json!({"value": null, "from": "default"}));
+    assert_eq!(knob(&data, "disabled_hooks")["choices"], json!(["pre:bash:dispatcher"]));
+    assert_eq!(knob(&data, "gateguard")["kind"], "bool-off");
+    assert_eq!(knob(&data, "hook_profile")["option"], "hook_profile");
+    let ls = report::ls(&fx.env(), None, &cwd_opts(&proj));
+    assert_eq!(row(&ls, "ecc@ecc")["adapter"], "ecc@ecc");
+
+    let without = report::show(&fx.env(), None, "ecc@ecc", &Opts::default()).unwrap();
+    assert_eq!(knob(&without, "hook_profile")["current"], json!({"value": "strict", "from": "option"}));
+}
+
+#[test]
+fn a_malformed_adapter_is_reported_by_show_and_the_plugin_has_no_knobs_from_it() {
+    let fx = Fx::new("badadapter");
+    fx.plugin("synth", "market", "/bin/true");
+    let dir = super::adapters::user_dir(&fx.path("data"));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("synth@market.yaml"), "format: 1\nplugin: synth@market\nknobs: [{key: k, kind: nope}]\n").unwrap();
+    let data = report::show(&fx.env(), None, "synth@market", &Opts::default()).unwrap();
+    assert_eq!(data["knobs"], json!([]));
+    assert_eq!(data["adapterProblems"].as_array().unwrap().len(), 1);
+    assert!(data["warnings"].as_array().unwrap().iter().any(|w| w.as_str().unwrap().contains("is ignored")));
+}

@@ -5,6 +5,7 @@
 //! Nothing in here starts a hook or a plugin process; the only child process is the `claude`
 //! binary, and only with the fixed `plugin list|details|configure|marketplace update` arguments.
 
+pub mod adapters;
 pub mod api;
 pub mod claude;
 pub mod cli;

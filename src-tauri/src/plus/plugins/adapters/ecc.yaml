@@ -1,0 +1,40 @@
+format: 1
+plugin: ecc@ecc
+knobs:
+  - {
+      key: hook_profile,
+      label: Hook profile,
+      env: ECC_HOOK_PROFILE,
+      option: hook_profile,
+      kind: enum,
+      choices: [minimal, standard, strict],
+      default: standard,
+    }
+  - {
+      key: hooks_enabled,
+      label: Hooks,
+      env: ECC_HOOKS_ENABLED,
+      option: hooks_enabled,
+      kind: bool,
+      default: "true",
+    }
+  - {
+      key: gateguard,
+      label: GateGuard,
+      env: ECC_GATEGUARD,
+      kind: bool-off,
+      default: "on",
+    }
+  - {
+      key: gateguard_exempt_globs,
+      label: GateGuard exempt paths,
+      env: GATEGUARD_EXEMPT_GLOBS,
+      kind: globs,
+    }
+  - {
+      key: disabled_hooks,
+      label: Hooks switched off,
+      env: ECC_DISABLED_HOOKS,
+      kind: hook-ids,
+    }
+hook_ids: { file: hooks/hooks.json, regex: 'run-with-flags\.js\s+(\S+)' }

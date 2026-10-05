@@ -6,6 +6,7 @@ use super::claude::{ClaudeRunner, NOT_FOUND};
 use super::installed::{self, Installed, PluginStatus, Via};
 use super::manifest::{self, McpServer, OptionRow};
 use super::settings::{Enabled, Layers, Scope};
+use super::adapters::{self, Registry};
 use super::{cli, hooks, Env};
 use crate::plus::sources::fsx;
 use serde_json::{json, Map, Value};
@@ -32,6 +33,7 @@ struct Shared<'a> {
     layers: Layers,
     catalog: BTreeMap<(String, String), Option<String>>,
     blocked: BTreeSet<String>,
+    registry: Registry,
     cwd: Option<&'a Path>,
     via: Via,
 }
@@ -169,7 +171,7 @@ fn build(s: &Shared, p: &Installed, projected: Option<u64>, warnings: &mut Vec<S
             "measured": measured.map(|v| tokens(v, "measured")),
         }),
     );
-    row.insert("adapter".into(), Value::Null);
+    row.insert("adapter".into(), json!(s.registry.for_plugin(&p.id).map(|a| a.plugin.clone())));
     row.insert("mcpOutsideGateway".into(), Value::Array(outside));
     row.insert("from".into(), json!(s.via.as_str()));
     Built {
@@ -236,6 +238,7 @@ fn shared<'a>(
         layers: env.layers(cwd),
         catalog: installed::catalog_versions(&env.claude_home),
         blocked: installed::blocked(&env.claude_home),
+        registry: Registry::load(env.data_dir.as_deref()),
         cwd,
         via: listing_via,
     }
@@ -428,7 +431,16 @@ pub fn show(
         "options".into(),
         Value::Array(options.iter().map(OptionRow::to_json).collect()),
     );
-    data.insert("knobs".into(), json!([]));
+    let knobs = s
+        .registry
+        .for_plugin(&found.id)
+        .map(|a| adapters::knobs_json(a, &s.layers, &options, found.install_path.as_deref()))
+        .unwrap_or_else(|| json!([]));
+    data.insert("knobs".into(), knobs);
+    data.insert("adapterProblems".into(), s.registry.problems_json());
+    for p in &s.registry.problems {
+        warnings.push(format!("adapter {} is ignored: {}", p.file, p.message));
+    }
     data.insert("warnings".into(), json!(warnings));
     Ok(Value::Object(data))
 }
