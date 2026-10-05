@@ -281,11 +281,32 @@ fn finish(run_id: &str, status: Status, error: Option<String>, started: Instant)
     .map(|(r, ())| r)
 }
 
+fn missing_server(task: &Task, host: &dyn Host) -> Option<(String, Value)> {
+    let server = task.requires.servers.iter().find(|s| !host.server_installed(s))?;
+    let (name, install) = if server == "playwright" { ("Playwright", "Playwright") } else { (server.as_str(), server.as_str()) };
+    let notice = format!("install the {name} server: run toolportctl server install {install}, then start the task again");
+    let action = serde_json::json!({"label": format!("Install {name}"), "command": ["toolportctl", "server", "install", install]});
+    Some((notice, action))
+}
+
 pub fn execute(run_id: &str, host: &dyn Host) -> Result<Run, OpError> {
     let started = Instant::now();
     let run = store::load_run(run_id)?;
     let task = store::load_task(&run.task)?;
     let _ = store::update_run(run_id, |r| r.runner_pid = Some(std::process::id()));
+    if let (Some((notice, action)), true) = (missing_server(&task, host), !task.steps.is_empty()) {
+        set_step(run_id, 0, |s| {
+            s.status = Status::Failed;
+            s.started_at = Some(now());
+            s.ended_at = Some(now());
+            s.output = notice.clone();
+        })?;
+        let _ = store::update_run(run_id, |r| {
+            r.steps[1..].iter_mut().for_each(|s| s.status = Status::Skipped);
+            r.action = Some(action);
+        });
+        return finish(run_id, Status::Failed, Some(notice), started);
+    }
     let mut state = State { task: &task, host, red: Redactor::default(), values: HashMap::new(), sensitive: task.secret_sources().into_iter().map(String::from).collect() };
     for (index, step) in task.steps.iter().enumerate() {
         if cancelled(run_id) {

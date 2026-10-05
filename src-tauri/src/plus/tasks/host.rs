@@ -12,6 +12,9 @@ pub trait Host: Send + Sync {
     fn restart_server(&self, server: &str) -> Result<String, String>;
     fn claude_program(&self) -> String;
     fn spawn_runner(&self, run_id: &str) -> Result<(), String>;
+    fn server_installed(&self, _server: &str) -> bool {
+        true
+    }
 }
 
 pub struct RealHost;
@@ -78,6 +81,10 @@ impl Host for RealHost {
             Ok(())
         })?;
         Ok(format!("asked the gateway to respawn {server}"))
+    }
+
+    fn server_installed(&self, server: &str) -> bool {
+        crate::registry::load().map(|r| r.servers.iter().any(|s| s.id == server)).unwrap_or(true)
     }
 
     fn claude_program(&self) -> String {

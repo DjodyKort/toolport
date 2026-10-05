@@ -35,7 +35,11 @@ pub fn run_view(run: &Run, with_output: bool) -> Value {
             v
         })
         .collect();
-    json!({"id": run.id, "task": run.task, "trigger": run.trigger, "status": run.status, "startedAt": run.started_at, "endedAt": run.ended_at, "durationMs": run.duration_ms, "error": run.error, "steps": steps})
+    let mut view = json!({"id": run.id, "task": run.task, "trigger": run.trigger, "status": run.status, "startedAt": run.started_at, "endedAt": run.ended_at, "durationMs": run.duration_ms, "error": run.error, "steps": steps});
+    if let Some(action) = &run.action {
+        view["action"] = action.clone();
+    }
+    view
 }
 
 fn last_run(runs: &[Run], task: &str) -> Value {
@@ -226,7 +230,8 @@ fn save(task: Task, create: bool, dry_run: bool) -> Result<Value, OpError> {
     model::validate(&task).map_err(invalid)?;
     let id = task.id.clone();
     let path = store::task_path(&id)?;
-    let before_text = std::fs::read_to_string(&path).ok();
+    let on_disk = std::fs::read_to_string(&path).ok();
+    let before_text = if create { on_disk } else { on_disk.or_else(|| super::builtin::unclaimed_text(&id).map(String::from)) };
     let before = before_text.as_ref().and_then(|t| model::parse(t).ok());
     match (create, before_text.is_some()) {
         (true, true) => return Err(OpError::conflict(format!("task {id:?} already exists: change it with task edit"))),
