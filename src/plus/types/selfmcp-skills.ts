@@ -11,6 +11,7 @@ import {
   type Shape,
 } from "../bridge/shape";
 import { origin } from "../bridge/data";
+import { libraryChecks } from "./library";
 
 /** Results of the skills self-MCP tools, checked against the golden results by `selfmcp.test.ts`. */
 
@@ -95,6 +96,7 @@ export const skillsGetResult = obj({
 export type SkillsGetResult = Infer<typeof skillsGetResult>;
 
 export const skillsGitPushResult = obj({
+  checks: opt(libraryChecks),
   commitSha: opt(str),
   message: opt(str),
   pushed: bool,
