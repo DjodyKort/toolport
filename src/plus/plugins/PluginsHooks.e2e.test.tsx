@@ -40,6 +40,10 @@ afterEach(() => {
     "no secret flag",
   ).toBe(false);
   expect(
+    ran.some((line) => /^plugins show\s*$/.test(line)),
+    "no read without a plugin id",
+  ).toBe(false);
+  expect(
     ran.some((line) => /^plugins (enable|disable|on|off)\b|^claude /.test(line)),
     "the terminal-only steps never run from the app",
   ).toBe(false);
