@@ -64,6 +64,8 @@ const NOT_READ_ONLY: &[(&str, &str)] = &[
     ("context bundle rm", "deletes profiles/<name>.yaml and refuses while applied; tests/ctl_contract.rs"),
     ("context bundle apply", "writes settings.local.json, CLAUDE.local.md, the git exclude and the ledger of one folder; tests/context_bundle.rs"),
     ("context bundle undo", "puts back the keys apply wrote in one folder; tests/context_bundle.rs"),
+    ("context client edit", "rewrites one layer's frontmatter in the skills repository; tests/ctl_contract.rs"),
+    ("context client rm", "deletes one layer from the skills repository; tests/ctl_contract.rs"),
     ("context bundle launch", "writes the --settings file under ~/.config/toolport/profiles; tests/ctl_contract.rs"),
     ("context bundle config", "writes bundleAutoApply in context.json; tests/context_bundle.rs"),
     ("context use", "applies a bundle and routes the folder to the paired server profile; tests/ctl_contract.rs"),
@@ -664,6 +666,14 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             0,
             |_, d| {
                 assert!(d["applied"].is_null());
+            },
+        ),
+        case(
+            "context compose",
+            &["context", "compose", "--cwd", &home],
+            0,
+            |_, d| {
+                assert!(d["parts"].is_array());
             },
         ),
         case(

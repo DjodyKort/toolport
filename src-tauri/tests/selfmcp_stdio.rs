@@ -500,6 +500,7 @@ fn tier_one_calls() -> BTreeMap<&'static str, Value> {
         ("sources_ls", json!({"items": true})),
         ("context_bundle_ls", json!({})),
         ("context_bundle_status", json!({"cwd": "."})),
+        ("context_compose", json!({"cwd": "."})),
         ("skills_get", json!({"name": "demo"})),
         ("skills_lint", json!({})),
         ("skills_status", json!({})),
