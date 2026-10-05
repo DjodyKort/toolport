@@ -692,6 +692,83 @@ try {
     await watch(shot);
     await shot.goto(`${baseURL}/fixtures/`);
     await shot.getByRole("button", { name: "Library", exact: true }).click();
+    const rows = shot.getByRole("list", { name: "Skills" });
+    await expect(rows).toBeVisible();
+    await shot
+      .getByRole("group", { name: "Source", exact: true })
+      .getByRole("button", { name: /^All/ })
+      .click();
+    await rows
+      .getByRole("button")
+      .filter({ has: shot.locator("b", { hasText: /^incident-notes$/ }) })
+      .click();
+    const skill = shot.getByRole("region", { name: "Skill incident-notes" });
+    await expect(
+      skill.getByRole("button", { name: "See the lint output" }),
+    ).toBeVisible();
+    await shot
+      .getByRole("tablist", { name: "Library sections" })
+      .scrollIntoViewIfNeeded();
+    await shot.evaluate(() => document.fonts.ready);
+    await guiShot(shot, `skills-source-badges-${theme}`);
+
+    await shot.getByRole("tab", { name: "Sources" }).click();
+    const places = shot.getByRole("list", { name: "Sources" });
+    await expect(places).toBeVisible();
+    await expect(places.getByText("behind its remote (114)")).toBeVisible();
+    const folders = shot.getByRole("list", { name: "Scanned folders" });
+    await expect(folders.getByRole("listitem")).toHaveCount(3);
+    await places
+      .getByRole("button")
+      .filter({ has: shot.locator("b", { hasText: /^ai-skills$/ }) })
+      .click();
+    const library = shot.getByRole("region", { name: "Source ai-skills" });
+    await expect(library.getByRole("button", { name: "Pull" })).toBeDisabled();
+    await expect(library.getByRole("button", { name: "Push…" })).toBeDisabled();
+    await expect(library.getByText(/needs MIG-SRC-3/).first()).toBeVisible();
+    await shot
+      .getByRole("tablist", { name: "Library sections" })
+      .scrollIntoViewIfNeeded();
+    await shot.evaluate(() => document.fonts.ready);
+    await guiShot(shot, `skills-sources-${theme}`);
+    if (theme === "light") {
+      const dialog = shot.getByRole("dialog");
+      await shot.getByRole("button", { name: "Add folder to scan…" }).click();
+      await dialog
+        .getByRole("textbox", { name: "Folder" })
+        .fill("/home/demo/work/client-repo");
+      await dialog.getByRole("button", { name: "Preview", exact: true }).click();
+      await expect(
+        dialog.getByText("add source root /home/demo/work/client-repo"),
+      ).toBeVisible();
+      await guiShot(shot, "skills-sources-plan-light");
+      await dialog.getByRole("button", { name: "Add folder", exact: true }).click();
+      await expect(dialog.getByText("Done")).toBeVisible();
+      await dialog.getByRole("button", { name: "Close", exact: true }).last().click();
+      await expect(dialog).toHaveCount(0);
+      await expect(folders.getByRole("listitem")).toHaveCount(4);
+      await shot.getByRole("button", { name: "Stop scanning dups" }).click();
+      await expect(dialog.getByText("remove source root /home/demo/dups")).toBeVisible();
+      await expect(
+        dialog.getByRole("button", { name: "Stop scanning", exact: true }),
+      ).toBeDisabled();
+      await guiShot(shot, "skills-sources-remove-light");
+      await dialog.getByRole("button", { name: "Cancel" }).click();
+      await expect(dialog).toHaveCount(0);
+    }
+    expect((await shot.evaluate(() => window.toolportFixture)).missing).toEqual([]);
+    await shot.close();
+  }
+  expect(errors).toEqual([]);
+  for (const theme of ["light", "dark"]) {
+    const shot = await context.newPage();
+    await shot.addInitScript((choice) => {
+      localStorage.setItem("toolport-theme", choice);
+    }, theme);
+    await shot.setViewportSize({ width: 1280, height: 800 });
+    await watch(shot);
+    await shot.goto(`${baseURL}/fixtures/`);
+    await shot.getByRole("button", { name: "Library", exact: true }).click();
     await shot.getByRole("tab", { name: "Agents" }).click();
     const outputs = shot.getByRole("list", { name: "Output of scout per client" });
     await expect(outputs).toBeVisible();

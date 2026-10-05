@@ -303,7 +303,7 @@ A layer is `rules/<dir>/SKILL.md` in the skills repository, named `client-<slug>
 
 ## Library: the Skills tab
 
-`src/plus/skills/` builds the Library screen of the approved mockup (nav item "Library", layout B). `LibraryScreen` has the five tabs Skills, Agents, Styles, Plugins and Sources; `PANELS` in it lists the tabs that are built (today `skills`), the others stay the marked placeholder of `NOT_BUILT_TABS` until their item adds its panel to that map. `PlusViews` lazy-loads the screen, so the whole tab is one chunk.
+`src/plus/skills/` builds the Library screen of the approved mockup (nav item "Library", layout B). `LibraryScreen` has the five tabs Skills, Agents, Styles, Plugins and Sources; `PANELS` in it lists the tabs that are built (`skills`, `agents`, `styles` and `sources`), the others stay the marked placeholder of `NOT_BUILT_TABS` until their item adds its panel to that map. `PlusViews` lazy-loads the screen, so the whole tab is one chunk.
 
 `SkillsTab` has four sections, one `useWrite` and one `WriteDialogs` for all of them:
 
@@ -324,6 +324,20 @@ A layer is `rules/<dir>/SKILL.md` in the skills repository, named `client-<slug>
 - Tests: `testkit.ts` is a fake `plus_ctl` bridge over the static fixtures (a command without a reply fails the test). `createBridge({ world: true })` and the dev browser fixture use `world.ts` instead, where an applied write changes the next read: a sync clears the drift, a clean removes the outputs and the lock, an uninstall or install changes the list, a resolve ends the collision; a preview changes nothing. `SkillsTab.e2e.test.tsx` walks the real screen through that world, one test per parity action id (keyboard use, bridge down then Retry and a credential canary included); `world.test.ts` checks every world reply against the golden shapes and `commandRows.test.ts` checks the browser registry rows against the golden registry.
 
 Screenshots (1280x800, from `npm run screenshots:gui`): `docs/assets/gui-skills-light.png` and `gui-skills-dark.png` (35 items, source chips, one skill with its sync state), `gui-skills-checks-light.png` and `gui-skills-checks-dark.png` (lint, audit, changes since the last sync and drift), `gui-skills-sync-plan-light.png` (the sync plan with the dropped field), `gui-skills-uninstall-light.png` (the typed confirmation), `gui-skills-taps-light.png` and `gui-skills-install-blocked-light.png` (an install blocked by the audit). `gui-library-light.png` is now the not-built Plugins tab.
+
+## Library: the Sources tab
+
+`src/plus/skills/sources/` is the Sources tab of the Library screen (a lazy panel in `PANELS`, so it is its own chunk). It answers "where does everything come from" from `sources ls` and `sources root ls|add|rm` (MIG-SRC-1, D-063).
+
+- **List and detail.** One row per source with its kind badge, status badge (`behind its remote (114)`, `out of date`, `duplicate clone`, `remote unreachable`, `partial scan`) and a read-only mark. The detail shows owner, folder (or the git ref for a source read from a tree), what it holds, cost, how it is found, "Visible to Claude: n of m skills", status and its time, the freshness against the remote (behind, ahead, whether the files are in the checkout, last sync), who manages it, whether a plugin is on, and the warnings of the scan. "Show items" reads `sources ls --source <id> --items` on demand; only names, paths and sizes come back.
+- **Numbers.** A token number is always labelled: `about N tokens (estimate)`, `N tokens (measured)` or `N tokens (projected by Claude Code)` (D-065). A sum is measured only when every part is.
+- **States.** Loading skeleton, empty ("No sources found" with Rescan), error with the CLI's words and Retry, a partial scan that names each detector that stopped early, an offline note (the scan is local, so the list stays complete). Rescan runs `sources ls --refresh`.
+- **Folders that are scanned.** `sources root ls` as a list: default folders (from `clients_root`, cannot be removed here and say why) and folders you added. "Add folder to scan..." is the D-059 flow on `sources root add <dir>` (native picker or typed path, `--dry-run`, plan, confirm, apply). Stopping a folder is `sources root rm <dir>` with the folder's name typed. Neither sends `--home`.
+- **Library row.** Pull and Push are drawn disabled with the reason "needs MIG-SRC-3": `library status|pull|push` has no command yet, so there is no shape to build on. The GitHub skills account is a planned row for the same reason.
+- **Actions without a command.** Show what it wrote, Audit, Adopt into library and Choose per folder are disabled with their reason (`MISSING_ACTIONS` in `sources/model.ts`).
+- **Credentials.** Any message is shown without the user and password of a URL (`plain()`), a second line behind the CLI's own redaction.
+- **Skills tab.** An invisible skill now links to the lint output (the Lint card of the Checks section takes focus).
+- Tests: `sources/testkit.ts` answers every argv from the real goldens (`sources-ls.items`, `sources-root-*`); `sources/world.ts` is the stateful world (an applied `sources root add|rm` changes the next `sources root ls`) that `createSkillsWorld` and the dev browser fixture include. The e2e test names the four parity actions `sources.ls`, `sources.root.ls`, `sources.root.add` and `sources.root.rm`.
 
 ## OTel receiver
 
