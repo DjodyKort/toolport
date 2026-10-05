@@ -8,7 +8,6 @@ import type { WriteControl } from "../skills/hooks";
 import { plural } from "../skills/model";
 import { Section } from "../skills/parts";
 import { AdapterSettings } from "./AdapterSettings";
-import { disableEverywhereStep, turnOffStep, type TerminalStep } from "./TerminalStep";
 import {
   configSpec,
   draftArgs,
@@ -23,6 +22,7 @@ import {
   type Draft,
   type Scope,
 } from "./model";
+import { disableSpec, enableSpec, offSpec, onSpec } from "./switches";
 
 function Brings({ show }: { show: PluginsShowData }) {
   const b = show.brings;
@@ -225,13 +225,11 @@ export function PluginDetail({
   query,
   cwd,
   write,
-  onTerminal,
   onOpenHooks,
 }: {
   query: CtlQuery<PluginsShowData>;
   cwd: string;
   write: WriteControl;
-  onTerminal: (step: TerminalStep) => void;
   onOpenHooks?: () => void;
 }) {
   const [draft, setDraft] = useState<Draft>({});
@@ -295,11 +293,26 @@ export function PluginDetail({
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
-                disabled={busy}
-                onClick={() => onTerminal(turnOffStep(show.id, show.name, cwd))}
+                disabled={busy || !cwd}
+                title={
+                  cwd
+                    ? undefined
+                    : "Choose a folder above: a plugin is turned off per folder"
+                }
+                onClick={() => write.begin(offSpec(show.id, show.name, cwd))}
               >
                 Turn off in a folder…
               </Button>
+              {show.enabled.local === false && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy || !cwd}
+                  onClick={() => write.begin(onSpec(show.id, show.name, cwd))}
+                >
+                  Turn back on in this folder…
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="outline"
@@ -309,14 +322,25 @@ export function PluginDetail({
               >
                 Update…
               </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                disabled={busy}
-                onClick={() => onTerminal(disableEverywhereStep(show.id, show.name))}
-              >
-                Disable everywhere…
-              </Button>
+              {show.enabled.user === false ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => write.begin(enableSpec(show.id, show.name))}
+                >
+                  Enable everywhere…
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={busy}
+                  onClick={() => write.begin(disableSpec(show.id, show.name))}
+                >
+                  Disable everywhere…
+                </Button>
+              )}
             </div>
             <Section title="Settings">
               {show.knobs.length > 0 ? (

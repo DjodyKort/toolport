@@ -327,24 +327,80 @@ describe("This folder: measuring for real", () => {
     expect(result.getByText(/1 skill Claude Code does not list: handoff/)).toBeVisible();
   });
 
-  it("opens the turn-off command of a plugin from its row, runs nothing, and returns the focus", async () => {
-    const user = await open();
-    await showFolder(user);
-    const plugins = within(screen.getByRole("region", { name: "Plugins" }));
-    const kit = rowOf(plugins, "kit@market");
-    const opener = within(kit).getByRole("button", { name: "Off here…" });
-    await user.click(opener);
-    const box = within(
-      await screen.findByRole("dialog", { name: /Turn kit@market off in a folder/ }),
-    );
-    expect(box.getByLabelText("Command line")).toHaveTextContent(
-      "claude plugin disable kit@market --scope local",
-    );
-    expect(box.getByRole("button", { name: "Open in Terminal" })).toBeDisabled();
-    expect(bridge.ran().some((line) => /disable|settings\.local/.test(line))).toBe(false);
-    await user.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    await waitFor(() => expect(opener).toHaveFocus());
+  describe("Off here", () => {
+    const OFF = `plugins off kit@market --cwd ${FOLDER}`;
+    const scrub = (stem: string) =>
+      JSON.parse(
+        JSON.stringify(goldenData(stem))
+          .split("<WORLD>/home/work/acme-erp")
+          .join(FOLDER)
+          .split("<WORLD>")
+          .join("/fixture")
+          .split("ecc@ecc")
+          .join("kit@market"),
+      );
+    const opener = async () => {
+      const user = await open();
+      await showFolder(user);
+      const kit = rowOf(
+        within(screen.getByRole("region", { name: "Plugins" })),
+        "kit@market",
+      );
+      return { user, button: within(kit).getByRole("button", { name: "Off here…" }) };
+    };
+
+    it("plugins off: shows the plan of the dry run for the folder of the screen, then applies exactly that argv and reads the stack again", async () => {
+      bridge.set(`${OFF} --dry-run`, () => scrub("plugins-off.plan"));
+      bridge.set(OFF, () => scrub("plugins-off.apply"));
+      const { user, button } = await opener();
+      const reads = bridge.count(`context loads --cwd ${FOLDER} --measured`);
+      await user.click(button);
+      const box = await review(/Turn kit@market off in this folder\?/);
+      expect(box.getByText(`Turn off kit@market in ${FOLDER}`)).toBeVisible();
+      expect(box.getByText(/goes away in this folder: 3 skills/)).toBeVisible();
+      expect(box.getByLabelText("Command line")).toHaveTextContent(OFF);
+      expect(bridge.count(`${OFF} --dry-run`)).toBe(1);
+      expect(bridge.count(OFF)).toBe(0);
+      await user.click(box.getByRole("button", { name: "Turn off" }));
+      await screen.findByText("Done");
+      expect(bridge.count(OFF)).toBe(1);
+      expect(
+        screen.getByText(`toolportctl plugins on kit@market --cwd ${FOLDER}`),
+      ).toBeVisible();
+      await waitFor(() =>
+        expect(bridge.count(`context loads --cwd ${FOLDER} --measured`)).toBeGreaterThan(
+          reads,
+        ),
+      );
+      expect(bridge.ran().some((line) => /^claude /.test(line))).toBe(false);
+    });
+
+    it("applies nothing when the plan is dismissed with Escape, and returns the focus to the row button", async () => {
+      bridge.set(`${OFF} --dry-run`, () => scrub("plugins-off.plan"));
+      const { user, button } = await opener();
+      button.focus();
+      await user.keyboard("{Enter}");
+      await review(/Turn kit@market off in this folder\?/);
+      await user.keyboard("{Escape}");
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      await waitFor(() => expect(button).toHaveFocus());
+      expect(bridge.count(OFF)).toBe(0);
+    });
+
+    it("shows a refusal of the preview as the CLI's words and applies nothing", async () => {
+      bridge.set(
+        `${OFF} --dry-run`,
+        failure("not_found", "plugin 'kit@market' is not installed"),
+      );
+      const { user, button } = await opener();
+      await user.click(button);
+      const alert = await screen.findByRole("alert");
+      expect(within(alert).getByText("not_found")).toBeVisible();
+      expect(
+        within(alert).getByText(/plugin 'kit@market' is not installed/),
+      ).toBeVisible();
+      expect(bridge.count(OFF)).toBe(0);
+    });
   });
 
   it("shows the failure of a measurement in the CLI's words and keeps the screen", async () => {

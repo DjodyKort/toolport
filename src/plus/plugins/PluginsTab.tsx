@@ -1,4 +1,4 @@
-import { useState, type ComponentProps } from "react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Callout } from "@/components/Callout";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -9,7 +9,6 @@ import { useRead, useRegistryRows, useWrite } from "../skills/hooks";
 import { WriteDialogs } from "../skills/WriteDialogs";
 import { OfflineNote } from "../system/atoms";
 import { PluginDetail } from "./PluginDetail";
-import { TerminalDialog, useTerminalStep } from "./TerminalStep";
 import { cwdArgs, updateText } from "./model";
 
 function Row({
@@ -50,13 +49,11 @@ function Selected({
   id,
   cwd,
   onChanged,
-  onTerminal,
   onOpenHooks,
 }: {
   id: string;
   cwd: string;
   onChanged: () => void;
-  onTerminal: ComponentProps<typeof PluginDetail>["onTerminal"];
   onOpenHooks?: () => void;
 }) {
   const show = useRead<PluginsShowData>(["plugins", "show", id, ...cwdArgs(cwd)]);
@@ -66,13 +63,7 @@ function Selected({
   });
   return (
     <>
-      <PluginDetail
-        query={show}
-        cwd={cwd}
-        write={write}
-        onTerminal={onTerminal}
-        onOpenHooks={onOpenHooks}
-      />
+      <PluginDetail query={show} cwd={cwd} write={write} onOpenHooks={onOpenHooks} />
       <WriteDialogs write={write} />
     </>
   );
@@ -88,7 +79,6 @@ export function PluginsTab({ onOpenHooks }: { onOpenHooks?: () => void }) {
   const [picked, setPicked] = useState<string | null>(null);
   const rows = list.data?.plugins ?? [];
   const id = rows.find((row) => row.id === picked)?.id ?? rows[0]?.id ?? "";
-  const terminal = useTerminalStep();
   const folderLine = cwd
     ? `Folder ${cwd}`
     : "No folder chosen: showing your own settings";
@@ -156,13 +146,11 @@ export function PluginsTab({ onOpenHooks }: { onOpenHooks?: () => void }) {
               id={id}
               cwd={cwd}
               onChanged={list.reload}
-              onTerminal={terminal.open}
               onOpenHooks={onOpenHooks}
             />
           </div>
         )}
       </AsyncView>
-      <TerminalDialog step={terminal.step} onClose={terminal.close} />
     </div>
   );
 }

@@ -197,11 +197,4 @@ export function updateSpec(name?: string): WriteSpec {
   };
 }
 
-/** The command that turns a plugin off in a folder (local) or for everyone (user). Claude Code
- * owns it: no Toolport command writes `enabledPlugins` for one plugin yet. */
-export function disableLine(id: string, scope: "local" | "user", cwd?: string): string {
-  const base = `claude plugin disable ${id} --scope ${scope}`;
-  return scope === "local" && cwd ? `cd ${cwd} && ${base}` : base;
-}
-
 export const cwdArgs = (cwd: string): string[] => (cwd ? ["--cwd", cwd] : []);
