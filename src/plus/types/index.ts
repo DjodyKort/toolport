@@ -1,5 +1,6 @@
 import type { Shape } from "../bridge/shape";
 import { agentsShapes } from "./agents";
+import { attentionShapes } from "./attention";
 import { authShapes } from "./auth";
 import { ccShapes } from "./cc";
 import { clientShapes } from "./client";
@@ -24,6 +25,7 @@ import { taskShapes } from "./tasks";
 import { usageShapes } from "./usage";
 
 export * from "./agents";
+export * from "./attention";
 export * from "./auth";
 export * from "./cc";
 export * from "./client";
@@ -64,6 +66,7 @@ export * from "./selfmcp";
 /** Every ctl golden stem that `bridge/data.ts` does not describe, to the shape of its `data`. */
 export const ctlTypeShapes: Record<string, Shape<unknown>> = {
   ...agentsShapes,
+  ...attentionShapes,
   ...authShapes,
   ...ccShapes,
   ...clientShapes,

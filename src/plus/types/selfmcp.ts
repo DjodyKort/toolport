@@ -14,6 +14,7 @@ import { clientsToolShapes } from "./selfmcp-clients";
 import { compressionToolShapes } from "./selfmcp-compression";
 import { contextToolShapes } from "./selfmcp-context";
 import { coreToolShapes } from "./selfmcp-core";
+import { attentionToolShapes } from "./attention";
 import { libraryToolShapes } from "./library";
 import { pluginsToolShapes } from "./selfmcp-plugins";
 import { serversToolShapes } from "./selfmcp-servers";
@@ -64,6 +65,7 @@ export const resourceGoldenShape = obj({
 /** Every self-MCP tool to the shape of its successful `structuredContent`. */
 export const selfmcpToolShapes: Record<string, Shape<unknown>> = {
   ...agentsToolShapes,
+  ...attentionToolShapes,
   ...clientsToolShapes,
   ...compressionToolShapes,
   ...contextToolShapes,
