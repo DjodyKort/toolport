@@ -26,7 +26,9 @@ afterEach(() => {
     .ran()
     .filter(
       (line) =>
-        !/^(commands|sync|update|council|mcp|import|secret set council)( |$)/.test(line),
+        !/^(commands|sync|update|cc|council|mcp|import|secret set council)( |$)/.test(
+          line,
+        ),
     );
   expect(stray, "the screen only runs its own command groups").toEqual([]);
 });
@@ -123,6 +125,33 @@ describe("Updates tab, end to end", () => {
     );
     await waitFor(() => expect(button("Update all…")).toBeDisabled());
     expect(within(row("srv-release")).getByText("Up to date")).toBeVisible();
+  });
+
+  it("system.cc-update: a plugin update previews first and the next list shows it current", async () => {
+    const user = await openSystem(bridge, "Updates");
+    const card = within(
+      await screen.findByRole("group", { name: "Claude Code plugins" }),
+    );
+    const list = await card.findByRole("list", { name: "Plugin updates" });
+    expect(within(list).getByText("update available")).toBeVisible();
+    await user.click(card.getByRole("button", { name: "Update…" }));
+    const box = await screen.findByRole("dialog", { name: "Update demo-plugin?" });
+    expect(
+      await within(box).findByText(/demo-plugin@fake-market: 1\.0\.0 to 1\.1\.0/),
+    ).toBeVisible();
+    expect(bridge.count("cc update demo-plugin")).toBe(0);
+    await user.click(within(box).getByRole("button", { name: "Update" }));
+    await screen.findByText(/Restart Claude Code/);
+    expect(bridge.count("cc update demo-plugin")).toBe(1);
+    await user.click(screen.getAllByRole("button", { name: "Close" }).at(-1)!);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole("list", { name: "Plugin updates" })).getByText(
+          "up to date",
+        ),
+      ).toBeVisible(),
+    );
   });
 
   it("system.update-check: detecting sources previews first and stores the source of the unknown server", async () => {

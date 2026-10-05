@@ -1,17 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 
 const { invoke, listen } = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
 
-import { updateWorld } from "./fixtures";
+import { goldenData, updateWorld } from "./fixtures";
 import { open } from "./harness";
 import { createBridge, failure, golden, wire, type Bridge } from "./testkit";
 import { UpdatesTab } from "./UpdatesTab";
 
 let bridge: Bridge;
+const ccList = goldenData("cc-list") as { plugins: unknown[] };
 const onOpenCommands = vi.fn();
 
 beforeEach(() => {
@@ -79,12 +80,63 @@ describe("Updates tab: reading", () => {
     online.mockRestore();
   });
 
-  it("keeps the Claude Code plugins section as a marked placeholder that leads to All commands", async () => {
+  it("lists the Claude Code plugins with the server updates", async () => {
+    bridge.set("update --check", updateWorld);
+    await open(<UpdatesTab onOpenCommands={onOpenCommands} />, bridge);
+    const card = await screen.findByRole("group", { name: "Claude Code plugins" });
+    const list = await within(card).findByRole("list", { name: "Plugin updates" });
+    expect(within(list).getByText("demo-plugin")).toBeInTheDocument();
+    expect(within(list).getByText(/1\.0\.0 · fake-market/)).toBeInTheDocument();
+    expect(within(list).getByText("update state unknown")).toBeInTheDocument();
+    expect(await screen.findByText("srv-git")).toBeInTheDocument();
+    expect(bridge.count("cc list")).toBe(1);
+  });
+
+  it("updates one plugin through cc update after a preview", async () => {
     const { user } = await open(<UpdatesTab onOpenCommands={onOpenCommands} />, bridge);
     const card = await screen.findByRole("group", { name: "Claude Code plugins" });
-    expect(within(card).getByText("Not built yet")).toBeInTheDocument();
-    await user.click(within(card).getByRole("button", { name: "Open All commands" }));
-    expect(onOpenCommands).toHaveBeenCalledWith("cc");
+    await user.click(await within(card).findByRole("button", { name: "Update…" }));
+    const box = await screen.findByRole("dialog", { name: /^Update demo-plugin\?$/ });
+    expect(within(box).getByText(/demo-plugin@fake-market: 1\.0\.0/)).toBeInTheDocument();
+    expect(bridge.count("cc update demo-plugin --dry-run")).toBe(1);
+    expect(bridge.count("cc update demo-plugin")).toBe(0);
+    await user.click(within(box).getByRole("button", { name: "Update" }));
+    expect(await screen.findByText(/Restart Claude Code/)).toBeInTheDocument();
+    expect(bridge.count("cc update demo-plugin")).toBe(1);
+  });
+
+  it("previews updating every plugin and applies nothing until confirmed", async () => {
+    const { user } = await open(<UpdatesTab onOpenCommands={onOpenCommands} />, bridge);
+    const card = await screen.findByRole("group", { name: "Claude Code plugins" });
+    await within(card).findByRole("list", { name: "Plugin updates" });
+    await user.click(within(card).getByRole("button", { name: "Update all plugins…" }));
+    const box = await screen.findByRole("dialog", { name: /^Update all plugins\?$/ });
+    expect(bridge.count("cc update --dry-run")).toBe(1);
+    expect(bridge.count("cc update")).toBe(0);
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(box).not.toBeInTheDocument());
+    expect(bridge.count("cc update")).toBe(0);
+  });
+
+  it("shows the failure of the plugin list with Retry", async () => {
+    let fail = true;
+    bridge.set("cc list", () =>
+      fail ? failure("cc", "claude is not installed") : ccList,
+    );
+    const { user } = await open(<UpdatesTab onOpenCommands={onOpenCommands} />, bridge);
+    expect(await screen.findByText("claude is not installed")).toBeInTheDocument();
+    fail = false;
+    const card = screen.getByRole("group", { name: "Claude Code plugins" });
+    await user.click(within(card).getByRole("button", { name: "Retry" }));
+    expect(await within(card).findByText("demo-plugin")).toBeInTheDocument();
+  });
+
+  it("says so when no plugin is installed", async () => {
+    bridge.set("cc list", { ...ccList, plugins: [] });
+    await open(<UpdatesTab onOpenCommands={onOpenCommands} />, bridge);
+    expect(
+      await screen.findByText("No Claude Code plugin is installed."),
+    ).toBeInTheDocument();
   });
 
   it("checks one server again and shows its new row", async () => {
