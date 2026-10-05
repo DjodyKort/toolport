@@ -356,6 +356,30 @@
       "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
       "summary": "Install from a tap: the preview shows the audit findings, a high finding blocks it, and only a typed --no-audit goes past"
     },
+    "sources.ls": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/sources/SourcesTab.e2e.test.tsx",
+      "summary": "Library > Sources: every place Toolport looks with kind, owner, folder, cost labelled estimate, how it is found, read-only marking, status and freshness; items on demand (--items); Rescan (--refresh); partial, empty, error and offline states; the library row with Pull and Push off until library status|pull|push exists"
+    },
+    "sources.root.ls": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/sources/SourcesTab.e2e.test.tsx",
+      "summary": "The folders the repo, client and vendored detectors scan, with default or added by you, missing and git checkout marks"
+    },
+    "sources.root.add": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/sources/SourcesTab.e2e.test.tsx",
+      "summary": "Add folder to scan: folder field and native picker, preview of the context.json change, confirm, apply, undo command shown"
+    },
+    "sources.root.rm": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/sources/SourcesTab.e2e.test.tsx",
+      "summary": "Stop scanning a folder you added: preview, typed confirmation of its name, apply; default folders cannot be removed and say why"
+    },
     "agents.list": {
       "route": "agents",
       "status": "built",
@@ -1456,23 +1480,23 @@
       "surface": "screen"
     },
     "sources ls": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "sources.ls",
       "surface": "screen"
     },
     "sources root add": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "sources.root.add",
       "surface": "screen"
     },
     "sources root ls": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "sources.root.ls",
       "surface": "screen"
     },
     "sources root rm": {
-      "route": "all-commands",
-      "action": "all-commands.run",
+      "route": "library",
+      "action": "sources.root.rm",
       "surface": "screen"
     },
     "status": {
@@ -1963,8 +1987,8 @@
       "surface": "screen"
     },
     "sources_ls": {
-      "route": "all-commands",
-      "action": "all-commands.tool",
+      "route": "library",
+      "action": "sources.ls",
       "surface": "screen"
     },
     "styles_active": {
