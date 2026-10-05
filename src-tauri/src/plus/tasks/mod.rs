@@ -2,6 +2,7 @@
 //! records. The `task` command and the `tasks_*` self-MCP tools are thin renderers over `api`.
 
 pub mod api;
+pub mod approval;
 pub mod cron;
 pub mod model;
 pub mod redactor;

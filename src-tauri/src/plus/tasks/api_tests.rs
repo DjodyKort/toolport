@@ -161,3 +161,65 @@ fn add_from_a_command_file_makes_a_disabled_draft() {
     assert!(out["plan"]["warnings"].as_array().unwrap().iter().any(|w| w.as_str().unwrap().contains("disabled")));
     assert_eq!(model::validate(&saved), Ok(()));
 }
+
+#[test]
+fn tasks_run_asks_every_time_and_a_denial_runs_nothing() {
+    let _fx = world("approval");
+    let t = task(json!({}));
+    store::save_task(&t).unwrap();
+    let asked = std::sync::Mutex::new(Vec::<crate::approval::ApprovalRequest>::new());
+    let deny = |r: crate::approval::ApprovalRequest| {
+        asked.lock().unwrap().push(r);
+        crate::approval::ApprovalDecision::Denied
+    };
+    for decision in [crate::approval::ApprovalDecision::Denied, crate::approval::ApprovalDecision::Timeout, crate::approval::ApprovalDecision::Unreachable, crate::approval::ApprovalDecision::StaleState] {
+        let err = super::approval::run("moodle-token", false, Fake::shared(), &|r| {
+            asked.lock().unwrap().push(r);
+            decision
+        })
+        .unwrap_err();
+        assert!(err.code().starts_with("approval_"), "{err:?}");
+        assert!(err.message.contains("nothing was started"), "{}", err.message);
+    }
+    assert!(super::approval::run("moodle-token", false, Fake::shared(), &deny).is_err());
+    assert!(store::list_runs(None).unwrap().is_empty());
+    let asked = asked.into_inner().unwrap();
+    assert_eq!(asked.len(), 5);
+    let first = &asked[0];
+    assert_eq!((first.server.as_str(), first.tool.as_str()), ("toolport", "tasks_run"));
+    assert_eq!(first.arguments["task"], "moodle-token");
+    assert!(first.arguments["steps"].as_array().unwrap().len() >= 3);
+    assert_eq!(first.arguments["secrets"][0]["key"], "API_PASSWORD");
+    assert!(!first.arguments.to_string().contains(CANARY));
+}
+
+#[test]
+fn an_approved_tasks_run_starts_once_and_never_returns_a_captured_value() {
+    let _fx = world("approval-ok");
+    store::save_task(&task(json!({}))).unwrap();
+    let approve = |_r: crate::approval::ApprovalRequest| crate::approval::ApprovalDecision::Approved;
+    let out = super::approval::run("moodle-token", false, Fake::shared(), &approve).unwrap();
+    assert_eq!(out["run"]["trigger"], "selfMcp");
+    let run_id = out["run"]["id"].as_str().unwrap().to_string();
+    until("waiting", || store::load_run(&run_id).unwrap().status == Status::Waiting);
+    api::resume(&run_id).unwrap();
+    until("finished", || store::load_run(&run_id).unwrap().status.finished());
+    let done = api::history(None, Some(&run_id), None).unwrap();
+    assert_eq!(done["run"]["status"], "ok");
+    assert!(!(out.to_string() + &done.to_string()).contains(CANARY));
+}
+
+#[test]
+fn a_dry_run_or_a_task_that_refuses_self_mcp_never_asks() {
+    let _fx = world("approval-dry");
+    store::save_task(&task(json!({}))).unwrap();
+    let mut off = serde_json::to_value(task(json!({"id": "closed"}))).unwrap();
+    off["triggers"]["selfMcp"]["enabled"] = json!(false);
+    store::save_task(&model::parse(&off.to_string()).unwrap()).unwrap();
+    let never = |_r: crate::approval::ApprovalRequest| -> crate::approval::ApprovalDecision { panic!("must not ask") };
+    let preview = super::approval::run("moodle-token", true, Fake::shared(), &never).unwrap();
+    assert_eq!(preview["dryRun"], true);
+    let err = super::approval::run("closed", false, Fake::shared(), &never).unwrap_err();
+    assert_eq!(err.code(), "conflict");
+    assert!(store::list_runs(None).unwrap().is_empty());
+}
