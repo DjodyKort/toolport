@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { CtlError, runCtl, type CtlResult } from "../bridge/ctl";
 import type { CommandRow, CommandsData } from "../bridge/data";
 import { commandLine } from "../allcommands/model";
@@ -79,6 +79,11 @@ export interface WriteSpec {
   phrase: string;
   /** What a write without a preview will do, shown in its confirmation. */
   planned?: PlanV1;
+  /** Words the result of the apply; the plan and the changed files are shown when absent. */
+  renderResult?: (data: unknown) => ReactNode;
+  /** False for a command that has no preview but says what it does in `planned` and costs more
+   * than a file write, so the "changes as soon as you confirm" note would mislead. */
+  warnNoPreview?: boolean;
 }
 
 export interface WriteControl {
