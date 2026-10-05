@@ -106,6 +106,8 @@ export function useWrite(rows: CommandRow[] | null, onApplied: () => void): Writ
   const [spec, setSpec] = useState<WriteSpec | null>(null);
   const [refused, setRefused] = useState<string | null>(null);
   const handled = useRef<unknown>(null);
+  const origin = useRef<HTMLElement | null>(null);
+  const showing = useRef(false);
   const applied = useRef(onApplied);
   useEffect(() => {
     applied.current = onApplied;
@@ -130,6 +132,8 @@ export function useWrite(rows: CommandRow[] | null, onApplied: () => void): Writ
       }
       setRefused(null);
       setSpec(next);
+      origin.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
       beginFlow({
         title: next.title,
         line: commandLine(next.argv),
@@ -150,6 +154,28 @@ export function useWrite(rows: CommandRow[] | null, onApplied: () => void): Writ
     handled.current = state;
     if (outcomeOf(state)?.kind === "ok") applied.current();
   }, [state]);
+
+  const previewOk = !!flow.preview.state.result?.envelope?.ok;
+  const open =
+    spec !== null &&
+    ((flow.dialog === "review" && previewOk) ||
+      state.phase !== "idle" ||
+      flow.preview.state.phase === "running" ||
+      (flow.preview.state.phase === "done" && !previewOk));
+  useEffect(() => {
+    if (open) {
+      showing.current = true;
+      return;
+    }
+    if (!showing.current) return;
+    showing.current = false;
+    // Radix puts the focus back in a timeout of its own, and the preview dialog that
+    // closes before the plan opens has left it on the body by then.
+    const id = window.setTimeout(() => {
+      if (origin.current?.isConnected) origin.current.focus();
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [open]);
 
   const dismiss = useCallback(() => {
     setRefused(null);
