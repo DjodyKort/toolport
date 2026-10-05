@@ -6194,7 +6194,7 @@ exit 2
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: task ls|show|run|resume|cancel|add|edit|rm|history (ls: [--all]; show|rm: <id>; run: <id> [--dry-run] [--wait] [--yes]; resume|cancel: <run-id>; add: <id> (--file <task.json> | --from-command <path>) [--dry-run]; edit: <id> --file <task.json> [--dry-run]; history: [<id>] [--run <run-id>] [--limit <n>])
+toolportctl: usage: task ls|show|run|resume|cancel|add|edit|rm|history (ls: [--all]; show|rm: <id>; run: <id> [--dry-run] [--wait] [--yes]; resume|cancel: <run-id>; add: <id> (--file <task.json|-> | --from-command <path>) [--dry-run]; edit: <id> --file <task.json|-> [--dry-run]; history: [<id>] [--run <run-id>] [--limit <n>])
 Run `toolportctl --help` for usage.
 === ["task","ls","extra"]
 exit 2
@@ -6242,19 +6242,19 @@ Run `toolportctl --help` for usage.
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: task add <id> (--file <task.json> | --from-command <path>) [--dry-run]
+toolportctl: usage: task add <id> (--file <task.json|-> | --from-command <path>) [--dry-run]
 Run `toolportctl --help` for usage.
 === ["task","add","a","--file","x","--from-command","y"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: task add <id> (--file <task.json> | --from-command <path>) [--dry-run]
+toolportctl: usage: task add <id> (--file <task.json|-> | --from-command <path>) [--dry-run]
 Run `toolportctl --help` for usage.
 === ["task","edit","a"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: task edit <id> --file <task.json> [--dry-run]
+toolportctl: usage: task edit <id> --file <task.json|-> [--dry-run]
 Run `toolportctl --help` for usage.
 === ["task","rm"]
 exit 2

@@ -4,7 +4,7 @@
     "command": "task edit",
     "error": {
       "code": "usage",
-      "message": "usage: task edit <id> --file <task.json> [--dry-run]"
+      "message": "usage: task edit <id> --file <task.json|-> [--dry-run]"
     },
     "ok": false,
     "schemaVersion": 1

@@ -798,8 +798,8 @@ pub(super) const OVERRIDES: &[(&str, Meta)] = &[
     ("context bundle launch", m("--cwd", Path, "Folder the command is meant for; the settings file is the same everywhere")),
     ("context use", m("--cwd", Path, "Folder where Claude Code starts (default: the current folder)")),
     ("task ls", m("--all", Bool, "Include disabled tasks (drafts made from a command file)")),
-    ("task add", m("--file", Path, "A task definition (JSON); the id inside must equal <id>")),
-    ("task edit", m("--file", Path, "The complete new task definition (JSON); the id inside must equal <id>")),
+    ("task add", m("--file", Path, "A task definition (JSON), or - to read it from stdin; the id inside must equal <id>")),
+    ("task edit", m("--file", Path, "The complete new task definition (JSON), or - to read it from stdin; the id inside must equal <id>")),
 ];
 
 pub(super) fn meta_for(row: &str, flag: &str) -> Option<&'static Meta> {

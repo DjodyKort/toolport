@@ -17,6 +17,7 @@ pub const SHOW_RUNS: usize = 5;
 
 pub enum Source<'a> {
     File(&'a str),
+    Stdin(&'a str),
     Command(&'a str),
 }
 
@@ -272,15 +273,18 @@ fn save(task: Task, create: bool, dry_run: bool) -> Result<Value, OpError> {
     }))
 }
 
+fn definition(id: &str, text: &str, origin: &str) -> Result<Task, OpError> {
+    let task = model::parse(text).map_err(invalid)?;
+    if task.id != id {
+        return Err(OpError::usage(format!("{origin} defines the task {:?}, not {id:?}", task.id)));
+    }
+    Ok(task)
+}
+
 pub fn add(id: &str, source: Source, dry_run: bool) -> Result<Value, OpError> {
     let task = match source {
-        Source::File(path) => {
-            let task = model::parse(&read(path)?).map_err(invalid)?;
-            if task.id != id {
-                return Err(OpError::usage(format!("{} defines the task {:?}, not {id:?}", abs(path), task.id)));
-            }
-            task
-        }
+        Source::File(path) => definition(id, &read(path)?, &abs(path))?,
+        Source::Stdin(text) => definition(id, text, "the definition on stdin")?,
         Source::Command(path) => {
             if !model::valid_id(id) {
                 return Err(OpError::usage(format!("{id:?} is not a valid id: use 1-64 characters of a-z, 0-9 and '-'")));
@@ -292,10 +296,15 @@ pub fn add(id: &str, source: Source, dry_run: bool) -> Result<Value, OpError> {
 }
 
 pub fn edit(id: &str, file: &str, dry_run: bool) -> Result<Value, OpError> {
-    let task = model::parse(&read(file)?).map_err(invalid)?;
-    if task.id != id {
-        return Err(OpError::usage(format!("{} defines the task {:?}, not {id:?}", abs(file), task.id)));
-    }
+    edit_with(id, Source::File(file), dry_run)
+}
+
+pub fn edit_with(id: &str, source: Source, dry_run: bool) -> Result<Value, OpError> {
+    let task = match source {
+        Source::File(path) => definition(id, &read(path)?, &abs(path))?,
+        Source::Stdin(text) => definition(id, text, "the definition on stdin")?,
+        Source::Command(_) => return Err(OpError::usage("task edit takes a definition, not a command file")),
+    };
     save(task, false, dry_run)
 }
 

@@ -4026,7 +4026,7 @@
           "flags": [
             {
               "aliases": [],
-              "effect": "A task definition (JSON); the id inside must equal <id>",
+              "effect": "A task definition (JSON), or - to read it from stdin; the id inside must equal <id>",
               "escalates": false,
               "hidden": false,
               "name": "--file",
@@ -4091,7 +4091,7 @@
           "flags": [
             {
               "aliases": [],
-              "effect": "The complete new task definition (JSON); the id inside must equal <id>",
+              "effect": "The complete new task definition (JSON), or - to read it from stdin; the id inside must equal <id>",
               "escalates": false,
               "hidden": false,
               "name": "--file",
