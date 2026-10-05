@@ -22,6 +22,7 @@ pub mod selfmcp;
 pub mod skills;
 pub mod sources;
 pub mod sync;
+pub mod tasks;
 pub mod update;
 
 pub(crate) mod args;
