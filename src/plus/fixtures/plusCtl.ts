@@ -17,6 +17,7 @@ import { contextBrowserFixtures } from "../context/browserFixtures";
 import { systemBrowserFixtures } from "../system/browserFixtures";
 import { tasksBrowserFixtures } from "../tasks/browserFixtures";
 import { createMcpWorld } from "../agents/mcpWorld";
+import { pluginsBrowserFixtures } from "../plugins/browserFixtures";
 
 /** Envelope `data` the dev browser fixture returns per `toolportctl` argv (joined with spaces).
  * A command a screen runs needs a row here or the fixture rejects it as unimplemented. */
@@ -68,6 +69,8 @@ export const plusCtlFixtures = new Map<string, unknown>([
   ...systemBrowserFixtures,
   ...tasksBrowserFixtures,
   ...createMcpWorld(),
+  // Plugins, hooks and the plugin card of System > Updates share one world; its cc rows win over the System ones.
+  ...pluginsBrowserFixtures,
 ]);
 
 const jobs = new Map<string, string>();

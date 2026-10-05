@@ -103,6 +103,16 @@ const PAGES = [
   "tasks-run-plan-light",
   "tasks-run-waiting-light",
   "tasks-history-light",
+  "plugins-list-light",
+  "plugins-list-dark",
+  "plugins-detail-light",
+  "plugins-settings-light",
+  "plugins-plan-light",
+  "plugins-mcp-light",
+  "hooks-light",
+  "hooks-dark",
+  "hooks-conflicts-light",
+  "plugins-updates-light",
   "logins-refresh-task-light",
 ];
 const SIZE = [1280, 800];
