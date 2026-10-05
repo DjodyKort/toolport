@@ -15,9 +15,13 @@
         "exclude": []
       },
       "legacy": false,
+      "mcp": {
+        "deny": []
+      },
       "name": "ops-lite",
       "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/ops-lite.yaml",
       "plugins": {
+        "config": {},
         "off": ["tools-pack@tools-market"]
       },
       "servers": null,

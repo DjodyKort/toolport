@@ -21,9 +21,13 @@
         "exclude": []
       },
       "legacy": true,
+      "mcp": {
+        "deny": []
+      },
       "name": "default",
       "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/default.yaml",
       "plugins": {
+        "config": {},
         "off": []
       },
       "servers": null,
