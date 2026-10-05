@@ -80,6 +80,10 @@ const NOT_READ_ONLY: &[(&str, &str)] = &[
     ("context use", "applies a bundle and routes the folder to the paired server profile; tests/ctl_contract.rs"),
     ("plugins config", "writes env keys in a folder's settings.local.json or runs claude plugin configure; tests/ctl_contract.rs and plugins::config_tests"),
     ("plugins mcp", "writes deniedMcpServers in a folder's settings.local.json; tests/ctl_contract.rs and plugins::config_tests"),
+    ("plugins off", "writes enabledPlugins in a folder's settings.local.json; tests/ctl_contract.rs and plugins::switch_tests"),
+    ("plugins on", "removes the enabledPlugins entry plugins off wrote; tests/ctl_contract.rs and plugins::switch_tests"),
+    ("plugins disable", "runs claude plugin disable --scope user; tests/ctl_contract.rs and plugins::switch_tests"),
+    ("plugins enable", "runs claude plugin enable --scope user; tests/ctl_contract.rs and plugins::switch_tests"),
 ];
 
 struct World {
@@ -432,6 +436,11 @@ fn version_and_usage_errors_use_the_documented_exit_codes() {
         (vec!["plugins", "config"], "plugins config"),
         (vec!["plugins", "config", "a@b"], "plugins config"),
         (vec!["plugins", "mcp", "deny"], "plugins mcp"),
+        (vec!["plugins", "off"], "plugins off"),
+        (vec!["plugins", "off", "a@b"], "plugins off"),
+        (vec!["plugins", "on"], "plugins on"),
+        (vec!["plugins", "disable"], "plugins disable"),
+        (vec!["plugins", "enable", "a@b", "extra"], "plugins enable"),
         (vec!["hooks", "ls", "--tool", "Grep"], "hooks ls"),
         (vec!["attention", "ls", "extra"], "attention ls"),
         (vec!["attention", "ls", "--level", "urgent"], "attention ls"),

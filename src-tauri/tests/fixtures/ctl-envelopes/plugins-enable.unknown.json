@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "enable", "nope@nowhere", "--dry-run"],
+  "envelope": {
+    "command": "plugins enable",
+    "error": {
+      "code": "not_found",
+      "message": "plugin 'nope@nowhere' is not installed"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

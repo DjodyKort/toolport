@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "off", "ecc@ecc", "--cwd", "{home}/work/nowhere"],
+  "envelope": {
+    "command": "plugins off",
+    "error": {
+      "code": "usage",
+      "message": "--cwd is not a folder: <WORLD>/home/work/nowhere"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

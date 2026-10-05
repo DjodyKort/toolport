@@ -1,0 +1,44 @@
+{
+  "argv": ["plugins", "off", "ecc@ecc", "--cwd", "{home}/work/side-project", "--dry-run"],
+  "envelope": {
+    "command": "plugins off",
+    "data": {
+      "changes": [
+        {
+          "action": "none",
+          "key": "enabledPlugins.ecc@ecc",
+          "value": null
+        }
+      ],
+      "conflicts": [],
+      "cwd": "<WORLD>/home/work/side-project",
+      "dryRun": true,
+      "id": "ecc@ecc",
+      "ledger": null,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "goes away in this folder: 3 skills (arch-review, debug-loop, release-notes), 2 agents (code-reviewer, planner), 2 commands (plan, review), 23 hook handlers, 2 MCP servers (plugin:ecc:chrome-devtools, plugin:ecc:memory)",
+            "op": "note"
+          },
+          {
+            "detail": "stays: your own skills, agents, commands and hooks, every other plugin and the servers behind the Toolport gateway; the setting in your user settings (on) is not changed",
+            "op": "note"
+          }
+        ],
+        "summary": "Turn off ecc@ecc in <WORLD>/home/work/side-project",
+        "undo": "toolportctl plugins on ecc@ecc --cwd <WORLD>/home/work/side-project",
+        "warnings": [
+          "enabledPlugins.ecc@ecc is already false in this folder's settings.local.json and Toolport did not write it; it is left alone",
+          "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart"
+        ]
+      },
+      "result": null,
+      "scope": "folder"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

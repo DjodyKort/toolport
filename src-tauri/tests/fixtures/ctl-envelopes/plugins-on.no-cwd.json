@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "on", "ecc@ecc"],
+  "envelope": {
+    "command": "plugins on",
+    "error": {
+      "code": "usage",
+      "message": "--cwd is required: a plugin is turned off or on per folder (user scope: plugins disable|enable)"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -198,6 +198,50 @@ export const pluginsMcpData = obj({
 });
 export type PluginsMcpData = Infer<typeof pluginsMcpData>;
 
+/** `plugins off|on` (a folder, through the bundle ledger) and `plugins disable|enable` (user scope,
+ * through Claude Code). Both answer with the plan first and the result once applied. */
+const switchProps = {
+  id: str,
+  dryRun: bool,
+  plan: planV1,
+  result: nullable(resultV1),
+  conflicts: arr(str),
+};
+
+export const folderSwitchChange = obj({
+  /** The settings key, `enabledPlugins.<id>`. `restore` puts back a value the user had. */
+  key: str,
+  action: lit("set", "remove", "restore", "none"),
+  value: nullable(bool),
+});
+export type FolderSwitchChange = Infer<typeof folderSwitchChange>;
+
+export const pluginsFolderSwitchData = obj({
+  ...switchProps,
+  scope: lit("folder"),
+  cwd: str,
+  changes: arr(folderSwitchChange),
+  /** `null` when nothing was written, so no ledger record exists. */
+  ledger: nullable(str),
+});
+export type PluginsFolderSwitchData = Infer<typeof pluginsFolderSwitchData>;
+
+export const userSwitchChange = obj({
+  scope: lit("user"),
+  action: lit("disable", "enable"),
+  /** The one `claude` call, as an argument list. */
+  command: arr(str),
+});
+export type UserSwitchChange = Infer<typeof userSwitchChange>;
+
+export const pluginsUserSwitchData = obj({
+  ...switchProps,
+  scope: lit("user"),
+  cwd: nullable(str),
+  changes: arr(userSwitchChange),
+});
+export type PluginsUserSwitchData = Infer<typeof pluginsUserSwitchData>;
+
 const perTool = obj({ pre: num, post: num, total: num });
 
 export const hooksLsData = obj({
@@ -250,6 +294,22 @@ export const pluginsShapes: Record<string, Shape<unknown>> = {
   "plugins-mcp.deny.foreign": pluginsMcpData,
   "plugins-mcp.allow.plan": pluginsMcpData,
   "plugins-mcp.allow.apply": pluginsMcpData,
+  "plugins-off.plan": pluginsFolderSwitchData,
+  "plugins-off.apply": pluginsFolderSwitchData,
+  "plugins-off.again": pluginsFolderSwitchData,
+  "plugins-off.foreign": pluginsFolderSwitchData,
+  "plugins-on.nothing": pluginsFolderSwitchData,
+  "plugins-on.setup": pluginsFolderSwitchData,
+  "plugins-on.plan": pluginsFolderSwitchData,
+  "plugins-on.apply": pluginsFolderSwitchData,
+  "plugins-on.foreign": pluginsFolderSwitchData,
+  "plugins-on.setup-conflict": pluginsFolderSwitchData,
+  "plugins-on.conflict.plan": pluginsFolderSwitchData,
+  "plugins-on.conflict": pluginsFolderSwitchData,
+  "plugins-disable.plan": pluginsUserSwitchData,
+  "plugins-disable.apply": pluginsUserSwitchData,
+  "plugins-enable.plan": pluginsUserSwitchData,
+  "plugins-enable.apply": pluginsUserSwitchData,
   "hooks-ls.bash": hooksLsData,
   "hooks-ls.disabled": hooksLsData,
   "hooks-ls.full": hooksLsData,

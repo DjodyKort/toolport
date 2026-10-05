@@ -1,0 +1,47 @@
+{
+  "argv": ["plugins", "disable", "ecc@ecc", "--dry-run"],
+  "envelope": {
+    "command": "plugins disable",
+    "data": {
+      "changes": [
+        {
+          "action": "disable",
+          "command": ["claude", "plugin", "disable", "ecc@ecc", "--scope", "user"],
+          "scope": "user"
+        }
+      ],
+      "conflicts": [],
+      "cwd": null,
+      "dryRun": true,
+      "id": "ecc@ecc",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "claude plugin disable ecc@ecc --scope user",
+            "op": "exec"
+          },
+          {
+            "detail": "goes away everywhere it is not set on by a folder or project: 3 skills (arch-review, debug-loop, release-notes), 2 agents (code-reviewer, planner), 2 commands (plan, review), 23 hook handlers, 2 MCP servers (plugin:ecc:chrome-devtools, plugin:ecc:memory)",
+            "op": "note"
+          },
+          {
+            "detail": "stays: your own skills, agents, commands and hooks, every other plugin and the servers behind the Toolport gateway",
+            "op": "note"
+          }
+        ],
+        "summary": "Disable ecc@ecc for every project (user scope)",
+        "undo": "toolportctl plugins enable ecc@ecc",
+        "warnings": [
+          "This turns ecc@ecc off for every project on this machine and for every folder that has no setting of its own; a folder or project that sets it itself keeps its own value",
+          "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart"
+        ]
+      },
+      "result": null,
+      "scope": "user"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

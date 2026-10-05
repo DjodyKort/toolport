@@ -1,0 +1,54 @@
+{
+  "argv": ["plugins", "on", "ecc@ecc", "--cwd", "{home}/work/acme-erp"],
+  "envelope": {
+    "command": "plugins on",
+    "data": {
+      "changes": [
+        {
+          "action": "none",
+          "key": "enabledPlugins.ecc@ecc",
+          "value": null
+        }
+      ],
+      "conflicts": ["enabledPlugins.ecc@ecc"],
+      "cwd": "<WORLD>/home/work/acme-erp",
+      "dryRun": false,
+      "id": "ecc@ecc",
+      "ledger": "<WORLD>/data/plus/profile-ledger.json",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "drop the record of off:ecc@ecc in this folder",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          },
+          {
+            "detail": "comes back in this folder: 3 skills (arch-review, debug-loop, release-notes), 2 agents (code-reviewer, planner), 2 commands (plan, review), 23 hook handlers, 2 MCP servers (plugin:ecc:chrome-devtools, plugin:ecc:memory)",
+            "op": "note"
+          },
+          {
+            "detail": "stays: your own skills, agents, commands and hooks, every other plugin and the servers behind the Toolport gateway; the setting in your user settings (on) is not changed",
+            "op": "note"
+          }
+        ],
+        "summary": "Turn on ecc@ecc in <WORLD>/home/work/acme-erp",
+        "undo": "toolportctl plugins off ecc@ecc --cwd <WORLD>/home/work/acme-erp",
+        "warnings": [
+          "changed since the apply and left as they are: enabledPlugins.ecc@ecc",
+          "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart"
+        ]
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["<WORLD>/home/work/acme-erp/.git/info/exclude"],
+        "undo": "toolportctl plugins off ecc@ecc --cwd <WORLD>/home/work/acme-erp"
+      },
+      "scope": "folder"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}
