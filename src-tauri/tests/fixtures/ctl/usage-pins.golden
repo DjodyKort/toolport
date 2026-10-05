@@ -107,7 +107,9 @@ Commands:
   sources        Sources: ls root
   plugins ls     List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)
   plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
-  plugins        Plugins: ls show
+  plugins config Set or unset a plugin's own switches: env keys in a folder, plugin options without one (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)
+  plugins mcp    Deny or allow a plugin's MCP server in a folder (deny|allow <id> <server>, --cwd, --dry-run)
+  plugins        Plugins: ls show config mcp
   hooks ls       List every hook Claude Code would start in a folder, from files (--cwd, --tool, --event, --owner)
   hooks          Hooks: ls
   skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
@@ -278,7 +280,9 @@ Commands:
   sources        Sources: ls root
   plugins ls     List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)
   plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
-  plugins        Plugins: ls show
+  plugins config Set or unset a plugin's own switches: env keys in a folder, plugin options without one (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)
+  plugins mcp    Deny or allow a plugin's MCP server in a folder (deny|allow <id> <server>, --cwd, --dry-run)
+  plugins        Plugins: ls show config mcp
   hooks ls       List every hook Claude Code would start in a folder, from files (--cwd, --tool, --event, --owner)
   hooks          Hooks: ls
   skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
@@ -449,7 +453,9 @@ Commands:
   sources        Sources: ls root
   plugins ls     List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)
   plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
-  plugins        Plugins: ls show
+  plugins config Set or unset a plugin's own switches: env keys in a folder, plugin options without one (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)
+  plugins mcp    Deny or allow a plugin's MCP server in a folder (deny|allow <id> <server>, --cwd, --dry-run)
+  plugins        Plugins: ls show config mcp
   hooks ls       List every hook Claude Code would start in a folder, from files (--cwd, --tool, --event, --owner)
   hooks          Hooks: ls
   skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
@@ -620,7 +626,9 @@ Commands:
   sources        Sources: ls root
   plugins ls     List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)
   plugins show   Show one plugin: components, hooks, MCP servers, options (<id>, --cwd)
-  plugins        Plugins: ls show
+  plugins config Set or unset a plugin's own switches: env keys in a folder, plugin options without one (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)
+  plugins mcp    Deny or allow a plugin's MCP server in a folder (deny|allow <id> <server>, --cwd, --dry-run)
+  plugins        Plugins: ls show config mcp
   hooks ls       List every hook Claude Code would start in a folder, from files (--cwd, --tool, --event, --owner)
   hooks          Hooks: ls
   skills sync    Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run)
@@ -3989,18 +3997,18 @@ Run `toolportctl --help` for usage.
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: plugins ls|show (ls: [--cwd <dir>] [--refresh]; show: <id> [--cwd <dir>])
+toolportctl: usage: plugins ls|show|config|mcp (ls: [--cwd <dir>] [--refresh]; show: <id> [--cwd <dir>]; config: <id> [--cwd <dir>] [--set <knob>=<value>]... [--unset <knob>]... [--dry-run]; mcp: deny|allow <id> <server> --cwd <dir> [--dry-run])
 Run `toolportctl --help` for usage.
 === ["--json","plugins"]
 exit 2
 --- stdout
-{"command":"plugins","error":{"code":"usage","message":"usage: plugins ls|show (ls: [--cwd <dir>] [--refresh]; show: <id> [--cwd <dir>])"},"ok":false,"schemaVersion":1}
+{"command":"plugins","error":{"code":"usage","message":"usage: plugins ls|show|config|mcp (ls: [--cwd <dir>] [--refresh]; show: <id> [--cwd <dir>]; config: <id> [--cwd <dir>] [--set <knob>=<value>]... [--unset <knob>]... [--dry-run]; mcp: deny|allow <id> <server> --cwd <dir> [--dry-run])"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["plugins","nope"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: plugins ls|show (ls: [--cwd <dir>] [--refresh]; show: <id> [--cwd <dir>])
+toolportctl: usage: plugins ls|show|config|mcp (ls: [--cwd <dir>] [--refresh]; show: <id> [--cwd <dir>]; config: <id> [--cwd <dir>] [--set <knob>=<value>]... [--unset <knob>]... [--dry-run]; mcp: deny|allow <id> <server> --cwd <dir> [--dry-run])
 Run `toolportctl --help` for usage.
 === ["plugins","ls","--bogus"]
 exit 2
@@ -4081,6 +4089,98 @@ Run `toolportctl --help` for usage.
 exit 2
 --- stdout
 {"command":"plugins show","error":{"code":"usage","message":"--cwd is not a folder: /nonexistent-pin-folder"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["plugins","config"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: plugins config <id> [--cwd <dir>] [--set <knob>=<value>]... [--unset <knob>]... [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["--json","plugins","config"]
+exit 2
+--- stdout
+{"command":"plugins config","error":{"code":"usage","message":"usage: plugins config <id> [--cwd <dir>] [--set <knob>=<value>]... [--unset <knob>]... [--dry-run]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["plugins","config","a@b"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: nothing to do: give --set <knob>=<value> or --unset <knob>
+Run `toolportctl --help` for usage.
+=== ["plugins","config","a@b","--set","novalue"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --set needs <knob>=<value>, got 'novalue'
+Run `toolportctl --help` for usage.
+=== ["plugins","config","a@b","--set","=x"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --set needs <knob>=<value>, got '=x'
+Run `toolportctl --help` for usage.
+=== ["plugins","config","a@b","--set"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --set requires a value
+Run `toolportctl --help` for usage.
+=== ["plugins","config","a@b","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+Run `toolportctl --help` for usage.
+=== ["plugins","config","a","b","--unset","k"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: plugins config <id> [--cwd <dir>] [--set <knob>=<value>]... [--unset <knob>]... [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["--json","plugins","config","a@b","--set","k=v","--cwd","/nonexistent-pin-folder"]
+exit 2
+--- stdout
+{"command":"plugins config","error":{"code":"usage","message":"--cwd is not a folder: /nonexistent-pin-folder"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["plugins","mcp"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: plugins mcp deny|allow <id> <server> --cwd <dir> [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["--json","plugins","mcp"]
+exit 2
+--- stdout
+{"command":"plugins mcp","error":{"code":"usage","message":"usage: plugins mcp deny|allow <id> <server> --cwd <dir> [--dry-run]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["plugins","mcp","deny"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: plugins mcp deny|allow <id> <server> --cwd <dir> [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["plugins","mcp","block","a@b","s","--cwd","/nonexistent-pin-folder"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: plugins mcp deny|allow <id> <server> --cwd <dir> [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["plugins","mcp","deny","a@b","s"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --cwd is required: a server is denied per folder
+Run `toolportctl --help` for usage.
+=== ["plugins","mcp","deny","a@b","s","extra","--cwd","/nonexistent-pin-folder"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: plugins mcp deny|allow <id> <server> --cwd <dir> [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["--json","plugins","mcp","allow","a@b","s","--cwd","/nonexistent-pin-folder"]
+exit 2
+--- stdout
+{"command":"plugins mcp","error":{"code":"usage","message":"--cwd is not a folder: /nonexistent-pin-folder"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["hooks","ls","--cwd","/nonexistent-pin-folder"]
 exit 2

@@ -1,0 +1,69 @@
+{
+  "argv": [
+    "plugins",
+    "config",
+    "ecc@ecc",
+    "--cwd",
+    "{home}/work/acme-erp",
+    "--unset",
+    "gateguard",
+    "--unset",
+    "hook_profile",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "plugins config",
+    "data": {
+      "adapter": "ecc@ecc",
+      "changes": [
+        {
+          "action": "unset",
+          "env": "ECC_GATEGUARD",
+          "knob": "gateguard",
+          "value": null
+        },
+        {
+          "action": "unset",
+          "env": "ECC_HOOK_PROFILE",
+          "knob": "hook_profile",
+          "value": null
+        }
+      ],
+      "conflicts": [],
+      "cwd": "<WORLD>/home/work/acme-erp",
+      "dryRun": true,
+      "id": "ecc@ecc",
+      "ledger": "<WORLD>/data/plus/profile-ledger.json",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "1 key(s) owned by config:ecc@ecc",
+            "diff": {
+              "after": "env.GATEGUARD_EXEMPT_GLOBS: \"docs/**,scripts/*.sh\"\n",
+              "before": "env.GATEGUARD_EXEMPT_GLOBS: (absent)\n"
+            },
+            "keys": ["env"],
+            "op": "merge",
+            "path": "<WORLD>/home/work/acme-erp/.claude/settings.local.json"
+          },
+          {
+            "detail": "record every key Toolport owns with the value it replaces, so undo restores exactly that",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          }
+        ],
+        "summary": "Set 2 knob(s) of ecc@ecc in <WORLD>/home/work/acme-erp",
+        "undo": "toolportctl plugins config ecc@ecc --cwd <WORLD>/home/work/acme-erp --set gateguard=off --set hook_profile=minimal",
+        "warnings": [
+          "A switched-off hook still starts a process and exits at once; only turning the plugin off removes it"
+        ]
+      },
+      "result": null,
+      "scope": "folder"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

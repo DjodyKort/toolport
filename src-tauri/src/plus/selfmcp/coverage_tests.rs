@@ -7,6 +7,7 @@ const SOURCES: &[(&str, &str)] = &[
     ("context_bundle_tests.rs", include_str!("context_bundle_tests.rs")),
     ("context_tests.rs", include_str!("context_tests.rs")),
     ("direct_tests.rs", include_str!("direct_tests.rs")),
+    ("plugins_tests.rs", include_str!("plugins_tests.rs")),
     ("effect_tests.rs", include_str!("effect_tests.rs")),
     (
         "state_agent_style_tests.rs",
@@ -27,11 +28,15 @@ const SYNC_DRY_RUN: &str =
     "agents_and_styles_sync_write_nothing_on_a_dry_run_and_stay_inside_the_named_client";
 const DIRECT_APPLY: &str = "add_ls_and_rm_apply_only_with_dry_run_false";
 
+const PLUGIN_CONTROLS: &str =
+    "plugin_control_tools_preview_by_default_and_write_only_inside_the_folder";
 const BUNDLE_FLOW: &str = "bundle_tools_follow_their_tiers_and_apply_and_undo_only_inside_the_folder";
 
 const SIDE_EFFECT_TESTS: &[(&str, &str, &str)] = &[
     ("context_bundle_apply", "context_bundle_tests.rs", BUNDLE_FLOW),
     ("context_bundle_undo", "context_bundle_tests.rs", BUNDLE_FLOW),
+    ("plugins_config", "plugins_tests.rs", PLUGIN_CONTROLS),
+    ("plugins_mcp", "plugins_tests.rs", PLUGIN_CONTROLS),
     (
         "context_measure",
         "context_tests.rs",

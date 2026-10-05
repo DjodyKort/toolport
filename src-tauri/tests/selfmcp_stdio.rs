@@ -29,7 +29,7 @@ mod sources_world;
 
 const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
-const TOOL_COUNT: usize = 90;
+const TOOL_COUNT: usize = 92;
 const RESOURCE_COUNT: usize = 11;
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -726,6 +726,90 @@ fn tier_two_tools_write_additive_state_without_confirm() {
             .error_kind(),
         "not_found"
     );
+    assert!(client.close().success());
+}
+
+#[test]
+fn plugin_control_tools_preview_by_default_and_send_option_values_on_stdin() {
+    let world = World::new("plugin-controls");
+    let claude = world.base.join("plugins-world/claude");
+    let plugins = plugins_world::build_in(&world.base.join("plugins-world"), &claude);
+    let mut client = Client::spawn_with(
+        &world,
+        &[
+            ("CLAUDE_CONFIG_DIR", plugins.claude_home.as_path()),
+            ("TOOLPORT_CLAUDE_BIN", claude.as_path()),
+        ],
+    );
+    client.handshake();
+    for tool in listed_tools(&mut client) {
+        let name = tool["name"].as_str().unwrap();
+        if name == "plugins_config" || name == "plugins_mcp" {
+            assert_eq!(tool["inputSchema"]["properties"]["dry_run"]["default"], true);
+            assert!(tool["description"]
+                .as_str()
+                .unwrap()
+                .contains("dry_run is on by default"));
+        }
+    }
+    let folder = plugins.plain.to_string_lossy().into_owned();
+    let before = world.snapshot();
+    let set = json!({"hook_profile": "minimal", "gateguard": false});
+    let plan = client.call("plugins_config", json!({"id": "ecc@ecc", "cwd": folder, "set": set}));
+    assert_eq!(plan.ok()["dryRun"], true);
+    assert_eq!(world.snapshot(), before, "no dry_run argument is a preview");
+    let global = client.call(
+        "plugins_config",
+        json!({"id": "ecc@ecc", "set": {"hook_profile": "strict"}}),
+    );
+    assert_eq!(global.ok()["scope"], "global");
+    assert_eq!(world.snapshot(), before, "a global preview does not call claude with values");
+
+    let applied = client.call(
+        "plugins_config",
+        json!({"id": "ecc@ecc", "cwd": folder, "set": set, "dry_run": false}),
+    );
+    assert_eq!(applied.ok()["result"]["applied"], true);
+    let written: Value = serde_json::from_str(
+        &std::fs::read_to_string(plugins.plain.join(".claude/settings.local.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(written["env"]["ECC_HOOK_PROFILE"], "minimal");
+    assert_eq!(written["env"]["ECC_GATEGUARD"], "off");
+    let denied = client.call(
+        "plugins_mcp",
+        json!({"action": "deny", "id": "ecc@ecc", "server": "chrome-devtools", "cwd": folder, "dry_run": false}),
+    );
+    assert_eq!(denied.ok()["serverName"], "plugin:ecc:chrome-devtools");
+    let allowed = client.call(
+        "plugins_mcp",
+        json!({"action": "allow", "id": "ecc@ecc", "server": "chrome-devtools", "cwd": folder, "dry_run": false}),
+    );
+    assert_eq!(allowed.ok()["result"]["applied"], true);
+    let undone = client.call(
+        "plugins_config",
+        json!({"id": "ecc@ecc", "cwd": folder, "unset": ["hook_profile", "gateguard"], "dry_run": false}),
+    );
+    assert_eq!(undone.ok()["result"]["applied"], true);
+
+    let option = client.call(
+        "plugins_config",
+        json!({"id": "ecc@ecc", "set": {"hook_profile": "strict"}, "dry_run": false}),
+    );
+    assert_eq!(option.ok()["result"]["applied"], true);
+    let recorded = &plugins.recorded;
+    let stdin = std::fs::read_to_string(recorded.join("values-stdin.json")).unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&stdin).unwrap(), json!({"hook_profile": "strict"}));
+    let argv = std::fs::read_to_string(recorded.join("values-argv.txt")).unwrap();
+    assert!(argv.contains("--values-stdin") && !argv.contains("strict"), "{argv}");
+
+    for (args, kind) in [
+        (json!({"id": "ecc@ecc", "cwd": folder, "set": {"no_such_knob": "1"}}), "invalid_arguments"),
+        (json!({"id": "ecc@ecc", "set": {"gateguard_exempt_globs": "docs/**"}}), "invalid_arguments"),
+        (json!({"id": "nope@nowhere", "cwd": folder, "set": {"gateguard": false}}), "not_found"),
+    ] {
+        assert_eq!(client.call("plugins_config", args.clone()).error_kind(), kind, "{args}");
+    }
     assert!(client.close().success());
 }
 

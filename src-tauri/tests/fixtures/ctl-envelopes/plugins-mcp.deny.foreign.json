@@ -1,0 +1,51 @@
+{
+  "argv": [
+    "plugins",
+    "mcp",
+    "deny",
+    "ecc@ecc",
+    "chrome-devtools",
+    "--cwd",
+    "{home}/work/side-project",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "plugins mcp",
+    "data": {
+      "conflicts": [],
+      "cwd": "<WORLD>/home/work/side-project",
+      "dryRun": true,
+      "id": "ecc@ecc",
+      "ledger": "<WORLD>/data/plus/profile-ledger.json",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "git-ignore .claude/settings.local.json",
+            "op": "update",
+            "path": "<WORLD>/home/work/side-project/.git/info/exclude"
+          },
+          {
+            "detail": "record every key Toolport owns with the value it replaces, so undo restores exactly that",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          }
+        ],
+        "summary": "Deny plugin:ecc:chrome-devtools in <WORLD>/home/work/side-project",
+        "undo": "toolportctl plugins mcp allow ecc@ecc chrome-devtools --cwd <WORLD>/home/work/side-project",
+        "warnings": [
+          "plugin:ecc:chrome-devtools is already denied by settings Toolport did not write; nothing is added",
+          "Denying removes every tool named mcp__plugin_ecc_chrome-devtools__* from Claude Code in this folder (a measured run shows the count); the server stays outside the gateway"
+        ]
+      },
+      "result": null,
+      "scope": "folder",
+      "server": "chrome-devtools",
+      "serverName": "plugin:ecc:chrome-devtools",
+      "toolPrefix": "mcp__plugin_ecc_chrome-devtools__"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

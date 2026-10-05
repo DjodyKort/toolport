@@ -111,6 +111,36 @@ pub const ALL: &[Case] = &[
         ],
     ),
     prepared(
+        "plugins_config",
+        plugins_home,
+        &[
+            read("folder_plan", "plugins_config", r#"{"id":"ecc@ecc","cwd":"{home}/work/acme-erp","set":{"hook_profile":"minimal","gateguard":false,"gateguard_exempt_globs":["docs/**","scripts/*.sh"]}}"#),
+            write("folder_result", "plugins_config", r#"{"id":"ecc@ecc","cwd":"{home}/work/acme-erp","set":{"hook_profile":"minimal","gateguard":false,"gateguard_exempt_globs":["docs/**","scripts/*.sh"]},"dry_run":false}"#),
+            write("folder_unset", "plugins_config", r#"{"id":"ecc@ecc","cwd":"{home}/work/acme-erp","unset":["hook_profile","gateguard","gateguard_exempt_globs"],"dry_run":false}"#),
+            read("global_plan", "plugins_config", r#"{"id":"ecc@ecc","set":{"hook_profile":"strict","hooks_enabled":false}}"#),
+            write("global_result", "plugins_config", r#"{"id":"ecc@ecc","set":{"hook_profile":"strict","hooks_enabled":false},"dry_run":false}"#),
+            fails("unknown_knob", "invalid_arguments", "plugins_config", r#"{"id":"ecc@ecc","cwd":"{home}/work/acme-erp","set":{"no_such_knob":"1"}}"#),
+            fails("folder_only", "invalid_arguments", "plugins_config", r#"{"id":"ecc@ecc","set":{"gateguard_exempt_globs":"docs/**"}}"#),
+            fails("bad_value", "invalid_arguments", "plugins_config", r#"{"id":"ecc@ecc","cwd":"{home}/work/acme-erp","set":{"hook_profile":"loud"}}"#),
+            fails("nothing", "invalid_arguments", "plugins_config", r#"{"id":"ecc@ecc","cwd":"{home}/work/acme-erp"}"#),
+            fails("missing", "not_found", "plugins_config", r#"{"id":"nope@nowhere","cwd":"{home}/work/acme-erp","set":{"gateguard":false}}"#),
+            fails("no_id", "invalid_arguments", "plugins_config", r#"{"cwd":"{home}/work/acme-erp"}"#),
+        ],
+    ),
+    prepared(
+        "plugins_mcp",
+        plugins_home,
+        &[
+            read("deny_plan", "plugins_mcp", r#"{"action":"deny","id":"ecc@ecc","server":"chrome-devtools","cwd":"{home}/work/acme-erp"}"#),
+            write("deny_result", "plugins_mcp", r#"{"action":"deny","id":"ecc@ecc","server":"chrome-devtools","cwd":"{home}/work/acme-erp","dry_run":false}"#),
+            read("allow_plan", "plugins_mcp", r#"{"action":"allow","id":"ecc@ecc","server":"chrome-devtools","cwd":"{home}/work/acme-erp"}"#),
+            write("allow_result", "plugins_mcp", r#"{"action":"allow","id":"ecc@ecc","server":"chrome-devtools","cwd":"{home}/work/acme-erp","dry_run":false}"#),
+            fails("unknown_server", "not_found", "plugins_mcp", r#"{"action":"deny","id":"ecc@ecc","server":"nope","cwd":"{home}/work/acme-erp"}"#),
+            fails("no_cwd", "invalid_arguments", "plugins_mcp", r#"{"action":"deny","id":"ecc@ecc","server":"chrome-devtools"}"#),
+            fails("bad_action", "invalid_arguments", "plugins_mcp", r#"{"action":"block","id":"ecc@ecc","server":"chrome-devtools","cwd":"{home}/work/acme-erp"}"#),
+        ],
+    ),
+    prepared(
         "hooks_ls",
         plugins_home,
         &[

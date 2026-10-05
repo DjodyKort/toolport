@@ -1,0 +1,61 @@
+{
+  "argv": [
+    "plugins",
+    "config",
+    "ecc@ecc",
+    "--set",
+    "hook_profile=strict",
+    "--set",
+    "hooks_enabled=false"
+  ],
+  "envelope": {
+    "command": "plugins config",
+    "data": {
+      "adapter": "ecc@ecc",
+      "changes": [
+        {
+          "action": "set",
+          "knob": "hook_profile",
+          "option": "hook_profile",
+          "value": "strict"
+        },
+        {
+          "action": "set",
+          "knob": "hooks_enabled",
+          "option": "hooks_enabled",
+          "value": "false"
+        }
+      ],
+      "conflicts": [],
+      "cwd": null,
+      "dryRun": false,
+      "id": "ecc@ecc",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "claude plugin configure ecc@ecc --values-stdin (user scope); the JSON object goes over stdin, never in an argument: hook_profile=strict, hooks_enabled=false",
+            "keys": ["hook_profile", "hooks_enabled"],
+            "op": "exec"
+          }
+        ],
+        "summary": "Set 2 plugin option(s) of ecc@ecc for all folders",
+        "undo": "toolportctl plugins config ecc@ecc --set hook_profile=strict --set hooks_enabled=true",
+        "warnings": [
+          "This changes the plugin option for every folder (user scope); a folder's env key still wins over it",
+          "A switched-off hook still starts a process and exits at once; only turning the plugin off removes it"
+        ]
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["claude plugin configure ecc@ecc (user scope)"],
+        "undo": "toolportctl plugins config ecc@ecc --set hook_profile=strict --set hooks_enabled=true"
+      },
+      "scope": "global"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

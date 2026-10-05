@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/work/acme-erp",
+    "id": "ecc@ecc"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "nothing to do: give --set <knob>=<value> or --unset <knob>"
+    }
+  },
+  "text": "invalid_arguments: nothing to do: give --set <knob>=<value> or --unset <knob>",
+  "tool": "plugins_config"
+}

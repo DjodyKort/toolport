@@ -129,7 +129,7 @@ fn texts(v: &Value) -> Vec<&str> {
     v.as_array().into_iter().flatten().filter_map(Value::as_str).collect()
 }
 
-fn plan_text(data: &Value) -> String {
+pub(super) fn plan_text(data: &Value) -> String {
     let plan = &data["plan"];
     let mut human = format!("{}\n", plan["summary"].as_str().unwrap_or(""));
     for step in plan["steps"].as_array().into_iter().flatten() {

@@ -1,0 +1,22 @@
+{
+  "argv": [
+    "plugins",
+    "mcp",
+    "deny",
+    "nope@nowhere",
+    "x",
+    "--cwd",
+    "{home}/work/acme-erp",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "plugins mcp",
+    "error": {
+      "code": "not_found",
+      "message": "plugin 'nope@nowhere' is not installed"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

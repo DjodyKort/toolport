@@ -198,6 +198,34 @@ pub const TOOLS: &[ToolDef] = &[
         plugins::show
     ),
     tool!(
+        "plugins_config",
+        2,
+        None,
+        "Set or unset a plugin's own switches (its adapter's knobs). With cwd they become env keys in that folder's git-ignored .claude/settings.local.json, ledgered so undo restores only what Toolport wrote; without cwd only knobs that are plugin options are set, through claude plugin configure. A switched-off hook still starts a process; only turning the plugin off removes it. dry_run is on by default: pass dry_run=false to apply",
+        [
+            p("id", Ty::Str, true, "Plugin id such as ecc@ecc, or a bare plugin name when it is unique"),
+            p("cwd", Ty::Str, false, "Folder where Claude Code starts; omit to set plugin options globally"),
+            p("set", Ty::Obj, false, "Knobs to set, as {knob: value}; a value is a string, a boolean or a list of strings"),
+            p("unset", Ty::StrList, false, "Knobs whose Toolport-written value is removed"),
+            DRY_ON
+        ],
+        plugins::config
+    ),
+    tool!(
+        "plugins_mcp",
+        2,
+        None,
+        "Deny or allow one MCP server of a plugin in a folder: deny writes {serverName: plugin:<plugin>:<server>} into deniedMcpServers of the folder's git-ignored .claude/settings.local.json, allow removes only that entry. The server stays outside the gateway. dry_run is on by default: pass dry_run=false to apply",
+        [
+            p("action", Ty::Str, true, "deny or allow"),
+            p("id", Ty::Str, true, "Plugin id such as ecc@ecc, or a bare plugin name when it is unique"),
+            p("server", Ty::Str, true, "The plugin's MCP server name (see plugins_show)"),
+            p("cwd", Ty::Str, true, "Folder where Claude Code starts; nothing is written above it"),
+            DRY_ON
+        ],
+        plugins::mcp
+    ),
+    tool!(
         "hooks_ls",
         1,
         None,

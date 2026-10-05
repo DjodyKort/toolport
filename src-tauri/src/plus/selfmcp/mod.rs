@@ -29,6 +29,8 @@ mod effect_tests;
 mod enable_tests;
 pub mod register;
 mod plugins;
+#[cfg(all(test, unix))]
+mod plugins_tests;
 mod servers;
 mod skills;
 mod sources;

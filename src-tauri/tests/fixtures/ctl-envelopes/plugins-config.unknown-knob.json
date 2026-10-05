@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "plugins",
+    "config",
+    "ecc@ecc",
+    "--cwd",
+    "{home}/work/acme-erp",
+    "--set",
+    "no_such_knob=1"
+  ],
+  "envelope": {
+    "command": "plugins config",
+    "error": {
+      "code": "usage",
+      "message": "ecc@ecc has no knob 'no_such_knob' (it has: hook_profile, hooks_enabled, gateguard, gateguard_exempt_globs, disabled_hooks)"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

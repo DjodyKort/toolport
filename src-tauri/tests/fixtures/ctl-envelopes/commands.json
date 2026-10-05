@@ -5732,6 +5732,146 @@
           "tools": ["plugins_show"]
         },
         {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Folder whose .claude/settings.local.json gets the env keys (without it only plugin options are set, globally)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--cwd",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Knob and value as <knob>=<value> (repeatable)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--set",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Knob whose Toolport-written value is removed (repeatable)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--unset",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "plugins",
+          "id": "plugins config",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "id",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "plugins",
+          "path": ["plugins", "config"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Set or unset a plugin's own switches: env keys in a folder, plugin options without one (<id>, --cwd, --set <knob>=<value>, --unset <knob>, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["plugins_config"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Folder whose .claude/settings.local.json lists the denied server (required)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--cwd",
+              "repeatable": false,
+              "required": true,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "plugins",
+          "id": "plugins mcp",
+          "kind": "command",
+          "maxOperands": 3,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "action",
+              "required": true,
+              "variadic": false
+            },
+            {
+              "name": "id",
+              "required": true,
+              "variadic": false
+            },
+            {
+              "name": "server",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "plugins",
+          "path": ["plugins", "mcp"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Deny or allow a plugin's MCP server in a folder (deny|allow <id> <server>, --cwd, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["plugins_mcp"]
+        },
+        {
           "baseTier": null,
           "cost": false,
           "dryRun": false,
@@ -5748,7 +5888,7 @@
           "path": ["plugins"],
           "planned": false,
           "preview": null,
-          "summary": "Plugins: ls show",
+          "summary": "Plugins: ls show config mcp",
           "surface": null,
           "tier": null,
           "tools": []
@@ -9315,10 +9455,10 @@
         }
       ],
       "counts": {
-        "commands": 152,
+        "commands": 154,
         "groups": 29,
-        "rows": 181,
-        "tools": 90
+        "rows": 183,
+        "tools": 92
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
       "tiers": ["read", "write", "destructive"],
@@ -9392,6 +9532,20 @@
           "name": "plugins_show",
           "tier": "read",
           "toolTier": 1
+        },
+        {
+          "command": "plugins config",
+          "dryRun": "default-on",
+          "name": "plugins_config",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": "plugins mcp",
+          "dryRun": "default-on",
+          "name": "plugins_mcp",
+          "tier": "write",
+          "toolTier": 2
         },
         {
           "command": "hooks ls",

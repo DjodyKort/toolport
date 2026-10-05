@@ -1,0 +1,61 @@
+{
+  "arguments": {
+    "action": "deny",
+    "cwd": "<WORLD>/home/work/acme-erp",
+    "dry_run": false,
+    "id": "ecc@ecc",
+    "server": "chrome-devtools"
+  },
+  "isError": false,
+  "result": {
+    "conflicts": [],
+    "cwd": "<WORLD>/home/work/acme-erp",
+    "dryRun": false,
+    "id": "ecc@ecc",
+    "ledger": "<WORLD>/data/plus/profile-ledger.json",
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "1 key(s) owned by mcp:ecc@ecc:chrome-devtools",
+          "diff": {
+            "after": "deniedMcpServers: {\"serverName\":\"plugin:ecc:chrome-devtools\"}\n",
+            "before": "deniedMcpServers: (absent)\n"
+          },
+          "keys": ["deniedMcpServers"],
+          "op": "create",
+          "path": "<WORLD>/home/work/acme-erp/.claude/settings.local.json"
+        },
+        {
+          "detail": "git-ignore .claude/settings.local.json",
+          "op": "update",
+          "path": "<WORLD>/home/work/acme-erp/.git/info/exclude"
+        },
+        {
+          "detail": "record every key Toolport owns with the value it replaces, so undo restores exactly that",
+          "op": "note",
+          "path": "<WORLD>/data/plus/profile-ledger.json"
+        }
+      ],
+      "summary": "Deny plugin:ecc:chrome-devtools in <WORLD>/home/work/acme-erp",
+      "undo": "toolportctl plugins mcp allow ecc@ecc chrome-devtools --cwd <WORLD>/home/work/acme-erp",
+      "warnings": [
+        "Denying removes every tool named mcp__plugin_ecc_chrome-devtools__* from Claude Code in this folder (a measured run shows the count); the server stays outside the gateway"
+      ]
+    },
+    "result": {
+      "applied": true,
+      "backups": [],
+      "changed": [
+        "<WORLD>/home/work/acme-erp/.claude/settings.local.json",
+        "<WORLD>/home/work/acme-erp/.git/info/exclude"
+      ],
+      "undo": "toolportctl plugins mcp allow ecc@ecc chrome-devtools --cwd <WORLD>/home/work/acme-erp"
+    },
+    "scope": "folder",
+    "server": "chrome-devtools",
+    "serverName": "plugin:ecc:chrome-devtools",
+    "toolPrefix": "mcp__plugin_ecc_chrome-devtools__"
+  },
+  "tool": "plugins_mcp"
+}

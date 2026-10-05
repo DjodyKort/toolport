@@ -1,0 +1,13 @@
+{
+  "argv": ["plugins", "mcp", "deny"],
+  "envelope": {
+    "command": "plugins mcp",
+    "error": {
+      "code": "usage",
+      "message": "usage: plugins mcp deny|allow <id> <server> --cwd <dir> [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}
