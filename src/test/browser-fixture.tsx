@@ -133,7 +133,9 @@ mockIPC(
       case "plus_ctl": {
         const argv = (args as { argv?: string[] } | undefined)?.argv ?? [];
         try {
-          return plusCtlStart(argv);
+          const stdin = (args as { stdinSecret?: string | null } | undefined)
+            ?.stdinSecret;
+          return plusCtlStart(argv, stdin ?? undefined);
         } catch (error) {
           missing.push(`plus_ctl ${argv.join(" ")}`);
           throw error;

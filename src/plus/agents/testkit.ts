@@ -1,9 +1,12 @@
 import type { CtlResult } from "../bridge/ctl";
 import { agentsCtlFixtures } from "../fixtures/agents";
+import { CtlReplyFailure } from "../fixtures/ctlReply";
 import { createAgentsWorld } from "../fixtures/agentsWorld";
+import { createMcpWorld } from "./mcpWorld";
 import golden from "../../../src-tauri/tests/fixtures/ctl-envelopes/commands.json";
 
-export type Reply = unknown | ((argv: string[]) => unknown | Promise<unknown>);
+export type Reply =
+  unknown | ((argv: string[], stdin?: string) => unknown | Promise<unknown>);
 
 /** A reply that is a failed envelope; `data` is what a command that exits 1 still prints. */
 export class Failure {
@@ -20,6 +23,7 @@ export const failure = (code: string, message: string, data?: unknown) =>
 interface Call {
   job: string;
   argv: string[];
+  stdin?: string;
 }
 
 /** A fake `plus_ctl` bridge over the fixture world of the Agents and Styles panels. Every argv
@@ -32,6 +36,7 @@ export function createBridge(options: { world?: boolean } = {}) {
   const replies = new Map<string, Reply>([
     ...(options.world ? createAgentsWorld() : agentsCtlFixtures),
     ["commands", (golden as { envelope: { data: unknown } }).envelope.data],
+    ...createMcpWorld(),
   ]);
   const calls: Call[] = [];
   const missing: string[] = [];
@@ -46,10 +51,18 @@ export function createBridge(options: { world?: boolean } = {}) {
     },
     get: (argv: string) => replies.get(argv),
     ran: () => calls.map((call) => call.argv.join(" ")),
+    /** The JSON arguments each run of a command got on stdin, in order. */
+    stdins: (argv: string) =>
+      calls
+        .filter((call) => call.argv.join(" ") === argv)
+        .map(
+          (call) => JSON.parse(call.stdin ?? "null") as Record<string, unknown> | null,
+        ),
     count: (argv: string) => calls.filter((call) => call.argv.join(" ") === argv).length,
     async invoke(command: string, args: Record<string, unknown> = {}): Promise<unknown> {
       if (command === "plus_ctl") {
-        const call = { job: `job-${++count}`, argv: args.argv as string[] };
+        const stdin = typeof args.stdinSecret === "string" ? args.stdinSecret : undefined;
+        const call: Call = { job: `job-${++count}`, argv: args.argv as string[], stdin };
         calls.push(call);
         jobs.set(call.job, call);
         return call.job;
@@ -63,8 +76,10 @@ export function createBridge(options: { world?: boolean } = {}) {
           throw new Error(`no fake reply for plus_ctl ${key}`);
         }
         const wanted = replies.get(key);
-        const value = typeof wanted === "function" ? await wanted(call.argv) : wanted;
-        const failed = value instanceof Failure ? value : null;
+        const value =
+          typeof wanted === "function" ? await wanted(call.argv, call.stdin) : wanted;
+        const failed =
+          value instanceof Failure || value instanceof CtlReplyFailure ? value : null;
         return {
           job: call.job,
           exitCode: failed ? 1 : 0,

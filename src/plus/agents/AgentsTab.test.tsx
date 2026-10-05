@@ -76,6 +76,7 @@ describe("Agents tab: reading", () => {
       "agents ls",
       "agents status",
       "commands",
+      "mcp call agents_list_transpilers --args-stdin",
     ]);
     expect(bridge.ran().some((line) => line.includes("--home"))).toBe(false);
   });
@@ -182,14 +183,9 @@ describe("Agents tab: reading", () => {
     expect(screen.getByRole("button", { name: /Create your first agent/ })).toBeEnabled();
   });
 
-  it("keeps editing the body off until the command exists, and says why", async () => {
+  it("offers Edit body now that the tools exist", async () => {
     await open();
-    const edit = screen.getByRole("button", { name: "Edit body of scout" });
-    expect(edit).toBeDisabled();
-    expect(edit).toHaveAttribute(
-      "title",
-      expect.stringContaining("mcp call agents_edit_body"),
-    );
+    expect(screen.getByRole("button", { name: "Edit body of scout" })).toBeEnabled();
   });
 });
 

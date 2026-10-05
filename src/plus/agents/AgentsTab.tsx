@@ -23,6 +23,8 @@ import {
   type AuditFinding,
   type StatusOutput,
 } from "./model";
+import { BodyEditor } from "./BodyEditor";
+import { ConvertedFor } from "./ConvertedFor";
 import { NewDialog } from "./NewDialog";
 import { Card, DiffBody, Discovery, LintBody, PathLine, Section, Verdict } from "./parts";
 import { useRestoreFocus } from "./useRestoreFocus";
@@ -100,11 +102,13 @@ function AgentCard({
   sync,
   status,
   write,
+  onEdit,
 }: {
   agent: Agent;
   sync: AgentsSyncData | null;
   status: AgentsStatusData | null;
   write: WriteControl;
+  onEdit: (name: string) => void;
 }) {
   const entry = sync?.agents.find((a) => a.name === agent.name);
   const present = new Map(
@@ -137,8 +141,8 @@ function AgentCard({
           <Button
             size="sm"
             variant="outline"
-            disabled
-            title="Editing the body needs `mcp call agents_edit_body` (MIG-GUI-14). Open the file above in your editor for now."
+            disabled={write.busy}
+            onClick={() => onEdit(agent.name)}
             aria-label={`Edit body of ${agent.name}`}
           >
             Edit body
@@ -192,10 +196,12 @@ function AgentCard({
 function Agents({
   write,
   onNew,
+  onEdit,
   registry,
 }: {
   write: WriteControl;
   onNew: () => void;
+  onEdit: (name: string) => void;
   registry: CtlQuery<unknown>;
 }) {
   const list = useRead<AgentsLsData>(["agents", "ls"]);
@@ -241,6 +247,7 @@ function Agents({
                     sync={sync.data}
                     status={status.data}
                     write={write}
+                    onEdit={onEdit}
                   />
                 ))}
               </ul>
@@ -327,6 +334,7 @@ export function AgentsTab() {
   const rows = registry.data?.commands ?? null;
   const [epoch, setEpoch] = useState(0);
   const [naming, setNaming] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const write = useWrite(rows, () => setEpoch((n) => n + 1));
   useRestoreFocus();
   return (
@@ -372,6 +380,15 @@ export function AgentsTab() {
         </div>
       </div>
       <WriteDialogs write={write} />
+      {editing && (
+        <BodyEditor
+          kind="agents"
+          name={editing}
+          registry={registry.data}
+          onClose={() => setEditing(null)}
+          onSaved={() => setEpoch((n) => n + 1)}
+        />
+      )}
       {naming && (
         <NewDialog
           kind="agent"
@@ -392,8 +409,10 @@ export function AgentsTab() {
         key={epoch}
         write={write}
         onNew={() => setNaming(true)}
+        onEdit={setEditing}
         registry={registry}
       />
+      <ConvertedFor kind="agents" />
     </div>
   );
 }
