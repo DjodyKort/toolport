@@ -24,6 +24,7 @@ mod context_manage;
 mod flags;
 mod folders;
 mod hooks;
+mod library;
 mod mcp;
 mod obs;
 mod output;
@@ -555,6 +556,22 @@ pub const COMMANDS: &[Command] = &[
         sources::root_group,
     ),
     cmd(&["sources"], "Sources: ls root", sources::group),
+    cmd(
+        &["library", "status"],
+        "Show the skills library against its remote: ahead, behind, uncommitted, credentials, duplicate clones (--fetch contacts the remote)",
+        library::status,
+    ),
+    cmd(
+        &["library", "pull"],
+        "Fast-forward the skills library from its remote; refuses over uncommitted changes (--dry-run)",
+        library::pull,
+    ),
+    cmd(
+        &["library", "push"],
+        "Audit and secret-scan, then push the skills library; never forces (--dry-run)",
+        library::push,
+    ),
+    cmd(&["library"], "Library: status pull push", library::group),
     cmd(
         &["plugins", "ls"],
         "List installed Claude Code plugins with what each brings and costs (--cwd, --refresh)",

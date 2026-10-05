@@ -19,6 +19,8 @@ const EXPECTED_TOOLS: &[&str] = &[
     "tasks_history",
     "tasks_run",
     "tasks_cancel",
+    "library_status",
+    "library_pull",
     "plugins_ls",
     "plugins_show",
     "plugins_config",
@@ -222,9 +224,9 @@ fn err_kind(result: Result<Value, ToolError>) -> &'static str {
 }
 
 #[test]
-fn registry_has_all_95_tools_and_11_resources() {
+fn registry_has_all_99_tools_and_11_resources() {
     let names: Vec<&str> = TOOLS.iter().map(|t| t.name).collect();
-    assert_eq!(names.len(), 97);
+    assert_eq!(names.len(), 99);
     assert_eq!(
         names.iter().copied().collect::<BTreeSet<_>>(),
         EXPECTED_TOOLS.iter().copied().collect::<BTreeSet<_>>()
@@ -248,6 +250,7 @@ fn module_counts_match_the_parity_matrix() {
     assert_eq!(count("clients_"), 2);
     assert_eq!(count("client_direct_"), 3);
     assert_eq!(count("sources_"), 1);
+    assert_eq!(count("library_"), 2);
     assert_eq!(count("context_"), 6);
     assert_eq!(count("plugins_"), 4);
     assert_eq!(count("hooks_"), 1);
@@ -406,6 +409,7 @@ fn a_dry_run_that_is_on_by_default_previews_without_confirm_and_applies_only_wit
 }
 
 const DEFAULT_DRY_RUN_TOOLS: &[&str] = &[
+    "library_pull",
     "skills_tap_add",
     "skills_tap_remove",
     "skills_tap_update",
@@ -656,7 +660,7 @@ fn json_rpc_surface_lists_calls_and_reads() {
         handle_message(&json!({"jsonrpc": "2.0", "method": "notifications/initialized"})).is_none()
     );
     let tools = call(json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}));
-    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 97);
+    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 99);
     let resources = call(json!({"jsonrpc": "2.0", "id": 3, "method": "resources/list"}));
     assert_eq!(
         resources["result"]["resources"].as_array().unwrap().len(),

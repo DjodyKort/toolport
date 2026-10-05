@@ -1,4 +1,4 @@
-use super::{backend, compression, content, context, context_bundle, context_compose, direct, plugins, servers, skills, sources, state, tasks, ToolError};
+use super::{backend, compression, content, context, context_bundle, context_compose, direct, library, plugins, servers, skills, sources, state, tasks, ToolError};
 use serde_json::{json, Map, Value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -218,6 +218,22 @@ pub const TOOLS: &[ToolDef] = &[
         "Cancel a running or waiting task run and stop its child process",
         [p("run", Ty::Str, true, "The run id (from tasks_list, tasks_get or tasks_history)")],
         tasks::cancel
+    ),
+    tool!(
+        "library_status",
+        1,
+        None,
+        "Show the skills library against its remote: branch, commits ahead and behind, uncommitted files, how git authenticates (gh, a credential helper or ssh) and any other clone of the same remote with its own counts. Pass fetch to contact the remote and test the credentials; without it nothing touches the network. Read only",
+        [p("fetch", Ty::Bool, false, "Contact the remote (ls-remote, then fetch) to refresh the counts and test the credentials")],
+        library::status
+    ),
+    tool!(
+        "library_pull",
+        2,
+        None,
+        "Fast-forward the skills library from its remote (fetches first). Refuses over uncommitted changes and never merges or rewrites history. dry_run is on by default and only reports the plan; pass dry_run false to apply",
+        [DRY_ON],
+        library::pull
     ),
     tool!(
         "plugins_ls",

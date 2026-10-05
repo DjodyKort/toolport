@@ -16,10 +16,13 @@ mod context_compose;
 #[cfg(all(test, unix))]
 mod context_bundle_tests;
 #[cfg(all(test, unix))]
+mod library_tests;
+#[cfg(all(test, unix))]
 mod context_tests;
 #[cfg(test)]
 mod coverage_tests;
 mod direct;
+mod library;
 #[cfg(test)]
 mod direct_tests;
 mod docs;
