@@ -9,6 +9,7 @@ const SOURCES: &[(&str, &str)] = &[
     ("direct_tests.rs", include_str!("direct_tests.rs")),
     ("plugins_tests.rs", include_str!("plugins_tests.rs")),
     ("effect_tests.rs", include_str!("effect_tests.rs")),
+    ("fork_sync_tests.rs", include_str!("fork_sync_tests.rs")),
     ("library_tests.rs", include_str!("library_tests.rs")),
     (
         "state_agent_style_tests.rs",
@@ -159,8 +160,8 @@ const SIDE_EFFECT_TESTS: &[(&str, &str, &str)] = &[
     ),
     (
         "servers_fork_sync",
-        "wired_tests.rs",
-        "fork_sync_replays_local_commits_onto_a_second_remote",
+        "fork_sync_tests.rs",
+        "a_clean_sync_updates_the_tracked_branch_without_new_branch_names",
     ),
     (
         "servers_auth",

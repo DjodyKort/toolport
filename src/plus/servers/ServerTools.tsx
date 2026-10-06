@@ -545,6 +545,7 @@ export function ServerTools({
         <ForkSyncDialog
           server={view.name}
           git={git}
+          source={source ?? undefined}
           hasPostUpdate={hasPostUpdate}
           onOpenChange={(open) => !open && setDialog(null)}
           onContinue={sync}

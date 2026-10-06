@@ -1085,7 +1085,7 @@
       "route": "servers",
       "status": "built",
       "test": "src/plus/servers/ServerTools.test.tsx",
-      "summary": "Sync a git checkout with its upstream onto a new branch after a plan (servers_fork_sync, confirm=true; a conflict is shown as a stopped sync)"
+      "summary": "Sync a git checkout's tracked branch with its upstream in a temporary worktree after a plan (servers_fork_sync, confirm=true; the push is opt-in and a conflict is shown as a stopped sync)"
     },
     "servers.set-source": {
       "route": "servers",

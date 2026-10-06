@@ -1,15 +1,22 @@
 {
   "arguments": {
     "confirm": true,
-    "name": "forked"
+    "mode": "merge",
+    "name": "forked",
+    "push": true
   },
   "isError": false,
   "result": {
     "branch": "main",
     "head": "<masked>",
-    "mode": "rebase",
+    "mode": "merge",
+    "push": {
+      "pushed": true,
+      "remote": "origin"
+    },
     "staleBranches": [],
     "synced": true,
+    "upToDate": true,
     "upstream": "upstream/main"
   },
   "tool": "servers_fork_sync"

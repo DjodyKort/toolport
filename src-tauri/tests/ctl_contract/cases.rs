@@ -103,7 +103,7 @@ pub const MORE: &[Case] = &[
             apply("servers_set_mode", &["mcp", "call", "servers_set_mode", "--args", r#"{"name":"alpha","mode":"direct","confirm":true}"#]),
             apply("servers_apply_update", &["mcp", "call", "servers_apply_update", "--args", r#"{"name":"alpha","confirm":true}"#]),
             read("servers_fork_sync.refused", &["mcp", "call", "servers_fork_sync", "--args", r#"{"name":"forked"}"#]).exit(1),
-            apply("servers_fork_sync", &["mcp", "call", "servers_fork_sync", "--args", r#"{"name":"forked","target_branch":"main-synced","confirm":true}"#]),
+            apply("servers_fork_sync", &["mcp", "call", "servers_fork_sync", "--args", r#"{"name":"forked","confirm":true}"#]),
             read("skills_delete.refused", &["mcp", "call", "skills_delete", "--args", r#"{"name":"demo","repo_path":"{repo}"}"#]).exit(1),
             apply("skills_delete", &["mcp", "call", "skills_delete", "--args", r#"{"name":"demo","repo_path":"{repo}","confirm":true}"#]),
             read("skills_git_push.refused", &["mcp", "call", "skills_git_push", "--args", r#"{"commit_message":"add extra","repo_path":"{repo}"}"#]).exit(1),

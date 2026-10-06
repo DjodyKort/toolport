@@ -6,6 +6,7 @@ import {
   callResult,
   forkSyncArgs,
   forkSyncDefaults,
+  forkSyncDefaultsFor,
   forkSyncPlan,
   forkSyncProblems,
   forkSyncResultPlan,
@@ -15,6 +16,7 @@ import {
   syncBlocker,
   toolPolicyOf,
   updateOf,
+  type SourceInfo,
 } from "./mcpTools";
 import { serversWorld } from "../fixtures/servers";
 import { createToolsWorld } from "./world";
@@ -130,14 +132,15 @@ describe("fork sync", () => {
         ...forkSyncDefaults,
         mode: "onto-author",
         authorEmail: " me@example.test ",
-        targetBranch: "x",
+        push: true,
         runPostUpdate: true,
       }),
     ).toMatchObject({
       author_email: "me@example.test",
-      target_branch: "x",
+      push: true,
       run_post_update: true,
     });
+    expect(forkSyncArgs("a", forkSyncDefaults)).not.toHaveProperty("target_branch");
   });
 
   it("names what is wrong with the options", () => {
@@ -145,13 +148,34 @@ describe("fork sync", () => {
     expect(forkSyncProblems({ ...forkSyncDefaults, upstreamRemote: " " })).toHaveLength(
       1,
     );
-    expect(forkSyncProblems({ ...forkSyncDefaults, targetBranch: "-x" })).toHaveLength(1);
     expect(forkSyncProblems({ ...forkSyncDefaults, mode: "onto-author" })).toHaveLength(
       1,
     );
   });
 
-  it("plans the new branch and words a conflict as a stopped sync", () => {
+  it("starts from the stored upstream, not from upstream/main", () => {
+    const source = (extra: Partial<SourceInfo>): SourceInfo => ({
+      kind: "git",
+      stored: true,
+      remote: "origin",
+      remotes: ["origin", "vendor"],
+      branches: { vendor: ["dev", "master"] },
+      ...extra,
+    });
+    expect(forkSyncDefaultsFor(undefined)).toEqual(forkSyncDefaults);
+    expect(
+      forkSyncDefaultsFor(source({ upstream: { remote: "vendor", branch: "dev" } })),
+    ).toMatchObject({ upstreamRemote: "vendor", upstreamBranch: "dev" });
+    expect(forkSyncDefaultsFor(source({}))).toMatchObject({
+      upstreamRemote: "vendor",
+      upstreamBranch: "master",
+    });
+    expect(
+      forkSyncDefaultsFor(source({ remotes: ["origin", "upstream", "vendor"] })),
+    ).toMatchObject({ upstreamRemote: "upstream", upstreamBranch: "main" });
+  });
+
+  it("plans a worktree without a new branch and words a conflict as a stopped sync", () => {
     const git = gitStateOf({
       isGit: true,
       branch: "main",
@@ -161,17 +185,43 @@ describe("fork sync", () => {
     const plan = forkSyncPlan("a", git, forkSyncDefaults);
     expect(plan.summary).toBe("Sync a with upstream/main");
     expect(plan.steps.some((step) => step.detail === "Upstream: a b")).toBe(true);
+    expect(plan.steps.some((step) => /-synced-/.test(step.detail ?? ""))).toBe(false);
+    expect(plan.steps.some((step) => /Push/.test(step.detail ?? ""))).toBe(false);
+    const pushing = forkSyncPlan("a", git, { ...forkSyncDefaults, push: true });
+    expect(pushing.steps.some((step) => /Push main/.test(step.detail ?? ""))).toBe(true);
     const stopped = forkSyncResultPlan(
       {
         synced: false,
         conflict: true,
-        branch: "b",
+        branch: "main",
         conflictedPaths: ["f.ts"],
+        worktree: "/p/.git/toolport-sync/main-1",
         next: "go on",
       },
       "a",
     );
     expect(stopped.summary).toBe("The sync of a stopped on a conflict");
     expect(stopped.steps.map((step) => step.path ?? step.detail)).toContain("f.ts");
+    expect(stopped.warnings[0]).toMatch(/not changed/);
+  });
+
+  it("lists old sync branches and reports a failed push", () => {
+    const done = forkSyncResultPlan(
+      {
+        synced: true,
+        branch: "main",
+        mode: "merge",
+        upstream: "upstream/main",
+        staleBranches: ["main-synced-20260101"],
+        push: { pushed: false, remote: "origin", error: "rejected" },
+      },
+      "a",
+    );
+    expect(done.summary).toBe("a synced: main now follows upstream/main");
+    expect(done.steps.map((step) => step.detail)).toContain(
+      "Push to origin failed: rejected",
+    );
+    expect(done.steps.some((step) => step.path === "main-synced-20260101")).toBe(true);
+    expect(done.warnings).toHaveLength(1);
   });
 });

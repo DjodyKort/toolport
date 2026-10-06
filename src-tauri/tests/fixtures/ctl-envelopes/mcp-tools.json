@@ -2179,7 +2179,7 @@
           "tier": 3
         },
         {
-          "description": "Sync a forked source server with its upstream",
+          "description": "Sync a forked source server with its upstream in a temporary worktree",
           "dryRunDefault": false,
           "gate": "always",
           "name": "servers_fork_sync",
@@ -2191,19 +2191,19 @@
               "type": "string"
             },
             {
-              "description": "Default upstream",
+              "description": "Default the stored upstream",
               "name": "upstream_remote",
               "required": false,
               "type": "string"
             },
             {
-              "description": "Default main",
+              "description": "Default the stored branch",
               "name": "upstream_branch",
               "required": false,
               "type": "string"
             },
             {
-              "description": "Default rebase",
+              "description": "rebase, merge or onto-author",
               "name": "mode",
               "required": false,
               "type": "string"
@@ -2215,10 +2215,10 @@
               "type": "string"
             },
             {
-              "description": "Branch to update",
-              "name": "target_branch",
+              "description": "Push to the fork remote",
+              "name": "push",
               "required": false,
-              "type": "string"
+              "type": "boolean"
             },
             {
               "description": "Run the post-update command",

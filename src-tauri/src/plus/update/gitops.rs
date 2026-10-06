@@ -407,3 +407,71 @@ pub fn fast_forward(git: &dyn GitRunner, repo: &Path, remote_ref: &str) -> Resul
         ))
     }
 }
+
+/// The directory holding the repository's shared git data, absolute even when git reports it
+/// relative to the checkout.
+pub fn common_dir(git: &dyn GitRunner, repo: &Path) -> Option<std::path::PathBuf> {
+    let out = local(git, repo, &["rev-parse", "--git-common-dir"])
+        .ok()
+        .filter(CmdOutput::ok)?;
+    let dir = std::path::PathBuf::from(out.stdout.trim());
+    (!dir.as_os_str().is_empty()).then(|| if dir.is_relative() { repo.join(dir) } else { dir })
+}
+
+/// A linked worktree at `rev` with a detached HEAD, so no branch name is created or locked.
+pub fn worktree_add_detached(
+    git: &dyn GitRunner,
+    repo: &Path,
+    dir: &Path,
+    rev: &str,
+) -> Result<(), String> {
+    let dir = dir.to_string_lossy();
+    let out = git.git(repo, &["worktree", "add", "--detach", &dir, rev], FETCH_TIMEOUT)?;
+    if out.ok() {
+        Ok(())
+    } else {
+        Err(format!("git worktree add failed: {}", out.first_error_line()))
+    }
+}
+
+pub fn worktree_remove(git: &dyn GitRunner, repo: &Path, dir: &Path) -> Result<(), String> {
+    let dir = dir.to_string_lossy();
+    let out = git.git(repo, &["worktree", "remove", "--force", &dir], FETCH_TIMEOUT)?;
+    if out.ok() {
+        Ok(())
+    } else {
+        Err(format!("git worktree remove failed: {}", out.first_error_line()))
+    }
+}
+
+pub fn rev_parse(git: &dyn GitRunner, repo: &Path, rev: &str) -> Option<String> {
+    local(git, repo, &["rev-parse", "--verify", "--quiet", rev])
+        .ok()
+        .filter(CmdOutput::ok)
+        .map(|o| o.stdout.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+pub fn is_ancestor(git: &dyn GitRunner, repo: &Path, ancestor: &str, descendant: &str) -> bool {
+    local(git, repo, &["merge-base", "--is-ancestor", ancestor, descendant])
+        .map(|o| o.ok())
+        .unwrap_or(false)
+}
+
+/// Local branch names that contain `needle`, for listing leftovers such as `*-synced-*`.
+pub fn local_branches_containing(git: &dyn GitRunner, repo: &Path, needle: &str) -> Vec<String> {
+    local(
+        git,
+        repo,
+        &["for-each-ref", "--format=%(refname:short)", "refs/heads"],
+    )
+    .map(|o| {
+        o.stdout
+            .lines()
+            .map(str::trim)
+            .filter(|b| b.contains(needle))
+            .map(String::from)
+            .collect()
+    })
+    .unwrap_or_default()
+}

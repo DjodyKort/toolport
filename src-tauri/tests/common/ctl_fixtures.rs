@@ -391,12 +391,6 @@ pub fn fork_world(world: &CtlWorld) {
     write_json(&path, &registry);
 }
 
-/// Back to `main` in the fork checkout, as a user would between two fork syncs.
-pub fn fork_back_to_main(world: &CtlWorld) {
-    let work = world.base.join("fork-work");
-    git(&work, &world.home, &["checkout", "-q", "main"]);
-}
-
 /// `fork_world`, with `upstream` already fetched once, so `refs/remotes/upstream/*` is
 /// populated and a source switch to that remote's `main` validates against the repo.
 pub fn fork_world_upstream_fetched(world: &CtlWorld) {

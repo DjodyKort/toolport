@@ -3,16 +3,17 @@
     "author_email": "fixture@example.invalid",
     "confirm": true,
     "mode": "onto-author",
-    "name": "forked",
-    "target_branch": "main-picked"
+    "name": "forked"
   },
   "isError": false,
   "result": {
-    "branch": "main-picked",
+    "branch": "main",
+    "head": "<masked>",
     "mode": "onto-author",
     "picked": 1,
-    "previousBranch": "main",
-    "synced": true
+    "staleBranches": [],
+    "synced": true,
+    "upstream": "upstream/main"
   },
   "tool": "servers_fork_sync"
 }
