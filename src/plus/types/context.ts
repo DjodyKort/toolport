@@ -79,6 +79,7 @@ export const contextInitData = obj({
       label: str,
     }),
   ),
+  orgClone: nullable(str),
   personal: obj({
     created: bool,
     path: str,

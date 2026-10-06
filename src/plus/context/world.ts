@@ -660,6 +660,7 @@ export function createContextWorld(options: WorldOptions = {}): ContextWorld {
           config: { keptUnreadable: null, path: CONFIG, saved: !dry },
           dryRun: dry,
           migration: null,
+          orgClone: null,
           nextSteps: [
             {
               command: "toolportctl skills sync",

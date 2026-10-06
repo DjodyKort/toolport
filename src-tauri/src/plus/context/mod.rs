@@ -27,6 +27,7 @@ pub mod layers;
 pub mod loads;
 pub mod manage;
 pub mod measure;
+pub mod org_clone;
 pub mod roots;
 pub mod rules;
 pub mod settings;
@@ -162,9 +163,10 @@ pub fn apply(
     opts: ApplyOptions,
 ) -> Result<Report, String> {
     config.validate()?;
-    let roots = &roots.resolved(config);
     let mut report = Report::default();
     let dry = opts.dry_run;
+    org_clone::adopt(roots, config, &mut report, dry);
+    let roots = &roots.resolved(config);
 
     if config.dedupe.enabled {
         let removed = dedupe::apply_dedupe(roots, &roots.claude_json, &config.dedupe, true, dry)?;

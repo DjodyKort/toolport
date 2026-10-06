@@ -28,6 +28,7 @@
           "label": "Apply everything:"
         }
       ],
+      "orgClone": null,
       "personal": {
         "created": true,
         "path": "<WORLD>/home/.config/mcpm/skills_repo/rules/personal/SKILL.md"
