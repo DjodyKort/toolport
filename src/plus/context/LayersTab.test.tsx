@@ -418,6 +418,18 @@ describe("Layers: the composed preview", () => {
     await waitFor(() => expect(bridge.count(`context compose --cwd ${FOLDER}`)).toBe(2));
   });
 
+  it("takes a pasted shell-quoted folder as the plain path and lists every folder level", async () => {
+    const user = await open();
+    const preview = within(screen.getByRole("region", { name: "Composed preview" }));
+    await user.click(preview.getByLabelText("Folder"));
+    await user.paste(`'${FOLDER}'`);
+    expect(preview.getByLabelText("Folder")).toHaveValue(FOLDER);
+    await user.keyboard("{Enter}");
+    const levels = within(await preview.findByRole("list", { name: "Folder levels" }));
+    expect(levels.getAllByText("nothing here").length).toBeGreaterThan(0);
+    expect(bridge.count(`context compose --cwd ${FOLDER}`)).toBe(1);
+  });
+
   it("renders only what the screen is meant to show: no org warnings or status text, no stored text", async () => {
     const org = orgSources();
     org.sources[0].warnings = [`token ${CANARY}`];

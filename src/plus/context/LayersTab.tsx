@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import type { SourcesLsData } from "../bridge/data";
 import type { ContextClientListData } from "../types/context-layers";
 import { ComposedView } from "./ComposedView";
-import { FolderField, suggestions, useRecentFolders } from "./folder";
+import { cleanFolder, FolderField, suggestions, useRecentFolders } from "./folder";
 import { useRead, useWrite } from "./hooks";
 import { LayerDeleteDialog, LayerFormDialog, type LayerForm } from "./LayerDialogs";
 import { WriteDialogs } from "./WriteDialogs";
@@ -267,7 +267,7 @@ export function LayersTab({ openTab }: { openTab?: (id: string) => void }) {
           placeholder="Folder where Claude starts"
           submitLabel="Preview"
           onSubmit={() => {
-            setFolder(draft.trim() || null);
+            setFolder(cleanFolder(draft) || null);
             remember(draft);
           }}
         />
