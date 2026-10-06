@@ -40,6 +40,8 @@ impl DataDirFx {
         let lock = crate::registry::data_dir_test_lock();
         let dir = std::env::temp_dir().join(format!("{prefix}-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let dir = dir.canonicalize().unwrap();
         let data_dir = match data {
             Some(sub) => dir.join(sub),
             None => dir.clone(),
