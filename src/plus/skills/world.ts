@@ -279,11 +279,13 @@ export function createSkillsWorld(
           type,
         })),
         lockedCount: lock ? known.length : 0,
+        lockfile: lock ? `${HOME}/.local/share/toolport/mcpm-skills.lock` : null,
         lockfilePresent: lock !== null,
         lockfileSyncedAt: lock ? "2026-10-03T09:00:00Z" : null,
         outputRoot: lock ? HOME : null,
         outputs,
         targetedClients: lock ?? ALL_CLIENTS,
+        warnings: [],
       };
     }),
   );
@@ -319,12 +321,14 @@ export function createSkillsWorld(
       const modified = s.lock ? [...s.drifted].filter((n) => has(n)) : [];
       return exits({
         clean: fresh.length === 0 && modified.length === 0,
+        lockfile: s.lock ? `${HOME}/.local/share/toolport/mcpm-skills.lock` : null,
         modified,
         new: fresh.map((i) => i.name),
         noLockfile: s.lock === null,
         removed: [],
         repo: REPO,
         unchanged: s.lock ? s.known.size - modified.length : 0,
+        warnings: [],
       });
     }),
   );

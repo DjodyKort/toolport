@@ -15,6 +15,7 @@
       }
     ],
     "lockedCount": 0,
+    "lockfile": null,
     "lockfilePresent": false,
     "lockfileSyncedAt": null,
     "outputRoot": null,
@@ -37,7 +38,8 @@
       "trae",
       "windsurf",
       "zed"
-    ]
+    ],
+    "warnings": []
   },
   "tool": "skills_status"
 }

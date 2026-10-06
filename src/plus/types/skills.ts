@@ -67,12 +67,14 @@ export type SkillsCleanData = Infer<typeof skillsCleanData>;
 
 export const skillsDiffData = obj({
   clean: bool,
+  lockfile: nullable(str),
   modified: arr(any),
   new: arr(str),
   noLockfile: bool,
   removed: arr(any),
   repo: str,
   unchanged: num,
+  warnings: arr(str),
 });
 export type SkillsDiffData = Infer<typeof skillsDiffData>;
 
@@ -156,6 +158,7 @@ export const skillsStatusData = obj({
     }),
   ),
   lockedCount: num,
+  lockfile: nullable(str),
   lockfilePresent: bool,
   lockfileSyncedAt: nullable(str),
   outputRoot: nullable(str),
@@ -163,6 +166,7 @@ export const skillsStatusData = obj({
   rejected: arr(any),
   repo: str,
   targetedClients: arr(str),
+  warnings: arr(str),
 });
 export type SkillsStatusData = Infer<typeof skillsStatusData>;
 

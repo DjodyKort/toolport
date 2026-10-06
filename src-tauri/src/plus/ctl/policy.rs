@@ -603,7 +603,7 @@ pub(super) const ROWS: &[Row] = &[
     row("skills sync", W).dry().spec(&[&skills::SYNC]),
     row("skills ls", R).spec(&[&skills::LS_SOURCE]),
     row("skills lint", R).spec(&[&skills::LINT]),
-    row("skills diff", R).spec(&[&skills::LS]),
+    row("skills diff", R).spec(&[&skills::DIFF]),
     row("skills init", W).dry().spec(&[&skills_repo::INIT]),
     row("skills add", W)
         .dry()

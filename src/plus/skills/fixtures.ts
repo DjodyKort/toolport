@@ -129,6 +129,7 @@ export const statusData: SkillsStatusData = {
     type: row.type,
   })),
   lockedCount: libraryRows.length,
+  lockfile: `${HOME}/.local/share/toolport/mcpm-skills.lock`,
   lockfilePresent: true,
   lockfileSyncedAt: "2026-10-03T09:00:00Z",
   outputRoot: HOME,
@@ -148,6 +149,7 @@ export const statusData: SkillsStatusData = {
   })),
   repo: REPO,
   targetedClients: CLIENTS,
+  warnings: [],
 };
 
 export const lintData = {

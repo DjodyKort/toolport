@@ -17,6 +17,7 @@
       }
     ],
     "lockedCount": 1,
+    "lockfile": "<WORLD>/data/mcpm-skills.lock",
     "lockfilePresent": true,
     "lockfileSyncedAt": "<TIME>",
     "outputRoot": "<WORLD>/home",
@@ -29,7 +30,8 @@
     ],
     "rejected": [],
     "repo": "<WORLD>/skills-repo",
-    "targetedClients": ["claude-code"]
+    "targetedClients": ["claude-code"],
+    "warnings": []
   },
   "tool": "skills_status"
 }

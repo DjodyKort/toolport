@@ -92,14 +92,64 @@ pub enum LockSource {
     UserLevel,
 }
 
-/// The lock a read-only command sees: the repository's own (project sync), else the user-level
-/// one beside the registry (global sync).
+/// The lock a read-only command read, and a warning when the other scope holds one too.
+#[derive(Debug)]
+pub struct LockRead {
+    pub lock: LockFile,
+    pub source: LockSource,
+    pub path: PathBuf,
+    pub warning: Option<String>,
+}
+
+/// The lock a read-only command sees: the one of the requested scope, else the other. `global`
+/// is the default scope and the one `skills sync` writes; `--project` reads the repository's.
+/// Both existing is ambiguous, so the warning names both and says which was read.
+pub fn read_lock_in(repo: &Path, global: bool) -> Option<LockRead> {
+    let user_dir = registry::conduit_dir().filter(|dir| resolve(dir) != resolve(repo));
+    let repo_lock = load_lockfile(repo);
+    let user_lock = user_dir.as_deref().and_then(load_lockfile);
+    let repo_path = lockfile_path(repo);
+    let user_path = user_dir.as_deref().map(lockfile_path);
+    let (lock, source, path, other) = match (repo_lock, user_lock, global) {
+        (Some(repo_lock), Some(user_lock), false) => {
+            (repo_lock, LockSource::Repo, repo_path, Some((user_lock, user_path?)))
+        }
+        (Some(repo_lock), None, _) => (repo_lock, LockSource::Repo, repo_path, None),
+        (repo_lock, Some(user_lock), _) => {
+            let other = repo_lock.map(|lock| (lock, repo_path));
+            (user_lock, LockSource::UserLevel, user_path?, other)
+        }
+        (None, None, _) => return None,
+    };
+    let warning = other.map(|(_, other_path)| {
+        let (used, hint) = match source {
+            LockSource::UserLevel => (
+                "the user-level lock, the one 'skills sync' writes",
+                "--project reads the repository lock",
+            ),
+            LockSource::Repo => (
+                "the repository lock, as --project asked",
+                "omit --project to read the user-level lock",
+            ),
+        };
+        format!(
+            "Two lockfiles exist: {} and {}. Using {used}; {hint}. Remove the stale one to \
+             silence this.",
+            path.display(),
+            other_path.display()
+        )
+    });
+    Some(LockRead {
+        lock,
+        source,
+        path,
+        warning,
+    })
+}
+
+/// [`read_lock_in`] for the default scope, without the warning.
 pub fn read_lock(repo: &Path) -> Option<(LockFile, LockSource)> {
-    if let Some(lock) = load_lockfile(repo) {
-        return Some((lock, LockSource::Repo));
-    }
-    let lock = load_lockfile(&registry::conduit_dir()?)?;
-    Some((lock, LockSource::UserLevel))
+    read_lock_in(repo, true).map(|read| (read.lock, read.source))
 }
 
 /// The root a lock's output files were written under.

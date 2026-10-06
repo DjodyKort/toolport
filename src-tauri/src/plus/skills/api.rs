@@ -6,8 +6,8 @@
 use super::client_scope::{default_clients, ClientSource};
 use super::lint::{lint_outputs, lint_skills, LintResult};
 use super::ops::{
-    check_outputs, diff_skills, find_skills_repo, has_drift, lock_dir, lock_output_root, read_lock,
-    skills_status as output_rows,
+    check_outputs, diff_skills, find_skills_repo, has_drift, lock_dir, lock_output_root,
+    read_lock_in, skills_status as output_rows, LockRead,
 };
 use super::assets::compute_skill_hash;
 use super::lock::{get_entry, load_lockfile, save_lockfile};
@@ -230,13 +230,19 @@ pub fn transpilers() -> Value {
     json!({"transpilers": reg.all().map(|t| t.client_key().to_string()).collect::<Vec<_>>()})
 }
 
+fn lock_warnings(read: Option<&LockRead>) -> Vec<&str> {
+    read.and_then(|r| r.warning.as_deref()).into_iter().collect()
+}
+
 pub fn diff(args: &Args) -> Result<Value, OpError> {
     let repo = resolve_repo(args.repo.as_deref())?;
-    let lock = read_lock(&repo).map(|(lock, _)| lock);
+    let read = read_lock_in(&repo, args.global);
     let skills = discover_skills(&repo);
-    let report = diff_skills(&skills, lock.as_ref()).map_err(backend)?;
+    let report = diff_skills(&skills, read.as_ref().map(|r| &r.lock)).map_err(backend)?;
     Ok(json!({
         "repo": repo.to_string_lossy(),
+        "lockfile": read.as_ref().map(|r| r.path.to_string_lossy()),
+        "warnings": lock_warnings(read.as_ref()),
         "noLockfile": report.no_lockfile,
         "clean": report.is_clean(),
         "new": report.new,
@@ -248,8 +254,8 @@ pub fn diff(args: &Args) -> Result<Value, OpError> {
 
 pub fn status(args: &Args) -> Result<Value, OpError> {
     let repo = resolve_repo(args.repo.as_deref())?;
-    let found = read_lock(&repo);
-    let lock = found.as_ref().map(|(lock, _)| lock);
+    let read = read_lock_in(&repo, args.global);
+    let lock = read.as_ref().map(|r| &r.lock);
     let skills = discover_skills(&repo);
     let mut entries = Vec::new();
     for skill in &skills {
@@ -279,16 +285,18 @@ pub fn status(args: &Args) -> Result<Value, OpError> {
     let mut outputs = Vec::new();
     let mut rejected = Vec::new();
     let mut output_root = Value::Null;
-    if let Some((lock, source)) = &found {
-        let root = lock_output_root(*source, &repo).map_err(OpError::not_found)?;
-        outputs = output_rows(lock, &transpilers, &root);
+    if let Some(read) = &read {
+        let root = lock_output_root(read.source, &repo).map_err(OpError::not_found)?;
+        outputs = output_rows(&read.lock, &transpilers, &root);
         outputs.retain(|row| targeted.contains(&row.client));
-        rejected = check_outputs(lock, &transpilers, &root).rejected;
+        rejected = check_outputs(&read.lock, &transpilers, &root).rejected;
         rejected.retain(|row| targeted.contains(&row.client));
         output_root = json!(root.to_string_lossy());
     }
     Ok(json!({
         "repo": repo.to_string_lossy(),
+        "lockfile": read.as_ref().map(|r| r.path.to_string_lossy()),
+        "warnings": lock_warnings(read.as_ref()),
         "lockfilePresent": lock.is_some(),
         "lockfileSyncedAt": lock.map(|l| l.synced_at.clone()),
         "lockedCount": lock.map_or(0, |l| l.skills.len() + l.rules.len()),
