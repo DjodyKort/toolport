@@ -33,6 +33,7 @@ pub(crate) mod fswalk;
 pub(crate) mod hashing;
 pub(crate) mod health;
 pub(crate) mod jsonfs;
+pub(crate) mod keychain_trust;
 pub(crate) mod op;
 pub(crate) mod plan;
 pub(crate) mod redact;
