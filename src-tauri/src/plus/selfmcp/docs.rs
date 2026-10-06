@@ -79,8 +79,8 @@ Read `mcpm://architecture` first for the model behind these recipes.
 1. `servers_check_updates` for one name or all.
 2. `servers_git_status` to see whether the checkout is dirty.
 3. `servers_apply_update` (tier 3). It also runs the server's stored `post_update` command, which
-   is why it needs `confirm=true`. For a fork, `servers_fork_sync` replays your commits onto its
-   upstream on a new branch and pushes nothing.
+   is why it needs `confirm=true`. For a fork, `servers_fork_sync` brings the tracked branch up to
+   date with its upstream in a temporary worktree, and pushes only with `push=true`.
 
 ## Publish skills
 

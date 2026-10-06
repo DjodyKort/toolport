@@ -86,10 +86,20 @@ export type ServersDetectSourceResult = Infer<typeof serversDetectSourceResult>;
 
 export const serversForkSyncResult = obj({
   branch: str,
+  head: str,
   mode: str,
   picked: opt(num),
-  previousBranch: str,
+  push: opt(
+    obj({
+      error: opt(str),
+      pushed: bool,
+      remote: str,
+    }),
+  ),
+  staleBranches: arr(str),
   synced: bool,
+  upToDate: opt(bool),
+  upstream: str,
 });
 export type ServersForkSyncResult = Infer<typeof serversForkSyncResult>;
 

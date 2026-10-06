@@ -15,7 +15,7 @@ import { Code, Field, Problems, SELECT_CLASS } from "./atoms";
 import {
   MODE_NOTE,
   MODES,
-  forkSyncDefaults,
+  forkSyncDefaultsFor,
   forkSyncProblems,
   profileMatch,
   setSourceDefaults,
@@ -161,17 +161,21 @@ export function ModeDialog({
 export function ForkSyncDialog({
   server,
   git,
+  source,
   hasPostUpdate,
   onOpenChange,
   onContinue,
 }: {
   server: string;
   git: GitState;
+  source?: SourceInfo;
   hasPostUpdate: boolean;
   onOpenChange: (open: boolean) => void;
   onContinue: (options: ForkSyncOptions) => void;
 }) {
-  const [options, setOptions] = useState<ForkSyncOptions>(forkSyncDefaults);
+  const [options, setOptions] = useState<ForkSyncOptions>(() =>
+    forkSyncDefaultsFor(source),
+  );
   const [shown, setShown] = useState(false);
   const problems = forkSyncProblems(options);
   const set = (change: Partial<ForkSyncOptions>) =>
@@ -182,8 +186,8 @@ export function ForkSyncDialog({
         <DialogHeader>
           <DialogTitle>Sync {server} with its upstream</DialogTitle>
           <DialogDescription>
-            Fetches the upstream and puts your work on a new branch. Next you see the
-            plan; nothing is touched until you confirm.
+            Fetches the upstream and brings your tracked branch up to date in a temporary
+            worktree. Next you see the plan; nothing is touched until you confirm.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -218,7 +222,7 @@ export function ForkSyncDialog({
           </div>
           <Field
             label="How"
-            hint="Rebase keeps every commit; onto-author keeps one author's."
+            hint="Rebase and merge keep every commit; onto-author keeps one author's."
           >
             {(id, describedBy) => (
               <select
@@ -231,6 +235,7 @@ export function ForkSyncDialog({
                 }
               >
                 <option value="rebase">Rebase</option>
+                <option value="merge">Merge</option>
                 <option value="onto-author">
                   Onto the upstream, one author's commits
                 </option>
@@ -250,20 +255,15 @@ export function ForkSyncDialog({
               )}
             </Field>
           )}
-          <Field
-            label="New branch"
-            hint={`Left empty it is called ${git.branch ?? "the current branch"}-synced-<date>.`}
-          >
-            {(id, describedBy) => (
-              <Input
-                id={id}
-                aria-describedby={describedBy}
-                value={options.targetBranch}
-                spellCheck={false}
-                onChange={(event) => set({ targetBranch: event.target.value })}
-              />
-            )}
-          </Field>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={options.push}
+              onChange={(event) => set({ push: event.target.checked })}
+            />
+            <span>Push {git.branch ?? "the branch"} to the fork remote afterwards</span>
+          </label>
           {hasPostUpdate && (
             <label className="flex items-start gap-2 text-sm">
               <input

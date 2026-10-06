@@ -4,7 +4,7 @@
 //! `setup` calls build the state a tool acts on and record no golden.
 
 use crate::ctl_fixtures::{
-    bundle_drift_home, bundle_home, fork_back_to_main, fork_world, fork_world_upstream_fetched,
+    bundle_drift_home, bundle_home, fork_world, fork_world_upstream_fetched,
     git_world, health_proxy, layers_deployed_home, measure_home, skills_repo_remote_world,
     sync_setup, tasks_home,
 };
@@ -1060,13 +1060,17 @@ pub const ALL: &[Case] = &[
             write(
                 "rebase",
                 "servers_fork_sync",
-                r#"{"name":"forked","target_branch":"main-synced","confirm":true}"#,
+                r#"{"name":"forked","confirm":true}"#,
             ),
-            hook(fork_back_to_main),
             write(
                 "onto_author",
                 "servers_fork_sync",
-                r#"{"name":"forked","mode":"onto-author","author_email":"fixture@example.invalid","target_branch":"main-picked","confirm":true}"#,
+                r#"{"name":"forked","mode":"onto-author","author_email":"fixture@example.invalid","confirm":true}"#,
+            ),
+            write(
+                "push",
+                "servers_fork_sync",
+                r#"{"name":"forked","mode":"merge","push":true,"confirm":true}"#,
             ),
         ],
     ),

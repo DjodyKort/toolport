@@ -1,15 +1,16 @@
 {
   "arguments": {
     "confirm": true,
-    "name": "forked",
-    "target_branch": "main-synced"
+    "name": "forked"
   },
   "isError": false,
   "result": {
-    "branch": "main-synced",
+    "branch": "main",
+    "head": "<masked>",
     "mode": "rebase",
-    "previousBranch": "main",
-    "synced": true
+    "staleBranches": [],
+    "synced": true,
+    "upstream": "upstream/main"
   },
   "tool": "servers_fork_sync"
 }

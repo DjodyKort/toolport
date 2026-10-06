@@ -4,17 +4,19 @@
     "call",
     "servers_fork_sync",
     "--args",
-    "{\"name\":\"forked\",\"target_branch\":\"main-synced\",\"confirm\":true}"
+    "{\"name\":\"forked\",\"confirm\":true}"
   ],
   "envelope": {
     "command": "mcp",
     "data": {
       "isError": false,
       "result": {
-        "branch": "main-synced",
+        "branch": "main",
+        "head": "<masked>",
         "mode": "rebase",
-        "previousBranch": "main",
-        "synced": true
+        "staleBranches": [],
+        "synced": true,
+        "upstream": "upstream/main"
       },
       "tier": 3,
       "tool": "servers_fork_sync"

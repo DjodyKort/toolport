@@ -12,7 +12,7 @@ use crate::plus::update::{execute, gitops, Mode, Options};
 use crate::registry::{Registry, ServerEntry};
 use crate::registry_controller::{self, ServerFields};
 use serde_json::{json, Value};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 type Outcome = Result<Value, ToolError>;
@@ -540,62 +540,219 @@ pub(super) fn skills_git_push(args: &Value) -> Outcome {
     }
 }
 
-fn conflict_report(repo: &Path, branch: &str, resume: &str) -> Value {
-    let paths: Vec<String> = git(repo, &["diff", "--name-only", "--diff-filter=U"])
+fn conflict_report(worktree: &Path, branch: &str, failed: &CmdOutput, resume: &str) -> Value {
+    let paths: Vec<String> = git(worktree, &["diff", "--name-only", "--diff-filter=U"])
         .map(|o| o.stdout.lines().map(String::from).collect())
         .unwrap_or_default();
-    json!({
+    let mut report = json!({
         "synced": false,
         "conflict": true,
         "branch": branch,
         "conflictedPaths": paths,
-        "next": format!("resolve the conflicts, git add the files, then run {resume}"),
-    })
+        "worktree": worktree.to_string_lossy(),
+        "next": format!(
+            "{branch} and the live checkout are unchanged; resolve the conflicts in the worktree, git add the files, run {resume} there, or drop it with git worktree remove --force"
+        ),
+    });
+    if report["conflictedPaths"] == json!([]) {
+        report["error"] = json!(failed.first_error_line());
+    }
+    report
 }
 
-fn fork_rebase(repo: &Path, target: &str, upstream: &str) -> Outcome {
-    git_ok(repo, &["checkout", "-b", target])?;
-    Ok(if git(repo, &["rebase", upstream])?.ok() {
-        json!({"synced": true, "branch": target, "mode": "rebase"})
+enum Replayed {
+    Clean(Option<usize>),
+    Stopped(Value),
+}
+
+fn replay_rebase(worktree: &Path, branch: &str, upstream: &str) -> Result<Replayed, ToolError> {
+    let out = git(worktree, &["rebase", upstream])?;
+    Ok(if out.ok() {
+        Replayed::Clean(None)
     } else {
-        conflict_report(repo, target, "git rebase --continue")
+        Replayed::Stopped(conflict_report(worktree, branch, &out, "git rebase --continue"))
     })
 }
 
-fn fork_onto_author(repo: &Path, target: &str, upstream: &str, email: &str) -> Outcome {
-    let base = git_ok(repo, &["merge-base", "HEAD", upstream])?
+fn replay_merge(worktree: &Path, branch: &str, upstream: &str) -> Result<Replayed, ToolError> {
+    let out = git(worktree, &["merge", "--no-edit", upstream])?;
+    Ok(if out.ok() {
+        Replayed::Clean(None)
+    } else {
+        Replayed::Stopped(conflict_report(worktree, branch, &out, "git commit"))
+    })
+}
+
+fn author_commits(repo: &Path, tip: &str, upstream: &str, email: &str) -> Result<Vec<String>, ToolError> {
+    let base = git_ok(repo, &["merge-base", tip, upstream])?
         .trim()
         .to_string();
-    let range = format!("{base}..HEAD");
+    let range = format!("{base}..{tip}");
     let author = format!("--author={email}");
-    let commits: Vec<String> = git_ok(
+    Ok(git_ok(
         repo,
-        &[
-            "log",
-            "--reverse",
-            "--no-merges",
-            "--format=%H",
-            &author,
-            &range,
-        ],
+        &["log", "--reverse", "--no-merges", "--format=%H", &author, &range],
     )?
     .lines()
     .map(String::from)
-    .collect();
-    git_ok(repo, &["checkout", "-b", target, upstream])?;
-    for sha in &commits {
-        if !git(repo, &["cherry-pick", sha])?.ok() {
-            return Ok(conflict_report(repo, target, "git cherry-pick --continue"));
+    .collect())
+}
+
+fn replay_onto_author(worktree: &Path, branch: &str, commits: &[String]) -> Result<Replayed, ToolError> {
+    for sha in commits {
+        let out = git(worktree, &["cherry-pick", sha])?;
+        if !out.ok() {
+            return Ok(Replayed::Stopped(conflict_report(
+                worktree,
+                branch,
+                &out,
+                "git cherry-pick --continue",
+            )));
         }
     }
-    Ok(json!({"synced": true, "branch": target, "mode": "onto-author", "picked": commits.len()}))
+    Ok(Replayed::Clean(Some(commits.len())))
+}
+
+fn sync_worktree_dir(repo: &Path, branch: &str) -> Result<PathBuf, ToolError> {
+    let common = gitops::common_dir(&SystemGit, repo)
+        .ok_or_else(|| ToolError::backend("cannot locate the git directory"))?;
+    let slug: String = branch
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '_' { c } else { '-' })
+        .collect();
+    let stamp: String = crate::plus::update::now_iso()
+        .chars()
+        .filter(char::is_ascii_digit)
+        .collect();
+    let dir = common.join("toolport-sync").join(format!("{slug}-{stamp}"));
+    std::fs::create_dir_all(dir.parent().unwrap_or(&common))
+        .map_err(|e| ToolError::backend(format!("cannot create the sync worktree folder: {e}")))?;
+    Ok(dir)
+}
+
+fn advance_branch(repo: &Path, branch: &str, old: &str, new: &str, checked_out: bool) -> Result<(), ToolError> {
+    if checked_out {
+        if gitops::head_sha(&SystemGit, repo).as_deref() != Some(old) {
+            return Err(ToolError::new(
+                "conflict",
+                format!("{branch} moved while the sync ran; nothing was changed"),
+            ));
+        }
+        git_ok(repo, &["reset", "--keep", new])?;
+    } else {
+        git_ok(
+            repo,
+            &[
+                "update-ref",
+                "-m",
+                "toolport: fork sync",
+                &format!("refs/heads/{branch}"),
+                new,
+                old,
+            ],
+        )?;
+    }
+    Ok(())
+}
+
+fn push_tracked(repo: &Path, remote: &str, branch: &str, rewritten: bool) -> Value {
+    let refspec = format!("refs/heads/{branch}:refs/heads/{branch}");
+    let mut cmd = vec!["push"];
+    if rewritten {
+        cmd.push("--force-with-lease");
+    }
+    cmd.extend([remote, refspec.as_str()]);
+    match SystemGit.git(repo, &cmd, GIT_TIMEOUT) {
+        Ok(out) if out.ok() => json!({"pushed": true, "remote": remote}),
+        Ok(out) => {
+            let error = out
+                .stderr
+                .lines()
+                .rev()
+                .find(|l| l.contains("rejected") || l.starts_with("error:") || l.starts_with("fatal:"))
+                .map_or_else(|| out.first_error_line(), |l| l.trim().to_string());
+            json!({"pushed": false, "remote": remote, "error": error})
+        }
+        Err(error) => json!({"pushed": false, "remote": remote, "error": error}),
+    }
+}
+
+struct SyncPlan<'a> {
+    repo: &'a Path,
+    branch: &'a str,
+    old: &'a str,
+    upstream: &'a str,
+    mode: &'a str,
+    commits: Vec<String>,
+    checked_out: bool,
+    post_update: Option<&'a str>,
+}
+
+fn sync_in_worktree(plan: &SyncPlan) -> Outcome {
+    let SyncPlan {
+        repo,
+        branch,
+        old,
+        upstream,
+        mode,
+        ..
+    } = *plan;
+    let dir = sync_worktree_dir(repo, branch)?;
+    let start = if mode == "onto-author" { upstream } else { old };
+    gitops::worktree_add_detached(&SystemGit, repo, &dir, start).map_err(ToolError::backend)?;
+    let replayed = match mode {
+        "rebase" => replay_rebase(&dir, branch, upstream)?,
+        "merge" => replay_merge(&dir, branch, upstream)?,
+        _ => replay_onto_author(&dir, branch, &plan.commits)?,
+    };
+    let picked = match replayed {
+        Replayed::Stopped(report) => return Ok(report),
+        Replayed::Clean(picked) => picked,
+    };
+    let mut post = None;
+    if let Some(cmd) = plan.post_update {
+        let ran = run_post_update(&dir, cmd)?;
+        if ran["ok"] != true {
+            return Ok(json!({
+                "synced": false,
+                "conflict": false,
+                "branch": branch,
+                "postUpdate": ran,
+                "worktree": dir.to_string_lossy(),
+                "next": format!(
+                    "the update command failed in the worktree; {branch} and the live checkout are unchanged; fix it there, or drop it with git worktree remove --force"
+                ),
+            }));
+        }
+        post = Some(ran);
+    }
+    let new = gitops::head_sha(&SystemGit, &dir)
+        .ok_or_else(|| ToolError::backend("cannot read the synced head"))?;
+    advance_branch(repo, branch, old, &new, plan.checked_out)?;
+    let mut done = json!({"synced": true, "branch": branch, "mode": mode, "head": new});
+    if let Some(picked) = picked {
+        done["picked"] = json!(picked);
+    }
+    if let Some(post) = post {
+        done["postUpdate"] = post;
+    }
+    if let Err(error) = gitops::worktree_remove(&SystemGit, repo, &dir) {
+        done["worktree"] = json!(dir.to_string_lossy());
+        done["warning"] = json!(error);
+    }
+    Ok(done)
 }
 
 pub(super) fn fork_sync(args: &Value) -> Outcome {
     let server = load(args)?;
     let (src, _) = source::effective(&server, crate::clients::home().as_deref(), &SystemGit);
     let Source::Git {
-        path, post_update, ..
+        path,
+        remote: fork_remote,
+        branch: stored_branch,
+        upstream: stored_upstream,
+        post_update,
+        ..
     } = src
     else {
         return Err(ToolError::new(
@@ -610,61 +767,103 @@ pub(super) fn fork_sync(args: &Value) -> Outcome {
             "source path is not a git repository",
         ));
     }
-    let (remote, branch, mode) = fork_options(args)?;
-    if !git_ok(&repo, &["status", "--porcelain"])?.trim().is_empty() {
+    let mode = fork_mode(args)?;
+    let email = str_arg(args, "author_email").unwrap_or_default();
+    if mode == "onto-author" && email.is_empty() {
+        return Err(ToolError::new(
+            "invalid_arguments",
+            "author_email is required for onto-author",
+        ));
+    }
+    let remote = str_arg(args, "upstream_remote")
+        .map(String::from)
+        .or_else(|| stored_upstream.as_ref().map(|u| u.remote.clone()))
+        .unwrap_or_else(|| "upstream".to_string());
+    if !safe_token(&remote) {
+        return Err(ToolError::new("invalid_arguments", "invalid remote"));
+    }
+    if !gitops::list_remotes(&SystemGit, &repo).contains(&remote) {
+        return Err(ToolError::new(
+            "not_found",
+            format!("remote {remote} is not configured in the checkout"),
+        ));
+    }
+    let current = gitops::current_branch(&SystemGit, &repo);
+    let tracked = Some(stored_branch)
+        .filter(|b| !b.is_empty())
+        .or_else(|| current.clone())
+        .ok_or_else(|| ToolError::new("invalid_input", "the server tracks no branch"))?;
+    if !safe_token(&tracked) {
+        return Err(ToolError::new("invalid_arguments", "invalid tracked branch"));
+    }
+    let old = gitops::rev_parse(&SystemGit, &repo, &format!("refs/heads/{tracked}"))
+        .ok_or_else(|| ToolError::new("not_found", format!("branch {tracked} does not exist")))?;
+    let checked_out = current.as_deref() == Some(tracked.as_str());
+    if checked_out && !git_ok(&repo, &["status", "--porcelain"])?.trim().is_empty() {
         return Err(ToolError::new(
             "conflict",
             "working tree has uncommitted changes",
         ));
     }
-    let current = git_ok(&repo, &["branch", "--show-current"])?
-        .trim()
-        .to_string();
-    let upstream = format!("{remote}/{branch}");
-    git_ok(&repo, &["fetch", "--quiet", remote])?;
-    let date = crate::plus::update::now_iso()[..10].replace('-', "");
-    let target = str_arg(args, "target_branch")
-        .filter(|t| safe_token(t))
+    git_ok(&repo, &["fetch", "--quiet", &remote])?;
+    let branch = str_arg(args, "upstream_branch")
         .map(String::from)
-        .unwrap_or_else(|| format!("{current}-synced-{date}"));
-    let mut result = if mode == "rebase" {
-        fork_rebase(&repo, &target, &upstream)?
-    } else {
-        let email = str_arg(args, "author_email").unwrap_or_default();
-        if email.is_empty() {
-            return Err(ToolError::new(
-                "invalid_arguments",
-                "author_email is required for onto-author",
-            ));
-        }
-        fork_onto_author(&repo, &target, &upstream, email)?
-    };
-    result["previousBranch"] = json!(current);
-    if result["synced"] == true && flag(args, "run_post_update") {
-        if let Some(cmd) = post_update {
-            result["postUpdate"] = run_post_update(&repo, &cmd)?;
-        }
+        .or_else(|| {
+            stored_upstream
+                .as_ref()
+                .filter(|u| u.remote == remote)
+                .map(|u| u.branch.clone())
+        })
+        .or_else(|| gitops::remote_default_branch(&SystemGit, &repo, &remote))
+        .unwrap_or_else(|| "main".to_string());
+    if !safe_token(&branch) {
+        return Err(ToolError::new("invalid_arguments", "invalid upstream branch"));
     }
+    let upstream = format!("{remote}/{branch}");
+    if gitops::rev_parse(&SystemGit, &repo, &format!("refs/remotes/{upstream}")).is_none() {
+        return Err(ToolError::new(
+            "not_found",
+            format!("{upstream} does not exist after fetching {remote}"),
+        ));
+    }
+    let up_to_date = mode != "onto-author" && gitops::is_ancestor(&SystemGit, &repo, &upstream, &old);
+    let mut result = if up_to_date {
+        json!({"synced": true, "branch": tracked, "mode": mode, "head": old, "upToDate": true})
+    } else {
+        let commits = if mode == "onto-author" {
+            author_commits(&repo, &old, &upstream, email)?
+        } else {
+            Vec::new()
+        };
+        sync_in_worktree(&SyncPlan {
+            repo: &repo,
+            branch: &tracked,
+            old: &old,
+            upstream: &upstream,
+            mode,
+            commits,
+            checked_out,
+            post_update: post_update.as_deref().filter(|_| flag(args, "run_post_update")),
+        })?
+    };
+    result["upstream"] = json!(upstream);
+    if result["synced"] == true && flag(args, "push") {
+        let fork_remote = if safe_token(&fork_remote) { fork_remote } else { "origin".into() };
+        result["push"] = push_tracked(&repo, &fork_remote, &tracked, mode != "merge");
+    }
+    result["staleBranches"] = json!(gitops::local_branches_containing(&SystemGit, &repo, "-synced-"));
     Ok(result)
 }
 
-fn fork_options(args: &Value) -> Result<(&str, &str, &str), ToolError> {
-    let remote = str_arg(args, "upstream_remote").unwrap_or("upstream");
-    let branch = str_arg(args, "upstream_branch").unwrap_or("main");
+fn fork_mode(args: &Value) -> Result<&str, ToolError> {
     let mode = str_arg(args, "mode").unwrap_or("rebase");
-    if !safe_token(remote) || !safe_token(branch) {
+    if !["rebase", "merge", "onto-author"].contains(&mode) {
         return Err(ToolError::new(
             "invalid_arguments",
-            "invalid remote or branch",
+            "mode must be rebase, merge or onto-author",
         ));
     }
-    if !["rebase", "onto-author"].contains(&mode) {
-        return Err(ToolError::new(
-            "invalid_arguments",
-            "mode must be rebase or onto-author",
-        ));
-    }
-    Ok((remote, branch, mode))
+    Ok(mode)
 }
 
 fn run_post_update(repo: &Path, cmd: &str) -> Outcome {
@@ -713,6 +912,10 @@ pub(super) fn auth(args: &Value) -> Outcome {
 #[cfg(test)]
 #[path = "../../../tests/fixtures/update_source.rs"]
 mod update_source;
+
+#[cfg(all(test, unix))]
+#[path = "fork_sync_tests.rs"]
+mod fork_sync_tests;
 
 #[cfg(test)]
 mod tests {

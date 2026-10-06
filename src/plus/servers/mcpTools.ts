@@ -302,11 +302,11 @@ export function modeResultPlan(result: Data): PlanV1 {
 // ---- fork sync --------------------------------------------------------------------------
 
 export interface ForkSyncOptions {
-  mode: "rebase" | "onto-author";
+  mode: "rebase" | "merge" | "onto-author";
   upstreamRemote: string;
   upstreamBranch: string;
-  targetBranch: string;
   authorEmail: string;
+  push: boolean;
   runPostUpdate: boolean;
 }
 
@@ -314,10 +314,29 @@ export const forkSyncDefaults: ForkSyncOptions = {
   mode: "rebase",
   upstreamRemote: "upstream",
   upstreamBranch: "main",
-  targetBranch: "",
   authorEmail: "",
+  push: false,
   runPostUpdate: false,
 };
+
+/** The stored upstream when the server has one; otherwise the remote the checkout calls
+ * `upstream` (or the first remote that is not the fork's own) and a branch that remote has. */
+export function forkSyncDefaultsFor(source: SourceInfo | undefined): ForkSyncOptions {
+  if (!source) return forkSyncDefaults;
+  const remote =
+    source.upstream?.remote ??
+    (source.remotes.includes("upstream")
+      ? "upstream"
+      : source.remotes.find((name) => name !== source.remote)) ??
+    forkSyncDefaults.upstreamRemote;
+  const known = source.branches[remote] ?? [];
+  const branch =
+    (source.upstream?.remote === remote ? source.upstream.branch : undefined) ??
+    ["main", "master"].find((name) => known.includes(name)) ??
+    known[0] ??
+    forkSyncDefaults.upstreamBranch;
+  return { ...forkSyncDefaults, upstreamRemote: remote, upstreamBranch: branch };
+}
 
 const REF = /^[^\s-][^\s]*$/;
 
@@ -327,8 +346,6 @@ export function forkSyncProblems(options: ForkSyncOptions): string[] {
     problems.push("Name the upstream remote.");
   if (!REF.test(options.upstreamBranch.trim()))
     problems.push("Name the upstream branch.");
-  if (options.targetBranch.trim() && !REF.test(options.targetBranch.trim()))
-    problems.push("The new branch name cannot contain spaces or start with a dash.");
   if (options.mode === "onto-author" && !options.authorEmail.trim())
     problems.push("Give the author email whose commits are kept.");
   return problems;
@@ -345,8 +362,8 @@ export function forkSyncArgs(
     mode: options.mode,
     confirm: true,
   };
-  if (options.targetBranch.trim()) args.target_branch = options.targetBranch.trim();
   if (options.mode === "onto-author") args.author_email = options.authorEmail.trim();
+  if (options.push) args.push = true;
   if (options.runPostUpdate) args.run_post_update = true;
   return args;
 }
@@ -357,22 +374,23 @@ export function forkSyncPlan(
   options: ForkSyncOptions,
 ): PlanV1 {
   const upstream = `${options.upstreamRemote.trim()}/${options.upstreamBranch.trim()}`;
-  const target =
-    options.targetBranch.trim() || `${git.branch ?? "the current branch"}-synced-<date>`;
+  const branch = git.branch ?? "the tracked branch";
   const steps: PlanStep[] = [
     { op: "note", path: git.path, detail: `Fetch ${options.upstreamRemote.trim()}` },
     {
       op: "create",
       path: git.path,
-      detail: `Create the branch ${target} and switch the checkout to it`,
+      detail: `Open a temporary worktree of ${branch}; no branch is created and the checkout is not switched`,
     },
     {
       op: "update",
       path: git.path,
       detail:
         options.mode === "rebase"
-          ? `Rebase ${target} onto ${upstream}`
-          : `Start ${target} at ${upstream} and replay the commits of ${options.authorEmail.trim()}`,
+          ? `Rebase ${branch} onto ${upstream} there`
+          : options.mode === "merge"
+            ? `Merge ${upstream} into ${branch} there`
+            : `Start at ${upstream} there and replay the commits of ${options.authorEmail.trim()}`,
     },
   ];
   for (const line of git.summaries.slice(0, 5)) {
@@ -382,7 +400,19 @@ export function forkSyncPlan(
     steps.push({
       op: "exec",
       path: git.path,
-      detail: "Runs the stored update command (post_update) when the sync worked",
+      detail: "Runs the stored update command (post_update) in the worktree",
+    });
+  }
+  steps.push({
+    op: "update",
+    path: git.path,
+    detail: `Move ${branch} to the result once it applies cleanly, then remove the worktree`,
+  });
+  if (options.push) {
+    steps.push({
+      op: "exec",
+      path: git.path,
+      detail: `Push ${branch} to the fork remote${options.mode === "merge" ? "" : " (force-with-lease, the history was rewritten)"}`,
     });
   }
   return {
@@ -390,18 +420,26 @@ export function forkSyncPlan(
     steps,
     effects: {},
     warnings: [
-      "A conflict stops the sync half way; the checkout stays on the new branch for you to resolve.",
+      "A conflict stops the sync and keeps the worktree; the live checkout and the branch stay as they are.",
     ],
-    undo: git.branch ? `Switch the checkout back to ${git.branch}` : "",
+    undo: git.branch ? `git branch -f ${git.branch} <old tip> (kept in the reflog)` : "",
   };
 }
 
 export function forkSyncResultPlan(result: Data, name: string): PlanV1 {
-  const branch = text(result.branch) ?? "the new branch";
+  const branch = text(result.branch) ?? "the tracked branch";
+  const stale = strings(result.staleBranches).map<PlanStep>((stray) => ({
+    op: "note",
+    path: stray,
+    detail: "Old sync branch; delete it yourself when you no longer need it",
+  }));
   if (result.synced !== true) {
     const paths = strings(result.conflictedPaths);
     return {
-      summary: `The sync of ${name} stopped on a conflict`,
+      summary:
+        result.conflict === true
+          ? `The sync of ${name} stopped on a conflict`
+          : `The sync of ${name} stopped: the update command failed`,
       steps: [
         ...paths.map<PlanStep>((path) => ({
           op: "note",
@@ -410,33 +448,44 @@ export function forkSyncResultPlan(result: Data, name: string): PlanV1 {
         })),
         {
           op: "note",
-          detail: text(result.next) ?? "Resolve the conflicts in the checkout.",
+          path: text(result.worktree),
+          detail: text(result.next) ?? "Resolve the conflicts in the worktree.",
         },
+        ...stale,
       ],
       effects: {},
-      warnings: [`The checkout is on ${branch} with the sync unfinished.`],
+      warnings: [`${branch} and the live checkout were not changed.`],
       undo: "",
     };
   }
   const picked = count(result.picked);
+  const push = record(result.push);
+  const upstream = text(result.upstream) ?? "its upstream";
   return {
-    summary: `${name} synced on ${branch}`,
+    summary:
+      result.upToDate === true
+        ? `${name} is already up to date with ${upstream}`
+        : `${name} synced: ${branch} now follows ${upstream}`,
     steps: [
       {
         op: "note",
         detail: `Mode ${text(result.mode) ?? "rebase"}${picked !== undefined ? `, ${plural(picked, "commit")} kept` : ""}`,
       },
-      ...(text(result.previousBranch)
+      ...(push
         ? [
             {
               op: "note" as const,
-              detail: `Before the sync the checkout was on ${text(result.previousBranch)}`,
+              detail:
+                push.pushed === true
+                  ? `Pushed ${branch} to ${text(push.remote) ?? "the fork remote"}`
+                  : `Push to ${text(push.remote) ?? "the fork remote"} failed: ${text(push.error) ?? "unknown error"}`,
             },
           ]
         : []),
+      ...stale,
     ],
     effects: {},
-    warnings: [],
+    warnings: push && push.pushed !== true ? ["The branch is updated locally only."] : [],
     undo: "",
   };
 }

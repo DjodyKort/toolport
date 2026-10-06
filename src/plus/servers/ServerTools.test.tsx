@@ -332,15 +332,13 @@ describe("servers.fork-sync: syncing a checkout with its upstream", () => {
       name: "Sync docs-search with its upstream?",
     });
     expect(
-      within(confirm).getByText(
-        /Rebase main-synced-<date> onto upstream\/main|Rebase main-synced/,
-      ),
+      within(confirm).getByText("Rebase main onto upstream/main there"),
     ).toBeInTheDocument();
     expect(
       within(confirm).getByText("Upstream: 6a4a877 upstream change"),
     ).toBeInTheDocument();
     expect(
-      within(confirm).getByText(/A conflict stops the sync half way/),
+      within(confirm).getByText(/A conflict stops the sync and keeps the worktree/),
     ).toBeInTheDocument();
     expect(callsOf("servers_fork_sync")).toEqual([]);
 
@@ -349,7 +347,7 @@ describe("servers.fork-sync: syncing a checkout with its upstream", () => {
       name: "Sync docs-search with its upstream",
     });
     expect(
-      await within(done).findByText("docs-search synced on main-synced-20261005"),
+      await within(done).findByText("docs-search synced: main now follows upstream/main"),
     ).toBeInTheDocument();
     expect(callsOf("servers_fork_sync")).toEqual([
       {
@@ -367,7 +365,7 @@ describe("servers.fork-sync: syncing a checkout with its upstream", () => {
     const after = (await openServer(user, "docs-search")).tools;
     await user.click(after.getByRole("button", { name: "Where did this come from?" }));
     expect(await after.findByText("0 behind")).toBeInTheDocument();
-    expect(after.getByText("main-synced-20261005")).toBeInTheDocument();
+    expect(after.queryByText(/-synced-/)).toBeNull();
     expect(tools).toBeTruthy();
   });
 
@@ -380,7 +378,9 @@ describe("servers.fork-sync: syncing a checkout with its upstream", () => {
     expect(callsOf("servers_fork_sync")).toEqual([]);
 
     await user.type(within(form).getByLabelText("Author email"), "me@example.test");
-    await user.type(within(form).getByLabelText("New branch"), "main-synced");
+    await user.click(
+      within(form).getByRole("checkbox", { name: /to the fork remote afterwards/ }),
+    );
     await user.click(within(form).getByRole("button", { name: "Review" }));
     const confirm = await screen.findByRole("dialog", {
       name: "Sync docs-search with its upstream?",
@@ -393,7 +393,7 @@ describe("servers.fork-sync: syncing a checkout with its upstream", () => {
       upstream_branch: "main",
       mode: "onto-author",
       author_email: "me@example.test",
-      target_branch: "main-synced",
+      push: true,
       confirm: true,
     });
   });
@@ -401,7 +401,9 @@ describe("servers.fork-sync: syncing a checkout with its upstream", () => {
   it("offers to run the stored update command only when the server has one", async () => {
     const { user } = renderScreen();
     const { tools, form } = await toSyncDialog(user);
-    expect(within(form).queryByRole("checkbox")).toBeNull();
+    expect(
+      within(form).queryByRole("checkbox", { name: /stored update command/ }),
+    ).toBeNull();
     await user.keyboard("{Escape}");
     await user.click(tools.getByRole("button", { name: "Check for updates" }));
     await tools.findByText("Update available");
@@ -418,7 +420,7 @@ describe("servers.fork-sync: syncing a checkout with its upstream", () => {
     });
     expect(
       within(confirm).getByText(
-        /Runs the stored update command \(post_update\) when the sync worked/,
+        /Runs the stored update command \(post_update\) in the worktree/,
       ),
     ).toBeInTheDocument();
     await user.click(within(confirm).getByRole("button", { name: "Sync" }));

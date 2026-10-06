@@ -328,26 +328,25 @@ export function createToolsWorld(seed: WorldServer[] = WORLD_SERVERS) {
           );
         if (server.git.dirty)
           return new CtlReplyFailure("conflict", "working tree has uncommitted changes");
-        const previous = server.git.branch;
-        const target = String(args.target_branch ?? `${previous}-synced-20261005`);
+        const branch = server.git.branch;
         if (state.conflictNext) {
           state.conflictNext = false;
-          server.git.branch = target;
           return body(tool, forkGolden, {
             synced: false,
             conflict: true,
-            branch: target,
+            branch,
             conflictedPaths: ["src/index.ts"],
-            next: "resolve the conflicts, git add the files, then run git rebase --continue",
+            worktree: "/home/demo/docs-search/.git/toolport-sync/main-20261005",
+            next: `${branch} and the live checkout are unchanged; resolve the conflicts in the worktree, git add the files, run git rebase --continue there, or drop it with git worktree remove --force`,
           });
         }
-        server.git.branch = target;
         server.git.behind = 0;
         return body(tool, forkGolden, {
           ...resultOf(forkGolden),
-          branch: target,
+          branch,
           mode: String(args.mode ?? "rebase"),
-          previousBranch: previous,
+          upstream: `${String(args.upstream_remote ?? "upstream")}/${String(args.upstream_branch ?? "main")}`,
+          ...(args.push === true ? { push: { pushed: true, remote: "origin" } } : {}),
         });
       }
       default:
