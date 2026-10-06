@@ -1,10 +1,5 @@
 {
-  "argv": [
-    "attention",
-    "dismiss",
-    "tasks:portal-token:waiting",
-    "--dry-run"
-  ],
+  "argv": ["attention", "dismiss", "tasks:portal-token:waiting", "--dry-run"],
   "envelope": {
     "command": "attention dismiss",
     "data": {
@@ -15,9 +10,7 @@
         "steps": [
           {
             "detail": "write the entry in <WORLD>/data/plus/attention.json",
-            "keys": [
-              "dismissed"
-            ],
+            "keys": ["dismissed"],
             "op": "merge",
             "path": "<WORLD>/data/plus/attention.json"
           }

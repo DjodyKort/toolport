@@ -1,12 +1,5 @@
 {
-  "argv": [
-    "attention",
-    "dismiss",
-    "later:feed",
-    "--until",
-    "2099-12-31",
-    "--dry-run"
-  ],
+  "argv": ["attention", "dismiss", "later:feed", "--until", "2099-12-31", "--dry-run"],
   "envelope": {
     "command": "attention dismiss",
     "data": {
@@ -17,9 +10,7 @@
         "steps": [
           {
             "detail": "write the entry in <WORLD>/data/plus/attention.json",
-            "keys": [
-              "dismissed"
-            ],
+            "keys": ["dismissed"],
             "op": "merge",
             "path": "<WORLD>/data/plus/attention.json"
           }
