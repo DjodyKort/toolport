@@ -89,6 +89,7 @@ const composePart = obj({
 
 export const contextComposeData = obj({
   cwd: str,
+  levels: arr(obj({ dir: str, files: arr(str) })),
   notes: arr(str),
   parts: arr(composePart),
   skipped: arr(obj({ path: nullable(str), reason: str })),

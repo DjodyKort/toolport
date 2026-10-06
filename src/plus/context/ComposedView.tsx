@@ -9,6 +9,10 @@ import { Code, QuerySection } from "./parts";
 /** What `context compose` returns for a folder: the instruction files in the order Claude
  * builds them. The text is shown as returned: instruction files hold no secrets by rule, and
  * nothing else of the folder is read. */
+function folderName(dir: string): string {
+  return dir.split(/[\\/]/).filter(Boolean).at(-1) ?? dir;
+}
+
 export function ComposedView({
   cwd,
   title = "Composed instructions",
@@ -49,6 +53,28 @@ function Composed({
             <b className="tabular-nums">{formatTokens(data.total.value)}</b> tokens in
             total, {basisWord(data.total.basis)}.
           </p>
+          {data.levels.length > 0 && (
+            <div className="flex flex-col gap-1 text-xs">
+              <p className="text-muted-foreground">
+                {`Folder levels Claude walks, from ${data.levels[0].dir} down:`}
+              </p>
+              <ol aria-label="Folder levels" className="flex flex-col gap-0.5">
+                {data.levels.map((level, depth) => (
+                  <li
+                    key={level.dir}
+                    title={level.dir}
+                    className="flex flex-wrap items-baseline gap-2"
+                    style={{ paddingLeft: `${depth}rem` }}
+                  >
+                    <span className="font-mono">{folderName(level.dir)}</span>
+                    <span className="text-muted-foreground">
+                      {level.files.length > 0 ? level.files.join(", ") : "nothing here"}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
           <ol
             aria-label="Composed parts"
             className="flex flex-col divide-y rounded-lg border"

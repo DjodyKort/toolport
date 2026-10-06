@@ -4,6 +4,28 @@
     "command": "context compose",
     "data": {
       "cwd": "<WORLD>/home/work/erp/clients/acme-two",
+      "levels": [
+        {
+          "dir": "<WORLD>/home",
+          "files": []
+        },
+        {
+          "dir": "<WORLD>/home/work",
+          "files": []
+        },
+        {
+          "dir": "<WORLD>/home/work/erp",
+          "files": ["CLAUDE.md"]
+        },
+        {
+          "dir": "<WORLD>/home/work/erp/clients",
+          "files": []
+        },
+        {
+          "dir": "<WORLD>/home/work/erp/clients/acme-two",
+          "files": ["CLAUDE.local.md"]
+        }
+      ],
       "notes": [],
       "parts": [
         {
