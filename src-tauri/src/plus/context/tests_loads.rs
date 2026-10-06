@@ -461,3 +461,24 @@ fn a_skill_claude_code_cannot_parse_is_listed_but_not_counted() {
     assert!(broken.reason.starts_with("Claude Code does not list this skill"), "{}", broken.reason);
     assert_eq!(r.tokens_by_kind["skill"], row(&r, "skill", "fine").tokens);
 }
+
+#[test]
+fn the_managed_policy_file_loads_first_and_cannot_be_excluded() {
+    let h = Home::new();
+    let policy = h.put("managed/CLAUDE.md", "# Policy\n");
+    h.put(".claude/CLAUDE.md", "# Org\n");
+    let mut roots = h.roots();
+    roots.managed_claude_md = Some(policy.clone());
+    let cfg = config(json!({}));
+    let r = what_loads(&roots, &cfg, None, &h.0).unwrap();
+    let first = r.items.iter().find(|i| i.kind == "memory").unwrap();
+    assert_eq!(first.path.as_deref(), Some(policy.to_str().unwrap()));
+    assert_eq!((first.source, first.origin.kind), ("policy", "policy"));
+    assert!(first.loaded);
+    h.put(
+        ".claude/settings.json",
+        &json!({"claudeMdExcludes": [policy.to_str().unwrap()]}).to_string(),
+    );
+    let r = what_loads(&roots, &cfg, None, &h.0).unwrap();
+    assert!(r.items.iter().any(|i| i.source == "policy" && i.loaded));
+}

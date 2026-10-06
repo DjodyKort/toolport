@@ -300,7 +300,32 @@ fn managed_origin() -> Origin {
     Origin::new("managed", "toolportctl")
 }
 
+/// The administrator's CLAUDE.md: Claude Code loads it first, and `claudeMdExcludes` cannot
+/// turn it off.
+fn policy_memory(ctx: &mut Ctx) {
+    let Some(path) = ctx.roots.managed_claude_md.clone() else {
+        return;
+    };
+    let Ok(text) = fs::read_to_string(&path) else {
+        return;
+    };
+    let owner = (Origin::new("policy", "Claude Code"), false);
+    ctx.push(
+        LoadItem::new(
+            "memory",
+            "CLAUDE.md",
+            show(&path),
+            "policy",
+            "managed policy",
+            text_tokens(&text),
+        )
+        .from(owner.0.clone(), owner.1),
+    );
+    extra::follow_imports(ctx, &path, &text, &[], "policy", &owner);
+}
+
 fn memory(ctx: &mut Ctx, effective_settings: &Map<String, Value>) {
+    policy_memory(ctx);
     let user_md = ctx.roots.claude_home.join("CLAUDE.md");
     if let Ok(text) = fs::read_to_string(&user_md) {
         let off = !ctx.org_enabled() || excluded(effective_settings, &user_md);
