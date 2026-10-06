@@ -64,12 +64,14 @@ export type SkillsDeleteResult = Infer<typeof skillsDeleteResult>;
 
 export const skillsDiffResult = obj({
   clean: bool,
+  lockfile: nullable(str),
   modified: arr(any),
   new: arr(str),
   noLockfile: bool,
   removed: arr(any),
   repo: str,
   unchanged: num,
+  warnings: arr(str),
 });
 export type SkillsDiffResult = Infer<typeof skillsDiffResult>;
 
@@ -217,6 +219,7 @@ export const skillsStatusResult = obj({
     }),
   ),
   lockedCount: num,
+  lockfile: nullable(str),
   lockfilePresent: bool,
   lockfileSyncedAt: nullable(str),
   outputRoot: nullable(str),
@@ -230,6 +233,7 @@ export const skillsStatusResult = obj({
   rejected: arr(any),
   repo: str,
   targetedClients: arr(str),
+  warnings: arr(str),
 });
 export type SkillsStatusResult = Infer<typeof skillsStatusResult>;
 

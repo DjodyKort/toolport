@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 
 const STATUS_USAGE: &str =
-    "usage: skills status [--repo <dir>] [--home <dir>] [--client <key>]... [--strict]";
+    "usage: skills status [--repo <dir>] [--home <dir>] [--client <key>]... [--project] [--strict]";
 const CLEAN_USAGE: &str = "usage: skills clean [--repo <dir>] [--home <dir>] [--client <key>] \
      [--project] [--dry-run]";
 const UNINSTALL_USAGE: &str =
@@ -21,7 +21,14 @@ const RESOLVE_USAGE: &str = "usage: skills resolve [--repo <dir>] [--home <dir>]
      [--project] [--dry-run] [--migrate|--no-migrate]";
 
 pub(super) const STATUS: Spec = spec(
-    &[PATH, value("--home"), value("--client"), switch("--strict")],
+    &[
+        PATH,
+        value("--home"),
+        value("--client"),
+        switch("--project"),
+        switch("--global"),
+        switch("--strict"),
+    ],
     STATUS_USAGE,
 );
 pub(super) const CLEAN: Spec = spec(
@@ -74,6 +81,12 @@ pub(super) fn shown(path: &str, base: &str) -> String {
         .map_or_else(|_| path.to_string(), |rel| rel.display().to_string())
 }
 
+pub(super) fn push_warnings(human: &mut String, data: &Value) {
+    for warning in strings(data, "warnings") {
+        human.push_str(&format!("\n\nWarning: {warning}"));
+    }
+}
+
 pub fn status(rest: &[String]) -> Result<Output, CtlError> {
     let args = STATUS.parse(rest)?;
     no_operands(&args, STATUS_USAGE)?;
@@ -82,6 +95,7 @@ pub fn status(rest: &[String]) -> Result<Output, CtlError> {
     let request = Args {
         repo: args.one("--path").map(PathBuf::from),
         clients: (!clients.is_empty()).then_some(clients),
+        global: global_mode(&args)?,
         ..Args::default()
     };
     let data = served(api::status(&request))?;
@@ -135,6 +149,7 @@ pub fn status(rest: &[String]) -> Result<Output, CtlError> {
             ));
         }
     }
+    push_warnings(&mut human, &data);
     let failed = args.on("--strict") && (missing_lock || drift || !rejected.is_empty());
     let mut out = Output::new(data, human);
     out.failed = failed;

@@ -15,7 +15,7 @@ const REPO: (&str, fn(&Value) -> bool) = ("repo_path", Value::is_string);
 const CLIENTS: (&str, fn(&Value) -> bool) = ("client_keys", is_string_list);
 const LIST: Keys = &[REPO];
 const LINT: Keys = &[REPO, ("names", is_string_list)];
-const STATUS: Keys = &[REPO, CLIENTS];
+const STATUS: Keys = &[REPO, CLIENTS, ("global_mode", Value::is_boolean)];
 const SYNC: Keys = &[
     REPO,
     CLIENTS,

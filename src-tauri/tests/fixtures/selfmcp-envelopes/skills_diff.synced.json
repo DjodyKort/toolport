@@ -3,12 +3,14 @@
   "isError": false,
   "result": {
     "clean": true,
+    "lockfile": "<WORLD>/data/mcpm-skills.lock",
     "modified": [],
     "new": [],
     "noLockfile": false,
     "removed": [],
     "repo": "<WORLD>/skills-repo",
-    "unchanged": 1
+    "unchanged": 1,
+    "warnings": []
   },
   "tool": "skills_diff"
 }

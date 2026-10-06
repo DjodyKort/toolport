@@ -6,7 +6,7 @@
 use super::flags::{switch, value, Flags, Inline, Operands, Spec, Unknown};
 use super::output::{table, CtlError, Output};
 use super::skills_repo::{str_of, strings};
-use super::skills_state::{collision_line, shown};
+use super::skills_state::{collision_line, push_warnings, shown};
 use crate::plus::op::OpError;
 use crate::plus::redact;
 use crate::plus::skills::api::{self, Args};
@@ -49,6 +49,15 @@ pub(super) const SYNC: Spec = Spec {
 };
 pub(super) const LS: Spec = Spec {
     flags: &[value("--repo"), value("--home")],
+    ..BASE
+};
+pub(super) const DIFF: Spec = Spec {
+    flags: &[
+        value("--repo"),
+        value("--home"),
+        switch("--project"),
+        switch("--global"),
+    ],
     ..BASE
 };
 pub(super) const LS_SOURCE: Spec = Spec {
@@ -273,9 +282,16 @@ pub fn lint(rest: &[String]) -> Result<Output, CtlError> {
 }
 
 pub fn diff(rest: &[String]) -> Result<Output, CtlError> {
-    let flags = LS.parse(rest)?;
+    let flags = DIFF.parse(rest)?;
+    if flags.on("--project") && flags.on("--global") {
+        return Err(CtlError::usage("--global and --project are mutually exclusive"));
+    }
     apply_home(flags.one("--home"));
-    let data = api::diff(&repo_args(&flags)).map_err(failed)?;
+    let args = Args {
+        global: !flags.on("--project"),
+        ..repo_args(&flags)
+    };
+    let data = api::diff(&args).map_err(failed)?;
     let mut human = String::new();
     for (key, mark) in [("new", "+"), ("modified", "~"), ("removed", "-")] {
         for name in data[key].as_array().into_iter().flatten() {
@@ -286,6 +302,7 @@ pub fn diff(rest: &[String]) -> Result<Output, CtlError> {
     if data["noLockfile"] == json!(true) {
         human.push_str(" (no lockfile)");
     }
+    push_warnings(&mut human, &data);
     let mut out = Output::new(data.clone(), human);
     out.failed = data["clean"] != json!(true);
     Ok(out)

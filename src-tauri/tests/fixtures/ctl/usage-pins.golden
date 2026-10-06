@@ -4585,11 +4585,11 @@ exit 2
 --- stderr
 toolportctl: unexpected argument: --bogus
 Run `toolportctl --help` for usage.
-=== ["skills","diff","--project"]
+=== ["skills","diff","--client"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: unexpected argument: --project
+toolportctl: unexpected argument: --client
 Run `toolportctl --help` for usage.
 === ["skills","diff","--dry-run"]
 exit 2
@@ -4803,14 +4803,14 @@ exit 2
 --- stdout
 --- stderr
 toolportctl: unexpected argument: --bogus
-usage: skills status [--repo <dir>] [--home <dir>] [--client <key>]... [--strict]
+usage: skills status [--repo <dir>] [--home <dir>] [--client <key>]... [--project] [--strict]
 Run `toolportctl --help` for usage.
 === ["skills","status","extra"]
 exit 2
 --- stdout
 --- stderr
 toolportctl: unexpected argument: extra
-usage: skills status [--repo <dir>] [--home <dir>] [--client <key>]... [--strict]
+usage: skills status [--repo <dir>] [--home <dir>] [--client <key>]... [--project] [--strict]
 Run `toolportctl --help` for usage.
 === ["skills","status","--strict=1"]
 exit 2
@@ -4836,12 +4836,12 @@ exit 2
 --- stderr
 toolportctl: --path requires a value
 Run `toolportctl --help` for usage.
-=== ["skills","status","--project"]
+=== ["skills","status","--migrate"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: unexpected argument: --project
-usage: skills status [--repo <dir>] [--home <dir>] [--client <key>]... [--strict]
+toolportctl: unexpected argument: --migrate
+usage: skills status [--repo <dir>] [--home <dir>] [--client <key>]... [--project] [--strict]
 Run `toolportctl --help` for usage.
 === ["skills","clean","--bogus"]
 exit 2
