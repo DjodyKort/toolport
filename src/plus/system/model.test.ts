@@ -175,7 +175,7 @@ describe("small readers", () => {
 
   it("filters tools by text and tier and reads the gate", () => {
     const tools = toolEntries(golden("mcp-tools").tools);
-    expect(tools).toHaveLength(100);
+    expect(tools).toHaveLength(101);
     expect(filterTools(tools, "SKILLS_LIST", null).map((t) => t.name)).toContain(
       "skills_list",
     );
