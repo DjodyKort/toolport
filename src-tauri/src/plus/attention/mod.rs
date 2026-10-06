@@ -107,7 +107,11 @@ pub struct Ctx {
 
 impl Ctx {
     pub fn system() -> Ctx {
-        Ctx { now: cron::now() }
+        let now = std::env::var("TOOLPORT_ATTENTION_FAKE_NOW")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or_else(cron::now);
+        Ctx { now }
     }
 
     pub fn today(&self) -> String {

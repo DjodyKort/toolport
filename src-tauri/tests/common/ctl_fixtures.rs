@@ -385,7 +385,7 @@ pub fn fork_world(world: &CtlWorld) {
     let mut registry = read_json(&path);
     registry["servers"].as_array_mut().unwrap().push(json!({
         "id": "srv-fork", "name": "forked", "transport": "stdio", "command": world.mock,
-        "args": [],
+        "args": [], "cwd": world.path(&work),
         "mcpmSource": {"type": "git", "path": world.path(&work), "branch": "main"}
     }));
     write_json(&path, &registry);
