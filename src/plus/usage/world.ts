@@ -287,7 +287,7 @@ const disableData = (dryRun: boolean, port: number) => ({
 });
 
 /** The receiver as a person sees it change: an applied Enable makes the next status say
- * listening with every key set (no events stored yet), an applied Disable says off again, and
+ * listening with every key set and the stored events of the receiver, an applied Disable says off again, and
  * a preview (`--dry-run`) changes nothing. */
 export function createOtelWorld(options: { enabled?: boolean; port?: number } = {}) {
   let on = options.enabled ?? false;
@@ -304,7 +304,7 @@ export function createOtelWorld(options: { enabled?: boolean; port?: number } = 
       if (!dryRun) {
         on = true;
         port = given;
-        events = structuredClone(statusOff.events);
+        events = structuredClone(statusOn.events);
       }
       return enableData(dryRun, given);
     },
