@@ -32,7 +32,9 @@ const golden = () => goldenData<AttentionLsData>("attention-ls.default").items;
 /** Every kind of row the feeds emit, one per kind and level: two that need you (one with an
  * action), the rest worth a look or for your information. */
 export function stockItems(now: number = Date.now()): AttentionItem[] {
-  const [secret, waiting] = golden();
+  const items = golden();
+  const secret = items.find((item) => item.id === "secrets:srv-alpha:missing")!;
+  const waiting = items.find((item) => item.id === "tasks:portal-token:waiting")!;
   return [
     { ...secret, since: ago(95, now) },
     { ...waiting, since: ago(25, now) },
