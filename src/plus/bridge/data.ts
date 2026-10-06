@@ -193,6 +193,7 @@ export const origin = obj({
     "project",
     "inert",
     "remote-library",
+    "policy",
   ),
   name: str,
 });

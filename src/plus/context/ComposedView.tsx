@@ -57,6 +57,9 @@ function Composed({
               <li key={`${part.path}:${index}`} className="flex flex-col gap-1 px-3 py-2">
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <b>{part.name}</b>
+                  {(part.origin.kind === "org" || part.origin.kind === "policy") && (
+                    <Badge>{part.origin.kind === "org" ? "org" : "managed policy"}</Badge>
+                  )}
                   <Badge variant="secondary">{part.origin.name}</Badge>
                   {part.lazy && <Badge variant="outline">on demand</Badge>}
                   {part.layers.length > 0 && (

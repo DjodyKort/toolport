@@ -21,12 +21,19 @@ pub struct CheckpointSpec {
     pub checkpoint_at: Option<u64>,
 }
 
-pub fn managed_settings_path() -> PathBuf {
+/// Where Claude Code reads what an administrator manages: settings and the policy CLAUDE.md.
+pub fn managed_dir() -> PathBuf {
     if cfg!(target_os = "macos") {
-        PathBuf::from("/Library/Application Support/ClaudeCode/managed-settings.json")
+        PathBuf::from("/Library/Application Support/ClaudeCode")
+    } else if cfg!(windows) {
+        PathBuf::from(r"C:\Program Files\ClaudeCode")
     } else {
-        PathBuf::from("/etc/claude-code/managed-settings.json")
+        PathBuf::from("/etc/claude-code")
     }
+}
+
+pub fn managed_settings_path() -> PathBuf {
+    managed_dir().join("managed-settings.json")
 }
 
 pub fn apply_env(roots: &mut Roots) {

@@ -9,6 +9,7 @@ import { folderLabel, formatTokens, plural, type ProfileRow } from "./model";
 import { Code, Field, QuerySection, SELECT_CLASS } from "./parts";
 
 const LAYER_LABEL: Record<string, string> = {
+  policy: "Managed policy",
   org: "Org file",
   personal: "Personal layer",
   "client-layer": "Client layers",

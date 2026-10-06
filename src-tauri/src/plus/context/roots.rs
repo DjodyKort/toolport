@@ -25,6 +25,7 @@ pub struct Roots {
     pub env_claude_config_dir: Option<String>,
     pub env_auto_compact_window: Option<String>,
     pub managed_settings: Option<PathBuf>,
+    pub managed_claude_md: Option<PathBuf>,
 }
 
 impl Roots {
@@ -42,12 +43,14 @@ impl Roots {
             env_claude_config_dir: None,
             env_auto_compact_window: None,
             managed_settings: None,
+            managed_claude_md: None,
         }
     }
 
     pub fn read_env(&mut self) {
         self.env_corp_tools_dir = std::env::var(ENV_CORP_TOOLS_DIR).ok();
         self.env_clients_root = std::env::var(ENV_CLIENTS_ROOT).ok();
+        self.managed_claude_md = Some(super::compact::managed_dir().join("CLAUDE.md"));
     }
 
     pub fn resolved(&self, config: &ContextConfig) -> Self {
