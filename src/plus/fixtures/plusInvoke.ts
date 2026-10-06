@@ -10,6 +10,11 @@ export const plusInvokeFixtures = new Map<string, unknown>([
   ],
   ["plus.auth.rows", plusAuthRowsFixture],
   ["plus.auth.notifications", { notifications: [] }],
+  [
+    "plus.update.watchTick",
+    { ran: false, reason: "not-due", raised: [], active: 0, errors: 0 },
+  ],
+  ["plus.update.watchSettings", { enabled: true, intervalHours: 24 }],
   ["plus.auth.probe", { server: "odoo", ran: true, skipped: null }],
   [
     "plus.auth.login",

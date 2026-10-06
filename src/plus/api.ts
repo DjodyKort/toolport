@@ -125,3 +125,36 @@ export function plusFolderProfiles(
 export function plusSetFolderProfiles(enabled: boolean): Promise<{ enabled: boolean }> {
   return plusInvoke<{ enabled: boolean }>("plus.context.folderProfilesSet", { enabled });
 }
+
+export interface UpdateWatchSettings {
+  enabled: boolean;
+  intervalHours: number;
+}
+
+export interface UpdateFinding {
+  server: string;
+  kind: "fork" | "upstream" | "package" | "conflict";
+  signature: string;
+  title: string;
+  detail: string;
+  since: number;
+}
+
+export interface UpdateWatchTick {
+  ran: boolean;
+  reason: "disabled" | "not-due" | null;
+  raised: UpdateFinding[];
+  active: number;
+  errors: number;
+}
+
+/** The backend decides whether a check is due; a call that is not due is cheap. */
+export function plusUpdateWatchTick(force = false): Promise<UpdateWatchTick> {
+  return plusInvoke<UpdateWatchTick>("plus.update.watchTick", { force });
+}
+
+export function plusUpdateWatchSettings(
+  patch: Partial<UpdateWatchSettings> = {},
+): Promise<UpdateWatchSettings> {
+  return plusInvoke<UpdateWatchSettings>("plus.update.watchSettings", patch);
+}

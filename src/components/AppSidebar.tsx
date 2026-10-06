@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
   ArrowUpCircle,
@@ -36,6 +36,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ProfileBar } from "@/components/ProfileBar";
 import { ShareDialog } from "@/components/ShareDialog";
 import { SidebarNav } from "@/plus/SidebarNav";
+
+const UpdateWatcher = lazy(() =>
+  import("@/plus/UpdateWatch").then((m) => ({ default: m.UpdateWatcher })),
+);
 
 const FOCUS_RING =
   "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -584,6 +588,9 @@ export function AppSidebar({
         )}
       </div>
 
+      <Suspense fallback={null}>
+        <UpdateWatcher onReview={() => onSelectView("attention")} />
+      </Suspense>
       <VersionFooter onImport={onRegistryChange} onReplay={onReplayOnboarding} />
     </aside>
   );
