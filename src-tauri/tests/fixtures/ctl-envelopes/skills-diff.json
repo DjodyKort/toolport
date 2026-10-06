@@ -4,12 +4,14 @@
     "command": "skills diff",
     "data": {
       "clean": false,
+      "lockfile": null,
       "modified": [],
       "new": ["demo"],
       "noLockfile": true,
       "removed": [],
       "repo": "<WORLD>/skills-repo",
-      "unchanged": 0
+      "unchanged": 0,
+      "warnings": []
     },
     "error": {
       "code": "unhealthy",

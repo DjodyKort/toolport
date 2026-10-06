@@ -16,6 +16,7 @@
         }
       ],
       "lockedCount": 0,
+      "lockfile": null,
       "lockfilePresent": false,
       "lockfileSyncedAt": null,
       "outputRoot": null,
@@ -38,7 +39,8 @@
         "trae",
         "windsurf",
         "zed"
-      ]
+      ],
+      "warnings": []
     },
     "ok": true,
     "schemaVersion": 1

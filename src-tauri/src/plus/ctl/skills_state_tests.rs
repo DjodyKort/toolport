@@ -1098,3 +1098,107 @@ fn doctor_names_at_most_five_rejected_files() {
         "9 of 10 deployed skill files would be rejected by their client and hidden from the model: alpha/claude-code (unindented-continuation), beta/claude-code (unindented-continuation), many1/claude-code (unindented-continuation), many2/claude-code (unindented-continuation), many3/claude-code (unindented-continuation) and 4 more; run toolportctl skills sync"
     );
 }
+
+fn with_stale_repo_lock(tag: &str) -> Fx {
+    let fx = Fx::new(tag);
+    fx.sync(&["--project", "--client", "claude-code"]);
+    fx.put(
+        "repo/skills/alpha/SKILL.md",
+        "---\nname: alpha\ndescription: A synthetic skill\n---\nAlpha body, edited later\n",
+    );
+    std::fs::remove_file(fx.repo.join("skills/beta/SKILL.md")).unwrap();
+    std::fs::remove_dir_all(fx.repo.join(".claude")).unwrap();
+    fx.sync(&["--client", "claude-code"]);
+    fx
+}
+
+#[test]
+fn status_and_diff_prefer_the_global_lock_over_a_stale_repo_lock_and_warn() {
+    let fx = with_stale_repo_lock("stale-repo-lock");
+    let repo = fx.arg("repo");
+    let both = "Two lockfiles exist: <root>/data/mcpm-skills.lock and \
+                <root>/repo/mcpm-skills.lock. Using the user-level lock, the one 'skills sync' \
+                writes; --project reads the repository lock. Remove the stale one to silence this.";
+
+    let (code, v, err) = cli(&["skills", "status", "--repo", &repo, "--strict"]);
+    assert_eq!(code, 0, "{err}");
+    let data = &v["data"];
+    assert_eq!(data["drift"], false);
+    assert_eq!(data["rejected"], json!([]));
+    assert_eq!(
+        fx.normalised(data["outputRoot"].as_str().unwrap()),
+        "<root>/home"
+    );
+    assert_eq!(
+        fx.normalised(data["lockfile"].as_str().unwrap()),
+        "<root>/data/mcpm-skills.lock"
+    );
+    let warnings = strs(&data["warnings"]);
+    assert_eq!(warnings.len(), 1);
+    assert_eq!(fx.normalised(warnings[0]), both);
+
+    let (code, out, err) = run(&["skills", "status", "--repo", &repo, "--strict"]);
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("All output files in sync."), "{out}");
+    assert!(
+        fx.normalised(&out).ends_with(&format!("\n\nWarning: {both}\n")),
+        "{out}"
+    );
+
+    let (code, v, _) = cli(&["skills", "diff", "--repo", &repo]);
+    assert_eq!(code, 0);
+    assert_eq!(v["data"]["new"], json!([]));
+    assert_eq!(v["data"]["modified"], json!([]));
+    assert_eq!(v["data"]["removed"], json!([]));
+    assert_eq!(v["data"]["warnings"], data["warnings"]);
+}
+
+#[test]
+fn project_flag_reads_the_repo_lock_and_warns_the_other_way() {
+    let fx = with_stale_repo_lock("stale-repo-project");
+    let repo = fx.arg("repo");
+
+    let (code, v, _) = cli(&["skills", "diff", "--repo", &repo, "--project"]);
+    assert_eq!(code, 1);
+    assert_eq!(v["data"]["modified"], json!(["alpha"]));
+    assert_eq!(v["data"]["removed"], json!(["beta"]));
+    let warnings = strs(&v["data"]["warnings"]);
+    assert!(
+        warnings[0].contains("Using the repository lock, as --project asked"),
+        "{warnings:?}"
+    );
+
+    let (code, v, _) = cli(&["skills", "status", "--repo", &repo, "--project", "--strict"]);
+    assert_eq!(code, 1);
+    assert_eq!(v["data"]["drift"], true);
+    assert_eq!(
+        fx.normalised(v["data"]["outputRoot"].as_str().unwrap()),
+        "<root>/repo"
+    );
+
+    let (code, _, err) = cli(&["skills", "status", "--repo", &repo, "--project", "--global"]);
+    assert_eq!(code, 2, "{err}");
+    let ipc = crate::plus::dispatch(
+        "plus.skills.status",
+        json!({"repo_path": repo, "global_mode": false}),
+    )
+    .unwrap();
+    assert_eq!(ipc["lockfile"], v["data"]["lockfile"]);
+}
+
+#[test]
+fn a_lone_lock_is_read_without_a_warning_in_either_scope() {
+    let fx = Fx::new("lone-lock");
+    let repo = fx.arg("repo");
+    fx.sync(&["--project", "--client", "claude-code"]);
+    for extra in [&[][..], &["--project"][..]] {
+        let mut list = vec!["skills", "status", "--repo", &repo];
+        list.extend_from_slice(extra);
+        let (code, v, err) = cli(&list);
+        assert_eq!(code, 0, "{err}");
+        assert_eq!(v["data"]["warnings"], json!([]));
+        assert_eq!(v["data"]["lockfilePresent"], true);
+    }
+    let (_, out, _) = run(&["skills", "diff", "--repo", &repo]);
+    assert!(!out.contains("Warning"), "{out}");
+}

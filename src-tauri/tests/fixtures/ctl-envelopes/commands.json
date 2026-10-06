@@ -7247,6 +7247,28 @@
               "required": false,
               "sensitive": false,
               "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Use the project-level location instead of the user level",
+              "escalates": false,
+              "hidden": false,
+              "name": "--project",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Use the user-level location (the default)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--global",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
             }
           ],
           "group": "skills",
@@ -7603,6 +7625,28 @@
               "required": false,
               "sensitive": false,
               "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Use the project-level location instead of the user level",
+              "escalates": false,
+              "hidden": false,
+              "name": "--project",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Use the user-level location (the default)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--global",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
             },
             {
               "aliases": [],
