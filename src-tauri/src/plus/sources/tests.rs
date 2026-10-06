@@ -417,6 +417,24 @@ fn a_detector_budget_forced_to_zero_is_skipped_and_the_scan_is_partial() {
 }
 
 #[test]
+fn a_partial_scan_names_the_detector_and_the_reason_in_json_and_text() {
+    let fx = Fx::new("reasons");
+    let report = fx.scan(&ScanOptions {
+        budgets_ms: vec![("repo".into(), 0)],
+        ..ScanOptions::default()
+    });
+    let json = report.to_json(false);
+    assert_eq!(json["partial"], true);
+    assert_eq!(
+        json["skipped"],
+        serde_json::json!([{ "detector": "repo", "reason": "time budget exhausted" }])
+    );
+    assert!(report
+        .to_text()
+        .contains("partial: repo stopped: time budget exhausted\n"));
+}
+
+#[test]
 fn an_entry_cap_stops_a_walk_marks_its_sources_partial_and_reports_why() {
     let fx = Fx::new("cap");
     let busy = fx.w.odh.join("clients/acme/_claude/notes");
