@@ -8,9 +8,11 @@ use super::loads::{what_loads_with, LoadItem, LoadsOptions};
 use super::roots::Roots;
 use crate::plus::sources::fsx;
 use serde_json::{json, Value};
+use std::collections::BTreeSet;
 use std::path::Path;
 
 const KINDS: [&str; 3] = ["memory", "import", "rule"];
+const LEVEL_FILES: [&str; 3] = ["CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md"];
 
 fn part(item: &LoadItem) -> Option<Value> {
     let path = item.path.as_deref()?;
@@ -35,6 +37,31 @@ fn part(item: &LoadItem) -> Option<Value> {
     }))
 }
 
+/// Every folder Claude Code walks down to `cwd`, with the memory files that load from it, so a
+/// level without any shows as one. Below the home folder the walk starts at home; a level above
+/// it is listed only when something loads from it.
+fn levels(roots: &Roots, cwd: &Path, parts: &[Value]) -> Vec<Value> {
+    let loaded: BTreeSet<&str> = parts.iter().filter_map(|p| p["path"].as_str()).collect();
+    let in_home = cwd.starts_with(&roots.home);
+    let mut chain: Vec<&Path> = cwd.ancestors().collect();
+    chain.reverse();
+    chain
+        .into_iter()
+        .filter_map(|dir| {
+            let files: Vec<&str> = LEVEL_FILES
+                .into_iter()
+                .filter(|rel| {
+                    let path = dir.join(rel);
+                    !path.starts_with(&roots.claude_home)
+                        && loaded.contains(path.display().to_string().as_str())
+                })
+                .collect();
+            let shown = !in_home || dir.starts_with(&roots.home) || !files.is_empty();
+            shown.then(|| json!({ "dir": dir.display().to_string(), "files": files }))
+        })
+        .collect()
+}
+
 pub fn compose(roots: &Roots, config: &ContextConfig, cwd: &Path) -> Result<Value, String> {
     let loads = what_loads_with(roots, config, None, cwd, &LoadsOptions::default())?;
     let mut parts = Vec::new();
@@ -52,8 +79,10 @@ pub fn compose(roots: &Roots, config: &ContextConfig, cwd: &Path) -> Result<Valu
             parts.push(part);
         }
     }
+    let levels = levels(roots, Path::new(&loads.cwd), &parts);
     Ok(json!({
         "cwd": loads.cwd,
+        "levels": levels,
         "parts": parts,
         "total": { "value": total, "basis": "estimate" },
         "skipped": skipped,

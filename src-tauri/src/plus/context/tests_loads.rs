@@ -482,3 +482,26 @@ fn the_managed_policy_file_loads_first_and_cannot_be_excluded() {
     let r = what_loads(&roots, &cfg, None, &h.0).unwrap();
     assert!(r.items.iter().any(|i| i.source == "policy" && i.loaded));
 }
+
+#[test]
+fn compose_lists_every_folder_level_from_home_down_to_the_working_folder() {
+    let h = Home::new();
+    let repo = h.repo("work/app");
+    h.put("work/app/CLAUDE.md", "# App\n");
+    h.put("CLAUDE.md", "# Home\n");
+    let composed = super::compose::compose(&h.roots(), &config(json!({})), &repo).unwrap();
+    let levels = composed["levels"].as_array().unwrap();
+    let dirs: Vec<&str> = levels.iter().map(|l| l["dir"].as_str().unwrap()).collect();
+    assert_eq!(dirs.first(), Some(&h.0.to_str().unwrap()));
+    assert_eq!(dirs.last(), Some(&repo.to_str().unwrap()));
+    let at = |dir: &Path| {
+        levels
+            .iter()
+            .find(|l| l["dir"] == dir.to_str().unwrap())
+            .map(|l| l["files"].clone())
+            .unwrap()
+    };
+    assert_eq!(at(&repo), json!(["CLAUDE.md"]));
+    assert_eq!(at(&h.at("work")), json!([]));
+    assert_eq!(at(&h.0), json!(["CLAUDE.md"]));
+}

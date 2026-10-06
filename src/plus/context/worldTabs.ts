@@ -453,8 +453,26 @@ export function createTabsWorld(host: TabsHost, fresh: boolean) {
         ),
       ),
     ].filter((one) => !b?.layersExclude.some((glob) => globMatch(glob, one.path)));
+    const segments = cwd.split("/").filter(Boolean);
+    const levels = [
+      "/",
+      ...segments.map((_, i) => `/${segments.slice(0, i + 1).join("/")}`),
+    ]
+      .map((dir) => ({
+        dir,
+        files: parts
+          .filter((one) => one.path === `${dir === "/" ? "" : dir}/${one.name}`)
+          .map((one) => one.name),
+      }))
+      .filter(
+        (level) =>
+          !cwd.startsWith(host.home) ||
+          level.dir.startsWith(host.home) ||
+          level.files.length > 0,
+      );
     return {
       cwd,
+      levels,
       notes: [],
       parts,
       skipped: [],

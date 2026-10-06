@@ -5,6 +5,20 @@
   "isError": false,
   "result": {
     "cwd": "<WORLD>/home/work/other",
+    "levels": [
+      {
+        "dir": "<WORLD>/home",
+        "files": []
+      },
+      {
+        "dir": "<WORLD>/home/work",
+        "files": []
+      },
+      {
+        "dir": "<WORLD>/home/work/other",
+        "files": ["CLAUDE.local.md"]
+      }
+    ],
     "notes": [],
     "parts": [
       {
