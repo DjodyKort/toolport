@@ -12,6 +12,7 @@ import {
   type Infer,
   type Shape,
 } from "./shape";
+import { serversDetectSourceResult } from "../types/selfmcp-servers";
 
 /** The `data` of a `toolportctl --json` envelope, per command (D-058). Each shape is checked
  * against the golden envelopes in `src-tauri/tests/fixtures/ctl-envelopes/` by
@@ -569,6 +570,33 @@ export const ccListData = obj({
 });
 export type CcListData = Infer<typeof ccListData>;
 
+const gitSourceMeta = obj({
+  branch: opt(str),
+  drift: opt(bool),
+  path: opt(str),
+  post_update: opt(str),
+  reason: opt(str),
+  remote: opt(str),
+  type: str,
+  upstream: opt(obj({ branch: str, remote: str })),
+});
+
+export const serverSourceSetData = obj({
+  id: str,
+  source: obj({ kind: str, meta: gitSourceMeta }),
+});
+export type ServerSourceSetData = Infer<typeof serverSourceSetData>;
+
+/** `server source set` re-detects the source after applying it; the envelope `data` is the
+ * `mcp call servers_detect_source` wrapper, not `serverSourceSetData` (D-058). */
+export const serverSourceSetAfterData = obj({
+  isError: bool,
+  result: serversDetectSourceResult,
+  tier: num,
+  tool: lit("servers_detect_source"),
+});
+export type ServerSourceSetAfterData = Infer<typeof serverSourceSetAfterData>;
+
 export const updateData = obj({
   counts: rec(num),
   mode: str,
@@ -686,4 +714,6 @@ export const ctlShapes: Record<string, Shape<unknown>> = {
   "cc-list": ccListData,
   "update.check": updateData,
   "update.preview": updateData,
+  "server-source-set.after": serverSourceSetAfterData,
+  "server-source-set.apply": serverSourceSetData,
 };

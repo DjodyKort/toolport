@@ -61,21 +61,25 @@ export const serversCheckUpdatesResult = obj({
 });
 export type ServersCheckUpdatesResult = Infer<typeof serversCheckUpdatesResult>;
 
+const gitSourceMeta = obj({
+  branch: opt(str),
+  drift: opt(bool),
+  path: opt(str),
+  post_update: opt(str),
+  reason: opt(str),
+  remote: opt(str),
+  type: str,
+  upstream: opt(obj({ branch: str, remote: str })),
+});
+
 export const serversDetectSourceResult = obj({
+  branches: opt(rec(arr(str))),
   detected: obj({
     kind: str,
-    meta: obj({
-      branch: opt(str),
-      drift: opt(bool),
-      path: opt(str),
-      post_update: opt(str),
-      reason: opt(str),
-      remote: opt(str),
-      type: str,
-      upstream: opt(obj({ branch: str, remote: str })),
-    }),
+    meta: gitSourceMeta,
   }),
   name: str,
+  remotes: opt(arr(str)),
   stored: bool,
 });
 export type ServersDetectSourceResult = Infer<typeof serversDetectSourceResult>;
@@ -173,6 +177,12 @@ export const serversSetModeResult = obj({
 });
 export type ServersSetModeResult = Infer<typeof serversSetModeResult>;
 
+export const serversSetSourceResult = obj({
+  name: str,
+  source: obj({ kind: str, meta: gitSourceMeta }),
+});
+export type ServersSetSourceResult = Infer<typeof serversSetSourceResult>;
+
 export const serversUninstallResult = obj({
   clients: arr(any),
   dryRun: bool,
@@ -203,6 +213,7 @@ export const serversToolShapes: Record<string, Shape<unknown>> = {
   servers_list_profiles: serversListProfilesResult,
   servers_remove_profile_tag: serversRemoveProfileTagResult,
   servers_set_mode: serversSetModeResult,
+  servers_set_source: serversSetSourceResult,
   servers_uninstall: serversUninstallResult,
   servers_update_config: serversUpdateConfigResult,
 };
