@@ -61,7 +61,14 @@ function OrgFile({ onPreview }: { onPreview: () => void }) {
       query={query}
       isEmpty={(data) => data.sources.length === 0}
       empty={
-        <p className="text-sm text-muted-foreground">No org file on this computer.</p>
+        <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+          <p>No org file on this computer.</p>
+          <p>
+            Setup looks for a git clone under <Code>~/.local/share</Code> with{" "}
+            <Code>claude/CLAUDE.md</Code> and records it; run{" "}
+            <Code>toolportctl context sync</Code> after installing one.
+          </p>
+        </div>
       }
       actions={<Badge variant="secondary">read-only</Badge>}
     >

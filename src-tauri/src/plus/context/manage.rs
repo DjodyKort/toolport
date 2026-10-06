@@ -102,6 +102,8 @@ pub fn init_handler(args: Value) -> Result<Value, String> {
     let dry = dry_run(&args);
     let _lock = lock_real_run(&roots, dry)?;
     let mut config = load_config(&roots.context_config_path());
+    let org_clone =
+        super::org_clone::adopt(&roots, &mut config, &mut Report::default(), dry);
     let personal = layers::personal_rule_path(&roots);
     let created = !personal.exists();
     if created && !dry {
@@ -140,6 +142,7 @@ pub fn init_handler(args: Value) -> Result<Value, String> {
         "dryRun": dry,
         "personal": {"path": path_text(&personal), "created": created},
         "migration": migration,
+        "orgClone": org_clone,
         "config": {"path": path_text(&config_path), "saved": !dry, "keptUnreadable": kept},
         "nextSteps": NEXT_STEPS.iter().map(|(label, command)| json!({"label": label, "command": command})).collect::<Vec<_>>(),
     });

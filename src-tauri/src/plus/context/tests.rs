@@ -798,3 +798,85 @@ fn imported_context_json_values_are_honored() {
     assert_eq!(roots.resolve_clients_root(&cfg), h.0.join("c"));
     assert_eq!(roots.resolve_corp_tools_dir(&cfg), h.0.join("t"));
 }
+
+fn org_clone(h: &TempHome, name: &str, org_md: &str) {
+    h.write(&format!(".local/share/{name}/.git/HEAD"), "ref: refs/heads/main\n");
+    h.write(&format!(".local/share/{name}/claude/CLAUDE.md"), org_md);
+}
+
+#[test]
+fn sync_records_an_org_clone_installed_under_its_own_name() {
+    let h = TempHome::new();
+    org_clone(&h, "acme-dev-tools", "# Org\n");
+    h.write(".claude/CLAUDE.md", "# Org\n");
+    let roots = h.roots();
+    let mut cfg = config(json!({"wrap_default_claude": true}));
+    let r = run(&roots, &mut cfg);
+    assert_eq!(cfg.corp_tools_dir.as_deref(), Some("~/.local/share/acme-dev-tools"));
+    assert!(r
+        .actions
+        .iter()
+        .any(|a| a == "found the org clone at ~/.local/share/acme-dev-tools; recorded it as corp_tools_dir"));
+    let shims = h.read(".config/mcpm/context-shims.zsh");
+    assert!(shims.contains(&format!(
+        "local cf_dir='{}'",
+        h.0.join(".local/share/acme-dev-tools").display()
+    )));
+}
+
+#[test]
+fn the_clone_holding_the_users_org_file_wins_over_other_clones() {
+    let h = TempHome::new();
+    org_clone(&h, "a-tools", "# Other\n");
+    org_clone(&h, "b-tools", "# Org\n");
+    h.write(".claude/CLAUDE.md", "# Org\n");
+    let found = org_clone::detect(&h.roots(), &config(json!({})));
+    assert_eq!(found.chosen, Some(h.0.join(".local/share/b-tools")));
+    assert_eq!(found.candidates.len(), 2);
+}
+
+#[test]
+fn the_recorded_wrapper_baseline_proves_a_clone() {
+    let h = TempHome::new();
+    org_clone(&h, "a-tools", "# A\n");
+    org_clone(&h, "b-tools", "# B\n");
+    let wrapper = h.write(".local/share/b-tools/claude/shell-wrapper.sh", "claude() { :; }\n");
+    let mut cfg = config(json!({}));
+    cfg.cf_wrapper_hash = doctor::sha256_file(&wrapper);
+    let found = org_clone::detect(&h.roots(), &cfg);
+    assert_eq!(found.chosen, Some(h.0.join(".local/share/b-tools")));
+}
+
+#[test]
+fn several_unproven_clones_are_named_never_guessed() {
+    let h = TempHome::new();
+    org_clone(&h, "a-tools", "# A\n");
+    org_clone(&h, "b-tools", "# B\n");
+    let roots = h.roots();
+    let mut cfg = config(json!({}));
+    let r = run(&roots, &mut cfg);
+    assert_eq!(cfg.corp_tools_dir, None);
+    assert!(r.warnings.iter().any(|w| w.contains(
+        "several org clones found (~/.local/share/a-tools, ~/.local/share/b-tools)"
+    )));
+}
+
+#[test]
+fn a_named_corp_tools_dir_is_kept_even_when_missing() {
+    let h = TempHome::new();
+    org_clone(&h, "acme-dev-tools", "# Org\n");
+    let roots = h.roots();
+    let mut cfg = config(json!({"corp_tools_dir": "~/moved/tools"}));
+    let r = run(&roots, &mut cfg);
+    assert_eq!(cfg.corp_tools_dir.as_deref(), Some("~/moved/tools"));
+    assert!(!r.actions.iter().any(|a| a.contains("found the org clone")));
+}
+
+#[test]
+fn a_dry_run_names_the_clone_it_would_record() {
+    let h = TempHome::new();
+    org_clone(&h, "acme-dev-tools", "# Org\n");
+    let mut cfg = config(json!({}));
+    let r = plan(&h.roots(), &mut cfg).unwrap();
+    assert!(r.actions.iter().any(|a| a.ends_with("would record it as corp_tools_dir")));
+}
