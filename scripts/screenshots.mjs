@@ -45,6 +45,7 @@ const PAGES = [
   "skills-dark",
   "skills-checks-light",
   "skills-checks-dark",
+  "skills-collisions-light",
   "skills-sync-plan-light",
   "skills-uninstall-light",
   "skills-taps-light",

@@ -115,7 +115,7 @@ describe("the stateful OTel world", () => {
       endpoint: "http://127.0.0.1:4999",
       receiver: { listening: true, state: "listening" },
       settings: { state: "configured" },
-      events: { count: 0, latest: null },
+      events: statusOn.events,
     });
     expect(Object.values(on.settings.keys)).toEqual(Array(5).fill("ok"));
     otel.disable(true);

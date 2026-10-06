@@ -104,7 +104,9 @@ export const draftCleanup = base("draft-cleanup", "Clean up", {
 export const stockTasks: TaskDefinition[] = [portalToken, nightlyReport, draftCleanup];
 
 export const stockRuns = (): TaskRun[] =>
-  goldenData<{ runs: TaskRun[] }>("task-history.all").runs;
+  goldenData<{ runs: TaskRun[] }>("task-history.all").runs.map((run) =>
+    run.id === "run-fixture-stale" ? { ...run, status: "cancelled" } : run,
+  );
 
 export const runLog = (): TaskRun => goldenData<{ run: TaskRun }>("task-history.run").run;
 

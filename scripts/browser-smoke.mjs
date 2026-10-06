@@ -33,6 +33,12 @@ async function guiShot(target, screen, options = {}) {
   await mkdir(screenshotDir, { recursive: true });
   await target.screenshot({ path: path.join(screenshotDir, file), ...options });
 }
+async function topOfSkillRows(shot, rows) {
+  await rows.evaluate((list) => {
+    list.scrollTop = 0;
+    (list.previousElementSibling ?? list).scrollIntoView({ block: "start" });
+  });
+}
 // The Servers screen on the fixture registry: a server that needs a login, one that fails to
 // start, profiles with a server that answers 401, clients, health, and the two dialogs that
 // guard a write (the plan, and the typed confirmation of a removal).
@@ -960,7 +966,7 @@ try {
       await signIn.getByRole("button", { name: "Close", exact: true }).last().click();
       await shot.getByRole("tab", { name: "Secrets" }).click();
       await expect(shot.getByRole("list", { name: "Secrets" })).toBeVisible();
-      await guiShot(shot, "secrets-light");
+      await guiShot(shot, "secrets-light", { animations: "disabled" });
       await shot.getByRole("button", { name: "Replace ERP_API_KEY of acme-erp" }).click();
       const setDialog = shot.getByRole("dialog", { name: "Replace ERP_API_KEY" });
       await expect(setDialog.getByLabel("New value")).toBeVisible();
@@ -1009,9 +1015,7 @@ try {
         .getByRole("list", { name: "Sync state of deploy-helper" })
         .getByText("Changed since sync"),
     ).toHaveCount(2);
-    await shot
-      .getByRole("tablist", { name: "Library sections" })
-      .scrollIntoViewIfNeeded();
+    await topOfSkillRows(shot, rows);
     await shot.evaluate(() => document.fonts.ready);
     await guiShot(shot, `skills-${theme}`);
     const drift = shot.getByRole("group", { name: "Drift" });
@@ -1025,6 +1029,11 @@ try {
     await shot.evaluate(() => document.fonts.ready);
     await guiShot(shot, `skills-checks-${theme}`);
     if (theme === "light") {
+      const collisions = shot.getByRole("region", { name: "Collisions" });
+      await expect(collisions.getByRole("button", { name: /^Resolve/ })).toBeVisible();
+      await collisions.scrollIntoViewIfNeeded();
+      await shot.evaluate(() => document.fonts.ready);
+      await guiShot(shot, "skills-collisions-light");
       await rows.scrollIntoViewIfNeeded();
       const dialog = shot.getByRole("dialog");
       await shot.getByRole("button", { name: "Sync…", exact: true }).click();
@@ -1098,8 +1107,9 @@ try {
     await expect(
       skill.getByRole("button", { name: "See the lint output" }),
     ).toBeVisible();
-    await shot
-      .getByRole("tablist", { name: "Library sections" })
+    await topOfSkillRows(shot, rows);
+    await skill
+      .getByRole("button", { name: "See the lint output" })
       .scrollIntoViewIfNeeded();
     await shot.evaluate(() => document.fonts.ready);
     await guiShot(shot, `skills-source-badges-${theme}`);
