@@ -1190,6 +1190,26 @@ fn a_tool_with_an_output_schema_keeps_structured_content_when_its_text_is_shaped
 }
 
 #[test]
+fn a_doctor_sized_structured_result_arrives_whole_up_to_two_hundred_kilobytes() {
+    let scratch = Scratch::new("typed-200k");
+    write_registry(&scratch, mock_entry(&scratch), |_| {});
+    let mut client = Client::start(&scratch.0);
+    client.initialize("2025-06-18", json!({}));
+    client.wait_for_tool("odh__odoo_big_typed");
+
+    for bytes in [60_000usize, 200_000] {
+        let reply = client.call(
+            "odh__odoo_big_typed",
+            json!({"bytes": bytes, "textBytes": bytes}),
+            None,
+        );
+        assert_eq!(blob_len(&reply), Some(bytes), "{bytes}: {}", first_text(&reply));
+        assert!(first_text(&reply).len() <= RESULT_BUDGET);
+        assert_eq!(reply["result"]["isError"], false);
+    }
+}
+
+#[test]
 fn a_tool_with_an_output_schema_keeps_structured_content_whose_text_fits_the_budget() {
     let scratch = Scratch::new("typed-fits");
     write_registry(&scratch, mock_entry(&scratch), |_| {});

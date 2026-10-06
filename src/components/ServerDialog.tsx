@@ -282,7 +282,7 @@ export function ServerDialog({
       source: bindingCleared ? "manual" : (initial?.source ?? "manual"),
       cwd: isStdio ? form.cwd.trim() || null : null,
       requestTimeoutMs:
-        isStdio || initialUsesLocalCommand ? null : initial?.requestTimeoutMs,
+        isStdio !== initialUsesLocalCommand ? null : initial?.requestTimeoutMs,
       initializeTimeoutMs: form.initializeTimeoutSeconds.trim()
         ? Math.round(Number(form.initializeTimeoutSeconds) * 1000)
         : null,
