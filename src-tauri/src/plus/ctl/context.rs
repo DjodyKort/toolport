@@ -393,7 +393,12 @@ pub fn sync(rest: &[String]) -> Result<Output, CtlError> {
     let applied = deploy("plus.context.apply", args)?;
     let mut human = format!("plan:\n{}\napply:\n{}", render(&plan), render(&applied));
     let mut data = serde_json::json!({"dryRun": false, "plan": plan, "apply": applied});
-    if let Some(bundles) = crate::plus::context::bundle_api::sync_bundles(false) {
+    let host_bundles = if flags.one("--home").is_some() {
+        None
+    } else {
+        crate::plus::context::bundle_api::sync_bundles(false)
+    };
+    if let Some(bundles) = host_bundles {
         for b in bundles.as_array().into_iter().flatten() {
             human.push_str(&format!(
                 "\nbundle {} in {}: {}",

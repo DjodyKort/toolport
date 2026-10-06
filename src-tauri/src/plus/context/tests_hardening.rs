@@ -274,3 +274,68 @@ fn context_commands_word_a_dry_run_as_planned_and_a_real_run_as_done() {
     assert!(shims.is_file());
     assert!(!home.roots().shims_path().exists());
 }
+
+struct UnsetEnv(&'static str, Option<std::ffi::OsString>);
+
+impl UnsetEnv {
+    fn new(key: &'static str) -> Self {
+        let previous = std::env::var_os(key);
+        std::env::remove_var(key);
+        Self(key, previous)
+    }
+}
+
+impl Drop for UnsetEnv {
+    fn drop(&mut self) {
+        if let Some(value) = &self.1 {
+            std::env::set_var(self.0, value);
+        }
+    }
+}
+
+#[test]
+fn a_scratch_home_without_a_data_dir_keeps_the_shims_inside_the_home() {
+    let _lock = crate::registry::data_dir_test_lock();
+    let _a = UnsetEnv::new("TOOLPORT_DATA_DIR");
+    let _b = UnsetEnv::new("CONDUIT_DATA_DIR");
+    let dir = std::env::temp_dir().join(format!("ctx-scratch-home-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let args = json!({
+        "home": dir.to_string_lossy(),
+        "config": {
+            "wrap_default_claude": false,
+            "dedupe": {"enabled": false},
+            "profiles": {"scratch": {}},
+        },
+    });
+
+    let roots = roots_from_args(&args).unwrap();
+    assert!(roots.shims_dir.starts_with(&dir), "{}", roots.shims_dir.display());
+    assert!(roots.shims_path().starts_with(&dir));
+
+    let planned = plan_handler(args.clone()).unwrap();
+    assert_eq!(planned["dryRun"], json!(true));
+    assert!(!roots.shims_path().exists());
+
+    apply_handler(args).unwrap();
+    assert!(roots.shims_path().is_file());
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_scratch_home_sync_leaves_the_host_bundles_alone() {
+    use crate::plus::ctl::context as ctl;
+    let home = Home::new("sync-bundles");
+    let args: Vec<String> = vec!["--home".into(), home.arg()];
+    let data = ctl::sync(&args).unwrap().data;
+    assert!(data.get("bundles").is_none(), "{data}");
+}
+
+#[test]
+fn an_explicit_data_dir_still_receives_the_shims_for_a_scratch_home() {
+    let home = Home::new("explicit-data");
+    apply_handler(run_args(&home, "scratch")).unwrap();
+    assert!(home.shims().is_file());
+    assert!(!home.roots().shims_path().exists());
+}
