@@ -2794,6 +2794,16 @@ pub fn conduit_dir() -> Option<PathBuf> {
     resolve_conduit_dir().0
 }
 
+/// True when the data dir was chosen on purpose (`--data-dir`, the env var or a test override)
+/// rather than derived from the real home.
+pub fn data_dir_is_explicit() -> bool {
+    #[cfg(any(debug_assertions, test, feature = "test-support"))]
+    if DATA_DIR_OVERRIDE_ACTIVE.load(Ordering::SeqCst) && !bypasses_data_dir_override() {
+        return true;
+    }
+    crate::brand::env_var("TOOLPORT_DATA_DIR", "CONDUIT_DATA_DIR").is_some()
+}
+
 /// How [`conduit_dir`] was resolved. Cached with it; the answer cannot change
 /// mid-process (package identity and the home dir are fixed at spawn).
 pub fn conduit_dir_resolution() -> DirResolution {
