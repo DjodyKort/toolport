@@ -126,6 +126,10 @@ export const serversGitStatusResult = obj({
   path: opt(str),
   remoteRef: opt(str),
   summaries: opt(arr(str)),
+  upstreamAhead: opt(num),
+  upstreamBehind: opt(num),
+  upstreamRef: opt(str),
+  upstreamSummaries: opt(arr(str)),
 });
 export type ServersGitStatusResult = Infer<typeof serversGitStatusResult>;
 

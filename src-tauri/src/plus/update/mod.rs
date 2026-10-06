@@ -12,6 +12,8 @@ pub mod release;
 pub mod source;
 #[cfg(test)] mod release_prop_tests;
 #[cfg(test)]
+mod fork_status_tests;
+#[cfg(test)]
 mod source_model_tests;
 #[cfg(test)]
 mod tests;
@@ -125,6 +127,16 @@ pub struct Step {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct UpstreamReport {
+    pub remote_ref: String,
+    pub behind: u32,
+    pub ahead: u32,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub summaries: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ServerReport {
     pub id: String,
     pub kind: String,
@@ -139,6 +151,8 @@ pub struct ServerReport {
     pub behind: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ahead: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub upstream: Option<UpstreamReport>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub plan: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -159,6 +173,7 @@ impl ServerReport {
             latest: None,
             behind: None,
             ahead: None,
+            upstream: None,
             plan: Vec::new(),
             steps: Vec::new(),
             changed: false,
@@ -269,6 +284,31 @@ fn mark_updated(env: &Env, entry: &mut ServerEntry, first: Option<(&str, Value)>
     source::set_meta_fields(entry, fields);
 }
 
+fn upstream_notes(status: &gitops::GitStatus) -> String {
+    let mut notes = String::new();
+    if let Some(u) = &status.upstream {
+        let own = if u.ahead > 0 {
+            format!(" ({} own commit(s) on top)", u.ahead)
+        } else {
+            String::new()
+        };
+        if u.behind > 0 {
+            notes.push_str(&format!(
+                "; {} commit(s) behind {}{own}",
+                u.behind, u.remote_ref
+            ));
+        } else if u.ahead > 0 {
+            notes.push_str(&format!("; contains all of {}{own}", u.remote_ref));
+        } else {
+            notes.push_str(&format!("; level with {}", u.remote_ref));
+        }
+    }
+    for w in &status.warnings {
+        notes.push_str(&format!("; {w}"));
+    }
+    notes
+}
+
 fn check_git(
     env: &Env,
     opts: &Options,
@@ -278,7 +318,9 @@ fn check_git(
 ) {
     let Source::Git {
         path,
+        remote,
         branch,
+        upstream,
         post_update,
         ..
     } = src
@@ -286,8 +328,14 @@ fn check_git(
         return;
     };
     let repo = source::expand_path(path, env.home.as_deref());
-    let branch_hint = (!branch.is_empty()).then(|| branch.as_str());
-    let status = match gitops::check(env.git.as_ref(), &repo, branch_hint) {
+    let target = gitops::Target {
+        remote: Some(remote.as_str()),
+        branch: (!branch.is_empty()).then(|| branch.as_str()),
+        upstream: upstream
+            .as_ref()
+            .map(|u| (u.remote.as_str(), u.branch.as_str())),
+    };
+    let status = match gitops::check_target(env.git.as_ref(), &repo, &target) {
         Ok(s) => s,
         Err(e) => return rep.set(Status::Error, e),
     };
@@ -295,10 +343,17 @@ fn check_git(
     rep.ahead = Some(status.ahead);
     rep.current = Some(status.branch.clone());
     rep.latest = Some(status.remote_ref.clone());
+    rep.upstream = status.upstream.as_ref().map(|u| UpstreamReport {
+        remote_ref: u.remote_ref.clone(),
+        behind: u.behind,
+        ahead: u.ahead,
+        summaries: u.summaries.clone(),
+    });
+    let notes = upstream_notes(&status);
     if status.behind == 0 {
         return rep.set(
             Status::UpToDate,
-            format!("up to date with {}", status.remote_ref),
+            format!("up to date with {}{notes}", status.remote_ref),
         );
     }
     if status.dirty {
@@ -310,7 +365,10 @@ fn check_git(
             "cannot fast-forward: local and remote have diverged",
         );
     }
-    let message = format!("{} commit(s) behind {}", status.behind, status.remote_ref);
+    let message = format!(
+        "{} commit(s) behind {}{notes}",
+        status.behind, status.remote_ref
+    );
     rep.plan
         .push(format!("git merge --ff-only {}", status.remote_ref));
     if let Some(cmd) = post_update {
