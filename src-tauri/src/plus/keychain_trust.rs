@@ -29,6 +29,7 @@ pub(crate) fn trusted_binaries(
     exe: &Path,
     gateway: Option<&Path>,
     data_bin: Option<&Path>,
+    extra_dirs: &[PathBuf],
 ) -> Vec<PathBuf> {
     let exe = exe.canonicalize().unwrap_or_else(|_| exe.to_path_buf());
     let mut candidates = vec![exe.clone()];
@@ -48,7 +49,10 @@ pub(crate) fn trusted_binaries(
         }
     }
     candidates.extend(gateway.map(Path::to_path_buf));
-    if let Some(dir) = data_bin {
+    for dir in data_bin
+        .into_iter()
+        .chain(extra_dirs.iter().map(PathBuf::as_path))
+    {
         for stem in SIBLINGS {
             candidates.push(dir.join(exe_name(stem)));
         }
@@ -65,24 +69,15 @@ pub(crate) fn trusted_binaries(
     found
 }
 
-/// Changes whenever a trusted binary is added, removed or rebuilt, so the ACL is rewritten
-/// only when it could have gone stale.
+/// Changes whenever a trusted binary is added, removed or its content changes. Content, not
+/// mtime: republishing an unchanged binary must not look like a rebuild, because every
+/// rewrite of the ACL discards an "Always Allow" the user just gave.
 pub(crate) fn fingerprint(paths: &[PathBuf]) -> String {
     let mut lines: Vec<String> = paths
         .iter()
         .map(|path| {
-            let (len, stamp) = std::fs::metadata(path)
-                .ok()
-                .map(|meta| {
-                    let stamp = meta
-                        .modified()
-                        .ok()
-                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                        .map_or(0, |d| d.as_nanos());
-                    (meta.len(), stamp)
-                })
-                .unwrap_or((0, 0));
-            format!("{}\t{len}\t{stamp}", path.display())
+            let digest = std::fs::read(path).map(sha256_hex).unwrap_or_default();
+            format!("{}\t{digest}", path.display())
         })
         .collect();
     lines.sort();
@@ -91,6 +86,24 @@ pub(crate) fn fingerprint(paths: &[PathBuf]) -> String {
 
 pub(crate) fn needs_refresh(stored: Option<&str>, current: &str) -> bool {
     stored.map(str::trim) != Some(current)
+}
+
+/// Runs `rewrite` only when the trusted set differs from the stored fingerprint, and stores
+/// the new fingerprint only after the rewrite succeeded. Returns whether it rewrote.
+pub(crate) fn refresh_with<E>(
+    stored: Option<&str>,
+    current: &str,
+    rewrite: impl FnOnce() -> Result<bool, E>,
+    store: impl FnOnce(&str) -> Result<(), E>,
+) -> Result<bool, E> {
+    if !needs_refresh(stored, current) {
+        return Ok(false);
+    }
+    if !rewrite()? {
+        return Ok(false);
+    }
+    store(current)?;
+    Ok(true)
 }
 
 pub(crate) fn stored_fingerprint() -> Option<String> {
@@ -132,7 +145,7 @@ mod tests {
         for name in ["conduit", "toolport-gateway", "toolportctl", "toolport-selfmcp"] {
             touch(&macos.join(name));
         }
-        let found = trusted_binaries(&macos.join("conduit"), None, None);
+        let found = trusted_binaries(&macos.join("conduit"), None, None, &[]);
         assert_eq!(
             names(&found),
             ["conduit", "toolport-gateway", "toolport-selfmcp", "toolportctl"]
@@ -146,7 +159,7 @@ mod tests {
         for name in ["conduit", "toolportctl", "toolport-selfmcp"] {
             touch(&macos.join(name));
         }
-        let found = trusted_binaries(&macos.join("toolport-selfmcp"), None, None);
+        let found = trusted_binaries(&macos.join("toolport-selfmcp"), None, None, &[]);
         assert_eq!(names(&found), ["conduit", "toolport-selfmcp", "toolportctl"]);
     }
 
@@ -165,7 +178,7 @@ mod tests {
         std::os::unix::fs::symlink(contents.join("MacOS/toolportctl"), bin.join("toolportctl"))
             .unwrap();
 
-        let from_link = trusted_binaries(&bin.join("toolportctl"), Some(&nested), None);
+        let from_link = trusted_binaries(&bin.join("toolportctl"), Some(&nested), None, &[]);
         assert_eq!(names(&from_link), ["conduit", "toolport-gateway", "toolportctl"]);
         assert_eq!(from_link.len(), 3);
     }
@@ -178,7 +191,7 @@ mod tests {
         let data_bin = fx.dir.join("data/bin");
         touch(&data_bin.join("toolport-selfmcp"));
         touch(&data_bin.join("toolport-gateway"));
-        let found = trusted_binaries(&macos.join("conduit"), None, Some(&data_bin));
+        let found = trusted_binaries(&macos.join("conduit"), None, Some(&data_bin), &[]);
         assert_eq!(names(&found), ["conduit", "toolport-gateway", "toolport-selfmcp"]);
     }
 
@@ -188,7 +201,7 @@ mod tests {
         let macos = fx.dir.join("Toolport.app/Contents/MacOS");
         touch(&macos.join("conduit"));
         let ghost = fx.dir.join("nowhere/toolport-gateway");
-        let found = trusted_binaries(&macos.join("conduit"), Some(&ghost), None);
+        let found = trusted_binaries(&macos.join("conduit"), Some(&ghost), None, &[]);
         assert_eq!(names(&found), ["conduit"]);
     }
 
@@ -206,6 +219,80 @@ mod tests {
         assert_ne!(first, fingerprint(&[a.clone()]));
         std::fs::write(&a, b"rebuilt, longer").unwrap();
         assert_ne!(first, fingerprint(&both));
+    }
+
+    #[test]
+    fn fingerprint_ignores_a_republish_that_only_touches_mtime() {
+        let fx = DataDirFx::new("keychain-trust", "mtime");
+        let a = fx.dir.join("a");
+        touch(&a);
+        let before = fingerprint(&[a.clone()]);
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(&a, b"bin").unwrap();
+        assert_eq!(before, fingerprint(&[a]));
+    }
+
+    #[test]
+    fn selfmcp_is_found_in_the_data_bin_layout_and_extra_dirs() {
+        let fx = DataDirFx::new("keychain-trust", "layouts");
+        let macos = fx.dir.join("Toolport.app/Contents/MacOS");
+        touch(&macos.join("conduit"));
+        touch(&macos.join("toolportctl"));
+        let data_bin = fx.dir.join("data/bin");
+        touch(&data_bin.join("toolport-selfmcp"));
+        let found = trusted_binaries(&macos.join("conduit"), None, Some(&data_bin), &[]);
+        assert!(names(&found).contains(&"toolport-selfmcp".to_string()));
+
+        let local = fx.dir.join("home/.local/bin");
+        touch(&local.join("toolport-selfmcp"));
+        let found = trusted_binaries(&macos.join("conduit"), None, None, &[local]);
+        assert_eq!(names(&found), ["conduit", "toolport-selfmcp", "toolportctl"]);
+    }
+
+    #[test]
+    fn a_removed_binary_drops_out_of_the_set() {
+        let fx = DataDirFx::new("keychain-trust", "stale");
+        let macos = fx.dir.join("Toolport.app/Contents/MacOS");
+        touch(&macos.join("conduit"));
+        touch(&macos.join("toolportctl"));
+        let exe = macos.join("conduit");
+        assert_eq!(trusted_binaries(&exe, None, None, &[]).len(), 2);
+        std::fs::remove_file(macos.join("toolportctl")).unwrap();
+        assert_eq!(names(&trusted_binaries(&exe, None, None, &[])), ["conduit"]);
+    }
+
+    #[test]
+    fn an_unchanged_fingerprint_performs_no_rewrite() {
+        let mut rewrites = 0;
+        let mut stored = None::<String>;
+        for _ in 0..2 {
+            let seen = stored.clone();
+            refresh_with::<()>(
+                seen.as_deref(),
+                "fp1",
+                || {
+                    rewrites += 1;
+                    Ok(true)
+                },
+                |v| {
+                    stored = Some(v.to_string());
+                    Ok(())
+                },
+            )
+            .unwrap();
+        }
+        assert_eq!(rewrites, 1);
+    }
+
+    #[test]
+    fn a_failed_rewrite_stores_nothing() {
+        let mut stored = None::<String>;
+        let result = refresh_with(None, "fp", || Err("locked"), |v| {
+            stored = Some(v.to_string());
+            Ok(())
+        });
+        assert_eq!(result, Err("locked"));
+        assert_eq!(stored, None);
     }
 
     #[test]
