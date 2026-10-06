@@ -134,6 +134,39 @@ mod platform {
         Ok(key)
     }
 
+    fn trusted_paths() -> Result<Vec<std::path::PathBuf>, String> {
+        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+        let gateway = crate::clients::resolve_gateway_path();
+        let data_bin = crate::registry::conduit_dir().map(|d| d.join("bin"));
+        Ok(crate::plus::keychain_trust::trusted_binaries(
+            &exe,
+            gateway.as_deref(),
+            data_bin.as_deref(),
+        ))
+    }
+
+    /// Re-apply the master key's trusted-application list when a Toolport binary was added,
+    /// removed or rebuilt since the last write. The app owns the item, so the rewrite does
+    /// not prompt. The fingerprint is stored only after the rewrite succeeded, so a failure
+    /// retries on the next launch. Returns whether the ACL was rewritten.
+    pub fn refresh_master_key_acl() -> Result<bool, String> {
+        use crate::plus::keychain_trust as trust;
+        use base64::Engine;
+        let current = trust::fingerprint(&trusted_paths()?);
+        if !trust::needs_refresh(trust::stored_fingerprint().as_deref(), &current) {
+            return Ok(false);
+        }
+        let Some(key) = read_master_key()? else {
+            return Ok(false);
+        };
+        let encoded = base64::engine::general_purpose::STANDARD.encode(key);
+        add_with_shared_access(MASTER_KEY_ACCOUNT, &encoded)?;
+        if !trust::store_fingerprint(&current) {
+            return Err("could not record the keychain ACL fingerprint".to_string());
+        }
+        Ok(true)
+    }
+
     /// Store a per-server secret in the **data-protection keychain** under the
     /// shared access group, via raw `SecItemAdd`.
     ///
@@ -201,7 +234,7 @@ mod platform {
             static kSecAttrAccess: CFTypeRef;
         }
 
-        // 1. Build a SecAccess trusting the two binaries (this app + the gateway).
+        // 1. Build a SecAccess trusting every Toolport binary that reads the vault.
         let trusted_app = |p: &std::path::Path| -> Result<CFType, String> {
             let c = CString::new(p.to_string_lossy().into_owned()).map_err(|e| e.to_string())?;
             let mut app: *mut c_void = std::ptr::null_mut();
@@ -214,21 +247,20 @@ mod platform {
             }
             Ok(unsafe { CFType::wrap_under_create_rule(app as CFTypeRef) })
         };
-        // The app (this process) must be trustable; if it isn't there's nothing
-        // usable to write. The gateway is best-effort: add it when its path resolves
-        // and a trusted-application can be built for it, otherwise proceed app-only
-        // (the item stays ACL-protected, NOT world-readable; the gateway just falls
-        // back to a one-time "Always Allow" until the next rewrite names it). This
-        // also keeps unit tests working, where the gateway binary isn't on disk.
-        let app_path = std::env::current_exe().map_err(|e| e.to_string())?;
-        let mut trusted_apps: Vec<CFType> = Vec::with_capacity(2);
-        trusted_apps.push(trusted_app(&app_path)?);
-        match crate::clients::resolve_gateway_path() {
-            Some(gw_path) => match trusted_app(&gw_path) {
+        // The list is rebuilt from scratch on every write, so a binary that no longer
+        // exists drops out. One that cannot be built is skipped: the item stays
+        // ACL-protected (NOT world-readable) and that binary falls back to a one-time
+        // "Always Allow" until the next rewrite names it.
+        let paths = trusted_paths()?;
+        let mut trusted_apps: Vec<CFType> = Vec::with_capacity(paths.len());
+        for path in &paths {
+            match trusted_app(path) {
                 Ok(t) => trusted_apps.push(t),
-                Err(e) => eprintln!("conduit: gateway not added to keychain ACL ({e}); app-only"),
-            },
-            None => eprintln!("conduit: gateway path unresolved; keychain ACL is app-only"),
+                Err(e) => eprintln!("conduit: not added to keychain ACL ({e})"),
+            }
+        }
+        if trusted_apps.is_empty() {
+            return Err("no trustable Toolport binary for the keychain ACL".to_string());
         }
         let trusted = CFArray::from_CFTypes(&trusted_apps);
         let label = CFString::new("conduit-mcp");
@@ -1493,6 +1525,9 @@ pub fn migrate_legacy_entries(secret_keys: &[(String, String)]) -> MigrationRepo
         if let Err(e) = platform::ensure_master_key() {
             eprintln!("conduit: could not ensure secrets master key, will retry next launch ({e})");
             return MigrationReport::default();
+        }
+        if let Err(e) = platform::refresh_master_key_acl() {
+            eprintln!("conduit: keychain ACL refresh failed, will retry next launch ({e})");
         }
 
         // 2. One-time migration of per-server secrets into the file backend.
