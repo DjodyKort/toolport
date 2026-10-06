@@ -400,6 +400,24 @@ fn detect_upstream(
     })
 }
 
+/// A fork branch (`djody/custom-tools`) often tracks the upstream's `main`. When another remote
+/// carries a branch of the checked-out name, that is the ref to follow and the tracked one is
+/// the upstream; `origin` is preferred.
+fn own_remote_branch(
+    git: &dyn GitRunner,
+    root: &Path,
+    remotes: &[String],
+    tracked_remote: &str,
+    current: &str,
+) -> Option<(String, String)> {
+    let mut candidates: Vec<&String> = remotes.iter().filter(|r| *r != tracked_remote).collect();
+    candidates.sort_by_key(|r| r.as_str() != "origin");
+    candidates
+        .into_iter()
+        .find(|r| gitops::remote_branch_sha(git, root, r, current).is_some())
+        .map(|r| (r.clone(), current.to_string()))
+}
+
 /// Fills a `Source::Git` from the live checkout: which remote and branch the server actually
 /// runs from (not origin's default), and an upstream guess when a second remote exists.
 fn enrich_git(root: &Path, git: &dyn GitRunner) -> Source {
@@ -407,16 +425,25 @@ fn enrich_git(root: &Path, git: &dyn GitRunner) -> Source {
         return Source::git_fallback(root);
     }
     let remotes = gitops::list_remotes(git, root);
-    let (remote, branch) = gitops::tracking_upstream(git, root)
-        .filter(|(r, _)| remotes.iter().any(|x| x == r))
-        .or_else(|| {
-            gitops::current_branch(git, root).map(|b| (default_remote(&remotes), b))
-        })
-        .unwrap_or_else(|| (default_remote(&remotes), String::new()));
+    let tracked = gitops::tracking_upstream(git, root)
+        .filter(|(r, _)| remotes.iter().any(|x| x == r));
+    let current = gitops::current_branch(git, root);
+    let own_branch = match (&tracked, &current) {
+        (Some((tracked_remote, tracked_branch)), Some(current)) if tracked_branch != current => {
+            own_remote_branch(git, root, &remotes, tracked_remote, current)
+        }
+        _ => None,
+    };
+    let (remote, branch, tracked_upstream) = match (own_branch, tracked, current) {
+        (Some(own), Some((r, b)), _) => (own.0, own.1, Some(Upstream { remote: r, branch: b })),
+        (_, Some((r, b)), _) => (r, b, None),
+        (_, None, Some(b)) => (default_remote(&remotes), b, None),
+        (_, None, None) => (default_remote(&remotes), String::new(), None),
+    };
     let upstream = if branch.is_empty() {
         None
     } else {
-        detect_upstream(git, root, &remote, &branch, &remotes)
+        tracked_upstream.or_else(|| detect_upstream(git, root, &remote, &branch, &remotes))
     };
     Source::Git {
         path: root.to_string_lossy().into_owned(),

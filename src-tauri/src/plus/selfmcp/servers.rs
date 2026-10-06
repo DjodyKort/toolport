@@ -188,7 +188,14 @@ pub(super) fn set_source(args: &Value) -> Outcome {
 pub(super) fn git_status(args: &Value) -> Outcome {
     let server = load(args)?;
     let (src, _) = source::effective(&server, crate::clients::home().as_deref(), &SystemGit);
-    let Source::Git { path, branch, .. } = src else {
+    let Source::Git {
+        path,
+        remote,
+        branch,
+        upstream,
+        ..
+    } = src
+    else {
         return Ok(json!({
             "name": server.name,
             "isGit": false,
@@ -199,19 +206,34 @@ pub(super) fn git_status(args: &Value) -> Outcome {
     if !expanded.exists() {
         return Ok(json!({"name": server.name, "isGit": true, "pathExists": false, "path": path}));
     }
-    let branch_hint = (!branch.is_empty()).then(|| branch.as_str());
-    match gitops::check(&SystemGit, &expanded, branch_hint) {
-        Ok(s) => Ok(json!({
-            "name": server.name,
-            "isGit": true,
-            "path": expanded.to_string_lossy(),
-            "branch": s.branch,
-            "remoteRef": s.remote_ref,
-            "ahead": s.ahead,
-            "behind": s.behind,
-            "dirty": s.dirty,
-            "summaries": s.summaries,
-        })),
+    let target = gitops::Target {
+        remote: Some(remote.as_str()),
+        branch: (!branch.is_empty()).then(|| branch.as_str()),
+        upstream: upstream
+            .as_ref()
+            .map(|u| (u.remote.as_str(), u.branch.as_str())),
+    };
+    match gitops::check_target(&SystemGit, &expanded, &target) {
+        Ok(s) => {
+            let mut value = json!({
+                "name": server.name,
+                "isGit": true,
+                "path": expanded.to_string_lossy(),
+                "branch": s.branch,
+                "remoteRef": s.remote_ref,
+                "ahead": s.ahead,
+                "behind": s.behind,
+                "dirty": s.dirty,
+                "summaries": s.summaries,
+            });
+            if let Some(u) = s.upstream {
+                value["upstreamRef"] = json!(u.remote_ref);
+                value["upstreamAhead"] = json!(u.ahead);
+                value["upstreamBehind"] = json!(u.behind);
+                value["upstreamSummaries"] = json!(u.summaries);
+            }
+            Ok(value)
+        }
         Err(e) => Ok(json!({
             "name": server.name,
             "isGit": true,
