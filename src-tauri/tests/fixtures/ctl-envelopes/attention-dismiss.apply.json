@@ -1,5 +1,11 @@
 {
-  "argv": ["attention", "dismiss", "tasks:portal-token:waiting", "--until", "2099-01-01"],
+  "argv": [
+    "attention",
+    "dismiss",
+    "tasks:portal-token:waiting",
+    "--until",
+    "2099-01-01"
+  ],
   "envelope": {
     "command": "attention dismiss",
     "data": {
@@ -8,8 +14,10 @@
       "result": {
         "applied": true,
         "backups": [],
-        "changed": ["<WORLD>/data/plus/attention.json"],
-        "undo": "toolportctl attention dismiss tasks:portal-token:waiting --until 2026-10-05"
+        "changed": [
+          "<WORLD>/data/plus/attention.json"
+        ],
+        "undo": "toolportctl attention dismiss tasks:portal-token:waiting --until 2027-01-01"
       },
       "until": "2099-01-01"
     },

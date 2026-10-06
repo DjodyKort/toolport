@@ -1,5 +1,10 @@
 {
-  "argv": ["attention", "dismiss", "tasks:portal-token:waiting", "--dry-run"],
+  "argv": [
+    "attention",
+    "dismiss",
+    "tasks:portal-token:waiting",
+    "--dry-run"
+  ],
   "envelope": {
     "command": "attention dismiss",
     "data": {
@@ -10,13 +15,15 @@
         "steps": [
           {
             "detail": "write the entry in <WORLD>/data/plus/attention.json",
-            "keys": ["dismissed"],
+            "keys": [
+              "dismissed"
+            ],
             "op": "merge",
             "path": "<WORLD>/data/plus/attention.json"
           }
         ],
         "summary": "Hide tasks:portal-token:waiting for good",
-        "undo": "toolportctl attention dismiss tasks:portal-token:waiting --until 2026-10-05",
+        "undo": "toolportctl attention dismiss tasks:portal-token:waiting --until 2027-01-01",
         "warnings": []
       },
       "until": null

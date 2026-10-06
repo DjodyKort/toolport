@@ -108,6 +108,11 @@ impl CtlWorld {
                 self.path(&self.base.join("managed-settings.json")),
             ),
             ("TOOLPORT_SOURCES_TIME_SCALE", "20".to_string()),
+            // After every hardcoded fixture timestamp (latest: run-fixture-waiting's
+            // 2026-10-05T08:00:01Z in ctl_fixtures.rs), so feed items whose `since` is the
+            // fixed fixture clock still sort before items whose `since` is this fake "now"
+            // (attention-ls.default golden depends on that order).
+            ("TOOLPORT_ATTENTION_FAKE_NOW", "1798761600".to_string()),
             ("TOOLPORT_GITLEAKS_BIN", "/nonexistent/gitleaks".to_string()),
         ]
     }
