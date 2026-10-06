@@ -142,7 +142,19 @@ mod platform {
             &exe,
             gateway.as_deref(),
             data_bin.as_deref(),
+            &extra_trust_dirs(),
         ))
+    }
+
+    fn extra_trust_dirs() -> Vec<std::path::PathBuf> {
+        let mut dirs: Vec<std::path::PathBuf> = Vec::new();
+        let selfmcp = std::path::PathBuf::from(crate::plus::selfmcp::register::binary_path());
+        dirs.extend(selfmcp.parent().map(std::path::Path::to_path_buf));
+        if let Some(home) = dirs::home_dir() {
+            dirs.push(home.join(".local").join("bin"));
+            dirs.push(home.join(".cargo").join("bin"));
+        }
+        dirs
     }
 
     /// Re-apply the master key's trusted-application list when a Toolport binary was added,
@@ -153,18 +165,25 @@ mod platform {
         use crate::plus::keychain_trust as trust;
         use base64::Engine;
         let current = trust::fingerprint(&trusted_paths()?);
-        if !trust::needs_refresh(trust::stored_fingerprint().as_deref(), &current) {
-            return Ok(false);
-        }
-        let Some(key) = read_master_key()? else {
-            return Ok(false);
-        };
-        let encoded = base64::engine::general_purpose::STANDARD.encode(key);
-        add_with_shared_access(MASTER_KEY_ACCOUNT, &encoded)?;
-        if !trust::store_fingerprint(&current) {
-            return Err("could not record the keychain ACL fingerprint".to_string());
-        }
-        Ok(true)
+        trust::refresh_with(
+            trust::stored_fingerprint().as_deref(),
+            &current,
+            || {
+                let Some(key) = read_master_key()? else {
+                    return Ok(false);
+                };
+                let encoded = base64::engine::general_purpose::STANDARD.encode(key);
+                add_with_shared_access(MASTER_KEY_ACCOUNT, &encoded)?;
+                Ok(true)
+            },
+            |value| {
+                if trust::store_fingerprint(value) {
+                    Ok(())
+                } else {
+                    Err("could not record the keychain ACL fingerprint".to_string())
+                }
+            },
+        )
     }
 
     /// Store a per-server secret in the **data-protection keychain** under the
