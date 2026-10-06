@@ -56,10 +56,15 @@ fn secrets_backend() -> &'static str {
 }
 
 fn gateway_binary(data_dir: Option<&PathBuf>) -> Option<PathBuf> {
+    gateway_binary_for(std::env::current_exe().ok().as_deref(), data_dir)
+}
+
+fn gateway_binary_for(exe: Option<&std::path::Path>, data_dir: Option<&PathBuf>) -> Option<PathBuf> {
     let ext = std::env::consts::EXE_SUFFIX;
     let mut dirs: Vec<PathBuf> = Vec::new();
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(parent) = exe.parent() {
+    if let Some(exe) = exe {
+        let resolved = std::fs::canonicalize(exe).unwrap_or_else(|_| exe.to_path_buf());
+        if let Some(parent) = resolved.parent() {
             dirs.push(parent.to_path_buf());
         }
     }
@@ -368,6 +373,38 @@ mod tests {
         assert_eq!(done["gateway"]["build"]["building"], false);
         assert_eq!(done["gateway"]["build"]["serversConnected"], 2);
         assert_eq!(done["gateway"]["build"]["toolsSoFar"], 6);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn gateway_binary_is_found_through_a_symlinked_executable() {
+        let fx = DataDirFx::new("status-gateway", "symlink");
+        let bundle = fx.dir.join("bundle");
+        let bin = fx.dir.join("local-bin");
+        std::fs::create_dir_all(&bundle).unwrap();
+        std::fs::create_dir_all(&bin).unwrap();
+        let ctl = bundle.join("toolportctl");
+        let gateway = bundle.join("toolport-gateway");
+        std::fs::write(&ctl, "").unwrap();
+        std::fs::write(&gateway, "").unwrap();
+        let link = bin.join("toolportctl");
+        std::os::unix::fs::symlink(&ctl, &link).unwrap();
+
+        let found = gateway_binary_for(Some(&link), None).unwrap();
+        assert_eq!(found, std::fs::canonicalize(&gateway).unwrap());
+    }
+
+    #[test]
+    fn gateway_binary_falls_back_to_the_data_dir_when_the_executable_is_unresolvable() {
+        let fx = DataDirFx::new("status-gateway", "fallback");
+        let bin = fx.dir.join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let name = format!("toolport-gateway{}", std::env::consts::EXE_SUFFIX);
+        std::fs::write(bin.join(&name), "").unwrap();
+        let missing = fx.dir.join("nowhere").join("toolportctl");
+
+        let found = gateway_binary_for(Some(&missing), Some(&fx.dir)).unwrap();
+        assert_eq!(found, bin.join(&name));
     }
 
     #[test]
