@@ -5,6 +5,15 @@ import { Input } from "@/components/ui/input";
 const KEY = "toolport.context.recent-folders";
 const LIMIT = 8;
 
+/** A folder as a shell spells it, made plain: a terminal copies `'/a b/'` or `/a\ b/`, and
+ * the command runs without a shell to take the quoting off. */
+export function cleanFolder(raw: string): string {
+  const text = raw.trim();
+  const quoted = /^(['"])(.*)\1$/s.exec(text);
+  if (quoted) return quoted[2];
+  return text.replace(/\\ /g, " ");
+}
+
 function readRecent(): string[] {
   try {
     const parsed: unknown = JSON.parse(window.localStorage.getItem(KEY) ?? "[]");
@@ -22,7 +31,7 @@ function readRecent(): string[] {
 export function useRecentFolders() {
   const [recent, setRecent] = useState<string[]>(readRecent);
   const remember = useCallback((folder: string) => {
-    const path = folder.trim();
+    const path = cleanFolder(folder);
     if (!path) return;
     setRecent((now) => {
       const next = [path, ...now.filter((one) => one !== path)].slice(0, LIMIT);
@@ -56,7 +65,7 @@ export function useFolderChoice(): FolderChoice {
     [],
   );
   const show = useCallback(
-    (value: string) => setState({ draft: value, folder: value.trim() }),
+    (value: string) => setState({ draft: value, folder: cleanFolder(value) }),
     [],
   );
   return { ...state, setDraft, show };
@@ -100,6 +109,16 @@ export function FolderField({
           autoComplete="off"
           spellCheck={false}
           onChange={(event) => onChange(event.target.value)}
+          onPaste={(event) => {
+            const pasted = event.clipboardData.getData("text");
+            const clean = cleanFolder(pasted);
+            if (clean === pasted) return;
+            event.preventDefault();
+            const input = event.currentTarget;
+            const start = input.selectionStart ?? value.length;
+            const end = input.selectionEnd ?? value.length;
+            onChange(value.slice(0, start) + clean + value.slice(end));
+          }}
         />
         <datalist id={list}>
           {options.map((option) => (
