@@ -242,7 +242,8 @@ pub fn plan(roots: &Roots, config: &mut ContextConfig) -> Result<Report, String>
 }
 
 fn roots_from_args(args: &Value) -> Result<Roots, String> {
-    let home = match args.get("home").and_then(Value::as_str) {
+    let home_arg = args.get("home").and_then(Value::as_str);
+    let home = match home_arg {
         Some(h) => PathBuf::from(h),
         None => dirs::home_dir().ok_or("cannot resolve the home directory")?,
     };
@@ -263,8 +264,13 @@ fn roots_from_args(args: &Value) -> Result<Roots, String> {
     if let Some(p) = over("cfDir") {
         roots.cf_dir = p;
     }
+    let data_dir = if home_arg.is_none() || crate::registry::data_dir_is_explicit() {
+        crate::registry::conduit_dir()
+    } else {
+        None
+    };
     roots.shims_dir = over("shimsDir")
-        .or_else(crate::registry::conduit_dir)
+        .or(data_dir)
         .unwrap_or_else(|| roots.config_dir.clone());
     roots.read_env();
     roots.env_claude_config_dir = std::env::var("CLAUDE_CONFIG_DIR").ok();
