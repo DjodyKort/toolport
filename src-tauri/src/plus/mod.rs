@@ -151,6 +151,8 @@ const HANDLERS: &[(&str, Handler)] = &[
     ("plus.selfmcp.ensure", selfmcp::register::ensure_handler),
     ("plus.update.check", update::check_handler),
     ("plus.update.apply", update::apply_handler),
+    ("plus.update.watchTick", attention::updates::tick_handler),
+    ("plus.update.watchSettings", attention::updates::settings_handler),
 ];
 
 pub fn dispatch(command: &str, args: Value) -> Result<Value, String> {

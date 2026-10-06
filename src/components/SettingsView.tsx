@@ -77,6 +77,7 @@ import type {
 import { isGatewayServer } from "@/lib/types";
 import { useTheme, type Theme } from "@/lib/theme";
 import { Switch } from "@/components/ui/switch";
+import { UpdateWatchSection } from "@/plus/UpdateWatch";
 import {
   Select,
   SelectContent,
@@ -1459,6 +1460,7 @@ export function SettingsView({ registry, onRegistryChange }: Props) {
           </div>
         )}
       </section>
+      <UpdateWatchSection />
       <section className="flex flex-col gap-2">
         <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
           Integrations

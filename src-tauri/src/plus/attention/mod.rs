@@ -13,6 +13,7 @@ mod feed_plugins;
 mod feed_secrets;
 mod feed_sources;
 mod feed_tasks;
+pub mod updates;
 
 #[cfg(test)]
 mod tests;
@@ -132,6 +133,7 @@ pub const FEEDS: &[(&str, Feed)] = &[
     ("hooks", feed_hooks::collect),
     ("compression", feed_compression::collect),
     ("library", feed_library::collect),
+    ("updates", updates::collect),
 ];
 
 pub fn collect(ctx: &Ctx, feeds: &[(&str, Feed)]) -> Vec<Item> {
