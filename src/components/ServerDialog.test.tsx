@@ -229,6 +229,34 @@ describe("ServerDialog", () => {
     );
   });
 
+  it("keeps a stdio server's request timeout when it is edited as stdio", async () => {
+    const initial: ServerEntry = {
+      id: "local",
+      name: "Local",
+      transport: "stdio",
+      command: "local-server",
+      args: [],
+      env: [],
+      url: null,
+      source: "manual",
+      requestTimeoutMs: 90_000,
+    };
+    api.updateServer.mockResolvedValueOnce(savedRegistry("local"));
+    const user = userEvent.setup();
+
+    render(<ServerDialog autoOpen editId="local" initial={initial} onSaved={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(api.updateServer).toHaveBeenCalledTimes(1));
+    expect(api.updateServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "local",
+        transport: "stdio",
+        requestTimeoutMs: 90_000,
+      }),
+    );
+  });
+
   it("saves the startup timeout in milliseconds", async () => {
     const initial: ServerEntry = {
       id: "remote",
