@@ -2,6 +2,7 @@ use super::flags::{switch, value, Spec};
 use super::output::{CtlError, Output};
 use crate::plus::registry_ro;
 use crate::registry_controller;
+use crate::secrets::HTTP_AUTH_KEY;
 use serde_json::json;
 use std::io::{IsTerminal, Read};
 
@@ -29,7 +30,7 @@ fn resolve_target(operands: &[String], usage: &str, must_exist: bool) -> Result<
         || key.trim() != key
         || key.contains(['=', '\0'])
         || key.contains("::")
-        || (key.starts_with("__") && key.ends_with("__"))
+        || (key.starts_with("__") && key.ends_with("__") && key != HTTP_AUTH_KEY)
     {
         return Err(CtlError::usage(format!("invalid secret key: {key}")));
     }
@@ -53,6 +54,21 @@ fn resolve_target(operands: &[String], usage: &str, must_exist: bool) -> Result<
         server: server_id,
         key: key.clone(),
     })
+}
+
+fn require_remote(server_id: &str) -> Result<(), CtlError> {
+    let remote = registry_ro::read_opt().is_some_and(|reg| {
+        reg.servers
+            .iter()
+            .any(|s| s.id == server_id && matches!(s.transport.as_str(), "http" | "sse"))
+    });
+    if remote {
+        Ok(())
+    } else {
+        Err(CtlError::usage(format!(
+            "{HTTP_AUTH_KEY} is the bearer token of a remote server; {server_id} is not one"
+        )))
+    }
 }
 
 fn is_registered(server_id: &str) -> bool {
@@ -132,11 +148,16 @@ fn set_from(rest: &[String], reader: &mut dyn Read, interactive: bool) -> Result
         "usage: secret set <server> <KEY> [--value-env <VAR>] (value on stdin)",
         true,
     )?;
+    if target.key == HTTP_AUTH_KEY {
+        require_remote(&target.server)?;
+    }
     let value = read_value(flags.one("--value-env"), reader, interactive)?;
-    let stored = if is_launch_secret(&target) {
-        registry_controller::set_launch_secret(&target.server, &target.key, &value)
+    let stored = if target.key == HTTP_AUTH_KEY {
+        registry_controller::set_auth_token(&target.server, &value)
+    } else if is_launch_secret(&target) {
+        registry_controller::set_launch_secret(&target.server, &target.key, &value).map(|_| ())
     } else {
-        registry_controller::set_server_secret(&target.server, &target.key, &value)
+        registry_controller::set_server_secret(&target.server, &target.key, &value).map(|_| ())
     };
     stored.map_err(|e| CtlError::failed("vault", e))?;
     Ok(Output::new(
@@ -152,6 +173,11 @@ pub fn get(rest: &[String]) -> Result<Output, CtlError> {
         "usage: secret get <server> <KEY> [--reveal]",
         false,
     )?;
+    if target.key == HTTP_AUTH_KEY && flags.on("--reveal") {
+        return Err(CtlError::usage(format!(
+            "{HTTP_AUTH_KEY} is an access token and is never printed"
+        )));
+    }
     let value = crate::secrets::get_vault_secret_result(&target.server, &target.key)
         .map_err(|e| CtlError::failed("vault", e))?;
     let Some(value) = value else {
@@ -172,7 +198,9 @@ pub fn get(rest: &[String]) -> Result<Output, CtlError> {
 pub fn rm(rest: &[String]) -> Result<Output, CtlError> {
     let flags = Spec::PLAIN.parse(rest)?;
     let target = resolve_target(flags.operands(), "usage: secret rm <server> <KEY>", false)?;
-    let removed = if is_registered(&target.server) {
+    let removed = if target.key == HTTP_AUTH_KEY && is_registered(&target.server) {
+        registry_controller::clear_auth_token(&target.server)
+    } else if is_registered(&target.server) {
         registry_controller::delete_server_secret(&target.server, &target.key).map(|_| ())
     } else {
         crate::secrets::delete_secret(&target.server, &target.key)
@@ -203,6 +231,7 @@ mod tests {
                 "version": 1,
                 "servers": [
                     {"id": "srv-alpha", "name": "alpha", "transport": "stdio", "command": "x", "args": []},
+                    {"id": "srv-gamma", "name": "gamma", "transport": "http", "url": "https://mcp.example.test/mcp"},
                     {"id": "srv-beta", "name": "beta", "transport": "stdio", "command": "x", "args": ["<launch-input>"],
                      "launch": {"inputs": [{"key": "LAUNCH_TOKEN", "label": "Token", "secret": true}],
                                 "bindings": [{"index": 0, "parts": [{"kind": "input", "key": "LAUNCH_TOKEN"}]}]}}
@@ -288,6 +317,69 @@ mod tests {
     }
 
     #[test]
+    fn the_access_token_of_a_remote_server_is_set_checked_and_removed_like_the_app_does() {
+        with_vault(|| {
+            crate::secrets::set_secret("srv-gamma", crate::remote::OAUTH_STATE_KEY, "{}").unwrap();
+            let out = set_from(
+                &args(&["gamma", HTTP_AUTH_KEY]),
+                &mut stdin(&format!("{FAKE}\n")),
+                false,
+            )
+            .unwrap();
+            assert_eq!(out.data["server"], "srv-gamma");
+            assert_eq!(out.data["key"], HTTP_AUTH_KEY);
+            assert!(!out.human.contains(FAKE));
+            assert!(!out.data.to_string().contains(FAKE));
+            assert_eq!(generation(), 1, "a CLI set must wake a running gateway");
+            assert!(
+                env_of("srv-gamma").is_empty(),
+                "the token is not an environment secret"
+            );
+            assert!(
+                crate::secrets::get_vault_secret_result("srv-gamma", crate::remote::OAUTH_STATE_KEY)
+                    .unwrap()
+                    .is_none(),
+                "a pasted token replaces the previous browser sign-in, as in the app"
+            );
+
+            let masked = get(&args(&["gamma", HTTP_AUTH_KEY])).unwrap();
+            assert_eq!(masked.data["set"], true);
+            assert!(!masked.data.to_string().contains(FAKE));
+            assert!(!masked.human.contains(FAKE));
+            assert_eq!(
+                crate::secrets::get_vault_secret_result("srv-gamma", HTTP_AUTH_KEY)
+                    .unwrap()
+                    .as_deref(),
+                Some(FAKE)
+            );
+
+            rm(&args(&["gamma", HTTP_AUTH_KEY])).unwrap();
+            assert_eq!(generation(), 2, "a CLI rm must wake a running gateway too");
+            assert_eq!(
+                get(&args(&["gamma", HTTP_AUTH_KEY])).err().unwrap().code(),
+                "not_found"
+            );
+        });
+    }
+
+    #[test]
+    fn the_access_token_is_never_revealed_and_needs_a_remote_server() {
+        with_vault(|| {
+            set_from(&args(&["gamma", HTTP_AUTH_KEY]), &mut stdin(FAKE), false).unwrap();
+            let err = get(&args(&["gamma", HTTP_AUTH_KEY, "--reveal"])).err().unwrap();
+            assert_eq!(err.code(), "usage");
+            assert!(!err.message.contains(FAKE));
+
+            let err = set_from(&args(&["alpha", HTTP_AUTH_KEY]), &mut stdin(FAKE), false)
+                .err()
+                .unwrap();
+            assert_eq!(err.code(), "usage");
+            assert!(err.message.contains("not one"), "{}", err.message);
+            assert_eq!(generation(), 1, "only the remote server's token was stored");
+        });
+    }
+
+    #[test]
     fn launch_secrets_bump_without_declaring_an_env_var() {
         with_vault(|| {
             set_from(&args(&["beta", "LAUNCH_TOKEN"]), &mut stdin(FAKE), false).unwrap();
@@ -354,6 +446,8 @@ mod tests {
             let cases: Vec<(Vec<String>, &str, &str)> = vec![
                 (args(&["alpha"]), "x", "usage"),
                 (args(&["alpha", "__http_auth__"]), "x", "usage"),
+                (args(&["alpha", "__oauth_state__"]), "x", "usage"),
+                (args(&["gamma", "__oauth_client_secret__"]), "x", "usage"),
                 (args(&["alpha", "A::B"]), "x", "usage"),
                 (args(&["alpha", "A=B"]), "x", "usage"),
                 (args(&["alpha", " K"]), "x", "usage"),

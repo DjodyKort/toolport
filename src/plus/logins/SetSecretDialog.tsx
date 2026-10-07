@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { JobProgress, PlanPreview, SecretField, outcomeOf, useCtlJob } from "../ui";
+import { HTTP_AUTH_KEY } from "./model";
 import { setLine, setPlan, type ServerRef } from "./plans";
 
 /** `secret set`: a write-only field in a dialog. The plan says what is written, Save is the
@@ -42,6 +43,7 @@ export function SetSecretDialog({
   const stored = outcome?.kind === "ok";
   const current = existing(key);
   const replacing = current === true;
+  const accessToken = key === HTTP_AUTH_KEY;
 
   async function save(value: string) {
     const result = await job.start(["secret", "set", server.id, key], {
@@ -60,10 +62,14 @@ export function SetSecretDialog({
       >
         <DialogHeader>
           <DialogTitle>
-            {replacing ? "Replace" : "Set"} {key}
+            {replacing ? "Replace" : "Set"} {accessToken ? "access token" : key}
           </DialogTitle>
           <DialogDescription>
-            {server.name}. The value is written to the vault and never shown again.
+            {server.name}.{" "}
+            {accessToken
+              ? "The token the server expects in its Authorization header. "
+              : ""}
+            The value is written to the vault and never shown again.
           </DialogDescription>
         </DialogHeader>
         {!stored && (

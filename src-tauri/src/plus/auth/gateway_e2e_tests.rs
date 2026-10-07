@@ -934,7 +934,10 @@ fn a_static_token_vendor_remote_is_hinted_with_secret_set_not_auth_login() {
 
         let value = super::scan::report_value(&run, "server", &status, 0);
         let command = value["servers"][0]["fix"]["command"].as_str().unwrap();
-        assert!(command.contains("secret set revenuecat"), "{command}");
+        assert!(
+            command.contains("secret set revenuecat __http_auth__"),
+            "{command}"
+        );
         assert!(!command.contains("auth login"), "{command}");
     });
 }

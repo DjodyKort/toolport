@@ -221,13 +221,13 @@
       "route": "logins",
       "status": "built",
       "test": "src/plus/logins/LoginsTab.test.tsx",
-      "summary": "Probe every login or one server, with or without the cache"
+      "summary": "Probe every login with or without the cache, or test one server from its row and see its state, the reason and the time there"
     },
     "logins.secret-set": {
       "route": "logins",
       "status": "built",
       "test": "src/plus/logins/SecretsTab.test.tsx",
-      "summary": "Set or replace a secret through a write-only field; the value goes to stdin only"
+      "summary": "Set or replace a secret, or the access token of a remote server, through a write-only field; the value goes to stdin only"
     },
     "logins.secret-reveal": {
       "route": "logins",

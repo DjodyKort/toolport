@@ -383,6 +383,85 @@ describe("logins.signin: auth login from the Logins tab", () => {
   });
 });
 
+describe("logins.signin: a remote server that signs in with a token", () => {
+  const tokenFix = {
+    action: "fix_config" as const,
+    server: "srv-corp",
+    label: "Set the API token for srv-corp",
+    command:
+      "toolportctl secret set srv-corp __http_auth__ (value on stdin or --value-env <VAR>), then toolportctl auth probe --server srv-corp --force",
+    ipc: null,
+  };
+  const needsToken = () =>
+    statusFor(
+      loginsAuthRows.map((row) =>
+        row.server === "srv-corp"
+          ? { ...row, state: "needs_reauth", reason: "no_token", fix: tokenFix }
+          : row,
+      ),
+    );
+
+  it("offers a field for its access token, not a sign-in it cannot do", async () => {
+    bridge.set("status", needsToken());
+    bridge.set("secret set srv-corp __http_auth__", {
+      server: "srv-corp",
+      key: "__http_auth__",
+      stored: true,
+    });
+    const { table, user } = await openLogins();
+    const row = rowOf(table, "corp-tools");
+    expect(within(row).getByText("API token")).toBeInTheDocument();
+    expect(
+      within(row).queryByRole("button", { name: /Sign in/ }),
+    ).not.toBeInTheDocument();
+    await user.click(
+      within(row).getByRole("button", { name: "Set secret for corp-tools" }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Set access token" });
+    expect(within(dialog).queryByLabelText("Key")).not.toBeInTheDocument();
+    expect(dialog).toHaveTextContent("secret set srv-corp __http_auth__");
+    await user.type(within(dialog).getByLabelText("New value"), "tok-value-2");
+    await user.click(within(dialog).getByRole("button", { name: "Save to vault" }));
+    expect(await within(dialog).findByText("Saved to the vault")).toBeInTheDocument();
+    expect(bridge.calls.find((c) => c.argv[0] === "secret")).toMatchObject({
+      argv: ["secret", "set", "srv-corp", "__http_auth__"],
+      stdin: "tok-value-2",
+    });
+    expect(bridge.ran().join("\n")).not.toContain("tok-value-2");
+  });
+
+  it("keeps an OAuth remote on Sign in, with no Set secret to open", async () => {
+    const { table } = await openLogins();
+    const row = rowOf(table, "issue-tracker");
+    expect(
+      within(row).getByRole("button", { name: "Sign in to issue-tracker" }),
+    ).toBeVisible();
+    expect(
+      within(row).queryByRole("button", { name: /Set secret/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens the access token field when a sign-in turns out to need a token", async () => {
+    bridge.set(
+      "auth login srv-corp",
+      ctlReplyFailure(
+        "unsupported",
+        "corp-tools signs in with an API token, so there is no browser sign-in. Next: x",
+      ),
+    );
+    const { table, user } = await openLogins();
+    await user.click(
+      within(rowOf(table, "corp-tools")).getByRole("button", {
+        name: "Sign in again to corp-tools",
+      }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Sign in to corp-tools" });
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("unsupported");
+    await user.click(within(dialog).getByRole("button", { name: "Set secret…" }));
+    expect(await screen.findByRole("dialog", { name: "Set access token" })).toBeVisible();
+  });
+});
+
 describe("logins.probe: auth probe from the Logins tab", () => {
   it("probes every server ignoring the cache by default and reports what ran", async () => {
     const { user } = await openLogins();
@@ -417,33 +496,88 @@ describe("logins.probe: auth probe from the Logins tab", () => {
     expect(bridge.ran()).not.toContain("auth probe --force");
   });
 
-  it("probes one server from its row and says which one is running", async () => {
+  it("tests one server from its row and says in the row that it is running", async () => {
     const run = deferred<unknown>();
     const original = bridge.get("auth probe --server srv-issues --force");
     bridge.set("auth probe --server srv-issues --force", () => run.promise);
     const { table, user } = await openLogins();
-    await user.click(
-      within(rowOf(table, "issue-tracker")).getByRole("button", {
-        name: "Probe issue-tracker",
-      }),
-    );
-    expect(await screen.findByText("Probing srv-issues…")).toBeInTheDocument();
+    const row = rowOf(table, "issue-tracker");
+    await user.click(within(row).getByRole("button", { name: "Test issue-tracker" }));
     expect(
-      within(rowOf(table, "issue-tracker")).getByRole("button", {
-        name: "Probe issue-tracker",
-      }),
+      await within(row).findByText("Testing…", { selector: "div" }),
+    ).toBeInTheDocument();
+    expect(
+      within(row).getByRole("button", { name: "Test issue-tracker" }),
     ).toBeDisabled();
     expect(screen.getByRole("button", { name: "Probe all" })).toBeDisabled();
     run.resolve(original);
-    expect(
-      await screen.findByText(
-        "Probed 1, skipped 0 (a recent result was cached), failed 0.",
-      ),
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        within(row).queryByText("Testing…", { selector: "div" }),
+      ).not.toBeInTheDocument(),
+    );
     expect(bridge.ran()).toContain("auth probe --server srv-issues --force");
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Probe all" })).toBeEnabled(),
     );
+  });
+
+  it("shows the state, the reason in words and the time of a test inside the row", async () => {
+    bridge.set("auth probe --server srv-issues --force", {
+      mode: "one",
+      probes: [],
+      failures: [],
+      counts: {},
+      servers: [{ ...loginsAuthRows[0], reason: "no_token", lastProbe: 1_790_000_900 }],
+    });
+    const { table, user } = await openLogins();
+    const row = rowOf(table, "issue-tracker");
+    await user.click(within(row).getByRole("button", { name: "Test issue-tracker" }));
+    const result = await within(row).findByText(/No token is stored for this server/);
+    expect(result).toHaveTextContent("Login needed.");
+    expect(result.querySelector("time")).toHaveAttribute(
+      "datetime",
+      new Date(1_790_000_900 * 1000).toISOString(),
+    );
+  });
+
+  it("tests with --force even when the cache switch is off", async () => {
+    const { table, user } = await openLogins();
+    await user.click(
+      screen.getByRole("switch", { name: "Re-check even if a result is cached" }),
+    );
+    await user.click(
+      within(rowOf(table, "corp-tools")).getByRole("button", { name: "Test corp-tools" }),
+    );
+    await waitFor(() =>
+      expect(bridge.ran()).toContain("auth probe --server srv-corp --force"),
+    );
+    expect(bridge.ran()).not.toContain("auth probe --server srv-corp");
+  });
+
+  it("reads the lists again after a test so the row's own state follows", async () => {
+    const { table, user } = await openLogins();
+    const before = bridge.count("status");
+    await user.click(
+      within(rowOf(table, "corp-tools")).getByRole("button", { name: "Test corp-tools" }),
+    );
+    await waitFor(() => expect(bridge.count("status")).toBeGreaterThan(before));
+  });
+
+  it("says why a test could not run, in the row, with the CLI's own message", async () => {
+    bridge.set(
+      "auth probe --server srv-mail --force",
+      ctlReplyFailure("internal", "registry is locked"),
+    );
+    const { table, user } = await openLogins();
+    const row = rowOf(table, "mail-bridge");
+    await user.click(within(row).getByRole("button", { name: "Test mail-bridge" }));
+    expect(await within(row).findByRole("alert")).toHaveTextContent(
+      "Test failed: registry is locked",
+    );
+    expect(
+      screen.queryByRole("region", { name: "Probe result" }),
+    ).not.toBeInTheDocument();
   });
 
   it("lists the servers a probe failed for, with the reason", async () => {

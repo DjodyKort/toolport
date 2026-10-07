@@ -65,11 +65,15 @@ fn the_plan_picks_the_flow_each_server_can_use() {
     let (reason, next) = unsupported(plan(&oauth_remote, None, || facts(false, true, "")));
     assert!(reason.contains("static token"), "{reason}");
     assert!(
-        next.starts_with("in the app: Logins & secrets, Set secret, then Probe"),
+        next.starts_with("toolportctl secret set figma __http_auth__ (value on stdin"),
         "{next}"
     );
     assert!(
-        next.contains("toolportctl auth probe --server figma --force"),
+        next.contains("then toolportctl auth probe --server figma --force"),
+        "{next}"
+    );
+    assert!(
+        next.ends_with("in the app: Logins & secrets, Set secret, then Probe"),
         "{next}"
     );
 

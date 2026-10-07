@@ -16,6 +16,7 @@ use super::SystemClock;
 use crate::plus::args::{flag_or, str_nonempty};
 use crate::plus::servers;
 use crate::registry::{Registry, ServerEntry};
+use crate::secrets::HTTP_AUTH_KEY;
 
 pub type UrlSink = Arc<dyn Fn(&str) + Send + Sync>;
 
@@ -73,6 +74,14 @@ fn app_secret_step(id: &str) -> String {
     )
 }
 
+fn set_secret_step(id: &str, key: &str) -> String {
+    format!(
+        "toolportctl secret set {id} {key} (value on stdin or --value-env <VAR>), then {}; \
+         in the app: Logins & secrets, Set secret, then Probe",
+        reprobe(id)
+    )
+}
+
 pub fn plan(
     server: &ServerEntry,
     spec: Option<&ProbeSpec>,
@@ -85,11 +94,7 @@ pub fn plan(
             .map_or("<KEY>", String::as_str);
         return unsupported(
             format!("{name} signs in with an API token, so there is no browser sign-in"),
-            format!(
-                "toolportctl secret set {id} {key} (value on stdin or --value-env <VAR>), then {}; \
-                 in the app: Logins & secrets, Set secret, then Probe",
-                reprobe(id)
-            ),
+            set_secret_step(id, key),
         );
     }
     let remote = matches!(server.transport.as_str(), "http" | "sse") && server.url.is_some();
@@ -107,13 +112,13 @@ pub fn plan(
         if facts.static_token {
             return unsupported(
                 format!("{name} signs in with a static token, so there is no browser sign-in"),
-                app_secret_step(id),
+                set_secret_step(id, HTTP_AUTH_KEY),
             );
         }
         return match facts.detected.as_str() {
             "token" => unsupported(
                 format!("{name} signs in with an API token, so there is no browser sign-in"),
-                app_secret_step(id),
+                set_secret_step(id, HTTP_AUTH_KEY),
             ),
             "none" => unsupported(
                 format!("{name} does not ask for a sign-in"),

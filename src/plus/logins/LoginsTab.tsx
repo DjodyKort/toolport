@@ -10,10 +10,16 @@ import { Gate, StateBadge, WhenText } from "./atoms";
 import {
   countableLogins,
   expiresText,
+  formatWhen,
+  isRemote,
   loginArgv,
   needsSignIn,
+  plainReason,
+  secretKeysOf,
+  stateLabel,
   summarize,
   type LoginRow,
+  type RowTest,
 } from "./model";
 import { ProbePanel } from "./ProbePanel";
 import { SignInDialog } from "./SignInDialog";
@@ -21,6 +27,7 @@ import { SetSecretDialog } from "./SetSecretDialog";
 import { Strip } from "./Strip";
 import { useProbe } from "./useProbe";
 import { POLL_MS, useRoster } from "./useRoster";
+import { useRowTests } from "./useRowTests";
 
 const RunTaskDialog = lazy(() =>
   import("../tasks/RunDialog").then((m) => ({ default: m.RunTaskDialog })),
@@ -51,21 +58,46 @@ function Detail({ row }: { row: LoginRow }) {
   );
 }
 
+/** The outcome of the last Test of a row: its state, the reason in words and when it ran. */
+function TestLine({ test }: { test: RowTest | undefined }) {
+  if (!test) return null;
+  if (test.phase === "running")
+    return (
+      <div role="status" className="text-xs text-muted-foreground">
+        Testing…
+      </div>
+    );
+  if (test.phase === "failed")
+    return (
+      <div role="alert" className="text-xs text-destructive">
+        Test failed: {test.message}
+      </div>
+    );
+  return (
+    <div role="status" className="text-xs text-muted-foreground">
+      <b className="font-medium">{stateLabel(test.state)}.</b> {plainReason(test.reason)}{" "}
+      Tested{" "}
+      <time dateTime={new Date(test.at * 1000).toISOString()}>{formatWhen(test.at)}</time>
+      .
+    </div>
+  );
+}
+
 function Actions({
   row,
   busy,
-  probing,
+  testing,
   onSignIn,
   onSetSecret,
-  onProbe,
+  onTest,
   onRefreshTask,
 }: {
   row: LoginRow;
   busy: boolean;
-  probing: boolean;
+  testing: boolean;
   onSignIn: () => void;
   onSetSecret: () => void;
-  onProbe: () => void;
+  onTest: () => void;
   onRefreshTask?: () => void;
 }) {
   const needs = needsSignIn(row.state);
@@ -107,10 +139,10 @@ function Actions({
         size="sm"
         variant="outline"
         disabled={busy}
-        aria-label={`Probe ${row.name}`}
-        onClick={onProbe}
+        aria-label={`Test ${row.name}`}
+        onClick={onTest}
       >
-        {probing ? "Probing…" : "Probe"}
+        {testing ? "Testing…" : "Test"}
       </Button>
     </div>
   );
@@ -118,12 +150,14 @@ function Actions({
 
 /** Logins: every server that has a login, the broken ones first, with a state, a reason, the
  * time of the last probe and the one action that fixes it: Sign in for an OAuth server, Set
- * secret for an API-token server. Probe re-checks one or all of them. */
+ * secret for an API-token server. Test probes one server again, whatever is cached, and says
+ * what came of it in the row; Probe all does every server. */
 export function LoginsTab({ onOpenCommands, pollMs = POLL_MS }: TabProps) {
   const data = useRoster(pollMs);
   const { reload } = data;
   const [force, setForce] = useState(true);
   const probe = useProbe(reload);
+  const rowTests = useRowTests(reload);
   const signIn = useCtlJob();
   const [signing, setSigning] = useState<{ row: LoginRow; noOpen: boolean } | null>(null);
   const [secretFor, setSecretFor] = useState<LoginRow | null>(null);
@@ -147,7 +181,10 @@ export function LoginsTab({ onOpenCommands, pollMs = POLL_MS }: TabProps) {
     setSigning(null);
   };
 
-  const busy = probe.job.state.phase === "running" || signIn.state.phase === "running";
+  const busy =
+    probe.job.state.phase === "running" ||
+    signIn.state.phase === "running" ||
+    rowTests.running;
   const status = data.status.data;
   const gatewayMissing = status !== null && !status.gateway.present;
 
@@ -258,6 +295,7 @@ export function LoginsTab({ onOpenCommands, pollMs = POLL_MS }: TabProps) {
                           <th scope="row" className="px-3 py-2.5 text-left font-normal">
                             <b className="font-semibold">{row.name}</b>
                             <Detail row={row} />
+                            <TestLine test={rowTests.tests[row.id]} />
                           </th>
                           <td className="px-3 py-2.5">{row.typeLabel}</td>
                           <td className="px-3 py-2.5">
@@ -270,10 +308,10 @@ export function LoginsTab({ onOpenCommands, pollMs = POLL_MS }: TabProps) {
                             <Actions
                               row={row}
                               busy={busy}
-                              probing={probe.target === row.id && busy}
+                              testing={rowTests.tests[row.id]?.phase === "running"}
                               onSignIn={() => startSignIn(row, false)}
                               onSetSecret={() => setSecretFor(row)}
-                              onProbe={() => void probe.run({ server: row.id, force })}
+                              onTest={() => void rowTests.run(row.id)}
                               onRefreshTask={
                                 refreshTaskOf(row.id)
                                   ? () => {
@@ -312,7 +350,7 @@ export function LoginsTab({ onOpenCommands, pollMs = POLL_MS }: TabProps) {
           }}
           onClose={closeSignIn}
           onSetSecret={
-            signing.row.canSetSecret
+            signing.row.canSetSecret || isRemote(signing.row.transport)
               ? () => {
                   const row = signing.row;
                   closeSignIn();
@@ -335,7 +373,7 @@ export function LoginsTab({ onOpenCommands, pollMs = POLL_MS }: TabProps) {
       {secretFor && (
         <SetSecretDialog
           server={{ id: secretFor.id, name: secretFor.name }}
-          keys={secretFor.secretKeys}
+          keys={secretKeysOf(secretFor)}
           existing={() => null}
           onClose={() => setSecretFor(null)}
           onStored={reload}

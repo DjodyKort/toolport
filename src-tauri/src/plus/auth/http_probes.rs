@@ -213,6 +213,16 @@ fn base_of(url: &str) -> String {
     url.trim_end_matches('/').to_string()
 }
 
+const MOODLE_REST_PATH: &str = "/webservice/rest/server.php";
+
+fn moodle_endpoint(base: &str) -> String {
+    if base.ends_with(MOODLE_REST_PATH) {
+        base.to_string()
+    } else {
+        format!("{base}{MOODLE_REST_PATH}")
+    }
+}
+
 pub struct HttpProbe {
     bases: BTreeMap<&'static str, String>,
     timeout: Duration,
@@ -377,7 +387,7 @@ impl HttpProbe {
         let (base, token) = self.creds(Service::Moodle, spec)?;
         let reply = self.send(
             "POST",
-            &format!("{base}/webservice/rest/server.php"),
+            &moodle_endpoint(&base),
             &[],
             Body::Form(&[
                 ("wstoken", &token),

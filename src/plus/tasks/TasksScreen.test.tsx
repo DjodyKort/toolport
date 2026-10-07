@@ -59,6 +59,25 @@ const pageText = () =>
     .map((el) => (el as HTMLInputElement).value)
     .join("|");
 
+describe("Tasks list: nothing enabled", () => {
+  it("says so when every task is disabled, instead of reading as an empty list", async () => {
+    setup({ tasks: [{ ...nightlyReport, enabled: false }], runs: [] });
+    await open();
+    expect(await screen.findByText(/No enabled tasks/)).toHaveTextContent(
+      "No enabled tasks (1 disabled). Select a task and turn it on with Edit.",
+    );
+    expect(
+      within(await list()).getByRole("button", { name: /Nightly report/ }),
+    ).toBeVisible();
+  });
+
+  it("stays quiet while at least one task is on", async () => {
+    await open();
+    await list();
+    expect(screen.queryByText(/No enabled tasks/)).not.toBeInTheDocument();
+  });
+});
+
 describe("Tasks list", () => {
   it("has the Tasks and History tabs and opens on Tasks", async () => {
     await open();

@@ -236,6 +236,30 @@ const SIMPLE: [Service; 5] = [
 ];
 
 #[test]
+fn a_moodle_url_is_joined_to_the_endpoint_without_repeating_it() {
+    let cases = [
+        ("", "/webservice/rest/server.php"),
+        ("/", "/webservice/rest/server.php"),
+        ("/webservice/rest/server.php", "/webservice/rest/server.php"),
+        ("/webservice/rest/server.php/", "/webservice/rest/server.php"),
+        ("/moodle", "/moodle/webservice/rest/server.php"),
+        ("/moodle/webservice/rest/server.php", "/moodle/webservice/rest/server.php"),
+    ];
+    for (suffix, path) in cases {
+        let m = fixed(200, &valid_body(Service::Moodle));
+        let url = format!("{}{suffix}", m.url);
+        assert_eq!(run(Service::Moodle, &url), ProbeOutcome::Success, "{suffix}");
+        let requests = m.requests.lock().unwrap().clone();
+        assert_eq!(requests.len(), 1, "{suffix}");
+        assert!(
+            requests[0].starts_with(&format!("POST {path} ")),
+            "{suffix}: {}",
+            requests[0]
+        );
+    }
+}
+
+#[test]
 fn simple_services_succeed_with_expected_request_shape() {
     for service in SIMPLE {
         let m = fixed(200, &valid_body(service));

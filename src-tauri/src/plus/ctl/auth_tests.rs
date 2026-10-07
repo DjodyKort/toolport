@@ -254,7 +254,7 @@ fn auth_probe_and_login_no_ops_write_nothing() {
         assert_eq!(code, 1);
         assert!(err.contains("signs in with a static token"), "{err}");
         assert!(
-            err.contains("Next: in the app: Logins & secrets, Set secret"),
+            err.contains("Next: toolportctl secret set srv-slack __http_auth__ "),
             "{err}"
         );
         assert!(

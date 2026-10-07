@@ -67,6 +67,16 @@ function Strip({ tasks }: { tasks: LsTask[] }) {
   );
 }
 
+function NoneEnabled({ tasks }: { tasks: LsTask[] }) {
+  const { total, enabled } = summarize(tasks);
+  if (total === 0 || enabled > 0) return null;
+  return (
+    <Callout variant="info" role="status">
+      No enabled tasks ({total} disabled). Select a task and turn it on with Edit.
+    </Callout>
+  );
+}
+
 function Row({
   task,
   selected,
@@ -242,6 +252,7 @@ export function TasksTab({
               </Button>
             </div>
             <Strip tasks={data.tasks} />
+            <NoneEnabled tasks={data.tasks} />
             {data.invalid.length > 0 && (
               <Callout variant="warning" role="status">
                 <p className="font-medium">

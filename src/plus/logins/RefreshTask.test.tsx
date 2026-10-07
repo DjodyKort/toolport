@@ -77,7 +77,7 @@ describe("Refresh task in Logins", () => {
   it("offers nothing when the tasks cannot be read", async () => {
     bridge.set("task ls", ctlReplyFailure("bridge", "tasks are unreadable"));
     const { table } = await openLogins();
-    await within(table).findByRole("button", { name: "Probe acme-erp" });
+    await within(table).findByRole("button", { name: "Test acme-erp" });
     expect(within(table).queryByRole("button", { name: /Refresh task/ })).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
   });
@@ -91,7 +91,7 @@ describe("Refresh task in Logins", () => {
     };
     bridge.set("task ls", off);
     const { table } = await openLogins();
-    await within(table).findByRole("button", { name: "Probe acme-erp" });
+    await within(table).findByRole("button", { name: "Test acme-erp" });
     expect(within(table).queryByRole("button", { name: /Refresh task/ })).toBeNull();
   });
 });

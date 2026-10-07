@@ -1,4 +1,5 @@
 import type { PlanV1 } from "../ui";
+import { HTTP_AUTH_KEY } from "./model";
 
 export interface ServerRef {
   id: string;
@@ -31,6 +32,14 @@ export function setPlan(
         detail:
           "The value is sent on stdin, never shown again and not written to a config file",
       },
+      ...(key === HTTP_AUTH_KEY
+        ? [
+            {
+              op: "note" as const,
+              detail: `A stored token replaces the browser sign-in of ${server.name}`,
+            },
+          ]
+        : []),
     ],
     effects: {},
     warnings:

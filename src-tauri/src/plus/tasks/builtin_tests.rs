@@ -48,6 +48,37 @@ fn enabled_copy(dir: &std::path::Path) -> String {
     path.display().to_string()
 }
 
+fn task_ls(args: &[&str]) -> String {
+    let argv: Vec<String> = ["task", "ls"].iter().chain(args).map(|a| a.to_string()).collect();
+    let (mut out, mut err) = (Vec::new(), Vec::new());
+    assert_eq!(crate::plus::ctl::run_with(&argv, &mut out, &mut err), 0);
+    String::from_utf8(out).unwrap()
+}
+
+#[test]
+fn ls_says_when_only_disabled_tasks_exist_instead_of_claiming_there_are_none() {
+    let _fx = world("ls-disabled-hint");
+    let hidden = task_ls(&[]);
+    assert!(
+        hidden.contains("no enabled tasks (1 disabled, see `task ls --all`)"),
+        "{hidden}"
+    );
+    assert!(!hidden.contains("no tasks"), "{hidden}");
+    let all = task_ls(&["--all"]);
+    assert!(all.contains("moodle-token"), "{all}");
+    assert!(all.contains("(disabled)"), "{all}");
+}
+
+#[test]
+fn ls_still_says_no_tasks_when_there_is_nothing_at_all() {
+    let _fx = world("ls-none");
+    let file = enabled_copy(&store::plus_dir().unwrap().join("edits"));
+    api::edit("moodle-token", &file, false).unwrap();
+    api::rm("moodle-token", false).unwrap();
+    assert!(task_ls(&[]).contains("no tasks (task add <id> --file <task.json>)"));
+    assert!(task_ls(&["--all"]).contains("no tasks (task add <id> --file <task.json>)"));
+}
+
 #[test]
 fn the_shipped_moodle_token_task_is_valid_disabled_and_never_started_on_its_own() {
     let task = shipped();

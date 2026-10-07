@@ -106,7 +106,15 @@ pub fn ls(rest: &[String]) -> Result<Output, CtlError> {
         human.push_str(&format!("{:<24} unreadable: {}\n", text(t, "id"), text(t, "error")));
     }
     if human.is_empty() {
-        human.push_str("no tasks (task add <id> --file <task.json>)\n");
+        let disabled = if flags.on("--all") {
+            0
+        } else {
+            api::ls(true)?["tasks"].as_array().map_or(0, Vec::len)
+        };
+        human.push_str(&match disabled {
+            0 => "no tasks (task add <id> --file <task.json>)\n".to_string(),
+            n => format!("no enabled tasks ({n} disabled, see `task ls --all`)\n"),
+        });
     }
     Ok(Output::new(data, human))
 }

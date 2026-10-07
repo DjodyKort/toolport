@@ -13,6 +13,7 @@ use super::probe::{Clock, Probe, ProbeKind, ProbeRegistry, ProbeSpec, BACKOFF_CA
 use super::scan;
 use super::types::{AuthState, Tracked};
 use crate::plus::servers;
+use crate::secrets::HTTP_AUTH_KEY;
 
 impl From<ProbeKind> for ProbeHintKind {
     fn from(kind: ProbeKind) -> Self {
@@ -245,15 +246,20 @@ impl AuthProber {
             Some(run) => backoff_delay(spec.min_interval_secs, run.count),
             None => spec.min_interval_secs,
         };
+        let hint_kind = match spec.kind {
+            ProbeKind::GatewayState => gateway_hint_kind(&spec.server, &next.state),
+            other => ProbeHintKind::from(other),
+        };
+        let token_key = spec.params.get(PARAM_TOKEN_KEY).cloned().or_else(|| {
+            (spec.kind == ProbeKind::GatewayState && hint_kind == ProbeHintKind::ApiToken)
+                .then(|| HTTP_AUTH_KEY.to_string())
+        });
         let entry = ServerEntry {
             tracked: next.clone(),
             last_probe_at: Some(finished),
             next_due_at: finished + delay,
-            hint_kind: match spec.kind {
-                ProbeKind::GatewayState => gateway_hint_kind(&spec.server, &next.state),
-                other => ProbeHintKind::from(other),
-            },
-            token_key: spec.params.get(PARAM_TOKEN_KEY).cloned(),
+            hint_kind,
+            token_key,
         };
         status.servers.insert(spec.server.clone(), entry.clone());
         guard.save_status(&status)?;
