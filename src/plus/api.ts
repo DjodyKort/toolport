@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { FolderProfile } from "@/lib/types";
+import type { CatalogSearchResult, FolderProfile } from "@/lib/types";
 import type { LoadItem as LoadItemData, LoadsData } from "./bridge/data";
 
 /** Single IPC entry for every Toolport+ extension command (see `src-tauri/src/plus`). */
@@ -157,4 +157,10 @@ export function plusUpdateWatchSettings(
   patch: Partial<UpdateWatchSettings> = {},
 ): Promise<UpdateWatchSettings> {
   return plusInvoke<UpdateWatchSettings>("plus.update.watchSettings", patch);
+}
+
+/** Curated matches plus any cached registry answer for `query`, however stale,
+ * with no network call. `searchCatalog` then refreshes them from the registry. */
+export function plusCatalogSearchInstant(query: string): Promise<CatalogSearchResult> {
+  return plusInvoke<CatalogSearchResult>("plus.catalog.searchInstant", { query });
 }

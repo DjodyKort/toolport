@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { toastError } from "@/lib/toast";
 import { openExternal } from "@/lib/openUrl";
 import { addServer, listStacks, popularCatalog, searchCatalog } from "@/lib/api";
+import { plusCatalogSearchInstant } from "@/plus/api";
 import type {
   CatalogEntry,
   Registry,
@@ -46,6 +47,9 @@ export function CatalogView({ registry, onAdded }: Props) {
   const [popular, setPopular] = useState<CatalogEntry[]>([]);
   const [results, setResults] = useState<CatalogEntry[] | null>(null);
   const [loading, setLoading] = useState(false);
+  // True only while the live registry call is outstanding, not during the debounce
+  // before it, so a warm-cache answer doesn't flash the "searching" line.
+  const [registryPending, setRegistryPending] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [popularLoading, setPopularLoading] = useState(true);
   const [popularError, setPopularError] = useState(false);
@@ -89,23 +93,41 @@ export function CatalogView({ registry, onAdded }: Props) {
     reloadPopular();
   }, [reloadPopular]);
 
-  // Live search as you type: debounce, and ignore stale responses so a slow
-  // earlier query can't overwrite a newer one.
+  // Live search as you type, in two steps. Curated matches and any cached registry
+  // answer come back at once (offline); the live registry call is debounced and can
+  // take up to a minute on a cold query, then replaces them. Stale responses of
+  // either step are ignored so a slow earlier query can't overwrite a newer one.
   useEffect(() => {
     const q = query.trim();
     if (!q) {
       setResults(null);
       setRegistryError(null);
       setLoading(false);
+      setRegistryPending(false);
       return;
     }
     setLoading(true);
+    setRegistryPending(false);
     setRegistryError(null);
     let cancelled = false;
+    let instantShown = false;
+    let registryAnswered = false;
+    plusCatalogSearchInstant(q)
+      .then((r) => {
+        if (!cancelled && !registryAnswered) {
+          instantShown = true;
+          setResults(r.entries);
+        }
+      })
+      .catch(() => {
+        // The registry step below still answers on its own.
+      });
     const t = setTimeout(() => {
+      setRegistryPending(true);
       searchCatalog(q)
         .then((r) => {
           if (!cancelled) {
+            registryAnswered = true;
             setResults(r.entries);
             setRegistryError(r.registryError ?? null);
           }
@@ -113,14 +135,18 @@ export function CatalogView({ registry, onAdded }: Props) {
         .catch(() => {
           // Only an unexpected failure outside the backend's own classification
           // (e.g. the IPC call itself) reaches here: `searchCatalog` reports a
-          // registry failure as `registryError`, not a rejection.
+          // registry failure as `registryError`, not a rejection. Whatever the
+          // instant step already showed stays.
           if (!cancelled) {
-            setResults([]);
+            if (!instantShown) setResults([]);
             setRegistryError({ kind: "connectionFailed", message: "search failed" });
           }
         })
         .finally(() => {
-          if (!cancelled) setLoading(false);
+          if (!cancelled) {
+            setLoading(false);
+            setRegistryPending(false);
+          }
         });
     }, 300);
     return () => {
@@ -276,7 +302,7 @@ export function CatalogView({ registry, onAdded }: Props) {
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>
           {results !== null
-            ? `${shown.length} result${shown.length === 1 ? "" : "s"} (popular picks first, then the MCP Registry)`
+            ? `${shown.length} result${shown.length === 1 ? "" : "s"}${loading ? " so far" : ""} (popular picks first, then the MCP Registry)`
             : "Popular servers"}
         </span>
         {results !== null && shown.length > 0 && (
@@ -431,6 +457,16 @@ export function CatalogView({ registry, onAdded }: Props) {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{shown.map(card)}</div>
+      )}
+      {!browsing && registryPending && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-2 text-xs text-muted-foreground"
+        >
+          <Loader2 className="size-3 shrink-0 animate-spin" aria-hidden="true" />
+          <span>Searching the MCP Registry, this can take up to a minute</span>
+        </div>
       )}
       {configEntry && (
         <ServerDialog

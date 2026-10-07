@@ -9,6 +9,7 @@ use serde_json::{json, Value};
 pub mod attention;
 pub mod auth;
 pub mod bridge;
+pub mod catalog_search;
 pub mod cc;
 pub mod compression;
 pub mod council;
@@ -153,6 +154,7 @@ const HANDLERS: &[(&str, Handler)] = &[
     ("plus.update.apply", update::apply_handler),
     ("plus.update.watchTick", attention::updates::tick_handler),
     ("plus.update.watchSettings", attention::updates::settings_handler),
+    ("plus.catalog.searchInstant", catalog_search::search_instant_handler),
 ];
 
 pub fn dispatch(command: &str, args: Value) -> Result<Value, String> {

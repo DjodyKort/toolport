@@ -15,6 +15,7 @@ export const plusInvokeFixtures = new Map<string, unknown>([
     { ran: false, reason: "not-due", raised: [], active: 0, errors: 0 },
   ],
   ["plus.update.watchSettings", { enabled: true, intervalHours: 24 }],
+  ["plus.catalog.searchInstant", { entries: [] }],
   ["plus.auth.probe", { server: "odoo", ran: true, skipped: null }],
   [
     "plus.auth.login",
