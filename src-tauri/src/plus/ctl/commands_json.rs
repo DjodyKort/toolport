@@ -184,6 +184,11 @@ pub(super) const GLOBAL: &[Meta] = &[
         Bool,
         "Contact the remote (a read-only ls-remote, then a fetch) to test the credentials and refresh the counts; the only network call of library status",
     ),
+    m(
+        "--full",
+        Bool,
+        "Start a new pass over the whole registry instead of resuming an unfinished one or fetching only what changed",
+    ),
     m("--enable", Bool, "Turn folder profiles on"),
     m(
         "--event",
@@ -339,7 +344,11 @@ pub(super) const GLOBAL: &[Meta] = &[
         "Do not resolve conflicts; keep both copies",
     ),
     m("--no-skills", Bool, "Leave skills out of the profile"),
-    m("--offline", Bool, "Use the curated catalog only"),
+    m(
+        "--offline",
+        Bool,
+        "Use the curated catalog and the local registry index only; no network",
+    ),
     m(
         "--org-mode",
         Ty::Choice(&["import", "copy"]),

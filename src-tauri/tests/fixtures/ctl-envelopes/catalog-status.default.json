@@ -1,0 +1,15 @@
+{
+  "argv": ["catalog", "status"],
+  "envelope": {
+    "command": "catalog status",
+    "data": {
+      "complete": false,
+      "count": 0,
+      "lastSyncedAt": null,
+      "running": false
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

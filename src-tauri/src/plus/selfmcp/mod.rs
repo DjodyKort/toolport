@@ -35,6 +35,9 @@ pub mod register;
 mod plugins;
 #[cfg(all(test, unix))]
 mod plugins_tests;
+mod registry_index;
+#[cfg(test)]
+mod registry_index_tests;
 mod servers;
 mod skills;
 mod sources;

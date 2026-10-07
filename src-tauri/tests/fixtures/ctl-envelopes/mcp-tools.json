@@ -367,6 +367,29 @@
           "tier": 1
         },
         {
+          "description": "Show the local index of the MCP Registry that catalog search reads: how many servers it holds, when the last sync started, whether a full pass has finished and whether a sync is running. Reads the local file only, never the network. Read only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "catalog_status",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "Sync the local index of the MCP Registry from the registry, page by page; the index is usable after every page and an interrupted sync resumes where it stopped. Fetches only what changed since the last sync unless full is set. Takes up to a minute on a first sync and writes only the index file in the data directory",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "catalog_sync",
+          "params": [
+            {
+              "description": "Start a new pass over the whole registry instead of resuming an unfinished one or fetching only the changes",
+              "name": "full",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
           "description": "Show the skills library against its remote: branch, commits ahead and behind, uncommitted files, how git authenticates (gh, a credential helper or ssh) and any other clone of the same remote with its own counts. Pass fetch to contact the remote and test the credentials; without it nothing touches the network. Read only",
           "dryRunDefault": false,
           "gate": "none",

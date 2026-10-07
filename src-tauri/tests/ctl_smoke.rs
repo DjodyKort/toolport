@@ -30,6 +30,7 @@ static NEXT: AtomicUsize = AtomicUsize::new(0);
 
 const NOT_READ_ONLY: &[(&str, &str)] = &[
     ("server install", "adds a catalog server; round trip test"),
+    ("catalog sync", "pages the live MCP Registry into the index file; catalog_index unit tests against a mock registry"),
     ("server new", "adds a server; round trip test"),
     ("server edit", "changes a server; round trip test"),
     ("server source set", "writes the server's source metadata; round trip test"),
@@ -511,7 +512,7 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert!(d["checks"].as_array().unwrap().len() >= 4);
         }),
         case("commands", &["commands"], 0, |_, d| {
-            assert_eq!(d["counts"]["tools"], 101);
+            assert_eq!(d["counts"]["tools"], 103);
             let rows = d["commands"].as_array().unwrap();
             assert!(rows.iter().any(|r| r["id"] == "profile edit" && r["tier"] == "write"));
             assert!(rows.iter().any(|r| r["id"] == "sync push" && r["parent"] == "sync"));
@@ -534,6 +535,11 @@ fn read_only_cases(w: &World) -> Vec<Case> {
                 assert!(d["total"].as_u64().unwrap() >= 3);
             },
         ),
+        case("catalog status", &["catalog", "status"], 0, |_, d| {
+            assert_eq!(d["count"], 0);
+            assert_eq!(d["complete"], false);
+            assert_eq!(d["running"], false);
+        }),
         case("server info", &["server", "info", "alpha"], 0, |_, d| {
             assert_eq!(d["id"], "srv-alpha");
             assert_eq!(d["env"], json!([{"key": "API_KEY", "secret": true}]));
@@ -866,7 +872,7 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert!(!d["checks"].as_array().unwrap().is_empty());
         }),
         case("mcp", &["mcp", "tools"], 0, |_, d| {
-            assert_eq!(d["tools"].as_array().unwrap().len(), 101);
+            assert_eq!(d["tools"].as_array().unwrap().len(), 103);
             assert_eq!(d["resources"].as_array().unwrap().len(), 11);
         }),
         case(

@@ -303,6 +303,20 @@ pub const MORE: &[Case] = &[
         ],
     ),
     case(
+        "catalog status",
+        &[
+            read("default", &["catalog", "status"]),
+            usage("extra", &["catalog", "status", "extra"]),
+        ],
+    ),
+    case(
+        "catalog sync",
+        &[
+            usage("flag", &["catalog", "sync", "--bogus"]),
+            usage("operand", &["catalog", "sync", "extra"]),
+        ],
+    ),
+    case(
         "server new",
         &[
             apply(

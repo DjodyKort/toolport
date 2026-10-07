@@ -12,6 +12,7 @@ use super::{agents, auth, cc, client, client_direct, client_edit, compression, c
 use super::{context, context_bundle, context_manage, council, folders, import, mcp, obs, profile, secret};
 use super::task;
 use super::attention;
+use super::catalog;
 use super::{
     hooks, library, plugins, plugins_switch, server, skills, skills_repo, skills_state, skills_taps, sources, styles, sync,
     update,
@@ -307,6 +308,10 @@ pub(super) const ROWS: &[Row] = &[
         .needs(&[Network])
         .spec(&[&server::INSTALL])
         .args(&[req("name")]),
+    row("catalog sync", W)
+        .needs(&[Network, LongRunning])
+        .spec(&[&catalog::SYNC]),
+    row("catalog status", R),
     row("server uninstall", D)
         .dry()
         .spec(&[&server::UNINSTALL])
@@ -815,6 +820,8 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("skills_list", R, "skills ls"),
     maps("sources_ls", R, "sources ls"),
     maps("attention_ls", R, "attention ls"),
+    maps("catalog_status", R, "catalog status"),
+    maps("catalog_sync", W, "catalog sync"),
     maps("library_status", R, "library status"),
     maps("library_pull", W, "library pull").on(),
     maps("context_measure", W, "context measure"),

@@ -98,10 +98,13 @@ fn catalog_row(entry: &CatalogEntry) -> Value {
 
 /// A registry failure never fails the command outright (D-101): curated hits
 /// still come back, and the error (if any) rides along for the caller to
-/// decide what to show.
+/// decide what to show. Offline stays on the curated catalog and the local
+/// registry index; an empty query lists the curated catalog in its own order.
 fn run_search(query: &str, offline: bool) -> (Vec<CatalogEntry>, Option<catalog::RegistryError>) {
-    if offline {
+    if offline && query.trim().is_empty() {
         (catalog::search_curated(query), None)
+    } else if offline {
+        (catalog::search_instant(query).entries, None)
     } else {
         let found = catalog::search(query);
         (found.entries, found.registry_error)

@@ -122,7 +122,7 @@
             },
             {
               "aliases": [],
-              "effect": "Use the curated catalog only",
+              "effect": "Use the curated catalog and the local registry index only; no network",
               "escalates": false,
               "hidden": false,
               "name": "--offline",
@@ -165,7 +165,7 @@
           "flags": [
             {
               "aliases": [],
-              "effect": "Use the curated catalog only",
+              "effect": "Use the curated catalog and the local registry index only; no network",
               "escalates": false,
               "hidden": false,
               "name": "--offline",
@@ -627,6 +627,90 @@
           "surface": "screen",
           "tier": "write",
           "tools": ["servers_set_source"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Start a new pass over the whole registry instead of resuming an unfinished one or fetching only what changed",
+              "escalates": false,
+              "hidden": false,
+              "name": "--full",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "catalog",
+          "id": "catalog sync",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": ["network", "long-running"],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "catalog",
+          "path": ["catalog", "sync"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Sync the local index of the MCP Registry (--full starts over; resumes an unfinished sync)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["catalog_sync"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "catalog",
+          "id": "catalog status",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "catalog",
+          "path": ["catalog", "status"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Show the local registry index: servers, last sync, whether it is complete and whether a sync runs",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["catalog_status"]
+        },
+        {
+          "baseTier": null,
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "catalog",
+          "id": "catalog",
+          "kind": "group",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["catalog"],
+          "planned": false,
+          "preview": null,
+          "summary": "Registry index: sync status",
+          "surface": null,
+          "tier": null,
+          "tools": []
         },
         {
           "baseTier": "read",
@@ -10493,10 +10577,10 @@
         }
       ],
       "counts": {
-        "commands": 173,
-        "groups": 32,
-        "rows": 205,
-        "tools": 101
+        "commands": 175,
+        "groups": 33,
+        "rows": 208,
+        "tools": 103
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
       "tiers": ["read", "write", "destructive"],
@@ -10598,6 +10682,20 @@
           "name": "attention_ls",
           "tier": "read",
           "toolTier": 1
+        },
+        {
+          "command": "catalog status",
+          "dryRun": "none",
+          "name": "catalog_status",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "catalog sync",
+          "dryRun": "none",
+          "name": "catalog_sync",
+          "tier": "write",
+          "toolTier": 2
         },
         {
           "command": "library status",

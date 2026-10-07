@@ -115,6 +115,18 @@
       "test": "src/plus/servers/ServersTab.test.tsx",
       "summary": "Install a catalog server after a preview (server install)"
     },
+    "servers.catalog-index": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/catalog/CatalogIndexLine.test.tsx",
+      "summary": "The index line of Browse catalog: how many servers the local registry index holds, how long ago it synced and whether a sync is running (catalog status; the catalog_status tool)"
+    },
+    "servers.catalog-index-refresh": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/catalog/CatalogIndexLine.test.tsx",
+      "summary": "Refresh next to the index line: syncs the index in the app with the count so far, plus the background sync at app start and every 12 hours (catalog sync; the catalog_sync tool)"
+    },
     "servers.new": {
       "route": "servers",
       "status": "built",
@@ -1213,7 +1225,8 @@
     "hooks": "MIG-GUI-12",
     "task": "MIG-AUTO-2",
     "library": "MIG-GUI-10",
-    "attention": "MIG-GUI-11"
+    "attention": "MIG-GUI-11",
+    "catalog": "MIG-CAT-2"
   },
   "commands": {
     "agents add": {
@@ -1279,6 +1292,16 @@
     "auth statusline": {
       "route": "logins",
       "action": "logins.statusline",
+      "surface": "screen"
+    },
+    "catalog status": {
+      "route": "servers",
+      "action": "servers.catalog-index",
+      "surface": "screen"
+    },
+    "catalog sync": {
+      "route": "servers",
+      "action": "servers.catalog-index-refresh",
       "surface": "screen"
     },
     "cc list": {
@@ -2141,6 +2164,16 @@
     "agents_uninstall": {
       "route": "agents",
       "action": "agents.uninstall",
+      "surface": "screen"
+    },
+    "catalog_status": {
+      "route": "servers",
+      "action": "servers.catalog-index",
+      "surface": "screen"
+    },
+    "catalog_sync": {
+      "route": "servers",
+      "action": "servers.catalog-index-refresh",
       "surface": "screen"
     },
     "client_direct_add": {

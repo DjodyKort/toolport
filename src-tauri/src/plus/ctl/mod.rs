@@ -4,6 +4,7 @@
 mod agents;
 mod attention;
 mod auth;
+mod catalog;
 mod cc;
 mod client;
 mod client_direct;
@@ -138,6 +139,18 @@ pub const COMMANDS: &[Command] = &[
         "Set a git-backed server's remote, branch, upstream or post-update command",
         server::source_set,
     ),
+    cmd(
+        &["catalog", "sync"],
+        "Sync the local index of the MCP Registry (--full starts over; resumes an unfinished sync)",
+        catalog::sync,
+    ),
+    cmd(
+        &["catalog", "status"],
+        "Show the local registry index: servers, last sync, whether it is complete and whether a sync runs",
+        catalog::status,
+    )
+    .no_options(),
+    cmd(&["catalog"], "Registry index: sync status", catalog::group),
     cmd(&["inspect"], "List the tools a server exposes (connects live)", server::inspect),
     cmd(
         &["profile", "inspect"],
@@ -1083,6 +1096,8 @@ mod tests;
 #[cfg(test)]
 mod usage_pins_tests;
 
+#[cfg(test)]
+mod catalog_tests;
 #[cfg(test)]
 mod server_tests;
 #[cfg(test)]

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "full": "yes"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "argument full has the wrong type"
+    }
+  },
+  "text": "invalid_arguments: argument full has the wrong type",
+  "tool": "catalog_sync"
+}

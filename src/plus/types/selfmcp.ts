@@ -15,6 +15,7 @@ import { compressionToolShapes } from "./selfmcp-compression";
 import { contextToolShapes } from "./selfmcp-context";
 import { coreToolShapes } from "./selfmcp-core";
 import { attentionToolShapes } from "./attention";
+import { catalogToolShapes } from "./catalog";
 import { libraryToolShapes } from "./library";
 import { pluginsToolShapes } from "./selfmcp-plugins";
 import { serversToolShapes } from "./selfmcp-servers";
@@ -66,6 +67,7 @@ export const resourceGoldenShape = obj({
 export const selfmcpToolShapes: Record<string, Shape<unknown>> = {
   ...agentsToolShapes,
   ...attentionToolShapes,
+  ...catalogToolShapes,
   ...clientsToolShapes,
   ...compressionToolShapes,
   ...contextToolShapes,

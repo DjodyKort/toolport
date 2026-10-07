@@ -539,6 +539,12 @@ pub const ALL: &[Case] = &[
             fails("bad_level", "invalid_arguments", "attention_ls", r#"{"level":"urgent"}"#),
         ],
     ),
+    // registry index (MIG-CAT-2)
+    case("catalog_status", &[read("empty", "catalog_status", "{}")]),
+    case(
+        "catalog_sync",
+        &[fails("bad_full", "invalid_arguments", "catalog_sync", r#"{"full":"yes"}"#)],
+    ),
     // library (MIG-SRC-3)
     prepared(
         "library_status",

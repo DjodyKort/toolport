@@ -1,0 +1,13 @@
+{
+  "argv": ["catalog", "sync", "extra"],
+  "envelope": {
+    "command": "catalog sync",
+    "error": {
+      "code": "usage",
+      "message": "unexpected argument: extra\nusage: catalog sync [--full]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

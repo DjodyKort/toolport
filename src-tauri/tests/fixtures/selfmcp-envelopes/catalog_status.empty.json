@@ -1,0 +1,11 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "complete": false,
+    "count": 0,
+    "lastSyncedAt": null,
+    "running": false
+  },
+  "tool": "catalog_status"
+}

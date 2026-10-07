@@ -8,6 +8,7 @@ const SOURCES: &[(&str, &str)] = &[
     ("context_tests.rs", include_str!("context_tests.rs")),
     ("direct_tests.rs", include_str!("direct_tests.rs")),
     ("plugins_tests.rs", include_str!("plugins_tests.rs")),
+    ("registry_index_tests.rs", include_str!("registry_index_tests.rs")),
     ("effect_tests.rs", include_str!("effect_tests.rs")),
     ("fork_sync_tests.rs", include_str!("fork_sync_tests.rs")),
     ("library_tests.rs", include_str!("library_tests.rs")),
@@ -38,6 +39,11 @@ const BUNDLE_FLOW: &str = "bundle_tools_follow_their_tiers_and_apply_and_undo_on
 const TASKS_FLOW: &str = "task_tools_follow_their_tiers_and_a_run_without_an_approval_starts_nothing";
 
 const SIDE_EFFECT_TESTS: &[(&str, &str, &str)] = &[
+    (
+        "catalog_sync",
+        "registry_index_tests.rs",
+        "the_registry_index_tools_read_the_local_file_and_a_sync_refuses_while_one_runs",
+    ),
     ("tasks_run", "tasks_tests.rs", TASKS_FLOW),
     ("tasks_cancel", "tasks_tests.rs", TASKS_FLOW),
     ("context_bundle_apply", "context_bundle_tests.rs", BUNDLE_FLOW),

@@ -292,6 +292,8 @@ impl World {
             s(&["server", "ls"]),
             s(&["server", "search", "--offline", "--limit", "3"]),
             s(&["server", "install", "GitHub", "--offline"]),
+            s(&["catalog", "status"]),
+            s(&["catalog", "sync", "--bogus"]),
             s(&["server", "info", "alpha"]),
             s(&["server", "info", "import-bearer"]),
             s(&["server", "new", "newsrv", "--command", &self.quiet]),
@@ -1022,6 +1024,8 @@ fn tool_args(name: &str, schema: &Value, world: &World) -> Value {
         "servers_check_updates" => {
             args.remove("name");
         }
+        // A well-typed call pages the live registry; a mistyped one is refused before any network call.
+        "catalog_sync" => set(&mut args, &[("full", json!("yes"))]),
         _ => {}
     }
     Value::Object(args)
@@ -1068,6 +1072,7 @@ fn selfmcp_tools_and_resources_never_return_or_store_a_canary() {
         ("hooks_ls", json!({"tool": "Bash"})),
         ("attention_ls", json!({})),
         ("attention_ls", json!({"level": "look"})),
+        ("catalog_status", json!({})),
         ("library_status", json!({"fetch": true})),
         ("library_pull", json!({"dry_run": false})),
     ] {

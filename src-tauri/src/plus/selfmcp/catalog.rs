@@ -1,4 +1,4 @@
-use super::{attention, backend, compression, content, context, context_bundle, context_compose, direct, library, plugins, servers, skills, sources, state, tasks, ToolError};
+use super::{attention, backend, compression, content, context, context_bundle, context_compose, direct, library, plugins, registry_index, servers, skills, sources, state, tasks, ToolError};
 use serde_json::{json, Map, Value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -226,6 +226,22 @@ pub const TOOLS: &[ToolDef] = &[
         "List everything that wants a decision across Toolport, most urgent first: needs-you (a login that expired, a task waiting for you or failed, a missing secret), look (skills Claude cannot see, a source behind its remote, a duplicate clone, compression drift, a bundle waiting to be applied, a plugin server that bypasses the gateway) and fyi. Reads local state only, never the network. Rows the user dismissed are left out. Read only",
         [p("level", Ty::Str, false, "Only rows of this level: needs-you, look or fyi")],
         attention::ls
+    ),
+    tool!(
+        "catalog_status",
+        1,
+        None,
+        "Show the local index of the MCP Registry that catalog search reads: how many servers it holds, when the last sync started, whether a full pass has finished and whether a sync is running. Reads the local file only, never the network. Read only",
+        [],
+        registry_index::status
+    ),
+    tool!(
+        "catalog_sync",
+        2,
+        None,
+        "Sync the local index of the MCP Registry from the registry, page by page; the index is usable after every page and an interrupted sync resumes where it stopped. Fetches only what changed since the last sync unless full is set. Takes up to a minute on a first sync and writes only the index file in the data directory",
+        [p("full", Ty::Bool, false, "Start a new pass over the whole registry instead of resuming an unfinished one or fetching only the changes")],
+        registry_index::sync
     ),
     tool!(
         "library_status",

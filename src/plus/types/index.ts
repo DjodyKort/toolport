@@ -2,6 +2,7 @@ import type { Shape } from "../bridge/shape";
 import { agentsShapes } from "./agents";
 import { attentionShapes } from "./attention";
 import { authShapes } from "./auth";
+import { catalogShapes } from "./catalog";
 import { ccShapes } from "./cc";
 import { clientShapes } from "./client";
 import { compressionShapes } from "./compression";
@@ -31,6 +32,7 @@ import { usageShapes } from "./usage";
 export * from "./agents";
 export * from "./attention";
 export * from "./auth";
+export * from "./catalog";
 export * from "./cc";
 export * from "./client";
 export * from "./compression";
@@ -76,6 +78,7 @@ export const ctlTypeShapes: Record<string, Shape<unknown>> = {
   ...agentsShapes,
   ...attentionShapes,
   ...authShapes,
+  ...catalogShapes,
   ...ccShapes,
   ...clientShapes,
   ...compressionShapes,

@@ -17,6 +17,9 @@ Commands:
   server new     Add a custom server (--command or --url)
   server edit    Edit a server's name, command, args, url or cwd
   server source set Set a git-backed server's remote, branch, upstream or post-update command
+  catalog sync   Sync the local index of the MCP Registry (--full starts over; resumes an unfinished sync)
+  catalog status Show the local registry index: servers, last sync, whether it is complete and whether a sync runs
+  catalog        Registry index: sync status
   inspect        List the tools a server exposes (connects live)
   profile inspect List the tools of every server in a profile (connects live)
   profile ls     List profiles and their servers (--verbose)
@@ -212,6 +215,9 @@ Commands:
   server new     Add a custom server (--command or --url)
   server edit    Edit a server's name, command, args, url or cwd
   server source set Set a git-backed server's remote, branch, upstream or post-update command
+  catalog sync   Sync the local index of the MCP Registry (--full starts over; resumes an unfinished sync)
+  catalog status Show the local registry index: servers, last sync, whether it is complete and whether a sync runs
+  catalog        Registry index: sync status
   inspect        List the tools a server exposes (connects live)
   profile inspect List the tools of every server in a profile (connects live)
   profile ls     List profiles and their servers (--verbose)
@@ -407,6 +413,9 @@ Commands:
   server new     Add a custom server (--command or --url)
   server edit    Edit a server's name, command, args, url or cwd
   server source set Set a git-backed server's remote, branch, upstream or post-update command
+  catalog sync   Sync the local index of the MCP Registry (--full starts over; resumes an unfinished sync)
+  catalog status Show the local registry index: servers, last sync, whether it is complete and whether a sync runs
+  catalog        Registry index: sync status
   inspect        List the tools a server exposes (connects live)
   profile inspect List the tools of every server in a profile (connects live)
   profile ls     List profiles and their servers (--verbose)
@@ -602,6 +611,9 @@ Commands:
   server new     Add a custom server (--command or --url)
   server edit    Edit a server's name, command, args, url or cwd
   server source set Set a git-backed server's remote, branch, upstream or post-update command
+  catalog sync   Sync the local index of the MCP Registry (--full starts over; resumes an unfinished sync)
+  catalog status Show the local registry index: servers, last sync, whether it is complete and whether a sync runs
+  catalog        Registry index: sync status
   inspect        List the tools a server exposes (connects live)
   profile inspect List the tools of every server in a profile (connects live)
   profile ls     List profiles and their servers (--verbose)
@@ -4036,6 +4048,56 @@ exit 2
 --- stdout
 --- stderr
 toolportctl: unexpected argument: --force
+Run `toolportctl --help` for usage.
+=== ["catalog"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: catalog sync|status (sync: [--full])
+Run `toolportctl --help` for usage.
+=== ["catalog","bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: catalog sync|status (sync: [--full])
+Run `toolportctl --help` for usage.
+=== ["catalog","sync","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+usage: catalog sync [--full]
+Run `toolportctl --help` for usage.
+=== ["catalog","sync","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: --bogus
+usage: catalog sync [--full]
+Run `toolportctl --help` for usage.
+=== ["catalog","sync","--full=1"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: --full takes no value
+Run `toolportctl --help` for usage.
+=== ["catalog","status","extra"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unexpected argument: extra
+Run `toolportctl --help` for usage.
+=== ["catalog","status","--bogus"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --bogus
+Run `toolportctl --help` for usage.
+=== ["catalog","status","--full"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: unknown option: --full
 Run `toolportctl --help` for usage.
 === ["attention"]
 exit 2
