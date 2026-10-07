@@ -382,7 +382,6 @@ fn servers_only_the_gateway_can_serve_are_refused_without_touching_the_client() 
     let world = World::new("refused");
     let script = world.script("plain.sh", "exit 0");
     world.write_registry(json!([
-        {"id": "remote", "name": "remote", "transport": "http", "url": "https://example.invalid/mcp"},
         {"id": "oauth", "name": "oauth", "transport": "stdio",
          "command": script.to_string_lossy(), "args": [],
          "clientCredentials": {"clientId": "FAKE-client"}},
@@ -391,7 +390,7 @@ fn servers_only_the_gateway_can_serve_are_refused_without_touching_the_client() 
     ]));
     let original = "{\"mcpServers\": {\"keep\": {\"command\": \"keep-me\"}}}\n";
     std::fs::write(world.client_file(), original).unwrap();
-    for name in ["remote", "oauth", "rooted"] {
+    for name in ["oauth", "rooted"] {
         let add = world.ctl(
             &["--json", "client", "direct", "add", name, "--client", "claude-code"],
             None,

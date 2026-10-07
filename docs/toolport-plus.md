@@ -41,7 +41,7 @@ Global flag `--json` prints one envelope (`schemaVersion`, `command`, `data`). E
 | `inspect`, `profile inspect`                                            | List tools of a server or of a whole profile (connects live)       |
 | `profile ls / create / edit / rm`                                       | List, create, edit and remove profiles; `rm` cleans clients        |
 | `client ls / sync / edit / import`                                      | Detect clients; sync; set a client's profile; import entries       |
-| `client direct add / rm / ls`                                           | Opt-in: give one client a direct entry for one stdio server        |
+| `client direct add / rm / ls`                                           | Opt-in: give one client a direct entry for one server              |
 | `direct run`                                                            | Stdio launcher a direct client entry starts (not run by hand)      |
 | `auth statusline / hook / probe / login`                                | Auth-health JSON; probe now (`--server`, `--force`); sign in again |
 | `secret set / get / rm`                                                 | Server secrets (stdin or `--value-env`; `get --reveal` prints)     |
@@ -608,15 +608,16 @@ toolportctl client direct ls [--client claude-code]
 toolportctl client direct rm odoo --client claude-code
 ```
 
-The entry runs `toolportctl direct run <server id>`, never the server's own command, and holds no secret. The launcher reads the server's command, arguments and environment from the registry and the secret store when the client starts it, applies the same spawn checks as the gateway, removes `TOOLPORT_*` from the child's environment, hands over stdin and stdout and gives back the server's exit status (on Unix it replaces itself with the server, so nothing sits between the client and the server). If you moved the data directory with `TOOLPORT_DATA_DIR`, that one variable is repeated in the entry's `env`; the encrypted secret file's `TOOLPORT_SECRET_KEY` never is, so a client that uses it must have it in its own environment.
+A stdio entry runs `toolportctl direct run <server id>`, never the server's own command, and holds no secret. The launcher reads the server's command, arguments and environment from the registry and the secret store when the client starts it, applies the same spawn checks as the gateway, removes `TOOLPORT_*` from the child's environment, hands over stdin and stdout and gives back the server's exit status (on Unix it replaces itself with the server, so nothing sits between the client and the server). If you moved the data directory with `TOOLPORT_DATA_DIR`, that one variable is repeated in the entry's `env`; the encrypted secret file's `TOOLPORT_SECRET_KEY` never is, so a client that uses it must have it in its own environment.
 
 **What you give up.** A direct entry bypasses the gateway. Its tools are not covered by profile tool scopes, approvals (HITL), receipts or lazy discovery, and every client with a direct entry starts its own process of the server instead of sharing one. `direct add` prints this, and so does its dry run.
 
-**What is allowed.** Local stdio servers only. A remote (http, sse) server, a server whose sign-in Toolport manages (OAuth) and a server with a `${ROOT}` working directory only work through the gateway; `direct add` refuses them with the reason, exits with code 1 and writes nothing. An existing entry with the same name that Toolport did not write needs `--force`.
+**What is allowed.** A local stdio server, or a remote (http, sse) server for a client that can hold a remote entry. A remote entry is the address and nothing else (Claude Code: `{"type": "http", "url": "..."}`): the client signs in to the server by itself, Toolport writes no header or credential, and `direct add` says so. A remote server that sends headers from the vault, a server whose sign-in Toolport manages (OAuth client credentials), a server with a `${ROOT}` working directory, the gateway itself, and a client that has no remote entry shape (Goose, and Claude Desktop, which uses connectors) only work through the gateway; `direct add` refuses them with the reason, exits with code 1 and writes nothing. An existing entry with the same name that Toolport did not write needs `--force`.
 
 **Ownership.** The registry records every entry it wrote under `plus.directEntries.<client>.<entry>`. Because of that record:
 
 - `client sync` leaves the entry alone, and still prunes foreign direct entries that duplicate or orphan registered servers.
+- A server that no profile has on and a direct entry reaches is handled by the client: it gets no gateway sign-in probe and raises nothing in Attention, and Logins & secrets reads "Signed in by <client> (direct)".
 - `client ls`, `status` and `doctor` report launcher entries; `client direct ls` gives each a state: `ok`, `stale` (the launcher binary moved), `customized` (edited after it was written; `rm` and `add` need `--force`), `missing` (recorded, gone from the client), `orphan` (the server was removed) or `unrecorded` (launcher-shaped but not recorded).
 - `server uninstall` removes the entries in every client, and `client import` does not import them back.
 - Writes use the normal client writers: a backup first, every other key and server kept, every supported format, and JSON comments kept where the format has them.

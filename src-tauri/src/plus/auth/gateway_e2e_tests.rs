@@ -804,6 +804,44 @@ fn only_remote_servers_get_a_gateway_state_probe() {
     assert_eq!(combined.get("figma").unwrap().kind, ProbeKind::GatewayState);
 }
 
+fn registry_with_direct_entries() -> Registry {
+    let mut registry: Registry = serde_json::from_value(json!({
+        "version": 1,
+        "servers": [
+            {"id": "figma", "name": "Figma", "transport": "http", "url": "https://mcp.example.test/figma"},
+            {"id": "both", "name": "Both", "transport": "http", "url": "https://mcp.example.test/both"},
+            {"id": "plain", "name": "Plain", "transport": "http", "url": "https://mcp.example.test/plain"},
+        ],
+        "profiles": [{"id": "default", "name": "Default", "enabledServerIds": ["both", "plain"]}],
+        "activeProfileId": "default",
+    }))
+    .unwrap();
+    for (server, entry) in [("figma", "Figma"), ("both", "Both")] {
+        crate::plus::direct::record::set(
+            &mut registry,
+            "claude-code",
+            entry,
+            &crate::plus::direct::record::Record::remote(server, "https://mcp.example.test/x"),
+        );
+    }
+    registry
+}
+
+#[test]
+fn a_server_only_a_client_reaches_gets_no_gateway_probe() {
+    let registry = registry_with_direct_entries();
+    let probes = gateway_registry(&registry);
+    let ids: Vec<&str> = probes.iter().map(|s| s.server.as_str()).collect();
+    assert_eq!(
+        ids,
+        ["both", "plain"],
+        "the client signs in to figma by itself, and the gateway never connects to it"
+    );
+    let combined = combined_registry(&registry);
+    assert!(combined.get("figma").is_none());
+    assert!(combined.get("both").is_some());
+}
+
 fn write_remote(server: &ServerEntry) {
     super::testkit::write_registry(
         vec![json!({

@@ -1,0 +1,26 @@
+{
+  "arguments": {
+    "client": "claude-code",
+    "dry_run": false,
+    "server": "beta"
+  },
+  "isError": false,
+  "result": {
+    "action": "added",
+    "backup": "<WORLD>/data/backups/claude-code/<STAMP>-.claude.json",
+    "changed": true,
+    "client": "claude-code",
+    "clientName": "Claude Code",
+    "dryRun": false,
+    "entry": "beta",
+    "notes": [],
+    "path": "<WORLD>/home/.claude/.claude.json",
+    "remote": {
+      "url": "https://example.invalid/mcp"
+    },
+    "server": "srv-beta",
+    "serverName": "beta",
+    "tradeoff": "A direct entry bypasses the Toolport gateway: its tools are not covered by profile tool scopes, approvals (HITL), receipts or lazy discovery. Toolport writes no credentials into the client: the client signs in to the server by itself."
+  },
+  "tool": "client_direct_add"
+}

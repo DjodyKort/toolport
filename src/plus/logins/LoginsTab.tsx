@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useState } from "react";
 import { KeyRound, RefreshCw, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Callout } from "@/components/Callout";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Switch } from "@/components/ui/switch";
@@ -9,6 +10,7 @@ import { useRefreshTasks } from "../tasks/refreshTasks";
 import { Gate, StateBadge, WhenText } from "./atoms";
 import {
   countableLogins,
+  directLabel,
   expiresText,
   formatWhen,
   isRemote,
@@ -41,6 +43,12 @@ export interface TabProps {
 }
 
 function Detail({ row }: { row: LoginRow }) {
+  if (row.direct)
+    return (
+      <div className="text-xs text-muted-foreground">
+        {row.direct.join(", ")} signs in to it by itself. Toolport does not probe it.
+      </div>
+    );
   const auth = row.auth;
   if (!auth) return null;
   const bits: string[] = [];
@@ -299,28 +307,40 @@ export function LoginsTab({ onOpenCommands, pollMs = POLL_MS }: TabProps) {
                           </th>
                           <td className="px-3 py-2.5">{row.typeLabel}</td>
                           <td className="px-3 py-2.5">
-                            <StateBadge state={row.state} />
+                            {row.direct ? (
+                              <Badge variant="secondary" data-state="direct">
+                                {directLabel(row.direct)}
+                              </Badge>
+                            ) : (
+                              <StateBadge state={row.state} />
+                            )}
                           </td>
                           <td className="px-3 py-2.5 text-muted-foreground">
-                            <WhenText seconds={row.auth?.lastProbe} />
+                            {row.direct ? (
+                              "not probed"
+                            ) : (
+                              <WhenText seconds={row.auth?.lastProbe} />
+                            )}
                           </td>
                           <td className="px-3 py-2.5">
-                            <Actions
-                              row={row}
-                              busy={busy}
-                              testing={rowTests.tests[row.id]?.phase === "running"}
-                              onSignIn={() => startSignIn(row, false)}
-                              onSetSecret={() => setSecretFor(row)}
-                              onTest={() => void rowTests.run(row.id)}
-                              onRefreshTask={
-                                refreshTaskOf(row.id)
-                                  ? () => {
-                                      const task = refreshTaskOf(row.id)!;
-                                      setRefreshing({ id: task.id, title: task.title });
-                                    }
-                                  : undefined
-                              }
-                            />
+                            {!row.direct && (
+                              <Actions
+                                row={row}
+                                busy={busy}
+                                testing={rowTests.tests[row.id]?.phase === "running"}
+                                onSignIn={() => startSignIn(row, false)}
+                                onSetSecret={() => setSecretFor(row)}
+                                onTest={() => void rowTests.run(row.id)}
+                                onRefreshTask={
+                                  refreshTaskOf(row.id)
+                                    ? () => {
+                                        const task = refreshTaskOf(row.id)!;
+                                        setRefreshing({ id: task.id, title: task.title });
+                                      }
+                                    : undefined
+                                }
+                              />
+                            )}
                           </td>
                         </tr>
                       ))}

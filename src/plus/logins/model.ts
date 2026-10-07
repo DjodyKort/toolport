@@ -1,10 +1,11 @@
 import type { AuthRow, AuthStateName } from "../api";
 import type { ServerInfoData, ServerLsData } from "../bridge/data";
+import type { ClientDirectLsData } from "../types/client";
 
 /** The vault key of a remote server's bearer token; `secret set` takes it like any other key. */
 export const HTTP_AUTH_KEY = "__http_auth__";
 
-export type LoginKind = "oauth" | "token";
+export type LoginKind = "oauth" | "token" | "direct";
 export type RowState = AuthStateName | "untracked";
 export type Tone = "success" | "warning" | "destructive" | "secondary";
 
@@ -28,7 +29,16 @@ export interface LoginRow {
   canSignIn: boolean;
   /** The server has a secret to set. */
   canSetSecret: boolean;
+  /** The names of the clients that reach this server through their own entry, for a remote
+   * server no gateway profile has: they sign in to it, and Toolport does not probe it. */
+  direct: string[] | null;
 }
+
+export type DirectEntry = ClientDirectLsData["entries"][number];
+
+/** What a login that a client handles itself says in place of a state. */
+export const directLabel = (clients: string[]) =>
+  `Signed in by ${clients.join(", ")} (direct)`;
 
 export interface Summary {
   total: number;
@@ -209,7 +219,7 @@ function classify(
   transport: string,
   secretKeys: string[],
   auth: AuthRow | null,
-): Pick<LoginRow, "kind" | "typeLabel" | "canSignIn" | "canSetSecret"> {
+): Pick<LoginRow, "kind" | "typeLabel" | "canSignIn" | "canSetSecret" | "direct"> {
   if (secretKeys.length > 0) {
     const ownFlow =
       !isRemote(transport) && !!auth?.fix && SIGN_IN_FIXES.has(auth.fix.action);
@@ -218,6 +228,7 @@ function classify(
       typeLabel: "API token",
       canSignIn: ownFlow,
       canSetSecret: true,
+      direct: null,
     };
   }
   return {
@@ -225,7 +236,27 @@ function classify(
     typeLabel: isRemote(transport) ? "OAuth" : "Account",
     canSignIn: true,
     canSetSecret: false,
+    direct: null,
   };
+}
+
+/** The clients that reach a remote server through an entry of their own while no gateway
+ * profile has it on. The gateway never connects to such a server, so it has no gateway login
+ * for Toolport to probe: the client signs in. Unknown profiles (no `server info`) count as
+ * "a profile has it" so a server is never hidden behind a guess. */
+function directClientsOf(
+  server: ServerLsData["servers"][number],
+  info: Settled<ServerInfoData> | undefined,
+  direct: DirectEntry[],
+): string[] | null {
+  if (!isRemote(server.transport) || !info?.ok || !info.value) return null;
+  if (info.value.profiles.length > 0) return null;
+  const names = [
+    ...new Set(
+      direct.filter((entry) => entry.server === server.id).map((e) => e.clientName),
+    ),
+  ];
+  return names.length > 0 ? names : null;
 }
 
 export interface Roster {
@@ -237,11 +268,13 @@ export interface Roster {
 /** Joins the registry's servers with their auth state and their declared secrets. A server
  * belongs on the Logins list when it has a tracked login, a secret to set or a remote address
  * to sign in to. The CLI does not say which flow a server uses, so the kind is read from what
- * it declares: a secret key means a token, anything else signs in. */
+ * it declares: a secret key means a token, anything else signs in. A remote server that only a
+ * client's own direct entry reaches is listed as handled by that client. */
 export function buildRoster(
   servers: ServerLsData["servers"],
   infos: Record<string, Settled<ServerInfoData>>,
   authRows: AuthRow[],
+  direct: DirectEntry[] = [],
 ): Roster {
   const byServer = new Map(authRows.map((row) => [row.server, row]));
   const used = new Set<string>();
@@ -251,6 +284,23 @@ export function buildRoster(
     const auth = byServer.get(server.id) ?? byServer.get(server.name) ?? null;
     if (auth) used.add(auth.server);
     const info = infos[server.id];
+    const clients = directClientsOf(server, info, direct);
+    if (clients) {
+      rows.push({
+        id: server.id,
+        name: server.name,
+        transport: server.transport,
+        secretKeys: [],
+        auth: null,
+        state: "untracked",
+        kind: "direct",
+        typeLabel: "Direct",
+        canSignIn: false,
+        canSetSecret: false,
+        direct: clients,
+      });
+      continue;
+    }
     const declared =
       info?.ok && info.value
         ? info.value.env.filter((e) => e.secret).map((e) => e.key)
@@ -301,11 +351,13 @@ export interface Countable {
 }
 
 export const countableLogins = (rows: LoginRow[]): Countable[] =>
-  rows.map((row) => ({
-    name: row.name,
-    state: row.state,
-    lastProbe: row.auth?.lastProbe ?? null,
-  }));
+  rows
+    .filter((row) => !row.direct)
+    .map((row) => ({
+      name: row.name,
+      state: row.state,
+      lastProbe: row.auth?.lastProbe ?? null,
+    }));
 
 export const countableAuth = (rows: AuthRow[]): Countable[] =>
   rows.map((row) => ({ name: row.server, state: row.state, lastProbe: row.lastProbe }));

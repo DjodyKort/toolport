@@ -15,10 +15,11 @@ earlier tooling were replaced by this daemon (D-008).
   profiles, per-client scopes and the entries Toolport wrote into client configs.
 - `clients_sync` makes each managed client match the registry: it installs the gateway entry,
   removes direct entries that duplicate registered servers and prunes orphans.
-- `client_direct_add` is the opt-in exception: one stdio server gets its own entry in one client
-  that runs `toolportctl direct run <server id>` instead of going through the gateway. It
-  bypasses profile tool scopes, approvals, receipts and lazy discovery, and each client starts
-  its own process. `clients_sync` leaves such an entry alone; `servers_uninstall` removes it.
+- `client_direct_add` is the opt-in exception: one server gets its own entry in one client
+  instead of going through the gateway. A stdio server runs `toolportctl direct run <server id>`
+  and each client starts its own process; a remote server is the address only, and the client
+  signs in to it by itself. It bypasses profile tool scopes, approvals, receipts and lazy
+  discovery. `clients_sync` leaves such an entry alone; `servers_uninstall` removes it.
 - Secret values live in the vault (OS keychain or the encrypted file selected by
   `TOOLPORT_SECRET_KEY`). They are never written to the registry or returned by any tool here.
 
@@ -92,7 +93,7 @@ Read `mcpm://architecture` first for the model behind these recipes.
 
 1. `client_direct_ls` to see which clients already have one.
 2. `client_direct_add` with `server` and `client` (dry run by default; pass `dry_run=false` to
-   write). Only local stdio servers qualify.
+   write). A stdio server, or a remote server for a client that can hold a remote entry.
 3. `client_direct_rm` undoes it.
 
 ## Apply an output style

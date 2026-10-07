@@ -6,6 +6,7 @@ import type {
   ServerLsData,
   StatusData,
 } from "../bridge/data";
+import type { ClientDirectLsData } from "../types/client";
 import { useCtlQuery, type CtlQuery } from "../ui";
 import { authRowsOf, buildRoster, type Roster } from "./model";
 import { useBatch, type Batch } from "./useBatch";
@@ -17,6 +18,8 @@ export type Tier = "read" | "write" | "destructive";
 export interface RosterData {
   status: CtlQuery<StatusData>;
   servers: CtlQuery<ServerLsData>;
+  /** Best effort: when `client direct ls` fails, no server is read as handled by a client. */
+  direct: CtlQuery<ClientDirectLsData>;
   infos: Batch<ServerInfoData>;
   /** `server info` calls that failed; those servers are listed without their secrets. */
   failedInfos: number;
@@ -31,6 +34,7 @@ export interface RosterData {
 export function useRoster(pollMs: number): RosterData {
   const status = useCtlQuery<StatusData>(["status"]);
   const servers = useCtlQuery<ServerLsData>(["server", "ls"]);
+  const direct = useCtlQuery<ClientDirectLsData>(["client", "direct", "ls"]);
   const ids = useMemo(() => servers.data?.servers.map((s) => s.id) ?? [], [servers.data]);
   const infos = useBatch<ServerInfoData>(ids, (id) =>
     ctlData<ServerInfoData>(["server", "info", id]),
@@ -45,26 +49,38 @@ export function useRoster(pollMs: number): RosterData {
     return () => window.clearInterval(timer);
   }, [pollMs, reloadStatus]);
 
+  const directPending = direct.data === null && direct.status === "loading";
   const roster = useMemo(() => {
-    if (!status.data || !servers.data || infos.pending > 0) return null;
+    if (!status.data || !servers.data || infos.pending > 0 || directPending) return null;
     return buildRoster(
       servers.data.servers,
       infos.results,
       authRowsOf(status.data.auth.servers),
+      direct.data?.entries ?? [],
     );
-  }, [status.data, servers.data, infos.pending, infos.results]);
+  }, [
+    status.data,
+    servers.data,
+    infos.pending,
+    infos.results,
+    directPending,
+    direct.data,
+  ]);
 
   const failedInfos = Object.values(infos.results).filter((answer) => !answer.ok).length;
   const reloadServers = servers.reload;
+  const reloadDirect = direct.reload;
   return {
     status,
     servers,
+    direct,
     infos,
     failedInfos,
     roster,
     reload: () => {
       reloadStatus();
       reloadServers();
+      reloadDirect();
       void infos.refresh();
     },
   };

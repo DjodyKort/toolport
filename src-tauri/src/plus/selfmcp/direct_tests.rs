@@ -130,7 +130,7 @@ fn errors_keep_the_core_kinds() {
         };
         assert_eq!(kind(add("no-such", "claude-code")), "not_found");
         assert_eq!(kind(add("alpha", "no-such-client")), "not_found");
-        assert_eq!(kind(add("beta", "claude-code")), "invalid_arguments");
+        assert_eq!(kind(add("hdr", "claude-code")), "invalid_arguments");
         assert_eq!(kind(add("cred", "claude-code")), "invalid_arguments");
         assert_eq!(kind(add("rooted", "claude-code")), "invalid_arguments");
         assert_eq!(kind(add("-alpha", "claude-code")), "invalid_arguments");

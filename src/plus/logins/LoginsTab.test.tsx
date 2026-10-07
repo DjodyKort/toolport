@@ -383,6 +383,77 @@ describe("logins.signin: auth login from the Logins tab", () => {
   });
 });
 
+describe("logins: a remote server only a client's own entry reaches", () => {
+  const entry = (clientName: string, client: string) => ({
+    client,
+    clientName,
+    entry: "corp-tools",
+    path: `/fixture/home/.${client}/mcp.json`,
+    server: "srv-corp",
+    serverName: "corp-tools",
+    state: "ok",
+    url: "https://example.test/mcp",
+  });
+  const offProfiles = () => {
+    const info = bridge.get("server info srv-corp") as Record<string, unknown>;
+    bridge.set("server info srv-corp", { ...info, profiles: [] });
+  };
+
+  it("reads as signed in by that client, with nothing to sign in to or test", async () => {
+    offProfiles();
+    bridge.set("client direct ls", { entries: [entry("Claude Code", "claude-code")] });
+    const { table } = await openLogins();
+    const row = rowOf(table, "corp-tools");
+    expect(within(row).getByText("Direct")).toBeInTheDocument();
+    expect(
+      within(row).getByText("Signed in by Claude Code (direct)"),
+    ).toBeInTheDocument();
+    expect(row).toHaveTextContent("Claude Code signs in to it by itself");
+    expect(row).toHaveTextContent("not probed");
+    expect(within(row).queryByRole("button")).not.toBeInTheDocument();
+    expect(within(row).queryByText("Signed in")).not.toBeInTheDocument();
+  });
+
+  it("names every client that has an entry and leaves the row out of the summary", async () => {
+    offProfiles();
+    bridge.set("client direct ls", {
+      entries: [entry("Claude Code", "claude-code"), entry("Cursor", "cursor")],
+    });
+    const { table } = await openLogins();
+    expect(
+      within(rowOf(table, "corp-tools")).getByText(
+        "Signed in by Claude Code, Cursor (direct)",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByRole("group", { name: "Login summary", hidden: true }),
+      ).getByText("3 of 5"),
+    ).toBeInTheDocument();
+  });
+
+  it("stays an ordinary login while a gateway profile has it on", async () => {
+    bridge.set("client direct ls", { entries: [entry("Claude Code", "claude-code")] });
+    const { table } = await openLogins();
+    const row = rowOf(table, "corp-tools");
+    expect(within(row).getByText("OAuth")).toBeInTheDocument();
+    expect(within(row).getByText("Signed in")).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: "Test corp-tools" })).toBeVisible();
+  });
+
+  it("falls back to ordinary rows when the direct entries cannot be read", async () => {
+    offProfiles();
+    bridge.set(
+      "client direct ls",
+      ctlReplyFailure("detect_failed", "cannot read clients"),
+    );
+    const { table } = await openLogins();
+    const row = rowOf(table, "corp-tools");
+    expect(within(row).getByText("OAuth")).toBeInTheDocument();
+    expect(within(row).queryByText(/Signed in by/)).not.toBeInTheDocument();
+  });
+});
+
 describe("logins.signin: a remote server that signs in with a token", () => {
   const tokenFix = {
     action: "fix_config" as const,

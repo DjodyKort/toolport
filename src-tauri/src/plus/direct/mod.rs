@@ -27,6 +27,10 @@ pub const TRADEOFF: &str = "A direct entry bypasses the Toolport gateway: its to
      covered by profile tool scopes, approvals (HITL), receipts or lazy discovery, and every \
      client with a direct entry starts its own process of the server instead of sharing one.";
 
+pub const REMOTE_TRADEOFF: &str = "A direct entry bypasses the Toolport gateway: its tools are not \
+     covered by profile tool scopes, approvals (HITL), receipts or lazy discovery. Toolport writes \
+     no credentials into the client: the client signs in to the server by itself.";
+
 const ENTRY_SOURCE: &str = "plus:direct";
 const BINARY_STEM: &str = "toolportctl";
 
@@ -107,10 +111,25 @@ fn wanted_record(server: &ServerEntry, command: &str) -> Record {
         command: command.to_string(),
         args: vec!["direct".into(), "run".into(), server.id.clone()],
         env: launcher_env(),
+        url: None,
     }
 }
 
-fn client_entry(name: &str, record: &Record) -> ServerEntry {
+fn wanted_remote(server: &ServerEntry) -> Record {
+    Record::remote(&server.id, server.url.as_deref().unwrap_or_default())
+}
+
+fn client_entry(name: &str, record: &Record, transport: &str) -> ServerEntry {
+    if let Some(url) = &record.url {
+        return serde_json::from_value(json!({
+            "id": name,
+            "name": name,
+            "transport": if transport.eq_ignore_ascii_case("sse") { "sse" } else { "http" },
+            "url": url,
+            "source": ENTRY_SOURCE,
+        }))
+        .expect("a remote entry is a valid server entry");
+    }
     serde_json::from_value(json!({
         "id": name,
         "name": name,
@@ -152,6 +171,11 @@ fn launcher_target(entry: &McpServer) -> Option<&str> {
 }
 
 fn matches_record(entry: &McpServer, record: &Record) -> bool {
+    if let Some(url) = &record.url {
+        return entry.command.is_none()
+            && entry.url.as_deref() == Some(url.as_str())
+            && entry.env_keys.is_empty();
+    }
     let mut keys = entry.env_keys.clone();
     keys.sort();
     entry.command.as_deref() == Some(record.command.as_str())
@@ -212,10 +236,6 @@ impl Outcome {
         !matches!(self.action, Action::Unchanged | Action::Absent)
     }
 
-    fn adds(&self) -> bool {
-        self.launcher.is_some()
-    }
-
     pub fn to_value(&self) -> Value {
         let mut value = json!({
             "client": self.client,
@@ -230,13 +250,21 @@ impl Outcome {
             "backup": self.backup,
             "notes": self.notes,
         });
-        if let Some(launcher) = &self.launcher {
-            value["launcher"] = json!({
-                "command": launcher.command,
-                "args": launcher.args,
-                "env": launcher.env,
-            });
-            value["tradeoff"] = json!(TRADEOFF);
+        if let Some(record) = &self.launcher {
+            match &record.url {
+                Some(url) => {
+                    value["remote"] = json!({"url": url});
+                    value["tradeoff"] = json!(REMOTE_TRADEOFF);
+                }
+                None => {
+                    value["launcher"] = json!({
+                        "command": record.command,
+                        "args": record.args,
+                        "env": record.env,
+                    });
+                    value["tradeoff"] = json!(TRADEOFF);
+                }
+            }
         }
         value
     }
@@ -274,18 +302,24 @@ impl Outcome {
         if self.action != Action::Absent {
             lines.push(format!("Config file: {}", self.path));
         }
-        if let Some(launcher) = &self.launcher {
-            lines.push(format!(
-                "Launches: {} {}",
-                launcher.command,
-                launcher.args.join(" ")
-            ));
+        if let Some(record) = &self.launcher {
+            lines.push(match &record.url {
+                Some(url) => format!("Connects to: {url}"),
+                None => format!("Launches: {} {}", record.command, record.args.join(" ")),
+            });
         }
         if let Some(backup) = &self.backup {
             lines.push(format!("Backup: {backup}"));
         }
-        if self.adds() {
-            lines.push(TRADEOFF.to_string());
+        if let Some(record) = &self.launcher {
+            lines.push(
+                if record.url.is_some() {
+                    REMOTE_TRADEOFF
+                } else {
+                    TRADEOFF
+                }
+                .to_string(),
+            );
         }
         lines.extend(self.notes.iter().cloned());
         if would && self.action != Action::Absent && self.action != Action::Unchanged {
@@ -366,22 +400,55 @@ fn plan_add(
     }))
 }
 
+fn refused(server: &ServerEntry, reason: &str) -> Error {
+    Error::failed(
+        "refused",
+        format!(
+            "{} cannot get a direct entry: {reason}. It stays reachable through the gateway.",
+            server.name
+        ),
+    )
+}
+
+fn runs_in_a_client(server: &ServerEntry) -> bool {
+    launcher::is_remote(server) && !clients::is_gateway_server(server)
+}
+
 fn refuse(server: &ServerEntry) -> Result<(), Error> {
-    match launcher::refusal(server) {
-        Some(reason) => Err(Error::failed(
-            "refused",
-            format!(
-                "{} cannot get a direct entry: {reason}. It stays reachable through the \
-                 gateway.",
-                server.name
-            ),
-        )),
-        None if server.name.trim().is_empty() => Err(Error::failed(
+    if !runs_in_a_client(server) {
+        if let Some(reason) = launcher::refusal(server) {
+            return Err(refused(server, &reason));
+        }
+    }
+    if server.name.trim().is_empty() {
+        return Err(Error::failed(
             "refused",
             format!("server '{}' has no name to give the entry", server.id),
-        )),
-        None => Ok(()),
+        ));
     }
+    Ok(())
+}
+
+fn refuse_remote(
+    server: &ServerEntry,
+    detected: &[DetectedClient],
+    client_id: &str,
+) -> Result<(), Error> {
+    let known = detected.iter().find(|c| c.id == client_id);
+    let reason = if server.client_credentials.is_some() {
+        "its sign-in is managed by Toolport (OAuth) and only the gateway can refresh it".to_string()
+    } else if !server.env.is_empty() {
+        "it sends headers kept in the Toolport vault, and a client entry holds only the address"
+            .to_string()
+    } else if known.is_some() && !clients::supports_remote_entry(client_id) {
+        format!(
+            "{} cannot hold a remote server entry",
+            known.map_or(client_id, |c| c.name.as_str())
+        )
+    } else {
+        return Ok(());
+    };
+    Err(refused(server, &reason))
 }
 
 fn write_record(client: &str, entry: &str, record: Option<&Record>) -> Result<(), Error> {
@@ -413,19 +480,31 @@ pub fn add(
         .ok_or_else(|| Error::not_found(format!("Server '{server_key}' not found")))?
         .clone();
     refuse(&server)?;
-    let command = launcher_path().ok_or_else(|| {
-        Error::failed(
-            "launcher_missing",
-            format!(
-                "could not find {} next to this program, in the data directory's bin or on \
-                 PATH; a direct entry needs it to start the server",
-                binary_file()
-            ),
-        )
-    })?;
-    let client = find_client(clients::detect_clients(), client_id, true)?;
+    let remote = runs_in_a_client(&server);
+    let command = if remote {
+        None
+    } else {
+        Some(launcher_path().ok_or_else(|| {
+            Error::failed(
+                "launcher_missing",
+                format!(
+                    "could not find {} next to this program, in the data directory's bin or on \
+                     PATH; a direct entry needs it to start the server",
+                    binary_file()
+                ),
+            )
+        })?)
+    };
+    let detected = clients::detect_clients();
+    if remote {
+        refuse_remote(&server, &detected, client_id)?;
+    }
+    let client = find_client(detected, client_id, true)?;
     let entry = server.name.trim().to_string();
-    let wanted = wanted_record(&server, &command);
+    let wanted = match &command {
+        Some(command) => wanted_record(&server, command),
+        None => wanted_remote(&server),
+    };
     let recorded = record::get(&reg, client_id, &entry);
     let action = plan_add(
         &entry,
@@ -436,7 +515,7 @@ pub fn add(
         force,
     )?;
     let mut notes = Vec::new();
-    if encrypted_secrets() && server.env.iter().any(|e| e.secret) {
+    if !remote && encrypted_secrets() && server.env.iter().any(|e| e.secret) {
         notes.push(
             "Secrets come from the encrypted secret file: the client must start the entry with \
              TOOLPORT_SECRET_KEY in its environment (it is never written to the client config)."
@@ -460,9 +539,12 @@ pub fn add(
         return Ok(outcome);
     }
     if action.writes_client() {
-        let written =
-            clients::set_direct_entry(client_id, &entry, Some(&client_entry(&entry, &wanted)))
-                .map_err(write_failed)?;
+        let written = clients::set_direct_entry(
+            client_id,
+            &entry,
+            Some(&client_entry(&entry, &wanted, &server.transport)),
+        )
+        .map_err(write_failed)?;
         outcome.path = written.path;
         outcome.backup = written.backup;
     }
@@ -692,11 +774,13 @@ pub struct Row {
     pub server_name: Option<String>,
     pub state: State,
     pub path: String,
+    /// The address of a remote entry; a launcher entry has none.
+    pub url: Option<String>,
 }
 
 impl Row {
     pub fn to_value(&self) -> Value {
-        json!({
+        let mut value = json!({
             "client": self.client,
             "clientName": self.client_name,
             "entry": self.entry,
@@ -704,7 +788,11 @@ impl Row {
             "serverName": self.server_name,
             "state": self.state.as_str(),
             "path": self.path,
-        })
+        });
+        if let Some(url) = &self.url {
+            value["url"] = json!(url);
+        }
+        value
     }
 
     pub fn line(&self) -> String {
@@ -756,6 +844,7 @@ pub fn assess(reg: &Registry, detected: &[DetectedClient]) -> Vec<Row> {
             state: state_of(client, &entry, &record, server.is_some()),
             server_name: server.map(|s| s.name.clone()),
             server: record.server.clone(),
+            url: record.url.clone(),
             client: client_id,
             entry,
         });
@@ -776,6 +865,7 @@ pub fn assess(reg: &Registry, detected: &[DetectedClient]) -> Vec<Row> {
                 server_name: servers::find(reg, target).map(|s| s.name.clone()),
                 state: State::Unrecorded,
                 path: client.config_path.clone(),
+                url: None,
             });
         }
     }
@@ -807,6 +897,19 @@ pub fn owned(reg: &Registry) -> HashSet<(String, String)> {
 
 pub fn count(reg: &Registry) -> usize {
     record::all(reg).len()
+}
+
+/// A server no gateway profile has on, whose only way in is a direct client entry Toolport wrote.
+/// The gateway never connects to it, so there is no gateway sign-in to probe or to raise.
+pub fn is_direct_only(reg: &Registry, server_id: &str) -> bool {
+    let in_a_profile = reg
+        .profiles
+        .iter()
+        .any(|profile| profile.enabled_server_ids.iter().any(|id| id == server_id));
+    !in_a_profile
+        && record::all(reg)
+            .iter()
+            .any(|(_, _, record)| record.server == server_id)
 }
 
 pub fn list_value(rows: &[Row]) -> Value {

@@ -4,6 +4,7 @@ import {
   bool,
   nullable,
   obj,
+  opt,
   str,
   type Infer,
   type Shape,
@@ -21,6 +22,8 @@ export const clientDirectLsData = obj({
       server: str,
       serverName: str,
       state: str,
+      /** The address of a remote entry; a launcher entry has none. */
+      url: opt(str),
     }),
   ),
 });
@@ -34,13 +37,18 @@ export const clientDirectAddData = obj({
   clientName: str,
   dryRun: bool,
   entry: str,
-  launcher: obj({
-    args: arr(str),
-    command: str,
-    env: obj({
-      TOOLPORT_DATA_DIR: str,
+  /** A stdio server: the command the client starts. */
+  launcher: opt(
+    obj({
+      args: arr(str),
+      command: str,
+      env: obj({
+        TOOLPORT_DATA_DIR: str,
+      }),
     }),
-  }),
+  ),
+  /** A remote server: the address the client connects to and signs in to by itself. */
+  remote: opt(obj({ url: str })),
   notes: arr(str),
   path: str,
   server: str,

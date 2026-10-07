@@ -467,6 +467,49 @@ describe("servers.direct-add and servers.direct-rm: direct entries", () => {
     expect(applied()).toEqual(["client direct add srv-docs --client cursor"]);
   });
 
+  it("adds a remote server as a direct entry the client signs in to by itself", async () => {
+    const remote = {
+      ...(bridge.get("client direct add srv-docs --client cursor --dry-run") as object),
+      entry: "corp-tools",
+      server: "srv-corp",
+      serverName: "corp-tools",
+      launcher: undefined,
+      remote: { url: "https://example.test/mcp" },
+      notes: [],
+      tradeoff:
+        "A direct entry bypasses the Toolport gateway: its tools are not covered by profile tool scopes, approvals (HITL), receipts or lazy discovery. Toolport writes no credentials into the client: the client signs in to the server by itself.",
+    };
+    bridge.set("client direct add srv-corp --client cursor --dry-run", remote);
+    bridge.set("client direct add srv-corp --client cursor", {
+      ...remote,
+      dryRun: false,
+    });
+    const view = await openClients();
+    const cursor = await details(view, "Cursor");
+    await view.user.selectOptions(
+      within(cursor).getByRole("combobox", { name: "Add a direct entry for" }),
+      "srv-corp",
+    );
+    await view.user.click(
+      within(cursor).getByRole("button", { name: "Add direct entry" }),
+    );
+    const review = await screen.findByRole("dialog", {
+      name: "Add a direct entry for corp-tools in Cursor?",
+    });
+    const preview = await within(review).findByRole("region", { name: "Preview" });
+    expect(
+      within(preview).getByText(/connecting to https:\/\/example\.test\/mcp/),
+    ).toBeInTheDocument();
+    expect(within(preview).queryByText(/started by/)).not.toBeInTheDocument();
+    expect(
+      within(preview).getByText(/writes no credentials into the client/),
+    ).toBeInTheDocument();
+    expect(applied()).toEqual([]);
+    await view.user.click(within(review).getByRole("button", { name: "Apply" }));
+    await screen.findByText("Added a direct entry for corp-tools in Cursor");
+    expect(applied()).toEqual(["client direct add srv-corp --client cursor"]);
+  });
+
   it("removes a direct entry after previewing it, with the command that adds it back", async () => {
     const view = await openClients();
     const dialog = await details(view, "Claude Code");
@@ -489,6 +532,32 @@ describe("servers.direct-add and servers.direct-rm: direct entries", () => {
     await view.user.click(within(review).getByRole("button", { name: "Apply" }));
     await screen.findByText("Removed a direct entry of docs-search in Claude Code");
     expect(applied()).toEqual(["client direct rm srv-docs --client claude-code"]);
+  });
+});
+
+describe("servers.direct-ls: a remote direct entry", () => {
+  it("shows the address the client connects to instead of a launcher command", async () => {
+    const world = clone(serversWorld.clientLs);
+    world.clients[0].launchers = [
+      {
+        client: "claude-code",
+        clientName: "Claude Code",
+        entry: "corp-tools",
+        path: "/fixture/home/.claude/.claude.json",
+        server: "srv-corp",
+        serverName: "corp-tools",
+        state: "ok",
+        url: "https://example.test/mcp",
+      },
+    ];
+    bridge.set("client ls", world);
+    const view = await openClients();
+    const dialog = await details(view, "Claude Code");
+    await view.user.click(within(dialog).getByText("How the client connects"));
+    expect(dialog).toHaveTextContent("The client connects to https://example.test/mcp");
+    expect(dialog).toHaveTextContent("Toolport keeps no credentials for it");
+    expect(within(dialog).queryByLabelText("Command line")).not.toBeInTheDocument();
+    expect(bridge.ran().some((argv) => argv.startsWith("direct"))).toBe(false);
   });
 });
 

@@ -114,6 +114,46 @@ fn the_login_feed_reads_the_stored_probe_health_and_needs_you() {
     assert!(feed_auth::collect(&ctx()).is_empty());
 }
 
+fn write_registry_of_alpha(fx: &DataDirFx, enabled: &[&str]) {
+    let registry = json!({
+        "version": 1,
+        "servers": [{"id": "alpha", "name": "alpha", "transport": "http", "url": "https://mcp.example.test/mcp"}],
+        "profiles": [{"id": "default", "name": "Default", "enabledServerIds": enabled}],
+        "activeProfileId": "default",
+        "plus": {"directEntries": {"claude-code": {"alpha": {
+            "server": "alpha", "command": "", "args": [], "env": {},
+            "url": "https://mcp.example.test/mcp"}}}},
+    });
+    std::fs::write(fx.dir.join("registry.json"), registry.to_string()).unwrap();
+}
+
+#[test]
+fn the_login_feed_skips_a_server_only_a_client_signs_in_to() {
+    let fx = DataDirFx::new("attention", "auth-direct");
+    write_auth(&fx, "needs_reauth");
+    write_registry_of_alpha(&fx, &[]);
+    assert!(
+        feed_auth::collect(&ctx()).is_empty(),
+        "a stale row of a direct-only server must not raise anything"
+    );
+    write_registry_of_alpha(&fx, &["alpha"]);
+    assert_eq!(feed_auth::collect(&ctx()).len(), 1, "the gateway reaches it again");
+}
+
+#[test]
+fn the_status_and_the_login_rows_leave_out_a_server_only_a_client_signs_in_to() {
+    let fx = DataDirFx::new("attention", "auth-direct-status");
+    write_auth(&fx, "needs_reauth");
+    write_registry_of_alpha(&fx, &[]);
+    let rows = crate::plus::dispatch("plus.auth.rows", json!({})).unwrap();
+    assert_eq!(rows["rows"], json!([]), "{rows}");
+    let summary = super::super::status::auth_summary();
+    assert_eq!(summary["servers"], json!([]), "{summary}");
+    write_registry_of_alpha(&fx, &["alpha"]);
+    let rows = crate::plus::dispatch("plus.auth.rows", json!({})).unwrap();
+    assert_eq!(rows["rows"][0]["server"], "alpha");
+}
+
 #[test]
 fn the_task_feed_reads_the_attention_records() {
     let _fx = DataDirFx::new("attention", "tasks");

@@ -1164,11 +1164,21 @@ pub const ALL: &[Case] = &[
             read("preview", "client_direct_add", DIRECT),
             write("apply", "client_direct_add", DIRECT_APPLY),
             read("unchanged", "client_direct_add", DIRECT_APPLY),
-            fails(
-                "http_server",
-                "invalid_arguments",
+            read(
+                "remote_preview",
+                "client_direct_add",
+                r#"{"server":"beta","client":"claude-code"}"#,
+            ),
+            write(
+                "remote",
                 "client_direct_add",
                 r#"{"server":"beta","client":"claude-code","dry_run":false}"#,
+            ),
+            fails(
+                "remote_unsupported_client",
+                "invalid_arguments",
+                "client_direct_add",
+                r#"{"server":"beta","client":"goose","dry_run":false}"#,
             ),
             fails(
                 "client_missing",

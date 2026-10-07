@@ -392,7 +392,9 @@ export function clientImportPlan(data: ClientImportData, done: boolean): PlanV1 
 }
 
 export function directAddPlan(data: ClientDirectAddData, done: boolean): PlanV1 {
-  const launcher = [data.launcher.command, ...data.launcher.args].join(" ");
+  const how = data.remote
+    ? `connecting to ${data.remote.url}`
+    : `started by ${[data.launcher?.command, ...(data.launcher?.args ?? [])].join(" ")}`;
   const steps: PlanStep[] = [
     {
       op:
@@ -402,7 +404,7 @@ export function directAddPlan(data: ClientDirectAddData, done: boolean): PlanV1 
             ? "create"
             : "update",
       path: data.path,
-      detail: `${verb(done, "Give", "Gave")} ${data.clientName} its own entry ${data.entry} for ${data.serverName}, started by ${launcher}`,
+      detail: `${verb(done, "Give", "Gave")} ${data.clientName} its own entry ${data.entry} for ${data.serverName}, ${how}`,
     },
     ...data.notes.map((note): PlanStep => ({ op: "note", detail: note })),
   ];

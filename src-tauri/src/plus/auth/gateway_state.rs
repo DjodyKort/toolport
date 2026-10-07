@@ -119,7 +119,11 @@ pub fn gateway_registry(registry: &crate::registry::Registry) -> ProbeRegistry {
     let mut reg = ProbeRegistry::new();
     for server in &registry.servers {
         let remote = matches!(server.transport.as_str(), "http" | "sse");
-        if remote && server.url.is_some() && server.client_credentials.is_none() {
+        if remote
+            && server.url.is_some()
+            && server.client_credentials.is_none()
+            && !crate::plus::direct::is_direct_only(registry, &server.id)
+        {
             reg.register(ProbeSpec::new(&server.id, ProbeKind::GatewayState));
         }
     }

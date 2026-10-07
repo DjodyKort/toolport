@@ -1028,7 +1028,7 @@ pub const TOOLS: &[ToolDef] = &[
         "client_direct_add",
         2,
         None,
-        "Add an entry for one stdio server to one client that runs the toolportctl launcher instead of the gateway; it bypasses profile tool scopes, approvals, receipts and lazy discovery, and each client starts its own process; dry_run is on by default",
+        "Add an entry for one server to one client instead of the gateway: a stdio server through the toolportctl launcher, or a remote server as its address only, which the client signs in to by itself; it bypasses profile tool scopes, approvals, receipts and lazy discovery; dry_run is on by default",
         [
             p("server", Ty::Str, true, "Server name or id"),
             p("client", Ty::Str, true, "Client key"),

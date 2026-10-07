@@ -31,6 +31,14 @@ fn registry_json() -> Value {
             },
             {"id": "beta", "name": "beta", "transport": "http", "url": "https://example.invalid/mcp"},
             {
+                "id": "figma-mcp-server", "name": "Figma MCP Server", "transport": "http",
+                "url": "https://mcp.figma.com/mcp"
+            },
+            {
+                "id": "hdr", "name": "hdr", "transport": "http", "url": "https://example.invalid/hdr",
+                "env": [{"key": "Authorization", "secret": true}]
+            },
+            {
                 "id": "cred", "name": "cred", "transport": "stdio", "command": "cred-mcp",
                 "clientCredentials": {"clientId": "FAKE-client"}
             },
@@ -178,6 +186,52 @@ fn every_client_format_takes_a_launcher_entry_and_gives_it_back() {
                 "{id}"
             );
         }
+        assert_eq!(count(&registry_ro::read().unwrap()), 0);
+    });
+}
+
+#[test]
+fn every_client_that_can_hold_a_remote_entry_takes_one_and_gives_it_back() {
+    world(|_| {
+        let ids: Vec<String> = clients::detect_clients()
+            .into_iter()
+            .map(|c| c.id)
+            .collect();
+        let mut taken = 0;
+        for id in &ids {
+            installed(id);
+            if !clients::supports_remote_entry(id) {
+                let error = add("figma-mcp-server", id, false, false).unwrap_err();
+                assert_eq!(error.kind, Kind::Failed("refused"), "{id}");
+                assert!(
+                    error.message.contains("cannot hold a remote server entry"),
+                    "{id}: {}",
+                    error.message
+                );
+                assert!(entry_on_disk(id, "Figma MCP Server").is_none(), "{id}");
+                continue;
+            }
+            taken += 1;
+            let added = add_ok("figma-mcp-server", id);
+            assert_eq!(added.action, Action::Added, "{id}");
+            let rows = list(Some(id)).unwrap();
+            assert_eq!(rows.len(), 1, "{id}: {rows:?}");
+            assert_eq!(rows[0].state, State::Ok, "{id}: {rows:?}");
+            assert_eq!(rows[0].url.as_deref(), Some("https://mcp.figma.com/mcp"), "{id}");
+            let on_disk = entry_on_disk(id, "Figma MCP Server").unwrap();
+            assert_eq!(on_disk.command, None, "{id}");
+            assert_eq!(on_disk.url.as_deref(), Some("https://mcp.figma.com/mcp"), "{id}");
+            assert!(on_disk.env_keys.is_empty(), "{id}");
+            assert_eq!(add_ok("figma-mcp-server", id).action, Action::Unchanged, "{id}");
+            assert_eq!(
+                remove("figma-mcp-server", id, false, false).unwrap().action,
+                Action::Removed,
+                "{id}"
+            );
+            assert!(entry_on_disk(id, "Figma MCP Server").is_none(), "{id}");
+            assert!(list(Some(id)).unwrap().is_empty(), "{id}");
+        }
+        assert!(taken >= 25, "{taken} of {} clients", ids.len());
         assert_eq!(count(&registry_ro::read().unwrap()), 0);
     });
 }
@@ -365,7 +419,7 @@ fn no_secret_value_reaches_a_client_file_or_the_registry_record() {
 }
 
 #[test]
-fn remote_oauth_root_and_gateway_servers_are_refused_without_writing() {
+fn header_oauth_root_and_gateway_servers_are_refused_without_writing() {
     world(|_| {
         installed("cursor");
         let before = (
@@ -373,7 +427,7 @@ fn remote_oauth_root_and_gateway_servers_are_refused_without_writing() {
             tree(&crate::clients::home().unwrap()),
         );
         for (server, reason) in [
-            ("beta", "remote"),
+            ("hdr", "headers"),
             ("cred", "OAuth"),
             ("rooted", "project root"),
             ("toolport", "gateway"),
@@ -786,10 +840,31 @@ fn an_unknown_server_ends_the_launcher_with_a_clear_message() {
 }
 
 #[test]
+fn a_server_is_direct_only_when_no_profile_has_it_and_a_client_entry_does() {
+    world(|_| {
+        installed("claude-code");
+        add_ok("figma-mcp-server", "claude-code");
+        add_ok("alpha", "claude-code");
+        let reg = registry_ro::read().unwrap();
+        assert!(is_direct_only(&reg, "figma-mcp-server"));
+        assert!(!is_direct_only(&reg, "alpha"), "the default profile has alpha on");
+        assert!(!is_direct_only(&reg, "beta"), "no client entry reaches beta");
+        assert!(!is_direct_only(&reg, "no-such-server"));
+        remove("figma-mcp-server", "claude-code", false, false).unwrap();
+        assert!(!is_direct_only(&registry_ro::read().unwrap(), "figma-mcp-server"));
+    });
+}
+
+#[test]
 fn records_round_trip_and_leave_no_residue() {
     let mut reg = Registry::default();
     let before = serde_json::to_value(&reg).unwrap();
+    let remote = Record::remote("beta", "https://example.invalid/mcp");
+    record::set(&mut reg, "cursor", "beta", &remote);
+    assert_eq!(record::get(&reg, "cursor", "beta"), Some(remote));
+    assert!(record::clear(&mut reg, "cursor", "beta"));
     let rec = Record {
+        url: None,
         server: "alpha".into(),
         command: "/x/toolportctl".into(),
         args: vec!["direct".into(), "run".into(), "alpha".into()],

@@ -4,6 +4,7 @@ import {
   bool,
   nullable,
   obj,
+  opt,
   str,
   type Infer,
   type Shape,
@@ -19,13 +20,16 @@ export const clientDirectAddResult = obj({
   clientName: str,
   dryRun: bool,
   entry: str,
-  launcher: obj({
-    args: arr(str),
-    command: str,
-    env: obj({
-      TOOLPORT_DATA_DIR: str,
+  launcher: opt(
+    obj({
+      args: arr(str),
+      command: str,
+      env: obj({
+        TOOLPORT_DATA_DIR: str,
+      }),
     }),
-  }),
+  ),
+  remote: opt(obj({ url: str })),
   notes: arr(str),
   path: str,
   server: str,
@@ -44,6 +48,7 @@ export const clientDirectLsResult = obj({
       server: str,
       serverName: str,
       state: str,
+      url: opt(str),
     }),
   ),
 });

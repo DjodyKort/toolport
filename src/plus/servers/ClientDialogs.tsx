@@ -46,6 +46,13 @@ const LAUNCHER_STATE: Record<string, { label: string; variant: "success" | "warn
 /** The line a direct entry runs. It starts a process in a terminal of its own, so the app only
  * shows it for copying. */
 function DirectRun({ entry }: { entry: DirectEntry }) {
+  if (entry.url)
+    return (
+      <p className="mt-1 rounded-md border bg-muted/40 p-2 text-xs text-muted-foreground">
+        The client connects to <code className="font-mono break-all">{entry.url}</code>{" "}
+        and signs in by itself. Toolport keeps no credentials for it.
+      </p>
+    );
   const line = commandLine(["direct", "run", entry.server]);
   return (
     <div className="mt-1 flex flex-col gap-2 rounded-md border bg-muted/40 p-2">
@@ -208,7 +215,8 @@ export function ClientDetailsDialog({
             Direct entries
           </h3>
           <p className="text-xs text-muted-foreground">
-            A direct entry starts a server by itself and bypasses the gateway.
+            A direct entry starts a server, or connects to it, by itself and bypasses the
+            gateway.
           </p>
           {view.launchers.length === 0 &&
             view.orphans.length === 0 &&
@@ -245,7 +253,9 @@ export function ClientDetailsDialog({
                     </div>
                     <details>
                       <summary className="cursor-pointer text-xs text-muted-foreground">
-                        How the client starts it
+                        {entry.url
+                          ? "How the client connects"
+                          : "How the client starts it"}
                       </summary>
                       <DirectRun entry={entry} />
                     </details>

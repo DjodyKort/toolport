@@ -225,6 +225,13 @@ fn edit_continue(path: &Path, name: &str, entry: Option<&ServerEntry>) -> Result
     atomic_write_yaml_config(path, original.as_deref(), &root, "mcpServers")
 }
 
+/// Whether a client config can hold a remote (URL) entry. Goose only has a stdio entry shape,
+/// and Claude Desktop reaches remote servers through its account connectors, not its file.
+pub fn supports_remote_entry(client_id: &str) -> bool {
+    find_def(client_id)
+        .is_some_and(|def| !def.uses_connectors && !matches!(def.format, Format::YamlExtensions))
+}
+
 /// Upsert (`Some`) or remove (`None`) the single entry called `name` in a client
 /// config, leaving every other key and server alone. Unlike the gateway editors this
 /// never matches on gateway identity, so a direct entry cannot disturb the gateway.

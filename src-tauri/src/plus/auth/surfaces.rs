@@ -331,6 +331,18 @@ pub fn read_status(dir: &Path) -> StatusFile {
         .unwrap_or_default()
 }
 
+/// The cache as the surfaces show it: without a server only a client's own direct entry
+/// reaches, whose last gateway probe can only be older than that entry.
+pub fn read_visible_status(dir: &Path) -> StatusFile {
+    let mut status = read_status(dir);
+    if let Some(registry) = crate::plus::registry_ro::read_opt() {
+        status
+            .servers
+            .retain(|server, _| !crate::plus::direct::is_direct_only(&registry, server));
+    }
+    status
+}
+
 pub fn auth_dir() -> Option<std::path::PathBuf> {
     crate::registry::conduit_dir().map(|dir| dir.join("auth"))
 }
@@ -338,5 +350,5 @@ pub fn auth_dir() -> Option<std::path::PathBuf> {
 pub fn rows_handler(_args: Value) -> Result<Value, String> {
     use super::probe::Clock;
     let dir = auth_dir().ok_or_else(|| "data directory unavailable".to_string())?;
-    Ok(rows_value(&read_status(&dir), super::SystemClock.now()))
+    Ok(rows_value(&read_visible_status(&dir), super::SystemClock.now()))
 }

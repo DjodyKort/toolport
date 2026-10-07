@@ -24,6 +24,16 @@ impl Failure {
     }
 }
 
+/// A server the client can connect to itself: an address, no process of ours.
+pub fn is_remote(server: &ServerEntry) -> bool {
+    server.command.is_none()
+        && server.url.is_some()
+        && matches!(
+            server.transport.to_ascii_lowercase().as_str(),
+            "http" | "sse"
+        )
+}
+
 /// Why a server cannot be launched without the gateway, or `None` when it can.
 pub fn refusal(server: &ServerEntry) -> Option<String> {
     if crate::clients::is_gateway_server(server) {

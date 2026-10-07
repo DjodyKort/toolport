@@ -14,16 +14,33 @@ pub struct Record {
     pub command: String,
     pub args: Vec<String>,
     pub env: BTreeMap<String, String>,
+    /// Set for a remote server: the address the client connects to and signs in to by itself.
+    /// The launcher fields are then empty.
+    pub url: Option<String>,
 }
 
 impl Record {
+    pub fn remote(server: &str, url: &str) -> Self {
+        Self {
+            server: server.to_string(),
+            command: String::new(),
+            args: Vec::new(),
+            env: BTreeMap::new(),
+            url: Some(url.to_string()),
+        }
+    }
+
     fn to_value(&self) -> Value {
-        json!({
+        let mut value = json!({
             "server": self.server,
             "command": self.command,
             "args": self.args,
             "env": self.env,
-        })
+        });
+        if let Some(url) = &self.url {
+            value["url"] = json!(url);
+        }
+        value
     }
 
     fn from_value(value: &Value) -> Option<Self> {
@@ -46,6 +63,7 @@ impl Record {
                         .collect()
                 })
                 .unwrap_or_default(),
+            url: object.get("url").and_then(Value::as_str).map(String::from),
         })
     }
 }

@@ -240,6 +240,7 @@ const entries: Array<[string, unknown]> = [
   ["task ls", loginTasks],
   ["status", loginsStatus],
   ["server ls", loginsServerLs],
+  ["client direct ls", { entries: [] }],
   ["auth statusline", loginsStatusline],
   ["auth hook", loginsHook],
   [

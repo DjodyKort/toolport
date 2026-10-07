@@ -5,7 +5,7 @@ use crate::plus::auth::surfaces;
 
 pub fn collect(ctx: &Ctx) -> Vec<Item> {
     let Some(dir) = surfaces::auth_dir() else { return Vec::new() };
-    let status = surfaces::read_status(&dir);
+    let status = surfaces::read_visible_status(&dir);
     let mut items = Vec::new();
     for row in surfaces::rows(&status, ctx.now) {
         let (title, detail) = match row.state.as_str() {

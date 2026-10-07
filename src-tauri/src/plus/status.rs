@@ -104,11 +104,13 @@ fn path_str(path: &Option<PathBuf>) -> Value {
     }
 }
 
-fn auth_summary() -> Value {
+pub(super) fn auth_summary() -> Value {
     use crate::plus::auth::surfaces;
     use crate::plus::auth::{Clock, SystemClock};
     match surfaces::auth_dir() {
-        Some(dir) => surfaces::status_summary(&surfaces::read_status(&dir), SystemClock.now()),
+        Some(dir) => {
+            surfaces::status_summary(&surfaces::read_visible_status(&dir), SystemClock.now())
+        }
         None => surfaces::status_summary(&Default::default(), SystemClock.now()),
     }
 }

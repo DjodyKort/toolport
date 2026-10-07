@@ -86,7 +86,15 @@ fn world(test: impl FnOnce(&World)) {
                         "env": [{"key": "API_KEY", "secret": true}, {"key": "MODE", "value": "fast"}]
                     },
                     {"id": "beta", "name": "beta", "transport": "http", "url": "https://example.invalid/mcp"},
-                    {"id": "gamma", "name": "gamma", "transport": "stdio", "command": "gamma-mcp"}
+                    {
+                        "id": "hdr", "name": "hdr", "transport": "http", "url": "https://example.invalid/hdr",
+                        "env": [{"key": "Authorization", "secret": true}]
+                    },
+                    {"id": "gamma", "name": "gamma", "transport": "stdio", "command": "gamma-mcp"},
+                    {
+                        "id": "figma-mcp-server", "name": "Figma MCP Server", "transport": "http",
+                        "url": "https://mcp.figma.com/mcp"
+                    }
                 ],
                 "profiles": [{"id": "default", "name": "Default", "enabledServerIds": ["alpha"]}],
                 "activeProfileId": "default"
@@ -275,6 +283,187 @@ fn direct_add_and_rm_text_names_the_trade_off_and_honours_dry_run() {
     });
 }
 
+fn claude_entry(w: &World, name: &str) -> Option<Value> {
+    let doc: Value =
+        serde_json::from_str(&std::fs::read_to_string(claude_file(w)).unwrap()).unwrap();
+    doc["mcpServers"].get(name).cloned()
+}
+
+#[test]
+fn a_remote_server_gets_a_url_only_entry_in_claude_code() {
+    world(|w| {
+        seed_claude(w, json!({"stray": {"command": "stray-mcp"}}));
+        let (home, data) = (tree(&w.home), tree(&w.data));
+        let (code, value) = cli_json(&[
+            "client",
+            "direct",
+            "add",
+            "figma-mcp-server",
+            "--client",
+            "claude-code",
+            "--dry-run",
+        ]);
+        assert_eq!(code, 0, "{value}");
+        let planned = &value["data"];
+        assert_eq!(planned["action"], "added");
+        assert_eq!(planned["dryRun"], true);
+        assert_eq!(planned["entry"], "Figma MCP Server");
+        assert_eq!(planned["remote"], json!({"url": "https://mcp.figma.com/mcp"}));
+        assert!(planned.get("launcher").is_none(), "{planned}");
+        assert!(planned["tradeoff"].as_str().unwrap().contains("no credentials"));
+        assert_eq!((tree(&w.home), tree(&w.data)), (home, data), "a dry run writes nothing");
+        let (_, text, _) = cli(&[
+            "client",
+            "direct",
+            "add",
+            "figma-mcp-server",
+            "--client",
+            "claude-code",
+            "--dry-run",
+        ]);
+        assert!(
+            text.contains("Would add direct entry 'Figma MCP Server' for Figma MCP Server to Claude Code"),
+            "{text}"
+        );
+        assert!(text.contains("Connects to: https://mcp.figma.com/mcp"), "{text}");
+        assert!(!text.contains("Launches:"), "{text}");
+        assert!(text.contains("Dry run: nothing was written."), "{text}");
+
+        let (code, value) = cli_json(&[
+            "client",
+            "direct",
+            "add",
+            "figma-mcp-server",
+            "--client",
+            "claude-code",
+        ]);
+        assert_eq!(code, 0, "{value}");
+        assert_eq!(value["data"]["action"], "added");
+        assert_eq!(
+            claude_entry(w, "Figma MCP Server"),
+            Some(json!({"type": "http", "url": "https://mcp.figma.com/mcp"})),
+            "the client holds the address and nothing else"
+        );
+        let file = std::fs::read_to_string(claude_file(w)).unwrap();
+        assert!(file.contains("FAKE-theme") && file.contains("stray-mcp"));
+        assert!(!file.contains("direct run"), "no launcher is written for a remote entry");
+
+        let (_, listed) = cli_json(&["client", "direct", "ls"]);
+        assert_eq!(
+            listed["data"]["entries"][0]["url"],
+            "https://mcp.figma.com/mcp"
+        );
+        assert_eq!(listed["data"]["entries"][0]["state"], "ok");
+
+        let (code, again) = cli_json(&[
+            "client",
+            "direct",
+            "add",
+            "figma-mcp-server",
+            "--client",
+            "claude-code",
+        ]);
+        assert_eq!((code, again["data"]["action"].as_str()), (0, Some("unchanged")));
+
+        let (code, removed) = cli_json(&[
+            "client",
+            "direct",
+            "rm",
+            "figma-mcp-server",
+            "--client",
+            "claude-code",
+        ]);
+        assert_eq!(code, 0, "{removed}");
+        assert_eq!(removed["data"]["action"], "removed");
+        assert_eq!(claude_entry(w, "Figma MCP Server"), None);
+        assert!(claude_entry(w, "stray").is_some());
+        let (_, listed) = cli_json(&["client", "direct", "ls"]);
+        assert_eq!(listed["data"]["entries"], json!([]));
+    });
+}
+
+#[test]
+fn client_sync_and_status_treat_a_remote_direct_entry_like_any_other() {
+    world(|w| {
+        seed_claude(w, json!({}));
+        cli_json(&[
+            "client",
+            "direct",
+            "add",
+            "figma-mcp-server",
+            "--client",
+            "claude-code",
+        ]);
+        let (code, synced) = cli_json(&["client", "sync", "--client", "claude-code"]);
+        assert_eq!(code, 0, "{synced}");
+        assert_eq!(synced["data"]["clients"][0]["removed"], json!([]));
+        assert_eq!(
+            synced["data"]["clients"][0]["direct"],
+            json!(["Figma MCP Server"])
+        );
+        assert!(claude_entry(w, "Figma MCP Server").is_some());
+
+        let (_, status) = cli_json(&["status"]);
+        assert_eq!(status["data"]["directEntries"], 1);
+        let (_, doctor) = cli_json(&["doctor"]);
+        let direct = doctor["data"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == "directEntries")
+            .unwrap();
+        assert_eq!(direct["status"], "ok", "{direct}");
+
+        let edit = |url: &str| {
+            let mut doc: Value =
+                serde_json::from_str(&std::fs::read_to_string(claude_file(w)).unwrap()).unwrap();
+            doc["mcpServers"]["Figma MCP Server"]["url"] = json!(url);
+            std::fs::write(claude_file(w), doc.to_string()).unwrap();
+        };
+        edit("https://elsewhere.example/mcp");
+        let (_, listed) = cli_json(&["client", "direct", "ls"]);
+        assert_eq!(listed["data"]["entries"][0]["state"], "customized");
+        edit("https://mcp.figma.com/mcp");
+        let (_, listed) = cli_json(&["client", "direct", "ls"]);
+        assert_eq!(listed["data"]["entries"][0]["state"], "ok");
+
+        let (code, uninstalled) = cli_json(&["server", "uninstall", "figma-mcp-server"]);
+        assert_eq!(code, 0, "{uninstalled}");
+        let (_, after) = cli_json(&["client", "direct", "ls"]);
+        assert_eq!(after["data"]["entries"], json!([]), "{after}");
+    });
+}
+
+#[test]
+fn a_client_that_cannot_hold_a_remote_entry_is_refused_without_writing() {
+    world(|w| {
+        let (home, data) = (tree(&w.home), tree(&w.data));
+        for client in ["goose", "claude-desktop"] {
+            let (code, value) = cli_json(&[
+                "client",
+                "direct",
+                "add",
+                "figma-mcp-server",
+                "--client",
+                client,
+            ]);
+            assert_eq!(
+                (code, value["error"]["code"].as_str()),
+                (1, Some("refused")),
+                "{client}: {value}"
+            );
+            assert!(
+                value["error"]["message"]
+                    .as_str()
+                    .unwrap()
+                    .contains("cannot hold a remote server entry"),
+                "{value}"
+            );
+        }
+        assert_eq!((tree(&w.home), tree(&w.data)), (home, data));
+    });
+}
+
 #[test]
 fn direct_commands_report_usage_and_refusals_with_the_documented_exit_codes() {
     world(|w| {
@@ -319,7 +508,7 @@ fn direct_commands_report_usage_and_refusals_with_the_documented_exit_codes() {
         assert!(err.contains("usage: client direct add|rm|ls"), "{err}");
 
         let (code, value) =
-            cli_json(&["client", "direct", "add", "beta", "--client", "claude-code"]);
+            cli_json(&["client", "direct", "add", "hdr", "--client", "claude-code"]);
         assert_eq!(
             (code, value["error"]["code"].as_str()),
             (1, Some("refused")),
@@ -327,7 +516,7 @@ fn direct_commands_report_usage_and_refusals_with_the_documented_exit_codes() {
         );
         let message = value["error"]["message"].as_str().unwrap();
         assert!(
-            message.contains("remote") && message.contains("gateway"),
+            message.contains("headers") && message.contains("gateway"),
             "{message}"
         );
         let (code, value) =
@@ -577,6 +766,26 @@ fn client_import_does_not_offer_a_launcher_entry_back_as_a_server() {
             "direct",
             "add",
             "alpha",
+            "--client",
+            "claude-code",
+        ]);
+        let (code, value) = cli_json(&["client", "import", "claude-code"]);
+        assert_eq!(code, 0, "{value}");
+        let direct = value["data"]["direct"].as_array().unwrap();
+        assert_eq!(direct.len(), 1, "{value}");
+        assert_eq!(direct[0]["name"], "stray");
+    });
+}
+
+#[test]
+fn client_import_does_not_offer_a_remote_direct_entry_back_as_a_server() {
+    world(|w| {
+        seed_claude(w, json!({"stray": {"command": "stray-mcp"}}));
+        cli_json(&[
+            "client",
+            "direct",
+            "add",
+            "figma-mcp-server",
             "--client",
             "claude-code",
         ]);
