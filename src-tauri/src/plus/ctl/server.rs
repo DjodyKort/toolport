@@ -151,13 +151,22 @@ pub fn search(rest: &[String]) -> Result<Output, CtlError> {
     Ok(Output::new(data, human))
 }
 
+pub(super) fn find_installable(
+    name: &str,
+    search: impl FnOnce(&str) -> Vec<CatalogEntry>,
+) -> Option<CatalogEntry> {
+    let exact = |entry: &CatalogEntry| entry.name.eq_ignore_ascii_case(name);
+    catalog::search_curated(name)
+        .into_iter()
+        .find(exact)
+        .or_else(|| search(name).into_iter().find(exact))
+}
+
 pub fn install(rest: &[String]) -> Result<Output, CtlError> {
     let flags = INSTALL.parse(rest)?;
     let name = flags.single(INSTALL_USAGE)?;
-    let (found, _registry_error) = run_search(name, flags.on("--offline"));
-    let entry = found
-        .into_iter()
-        .find(|e| e.name.eq_ignore_ascii_case(name))
+    let offline = flags.on("--offline");
+    let entry = find_installable(name, |query| run_search(query, offline).0)
         .ok_or_else(|| CtlError::not_found(format!("no catalog entry named '{name}'")))?;
     require_readable()?;
     let added = servers::add_catalog_returning_id(entry.clone()).map_err(|e| match e {

@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -1032,12 +1033,15 @@ fn age_since(fetched_at_ms: u64, now_ms: u64) -> Duration {
 struct CachedRegistrySearch {
     entries: Vec<CatalogEntry>,
     fetched_at_ms: u64,
+    last_used_ms: u64,
+    ticket: u64,
 }
 
 #[derive(Default)]
 struct RegistryCache {
     by_query: HashMap<CacheKey, CachedRegistrySearch>,
     loaded_from: Option<PathBuf>,
+    revision: u64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -1053,11 +1057,20 @@ struct RegistryCacheRecord {
     base_url: String,
     query: String,
     fetched_at_ms: u64,
+    #[serde(default)]
+    last_used_ms: u64,
     entries: Vec<CatalogEntry>,
 }
 
-/// The newest [`REGISTRY_CACHE_MAX_QUERIES`] usable records in the file. A
-/// missing, unreadable, corrupt or foreign-version file is just an empty cache.
+impl RegistryCacheRecord {
+    fn used_at_ms(&self) -> u64 {
+        self.last_used_ms.max(self.fetched_at_ms)
+    }
+}
+
+/// The most recently used [`REGISTRY_CACHE_MAX_QUERIES`] usable records in the
+/// file. A missing, unreadable, corrupt or foreign-version file is just an
+/// empty cache.
 fn read_cache_file(path: &Path, now_ms: u64) -> Vec<RegistryCacheRecord> {
     let Some(file) = std::fs::read_to_string(path)
         .ok()
@@ -1071,9 +1084,20 @@ fn read_cache_file(path: &Path, now_ms: u64) -> Vec<RegistryCacheRecord> {
         .into_iter()
         .filter(|r| age_since(r.fetched_at_ms, now_ms) <= REGISTRY_CACHE_MAX_AGE)
         .collect();
-    records.sort_by(|a, b| b.fetched_at_ms.cmp(&a.fetched_at_ms));
+    records.sort_by_key(|r| std::cmp::Reverse(r.used_at_ms()));
     records.truncate(REGISTRY_CACHE_MAX_QUERIES);
     records
+}
+
+/// Best-effort: an unwritable cache file leaves the in-memory cache working.
+fn write_cache_records(path: &Path, queries: Vec<RegistryCacheRecord>) {
+    let file = RegistryCacheFile {
+        version: REGISTRY_CACHE_FILE_VERSION,
+        queries,
+    };
+    if let Ok(json) = serde_json::to_string(&file) {
+        let _ = crate::registry::atomic_write(path, &json);
+    }
 }
 
 impl RegistryCache {
@@ -1083,48 +1107,84 @@ impl RegistryCache {
             .map(|cached| (cached.entries.clone(), age_since(cached.fetched_at_ms, now_ms)))
     }
 
-    fn insert(&mut self, key: CacheKey, entries: Vec<CatalogEntry>, fetched_at_ms: u64) {
-        self.by_query.insert(
-            key,
-            CachedRegistrySearch {
-                entries,
-                fetched_at_ms,
-            },
-        );
+    fn touch(&mut self, key: &CacheKey, now_ms: u64) {
+        if let Some(cached) = self.by_query.get_mut(key) {
+            cached.last_used_ms = cached.last_used_ms.max(now_ms);
+        }
+    }
+
+    fn put(&mut self, key: CacheKey, cached: CachedRegistrySearch) {
+        self.by_query.insert(key, cached);
+        self.revision += 1;
         while self.by_query.len() > REGISTRY_CACHE_MAX_QUERIES {
-            let oldest = self
+            let least_recent = self
                 .by_query
                 .iter()
-                .min_by_key(|(_, cached)| cached.fetched_at_ms)
+                .min_by_key(|(_, cached)| cached.last_used_ms)
                 .map(|(key, _)| key.clone());
-            match oldest {
+            match least_recent {
                 Some(key) => self.by_query.remove(&key),
                 None => break,
             };
         }
     }
 
-    /// Merge the disk cache in once per file path; whatever is already in memory
-    /// wins when it is at least as new.
-    fn ensure_loaded(&mut self, path: &Path, now_ms: u64) {
-        if self.loaded_from.as_deref() == Some(path) {
-            return;
+    /// A fetch that started before the one whose answer is already stored must
+    /// not replace it: the later query is the one the user is waiting on.
+    fn insert_unless_superseded(
+        &mut self,
+        key: CacheKey,
+        entries: Vec<CatalogEntry>,
+        fetched_at_ms: u64,
+        ticket: u64,
+    ) -> bool {
+        if self.by_query.get(&key).is_some_and(|have| have.ticket > ticket) {
+            return false;
         }
-        for record in read_cache_file(path, now_ms) {
+        self.put(
+            key,
+            CachedRegistrySearch {
+                entries,
+                fetched_at_ms,
+                last_used_ms: fetched_at_ms,
+                ticket,
+            },
+        );
+        true
+    }
+
+    #[cfg(test)]
+    fn insert(&mut self, key: CacheKey, entries: Vec<CatalogEntry>, fetched_at_ms: u64) {
+        self.insert_unless_superseded(key, entries, fetched_at_ms, 0);
+    }
+
+    /// Merge records read from `path` in; whatever is already in memory wins
+    /// when it is at least as new.
+    fn merge_loaded(&mut self, path: &Path, records: Vec<RegistryCacheRecord>) {
+        for record in records {
+            let used_at_ms = record.used_at_ms();
             let key = (record.base_url, record.query);
             let newer = self
                 .by_query
                 .get(&key)
                 .is_none_or(|have| have.fetched_at_ms < record.fetched_at_ms);
             if newer {
-                self.insert(key, record.entries, record.fetched_at_ms);
+                self.put(
+                    key,
+                    CachedRegistrySearch {
+                        entries: record.entries,
+                        fetched_at_ms: record.fetched_at_ms,
+                        last_used_ms: used_at_ms,
+                        ticket: 0,
+                    },
+                );
             }
         }
         self.loaded_from = Some(path.to_path_buf());
     }
 
-    /// Best-effort: an unwritable cache file leaves the in-memory cache working.
-    fn persist(&self, path: &Path, now_ms: u64) {
+    /// The records worth writing and the revision they were taken at.
+    fn snapshot(&self, now_ms: u64) -> (u64, Vec<RegistryCacheRecord>) {
         let mut queries: Vec<RegistryCacheRecord> = self
             .by_query
             .iter()
@@ -1135,26 +1195,23 @@ impl RegistryCache {
                 base_url: base_url.clone(),
                 query: query.clone(),
                 fetched_at_ms: cached.fetched_at_ms,
+                last_used_ms: cached.last_used_ms,
                 entries: cached.entries.clone(),
             })
             .collect();
         queries.sort_by(|a, b| {
-            b.fetched_at_ms
-                .cmp(&a.fetched_at_ms)
+            b.used_at_ms()
+                .cmp(&a.used_at_ms())
                 .then_with(|| a.query.cmp(&b.query))
         });
         queries.truncate(REGISTRY_CACHE_MAX_QUERIES);
-        let file = RegistryCacheFile {
-            version: REGISTRY_CACHE_FILE_VERSION,
-            queries,
-        };
-        if let Ok(json) = serde_json::to_string(&file) {
-            let _ = crate::registry::atomic_write(path, &json);
-        }
+        (self.revision, queries)
     }
 }
 
 static REGISTRY_CACHE: OnceLock<Mutex<RegistryCache>> = OnceLock::new();
+static CACHE_REVISION_WRITTEN: Mutex<u64> = Mutex::new(0);
+static FETCH_TICKETS: AtomicU64 = AtomicU64::new(0);
 
 fn registry_cache() -> &'static Mutex<RegistryCache> {
     REGISTRY_CACHE.get_or_init(|| Mutex::new(RegistryCache::default()))
@@ -1164,29 +1221,71 @@ fn registry_cache_path() -> Option<PathBuf> {
     crate::registry::conduit_dir().map(|dir| dir.join(REGISTRY_CACHE_FILE))
 }
 
-/// The cached answer for `key` and its age, however stale. With `persist`, the
-/// disk cache is merged in first (once per process).
+/// Merge the disk cache in once per file path. The file is read with the cache
+/// unlocked so a lookup never waits on disk.
+fn ensure_cache_loaded(path: &Path, now_ms: u64) {
+    let loaded = registry_cache()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .loaded_from
+        .as_deref()
+        == Some(path);
+    if loaded {
+        return;
+    }
+    let records = read_cache_file(path, now_ms);
+    registry_cache()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .merge_loaded(path, records);
+}
+
+/// Writes a snapshot unless a newer one already reached the disk: two stores
+/// can finish their writes in the opposite order to their snapshots.
+fn write_cache_snapshot(
+    last_written: &Mutex<u64>,
+    path: &Path,
+    revision: u64,
+    records: Vec<RegistryCacheRecord>,
+) {
+    let mut written = last_written.lock().unwrap_or_else(|e| e.into_inner());
+    if revision <= *written {
+        return;
+    }
+    write_cache_records(path, records);
+    *written = revision;
+}
+
+/// The cached answer for `key` and its age, however stale; a hit counts as a
+/// use. With `persist`, the disk cache is merged in first (once per process).
 fn cache_lookup(key: &CacheKey, persist: bool) -> Option<(Vec<CatalogEntry>, Duration)> {
     let now_ms = unix_ms_now();
-    let mut cache = registry_cache().lock().unwrap_or_else(|e| e.into_inner());
     if let Some(path) = persist.then(registry_cache_path).flatten() {
-        cache.ensure_loaded(&path, now_ms);
+        ensure_cache_loaded(&path, now_ms);
     }
+    let mut cache = registry_cache().lock().unwrap_or_else(|e| e.into_inner());
+    cache.touch(key, now_ms);
     cache.get(key, now_ms)
 }
 
-fn cache_store(key: CacheKey, entries: Vec<CatalogEntry>, persist: bool) {
+/// `ticket` is the [`FETCH_TICKETS`] value taken before the network call.
+fn cache_store(key: CacheKey, entries: Vec<CatalogEntry>, persist: bool, ticket: u64) {
     let now_ms = unix_ms_now();
-    let mut cache = registry_cache().lock().unwrap_or_else(|e| e.into_inner());
     let path = persist.then(registry_cache_path).flatten();
     if let Some(path) = &path {
         // Load before writing so the file is never replaced by this process's
         // new answers alone.
-        cache.ensure_loaded(path, now_ms);
+        ensure_cache_loaded(path, now_ms);
     }
-    cache.insert(key, entries, now_ms);
-    if let Some(path) = &path {
-        cache.persist(path, now_ms);
+    let snapshot = {
+        let mut cache = registry_cache().lock().unwrap_or_else(|e| e.into_inner());
+        if !cache.insert_unless_superseded(key, entries, now_ms, ticket) {
+            return;
+        }
+        path.is_some().then(|| cache.snapshot(now_ms))
+    };
+    if let (Some(path), Some((revision, records))) = (path, snapshot) {
+        write_cache_snapshot(&CACHE_REVISION_WRITTEN, &path, revision, records);
     }
 }
 
@@ -1211,9 +1310,10 @@ fn registry_search_cached_from(
             return (entries, None);
         }
     }
+    let ticket = FETCH_TICKETS.fetch_add(1, Ordering::Relaxed) + 1;
     match search_registry_from(base_url, query, connect_timeout, read_timeout) {
         Ok(entries) => {
-            cache_store(key, entries.clone(), persist);
+            cache_store(key, entries.clone(), persist, ticket);
             (entries, None)
         }
         Err(error) => {
@@ -2091,6 +2191,7 @@ mod tests {
             base_url: REGISTRY_URL.to_string(),
             query: query.to_string(),
             fetched_at_ms,
+            last_used_ms: 0,
             entries: vec![widget("W")],
         }
     }
@@ -2103,9 +2204,17 @@ mod tests {
         std::fs::write(path, serde_json::to_string(&file).unwrap()).unwrap();
     }
 
+    fn persist(cache: &RegistryCache, path: &Path, now_ms: u64) {
+        write_cache_records(path, cache.snapshot(now_ms).1);
+    }
+
+    fn load(cache: &mut RegistryCache, path: &Path, now_ms: u64) {
+        cache.merge_loaded(path, read_cache_file(path, now_ms));
+    }
+
     fn loaded_cache(path: &Path) -> RegistryCache {
         let mut cache = RegistryCache::default();
-        cache.ensure_loaded(path, NOW_MS);
+        load(&mut cache, path, NOW_MS);
         cache
     }
 
@@ -2178,7 +2287,7 @@ mod tests {
         let mut written = RegistryCache::default();
         written.insert(slack.clone(), vec![widget("A")], NOW_MS - 1_000);
         written.insert(git.clone(), vec![widget("B"), widget("C")], NOW_MS - 2_000);
-        written.persist(&path, NOW_MS);
+        persist(&written, &path, NOW_MS);
 
         let restarted = loaded_cache(&path);
 
@@ -2204,7 +2313,7 @@ mod tests {
             written.insert(key_of(i), vec![widget("W")], fetched_at(i));
         }
         assert_eq!(written.by_query.len(), REGISTRY_CACHE_MAX_QUERIES);
-        written.persist(&path, NOW_MS);
+        persist(&written, &path, NOW_MS);
         let on_disk: RegistryCacheFile =
             serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(on_disk.queries.len(), REGISTRY_CACHE_MAX_QUERIES);
@@ -2272,7 +2381,7 @@ mod tests {
         let mut cache = RegistryCache::default();
         cache.insert(key.clone(), vec![widget("A")], NOW_MS);
 
-        cache.persist(&path, NOW_MS);
+        persist(&cache, &path, NOW_MS);
 
         assert!(!path.exists());
         assert!(cache.get(&key, NOW_MS).is_some());
@@ -2313,7 +2422,7 @@ mod tests {
             NOW_MS - 8 * DAY_MS,
         );
 
-        cache.persist(&path, NOW_MS);
+        persist(&cache, &path, NOW_MS);
 
         let on_disk: RegistryCacheFile =
             serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
@@ -2331,7 +2440,7 @@ mod tests {
 
         let mut newer_in_memory = RegistryCache::default();
         newer_in_memory.insert(key.clone(), vec![widget("Memory")], NOW_MS - 100);
-        newer_in_memory.ensure_loaded(&path, NOW_MS);
+        load(&mut newer_in_memory, &path, NOW_MS);
         assert_eq!(
             newer_in_memory.get(&key, NOW_MS).unwrap().0,
             vec![widget("Memory")]
@@ -2339,7 +2448,7 @@ mod tests {
 
         let mut older_in_memory = RegistryCache::default();
         older_in_memory.insert(key.clone(), vec![widget("Memory")], NOW_MS - 5_000);
-        older_in_memory.ensure_loaded(&path, NOW_MS);
+        load(&mut older_in_memory, &path, NOW_MS);
         assert_eq!(
             older_in_memory.get(&key, NOW_MS).unwrap().0,
             vec![widget("Disk")]
@@ -2388,7 +2497,7 @@ mod tests {
             vec![widget("OldWidget")],
             now - 60 * 60 * 1000,
         );
-        seed.persist(&path, now);
+        persist(&seed, &path, now);
         forget_process_cache(&base_url);
 
         let instant = search_instant_with(&base_url, query, true);
@@ -2426,7 +2535,7 @@ mod tests {
             vec![widget("OldWidget")],
             now - 60 * 60 * 1000,
         );
-        seed.persist(&path, now);
+        persist(&seed, &path, now);
         forget_process_cache(&base_url);
 
         let budget = Duration::from_millis(300);
@@ -2441,5 +2550,182 @@ mod tests {
 
         assert_eq!(error.expect("the refetch must fail").kind, "connectionFailed");
         assert!(entries.iter().any(|e| e.name == "OldWidget"));
+    }
+    #[test]
+    fn eviction_drops_the_least_recently_used_query_not_the_oldest_fetched() {
+        let key_of = |i: usize| cache_key(REGISTRY_URL, &format!("query-{i:02}"));
+        let mut cache = RegistryCache::default();
+        for i in 0..REGISTRY_CACHE_MAX_QUERIES {
+            cache.insert(key_of(i), vec![widget("W")], NOW_MS + i as u64);
+        }
+        cache.touch(&key_of(0), NOW_MS + 1_000);
+
+        cache.insert(
+            key_of(REGISTRY_CACHE_MAX_QUERIES),
+            vec![widget("W")],
+            NOW_MS + 2_000,
+        );
+
+        assert_eq!(cache.by_query.len(), REGISTRY_CACHE_MAX_QUERIES);
+        assert!(cache.get(&key_of(0), NOW_MS).is_some(), "a used query stays");
+        assert!(cache.get(&key_of(1), NOW_MS).is_none(), "the idlest query goes");
+    }
+
+    #[test]
+    fn a_cache_hit_counts_as_a_use() {
+        let base_url = "http://registry.invalid/lru-lookup";
+        let key = cache_key(base_url, "zzz-lru-lookup");
+        let fetched_at = unix_ms_now() - DAY_MS;
+        registry_cache()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(key.clone(), vec![widget("W")], fetched_at);
+
+        assert!(cache_lookup(&key, false).is_some());
+
+        let cache = registry_cache().lock().unwrap_or_else(|e| e.into_inner());
+        assert!(cache.by_query[&key].last_used_ms > fetched_at);
+        assert_eq!(cache.by_query[&key].fetched_at_ms, fetched_at);
+    }
+
+    #[test]
+    fn the_disk_cache_keeps_the_recently_used_queries_not_the_recently_fetched() {
+        let (_fx, path) = scratch_cache("lru-disk");
+        let key_of = |i: usize| cache_key(REGISTRY_URL, &format!("query-{i:02}"));
+        let mut cache = RegistryCache::default();
+        for i in 0..REGISTRY_CACHE_MAX_QUERIES {
+            cache.insert(key_of(i), vec![widget("W")], NOW_MS - 10_000 + i as u64);
+        }
+        cache.touch(&key_of(0), NOW_MS - 1_000);
+        cache.insert(key_of(REGISTRY_CACHE_MAX_QUERIES), vec![widget("W")], NOW_MS);
+        persist(&cache, &path, NOW_MS);
+
+        let restarted = loaded_cache(&path);
+
+        assert!(restarted.get(&key_of(0), NOW_MS).is_some());
+        assert!(restarted.get(&key_of(1), NOW_MS).is_none());
+    }
+
+    #[test]
+    fn a_cache_file_without_last_use_times_still_loads() {
+        let (_fx, path) = scratch_cache("no-last-use");
+        let old_format = json!({
+            "version": REGISTRY_CACHE_FILE_VERSION,
+            "queries": [{
+                "baseUrl": REGISTRY_URL,
+                "query": "slack",
+                "fetchedAtMs": NOW_MS - 1_000,
+                "entries": [widget("W")],
+            }],
+        });
+        std::fs::write(&path, old_format.to_string()).unwrap();
+
+        let restarted = loaded_cache(&path);
+
+        assert!(restarted
+            .get(&cache_key(REGISTRY_URL, "slack"), NOW_MS)
+            .is_some());
+    }
+
+    #[test]
+    fn a_fetch_that_started_earlier_does_not_replace_a_later_answer() {
+        let key = cache_key(REGISTRY_URL, "slack");
+        let mut cache = RegistryCache::default();
+        assert!(cache.insert_unless_superseded(key.clone(), vec![widget("Later")], NOW_MS, 2));
+
+        let replaced =
+            cache.insert_unless_superseded(key.clone(), vec![widget("Earlier")], NOW_MS + 1, 1);
+
+        assert!(!replaced);
+        assert_eq!(cache.get(&key, NOW_MS).unwrap().0, vec![widget("Later")]);
+        assert!(cache.insert_unless_superseded(key.clone(), vec![widget("Newest")], NOW_MS, 3));
+        assert_eq!(cache.get(&key, NOW_MS).unwrap().0, vec![widget("Newest")]);
+    }
+
+    #[test]
+    fn a_slow_earlier_search_cannot_overwrite_the_answer_of_a_later_one() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = std::thread::spawn(move || {
+            let mut handlers = Vec::new();
+            for (n, stream) in listener.incoming().take(2).enumerate() {
+                let mut stream = stream.unwrap();
+                handlers.push(std::thread::spawn(move || {
+                    read_request_headers(&mut stream);
+                    let (delay, name) = if n == 0 { (600, "Earlier") } else { (0, "Later") };
+                    std::thread::sleep(Duration::from_millis(delay));
+                    write_json_response(&mut stream, &mock_registry_body(name));
+                }));
+            }
+            for handler in handlers {
+                handler.join().unwrap();
+            }
+        });
+        let base_url = format!("http://127.0.0.1:{port}/v0.1/servers");
+        let query = "zzz-superseded";
+        let budget = Duration::from_secs(5);
+        let ttl = Duration::from_millis(1);
+        let slow = {
+            let base_url = base_url.clone();
+            std::thread::spawn(move || {
+                registry_search_cached_from(&base_url, query, budget, budget, ttl, false)
+            })
+        };
+        std::thread::sleep(Duration::from_millis(200));
+        let (later, _) = registry_search_cached_from(&base_url, query, budget, budget, ttl, false);
+        let (earlier, _) = slow.join().unwrap();
+        server.join().unwrap();
+
+        assert!(earlier.iter().any(|e| e.name == "Earlier"));
+        assert!(later.iter().any(|e| e.name == "Later"));
+        let cached = cache_lookup(&cache_key(&base_url, query), false).unwrap().0;
+        assert!(cached.iter().any(|e| e.name == "Later"), "{cached:?}");
+        assert!(!cached.iter().any(|e| e.name == "Earlier"), "{cached:?}");
+    }
+
+    #[test]
+    fn a_snapshot_older_than_the_one_on_disk_is_not_written() {
+        let (_fx, path) = scratch_cache("snapshot-order");
+        let last_written = Mutex::new(0);
+
+        write_cache_snapshot(&last_written, &path, 6, vec![record("newer", NOW_MS)]);
+        write_cache_snapshot(&last_written, &path, 5, vec![record("older", NOW_MS)]);
+        let on_disk = |path: &Path| -> Vec<String> {
+            read_cache_file(path, NOW_MS)
+                .into_iter()
+                .map(|r| r.query)
+                .collect()
+        };
+        assert_eq!(on_disk(&path), ["newer"]);
+
+        write_cache_snapshot(&last_written, &path, 7, vec![record("newest", NOW_MS)]);
+        assert_eq!(on_disk(&path), ["newest"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn loading_the_disk_cache_does_not_hold_the_cache_lock() {
+        use std::os::unix::ffi::OsStrExt;
+        let (fx, _) = scratch_cache("lock-while-loading");
+        let fifo = fx.dir.join(REGISTRY_CACHE_FILE);
+        let c_path = std::ffi::CString::new(fifo.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(c_path.as_ptr(), 0o600) }, 0);
+        let loader_path = fifo.clone();
+        let loader = std::thread::spawn(move || ensure_cache_loaded(&loader_path, NOW_MS));
+
+        std::thread::sleep(Duration::from_millis(150));
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        let mut lock_was_free = false;
+        while !lock_was_free && std::time::Instant::now() < deadline {
+            lock_was_free = registry_cache().try_lock().is_ok();
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        drop(std::fs::OpenOptions::new().write(true).open(&fifo).unwrap());
+        loader.join().unwrap();
+
+        assert!(
+            lock_was_free,
+            "the cache lock stayed held while the disk cache was being read"
+        );
     }
 }

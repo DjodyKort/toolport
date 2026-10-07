@@ -27,6 +27,9 @@ import { TransportPill } from "@/components/TransportPill";
 import { ServerDialog } from "@/components/ServerDialog";
 import { ServerLogo } from "@/components/ServerLogo";
 
+const INSTANT_DEBOUNCE_MS = 100;
+const REGISTRY_DEBOUNCE_MS = 300;
+
 /** Section order for the browse view; categories not listed fall to the end. */
 const CATEGORY_ORDER = [
   "Code & infrastructure",
@@ -94,9 +97,10 @@ export function CatalogView({ registry, onAdded }: Props) {
   }, [reloadPopular]);
 
   // Live search as you type, in two steps. Curated matches and any cached registry
-  // answer come back at once (offline); the live registry call is debounced and can
-  // take up to a minute on a cold query, then replaces them. Stale responses of
-  // either step are ignored so a slow earlier query can't overwrite a newer one.
+  // answer come back after a short debounce (offline); the live registry call waits
+  // longer and can take up to a minute on a cold query, then replaces them. Stale
+  // responses of either step are ignored so a slow earlier query can't overwrite a
+  // newer one.
   useEffect(() => {
     const q = query.trim();
     if (!q) {
@@ -112,16 +116,18 @@ export function CatalogView({ registry, onAdded }: Props) {
     let cancelled = false;
     let instantShown = false;
     let registryAnswered = false;
-    plusCatalogSearchInstant(q)
-      .then((r) => {
-        if (!cancelled && !registryAnswered) {
-          instantShown = true;
-          setResults(r.entries);
-        }
-      })
-      .catch(() => {
-        // The registry step below still answers on its own.
-      });
+    const instantTimer = setTimeout(() => {
+      plusCatalogSearchInstant(q)
+        .then((r) => {
+          if (!cancelled && !registryAnswered) {
+            instantShown = true;
+            setResults(r.entries);
+          }
+        })
+        .catch(() => {
+          // The registry step below still answers on its own.
+        });
+    }, INSTANT_DEBOUNCE_MS);
     const t = setTimeout(() => {
       setRegistryPending(true);
       searchCatalog(q)
@@ -148,9 +154,10 @@ export function CatalogView({ registry, onAdded }: Props) {
             setRegistryPending(false);
           }
         });
-    }, 300);
+    }, REGISTRY_DEBOUNCE_MS);
     return () => {
       cancelled = true;
+      clearTimeout(instantTimer);
       clearTimeout(t);
     };
   }, [query, searchNonce]);
@@ -366,6 +373,17 @@ export function CatalogView({ registry, onAdded }: Props) {
         </div>
       )}
 
+      {!browsing && registryPending && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-2 text-xs text-muted-foreground"
+        >
+          <Loader2 className="size-3 shrink-0 animate-spin" aria-hidden="true" />
+          <span>Searching the MCP Registry, this can take up to a minute</span>
+        </div>
+      )}
+
       {shown.length === 0 ? (
         browsing && popularLoading ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -457,16 +475,6 @@ export function CatalogView({ registry, onAdded }: Props) {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{shown.map(card)}</div>
-      )}
-      {!browsing && registryPending && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="flex items-center gap-2 text-xs text-muted-foreground"
-        >
-          <Loader2 className="size-3 shrink-0 animate-spin" aria-hidden="true" />
-          <span>Searching the MCP Registry, this can take up to a minute</span>
-        </div>
       )}
       {configEntry && (
         <ServerDialog

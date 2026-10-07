@@ -201,6 +201,51 @@ fn server_install_from_catalog_then_conflict() {
     });
 }
 
+fn registry_only_entry(name: &str) -> crate::catalog::CatalogEntry {
+    crate::catalog::CatalogEntry {
+        name: name.into(),
+        description: "A registry-only server.".into(),
+        transport: "http".into(),
+        command: None,
+        args: vec![],
+        launch: None,
+        url: Some("https://example.com/mcp".into()),
+        env_keys: vec![],
+        source: "registry".into(),
+        homepage: None,
+        publisher: None,
+        category: String::new(),
+        credentials_url: None,
+        setup_hint: None,
+        url_hint: None,
+    }
+}
+
+#[test]
+fn install_resolves_an_exact_curated_name_without_searching_the_registry() {
+    let entry = server::find_installable("slack", |_| {
+        panic!("an exact curated match must not search the registry")
+    })
+    .expect("Slack is curated");
+    assert_eq!((entry.name.as_str(), entry.source.as_str()), ("Slack", "curated"));
+}
+
+#[test]
+fn install_searches_the_registry_when_the_name_is_not_curated() {
+    let searched = std::cell::RefCell::new(Vec::new());
+    let entry = server::find_installable("Registry-Only", |query| {
+        searched.borrow_mut().push(query.to_string());
+        vec![
+            registry_only_entry("Registry-Only Helper"),
+            registry_only_entry("registry-only"),
+        ]
+    })
+    .expect("the registry has an exact match");
+    assert_eq!(entry.name, "registry-only");
+    assert_eq!(*searched.borrow(), ["Registry-Only"]);
+    assert!(server::find_installable("Registry-Only", |_| Vec::new()).is_none());
+}
+
 #[test]
 fn the_handshake_switches_are_set_through_server_edit_and_shown_by_info() {
     world(|w| {

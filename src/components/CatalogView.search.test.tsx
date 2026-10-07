@@ -181,6 +181,30 @@ describe("CatalogView instant results before the registry answers", () => {
     await waitFor(() => expect(screen.queryByText(IN_FLIGHT)).not.toBeInTheDocument());
   });
 
+  it("puts the in-flight line above the results", async () => {
+    vi.mocked(plusCatalogSearchInstant).mockResolvedValue({ entries: [stripe] });
+    vi.mocked(searchCatalog).mockReturnValue(deferred<CatalogSearchResult>().promise);
+
+    await typeQuery("stripe");
+
+    const card = await screen.findByText("Stripe");
+    const inFlight = await screen.findByText(IN_FLIGHT);
+    expect(
+      inFlight.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("debounces the instant step instead of querying on every keystroke", async () => {
+    vi.mocked(plusCatalogSearchInstant).mockResolvedValue({ entries: [stripe] });
+    vi.mocked(searchCatalog).mockResolvedValue({ entries: [stripe] });
+
+    await typeQuery("stripe");
+
+    expect(await screen.findByText("Stripe")).toBeInTheDocument();
+    expect(plusCatalogSearchInstant).toHaveBeenCalledTimes(1);
+    expect(plusCatalogSearchInstant).toHaveBeenCalledWith("stripe");
+  });
+
   it("shows only the in-flight line, not an empty state, while nothing matches instantly", async () => {
     const registryCall = deferred<CatalogSearchResult>();
     vi.mocked(searchCatalog).mockReturnValue(registryCall.promise);
