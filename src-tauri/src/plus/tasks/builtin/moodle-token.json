@@ -16,7 +16,7 @@
       "id": "capture",
       "title": "Capture the Moodle mobile-launch redirect",
       "type": "routine",
-      "script": "// capture: <set on the Mac, runbook G5>\n// Contract: drive the Playwright server with toolport.call(\"playwright__<tool>\", {...}), find the\n// Moodle mobile-launch redirect, decode its base64 blob (<token>:::<privatetoken>, keep the first\n// part) and return { moodleToken: \"<token>\" }. Never return, log or print the blob.\nthrow new Error(\"moodle-token: the capture script is not installed (set on the Mac, runbook G5)\");",
+      "script": "// capture: <set on the Mac, runbook G5>\n// Contract: drive the Playwright server with toolport.call(\"playwright__<tool>\", {...}), find the\n// Moodle mobile-launch redirect, decode its base64 blob (<passport>:::<token>:::<privatetoken>; the\n// token is the second field, the first is the site passport hash) and return\n// { moodleToken: \"<token>\" }. Never return, log or print the blob.\nthrow new Error(\"moodle-token: the capture script is not installed (set on the Mac, runbook G5)\");",
       "capture": ["moodleToken"]
     },
     {

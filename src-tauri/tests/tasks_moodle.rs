@@ -23,6 +23,7 @@ mod selfmcp_client;
 use ctl_world::CtlWorld;
 use selfmcp_client::Client;
 
+const PASSPORT: &str = "FAKE-passport-hash-5d1f";
 const CANARY: &str = "FAKE-canary-moodle-7c2e41";
 const PRIVATE_PART: &str = "FAKE-private-part-90b3";
 
@@ -95,7 +96,7 @@ fn edit_shipped(w: &CtlWorld, script: Option<&str>) {
 }
 
 fn capture_script() -> String {
-    let blob = base64::engine::general_purpose::STANDARD.encode(format!("{CANARY}:::{PRIVATE_PART}"));
+    let blob = base64::engine::general_purpose::STANDARD.encode(format!("{PASSPORT}:::{CANARY}:::{PRIVATE_PART}"));
     format!(
         r#"var alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 function decode(s) {{
@@ -111,13 +112,14 @@ function decode(s) {{
 }}
 var seen = toolport.call("playwright__echo", {{ text: "moodlemobile://token=" + "{blob}" }});
 var launch = seen.content[0].text;
-return {{ moodleToken: decode(launch.split("token=")[1]).split(":::")[0] }};"#
+return {{ moodleToken: decode(launch.split("token=")[1]).split(":::")[1] }};"#
     )
 }
 
 fn assert_clean(label: &str, text: &str) {
     assert!(!text.contains(CANARY), "the value reached {label}: {text}");
     assert!(!text.contains(PRIVATE_PART), "the private part reached {label}: {text}");
+    assert!(!text.contains(PASSPORT), "the passport hash reached {label}: {text}");
 }
 
 #[test]
@@ -148,8 +150,9 @@ fn the_task_runs_end_to_end_and_the_value_ends_up_only_in_the_vault() {
 
     let stored = ctl(&w, &["secret", "get", "moodle", "MOODLE_TOKEN", "--reveal"]);
     assert_eq!(stored.code, 0, "{}{}", stored.stdout, stored.stderr);
-    assert!(stored.stdout.contains(CANARY), "the vault must hold the decoded first part: {}", stored.stdout);
-    assert!(!stored.stdout.contains(PRIVATE_PART), "only the first part is kept");
+    assert!(stored.stdout.contains(CANARY), "the vault must hold the decoded token: {}", stored.stdout);
+    assert!(!stored.stdout.contains(PASSPORT), "the passport hash is not the token");
+    assert!(!stored.stdout.contains(PRIVATE_PART), "only the second field is kept");
 
     let record = std::fs::read_to_string(w.data.join("plus/task-runs").join(format!("{run_id}.json"))).unwrap();
     let show = ctl(&w, &["task", "show", "moodle-token"]);

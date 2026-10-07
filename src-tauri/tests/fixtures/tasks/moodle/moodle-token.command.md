@@ -8,4 +8,4 @@ allowed-tools: mcp__toolport__playwright__browser_navigate, mcp__toolport__playw
 - Open the Moodle login page with mcp__toolport__playwright__browser_navigate.
 - Ask the user to sign in with SSO in the browser window and wait for them.
 - Read the mobile-launch redirect with mcp__toolport__playwright__browser_evaluate and decode the base64 blob.
-- Store the first part with toolportctl secret set moodle MOODLE_TOKEN.
+- Store the second field (the token; the first is the site passport hash) with toolportctl secret set moodle MOODLE_TOKEN.
