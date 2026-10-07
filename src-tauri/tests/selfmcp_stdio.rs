@@ -1058,15 +1058,16 @@ fn the_direct_tools_plan_by_default_and_apply_on_request() {
     assert_eq!(removed.ok()["action"], "removed");
     assert!(!std::fs::read_to_string(&config).unwrap().contains("srv-alpha"));
 
-    assert_eq!(
-        client
-            .call(
-                "client_direct_add",
-                json!({"server": "beta", "client": "claude-code", "dry_run": false})
-            )
-            .error_kind(),
-        "invalid_arguments"
+    let remote = client.call(
+        "client_direct_add",
+        json!({"server": "beta", "client": "claude-code", "dry_run": false}),
     );
+    assert_eq!(remote.ok()["action"], "added");
+    assert_eq!(remote.ok()["remote"]["url"], "https://example.invalid/mcp");
+    assert!(remote.ok().get("launcher").is_none(), "a remote entry has no launcher");
+    let text = std::fs::read_to_string(&config).unwrap();
+    assert!(text.contains("https://example.invalid/mcp"), "{text}");
+    assert!(!text.contains(FAKE_SECRET), "a client file must hold no secret");
     assert_eq!(
         client
             .call("client_direct_add", json!({"server": "alpha"}))
