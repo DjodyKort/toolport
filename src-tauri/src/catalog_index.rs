@@ -35,7 +35,7 @@ const TUNING: Tuning = Tuning {
     connect_timeout: Duration::from_secs(5),
     read_timeout: Duration::from_secs(20),
     retry_pause: Duration::from_secs(1),
-    max_pages: 200,
+    max_pages: 2_000,
 };
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

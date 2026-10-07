@@ -335,6 +335,40 @@ fn a_registry_that_repeats_a_cursor_stops_the_sync() {
 }
 
 #[test]
+fn a_sync_stops_at_the_page_guard_and_the_next_one_carries_on() {
+    let registry = MockRegistry::start(three_pages);
+    let scratch = Scratch::new("page-guard");
+    let guarded = Tuning {
+        max_pages: 2,
+        ..TEST_TUNING
+    };
+
+    let error = sync_at(
+        &scratch.index,
+        &registry.base_url,
+        SyncMode::Incremental,
+        guarded,
+        &mut |_| {},
+    )
+    .unwrap_err();
+
+    assert!(error.message().contains("more than 2 pages"), "{}", error.message());
+    assert_eq!(read_index(&scratch.index).resume_cursor.as_deref(), Some("c3"));
+
+    let report = sync_at(
+        &scratch.index,
+        &registry.base_url,
+        SyncMode::Incremental,
+        guarded,
+        &mut |_| {},
+    )
+    .unwrap();
+
+    assert_eq!((report.kind, report.pages, report.complete), ("resume", 1, true));
+    assert_eq!(read_index(&scratch.index).len(), 4);
+}
+
+#[test]
 fn a_missing_or_corrupt_index_is_an_empty_one() {
     let scratch = Scratch::new("corrupt");
     assert!(load(&scratch.index).is_empty());
