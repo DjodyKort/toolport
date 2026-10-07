@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, SystemTime};
 
 const INDEX_FILE: &str = "registry-index.json";
-const INDEX_FILE_VERSION: u32 = 1;
+const INDEX_FILE_VERSION: u32 = 2;
 /// A live `search=` call is only worth its 24 to 60 s once the index is older than this.
 const STALE_AFTER: Duration = Duration::from_secs(24 * 60 * 60);
 const SYNC_EVERY: Duration = Duration::from_secs(12 * 60 * 60);
@@ -22,6 +22,8 @@ const SYNC_EVERY: Duration = Duration::from_secs(12 * 60 * 60);
 const RETRY_AFTER: Duration = Duration::from_secs(10 * 60);
 /// Matches returned per query; a one-letter query would otherwise match the whole index.
 const SEARCH_LIMIT: usize = 100;
+/// The file is rewritten whole, and a first sync lists well over a hundred pages.
+const PERSIST_EVERY_PAGES: u32 = 10;
 
 #[derive(Clone, Copy)]
 pub(crate) struct Tuning {
@@ -33,8 +35,8 @@ pub(crate) struct Tuning {
 
 const TUNING: Tuning = Tuning {
     connect_timeout: Duration::from_secs(5),
-    read_timeout: Duration::from_secs(20),
-    retry_pause: Duration::from_secs(1),
+    read_timeout: Duration::from_secs(60),
+    retry_pause: Duration::from_secs(5),
     max_pages: 2_000,
 };
 
@@ -51,13 +53,13 @@ pub struct RegistryIndex {
     pub(crate) pass_started_at: Option<String>,
     #[serde(default)]
     pub(crate) complete: bool,
-    /// Keyed by the lowercased entry name, the key the search results are de-duplicated by.
+    /// Keyed by the lowercased registry id; titles repeat across publishers.
     #[serde(default)]
     pub(crate) entries: BTreeMap<String, CatalogEntry>,
 }
 
-fn key_of(name: &str) -> String {
-    name.to_lowercase()
+fn key_of(id: &str) -> String {
+    id.to_lowercase()
 }
 
 impl RegistryIndex {
@@ -194,37 +196,27 @@ fn persist(path: &Path, index: &RegistryIndex) -> Result<(), String> {
     crate::registry::atomic_write(path, &json)
 }
 
-/// Changes the newest index and writes it. Writers take turns so none starts from a copy
-/// another one is about to replace; the memory copy is updated even when the disk write fails,
-/// so an unwritable file only costs persistence.
+/// Changes the newest index and, when `write` is set, writes it. Writers take turns so none
+/// starts from a copy another one is about to replace; the memory copy is updated even when
+/// the disk write fails, so an unwritable file only costs persistence.
 fn update(
     path: &Path,
+    write: bool,
     change: impl FnOnce(&mut RegistryIndex),
 ) -> Result<Arc<RegistryIndex>, String> {
     let _writer = WRITER.lock().unwrap_or_else(|e| e.into_inner());
     let mut index = (*load(path)).clone();
     change(&mut index);
     index.version = INDEX_FILE_VERSION;
-    let written = persist(path, &index);
+    let written = if write { persist(path, &index) } else { Ok(()) };
     let published = publish(path, index);
     written
         .map(|()| published)
         .map_err(|e| format!("cannot write {}: {e}", path.display()))
 }
 
-pub(crate) fn merge_live(path: &Path, entries: &[CatalogEntry]) {
-    let index = load(path);
-    if entries
-        .iter()
-        .all(|entry| index.entries.get(&key_of(&entry.name)) == Some(entry))
-    {
-        return;
-    }
-    let _ = update(path, |index| {
-        for entry in entries {
-            index.entries.insert(key_of(&entry.name), entry.clone());
-        }
-    });
+fn flush(path: &Path) {
+    let _ = update(path, true, |_| {});
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -410,31 +402,36 @@ pub(crate) fn sync_at(
                 kind: "other".into(),
                 message: format!("the registry listed more than {} pages", tuning.max_pages),
             };
+            flush(path);
             return Err(SyncError::Registry(error, report));
         }
         let url = catalog::registry_page_url(base_url, cursor.as_deref(), since.as_deref());
-        let page = fetch_page(&agent, &url, tuning.retry_pause)
-            .map_err(|error| SyncError::Registry(error, report.clone()))?;
+        let page = fetch_page(&agent, &url, tuning.retry_pause).map_err(|error| {
+            flush(path);
+            SyncError::Registry(error, report.clone())
+        })?;
         report.pages += 1;
         report.fetched += page.entries.len() + page.retired.len();
         if let Some(seen) = seen.as_mut() {
-            seen.extend(page.entries.iter().map(|entry| key_of(&entry.name)));
+            seen.extend(page.entries.iter().map(|(id, _)| key_of(id)));
         }
         if page.next_cursor.is_some() && page.next_cursor == cursor {
             let error = RegistryError {
                 kind: "other".into(),
                 message: "the registry repeated a page cursor".into(),
             };
+            flush(path);
             return Err(SyncError::Registry(error, report));
         }
         let next = page.next_cursor.clone();
         let finished = next.is_none();
-        let updated = update(path, |index| {
-            for name in &page.retired {
-                index.entries.remove(&key_of(name));
+        let write = finished || report.pages % PERSIST_EVERY_PAGES == 0;
+        let updated = update(path, write, |index| {
+            for id in &page.retired {
+                index.entries.remove(&key_of(id));
             }
-            for entry in page.entries {
-                index.entries.insert(key_of(&entry.name), entry);
+            for (id, entry) in page.entries {
+                index.entries.insert(key_of(&id), entry);
             }
             if finished {
                 if let Some(seen) = &seen {

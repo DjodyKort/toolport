@@ -192,7 +192,7 @@ fn an_incremental_sync_asks_for_updates_since_the_last_sync_and_merges_them() {
     );
     let merged = read_index(&scratch.index);
     assert_eq!(names(&merged), ["Changed", "Fresh", "Kept"]);
-    assert_eq!(merged.entries["changed"].description, "New description");
+    assert_eq!(merged.entries["io.example/changed"].description, "New description");
     assert!(merged.complete);
     let advanced = cron::parse_rfc3339(merged.last_synced_at.as_deref().unwrap()).unwrap();
     assert!(advanced > cron::parse_rfc3339(since).unwrap());
@@ -249,6 +249,37 @@ fn a_full_sync_drops_what_the_registry_no_longer_lists() {
     assert_eq!(report.kind, "full");
     assert_eq!(registry.requests(), [BASE.to_string()]);
     assert_eq!(names(&read_index(&scratch.index)), ["Alpha"]);
+}
+
+#[test]
+fn servers_sharing_a_title_are_kept_apart_by_registry_id() {
+    let scratch = Scratch::new("same-title");
+    let titled = |id: &str, status: &str| {
+        let mut item = server_item("GitHub", id, status);
+        item["server"]["name"] = json!(id);
+        item
+    };
+    let registry = MockRegistry::start(move |_| {
+        (
+            200,
+            page_body(
+                vec![
+                    titled("io.github.acme/github", "active"),
+                    titled("io.github.other/github", "active"),
+                    titled("io.github.old/github", "deleted"),
+                ],
+                None,
+            ),
+        )
+    });
+
+    sync_incremental(&scratch, &registry.base_url).unwrap();
+
+    let index = read_index(&scratch.index);
+    assert_eq!(
+        index.entries.keys().collect::<Vec<_>>(),
+        ["io.github.acme/github", "io.github.other/github"]
+    );
 }
 
 #[test]
@@ -380,7 +411,7 @@ fn a_missing_or_corrupt_index_is_an_empty_one() {
         "",
         "{not json",
         "[]",
-        r#"{"version":1,"entries":"nope"}"#,
+        r#"{"version":2,"entries":"nope"}"#,
         foreign_version.as_str(),
     ] {
         std::fs::create_dir_all(scratch.index.parent().unwrap()).unwrap();
@@ -420,7 +451,7 @@ fn an_unwritable_index_keeps_the_synced_pages_in_memory() {
 
     assert!(matches!(error, SyncError::Storage(..)), "{error:?}");
     assert!(!path.exists());
-    assert_eq!(load(&path).len(), 2, "the first page is still searchable");
+    assert_eq!(load(&path).len(), 4, "the synced pages stay searchable");
 }
 
 #[test]
@@ -526,30 +557,6 @@ fn a_tick_that_syncs_reports_the_new_state() {
     assert_eq!(outcome["complete"], true);
     assert_eq!(outcome["report"]["pages"], 3);
     assert!(outcome.get("error").is_none());
-}
-
-#[test]
-fn merging_live_results_adds_them_and_skips_the_write_when_nothing_changed() {
-    let scratch = Scratch::new("merge-live");
-    let hit = entry("Widget", "Found by a live search");
-
-    merge_live(&scratch.index, std::slice::from_ref(&hit));
-
-    assert_eq!(read_index(&scratch.index).entries["widget"], hit);
-    assert!(!read_index(&scratch.index).complete);
-    let past = SystemTime::now() - Duration::from_secs(3600);
-    std::fs::File::options()
-        .write(true)
-        .open(&scratch.index)
-        .unwrap()
-        .set_modified(past)
-        .unwrap();
-
-    merge_live(&scratch.index, std::slice::from_ref(&hit));
-
-    assert_eq!(modified_at(&scratch.index), Some(past), "nothing new, nothing written");
-    merge_live(&scratch.index, &[entry("Another", "x")]);
-    assert_eq!(read_index(&scratch.index).len(), 2);
 }
 
 #[test]

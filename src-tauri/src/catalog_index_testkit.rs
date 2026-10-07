@@ -102,7 +102,7 @@ pub(crate) fn index_of(
         complete,
         entries: entries
             .iter()
-            .map(|e| (e.name.to_lowercase(), e.clone()))
+            .map(|e| (format!("io.example/{}", e.name.to_lowercase()), e.clone()))
             .collect(),
         ..RegistryIndex::default()
     }

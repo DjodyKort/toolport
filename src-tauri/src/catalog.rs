@@ -665,9 +665,6 @@ fn search_with_index(
         cache_ttl,
         persists_to_disk(base_url),
     );
-    if let (Some(path), None) = (index_path, &registry_error) {
-        crate::catalog_index::merge_live(path, &live_entries);
-    }
     registry_entries.extend(live_entries);
     CatalogSearch {
         registry_error,
@@ -807,6 +804,14 @@ fn is_safe_package_id(spec: &str) -> bool {
 }
 
 /// Friendly title when present; fall back to the namespaced id.
+fn registry_id(server: &Value) -> Option<String> {
+    server
+        .get("name")
+        .and_then(|v| v.as_str())
+        .filter(|id| !id.is_empty())
+        .map(String::from)
+}
+
 fn registry_display_name(server: &Value) -> String {
     let id = server.get("name").and_then(|v| v.as_str()).unwrap_or("");
     server
@@ -1062,7 +1067,8 @@ fn fetch_registry(agent: &ureq::Agent, url: &str) -> Result<Vec<CatalogEntry>, R
 }
 
 pub(crate) struct RegistryPage {
-    pub entries: Vec<CatalogEntry>,
+    /// Keyed by the registry id (`io.github.acme/widget`): titles are not unique.
+    pub entries: Vec<(String, CatalogEntry)>,
     pub retired: Vec<String>,
     pub next_cursor: Option<String>,
 }
@@ -1083,12 +1089,14 @@ pub(crate) fn fetch_registry_page(
     Ok(RegistryPage {
         entries: active
             .into_iter()
-            .filter_map(|item| map_server(item.get("server").unwrap_or(item)))
+            .filter_map(|item| {
+                let server = item.get("server").unwrap_or(item);
+                Some((registry_id(server)?, map_server(server)?))
+            })
             .collect(),
         retired: inactive
             .into_iter()
-            .map(|item| registry_display_name(item.get("server").unwrap_or(item)))
-            .filter(|name| !name.is_empty())
+            .filter_map(|item| registry_id(item.get("server").unwrap_or(item)))
             .collect(),
         next_cursor,
     })
@@ -2942,7 +2950,7 @@ mod tests {
     }
 
     #[test]
-    fn a_stale_index_still_answers_and_the_live_results_are_merged_into_it() {
+    fn a_stale_index_still_answers_next_to_the_live_results() {
         use crate::catalog_index::testkit::{MockRegistry, Scratch};
         let scratch = Scratch::new("stale-live");
         stale_index(&scratch, &["IdxWidget"]);
@@ -2962,14 +2970,6 @@ mod tests {
         assert!(result.entries.iter().any(|e| e.name == "IdxWidget"));
         assert!(result.entries.iter().any(|e| e.name == "LiveWidget"));
         assert_eq!(registry.requests().len(), 1);
-        let indexed = crate::catalog_index::load(&scratch.index);
-        assert!(indexed.entries.contains_key("livewidget"));
-        assert!(
-            std::fs::read_to_string(&scratch.index)
-                .unwrap()
-                .contains("LiveWidget"),
-            "the merged result is persisted"
-        );
     }
 
     #[test]
@@ -2990,6 +2990,7 @@ mod tests {
         );
         assert!(missing.entries.iter().any(|e| e.name == "LiveWidget"));
 
+        std::fs::create_dir_all(scratch.index.parent().unwrap()).unwrap();
         std::fs::write(&scratch.index, "{not json").unwrap();
         let corrupt = search_with_index(
             &registry.base_url,
