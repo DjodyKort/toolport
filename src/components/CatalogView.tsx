@@ -13,6 +13,7 @@ import { toastError } from "@/lib/toast";
 import { openExternal } from "@/lib/openUrl";
 import { addServer, listStacks, popularCatalog, searchCatalog } from "@/lib/api";
 import { plusCatalogSearchInstant } from "@/plus/api";
+import { CatalogIndexLine } from "@/plus/catalog/CatalogIndexLine";
 import type {
   CatalogEntry,
   Registry,
@@ -96,11 +97,11 @@ export function CatalogView({ registry, onAdded }: Props) {
     reloadPopular();
   }, [reloadPopular]);
 
-  // Live search as you type, in two steps. Curated matches and any cached registry
-  // answer come back after a short debounce (offline); the live registry call waits
-  // longer and can take up to a minute on a cold query, then replaces them. Stale
-  // responses of either step are ignored so a slow earlier query can't overwrite a
-  // newer one.
+  // Live search as you type, in two steps. Curated matches, the local registry index
+  // and any cached registry answer come back after a short debounce (offline); the live
+  // registry call waits longer and is skipped while the index is fresh, otherwise it can
+  // take up to a minute on a cold query and then replaces them. Stale responses of
+  // either step are ignored so a slow earlier query can't overwrite a newer one.
   useEffect(() => {
     const q = query.trim();
     if (!q) {
@@ -116,10 +117,13 @@ export function CatalogView({ registry, onAdded }: Props) {
     let cancelled = false;
     let instantShown = false;
     let registryAnswered = false;
+    let liveNeeded = true;
     const instantTimer = setTimeout(() => {
       plusCatalogSearchInstant(q)
         .then((r) => {
-          if (!cancelled && !registryAnswered) {
+          if (cancelled) return;
+          if (r.liveNeeded === false) liveNeeded = false;
+          if (!registryAnswered) {
             instantShown = true;
             setResults(r.entries);
           }
@@ -129,6 +133,10 @@ export function CatalogView({ registry, onAdded }: Props) {
         });
     }, INSTANT_DEBOUNCE_MS);
     const t = setTimeout(() => {
+      if (!liveNeeded) {
+        setLoading(false);
+        return;
+      }
       setRegistryPending(true);
       searchCatalog(q)
         .then((r) => {
@@ -305,6 +313,8 @@ export function CatalogView({ registry, onAdded }: Props) {
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
+
+      <CatalogIndexLine onSynced={() => setSearchNonce((n) => n + 1)} />
 
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>

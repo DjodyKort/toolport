@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { CatalogSearchResult, FolderProfile } from "@/lib/types";
 import type { LoadItem as LoadItemData, LoadsData } from "./bridge/data";
+import type { CatalogIndexStatus, CatalogSyncReport } from "./types/catalog";
 
 /** Single IPC entry for every Toolport+ extension command (see `src-tauri/src/plus`). */
 export function plusInvoke<T>(command: string, args: unknown = {}): Promise<T> {
@@ -159,8 +160,31 @@ export function plusUpdateWatchSettings(
   return plusInvoke<UpdateWatchSettings>("plus.update.watchSettings", patch);
 }
 
-/** Curated matches plus any cached registry answer for `query`, however stale,
- * with no network call. `searchCatalog` then refreshes them from the registry. */
-export function plusCatalogSearchInstant(query: string): Promise<CatalogSearchResult> {
-  return plusInvoke<CatalogSearchResult>("plus.catalog.searchInstant", { query });
+/** `liveNeeded` is false once the local index is fresh enough that `searchCatalog` would not call the registry. */
+export type CatalogInstantResult = CatalogSearchResult & { liveNeeded?: boolean };
+
+/** Curated matches, the local index and any cached registry answer, with no network call. */
+export function plusCatalogSearchInstant(query: string): Promise<CatalogInstantResult> {
+  return plusInvoke<CatalogInstantResult>("plus.catalog.searchInstant", { query });
+}
+
+export type { CatalogIndexStatus, CatalogSyncReport };
+
+export function plusCatalogIndexStatus(): Promise<CatalogIndexStatus> {
+  return plusInvoke<CatalogIndexStatus>("plus.catalog.indexStatus");
+}
+
+/** Resolves when the sync is done, which takes up to a minute the first time. */
+export function plusCatalogIndexSync(full = false): Promise<CatalogSyncReport> {
+  return plusInvoke<CatalogSyncReport>("plus.catalog.indexSync", { full });
+}
+
+export interface CatalogIndexTick extends CatalogIndexStatus {
+  ran: boolean;
+  reason: "running" | "not-due" | null;
+  error?: { kind: string; message: string };
+}
+
+export function plusCatalogIndexTick(force = false): Promise<CatalogIndexTick> {
+  return plusInvoke<CatalogIndexTick>("plus.catalog.indexTick", { force });
 }

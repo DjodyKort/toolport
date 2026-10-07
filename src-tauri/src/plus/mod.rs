@@ -155,6 +155,9 @@ const HANDLERS: &[(&str, Handler)] = &[
     ("plus.update.watchTick", attention::updates::tick_handler),
     ("plus.update.watchSettings", attention::updates::settings_handler),
     ("plus.catalog.searchInstant", catalog_search::search_instant_handler),
+    ("plus.catalog.indexStatus", catalog_search::index_status_handler),
+    ("plus.catalog.indexSync", catalog_search::index_sync_handler),
+    ("plus.catalog.indexTick", catalog_search::index_tick_handler),
 ];
 
 pub fn dispatch(command: &str, args: Value) -> Result<Value, String> {

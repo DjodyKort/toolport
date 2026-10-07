@@ -257,7 +257,7 @@ impl CatalogPage {
             .as_ref()
             .map(|snapshot| snapshot.existing.clone())
             .unwrap_or_default();
-        let entries = crate::catalog::search_curated(&query);
+        let entries = crate::catalog::search_instant(&query).entries;
         self.suggestion_state.replace(SuggestionState {
             entries: entries.clone(),
             existing,

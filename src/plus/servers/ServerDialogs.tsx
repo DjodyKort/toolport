@@ -13,6 +13,7 @@ import { Callout } from "@/components/Callout";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ctlData } from "../bridge/ctl";
+import { CatalogIndexLine } from "../catalog/CatalogIndexLine";
 import type { ServerSearchData } from "../types/server";
 import { ScreenSkeleton, Tabs, errorText } from "../ui";
 import { Chip, Code, Field, Pill, Problems, SELECT_CLASS } from "./atoms";
@@ -67,6 +68,7 @@ function CatalogSearch({
 
   return (
     <div className="flex flex-col gap-3">
+      <CatalogIndexLine />
       <form
         role="search"
         aria-label="Search the catalog"

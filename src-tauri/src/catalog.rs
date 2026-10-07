@@ -16,7 +16,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-const REGISTRY_URL: &str = "https://registry.modelcontextprotocol.io/v0.1/servers";
+pub(crate) const REGISTRY_URL: &str = "https://registry.modelcontextprotocol.io/v0.1/servers";
 
 /// Connect budget: fast to fail so a down/unreachable registry surfaces quickly.
 const REGISTRY_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
@@ -107,6 +107,10 @@ pub struct CatalogSearch {
     pub entries: Vec<CatalogEntry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub registry_error: Option<RegistryError>,
+    /// Set by [`search_instant`] only: whether [`search`] would still call the
+    /// live registry, which is when the local index is empty or stale.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub live_needed: Option<bool>,
 }
 
 /// Browse-view grouping for a curated server, keyed by name. Keeps the verified
@@ -517,22 +521,26 @@ pub fn popular() -> Vec<CatalogEntry> {
 /// match, plus an all-terms fallback so multi-word queries still hit. Empty query
 /// = all.
 fn filter_catalog(list: Vec<CatalogEntry>, query: &str) -> Vec<CatalogEntry> {
+    let matches = catalog_matcher(query);
+    list.into_iter().filter(|e| matches(e)).collect()
+}
+
+/// The predicate behind [`filter_catalog`], so a large list can be filtered by
+/// reference and only the hits cloned.
+pub(crate) fn catalog_matcher(query: &str) -> impl Fn(&CatalogEntry) -> bool {
     let q = query.trim().to_lowercase();
-    if q.is_empty() {
-        return list;
+    move |e| {
+        if q.is_empty() {
+            return true;
+        }
+        let hay = format!(
+            "{} {} {}",
+            e.name.to_lowercase(),
+            e.description.to_lowercase(),
+            e.category.to_lowercase()
+        );
+        hay.contains(&q) || q.split_whitespace().all(|t| hay.contains(t))
     }
-    let terms: Vec<&str> = q.split_whitespace().collect();
-    list.into_iter()
-        .filter(|e| {
-            let hay = format!(
-                "{} {} {}",
-                e.name.to_lowercase(),
-                e.description.to_lowercase(),
-                e.category.to_lowercase()
-            );
-            hay.contains(&q) || terms.iter().all(|t| hay.contains(t))
-        })
-        .collect()
 }
 
 /// Popular entries (user + curated) matching a query.
@@ -541,7 +549,8 @@ pub fn search_curated(query: &str) -> Vec<CatalogEntry> {
 }
 
 /// Search the catalog: the user's picks + curated matches first (highest
-/// quality), then live MCP Registry results for the long tail, de-duplicated by
+/// quality), then the local registry index and, only while that index is empty
+/// or stale, live MCP Registry results for the long tail, de-duplicated by
 /// name. This is why popular picks like Vercel always surface even when the
 /// registry's own search doesn't return them.
 ///
@@ -558,22 +567,59 @@ pub fn search(query: &str) -> CatalogSearch {
     )
 }
 
-/// [`search`] without the network: curated matches plus whatever the registry
-/// cache (memory or disk, however stale) already holds for this query. Lets a
-/// caller paint results at once and then let [`search`] refresh them.
+/// [`search`] without the network: curated matches plus the local registry
+/// index and whatever the registry cache (memory or disk, however stale) already
+/// holds for this query. Lets a caller paint results at once and then let
+/// [`search`] refresh them.
 pub fn search_instant(query: &str) -> CatalogSearch {
-    search_instant_with(REGISTRY_URL, query, persists_to_disk(REGISTRY_URL))
+    search_instant_with(
+        REGISTRY_URL,
+        query,
+        persists_to_disk(REGISTRY_URL),
+        index_path_for(REGISTRY_URL).as_deref(),
+    )
 }
 
-fn search_instant_with(base_url: &str, query: &str, persist: bool) -> CatalogSearch {
-    let cached = if query.trim().is_empty() {
+fn search_instant_with(
+    base_url: &str,
+    query: &str,
+    persist: bool,
+    index_path: Option<&Path>,
+) -> CatalogSearch {
+    let (mut extra, live_needed) = index_lookup(index_path, query);
+    if !query.trim().is_empty() {
+        extra.extend(
+            cache_lookup(&cache_key(base_url, query), persist)
+                .map(|(entries, _)| entries)
+                .unwrap_or_default(),
+        );
+    }
+    CatalogSearch {
+        live_needed: Some(live_needed),
+        ..merge_search_results(query, extra)
+    }
+}
+
+/// The index is only consulted for the live registry: a mock endpoint's tests
+/// must not read the user's data dir.
+fn index_path_for(base_url: &str) -> Option<PathBuf> {
+    persists_to_disk(base_url)
+        .then(crate::catalog_index::default_path)
+        .flatten()
+}
+
+/// The index hits for `query` and whether a live registry call is still needed.
+fn index_lookup(index_path: Option<&Path>, query: &str) -> (Vec<CatalogEntry>, bool) {
+    let Some(path) = index_path else {
+        return (Vec::new(), true);
+    };
+    let index = crate::catalog_index::load(path);
+    let hits = if query.trim().is_empty() {
         Vec::new()
     } else {
-        cache_lookup(&cache_key(base_url, query), persist)
-            .map(|(entries, _)| entries)
-            .unwrap_or_default()
+        index.search(query)
     };
-    merge_search_results(query, cached)
+    (hits, index.needs_live())
 }
 
 /// [`search`] parameterized over the registry endpoint, timeouts and cache TTL,
@@ -586,10 +632,32 @@ fn search_with(
     read_timeout: Duration,
     cache_ttl: Duration,
 ) -> CatalogSearch {
+    search_with_index(
+        base_url,
+        query,
+        connect_timeout,
+        read_timeout,
+        cache_ttl,
+        index_path_for(base_url).as_deref(),
+    )
+}
+
+fn search_with_index(
+    base_url: &str,
+    query: &str,
+    connect_timeout: Duration,
+    read_timeout: Duration,
+    cache_ttl: Duration,
+    index_path: Option<&Path>,
+) -> CatalogSearch {
     if query.trim().is_empty() {
         return merge_search_results(query, Vec::new());
     }
-    let (registry_entries, registry_error) = registry_search_cached_from(
+    let (mut registry_entries, live_needed) = index_lookup(index_path, query);
+    if !live_needed {
+        return merge_search_results(query, registry_entries);
+    }
+    let (live_entries, registry_error) = registry_search_cached_from(
         base_url,
         query,
         connect_timeout,
@@ -597,6 +665,10 @@ fn search_with(
         cache_ttl,
         persists_to_disk(base_url),
     );
+    if let (Some(path), None) = (index_path, &registry_error) {
+        crate::catalog_index::merge_live(path, &live_entries);
+    }
+    registry_entries.extend(live_entries);
     CatalogSearch {
         registry_error,
         ..merge_search_results(query, registry_entries)
@@ -617,10 +689,11 @@ fn merge_search_results(query: &str, registry_entries: Vec<CatalogEntry>) -> Cat
     CatalogSearch {
         entries: out,
         registry_error: None,
+        live_needed: None,
     }
 }
 
-fn rank_search_results(entries: &mut [CatalogEntry], query: &str) {
+pub(crate) fn rank_search_results(entries: &mut [CatalogEntry], query: &str) {
     let query = query.trim().to_lowercase();
     entries.sort_by(|a, b| {
         catalog_match_score(b, &query)
@@ -732,17 +805,22 @@ fn is_safe_package_id(spec: &str) -> bool {
         && !is_remote_package_spec(spec)
 }
 
-/// Turn one registry `server` object into a catalog entry. Prefers a hosted
-/// remote (simplest to connect), else the first installable package.
-fn map_server(server: &Value) -> Option<CatalogEntry> {
+/// Friendly title when present; fall back to the namespaced id.
+fn registry_display_name(server: &Value) -> String {
     let id = server.get("name").and_then(|v| v.as_str()).unwrap_or("");
-    // Friendly title when present; fall back to the namespaced id.
-    let name = server
+    server
         .get("title")
         .and_then(|v| v.as_str())
         .filter(|s| !s.is_empty())
         .unwrap_or(id)
-        .to_string();
+        .to_string()
+}
+
+/// Turn one registry `server` object into a catalog entry. Prefers a hosted
+/// remote (simplest to connect), else the first installable package.
+fn map_server(server: &Value) -> Option<CatalogEntry> {
+    let id = server.get("name").and_then(|v| v.as_str()).unwrap_or("");
+    let name = registry_display_name(server);
     if name.is_empty() {
         return None;
     }
@@ -955,7 +1033,7 @@ fn classify_io_error(error: &std::io::Error) -> RegistryError {
     RegistryError::new(kind, error.to_string())
 }
 
-fn fetch_registry(agent: &ureq::Agent, url: &str) -> Result<Vec<CatalogEntry>, RegistryError> {
+fn read_registry_body(agent: &ureq::Agent, url: &str) -> Result<Value, RegistryError> {
     use std::io::Read;
     let resp = agent.get(url).call().map_err(|e| classify_ureq_error(&e))?;
     // Cap the registry response (defense in depth against a huge or MITM'd body).
@@ -964,20 +1042,70 @@ fn fetch_registry(agent: &ureq::Agent, url: &str) -> Result<Vec<CatalogEntry>, R
         .take(8 * 1024 * 1024)
         .read_to_end(&mut buf)
         .map_err(|e| classify_io_error(&e))?;
-    let body: Value = serde_json::from_slice(&buf)
-        .map_err(|e| RegistryError::new("other", e.to_string()))?;
+    serde_json::from_slice(&buf).map_err(|e| RegistryError::new("other", e.to_string()))
+}
 
-    let items = body
-        .get("servers")
+fn registry_items(body: &Value) -> &[Value] {
+    body.get("servers")
         .and_then(|v| v.as_array())
-        .cloned()
-        .unwrap_or_default();
+        .map_or(&[], Vec::as_slice)
+}
 
-    Ok(items
+fn fetch_registry(agent: &ureq::Agent, url: &str) -> Result<Vec<CatalogEntry>, RegistryError> {
+    let body = read_registry_body(agent, url)?;
+    Ok(registry_items(&body)
         .iter()
         .filter(|item| is_latest(item) && is_active(item))
         .filter_map(|item| map_server(item.get("server").unwrap_or(item)))
         .collect())
+}
+
+pub(crate) struct RegistryPage {
+    pub entries: Vec<CatalogEntry>,
+    pub retired: Vec<String>,
+    pub next_cursor: Option<String>,
+}
+
+pub(crate) fn fetch_registry_page(
+    agent: &ureq::Agent,
+    url: &str,
+) -> Result<RegistryPage, RegistryError> {
+    let body = read_registry_body(agent, url)?;
+    let latest = registry_items(&body).iter().filter(|item| is_latest(item));
+    let (active, inactive): (Vec<&Value>, Vec<&Value>) = latest.partition(|item| is_active(item));
+    let next_cursor = body
+        .get("metadata")
+        .and_then(|m| m.get("nextCursor").or_else(|| m.get("next_cursor")))
+        .and_then(|v| v.as_str())
+        .filter(|cursor| !cursor.is_empty())
+        .map(String::from);
+    Ok(RegistryPage {
+        entries: active
+            .into_iter()
+            .filter_map(|item| map_server(item.get("server").unwrap_or(item)))
+            .collect(),
+        retired: inactive
+            .into_iter()
+            .map(|item| registry_display_name(item.get("server").unwrap_or(item)))
+            .filter(|name| !name.is_empty())
+            .collect(),
+        next_cursor,
+    })
+}
+
+pub(crate) fn registry_page_url(
+    base_url: &str,
+    cursor: Option<&str>,
+    updated_since: Option<&str>,
+) -> String {
+    let mut url = format!("{base_url}?limit=100&version=latest");
+    if let Some(cursor) = cursor {
+        url.push_str(&format!("&cursor={}", urlencoding::encode(cursor)));
+    }
+    if let Some(since) = updated_since {
+        url.push_str(&format!("&updated_since={}", urlencoding::encode(since)));
+    }
+    url
 }
 
 /// Search the official MCP Registry. Empty query lists popular/recent servers.
@@ -2225,7 +2353,7 @@ mod tests {
         let port = listener.local_addr().unwrap().port();
         let base_url = format!("http://127.0.0.1:{port}/v0.1/servers");
 
-        let result = search_instant_with(&base_url, "slack", false);
+        let result = search_instant_with(&base_url, "slack", false, None);
 
         assert!(result.entries.iter().any(|e| e.name == "Slack"));
         assert!(result.registry_error.is_none());
@@ -2248,7 +2376,7 @@ mod tests {
                 unix_ms_now() - 2 * DAY_MS,
             );
 
-        let result = search_instant_with(base_url, query, false);
+        let result = search_instant_with(base_url, query, false, None);
 
         assert!(result.entries.iter().any(|e| e.name == "StaleWidget"));
         assert!(result.registry_error.is_none());
@@ -2469,7 +2597,7 @@ mod tests {
         assert!(path.exists(), "a successful fetch must write the disk cache");
 
         forget_process_cache(&base_url);
-        let instant = search_instant_with(&base_url, query, true);
+        let instant = search_instant_with(&base_url, query, true, None);
         assert!(instant.entries.iter().any(|e| e.name == "Widget"));
 
         forget_process_cache(&base_url);
@@ -2500,7 +2628,7 @@ mod tests {
         persist(&seed, &path, now);
         forget_process_cache(&base_url);
 
-        let instant = search_instant_with(&base_url, query, true);
+        let instant = search_instant_with(&base_url, query, true, None);
         assert!(instant.entries.iter().any(|e| e.name == "OldWidget"));
         assert_eq!(hits.load(Ordering::SeqCst), 0);
 
@@ -2727,5 +2855,172 @@ mod tests {
             lock_was_free,
             "the cache lock stayed held while the disk cache was being read"
         );
+    }
+    fn fresh_index(scratch: &crate::catalog_index::testkit::Scratch, names: &[&str]) {
+        use crate::catalog_index::testkit::{entry, index_of, write_index};
+        let entries: Vec<_> = names.iter().map(|n| entry(n, "An indexed server")).collect();
+        let synced = crate::plus::tasks::cron::rfc3339(crate::plus::tasks::cron::now() - 3600);
+        write_index(&scratch.index, &index_of(&entries, Some(&synced), true));
+    }
+
+    fn stale_index(scratch: &crate::catalog_index::testkit::Scratch, names: &[&str]) {
+        use crate::catalog_index::testkit::{entry, index_of, write_index};
+        let entries: Vec<_> = names.iter().map(|n| entry(n, "An indexed server")).collect();
+        let synced = crate::plus::tasks::cron::rfc3339(
+            crate::plus::tasks::cron::now() - 2 * 24 * 3600,
+        );
+        write_index(&scratch.index, &index_of(&entries, Some(&synced), true));
+    }
+
+    #[test]
+    fn instant_search_adds_index_hits_and_says_whether_a_live_call_is_still_needed() {
+        use crate::catalog_index::testkit::Scratch;
+        let scratch = Scratch::new("instant");
+        fresh_index(&scratch, &["IdxWidget"]);
+        let base_url = "http://registry.invalid/instant-index";
+
+        let with_index = search_instant_with(base_url, "idxwidget", false, Some(&scratch.index));
+        let without_index = search_instant_with(base_url, "idxwidget", false, None);
+
+        assert!(with_index.entries.iter().any(|e| e.name == "IdxWidget"));
+        assert_eq!(with_index.live_needed, Some(false));
+        assert!(without_index.entries.is_empty());
+        assert_eq!(without_index.live_needed, Some(true));
+    }
+
+    #[test]
+    fn instant_search_keeps_curated_hits_first_and_drops_index_duplicates() {
+        use crate::catalog_index::testkit::Scratch;
+        let scratch = Scratch::new("instant-order");
+        fresh_index(&scratch, &["slack", "SlackExtras"]);
+
+        let result = search_instant_with(
+            "http://registry.invalid/instant-order",
+            "slack",
+            false,
+            Some(&scratch.index),
+        );
+
+        let named_slack: Vec<_> = result
+            .entries
+            .iter()
+            .filter(|e| e.name.eq_ignore_ascii_case("slack"))
+            .collect();
+        assert_eq!(named_slack.len(), 1);
+        assert_eq!(named_slack[0].source, "curated");
+        assert!(result.entries.iter().any(|e| e.name == "SlackExtras"));
+    }
+
+    #[test]
+    fn a_fresh_index_answers_a_search_without_touching_the_network() {
+        use crate::catalog_index::testkit::{closed_port_url, Scratch};
+        let scratch = Scratch::new("fresh-no-network");
+        fresh_index(&scratch, &["IdxWidget"]);
+        let budget = Duration::from_millis(300);
+
+        let result = search_with_index(
+            &closed_port_url(),
+            "idxwidget",
+            budget,
+            budget,
+            Duration::from_secs(600),
+            Some(&scratch.index),
+        );
+
+        assert!(result.entries.iter().any(|e| e.name == "IdxWidget"));
+        assert!(
+            result.registry_error.is_none(),
+            "a refused connection would be reported"
+        );
+    }
+
+    #[test]
+    fn a_stale_index_still_answers_and_the_live_results_are_merged_into_it() {
+        use crate::catalog_index::testkit::{MockRegistry, Scratch};
+        let scratch = Scratch::new("stale-live");
+        stale_index(&scratch, &["IdxWidget"]);
+        let registry = MockRegistry::start(|_| (200, mock_registry_body("LiveWidget")));
+        let budget = Duration::from_millis(500);
+
+        let result = search_with_index(
+            &registry.base_url,
+            "widget",
+            budget,
+            budget,
+            Duration::from_secs(600),
+            Some(&scratch.index),
+        );
+
+        assert!(result.registry_error.is_none());
+        assert!(result.entries.iter().any(|e| e.name == "IdxWidget"));
+        assert!(result.entries.iter().any(|e| e.name == "LiveWidget"));
+        assert_eq!(registry.requests().len(), 1);
+        let indexed = crate::catalog_index::load(&scratch.index);
+        assert!(indexed.entries.contains_key("livewidget"));
+        assert!(
+            std::fs::read_to_string(&scratch.index)
+                .unwrap()
+                .contains("LiveWidget"),
+            "the merged result is persisted"
+        );
+    }
+
+    #[test]
+    fn a_missing_or_corrupt_index_falls_back_to_the_live_path() {
+        use crate::catalog_index::testkit::{MockRegistry, Scratch};
+        let scratch = Scratch::new("fallback");
+        let registry = MockRegistry::start(|_| (200, mock_registry_body("LiveWidget")));
+        let budget = Duration::from_millis(500);
+        let ttl = Duration::from_secs(600);
+
+        let missing = search_with_index(
+            &registry.base_url,
+            "zzz-fallback-missing",
+            budget,
+            budget,
+            ttl,
+            Some(&scratch.index),
+        );
+        assert!(missing.entries.iter().any(|e| e.name == "LiveWidget"));
+
+        std::fs::write(&scratch.index, "{not json").unwrap();
+        let corrupt = search_with_index(
+            &registry.base_url,
+            "zzz-fallback-corrupt",
+            budget,
+            budget,
+            ttl,
+            Some(&scratch.index),
+        );
+        assert!(corrupt.entries.iter().any(|e| e.name == "LiveWidget"));
+        assert!(corrupt.registry_error.is_none());
+    }
+
+    #[test]
+    fn a_failed_live_call_keeps_the_index_hits_and_reports_the_error() {
+        use crate::catalog_index::testkit::{closed_port_url, Scratch};
+        let scratch = Scratch::new("stale-down");
+        stale_index(&scratch, &["IdxWidget"]);
+        let budget = Duration::from_millis(300);
+
+        let result = search_with_index(
+            &closed_port_url(),
+            "idxwidget",
+            budget,
+            budget,
+            Duration::from_secs(600),
+            Some(&scratch.index),
+        );
+
+        assert!(result.entries.iter().any(|e| e.name == "IdxWidget"));
+        assert_eq!(
+            result.registry_error.expect("the live call failed").kind,
+            "connectionFailed"
+        );
+    }
+
+    #[test]
+    fn a_mock_endpoint_never_reads_the_index() {
+        assert_eq!(index_path_for("http://127.0.0.1:1/v0.1/servers"), None);
     }
 }

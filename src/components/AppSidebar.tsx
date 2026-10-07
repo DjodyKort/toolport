@@ -40,6 +40,11 @@ import { SidebarNav } from "@/plus/SidebarNav";
 const UpdateWatcher = lazy(() =>
   import("@/plus/UpdateWatch").then((m) => ({ default: m.UpdateWatcher })),
 );
+const CatalogIndexWatcher = lazy(() =>
+  import("@/plus/catalog/CatalogIndexWatch").then((m) => ({
+    default: m.CatalogIndexWatcher,
+  })),
+);
 
 const FOCUS_RING =
   "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -590,6 +595,7 @@ export function AppSidebar({
 
       <Suspense fallback={null}>
         <UpdateWatcher onReview={() => onSelectView("attention")} />
+        <CatalogIndexWatcher />
       </Suspense>
       <VersionFooter onImport={onRegistryChange} onReplay={onReplayOnboarding} />
     </aside>

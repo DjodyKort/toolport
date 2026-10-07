@@ -7,6 +7,7 @@ pub mod audit;
 pub mod autostart;
 pub mod brand;
 pub mod catalog;
+pub mod catalog_index;
 pub mod clients;
 pub mod codemode;
 pub mod codemode_worker;
