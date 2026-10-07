@@ -435,10 +435,11 @@ impl World {
             &result.token_endpoint,
             &result.client_id,
             result.refresh_token,
-            Some(mcp_url.to_string()),
+            Some(result.resource),
             result.scope,
             result.issued_at,
             result.expires_at,
+            result.client_secret,
         )
         .expect("store the oauth state");
         conduit_lib::secrets::set_secret(

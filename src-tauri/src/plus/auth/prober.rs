@@ -54,7 +54,7 @@ pub fn backoff_delay(min_interval: i64, transient_count: u32) -> i64 {
 }
 
 /// `GatewayState` covers every generic remote vault-secret server (MIG-AUTH-9), some of
-/// which (e.g. miro) actually authenticate with a static API token rather than browser
+/// which (e.g. revenuecat) actually authenticate with a static API token rather than browser
 /// OAuth, so `auth login` refuses them (`login::plan`). Reuse that same plan's signal
 /// (`login::remote_facts`) here instead of adding a second, possibly-divergent classifier
 /// (MIG-AUTH-11), and only when the state actually needs a hint, to keep this off the hot

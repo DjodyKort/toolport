@@ -39,6 +39,7 @@ fn facts(oauth_state: bool, static_token: bool, detected: &str) -> RemoteFacts {
         oauth_state,
         static_token,
         detected: detected.into(),
+        discovery_error: None,
     }
 }
 
@@ -252,7 +253,10 @@ fn auth_probe_and_login_no_ops_write_nothing() {
         let (code, _, err) = run_cli(&["auth", "login", "srv-slack"]);
         assert_eq!(code, 1);
         assert!(err.contains("signs in with a static token"), "{err}");
-        assert!(err.contains("Next: enter the new value"), "{err}");
+        assert!(
+            err.contains("Next: in the app: Logins & secrets, Set secret"),
+            "{err}"
+        );
         assert!(
             err.contains("toolportctl auth probe --server srv-slack --force"),
             "{err}"

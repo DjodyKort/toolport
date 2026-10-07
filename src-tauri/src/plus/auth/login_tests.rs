@@ -24,6 +24,7 @@ fn facts(oauth_state: bool, static_token: bool, detected: &str) -> RemoteFacts {
         oauth_state,
         static_token,
         detected: detected.into(),
+        discovery_error: None,
     }
 }
 
@@ -64,12 +65,30 @@ fn the_plan_picks_the_flow_each_server_can_use() {
     let (reason, next) = unsupported(plan(&oauth_remote, None, || facts(false, true, "")));
     assert!(reason.contains("static token"), "{reason}");
     assert!(
-        next.contains("then run toolportctl auth probe --server figma --force"),
+        next.starts_with("in the app: Logins & secrets, Set secret, then Probe"),
+        "{next}"
+    );
+    assert!(
+        next.contains("toolportctl auth probe --server figma --force"),
         "{next}"
     );
 
     let (reason, _) = unsupported(plan(&oauth_remote, None, || facts(false, false, "token")));
     assert!(reason.contains("API token"), "{reason}");
+
+    let discovery = || RemoteFacts {
+        detected: "discovery_error".into(),
+        discovery_error: Some("authorization-server metadata could not be used: HTTP 503".into()),
+        ..RemoteFacts::default()
+    };
+    let (reason, next) = unsupported(plan(&oauth_remote, None, discovery));
+    assert!(reason.contains("OAuth discovery for figma failed"), "{reason}");
+    assert!(reason.contains("HTTP 503"), "{reason}");
+    assert!(!reason.contains("API token"), "{reason}");
+    assert!(
+        next.contains("toolportctl auth login figma again (app: Logins & secrets, Sign in)"),
+        "{next}"
+    );
 
     let (reason, next) = unsupported(plan(&oauth_remote, None, || facts(false, false, "none")));
     assert!(reason.contains("does not ask for a sign-in"), "{reason}");
@@ -96,7 +115,11 @@ fn an_api_token_server_is_pointed_at_the_secret_command() {
         "{next}"
     );
     assert!(
-        next.ends_with("toolportctl auth probe --server slack --force"),
+        next.contains("then toolportctl auth probe --server slack --force"),
+        "{next}"
+    );
+    assert!(
+        next.ends_with("in the app: Logins & secrets, Set secret, then Probe"),
         "{next}"
     );
 }

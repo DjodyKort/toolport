@@ -54,6 +54,8 @@ pub struct RemoteFacts {
     pub oauth_state: bool,
     pub static_token: bool,
     pub detected: String,
+    /// The real reason OAuth discovery failed, when `detected` is "discovery_error".
+    pub discovery_error: Option<String>,
 }
 
 fn reprobe(id: &str) -> String {
@@ -66,7 +68,7 @@ fn unsupported(reason: String, next: String) -> Plan {
 
 fn app_secret_step(id: &str) -> String {
     format!(
-        "enter the new value in the Toolport+ app (server settings, secrets), then run {}",
+        "in the app: Logins & secrets, Set secret, then Probe (CLI: {})",
         reprobe(id)
     )
 }
@@ -84,7 +86,8 @@ pub fn plan(
         return unsupported(
             format!("{name} signs in with an API token, so there is no browser sign-in"),
             format!(
-                "toolportctl secret set {id} {key} (value on stdin or --value-env <VAR>), then {}",
+                "toolportctl secret set {id} {key} (value on stdin or --value-env <VAR>), then {}; \
+                 in the app: Logins & secrets, Set secret, then Probe",
                 reprobe(id)
             ),
         );
@@ -116,6 +119,16 @@ pub fn plan(
                 format!("{name} does not ask for a sign-in"),
                 format!("toolportctl server info {id} to check its address"),
             ),
+            "discovery_error" => unsupported(
+                format!(
+                    "OAuth discovery for {name} failed: {}",
+                    facts.discovery_error.as_deref().unwrap_or("no details")
+                ),
+                format!(
+                    "fix the cause, then run toolportctl auth login {id} again \
+                     (app: Logins & secrets, Sign in)"
+                ),
+            ),
             _ => Plan::Browser,
         };
     }
@@ -140,15 +153,17 @@ pub(crate) fn remote_facts(server: &ServerEntry) -> RemoteFacts {
     };
     let oauth_state = held(crate::remote::OAUTH_STATE_KEY);
     let static_token = !oauth_state && held(crate::secrets::HTTP_AUTH_KEY);
-    let detected = if oauth_state || static_token {
-        String::new()
+    let (detected, discovery_error) = if oauth_state || static_token {
+        (String::new(), None)
     } else {
-        crate::vendors::probe_auth(server.url.as_deref().unwrap_or_default()).kind
+        let info = crate::vendors::probe_auth(server.url.as_deref().unwrap_or_default());
+        (info.kind, info.error)
     };
     RemoteFacts {
         oauth_state,
         static_token,
         detected,
+        discovery_error,
     }
 }
 

@@ -688,6 +688,7 @@ fn remote_basic_and_oauth_refresh_use_the_disposable_vault() {
                 None,
                 1,
                 Some(2),
+                None,
             )
             .unwrap();
         }

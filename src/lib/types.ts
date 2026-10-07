@@ -298,10 +298,12 @@ export interface SavingsSummary {
 }
 
 export interface AuthInfo {
-  kind: "none" | "oauth" | "token" | "unknown";
+  kind: "none" | "oauth" | "token" | "discovery_error" | "unknown";
   vendor: string | null;
   tokenUrl: string | null;
   instructions: string | null;
+  /** Why OAuth discovery failed, when `kind` is "discovery_error". */
+  error?: string | null;
 }
 
 /** One server a shared setup would add, shown for review before importing. */

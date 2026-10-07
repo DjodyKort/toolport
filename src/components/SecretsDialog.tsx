@@ -644,8 +644,15 @@ export function SecretsDialog({ server, onSaved, trigger, onChanged }: Props) {
                     </div>
                   </div>
 
+                  {authInfo?.kind === "discovery_error" && (
+                    <p role="status" className="text-xs text-warning">
+                      Browser sign-in discovery failed: {authInfo.error ?? "no details"}
+                    </p>
+                  )}
+
                   {(authInfo == null ||
                     authInfo.kind === "oauth" ||
+                    authInfo.kind === "discovery_error" ||
                     authInfo.kind === "unknown") && (
                     <>
                       <Button

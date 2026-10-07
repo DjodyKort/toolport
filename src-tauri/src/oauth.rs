@@ -84,11 +84,62 @@ pub struct AuthResult {
     pub expires_at: Option<u64>,
     pub token_endpoint: String,
     pub client_id: String,
+    /// Set when dynamic registration minted a confidential client. Persisted so
+    /// refresh can authenticate the same way the code exchange did.
+    pub client_secret: Option<ClientSecret>,
     /// Validated authorization-server issuer that minted the client credentials.
     pub issuer: String,
+    /// The RFC 8707 resource indicator the token is bound to.
+    pub resource: String,
     /// Scope set requested for this authorization. Persisted so a later runtime
     /// challenge can add to it without dropping previously granted access.
     pub scope: Option<String>,
+}
+
+/// The secret of a confidential client created by dynamic registration, with the
+/// method the token endpoint expects it by.
+#[derive(Clone, PartialEq, Eq)]
+pub struct ClientSecret {
+    pub secret: String,
+    pub method: ClientAuthMethod,
+}
+
+impl std::fmt::Debug for ClientSecret {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ClientSecret")
+            .field("secret", &"***")
+            .field("method", &self.method)
+            .finish()
+    }
+}
+
+/// Why OAuth discovery produced no endpoints.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DiscoveryError {
+    /// The server publishes no OAuth metadata at all, so it needs no sign-in or a
+    /// pasted token.
+    NoOAuth,
+    /// Metadata was published or looked for but could not be used. Carries the
+    /// real reason.
+    Failed(String),
+}
+
+const NO_OAUTH_MESSAGE: &str = "this server doesn't advertise OAuth. It may not need auth (just enable it), \
+     or it may require a token you paste manually.";
+
+impl DiscoveryError {
+    pub fn message(&self) -> String {
+        match self {
+            Self::NoOAuth => NO_OAUTH_MESSAGE.to_string(),
+            Self::Failed(reason) => reason.clone(),
+        }
+    }
+}
+
+impl From<String> for DiscoveryError {
+    fn from(reason: String) -> Self {
+        Self::Failed(reason)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -97,6 +148,9 @@ pub struct Endpoints {
     pub authorization_endpoint: String,
     pub token_endpoint: String,
     pub registration_endpoint: Option<String>,
+    /// The RFC 8707 resource indicator to send: the identifier the server's own
+    /// protected-resource metadata publishes, else the configured URL.
+    pub resource: String,
     pub scope: Option<String>,
     pub authorization_response_iss_parameter_supported: bool,
     pub client_id_metadata_document_supported: bool,
@@ -542,13 +596,34 @@ fn challenge_probe_agent(block_private: bool) -> ureq::Agent {
         .build()
 }
 
-fn get_json<T: serde::de::DeserializeOwned>(url: &str, block_private: bool) -> Result<T, String> {
-    agent(block_private)
-        .get(url)
-        .call()
-        .map_err(|e| e.to_string())?
-        .into_json::<T>()
-        .map_err(|e| e.to_string())
+enum MetadataMiss {
+    Absent,
+    Failed(String),
+}
+
+/// Fetch authorization-server metadata, telling "this server publishes none" (a
+/// 4xx) from "it publishes some that cannot be used" (5xx, transport failure, a
+/// body that is not valid metadata). Only the first may be read as "no OAuth".
+fn get_authorization_server_metadata(
+    url: &str,
+    block_private: bool,
+) -> Result<AsMeta, MetadataMiss> {
+    let response = match agent(block_private).get(url).call() {
+        Ok(response) => response,
+        Err(ureq::Error::Status(code, _)) if (400..500).contains(&code) => {
+            return Err(MetadataMiss::Absent)
+        }
+        Err(ureq::Error::Status(code, _)) => {
+            return Err(MetadataMiss::Failed(format!("HTTP {code}")))
+        }
+        Err(error) => return Err(MetadataMiss::Failed(error.to_string())),
+    };
+    let body = response
+        .into_string()
+        .map_err(|e| MetadataMiss::Failed(e.to_string()))?;
+    serde_json::from_str(&body).map_err(|e| {
+        MetadataMiss::Failed(format!("metadata is not valid authorization-server metadata: {e}"))
+    })
 }
 
 /// Fetch optional discovery metadata while distinguishing an absent/unreachable
@@ -639,6 +714,43 @@ fn protected_resource_metadata_candidates(resource: &str) -> Vec<String> {
     }
 }
 
+/// Scheme and authority lowercased, and the path-and-query with an empty path
+/// read as `/`. Nothing else is normalised: ports, trailing slashes on a real
+/// path, queries and fragments must still match exactly.
+fn resource_identity(url: &str) -> Option<(String, String)> {
+    let (scheme, rest) = url.split_once("://")?;
+    let end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+    let (authority, tail) = rest.split_at(end);
+    if authority.is_empty() || authority.contains('@') {
+        return None;
+    }
+    let tail = if tail.starts_with('/') {
+        tail.to_string()
+    } else {
+        format!("/{tail}")
+    };
+    Some((
+        format!(
+            "{}://{}",
+            scheme.to_ascii_lowercase(),
+            authority.to_ascii_lowercase()
+        ),
+        tail,
+    ))
+}
+
+/// Servers such as Miro publish `https://host/` for a resource configured as
+/// `https://host`: the same resource under RFC 3986 scheme-based normalisation.
+fn same_resource(expected: &str, advertised: &str) -> bool {
+    if expected == advertised {
+        return true;
+    }
+    match (resource_identity(expected), resource_identity(advertised)) {
+        (Some(expected), Some(advertised)) => expected == advertised,
+        _ => false,
+    }
+}
+
 fn validated_protected_resource(
     expected_resource: &str,
     metadata: ProtectedResource,
@@ -647,11 +759,11 @@ fn validated_protected_resource(
         "protected-resource metadata has no resource identifier; refusing OAuth discovery"
             .to_string()
     })?;
-    if resource != expected_resource {
-        return Err(
-            "protected-resource metadata describes a different resource; refusing OAuth discovery"
-                .to_string(),
-        );
+    if !same_resource(expected_resource, &resource) {
+        return Err(format!(
+            "protected-resource metadata describes a different resource ({resource}, \
+             expected {expected_resource}); refusing OAuth discovery"
+        ));
     }
     let issuer = metadata
         .authorization_servers
@@ -1062,6 +1174,12 @@ fn drain_probe_response(response: ureq::Response) {
 
 /// Discover the authorization + token endpoints for an MCP server URL.
 pub fn discover(mcp_url: &str) -> Result<Endpoints, String> {
+    discover_detailed(mcp_url).map_err(|error| error.message())
+}
+
+/// [`discover`], keeping "this server has no OAuth" apart from "OAuth discovery
+/// failed" so a caller never reads a failure as proof that a token is needed.
+pub fn discover_detailed(mcp_url: &str) -> Result<Endpoints, DiscoveryError> {
     let origin = origin_of(mcp_url);
     // Is the configured MCP server itself local? If so, local OAuth endpoints are
     // expected and allowed; if it's public, its metadata must not redirect us at a
@@ -1081,12 +1199,14 @@ pub fn discover(mcp_url: &str) -> Result<Endpoints, String> {
     let mut protected_resource_found = false;
     let mut resource_scope = None;
     let mut discovered_issuer = None;
+    let mut advertised_resource = None;
     let challenge_metadata = challenge.and_then(|challenge| challenge.resource_metadata);
     if let Some(url) = challenge_metadata.as_ref() {
         require_https(url, "protected-resource metadata")?;
         guard_endpoint(url, server_local, "protected-resource metadata")?;
         match get_optional_discovery_json::<ProtectedResource>(url, block_private) {
             Ok(Some(metadata)) => {
+                let resource = metadata.resource.clone();
                 let (issuer, scope) =
                     validated_protected_resource(mcp_url, metadata).map_err(|e| {
                         format!("protected-resource metadata rejected at {url}: {e}")
@@ -1094,41 +1214,43 @@ pub fn discover(mcp_url: &str) -> Result<Endpoints, String> {
                 protected_resource_found = true;
                 discovered_issuer = Some(issuer);
                 resource_scope = scope;
+                advertised_resource = resource;
             }
             Ok(None) => debug_log(&format!(
                 "protected-resource metadata advertised at {url} was unavailable; trying well-known discovery"
             )),
             Err(e) => {
-                return Err(format!(
-                    "protected-resource metadata rejected at {url}: {e}"
-                ))
+                return Err(format!("protected-resource metadata rejected at {url}: {e}").into())
             }
         }
     }
     if discovered_issuer.is_none() {
         for url in protected_resource_metadata_candidates(mcp_url) {
             match get_optional_discovery_json::<ProtectedResource>(&url, block_private) {
-                Ok(Some(metadata)) => match validated_protected_resource(mcp_url, metadata) {
-                    Ok((issuer, scope)) => {
-                        protected_resource_found = true;
-                        discovered_issuer = Some(issuer);
-                        resource_scope = scope;
-                        break;
+                Ok(Some(metadata)) => {
+                    let resource = metadata.resource.clone();
+                    match validated_protected_resource(mcp_url, metadata) {
+                        Ok((issuer, scope)) => {
+                            protected_resource_found = true;
+                            discovered_issuer = Some(issuer);
+                            resource_scope = scope;
+                            advertised_resource = resource;
+                            break;
+                        }
+                        // A document was found and parsed, so rejecting its security
+                        // binding must fail closed. Falling back to origin-level AS
+                        // discovery here would silently bypass RFC 9728 validation.
+                        Err(e) => {
+                            return Err(format!(
+                                "protected-resource metadata rejected at {url}: {e}"
+                            )
+                            .into())
+                        }
                     }
-                    // A document was found and parsed, so rejecting its security
-                    // binding must fail closed. Falling back to origin-level AS
-                    // discovery here would silently bypass RFC 9728 validation.
-                    Err(e) => {
-                        return Err(format!(
-                            "protected-resource metadata rejected at {url}: {e}"
-                        ))
-                    }
-                },
+                }
                 Ok(None) => {}
                 Err(e) => {
-                    return Err(format!(
-                        "protected-resource metadata rejected at {url}: {e}"
-                    ))
+                    return Err(format!("protected-resource metadata rejected at {url}: {e}").into())
                 }
             }
         }
@@ -1145,87 +1267,213 @@ pub fn discover(mcp_url: &str) -> Result<Endpoints, String> {
     require_https(&issuer, "authorization server")?;
     guard_endpoint(&issuer, server_local, "authorization server")?;
 
+    let mut first_failure: Option<String> = None;
     for url in metadata_candidates(&issuer) {
-        if let Ok(meta) = get_json::<AsMeta>(&url, block_private) {
-            if let Err(e) = validate_metadata_issuer(&issuer, &meta.issuer) {
-                debug_log(&format!("metadata rejected at {url}: {e}"));
+        let meta = match get_authorization_server_metadata(&url, block_private) {
+            Ok(meta) => meta,
+            Err(MetadataMiss::Absent) => continue,
+            Err(MetadataMiss::Failed(reason)) => {
+                first_failure.get_or_insert(format!(
+                    "authorization-server metadata at {url} could not be used: {reason}"
+                ));
                 continue;
             }
-            // OAuth 2.1 requires TLS for these endpoints. Without this check a
-            // hostile/MITM'd metadata document could point the token endpoint at
-            // an attacker (or an internal address), and we'd POST the auth code +
-            // PKCE verifier there in cleartext.
-            require_https(&meta.authorization_endpoint, "authorization endpoint")?;
-            require_https(&meta.token_endpoint, "token endpoint")?;
-            if let Some(reg) = &meta.registration_endpoint {
-                require_https(reg, "registration endpoint")?;
-            }
-            // SSRF: a public server must not point these at a private/loopback host.
-            guard_endpoint(
-                &meta.authorization_endpoint,
-                server_local,
-                "authorization endpoint",
-            )?;
-            guard_endpoint(&meta.token_endpoint, server_local, "token endpoint")?;
-            if let Some(reg) = &meta.registration_endpoint {
-                guard_endpoint(reg, server_local, "registration endpoint")?;
-            }
-            return Ok(Endpoints {
-                issuer: meta.issuer,
-                authorization_endpoint: meta.authorization_endpoint,
-                token_endpoint: meta.token_endpoint,
-                registration_endpoint: meta.registration_endpoint,
-                // The protected resource defines the scopes needed to access it.
-                // Keep AS metadata as a compatibility fallback for older servers
-                // that did not publish RFC 9728 protected-resource metadata.
-                scope: challenge_scope.or_else(|| {
-                    initial_scope(
-                        protected_resource_found,
-                        resource_scope,
-                        meta.scopes_supported,
-                    )
-                }),
-                authorization_response_iss_parameter_supported: meta
-                    .authorization_response_iss_parameter_supported,
-                client_id_metadata_document_supported: meta.client_id_metadata_document_supported,
-                token_endpoint_auth_methods_supported: meta.token_endpoint_auth_methods_supported,
-            });
+        };
+        if let Err(e) = validate_metadata_issuer(&issuer, &meta.issuer) {
+            debug_log(&format!("metadata rejected at {url}: {e}"));
+            first_failure.get_or_insert(format!(
+                "authorization-server metadata rejected at {url}: {e} \
+                 (expected {issuer}, got {})",
+                meta.issuer
+            ));
+            continue;
         }
+        // OAuth 2.1 requires TLS for these endpoints. Without this check a
+        // hostile/MITM'd metadata document could point the token endpoint at
+        // an attacker (or an internal address), and we'd POST the auth code +
+        // PKCE verifier there in cleartext.
+        require_https(&meta.authorization_endpoint, "authorization endpoint")?;
+        require_https(&meta.token_endpoint, "token endpoint")?;
+        if let Some(reg) = &meta.registration_endpoint {
+            require_https(reg, "registration endpoint")?;
+        }
+        // SSRF: a public server must not point these at a private/loopback host.
+        guard_endpoint(
+            &meta.authorization_endpoint,
+            server_local,
+            "authorization endpoint",
+        )?;
+        guard_endpoint(&meta.token_endpoint, server_local, "token endpoint")?;
+        if let Some(reg) = &meta.registration_endpoint {
+            guard_endpoint(reg, server_local, "registration endpoint")?;
+        }
+        return Ok(Endpoints {
+            issuer: meta.issuer,
+            authorization_endpoint: meta.authorization_endpoint,
+            token_endpoint: meta.token_endpoint,
+            registration_endpoint: meta.registration_endpoint,
+            resource: advertised_resource.unwrap_or_else(|| mcp_url.to_string()),
+            // The protected resource defines the scopes needed to access it.
+            // Keep AS metadata as a compatibility fallback for older servers
+            // that did not publish RFC 9728 protected-resource metadata.
+            scope: challenge_scope.or_else(|| {
+                initial_scope(
+                    protected_resource_found,
+                    resource_scope,
+                    meta.scopes_supported,
+                )
+            }),
+            authorization_response_iss_parameter_supported: meta
+                .authorization_response_iss_parameter_supported,
+            client_id_metadata_document_supported: meta.client_id_metadata_document_supported,
+            token_endpoint_auth_methods_supported: meta.token_endpoint_auth_methods_supported,
+        });
     }
-    Err(
-        "this server doesn't advertise OAuth. It may not need auth (just enable it), \
-         or it may require a token you paste manually."
-            .to_string(),
-    )
+    Err(match first_failure {
+        Some(reason) => DiscoveryError::Failed(reason),
+        None if protected_resource_found => DiscoveryError::Failed(format!(
+            "the protected-resource metadata names {issuer} as the authorization server, \
+             but it publishes no authorization-server metadata"
+        )),
+        None => DiscoveryError::NoOAuth,
+    })
 }
 
 #[derive(Deserialize)]
 struct DcrResponse {
     client_id: String,
+    #[serde(default)]
+    client_secret: Option<String>,
+    #[serde(default)]
+    token_endpoint_auth_method: Option<String>,
+}
+
+struct RegisteredClient {
+    client_id: String,
+    secret: Option<ClientSecret>,
+}
+
+/// Which secret-based method to register for, or `None` for a public client.
+///
+/// A server that omits the list, or offers `none`, keeps the public PKCE client
+/// Toolport has always registered. Only a server that offers secret-based methods
+/// and no `none` (Miro, Figma) must be registered as a confidential client.
+fn registration_auth_method(advertised: Option<&[String]>) -> Option<ClientAuthMethod> {
+    let advertised = advertised.filter(|list| !list.is_empty())?;
+    if advertised.iter().any(|method| method == "none") {
+        return None;
+    }
+    select_client_auth_method(None, Some(advertised)).ok()
+}
+
+fn registered_client(
+    response: DcrResponse,
+    requested: Option<ClientAuthMethod>,
+) -> Result<RegisteredClient, String> {
+    let Some(secret) = response.client_secret.filter(|secret| !secret.is_empty()) else {
+        return Ok(RegisteredClient {
+            client_id: response.client_id,
+            secret: None,
+        });
+    };
+    // A response that names no method keeps the one requested; RFC 7591 §2 defaults
+    // to client_secret_basic when nothing was requested either.
+    let method = match response.token_endpoint_auth_method.as_deref() {
+        Some(named) => match ClientAuthMethod::parse(named) {
+            Some(method) if method.is_implemented() => method,
+            _ => {
+                return Err(format!(
+                    "the authorization server registered the client for {named}, which \
+                     Toolport cannot use with a client secret"
+                ))
+            }
+        },
+        None => requested.unwrap_or(ClientAuthMethod::ClientSecretBasic),
+    };
+    Ok(RegisteredClient {
+        client_id: response.client_id,
+        secret: Some(ClientSecret { secret, method }),
+    })
+}
+
+const SERVER_PLACEHOLDER: &str = "<server-id>";
+const ERROR_BODY_LIMIT: usize = 500;
+const FIGMA_REGISTRATION_HOST: &str = "api.figma.com";
+
+/// Replace the server placeholder that [`register_client`] leaves in remedies it
+/// cannot complete itself, because only the caller knows the server id.
+pub(crate) fn name_server(message: String, server_id: &str) -> String {
+    message.replace(SERVER_PLACEHOLDER, server_id)
+}
+
+/// The response body of a failed request, redacted of anything credential-shaped
+/// and cut to a size that fits one error line.
+fn error_body_excerpt(body: &str) -> String {
+    let redacted = crate::registry::redact_secret_text(body.trim());
+    let mut excerpt: String = redacted.chars().take(ERROR_BODY_LIMIT).collect();
+    if redacted.chars().count() > ERROR_BODY_LIMIT {
+        excerpt.push_str("...");
+    }
+    excerpt
+}
+
+fn registration_error(registration_endpoint: &str, status: u16, body: &str) -> String {
+    let host = host_of_url(registration_endpoint);
+    if status == 403 && host.as_deref() == Some(FIGMA_REGISTRATION_HOST) {
+        return format!(
+            "Figma only lets approved apps register, so Toolport cannot sign in to it. Use \
+             the direct Claude Code entry instead: `toolportctl client direct add \
+             {SERVER_PLACEHOLDER} --client claude-code` (in the app: Servers, Clients, \
+             direct entry). Registration at {registration_endpoint} returned HTTP 403."
+        );
+    }
+    let body = error_body_excerpt(body);
+    if body.is_empty() {
+        format!("client registration at {registration_endpoint} returned HTTP {status}")
+    } else {
+        format!("client registration at {registration_endpoint} returned HTTP {status}: {body}")
+    }
 }
 
 fn register_client(
     registration_endpoint: &str,
     redirect_uri: &str,
+    method: Option<ClientAuthMethod>,
     block_private: bool,
-) -> Result<String, String> {
-    let body = dcr_request_body(redirect_uri);
-    let resp: DcrResponse = agent_no_redirect(block_private)
+) -> Result<RegisteredClient, String> {
+    let body = dcr_request_body(redirect_uri, method);
+    let response = match agent_no_redirect(block_private)
         .post(registration_endpoint)
         .send_json(body)
-        .map_err(|e| e.to_string())?
+    {
+        Ok(response) => response,
+        Err(ureq::Error::Status(status, response)) => {
+            let mut text = String::new();
+            let _ = response
+                .into_reader()
+                .take(8 * 1024)
+                .read_to_string(&mut text);
+            return Err(registration_error(registration_endpoint, status, &text));
+        }
+        Err(error) => {
+            return Err(format!(
+                "client registration at {registration_endpoint} failed: {error}"
+            ))
+        }
+    };
+    let parsed: DcrResponse = response
         .into_json()
-        .map_err(|e| e.to_string())?;
-    Ok(resp.client_id)
+        .map_err(|e| format!("client registration response was not usable: {e}"))?;
+    registered_client(parsed, method)
 }
 
-fn dcr_request_body(redirect_uri: &str) -> serde_json::Value {
+fn dcr_request_body(redirect_uri: &str, method: Option<ClientAuthMethod>) -> serde_json::Value {
     serde_json::json!({
         "client_name": "Toolport",
         "redirect_uris": [redirect_uri],
         "grant_types": ["authorization_code", "refresh_token"],
         "response_types": ["code"],
-        "token_endpoint_auth_method": "none",
+        "token_endpoint_auth_method": method.map_or("none", ClientAuthMethod::as_str),
         // Toolport uses an RFC 8252 loopback redirect with an OS-assigned port,
         // so it is a native public client rather than an OIDC web client.
         "application_type": "native"
@@ -1306,28 +1554,53 @@ fn requested_scope(advertised: Option<String>) -> Option<String> {
     advertised
 }
 
+/// How a registered client proves itself at the token endpoint: the public client
+/// Toolport registers by default sends only its id, a confidential one (see
+/// [`registration_auth_method`]) its secret by the method it was registered for.
+fn token_request_authentication<'a>(
+    client_id: &'a str,
+    client_secret: Option<&'a ClientSecret>,
+) -> ClientAuthentication<'a> {
+    match client_secret {
+        Some(credential) => {
+            client_authentication(credential.method, client_id, &credential.secret)
+        }
+        None => ClientAuthentication {
+            authorization: None,
+            form_fields: vec![("client_id", client_id)],
+        },
+    }
+}
+
 fn exchange_code(
     token_endpoint: &str,
     client_id: &str,
+    client_secret: Option<&ClientSecret>,
     redirect_uri: &str,
     code: &str,
     verifier: &str,
     resource: &str,
     block_private: bool,
 ) -> Result<Tokens, String> {
-    let resp: TokenResponse = agent_no_redirect(block_private)
-        .post(token_endpoint)
-        .send_form(&[
-            ("grant_type", "authorization_code"),
-            ("code", code),
-            ("redirect_uri", redirect_uri),
-            ("client_id", client_id),
-            ("code_verifier", verifier),
-            ("resource", resource),
-        ])
-        .map_err(|e| e.to_string())?
+    let authentication = token_request_authentication(client_id, client_secret);
+    let mut form: Vec<(&str, &str)> = vec![
+        ("grant_type", "authorization_code"),
+        ("code", code),
+        ("redirect_uri", redirect_uri),
+        ("code_verifier", verifier),
+        ("resource", resource),
+    ];
+    form.extend_from_slice(&authentication.form_fields);
+    let mut request = agent_no_redirect(block_private).post(token_endpoint);
+    if let Some(header) = &authentication.authorization {
+        request = request.set("Authorization", header);
+    }
+    let secret = client_secret.map_or("", |credential| credential.secret.as_str());
+    let resp: TokenResponse = request
+        .send_form(&form)
+        .map_err(|e| token_endpoint_error(e, secret))?
         .into_json()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| redact_secret(&e.to_string(), secret))?;
     debug_log(&format!(
         "token response: refresh_token={} expires_in={:?}",
         resp.refresh_token.is_some(),
@@ -1362,6 +1635,7 @@ fn token_endpoint_error(error: ureq::Error, secret: &str) -> String {
 pub fn refresh(
     token_endpoint: &str,
     client_id: &str,
+    client_secret: Option<&ClientSecret>,
     refresh_token: &str,
     resource: Option<&str>,
     block_private: bool,
@@ -1370,18 +1644,24 @@ pub fn refresh(
     // public boundary so legacy vaulted state and direct callers cannot bypass
     // the TLS rule enforced during discovery.
     require_https(token_endpoint, "token endpoint")?;
+    let authentication = token_request_authentication(client_id, client_secret);
     let mut form: Vec<(&str, &str)> = vec![
         ("grant_type", "refresh_token"),
         ("refresh_token", refresh_token),
-        ("client_id", client_id),
     ];
+    form.extend_from_slice(&authentication.form_fields);
     if let Some(r) = resource {
         form.push(("resource", r));
     }
-    let resp: TokenResponse = agent_no_redirect(block_private)
-        .post(token_endpoint)
+    let mut request = agent_no_redirect(block_private).post(token_endpoint);
+    if let Some(header) = &authentication.authorization {
+        request = request.set("Authorization", header);
+    }
+    let secret = client_secret.map_or("", |credential| credential.secret.as_str());
+    let scrub = |text: &str| redact_secret(&redact_secret(text, refresh_token), secret);
+    let resp: TokenResponse = request
         .send_form(&form)
-        .map_err(|e| token_endpoint_error(e, refresh_token))?
+        .map_err(|e| scrub(&token_endpoint_error(e, refresh_token)))?
         .into_json()
         .map_err(|e| e.to_string())?;
     debug_log(&format!(
@@ -1849,11 +2129,20 @@ pub(crate) fn authenticate_cancellable(
     let redirect_uri = format!("http://127.0.0.1:{port}/callback");
     debug_log(&format!("callback listening on {redirect_uri}"));
 
-    let client_id = match select_client_registration(&endpoints)? {
-        ClientRegistration::MetadataDocument => CLIENT_ID_METADATA_URL.to_string(),
-        ClientRegistration::Dynamic(registration_endpoint) => {
-            register_client(registration_endpoint, &redirect_uri, block_private)?
-        }
+    let RegisteredClient {
+        client_id,
+        secret: client_secret,
+    } = match select_client_registration(&endpoints)? {
+        ClientRegistration::MetadataDocument => RegisteredClient {
+            client_id: CLIENT_ID_METADATA_URL.to_string(),
+            secret: None,
+        },
+        ClientRegistration::Dynamic(registration_endpoint) => register_client(
+            registration_endpoint,
+            &redirect_uri,
+            registration_auth_method(endpoints.token_endpoint_auth_methods_supported.as_deref()),
+            block_private,
+        )?,
     };
     debug_log(&format!(
         "client_id='{client_id}' (len {})",
@@ -1877,7 +2166,7 @@ pub(crate) fn authenticate_cancellable(
         &redirect_uri,
         &challenge,
         &state,
-        mcp_url,
+        &endpoints.resource,
         scope.as_deref(),
     );
     debug_log(&format!(
@@ -1902,10 +2191,11 @@ pub(crate) fn authenticate_cancellable(
     let tokens = match exchange_code(
         &endpoints.token_endpoint,
         &client_id,
+        client_secret.as_ref(),
         &redirect_uri,
         &code,
         &verifier,
-        mcp_url,
+        &endpoints.resource,
         block_private,
     ) {
         Ok(t) => {
@@ -1925,7 +2215,9 @@ pub(crate) fn authenticate_cancellable(
         expires_at: tokens.expires_at,
         token_endpoint: endpoints.token_endpoint,
         client_id,
+        client_secret,
         issuer: endpoints.issuer,
+        resource: endpoints.resource,
         scope,
     })
 }
@@ -2239,7 +2531,7 @@ mod tests {
 
     #[test]
     fn dcr_identifies_the_loopback_client_as_native() {
-        let body = dcr_request_body("http://127.0.0.1:41789/callback");
+        let body = dcr_request_body("http://127.0.0.1:41789/callback", None);
         assert_eq!(body["application_type"], "native");
         assert_eq!(body["token_endpoint_auth_method"], "none");
         assert_eq!(
@@ -3056,6 +3348,7 @@ mod tests {
             authorization_endpoint: "https://auth.example.com/authorize".into(),
             token_endpoint: "https://auth.example.com/token".into(),
             registration_endpoint,
+            resource: "https://mcp.example.com".into(),
             scope: None,
             authorization_response_iss_parameter_supported: false,
             client_id_metadata_document_supported: cimd,
@@ -3276,6 +3569,7 @@ mod tests {
         let err = match refresh(
             "http://auth.example.com/token",
             "client",
+            None,
             "refresh-token-value",
             None,
             true,
@@ -3390,5 +3684,710 @@ mod tests {
         );
         // An empty secret must not turn every character into a redaction.
         assert_eq!(redact_secret("nothing to hide", ""), "nothing to hide");
+    }
+
+    const MIRO_PROTECTED_RESOURCE: &str = r#"{"resource":"https://mcp.miro.com/","authorization_servers":["https://mcp.miro.com/"],"scopes_supported":["boards:read","boards:write","openid","email"],"bearer_methods_supported":["header"]}"#;
+    const MIRO_AUTHORIZATION_SERVER: &str = r#"{"issuer":"https://mcp.miro.com/","authorization_endpoint":"https://mcp.miro.com/authorize","token_endpoint":"https://mcp.miro.com/token","registration_endpoint":"https://mcp.miro.com/register","scopes_supported":["boards:read","boards:write","openid","email"],"response_types_supported":["code"],"grant_types_supported":["authorization_code","refresh_token","urn:ietf:params:oauth:grant-type:jwt-bearer"],"token_endpoint_auth_methods_supported":["client_secret_post","client_secret_basic"],"code_challenge_methods_supported":["S256"]}"#;
+    const FIGMA_AUTHORIZATION_SERVER: &str = r#"{"issuer":"https://api.figma.com","authorization_endpoint":"https://www.figma.com/oauth/mcp","token_endpoint":"https://api.figma.com/v1/oauth/token","registration_endpoint":"https://api.figma.com/v1/oauth/mcp/register","grant_types_supported":["authorization_code","refresh_token"],"response_types_supported":["code"],"code_challenge_methods_supported":["S256"],"token_endpoint_auth_methods_supported":["client_secret_basic","client_secret_post"],"scopes_supported":["mcp:connect"],"authorization_response_iss_parameter_supported":true}"#;
+
+    #[test]
+    fn a_bare_origin_resource_matches_its_slash_form_in_either_direction() {
+        assert!(same_resource("https://mcp.miro.com", "https://mcp.miro.com/"));
+        assert!(same_resource("https://mcp.miro.com/", "https://mcp.miro.com"));
+        assert!(same_resource("https://mcp.miro.com", "HTTPS://MCP.Miro.COM/"));
+        assert!(same_resource(
+            "https://mcp.example.com/mcp",
+            "https://MCP.example.com/mcp"
+        ));
+        assert!(same_resource(
+            "https://mcp.example.com?tenant=a",
+            "https://mcp.example.com/?tenant=a"
+        ));
+    }
+
+    #[test]
+    fn resource_comparison_keeps_everything_but_scheme_host_and_empty_path_strict() {
+        for (expected, advertised) in [
+            ("https://mcp.miro.com", "https://mcp.miro.com/mcp"),
+            ("https://mcp.example.com/mcp", "https://mcp.example.com/mcp/"),
+            ("https://mcp.example.com/mcp", "https://mcp.example.com/MCP"),
+            ("https://mcp.example.com", "https://mcp.example.com:8443"),
+            ("https://mcp.example.com", "http://mcp.example.com"),
+            ("https://mcp.example.com", "https://mcp.example.org"),
+            ("https://mcp.example.com", "https://mcp.example.com.evil.dev/"),
+            ("https://mcp.example.com/mcp?a=1", "https://mcp.example.com/mcp?a=2"),
+            ("https://mcp.example.com", "https://user@mcp.example.com/"),
+            ("https://mcp.example.com", "mcp.example.com"),
+        ] {
+            assert!(
+                !same_resource(expected, advertised),
+                "{expected} must not match {advertised}"
+            );
+        }
+    }
+
+    #[test]
+    fn miros_protected_resource_document_validates_for_the_configured_bare_origin() {
+        let metadata: ProtectedResource = serde_json::from_str(MIRO_PROTECTED_RESOURCE).unwrap();
+        let (issuer, scope) = validated_protected_resource("https://mcp.miro.com", metadata)
+            .expect("the trailing slash is the same resource");
+        assert_eq!(issuer, "https://mcp.miro.com/");
+        assert_eq!(scope.as_deref(), Some("boards:read boards:write openid email"));
+    }
+
+    #[test]
+    fn a_resource_mismatch_names_both_resources() {
+        let metadata = ProtectedResource {
+            resource: Some("https://other.example.com/mcp".into()),
+            authorization_servers: Some(vec!["https://auth.example.com".into()]),
+            scopes_supported: None,
+        };
+        let error =
+            validated_protected_resource("https://mcp.example.com/mcp", metadata).unwrap_err();
+        assert!(error.contains("https://other.example.com/mcp"), "{error}");
+        assert!(error.contains("https://mcp.example.com/mcp"), "{error}");
+    }
+
+    #[test]
+    fn secret_only_servers_are_registered_as_confidential_clients() {
+        let advertised = |json: &str| {
+            serde_json::from_str::<AsMeta>(json)
+                .unwrap()
+                .token_endpoint_auth_methods_supported
+        };
+        let miro = advertised(MIRO_AUTHORIZATION_SERVER);
+        assert_eq!(
+            registration_auth_method(miro.as_deref()),
+            Some(ClientAuthMethod::ClientSecretBasic)
+        );
+        let figma = advertised(FIGMA_AUTHORIZATION_SERVER);
+        assert_eq!(
+            registration_auth_method(figma.as_deref()),
+            Some(ClientAuthMethod::ClientSecretBasic)
+        );
+        assert_eq!(
+            registration_auth_method(Some(&methods(&["client_secret_post"]))),
+            Some(ClientAuthMethod::ClientSecretPost)
+        );
+    }
+
+    #[test]
+    fn servers_that_allow_a_public_client_keep_registering_one() {
+        assert_eq!(registration_auth_method(None), None);
+        assert_eq!(registration_auth_method(Some(&[])), None);
+        assert_eq!(
+            registration_auth_method(Some(&methods(&["client_secret_basic", "none"]))),
+            None
+        );
+        assert_eq!(
+            registration_auth_method(Some(&methods(&["private_key_jwt"]))),
+            None
+        );
+    }
+
+    #[test]
+    fn the_registration_request_names_the_method_it_wants() {
+        let public = dcr_request_body("http://127.0.0.1:1/callback", None);
+        assert_eq!(public["token_endpoint_auth_method"], "none");
+        let confidential = dcr_request_body(
+            "http://127.0.0.1:1/callback",
+            Some(ClientAuthMethod::ClientSecretPost),
+        );
+        assert_eq!(
+            confidential["token_endpoint_auth_method"],
+            "client_secret_post"
+        );
+        assert_eq!(confidential["client_name"], "Toolport");
+    }
+
+    fn dcr(json: serde_json::Value) -> DcrResponse {
+        serde_json::from_value(json).unwrap()
+    }
+
+    #[test]
+    fn a_registration_without_a_secret_is_a_public_client() {
+        let client = registered_client(
+            dcr(serde_json::json!({"client_id": "c-1"})),
+            Some(ClientAuthMethod::ClientSecretBasic),
+        )
+        .unwrap();
+        assert_eq!(client.client_id, "c-1");
+        assert_eq!(client.secret, None);
+        let empty = registered_client(
+            dcr(serde_json::json!({"client_id": "c-1", "client_secret": ""})),
+            None,
+        )
+        .unwrap();
+        assert_eq!(empty.secret, None);
+    }
+
+    #[test]
+    fn a_returned_secret_is_kept_with_the_method_the_server_registered() {
+        let named = registered_client(
+            dcr(serde_json::json!({
+                "client_id": "c-1",
+                "client_secret": "s3cret",
+                "token_endpoint_auth_method": "client_secret_post",
+            })),
+            Some(ClientAuthMethod::ClientSecretBasic),
+        )
+        .unwrap();
+        assert_eq!(
+            named.secret,
+            Some(ClientSecret {
+                secret: "s3cret".into(),
+                method: ClientAuthMethod::ClientSecretPost,
+            })
+        );
+        let unnamed = registered_client(
+            dcr(serde_json::json!({"client_id": "c-1", "client_secret": "s3cret"})),
+            Some(ClientAuthMethod::ClientSecretPost),
+        )
+        .unwrap();
+        assert_eq!(unnamed.secret.unwrap().method, ClientAuthMethod::ClientSecretPost);
+        let defaulted = registered_client(
+            dcr(serde_json::json!({"client_id": "c-1", "client_secret": "s3cret"})),
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            defaulted.secret.unwrap().method,
+            ClientAuthMethod::ClientSecretBasic
+        );
+    }
+
+    #[test]
+    fn a_secret_registered_for_an_unusable_method_is_refused() {
+        let error = registered_client(
+            dcr(serde_json::json!({
+                "client_id": "c-1",
+                "client_secret": "s3cret",
+                "token_endpoint_auth_method": "private_key_jwt",
+            })),
+            None,
+        )
+        .map(|_| ())
+        .unwrap_err();
+        assert!(error.contains("private_key_jwt"), "{error}");
+        assert!(!error.contains("s3cret"), "{error}");
+    }
+
+    #[test]
+    fn a_client_secret_never_shows_in_debug_output() {
+        let credential = ClientSecret {
+            secret: "s3cret-value".into(),
+            method: ClientAuthMethod::ClientSecretBasic,
+        };
+        let shown = format!("{credential:?}");
+        assert!(!shown.contains("s3cret-value"), "{shown}");
+    }
+
+    #[test]
+    fn a_figma_403_explains_the_allowlist_and_the_direct_entry() {
+        let error = registration_error(
+            "https://api.figma.com/v1/oauth/mcp/register",
+            403,
+            r#"{"error":"forbidden"}"#,
+        );
+        assert!(error.contains("Figma only lets approved apps register"), "{error}");
+        assert!(
+            error.contains("toolportctl client direct add <server-id> --client claude-code"),
+            "{error}"
+        );
+        assert!(error.contains("HTTP 403"), "{error}");
+        assert_eq!(
+            name_server(error, "figma-mcp-server")
+                .matches("direct add figma-mcp-server --client claude-code")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn a_403_from_another_host_reports_its_status_and_body() {
+        let error = registration_error(
+            "https://auth.example.com/register",
+            403,
+            r#"{"error":"invalid_client_metadata","error_description":"client_name not allowed"}"#,
+        );
+        assert!(!error.contains("Figma"), "{error}");
+        assert!(error.contains("https://auth.example.com/register"), "{error}");
+        assert!(error.contains("HTTP 403"), "{error}");
+        assert!(error.contains("client_name not allowed"), "{error}");
+    }
+
+    #[test]
+    fn a_figma_status_other_than_403_is_reported_plainly() {
+        let error = registration_error("https://api.figma.com/v1/oauth/mcp/register", 500, "");
+        assert!(!error.contains("approved apps"), "{error}");
+        assert_eq!(
+            error,
+            "client registration at https://api.figma.com/v1/oauth/mcp/register returned HTTP 500"
+        );
+    }
+
+    #[test]
+    fn a_registration_error_body_is_cut_to_500_characters() {
+        let body = "error ".repeat(400);
+        let error = registration_error("https://auth.example.com/register", 400, &body);
+        let excerpt = error
+            .split_once("HTTP 400: ")
+            .map(|(_, rest)| rest)
+            .unwrap();
+        assert!(excerpt.ends_with("..."), "{excerpt}");
+        assert_eq!(excerpt.chars().count(), ERROR_BODY_LIMIT + 3);
+    }
+
+    #[test]
+    fn a_registration_error_body_is_redacted_of_secrets() {
+        let error = registration_error(
+            "https://auth.example.com/register",
+            400,
+            r#"{"error":"invalid_client","client_secret":"Zx9Qw8Er7Ty6Ui5Op4As3Df2Gh1Jk0","registration_access_token":"eyJhbGciOiJIUzI1NiJ9.abcdefghijklmnopqrstuvwxyz0123456789","detail":"Bearer sk-live-4eC39HqLyjWDarjtT1zdp7dc"}"#,
+        );
+        for leaked in [
+            "Zx9Qw8Er7Ty6Ui5Op4As3Df2Gh1Jk0",
+            "eyJhbGciOiJIUzI1NiJ9",
+            "sk-live-4eC39HqLyjWDarjtT1zdp7dc",
+        ] {
+            assert!(!error.contains(leaked), "{leaked} leaked: {error}");
+        }
+        assert!(error.contains("invalid_client"), "{error}");
+    }
+
+    struct Recorded {
+        headers: std::collections::HashMap<String, String>,
+        body: String,
+    }
+
+    /// Serves one canned response and hands back what the single request carried.
+    fn serve_once(
+        status: u16,
+        body: &'static str,
+    ) -> (String, std::thread::JoinHandle<Recorded>) {
+        let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
+        let address = server.server_addr().to_ip().unwrap();
+        let handle = std::thread::spawn(move || {
+            let mut request = server
+                .recv_timeout(std::time::Duration::from_secs(5))
+                .unwrap()
+                .expect("one request");
+            let headers = request
+                .headers()
+                .iter()
+                .map(|h| {
+                    (
+                        h.field.as_str().as_str().to_ascii_lowercase(),
+                        h.value.as_str().to_string(),
+                    )
+                })
+                .collect();
+            let mut text = String::new();
+            request.as_reader().read_to_string(&mut text).unwrap();
+            request
+                .respond(
+                    tiny_http::Response::from_string(body)
+                        .with_status_code(status)
+                        .with_header(
+                            tiny_http::Header::from_bytes(b"Content-Type", b"application/json")
+                                .unwrap(),
+                        ),
+                )
+                .unwrap();
+            Recorded {
+                headers,
+                body: text,
+            }
+        });
+        (format!("http://{address}"), handle)
+    }
+
+    #[test]
+    fn registering_against_a_secret_only_server_sends_the_method_and_keeps_the_secret() {
+        let (origin, handle) = serve_once(
+            201,
+            r#"{"client_id":"c-1","client_secret":"FAKE-registered-secret","token_endpoint_auth_method":"client_secret_basic"}"#,
+        );
+        let client = register_client(
+            &format!("{origin}/register"),
+            "http://127.0.0.1:9/callback",
+            Some(ClientAuthMethod::ClientSecretBasic),
+            false,
+        )
+        .map_err(|e| e.to_string())
+        .expect("registration succeeds");
+        let sent: serde_json::Value = serde_json::from_str(&handle.join().unwrap().body).unwrap();
+        assert_eq!(sent["token_endpoint_auth_method"], "client_secret_basic");
+        assert_eq!(client.client_id, "c-1");
+        assert_eq!(
+            client.secret,
+            Some(ClientSecret {
+                secret: "FAKE-registered-secret".into(),
+                method: ClientAuthMethod::ClientSecretBasic,
+            })
+        );
+    }
+
+    #[test]
+    fn a_refused_registration_surfaces_the_status_and_the_redacted_body() {
+        let (origin, handle) = serve_once(
+            400,
+            r#"{"error":"invalid_client_metadata","error_description":"token_endpoint_auth_method none is not allowed","client_secret":"FAKE-echoed-secret-0123456789abcdef"}"#,
+        );
+        let error = match register_client(
+            &format!("{origin}/register"),
+            "http://127.0.0.1:9/callback",
+            None,
+            false,
+        ) {
+            Err(error) => error,
+            Ok(_) => panic!("a 400 must fail registration"),
+        };
+        handle.join().unwrap();
+        assert!(error.contains("HTTP 400"), "{error}");
+        assert!(error.contains("invalid_client_metadata"), "{error}");
+        assert!(error.contains("none is not allowed"), "{error}");
+        assert!(!error.contains("FAKE-echoed-secret"), "{error}");
+    }
+
+    fn token_json() -> &'static str {
+        r#"{"access_token":"FAKE-access","refresh_token":"FAKE-refresh","expires_in":3600}"#
+    }
+
+    fn secret_of(method: ClientAuthMethod) -> ClientSecret {
+        ClientSecret {
+            secret: "FAKE-client-secret".into(),
+            method,
+        }
+    }
+
+    #[test]
+    fn the_code_exchange_authenticates_a_confidential_client_by_its_method() {
+        let (origin, handle) = serve_once(200, token_json());
+        exchange_code(
+            &format!("{origin}/token"),
+            "client:1",
+            Some(&secret_of(ClientAuthMethod::ClientSecretBasic)),
+            "http://127.0.0.1:9/callback",
+            "code-1",
+            "verifier-1",
+            "https://mcp.miro.com/",
+            false,
+        )
+        .map_err(|e| e.to_string())
+        .expect("exchange succeeds");
+        let request = handle.join().unwrap();
+        assert_eq!(
+            decode_basic(&request.headers["authorization"]),
+            "client%3A1:FAKE-client-secret"
+        );
+        let form: std::collections::HashMap<String, String> =
+            url::form_urlencoded::parse(request.body.as_bytes())
+                .into_owned()
+                .collect();
+        assert!(!form.contains_key("client_secret"), "{form:?}");
+        assert!(!form.contains_key("client_id"), "{form:?}");
+        assert_eq!(form["code"], "code-1");
+        assert_eq!(form["code_verifier"], "verifier-1");
+        assert_eq!(form["resource"], "https://mcp.miro.com/");
+    }
+
+    #[test]
+    fn the_code_exchange_can_send_the_secret_in_the_body() {
+        let (origin, handle) = serve_once(200, token_json());
+        exchange_code(
+            &format!("{origin}/token"),
+            "client-1",
+            Some(&secret_of(ClientAuthMethod::ClientSecretPost)),
+            "http://127.0.0.1:9/callback",
+            "code-1",
+            "verifier-1",
+            "https://mcp.example.com",
+            false,
+        )
+        .map_err(|e| e.to_string())
+        .expect("exchange succeeds");
+        let request = handle.join().unwrap();
+        assert!(!request.headers.contains_key("authorization"));
+        let form: std::collections::HashMap<String, String> =
+            url::form_urlencoded::parse(request.body.as_bytes())
+                .into_owned()
+                .collect();
+        assert_eq!(form["client_id"], "client-1");
+        assert_eq!(form["client_secret"], "FAKE-client-secret");
+    }
+
+    #[test]
+    fn a_public_client_still_sends_only_its_id() {
+        let (origin, handle) = serve_once(200, token_json());
+        exchange_code(
+            &format!("{origin}/token"),
+            "client-1",
+            None,
+            "http://127.0.0.1:9/callback",
+            "code-1",
+            "verifier-1",
+            "https://mcp.example.com",
+            false,
+        )
+        .map_err(|e| e.to_string())
+        .expect("exchange succeeds");
+        let request = handle.join().unwrap();
+        assert!(!request.headers.contains_key("authorization"));
+        assert!(!request.body.contains("client_secret"), "{}", request.body);
+        assert!(request.body.contains("client_id=client-1"), "{}", request.body);
+    }
+
+    #[test]
+    fn a_refresh_authenticates_a_confidential_client_and_redacts_failures() {
+        let (origin, handle) = serve_once(200, token_json());
+        refresh(
+            &format!("{origin}/token"),
+            "client-1",
+            Some(&secret_of(ClientAuthMethod::ClientSecretBasic)),
+            "FAKE-refresh-in",
+            Some("https://mcp.miro.com/"),
+            false,
+        )
+        .map_err(|e| e.to_string())
+        .expect("refresh succeeds");
+        let request = handle.join().unwrap();
+        assert_eq!(
+            decode_basic(&request.headers["authorization"]),
+            "client-1:FAKE-client-secret"
+        );
+        assert!(request.body.contains("refresh_token=FAKE-refresh-in"));
+        assert!(!request.body.contains("client_secret"));
+
+        let (origin, handle) = serve_once(
+            401,
+            r#"{"error":"invalid_client","error_description":"bad secret FAKE-client-secret"}"#,
+        );
+        let error = match refresh(
+            &format!("{origin}/token"),
+            "client-1",
+            Some(&secret_of(ClientAuthMethod::ClientSecretPost)),
+            "FAKE-refresh-in",
+            None,
+            false,
+        ) {
+            Err(error) => error,
+            Ok(_) => panic!("a 401 must fail the refresh"),
+        };
+        handle.join().unwrap();
+        assert!(error.contains("invalid_client"), "{error}");
+        assert!(!error.contains("FAKE-client-secret"), "{error}");
+    }
+
+    type Route = (&'static str, u16, &'static str, String);
+
+    fn bind() -> (tiny_http::Server, String) {
+        let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
+        let origin = format!("http://{}", server.server_addr().to_ip().unwrap());
+        (server, origin)
+    }
+
+    /// Answers by path until idle; an unlisted path is a 404.
+    fn spawn_routes(
+        server: tiny_http::Server,
+        routes: Vec<Route>,
+    ) -> std::thread::JoinHandle<Vec<String>> {
+        std::thread::spawn(move || {
+            let mut seen = Vec::new();
+            while let Ok(Some(request)) =
+                server.recv_timeout(std::time::Duration::from_millis(300))
+            {
+                seen.push(request.url().to_string());
+                let response = match routes.iter().find(|(path, ..)| *path == request.url()) {
+                    Some((_, status, content_type, body)) => {
+                        tiny_http::Response::from_string(body.as_str())
+                            .with_status_code(*status)
+                            .with_header(
+                                tiny_http::Header::from_bytes(
+                                    b"Content-Type",
+                                    content_type.as_bytes(),
+                                )
+                                .unwrap(),
+                            )
+                    }
+                    None => tiny_http::Response::from_string("").with_status_code(404),
+                };
+                request.respond(response).unwrap();
+            }
+            seen
+        })
+    }
+
+    fn serve_routes(routes: Vec<Route>) -> (String, std::thread::JoinHandle<Vec<String>>) {
+        let (server, origin) = bind();
+        (origin, spawn_routes(server, routes))
+    }
+
+    fn json_route(path: &'static str, body: serde_json::Value) -> Route {
+        (path, 200, "application/json", body.to_string())
+    }
+
+    const RESOURCE_WELL_KNOWN: &str = "/.well-known/oauth-protected-resource";
+    const AS_WELL_KNOWN: &str = "/.well-known/oauth-authorization-server";
+
+    fn authorization_server(origin: &str, issuer: &str) -> serde_json::Value {
+        serde_json::json!({
+            "issuer": issuer,
+            "authorization_endpoint": format!("{origin}/authorize"),
+            "token_endpoint": format!("{origin}/token"),
+            "registration_endpoint": format!("{origin}/register"),
+            "token_endpoint_auth_methods_supported":
+                ["client_secret_post", "client_secret_basic"],
+        })
+    }
+
+    #[test]
+    fn discovery_accepts_the_slash_form_a_server_publishes_for_its_bare_origin() {
+        let (server, origin) = bind();
+        let slashed = format!("{origin}/");
+        let routes = vec![
+            json_route(
+                RESOURCE_WELL_KNOWN,
+                serde_json::json!({"resource": slashed, "authorization_servers": [slashed]}),
+            ),
+            json_route(AS_WELL_KNOWN, authorization_server(&origin, &slashed)),
+        ];
+        let handle = spawn_routes(server, routes);
+        let endpoints = discover_detailed(&origin).expect("the slash form is the same resource");
+        handle.join().unwrap();
+        assert_eq!(endpoints.resource, slashed);
+        assert_eq!(endpoints.issuer, slashed);
+        assert_eq!(
+            registration_auth_method(endpoints.token_endpoint_auth_methods_supported.as_deref()),
+            Some(ClientAuthMethod::ClientSecretBasic)
+        );
+    }
+
+    #[test]
+    fn a_server_with_no_oauth_metadata_at_all_is_not_a_discovery_failure() {
+        let (origin, handle) = serve_routes(vec![]);
+        let error = discover_detailed(&origin).map(|_| ()).unwrap_err();
+        handle.join().unwrap();
+        assert_eq!(error, DiscoveryError::NoOAuth);
+        assert!(error.message().contains("doesn't advertise OAuth"));
+    }
+
+    #[test]
+    fn a_4xx_on_both_well_known_paths_still_means_no_oauth() {
+        let denied = |path| (path, 403, "application/json", "{}".to_string());
+        let (origin, handle) =
+            serve_routes(vec![denied(RESOURCE_WELL_KNOWN), denied(AS_WELL_KNOWN)]);
+        let result = discover_detailed(&origin);
+        handle.join().unwrap();
+        assert_eq!(result.map(|_| ()).unwrap_err(), DiscoveryError::NoOAuth);
+    }
+
+    #[test]
+    fn an_authorization_server_page_that_is_not_json_is_a_discovery_failure() {
+        let (origin, handle) = serve_routes(vec![(
+            AS_WELL_KNOWN,
+            200,
+            "text/html",
+            "<html>app</html>".to_string(),
+        )]);
+        let error = discover_detailed(&origin).map(|_| ()).unwrap_err();
+        handle.join().unwrap();
+        let DiscoveryError::Failed(reason) = error else {
+            panic!("a 200 that is not metadata is not an absent document");
+        };
+        assert!(reason.contains("not valid authorization-server metadata"), "{reason}");
+    }
+
+    #[test]
+    fn a_resource_mismatch_is_a_discovery_failure_with_the_real_text() {
+        let (origin, handle) = serve_routes(vec![json_route(
+            RESOURCE_WELL_KNOWN,
+            serde_json::json!({
+                "resource": "https://elsewhere.example.com/",
+                "authorization_servers": ["https://auth.example.com"],
+            }),
+        )]);
+        let error = discover_detailed(&origin).map(|_| ()).unwrap_err();
+        handle.join().unwrap();
+        let DiscoveryError::Failed(reason) = error else {
+            panic!("a rejected document is a failure, not an absent one");
+        };
+        assert!(reason.contains("different resource"), "{reason}");
+        assert!(reason.contains("https://elsewhere.example.com/"), "{reason}");
+    }
+
+    #[test]
+    fn an_unreachable_authorization_server_document_is_a_discovery_failure() {
+        let (origin, handle) = serve_routes(vec![(
+            AS_WELL_KNOWN,
+            503,
+            "application/json",
+            "{}".to_string(),
+        )]);
+        let error = discover_detailed(&origin).map(|_| ()).unwrap_err();
+        handle.join().unwrap();
+        let DiscoveryError::Failed(reason) = error else {
+            panic!("a 503 is not proof that OAuth is absent");
+        };
+        assert!(reason.contains("HTTP 503"), "{reason}");
+        assert!(reason.contains(AS_WELL_KNOWN), "{reason}");
+    }
+
+    #[test]
+    fn unusable_authorization_server_metadata_is_a_discovery_failure() {
+        let (origin, handle) = serve_routes(vec![json_route(
+            AS_WELL_KNOWN,
+            serde_json::json!({"issuer": "http://127.0.0.1"}),
+        )]);
+        let error = discover_detailed(&origin).map(|_| ()).unwrap_err();
+        handle.join().unwrap();
+        let DiscoveryError::Failed(reason) = error else {
+            panic!("metadata that exists but is not metadata is a failure");
+        };
+        assert!(reason.contains("authorization_endpoint"), "{reason}");
+    }
+
+    #[test]
+    fn an_issuer_mismatch_is_a_discovery_failure_naming_both_issuers() {
+        let (origin, handle) = serve_routes(vec![json_route(
+            AS_WELL_KNOWN,
+            authorization_server("https://as.example.com", "https://as.example.com"),
+        )]);
+        let error = discover_detailed(&origin).map(|_| ()).unwrap_err();
+        handle.join().unwrap();
+        let DiscoveryError::Failed(reason) = error else {
+            panic!("a mismatched issuer is a failure");
+        };
+        assert!(reason.contains("issuer mismatch"), "{reason}");
+        assert!(reason.contains("https://as.example.com"), "{reason}");
+    }
+
+    #[test]
+    fn a_named_authorization_server_without_metadata_is_a_discovery_failure() {
+        let (server, origin) = bind();
+        let handle = spawn_routes(
+            server,
+            vec![json_route(
+                RESOURCE_WELL_KNOWN,
+                serde_json::json!({
+                    "resource": format!("{origin}/"),
+                    "authorization_servers": [origin],
+                }),
+            )],
+        );
+        let error = discover_detailed(&origin).map(|_| ()).unwrap_err();
+        handle.join().unwrap();
+        let DiscoveryError::Failed(reason) = error else {
+            panic!("the resource names an authorization server, so OAuth is advertised");
+        };
+        assert!(reason.contains("publishes no authorization-server metadata"), "{reason}");
+    }
+
+    #[test]
+    fn discover_keeps_the_string_contract_for_its_other_callers() {
+        let (origin, handle) = serve_routes(vec![]);
+        let error = discover(&origin).map(|_| ()).unwrap_err();
+        handle.join().unwrap();
+        assert_eq!(error, DiscoveryError::NoOAuth.message());
     }
 }

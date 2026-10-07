@@ -17,7 +17,10 @@ struct Cfg {
     access_ttl: u64,
     issue_refresh: bool,
     static_tokens: Vec<String>,
+    secret_methods: Option<Vec<String>>,
 }
+
+const CLIENT_SECRET: &str = "FAKE-client-secret-1";
 
 #[derive(Default)]
 struct State {
@@ -32,6 +35,8 @@ struct State {
     pkce_ok: Vec<bool>,
     mcp_auth: Vec<Option<String>>,
     oauth_paths: Vec<String>,
+    registered_methods: Vec<String>,
+    token_auth: Vec<String>,
 }
 
 struct Mock {
@@ -81,6 +86,7 @@ impl Mock {
             access_ttl,
             issue_refresh,
             static_tokens: static_tokens.iter().map(|t| t.to_string()).collect(),
+            secret_methods: None,
         }));
         let state = Arc::new(Mutex::new(State::default()));
         let stop = Arc::new(AtomicBool::new(false));
@@ -104,6 +110,19 @@ impl Mock {
             stop,
             handle: Some(handle),
         }
+    }
+
+    fn advertise_secret_methods(&self, methods: &[&str]) {
+        self.cfg.lock().unwrap().secret_methods =
+            Some(methods.iter().map(|m| m.to_string()).collect());
+    }
+
+    fn registered_methods(&self) -> Vec<String> {
+        self.state.lock().unwrap().registered_methods.clone()
+    }
+
+    fn token_auth(&self) -> Vec<String> {
+        self.state.lock().unwrap().token_auth.clone()
     }
 
     fn set_ttl(&self, ttl: u64) {
@@ -222,21 +241,45 @@ fn handle(
             200,
             json!({"resource": mcp_url, "authorization_servers": [origin]}),
         ),
-        "/.well-known/oauth-authorization-server" => json_reply(
-            200,
-            json!({
+        "/.well-known/oauth-authorization-server" => {
+            let mut metadata = json!({
                 "issuer": origin,
                 "authorization_endpoint": format!("{origin}/authorize"),
                 "token_endpoint": format!("{origin}/token"),
                 "registration_endpoint": format!("{origin}/register"),
                 "code_challenge_methods_supported": ["S256"],
                 "grant_types_supported": ["authorization_code", "refresh_token"],
-            }),
-        ),
+            });
+            if let Some(methods) = &cfg.secret_methods {
+                metadata["token_endpoint_auth_methods_supported"] = json!(methods);
+            }
+            json_reply(200, metadata)
+        }
         "/register" => {
             st.oauth_paths.push(path.clone());
             st.registrations += 1;
-            json_reply(201, json!({"client_id": "FAKE-client-1"}))
+            let requested: Value = serde_json::from_str(&body).unwrap_or_default();
+            let method = requested["token_endpoint_auth_method"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string();
+            st.registered_methods.push(method.clone());
+            if cfg.secret_methods.is_some() && method == "none" {
+                json_reply(
+                    400,
+                    json!({"error": "invalid_client_metadata",
+                           "error_description": "public clients are not allowed"}),
+                )
+            } else if cfg.secret_methods.is_some() {
+                json_reply(
+                    201,
+                    json!({"client_id": "FAKE-client-1",
+                           "client_secret": CLIENT_SECRET,
+                           "token_endpoint_auth_method": method}),
+                )
+            } else {
+                json_reply(201, json!({"client_id": "FAKE-client-1"}))
+            }
         }
         "/authorize" => {
             st.oauth_paths.push(path.clone());
@@ -274,6 +317,43 @@ fn handle(
                     .collect();
             let grant = form.get("grant_type").cloned().unwrap_or_default();
             st.grants.push(grant.clone());
+            let basic = header(&request, "Authorization").and_then(|value| {
+                use base64::Engine;
+                let encoded = value.strip_prefix("Basic ")?.to_string();
+                base64::engine::general_purpose::STANDARD
+                    .decode(encoded)
+                    .ok()
+                    .and_then(|raw| String::from_utf8(raw).ok())
+            });
+            let used = if basic.as_deref() == Some(&format!("FAKE-client-1:{CLIENT_SECRET}")) {
+                "basic"
+            } else if form.get("client_secret").map(String::as_str) == Some(CLIENT_SECRET)
+                && form.get("client_id").map(String::as_str) == Some("FAKE-client-1")
+            {
+                "post"
+            } else if basic.is_some() || form.contains_key("client_secret") {
+                "wrong"
+            } else {
+                "none"
+            };
+            st.token_auth.push(used.to_string());
+            let advertised = cfg
+                .secret_methods
+                .as_ref()
+                .is_none_or(|methods| match used {
+                    "basic" => methods.iter().any(|m| m == "client_secret_basic"),
+                    "post" => methods.iter().any(|m| m == "client_secret_post"),
+                    _ => false,
+                });
+            if !advertised {
+                let reply = json_reply(
+                    401,
+                    json!({"error": "invalid_client",
+                           "error_description": "client authentication failed"}),
+                );
+                let _ = request.respond(reply);
+                return;
+            }
             match grant.as_str() {
                 "authorization_code" => {
                     let code = form.get("code").cloned().unwrap_or_default();
@@ -461,6 +541,62 @@ fn interactive_connect_uses_pkce_and_vaults_the_tokens() {
 }
 
 #[test]
+fn a_public_server_is_still_registered_without_a_secret() {
+    with_world(|| {
+        let mock = Mock::start(3600, true, &[]);
+        let server = remote("figma", &mock.mcp_url);
+        sign_in(&server);
+        assert_eq!(mock.registered_methods(), ["none"]);
+        assert_eq!(mock.token_auth(), ["none"]);
+        let state: Value =
+            serde_json::from_str(&vaulted("figma", "__oauth_state__").unwrap()).unwrap();
+        assert!(state.get("client_secret").is_none(), "{state}");
+        assert!(state.get("client_auth_method").is_none(), "{state}");
+    });
+}
+
+#[test]
+fn a_secret_only_server_gets_a_confidential_client_that_authenticates_every_token_call() {
+    with_world(|| {
+        let mock = Mock::start(3600, true, &[]);
+        mock.advertise_secret_methods(&["client_secret_post", "client_secret_basic"]);
+        let server = remote("miro", &mock.mcp_url);
+        sign_in(&server);
+        assert_eq!(mock.registered_methods(), ["client_secret_basic"]);
+        let state: Value =
+            serde_json::from_str(&vaulted("miro", "__oauth_state__").unwrap()).unwrap();
+        assert_eq!(state["client_secret"], CLIENT_SECRET);
+        assert_eq!(state["client_auth_method"], "client_secret_basic");
+
+        mock.expire_access_tokens();
+        let mut ds = crate::remote::connect_remote(&server).unwrap();
+        ds.call("echo", json!({"text": "FAKE-ping"})).unwrap();
+
+        assert_eq!(mock.grants(), ["authorization_code", "refresh_token"]);
+        assert_eq!(mock.token_auth(), ["basic", "basic"]);
+        let state: Value =
+            serde_json::from_str(&vaulted("miro", "__oauth_state__").unwrap()).unwrap();
+        assert_eq!(state["client_secret"], CLIENT_SECRET, "refresh keeps the secret");
+        assert_not_on_disk(&[CLIENT_SECRET]);
+    });
+}
+
+#[test]
+fn a_post_only_server_receives_the_secret_in_the_form_body() {
+    with_world(|| {
+        let mock = Mock::start(3600, true, &[]);
+        mock.advertise_secret_methods(&["client_secret_post"]);
+        let server = remote("miro", &mock.mcp_url);
+        sign_in(&server);
+        assert_eq!(mock.registered_methods(), ["client_secret_post"]);
+        mock.expire_access_tokens();
+        let mut ds = crate::remote::connect_remote(&server).unwrap();
+        ds.call("echo", json!({"text": "FAKE-ping"})).unwrap();
+        assert_eq!(mock.token_auth(), ["post", "post"]);
+    });
+}
+
+#[test]
 fn token_is_refreshed_before_it_expires() {
     with_world(|| {
         let mock = Mock::start(30, true, &[]);
@@ -593,6 +729,7 @@ fn expiry_without_a_refresh_token_walks_expiring_then_needs_reauth() {
             None,
             now - 3600,
             Some(now - 10),
+            None,
         )
         .unwrap();
         let state = tracked(&probe("clickup"));
@@ -769,9 +906,9 @@ fn auth_login_without_a_browser_leaves_the_consent_url_to_the_caller() {
 }
 
 /// MIG-AUTH-11 regression: a `GatewayState` remote (generic vault-secret server, MIG-AUTH-9)
-/// whose vendor is known to authenticate with a static API token (e.g. miro) must not be
+/// whose vendor is known to authenticate with a static API token must not be
 /// hinted with the dead-end `auth login` (`login::plan` refuses it); it needs `secret set`.
-/// `revenuecat` stands in for miro here (`vendors.rs`'s `force_kind: Some("token")`), which
+/// `revenuecat` is such a vendor (`vendors.rs`'s `force_kind: Some("token")`), which
 /// classifies deterministically without any live network probe, keeping this test hermetic.
 #[test]
 fn a_static_token_vendor_remote_is_hinted_with_secret_set_not_auth_login() {

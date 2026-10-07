@@ -9106,6 +9106,10 @@ fn auth_probe_summary(info: &crate::vendors::AuthInfo) -> String {
         "none" => "This server responded without authentication.".to_string(),
         "oauth" => "This server supports browser sign-in.".to_string(),
         "token" => "This server expects a bearer token.".to_string(),
+        "discovery_error" => format!(
+            "Browser sign-in discovery failed: {}.",
+            info.error.as_deref().unwrap_or("no details")
+        ),
         _ => "Toolport could not determine what authentication this server wants.".to_string(),
     };
     if let Some(vendor) = info.vendor.as_deref() {
@@ -11824,6 +11828,7 @@ mod tests {
             vendor: None,
             token_url: None,
             instructions: None,
+            error: None,
         };
         assert_eq!(
             auth_probe_summary(&info("token")),
@@ -11838,6 +11843,7 @@ mod tests {
             vendor: Some("Stripe".to_string()),
             token_url: Some("https://example.com/keys".to_string()),
             instructions: Some("Use a restricted key.".to_string()),
+            error: None,
         };
         assert_eq!(
             auth_probe_summary(&vendor),

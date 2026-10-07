@@ -62,6 +62,15 @@ struct OAuthState {
     /// Optional because OAuth providers are allowed to omit the lifetime.
     #[serde(default)]
     expires_at: Option<u64>,
+    /// Secret of the confidential client dynamic registration minted, for
+    /// servers that offer no public-client method. Vaulted with the refresh
+    /// token it authenticates.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    client_secret: Option<String>,
+    /// How the token endpoint wants `client_secret`; absent means
+    /// `client_secret_basic`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    client_auth_method: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -109,6 +118,7 @@ pub fn store_oauth_state(
     scope: Option<String>,
     issued_at: u64,
     expires_at: Option<u64>,
+    client_secret: Option<oauth::ClientSecret>,
 ) -> Result<(), String> {
     let state = OAuthState {
         issuer,
@@ -119,6 +129,10 @@ pub fn store_oauth_state(
         scope,
         issued_at: Some(issued_at),
         expires_at,
+        client_auth_method: client_secret
+            .as_ref()
+            .map(|credential| credential.method.as_str().to_string()),
+        client_secret: client_secret.map(|credential| credential.secret),
     };
     let json = serde_json::to_string(&state).map_err(|e| e.to_string())?;
     secrets::set_secret(server_id, STATE_KEY, &json)
@@ -158,6 +172,27 @@ fn load_cc_state(server_id: &str) -> Result<Option<ClientCredentialsState>, Stri
         secrets::get_secret_result(server_id, CC_STATE_KEY),
         "client-credentials state",
     )
+}
+
+fn stored_client_secret(state: &OAuthState) -> Result<Option<oauth::ClientSecret>, String> {
+    let Some(secret) = state.client_secret.as_deref().filter(|s| !s.is_empty()) else {
+        return Ok(None);
+    };
+    let method = match state.client_auth_method.as_deref() {
+        None => oauth::ClientAuthMethod::ClientSecretBasic,
+        Some(stored) => oauth::ClientAuthMethod::parse(stored)
+            .filter(|method| method.is_implemented())
+            .ok_or_else(|| {
+                format!(
+                    "the stored OAuth client authenticates with {stored}, which Toolport \
+                     cannot use; needs authentication"
+                )
+            })?,
+    };
+    Ok(Some(oauth::ClientSecret {
+        secret: secret.to_string(),
+        method,
+    }))
 }
 
 fn issuer_bound_token_endpoint<'a>(
@@ -621,9 +656,11 @@ fn refresh_token_with_expiry(server_id: &str) -> Result<RefreshedToken, String> 
     let block_private = oauth::host_of_url(token_endpoint)
         .map(|h| !oauth::host_is_definitely_private(&h))
         .unwrap_or(true);
+    let client_secret = stored_client_secret(&state)?;
     let tokens = oauth::refresh(
         token_endpoint,
         &state.client_id,
+        client_secret.as_ref(),
         rt,
         state.resource.as_deref(),
         block_private,
@@ -641,6 +678,8 @@ fn refresh_token_with_expiry(server_id: &str) -> Result<RefreshedToken, String> 
         scope: state.scope,
         issued_at: Some(tokens.issued_at),
         expires_at: tokens.expires_at,
+        client_secret: state.client_secret,
+        client_auth_method: state.client_auth_method,
     };
     let json = serde_json::to_string(&new_state).map_err(|e| e.to_string())?;
     secrets::set_secret(server_id, STATE_KEY, &json)?;
@@ -679,10 +718,11 @@ fn reauthorize_for_scope(
         &result.token_endpoint,
         &result.client_id,
         result.refresh_token,
-        Some(resource.to_string()),
+        Some(result.resource),
         result.scope,
         result.issued_at,
         result.expires_at,
+        result.client_secret,
     )?;
     secrets::set_secret(server_id, secrets::HTTP_AUTH_KEY, &result.access_token)?;
     Ok(RefreshedToken {
@@ -1186,6 +1226,8 @@ mod tests {
             scope: None,
             issued_at: Some(1_000),
             expires_at,
+            client_secret: None,
+            client_auth_method: None,
         }
     }
 
@@ -1347,6 +1389,8 @@ mod tests {
             scope: Some("files:read".into()),
             issued_at: Some(1_000),
             expires_at,
+            client_secret: None,
+            client_auth_method: None,
         }
     }
 
@@ -1393,12 +1437,53 @@ mod tests {
     }
 
     #[test]
+    fn a_state_vaulted_before_client_secrets_parses_without_one() {
+        let state: OAuthState = serde_json::from_str(
+            r#"{"token_endpoint":"https://auth.example.com/token","client_id":"c","refresh_token":"r"}"#,
+        )
+        .unwrap();
+        assert_eq!(stored_client_secret(&state).unwrap(), None);
+    }
+
+    #[test]
+    fn a_public_client_state_never_writes_secret_fields() {
+        let json = serde_json::to_string(&oauth_state(Some(1_000), Some("rt"))).unwrap();
+        assert!(!json.contains("client_secret"), "{json}");
+        assert!(!json.contains("client_auth_method"), "{json}");
+    }
+
+    #[test]
+    fn a_stored_client_secret_defaults_to_basic_and_keeps_a_named_method() {
+        let mut state = oauth_state(Some(1_000), Some("rt"));
+        state.client_secret = Some("s3cret".into());
+        assert_eq!(
+            stored_client_secret(&state).unwrap().unwrap().method,
+            oauth::ClientAuthMethod::ClientSecretBasic
+        );
+        state.client_auth_method = Some("client_secret_post".into());
+        let credential = stored_client_secret(&state).unwrap().unwrap();
+        assert_eq!(credential.method, oauth::ClientAuthMethod::ClientSecretPost);
+        assert_eq!(credential.secret, "s3cret");
+    }
+
+    #[test]
+    fn a_stored_client_secret_with_an_unusable_method_asks_for_a_new_sign_in() {
+        let mut state = oauth_state(Some(1_000), Some("rt"));
+        state.client_secret = Some("s3cret".into());
+        state.client_auth_method = Some("private_key_jwt".into());
+        let error = stored_client_secret(&state).map(|_| ()).unwrap_err();
+        assert!(error.contains("needs authentication"), "{error}");
+        assert!(!error.contains("s3cret"), "{error}");
+    }
+
+    #[test]
     fn refresh_credentials_stay_bound_to_their_issuer() {
         let endpoints = |issuer: &str, token_endpoint: &str| oauth::Endpoints {
             issuer: issuer.into(),
             authorization_endpoint: "https://auth.example.com/authorize".into(),
             token_endpoint: token_endpoint.into(),
             registration_endpoint: None,
+            resource: "https://mcp.example.com".into(),
             scope: None,
             authorization_response_iss_parameter_supported: false,
             client_id_metadata_document_supported: false,

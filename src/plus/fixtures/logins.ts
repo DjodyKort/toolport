@@ -329,7 +329,7 @@ const entries: Array<[string, unknown]> = [
     "auth login srv-erp",
     ctlReplyFailure(
       "unsupported",
-      "acme-erp signs in with an API token, so there is no browser sign-in. Next: toolportctl secret set srv-erp ERP_API_KEY (value on stdin or --value-env <VAR>), then toolportctl auth probe --server srv-erp --force",
+      "acme-erp signs in with an API token, so there is no browser sign-in. Next: toolportctl secret set srv-erp ERP_API_KEY (value on stdin or --value-env <VAR>), then toolportctl auth probe --server srv-erp --force; in the app: Logins & secrets, Set secret, then Probe",
     ),
   ],
 ];

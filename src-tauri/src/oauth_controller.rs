@@ -412,7 +412,10 @@ pub(crate) fn authenticate_with(
     run_attempt(
         &attempt,
         &oauth_lock_path(server_id, url)?,
-        || crate::oauth::authenticate_cancellable(url, None, &attempt.cancellation),
+        || {
+            crate::oauth::authenticate_cancellable(url, None, &attempt.cancellation)
+                .map_err(|error| crate::oauth::name_server(error, server_id))
+        },
         |result| {
             let _mutation = crate::registry_controller::acquire_auth_lock(server_id)?;
             crate::remote::store_oauth_state(
@@ -421,10 +424,11 @@ pub(crate) fn authenticate_with(
                 &result.token_endpoint,
                 &result.client_id,
                 result.refresh_token,
-                Some(url.to_string()),
+                Some(result.resource),
                 result.scope,
                 result.issued_at,
                 result.expires_at,
+                result.client_secret,
             )
             .map_err(|error| could_not_finish_sign_in(&error))?;
             crate::secrets::set_secret(

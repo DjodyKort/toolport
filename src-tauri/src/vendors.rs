@@ -13,11 +13,13 @@ use crate::{oauth, remote};
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthInfo {
-    /// "none" | "oauth" | "token" | "unknown"
+    /// "none" | "oauth" | "token" | "discovery_error" | "unknown"
     pub kind: String,
     pub vendor: Option<String>,
     pub token_url: Option<String>,
     pub instructions: Option<String>,
+    /// Why OAuth discovery failed, when `kind` is "discovery_error".
+    pub error: Option<String>,
 }
 
 impl AuthInfo {
@@ -27,6 +29,7 @@ impl AuthInfo {
             vendor: None,
             token_url: None,
             instructions: None,
+            error: None,
         }
     }
 }
@@ -177,31 +180,59 @@ fn match_vendor(url: &str) -> Option<&'static Vendor> {
     })
 }
 
+/// What a server needs, with the discovery failure behind a `discovery_error`.
+struct Classified {
+    kind: &'static str,
+    error: Option<String>,
+}
+
+impl Classified {
+    fn kind(kind: &'static str) -> Self {
+        Classified { kind, error: None }
+    }
+}
+
 /// Decide what a server needs: try connecting with no auth; if it works it needs
-/// none; if it 401s, see whether OAuth is discoverable, else a token.
-fn classify(url: &str) -> String {
+/// none; if it 401s, see whether OAuth is discoverable, else a token. Only a
+/// server with no OAuth metadata at all is read as needing a token: a discovery
+/// that failed says nothing about what the server accepts.
+fn classify(url: &str) -> Classified {
     let transport = HttpTransport::with_auth(url, None);
     match DownstreamServer::connect("probe".to_string(), Box::new(transport)) {
-        Ok(_) => "none".to_string(),
-        Err(e) if remote::is_auth_error(&e) => match oauth::discover(url) {
-            Ok(ep) if ep.registration_endpoint.is_some() => "oauth".to_string(),
-            _ => "token".to_string(),
+        Ok(_) => Classified::kind("none"),
+        Err(e) if remote::is_auth_error(&e) => classify_discovery(oauth::discover_detailed(url)),
+        Err(_) => Classified::kind("unknown"),
+    }
+}
+
+fn classify_discovery(discovery: Result<oauth::Endpoints, oauth::DiscoveryError>) -> Classified {
+    match discovery {
+        Ok(endpoints)
+            if endpoints.registration_endpoint.is_some()
+                || endpoints.client_id_metadata_document_supported =>
+        {
+            Classified::kind("oauth")
+        }
+        Ok(_) | Err(oauth::DiscoveryError::NoOAuth) => Classified::kind("token"),
+        Err(oauth::DiscoveryError::Failed(reason)) => Classified {
+            kind: "discovery_error",
+            error: Some(reason),
         },
-        Err(_) => "unknown".to_string(),
     }
 }
 
 pub fn probe_auth(url: &str) -> AuthInfo {
     let vendor = match_vendor(url);
-    let kind = match vendor.and_then(|v| v.force_kind) {
-        Some(forced) => forced.to_string(),
+    let classified = match vendor.and_then(|v| v.force_kind) {
+        Some(forced) => Classified::kind(forced),
         None => classify(url),
     };
     AuthInfo {
-        kind,
+        kind: classified.kind.to_string(),
         vendor: vendor.map(|v| v.name.to_string()),
         token_url: vendor.and_then(|v| v.token_url.map(String::from)),
         instructions: vendor.map(|v| v.instructions.to_string()),
+        error: classified.error,
     }
 }
 
@@ -276,5 +307,48 @@ mod tests {
     #[test]
     fn fallback_is_unknown() {
         assert_eq!(AuthInfo::fallback().kind, "unknown");
+    }
+
+    fn endpoints(registration: bool, cimd: bool) -> oauth::Endpoints {
+        oauth::Endpoints {
+            issuer: "https://auth.example.com".into(),
+            authorization_endpoint: "https://auth.example.com/authorize".into(),
+            token_endpoint: "https://auth.example.com/token".into(),
+            registration_endpoint: registration
+                .then(|| "https://auth.example.com/register".to_string()),
+            resource: "https://mcp.example.com/".into(),
+            scope: None,
+            authorization_response_iss_parameter_supported: false,
+            client_id_metadata_document_supported: cimd,
+            token_endpoint_auth_methods_supported: None,
+        }
+    }
+
+    #[test]
+    fn a_server_that_registers_clients_signs_in_with_oauth() {
+        let found = classify_discovery(Ok(endpoints(true, false)));
+        assert_eq!((found.kind, found.error), ("oauth", None));
+        assert_eq!(classify_discovery(Ok(endpoints(false, true))).kind, "oauth");
+    }
+
+    #[test]
+    fn only_the_absence_of_oauth_metadata_means_a_token() {
+        assert_eq!(
+            classify_discovery(Err(oauth::DiscoveryError::NoOAuth)).kind,
+            "token"
+        );
+        assert_eq!(classify_discovery(Ok(endpoints(false, false))).kind, "token");
+    }
+
+    #[test]
+    fn a_failed_discovery_is_reported_with_its_reason_not_as_a_token() {
+        let failed = classify_discovery(Err(oauth::DiscoveryError::Failed(
+            "protected-resource metadata describes a different resource".into(),
+        )));
+        assert_eq!(failed.kind, "discovery_error");
+        assert_eq!(
+            failed.error.as_deref(),
+            Some("protected-resource metadata describes a different resource")
+        );
     }
 }
