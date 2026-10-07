@@ -695,10 +695,11 @@ fn merge_search_results(query: &str, registry_entries: Vec<CatalogEntry>) -> Cat
 
 pub(crate) fn rank_search_results(entries: &mut [CatalogEntry], query: &str) {
     let query = query.trim().to_lowercase();
-    entries.sort_by(|a, b| {
-        catalog_match_score(b, &query)
-            .cmp(&catalog_match_score(a, &query))
-            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+    entries.sort_by_cached_key(|entry| {
+        (
+            std::cmp::Reverse(catalog_match_score(entry, &query)),
+            entry.name.to_lowercase(),
+        )
     });
 }
 
@@ -1462,7 +1463,7 @@ mod tests {
     use serde_json::json;
     use std::io::{Read, Write};
     use std::net::TcpListener;
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::sync::Arc;
 
     /// Read a request off a raw mock-server socket up to the end of its headers
@@ -2774,10 +2775,13 @@ mod tests {
     fn a_slow_earlier_search_cannot_overwrite_the_answer_of_a_later_one() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
+        let first_accepted = Arc::new(AtomicBool::new(false));
+        let accepted = Arc::clone(&first_accepted);
         let server = std::thread::spawn(move || {
             let mut handlers = Vec::new();
             for (n, stream) in listener.incoming().take(2).enumerate() {
                 let mut stream = stream.unwrap();
+                accepted.store(true, Ordering::SeqCst);
                 handlers.push(std::thread::spawn(move || {
                     read_request_headers(&mut stream);
                     let (delay, name) = if n == 0 { (600, "Earlier") } else { (0, "Later") };
@@ -2799,7 +2803,10 @@ mod tests {
                 registry_search_cached_from(&base_url, query, budget, budget, ttl, false)
             })
         };
-        std::thread::sleep(Duration::from_millis(200));
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while !first_accepted.load(Ordering::SeqCst) && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(5));
+        }
         let (later, _) = registry_search_cached_from(&base_url, query, budget, budget, ttl, false);
         let (earlier, _) = slow.join().unwrap();
         server.join().unwrap();
