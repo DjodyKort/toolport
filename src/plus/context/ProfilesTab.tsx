@@ -359,7 +359,7 @@ export function ProfilesTab() {
           onClick={() => dialog.show("new")}
           disabled={write.busy}
         >
-          New profile
+          New context profile
         </Button>
         <span className="text-sm text-muted-foreground">
           A profile is a saved choice of what Claude Code loads in a folder: which skills,

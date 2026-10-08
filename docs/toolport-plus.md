@@ -743,7 +743,7 @@ Screenshots (1280x800, from `npm run screenshots:gui`): `docs/assets/gui-context
 
 `ProfilesTab` is the screen of the profile, which pairs a server set and a context bundle under one name (D-066). It reads `context bundle ls` and `context bundle show <name>`; a profile that cannot be read is marked and the others stay usable. `bundleModel.ts` turns the lists into the flags of `context bundle add|edit`, and an edit sends only the lists that changed (a cleared list is its flag with an empty value).
 
-- **Create.** "Create from a folder..." runs `context bundle add <name> --from-folder <dir>`; "New profile" and "Duplicate" run `bundle add` with the lists. A taken or invalid name is refused before anything runs.
+- **Create.** "Create from a folder..." runs `context bundle add <name> --from-folder <dir>`; "New context profile" and "Duplicate" run `bundle add` with the lists. A taken or invalid name is refused before anything runs.
 - **Edit and delete.** "Edit" is `bundle edit` (off for a legacy plain skill list). "Delete..." is `bundle rm`; a profile that is applied needs the force box, and the name is typed (destructive tier).
 - **Apply to a folder.** The plan is `context use <name> --cwd <dir> --dry-run` when the profile has a server set, else `context bundle apply`; confirm, `JobProgress`, then the result with the changed files, the backups and the undo line. "Undo..." per applied folder is `bundle undo --cwd <dir>` (plan, confirm, result); drift is a badge and the conflicting keys are listed.
 - **Apply automatically.** A switch, off by default, is `context bundle config [--auto-apply on|off]`. It has no preview, so the confirmation shows the exact command line.

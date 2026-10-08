@@ -230,8 +230,10 @@ async function openLayers() {
 describe("Profiles against the changing world", () => {
   it("context.bundle.add, context.bundle.show: a new profile: the preview changes nothing, confirming adds it to the next list", async () => {
     const user = await openProfiles();
-    await user.click(screen.getByRole("button", { name: "New profile" }));
-    const form = within(await screen.findByRole("dialog", { name: "New profile" }));
+    await user.click(screen.getByRole("button", { name: "New context profile" }));
+    const form = within(
+      await screen.findByRole("dialog", { name: "New context profile" }),
+    );
     await user.type(form.getByLabelText("Name"), "ops-lite");
     await user.type(form.getByLabelText("Description"), "Operations");
     await user.type(

@@ -282,8 +282,10 @@ describe("Profiles: creating", () => {
       goldenData("context-bundle-add.preview"),
     );
     const user = await open();
-    await press(user, "New profile");
-    const form = within(await screen.findByRole("dialog", { name: "New profile" }));
+    await press(user, "New context profile");
+    const form = within(
+      await screen.findByRole("dialog", { name: "New context profile" }),
+    );
     await user.type(form.getByLabelText("Name"), "acme-dev");
     expect(form.getByText("A profile with this name exists.")).toBeVisible();
     expect(form.getByRole("button", { name: "Review the profile" })).toBeDisabled();
@@ -598,8 +600,8 @@ describe("Profiles: keyboard", () => {
 
   it("keeps focus inside the form dialog and returns to the page on Escape", async () => {
     const user = await open();
-    await press(user, "New profile");
-    const dialog = await screen.findByRole("dialog", { name: "New profile" });
+    await press(user, "New context profile");
+    const dialog = await screen.findByRole("dialog", { name: "New context profile" });
     await user.tab();
     expect(dialog.contains(document.activeElement)).toBe(true);
     await user.keyboard("{Escape}");

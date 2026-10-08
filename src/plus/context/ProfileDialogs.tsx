@@ -67,7 +67,7 @@ export function ProfileForm({
   const valid =
     !!form.name && !problem && (mode !== "from-folder" || from.trim().length > 0);
   const title = {
-    new: "New profile",
+    new: "New context profile",
     "from-folder": "Create a profile from a folder",
     edit: `Edit profile ${initial.name}`,
     duplicate: `Duplicate profile ${initial.name}`,

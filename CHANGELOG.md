@@ -79,6 +79,8 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ### Fixed
 
+- The button that creates a profile on the Context tab says "New context profile", so it no longer
+  shares its name with the "New profile" of the server profiles.
 - Attention: the page button that reloads the list says "Refresh", so it no longer shares its
   name with the per-row "Check again" that probes a login. Skills and Agents flag a problem with
   "Needs a look" instead of "Look".
