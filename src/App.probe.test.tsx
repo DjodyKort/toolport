@@ -125,7 +125,7 @@ describe("App onboarding probe wiring", () => {
     const inFlight = deferred<ProbeResult[]>();
     probeServers.mockReturnValueOnce(inFlight.promise).mockResolvedValue([]);
 
-    render(<App />);
+    render(<App initialView="servers" />);
 
     // Fresh install (no servers, no connected clients) opens onboarding, and the
     // initial load has already started a silent health probe that is still pending.
@@ -156,7 +156,7 @@ describe("App onboarding exit (SBS-826)", () => {
   // deliberately does) would send a rules user who skipped Connect back through the
   // whole wizard on the next launch with nothing failing.
   it("marks onboarding done when a rules user leaves for the Rules tab", async () => {
-    render(<App />);
+    render(<App initialView="servers" />);
 
     await waitFor(() => expect(captured.onOpenRules).not.toBeNull());
     expect(localStorage.getItem("toolport.onboarded")).toBeNull();
@@ -174,7 +174,7 @@ describe("App health visibility", () => {
     localStorage.setItem("toolport.onboarded", "1");
     probeServers.mockRejectedValue(new Error("backend unavailable"));
 
-    render(<App />);
+    render(<App initialView="servers" />);
 
     expect(await screen.findByText(/backend didn't respond/i)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Clients" }));
@@ -202,7 +202,7 @@ describe("App health visibility", () => {
     });
     probeServers.mockResolvedValue([]);
 
-    render(<App />);
+    render(<App initialView="servers" />);
 
     expect(
       await screen.findByRole("button", { name: /checking 1/i }),
@@ -249,7 +249,7 @@ describe("App health visibility", () => {
       .mockResolvedValueOnce(disabledRegistry)
       .mockResolvedValueOnce(enabledRegistry);
 
-    render(<App />);
+    render(<App initialView="servers" />);
 
     expect(await screen.findByRole("button", { name: /ready 1/i })).toBeInTheDocument();
     await userEvent.click(screen.getByLabelText("Toggle Example"));
@@ -308,7 +308,7 @@ describe("App health visibility", () => {
       .mockResolvedValueOnce(disabledRegistry)
       .mockResolvedValueOnce(enabledRegistry);
 
-    render(<App />);
+    render(<App initialView="servers" />);
 
     expect(await screen.findByRole("button", { name: /ready 1/i })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "More actions" }));
@@ -358,7 +358,7 @@ describe("App health visibility", () => {
       ])
       .mockReturnValueOnce(nextProbe.promise);
 
-    render(<App />);
+    render(<App initialView="servers" />);
 
     expect(await screen.findByRole("button", { name: /ready 1/i })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Switch profile" }));

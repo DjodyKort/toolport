@@ -95,7 +95,7 @@ describe("team enable review dialog", () => {
     "stays open showing the new command when the definition changes mid-review",
     { timeout: 20000 },
     async () => {
-      render(<App />);
+      render(<App initialView="servers" />);
       // The (only) server is off, so it sits in the collapsed Disabled group.
       await userEvent.click(
         await screen.findByRole("button", { name: /Disabled/ }, { timeout: 3000 }),

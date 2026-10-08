@@ -857,6 +857,8 @@ try {
   page = await context.newPage();
   await watch(page);
   await page.goto(`${baseURL}/fixtures/`);
+  await expect(page.getByRole("tablist", { name: "Servers sections" })).toBeVisible();
+  await page.getByRole("button", { name: "Classic view" }).click();
   await expect(page.getByText("GitHub", { exact: true })).toBeVisible();
   await expect(page.getByText("≈41.1k tokens saved")).toBeVisible();
   await page.screenshot({ path: path.join(output, "servers.png") });
@@ -906,7 +908,7 @@ try {
     await shot.setViewportSize({ width: 1280, height: 800 });
     await watch(shot);
     await shot.goto(`${baseURL}/fixtures/`);
-    await expect(shot.getByText("GitHub", { exact: true })).toBeVisible();
+    await expect(shot.getByRole("tablist", { name: "Servers sections" })).toBeVisible();
     await expect(
       shot.getByRole("button", { name: /^Attention/ }).getByLabel("3 need you"),
     ).toBeVisible();

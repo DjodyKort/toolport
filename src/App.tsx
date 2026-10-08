@@ -132,7 +132,7 @@ import { subscribeToTrayApprovals } from "@/lib/trayApprovals";
 /** Above this many servers, "Disable all" asks for confirmation first. */
 const BULK_DISABLE_CONFIRM_MIN = 3;
 
-function App() {
+function App({ initialView = "control" }: { initialView?: View } = {}) {
   const { resolved: resolvedTheme } = useTheme();
   const [registry, setRegistry] = useState<Registry | null>(null);
   const registryRef = useRef<Registry | null>(null);
@@ -148,7 +148,7 @@ function App() {
   const [confirmDisableAll, setConfirmDisableAll] = useState(false);
   const [confirmEnableTeam, setConfirmEnableTeam] = useState<ServerEntry | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
-  const [view, setView] = useState<View>("servers");
+  const [view, setView] = useState<View>(initialView);
   const [activityKey, setActivityKey] = useState(0);
   const [health, setHealth] = useState<Record<string, ProbeResult>>({});
   const [probing, setProbing] = useState(false);
