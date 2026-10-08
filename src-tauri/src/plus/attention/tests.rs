@@ -155,6 +155,26 @@ fn the_status_and_the_login_rows_leave_out_a_server_only_a_client_signs_in_to() 
 }
 
 #[test]
+fn a_login_of_a_server_no_profile_enables_is_not_reported() {
+    use crate::registry::{registry_path, Registry};
+    let fx = DataDirFx::new("attention", "auth-unused");
+    write_auth(&fx, "needs_reauth");
+    let mut reg = Registry::default();
+    reg.servers = vec![serde_json::from_value(
+        json!({"id": "alpha", "name": "alpha", "transport": "http", "url": "https://a.example/mcp"}),
+    )
+    .unwrap()];
+    let path = registry_path().unwrap();
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let save = |reg: &Registry| std::fs::write(&path, serde_json::to_string(reg).unwrap()).unwrap();
+    save(&reg);
+    assert!(feed_auth::collect(&ctx()).is_empty());
+    reg.profiles[0].enabled_server_ids = vec!["alpha".into()];
+    save(&reg);
+    assert_eq!(feed_auth::collect(&ctx()).len(), 1);
+}
+
+#[test]
 fn the_task_feed_reads_the_attention_records() {
     let _fx = DataDirFx::new("attention", "tasks");
     store::raise_attention(AttentionRecord {

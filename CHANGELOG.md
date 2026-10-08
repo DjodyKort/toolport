@@ -72,6 +72,7 @@ Entries before the rename below shipped under the project's former name, Conduit
 ### Fixed
 
 - The app opens on the full Servers screen instead of the upstream page.
+- Attention no longer asks for a new sign-in for a server that no profile enables.
 
 ## [1.23.4] - 2026-10-02
 

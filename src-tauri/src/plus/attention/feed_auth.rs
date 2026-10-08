@@ -2,12 +2,27 @@
 
 use super::{Ctx, Item, Level};
 use crate::plus::auth::surfaces;
+use crate::plus::registry_ro;
+use crate::registry::Registry;
+
+/// A server no profile enables is not served by the gateway, so its login cannot fail anything
+/// there; a server the registry does not know stays reported.
+fn unused(reg: Option<&Registry>, server: &str) -> bool {
+    reg.is_some_and(|reg| {
+        reg.servers.iter().any(|s| s.id == server)
+            && !reg.profiles.iter().any(|p| p.enabled_server_ids.iter().any(|id| id == server))
+    })
+}
 
 pub fn collect(ctx: &Ctx) -> Vec<Item> {
     let Some(dir) = surfaces::auth_dir() else { return Vec::new() };
     let status = surfaces::read_visible_status(&dir);
+    let reg = registry_ro::read_opt();
     let mut items = Vec::new();
     for row in surfaces::rows(&status, ctx.now) {
+        if unused(reg.as_ref(), &row.server) {
+            continue;
+        }
         let (title, detail) = match row.state.as_str() {
             "needs_reauth" => (
                 format!("{} needs a new sign-in", row.server),
