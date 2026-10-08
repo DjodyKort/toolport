@@ -758,6 +758,33 @@ fn client_ls_status_and_doctor_report_direct_entries() {
 }
 
 #[test]
+fn doctor_leaves_an_entry_the_user_edited_alone() {
+    world(|w| {
+        seed_claude(w, json!({}));
+        cli_json(&["client", "direct", "add", "alpha", "--client", "claude-code"]);
+        let mut doc: Value = serde_json::from_str(&std::fs::read_to_string(claude_file(w)).unwrap()).unwrap();
+        doc["mcpServers"]["alpha"] = json!({"type": "http", "url": "https://alpha.example/mcp"});
+        std::fs::write(claude_file(w), doc.to_string()).unwrap();
+
+        let (_, listed) = cli_json(&["client", "direct", "ls"]);
+        assert_eq!(listed["data"]["entries"][0]["state"], "customized");
+        let (code, doctor) = cli_json(&["doctor"]);
+        assert_eq!(code, 0);
+        let check = doctor["data"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == "directEntries")
+            .unwrap();
+        assert_eq!(check["status"], "ok");
+        assert!(check["detail"]
+            .as_str()
+            .unwrap()
+            .contains("claude-code/alpha"));
+    });
+}
+
+#[test]
 fn client_import_does_not_offer_a_launcher_entry_back_as_a_server() {
     world(|w| {
         seed_claude(w, json!({"stray": {"command": "stray-mcp"}}));

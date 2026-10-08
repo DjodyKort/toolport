@@ -79,6 +79,9 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ### Fixed
 
+- `toolportctl doctor` no longer warns about a direct entry the user edited since Toolport wrote it
+  (a server Claude Code now holds as its own remote entry, for instance); it says so and leaves the
+  entry alone. Missing, stale and orphan entries still warn.
 - The sources scan gets 12 s per detector and 40 s in all (was 2 s and 10 s), so a large tree of
   client repos no longer ends in "The scan stopped early" with the vendored and inert sources missing.
 - A login whose access token is short-lived but comes with a refresh token (Miro, for one) is no

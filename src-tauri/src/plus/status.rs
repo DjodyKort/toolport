@@ -195,26 +195,35 @@ fn check(name: &'static str, status: Health, detail: String) -> Check {
 }
 
 fn direct_check(reg: &crate::registry::Registry) -> Check {
-    use crate::plus::direct;
+    use crate::plus::direct::{self, State};
     let rows = direct::assess(reg, &crate::clients::detect_clients());
+    let label = |row: &direct::Row| format!("{}/{} {}", row.client, row.entry, row.state.as_str());
     let bad: Vec<String> = rows
         .iter()
-        .filter(|row| !row.state.healthy())
-        .map(|row| format!("{}/{} {}", row.client, row.entry, row.state.as_str()))
+        .filter(|row| !row.state.healthy() && row.state != State::Customized)
+        .map(label)
         .collect();
-    if bad.is_empty() {
-        check(
-            "directEntries",
-            Health::Ok,
-            format!("{} direct launcher entries", rows.len()),
-        )
-    } else {
-        check(
+    let edited: Vec<&direct::Row> = rows.iter().filter(|row| row.state == State::Customized).collect();
+    if !bad.is_empty() {
+        return check(
             "directEntries",
             Health::Warn,
             format!("{} of {} need attention: {}", bad.len(), rows.len(), bad.join(", ")),
-        )
+        );
     }
+    let mut detail = format!("{} direct launcher entries", rows.len());
+    if !edited.is_empty() {
+        let names: Vec<String> = edited
+            .iter()
+            .map(|row| format!("{}/{}", row.client, row.entry))
+            .collect();
+        detail.push_str(&format!(
+            "; {} edited since Toolport wrote it and left as it is: {}",
+            edited.len(),
+            names.join(", ")
+        ));
+    }
+    check("directEntries", Health::Ok, detail)
 }
 
 /// Only when a user-level skills lock exists: the deployed skill files its clients would reject.
