@@ -4,8 +4,8 @@
 use std::cell::{Cell, RefCell};
 use std::time::{Duration, Instant};
 
-pub const DETECTOR_TIME: Duration = Duration::from_secs(2);
-pub const TOTAL_TIME: Duration = Duration::from_secs(10);
+pub const DETECTOR_TIME: Duration = Duration::from_secs(6);
+pub const TOTAL_TIME: Duration = Duration::from_secs(30);
 pub const MAX_DEPTH: usize = 4;
 
 /// Multiplies every detector's time allowance. Tests on slow shared runners set it so a cold

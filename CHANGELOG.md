@@ -79,6 +79,8 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ### Fixed
 
+- The sources scan gets 6 s per detector and 30 s in all (was 2 s and 10 s), so a large tree of
+  client repos no longer ends in "The scan stopped early" with the vendored and inert sources missing.
 - A login whose access token is short-lived but comes with a refresh token (Miro, for one) is no
   longer reported as "expiring": the gateway renews it on use, so only a login that cannot renew
   counts as about to end.
