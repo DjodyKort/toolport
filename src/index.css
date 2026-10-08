@@ -170,6 +170,11 @@
   html {
     @apply font-sans;
   }
+  html,
+  body {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
 }
 
 /* Respect the OS reduced-motion preference: zero out the spinners, pulses, dialog
