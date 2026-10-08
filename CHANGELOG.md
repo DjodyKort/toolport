@@ -79,6 +79,12 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ### Fixed
 
+- A login whose access token is short-lived but comes with a refresh token (Miro, for one) is no
+  longer reported as "expiring": the gateway renews it on use, so only a login that cannot renew
+  counts as about to end.
+- A remote server whose OAuth metadata names its address with a root slash (`https://mcp.miro.com/`)
+  while the server is registered without one is signed in to through the browser again, instead of
+  being taken for an API-token server.
 - Refreshing Attention runs the server update check right away, so a finding no longer keeps
   the counts of the last scheduled run (up to a day old) after the checkout changed.
 - The button that creates a profile on the Context tab says "New context profile", so it no longer

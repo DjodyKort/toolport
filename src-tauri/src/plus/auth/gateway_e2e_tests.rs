@@ -535,7 +535,7 @@ fn interactive_connect_uses_pkce_and_vaults_the_tokens() {
         assert_not_on_disk(&["FAKE-access-1", "FAKE-refresh-1"]);
 
         let outcome = probe("figma");
-        assert!(matches!(outcome, ProbeOutcome::TokenTtl { secs } if secs > 29 * 86_400));
+        assert_eq!(outcome, ProbeOutcome::Success);
         assert_eq!(tracked(&outcome).state, AuthState::Ok);
     });
 }
@@ -697,6 +697,20 @@ fn an_unknown_refresh_token_needs_a_new_login() {
         let state = tracked(&probe("figma"));
         assert_eq!(state.state, AuthState::NeedsReauth);
         assert_eq!(state.reason, "invalid_grant");
+    });
+}
+
+#[test]
+fn a_short_lived_access_token_with_a_refresh_token_is_not_expiring() {
+    with_world(|| {
+        let mock = Mock::start(3600, true, &[]);
+        let server = remote("miro", &mock.mcp_url);
+        sign_in(&server);
+
+        let outcome = probe("miro");
+        assert_eq!(outcome, ProbeOutcome::Success);
+        assert_eq!(tracked(&outcome).state, AuthState::Ok);
+        assert_eq!(mock.grants(), ["authorization_code"]);
     });
 }
 

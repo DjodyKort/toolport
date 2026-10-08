@@ -96,8 +96,13 @@ impl Probe for GatewayStateProbe {
             return ProbeOutcome::Success;
         };
         let ttl = self.ttl(expires_at);
-        if ttl > REFRESH_WINDOW_SECS || state.refresh_token.is_none() {
+        if state.refresh_token.is_none() {
             return ProbeOutcome::TokenTtl { secs: ttl };
+        }
+        // The access token of a refreshable login lives for minutes or hours and the gateway
+        // renews it on use; only a login that cannot renew is about to end.
+        if ttl > REFRESH_WINDOW_SECS {
+            return ProbeOutcome::Success;
         }
         if let Err(error) = crate::remote::refresh_token(server) {
             return refresh_failure(&error);
