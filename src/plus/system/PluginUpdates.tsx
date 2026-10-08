@@ -1,9 +1,11 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 import { Callout } from "@/components/Callout";
 import type { CcUpdateData } from "../types/cc";
 import { AsyncView } from "../ui";
 import { updateSpec } from "../plugins/model";
+import { usePluginUpdateCheck } from "../plugins/useUpdateCheck";
 import { useRead, useRegistryRows, useWrite } from "../skills/hooks";
 import { WriteDialogs } from "../skills/WriteDialogs";
 import { Card, Intro } from "./atoms";
@@ -63,11 +65,21 @@ export function PluginUpdates({
 }) {
   const query = useRead<CcUpdateData>(["cc", "list"]);
   const write = useWrite(useRegistryRows(), query.reload);
+  const check = usePluginUpdateCheck(query.reload);
   return (
     <Card
       title="Claude Code plugins"
       actions={
         <>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={check.checking}
+            onClick={check.run}
+          >
+            <RefreshCw className={check.checking ? "animate-spin" : undefined} />{" "}
+            {check.checking ? "Checking…" : "Check for updates"}
+          </Button>
           <Button size="sm" variant="ghost" onClick={() => onOpenCommands("cc")}>
             All plugin commands
           </Button>

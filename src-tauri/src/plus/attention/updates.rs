@@ -6,6 +6,7 @@
 
 use super::{Ctx, Item, Level};
 use crate::plus::tasks::cron;
+use crate::plus::cc::{self, ClaudeRunner, PluginRow, PluginStatus};
 use crate::plus::update::{self, Env, Mode, Options, Report, ServerReport, Status};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -59,6 +60,9 @@ struct File {
     last_run_at: Option<i64>,
     #[serde(default)]
     active: BTreeMap<String, Finding>,
+    /// Claude Code plugins with a newer version, from the same scheduled pass as `active`.
+    #[serde(default)]
+    plugins: BTreeMap<String, Finding>,
 }
 
 pub fn path() -> Option<PathBuf> {
@@ -214,7 +218,67 @@ pub fn tick_with(env: &Env, now: i64, force: bool) -> Result<Outcome, String> {
 }
 
 pub fn tick(force: bool) -> Result<Outcome, String> {
-    tick_with(&Env::system(), cron::now(), force)
+    let now = cron::now();
+    let mut outcome = tick_with(&Env::system(), now, force)?;
+    if outcome.ran {
+        let runner = crate::plus::reach::claude_code::runner();
+        if let Ok(raised) = refresh_plugins(&runner, now) {
+            outcome.raised.extend(raised);
+        }
+    }
+    Ok(outcome)
+}
+
+/// Plugins with a newer version in their marketplace, one finding each.
+pub fn plugin_findings(rows: &[PluginRow]) -> Vec<Finding> {
+    rows.iter()
+        .filter(|row| row.status == PluginStatus::Update && !row.blocked)
+        .map(|row| {
+            let installed = row.installed.as_deref().unwrap_or("unknown");
+            let available = row.available.as_deref().unwrap_or("a newer version");
+            Finding {
+                server: row.id(),
+                kind: "plugin".into(),
+                signature: format!("{installed}>{available}"),
+                title: format!("{}: {available} is available", row.name),
+                detail: format!(
+                    "{} runs {installed}; {available} is available. Update it under Library > Plugins or System > Updates; Claude Code loads it after a restart.",
+                    row.name
+                ),
+                since: 0,
+            }
+        })
+        .collect()
+}
+
+/// Asks the marketplaces what is new (the one network step) and stores the plugin findings. A
+/// failed read keeps what was stored, as a failed server check does.
+pub fn refresh_plugins(runner: &dyn ClaudeRunner, now: i64) -> Result<Vec<Finding>, String> {
+    let report = cc::list(runner, &cc::Options { refresh: true, ..cc::Options::default() })?;
+    if report.refresh_error.is_some() && report.rows.is_empty() {
+        return Err("the plugin list could not be read".into());
+    }
+    let mut file = read();
+    let raised = fold_plugins(&mut file, plugin_findings(&report.rows), now);
+    write(&file)?;
+    Ok(raised)
+}
+
+fn fold_plugins(file: &mut File, found: Vec<Finding>, now: i64) -> Vec<Finding> {
+    let mut raised = Vec::new();
+    let mut next = BTreeMap::new();
+    for mut finding in found {
+        match file.plugins.get(&finding.key()) {
+            Some(old) if old.signature == finding.signature => finding.since = old.since,
+            _ => {
+                finding.since = now;
+                raised.push(finding.clone());
+            }
+        }
+        next.insert(finding.key(), finding);
+    }
+    file.plugins = next;
+    raised
 }
 
 pub fn collect(ctx: &Ctx) -> Vec<Item> {
@@ -222,15 +286,18 @@ pub fn collect(ctx: &Ctx) -> Vec<Item> {
     if !file.settings.enabled {
         return Vec::new();
     }
-    file.active
-        .values()
-        .map(|f| {
-            let level = if f.kind == "conflict" { Level::NeedsYou } else { Level::Look };
-            Item::new(ctx, f.id(), level, "update", f.title.clone(), f.detail.clone())
-                .target("servers", &[("server", &f.server)])
-                .since_epoch(f.since)
-        })
-        .collect()
+    let servers = file.active.values().map(|f| {
+        let level = if f.kind == "conflict" { Level::NeedsYou } else { Level::Look };
+        Item::new(ctx, f.id(), level, "update", f.title.clone(), f.detail.clone())
+            .target("servers", &[("server", &f.server)])
+            .since_epoch(f.since)
+    });
+    let plugins = file.plugins.values().map(|f| {
+        Item::new(ctx, f.id(), Level::Look, "update", f.title.clone(), f.detail.clone())
+            .target("library", &[("tab", "plugins"), ("plugin", &f.server)])
+            .since_epoch(f.since)
+    });
+    servers.chain(plugins).collect()
 }
 
 pub fn settings_handler(args: Value) -> Result<Value, String> {

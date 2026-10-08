@@ -735,7 +735,7 @@ pub(super) const ROWS: &[Row] = &[
     row("mcp call", W).spec(&[&mcp::CALL]).args(&[req("tool")]),
     row("cc list", R)
         .spec(&[&cc::SPEC])
-        .only(&["--marketplace"])
+        .only(&["--marketplace", "--refresh"])
         .args(&[opt("plugin")]),
     row("cc update", W)
         .dry()

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import type { HooksLsData } from "../types/plugins";
+import { forgetPluginUpdateCheck } from "./useUpdateCheck";
 
 const { invoke, listen } = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
@@ -28,6 +29,7 @@ import {
 let bridge: Bridge;
 beforeEach(() => {
   window.localStorage.clear();
+  forgetPluginUpdateCheck();
   bridge = createBridge();
   invoke.mockReset().mockImplementation(bridge.invoke);
   listen.mockReset().mockResolvedValue(() => {});
@@ -111,7 +113,16 @@ describe("plugins.ls", () => {
     expect(within(list).getByText("ecc")).toBeVisible();
     expect(within(list).getByText("demo-plugin")).toBeVisible();
     expect(within(list).getByText(/update to 2.2.0|2.2.0/)).toBeVisible();
-    expect(bridge.count("plugins ls")).toBe(2);
+    expect(bridge.count("plugins ls")).toBeGreaterThanOrEqual(2);
+  });
+
+  it("asks the marketplaces what is new when it opens and when asked again, then reads the list again", async () => {
+    const user = await openView("library", "Plugins");
+    await waitFor(() => expect(bridge.count("cc list --refresh")).toBe(1));
+    const button = await screen.findByRole("button", { name: "Check for updates" });
+    await user.click(button);
+    await waitFor(() => expect(bridge.count("cc list --refresh")).toBe(2));
+    await waitFor(() => expect(bridge.count("plugins ls")).toBeGreaterThanOrEqual(3));
   });
 });
 

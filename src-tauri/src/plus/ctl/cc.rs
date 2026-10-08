@@ -2,12 +2,13 @@ use super::flags::{switch, value, Dashes, Operands, Spec};
 use super::output::{CtlError, Output};
 use crate::plus::cc::{list, update, Options, SystemClaude};
 
-const USAGE: &str = "usage: cc list|update [plugin] [--marketplace M] [--dry-run]";
+const USAGE: &str = "usage: cc list|update [plugin] [--marketplace M] [--dry-run] [--refresh]";
 
 pub(super) const SPEC: Spec = Spec {
     flags: &[
         switch("--dry-run").alias(&["--check"]),
         value("--marketplace").alias(&["-m"]).needs("a name"),
+        switch("--refresh"),
     ],
     operands: Operands::Max(1, USAGE),
     dashes: Dashes::Any,
@@ -21,6 +22,7 @@ pub fn run(rest: &[String]) -> Result<Output, CtlError> {
         dry_run: flags.on("--dry-run"),
         marketplace: flags.one("--marketplace").map(String::from),
         plugin: flags.operands().first().cloned(),
+        refresh: flags.on("--refresh"),
         ..Options::default()
     };
     let runner = SystemClaude::from_env();

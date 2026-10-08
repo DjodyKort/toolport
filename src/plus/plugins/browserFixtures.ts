@@ -21,6 +21,7 @@ const argvs = [
   "hooks ls",
   `hooks ls --cwd ${WALK_FOLDER}`,
   "cc list",
+  "cc list --refresh",
   ...both("cc update"),
   ...both("cc update ecc"),
   ...both(`plugins config ecc@ecc --cwd ${WALK_FOLDER} ${SET}`),

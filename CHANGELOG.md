@@ -61,6 +61,10 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ### Added
 
+- Plugin updates can be seen and run in the app. `toolportctl cc list --refresh` asks the plugin
+  marketplaces what is new; Library > Plugins and System > Updates do that when they open and on
+  "Check for updates" (before, a plugin read as up to date until an update was run). The scheduled
+  update check also raises an Attention item for a plugin with a newer version.
 - `toolportctl client reach --live` (and `live` on `clients_reach`) asks Claude Code whether it
   connects to the servers it holds itself, and reports whether it switched an entry off for some
   projects. The Servers screen shows it on the row ("Connected in Claude Code", "Off in Claude

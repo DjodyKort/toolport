@@ -6128,18 +6128,18 @@ Run `toolportctl --help` for usage.
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: cc list|update [plugin] [--marketplace M] [--dry-run]
+toolportctl: usage: cc list|update [plugin] [--marketplace M] [--dry-run] [--refresh]
 Run `toolportctl --help` for usage.
 === ["--json","cc"]
 exit 2
 --- stdout
-{"command":"cc","error":{"code":"usage","message":"usage: cc list|update [plugin] [--marketplace M] [--dry-run]"},"ok":false,"schemaVersion":1}
+{"command":"cc","error":{"code":"usage","message":"usage: cc list|update [plugin] [--marketplace M] [--dry-run] [--refresh]"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["cc","nope"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: cc list|update [plugin] [--marketplace M] [--dry-run]
+toolportctl: usage: cc list|update [plugin] [--marketplace M] [--dry-run] [--refresh]
 Run `toolportctl --help` for usage.
 === ["cc","nope","--bogus"]
 exit 2
@@ -6163,7 +6163,7 @@ Run `toolportctl --help` for usage.
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: cc list|update [plugin] [--marketplace M] [--dry-run]
+toolportctl: usage: cc list|update [plugin] [--marketplace M] [--dry-run] [--refresh]
 Run `toolportctl --help` for usage.
 === ["cc","list","--marketplace"]
 exit 2
@@ -6199,7 +6199,7 @@ Run `toolportctl --help` for usage.
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: cc list|update [plugin] [--marketplace M] [--dry-run]
+toolportctl: usage: cc list|update [plugin] [--marketplace M] [--dry-run] [--refresh]
 Run `toolportctl --help` for usage.
 === ["--json","cc","list","--bogus"]
 exit 2

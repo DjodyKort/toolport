@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Callout } from "@/components/Callout";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -10,6 +12,7 @@ import { WriteDialogs } from "../skills/WriteDialogs";
 import { OfflineNote } from "../system/atoms";
 import { PluginDetail } from "./PluginDetail";
 import { cwdArgs, updateText } from "./model";
+import { usePluginUpdateCheck } from "./useUpdateCheck";
 
 function Row({
   row,
@@ -77,6 +80,13 @@ export function PluginsTab({ onOpenHooks }: { onOpenHooks?: () => void }) {
   const cwd = here.folder;
   const list = useRead<PluginsLsData>(["plugins", "ls", ...cwdArgs(cwd)]);
   const [picked, setPicked] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
+  const check = usePluginUpdateCheck(
+    useCallback(() => {
+      list.reload();
+      setVersion((n) => n + 1);
+    }, [list.reload]),
+  );
   const rows = list.data?.plugins ?? [];
   const id = rows.find((row) => row.id === picked)?.id ?? rows[0]?.id ?? "";
   const folderLine = cwd
@@ -99,6 +109,15 @@ export function PluginsTab({ onOpenHooks }: { onOpenHooks?: () => void }) {
       <p className="text-xs text-muted-foreground">
         {folderLine}. Turning things off, settings and denied servers are per folder.
       </p>
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" disabled={check.checking} onClick={check.run}>
+          <RefreshCw className={check.checking ? "animate-spin" : undefined} />{" "}
+          {check.checking ? "Checking the marketplaces…" : "Check for updates"}
+        </Button>
+        <span className="text-xs text-muted-foreground">
+          Asks each plugin marketplace whether a newer version exists.
+        </span>
+      </div>
       <OfflineNote />
       {list.data?.refreshError && (
         <Callout variant="warning" role="status">
@@ -142,7 +161,7 @@ export function PluginsTab({ onOpenHooks }: { onOpenHooks?: () => void }) {
               ))}
             </ul>
             <Selected
-              key={`${id}|${cwd}`}
+              key={`${id}|${cwd}|${version}`}
               id={id}
               cwd={cwd}
               onChanged={list.reload}

@@ -722,6 +722,14 @@ pub(super) const OVERRIDES: &[(&str, Meta)] = &[
         ),
     ),
     (
+        "cc list",
+        m(
+            "--refresh",
+            Bool,
+            "Run claude plugin marketplace update first, so a new plugin version shows (needs claude on PATH)",
+        ),
+    ),
+    (
         "plugins ls",
         m(
             "--refresh",

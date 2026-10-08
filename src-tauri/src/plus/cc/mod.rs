@@ -190,9 +190,7 @@ fn survey(
 }
 
 pub fn list(runner: &dyn ClaudeRunner, opts: &Options) -> Result<Report, String> {
-    let mut o = opts.clone();
-    o.refresh = false;
-    let (rows, refresh_error) = survey(runner, &o)?;
+    let (rows, refresh_error) = survey(runner, opts)?;
     Ok(Report {
         mode: "list",
         rows,
@@ -271,7 +269,7 @@ fn options_from(args: &Value) -> Options {
         plugin: s("plugin"),
         marketplace: s("marketplace"),
         dry_run: flag(args, "dryRun"),
-        refresh: false,
+        refresh: flag(args, "refresh"),
         claude_root: s("claudeRoot").map(PathBuf::from),
     }
 }

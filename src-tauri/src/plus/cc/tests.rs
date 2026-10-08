@@ -248,6 +248,23 @@ fn only_fixed_plugin_subcommands_are_issued() {
 }
 
 #[test]
+fn list_refreshes_the_marketplaces_only_when_asked() {
+    let env = Env::new("refresh");
+    let rec = Recorder(Mutex::new(Vec::new()));
+    list(&rec, &env.opts()).unwrap();
+    let plain: Vec<String> = rec.0.lock().unwrap().iter().map(|c| c.join(" ")).collect();
+    assert!(plain.iter().all(|c| !c.contains("marketplace")), "{plain:?}");
+
+    let asked = Recorder(Mutex::new(Vec::new()));
+    let mut o = env.opts();
+    o.refresh = true;
+    list(&asked, &o).unwrap();
+    let calls: Vec<String> = asked.0.lock().unwrap().iter().map(|c| c.join(" ")).collect();
+    assert!(calls.iter().any(|c| c.starts_with("plugin marketplace update")), "{calls:?}");
+    assert!(calls.iter().all(|c| !c.starts_with("plugin update")), "{calls:?}");
+}
+
+#[test]
 fn handlers_are_registered() {
     let err = crate::plus::dispatch("plus.cc.list", json!({"plugin": "-x"})).unwrap_err();
     assert!(err.contains("invalid plugin"));

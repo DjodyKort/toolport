@@ -284,3 +284,52 @@ fn the_handlers_read_and_write_the_settings() {
     assert_eq!((off["ran"].clone(), off["reason"].clone()), (json!(false), json!("disabled")));
     assert!(crate::plus::dispatch("plus.update.watchSettings", json!({})).is_ok());
 }
+
+fn plugin(name: &str, status: PluginStatus, blocked: bool) -> PluginRow {
+    PluginRow {
+        name: name.into(),
+        marketplace: Some("mkt".into()),
+        installed: Some("2.2.0".into()),
+        available: Some("2.2.3".into()),
+        status,
+        enabled: true,
+        blocked,
+        outcome: None,
+        error: None,
+    }
+}
+
+#[test]
+fn only_a_plugin_with_a_newer_version_that_is_not_blocked_is_a_finding() {
+    let rows = [
+        plugin("ecc", PluginStatus::Update, false),
+        plugin("same", PluginStatus::Current, false),
+        plugin("odd", PluginStatus::Unknown, false),
+        plugin("held", PluginStatus::Update, true),
+    ];
+    let found = plugin_findings(&rows);
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].server, "ecc@mkt");
+    assert_eq!(found[0].title, "ecc: 2.2.3 is available");
+    assert_eq!(found[0].signature, "2.2.0>2.2.3");
+}
+
+#[test]
+fn a_plugin_finding_is_raised_once_per_version_and_cleared_when_the_plugin_is_current() {
+    let _fx = DataDirFx::new("plus-update-watch-plugins", "once");
+    let mut file = File::default();
+    let first = fold_plugins(&mut file, plugin_findings(&[plugin("ecc", PluginStatus::Update, false)]), T0);
+    assert_eq!(first.len(), 1);
+    let again = fold_plugins(&mut file, plugin_findings(&[plugin("ecc", PluginStatus::Update, false)]), T0 + HOUR);
+    assert!(again.is_empty());
+    assert_eq!(file.plugins["ecc@mkt:plugin"].since, T0);
+    write(&file).unwrap();
+
+    let items = collect(&Ctx { now: T0 + 2 * HOUR });
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].title, "ecc: 2.2.3 is available");
+
+    fold_plugins(&mut file, plugin_findings(&[plugin("ecc", PluginStatus::Current, false)]), T0 + 3 * HOUR);
+    write(&file).unwrap();
+    assert!(collect(&Ctx { now: T0 + 4 * HOUR }).is_empty());
+}

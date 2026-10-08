@@ -652,6 +652,10 @@ Findings: `twice` (a client reaches one server both through the gateway and thro
 
 The desktop app shows the same on each server under "How clients reach it", and the state of a server a client holds itself on its row ("Connected in Claude Code", "Off in Claude Code", "Sign-in needed in Claude Code"). The self-management server has `clients_reach` (tier 1, read-only). Attention no longer reports an expired login for a server that no profile enables: the gateway does not serve it, so the login cannot fail anything there.
 
+## Plugin updates
+
+`toolportctl cc list [plugin] [--marketplace M] [--refresh]` lists the Claude Code plugins with their update state. The state comes from the marketplaces' last refresh, so a new plugin version only shows after one: `--refresh` runs `claude plugin marketplace update` first (`cc update` always does). Library > Plugins and System > Updates run that refresh when they open (at most every half hour) and on "Check for updates", then read their lists again. The scheduled update check does the same and raises an Attention item per plugin that has a newer version (`kind: plugin`, stored in `update-watch.json` next to the server findings). Updating stays a previewed write: `cc update <plugin>` through the plan dialog, and Claude Code loads the new version after a restart.
+
 ## Agents & styles
 
 `src/plus/agents/` builds the two tabs of the approved mockup nav item "Agents & styles": `AgentsTab` and `StylesTab` (no props). The Library screen (`src/plus/skills/LibraryScreen.tsx`) mounts them as its Agents and Styles tabs.

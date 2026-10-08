@@ -10250,6 +10250,17 @@
               "required": false,
               "sensitive": false,
               "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Run claude plugin marketplace update first, so a new plugin version shows (needs claude on PATH)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--refresh",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
             }
           ],
           "group": "cc",
@@ -10304,6 +10315,17 @@
               "required": false,
               "sensitive": false,
               "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Re-snapshot preset values from the installed engine",
+              "escalates": false,
+              "hidden": false,
+              "name": "--refresh",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
             }
           ],
           "group": "cc",
