@@ -144,7 +144,7 @@ fn library_row(skill: &Skill, origin: &Value, reason: Option<String>) -> Value {
     row
 }
 
-/// The skills and rules of one source from the sources scan, in the shape of a library row.
+/// The skills, rules and commands of one source from the sources scan, in the shape of a library row.
 fn source_rows(id: &str) -> Result<Value, OpError> {
     use crate::plus::sources::{scan_host, ScanOptions};
     let report = scan_host(&ScanOptions {
@@ -159,7 +159,7 @@ fn source_rows(id: &str) -> Result<Value, OpError> {
     let rows: Vec<Value> = report
         .items
         .iter()
-        .filter(|i| i.kind == "skill" || i.kind == "rule")
+        .filter(|i| matches!(i.kind, "skill" | "rule" | "command"))
         .map(|i| {
             json!({
                 "name": i.name,

@@ -75,7 +75,7 @@ describe("Skills tab, end to end: Installed", () => {
     expect(within(rowButton("house-style")).getByText("rule")).toBeVisible();
     const sources = within(screen.getByRole("group", { name: "Source" }));
     expect(sources.getByRole("button", { name: /^Library\s*35$/ })).toBeVisible();
-    expect(sources.getByRole("button", { name: /^All\s*47$/ })).toBeVisible();
+    expect(sources.getByRole("button", { name: /^All\s*52$/ })).toBeVisible();
     expect(bridge.count("skills ls")).toBe(1);
     expect(bridge.missing).toEqual([]);
   });

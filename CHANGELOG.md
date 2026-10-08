@@ -68,6 +68,10 @@ Entries before the rename below shipped under the project's former name, Conduit
 - `toolportctl client reach` (and the `clients_reach` tool) shows how each client reaches each
   server: through the gateway, a launcher entry, or an entry the client holds itself. The server
   detail shows it under "How clients reach it".
+- The Library lists the commands of every source next to its skills, with a "command" mark, so what
+  comes from cf-dev-tools is told apart from what comes from Claude.
+- A server that no profile serves but a client holds itself shows as "In Claude Code" in its own
+  group instead of "Not in profile".
 
 ### Fixed
 

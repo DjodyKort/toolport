@@ -66,17 +66,30 @@ export function sourceLs(id: string): SkillsLsData | null {
     skipped: id.startsWith("vendored")
       ? [{ detector: "vendored", reason: "stopped at the 2 s budget" }]
       : [],
-    skills: Array.from({ length: source.counts.skill }, (_, i) => ({
-      activation: "auto",
-      description: `A ${source.origin.kind} skill number ${i + 1}`,
-      invisibleReason: null,
-      name: `${slug}-skill-${i + 1}`,
-      origin: source.origin,
-      path: `${source.root ?? "origin/main"}/${slug}-skill-${i + 1}/SKILL.md`,
-      type: "skill",
-      visible: true,
-      writable: false,
-    })),
+    skills: [
+      ...Array.from({ length: source.counts.skill }, (_, i) => ({
+        activation: "auto",
+        description: `A ${source.origin.kind} skill number ${i + 1}`,
+        invisibleReason: null,
+        name: `${slug}-skill-${i + 1}`,
+        origin: source.origin,
+        path: `${source.root ?? "origin/main"}/${slug}-skill-${i + 1}/SKILL.md`,
+        type: "skill",
+        visible: true,
+        writable: false,
+      })),
+      ...Array.from({ length: source.counts.command }, (_, i) => ({
+        activation: "manual",
+        description: `A ${source.origin.kind} command number ${i + 1}`,
+        invisibleReason: null,
+        name: `${slug}-command-${i + 1}`,
+        origin: source.origin,
+        path: `${source.root ?? "origin/main"}/commands/${slug}-command-${i + 1}.md`,
+        type: "command",
+        visible: true,
+        writable: false,
+      })),
+    ],
   };
 }
 
@@ -246,7 +259,7 @@ export const addData = (name: string, type: string, dryRun: boolean) => ({
 });
 
 const sourceReplies = sourcesFixture.sources
-  .filter((row) => row.id !== "library" && row.counts.skill > 0)
+  .filter((row) => row.id !== "library" && row.counts.skill + row.counts.command > 0)
   .map((row): [string, unknown] => [`skills ls --source ${row.id}`, sourceLs(row.id)]);
 
 /** The read replies of the fixture world, keyed by the argv joined with spaces. */

@@ -466,7 +466,7 @@ function Body({ write, scope }: { write: WriteControl; scope: Scope }) {
   const others = useMemo(
     () =>
       (sources.data?.sources ?? []).filter(
-        (s) => s.id !== "library" && s.counts.skill > 0,
+        (s) => s.id !== "library" && s.counts.skill + s.counts.command > 0,
       ),
     [sources.data],
   );
@@ -478,11 +478,15 @@ function Body({ write, scope }: { write: WriteControl; scope: Scope }) {
   const libRows = lib.data?.skills ?? [];
   const libSkills = libRows.filter((r) => r.type === "skill");
   const invisible = libSkills.filter((r) => !r.visible).length;
-  const otherCount = others.reduce((n, s) => n + s.counts.skill, 0);
+  const otherCount = others.reduce((n, s) => n + s.counts.skill + s.counts.command, 0);
   const chips = [
     { id: "all", label: "All", count: libRows.length + otherCount },
     { id: "library", label: "Library", count: libRows.length },
-    ...others.map((s) => ({ id: s.id, label: s.origin.name, count: s.counts.skill })),
+    ...others.map((s) => ({
+      id: s.id,
+      label: s.origin.name,
+      count: s.counts.skill + s.counts.command,
+    })),
   ];
   const row = list.rows.find((r) => rowKey(r) === selected) ?? list.rows[0];
   const looks = [
@@ -732,7 +736,7 @@ function Body({ write, scope }: { write: WriteControl; scope: Scope }) {
                     </span>
                     {!r.visible && <Badge variant="destructive">not visible</Badge>}
                     <SourceBadge origin={r.origin} />
-                    {r.type === "rule" && <Badge variant="outline">rule</Badge>}
+                    {r.type !== "skill" && <Badge variant="outline">{r.type}</Badge>}
                   </button>
                 </li>
               ))}

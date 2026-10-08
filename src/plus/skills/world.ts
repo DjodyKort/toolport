@@ -244,7 +244,7 @@ export function createSkillsWorld(
   on("sources ls", () => sourcesFixture);
   for (const source of sourcesFixture.sources) {
     const ls = sourceLs(source.id);
-    if (source.id !== "library" && source.counts.skill > 0)
+    if (source.id !== "library" && source.counts.skill + source.counts.command > 0)
       on(`skills ls --source ${source.id}`, () => ls);
   }
   on(

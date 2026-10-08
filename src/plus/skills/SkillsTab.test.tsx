@@ -53,11 +53,12 @@ describe("Skills tab: reading", () => {
     expect(
       within(rowButton("api-review")).getByText("library", { selector: "span" }),
     ).toBeInTheDocument();
-    expect(chips().getByRole("button", { name: /^All\s*47$/ })).toBeInTheDocument();
+    expect(chips().getByRole("button", { name: /^All\s*52$/ })).toBeInTheDocument();
     expect(chips().getByRole("button", { name: /^Library\s*35$/ })).toBeInTheDocument();
     expect(chips().getByRole("button", { name: /^odh\s*3$/ })).toBeInTheDocument();
+    expect(chips().getByRole("button", { name: /^corp-tools\s*2$/ })).toBeInTheDocument();
     expect(
-      chips().getByRole("button", { name: /^alpha@market\s*1$/ }),
+      chips().getByRole("button", { name: /^alpha@market\s*2$/ }),
     ).toBeInTheDocument();
   });
 
@@ -72,6 +73,15 @@ describe("Skills tab: reading", () => {
     expect(within(first).getByText(/never edits it/)).toBeInTheDocument();
     expect(within(first).queryByRole("button", { name: /Uninstall/ })).toBeNull();
     expect(within(first).queryByText("Lint")).toBeNull();
+  });
+
+  it("lists the commands of a source that has no skills, marked as commands", async () => {
+    const user = await open();
+    await user.click(chips().getByRole("button", { name: /^corp-tools/ }));
+    await waitFor(() => expect(within(list()).getAllByRole("listitem")).toHaveLength(2));
+    expect(bridge.count("skills ls --source org")).toBe(1);
+    expect(within(list()).getAllByText("command", { selector: "span" })).toHaveLength(2);
+    expect(within(list()).getAllByText("org", { selector: "span" })).toHaveLength(2);
   });
 
   it("says a source stopped early instead of showing a silent partial list", async () => {
@@ -92,7 +102,7 @@ describe("Skills tab: reading", () => {
     expect(
       await screen.findByText(/tap:acme-tools could not be read: tap clone is missing/),
     ).toBeInTheDocument();
-    expect(within(list()).getAllByRole("listitem")).toHaveLength(46);
+    expect(within(list()).getAllByRole("listitem")).toHaveLength(51);
   });
 
   it("shows the sync state per client and the drift of one skill", async () => {
