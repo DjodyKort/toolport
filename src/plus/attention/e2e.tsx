@@ -16,7 +16,7 @@ export async function openAttention(
 ) {
   const user = userEvent.setup();
   render(<AttentionScreen onNavigate={onNavigate} onOpenCommands={onOpenCommands} />);
-  await screen.findByRole("button", { name: "Check again" });
+  await screen.findByRole("button", { name: "Refresh" });
   await waitFor(() => expect(bridge.count("commands")).toBeGreaterThan(0));
   await waitFor(() => expect(bridge.count("attention ls")).toBeGreaterThan(0));
   return user;

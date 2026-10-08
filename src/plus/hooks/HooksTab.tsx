@@ -33,6 +33,15 @@ function Stat({ label, value, note }: { label: string; value: ReactNode; note: s
   );
 }
 
+/** `~/.claude/settings.json#hooks.PreToolUse[0].hooks[1]` as `~/.claude/settings.json, PreToolUse hook 1.2`. */
+export function sourceLabel(source: string): string {
+  const short = homeShort(source);
+  const match = /^(.*)#hooks\.(\w+)\[(\d+)\]\.hooks\[(\d+)\]$/.exec(short);
+  return match
+    ? `${match[1]}, ${match[2]} hook ${Number(match[3]) + 1}.${Number(match[4]) + 1}`
+    : short;
+}
+
 function HookRow({ hook }: { hook: HookEntry }) {
   return (
     <li className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
@@ -41,7 +50,7 @@ function HookRow({ hook }: { hook: HookEntry }) {
         <small className="break-all text-muted-foreground">
           {hook.runtimeId ? `${hook.command} · ` : ""}matcher {hook.matcher || "(all)"}
         </small>
-        <small className="text-muted-foreground">{homeShort(hook.source)}</small>
+        <small className="text-muted-foreground">{sourceLabel(hook.source)}</small>
       </span>
       <Badge variant="outline">{ownerLabel(hook)}</Badge>
       <Badge variant={hook.async ? "secondary" : "warning"}>

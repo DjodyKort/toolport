@@ -342,6 +342,12 @@ export function PluginDetail({
                 </Button>
               )}
             </div>
+            {!cwd && (
+              <p className="text-xs text-muted-foreground">
+                Choose a folder above to turn this plugin off or on there; it is set per
+                folder.
+              </p>
+            )}
             <Section title="Settings">
               {show.knobs.length > 0 ? (
                 <AdapterSettings

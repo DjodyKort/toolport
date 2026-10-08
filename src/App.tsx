@@ -764,6 +764,12 @@ function App({ initialView = "control" }: { initialView?: View } = {}) {
   return (
     <TooltipProvider delayDuration={200}>
       <div className="flex h-screen overflow-hidden bg-background text-foreground">
+        <a
+          href="#main-content"
+          className="sr-only z-50 rounded-md bg-background px-3 py-2 text-sm focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+        >
+          Skip to the page
+        </a>
         <AppSidebar
           registry={registry}
           onRegistryChange={applyRegistryChange}
@@ -775,7 +781,7 @@ function App({ initialView = "control" }: { initialView?: View } = {}) {
           }}
         />
 
-        <main className="flex min-w-0 flex-1 flex-col">
+        <main id="main-content" tabIndex={-1} className="flex min-w-0 flex-1 flex-col">
           <header className="flex items-center justify-between gap-4 border-b px-6 py-4">
             <div className="flex min-w-0 flex-1 items-center gap-3">
               {view === "clients" && selectedClient && (

@@ -92,7 +92,7 @@ describe("Attention screen groups and states", () => {
   it("keeps the last answer on screen with a note when a refresh fails", async () => {
     const user = await openAttention(bridge);
     bridge.set("attention ls", new CtlReplyFailure("internal", "blip"));
-    await user.click(screen.getByRole("button", { name: "Check again" }));
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
     expect(await screen.findByRole("status")).toHaveTextContent(
       /showing the last answer: blip/,
     );

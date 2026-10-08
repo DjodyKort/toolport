@@ -117,7 +117,7 @@ export function AttentionScreen({
     <div className="flex flex-col gap-4">
       <div className="flex justify-end">
         <Button variant="outline" onClick={checkAgain}>
-          <RefreshCw /> Check again
+          <RefreshCw /> Refresh
         </Button>
       </div>
       {list.status === "error" && (

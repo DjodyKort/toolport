@@ -79,6 +79,12 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ### Fixed
 
+- Attention: the page button that reloads the list says "Refresh", so it no longer shares its
+  name with the per-row "Check again" that probes a login. Skills and Agents flag a problem with
+  "Needs a look" instead of "Look".
+- Plugins say why "Turn off in a folder" is unavailable, next to the buttons, and a hook shows
+  its event and position (`PreToolUse hook 1.2`) instead of the path inside the settings file.
+- A "Skip to the page" link lets a keyboard user jump past the sidebar.
 - The Servers screen's Logins tile no longer counts a server no profile serves, so a server a
   client holds itself is not reported as needing a sign-in.
 - The app opens on the full Servers screen instead of the upstream page.

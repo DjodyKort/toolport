@@ -253,7 +253,7 @@ describe("Attention end to end against the attention world", () => {
 
   it("can be used with the keyboard: Tab reaches Dismiss, Enter opens the choice, Escape closes it and focus comes back", async () => {
     const user = await openAttention();
-    await screen.findByRole("button", { name: "Check again" });
+    await screen.findByRole("button", { name: "Refresh" });
     const dismiss = (await rowOf("alpha is missing a secret")).getByRole("button", {
       name: /^Dismiss/,
     });

@@ -109,7 +109,7 @@ export function Messages({ messages }: { messages: LintMessage[] }) {
 export function Verdict({ ok, children }: { ok: boolean; children: ReactNode }) {
   return (
     <p className="flex items-center gap-2 text-sm">
-      <Badge variant={ok ? "success" : "warning"}>{ok ? "OK" : "Look"}</Badge>
+      <Badge variant={ok ? "success" : "warning"}>{ok ? "OK" : "Needs a look"}</Badge>
       <span>{children}</span>
     </p>
   );
