@@ -3,7 +3,18 @@
 //! counts are `feed_library`.
 
 use super::{Ctx, Item, Level};
+use crate::plus::sources::model::Freshness;
 use crate::plus::sources::{scan_host, ScanOptions};
+
+/// Commits a source is behind that carry items the checkout lacks. A checkout whose remote only
+/// moved files Claude never loads has nothing to ask the user.
+fn only_on_remote(freshness: &Freshness) -> u64 {
+    if freshness.in_checkout {
+        0
+    } else {
+        freshness.behind
+    }
+}
 
 pub fn collect(ctx: &Ctx) -> Vec<Item> {
     let Some(report) = scan_host(&ScanOptions::default()) else { return Vec::new() };
@@ -40,7 +51,7 @@ pub fn collect(ctx: &Ctx) -> Vec<Item> {
             }
             continue;
         }
-        let behind = source.freshness.as_ref().map_or(0, |f| f.behind);
+        let behind = source.freshness.as_ref().map_or(0, only_on_remote);
         if behind > 0 {
             items.push(
                 Item::new(
@@ -56,4 +67,30 @@ pub fn collect(ctx: &Ctx) -> Vec<Item> {
         }
     }
     items
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fresh(behind: u64, in_checkout: bool) -> Freshness {
+        Freshness {
+            reference: "origin/main".into(),
+            behind,
+            ahead: 0,
+            in_checkout,
+            last_sync: None,
+        }
+    }
+
+    #[test]
+    fn a_remote_that_only_moved_files_claude_never_loads_asks_nothing() {
+        assert_eq!(only_on_remote(&fresh(449, true)), 0);
+    }
+
+    #[test]
+    fn a_remote_with_items_the_checkout_lacks_counts_its_commits() {
+        assert_eq!(only_on_remote(&fresh(3, false)), 3);
+        assert_eq!(only_on_remote(&fresh(0, false)), 0);
+    }
 }

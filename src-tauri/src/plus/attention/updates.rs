@@ -115,7 +115,7 @@ pub fn findings_of(rep: &ServerReport) -> Vec<Finding> {
                 "conflict",
                 format!("{ahead}+{behind}"),
                 format!("{id}: a sync would conflict"),
-                format!("{id} has {ahead} local commit(s) and is {behind} behind {remote}; it cannot be fast-forwarded."),
+                format!("{id} has {ahead} local commit(s) and is {behind} behind {remote}, so it cannot be fast-forwarded. Toolport leaves it alone: rebase or merge {remote} in its folder and this clears by itself."),
             ));
         } else if behind > 0 {
             out.push(finding(

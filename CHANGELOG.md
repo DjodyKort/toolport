@@ -77,6 +77,8 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 - The app opens on the full Servers screen instead of the upstream page.
 - Attention no longer asks for a new sign-in for a server that no profile enables.
+- Attention lists a source as behind its remote only when the remote has files the checkout lacks, and
+  a diverged fork says what to do.
 - The window no longer scrolls or bounces as a whole; only the panels inside it do.
 - A folder pasted with its flag or half its quotes (`--cwd '/a b/`) is read as the plain path, and a
   fragment an earlier version stored is repaired. The Context tabs no longer fail on it with "is not
