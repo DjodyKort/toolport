@@ -270,3 +270,120 @@ fn the_text_names_each_route_and_the_json_keeps_the_same_facts() {
     assert_eq!(value["servers"][0]["routes"][0]["how"], "own-entry");
     assert_eq!(value["findings"][0]["kind"], "direct-only");
 }
+
+mod claude_code_state {
+    use super::*;
+    use crate::plus::exec::CmdOutput;
+    use crate::plus::plugins::claude::ClaudeRunner;
+    use claude_code::{annotate, disabled_in, parse_list, probe};
+    use std::time::Duration;
+
+    const LIST: &str = "Checking MCP server health…\n\n\
+        claude.ai Google Drive: https://drivemcp.googleapis.com/mcp/v1 - ✔ Connected\n\
+        Figma MCP Server: https://mcp.figma.com/mcp (HTTP) - ✔ Connected\n\
+        miro: https://mcp.miro.com - ⚠ Needs authentication\n\
+        plugin:ecc:chrome-devtools: npx -y chrome-devtools-mcp@latest - ✗ Failed to connect\n";
+
+    struct Canned(Result<CmdOutput, String>);
+
+    impl ClaudeRunner for Canned {
+        fn run(&self, args: &[&str], _timeout: Duration) -> Result<CmdOutput, String> {
+            assert_eq!(args, ["mcp", "list"]);
+            self.0.clone()
+        }
+    }
+
+    fn output(code: i32, stdout: &str, stderr: &str) -> Result<CmdOutput, String> {
+        Ok(CmdOutput { code, stdout: stdout.into(), stderr: stderr.into() })
+    }
+
+    fn figma_report() -> (Report, Vec<DetectedClient>) {
+        let reg = registry(vec![server("figma-mcp-server", "Figma MCP Server", "sse", None)], &[]);
+        let own = entry("Figma MCP Server", "http", Some("https://mcp.figma.com/mcp"), None, &[]);
+        let mut claude = client("claude-code", GatewayEntryState::Managed, vec![own]);
+        let config = std::env::temp_dir().join(format!("toolport-reach-held-{}.json", std::process::id()));
+        std::fs::write(
+            &config,
+            json!({"projects": {
+                "/home/a": {"disabledMcpServers": ["Figma MCP Server", "other"]},
+                "/home/b": {"disabledMcpServers": ["other"]},
+                "/home/c": {}
+            }})
+            .to_string(),
+        )
+        .unwrap();
+        claude.config_path = config.to_string_lossy().into_owned();
+        let detected = vec![claude];
+        (assess(&reg, &detected), detected)
+    }
+
+    #[test]
+    fn the_projects_an_entry_is_switched_off_for_come_from_the_claude_config() {
+        let doc = json!({"projects": {
+            "/a": {"disabledMcpServers": ["x", "y"]},
+            "/b": {"disabledMcpServers": ["y"]},
+            "/c": {}
+        }});
+        assert_eq!(disabled_in(&doc, "x"), vec!["/a"]);
+        assert_eq!(disabled_in(&doc, "y"), vec!["/a", "/b"]);
+        assert!(disabled_in(&doc, "z").is_empty());
+        assert!(disabled_in(&json!({}), "x").is_empty());
+    }
+
+    #[test]
+    fn the_list_of_claude_code_is_read_per_server_and_unknown_lines_are_skipped() {
+        let states = parse_list(LIST);
+        assert_eq!(states.len(), 4);
+        assert_eq!(states["Figma MCP Server"], "connected");
+        assert_eq!(states["miro"], "needs-auth");
+        assert_eq!(states["plugin:ecc:chrome-devtools"], "failed");
+        assert!(parse_list("Checking MCP server health…\n\nsomething odd").is_empty());
+    }
+
+    #[test]
+    fn an_own_entry_of_claude_code_carries_what_claude_code_says_about_it() {
+        let (mut report, detected) = figma_report();
+        let live = probe(&Canned(output(0, LIST, "")));
+        annotate(&mut report, &detected, Some(&live));
+        let held = route(&report, "figma-mcp-server", "claude-code")[0].held.clone().unwrap();
+        assert_eq!(held.disabled_in, vec!["/home/a"]);
+        assert!(!held.enabled());
+        assert_eq!(held.live.as_deref(), Some("connected"));
+        let value = report.to_value();
+        assert_eq!(value["servers"][0]["routes"][0]["held"]["live"], "connected");
+        assert_eq!(value["servers"][0]["routes"][0]["held"]["enabled"], false);
+        let text = report.text();
+        assert!(text.contains("switched off in 1 project of Claude Code, connects"), "{text}");
+    }
+
+    #[test]
+    fn without_the_live_check_only_the_config_is_reported() {
+        let (mut report, detected) = figma_report();
+        annotate(&mut report, &detected, None);
+        let held = route(&report, "figma-mcp-server", "claude-code")[0].held.clone().unwrap();
+        assert_eq!(held.live, None);
+        assert!(report.findings.iter().all(|f| f.kind != "live-unavailable"));
+    }
+
+    #[test]
+    fn a_client_that_is_not_claude_code_gets_no_held_state() {
+        let reg = registry(vec![server("figma-mcp-server", "Figma MCP Server", "sse", None)], &[]);
+        let own = entry("Figma MCP Server", "http", Some("https://mcp.figma.com/mcp"), None, &[]);
+        let detected = vec![client("cursor", GatewayEntryState::Managed, vec![own])];
+        let mut report = assess(&reg, &detected);
+        annotate(&mut report, &detected, None);
+        assert!(route(&report, "figma-mcp-server", "cursor")[0].held.is_none());
+    }
+
+    #[test]
+    fn a_failed_check_is_a_finding_and_not_an_error() {
+        let (mut report, detected) = figma_report();
+        let live = probe(&Canned(Err("claude not found on PATH".into())));
+        assert!(live.is_err());
+        annotate(&mut report, &detected, Some(&live));
+        let finding = report.findings.iter().find(|f| f.kind == "live-unavailable").unwrap();
+        assert!(finding.text.contains("claude not found on PATH"), "{}", finding.text);
+        let silent = probe(&Canned(output(1, "", "boom\n")));
+        assert_eq!(silent, Err("boom".to_string()));
+    }
+}

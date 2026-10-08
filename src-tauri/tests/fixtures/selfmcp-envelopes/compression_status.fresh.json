@@ -23,7 +23,9 @@
     },
     "provider": "none",
     "runtime": "none",
-    "scope": ["default"],
+    "scope": [
+      "default"
+    ],
     "shims": {
       "exists": false,
       "path": "<WORLD>/data/compression-shims.zsh"

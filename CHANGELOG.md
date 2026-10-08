@@ -61,6 +61,10 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ### Added
 
+- `toolportctl client reach --live` (and `live` on `clients_reach`) asks Claude Code whether it
+  connects to the servers it holds itself, and reports whether it switched an entry off for some
+  projects. The Servers screen shows it on the row ("Connected in Claude Code", "Off in Claude
+  Code") and on the server, with a button to ask again.
 - A profile can list extra folders (`dirs.add`) whose project skills a session loads. The launch
   line adds each one with `--add-dir`, the only way Claude Code loads another folder's skills.
 - `toolportctl server restart <server>` restarts one server's process in every running gateway,

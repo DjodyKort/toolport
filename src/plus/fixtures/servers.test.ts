@@ -53,7 +53,7 @@ const SHAPES: Array<[RegExp, Shape<unknown>]> = [
   [/^client edit /, clientEditData],
   [/^client import /, clientImportData],
   [/^client direct ls$/, clientDirectLsData],
-  [/^client reach$/, clientReachData],
+  [/^client reach( --live)?$/, clientReachData],
   [/^client direct add /, clientDirectAddData],
   [/^client direct rm /, clientDirectRmData],
   [/^server install /, serverInstallData],

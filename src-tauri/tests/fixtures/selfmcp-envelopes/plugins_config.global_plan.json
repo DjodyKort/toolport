@@ -32,7 +32,10 @@
       "steps": [
         {
           "detail": "claude plugin configure ecc@ecc --values-stdin (user scope); the JSON object goes over stdin, never in an argument: hook_profile=strict, hooks_enabled=false",
-          "keys": ["hook_profile", "hooks_enabled"],
+          "keys": [
+            "hook_profile",
+            "hooks_enabled"
+          ],
           "op": "exec"
         }
       ],

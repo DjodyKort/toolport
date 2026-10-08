@@ -33,6 +33,9 @@ export interface DirectRoute {
   client: string;
   clientName: string;
   entry: string | null;
+  /** What the client says about the entry: switched off for some projects, and whether it
+   * connected the last time it was asked. `null` for a client Toolport cannot ask. */
+  held: { enabled: boolean; disabledIn: string[]; live: string | null } | null;
 }
 
 export interface ServerView {
@@ -108,6 +111,7 @@ function directRoutes(reach: ClientReachData | null, serverId: string): DirectRo
       client: route.client,
       clientName: route.clientName,
       entry: route.entry,
+      held: route.held,
     }));
 }
 
@@ -198,7 +202,7 @@ export function stateLabel(
   view: Pick<ServerView, "state" | "expiring"> & { direct?: DirectRoute[] },
 ): string {
   if (view.state === "connected") return view.expiring ? "Login expiring" : "Connected";
-  if (view.state === "direct") return directLabel(view.direct ?? []);
+  if (view.state === "direct") return directLook(view.direct ?? []).label;
   return {
     login: "Login needed",
     failed: "Failed",
@@ -209,16 +213,34 @@ export function stateLabel(
   }[view.state];
 }
 
-/** `In Claude Code` for one client, `In Claude Code +1` for several. */
-function directLabel(routes: DirectRoute[]): string {
+/** What a client that holds a server itself says about it, the worst route first. */
+export function directLook(routes: DirectRoute[]): { label: string; tone: Tone } {
   const names = [...new Set(routes.map((route) => route.clientName))];
-  if (names.length === 0) return "Held by a client";
-  return names.length === 1 ? `In ${names[0]}` : `In ${names[0]} +${names.length - 1}`;
+  if (names.length === 0) return { label: "Held by a client", tone: "info" };
+  const more = names.length === 1 ? "" : ` +${names.length - 1}`;
+  const lives = routes.map((route) => route.held?.live ?? null);
+  const worst = routes.find((route) => route.held?.live === "failed")
+    ? "failed"
+    : lives.includes("needs-auth")
+      ? "needs-auth"
+      : lives.includes("connected")
+        ? "connected"
+        : null;
+  const off = routes.every((route) => route.held && !route.held.enabled);
+  const where = `${names[0]}${more}`;
+  if (worst === "failed") return { label: `Failing in ${where}`, tone: "destructive" };
+  if (worst === "needs-auth")
+    return { label: `Sign-in needed in ${where}`, tone: "warning" };
+  if (worst === "connected") return { label: `Connected in ${where}`, tone: "success" };
+  if (off) return { label: `Off in ${where}`, tone: "secondary" };
+  return { label: `In ${where}`, tone: "info" };
 }
 
 export type Tone = "success" | "warning" | "destructive" | "secondary" | "info";
 
-export function stateTone(view: Pick<ServerView, "state" | "expiring">): Tone {
+export function stateTone(
+  view: Pick<ServerView, "state" | "expiring"> & { direct?: DirectRoute[] },
+): Tone {
   switch (view.state) {
     case "connected":
       return view.expiring ? "warning" : "success";
@@ -227,8 +249,9 @@ export function stateTone(view: Pick<ServerView, "state" | "expiring">): Tone {
     case "failed":
       return "destructive";
     case "starting":
-    case "direct":
       return "info";
+    case "direct":
+      return directLook(view.direct ?? []).tone;
     default:
       return "secondary";
   }
@@ -239,7 +262,8 @@ export function serverSummary(view: ServerView): string {
   if (view.state === "connected")
     return `${view.tools ?? 0} tool${view.tools === 1 ? "" : "s"}`;
   if (view.state === "disabled") return "Not in the active profile";
-  if (view.state === "direct") return `${directLabel(view.direct)}, outside the gateway`;
+  if (view.state === "direct")
+    return `${directLook(view.direct).label}, outside the gateway`;
   if (view.state === "starting") return "Connecting";
   return "No tools yet";
 }

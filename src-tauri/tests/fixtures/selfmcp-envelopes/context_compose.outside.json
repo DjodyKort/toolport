@@ -16,7 +16,9 @@
       },
       {
         "dir": "<WORLD>/home/work/other",
-        "files": ["CLAUDE.local.md"]
+        "files": [
+          "CLAUDE.local.md"
+        ]
       }
     ],
     "notes": [],
@@ -42,7 +44,9 @@
       },
       {
         "kind": "memory",
-        "layers": ["client-erp-knowledge"],
+        "layers": [
+          "client-erp-knowledge"
+        ],
         "lazy": false,
         "name": "CLAUDE.local.md",
         "origin": {

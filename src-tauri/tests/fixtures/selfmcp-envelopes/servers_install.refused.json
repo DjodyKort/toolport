@@ -1,7 +1,9 @@
 {
   "arguments": {
     "config": {
-      "args": ["--flag"],
+      "args": [
+        "--flag"
+      ],
       "command": "gamma-mcp"
     },
     "name": "gamma"

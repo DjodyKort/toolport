@@ -1,4 +1,4 @@
-//! The `claude` binary as a mockable runner. Only `plugin ...` sub-commands go through it.
+//! The `claude` binary as a mockable runner. `plugin ...` and `mcp list` go through it.
 
 use crate::plus::exec::run_command_input;
 use crate::plus::update::exec::{is_not_found, run_command, CmdOutput};
@@ -36,7 +36,6 @@ impl SystemClaude {
         Self { bin }
     }
 
-    #[cfg(test)]
     pub fn with_bin(bin: impl Into<String>) -> Self {
         Self { bin: bin.into() }
     }

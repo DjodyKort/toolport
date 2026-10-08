@@ -11,7 +11,9 @@
     "lockUpdated": true,
     "name": "demo",
     "outputRoot": "<WORLD>/home",
-    "outputs": ["<WORLD>/home/.claude/skills/demo/SKILL.md"],
+    "outputs": [
+      "<WORLD>/home/.claude/skills/demo/SKILL.md"
+    ],
     "repo": "<WORLD>/skills-repo",
     "scope": "global",
     "sourcePath": "<WORLD>/skills-repo/skills/demo"

@@ -5,7 +5,9 @@
     "clean": false,
     "lockfile": null,
     "modified": [],
-    "new": ["demo"],
+    "new": [
+      "demo"
+    ],
     "noLockfile": true,
     "removed": [],
     "repo": "<WORLD>/skills-repo",

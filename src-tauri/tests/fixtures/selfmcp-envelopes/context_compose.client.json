@@ -16,7 +16,9 @@
       },
       {
         "dir": "<WORLD>/home/work/erp",
-        "files": ["CLAUDE.md"]
+        "files": [
+          "CLAUDE.md"
+        ]
       },
       {
         "dir": "<WORLD>/home/work/erp/clients",
@@ -24,7 +26,9 @@
       },
       {
         "dir": "<WORLD>/home/work/erp/clients/acme-two",
-        "files": ["CLAUDE.local.md"]
+        "files": [
+          "CLAUDE.local.md"
+        ]
       }
     ],
     "notes": [],
@@ -69,7 +73,10 @@
       },
       {
         "kind": "memory",
-        "layers": ["client-chain", "client-linked"],
+        "layers": [
+          "client-chain",
+          "client-linked"
+        ],
         "lazy": false,
         "name": "CLAUDE.local.md",
         "origin": {
@@ -102,7 +109,9 @@
           "basis": "estimate",
           "value": 15
         },
-        "via": ["<WORLD>/home/work/erp/clients/acme-two/CLAUDE.local.md"],
+        "via": [
+          "<WORLD>/home/work/erp/clients/acme-two/CLAUDE.local.md"
+        ],
         "writable": false
       }
     ],

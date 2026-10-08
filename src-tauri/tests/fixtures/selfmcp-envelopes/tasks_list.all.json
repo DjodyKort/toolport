@@ -42,12 +42,16 @@
         "kind": "login",
         "lastRun": null,
         "nextRun": null,
-        "refreshes": ["moodle"],
+        "refreshes": [
+          "moodle"
+        ],
         "title": "Refresh the Moodle token",
         "triggers": {
           "cli": true,
           "manual": true,
-          "onAuthFailure": ["moodle"],
+          "onAuthFailure": [
+            "moodle"
+          ],
           "schedule": null,
           "selfMcp": {
             "approval": "every-run",
@@ -95,12 +99,16 @@
           "status": "waiting"
         },
         "nextRun": null,
-        "refreshes": ["srv-alpha"],
+        "refreshes": [
+          "srv-alpha"
+        ],
         "title": "Refresh the portal token",
         "triggers": {
           "cli": true,
           "manual": true,
-          "onAuthFailure": ["srv-alpha"],
+          "onAuthFailure": [
+            "srv-alpha"
+          ],
           "schedule": null,
           "selfMcp": {
             "approval": "every-run",

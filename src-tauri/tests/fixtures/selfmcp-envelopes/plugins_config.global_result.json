@@ -33,7 +33,10 @@
       "steps": [
         {
           "detail": "claude plugin configure ecc@ecc --values-stdin (user scope); the JSON object goes over stdin, never in an argument: hook_profile=strict, hooks_enabled=false",
-          "keys": ["hook_profile", "hooks_enabled"],
+          "keys": [
+            "hook_profile",
+            "hooks_enabled"
+          ],
           "op": "exec"
         }
       ],
@@ -47,7 +50,9 @@
     "result": {
       "applied": true,
       "backups": [],
-      "changed": ["claude plugin configure ecc@ecc (user scope)"],
+      "changed": [
+        "claude plugin configure ecc@ecc (user scope)"
+      ],
       "undo": "toolportctl plugins config ecc@ecc --set hook_profile=strict --set hooks_enabled=true"
     },
     "scope": "global"

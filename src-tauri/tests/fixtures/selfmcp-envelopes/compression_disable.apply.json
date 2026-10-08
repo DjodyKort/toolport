@@ -19,7 +19,9 @@
       "savingsProfile": null
     },
     "provider": "none",
-    "removed": ["<WORLD>/data/compression-env.sh"],
+    "removed": [
+      "<WORLD>/data/compression-env.sh"
+    ],
     "runtime": "none",
     "teardown": false,
     "warnings": [],

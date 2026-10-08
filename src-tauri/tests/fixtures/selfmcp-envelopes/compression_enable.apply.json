@@ -8,7 +8,9 @@
   },
   "isError": false,
   "result": {
-    "actions": ["saved config (provider=rtk-only)"],
+    "actions": [
+      "saved config (provider=rtk-only)"
+    ],
     "adopted": null,
     "dryRun": false,
     "nextSteps": [

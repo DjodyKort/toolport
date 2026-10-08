@@ -485,7 +485,7 @@ pub(super) fn clients_reach(args: &Value) -> Outcome {
     if client.is_some_and(|c| !safe_token(c)) {
         return Err(ToolError::new("invalid_arguments", "invalid client key"));
     }
-    let report = crate::plus::reach::report(client, str_nonempty(args, "server"))?;
+    let report = crate::plus::reach::report(client, str_nonempty(args, "server"), flag(args, "live"))?;
     Ok(report.to_value())
 }
 

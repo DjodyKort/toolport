@@ -6,7 +6,9 @@
   "isError": false,
   "result": {
     "bundle": "acme-dev",
-    "conflicts": ["skillOverrides.scratch-one"],
+    "conflicts": [
+      "skillOverrides.scratch-one"
+    ],
     "cwd": "<WORLD>/home/work/erp/clients/acme-two",
     "dryRun": true,
     "plan": {

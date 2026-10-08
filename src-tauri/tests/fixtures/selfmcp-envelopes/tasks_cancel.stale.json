@@ -7,7 +7,9 @@
     "result": {
       "applied": true,
       "backups": [],
-      "changed": ["<WORLD>/data/plus/task-runs/run-fixture-stale.json"],
+      "changed": [
+        "<WORLD>/data/plus/task-runs/run-fixture-stale.json"
+      ],
       "undo": "toolportctl task run draft-cleanup"
     },
     "run": {

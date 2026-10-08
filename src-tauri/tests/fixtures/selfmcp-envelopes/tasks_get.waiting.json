@@ -60,7 +60,9 @@
       "id": "portal-token",
       "requires": {
         "commands": [],
-        "servers": ["srv-alpha"]
+        "servers": [
+          "srv-alpha"
+        ]
       },
       "steps": [
         {
@@ -75,7 +77,9 @@
         },
         {
           "args": {},
-          "capture": ["token"],
+          "capture": [
+            "token"
+          ],
           "id": "read-token",
           "server": "srv-alpha",
           "title": "Read the token",
@@ -101,7 +105,9 @@
       "triggers": {
         "cli": true,
         "manual": true,
-        "onAuthFailure": ["srv-alpha"],
+        "onAuthFailure": [
+          "srv-alpha"
+        ],
         "schedule": null,
         "selfMcp": {
           "approval": "every-run",

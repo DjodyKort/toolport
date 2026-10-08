@@ -23,13 +23,16 @@
       {
         "id": "srv-alpha",
         "name": "alpha",
-        "profiles": ["Default"],
+        "profiles": [
+          "Default"
+        ],
         "routes": [
           {
             "basis": null,
             "client": "claude-code",
             "clientName": "Claude Code",
             "entry": "alpha",
+            "held": null,
             "how": "launcher",
             "note": null,
             "recorded": true,

@@ -6,7 +6,9 @@
   },
   "isError": false,
   "result": {
-    "actions": ["saved config (provider=none)"],
+    "actions": [
+      "saved config (provider=none)"
+    ],
     "adopted": null,
     "dryRun": false,
     "preset": {

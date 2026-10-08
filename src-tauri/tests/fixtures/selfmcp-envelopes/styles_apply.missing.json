@@ -1,6 +1,8 @@
 {
   "arguments": {
-    "client_keys": ["aider"],
+    "client_keys": [
+      "aider"
+    ],
     "confirm": true,
     "dry_run": false,
     "name": "nope"

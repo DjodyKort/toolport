@@ -150,6 +150,9 @@ export const clientReachData = obj({
           client: str,
           clientName: str,
           entry: nullable(str),
+          held: nullable(
+            obj({ disabledIn: arr(str), enabled: bool, live: nullable(str) }),
+          ),
           how: str,
           note: nullable(str),
           recorded: bool,

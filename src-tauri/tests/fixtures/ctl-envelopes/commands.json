@@ -1166,6 +1166,17 @@
               "required": false,
               "sensitive": false,
               "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Also ask Claude Code which servers it connects to; starts them and takes a few seconds",
+              "escalates": false,
+              "hidden": false,
+              "name": "--live",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
             }
           ],
           "group": "client",
@@ -1183,7 +1194,7 @@
             "flag": null,
             "mode": "none"
           },
-          "summary": "Show how each client reaches each server: gateway, launcher or its own entry (--client, --server)",
+          "summary": "Show how each client reaches each server: gateway, launcher or its own entry (--client, --server, --live)",
           "surface": "screen",
           "tier": "read",
           "tools": ["clients_reach"]

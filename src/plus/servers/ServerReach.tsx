@@ -1,4 +1,5 @@
 import { Callout } from "@/components/Callout";
+import { Button } from "@/components/ui/button";
 import { ScreenSkeleton } from "../ui";
 import type { ClientReachData } from "../types/client";
 import { Code, Pill } from "./atoms";
@@ -14,6 +15,20 @@ const LAUNCHER_STATE: Record<string, string> = {
   missing: "the entry is gone from the client",
   unrecorded: "Toolport has no record of writing it",
 };
+
+const LIVE_WORDS: Record<string, string> = {
+  connected: "connects",
+  "needs-auth": "needs a sign-in",
+  failed: "fails to connect",
+};
+
+function heldWords(held: NonNullable<Route["held"]>): string {
+  const switchedOn = held.enabled
+    ? "switched on"
+    : `switched off in ${held.disabledIn.length} project${held.disabledIn.length === 1 ? "" : "s"}`;
+  const live = held.live ? LIVE_WORDS[held.live] : null;
+  return live ? `${switchedOn}, ${live}` : switchedOn;
+}
 
 function RouteRow({ route, profile }: { route: Route; profile: string | null }) {
   const flagged =
@@ -41,6 +56,14 @@ function RouteRow({ route, profile }: { route: Route; profile: string | null }) 
           {route.target && <Code>{route.target}</Code>}
         </span>
       )}
+      {route.held && (
+        <span className="text-xs text-muted-foreground">
+          In {route.clientName}: {heldWords(route.held)}.
+          {!route.held.enabled && route.held.disabledIn.length <= 3 && (
+            <> Off for {route.held.disabledIn.join(", ")}.</>
+          )}
+        </span>
+      )}
       {route.how === "own-entry" && route.basis && route.basis !== "record" && (
         <span className="text-xs text-muted-foreground">
           Matched to this server by its {route.basis}.
@@ -63,7 +86,7 @@ function FindingNote({ finding }: { finding: Finding }) {
 /** Which clients reach one server and by what route: through the gateway, through a Toolport
  * launcher entry, or through an entry the client holds itself (which Toolport does not manage). */
 export function ServerReach({ view }: { view: ServerView }) {
-  const { reach } = useServers();
+  const { reach, liveCheck } = useServers();
   const data = reach.data;
   const entry = data?.servers.find((server) => server.id === view.id);
   const findings = (data?.findings ?? []).filter((finding) => finding.server === view.id);
@@ -99,6 +122,19 @@ export function ServerReach({ view }: { view: ServerView }) {
             />
           ))}
         </ul>
+      )}
+      {entry?.routes.some((route) => route.held) && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={liveCheck.running}
+            onClick={liveCheck.run}
+          >
+            {liveCheck.running ? "Asking Claude Code…" : "Ask Claude Code again"}
+          </Button>
+          <span>Starts the servers it holds to see whether they connect.</span>
+        </div>
       )}
       {findings.map((finding) => (
         <FindingNote key={`${finding.kind}:${finding.client}`} finding={finding} />

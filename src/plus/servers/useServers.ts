@@ -22,6 +22,8 @@ export interface ServersCtx {
   clients: CtlQuery<ClientLsData>;
   direct: CtlQuery<ClientDirectLsData>;
   reach: CtlQuery<ClientReachData>;
+  /** The slow question to Claude Code whether it connects to the servers it holds itself. */
+  liveCheck: { running: boolean; run: () => void };
   registry: CtlQuery<CommandsData>;
   /** The registry rows the policy of each write is read from. */
   rows: CommandRow[] | null;

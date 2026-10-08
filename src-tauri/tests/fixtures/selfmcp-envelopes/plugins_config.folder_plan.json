@@ -4,7 +4,10 @@
     "id": "ecc@ecc",
     "set": {
       "gateguard": false,
-      "gateguard_exempt_globs": ["docs/**", "scripts/*.sh"],
+      "gateguard_exempt_globs": [
+        "docs/**",
+        "scripts/*.sh"
+      ],
       "hook_profile": "minimal"
     }
   },
@@ -45,7 +48,9 @@
             "after": "env.ECC_GATEGUARD: \"off\"\nenv.ECC_HOOK_PROFILE: \"minimal\"\nenv.GATEGUARD_EXEMPT_GLOBS: \"docs/**,scripts/*.sh\"\n",
             "before": "env.ECC_GATEGUARD: (absent)\nenv.ECC_HOOK_PROFILE: (absent)\nenv.GATEGUARD_EXEMPT_GLOBS: (absent)\n"
           },
-          "keys": ["env"],
+          "keys": [
+            "env"
+          ],
           "op": "create",
           "path": "<WORLD>/home/work/acme-erp/.claude/settings.local.json"
         },

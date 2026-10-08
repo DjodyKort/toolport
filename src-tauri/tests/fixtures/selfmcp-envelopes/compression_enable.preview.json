@@ -6,7 +6,9 @@
   },
   "isError": false,
   "result": {
-    "actions": ["would save config (provider=rtk-only)"],
+    "actions": [
+      "would save config (provider=rtk-only)"
+    ],
     "adopted": null,
     "dryRun": true,
     "nextSteps": [

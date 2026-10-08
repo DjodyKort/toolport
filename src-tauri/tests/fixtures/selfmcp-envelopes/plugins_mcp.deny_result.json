@@ -22,7 +22,9 @@
             "after": "deniedMcpServers: {\"serverName\":\"plugin:ecc:chrome-devtools\"}\n",
             "before": "deniedMcpServers: (absent)\n"
           },
-          "keys": ["deniedMcpServers"],
+          "keys": [
+            "deniedMcpServers"
+          ],
           "op": "create",
           "path": "<WORLD>/home/work/acme-erp/.claude/settings.local.json"
         },

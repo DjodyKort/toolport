@@ -5,11 +5,14 @@
 //! of the desktop app are renderers over `assess`.
 
 use crate::clients::{self, DetectedClient, GatewayEntryState, McpServer};
+use claude_code::Held;
 use crate::plus::direct::{self, launcher_target};
 use crate::plus::op::OpError;
 use crate::plus::servers;
 use crate::registry::{Registry, ServerEntry};
 use serde_json::{json, Value};
+
+pub mod claude_code;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum How {
@@ -40,6 +43,7 @@ pub struct Route {
     pub basis: Option<&'static str>,
     pub recorded: bool,
     pub note: Option<String>,
+    pub held: Option<Held>,
 }
 
 impl Route {
@@ -55,6 +59,11 @@ impl Route {
             "basis": self.basis,
             "recorded": self.recorded,
             "note": self.note,
+            "held": self.held.as_ref().map(|h| json!({
+                "enabled": h.enabled(),
+                "disabledIn": h.disabled_in,
+                "live": h.live,
+            })),
         })
     }
 }
@@ -203,6 +212,7 @@ pub fn assess(reg: &Registry, detected: &[DetectedClient]) -> Report {
                         recorded: false,
                         note: (client.entry_state == GatewayEntryState::Customized)
                             .then(|| "the gateway entry was edited by hand".to_string()),
+                        held: None,
                     });
                 }
             }
@@ -229,6 +239,7 @@ pub fn assess(reg: &Registry, detected: &[DetectedClient]) -> Report {
                         basis: None,
                         recorded: row.is_some_and(|r| r.state != direct::State::Unrecorded),
                         note: None,
+                        held: None,
                     }),
                     None => report.findings.push(Finding {
                         level: "look",
@@ -269,6 +280,7 @@ pub fn assess(reg: &Registry, detected: &[DetectedClient]) -> Report {
                             entry.transport
                         )
                     }),
+                    held: None,
                 }),
                 None => report.unregistered.push(Unregistered {
                     client: client.id.clone(),
@@ -460,12 +472,35 @@ fn route_line(route: &Route) -> String {
     if let Some(note) = &route.note {
         line.push_str(&format!("; {note}"));
     }
+    if let Some(held) = &route.held {
+        line.push_str(&format!("; {}", held_line(held)));
+    }
     line
 }
 
-pub fn report(client: Option<&str>, server: Option<&str>) -> Result<Report, OpError> {
+fn held_line(held: &Held) -> String {
+    let switch = match held.disabled_in.len() {
+        0 => "switched on in Claude Code".to_string(),
+        1 => "switched off in 1 project of Claude Code".to_string(),
+        n => format!("switched off in {n} projects of Claude Code"),
+    };
+    match held.live.as_deref() {
+        Some("connected") => format!("{switch}, connects"),
+        Some("needs-auth") => format!("{switch}, needs a sign-in"),
+        Some("failed") => format!("{switch}, fails to connect"),
+        _ => switch,
+    }
+}
+
+/// With `live`, Claude Code is also asked which servers it connects to; that starts them and takes
+/// a few seconds, so it is opt-in.
+pub fn report(client: Option<&str>, server: Option<&str>, live: bool) -> Result<Report, OpError> {
     let reg = crate::plus::registry_ro::read().map_err(|e| OpError::failed("registry_error", e))?;
-    assess(&reg, &clients::detect_clients()).only(client, server)
+    let detected = clients::detect_clients();
+    let mut report = assess(&reg, &detected);
+    let probed = live.then(|| claude_code::probe(&claude_code::runner()));
+    claude_code::annotate(&mut report, &detected, probed.as_ref());
+    report.only(client, server)
 }
 
 #[cfg(test)]

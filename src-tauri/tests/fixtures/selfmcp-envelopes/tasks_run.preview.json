@@ -36,11 +36,15 @@
       ],
       "summary": "Run task portal-token (4 steps)",
       "undo": "toolportctl task cancel <run-id>",
-      "warnings": ["task \"portal-token\" is already running as run-fixture-waiting"]
+      "warnings": [
+        "task \"portal-token\" is already running as run-fixture-waiting"
+      ]
     },
     "requires": {
       "commands": [],
-      "servers": ["srv-alpha"]
+      "servers": [
+        "srv-alpha"
+      ]
     },
     "result": null,
     "run": null,

@@ -29,7 +29,7 @@ Commands:
   profile rm     Delete a profile and clean the client entries scoped to it (--no-clients, --dry-run)
   profile        Profiles: ls create edit rm inspect
   client ls      List detected clients and their direct entries
-  client reach   Show how each client reaches each server: gateway, launcher or its own entry (--client, --server)
+  client reach   Show how each client reaches each server: gateway, launcher or its own entry (--client, --server, --live)
   client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
   client edit    Point a client at a profile (<client>, --add-profile, --remove-profile, --set-profiles, --force, --dry-run)
   client import  Import a client's direct entries into the registry (<client>, --select, --all, --profile, --dry-run)
@@ -229,7 +229,7 @@ Commands:
   profile rm     Delete a profile and clean the client entries scoped to it (--no-clients, --dry-run)
   profile        Profiles: ls create edit rm inspect
   client ls      List detected clients and their direct entries
-  client reach   Show how each client reaches each server: gateway, launcher or its own entry (--client, --server)
+  client reach   Show how each client reaches each server: gateway, launcher or its own entry (--client, --server, --live)
   client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
   client edit    Point a client at a profile (<client>, --add-profile, --remove-profile, --set-profiles, --force, --dry-run)
   client import  Import a client's direct entries into the registry (<client>, --select, --all, --profile, --dry-run)
@@ -429,7 +429,7 @@ Commands:
   profile rm     Delete a profile and clean the client entries scoped to it (--no-clients, --dry-run)
   profile        Profiles: ls create edit rm inspect
   client ls      List detected clients and their direct entries
-  client reach   Show how each client reaches each server: gateway, launcher or its own entry (--client, --server)
+  client reach   Show how each client reaches each server: gateway, launcher or its own entry (--client, --server, --live)
   client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
   client edit    Point a client at a profile (<client>, --add-profile, --remove-profile, --set-profiles, --force, --dry-run)
   client import  Import a client's direct entries into the registry (<client>, --select, --all, --profile, --dry-run)
@@ -629,7 +629,7 @@ Commands:
   profile rm     Delete a profile and clean the client entries scoped to it (--no-clients, --dry-run)
   profile        Profiles: ls create edit rm inspect
   client ls      List detected clients and their direct entries
-  client reach   Show how each client reaches each server: gateway, launcher or its own entry (--client, --server)
+  client reach   Show how each client reaches each server: gateway, launcher or its own entry (--client, --server, --live)
   client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
   client edit    Point a client at a profile (<client>, --add-profile, --remove-profile, --set-profiles, --force, --dry-run)
   client import  Import a client's direct entries into the registry (<client>, --select, --all, --profile, --dry-run)

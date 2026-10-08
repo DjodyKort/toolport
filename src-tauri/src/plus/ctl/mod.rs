@@ -182,7 +182,7 @@ pub const COMMANDS: &[Command] = &[
     cmd(&["client", "ls"], "List detected clients and their direct entries", client::ls),
     cmd(
         &["client", "reach"],
-        "Show how each client reaches each server: gateway, launcher or its own entry (--client, --server)",
+        "Show how each client reaches each server: gateway, launcher or its own entry (--client, --server, --live)",
         client::reach,
     ),
     cmd(

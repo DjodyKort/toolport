@@ -2,7 +2,9 @@
   "arguments": {
     "name": "gamma",
     "patch": {
-      "args": ["--changed"]
+      "args": [
+        "--changed"
+      ]
     }
   },
   "isError": true,

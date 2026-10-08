@@ -639,7 +639,7 @@ A client that reconnects does not restart a server: the gateway keeps each stdio
 
 ## How clients reach a server
 
-`toolportctl client reach [--client <id>] [--server <id|name>]` shows, for every server, how each installed client gets to it. It only reads: it opens the registry and the client config files and writes neither.
+`toolportctl client reach [--client <id>] [--server <id|name>] [--live]` shows, for every server, how each installed client gets to it. It only reads: it opens the registry and the client config files and writes neither.
 
 - **Through Toolport:** the client has the gateway entry and the server is in the profile the client follows.
 - **Toolport launcher entry:** a `client direct add` entry, with its state (`ok`, `stale`, `customized`, ...).
@@ -648,7 +648,9 @@ A client that reconnects does not restart a server: the gateway keeps each stdio
 
 Findings: `twice` (a client reaches one server both through the gateway and through its own entry, so its tools may show up twice), `direct-only` (no profile serves the server, but a client reaches it itself, which is not a fault) and `orphan-launcher`. Urls are shown without user info and query, and a command without its arguments, so a credential in a client entry never appears in the output.
 
-The desktop app shows the same on each server under "How clients reach it". The self-management server has `clients_reach` (tier 1, read-only). Attention no longer reports an expired login for a server that no profile enables: the gateway does not serve it, so the login cannot fail anything there.
+**What Claude Code says about its own entries.** An own entry of Claude Code carries `held`: `enabled` (Claude Code keeps a `disabledMcpServers` list per project in `~/.claude.json`; the entry is off for the projects listed in `disabledIn`) and `live`. `live` is only filled with `--live`, which runs `claude mcp list` and reads `connected`, `needs-auth` or `failed` per entry. That call starts every server Claude Code holds and takes several seconds, so nothing runs it unless asked; the app asks once when the Servers screen opens and again on "Ask Claude Code again". It reflects Claude Code started outside any project, so a server switched off for one project still reads as connecting. When `claude` cannot be run, a `live-unavailable` finding says why and the rest of the answer stands. The switch on a server row is the profile membership in Toolport and says nothing about Claude Code's own entry.
+
+The desktop app shows the same on each server under "How clients reach it", and the state of a server a client holds itself on its row ("Connected in Claude Code", "Off in Claude Code", "Sign-in needed in Claude Code"). The self-management server has `clients_reach` (tier 1, read-only). Attention no longer reports an expired login for a server that no profile enables: the gateway does not serve it, so the login cannot fail anything there.
 
 ## Agents & styles
 

@@ -1,6 +1,8 @@
 {
   "arguments": {
-    "client_keys": ["claude-code"],
+    "client_keys": [
+      "claude-code"
+    ],
     "confirm": true,
     "dry_run": false
   },
@@ -14,7 +16,9 @@
     "dryRun": false,
     "entries": [
       {
-        "clientsSynced": ["claude-code"],
+        "clientsSynced": [
+          "claude-code"
+        ],
         "name": "demo",
         "type": "skill",
         "warnings": []
@@ -28,7 +32,9 @@
     "ruleCount": 0,
     "skillCount": 1,
     "syncedAt": "<TIME>",
-    "targetedClients": ["claude-code"]
+    "targetedClients": [
+      "claude-code"
+    ]
   },
   "tool": "skills_sync"
 }

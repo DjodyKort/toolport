@@ -48,12 +48,16 @@
           "status": "waiting"
         },
         "nextRun": null,
-        "refreshes": ["srv-alpha"],
+        "refreshes": [
+          "srv-alpha"
+        ],
         "title": "Refresh the portal token",
         "triggers": {
           "cli": true,
           "manual": true,
-          "onAuthFailure": ["srv-alpha"],
+          "onAuthFailure": [
+            "srv-alpha"
+          ],
           "schedule": null,
           "selfMcp": {
             "approval": "every-run",

@@ -268,6 +268,11 @@ pub(super) const GLOBAL: &[Meta] = &[
     ),
     m("--limit", Int, "Show at most this many results"),
     m(
+        "--live",
+        Bool,
+        "Also ask Claude Code which servers it connects to; starts them and takes a few seconds",
+    ),
+    m(
         "--machine-id",
         Str,
         "Name of this machine in the sync repository",

@@ -1047,7 +1047,8 @@ pub const TOOLS: &[ToolDef] = &[
         "Show how each client reaches each server: through the gateway, a Toolport launcher entry or an entry the client holds itself; read-only",
         [
             p("client", Ty::Str, false, "Limit to one client key"),
-            p("server", Ty::Str, false, "Limit to one server id or name")
+            p("server", Ty::Str, false, "Limit to one server id or name"),
+            p("live", Ty::Bool, false, "Also ask Claude Code which servers it connects to; starts them, takes a few seconds")
         ],
         servers::clients_reach
     ),

@@ -21,7 +21,9 @@
       {
         "id": "srv-alpha",
         "name": "alpha",
-        "profiles": ["Default"],
+        "profiles": [
+          "Default"
+        ],
         "routes": [],
         "transport": "stdio"
       },

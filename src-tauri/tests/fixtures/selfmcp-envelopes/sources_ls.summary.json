@@ -43,7 +43,9 @@
           "skill": 3,
           "skillTotal": 3
         },
-        "warnings": ["2 item(s) exist only on the remote branch, not in the checkout"],
+        "warnings": [
+          "2 item(s) exist only on the remote branch, not in the checkout"
+        ],
         "writable": false
       },
       {
@@ -77,7 +79,9 @@
           "skill": 2,
           "skillTotal": 2
         },
-        "warnings": ["1 item(s) with high-severity audit findings; nothing was changed"],
+        "warnings": [
+          "1 item(s) with high-severity audit findings; nothing was changed"
+        ],
         "writable": false
       },
       {

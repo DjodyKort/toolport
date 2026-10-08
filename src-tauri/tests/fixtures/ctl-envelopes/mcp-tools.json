@@ -2472,6 +2472,12 @@
               "name": "server",
               "required": false,
               "type": "string"
+            },
+            {
+              "description": "Also ask Claude Code which servers it connects to; starts them, takes a few seconds",
+              "name": "live",
+              "required": false,
+              "type": "boolean"
             }
           ],
           "tier": 1

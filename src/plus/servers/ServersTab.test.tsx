@@ -91,6 +91,7 @@ describe("servers.list: the Servers tab", () => {
         "client direct ls",
         "client ls",
         "client reach",
+        "client reach --live",
         "commands",
         "profile ls",
         "server info srv-issues",
@@ -735,6 +736,7 @@ describe("servers.reach: how clients reach a server", () => {
         client: "claude-code",
         clientName: "Claude Code",
         entry: "scratch-notes",
+        held: { disabledIn: [], enabled: true, live: null },
         how: "own-entry",
         note: null,
         recorded: false,
@@ -769,6 +771,46 @@ describe("servers.reach: how clients reach a server", () => {
     expect(
       within(detail).getByText("its own entry, not through Toolport"),
     ).toBeInTheDocument();
+  });
+
+  it("shows what Claude Code says about a server it holds itself, once it has been asked", async () => {
+    const own = {
+      basis: "name",
+      client: "claude-code",
+      clientName: "Claude Code",
+      entry: "scratch-notes",
+      held: { disabledIn: ["/work/a"], enabled: false, live: null as string | null },
+      how: "own-entry",
+      note: null,
+      recorded: false,
+      state: null,
+      target: "https://notes.example/mcp",
+      transport: "http",
+    };
+    const quick = clone(serversWorld.clientReach);
+    const notes = quick.servers.find((server) => server.id === "srv-notes")!;
+    notes.profiles = [];
+    notes.routes = [own];
+    const asked = clone(quick);
+    asked.servers.find((server) => server.id === "srv-notes")!.routes = [
+      { ...own, held: { ...own.held, live: "connected" } },
+    ];
+    bridge.set("client reach", quick);
+    bridge.set("client reach --live", asked);
+    const { user } = renderScreen();
+    const held = await screen.findByRole("region", { name: "Held by a client" });
+    expect(await within(held).findByText("Connected in Claude Code")).toBeInTheDocument();
+    await select(user, "Held by a client", /scratch-notes/);
+    const detail = await screen.findByRole("region", { name: "scratch-notes details" });
+    expect(
+      await within(detail).findByText(
+        /In Claude Code: switched off in 1 project, connects\./,
+      ),
+    ).toBeInTheDocument();
+    expect(within(detail).getByText(/Off for \/work\/a\./)).toBeInTheDocument();
+    expect(
+      within(detail).getByRole("button", { name: "Ask Claude Code again" }),
+    ).toBeEnabled();
   });
 
   it("says so when the clients could not be checked, and can try again", async () => {
