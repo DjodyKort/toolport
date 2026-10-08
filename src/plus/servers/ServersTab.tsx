@@ -34,6 +34,7 @@ import { useServers } from "./useServers";
 const GROUP_TONE: Record<ServerGroup, "warning" | "success" | "muted"> = {
   attention: "warning",
   connected: "success",
+  direct: "muted",
   waiting: "muted",
 };
 

@@ -754,7 +754,11 @@ describe("servers.reach: how clients reach a server", () => {
     ];
     bridge.set("client reach", world);
     const { user } = renderScreen();
-    await select(user, "Not running", /scratch-notes/);
+    const held = await screen.findByRole("region", { name: "Held by a client" });
+    expect(within(held).getByText("scratch-notes")).toBeInTheDocument();
+    expect(within(held).getByText("In Claude Code")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Not running" })).not.toBeInTheDocument();
+    await select(user, "Held by a client", /scratch-notes/);
     const detail = await screen.findByRole("region", { name: "scratch-notes details" });
     expect(
       await within(detail).findByText(/Claude Code reaches it through its own entry/),

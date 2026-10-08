@@ -158,10 +158,7 @@ export function ServerDetail({
   write: WriteControl;
   onChanged: () => void;
 }) {
-  const { go, reach } = useServers();
-  const reachedAlone = (reach.data?.findings ?? []).some(
-    (finding) => finding.server === view.id && finding.kind === "direct-only",
-  );
+  const { go } = useServers();
   const info = useCtlQuery<ServerInfo>(["server", "info", view.id]);
   const data = info.data;
   const member = new Set(view.profiles.map((profile) => profile.id));
@@ -201,7 +198,7 @@ export function ServerDetail({
           </div>
         </Callout>
       )}
-      {view.state === "disabled" && !reachedAlone && (
+      {view.state === "disabled" && (
         <Callout variant="info">
           Not in the active profile, so no client that follows it sees this server.
         </Callout>

@@ -8,7 +8,7 @@ import type {
   ServerLsData,
   StatusData,
 } from "../bridge/data";
-import type { ClientDirectLsData } from "../types/client";
+import type { ClientDirectLsData, ClientReachData } from "../types/client";
 
 /** `status` as the CLI prints it. `directEntries` only appears once a client has one. */
 export type StatusDoc = Omit<StatusData, "auth"> & {
@@ -24,9 +24,16 @@ export type DoctorCheck = DoctorData["checks"][number];
 export type Tier = "read" | "write" | "destructive";
 
 export type ServerState =
-  "connected" | "login" | "failed" | "starting" | "idle" | "disabled";
+  "connected" | "login" | "failed" | "starting" | "idle" | "disabled" | "direct";
 
-export type ServerGroup = "attention" | "connected" | "waiting";
+export type ServerGroup = "attention" | "connected" | "direct" | "waiting";
+
+/** A client that reaches a server through an entry of its own, not through the gateway. */
+export interface DirectRoute {
+  client: string;
+  clientName: string;
+  entry: string | null;
+}
 
 export interface ServerView {
   id: string;
@@ -43,6 +50,8 @@ export interface ServerView {
   expiring: boolean;
   authState: string | null;
   profiles: Array<{ id: string; name: string }>;
+  /** Clients that hold the server themselves, outside the gateway. */
+  direct: DirectRoute[];
 }
 
 const LOGIN_STATES = ["needs_reauth", "revoked"];
@@ -91,10 +100,22 @@ function reasonOf(auth: AuthRow): string {
   return auth.reason && auth.reason !== auth.state ? `${head}: ${auth.reason}` : head;
 }
 
+function directRoutes(reach: ClientReachData | null, serverId: string): DirectRoute[] {
+  const entry = reach?.servers.find((server) => server.id === serverId);
+  return (entry?.routes ?? [])
+    .filter((route) => route.how !== "gateway")
+    .map((route) => ({
+      client: route.client,
+      clientName: route.clientName,
+      entry: route.entry,
+    }));
+}
+
 export function buildServerViews(
   ls: ServerLsData,
   profiles: ProfileLsData,
   status: StatusDoc,
+  reach: ClientReachData | null = null,
 ): ServerView[] {
   const live = gatewayServers(status);
   return ls.servers.map((server) => {
@@ -112,9 +133,12 @@ export function buildServerViews(
       profiles: profileRefs,
       tools: gateway?.state === "connected" ? gateway.tools : null,
       expiring: auth?.state === "expiring",
+      direct: directRoutes(reach, server.id),
     };
     if (!server.enabled) {
-      return { ...base, state: "disabled", reason: null };
+      return base.direct.length > 0
+        ? { ...base, state: "direct", reason: null }
+        : { ...base, state: "disabled", reason: null };
     }
     if (auth && LOGIN_STATES.includes(auth.state)) {
       return { ...base, state: "login", reason: reasonOf(auth) };
@@ -142,12 +166,14 @@ export function buildServerViews(
 export function groupOf(view: ServerView): ServerGroup {
   if (view.state === "login" || view.state === "failed" || view.expiring)
     return "attention";
+  if (view.state === "direct") return "direct";
   return view.state === "connected" ? "connected" : "waiting";
 }
 
 export const GROUP_TITLES: Record<ServerGroup, string> = {
   attention: "Needs attention",
   connected: "Connected",
+  direct: "Held by a client",
   waiting: "Not running",
 };
 
@@ -163,13 +189,16 @@ export function groupServers(
           view.transport.toLowerCase().includes(needle),
       )
     : views;
-  return (["attention", "connected", "waiting"] as const)
+  return (["attention", "connected", "direct", "waiting"] as const)
     .map((group) => ({ group, servers: shown.filter((view) => groupOf(view) === group) }))
     .filter((entry) => entry.servers.length > 0);
 }
 
-export function stateLabel(view: Pick<ServerView, "state" | "expiring">): string {
+export function stateLabel(
+  view: Pick<ServerView, "state" | "expiring"> & { direct?: DirectRoute[] },
+): string {
   if (view.state === "connected") return view.expiring ? "Login expiring" : "Connected";
+  if (view.state === "direct") return directLabel(view.direct ?? []);
   return {
     login: "Login needed",
     failed: "Failed",
@@ -178,6 +207,13 @@ export function stateLabel(view: Pick<ServerView, "state" | "expiring">): string
     disabled: "Not in profile",
     connected: "Connected",
   }[view.state];
+}
+
+/** `In Claude Code` for one client, `In Claude Code +1` for several. */
+function directLabel(routes: DirectRoute[]): string {
+  const names = [...new Set(routes.map((route) => route.clientName))];
+  if (names.length === 0) return "Held by a client";
+  return names.length === 1 ? `In ${names[0]}` : `In ${names[0]} +${names.length - 1}`;
 }
 
 export type Tone = "success" | "warning" | "destructive" | "secondary" | "info";
@@ -191,6 +227,7 @@ export function stateTone(view: Pick<ServerView, "state" | "expiring">): Tone {
     case "failed":
       return "destructive";
     case "starting":
+    case "direct":
       return "info";
     default:
       return "secondary";
@@ -202,6 +239,7 @@ export function serverSummary(view: ServerView): string {
   if (view.state === "connected")
     return `${view.tools ?? 0} tool${view.tools === 1 ? "" : "s"}`;
   if (view.state === "disabled") return "Not in the active profile";
+  if (view.state === "direct") return `${directLabel(view.direct)}, outside the gateway`;
   if (view.state === "starting") return "Connecting";
   return "No tools yet";
 }

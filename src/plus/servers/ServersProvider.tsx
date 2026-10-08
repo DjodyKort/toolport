@@ -59,9 +59,9 @@ export function ServersProvider({
   const views = useMemo(
     () =>
       servers.data && profiles.data && statusDoc
-        ? buildServerViews(servers.data, profiles.data, statusDoc)
+        ? buildServerViews(servers.data, profiles.data, statusDoc, reach.data ?? null)
         : null,
-    [servers.data, profiles.data, statusDoc],
+    [servers.data, profiles.data, statusDoc, reach.data],
   );
   const clientViews = useMemo(
     () =>
