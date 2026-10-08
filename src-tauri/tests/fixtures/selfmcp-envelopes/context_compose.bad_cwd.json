@@ -6,9 +6,9 @@
   "result": {
     "error": {
       "kind": "invalid_arguments",
-      "message": "<WORLD>/home/nowhere is not a folder"
+      "message": "<WORLD>/home/nowhere does not exist"
     }
   },
-  "text": "invalid_arguments: <WORLD>/home/nowhere is not a folder",
+  "text": "invalid_arguments: <WORLD>/home/nowhere does not exist",
   "tool": "context_compose"
 }

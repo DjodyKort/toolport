@@ -560,8 +560,8 @@ fn estimate(w: &World, cwd: &Path, bundle: &Bundle, want: &Desired) -> Option<To
 }
 
 pub(super) fn checked_cwd(cwd: &Path) -> Result<PathBuf, BundleError> {
-    if !fsx::is_dir(cwd) {
-        return Err(BundleError::new("usage", "cwd is not a folder"));
+    if let Some(problem) = fsx::folder_problem(cwd) {
+        return Err(BundleError::new("usage", problem));
     }
     Ok(fsx::canonical(cwd))
 }

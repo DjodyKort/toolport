@@ -8,9 +8,9 @@
   "result": {
     "error": {
       "kind": "invalid_arguments",
-      "message": "cwd is not a folder"
+      "message": "<WORLD>/home/nowhere does not exist"
     }
   },
-  "text": "invalid_arguments: cwd is not a folder",
+  "text": "invalid_arguments: <WORLD>/home/nowhere does not exist",
   "tool": "context_bundle_apply"
 }

@@ -798,11 +798,8 @@ pub fn measure(
     req: &Request,
     approve: &mut dyn FnMut(usize) -> bool,
 ) -> Result<MeasureReport, MeasureError> {
-    if !req.cwd.is_dir() {
-        return Err(MeasureError::Usage(format!(
-            "--cwd is not a folder: {}",
-            req.cwd.display()
-        )));
+    if let Some(problem) = fsx::folder_problem(&req.cwd) {
+        return Err(MeasureError::Usage(format!("--cwd: {problem}")));
     }
     let cwd = fsx::canonical(&req.cwd);
     let model = req

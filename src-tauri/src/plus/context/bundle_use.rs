@@ -70,8 +70,10 @@ pub fn settings_value(want: &apply::Desired) -> Value {
 pub fn launch(w: &World, name: &str, cwd: Option<&Path>) -> Result<Value, BundleError> {
     let loaded = bundle_store::load(w.roots, name)?;
     let folder = match cwd {
-        Some(c) if !fsx::is_dir(c) => return Err(BundleError::new("usage", "cwd is not a folder")),
-        Some(c) => Some(fsx::canonical(c)),
+        Some(c) => match fsx::folder_problem(c) {
+            Some(problem) => return Err(BundleError::new("usage", problem)),
+            None => Some(fsx::canonical(c)),
+        },
         None => None,
     };
     let want = apply::desired(w, &loaded.bundle, folder.as_deref().unwrap_or(&w.roots.home));
@@ -137,8 +139,8 @@ pub fn use_bundle(w: &World, name: &str, cwd: &Path, dry_run: bool) -> Result<Va
     let mut out = match &loaded {
         Some(_) => apply::apply(w, name, cwd, dry_run)?,
         None => {
-            if !fsx::is_dir(cwd) {
-                return Err(BundleError::new("usage", "cwd is not a folder"));
+            if let Some(problem) = fsx::folder_problem(cwd) {
+                return Err(BundleError::new("usage", problem));
             }
             json!({
                 "dryRun": dry_run, "bundle": name, "cwd": folder,

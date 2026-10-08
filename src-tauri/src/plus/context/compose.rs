@@ -93,8 +93,8 @@ pub fn compose(roots: &Roots, config: &ContextConfig, cwd: &Path) -> Result<Valu
 pub fn compose_here(cwd: &Path) -> Result<Value, crate::plus::op::OpError> {
     let (roots, config) = crate::plus::sources::host_world()
         .ok_or_else(|| crate::plus::op::OpError::failed("no_home", "home directory could not be resolved"))?;
-    if !cwd.is_dir() {
-        return Err(crate::plus::op::OpError::usage(format!("{} is not a folder", cwd.display())));
+    if let Some(problem) = crate::plus::sources::fsx::folder_problem(cwd) {
+        return Err(crate::plus::op::OpError::usage(problem));
     }
     compose(&roots, &config, cwd).map_err(|e| crate::plus::op::OpError::failed("compose_failed", e))
 }

@@ -53,6 +53,26 @@ pub fn is_dir(path: &Path) -> bool {
     fs::metadata(path).is_ok_and(|m| m.is_dir())
 }
 
+/// Why `path` cannot be used as a folder, in words a person can act on, or `None` when it is one.
+/// A folder macOS keeps private (Desktop, Documents, Downloads) answers a program that was never
+/// allowed to look with "permission denied"; calling that "not a folder" sends people hunting for
+/// a path that is fine.
+pub fn folder_problem(path: &Path) -> Option<String> {
+    match fs::metadata(path) {
+        Ok(meta) if meta.is_dir() => None,
+        Ok(_) => Some(format!("{} is not a folder", path.display())),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            Some(format!("{} does not exist", path.display()))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => Some(format!(
+            "Toolport is not allowed to read {}. On a Mac, allow it under System Settings > \
+             Privacy & Security > Files & Folders, or Full Disk Access, then try again",
+            path.display()
+        )),
+        Err(e) => Some(format!("{} cannot be read: {e}", path.display())),
+    }
+}
+
 pub fn is_file(path: &Path) -> bool {
     fs::metadata(path).is_ok_and(|m| m.is_file())
 }
@@ -157,5 +177,30 @@ mod tests {
     fn zulu_formats_utc() {
         assert_eq!(zulu(0), "1970-01-01T00:00:00Z");
         assert_eq!(zulu(1_709_210_096), "2024-02-29T12:34:56Z");
+    }
+
+    #[test]
+    fn folder_problem_tells_missing_from_not_a_folder_from_not_allowed() {
+        let dir = std::env::temp_dir().join(format!("toolport-fsx-folder-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("inner")).unwrap();
+        fs::write(dir.join("file.txt"), "x").unwrap();
+        assert_eq!(folder_problem(&dir.join("inner")), None);
+        assert!(folder_problem(&dir.join("file.txt")).unwrap().ends_with("is not a folder"));
+        assert!(folder_problem(&dir.join("gone")).unwrap().ends_with("does not exist"));
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&dir, fs::Permissions::from_mode(0o000)).unwrap();
+            let denied = folder_problem(&dir.join("inner"));
+            fs::set_permissions(&dir, fs::Permissions::from_mode(0o755)).unwrap();
+            if !is_dir(&dir.join("inner")) {
+                panic!("the folder must be readable again after the check");
+            }
+            let text = denied.unwrap();
+            assert!(text.contains("not allowed to read"), "{text}");
+            assert!(text.contains("Files & Folders"), "{text}");
+        }
+        let _ = fs::remove_dir_all(&dir);
     }
 }

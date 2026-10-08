@@ -5,21 +5,27 @@ import { Input } from "@/components/ui/input";
 const KEY = "toolport.context.recent-folders";
 const LIMIT = 8;
 
-/** A folder as a shell spells it, made plain: a terminal copies `'/a b/'` or `/a\ b/`, and
- * the command runs without a shell to take the quoting off. */
+/** A folder as a person pastes it, made plain: a terminal copies `'/a b/'` or `/a\ b/`, and a
+ * copied command line carries its flag (`--cwd '/a b/`) and maybe only half its quotes. The
+ * command runs without a shell, so none of that may reach it. A trailing slash is dropped so
+ * the same folder is one entry, not two. */
 export function cleanFolder(raw: string): string {
-  const text = raw.trim();
+  let text = raw.trim().replace(/^--[\w-]+(?:=|\s+)/, "");
   const quoted = /^(['"])(.*)\1$/s.exec(text);
-  if (quoted) return quoted[2];
-  return text.replace(/\\ /g, " ");
+  text = quoted ? quoted[2] : text.replace(/^['"]/, "").replace(/['"]$/, "");
+  text = text.replace(/\\ /g, " ").trim();
+  return text.length > 1 ? text.replace(/\/+$/, "") : text;
 }
 
 function readRecent(): string[] {
   try {
     const parsed: unknown = JSON.parse(window.localStorage.getItem(KEY) ?? "[]");
-    return Array.isArray(parsed)
-      ? parsed.filter((item): item is string => typeof item === "string")
-      : [];
+    if (!Array.isArray(parsed)) return [];
+    const plain = parsed
+      .filter((item): item is string => typeof item === "string")
+      .map(cleanFolder)
+      .filter(Boolean);
+    return [...new Set(plain)];
   } catch {
     return [];
   }
