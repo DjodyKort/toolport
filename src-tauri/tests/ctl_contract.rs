@@ -191,6 +191,7 @@ const CASES: &[Case] = &[
     case("server info", &[read("", &["server", "info", "alpha"])]),
     case("profile ls", &[read("", &["profile", "ls"])]),
     case("client ls", &[read("", &["client", "ls"])]),
+    case("client reach", &[read("", &["client", "reach"])]),
     case("client direct ls", &[read("", &["client", "direct", "ls"])]),
     sources_case(
         "skills ls",

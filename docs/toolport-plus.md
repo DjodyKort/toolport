@@ -637,6 +637,19 @@ A client that reconnects does not restart a server: the gateway keeps each stdio
 - A gateway started before this version has no watcher hook; quit and reopen Toolport once, after which restarts work.
 - The desktop app has a Restart button on the server detail, and the self-management server has `servers_restart` (tier 3, dry run by default).
 
+## How clients reach a server
+
+`toolportctl client reach [--client <id>] [--server <id|name>]` shows, for every server, how each installed client gets to it. It only reads: it opens the registry and the client config files and writes neither.
+
+- **Through Toolport:** the client has the gateway entry and the server is in the profile the client follows.
+- **Toolport launcher entry:** a `client direct add` entry, with its state (`ok`, `stale`, `customized`, ...).
+- **Its own entry:** an entry the client holds itself, such as a remote server it signs in to on its own. Toolport matches it to a registered server by name, then by url, then by command, and says which. An entry Toolport once recorded as a launcher but that was edited since (now a remote entry, for instance) is reported as an own entry with that note.
+- **Entries that match no server** are listed separately, per client.
+
+Findings: `twice` (a client reaches one server both through the gateway and through its own entry, so its tools may show up twice), `direct-only` (no profile serves the server, but a client reaches it itself, which is not a fault) and `orphan-launcher`. Urls are shown without user info and query, and a command without its arguments, so a credential in a client entry never appears in the output.
+
+The desktop app shows the same on each server under "How clients reach it". The self-management server has `clients_reach` (tier 1, read-only). Attention no longer reports an expired login for a server that no profile enables: the gateway does not serve it, so the login cannot fail anything there.
+
 ## Agents & styles
 
 `src/plus/agents/` builds the two tabs of the approved mockup nav item "Agents & styles": `AgentsTab` and `StylesTab` (no props). The Library screen (`src/plus/skills/LibraryScreen.tsx`) mounts them as its Agents and Styles tabs.

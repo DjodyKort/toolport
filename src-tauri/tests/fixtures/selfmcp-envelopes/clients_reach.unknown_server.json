@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "server": "no-such-server"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "No server 'no-such-server' in the registry."
+    }
+  },
+  "text": "not_found: No server 'no-such-server' in the registry.",
+  "tool": "clients_reach"
+}

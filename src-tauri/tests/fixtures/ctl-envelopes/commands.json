@@ -1141,6 +1141,54 @@
           "tools": ["clients_list"]
         },
         {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Limit to one client (id or key)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--client",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Server id",
+              "escalates": false,
+              "hidden": false,
+              "name": "--server",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            }
+          ],
+          "group": "client",
+          "id": "client reach",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "client",
+          "path": ["client", "reach"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Show how each client reaches each server: gateway, launcher or its own entry (--client, --server)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["clients_reach"]
+        },
+        {
           "baseTier": "write",
           "cost": false,
           "dryRun": true,
@@ -1634,7 +1682,7 @@
           "path": ["client"],
           "planned": false,
           "preview": null,
-          "summary": "Client configs: ls edit import sync direct",
+          "summary": "Client configs: ls reach edit import sync direct",
           "surface": null,
           "tier": null,
           "tools": []
@@ -10631,10 +10679,10 @@
         }
       ],
       "counts": {
-        "commands": 176,
+        "commands": 177,
         "groups": 33,
-        "rows": 209,
-        "tools": 104
+        "rows": 210,
+        "tools": 105
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
       "tiers": ["read", "write", "destructive"],
@@ -11317,6 +11365,13 @@
           "name": "clients_sync",
           "tier": "write",
           "toolTier": 2
+        },
+        {
+          "command": "client reach",
+          "dryRun": "none",
+          "name": "clients_reach",
+          "tier": "read",
+          "toolTier": 1
         },
         {
           "command": "client direct ls",

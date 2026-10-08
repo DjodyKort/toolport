@@ -8,6 +8,7 @@ use crate::plus::direct;
 use crate::plus::status::snapshot;
 use serde_json::{json, Value};
 
+const REACH_USAGE: &str = "usage: client reach [--client <id>] [--server <id|name>]";
 const SYNC_USAGE: &str = "usage: client sync [--client <id>]... [--dry-run] [--keep-orphans]";
 
 pub fn ls(rest: &[String]) -> Result<Output, CtlError> {
@@ -58,6 +59,23 @@ pub fn ls(rest: &[String]) -> Result<Output, CtlError> {
             .join("\n")
     };
     Ok(Output::new(json!({"clients": rows}), human))
+}
+
+pub(super) const REACH: Spec = Spec {
+    flags: &[
+        value("--client").needs("an id"),
+        value("--server").needs("a server id or name"),
+    ],
+    inline: Inline::Off,
+    unknown: Unknown::Usage(REACH_USAGE),
+    operands: Operands::Reject,
+    ..Spec::PLAIN
+};
+
+pub fn reach(rest: &[String]) -> Result<Output, CtlError> {
+    let flags = REACH.parse(rest)?;
+    let report = crate::plus::reach::report(flags.one("--client"), flags.one("--server"))?;
+    Ok(Output::new(report.to_value(), report.text()))
 }
 
 pub(super) const SYNC: Spec = Spec {

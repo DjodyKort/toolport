@@ -6,7 +6,7 @@ import type {
   ProfileLsData,
   ServerLsData,
 } from "../bridge/data";
-import type { ClientDirectLsData } from "../types/client";
+import type { ClientDirectLsData, ClientReachData } from "../types/client";
 import type { CtlQuery } from "../ui";
 import type { ClientView, ServerView, StatusDoc } from "./model";
 
@@ -21,6 +21,7 @@ export interface ServersCtx {
   profiles: CtlQuery<ProfileLsData>;
   clients: CtlQuery<ClientLsData>;
   direct: CtlQuery<ClientDirectLsData>;
+  reach: CtlQuery<ClientReachData>;
   registry: CtlQuery<CommandsData>;
   /** The registry rows the policy of each write is read from. */
   rows: CommandRow[] | null;

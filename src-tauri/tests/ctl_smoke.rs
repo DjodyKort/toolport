@@ -33,6 +33,7 @@ const NOT_READ_ONLY: &[(&str, &str)] = &[
     ("catalog sync", "pages the live MCP Registry into the index file; catalog_index unit tests against a mock registry"),
     ("server new", "adds a server; round trip test"),
     ("server edit", "changes a server; round trip test"),
+    ("server restart", "restarts a running gateway's copy of a server; src/plus/server_restart.rs and the live gateway test"),
     ("server source set", "writes the server's source metadata; round trip test"),
     ("client direct add", "writes the client config and the registry record; tests/direct_launcher.rs"),
     ("client direct rm", "writes the client config and the registry record; tests/direct_launcher.rs"),
@@ -570,6 +571,17 @@ fn read_only_cases(w: &World) -> Vec<Case> {
                 .expect("the synthetic cursor config is detected");
             assert_eq!(cursor["entries"], json!(["direct-one"]));
             assert_eq!(cursor["gateway"], "absent");
+        }),
+        case("client reach", &["client", "reach"], 0, |_, d| {
+            let cursor = d["clients"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|c| c["id"] == "cursor")
+                .expect("the synthetic cursor config is detected");
+            assert_eq!(cursor["gateway"], "absent");
+            assert!(d["servers"].as_array().unwrap().iter().all(|s| s["routes"] == json!([])));
+            assert_eq!(d["unregistered"][0]["entry"], "direct-one");
         }),
         case("client direct ls", &["client", "direct", "ls"], 0, |_, d| {
             assert_eq!(d["entries"], json!([]));

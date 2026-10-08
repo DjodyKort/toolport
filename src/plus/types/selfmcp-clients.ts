@@ -9,6 +9,7 @@ import {
   type Infer,
   type Shape,
 } from "../bridge/shape";
+import { clientReachData } from "./client";
 
 /** Results of the clients self-MCP tools, checked against the golden results by `selfmcp.test.ts`. */
 
@@ -87,11 +88,15 @@ export const clientsSyncResult = obj({
 });
 export type ClientsSyncResult = Infer<typeof clientsSyncResult>;
 
+export const clientsReachResult = clientReachData;
+export type ClientsReachResult = Infer<typeof clientsReachResult>;
+
 /** Tool name to the shape of its `structuredContent`. */
 export const clientsToolShapes: Record<string, Shape<unknown>> = {
   client_direct_add: clientDirectAddResult,
   client_direct_ls: clientDirectLsResult,
   client_direct_rm: clientDirectRmResult,
   clients_list: clientsListResult,
+  clients_reach: clientsReachResult,
   clients_sync: clientsSyncResult,
 };

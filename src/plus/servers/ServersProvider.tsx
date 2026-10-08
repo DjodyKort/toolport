@@ -5,7 +5,7 @@ import type {
   ProfileLsData,
   ServerLsData,
 } from "../bridge/data";
-import type { ClientDirectLsData } from "../types/client";
+import type { ClientDirectLsData, ClientReachData } from "../types/client";
 import { useCtlQuery } from "../ui";
 import { buildClientViews, buildServerViews, type StatusDoc } from "./model";
 import { POLL_MS, ServersContext, type ServersCtx, type TabId } from "./useServers";
@@ -26,6 +26,7 @@ export function ServersProvider({
   const profiles = useCtlQuery<ProfileLsData>(["profile", "ls"]);
   const clients = useCtlQuery<ClientLsData>(["client", "ls"]);
   const direct = useCtlQuery<ClientDirectLsData>(["client", "direct", "ls"]);
+  const reach = useCtlQuery<ClientReachData>(["client", "reach"]);
   const registry = useCtlQuery<CommandsData>(["commands"]);
 
   const reloadStatus = status.reload;
@@ -43,6 +44,7 @@ export function ServersProvider({
     profiles.reload,
     clients.reload,
     direct.reload,
+    reach.reload,
   ];
   const reload = () => reloads.forEach((run) => run());
 
@@ -75,6 +77,7 @@ export function ServersProvider({
     profiles,
     clients,
     direct,
+    reach,
     registry,
     rows: registry.data?.commands ?? null,
     statusDoc,

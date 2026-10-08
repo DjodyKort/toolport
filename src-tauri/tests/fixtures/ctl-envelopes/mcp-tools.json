@@ -2456,6 +2456,27 @@
           "tier": 2
         },
         {
+          "description": "Show how each client reaches each server: through the gateway, a Toolport launcher entry or an entry the client holds itself; read-only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "clients_reach",
+          "params": [
+            {
+              "description": "Limit to one client key",
+              "name": "client",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Limit to one server id or name",
+              "name": "server",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
           "description": "List direct client entries that start one server through the stdio launcher, bypassing the gateway",
           "dryRunDefault": false,
           "gate": "none",

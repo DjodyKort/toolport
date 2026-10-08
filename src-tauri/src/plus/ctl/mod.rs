@@ -181,6 +181,11 @@ pub const COMMANDS: &[Command] = &[
     cmd(&["profile"], "Profiles: ls create edit rm inspect", profile::group),
     cmd(&["client", "ls"], "List detected clients and their direct entries", client::ls),
     cmd(
+        &["client", "reach"],
+        "Show how each client reaches each server: gateway, launcher or its own entry (--client, --server)",
+        client::reach,
+    ),
+    cmd(
         &["client", "sync"],
         "Sync managed clients (--client <id>, --dry-run, --keep-orphans)",
         client::sync,
@@ -211,7 +216,7 @@ pub const COMMANDS: &[Command] = &[
         client_direct::ls,
     ),
     cmd(&["client", "direct"], "Direct entries: add rm ls", client_direct::group),
-    cmd(&["client"], "Client configs: ls edit import sync direct", client_edit::group),
+    cmd(&["client"], "Client configs: ls reach edit import sync direct", client_edit::group),
     cmd(
         &["direct", "run"],
         "Start a server over stdio for a direct client entry (<server id>)",

@@ -570,6 +570,7 @@ fn tier_one_calls() -> BTreeMap<&'static str, Value> {
         ("servers_git_status", json!({"name": "alpha"})),
         ("servers_check_updates", json!({})),
         ("clients_list", json!({})),
+        ("clients_reach", json!({})),
         ("client_direct_ls", json!({})),
         ("compression_status", json!({})),
         ("where_am_i", json!({})),
@@ -682,6 +683,7 @@ fn tier_one_tools_read_without_confirm_and_never_write() {
     );
     assert_eq!(results["servers_list_profiles"]["activeProfile"], "default");
     assert_eq!(results["client_direct_ls"]["entries"], json!([]));
+    assert_eq!(results["clients_reach"]["findings"], json!([]));
     assert_eq!(results["compression_status"]["configExists"], false);
     assert_eq!(results["compression_status"]["provider"], "none");
     assert_eq!(results["servers_git_status"]["isGit"], false);

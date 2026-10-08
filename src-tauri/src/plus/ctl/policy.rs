@@ -351,6 +351,7 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&profile::RM])
         .args(&[req("profile")]),
     row("client ls", R),
+    row("client reach", R).spec(&[&client::REACH]),
     row("client sync", W).dry().spec(&[&client::SYNC]),
     row("client edit", W)
         .dry()
@@ -917,6 +918,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("servers_uninstall", D, "server uninstall"),
     maps("servers_restart", W, "server restart").on(),
     maps("clients_list", R, "client ls"),
+    maps("clients_reach", R, "client reach"),
     maps("clients_sync", W, "client sync").on(),
     maps("client_direct_ls", R, "client direct ls"),
     maps("client_direct_add", W, "client direct add").on(),

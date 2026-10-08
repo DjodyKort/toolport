@@ -18,6 +18,7 @@ import { check, type Shape } from "../bridge/shape";
 import {
   clientDirectAddData,
   clientDirectLsData,
+  clientReachData,
   clientDirectRmData,
   clientEditData,
   clientImportData,
@@ -52,6 +53,7 @@ const SHAPES: Array<[RegExp, Shape<unknown>]> = [
   [/^client edit /, clientEditData],
   [/^client import /, clientImportData],
   [/^client direct ls$/, clientDirectLsData],
+  [/^client reach$/, clientReachData],
   [/^client direct add /, clientDirectAddData],
   [/^client direct rm /, clientDirectRmData],
   [/^server install /, serverInstallData],

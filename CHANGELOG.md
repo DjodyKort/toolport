@@ -65,6 +65,9 @@ Entries before the rename below shipped under the project's former name, Conduit
   line adds each one with `--add-dir`, the only way Claude Code loads another folder's skills.
 - `toolportctl server restart <server>` restarts one server's process in every running gateway,
   with a Restart button on the server and a `servers_restart` self-management tool.
+- `toolportctl client reach` (and the `clients_reach` tool) shows how each client reaches each
+  server: through the gateway, a launcher entry, or an entry the client holds itself. The server
+  detail shows it under "How clients reach it".
 
 ### Fixed
 

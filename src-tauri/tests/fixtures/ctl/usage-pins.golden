@@ -29,6 +29,7 @@ Commands:
   profile rm     Delete a profile and clean the client entries scoped to it (--no-clients, --dry-run)
   profile        Profiles: ls create edit rm inspect
   client ls      List detected clients and their direct entries
+  client reach   Show how each client reaches each server: gateway, launcher or its own entry (--client, --server)
   client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
   client edit    Point a client at a profile (<client>, --add-profile, --remove-profile, --set-profiles, --force, --dry-run)
   client import  Import a client's direct entries into the registry (<client>, --select, --all, --profile, --dry-run)
@@ -36,7 +37,7 @@ Commands:
   client direct rm Remove a direct entry Toolport wrote (<server>, --client <id>, --force, --dry-run)
   client direct ls List the direct launcher entries and their state (--client <id>)
   client direct  Direct entries: add rm ls
-  client         Client configs: ls edit import sync direct
+  client         Client configs: ls reach edit import sync direct
   direct run     Start a server over stdio for a direct client entry (<server id>)
   direct         Direct launchers: run
   server         Manage servers (mutations) (not implemented)
@@ -228,6 +229,7 @@ Commands:
   profile rm     Delete a profile and clean the client entries scoped to it (--no-clients, --dry-run)
   profile        Profiles: ls create edit rm inspect
   client ls      List detected clients and their direct entries
+  client reach   Show how each client reaches each server: gateway, launcher or its own entry (--client, --server)
   client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
   client edit    Point a client at a profile (<client>, --add-profile, --remove-profile, --set-profiles, --force, --dry-run)
   client import  Import a client's direct entries into the registry (<client>, --select, --all, --profile, --dry-run)
@@ -235,7 +237,7 @@ Commands:
   client direct rm Remove a direct entry Toolport wrote (<server>, --client <id>, --force, --dry-run)
   client direct ls List the direct launcher entries and their state (--client <id>)
   client direct  Direct entries: add rm ls
-  client         Client configs: ls edit import sync direct
+  client         Client configs: ls reach edit import sync direct
   direct run     Start a server over stdio for a direct client entry (<server id>)
   direct         Direct launchers: run
   server         Manage servers (mutations) (not implemented)
@@ -427,6 +429,7 @@ Commands:
   profile rm     Delete a profile and clean the client entries scoped to it (--no-clients, --dry-run)
   profile        Profiles: ls create edit rm inspect
   client ls      List detected clients and their direct entries
+  client reach   Show how each client reaches each server: gateway, launcher or its own entry (--client, --server)
   client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
   client edit    Point a client at a profile (<client>, --add-profile, --remove-profile, --set-profiles, --force, --dry-run)
   client import  Import a client's direct entries into the registry (<client>, --select, --all, --profile, --dry-run)
@@ -434,7 +437,7 @@ Commands:
   client direct rm Remove a direct entry Toolport wrote (<server>, --client <id>, --force, --dry-run)
   client direct ls List the direct launcher entries and their state (--client <id>)
   client direct  Direct entries: add rm ls
-  client         Client configs: ls edit import sync direct
+  client         Client configs: ls reach edit import sync direct
   direct run     Start a server over stdio for a direct client entry (<server id>)
   direct         Direct launchers: run
   server         Manage servers (mutations) (not implemented)
@@ -626,6 +629,7 @@ Commands:
   profile rm     Delete a profile and clean the client entries scoped to it (--no-clients, --dry-run)
   profile        Profiles: ls create edit rm inspect
   client ls      List detected clients and their direct entries
+  client reach   Show how each client reaches each server: gateway, launcher or its own entry (--client, --server)
   client sync    Sync managed clients (--client <id>, --dry-run, --keep-orphans)
   client edit    Point a client at a profile (<client>, --add-profile, --remove-profile, --set-profiles, --force, --dry-run)
   client import  Import a client's direct entries into the registry (<client>, --select, --all, --profile, --dry-run)
@@ -633,7 +637,7 @@ Commands:
   client direct rm Remove a direct entry Toolport wrote (<server>, --client <id>, --force, --dry-run)
   client direct ls List the direct launcher entries and their state (--client <id>)
   client direct  Direct entries: add rm ls
-  client         Client configs: ls edit import sync direct
+  client         Client configs: ls reach edit import sync direct
   direct run     Start a server over stdio for a direct client entry (<server id>)
   direct         Direct launchers: run
   server         Manage servers (mutations) (not implemented)
@@ -1737,18 +1741,18 @@ exit 0
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: client ls|edit|import|sync|direct (edit: <client> [--add-profile <p>] [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]; import: <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]; sync: [--client <id>] [--dry-run] [--keep-orphans]; direct: add|rm|ls)
+toolportctl: usage: client ls|reach|edit|import|sync|direct (reach: [--client <id>] [--server <id|name>]; edit: <client> [--add-profile <p>] [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]; import: <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]; sync: [--client <id>] [--dry-run] [--keep-orphans]; direct: add|rm|ls)
 Run `toolportctl --help` for usage.
 === ["--json","client"]
 exit 2
 --- stdout
-{"command":"client","error":{"code":"usage","message":"usage: client ls|edit|import|sync|direct (edit: <client> [--add-profile <p>] [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]; import: <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]; sync: [--client <id>] [--dry-run] [--keep-orphans]; direct: add|rm|ls)"},"ok":false,"schemaVersion":1}
+{"command":"client","error":{"code":"usage","message":"usage: client ls|reach|edit|import|sync|direct (reach: [--client <id>] [--server <id|name>]; edit: <client> [--add-profile <p>] [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]; import: <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]; sync: [--client <id>] [--dry-run] [--keep-orphans]; direct: add|rm|ls)"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["client","--bogus"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: client ls|edit|import|sync|direct (edit: <client> [--add-profile <p>] [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]; import: <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]; sync: [--client <id>] [--dry-run] [--keep-orphans]; direct: add|rm|ls)
+toolportctl: usage: client ls|reach|edit|import|sync|direct (reach: [--client <id>] [--server <id|name>]; edit: <client> [--add-profile <p>] [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]; import: <client> [--select <a,b> | --all] [--profile <name>] [--dry-run]; sync: [--client <id>] [--dry-run] [--keep-orphans]; direct: add|rm|ls)
 Run `toolportctl --help` for usage.
 === ["client","ls","--bogus"]
 exit 2

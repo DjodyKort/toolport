@@ -1,0 +1,47 @@
+{
+  "arguments": {
+    "server": "alpha"
+  },
+  "isError": false,
+  "result": {
+    "clients": [
+      {
+        "gateway": "absent",
+        "id": "cursor",
+        "name": "Cursor",
+        "profile": null
+      },
+      {
+        "gateway": "absent",
+        "id": "claude-code",
+        "name": "Claude Code",
+        "profile": null
+      }
+    ],
+    "findings": [],
+    "servers": [
+      {
+        "id": "srv-alpha",
+        "name": "alpha",
+        "profiles": ["Default"],
+        "routes": [
+          {
+            "basis": null,
+            "client": "claude-code",
+            "clientName": "Claude Code",
+            "entry": "alpha",
+            "how": "launcher",
+            "note": null,
+            "recorded": true,
+            "state": "ok",
+            "target": "toolportctl (3 arguments)",
+            "transport": "stdio"
+          }
+        ],
+        "transport": "stdio"
+      }
+    ],
+    "unregistered": []
+  },
+  "tool": "clients_reach"
+}

@@ -10,6 +10,7 @@ import { ErrorState, ScreenSkeleton, outcomeOf, useCtlJob, useCtlQuery } from ".
 import { Chip, Code, Kv, Pill, StateBadge } from "./atoms";
 import { launchLine, looksLikeLogin, type ServerInfo, type ServerView } from "./model";
 import { restartPlan } from "./plans";
+import { ServerReach } from "./ServerReach";
 import { ServerTools } from "./ServerTools";
 import { useServers } from "./useServers";
 import type { WriteControl } from "./useWrite";
@@ -157,7 +158,10 @@ export function ServerDetail({
   write: WriteControl;
   onChanged: () => void;
 }) {
-  const { go } = useServers();
+  const { go, reach } = useServers();
+  const reachedAlone = (reach.data?.findings ?? []).some(
+    (finding) => finding.server === view.id && finding.kind === "direct-only",
+  );
   const info = useCtlQuery<ServerInfo>(["server", "info", view.id]);
   const data = info.data;
   const member = new Set(view.profiles.map((profile) => profile.id));
@@ -197,7 +201,7 @@ export function ServerDetail({
           </div>
         </Callout>
       )}
-      {view.state === "disabled" && (
+      {view.state === "disabled" && !reachedAlone && (
         <Callout variant="info">
           Not in the active profile, so no client that follows it sees this server.
         </Callout>
@@ -281,6 +285,7 @@ export function ServerDetail({
           })}
         </ul>
       </div>
+      <ServerReach key={`reach:${view.id}`} view={view} />
       <ServerTools
         key={`tools:${view.id}`}
         view={view}

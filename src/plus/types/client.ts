@@ -128,10 +128,56 @@ export const clientImportData = obj({
 });
 export type ClientImportData = Infer<typeof clientImportData>;
 
+export const clientReachData = obj({
+  clients: arr(obj({ gateway: str, id: str, name: str, profile: nullable(str) })),
+  findings: arr(
+    obj({
+      client: nullable(str),
+      kind: str,
+      level: str,
+      server: nullable(str),
+      text: str,
+    }),
+  ),
+  servers: arr(
+    obj({
+      id: str,
+      name: str,
+      profiles: arr(str),
+      routes: arr(
+        obj({
+          basis: nullable(str),
+          client: str,
+          clientName: str,
+          entry: nullable(str),
+          how: str,
+          note: nullable(str),
+          recorded: bool,
+          state: nullable(str),
+          target: nullable(str),
+          transport: nullable(str),
+        }),
+      ),
+      transport: str,
+    }),
+  ),
+  unregistered: arr(
+    obj({
+      client: str,
+      clientName: str,
+      entry: str,
+      target: nullable(str),
+      transport: str,
+    }),
+  ),
+});
+export type ClientReachData = Infer<typeof clientReachData>;
+
 /** Golden file stem to the shape of its envelope `data`. */
 export const clientShapes: Record<string, Shape<unknown>> = {
   "client-direct-add.after": clientDirectLsData,
   "client-direct-ls": clientDirectLsData,
+  "client-reach": clientReachData,
   "client-direct-add.apply": clientDirectAddData,
   "client-direct-add.preview": clientDirectAddData,
   "client-direct-rm.apply": clientDirectRmData,

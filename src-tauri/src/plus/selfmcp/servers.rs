@@ -480,6 +480,15 @@ pub(super) fn restart(args: &Value) -> Outcome {
     Ok(done.to_value())
 }
 
+pub(super) fn clients_reach(args: &Value) -> Outcome {
+    let client = str_nonempty(args, "client");
+    if client.is_some_and(|c| !safe_token(c)) {
+        return Err(ToolError::new("invalid_arguments", "invalid client key"));
+    }
+    let report = crate::plus::reach::report(client, str_nonempty(args, "server"))?;
+    Ok(report.to_value())
+}
+
 pub(super) fn clients_sync(args: &Value) -> Outcome {
     let mut clients = Vec::new();
     if let Some(client) = str_nonempty(args, "client") {

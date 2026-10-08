@@ -102,6 +102,7 @@ const EXPECTED_TOOLS: &[&str] = &[
     "servers_restart",
     "clients_list",
     "clients_sync",
+    "clients_reach",
     "client_direct_ls",
     "client_direct_add",
     "client_direct_rm",
@@ -229,9 +230,9 @@ fn err_kind(result: Result<Value, ToolError>) -> &'static str {
 }
 
 #[test]
-fn registry_has_all_104_tools_and_11_resources() {
+fn registry_has_all_105_tools_and_11_resources() {
     let names: Vec<&str> = TOOLS.iter().map(|t| t.name).collect();
-    assert_eq!(names.len(), 104);
+    assert_eq!(names.len(), 105);
     assert_eq!(
         names.iter().copied().collect::<BTreeSet<_>>(),
         EXPECTED_TOOLS.iter().copied().collect::<BTreeSet<_>>()
@@ -252,7 +253,7 @@ fn module_counts_match_the_parity_matrix() {
     assert_eq!(count("styles_"), 13);
     assert_eq!(count("compression_"), 7);
     assert_eq!(count("servers_"), 17);
-    assert_eq!(count("clients_"), 2);
+    assert_eq!(count("clients_"), 3);
     assert_eq!(count("client_direct_"), 3);
     assert_eq!(count("sources_"), 1);
     assert_eq!(count("library_"), 2);
@@ -680,7 +681,7 @@ fn json_rpc_surface_lists_calls_and_reads() {
         handle_message(&json!({"jsonrpc": "2.0", "method": "notifications/initialized"})).is_none()
     );
     let tools = call(json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}));
-    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 104);
+    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 105);
     let resources = call(json!({"jsonrpc": "2.0", "id": 3, "method": "resources/list"}));
     assert_eq!(
         resources["result"]["resources"].as_array().unwrap().len(),

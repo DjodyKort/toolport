@@ -158,7 +158,7 @@ fn basename_stem(command: &str) -> String {
 }
 
 /// The server id a client entry launches when it has the shape of a Toolport launcher.
-fn launcher_target(entry: &McpServer) -> Option<&str> {
+pub(crate) fn launcher_target(entry: &McpServer) -> Option<&str> {
     let command = entry.command.as_deref()?;
     match entry.args.as_slice() {
         [direct, run, id]

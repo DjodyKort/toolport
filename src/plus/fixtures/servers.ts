@@ -14,6 +14,7 @@ import type {
   ClientEditData,
   ClientImportData,
 } from "../types/client";
+import type { ClientReachData } from "../types/client";
 import type { InspectData } from "../types/inspect";
 import type { ProfileInspectData } from "../types/profile";
 import type { ServerSearchData } from "../types/server";
@@ -259,6 +260,94 @@ export const clientLs: ClientLsData = {
 
 export const clientDirectLs: ClientDirectLsData = {
   entries: [launcher("claude-code", "Claude Code", "srv-docs", "docs-search")],
+};
+
+const reachClients = [
+  { id: "claude-code", name: "Claude Code", profile: "default" },
+  { id: "claude-desktop", name: "Claude Desktop", profile: "research" },
+  { id: "cursor", name: "Cursor", profile: "work" },
+];
+
+const gatewayRoute = (client: (typeof reachClients)[number]) => ({
+  basis: null,
+  client: client.id,
+  clientName: client.name,
+  entry: null,
+  how: "gateway",
+  note: null,
+  recorded: false,
+  state: null,
+  target: null,
+  transport: null,
+});
+
+export const clientReach: ClientReachData = {
+  clients: [
+    ...reachClients.map((client) => ({
+      gateway: "managed",
+      id: client.id,
+      name: client.name,
+      profile: profileLs.profiles.find((profile) => profile.id === client.profile)!.name,
+    })),
+    { gateway: "absent", id: "gemini-cli", name: "Gemini CLI", profile: null },
+  ],
+  findings: [],
+  servers: serverLs.servers.map((server) => {
+    const gateway = reachClients
+      .filter((client) =>
+        profileLs.profiles
+          .find((profile) => profile.id === client.profile)!
+          .servers.some((member) => member.id === server.id),
+      )
+      .map(gatewayRoute);
+    const extra =
+      server.id === "srv-docs"
+        ? [
+            {
+              basis: null,
+              client: "claude-code",
+              clientName: "Claude Code",
+              entry: "docs-search",
+              how: "launcher",
+              note: null,
+              recorded: true,
+              state: "ok",
+              target: "toolportctl (3 arguments)",
+              transport: "stdio",
+            },
+            {
+              basis: "name",
+              client: "cursor",
+              clientName: "Cursor",
+              entry: "docs-search",
+              how: "own-entry",
+              note: null,
+              recorded: false,
+              state: null,
+              target: "node (2 arguments)",
+              transport: "stdio",
+            },
+          ]
+        : [];
+    return {
+      id: server.id,
+      name: server.name,
+      profiles: profileLs.profiles
+        .filter((profile) => profile.servers.some((member) => member.id === server.id))
+        .map((profile) => profile.name),
+      routes: [...gateway, ...extra],
+      transport: server.transport,
+    };
+  }),
+  unregistered: [
+    {
+      client: "cursor",
+      clientName: "Cursor",
+      entry: "legacy-lint",
+      target: "legacy-lint (1 argument)",
+      transport: "stdio",
+    },
+  ],
 };
 
 const tool = (name: string, description: string) => ({ name, description });
@@ -548,6 +637,7 @@ export const serversCtlFixtures = new Map<string, unknown>([
   ["profile ls", profileLs],
   ["client ls", clientLs],
   ["client direct ls", clientDirectLs],
+  ["client reach", clientReach],
   ["doctor", doctor],
   ...serverLs.servers.map((server): [string, unknown] => [
     `server info ${server.id}`,
@@ -618,5 +708,6 @@ export const serversWorld = {
   profileLs,
   clientLs,
   clientDirectLs,
+  clientReach,
   doctor,
 };

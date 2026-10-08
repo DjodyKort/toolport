@@ -154,3 +154,31 @@ fn errors_keep_the_core_kinds() {
         assert!(read("claude-code").contains("someone-else"));
     });
 }
+
+#[test]
+fn the_reach_tool_reads_the_launcher_without_writing_anything() {
+    world(|w| {
+        installed("claude-code");
+        call(
+            "client_direct_add",
+            json!({"server": "alpha", "client": "claude-code", "dry_run": false}),
+        )
+        .unwrap();
+        let before = (tree(&w.home), tree(&w.data));
+        let reach = call("clients_reach", json!({"server": "alpha"})).unwrap();
+        let routes = reach["servers"][0]["routes"].as_array().unwrap();
+        assert!(routes
+            .iter()
+            .any(|r| r["client"] == "claude-code" && r["how"] == "launcher" && r["state"] == "ok"));
+        assert_eq!((tree(&w.home), tree(&w.data)), before);
+        assert_eq!(
+            kind(call("clients_reach", json!({"server": "no-such-server"}))),
+            "not_found"
+        );
+        assert_eq!(
+            kind(call("clients_reach", json!({"client": "-x"}))),
+            "invalid_arguments"
+        );
+        assert_eq!(find_tool("clients_reach").unwrap().tier, 1);
+    });
+}

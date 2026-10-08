@@ -90,6 +90,7 @@ describe("servers.list: the Servers tab", () => {
       [
         "client direct ls",
         "client ls",
+        "client reach",
         "commands",
         "profile ls",
         "server info srv-issues",
@@ -703,5 +704,83 @@ describe("servers.restart: restarting a server", () => {
     await user.click(within(review).getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(applied()).toEqual([]);
+  });
+});
+
+describe("servers.reach: how clients reach a server", () => {
+  it("names every route: the gateway, a launcher entry and an entry the client holds itself", async () => {
+    const { user } = renderScreen();
+    await select(user, "Connected", /docs-search/);
+    const section = await screen.findByRole("region", { name: "How clients reach it" });
+    const routes = await within(section).findByRole("list", { name: "Routes" });
+    expect(within(routes).getAllByRole("listitem")).toHaveLength(4);
+    expect(within(routes).getAllByText("through Toolport")).toHaveLength(2);
+    expect(within(routes).getByText("Toolport launcher entry")).toBeInTheDocument();
+    expect(
+      within(routes).getByText("its own entry, not through Toolport"),
+    ).toBeInTheDocument();
+    expect(
+      within(routes).getByText("Matched to this server by its name."),
+    ).toBeInTheDocument();
+    expect(bridge.ran()).toContain("client reach");
+  });
+
+  it("explains a server only a client reaches itself, instead of saying nothing sees it", async () => {
+    const world = clone(serversWorld.clientReach);
+    const notes = world.servers.find((server) => server.id === "srv-notes")!;
+    notes.profiles = [];
+    notes.routes = [
+      {
+        basis: "name",
+        client: "claude-code",
+        clientName: "Claude Code",
+        entry: "scratch-notes",
+        how: "own-entry",
+        note: null,
+        recorded: false,
+        state: null,
+        target: "https://notes.example/mcp",
+        transport: "http",
+      },
+    ];
+    world.findings = [
+      {
+        client: "claude-code",
+        kind: "direct-only",
+        level: "fyi",
+        server: "srv-notes",
+        text: "scratch-notes is in no profile, so the gateway does not serve it; Claude Code reaches it through its own entry 'scratch-notes', which Toolport does not manage.",
+      },
+    ];
+    bridge.set("client reach", world);
+    const { user } = renderScreen();
+    await select(user, "Not running", /scratch-notes/);
+    const detail = await screen.findByRole("region", { name: "scratch-notes details" });
+    expect(
+      await within(detail).findByText(/Claude Code reaches it through its own entry/),
+    ).toBeInTheDocument();
+    expect(
+      within(detail).queryByText(/Not in the active profile/),
+    ).not.toBeInTheDocument();
+    expect(
+      within(detail).getByText("its own entry, not through Toolport"),
+    ).toBeInTheDocument();
+  });
+
+  it("says so when the clients could not be checked, and can try again", async () => {
+    bridge.set("client reach", ctlFailure("unhealthy", "no clients"));
+    const { user } = renderScreen();
+    await select(user, "Connected", /docs-search/);
+    const section = await screen.findByRole("region", { name: "How clients reach it" });
+    expect(
+      await within(section).findByText(
+        /Couldn't check how the clients reach this server/,
+      ),
+    ).toBeInTheDocument();
+    bridge.set("client reach", serversWorld.clientReach);
+    await user.click(within(section).getByRole("button", { name: "Try again" }));
+    expect(
+      await within(section).findByRole("list", { name: "Routes" }),
+    ).toBeInTheDocument();
   });
 });

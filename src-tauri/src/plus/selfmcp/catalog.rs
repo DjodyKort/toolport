@@ -1041,6 +1041,17 @@ pub const TOOLS: &[ToolDef] = &[
         servers::clients_sync
     ),
     tool!(
+        "clients_reach",
+        1,
+        None,
+        "Show how each client reaches each server: through the gateway, a Toolport launcher entry or an entry the client holds itself; read-only",
+        [
+            p("client", Ty::Str, false, "Limit to one client key"),
+            p("server", Ty::Str, false, "Limit to one server id or name")
+        ],
+        servers::clients_reach
+    ),
+    tool!(
         "client_direct_ls",
         1,
         None,

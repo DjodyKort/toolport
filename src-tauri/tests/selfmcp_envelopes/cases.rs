@@ -1164,6 +1164,20 @@ pub const ALL: &[Case] = &[
         ],
     ),
     case(
+        "clients_reach",
+        &[
+            read("empty", "clients_reach", "{}"),
+            setup("client_direct_add", DIRECT_APPLY),
+            read("with_launcher", "clients_reach", r#"{"server":"alpha"}"#),
+            fails(
+                "unknown_server",
+                "not_found",
+                "clients_reach",
+                r#"{"server":"no-such-server"}"#,
+            ),
+        ],
+    ),
+    case(
         "client_direct_ls",
         &[
             read("empty", "client_direct_ls", "{}"),

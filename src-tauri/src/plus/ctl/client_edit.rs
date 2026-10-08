@@ -15,7 +15,7 @@ const IMPORT_USAGE: &str = "usage: client import <client> [--select <a,b> | --al
      [--profile <name>] [--dry-run]";
 
 pub const GROUP_USAGE: &str =
-    "usage: client ls|edit|import|sync|direct (edit: <client> [--add-profile <p>] \
+    "usage: client ls|reach|edit|import|sync|direct (reach: [--client <id>] [--server <id|name>]; edit: <client> [--add-profile <p>] \
      [--remove-profile <p>] [--set-profiles <p>] [--force] [--dry-run]; import: <client> \
      [--select <a,b> | --all] [--profile <name>] [--dry-run]; sync: [--client <id>] [--dry-run] \
      [--keep-orphans]; direct: add|rm|ls)";
