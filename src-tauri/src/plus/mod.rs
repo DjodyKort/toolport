@@ -21,6 +21,7 @@ pub mod obs;
 pub mod plugins;
 pub mod profiles;
 pub mod selfmcp;
+pub mod server_restart;
 pub mod skills;
 pub mod sources;
 pub mod sync;

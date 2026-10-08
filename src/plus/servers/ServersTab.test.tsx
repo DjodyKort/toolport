@@ -19,7 +19,7 @@ beforeEach(() => {
 });
 
 const WRITES =
-  /^(server (uninstall|install|new|edit)|profile (edit|create|rm)|client (sync|edit|import|direct (add|rm)))/;
+  /^(server (uninstall|install|new|edit|restart)|profile (edit|create|rm)|client (sync|edit|import|direct (add|rm)))/;
 const applied = () =>
   bridge.ran().filter((line) => WRITES.test(line) && !line.includes("--dry-run"));
 
@@ -630,6 +630,78 @@ describe("servers.profile-edit: the profile switches of a server", () => {
       name: "Remove docs-search from Default?",
     });
     await within(review).findByRole("region", { name: "Preview" });
+    expect(applied()).toEqual([]);
+  });
+});
+
+describe("servers.restart: restarting a server", () => {
+  const gone = { id: "srv-erp", name: "acme-erp", status: "dry_run", gateways: [] };
+
+  async function startRestart(user: ReturnType<typeof renderScreen>["user"]) {
+    await select(user, "Needs attention", /acme-erp/);
+    const detail = await screen.findByRole("region", { name: "acme-erp details" });
+    await within(detail).findByText("ERP_API_KEY");
+    await user.click(within(detail).getByRole("button", { name: "Restart…" }));
+    return screen.findByRole("dialog", { name: "Restart acme-erp?" });
+  }
+
+  it("previews, asks once and names the gateway that restarted it", async () => {
+    bridge.set("server restart srv-erp --dry-run", gone);
+    bridge.set("server restart srv-erp", {
+      ...gone,
+      status: "restarted",
+      gateways: [{ pid: 4242, restarted: true, detail: "restarted" }],
+    });
+    const { user } = renderScreen();
+    const review = await startRestart(user);
+    const preview = await within(review).findByRole("region", { name: "Preview" });
+    expect(
+      within(preview).getByText(
+        "Stop the process of acme-erp (srv-erp) and start it again in every running gateway",
+      ),
+    ).toBeInTheDocument();
+    expect(applied()).toEqual([]);
+
+    await user.click(within(review).getByRole("button", { name: "Restart server" }));
+    const result = await screen.findByRole("dialog", { name: "Restart acme-erp" });
+    expect(
+      await within(result).findByText("Restarted the server acme-erp"),
+    ).toBeInTheDocument();
+    expect(
+      within(result).getByText("Restarted in gateway process 4242"),
+    ).toBeInTheDocument();
+    expect(applied()).toEqual(["server restart srv-erp"]);
+    const calls = bridge.ran();
+    expect(calls.indexOf("server restart srv-erp --dry-run")).toBeLessThan(
+      calls.indexOf("server restart srv-erp"),
+    );
+  });
+
+  it("says there is nothing to restart when no gateway holds the server", async () => {
+    bridge.set("server restart srv-erp --dry-run", gone);
+    bridge.set("server restart srv-erp", { ...gone, status: "not_running" });
+    const { user } = renderScreen();
+    const review = await startRestart(user);
+    await within(review).findByRole("region", { name: "Preview" });
+    await user.click(within(review).getByRole("button", { name: "Restart server" }));
+    const result = await screen.findByRole("dialog", { name: "Restart acme-erp" });
+    expect(
+      await within(result).findByText("Nothing to restart for acme-erp"),
+    ).toBeInTheDocument();
+    expect(
+      within(result).getByText(
+        "No running gateway holds it. It starts fresh at its next call.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("applies nothing when you cancel at the confirmation", async () => {
+    bridge.set("server restart srv-erp --dry-run", gone);
+    const { user } = renderScreen();
+    const review = await startRestart(user);
+    await within(review).findByRole("region", { name: "Preview" });
+    await user.click(within(review).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(applied()).toEqual([]);
   });
 });

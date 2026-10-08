@@ -1,0 +1,15 @@
+{
+  "argv": ["server", "restart", "alpha", "--dry-run"],
+  "envelope": {
+    "command": "server restart",
+    "data": {
+      "gateways": [],
+      "id": "srv-alpha",
+      "name": "alpha",
+      "status": "dry_run"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

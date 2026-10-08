@@ -1136,6 +1136,17 @@ pub const ALL: &[Case] = &[
             ),
         ],
     ),
+    case(
+        "servers_restart",
+        &[
+            read("preview", "servers_restart", r#"{"name":"alpha"}"#),
+            refused(
+                "refused",
+                "servers_restart",
+                r#"{"name":"alpha","dry_run":false}"#,
+            ),
+        ],
+    ),
     // clients
     case("clients_list", &[read("", "clients_list", "{}")]),
     case(

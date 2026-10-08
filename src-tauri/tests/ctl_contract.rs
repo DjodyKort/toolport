@@ -372,6 +372,13 @@ const CASES: &[Case] = &[
         )],
     ),
     case(
+        "server restart",
+        &[
+            read("preview", &["server", "restart", "alpha", "--dry-run"]),
+            apply("not-running", &["server", "restart", "alpha", "--wait", "1"]),
+        ],
+    ),
+    case(
         "client sync",
         &[
             read("preview", &["client", "sync", "--dry-run"]),

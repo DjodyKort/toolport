@@ -2,6 +2,7 @@ import type {
   ProfileCreateData,
   ProfileEditData,
   ProfileRmData,
+  ServerRestartData,
   ServerUninstallData,
   ClientSyncData,
 } from "../bridge/data";
@@ -105,6 +106,47 @@ export function uninstallPlan(
     steps,
     warnings,
     reAddCommand(ctx.info),
+  );
+}
+
+/** What a restart does, then what it did: the answer is the number of gateways that restarted the
+ * server, or the reason none did. A restart is not undone; the process only starts again. */
+export function restartPlan(data: ServerRestartData, done: boolean): PlanV1 {
+  if (!done || data.status === "dry_run") {
+    return plan(`Restart the server ${data.name}`, [
+      {
+        op: "update",
+        detail: `Stop the process of ${data.name} (${data.id}) and start it again in every running gateway`,
+      },
+      {
+        op: "note",
+        detail:
+          "A call running on it right now ends. Its tools are read again afterwards.",
+      },
+    ]);
+  }
+  const failed = data.gateways.filter((gateway) => !gateway.restarted);
+  const warnings = failed.map((gateway) => `Process ${gateway.pid}: ${gateway.detail}`);
+  if (data.status === "not_running") {
+    return plan(`Nothing to restart for ${data.name}`, [
+      {
+        op: "note",
+        detail: "No running gateway holds it. It starts fresh at its next call.",
+      },
+    ]);
+  }
+  const steps: PlanStep[] = data.gateways
+    .filter((gateway) => gateway.restarted)
+    .map((gateway) => ({
+      op: "update",
+      detail: `Restarted in gateway process ${gateway.pid}`,
+    }));
+  return plan(
+    failed.length > 0
+      ? `Could not restart ${data.name} everywhere`
+      : `Restarted the server ${data.name}`,
+    steps,
+    warnings,
   );
 }
 

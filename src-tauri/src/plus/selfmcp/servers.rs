@@ -5,6 +5,7 @@ use crate::plus::args::{flag, flag_or, list, str_arg, str_nonempty};
 use crate::plus::auth::login;
 use crate::plus::auth::stdio::{self, LaunchFault};
 use crate::plus::client_sync::{self, SyncArgs};
+use crate::plus::server_restart;
 use crate::plus::servers::{self, AddError, Patch, UninstallArgs};
 use crate::plus::update::exec::{CmdOutput, GitRunner, ShellRunner, SystemGit, SystemShell};
 use crate::plus::update::source::{self, Source};
@@ -465,6 +466,16 @@ pub(super) fn uninstall(args: &Value) -> Outcome {
         dry_run: false,
         keep_clients: !propagate,
         keep_secrets: false,
+    })?;
+    Ok(done.to_value())
+}
+
+pub(super) fn restart(args: &Value) -> Outcome {
+    let name = name_arg(args)?;
+    let done = server_restart::restart(&server_restart::RestartArgs {
+        key: name.to_string(),
+        dry_run: flag_or(args, "dry_run", true),
+        wait: server_restart::DEFAULT_WAIT,
     })?;
     Ok(done.to_value())
 }

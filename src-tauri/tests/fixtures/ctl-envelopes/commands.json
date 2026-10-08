@@ -267,6 +267,60 @@
           "tools": ["servers_uninstall"]
         },
         {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Seconds to wait for the gateways to answer (default 20; 0 asks and does not wait)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--wait",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "integer"
+            }
+          ],
+          "group": "server",
+          "id": "server restart",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "server",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "server",
+          "path": ["server", "restart"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Restart one server's process in every running gateway (--dry-run, --wait <seconds>)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["servers_restart"]
+        },
+        {
           "baseTier": "read",
           "cost": false,
           "dryRun": false,
@@ -10577,10 +10631,10 @@
         }
       ],
       "counts": {
-        "commands": 175,
+        "commands": 176,
         "groups": 33,
-        "rows": 208,
-        "tools": 103
+        "rows": 209,
+        "tools": 104
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
       "tiers": ["read", "write", "destructive"],
@@ -11242,6 +11296,13 @@
           "name": "servers_uninstall",
           "tier": "destructive",
           "toolTier": 4
+        },
+        {
+          "command": "server restart",
+          "dryRun": "default-on",
+          "name": "servers_restart",
+          "tier": "write",
+          "toolTier": 3
         },
         {
           "command": "client ls",

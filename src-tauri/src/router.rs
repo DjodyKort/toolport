@@ -2234,6 +2234,18 @@ impl Router {
         true
     }
 
+    pub fn holds_server(&self, server_id: &str) -> bool {
+        self.by_id.contains_key(server_id)
+    }
+
+    /// Replace one server's connection with a fresh one now, on request, so a server whose
+    /// code changed runs it. `None` when this router holds no server with that id; `Some(false)`
+    /// when it does and could not bring a fresh one up (the old connection stays then).
+    pub fn restart_server(&self, server_id: &str) -> Option<bool> {
+        let slot = self.servers.get(*self.by_id.get(server_id)?)?;
+        Some(self.replace_connection(slot))
+    }
+
     /// Re-spawn each server that was connected declaring client capabilities other
     /// than `wanted`, so it declares what its clients have declared since. A
     /// server not set to declare any (`declared_client_capabilities` is `None`) is
@@ -4006,6 +4018,68 @@ mod tests {
             router.server_instructions("a").as_deref(),
             Some("FAKE-a first")
         );
+    }
+
+    #[test]
+    fn restart_server_replaces_only_the_named_connection() {
+        let wanted = Arc::new(Mutex::new(json!({})));
+        let declared = Arc::new(Mutex::new(Vec::new()));
+        let mut router = Router::new();
+        for (id, first, then) in [("a", "FAKE-a first", "FAKE-a second"), ("b", "FAKE-b first", "FAKE-b second")] {
+            let (w, d) = (Arc::clone(&wanted), Arc::clone(&declared));
+            let reconnect: Reconnect = Box::new(move || Some(handshaking(id, false, &w, then, &d)));
+            router.add_with_reconnect(handshaking(id, false, &wanted, first, &declared), Some(reconnect));
+        }
+        assert!(router.holds_server("a") && !router.holds_server("ghost"));
+        assert_eq!(router.restart_server("ghost"), None);
+        assert_eq!(router.restart_server("a"), Some(true));
+        assert_eq!(router.server_instructions("a").as_deref(), Some("FAKE-a second"));
+        assert_eq!(router.server_instructions("b").as_deref(), Some("FAKE-b first"));
+    }
+
+    #[test]
+    fn restart_server_keeps_the_old_connection_when_a_fresh_one_cannot_start() {
+        let wanted = Arc::new(Mutex::new(json!({})));
+        let declared = Arc::new(Mutex::new(Vec::new()));
+        let mut router = Router::new();
+        let reconnect: Reconnect = Box::new(|| None);
+        router.add_with_reconnect(handshaking("a", false, &wanted, "FAKE-a first", &declared), Some(reconnect));
+        assert_eq!(router.restart_server("a"), Some(false));
+        assert_eq!(router.server_instructions("a").as_deref(), Some("FAKE-a first"));
+    }
+
+    #[test]
+    fn a_restart_request_restarts_the_server_once_and_marks_its_lists_stale() {
+        use crate::plus::server_restart as restart;
+        use std::sync::atomic::{AtomicU8, Ordering};
+        let base = std::env::temp_dir().join(format!("toolport-serve-restart-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let wanted = Arc::new(Mutex::new(json!({})));
+        let declared = Arc::new(Mutex::new(Vec::new()));
+        let spawns = Arc::new(AtomicU32::new(0));
+        let mut router = Router::new();
+        let (w, d, s) = (Arc::clone(&wanted), Arc::clone(&declared), Arc::clone(&spawns));
+        let reconnect: Reconnect = Box::new(move || {
+            s.fetch_add(1, Ordering::SeqCst);
+            Some(handshaking("a", false, &w, "FAKE-a second", &d))
+        });
+        router.add_with_reconnect(handshaking("a", false, &wanted, "FAKE-a first", &declared), Some(reconnect));
+        let dirty = AtomicU8::new(0);
+
+        let elsewhere = restart::request(&base, "ghost", "Ghost").unwrap();
+        let sent = restart::request(&base, "a", "A").unwrap();
+        restart::serve(&base, &router, &dirty);
+        restart::serve(&base, &router, &dirty);
+
+        assert_eq!(spawns.load(Ordering::SeqCst), 1, "one request restarts a server once");
+        assert_eq!(router.server_instructions("a").as_deref(), Some("FAKE-a second"));
+        assert_eq!(dirty.load(Ordering::SeqCst), 7, "tools, resources and prompts are read again");
+        assert_eq!(restart::acknowledged(&base, &sent.nonce), [std::process::id()]);
+        let out = restart::outcomes(&base, &sent.nonce);
+        assert_eq!(out.len(), 1);
+        assert!(out[0].restarted && out[0].pid == std::process::id());
+        assert!(restart::outcomes(&base, &elsewhere.nonce).is_empty(), "a server held elsewhere is not answered here");
+        let _ = std::fs::remove_dir_all(&base);
     }
 
     /// Counts every `tools/call` and `resources/read` that reaches it; when `timing_out`

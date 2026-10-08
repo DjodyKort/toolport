@@ -11858,6 +11858,18 @@ fn adopt_reconnected_servers(
 /// `quarantine.json`, so gating reconcile on the registry mtime would reintroduce
 /// SOU-292. Tests call this directly (SOU-304).
 #[allow(clippy::too_many_arguments)]
+fn serve_restart_requests(
+    base: &Path,
+    router: &Arc<Mutex<Arc<Router>>>,
+    downstream_dirty: &Arc<AtomicU8>,
+) {
+    let live = router
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clone();
+    conduit_lib::plus::server_restart::serve(base, &live, downstream_dirty);
+}
+
 fn watch_tick(
     path: &Path,
     stdio: &SessionState,
@@ -11915,6 +11927,9 @@ fn watch_tick(
     if quarantine_changed {
         host.invalidate_root_views();
         host.invalidate_tool_scope_views();
+    }
+    if let Some(base) = conduit_lib::registry::conduit_dir() {
+        serve_restart_requests(&base, router, downstream_dirty);
     }
     // A live downstream server that changed its own tool set (sent
     // tools/list_changed) sets this. Swap before acting so a notification

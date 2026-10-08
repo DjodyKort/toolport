@@ -145,6 +145,12 @@
       "test": "src/plus/servers/ServersTab.test.tsx",
       "summary": "Remove a server and its client entries behind a typed confirmation (server uninstall)"
     },
+    "servers.restart": {
+      "route": "servers",
+      "status": "built",
+      "test": "src/plus/servers/ServersTab.test.tsx",
+      "summary": "Restart one server's process in every running gateway after a plan, so it runs its current code (server restart)"
+    },
     "servers.profiles": {
       "route": "servers",
       "status": "built",
@@ -1804,6 +1810,11 @@
       "action": "servers.remove",
       "surface": "screen"
     },
+    "server restart": {
+      "route": "servers",
+      "action": "servers.restart",
+      "surface": "screen"
+    },
     "skills add": {
       "route": "library",
       "action": "skills.add",
@@ -2374,6 +2385,11 @@
     "servers_uninstall": {
       "route": "servers",
       "action": "servers.remove",
+      "surface": "screen"
+    },
+    "servers_restart": {
+      "route": "servers",
+      "action": "servers.restart",
       "surface": "screen"
     },
     "servers_update_config": {

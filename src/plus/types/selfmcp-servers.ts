@@ -182,6 +182,14 @@ export const serversRemoveProfileTagResult = obj({
 });
 export type ServersRemoveProfileTagResult = Infer<typeof serversRemoveProfileTagResult>;
 
+export const serversRestartResult = obj({
+  gateways: arr(obj({ detail: str, pid: num, restarted: bool })),
+  id: str,
+  name: str,
+  status: str,
+});
+export type ServersRestartResult = Infer<typeof serversRestartResult>;
+
 export const serversSetModeResult = obj({
   changed: bool,
   dropped: bool,
@@ -226,6 +234,7 @@ export const serversToolShapes: Record<string, Shape<unknown>> = {
   servers_list: serversListResult,
   servers_list_profiles: serversListProfilesResult,
   servers_remove_profile_tag: serversRemoveProfileTagResult,
+  servers_restart: serversRestartResult,
   servers_set_mode: serversSetModeResult,
   servers_set_source: serversSetSourceResult,
   servers_uninstall: serversUninstallResult,

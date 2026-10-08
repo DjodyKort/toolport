@@ -575,6 +575,21 @@ fn server_mutations_follow_their_tiers() {
         false
     );
 
+    let preview = call("servers_restart", json!({"name": "gamma"})).unwrap();
+    assert_eq!(preview["status"], "dry_run");
+    assert_eq!(preview["gateways"], json!([]));
+    assert_eq!(
+        kind(call("servers_restart", json!({"name": "ghost"}))),
+        "not_found"
+    );
+    assert_eq!(
+        kind(call(
+            "servers_restart",
+            json!({"name": "gamma", "dry_run": false})
+        )),
+        "refused"
+    );
+
     assert_eq!(
         kind(call(
             "servers_set_source",

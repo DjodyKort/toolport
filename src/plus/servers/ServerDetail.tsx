@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/Callout";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import type { ProfileLsData } from "../bridge/data";
+import type { ProfileLsData, ServerRestartData } from "../bridge/data";
 import type { InspectData } from "../types/inspect";
 import { ErrorState, ScreenSkeleton, outcomeOf, useCtlJob, useCtlQuery } from "../ui";
 import { Chip, Code, Kv, Pill, StateBadge } from "./atoms";
 import { launchLine, looksLikeLogin, type ServerInfo, type ServerView } from "./model";
+import { restartPlan } from "./plans";
 import { ServerTools } from "./ServerTools";
 import { useServers } from "./useServers";
 import type { WriteControl } from "./useWrite";
@@ -295,6 +296,24 @@ export function ServerDetail({
           onClick={() => data && onEdit(data)}
         >
           Edit
+        </Button>
+        <Button
+          variant="outline"
+          disabled={busy}
+          title="Stop this server's process and start it again, so it runs its current code"
+          onClick={() =>
+            write.begin({
+              command: "server restart",
+              title: `Restart ${view.name}`,
+              confirmLabel: "Restart server",
+              phrase: view.name,
+              argv: ["server", "restart", view.id],
+              adapt: (result, done) => restartPlan(result as ServerRestartData, done),
+              after: onChanged,
+            })
+          }
+        >
+          Restart…
         </Button>
         <Button variant="destructive" disabled={busy} onClick={() => onRemove(data)}>
           Remove…

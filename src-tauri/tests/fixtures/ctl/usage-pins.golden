@@ -13,6 +13,7 @@ Commands:
   server search  Search the catalog (--offline, --limit <n>)
   server install Install a catalog server by name
   server uninstall Remove a server and its client entries (--dry-run)
+  server restart Restart one server's process in every running gateway (--dry-run, --wait <seconds>)
   server info    Show one server's definition and profiles
   server new     Add a custom server (--command or --url)
   server edit    Edit a server's name, command, args, url or cwd
@@ -211,6 +212,7 @@ Commands:
   server search  Search the catalog (--offline, --limit <n>)
   server install Install a catalog server by name
   server uninstall Remove a server and its client entries (--dry-run)
+  server restart Restart one server's process in every running gateway (--dry-run, --wait <seconds>)
   server info    Show one server's definition and profiles
   server new     Add a custom server (--command or --url)
   server edit    Edit a server's name, command, args, url or cwd
@@ -409,6 +411,7 @@ Commands:
   server search  Search the catalog (--offline, --limit <n>)
   server install Install a catalog server by name
   server uninstall Remove a server and its client entries (--dry-run)
+  server restart Restart one server's process in every running gateway (--dry-run, --wait <seconds>)
   server info    Show one server's definition and profiles
   server new     Add a custom server (--command or --url)
   server edit    Edit a server's name, command, args, url or cwd
@@ -607,6 +610,7 @@ Commands:
   server search  Search the catalog (--offline, --limit <n>)
   server install Install a catalog server by name
   server uninstall Remove a server and its client entries (--dry-run)
+  server restart Restart one server's process in every running gateway (--dry-run, --wait <seconds>)
   server info    Show one server's definition and profiles
   server new     Add a custom server (--command or --url)
   server edit    Edit a server's name, command, args, url or cwd

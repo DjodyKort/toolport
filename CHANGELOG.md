@@ -63,6 +63,12 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 - A profile can list extra folders (`dirs.add`) whose project skills a session loads. The launch
   line adds each one with `--add-dir`, the only way Claude Code loads another folder's skills.
+- `toolportctl server restart <server>` restarts one server's process in every running gateway,
+  with a Restart button on the server and a `servers_restart` self-management tool.
+
+### Fixed
+
+- The app opens on the full Servers screen instead of the upstream page.
 
 ## [1.23.4] - 2026-10-02
 

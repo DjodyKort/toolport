@@ -109,6 +109,14 @@ export const serverUninstallData = obj({
 });
 export type ServerUninstallData = Infer<typeof serverUninstallData>;
 
+export const serverRestartData = obj({
+  gateways: arr(obj({ detail: str, pid: num, restarted: bool })),
+  id: str,
+  name: str,
+  status: str,
+});
+export type ServerRestartData = Infer<typeof serverRestartData>;
+
 export const profileLsData = obj({
   activeProfile: str,
   profiles: arr(
@@ -674,6 +682,8 @@ export const ctlShapes: Record<string, Shape<unknown>> = {
   "server-ls": serverLsData,
   "server-info": serverInfoData,
   "server-uninstall.preview": serverUninstallData,
+  "server-restart.preview": serverRestartData,
+  "server-restart.not-running": serverRestartData,
   "profile-ls": profileLsData,
   "profile-create.preview": profileCreateData,
   "profile-create.apply": profileCreateData,

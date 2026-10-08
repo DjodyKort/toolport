@@ -131,6 +131,11 @@ pub const COMMANDS: &[Command] = &[
         "Remove a server and its client entries (--dry-run)",
         server::uninstall,
     ),
+    cmd(
+        &["server", "restart"],
+        "Restart one server's process in every running gateway (--dry-run, --wait <seconds>)",
+        server::restart,
+    ),
     cmd(&["server", "info"], "Show one server's definition and profiles", server::info),
     cmd(&["server", "new"], "Add a custom server (--command or --url)", server::new),
     cmd(&["server", "edit"], "Edit a server's name, command, args, url or cwd", server::edit),

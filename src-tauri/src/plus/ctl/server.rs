@@ -1,6 +1,7 @@
 use super::flags::{switch, value, Flags, Spec};
 use super::output::{CtlError, Output};
 use crate::catalog::{self, CatalogEntry};
+use crate::plus::server_restart;
 use crate::plus::servers::{self, AddError, Patch, UninstallArgs};
 use crate::plus::status::readable_registry;
 use crate::plus::update::exec::SystemGit;
@@ -17,6 +18,7 @@ const EDIT_USAGE: &str = "usage: server edit <id|name> [--name <n>] [--command <
 const INFO_USAGE: &str = "usage: server info <id|name>";
 const UNINSTALL_USAGE: &str =
     "usage: server uninstall <id|name> [--dry-run] [--keep-clients] [--keep-secrets]";
+const RESTART_USAGE: &str = "usage: server restart <id|name> [--dry-run] [--wait <seconds>]";
 const SOURCE_SET_USAGE: &str = "usage: server source set <id|name> [--path <dir>] [--remote <name>] [--branch <name>] [--upstream-remote <name>] [--upstream-branch <name>] [--clear-upstream] [--post-update <cmd>] [--clear-post-update]";
 
 pub(super) const SEARCH: Spec = Spec {
@@ -56,6 +58,10 @@ pub(super) const UNINSTALL: Spec = Spec {
         switch("--keep-clients"),
         switch("--keep-secrets"),
     ],
+    ..Spec::PLAIN
+};
+pub(super) const RESTART: Spec = Spec {
+    flags: &[switch("--dry-run"), value("--wait")],
     ..Spec::PLAIN
 };
 pub(super) const SOURCE_SET: Spec = Spec {
@@ -493,6 +499,23 @@ pub fn uninstall(rest: &[String]) -> Result<Output, CtlError> {
         human.push_str(&plan.line(done.dry_run));
     }
     let mut output = Output::new(done.to_value(), human);
+    output.failed = done.failed();
+    Ok(output)
+}
+
+pub fn restart(rest: &[String]) -> Result<Output, CtlError> {
+    let flags = RESTART.parse(rest)?;
+    let key = flags.single(RESTART_USAGE)?;
+    let wait = match flags.number::<u64>("--wait")? {
+        Some(seconds) => std::time::Duration::from_secs(seconds),
+        None => server_restart::DEFAULT_WAIT,
+    };
+    let done = server_restart::restart(&server_restart::RestartArgs {
+        key: key.to_string(),
+        dry_run: flags.on("--dry-run"),
+        wait,
+    })?;
+    let mut output = Output::new(done.to_value(), done.line());
     output.failed = done.failed();
     Ok(output)
 }

@@ -627,6 +627,16 @@ A stdio entry runs `toolportctl direct run <server id>`, never the server's own 
 
 The desktop handlers are `plus.client.directAdd`, `plus.client.directRm` and `plus.client.directLs` (arguments `server`, `client`, `force`, `dryRun`); the self-management server has `client_direct_ls` (tier 1) and `client_direct_add` and `client_direct_rm` (tier 2). Like the tap tools, the two writing tools plan only unless `dry_run` is passed as false.
 
+## Restarting a server
+
+A client that reconnects does not restart a server: the gateway keeps each stdio child for as long as the registry that started it is unchanged, so a server whose code changed keeps running the old code. `toolportctl server restart <server>` restarts that one server's process in every running gateway, and nothing else.
+
+- It writes a request file under the data dir. Each running gateway picks it up on its next watcher tick (about a second), claims it, restarts its own copy and writes an outcome file; the command reads the outcomes back and prints one line per gateway with the pid and the result.
+- A gateway acknowledges within a few seconds. With no acknowledgement the request is withdrawn and the command reports that no gateway is running, instead of waiting out the timeout.
+- `--dry-run` only names the server and the gateways that would act. `--wait <seconds>` sets how long to wait for outcomes.
+- A gateway started before this version has no watcher hook; quit and reopen Toolport once, after which restarts work.
+- The desktop app has a Restart button on the server detail, and the self-management server has `servers_restart` (tier 3, dry run by default).
+
 ## Agents & styles
 
 `src/plus/agents/` builds the two tabs of the approved mockup nav item "Agents & styles": `AgentsTab` and `StylesTab` (no props). The Library screen (`src/plus/skills/LibraryScreen.tsx`) mounts them as its Agents and Styles tabs.

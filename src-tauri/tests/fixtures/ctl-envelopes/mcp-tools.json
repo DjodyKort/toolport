@@ -2376,6 +2376,33 @@
           "tier": 4
         },
         {
+          "description": "Restart one server's process in every running gateway so it runs its current code and its tool list is read again; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "servers_restart",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
           "description": "List supported client keys",
           "dryRunDefault": false,
           "gate": "none",

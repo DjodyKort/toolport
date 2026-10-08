@@ -316,6 +316,10 @@ pub(super) const ROWS: &[Row] = &[
         .dry()
         .spec(&[&server::UNINSTALL])
         .args(&[req("server")]),
+    row("server restart", W)
+        .dry()
+        .spec(&[&server::RESTART])
+        .args(&[req("server")]),
     row("server info", R).args(&[req("server")]),
     row("server new", W)
         .spec(&[&server::NEW])
@@ -911,6 +915,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     own("servers_fork_sync", W),
     maps("servers_auth", W, "auth login"),
     maps("servers_uninstall", D, "server uninstall"),
+    maps("servers_restart", W, "server restart").on(),
     maps("clients_list", R, "client ls"),
     maps("clients_sync", W, "client sync").on(),
     maps("client_direct_ls", R, "client direct ls"),

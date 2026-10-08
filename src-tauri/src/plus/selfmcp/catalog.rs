@@ -1012,6 +1012,14 @@ pub const TOOLS: &[ToolDef] = &[
         ],
         servers::uninstall
     ),
+    tool!(
+        "servers_restart",
+        3,
+        UnlessDryRun,
+        "Restart one server's process in every running gateway so it runs its current code and its tool list is read again; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [NAME, DRY_ON],
+        servers::restart
+    ),
     tool!("clients_list", 1, None, "List supported client keys", [], backend::clients_list),
     tool!(
         "clients_sync",
