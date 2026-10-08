@@ -563,43 +563,33 @@ fn dirs_bundle(fx: &Fx) -> (String, String) {
 }
 
 #[test]
-fn a_bundle_adds_directories_beside_the_foreign_ones_and_undoes_only_its_own() {
+fn apply_writes_no_directory_and_says_launch_adds_it() {
     let fx = Fx::new("bundle-dirs");
-    let (odh, tools) = dirs_bundle(&fx);
+    dirs_bundle(&fx);
     put(&fx.settings(), FOREIGN_DIRS);
-    let before = tree_snapshot(&fx.cwd);
     let plan = bundle_apply::apply(&fx.world(), "dirs", &fx.cwd, true).unwrap();
-    assert_eq!(plan["plan"]["steps"][0]["keys"], json!(["permissions.additionalDirectories"]));
-    assert!(plan["plan"]["warnings"].to_string().contains("dirs.add: /no/such/folder is not a folder here"));
-    assert_eq!(tree_snapshot(&fx.cwd), before);
+    let warnings = plan["plan"]["warnings"].to_string();
+    assert!(warnings.contains("--add-dir") && warnings.contains("context bundle launch"));
+    assert!(warnings.contains("dirs.add: /no/such/folder is not a folder here"));
 
     fx.apply("dirs");
-    let v: Value = serde_json::from_str(&fx.text(".claude/settings.local.json").unwrap()).unwrap();
-    assert_eq!(v["permissions"]["additionalDirectories"], json!(["/mine", odh, tools]));
-    assert_eq!(v["permissions"]["deny"], json!(["Read(./x)"]));
-    let owned = &fx.status()["applied"]["ownedKeys"];
-    let mut mine = vec![odh.clone(), tools.clone()];
-    mine.sort();
-    assert_eq!(owned["additionalDirectories"], json!(mine));
-    assert_eq!(owned["permissionsDeny"], json!([]));
-    assert_eq!(fx.status()["applied"]["drift"], false);
-
+    assert_eq!(fx.text(".claude/settings.local.json").as_deref(), Some(FOREIGN_DIRS));
     fx.undo();
     assert_eq!(fx.text(".claude/settings.local.json").as_deref(), Some(FOREIGN_DIRS));
-    assert_eq!(ledger::load(&fx.data), ledger::Ledger::default());
 }
 
 #[test]
-fn launch_settings_merge_the_directories_with_the_agent_denials() {
+fn launch_passes_each_existing_directory_as_add_dir_and_keeps_settings_free_of_it() {
     let fx = Fx::new("bundle-dirs-launch");
-    let (odh, _) = dirs_bundle(&fx);
+    let (odh, tools) = dirs_bundle(&fx);
     let text = fs::read_to_string(fx.roots.skills_repo_path().join("profiles/dirs.yaml")).unwrap();
     put(&fx.roots.skills_repo_path().join("profiles/dirs.yaml"), &format!("{text}agents:\n  off: [reviewer]\n"));
     let out = super::bundle_use::launch(&fx.world(), "dirs", Some(&fx.cwd)).unwrap();
+    let command = out["command"].as_str().unwrap();
+    assert!(command.ends_with(&format!(" --add-dir {odh} --add-dir {tools}")), "{command}");
+    assert!(!command.contains("/no/such/folder"));
     let file: Value = serde_json::from_str(&fs::read_to_string(out["settingsFile"].as_str().unwrap()).unwrap()).unwrap();
-    assert_eq!(file["permissions"]["deny"], json!(["Agent(reviewer)"]));
-    assert_eq!(file["permissions"]["additionalDirectories"][0], odh);
-    assert_eq!(file["permissions"]["additionalDirectories"].as_array().unwrap().len(), 2);
+    assert_eq!(file["permissions"], json!({"deny": ["Agent(reviewer)"]}));
 }
 
 #[test]

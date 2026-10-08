@@ -170,10 +170,10 @@ function Detail({
       />
       <p className="text-xs text-muted-foreground">
         Plugin settings, MCP denies and extra folders are set in the profile&apos;s file,
-        not in this form. Extra folders let a session in the applied folder load the
-        project skills of those folders. Edit{" "}
-        <code className="break-all">{show.path}</code>; the change applies the next time
-        you apply the profile.
+        not in this form. Claude Code loads the skills of an extra folder only when it is
+        started with that folder added, which &quot;Prepare the launch line&quot; does and
+        applying the profile does not. Edit <code className="break-all">{show.path}</code>
+        ; the change applies the next time you apply the profile.
       </p>
       <div>
         <h4 className="mb-1 text-xs font-semibold text-muted-foreground">Applied in</h4>

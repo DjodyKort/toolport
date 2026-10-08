@@ -49,15 +49,8 @@ pub fn settings_value(want: &apply::Desired) -> Value {
     if !want.excludes.is_empty() {
         out.insert("claudeMdExcludes".into(), json!(want.excludes));
     }
-    let mut permissions = Map::new();
     if !want.denies.is_empty() {
-        permissions.insert("deny".into(), json!(want.denies));
-    }
-    if !want.dirs.is_empty() {
-        permissions.insert("additionalDirectories".into(), json!(want.dirs));
-    }
-    if !permissions.is_empty() {
-        out.insert("permissions".into(), Value::Object(permissions));
+        out.insert("permissions".into(), json!({ "deny": want.denies }));
     }
     if !want.env.is_empty() {
         out.insert(
@@ -93,10 +86,14 @@ pub fn launch(w: &World, name: &str, cwd: Option<&Path>) -> Result<Value, Bundle
         ));
     }
     let shown = fsx::display(&file);
+    let mut command = format!("claude --settings {}", shell_word(&shown));
+    for dir in &want.dirs {
+        command.push_str(&format!(" --add-dir {}", shell_word(dir)));
+    }
     Ok(json!({
         "bundle": name,
         "settingsFile": shown,
-        "command": format!("claude --settings {}", shell_word(&shown)),
+        "command": command,
         "cwd": folder.as_ref().map(|f| fsx::display(f)),
         "notes": notes,
     }))

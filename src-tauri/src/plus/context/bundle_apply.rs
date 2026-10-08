@@ -365,9 +365,6 @@ pub(super) fn compute_settings(
     for deny in &want.denies {
         own_entry(&mut working, &mut rec, &["permissions", "deny"], deny, &mut warnings);
     }
-    for dir in &want.dirs {
-        own_entry(&mut working, &mut rec, &["permissions", "additionalDirectories"], dir, &mut warnings);
-    }
     for (name, value) in &want.env {
         own_set(&mut working, &mut rec, &["env", name], &json!(value).to_string(), &mut warnings);
     }
@@ -526,7 +523,7 @@ pub(super) fn settings_diff(rec: &SettingsRec) -> Diff {
 pub(super) fn top_keys(rec: &SettingsRec) -> Vec<String> {
     let mut keys: Vec<String> = Vec::new();
     for o in &rec.owned {
-        let key = if o.path[0] == "permissions" { format!("permissions.{}", o.path[1]) } else { o.path[0].clone() };
+        let key = if o.path[0] == "permissions" { "permissions.deny".to_string() } else { o.path[0].clone() };
         if !keys.contains(&key) {
             keys.push(key);
         }
@@ -590,6 +587,12 @@ pub fn apply(w: &World, name: &str, cwd: &Path, dry_run: bool) -> Result<Value, 
 
     let mut steps = Vec::new();
     let mut warnings = want.warnings.clone();
+    if !loaded.bundle.dirs_add.is_empty() {
+        warnings.push(format!(
+            "dirs.add ({}) is not written: Claude Code loads another folder's skills only when it is started with --add-dir, which `context bundle launch` adds",
+            loaded.bundle.dirs_add.join(", ")
+        ));
+    }
     warnings.extend(s_plan.warnings.iter().cloned());
     if let Some(p) = &prior {
         steps.push(Step {
@@ -920,16 +923,11 @@ pub fn drift_of(rec: &FolderRec, cwd: &Path) -> (Vec<String>, Vec<String>) {
 }
 
 pub(super) fn names_under(rec: &FolderRec, top: &str) -> Vec<String> {
-    names_at(rec, &[top])
-}
-
-/// The entries or members the ledger holds under a settings path of one or two segments.
-fn names_at(rec: &FolderRec, prefix: &[&str]) -> Vec<String> {
     let mut out: Vec<String> = rec
         .settings
         .owned
         .iter()
-        .filter(|o| prefix.iter().enumerate().all(|(i, seg)| o.path.get(i).map(String::as_str) == Some(*seg)))
+        .filter(|o| o.path.first().map(String::as_str) == Some(top))
         .map(|o| {
             if o.kind == "entry" {
                 match serde_json::from_str::<Value>(&o.written) {
@@ -964,8 +962,7 @@ pub fn status(w: &World, cwd: &Path) -> Result<Value, BundleError> {
                 "skillOverrides": names_under(&rec, "skillOverrides"),
                 "enabledPlugins": names_under(&rec, "enabledPlugins"),
                 "claudeMdExcludes": names_under(&rec, "claudeMdExcludes"),
-                "permissionsDeny": names_at(&rec, &["permissions", "deny"]),
-                "additionalDirectories": names_at(&rec, &["permissions", "additionalDirectories"]),
+                "permissionsDeny": names_under(&rec, "permissions"),
                 "env": names_under(&rec, "env"),
                 "deniedMcpServers": names_under(&rec, "deniedMcpServers"),
             },

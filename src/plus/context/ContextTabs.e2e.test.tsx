@@ -361,7 +361,9 @@ describe("Profiles against the changing world", () => {
     );
     const line = within(await screen.findByRole("region", { name: "Launch line" }));
     expect(
-      line.getByText(/^claude --settings .*acme-dev\.settings\.json$/),
+      line.getByText(
+        /^claude --settings .*acme-dev\.settings\.json --add-dir \/.+\/code\/odh$/,
+      ),
     ).toBeVisible();
     expect(line.getByRole("button", { name: "Copy" })).toBeVisible();
     await closeResult(user);

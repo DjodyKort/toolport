@@ -171,7 +171,6 @@ export function createTabsWorld(host: TabsHost, fresh: boolean) {
       : [];
 
   const ownedKeys = (b: Bundle) => ({
-    additionalDirectories: [] as string[],
     claudeMdExcludes: b.layersExclude,
     deniedMcpServers: [] as string[],
     enabledPlugins: b.pluginsOff,
@@ -913,7 +912,7 @@ export function createTabsWorld(host: TabsHost, fresh: boolean) {
         const file = `${host.base}/profiles/${b.name}.settings.json`;
         return {
           bundle: b.name,
-          command: `claude --settings ${file}`,
+          command: `claude --settings ${file}${b.dirsAdd.map((dir) => ` --add-dir ${dir.replace(/^~/, host.home)}`).join("")}`,
           cwd,
           notes: b.layersAdd.length
             ? [

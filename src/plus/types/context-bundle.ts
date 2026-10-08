@@ -110,7 +110,6 @@ export const contextBundleStatusData = obj({
       changedKeys: arr(str),
       drift: bool,
       ownedKeys: obj({
-        additionalDirectories: arr(str),
         claudeMdExcludes: arr(str),
         deniedMcpServers: arr(str),
         enabledPlugins: arr(str),

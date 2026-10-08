@@ -451,7 +451,6 @@ fn overrides(names: &[String], mode: &str) -> Map<String, Value> {
 /// `CLAUDE.local.md`), so it is reported and left out of the measurement.
 fn bundle_settings(
     def: &Bundle,
-    home: &Path,
     library: &BTreeSet<String>,
     visible: &BTreeSet<String>,
     notes: &mut Vec<String>,
@@ -517,28 +516,17 @@ fn bundle_settings(
             ),
         );
     }
-    let mut permissions = Map::new();
     if !def.agents.off.is_empty() {
-        permissions.insert(
-            "deny".into(),
-            json!(def.agents.off.iter().map(|a| format!("Agent({a})")).collect::<Vec<_>>()),
+        settings.insert(
+            "permissions".into(),
+            json!({ "deny": def.agents.off.iter().map(|a| format!("Agent({a})")).collect::<Vec<_>>() }),
         );
     }
-    let dirs: Vec<String> = def
-        .dirs
-        .add
-        .iter()
-        .map(|dir| match dir.strip_prefix("~/") {
-            Some(rest) => fsx::display(&home.join(rest)),
-            None => dir.clone(),
-        })
-        .filter(|dir| fsx::is_dir(Path::new(dir)))
-        .collect();
-    if !dirs.is_empty() {
-        permissions.insert("additionalDirectories".into(), json!(dirs));
-    }
-    if !permissions.is_empty() {
-        settings.insert("permissions".into(), Value::Object(permissions));
+    if !def.dirs.add.is_empty() {
+        notes.push(format!(
+            "dirs.add ({}) is passed to Claude Code as --add-dir by `context bundle launch`, not through settings, so it is not part of the measurement",
+            def.dirs.add.join(", ")
+        ));
     }
     if !def.layers.add.is_empty() {
         notes.push(format!(
@@ -872,7 +860,7 @@ pub fn measure(
                 }
                 Some(json!({ "skillOverrides": overrides(&names, "off") }))
             }
-            Kind::Bundle { def } => Some(bundle_settings(def, &env.roots.home, &library, &visible, &mut notes)),
+            Kind::Bundle { def } => Some(bundle_settings(def, &library, &visible, &mut notes)),
         };
         let entry = run_variant(
             env,

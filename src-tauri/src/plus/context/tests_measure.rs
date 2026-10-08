@@ -552,22 +552,21 @@ fn a_one_million_window_is_read_from_the_model_name() {
 }
 
 #[test]
-fn a_bundle_adds_its_existing_directories_beside_the_agent_denials() {
+fn a_bundle_directory_is_left_out_of_the_measurement_and_reported() {
     let w = world();
-    let odh = w.h.at("code/odh");
-    std::fs::create_dir_all(&odh).unwrap();
     w.h.put(
         ".config/mcpm/skills_repo/profiles/odh.yaml",
-        "format: 1\nname: odh\ndirs:\n  add: [\"~/code/odh\", \"/no/such/folder\"]\nagents:\n  off: [reviewer]\n",
+        "format: 1\nname: odh\ndirs:\n  add: [\"~/code/odh\"]\nagents:\n  off: [reviewer]\n",
     );
     let fake = plugin_aware();
     let req = Request {
         bundle: Some("odh".into()),
         ..w.request()
     };
-    w.run(&fake, &req).unwrap();
+    let report = w.run(&fake, &req).unwrap();
     assert_eq!(
         fake.seen.borrow()[1].settings,
-        Some(json!({"permissions": {"deny": ["Agent(reviewer)"], "additionalDirectories": [crate::plus::sources::fsx::display(&odh)]}}))
+        Some(json!({"permissions": {"deny": ["Agent(reviewer)"]}}))
     );
+    assert!(report.notes.iter().any(|n| n.contains("dirs.add") && n.contains("--add-dir")));
 }

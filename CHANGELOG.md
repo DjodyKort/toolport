@@ -61,8 +61,8 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ### Added
 
-- A profile can list extra folders (`dirs.add`) whose project skills a session loads. They are
-  written to the folder's local Claude Code settings and removed again by Undo.
+- A profile can list extra folders (`dirs.add`) whose project skills a session loads. The launch
+  line adds each one with `--add-dir`, the only way Claude Code loads another folder's skills.
 
 ## [1.23.4] - 2026-10-02
 

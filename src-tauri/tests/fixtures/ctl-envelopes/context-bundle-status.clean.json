@@ -9,7 +9,6 @@
         "changedKeys": [],
         "drift": false,
         "ownedKeys": {
-          "additionalDirectories": [],
           "claudeMdExcludes": ["**/acme-erp/CLAUDE.md"],
           "deniedMcpServers": [],
           "enabledPlugins": ["loop-runner@official", "tools-pack@tools-market"],
