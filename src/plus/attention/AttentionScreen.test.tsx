@@ -89,6 +89,19 @@ describe("Attention screen groups and states", () => {
     expect(await screen.findByRole("region", { name: "Needs you" })).toBeInTheDocument();
   });
 
+  it("runs the server update check right away when the list is refreshed", async () => {
+    const user = await openAttention(bridge);
+    invoke.mockClear();
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("plus_invoke", {
+        command: "plus.update.watchTick",
+        args: { force: true },
+      }),
+    );
+    expect(await screen.findByRole("button", { name: "Refresh" })).toBeEnabled();
+  });
+
   it("keeps the last answer on screen with a note when a refresh fails", async () => {
     const user = await openAttention(bridge);
     bridge.set("attention ls", new CtlReplyFailure("internal", "blip"));

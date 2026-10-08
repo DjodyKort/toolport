@@ -79,6 +79,8 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ### Fixed
 
+- Refreshing Attention runs the server update check right away, so a finding no longer keeps
+  the counts of the last scheduled run (up to a day old) after the checkout changed.
 - The button that creates a profile on the Context tab says "New context profile", so it no longer
   shares its name with the "New profile" of the server profiles.
 - Attention: the page button that reloads the list says "Refresh", so it no longer shares its

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/Callout";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useRestoreFocus } from "../agents/useRestoreFocus";
+import { plusUpdateWatchTick } from "../api";
 import { refreshAttentionCount } from "../attention";
 import { Offline, Stat } from "../logins/atoms";
 import type { PlusView } from "../nav";
@@ -52,6 +53,7 @@ export function AttentionScreen({
   };
   const write = useAttentionWrite(rows, refresh);
   const [hiding, setHiding] = useState<AttentionItem | null>(null);
+  const [checking, setChecking] = useState(false);
 
   const data = list.data;
   if (!data) {
@@ -108,16 +110,25 @@ export function AttentionScreen({
     });
   };
 
+  /** The update findings come from a scheduled check, so a refresh runs it now: otherwise a
+   * finding keeps its old counts until the next scheduled run. */
   const checkAgain = () => {
-    refresh();
-    refreshAttentionCount();
+    setChecking(true);
+    plusUpdateWatchTick(true)
+      .catch(() => {})
+      .finally(() => {
+        setChecking(false);
+        refresh();
+        refreshAttentionCount();
+      });
   };
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex justify-end">
-        <Button variant="outline" onClick={checkAgain}>
-          <RefreshCw /> Refresh
+        <Button variant="outline" disabled={checking} onClick={checkAgain}>
+          <RefreshCw className={checking ? "animate-spin" : undefined} />{" "}
+          {checking ? "Checking the servers…" : "Refresh"}
         </Button>
       </div>
       {list.status === "error" && (
