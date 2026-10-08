@@ -405,3 +405,19 @@ describe("text helpers", () => {
     expect(initials("--")).toBe("?");
   });
 });
+
+describe("the Logins tile", () => {
+  it("leaves out a server no profile serves, since its login fails nothing", () => {
+    const doc = clone(status);
+    doc.auth.servers = [
+      { server: "srv-docs", state: "needs_reauth" },
+      { server: "srv-notes", state: "needs_reauth" },
+    ] as StatusDoc["auth"]["servers"];
+    const views = buildServerViews(serverLs, profileLs, doc).map((view) =>
+      view.id === "srv-notes" ? { ...view, profiles: [] } : view,
+    );
+    const login = stripFacts(doc, clientLs.clients, views)[2];
+    expect(login.value).toBe("1 need a sign-in");
+    expect(login.detail).toBe("srv-docs");
+  });
+});

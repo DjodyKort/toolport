@@ -14,7 +14,7 @@ const DOT: Record<StripFact["tone"], string> = {
 /** The four facts above the tabs: the gateway, how many tools it serves, the logins that
  * need you and how many clients go through it. */
 export function GatewayStrip() {
-  const { status, statusDoc, clients } = useServers();
+  const { status, statusDoc, clients, views } = useServers();
   if (!statusDoc) {
     if (status.status === "error") {
       return (
@@ -39,7 +39,7 @@ export function GatewayStrip() {
       </div>
     );
   }
-  const facts = stripFacts(statusDoc, clients.data?.clients ?? null);
+  const facts = stripFacts(statusDoc, clients.data?.clients ?? null, views);
   return (
     <section aria-label="Gateway" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
       {facts.map((fact) => (

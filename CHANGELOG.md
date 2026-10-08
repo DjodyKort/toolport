@@ -75,6 +75,9 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ### Fixed
 
+- The Servers screen's Logins tile no longer counts a server no profile serves, so a server a
+  client holds itself is not reported as needing a sign-in.
+
 - The app opens on the full Servers screen instead of the upstream page.
 - Attention no longer asks for a new sign-in for a server that no profile enables.
 - Attention lists a source as behind its remote only when the remote has files the checkout lacks, and

@@ -261,7 +261,11 @@ export interface StripFact {
 }
 
 /** The four facts of the strip above the tabs: gateway, tool catalog, logins, clients. */
-export function stripFacts(status: StatusDoc, clients: ClientData[] | null): StripFact[] {
+export function stripFacts(
+  status: StatusDoc,
+  clients: ClientData[] | null,
+  views: ServerView[] | null = null,
+): StripFact[] {
   const build = status.gateway.build;
   const running = status.gateway.builds.length > 0;
   const gateway: StripFact = !status.gateway.present
@@ -306,7 +310,12 @@ export function stripFacts(status: StatusDoc, clients: ClientData[] | null): Str
         detail: `${status.serverCount} servers registered`,
         tone: "muted",
       };
-  const needLogin = status.auth.servers.filter((row) => LOGIN_STATES.includes(row.state));
+  const unserved = new Set(
+    (views ?? []).filter((view) => view.profiles.length === 0).map((view) => view.id),
+  );
+  const needLogin = status.auth.servers.filter(
+    (row) => LOGIN_STATES.includes(row.state) && !unserved.has(row.server),
+  );
   const logins: StripFact =
     needLogin.length > 0
       ? {
