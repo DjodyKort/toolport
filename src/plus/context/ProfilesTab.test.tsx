@@ -116,12 +116,17 @@ describe("Profiles: reading", () => {
       ...goldenData("context-bundle-show.bundle"),
       appliedTo: data.bundles[0].appliedTo,
     }));
+    bridge.set(
+      `context bundle status --cwd ${data.bundles[0].appliedTo[0].folder}`,
+      () => ({
+        ...goldenData("context-bundle-status.drift"),
+      }),
+    );
     await open();
-    expect(
-      within(screen.getByRole("list", { name: "Applied in" })).getByText(
-        "changed since the apply",
-      ),
-    ).toBeVisible();
+    const applied = within(screen.getByRole("list", { name: "Applied in" }));
+    expect(applied.getByText("changed since the apply")).toBeVisible();
+    expect(await applied.findByText("skillOverrides.scratch-one")).toBeVisible();
+    expect(applied.getByText(/Undo leaves these entries as they are/)).toBeVisible();
   });
 });
 

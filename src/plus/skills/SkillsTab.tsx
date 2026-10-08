@@ -298,11 +298,7 @@ function SkillDetail({
           </Button>
         )}
       </div>
-      {!own && (
-        <p className="text-xs text-muted-foreground">
-          {EDITOR_REASON.split(" (")[0]}: read-only sources are not edited here.
-        </p>
-      )}
+      {!own && <p className="text-xs text-muted-foreground">{EDITOR_REASON}</p>}
     </section>
   );
 }

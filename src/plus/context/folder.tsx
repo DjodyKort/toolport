@@ -84,6 +84,7 @@ export function FolderField({
   placeholder,
   onSubmit,
   submitLabel,
+  submitVariant = "outline",
 }: {
   label?: string;
   value: string;
@@ -92,6 +93,7 @@ export function FolderField({
   placeholder?: string;
   onSubmit?: () => void;
   submitLabel?: string;
+  submitVariant?: "default" | "outline";
 }) {
   const id = useId();
   const list = `${id}-list`;
@@ -127,7 +129,7 @@ export function FolderField({
         </datalist>
       </div>
       {onSubmit && (
-        <Button type="submit" variant="outline">
+        <Button type="submit" variant={submitVariant}>
           {submitLabel ?? "Show"}
         </Button>
       )}
@@ -135,7 +137,7 @@ export function FolderField({
   );
   return onSubmit ? (
     <form
-      className="flex flex-wrap items-end gap-2"
+      className="flex min-w-[16rem] flex-1 flex-wrap items-end gap-2"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit();

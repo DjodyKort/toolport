@@ -81,7 +81,7 @@ function UndoHint({ undo }: { undo: string }) {
       <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs break-all">
         {undo}
       </code>
-      <CopyButton text={undo} size="xs" />
+      <CopyButton text={undo} size="xs" label="Copy undo command" />
     </div>
   );
 }

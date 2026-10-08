@@ -166,21 +166,21 @@ export const MISSING_ACTIONS: Partial<
     {
       label: "Choose per folder…",
       reason:
-        "Switching a plugin off per folder belongs to Context > Profiles and Library > Plugins (MIG-GUI-12).",
+        "Switching a plugin off per folder is done in Context > Profiles and Library > Plugins.",
     },
   ],
   repo: [
     {
       label: "Audit",
       reason:
-        "`skills audit` checks your library only. Repository skills stay untrusted until a command audits them.",
+        "The skills audit checks your library only. Repository skills stay untrusted until a command audits them.",
     },
   ],
   client: [
     {
       label: "Audit",
       reason:
-        "`skills audit` checks your library only. Client repository skills stay untrusted.",
+        "The skills audit checks your library only. Client repository skills stay untrusted.",
     },
   ],
   loose: [

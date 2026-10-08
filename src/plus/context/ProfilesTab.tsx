@@ -9,6 +9,7 @@ import type {
   ContextBundleLaunchData,
   ContextBundleLsData,
   ContextBundleShowData,
+  ContextBundleStatusData,
 } from "../types/context-bundle";
 import { CopyButton } from "../ui";
 import { useRead, useWrite } from "./hooks";
@@ -41,6 +42,25 @@ function PluginSettingsList({
         </li>
       ))}
     </ul>
+  );
+}
+
+/** What changed in a folder since the profile was applied, read only for a folder that did. */
+function DriftNote({ folder }: { folder: string }) {
+  const status = useRead<ContextBundleStatusData>([
+    "context",
+    "bundle",
+    "status",
+    "--cwd",
+    folder,
+  ]);
+  const keys = status.data?.applied?.changedKeys ?? [];
+  if (keys.length === 0) return null;
+  return (
+    <p className="basis-full text-xs text-muted-foreground">
+      Changed since the apply: <Code>{keys.join(", ")}</Code>. Undo leaves these entries
+      as they are.
+    </p>
   );
 }
 
@@ -184,6 +204,7 @@ function Detail({
                 >
                   Undo…
                 </Button>
+                {to.drift && <DriftNote folder={to.folder} />}
               </li>
             ))}
           </ul>

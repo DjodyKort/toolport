@@ -342,7 +342,7 @@ describe("Repository, scope and tools", () => {
     for (const name of ["Scaffold with progressive files"]) {
       const button = screen.getByRole("button", { name });
       expect(button).toBeDisabled();
-      expect(button).toHaveAttribute("title", expect.stringContaining("MIG-GUI-14"));
+      expect(button).toHaveAttribute("title", expect.stringContaining("Not available"));
     }
   });
 

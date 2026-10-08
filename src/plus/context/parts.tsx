@@ -244,7 +244,7 @@ export function FormDialog({
         >
           {intro && <p className="text-sm text-muted-foreground">{intro}</p>}
           {children}
-          <DialogFooter>
+          <DialogFooter className="sticky -bottom-4 z-10 bg-muted">
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancel
             </Button>

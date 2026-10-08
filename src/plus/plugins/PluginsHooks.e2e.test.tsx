@@ -535,6 +535,7 @@ describe("context.bundle.show", () => {
         layers: { add: [], exclude: [] },
         legacy: false,
         mcp: { deny: ["plugin:ecc:chrome-devtools"] },
+        dirs: { add: [] },
         name: "acme-dev",
         path: "/home/demo/.config/toolport/bundles/acme-dev.yaml",
         plugins: {

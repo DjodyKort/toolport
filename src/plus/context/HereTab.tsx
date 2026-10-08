@@ -357,7 +357,7 @@ function AppliedHere({
       ) : (
         <b>none</b>
       )}
-      <Button size="sm" onClick={onOpenProfiles}>
+      <Button size="sm" variant="outline" onClick={onOpenProfiles}>
         Apply a profile…
       </Button>
     </div>
@@ -408,6 +408,7 @@ export function HereTab({
           options={known}
           placeholder={cwd ?? "Folder where Claude starts"}
           submitLabel="Show"
+          submitVariant="default"
           onSubmit={() => {
             show(draft);
             remember(draft);
@@ -420,6 +421,7 @@ export function HereTab({
           Claude Code only
         </Badge>
         <Button
+          variant="outline"
           disabled={!cwd || write.busy || pluginWrite.busy}
           onClick={() =>
             cwd &&

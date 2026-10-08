@@ -126,7 +126,7 @@ export function isLibrary(row: SkillRow): boolean {
 }
 
 export const EDITOR_REASON =
-  "Editing the body and the frontmatter needs `mcp call skills_get`, `skills_edit_body` and `skills_edit_frontmatter` (MIG-GUI-14). Open the file above in your editor for now.";
+  "Only skills in your own library are edited here. Open the file above in your editor to change any other skill.";
 
 /** Where the writes of the screen go: the user level, or the project folder (`--project`, whose
  * skills repository is `--repo <dir>`; empty means the configured repository). */
@@ -169,6 +169,6 @@ export const TOOLS_WITHOUT_CLI = [
     tool: "skills_scaffold",
     label: "Scaffold with progressive files",
     reason:
-      "Needs `mcp call skills_scaffold` (MIG-GUI-14). New skill... (skills add) already creates a skill from the template, with progressive files if you tick the box.",
+      "Not available in this window yet. New skill... already creates a skill from the template, with progressive files if you tick the box.",
   },
 ] as const;

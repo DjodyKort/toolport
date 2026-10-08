@@ -47,15 +47,22 @@ function SourceListRow({
         className="flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm outline-none hover:bg-muted focus-visible:ring-1 focus-visible:ring-ring aria-[current=true]:border-primary aria-[current=true]:bg-muted"
       >
         <span className="flex min-w-0 flex-1 flex-col">
-          <b className="truncate">{row.origin.name}</b>
-          <small className="truncate text-muted-foreground">
+          <b className="truncate" title={row.origin.name}>
+            {row.origin.name}
+          </b>
+          <small
+            className="truncate text-muted-foreground"
+            title={countsText(row.counts)}
+          >
             {countsText(row.counts)}
           </small>
         </span>
-        <Badge variant={STATE_TONE[row.status.state]}>
-          {STATE_LABEL[row.status.state]}
-          {behind ? ` (${behind})` : ""}
-        </Badge>
+        {row.status.state !== "ok" && (
+          <Badge variant={STATE_TONE[row.status.state]}>
+            {STATE_LABEL[row.status.state]}
+            {behind ? ` (${behind})` : ""}
+          </Badge>
+        )}
         <SourceBadge origin={row.origin} />
         {!row.writable && <Badge variant="outline">read-only</Badge>}
       </button>
