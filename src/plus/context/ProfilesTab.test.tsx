@@ -84,7 +84,7 @@ describe("Profiles: reading", () => {
     expect(box.getByText("Server set").nextElementSibling).toHaveTextContent("acme-dev");
     const applied = within(box.getByRole("list", { name: "Applied in" }));
     expect(applied.getByText(FOLDER)).toBeVisible();
-    expect(applied.getByRole("button", { name: "Undo…" })).toBeEnabled();
+    expect(applied.getByRole("button", { name: /^Undo…/ })).toBeEnabled();
   });
 
   it("shows another profile when it is chosen, with the legacy list marked and Edit off", async () => {
@@ -135,6 +135,7 @@ describe("Profiles: plugin settings and MCP denies", () => {
         config: { "ecc@ecc": { hook_profile: "minimal", disabled_hooks: "pre:observe" } },
       },
       mcp: { deny: ["plugin:ecc:chrome-devtools"] },
+      dirs: { add: ["~/code/odh"] },
     }));
     await open();
     const settings = screen.getByRole("list", { name: "Plugin settings" });
@@ -142,7 +143,10 @@ describe("Profiles: plugin settings and MCP denies", () => {
     expect(within(settings).getByText("hook_profile: minimal")).toBeVisible();
     expect(within(settings).getByText("disabled_hooks: pre:observe")).toBeVisible();
     expect(screen.getByText("plugin:ecc:chrome-devtools")).toBeVisible();
-    expect(screen.getByText(/has no flag for them/)).toBeVisible();
+    expect(screen.getByText("Extra folders").nextElementSibling).toHaveTextContent(
+      "~/code/odh",
+    );
+    expect(screen.getByText(/are set in the profile's file/)).toBeVisible();
     expect(screen.queryByRole("button", { name: /light-hooks/ })).toBeNull();
     expect(
       bridge.ran().some((line) => /^context bundle (add|edit) light-hooks/.test(line)),
@@ -152,6 +156,9 @@ describe("Profiles: plugin settings and MCP denies", () => {
   it("says none when the profile sets no plugin option and denies no server", async () => {
     await open();
     expect(screen.getByText("MCP denies").nextElementSibling).toHaveTextContent("none");
+    expect(screen.getByText("Extra folders").nextElementSibling).toHaveTextContent(
+      "none",
+    );
     expect(screen.getByText("Plugin settings").nextElementSibling).toHaveTextContent(
       "none",
     );
@@ -478,7 +485,7 @@ describe("Profiles: applying and undoing", () => {
     bridge.set(`${undo} --dry-run`, goldenData("context-bundle-undo.plan"));
     bridge.set(undo, goldenData("context-bundle-undo.result"));
     const user = await open();
-    await user.click(detail().getByRole("button", { name: "Undo…" }));
+    await user.click(detail().getByRole("button", { name: /^Undo…/ }));
     const result = await confirmResult(
       user,
       /Undo profile acme-dev in clients\/acme-erp\?/,

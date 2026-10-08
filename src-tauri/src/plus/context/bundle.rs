@@ -9,7 +9,7 @@ use serde_yaml::{Mapping, Value as Yaml};
 
 pub const FORMAT: u64 = 1;
 
-const TOP_KEYS: [&str; 10] = [
+const TOP_KEYS: [&str; 11] = [
     "format",
     "name",
     "description",
@@ -18,6 +18,7 @@ const TOP_KEYS: [&str; 10] = [
     "plugins",
     "mcp",
     "layers",
+    "dirs",
     "agents",
     "bind",
 ];
@@ -25,6 +26,7 @@ const SKILLS_KEYS: [&str; 3] = ["off", "name_only", "allow"];
 const PLUGINS_KEYS: [&str; 2] = ["off", "config"];
 const MCP_KEYS: [&str; 1] = ["deny"];
 const LAYERS_KEYS: [&str; 2] = ["add", "exclude"];
+const DIRS_KEYS: [&str; 1] = ["add"];
 const AGENTS_KEYS: [&str; 1] = ["off"];
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -41,6 +43,9 @@ pub struct Bundle {
     pub mcp_deny: Vec<String>,
     pub layers_add: Vec<String>,
     pub layers_exclude: Vec<String>,
+    /// `dirs.add`: folders written to `permissions.additionalDirectories`, so that a session loads their
+    /// project skills. `~/` is the home directory.
+    pub dirs_add: Vec<String>,
     pub agents_off: Vec<String>,
     pub bind: Vec<String>,
     /// `skills:` was the plain list of the old `default.yaml`, read as `skills.allow`.
@@ -148,7 +153,7 @@ pub fn parse(name: &str, text: &str) -> Result<Bundle, String> {
     } else {
         strings(&doc, &["skills", "allow"])?
     };
-    for k in ["skills", "plugins", "mcp", "layers", "agents"] {
+    for k in ["skills", "plugins", "mcp", "layers", "dirs", "agents"] {
         match doc.get(key(k)) {
             None | Some(Yaml::Null) | Some(Yaml::Mapping(_)) => {}
             Some(Yaml::Sequence(_)) if k == "skills" => {}
@@ -171,6 +176,7 @@ pub fn parse(name: &str, text: &str) -> Result<Bundle, String> {
         mcp_deny: strings(&doc, &["mcp", "deny"])?,
         layers_add: strings(&doc, &["layers", "add"])?,
         layers_exclude: strings(&doc, &["layers", "exclude"])?,
+        dirs_add: strings(&doc, &["dirs", "add"])?,
         agents_off: strings(&doc, &["agents", "off"])?,
         bind: strings(&doc, &["bind"])?,
         legacy_list,
@@ -231,6 +237,7 @@ pub fn lint_with(name: &str, text: &str, registry: &Registry) -> Vec<Issue> {
         ("plugins", &PLUGINS_KEYS[..], &[][..]),
         ("mcp", &MCP_KEYS[..], &[][..]),
         ("layers", &LAYERS_KEYS[..], &[][..]),
+        ("dirs", &DIRS_KEYS[..], &[][..]),
         ("agents", &AGENTS_KEYS[..], &[][..]),
     ] {
         if let Some(Yaml::Mapping(map)) = bundle.doc.get(key(section)) {
@@ -256,6 +263,7 @@ pub fn lint_with(name: &str, text: &str, registry: &Registry) -> Vec<Issue> {
         ("plugins.off", &bundle.plugins_off),
         ("layers.add", &bundle.layers_add),
         ("layers.exclude", &bundle.layers_exclude),
+        ("dirs.add", &bundle.dirs_add),
         ("agents.off", &bundle.agents_off),
         ("bind", &bundle.bind),
     ] {
@@ -290,6 +298,11 @@ pub fn lint_with(name: &str, text: &str, registry: &Registry) -> Vec<Issue> {
                     }
                 }
             }
+        }
+    }
+    for dir in &bundle.dirs_add {
+        if !dir.trim().is_empty() && !(dir.starts_with('/') || dir.starts_with("~/")) {
+            out.push(issue("error", "dirs.add", format!("{dir} must be an absolute path or start with ~/")));
         }
     }
     repeated(&bundle.mcp_deny, "mcp.deny", &mut out);

@@ -141,7 +141,7 @@ describe("Context tabs against the changing world", () => {
       within(screen.getByRole("region", { name: "Profile acme-dev" })).getByRole(
         "button",
         {
-          name: "Undo…",
+          name: /^Undo…/,
         },
       ),
     );

@@ -550,3 +550,24 @@ fn a_one_million_window_is_read_from_the_model_name() {
     assert_eq!(window_for_model("sonnet[1m]"), 1_000_000);
     assert_eq!(window_for_model(""), 200_000);
 }
+
+#[test]
+fn a_bundle_adds_its_existing_directories_beside_the_agent_denials() {
+    let w = world();
+    let odh = w.h.at("code/odh");
+    std::fs::create_dir_all(&odh).unwrap();
+    w.h.put(
+        ".config/mcpm/skills_repo/profiles/odh.yaml",
+        "format: 1\nname: odh\ndirs:\n  add: [\"~/code/odh\", \"/no/such/folder\"]\nagents:\n  off: [reviewer]\n",
+    );
+    let fake = plugin_aware();
+    let req = Request {
+        bundle: Some("odh".into()),
+        ..w.request()
+    };
+    w.run(&fake, &req).unwrap();
+    assert_eq!(
+        fake.seen.borrow()[1].settings,
+        Some(json!({"permissions": {"deny": ["Agent(reviewer)"], "additionalDirectories": [crate::plus::sources::fsx::display(&odh)]}}))
+    );
+}

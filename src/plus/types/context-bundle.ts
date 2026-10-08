@@ -54,6 +54,8 @@ export const contextBundleShowData = obj({
   appliedTo,
   bind: arr(str),
   description: str,
+  /** `add` is `dirs.add`: folders whose project skills a session in the profile's folder loads. */
+  dirs: obj({ add: arr(str) }),
   issues: arr(bundleIssue),
   layers: obj({ add: arr(str), exclude: arr(str) }),
   legacy: bool,
@@ -108,6 +110,7 @@ export const contextBundleStatusData = obj({
       changedKeys: arr(str),
       drift: bool,
       ownedKeys: obj({
+        additionalDirectories: arr(str),
         claudeMdExcludes: arr(str),
         deniedMcpServers: arr(str),
         enabledPlugins: arr(str),

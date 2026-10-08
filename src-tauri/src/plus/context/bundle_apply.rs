@@ -67,6 +67,7 @@ pub struct Desired {
     pub plugins: Vec<String>,
     pub excludes: Vec<String>,
     pub denies: Vec<String>,
+    pub dirs: Vec<String>,
     pub env: Vec<(String, String)>,
     pub deny_servers: Vec<String>,
     pub layers: Vec<(String, String)>,
@@ -125,6 +126,19 @@ pub fn desired(w: &World, bundle: &Bundle, cwd: &Path) -> Desired {
     out.plugins = bundle.plugins_off.clone();
     out.excludes = bundle.layers_exclude.clone();
     out.denies = bundle.agents_off.iter().map(|a| format!("Agent({a})")).collect();
+    for dir in &bundle.dirs_add {
+        let path = match dir.strip_prefix("~/") {
+            Some(rest) => fsx::display(&w.roots.home.join(rest)),
+            None => dir.clone(),
+        };
+        if fsx::is_dir(Path::new(&path)) {
+            if !out.dirs.contains(&path) {
+                out.dirs.push(path);
+            }
+        } else {
+            out.warnings.push(format!("dirs.add: {dir} is not a folder here, so it is not added"));
+        }
+    }
     let available = layers::list_layers(w.roots);
     for name in &bundle.layers_add {
         match available.iter().find(|l| &l.name == name) {
@@ -351,6 +365,9 @@ pub(super) fn compute_settings(
     for deny in &want.denies {
         own_entry(&mut working, &mut rec, &["permissions", "deny"], deny, &mut warnings);
     }
+    for dir in &want.dirs {
+        own_entry(&mut working, &mut rec, &["permissions", "additionalDirectories"], dir, &mut warnings);
+    }
     for (name, value) in &want.env {
         own_set(&mut working, &mut rec, &["env", name], &json!(value).to_string(), &mut warnings);
     }
@@ -509,7 +526,7 @@ pub(super) fn settings_diff(rec: &SettingsRec) -> Diff {
 pub(super) fn top_keys(rec: &SettingsRec) -> Vec<String> {
     let mut keys: Vec<String> = Vec::new();
     for o in &rec.owned {
-        let key = if o.path[0] == "permissions" { "permissions.deny".to_string() } else { o.path[0].clone() };
+        let key = if o.path[0] == "permissions" { format!("permissions.{}", o.path[1]) } else { o.path[0].clone() };
         if !keys.contains(&key) {
             keys.push(key);
         }
@@ -903,11 +920,16 @@ pub fn drift_of(rec: &FolderRec, cwd: &Path) -> (Vec<String>, Vec<String>) {
 }
 
 pub(super) fn names_under(rec: &FolderRec, top: &str) -> Vec<String> {
+    names_at(rec, &[top])
+}
+
+/// The entries or members the ledger holds under a settings path of one or two segments.
+fn names_at(rec: &FolderRec, prefix: &[&str]) -> Vec<String> {
     let mut out: Vec<String> = rec
         .settings
         .owned
         .iter()
-        .filter(|o| o.path.first().map(String::as_str) == Some(top))
+        .filter(|o| prefix.iter().enumerate().all(|(i, seg)| o.path.get(i).map(String::as_str) == Some(*seg)))
         .map(|o| {
             if o.kind == "entry" {
                 match serde_json::from_str::<Value>(&o.written) {
@@ -942,7 +964,8 @@ pub fn status(w: &World, cwd: &Path) -> Result<Value, BundleError> {
                 "skillOverrides": names_under(&rec, "skillOverrides"),
                 "enabledPlugins": names_under(&rec, "enabledPlugins"),
                 "claudeMdExcludes": names_under(&rec, "claudeMdExcludes"),
-                "permissionsDeny": names_under(&rec, "permissions"),
+                "permissionsDeny": names_at(&rec, &["permissions", "deny"]),
+                "additionalDirectories": names_at(&rec, &["permissions", "additionalDirectories"]),
                 "env": names_under(&rec, "env"),
                 "deniedMcpServers": names_under(&rec, "deniedMcpServers"),
             },

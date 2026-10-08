@@ -9,6 +9,9 @@
       "appliedTo": [],
       "bind": ["~/work/acme-erp/clients/*"],
       "description": "ERP work: no marketplace plugins, only the ERP skills",
+      "dirs": {
+        "add": []
+      },
       "issues": [],
       "layers": {
         "add": ["acme-knowledge"],

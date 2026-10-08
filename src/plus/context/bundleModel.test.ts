@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  appliedOn,
   applyArgv,
   applyCommand,
   bundleFlags,
@@ -149,5 +150,12 @@ describe("applyArgv", () => {
     expect(argv).toEqual(["context", "bundle", "apply", "default", "--cwd", "/f"]);
     expect(argv).not.toContain("--home");
     expect(applyCommand({ servers: null })).toBe("context bundle apply");
+  });
+});
+
+describe("appliedOn", () => {
+  it("writes an applied time for people and leaves an unreadable one as it was", () => {
+    expect(appliedOn("2026-10-05T09:00:00Z")).toMatch(/^5 Oct 2026, \d\d:\d\d$/);
+    expect(appliedOn("not a time")).toBe("not a time");
   });
 });

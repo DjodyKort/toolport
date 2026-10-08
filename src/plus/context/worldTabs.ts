@@ -31,6 +31,7 @@ interface Bundle {
   pluginsOff: string[];
   layersAdd: string[];
   layersExclude: string[];
+  dirsAdd: string[];
   agentsOff: string[];
   bind: string[];
   legacy: boolean;
@@ -99,6 +100,7 @@ const seedBundles = (): Bundle[] => [
     pluginsOff: [PLUGIN],
     layersAdd: ["client-acme"],
     layersExclude: ["**/work/app/CLAUDE.md"],
+    dirsAdd: ["~/code/odh"],
     agentsOff: ["reviewer"],
     bind: ["~/work/erp/clients/*"],
     legacy: false,
@@ -113,6 +115,7 @@ const seedBundles = (): Bundle[] => [
     pluginsOff: [],
     layersAdd: [],
     layersExclude: [],
+    dirsAdd: [],
     agentsOff: [],
     bind: [],
     legacy: true,
@@ -168,6 +171,7 @@ export function createTabsWorld(host: TabsHost, fresh: boolean) {
       : [];
 
   const ownedKeys = (b: Bundle) => ({
+    additionalDirectories: [] as string[],
     claudeMdExcludes: b.layersExclude,
     deniedMcpServers: [] as string[],
     enabledPlugins: b.pluginsOff,
@@ -505,6 +509,7 @@ export function createTabsWorld(host: TabsHost, fresh: boolean) {
     appliedTo: appliedTo(b.name),
     bind: b.bind,
     description: b.description,
+    dirs: { add: b.dirsAdd },
     issues: issuesOf(b),
     layers: { add: b.layersAdd, exclude: b.layersExclude },
     legacy: b.legacy,
@@ -564,6 +569,7 @@ export function createTabsWorld(host: TabsHost, fresh: boolean) {
       pluginsOff: [],
       layersAdd: [],
       layersExclude: [],
+      dirsAdd: [],
       agentsOff: [],
       bind: [],
       legacy: false,
@@ -572,7 +578,7 @@ export function createTabsWorld(host: TabsHost, fresh: boolean) {
     if (create && typeof from === "string") {
       const source = current(from);
       base = source
-        ? { ...source, name, legacy: false, bind: [], servers: null }
+        ? { ...source, name, legacy: false, bind: [], servers: null, dirsAdd: [] }
         : { ...base, skillsOff: [], description: `Read from ${from}` };
       void raw;
     }

@@ -546,3 +546,69 @@ fn lint_reports_unknown_knobs_unknown_plugins_and_bare_server_names() {
     assert!(issues[0].message.contains("unknown knob") && issues[0].message.contains("gateguard"));
     assert!(issues[3].message.contains("bare name does not block"));
 }
+
+const FOREIGN_DIRS: &str = "{\n  \"permissions\": {\n    \"additionalDirectories\": [\n      \"/mine\"\n    ],\n    \"deny\": [\n      \"Read(./x)\"\n    ]\n  }\n}\n";
+
+fn dirs_bundle(fx: &Fx) -> (String, String) {
+    let odh = fx.roots.home.join("code/odh");
+    let tools = fx.roots.home.join("code/tools");
+    fs::create_dir_all(&odh).unwrap();
+    fs::create_dir_all(&tools).unwrap();
+    let text = format!(
+        "format: 1\nname: dirs\ndirs:\n  add: [\"~/code/odh\", \"{}\", \"/no/such/folder\"]\n",
+        fsx::display(&tools)
+    );
+    put(&fx.roots.skills_repo_path().join("profiles/dirs.yaml"), &text);
+    (fsx::display(&odh), fsx::display(&tools))
+}
+
+#[test]
+fn a_bundle_adds_directories_beside_the_foreign_ones_and_undoes_only_its_own() {
+    let fx = Fx::new("bundle-dirs");
+    let (odh, tools) = dirs_bundle(&fx);
+    put(&fx.settings(), FOREIGN_DIRS);
+    let before = tree_snapshot(&fx.cwd);
+    let plan = bundle_apply::apply(&fx.world(), "dirs", &fx.cwd, true).unwrap();
+    assert_eq!(plan["plan"]["steps"][0]["keys"], json!(["permissions.additionalDirectories"]));
+    assert!(plan["plan"]["warnings"].to_string().contains("dirs.add: /no/such/folder is not a folder here"));
+    assert_eq!(tree_snapshot(&fx.cwd), before);
+
+    fx.apply("dirs");
+    let v: Value = serde_json::from_str(&fx.text(".claude/settings.local.json").unwrap()).unwrap();
+    assert_eq!(v["permissions"]["additionalDirectories"], json!(["/mine", odh, tools]));
+    assert_eq!(v["permissions"]["deny"], json!(["Read(./x)"]));
+    let owned = &fx.status()["applied"]["ownedKeys"];
+    let mut mine = vec![odh.clone(), tools.clone()];
+    mine.sort();
+    assert_eq!(owned["additionalDirectories"], json!(mine));
+    assert_eq!(owned["permissionsDeny"], json!([]));
+    assert_eq!(fx.status()["applied"]["drift"], false);
+
+    fx.undo();
+    assert_eq!(fx.text(".claude/settings.local.json").as_deref(), Some(FOREIGN_DIRS));
+    assert_eq!(ledger::load(&fx.data), ledger::Ledger::default());
+}
+
+#[test]
+fn launch_settings_merge_the_directories_with_the_agent_denials() {
+    let fx = Fx::new("bundle-dirs-launch");
+    let (odh, _) = dirs_bundle(&fx);
+    let text = fs::read_to_string(fx.roots.skills_repo_path().join("profiles/dirs.yaml")).unwrap();
+    put(&fx.roots.skills_repo_path().join("profiles/dirs.yaml"), &format!("{text}agents:\n  off: [reviewer]\n"));
+    let out = super::bundle_use::launch(&fx.world(), "dirs", Some(&fx.cwd)).unwrap();
+    let file: Value = serde_json::from_str(&fs::read_to_string(out["settingsFile"].as_str().unwrap()).unwrap()).unwrap();
+    assert_eq!(file["permissions"]["deny"], json!(["Agent(reviewer)"]));
+    assert_eq!(file["permissions"]["additionalDirectories"][0], odh);
+    assert_eq!(file["permissions"]["additionalDirectories"].as_array().unwrap().len(), 2);
+}
+
+#[test]
+fn lint_wants_absolute_or_home_relative_directories_listed_once() {
+    use crate::plus::plugins::adapters::Registry;
+    let text = "dirs:\n  add: [\"~/a\", \"/b\", \"rel/c\", \"~/a\"]\n";
+    let issues = super::bundle::lint_with("x", text, &Registry::load(None));
+    let got: Vec<(&str, &str)> = issues.iter().map(|i| (i.level, i.key.as_str())).collect();
+    assert_eq!(got, [("error", "dirs.add"), ("warning", "dirs.add")]);
+    assert!(issues[0].message.contains("rel/c") && issues[0].message.contains("absolute path"));
+    assert!(issues[1].message.contains("listed twice"));
+}

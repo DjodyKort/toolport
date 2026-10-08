@@ -100,6 +100,7 @@ pub fn show(name: &str) -> Result<Value, OpError> {
             "plugins": { "off": b.plugins_off, "config": plugins_config_value(&b.plugins_config) },
             "mcp": { "deny": b.mcp_deny },
             "layers": { "add": b.layers_add, "exclude": b.layers_exclude },
+            "dirs": { "add": b.dirs_add },
             "agents": { "off": b.agents_off }, "bind": b.bind, "legacy": b.legacy_list,
             "yaml": l.text, "issues": issues_value(&bundle::lint(name, &l.text)),
             "appliedTo": apply::applied_to(w.data_dir, name),

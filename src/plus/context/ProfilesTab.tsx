@@ -14,7 +14,7 @@ import { CopyButton } from "../ui";
 import { useRead, useWrite } from "./hooks";
 import { WriteDialogs } from "./WriteDialogs";
 import { ApplyForm, DeleteForm, ProfileForm, type ProfileMode } from "./ProfileDialogs";
-import { formOf, bundleParts, type BundleRow } from "./bundleModel";
+import { appliedOn, formOf, bundleParts, type BundleRow } from "./bundleModel";
 import { suggestions, useRecentFolders } from "./folder";
 import { folderLabel } from "./model";
 import { Code, Kv, QuerySection, Section, useDialog, useRows } from "./parts";
@@ -132,6 +132,7 @@ function Detail({
             <PluginSettingsList key="pc" config={show.plugins.config} />,
           ],
           ["MCP denies", <Chips key="md" items={show.mcp.deny} empty="none" />],
+          ["Extra folders", <Chips key="d" items={show.dirs.add} empty="none" />],
           [
             "CLAUDE.md layers",
             <Chips
@@ -148,11 +149,11 @@ function Detail({
         ]}
       />
       <p className="text-xs text-muted-foreground">
-        Plugin settings and MCP denies come from the profile&apos;s yaml, because{" "}
-        <code>context bundle edit</code> has no flag for them. Edit{" "}
+        Plugin settings, MCP denies and extra folders are set in the profile&apos;s file,
+        not in this form. Extra folders let a session in the applied folder load the
+        project skills of those folders. Edit{" "}
         <code className="break-all">{show.path}</code>; the change applies the next time
-        you apply the profile. Settings are written as <code>env</code> keys and denies as{" "}
-        <code>deniedMcpServers</code> in the folder&apos;s settings.local.json.
+        you apply the profile.
       </p>
       <div>
         <h4 className="mb-1 text-xs font-semibold text-muted-foreground">Applied in</h4>
@@ -170,7 +171,7 @@ function Detail({
               >
                 <Code>{to.folder}</Code>
                 <time className="text-xs text-muted-foreground" dateTime={to.appliedAt}>
-                  {to.appliedAt}
+                  {appliedOn(to.appliedAt)}
                 </time>
                 {to.drift && <Badge variant="warning">changed since the apply</Badge>}
                 <Button
@@ -178,6 +179,7 @@ function Detail({
                   variant="outline"
                   className="ml-auto"
                   disabled={busy}
+                  aria-label={`Undo… in ${to.folder}`}
                   onClick={() => onUndo(to.folder)}
                 >
                   Undo…
@@ -188,9 +190,9 @@ function Detail({
         )}
       </div>
       <Callout variant="info">
-        Hidden skills use Claude Code's own skillOverrides, plugins enabledPlugins and
-        extra CLAUDE.md files claudeMdExcludes, all in the folder's git-ignored local
-        settings. Toolport lists the keys it owns and leaves every other key alone.
+        Applying a profile writes only to the folder&apos;s git-ignored local Claude Code
+        settings. Toolport changes just the entries it lists as its own, leaves every
+        other entry alone, and Undo puts its entries back.
       </Callout>
       <div className="flex flex-wrap gap-2">
         <Button size="sm" disabled={busy} onClick={() => onDialog("apply")}>
@@ -339,11 +341,10 @@ export function ProfilesTab() {
           New profile
         </Button>
         <span className="text-sm text-muted-foreground">
-          A profile is a named bundle: which skills, plugins, CLAUDE.md layers and agents
-          load in a folder, paired with a server set. Example, not created for you:{" "}
-          <code>light-hooks</code> keeps ecc on but quiet with <code>plugins.config</code>{" "}
-          <code>ecc@ecc: hook_profile: minimal</code> and the observe hook off; write it
-          as a profile yaml if you want it.
+          A profile is a saved choice of what Claude Code loads in a folder: which skills,
+          plugins, CLAUDE.md layers, agents and extra folders, paired with a server set.
+          Example, not created for you: <code>light-hooks</code> keeps the ecc plugin on
+          but quiet; write it in a profile file if you want it.
         </span>
       </div>
       <QuerySection

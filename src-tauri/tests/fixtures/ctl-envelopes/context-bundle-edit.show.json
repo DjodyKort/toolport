@@ -9,6 +9,9 @@
       "appliedTo": [],
       "bind": ["~/work/acme-erp/clients/*"],
       "description": "ERP work",
+      "dirs": {
+        "add": []
+      },
       "issues": [],
       "layers": {
         "add": ["acme-knowledge"],

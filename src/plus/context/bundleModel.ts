@@ -123,3 +123,15 @@ export function applyArgv(row: { name: string; servers: string | null }, cwd: st
 
 export const applyCommand = (row: { servers: string | null }) =>
   row.servers ? "context use" : "context bundle apply";
+
+export function appliedOn(at: string): string {
+  const when = new Date(at);
+  if (Number.isNaN(when.getTime())) return at;
+  return when.toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}

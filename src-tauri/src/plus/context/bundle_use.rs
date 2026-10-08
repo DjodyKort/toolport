@@ -49,8 +49,15 @@ pub fn settings_value(want: &apply::Desired) -> Value {
     if !want.excludes.is_empty() {
         out.insert("claudeMdExcludes".into(), json!(want.excludes));
     }
+    let mut permissions = Map::new();
     if !want.denies.is_empty() {
-        out.insert("permissions".into(), json!({ "deny": want.denies }));
+        permissions.insert("deny".into(), json!(want.denies));
+    }
+    if !want.dirs.is_empty() {
+        permissions.insert("additionalDirectories".into(), json!(want.dirs));
+    }
+    if !permissions.is_empty() {
+        out.insert("permissions".into(), Value::Object(permissions));
     }
     if !want.env.is_empty() {
         out.insert(

@@ -9,6 +9,9 @@
       "appliedTo": [],
       "bind": [],
       "description": "",
+      "dirs": {
+        "add": []
+      },
       "issues": [
         {
           "key": "skills",

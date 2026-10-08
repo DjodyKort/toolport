@@ -59,6 +59,11 @@ Entries before the rename below shipped under the project's former name, Conduit
   is used for subsequent requests. Read recovery and classified retries are preserved.
   (#986, thanks @jckail)
 
+### Added
+
+- A profile can list extra folders (`dirs.add`) whose project skills a session loads. They are
+  written to the folder's local Claude Code settings and removed again by Undo.
+
 ## [1.23.4] - 2026-10-02
 
 ### Added
