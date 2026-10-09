@@ -81,6 +81,7 @@ const NOT_READ_ONLY: &[(&str, &str)] = &[
     ("context bundle launch", "writes the --settings file under ~/.config/toolport/profiles; tests/ctl_contract.rs"),
     ("context bundle config", "writes bundleAutoApply in context.json; tests/context_bundle.rs"),
     ("context use", "applies a bundle and routes the folder to the paired server profile; tests/ctl_contract.rs"),
+    ("context leave-out", "writes claudeMdExcludes entries or autoMemoryEnabled in a folder's settings.local.json; tests/ctl_contract.rs and context::tests_leave_out"),
     ("plugins config", "writes env keys in a folder's settings.local.json or runs claude plugin configure; tests/ctl_contract.rs and plugins::config_tests"),
     ("plugins mcp", "writes deniedMcpServers in a folder's settings.local.json; tests/ctl_contract.rs and plugins::config_tests"),
     ("plugins off", "writes enabledPlugins in a folder's settings.local.json; tests/ctl_contract.rs and plugins::switch_tests"),
@@ -439,6 +440,8 @@ fn version_and_usage_errors_use_the_documented_exit_codes() {
         (vec!["plugins", "config"], "plugins config"),
         (vec!["plugins", "config", "a@b"], "plugins config"),
         (vec!["plugins", "mcp", "deny"], "plugins mcp"),
+        (vec!["context", "leave-out"], "context leave-out"),
+        (vec!["context", "leave-out", "add"], "context leave-out"),
         (vec!["plugins", "off"], "plugins off"),
         (vec!["plugins", "off", "a@b"], "plugins off"),
         (vec!["plugins", "on"], "plugins on"),
@@ -513,7 +516,7 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert!(d["checks"].as_array().unwrap().len() >= 4);
         }),
         case("commands", &["commands"], 0, |_, d| {
-            assert_eq!(d["counts"]["tools"], 103);
+            assert_eq!(d["counts"]["tools"], 106);
             let rows = d["commands"].as_array().unwrap();
             assert!(rows.iter().any(|r| r["id"] == "profile edit" && r["tier"] == "write"));
             assert!(rows.iter().any(|r| r["id"] == "sync push" && r["parent"] == "sync"));
@@ -884,7 +887,7 @@ fn read_only_cases(w: &World) -> Vec<Case> {
             assert!(!d["checks"].as_array().unwrap().is_empty());
         }),
         case("mcp", &["mcp", "tools"], 0, |_, d| {
-            assert_eq!(d["tools"].as_array().unwrap().len(), 103);
+            assert_eq!(d["tools"].as_array().unwrap().len(), 106);
             assert_eq!(d["resources"].as_array().unwrap().len(), 11);
         }),
         case(

@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "action": "add",
+    "cwd": "<WORLD>/home/work/erp/clients/acme-erp",
+    "path": "<WORLD>/home/work/erp/README.md"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "<WORLD>/home/work/erp/README.md is not an instruction file Claude Code reads in this folder"
+    }
+  },
+  "text": "not_found: <WORLD>/home/work/erp/README.md is not an instruction file Claude Code reads in this folder",
+  "tool": "context_leave_out"
+}

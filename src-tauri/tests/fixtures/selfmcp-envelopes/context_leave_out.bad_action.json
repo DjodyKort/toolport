@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "action": "block",
+    "cwd": "<WORLD>/home/work/erp/clients/acme-erp",
+    "path": "<WORLD>/home/work/erp/CLAUDE.md"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "action must be add or rm"
+    }
+  },
+  "text": "invalid_arguments: action must be add or rm",
+  "tool": "context_leave_out"
+}

@@ -4,6 +4,7 @@ import {
   contextBundleApplyData,
   contextBundleLsData,
   contextBundleStatusData,
+  contextLeaveOutData,
 } from "./context-bundle";
 import { contextComposeData } from "./context-layers";
 
@@ -21,6 +22,9 @@ export const contextBundleUndoResult = contextBundleApplyData;
 /** `context_compose` answers with the data of `toolportctl context compose`. */
 export const contextComposeResult = contextComposeData;
 
+/** `context_leave_out` answers with the data of `toolportctl context leave-out`. */
+export const contextLeaveOutResult = contextLeaveOutData;
+
 /** Tool name to the shape of its `structuredContent`. */
 export const contextToolShapes: Record<string, Shape<unknown>> = {
   context_bundle_apply: contextBundleApplyResult,
@@ -28,5 +32,6 @@ export const contextToolShapes: Record<string, Shape<unknown>> = {
   context_bundle_status: contextBundleStatusResult,
   context_bundle_undo: contextBundleUndoResult,
   context_compose: contextComposeResult,
+  context_leave_out: contextLeaveOutResult,
   context_measure: contextMeasureResult,
 };

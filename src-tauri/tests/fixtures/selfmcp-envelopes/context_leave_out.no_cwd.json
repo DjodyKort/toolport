@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "action": "add",
+    "path": "<WORLD>/home/work/erp/CLAUDE.md"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "missing required argument: cwd"
+    }
+  },
+  "text": "invalid_arguments: missing required argument: cwd",
+  "tool": "context_leave_out"
+}

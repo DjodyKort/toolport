@@ -386,7 +386,7 @@ async function contextTabsScreen(shot, theme) {
   await shot.evaluate(() => document.fonts.ready);
   await guiShot(shot, `context-folder-${theme}`, { animations: "disabled" });
   if (theme === "light") {
-    await shot.getByRole("button", { name: "Measure for real…" }).click();
+    await shot.getByRole("button", { name: "Measure and verify…" }).click();
     await expect(dialog.getByText(/spends model tokens/)).toBeVisible();
     await shot.evaluate(() => document.fonts.ready);
     await snap("context-measure-confirm-light");

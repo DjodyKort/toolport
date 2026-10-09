@@ -5,7 +5,7 @@
 
 use crate::ctl_fixtures::{
     bundle_drift_home, bundle_home, fork_world, fork_world_upstream_fetched,
-    git_world, health_proxy, layers_deployed_home, measure_home, skills_repo_remote_world,
+    git_world, health_proxy, layers_deployed_home, loads_home, measure_home, skills_repo_remote_world,
     sync_setup, tasks_home,
 };
 
@@ -193,6 +193,20 @@ pub const ALL: &[Case] = &[
             fails("unknown_server", "not_found", "plugins_mcp", r#"{"action":"deny","id":"ecc@ecc","server":"nope","cwd":"{home}/work/acme-erp"}"#),
             fails("no_cwd", "invalid_arguments", "plugins_mcp", r#"{"action":"deny","id":"ecc@ecc","server":"chrome-devtools"}"#),
             fails("bad_action", "invalid_arguments", "plugins_mcp", r#"{"action":"block","id":"ecc@ecc","server":"chrome-devtools","cwd":"{home}/work/acme-erp"}"#),
+        ],
+    ),
+    prepared(
+        "context_leave_out",
+        loads_home,
+        &[
+            read("file_plan", "context_leave_out", r#"{"action":"add","path":"{home}/work/erp/CLAUDE.md","cwd":"{home}/work/erp/clients/acme-erp"}"#),
+            write("file_result", "context_leave_out", r#"{"action":"add","path":"{home}/work/erp/CLAUDE.md","cwd":"{home}/work/erp/clients/acme-erp","dry_run":false}"#),
+            write("file_back", "context_leave_out", r#"{"action":"rm","path":"{home}/work/erp/CLAUDE.md","cwd":"{home}/work/erp/clients/acme-erp","dry_run":false}"#),
+            read("memory_plan", "context_leave_out", r#"{"action":"add","memory":true,"cwd":"{home}/work/erp/clients/acme-erp"}"#),
+            fails("not_an_instruction_file", "not_found", "context_leave_out", r#"{"action":"add","path":"{home}/work/erp/README.md","cwd":"{home}/work/erp/clients/acme-erp"}"#),
+            fails("no_cwd", "invalid_arguments", "context_leave_out", r#"{"action":"add","path":"{home}/work/erp/CLAUDE.md"}"#),
+            fails("both_targets", "invalid_arguments", "context_leave_out", r#"{"action":"add","path":"{home}/work/erp/CLAUDE.md","memory":true,"cwd":"{home}/work/erp/clients/acme-erp"}"#),
+            fails("bad_action", "invalid_arguments", "context_leave_out", r#"{"action":"block","path":"{home}/work/erp/CLAUDE.md","cwd":"{home}/work/erp/clients/acme-erp"}"#),
         ],
     ),
     prepared(

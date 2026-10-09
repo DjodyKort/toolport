@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "action": "add",
+    "cwd": "<WORLD>/home/work/erp/clients/acme-erp",
+    "memory": true,
+    "path": "<WORLD>/home/work/erp/CLAUDE.md"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "give either path or memory=true"
+    }
+  },
+  "text": "invalid_arguments: give either path or memory=true",
+  "tool": "context_leave_out"
+}
