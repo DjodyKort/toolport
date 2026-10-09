@@ -349,8 +349,25 @@ export const loadItem = obj({
   via: arr(str),
   scope: lit("always", "paths"),
   visible: nullable(bool),
+  leaveOut: opt(lit("file", "memory")),
+  leftOutBy: opt(lit("toolport", "settings")),
+  confirmed: opt(lit("loaded", "absent", "mismatch")),
 });
 export type LoadItem = Infer<typeof loadItem>;
+
+/** What Claude Code's own InstructionsLoaded log said, row by row (`context loads --measured`). */
+export const verified = obj({
+  status: lit("match", "mismatch"),
+  checked: num,
+  loaded: num,
+  absent: num,
+  mismatches: arr(obj({ path: str, expected: str, actual: str })),
+  unknown: arr(str),
+  measuredAt: str,
+  claudeCodeVersion: str,
+  stale: bool,
+});
+export type Verified = Infer<typeof verified>;
 
 export const skillBudget = obj({
   fraction: num,
@@ -422,6 +439,7 @@ export const loadsData = obj({
   skill_budget: skillBudget,
   measured: nullable(measureRun),
   measured_info: nullable(measuredInfo),
+  verified: opt(verified),
   partial: bool,
   notes: arr(str),
   compact: opt(any),

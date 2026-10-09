@@ -89,7 +89,10 @@ describe("stackGroups", () => {
     const groups = stackGroups(data);
     const start = groups
       .filter(
-        (view) => view.group !== "Loads on demand" && view.group !== "Not loaded here",
+        (view) =>
+          view.group !== "Loads on demand" &&
+          view.group !== "Left out in this folder" &&
+          view.group !== "Not loaded here",
       )
       .reduce((sum, view) => sum + view.tokens, 0);
     expect(start).toBe(data.total_tokens);

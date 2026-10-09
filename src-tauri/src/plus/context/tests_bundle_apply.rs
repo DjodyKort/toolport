@@ -602,3 +602,29 @@ fn lint_wants_absolute_or_home_relative_directories_listed_once() {
     assert!(issues[0].message.contains("rel/c") && issues[0].message.contains("absolute path"));
     assert!(issues[1].message.contains("listed twice"));
 }
+
+#[test]
+fn memory_off_in_a_bundle_writes_auto_memory_false_and_undo_puts_the_file_back() {
+    let fx = Fx::new("memory-off");
+    put(
+        &fx.roots.skills_repo_path().join("profiles/stage.yaml"),
+        "format: 1\nname: stage\nmemory:\n  off: true\nlayers:\n  exclude: [\"/home/x/.claude/CLAUDE.md\"]\n",
+    );
+    put(&fx.settings(), "{\n  \"model\": \"opus\"\n}\n");
+    let before = tree_snapshot(&fx.cwd);
+    let applied = fx.apply("stage");
+    assert!(applied["plan"]["warnings"].as_array().unwrap().iter().all(|w| !w.as_str().unwrap().contains("autoMemoryEnabled")));
+    let text = fs::read_to_string(fx.settings()).unwrap();
+    assert!(text.contains("\"autoMemoryEnabled\": false"), "{text}");
+    assert!(text.contains("claudeMdExcludes") && text.contains("\"model\": \"opus\""));
+    fx.undo();
+    assert_eq!(tree_snapshot(&fx.cwd), before);
+}
+
+#[test]
+fn memory_off_must_be_a_boolean() {
+    let issues = super::bundle::lint("stage", "format: 1\nname: stage\nmemory:\n  off: sometimes\n");
+    assert!(issues.iter().any(|i| i.level == "error" && i.message.contains("memory.off")), "{issues:?}");
+    let unknown = super::bundle::lint("stage", "format: 1\nname: stage\nmemory:\n  fade: true\n");
+    assert!(unknown.iter().any(|i| i.key == "memory.fade"), "{unknown:?}");
+}

@@ -1,6 +1,7 @@
 import {
   arr,
   bool,
+  lit,
   nullable,
   num,
   obj,
@@ -32,6 +33,7 @@ export const contextBundleLsData = obj({
   bundles: arr(
     obj({
       agents: obj({ off: arr(str) }),
+      memory: opt(obj({ off: bool })),
       appliedTo,
       bind: arr(str),
       description: str,
@@ -51,6 +53,7 @@ export type ContextBundleLsData = Infer<typeof contextBundleLsData>;
 
 export const contextBundleShowData = obj({
   agents: obj({ off: arr(str) }),
+  memory: opt(obj({ off: bool })),
   appliedTo,
   bind: arr(str),
   description: str,
@@ -182,12 +185,32 @@ export const contextSyncBundles = arr(
   obj({ applied: bool, bundle: str, error: opt(str), folder: str }),
 );
 
+/** `context leave-out add|rm`: what the control owns in the folder after the call. */
+export const contextLeaveOutData = obj({
+  id: lit("leave-out"),
+  scope: lit("folder"),
+  cwd: str,
+  dryRun: bool,
+  plan: planV1,
+  result: nullable(resultV1),
+  leftOut: arr(str),
+  memoryOff: bool,
+});
+export type ContextLeaveOutData = Infer<typeof contextLeaveOutData>;
+
 /** Golden file stem to the shape of its envelope `data`. */
 export const contextBundleShapes: Record<string, Shape<unknown>> = {
   "context-bundle-add.apply": contextBundleSaveData,
   "context-bundle-add.from-folder": contextBundleSaveData,
   "context-bundle-add.preview": contextBundleSaveData,
   "context-bundle-add.show": contextBundleShowData,
+  "context-leave-out.file.apply": contextLeaveOutData,
+  "context-leave-out.file.load-again": contextLeaveOutData,
+  "context-leave-out.file.load-again-plan": contextLeaveOutData,
+  "context-leave-out.file.plan": contextLeaveOutData,
+  "context-leave-out.memory.apply": contextLeaveOutData,
+  "context-leave-out.memory.back": contextLeaveOutData,
+  "context-leave-out.memory.plan": contextLeaveOutData,
   "context-bundle-apply.again": contextBundleApplyData,
   "context-bundle-apply.legacy": contextBundleApplyData,
   "context-bundle-apply.plan": contextBundleApplyData,

@@ -61,6 +61,7 @@ const VALUED = new Set([
 const TABS = new Set([
   "context compose",
   "context measure",
+  "context leave-out",
   "context use",
   "context bundle ls",
   "context bundle show",

@@ -126,6 +126,7 @@ pub fn desired(w: &World, bundle: &Bundle, cwd: &Path) -> Desired {
     out.overrides = map.into_iter().collect();
     out.plugins = bundle.plugins_off.clone();
     out.excludes = bundle.layers_exclude.clone();
+    out.memory_off = bundle.memory_off;
     out.denies = bundle.agents_off.iter().map(|a| format!("Agent({a})")).collect();
     for dir in &bundle.dirs_add {
         let path = match dir.strip_prefix("~/") {

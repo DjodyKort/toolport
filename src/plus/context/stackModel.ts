@@ -8,6 +8,7 @@ export const STACK_GROUPS = [
   "Memory",
   "Settings",
   "Loads on demand",
+  "Left out in this folder",
   "Not loaded here",
 ] as const;
 export type StackGroup = (typeof STACK_GROUPS)[number];
@@ -27,6 +28,7 @@ const BY_KIND: Record<LoadItem["kind"], StackGroup> = {
 
 export function groupOf(item: LoadItem): StackGroup {
   if (item.lazy) return "Loads on demand";
+  if (item.leftOutBy) return "Left out in this folder";
   if (!item.loaded) return "Not loaded here";
   return BY_KIND[item.kind];
 }

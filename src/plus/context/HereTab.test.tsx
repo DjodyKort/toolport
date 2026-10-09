@@ -16,6 +16,7 @@ import {
   seedHere,
   seedProfiles,
 } from "./tabsKit";
+import { commandLine } from "../allcommands/model";
 import { createBridge, failure, goldenData, wire, type Bridge } from "./testkit";
 
 let bridge: Bridge;
@@ -82,6 +83,7 @@ describe("This folder: reading", () => {
       "Memory",
       "Settings",
       "Loads on demand",
+      "Left out in this folder",
       "Not loaded here",
     ]);
     const instructions = within(
@@ -95,7 +97,9 @@ describe("This folder: reading", () => {
     expect(demand.getAllByText("on demand").length).toBeGreaterThan(0);
     const never = within(screen.getByRole("region", { name: "Not loaded here" }));
     expect(never.getAllByText("not loaded").length).toBeGreaterThan(0);
-    expect(never.getByText("excluded-notes/CLAUDE.md")).toBeVisible();
+    const left = within(screen.getByRole("region", { name: "Left out in this folder" }));
+    expect(left.getByText("excluded-notes/CLAUDE.md")).toBeVisible();
+    expect(left.getAllByText("left out here").length).toBeGreaterThan(0);
   });
 
   it("labels every token number as an estimate until it was measured, and shows no saving", async () => {
@@ -236,7 +240,7 @@ describe("This folder: states", () => {
       expect(screen.getAllByText(/toolportctl was not found/).length).toBeGreaterThan(0),
     );
     expect(screen.getAllByRole("button", { name: "Retry" }).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Measure for real…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Measure and verify…" })).toBeDisabled();
   });
 });
 
@@ -244,18 +248,18 @@ describe("This folder: measuring for real", () => {
   const measured = () => goldenData("context-measure.measured");
 
   async function measureConfirm(user: ReturnType<typeof mountContext>) {
-    await user.click(screen.getByRole("button", { name: "Measure for real…" }));
+    await user.click(screen.getByRole("button", { name: "Measure and verify…" }));
     return review(/Measure what Claude really loads here\?/);
   }
 
   it("asks first, because it spends requests: nothing runs before the confirm", async () => {
-    bridge.set(`context measure --cwd ${FOLDER} --yes`, measured());
+    bridge.set(`context measure --cwd ${FOLDER} --force --yes`, measured());
     const user = await open();
     await showFolder(user);
     const box = await measureConfirm(user);
     expect(box.getByText(/spends model tokens/)).toBeVisible();
     expect(box.getByLabelText("Command line")).toHaveTextContent(
-      `toolportctl context measure --cwd ${FOLDER} --yes`,
+      `toolportctl context measure --cwd ${FOLDER} --force --yes`,
     );
     expect(box.queryByText(/has no preview/)).toBeNull();
     expect(bridge.ran().filter((line) => line.startsWith("context measure"))).toEqual([]);
@@ -266,7 +270,7 @@ describe("This folder: measuring for real", () => {
 
   it("measures after the confirm, shows the real number with its basis and reads the stack again", async () => {
     let done = false;
-    bridge.set(`context measure --cwd ${FOLDER} --yes`, () => {
+    bridge.set(`context measure --cwd ${FOLDER} --force --yes`, () => {
       done = true;
       return measured();
     });
@@ -292,7 +296,7 @@ describe("This folder: measuring for real", () => {
     await finish(user, /Measure what Claude really loads here\?/, "Measure", {
       done: "68,445",
     });
-    expect(bridge.ran()).toContain(`context measure --cwd ${FOLDER} --yes`);
+    expect(bridge.ran()).toContain(`context measure --cwd ${FOLDER} --force --yes`);
     await waitFor(() =>
       expect(bridge.count(`context loads --cwd ${FOLDER} --measured`)).toBe(2),
     );
@@ -405,7 +409,7 @@ describe("This folder: measuring for real", () => {
 
   it("shows the failure of a measurement in the CLI's words and keeps the screen", async () => {
     bridge.set(
-      `context measure --cwd ${FOLDER} --yes`,
+      `context measure --cwd ${FOLDER} --force --yes`,
       failure("claude_failed", "claude -p exited with status 1"),
     );
     const user = await open();
@@ -509,13 +513,174 @@ describe("This folder: keyboard", () => {
   it("opens the measure confirmation from the keyboard and cancels it with Escape", async () => {
     const user = await open();
     await showFolder(user);
-    const button = screen.getByRole("button", { name: "Measure for real…" });
+    const button = screen.getByRole("button", { name: "Measure and verify…" });
     button.focus();
     await user.keyboard("{Enter}");
     const box = await review(/Measure what Claude really loads here\?/);
     expect(box.getByRole("button", { name: "Measure" })).toBeVisible();
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(bridge.ran().filter((line) => line.startsWith("context measure"))).toEqual([]);
+  });
+});
+
+describe("context.leave-out: the switch of an instruction file, Recheck and the verification", () => {
+  const WORKSPACE = "<WORLD>/home/work/erp/CLAUDE.md";
+  const ADD = `context leave-out add ${WORKSPACE} --cwd ${FOLDER}`;
+  const RM = `context leave-out rm ${WORKSPACE} --cwd ${FOLDER}`;
+
+  const switchOf = (region: string, tokens: string) => {
+    const li = within(screen.getByRole("region", { name: region }))
+      .getAllByRole("listitem")
+      .find((row) => row.textContent?.includes(tokens))!;
+    return within(li).getByRole("switch");
+  };
+
+  it("turns an instruction file off through its dry run, applies exactly that argv and reads the stack again", async () => {
+    bridge.set(`${ADD} --dry-run`, () => goldenData("context-leave-out.file.plan"));
+    bridge.set(ADD, () => goldenData("context-leave-out.file.apply"));
+    const user = await open();
+    await showFolder(user);
+    const reads = bridge.count(`context loads --cwd ${FOLDER} --measured`);
+    const toggle = switchOf("Instructions", "5,610");
+    expect(toggle).toBeChecked();
+    await user.click(toggle);
+    const box = await review(/Leave out CLAUDE.md in this folder\?/);
+    expect(
+      box.getByText(`Leave out ${WORKSPACE} in <WORLD>/home/work/erp/clients/acme-erp`),
+    ).toBeVisible();
+    expect(box.getByLabelText("Command line")).toHaveTextContent(
+      commandLine(ADD.split(" ")),
+    );
+    expect(bridge.count(`${ADD} --dry-run`)).toBe(1);
+    expect(bridge.count(ADD)).toBe(0);
+    await user.click(box.getByRole("button", { name: "Leave out" }));
+    await screen.findByText("Done");
+    expect(bridge.count(ADD)).toBe(1);
+    await waitFor(() =>
+      expect(bridge.count(`context loads --cwd ${FOLDER} --measured`)).toBeGreaterThan(
+        reads,
+      ),
+    );
+  });
+
+  it("offers to load a row again that Toolport left out, and locks a row that other settings left out", async () => {
+    const data = loadsFolder();
+    data.items = data.items.map((item: { path: string | null }) =>
+      item.path === WORKSPACE
+        ? {
+            ...item,
+            loaded: false,
+            reason: "excluded by claudeMdExcludes",
+            leftOutBy: "toolport",
+          }
+        : item,
+    );
+    bridge.set(`context loads --cwd ${FOLDER} --measured`, () => data);
+    bridge.set(`${RM} --dry-run`, () =>
+      goldenData("context-leave-out.file.load-again-plan"),
+    );
+    const user = await open();
+    await showFolder(user);
+    const left = screen.getByRole("region", { name: "Left out in this folder" });
+    const own = within(left)
+      .getAllByRole("listitem")
+      .find((row) => row.textContent?.includes("5,610"))!;
+    const toggle = within(own).getByRole("switch");
+    expect(toggle).not.toBeChecked();
+    expect(toggle).toBeEnabled();
+    const foreign = within(left)
+      .getAllByRole("listitem")
+      .find((row) => row.textContent?.includes("excluded-notes/CLAUDE.md"))!;
+    expect(within(foreign).getByRole("switch")).toBeDisabled();
+    await user.click(toggle);
+    const box = await review(/Load CLAUDE.md again in this folder\?/);
+    expect(box.getByLabelText("Command line")).toHaveTextContent(
+      commandLine(RM.split(" ")),
+    );
+    expect(bridge.count(RM)).toBe(0);
+  });
+
+  it("Recheck reads the stack again without asking Claude Code and says when it did", async () => {
+    const user = await open();
+    await showFolder(user);
+    const reads = bridge.count(`context loads --cwd ${FOLDER} --measured`);
+    await user.click(screen.getByRole("button", { name: /Recheck/ }));
+    await waitFor(() =>
+      expect(bridge.count(`context loads --cwd ${FOLDER} --measured`)).toBe(reads + 1),
+    );
+    expect(await screen.findByText(/Checked \d.* instruction files? read/)).toBeVisible();
+    expect(bridge.ran().some((line) => /^context measure/.test(line))).toBe(false);
+  });
+
+  it("shows what Claude Code confirmed, row by row, and says when the check is out of date", async () => {
+    const verified = (stale: boolean) => ({
+      status: "match",
+      checked: 2,
+      loaded: 2,
+      absent: 0,
+      mismatches: [],
+      unknown: [],
+      measuredAt: "2026-10-09T10:00:00Z",
+      claudeCodeVersion: "2.1.295",
+      stale,
+    });
+    const withConfirmed = (stale: boolean) => {
+      const data = loadsFolder();
+      data.items = data.items.map((item: { path: string | null }) =>
+        item.path === WORKSPACE ? { ...item, confirmed: "loaded" } : item,
+      );
+      return { ...data, verified: verified(stale) };
+    };
+    bridge.set(`context loads --cwd ${FOLDER} --measured`, () => withConfirmed(false));
+    const user = await open();
+    await showFolder(user);
+    expect(screen.getByText("All match")).toBeVisible();
+    expect(screen.getByText(/as Claude Code 2.1.295 reports/)).toBeVisible();
+    expect(screen.getByText("confirmed loaded")).toBeVisible();
+
+    bridge.set(`context loads --cwd ${FOLDER} --measured`, () => withConfirmed(true));
+    await user.click(screen.getByRole("button", { name: /Recheck/ }));
+    expect(
+      await screen.findByText(/out of date: measure and verify again/),
+    ).toBeVisible();
+    expect(screen.queryByText("confirmed loaded")).toBeNull();
+  });
+
+  it("names a file Claude Code loaded that the stack does not show", async () => {
+    const data = loadsFolder();
+    bridge.set(`context loads --cwd ${FOLDER} --measured`, () => ({
+      ...data,
+      verified: {
+        status: "mismatch",
+        checked: 1,
+        loaded: 1,
+        absent: 0,
+        mismatches: [],
+        unknown: ["/somewhere/else/CLAUDE.md"],
+        measuredAt: "2026-10-09T10:00:00Z",
+        claudeCodeVersion: "2.1.295",
+        stale: false,
+      },
+    }));
+    const user = await open();
+    await showFolder(user);
+    expect(
+      await screen.findByText(
+        /Claude Code loaded 1 file this list does not show: \/somewhere\/else\/CLAUDE.md/,
+      ),
+    ).toBeVisible();
+  });
+
+  it("measure and verify says it logs the loaded instruction files before it spends anything", async () => {
+    bridge.set(`context measure --cwd ${FOLDER} --force --yes`, () =>
+      goldenData("context-measure.measured"),
+    );
+    const user = await open();
+    await showFolder(user);
+    await user.click(screen.getByRole("button", { name: "Measure and verify…" }));
+    const box = await review(/Measure what Claude really loads here\?/);
+    expect(box.getByText(/InstructionsLoaded hook passed with --settings/)).toBeVisible();
     expect(bridge.ran().filter((line) => line.startsWith("context measure"))).toEqual([]);
   });
 });

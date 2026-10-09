@@ -9,7 +9,7 @@ use serde_yaml::{Mapping, Value as Yaml};
 
 pub const FORMAT: u64 = 1;
 
-const TOP_KEYS: [&str; 11] = [
+const TOP_KEYS: [&str; 12] = [
     "format",
     "name",
     "description",
@@ -20,6 +20,7 @@ const TOP_KEYS: [&str; 11] = [
     "layers",
     "dirs",
     "agents",
+    "memory",
     "bind",
 ];
 const SKILLS_KEYS: [&str; 3] = ["off", "name_only", "allow"];
@@ -28,6 +29,7 @@ const MCP_KEYS: [&str; 1] = ["deny"];
 const LAYERS_KEYS: [&str; 2] = ["add", "exclude"];
 const DIRS_KEYS: [&str; 1] = ["add"];
 const AGENTS_KEYS: [&str; 1] = ["off"];
+const MEMORY_KEYS: [&str; 1] = ["off"];
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Bundle {
@@ -47,6 +49,8 @@ pub struct Bundle {
     /// project skills. `~/` is the home directory.
     pub dirs_add: Vec<String>,
     pub agents_off: Vec<String>,
+    /// `memory.off`: auto memory is turned off in the folder (`autoMemoryEnabled: false`).
+    pub memory_off: bool,
     pub bind: Vec<String>,
     /// `skills:` was the plain list of the old `default.yaml`, read as `skills.allow`.
     pub legacy_list: bool,
@@ -153,7 +157,7 @@ pub fn parse(name: &str, text: &str) -> Result<Bundle, String> {
     } else {
         strings(&doc, &["skills", "allow"])?
     };
-    for k in ["skills", "plugins", "mcp", "layers", "dirs", "agents"] {
+    for k in ["skills", "plugins", "mcp", "layers", "dirs", "agents", "memory"] {
         match doc.get(key(k)) {
             None | Some(Yaml::Null) | Some(Yaml::Mapping(_)) => {}
             Some(Yaml::Sequence(_)) if k == "skills" => {}
@@ -178,6 +182,11 @@ pub fn parse(name: &str, text: &str) -> Result<Bundle, String> {
         layers_exclude: strings(&doc, &["layers", "exclude"])?,
         dirs_add: strings(&doc, &["dirs", "add"])?,
         agents_off: strings(&doc, &["agents", "off"])?,
+        memory_off: match at(&doc, &["memory", "off"]) {
+            None | Some(Yaml::Null) => false,
+            Some(Yaml::Bool(on)) => *on,
+            Some(_) => return Err("memory.off must be true or false".into()),
+        },
         bind: strings(&doc, &["bind"])?,
         legacy_list,
         doc,
@@ -239,6 +248,7 @@ pub fn lint_with(name: &str, text: &str, registry: &Registry) -> Vec<Issue> {
         ("layers", &LAYERS_KEYS[..], &[][..]),
         ("dirs", &DIRS_KEYS[..], &[][..]),
         ("agents", &AGENTS_KEYS[..], &[][..]),
+        ("memory", &MEMORY_KEYS[..], &[][..]),
     ] {
         if let Some(Yaml::Mapping(map)) = bundle.doc.get(key(section)) {
             check_keys(map, section, known, reserved, &mut out);

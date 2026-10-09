@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Callout } from "@/components/Callout";
 import type { LoadItem, LoadsData, MeasureData } from "../bridge/data";
 import type {
@@ -15,6 +17,7 @@ import { ComposedView } from "./ComposedView";
 import { FolderField, suggestions, useRecentFolders, type FolderChoice } from "./folder";
 import { useRead, useWrite, type WriteControl } from "./hooks";
 import { WriteDialogs } from "./WriteDialogs";
+import { leaveOutSpec, switchable } from "./leaveOut";
 import { formatTokens, plural } from "./model";
 import { Code, QuerySection, Section, useRows } from "./parts";
 import {
@@ -44,6 +47,11 @@ function measurePlan(cwd: string, without?: string): PlanV1 {
         op: "note",
         detail:
           "Reads the real lists of skills, agents, commands and plugins, and the input tokens of the request",
+      },
+      {
+        op: "note",
+        detail:
+          "Also logs which CLAUDE.md and rules files Claude Code loads (an InstructionsLoaded hook passed with --settings, so your own settings stay as they are) and checks every row of the stack against that list",
       },
       {
         op: "note",
@@ -90,19 +98,30 @@ function MeasureResult({ data }: { data: MeasureData }) {
   );
 }
 
+const CONFIRMED_WORD = {
+  loaded: "confirmed loaded",
+  absent: "confirmed absent",
+  mismatch: "differs from Claude Code",
+} as const;
+
 function LoadRow({
   item,
   max,
   disabled,
+  confirmShown,
   onWithout,
   onOff,
+  onSwitch,
 }: {
   item: LoadItem;
   max: number;
   disabled: boolean;
+  confirmShown: boolean;
   onWithout: (item: LoadItem) => void;
   onOff: (item: LoadItem) => void;
+  onSwitch: (item: LoadItem) => void;
 }) {
+  const sw = switchable(item);
   const pct = max > 0 ? Math.max(2, Math.round((item.tokens / max) * 100)) : 0;
   const notes = [item.reason, item.via.length > 0 ? `via ${item.via.join(" > ")}` : ""]
     .filter(Boolean)
@@ -110,13 +129,26 @@ function LoadRow({
   return (
     <li className="grid grid-cols-[minmax(0,1fr)_auto_7rem_auto] items-center gap-3 px-3 py-2 text-sm">
       <div className="min-w-0">
-        <b className="break-words">{item.name}</b>
+        <b
+          className={`break-words ${item.leftOutBy ? "text-muted-foreground line-through" : ""}`}
+        >
+          {item.name}
+        </b>
         <p className="text-xs break-words text-muted-foreground">{notes}</p>
       </div>
       <span className="flex flex-wrap justify-end gap-1.5">
         <Badge variant="secondary">{item.origin.name}</Badge>
         {item.lazy && <Badge variant="outline">on demand</Badge>}
-        {!item.loaded && !item.lazy && <Badge variant="outline">not loaded</Badge>}
+        {item.leftOutBy ? (
+          <Badge variant="warning">left out here</Badge>
+        ) : (
+          !item.loaded && !item.lazy && <Badge variant="outline">not loaded</Badge>
+        )}
+        {confirmShown && item.confirmed && (
+          <Badge variant={item.confirmed === "mismatch" ? "destructive" : "success"}>
+            {CONFIRMED_WORD[item.confirmed]}
+          </Badge>
+        )}
         {item.origin.kind === "inert" && <Badge variant="destructive">never loads</Badge>}
         {item.kind === "skill" && item.visible === false && (
           <Badge variant="warning">not in the skill list</Badge>
@@ -149,6 +181,18 @@ function LoadRow({
             Off here…
           </Button>
         </span>
+      ) : sw ? (
+        <Switch
+          size="sm"
+          checked={!sw.left}
+          disabled={disabled || sw.locked !== null}
+          aria-label={`Loaded here: ${item.name}`}
+          title={
+            sw.locked ??
+            (sw.left ? "Load again in this folder" : "Leave out in this folder")
+          }
+          onCheckedChange={() => onSwitch(item)}
+        />
       ) : (
         <span />
       )}
@@ -162,12 +206,14 @@ function Stack({
   cwd,
   onOff,
   switching,
+  confirmShown,
 }: {
   data: LoadsData;
   write: WriteControl;
   cwd: string;
   onOff: (plugin: LoadItem) => void;
   switching: boolean;
+  confirmShown: boolean;
 }) {
   const [open, setOpen] = useState<string | null>(null);
   const groups = stackGroups(data);
@@ -238,7 +284,13 @@ function Stack({
                   item={item}
                   max={max}
                   disabled={write.busy || switching}
+                  confirmShown={confirmShown}
                   onOff={onOff}
+                  onSwitch={(row) =>
+                    write.begin(
+                      leaveOutSpec(row, cwd, switchable(row)?.left ? "rm" : "add"),
+                    )
+                  }
                   onWithout={(plugin) =>
                     write.begin({
                       command: "context measure",
@@ -308,6 +360,20 @@ function Summary({ data }: { data: LoadsData }) {
         value={`${formatTokens(data.tokens_lazy)} tokens`}
         note={`${plural(lazy, "file")} load when Claude touches them`}
       />
+      {data.verified && (
+        <Stat
+          label="Verified"
+          tone={
+            data.verified.status === "match" && !data.verified.stale ? "ok" : undefined
+          }
+          value={
+            data.verified.status === "match"
+              ? "All match"
+              : `${plural(data.verified.mismatches.length + data.verified.unknown.length, "difference")}`
+          }
+          note={`${plural(data.verified.loaded, "file")} loaded and ${data.verified.absent} left out, as Claude Code ${data.verified.claudeCodeVersion} reports${data.verified.stale ? " · out of date: measure and verify again" : ""}`}
+        />
+      )}
       <Stat
         label="Biggest to switch off"
         value={plugin ? plugin.name : "none"}
@@ -395,6 +461,15 @@ export function HereTab({
     setVersion((n) => n + 1);
   });
   const cwd = loads.data?.cwd ?? null;
+  const [checkedAt, setCheckedAt] = useState<string | null>(null);
+  const loaded = loads.data;
+  useEffect(() => {
+    if (loaded) {
+      setCheckedAt(
+        new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      );
+    }
+  }, [loaded]);
   const known = suggestions(
     recent,
     bundles.data?.bundles.flatMap((bundle) => bundle.appliedTo.map((to) => to.folder)),
@@ -420,6 +495,17 @@ export function HereTab({
         >
           Claude Code only
         </Badge>
+        <span className="ml-auto text-xs text-muted-foreground" role="status">
+          {checkedAt && loaded
+            ? `Checked ${checkedAt} · ${plural(
+                loaded.items.filter((item) => item.leaveOut === "file").length,
+                "instruction file",
+              )} read`
+            : ""}
+        </span>
+        <Button variant="outline" disabled={loads.status === "loading"} onClick={reload}>
+          <RefreshCw /> Recheck
+        </Button>
         <Button
           variant="outline"
           disabled={!cwd || write.busy || pluginWrite.busy}
@@ -428,7 +514,7 @@ export function HereTab({
             write.begin({
               command: "context measure",
               title: "Measure what Claude really loads here",
-              argv: ["context", "measure", "--cwd", cwd, "--yes"],
+              argv: ["context", "measure", "--cwd", cwd, "--force", "--yes"],
               confirmLabel: "Measure",
               phrase: "measure",
               planned: measurePlan(cwd),
@@ -437,7 +523,7 @@ export function HereTab({
             })
           }
         >
-          Measure for real…
+          Measure and verify…
         </Button>
       </div>
       {cwd && (
@@ -477,6 +563,12 @@ export function HereTab({
                 size estimate overstates skills. Token numbers are estimates unless marked
                 measured; a saving is only shown once it was measured.
               </Callout>
+              {data.verified && data.verified.unknown.length > 0 && (
+                <Callout variant="warning" role="status">
+                  Claude Code loaded {plural(data.verified.unknown.length, "file")} this
+                  list does not show: {data.verified.unknown.join(", ")}.
+                </Callout>
+              )}
               {data.partial && (
                 <Callout variant="warning" role="status">
                   Some sources could not be read, so the list may be incomplete.
@@ -487,6 +579,7 @@ export function HereTab({
                 write={write}
                 cwd={data.cwd}
                 switching={pluginWrite.busy}
+                confirmShown={Boolean(data.verified && !data.verified.stale)}
                 onOff={(plugin) =>
                   pluginWrite.begin(offSpec(plugin.name, plugin.name, data.cwd))
                 }

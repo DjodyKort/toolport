@@ -59,13 +59,19 @@ pub fn ls() -> Result<Value, OpError> {
                 let issues = bundle::lint(&l.name, &l.text);
                 let applied = apply::applied_to(w.data_dir, &l.name);
                 match &l.parsed {
-                    Ok(b) => json!({
-                        "name": l.name, "description": b.description, "servers": b.servers,
-                        "skills": counts(b), "plugins": { "off": b.plugins_off },
-                        "layers": { "add": b.layers_add, "exclude": b.layers_exclude },
-                        "agents": { "off": b.agents_off }, "bind": b.bind,
-                        "appliedTo": applied, "path": fsx::display(&l.path), "issues": issues.len(),
-                    }),
+                    Ok(b) => {
+                        let mut row = json!({
+                            "name": l.name, "description": b.description, "servers": b.servers,
+                            "skills": counts(b), "plugins": { "off": b.plugins_off },
+                            "layers": { "add": b.layers_add, "exclude": b.layers_exclude },
+                            "agents": { "off": b.agents_off }, "bind": b.bind,
+                            "appliedTo": applied, "path": fsx::display(&l.path), "issues": issues.len(),
+                        });
+                        if b.memory_off {
+                            row["memory"] = json!({ "off": true });
+                        }
+                        row
+                    }
                     Err(e) => json!({
                         "name": l.name, "description": "", "servers": null,
                         "skills": { "off": 0, "nameOnly": 0, "allow": 0 }, "plugins": { "off": [] },
@@ -94,7 +100,7 @@ pub fn show(name: &str) -> Result<Value, OpError> {
     with_world(|w| {
         let l = bundle_store::load(w.roots, name)?;
         let b = &l.bundle;
-        Ok(json!({
+        let mut shown = json!({
             "name": name, "path": fsx::display(&l.path), "description": b.description, "servers": b.servers,
             "skills": { "off": b.skills_off, "nameOnly": b.skills_name_only, "allow": b.skills_allow },
             "plugins": { "off": b.plugins_off, "config": plugins_config_value(&b.plugins_config) },
@@ -104,7 +110,11 @@ pub fn show(name: &str) -> Result<Value, OpError> {
             "agents": { "off": b.agents_off }, "bind": b.bind, "legacy": b.legacy_list,
             "yaml": l.text, "issues": issues_value(&bundle::lint(name, &l.text)),
             "appliedTo": apply::applied_to(w.data_dir, name),
-        }))
+        });
+        if b.memory_off {
+            shown["memory"] = json!({ "off": true });
+        }
+        Ok(shown)
     })
 }
 

@@ -715,6 +715,12 @@
       "test": "src/plus/context/ContextScreen.e2e.test.tsx",
       "summary": "Show the profile per folder and turn routing on or off: no preview, so a confirmation with the exact command line"
     },
+    "context.leave-out": {
+      "route": "context",
+      "summary": "Context > This folder: a switch on every CLAUDE.md and rule row leaves it out of the folder (claudeMdExcludes) or loads it again, and one on the auto-memory row turns auto memory off; dry-run plan, confirm, apply, the undo command. Recheck re-reads the stack, and Measure and verify checks every row against Claude Code's InstructionsLoaded log",
+      "status": "built",
+      "test": "src/plus/context/HereTab.test.tsx"
+    },
     "context.measure": {
       "route": "context",
       "status": "built",
@@ -1561,6 +1567,11 @@
       "action": "context.init",
       "surface": "screen"
     },
+    "context leave-out": {
+      "route": "context",
+      "action": "context.leave-out",
+      "surface": "screen"
+    },
     "context loads": {
       "route": "context",
       "action": "context.loads",
@@ -2281,6 +2292,11 @@
     "context_compose": {
       "route": "context",
       "action": "context.compose",
+      "surface": "screen"
+    },
+    "context_leave_out": {
+      "route": "context",
+      "action": "context.leave-out",
       "surface": "screen"
     },
     "context_measure": {

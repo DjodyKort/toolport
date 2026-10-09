@@ -374,6 +374,12 @@ struct Mcp {
 
 #[derive(Default, Deserialize)]
 #[serde(default)]
+struct Memory {
+    off: bool,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(default)]
 struct Layers {
     add: Vec<String>,
     exclude: Vec<String>,
@@ -394,6 +400,7 @@ struct Bundle {
     layers: Layers,
     dirs: Dirs,
     agents: Switches,
+    memory: Memory,
 }
 
 fn bundle_path(roots: &Roots, name: &str) -> Result<PathBuf, MeasureError> {
@@ -496,6 +503,9 @@ fn bundle_settings(
     }
     if !def.layers.exclude.is_empty() {
         settings.insert("claudeMdExcludes".into(), json!(def.layers.exclude));
+    }
+    if def.memory.off {
+        settings.insert("autoMemoryEnabled".into(), Value::Bool(false));
     }
     match super::bundle::plugins_config(Some(&def.plugins.config)) {
         Ok(config) if !config.is_empty() => {
@@ -720,10 +730,10 @@ impl TempLog {
         )))
     }
 
-    fn events(&self) -> Option<Vec<Logged>> {
-        let text = std::fs::read_to_string(&self.0).ok()?;
-        let events = verify::parse_log(&text);
-        (!events.is_empty()).then_some(events)
+    fn events(&self) -> Vec<Logged> {
+        std::fs::read_to_string(&self.0)
+            .map(|text| verify::parse_log(&text))
+            .unwrap_or_default()
     }
 }
 
@@ -774,7 +784,7 @@ fn run_variant(
         settings_stamp: stamp.to_string(),
         slash_command_names: parsed.slash_commands,
         run: parsed.run,
-        instructions: log.as_ref().and_then(TempLog::events),
+        instructions: log.as_ref().map(TempLog::events),
     })
 }
 
@@ -851,7 +861,8 @@ pub fn measure(
         .into_iter()
         .map(|variant| {
             let found = match (&dir, req.force) {
-                (Some(dir), false) => lookup(dir, &key, &version, &model, &variant.key),
+                (Some(dir), false) => lookup(dir, &key, &version, &model, &variant.key)
+                    .filter(|e| variant.key != AS_IS || e.instructions.is_some()),
                 _ => None,
             };
             Slot { variant, found }

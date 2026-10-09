@@ -165,6 +165,18 @@ function Detail({
             />,
           ],
           ["Agents off", <Chips key="a" items={show.agents.off} empty="unchanged" />],
+          [
+            "Auto memory",
+            show.memory?.off ? (
+              <Badge key="m" variant="success">
+                off
+              </Badge>
+            ) : (
+              <span key="m" className="text-muted-foreground">
+                unchanged
+              </span>
+            ),
+          ],
           ["Applies to", <Chips key="b" items={show.bind} empty="no folder pattern" />],
         ]}
       />

@@ -94,7 +94,7 @@ fn key(path: &str) -> String {
 /// Compare the stack with a logged run and mark every covered row. `None` when the measurement
 /// holds no log (it predates verification, or the hook did not run).
 pub fn compare(items: &mut [LoadItem], info: &MeasuredInfo) -> Option<Verified> {
-    let logged = info.instructions.as_ref()?;
+    let logged = info.instructions.as_ref().filter(|events| !events.is_empty())?;
     let seen: BTreeSet<String> = logged.iter().map(|l| key(&l.path)).collect();
     let mut known = BTreeSet::new();
     let (mut loaded, mut absent) = (0, 0);

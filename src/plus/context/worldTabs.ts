@@ -48,6 +48,13 @@ interface Kept {
   run: MeasureRun;
   data: MeasureData;
   estimate: number;
+  /** The instruction files the measured request logged as loaded (InstructionsLoaded). */
+  logged?: string[];
+}
+
+interface LeftOut {
+  files: Set<string>;
+  memory: boolean;
 }
 
 const AT = "2026-10-05T09:00:00Z";
@@ -127,6 +134,7 @@ export function createTabsWorld(host: TabsHost, fresh: boolean) {
   let applied: Applied[] = [];
   let autoApply = false;
   const kept = new Map<string, Kept>();
+  const leftOut = new Map<string, LeftOut>();
   const dir = `${host.base}/skills_repo/profiles`;
   const pathOf = (name: string) => `${dir}/${name}.yaml`;
   const ledger = `${host.base}/data/plus/profile-ledger.json`;
@@ -323,21 +331,97 @@ export function createTabsWorld(host: TabsHost, fresh: boolean) {
 
   /** What `context loads --cwd` adds in a folder: the plugins and agents of the folder, the
    * applied profile, and the kept measurement when `--measured` is asked. */
-  function shapeLoads(data: LoadsData, cwd: string, measured: boolean): LoadsData {
-    const withFolder = totals(data, [...data.items, ...folderItems()]);
-    const shaped = filter(withFolder, current(cwd));
-    const keep = kept.get(`${cwd}|`);
-    if (!measured || !keep) return shaped;
+  const applyLeaveOut = (data: LoadsData, cwd: string): LoadsData => {
+    const out = leftOut.get(cwd);
+    const items = data.items.map((item): LoadItem => {
+      const capable =
+        item.leaveOut ??
+        ((item.kind === "memory" || item.kind === "rule") && item.source !== "policy"
+          ? "file"
+          : item.kind === "memory-index"
+            ? "memory"
+            : undefined);
+      let next: LoadItem = capable ? { ...item, leaveOut: capable } : item;
+      if (capable === "file" && item.path && out?.files.has(item.path))
+        next = {
+          ...next,
+          loaded: false,
+          reason: "excluded by claudeMdExcludes",
+          leftOutBy: "toolport",
+        };
+      if (capable === "memory" && out?.memory)
+        next = {
+          ...next,
+          loaded: false,
+          reason: "auto memory is off (autoMemoryEnabled)",
+          leftOutBy: "toolport",
+        };
+      return next;
+    });
+    return totals(data, items);
+  };
+
+  const verifyAgainst = (data: LoadsData, keep: Kept, stale: boolean): LoadsData => {
+    if (!keep.logged) return data;
+    const seen = new Set(keep.logged);
+    let loaded = 0;
+    let absent = 0;
+    const mismatches: Array<{ path: string; expected: string; actual: string }> = [];
+    const items = data.items.map((item): LoadItem => {
+      if (!item.path || !(item.kind === "memory" || item.kind === "rule")) return item;
+      const expected =
+        item.loaded && !item.lazy
+          ? "loaded"
+          : !item.loaded && !item.lazy && item.reason.startsWith("excluded")
+            ? "absent"
+            : null;
+      if (!expected) return item;
+      const actual = seen.has(item.path) ? "loaded" : "absent";
+      if (expected === actual) {
+        if (expected === "loaded") loaded += 1;
+        else absent += 1;
+        return { ...item, confirmed: expected };
+      }
+      mismatches.push({ path: item.path, expected, actual });
+      return { ...item, confirmed: "mismatch" };
+    });
     return {
-      ...shaped,
-      measured: keep.run,
-      measured_info: {
-        claudeCodeVersion: VERSION,
-        model: MODEL,
+      ...data,
+      items,
+      verified: {
+        status: mismatches.length === 0 ? "match" : "mismatch",
+        checked: loaded + absent + mismatches.length,
+        loaded,
+        absent,
+        mismatches,
+        unknown: [],
         measuredAt: AT,
-        stale: keep.estimate !== shaped.total_tokens,
+        claudeCodeVersion: VERSION,
+        stale,
       },
     };
+  };
+
+  function shapeLoads(data: LoadsData, cwd: string, measured: boolean): LoadsData {
+    const withFolder = totals(data, [...data.items, ...folderItems()]);
+    const shaped = applyLeaveOut(filter(withFolder, current(cwd)), cwd);
+    const keep = kept.get(`${cwd}|`);
+    if (!measured || !keep) return shaped;
+    const stale = keep.estimate !== shaped.total_tokens;
+    return verifyAgainst(
+      {
+        ...shaped,
+        measured: keep.run,
+        measured_info: {
+          claudeCodeVersion: VERSION,
+          model: MODEL,
+          measuredAt: AT,
+          stale,
+        },
+      },
+      keep,
+      stale,
+    );
   }
 
   function measure(call: Call, raw: (cwd: string) => LoadsData): unknown {
@@ -388,8 +472,12 @@ export function createTabsWorld(host: TabsHost, fresh: boolean) {
       stale: false,
       visibleSkills: first.skillNames,
     };
-    kept.set(key, { run: first, data, estimate: asIs.total_tokens });
-    if (!without) kept.set(`${cwd}|`, { run: first, data, estimate: asIs.total_tokens });
+    const logged = asIs.items
+      .filter((i) => i.leaveOut === "file" && i.loaded && !i.lazy && i.path)
+      .map((i) => i.path as string);
+    kept.set(key, { run: first, data, estimate: asIs.total_tokens, logged });
+    if (!without)
+      kept.set(`${cwd}|`, { run: first, data, estimate: asIs.total_tokens, logged });
     return data;
   }
 
@@ -711,6 +799,100 @@ export function createTabsWorld(host: TabsHost, fresh: boolean) {
         return compose(cwd ?? host.home);
       case "context measure":
         return measure(call, raw);
+      case "context leave-out": {
+        const [action, file] = call.words;
+        const memory = call.flags.has("--memory");
+        const line =
+          "usage: context leave-out add|rm <path> --cwd <dir> [--dry-run] | add|rm --memory --cwd <dir> [--dry-run]";
+        if (!cwd)
+          return new Failure("usage", "--cwd is required: a file is left out per folder");
+        if (
+          (action !== "add" && action !== "rm") ||
+          (memory ? file !== undefined : !file)
+        )
+          return new Failure("usage", line);
+        const before = leftOut.get(cwd) ?? { files: new Set<string>(), memory: false };
+        const next: LeftOut = { files: new Set(before.files), memory: before.memory };
+        const stack = shapeLoads(raw(cwd), cwd, false);
+        const warnings = [
+          "Open sessions keep what they loaded; the change applies from the next session",
+        ];
+        let summary: string;
+        let tokens: { before: number; after: number } | undefined;
+        const undoAction = action === "add" ? "rm" : "add";
+        let target = "--memory";
+        if (memory) {
+          next.memory = action === "add";
+          summary = `Turn auto memory ${action === "add" ? "off" : "back on"} in ${cwd}`;
+        } else {
+          target = file as string;
+          if (!target.startsWith("/"))
+            return new Failure(
+              "usage",
+              `path must be absolute or start with ~/: ${target}`,
+            );
+          const item = stack.items.find(
+            (i) => (i.kind === "memory" || i.kind === "rule") && i.path === target,
+          );
+          if (!item)
+            return new Failure(
+              "not_found",
+              `${target} is not an instruction file Claude Code reads in this folder`,
+            );
+          if (item.source === "policy")
+            return new Failure(
+              "conflict",
+              "a managed policy CLAUDE.md cannot be left out: Claude Code always loads it",
+            );
+          if (action === "add") {
+            next.files.add(target);
+            if (item.loaded)
+              tokens = {
+                before: stack.total_tokens,
+                after: stack.total_tokens - item.tokens,
+              };
+          } else {
+            next.files.delete(target);
+          }
+          summary =
+            action === "add"
+              ? `Leave out ${target} in ${cwd}`
+              : `Load ${target} again in ${cwd}`;
+        }
+        const undo = `toolportctl context leave-out ${undoAction} ${target} --cwd ${cwd}`;
+        if (!call.dry) leftOut.set(cwd, next);
+        return {
+          id: "leave-out",
+          scope: "folder",
+          cwd,
+          dryRun: call.dry,
+          plan: plan(
+            summary,
+            [
+              {
+                op: "merge",
+                path: settingsOf(cwd),
+                detail: memory
+                  ? "autoMemoryEnabled"
+                  : `claudeMdExcludes entry for ${target}`,
+              },
+            ],
+            undo,
+            tokens,
+            warnings,
+          ),
+          result: call.dry
+            ? null
+            : {
+                applied: true,
+                backups: [] as string[],
+                changed: [settingsOf(cwd)],
+                undo,
+              },
+          leftOut: [...next.files],
+          memoryOff: next.memory,
+        };
+      }
       case "context bundle ls":
         return { bundles: bundles.map(listRow), directory: dir };
       case "context bundle show": {

@@ -63,8 +63,8 @@ describe("Context tabs against the changing world", () => {
     const user = mountContext("here");
     await showFolder(user);
     const loads = `context loads --cwd ${FOLDER} --measured`;
-    const argv = `context measure --cwd ${FOLDER} --yes`;
-    await user.click(screen.getByRole("button", { name: "Measure for real…" }));
+    const argv = `context measure --cwd ${FOLDER} --force --yes`;
+    await user.click(screen.getByRole("button", { name: "Measure and verify…" }));
     const box = await review(/Measure what Claude really loads here\?/);
     expect(box.getByText(/spends model tokens/)).toBeVisible();
     expect(bridge.ran()).not.toContain(argv);
@@ -77,6 +77,50 @@ describe("Context tabs against the changing world", () => {
     expect(
       await summary().findByText(/first request · Claude Code 2\.1\.289/),
     ).toBeVisible();
+  });
+
+  it("context.leave-out: leave a file out, measure and verify it, load it again", async () => {
+    const user = mountContext("here");
+    await showFolder(user);
+    const loads = `context loads --cwd ${FOLDER} --measured`;
+    const switchIn = (region: string) =>
+      within(
+        within(screen.getByRole("region", { name: region }))
+          .getAllByRole("listitem")
+          .find((row) => row.textContent?.includes("10,070"))!,
+      ).getByRole("switch");
+    const before = bridge.count(loads);
+
+    await user.click(switchIn("Instructions"));
+    await confirmResult(user, /Leave out CLAUDE.md in this folder\?/, "Leave out");
+    await closeResult(user);
+    await waitFor(() => expect(bridge.count(loads)).toBeGreaterThan(before));
+    expect(switchIn("Left out in this folder")).not.toBeChecked();
+    expect(
+      within(
+        screen.getByRole("region", { name: "Left out in this folder" }),
+      ).getAllByText("left out here").length,
+    ).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("button", { name: "Measure and verify…" }));
+    const box = await review(/Measure what Claude really loads here\?/);
+    await user.click(box.getByRole("button", { name: "Measure" }));
+    await screen.findByRole("region", { name: "Measured" });
+    await closeResult(user);
+    expect(await screen.findByText("All match")).toBeVisible();
+    expect(screen.getByText("confirmed absent")).toBeVisible();
+
+    await user.click(switchIn("Left out in this folder"));
+    await confirmResult(user, /Load CLAUDE.md again in this folder\?/, "Load again");
+    await closeResult(user);
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole("region", { name: "Instructions" })).getAllByText(
+          "10,070",
+        ),
+      ).not.toHaveLength(0),
+    );
+    expect(screen.queryByRole("region", { name: "Left out in this folder" })).toBeNull();
   });
 
   it("context.measure-without: measures one plugin out, and shows the saving only from the run", async () => {
