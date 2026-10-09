@@ -5,7 +5,7 @@ use super::output::{CtlError, Output};
 use crate::plus::context::measure::{
     self, Env, Launcher, MeasureError, MeasureReport, ProcessLauncher, Request,
 };
-use crate::plus::context::{compact, load_config, loads, Roots};
+use crate::plus::context::{compact, leave_out, load_config, loads, verify, Roots};
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::PathBuf;
 
@@ -51,8 +51,12 @@ pub fn loads(rest: &[String]) -> Result<Output, CtlError> {
         loads::what_loads_with(&roots, &config, flags.one("--profile"), &cwd, &options)
             .map_err(|e| CtlError::failed("context_invalid", e))?;
     if let Some((run, info)) = cached {
+        report.verified = verify::compare(&mut report.items, &info);
         report.measured = Some(run);
         report.measured_info = Some(info);
+    }
+    if let Some(dir) = crate::registry::conduit_dir() {
+        leave_out::mark(&mut report.items, &dir, &cwd);
     }
     let mut human = format!(
         "{} tokens loaded in {} (estimate: bytes / 4, good for ordering, not a saving)\n",

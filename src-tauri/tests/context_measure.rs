@@ -309,3 +309,60 @@ fn a_missing_claude_is_a_failed_envelope_and_a_bad_variant_a_usage_error() {
     assert_eq!(envelope["error"]["code"], "usage");
     assert!(fx.stub.requests().is_empty());
 }
+
+#[test]
+fn a_measured_run_is_checked_against_what_claude_code_logged_as_loaded() {
+    let fx = Fx::new("measure-verify");
+    let cwd = fx.client.display().to_string();
+    let (_, stack) = fx.run(&["context", "loads", "--cwd", &cwd]);
+    let at_start: Vec<String> = stack["data"]["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|i| matches!(i["kind"].as_str(), Some("memory" | "rule")))
+        .filter(|i| i["loaded"] == true && i["lazy"] == false)
+        .map(|i| i["path"].as_str().unwrap().to_string())
+        .collect();
+    assert!(at_start.len() >= 2, "{at_start:?}");
+
+    let measure = |env: &str| {
+        let (code, _) = fx.run_with(
+            &["context", "measure", "--cwd", &cwd, "--yes", "--force"],
+            &[("STUB_CLAUDE_INSTRUCTIONS", env)],
+        );
+        assert_eq!(code, 0);
+        fx.run(&["context", "loads", "--cwd", &cwd, "--measured"]).1["data"].clone()
+    };
+
+    let data = measure(&at_start.join(":"));
+    assert_eq!(data["verified"]["status"], "match", "{}", data["verified"]);
+    assert_eq!(data["verified"]["loaded"], at_start.len());
+    assert_eq!(data["verified"]["stale"], false);
+    let confirmed = data["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|i| i["confirmed"] == "loaded")
+        .count();
+    assert_eq!(confirmed, at_start.len());
+
+    let data = measure(&at_start[1..].join(":"));
+    assert_eq!(data["verified"]["status"], "mismatch");
+    assert_eq!(data["verified"]["mismatches"][0]["path"], at_start[0].as_str());
+    assert_eq!(data["verified"]["mismatches"][0]["expected"], "loaded");
+    assert_eq!(data["verified"]["mismatches"][0]["actual"], "absent");
+
+    let surprise = "/somewhere/else/CLAUDE.md";
+    let data = measure(&format!("{}:{surprise}", at_start.join(":")));
+    assert_eq!(data["verified"]["status"], "mismatch");
+    assert_eq!(data["verified"]["unknown"][0], surprise);
+
+    let (_, cold) = fx.run_with(
+        &["context", "measure", "--cwd", &cwd, "--yes", "--force"],
+        &[],
+    );
+    assert!(cold["ok"] == true);
+    let data = fx.run(&["context", "loads", "--cwd", &cwd, "--measured"]).1["data"].clone();
+    assert!(data["verified"].is_null(), "a run that logged nothing verifies nothing");
+}
+

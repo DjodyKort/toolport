@@ -22,6 +22,7 @@ mod skills_taps;
 mod sources;
 pub(crate) mod context;
 mod context_bundle;
+mod context_leave;
 mod context_manage;
 mod flags;
 mod folders;
@@ -260,6 +261,11 @@ pub const COMMANDS: &[Command] = &[
         &["context", "measure"],
         "Measure what a folder really loads, in tokens, with Claude Code (--cwd, --without, --bundle, --model, --force, --yes)",
         context::measure,
+    ),
+    cmd(
+        &["context", "leave-out"],
+        "Leave a CLAUDE.md or rule out of a folder, or turn auto memory off there (add|rm <path> or --memory, --cwd, --dry-run)",
+        context_leave::leave_out,
     ),
     cmd(
         &["context", "folders"],

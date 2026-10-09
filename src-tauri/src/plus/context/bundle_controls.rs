@@ -63,7 +63,12 @@ fn merge_step(file: &Path, rec: &ControlRec, existed: bool, control: &str) -> St
 pub fn apply(data_dir: &Path, cwd: &Path, control: &str, want: &Desired, dry_run: bool) -> Result<Run, BundleError> {
     let cwd = checked_cwd(cwd)?;
     let folder = folder_key(&cwd);
-    if want.env.is_empty() && want.deny_servers.is_empty() && want.plugins.is_empty() {
+    if want.env.is_empty()
+        && want.deny_servers.is_empty()
+        && want.plugins.is_empty()
+        && want.excludes.is_empty()
+        && !want.memory_off
+    {
         return undo(data_dir, &cwd, control, dry_run);
     }
     let prior = record(data_dir, &cwd, control);

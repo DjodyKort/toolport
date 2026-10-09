@@ -4,7 +4,9 @@
 #
 #   claude --version                      prints $STUB_CLAUDE_VERSION (or the content of
 #                                         $STUB_CLAUDE_VERSION_FILE), default 2.1.289
-#   claude -p ... [--settings <file>]     prints stream-as-is.jsonl, or stream-plugin-off.jsonl
+#   claude -p ... [--settings <file>]     writes the InstructionsLoaded events of
+#                                         $STUB_CLAUDE_INSTRUCTIONS to the hook log of the
+#                                         settings file, then prints stream-as-is.jsonl, or stream-plugin-off.jsonl
 #                                         when the settings file turns a plugin off, or
 #                                         stream-skills-off.jsonl when it hides skills
 #
@@ -39,12 +41,22 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-if [ -n "$settings" ]; then
+used=no
+if [ -n "$settings" ] && [ -f "$settings" ] && grep -q -e '"enabledPlugins"' -e '"skillOverrides"' "$settings"; then
   used=yes
-else
-  used=no
 fi
 log "request cwd=$(pwd -P) model=$model settings=$used"
+
+# The InstructionsLoaded hook of the as-is request: one event per path of
+# $STUB_CLAUDE_INSTRUCTIONS (colon separated), appended to the log the hook command names.
+if [ -n "$settings" ] && [ -f "$settings" ] && [ -n "${STUB_CLAUDE_INSTRUCTIONS:-}" ]; then
+  hook_log=$(sed -n "s/.*cat >> '\([^']*\)'.*/\1/p" "$settings" | head -1)
+  if [ -n "$hook_log" ]; then
+    printf '%s\n' "$STUB_CLAUDE_INSTRUCTIONS" | tr ':' '\n' | while IFS= read -r file; do
+      [ -n "$file" ] && printf '{"hook_event_name":"InstructionsLoaded","file_path":"%s","memory_type":"User","load_reason":"session_start"}\n' "$file" >> "$hook_log"
+    done
+  fi
+fi
 
 stream=as-is
 if [ -n "$settings" ] && [ -f "$settings" ]; then

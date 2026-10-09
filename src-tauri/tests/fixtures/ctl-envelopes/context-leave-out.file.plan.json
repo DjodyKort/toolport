@@ -1,0 +1,62 @@
+{
+  "argv": [
+    "context",
+    "leave-out",
+    "add",
+    "{home}/work/erp/CLAUDE.md",
+    "--cwd",
+    "{home}/work/erp/clients/acme-erp",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "context leave-out",
+    "data": {
+      "cwd": "<WORLD>/home/work/erp/clients/acme-erp",
+      "dryRun": true,
+      "id": "leave-out",
+      "leftOut": ["<WORLD>/home/work/erp/CLAUDE.md"],
+      "memoryOff": false,
+      "plan": {
+        "effects": {
+          "tokens": {
+            "after": 16001,
+            "basis": "estimate",
+            "before": 21611
+          }
+        },
+        "steps": [
+          {
+            "detail": "1 key(s) owned by leave-out",
+            "diff": {
+              "after": "claudeMdExcludes: \"<WORLD>/home/work/erp/CLAUDE.md\"\n",
+              "before": "claudeMdExcludes: (absent)\n"
+            },
+            "keys": ["claudeMdExcludes"],
+            "op": "create",
+            "path": "<WORLD>/home/work/erp/clients/acme-erp/.claude/settings.local.json"
+          },
+          {
+            "detail": "git-ignore .claude/settings.local.json",
+            "op": "update",
+            "path": "<WORLD>/home/work/erp/clients/acme-erp/.git/info/exclude"
+          },
+          {
+            "detail": "record every key Toolport owns with the value it replaces, so undo restores exactly that",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          }
+        ],
+        "summary": "Leave out <WORLD>/home/work/erp/CLAUDE.md in <WORLD>/home/work/erp/clients/acme-erp",
+        "undo": "toolportctl context leave-out rm <WORLD>/home/work/erp/CLAUDE.md --cwd <WORLD>/home/work/erp/clients/acme-erp",
+        "warnings": [
+          "Open sessions keep what they loaded; the change applies from the next session"
+        ]
+      },
+      "result": null,
+      "scope": "folder"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

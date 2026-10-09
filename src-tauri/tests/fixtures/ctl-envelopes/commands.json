@@ -2253,6 +2253,76 @@
           "tools": ["context_measure"]
         },
         {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Folder whose .claude/settings.local.json gets the entry (required)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--cwd",
+              "repeatable": false,
+              "required": true,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Act on auto memory (autoMemoryEnabled) instead of a file",
+              "escalates": false,
+              "hidden": false,
+              "name": "--memory",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "context",
+          "id": "context leave-out",
+          "kind": "command",
+          "maxOperands": 2,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "action",
+              "required": true,
+              "variadic": false
+            },
+            {
+              "name": "path",
+              "required": false,
+              "variadic": false
+            }
+          ],
+          "parent": "context",
+          "path": ["context", "leave-out"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Leave a CLAUDE.md or rule out of a folder, or turn auto memory off there (add|rm <path> or --memory, --cwd, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["context_leave_out"]
+        },
+        {
           "baseTier": "read",
           "cost": false,
           "dryRun": false,
@@ -10712,10 +10782,10 @@
         }
       ],
       "counts": {
-        "commands": 177,
+        "commands": 178,
         "groups": 33,
-        "rows": 210,
-        "tools": 105
+        "rows": 211,
+        "tools": 106
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
       "tiers": ["read", "write", "destructive"],
@@ -10871,6 +10941,13 @@
           "command": "plugins mcp",
           "dryRun": "default-on",
           "name": "plugins_mcp",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": "context leave-out",
+          "dryRun": "default-on",
+          "name": "context_leave_out",
           "tier": "write",
           "toolTier": 2
         },

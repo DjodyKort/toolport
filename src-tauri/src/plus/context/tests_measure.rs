@@ -200,7 +200,9 @@ fn a_plugin_variant_runs_with_a_temporary_settings_file_and_reports_a_signed_del
     assert_eq!(seen.len(), 2);
     assert!(seen.iter().all(|s| s.cwd == fs::canonicalize(&w.cwd).unwrap()));
     assert!(seen.iter().all(|s| s.model == "haiku"));
-    assert!(seen[0].settings.is_none());
+    let hook = seen[0].settings.as_ref().unwrap();
+    assert!(hook["hooks"]["InstructionsLoaded"].is_array());
+    assert!(hook.get("enabledPlugins").is_none());
     assert_eq!(seen[1].settings, Some(json!({"enabledPlugins": {"ecc@ecc": false}})));
 }
 

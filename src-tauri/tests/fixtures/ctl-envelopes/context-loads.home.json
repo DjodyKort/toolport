@@ -30,6 +30,7 @@
           "basis": "estimate",
           "kind": "memory",
           "lazy": false,
+          "leaveOut": "file",
           "loaded": true,
           "name": "CLAUDE.md",
           "origin": {
@@ -49,6 +50,7 @@
           "basis": "estimate",
           "kind": "rule",
           "lazy": true,
+          "leaveOut": "file",
           "loaded": false,
           "name": "client-acme-erp",
           "origin": {
@@ -68,6 +70,7 @@
           "basis": "estimate",
           "kind": "rule",
           "lazy": false,
+          "leaveOut": "file",
           "loaded": true,
           "name": "personal",
           "origin": {
@@ -828,6 +831,7 @@
           "basis": "estimate",
           "kind": "memory",
           "lazy": true,
+          "leaveOut": "file",
           "loaded": false,
           "name": "work/erp/CLAUDE.md",
           "origin": {

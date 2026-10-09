@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "context",
+    "leave-out",
+    "add",
+    "{home}/work/erp/README.md",
+    "--cwd",
+    "{home}/work/erp/clients/acme-erp",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "context leave-out",
+    "error": {
+      "code": "not_found",
+      "message": "<WORLD>/home/work/erp/README.md is not an instruction file Claude Code reads in this folder"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

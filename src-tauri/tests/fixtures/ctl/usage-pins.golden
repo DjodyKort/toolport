@@ -52,6 +52,7 @@ Commands:
   secret         Manage server secrets (not implemented)
   context loads  Show what a claude session loads, with token cost (--profile, --cwd, --no-lazy, --measured)
   context measure Measure what a folder really loads, in tokens, with Claude Code (--cwd, --without, --bundle, --model, --force, --yes)
+  context leave-out Leave a CLAUDE.md or rule out of a folder, or turn auto memory off there (add|rm <path> or --memory, --cwd, --dry-run)
   context folders Show the active profile per folder (--cwd, --enable, --disable)
   context checkpoint-status Report used tokens vs the checkpoint point from statusline JSON on stdin
   context plan   Preview the context deploy (--home <dir>, --rules)
@@ -252,6 +253,7 @@ Commands:
   secret         Manage server secrets (not implemented)
   context loads  Show what a claude session loads, with token cost (--profile, --cwd, --no-lazy, --measured)
   context measure Measure what a folder really loads, in tokens, with Claude Code (--cwd, --without, --bundle, --model, --force, --yes)
+  context leave-out Leave a CLAUDE.md or rule out of a folder, or turn auto memory off there (add|rm <path> or --memory, --cwd, --dry-run)
   context folders Show the active profile per folder (--cwd, --enable, --disable)
   context checkpoint-status Report used tokens vs the checkpoint point from statusline JSON on stdin
   context plan   Preview the context deploy (--home <dir>, --rules)
@@ -452,6 +454,7 @@ Commands:
   secret         Manage server secrets (not implemented)
   context loads  Show what a claude session loads, with token cost (--profile, --cwd, --no-lazy, --measured)
   context measure Measure what a folder really loads, in tokens, with Claude Code (--cwd, --without, --bundle, --model, --force, --yes)
+  context leave-out Leave a CLAUDE.md or rule out of a folder, or turn auto memory off there (add|rm <path> or --memory, --cwd, --dry-run)
   context folders Show the active profile per folder (--cwd, --enable, --disable)
   context checkpoint-status Report used tokens vs the checkpoint point from statusline JSON on stdin
   context plan   Preview the context deploy (--home <dir>, --rules)
@@ -652,6 +655,7 @@ Commands:
   secret         Manage server secrets (not implemented)
   context loads  Show what a claude session loads, with token cost (--profile, --cwd, --no-lazy, --measured)
   context measure Measure what a folder really loads, in tokens, with Claude Code (--cwd, --without, --bundle, --model, --force, --yes)
+  context leave-out Leave a CLAUDE.md or rule out of a folder, or turn auto memory off there (add|rm <path> or --memory, --cwd, --dry-run)
   context folders Show the active profile per folder (--cwd, --enable, --disable)
   context checkpoint-status Report used tokens vs the checkpoint point from statusline JSON on stdin
   context plan   Preview the context deploy (--home <dir>, --rules)
@@ -6521,3 +6525,25 @@ exit 2
 --- stderr
 toolportctl: --limit needs a whole number
 Run `toolportctl --help` for usage.
+=== ["context","leave-out"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: context leave-out add|rm <path> --cwd <dir> [--dry-run] | add|rm --memory --cwd <dir> [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["--json","context","leave-out"]
+exit 2
+--- stdout
+{"command":"context leave-out","error":{"code":"usage","message":"usage: context leave-out add|rm <path> --cwd <dir> [--dry-run] | add|rm --memory --cwd <dir> [--dry-run]"},"ok":false,"schemaVersion":1}
+--- stderr
+=== ["context","leave-out","add"]
+exit 2
+--- stdout
+--- stderr
+toolportctl: usage: context leave-out add|rm <path> --cwd <dir> [--dry-run] | add|rm --memory --cwd <dir> [--dry-run]
+Run `toolportctl --help` for usage.
+=== ["--json","context","leave-out","add","x","--memory"]
+exit 2
+--- stdout
+{"command":"context leave-out","error":{"code":"usage","message":"usage: context leave-out add|rm <path> --cwd <dir> [--dry-run] | add|rm --memory --cwd <dir> [--dry-run]"},"ok":false,"schemaVersion":1}
+--- stderr

@@ -872,6 +872,8 @@ pub(super) const OVERRIDES: &[(&str, Meta)] = &[
     ("context bundle add", m("--servers", Str, "Server profile paired with the bundle (default: the profile with the same name)")),
     ("context bundle edit", m("--servers", Str, "Server profile paired with the bundle (empty removes the pairing)")),
     ("context bundle rm", m("--force", Bool, "Delete even while the bundle is applied in a folder")),
+    ("context leave-out", m("--cwd", Path, "Folder whose .claude/settings.local.json gets the entry (required)")),
+    ("context leave-out", m("--memory", Bool, "Act on auto memory (autoMemoryEnabled) instead of a file")),
     ("context bundle apply", m("--cwd", Path, "Folder where Claude Code starts (default: the current folder)")),
     ("context bundle undo", m("--cwd", Path, "Folder where Claude Code starts (default: the current folder)")),
     ("context bundle status", m("--cwd", Path, "Folder where Claude Code starts (default: the current folder)")),

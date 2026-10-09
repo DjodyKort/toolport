@@ -57,6 +57,7 @@
           "basis": "estimate",
           "kind": "memory",
           "lazy": false,
+          "leaveOut": "file",
           "loaded": true,
           "name": "CLAUDE.md",
           "origin": {
@@ -76,6 +77,7 @@
           "basis": "estimate",
           "kind": "memory",
           "lazy": false,
+          "leaveOut": "file",
           "loaded": true,
           "name": "CLAUDE.md",
           "origin": {
@@ -159,6 +161,7 @@
           "basis": "estimate",
           "kind": "memory",
           "lazy": false,
+          "leaveOut": "file",
           "loaded": true,
           "name": "CLAUDE.local.md",
           "origin": {
@@ -178,6 +181,7 @@
           "basis": "estimate",
           "kind": "memory-index",
           "lazy": false,
+          "leaveOut": "memory",
           "loaded": true,
           "name": "MEMORY.md",
           "origin": {
@@ -197,6 +201,7 @@
           "basis": "estimate",
           "kind": "rule",
           "lazy": true,
+          "leaveOut": "file",
           "loaded": false,
           "name": "client-acme-erp",
           "origin": {
@@ -216,6 +221,7 @@
           "basis": "estimate",
           "kind": "rule",
           "lazy": false,
+          "leaveOut": "file",
           "loaded": true,
           "name": "personal",
           "origin": {
@@ -995,6 +1001,7 @@
           "basis": "estimate",
           "kind": "memory",
           "lazy": true,
+          "leaveOut": "file",
           "loaded": false,
           "name": "addons/billing/CLAUDE.md",
           "origin": {
@@ -1033,6 +1040,8 @@
           "basis": "estimate",
           "kind": "memory",
           "lazy": false,
+          "leaveOut": "file",
+          "leftOutBy": "settings",
           "loaded": false,
           "name": "excluded-notes/CLAUDE.md",
           "origin": {

@@ -37,6 +37,17 @@ pub struct LoadItem {
     pub via: Vec<String>,
     pub scope: &'static str,
     pub visible: Option<bool>,
+    /// What a folder switch can do with the row: `file` leaves a CLAUDE.md or rule out through
+    /// `claudeMdExcludes`, `memory` turns auto memory off. Absent when Claude Code allows neither.
+    #[serde(rename = "leaveOut", skip_serializing_if = "Option::is_none")]
+    pub leave_out: Option<&'static str>,
+    /// Who keeps a left-out row out: `toolport` (the leave-out control) or `settings` (any other).
+    #[serde(rename = "leftOutBy", skip_serializing_if = "Option::is_none")]
+    pub left_out_by: Option<&'static str>,
+    /// What Claude Code's own `InstructionsLoaded` log said about the row: `loaded`, `absent` or
+    /// `mismatch`. Absent when no verified run covers the row.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confirmed: Option<&'static str>,
 }
 
 impl LoadItem {
@@ -63,6 +74,13 @@ impl LoadItem {
             via: Vec::new(),
             scope: "always",
             visible: None,
+            leave_out: match kind {
+                "memory" | "rule" if source != "policy" => Some("file"),
+                "memory-index" => Some("memory"),
+                _ => None,
+            },
+            left_out_by: None,
+            confirmed: None,
         }
     }
 
@@ -82,7 +100,7 @@ impl LoadItem {
         self
     }
 
-    fn unless(mut self, skip: bool, reason: &str) -> Self {
+    pub(super) fn unless(mut self, skip: bool, reason: &str) -> Self {
         if skip {
             self.loaded = false;
             self.reason = reason.into();
@@ -163,6 +181,8 @@ pub struct WhatLoads {
     /// The cached `context measure` as-is run, only when the caller asked for it (`--measured`).
     pub measured: Option<MeasureRun>,
     pub measured_info: Option<MeasuredInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verified: Option<super::verify::Verified>,
     pub partial: bool,
     pub notes: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -874,7 +894,7 @@ pub fn what_loads_with(
     }
     let effective = settings(&mut ctx);
     memory(&mut ctx, &effective);
-    extra::memory_index(&mut ctx);
+    extra::memory_index(&mut ctx, &effective);
     rules(&mut ctx);
     mcp(&mut ctx, &config.dedupe.legacy_names);
     skills(&mut ctx);
@@ -927,6 +947,7 @@ pub fn what_loads_with(
         skill_budget: budget,
         measured: None,
         measured_info: None,
+        verified: None,
         partial: ctx.partial,
         notes: ctx.notes,
         compact: spec.and_then(|s| super::compact::info(roots, s)),

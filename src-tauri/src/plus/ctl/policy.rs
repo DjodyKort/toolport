@@ -9,7 +9,7 @@
 
 use super::flags::{switch, value, Flag, Spec};
 use super::{agents, auth, cc, client, client_direct, client_edit, compression, compression_cfg};
-use super::{context, context_bundle, context_manage, council, folders, import, mcp, obs, profile, secret};
+use super::{context, context_bundle, context_leave, context_manage, council, folders, import, mcp, obs, profile, secret};
 use super::task;
 use super::attention;
 use super::catalog;
@@ -448,6 +448,11 @@ pub(super) const ROWS: &[Row] = &[
         .dry()
         .spec(&[&context_bundle::RM])
         .args(&[req("name")]),
+    row("context leave-out", W)
+        .dry()
+        .spec(&[&context_leave::LEAVE_OUT])
+        .args(&[req("action"), opt("path")])
+        .requires(&["--cwd"]),
     row("context bundle apply", W)
         .dry()
         .spec(&[&context_bundle::APPLY])
@@ -834,6 +839,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("context_bundle_status", R, "context bundle status"),
     maps("context_bundle_apply", W, "context bundle apply").param(),
     maps("context_bundle_undo", W, "context bundle undo").param(),
+    maps("context_leave_out", W, "context leave-out").on(),
     maps("tasks_list", R, "task ls"),
     maps("tasks_get", R, "task show"),
     maps("tasks_history", R, "task history"),

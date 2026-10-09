@@ -15,6 +15,7 @@ use super::config::ContextConfig;
 use super::globs::glob_match;
 use super::loads::{what_loads_with, LoadsOptions};
 use super::loads_extra::git_root;
+use super::verify::{self, Logged};
 use super::roots::Roots;
 use crate::plus::exec::{is_not_found, run_command, CmdOutput};
 use crate::plus::hashing::sha256_hex;
@@ -121,6 +122,8 @@ pub struct MeasuredInfo {
     pub stale: bool,
     #[serde(skip)]
     pub context_window: u64,
+    #[serde(skip)]
+    pub instructions: Option<Vec<Logged>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -135,6 +138,8 @@ struct Entry {
     settings_stamp: String,
     slash_command_names: Vec<String>,
     run: MeasureRun,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    instructions: Option<Vec<Logged>>,
 }
 
 #[derive(Debug)]
@@ -704,6 +709,30 @@ impl Drop for TempSettings {
     }
 }
 
+struct TempLog(PathBuf);
+
+impl TempLog {
+    fn new() -> Self {
+        Self(std::env::temp_dir().join(format!(
+            "toolport-instructions-{}-{}.log",
+            std::process::id(),
+            TEMP_SEQ.fetch_add(1, Ordering::Relaxed)
+        )))
+    }
+
+    fn events(&self) -> Option<Vec<Logged>> {
+        let text = std::fs::read_to_string(&self.0).ok()?;
+        let events = verify::parse_log(&text);
+        (!events.is_empty()).then_some(events)
+    }
+}
+
+impl Drop for TempLog {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
 struct Slot {
     variant: Variant,
     found: Option<Entry>,
@@ -718,7 +747,9 @@ fn run_variant(
     variant: &Variant,
     settings: Option<&Value>,
 ) -> Result<Entry, MeasureError> {
-    let temp = settings.map(TempSettings::write).transpose()?;
+    let log = (variant.key == AS_IS).then(TempLog::new);
+    let hook = log.as_ref().map(|l| verify::hook_settings(&l.0));
+    let temp = settings.or(hook.as_ref()).map(TempSettings::write).transpose()?;
     let started = Instant::now();
     let out = env
         .launcher
@@ -743,6 +774,7 @@ fn run_variant(
         settings_stamp: stamp.to_string(),
         slash_command_names: parsed.slash_commands,
         run: parsed.run,
+        instructions: log.as_ref().and_then(TempLog::events),
     })
 }
 
@@ -932,6 +964,7 @@ pub fn cached_as_is(
         model: newest.model,
         measured_at: newest.measured_at,
         stale,
+        instructions: newest.instructions,
     };
     Some((newest.run, info))
 }

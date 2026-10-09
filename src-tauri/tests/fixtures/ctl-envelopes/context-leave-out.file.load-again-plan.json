@@ -1,0 +1,47 @@
+{
+  "argv": [
+    "context",
+    "leave-out",
+    "rm",
+    "{home}/work/erp/CLAUDE.md",
+    "--cwd",
+    "{home}/work/erp/clients/acme-erp",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "context leave-out",
+    "data": {
+      "cwd": "<WORLD>/home/work/erp/clients/acme-erp",
+      "dryRun": true,
+      "id": "leave-out",
+      "leftOut": [],
+      "memoryOff": false,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "put back 1 key(s) owned by leave-out",
+            "keys": ["claudeMdExcludes"],
+            "op": "delete",
+            "path": "<WORLD>/home/work/erp/clients/acme-erp/.claude/settings.local.json"
+          },
+          {
+            "detail": "drop the record of leave-out in this folder",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          }
+        ],
+        "summary": "Load <WORLD>/home/work/erp/CLAUDE.md again in <WORLD>/home/work/erp/clients/acme-erp",
+        "undo": "toolportctl context leave-out add <WORLD>/home/work/erp/CLAUDE.md --cwd <WORLD>/home/work/erp/clients/acme-erp",
+        "warnings": [
+          "Open sessions keep what they loaded; the change applies from the next session"
+        ]
+      },
+      "result": null,
+      "scope": "folder"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -13,8 +13,11 @@ mod content;
 mod context;
 mod context_bundle;
 mod context_compose;
+mod context_leave_out;
 #[cfg(all(test, unix))]
 mod context_bundle_tests;
+#[cfg(all(test, unix))]
+mod context_leave_out_tests;
 #[cfg(all(test, unix))]
 mod library_tests;
 #[cfg(all(test, unix))]

@@ -586,6 +586,24 @@ pub const MORE: &[Case] = &[
         ],
     ),
     prepared(
+        "context leave-out",
+        loads_home,
+        &[
+            read("file.plan", &["context", "leave-out", "add", "{home}/work/erp/CLAUDE.md", "--cwd", "{home}/work/erp/clients/acme-erp", "--dry-run"]),
+            apply("file.apply", &["context", "leave-out", "add", "{home}/work/erp/CLAUDE.md", "--cwd", "{home}/work/erp/clients/acme-erp"]),
+            read("file.load-again-plan", &["context", "leave-out", "rm", "{home}/work/erp/CLAUDE.md", "--cwd", "{home}/work/erp/clients/acme-erp", "--dry-run"]),
+            apply("file.load-again", &["context", "leave-out", "rm", "{home}/work/erp/CLAUDE.md", "--cwd", "{home}/work/erp/clients/acme-erp"]),
+            read("memory.plan", &["context", "leave-out", "add", "--memory", "--cwd", "{home}/work/erp/clients/acme-erp", "--dry-run"]),
+            apply("memory.apply", &["context", "leave-out", "add", "--memory", "--cwd", "{home}/work/erp/clients/acme-erp"]),
+            apply("memory.back", &["context", "leave-out", "rm", "--memory", "--cwd", "{home}/work/erp/clients/acme-erp"]),
+            read("not-an-instruction-file", &["context", "leave-out", "add", "{home}/work/erp/README.md", "--cwd", "{home}/work/erp/clients/acme-erp", "--dry-run"]).exit(1),
+            usage("no-cwd", &["context", "leave-out", "add", "{home}/work/erp/CLAUDE.md"]),
+            usage("relative-path", &["context", "leave-out", "add", "CLAUDE.md", "--cwd", "{home}/work/erp/clients/acme-erp"]),
+            usage("bad-action", &["context", "leave-out", "block", "{home}/work/erp/CLAUDE.md", "--cwd", "{home}/work/erp/clients/acme-erp"]),
+            usage("usage", &["context", "leave-out"]),
+        ],
+    ),
+    prepared(
         "context measure",
         measure_home,
         &[

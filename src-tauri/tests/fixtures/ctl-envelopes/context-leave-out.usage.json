@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "leave-out"],
+  "envelope": {
+    "command": "context leave-out",
+    "error": {
+      "code": "usage",
+      "message": "usage: context leave-out add|rm <path> --cwd <dir> [--dry-run] | add|rm --memory --cwd <dir> [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

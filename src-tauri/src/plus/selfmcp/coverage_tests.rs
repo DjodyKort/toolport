@@ -5,6 +5,7 @@ const SOURCES: &[(&str, &str)] = &[
     ("apply_update_tests.rs", include_str!("apply_update_tests.rs")),
     ("compression_tests.rs", include_str!("compression_tests.rs")),
     ("context_bundle_tests.rs", include_str!("context_bundle_tests.rs")),
+    ("context_leave_out_tests.rs", include_str!("context_leave_out_tests.rs")),
     ("context_tests.rs", include_str!("context_tests.rs")),
     ("direct_tests.rs", include_str!("direct_tests.rs")),
     ("plugins_tests.rs", include_str!("plugins_tests.rs")),
@@ -34,6 +35,8 @@ const DIRECT_APPLY: &str = "add_ls_and_rm_apply_only_with_dry_run_false";
 
 const PLUGIN_CONTROLS: &str =
     "plugin_control_tools_preview_by_default_and_write_only_inside_the_folder";
+const LEAVE_OUT_FLOW: &str =
+    "leave_out_tool_previews_by_default_and_writes_only_inside_the_folder";
 const BUNDLE_FLOW: &str = "bundle_tools_follow_their_tiers_and_apply_and_undo_only_inside_the_folder";
 
 const TASKS_FLOW: &str = "task_tools_follow_their_tiers_and_a_run_without_an_approval_starts_nothing";
@@ -50,6 +53,7 @@ const SIDE_EFFECT_TESTS: &[(&str, &str, &str)] = &[
     ("context_bundle_undo", "context_bundle_tests.rs", BUNDLE_FLOW),
     ("plugins_config", "plugins_tests.rs", PLUGIN_CONTROLS),
     ("plugins_mcp", "plugins_tests.rs", PLUGIN_CONTROLS),
+    ("context_leave_out", "context_leave_out_tests.rs", LEAVE_OUT_FLOW),
     (
         "context_measure",
         "context_tests.rs",

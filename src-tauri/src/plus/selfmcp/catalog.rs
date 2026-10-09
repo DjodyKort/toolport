@@ -1,4 +1,4 @@
-use super::{attention, backend, compression, content, context, context_bundle, context_compose, direct, library, plugins, registry_index, servers, skills, sources, state, tasks, ToolError};
+use super::{attention, backend, compression, content, context, context_bundle, context_compose, context_leave_out, direct, library, plugins, registry_index, servers, skills, sources, state, tasks, ToolError};
 use serde_json::{json, Map, Value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -308,6 +308,20 @@ pub const TOOLS: &[ToolDef] = &[
             DRY_ON
         ],
         plugins::mcp
+    ),
+    tool!(
+        "context_leave_out",
+        2,
+        None,
+        "Leave one CLAUDE.md or rule file out of a folder's stack, or turn auto memory off there: add writes the file's absolute path into claudeMdExcludes (or autoMemoryEnabled: false) in the folder's git-ignored .claude/settings.local.json, rm puts it back. Ledgered like the plugin controls, so undo removes only what Toolport wrote; the file itself is never changed and a managed policy CLAUDE.md cannot be left out. dry_run is on by default: the call previews and writes only with dry_run=false",
+        [
+            p("action", Ty::Str, true, "add (leave out) or rm (load again)"),
+            p("path", Ty::Str, false, "Absolute path, or ~/..., of the instruction file; leave empty when memory is true"),
+            p("memory", Ty::Bool, false, "Act on auto memory instead of a file"),
+            p("cwd", Ty::Str, true, "Folder where Claude Code starts; nothing is written above it"),
+            DRY_ON
+        ],
+        context_leave_out::run
     ),
     tool!(
         "hooks_ls",

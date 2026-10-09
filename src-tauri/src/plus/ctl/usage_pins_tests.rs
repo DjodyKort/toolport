@@ -1026,6 +1026,10 @@ const CASES: &[&[&str]] = &[
     &["task", "rm"],
     &["task", "history", "a", "b"],
     &["task", "history", "--limit", "many"],
+    &["context", "leave-out"],
+    &["--json", "context", "leave-out"],
+    &["context", "leave-out", "add"],
+    &["--json", "context", "leave-out", "add", "x", "--memory"],
 ];
 
 fn sample_registry() -> Value {

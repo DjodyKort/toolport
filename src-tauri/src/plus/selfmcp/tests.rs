@@ -28,6 +28,7 @@ const EXPECTED_TOOLS: &[&str] = &[
     "plugins_show",
     "plugins_config",
     "plugins_mcp",
+    "context_leave_out",
     "hooks_ls",
     "skills_get",
     "skills_lint",
@@ -230,9 +231,9 @@ fn err_kind(result: Result<Value, ToolError>) -> &'static str {
 }
 
 #[test]
-fn registry_has_all_105_tools_and_11_resources() {
+fn registry_has_all_106_tools_and_11_resources() {
     let names: Vec<&str> = TOOLS.iter().map(|t| t.name).collect();
-    assert_eq!(names.len(), 105);
+    assert_eq!(names.len(), 106);
     assert_eq!(
         names.iter().copied().collect::<BTreeSet<_>>(),
         EXPECTED_TOOLS.iter().copied().collect::<BTreeSet<_>>()
@@ -259,7 +260,7 @@ fn module_counts_match_the_parity_matrix() {
     assert_eq!(count("library_"), 2);
     assert_eq!(count("attention_"), 1);
     assert_eq!(count("catalog_"), 2);
-    assert_eq!(count("context_"), 6);
+    assert_eq!(count("context_"), 7);
     assert_eq!(count("plugins_"), 4);
     assert_eq!(count("hooks_"), 1);
     assert_eq!(count("tasks_"), 5);
@@ -453,6 +454,7 @@ const DEFAULT_DRY_RUN_TOOLS: &[&str] = &[
     "client_direct_rm",
     "plugins_config",
     "plugins_mcp",
+    "context_leave_out",
 ];
 
 #[test]
@@ -681,7 +683,7 @@ fn json_rpc_surface_lists_calls_and_reads() {
         handle_message(&json!({"jsonrpc": "2.0", "method": "notifications/initialized"})).is_none()
     );
     let tools = call(json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}));
-    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 105);
+    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 106);
     let resources = call(json!({"jsonrpc": "2.0", "id": 3, "method": "resources/list"}));
     assert_eq!(
         resources["result"]["resources"].as_array().unwrap().len(),

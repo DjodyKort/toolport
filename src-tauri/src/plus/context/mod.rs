@@ -24,6 +24,7 @@ pub mod launch;
 pub mod layer_manage;
 pub mod layer_spec;
 pub mod layers;
+pub mod leave_out;
 pub mod loads;
 pub mod manage;
 pub mod measure;
@@ -32,6 +33,7 @@ pub mod roots;
 pub mod rules;
 pub mod settings;
 pub mod shims;
+pub mod verify;
 pub mod zshrc;
 
 // Crate-visible (not just `context`-private) so `plus::update::release` can
@@ -49,6 +51,8 @@ mod tests_bundle;
 mod tests_bundle_apply;
 #[cfg(test)]
 mod tests_bundle_use;
+#[cfg(test)]
+mod tests_leave_out;
 #[cfg(test)]
 mod tests_compact;
 #[cfg(test)]

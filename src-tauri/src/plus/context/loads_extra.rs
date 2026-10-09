@@ -5,6 +5,7 @@
 
 use super::globs::glob_match;
 use super::layers::is_managed_local;
+use super::leave_out::AUTO_MEMORY_OFF;
 use super::loads::{excluded, show, skill_dirs, text_tokens, Ctx, LoadItem, USER_DIR};
 use crate::plus::sources::budget::{Budget, DETECTOR_TIME, MAX_DEPTH};
 use crate::plus::sources::cache::Cache;
@@ -179,7 +180,7 @@ fn slug(path: &Path) -> String {
 
 /// The auto-memory index of the project: `MEMORY.md`, of which Claude Code loads the first 200
 /// lines or 25 KB.
-pub(super) fn memory_index(ctx: &mut Ctx) {
+pub(super) fn memory_index(ctx: &mut Ctx, settings: &Map<String, Value>) {
     let project = git_root(ctx.cwd).unwrap_or_else(|| ctx.cwd.to_path_buf());
     let mut keys = vec![project.clone(), fsx::canonical(&project), ctx.cwd.to_path_buf()];
     keys.dedup();
@@ -206,6 +207,7 @@ pub(super) fn memory_index(ctx: &mut Ctx) {
             lines += 1;
         }
         let origin = Origin::new("user", USER_DIR);
+        let off = settings.get("autoMemoryEnabled").and_then(Value::as_bool) == Some(false);
         ctx.push(
             LoadItem::new(
                 "memory-index",
@@ -217,7 +219,8 @@ pub(super) fn memory_index(ctx: &mut Ctx) {
                 ),
                 text_tokens(&kept),
             )
-            .from(origin, false),
+            .from(origin, false)
+            .unless(off, AUTO_MEMORY_OFF),
         );
         return;
     }

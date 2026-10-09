@@ -70,6 +70,7 @@ pub struct Desired {
     pub dirs: Vec<String>,
     pub env: Vec<(String, String)>,
     pub deny_servers: Vec<String>,
+    pub memory_off: bool,
     pub layers: Vec<(String, String)>,
     pub warnings: Vec<String>,
 }
@@ -361,6 +362,9 @@ pub(super) fn compute_settings(
     }
     for glob in &want.excludes {
         own_entry(&mut working, &mut rec, &["claudeMdExcludes"], glob, &mut warnings);
+    }
+    if want.memory_off {
+        own_set(&mut working, &mut rec, &["autoMemoryEnabled"], "false", &mut warnings);
     }
     for deny in &want.denies {
         own_entry(&mut working, &mut rec, &["permissions", "deny"], deny, &mut warnings);

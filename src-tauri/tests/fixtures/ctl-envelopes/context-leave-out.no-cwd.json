@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "leave-out", "add", "{home}/work/erp/CLAUDE.md"],
+  "envelope": {
+    "command": "context leave-out",
+    "error": {
+      "code": "usage",
+      "message": "--cwd is required: a file is left out per folder"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

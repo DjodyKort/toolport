@@ -540,6 +540,45 @@
           "tier": 2
         },
         {
+          "description": "Leave one CLAUDE.md or rule file out of a folder's stack, or turn auto memory off there: add writes the file's absolute path into claudeMdExcludes (or autoMemoryEnabled: false) in the folder's git-ignored .claude/settings.local.json, rm puts it back. Ledgered like the plugin controls, so undo removes only what Toolport wrote; the file itself is never changed and a managed policy CLAUDE.md cannot be left out. Previews by default; pass dry_run=false to write",
+          "dryRunDefault": true,
+          "gate": "none",
+          "name": "context_leave_out",
+          "params": [
+            {
+              "description": "add (leave out) or rm (load again)",
+              "name": "action",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Absolute path, or ~/..., of the instruction file; leave empty when memory is true",
+              "name": "path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Act on auto memory instead of a file",
+              "name": "memory",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Folder where Claude Code starts; nothing is written above it",
+              "name": "cwd",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
           "description": "List every hook Claude Code would start in a folder, read from settings, plugins and Toolport files; a hook is never run. Counts the processes per tool and flags PreToolUse hooks of different owners on the same tool",
           "dryRunDefault": false,
           "gate": "none",
