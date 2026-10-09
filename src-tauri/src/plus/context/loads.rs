@@ -435,7 +435,7 @@ fn has_paths(text: &str) -> bool {
     fm.contains_key(Yaml::String("paths".into())) || fm.contains_key(Yaml::String("globs".into()))
 }
 
-fn rules(ctx: &mut Ctx) {
+fn rules(ctx: &mut Ctx, effective_settings: &Map<String, Value>) {
     let layers = list_layers(ctx.roots);
     let mut seen: BTreeMap<String, String> = BTreeMap::new();
     let mut scopes: Vec<(&'static str, PathBuf)> =
@@ -484,6 +484,10 @@ fn rules(ctx: &mut Ctx) {
             .from(origin, writable);
             if scoped {
                 row = row.path_scoped();
+            }
+            if excluded(effective_settings, &path) {
+                row = row.unless(true, "excluded by claudeMdExcludes");
+                row.lazy = false;
             }
             ctx.push(row);
         }
@@ -895,7 +899,7 @@ pub fn what_loads_with(
     let effective = settings(&mut ctx);
     memory(&mut ctx, &effective);
     extra::memory_index(&mut ctx, &effective);
-    rules(&mut ctx);
+    rules(&mut ctx, &effective);
     mcp(&mut ctx, &config.dedupe.legacy_names);
     skills(&mut ctx);
     extra::commands_and_agents(&mut ctx);

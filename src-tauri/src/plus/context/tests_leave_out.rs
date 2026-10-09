@@ -195,3 +195,24 @@ fn a_path_written_with_a_symlinked_prefix_is_stored_as_claude_code_sees_it() {
         .unwrap();
     assert_eq!(again["leftOut"].as_array().unwrap().len(), 0);
 }
+
+#[test]
+fn a_rule_file_left_out_leaves_the_stack_like_a_claude_md() {
+    let fx = Fx::new();
+    fx.h.put(".claude/rules/personal.md", "keep the change small\n");
+    fx.h.put(".claude/rules/scoped.md", "---\npaths: [\"src/**\"]\n---\nonly for src\n");
+    let before = fx.stack();
+    assert!(row(&before, "rules/personal.md").loaded);
+
+    fx.run(Op::Add, fx.file(".claude/rules/personal.md"), false).unwrap();
+    fx.run(Op::Add, fx.file(".claude/rules/scoped.md"), false).unwrap();
+    let after = fx.stack();
+    let personal = row(&after, "rules/personal.md");
+    assert!(!personal.loaded);
+    assert_eq!(personal.left_out_by, Some("toolport"));
+    assert_eq!(personal.reason, "excluded by claudeMdExcludes");
+    let scoped = row(&after, "rules/scoped.md");
+    assert!(!scoped.loaded && !scoped.lazy, "an excluded path-scoped rule never loads");
+    assert!(after.total_tokens < before.total_tokens);
+}
+
