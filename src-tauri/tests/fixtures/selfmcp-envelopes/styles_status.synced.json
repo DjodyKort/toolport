@@ -74,9 +74,7 @@
       {
         "client": "claude-code",
         "name": "Claude Code",
-        "styles": [
-          "plain"
-        ]
+        "styles": ["plain"]
       },
       {
         "client": "roomodes-style",

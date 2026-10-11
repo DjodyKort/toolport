@@ -1,9 +1,7 @@
 {
   "arguments": {
     "cwd": "<WORLD>/home/work/erp/clients/acme-erp",
-    "without": [
-      "plugin:kit@market"
-    ]
+    "without": ["plugin:kit@market"]
   },
   "isError": false,
   "result": {
@@ -28,10 +26,7 @@
     "notes": [],
     "runs": [
       {
-        "agentNames": [
-          "reviewer",
-          "kit:kit-agent"
-        ],
+        "agentNames": ["reviewer", "kit:kit-agent"],
         "agents": 2,
         "durationMs": 0,
         "label": "as is",
@@ -95,9 +90,7 @@
         "total": 68445
       },
       {
-        "agentNames": [
-          "reviewer"
-        ],
+        "agentNames": ["reviewer"],
         "agents": 1,
         "durationMs": 0,
         "label": "without plugin:kit@market",

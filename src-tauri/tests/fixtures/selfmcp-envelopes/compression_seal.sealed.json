@@ -12,9 +12,7 @@
     "port": 29214,
     "preset": "interactive",
     "sealed": 0,
-    "unset": [
-      "HEADROOM_PROTECT_RECENT"
-    ],
+    "unset": ["HEADROOM_PROTECT_RECENT"],
     "version": null
   },
   "tool": "compression_seal"

@@ -1,8 +1,6 @@
 {
   "arguments": {
-    "client_keys": [
-      "claude-code"
-    ],
+    "client_keys": ["claude-code"],
     "dry_run": false
   },
   "isError": true,

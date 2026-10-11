@@ -11,12 +11,8 @@
     "lockDir": "<WORLD>/data",
     "lockUpdated": true,
     "lockfilePresent": true,
-    "managed": [
-      "plain"
-    ],
-    "removed": [
-      "<WORLD>/home/.claude/output-styles/plain.md"
-    ],
+    "managed": ["plain"],
+    "removed": ["<WORLD>/home/.claude/output-styles/plain.md"],
     "scope": "global",
     "skipped": []
   },

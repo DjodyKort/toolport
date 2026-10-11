@@ -3,11 +3,7 @@
     "cwd": "<WORLD>/home/work/acme-erp",
     "dry_run": false,
     "id": "ecc@ecc",
-    "unset": [
-      "hook_profile",
-      "gateguard",
-      "gateguard_exempt_globs"
-    ]
+    "unset": ["hook_profile", "gateguard", "gateguard_exempt_globs"]
   },
   "isError": false,
   "result": {
@@ -42,9 +38,7 @@
       "steps": [
         {
           "detail": "put back 3 key(s) owned by config:ecc@ecc",
-          "keys": [
-            "env"
-          ],
+          "keys": ["env"],
           "op": "delete",
           "path": "<WORLD>/home/work/acme-erp/.claude/settings.local.json"
         },

@@ -13,11 +13,7 @@
     "dryRun": true,
     "entry": "alpha",
     "launcher": {
-      "args": [
-        "direct",
-        "run",
-        "srv-alpha"
-      ],
+      "args": ["direct", "run", "srv-alpha"],
       "command": "<BIN>/toolportctl",
       "env": {
         "TOOLPORT_DATA_DIR": "<WORLD>/data"

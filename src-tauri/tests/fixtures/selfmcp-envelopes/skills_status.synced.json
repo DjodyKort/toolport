@@ -1,17 +1,13 @@
 {
   "arguments": {
-    "client_keys": [
-      "claude-code"
-    ]
+    "client_keys": ["claude-code"]
   },
   "isError": false,
   "result": {
     "drift": false,
     "entries": [
       {
-        "clientsSynced": [
-          "claude-code"
-        ],
+        "clientsSynced": ["claude-code"],
         "currentHash": "sha256:97acfa6525aa502a",
         "drifted": false,
         "knownToLockfile": true,
@@ -34,9 +30,7 @@
     ],
     "rejected": [],
     "repo": "<WORLD>/skills-repo",
-    "targetedClients": [
-      "claude-code"
-    ],
+    "targetedClients": ["claude-code"],
     "warnings": []
   },
   "tool": "skills_status"

@@ -8,12 +8,8 @@
   "result": {
     "bundle": "<WORLD>/skills-repo/skills-repo-bundle.zip",
     "dryRun": false,
-    "files": [
-      "skills/demo/SKILL.md"
-    ],
-    "names": [
-      "demo"
-    ],
+    "files": ["skills/demo/SKILL.md"],
+    "names": ["demo"],
     "overwritten": [],
     "skipped": [],
     "target": "<WORLD>/skills-repo"

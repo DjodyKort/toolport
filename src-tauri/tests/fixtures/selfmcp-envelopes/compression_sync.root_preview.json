@@ -4,9 +4,7 @@
   },
   "isError": false,
   "result": {
-    "actions": [
-      "would save config (provider=none)"
-    ],
+    "actions": ["would save config (provider=none)"],
     "adopted": null,
     "dryRun": true,
     "mcpmRoot": "<WORLD>/home",

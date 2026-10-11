@@ -5,9 +5,7 @@
     "activeProfile": "default",
     "profiles": [
       {
-        "enabledServerIds": [
-          "srv-alpha"
-        ],
+        "enabledServerIds": ["srv-alpha"],
         "id": "default",
         "name": "Default"
       }

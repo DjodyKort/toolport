@@ -5,9 +5,7 @@
   "isError": false,
   "result": {
     "branches": {
-      "origin": [
-        "main"
-      ],
+      "origin": ["main"],
       "upstream": []
     },
     "detected": {
@@ -21,10 +19,7 @@
       }
     },
     "name": "forked",
-    "remotes": [
-      "origin",
-      "upstream"
-    ],
+    "remotes": ["origin", "upstream"],
     "stored": true
   },
   "tool": "servers_detect_source"

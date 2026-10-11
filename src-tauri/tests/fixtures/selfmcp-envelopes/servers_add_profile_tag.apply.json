@@ -6,9 +6,7 @@
   "isError": false,
   "result": {
     "name": "beta",
-    "profileTags": [
-      "Default"
-    ]
+    "profileTags": ["Default"]
   },
   "tool": "servers_add_profile_tag"
 }

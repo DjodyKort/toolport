@@ -23,9 +23,7 @@
     },
     "provider": "headroom",
     "runtime": "proxy",
-    "scope": [
-      "default"
-    ],
+    "scope": ["default"],
     "shims": {
       "exists": true,
       "path": "<WORLD>/data/compression-shims.zsh"

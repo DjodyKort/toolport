@@ -5,9 +5,7 @@
     "clean": false,
     "discoveryWarnings": [],
     "modified": [],
-    "new": [
-      "plain"
-    ],
+    "new": ["plain"],
     "noLockfile": true,
     "removed": [],
     "repo": "<WORLD>/skills-repo",

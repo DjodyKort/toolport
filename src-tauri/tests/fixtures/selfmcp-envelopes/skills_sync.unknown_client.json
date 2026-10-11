@@ -1,8 +1,6 @@
 {
   "arguments": {
-    "client_keys": [
-      "no-such-client"
-    ],
+    "client_keys": ["no-such-client"],
     "confirm": true,
     "dry_run": false
   },
@@ -30,9 +28,7 @@
     "ruleCount": 0,
     "skillCount": 1,
     "syncedAt": "<TIME>",
-    "targetedClients": [
-      "no-such-client"
-    ]
+    "targetedClients": ["no-such-client"]
   },
   "tool": "skills_sync"
 }

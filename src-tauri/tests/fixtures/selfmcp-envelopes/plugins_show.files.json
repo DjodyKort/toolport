@@ -16,20 +16,10 @@
       "skills": 3
     },
     "components": {
-      "agents": [
-        "code-reviewer",
-        "planner"
-      ],
-      "commands": [
-        "plan",
-        "review"
-      ],
+      "agents": ["code-reviewer", "planner"],
+      "commands": ["plan", "review"],
       "lspServers": [],
-      "skills": [
-        "arch-review",
-        "debug-loop",
-        "release-notes"
-      ]
+      "skills": ["arch-review", "debug-loop", "release-notes"]
     },
     "cost": {
       "measured": {
@@ -65,12 +55,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 10,
-        "tools": [
-          "Bash",
-          "Edit",
-          "Write",
-          "Read"
-        ],
+        "tools": ["Bash", "Edit", "Write", "Read"],
         "type": "command"
       },
       {
@@ -91,12 +76,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 30,
-        "tools": [
-          "Bash",
-          "Edit",
-          "Write",
-          "Read"
-        ],
+        "tools": ["Bash", "Edit", "Write", "Read"],
         "type": "command"
       },
       {
@@ -180,9 +160,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 30,
-        "tools": [
-          "Bash"
-        ],
+        "tools": ["Bash"],
         "type": "command"
       },
       {
@@ -203,9 +181,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 30,
-        "tools": [
-          "Write"
-        ],
+        "tools": ["Write"],
         "type": "command"
       },
       {
@@ -226,10 +202,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 30,
-        "tools": [
-          "Edit",
-          "Write"
-        ],
+        "tools": ["Edit", "Write"],
         "type": "command"
       },
       {
@@ -250,12 +223,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 10,
-        "tools": [
-          "Bash",
-          "Edit",
-          "Write",
-          "Read"
-        ],
+        "tools": ["Bash", "Edit", "Write", "Read"],
         "type": "command"
       },
       {
@@ -276,11 +244,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 30,
-        "tools": [
-          "Bash",
-          "Edit",
-          "Write"
-        ],
+        "tools": ["Bash", "Edit", "Write"],
         "type": "command"
       },
       {
@@ -301,10 +265,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 30,
-        "tools": [
-          "Edit",
-          "Write"
-        ],
+        "tools": ["Edit", "Write"],
         "type": "command"
       },
       {
@@ -325,12 +286,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 30,
-        "tools": [
-          "Bash",
-          "Edit",
-          "Write",
-          "Read"
-        ],
+        "tools": ["Bash", "Edit", "Write", "Read"],
         "type": "command"
       },
       {
@@ -351,10 +307,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 30,
-        "tools": [
-          "Edit",
-          "Write"
-        ],
+        "tools": ["Edit", "Write"],
         "type": "command"
       },
       {
@@ -572,11 +525,7 @@
     "installPath": "<WORLD>/home/.claude/plugins/cache/ecc/ecc/2.2.0",
     "knobs": [
       {
-        "choices": [
-          "minimal",
-          "standard",
-          "strict"
-        ],
+        "choices": ["minimal", "standard", "strict"],
         "current": {
           "from": "option",
           "value": "strict"
@@ -656,11 +605,7 @@
     ],
     "mcpServers": [
       {
-        "command": [
-          "npx",
-          "-y",
-          "chrome-devtools-mcp@latest"
-        ],
+        "command": ["npx", "-y", "chrome-devtools-mcp@latest"],
         "denied": {
           "local": false,
           "managed": false,
@@ -673,10 +618,7 @@
         "url": null
       },
       {
-        "command": [
-          "node",
-          "${CLAUDE_PLUGIN_ROOT}/scripts/mcp/memory.js"
-        ],
+        "command": ["node", "${CLAUDE_PLUGIN_ROOT}/scripts/mcp/memory.js"],
         "denied": {
           "local": false,
           "managed": false,
@@ -714,10 +656,7 @@
         "type": "string"
       },
       {
-        "choices": [
-          "true",
-          "false"
-        ],
+        "choices": ["true", "false"],
         "configured": true,
         "current": "true",
         "default": true,

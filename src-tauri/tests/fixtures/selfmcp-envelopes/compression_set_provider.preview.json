@@ -25,10 +25,7 @@
       "preset 'agent': headroom is not on PATH: cannot snapshot profile env. Install the pinned build: toolportctl compression pin --install",
       "preset 'balanced': headroom is not on PATH: cannot snapshot profile env. Install the pinned build: toolportctl compression pin --install"
     ],
-    "written": [
-      "<WORLD>/data/compression-env.sh",
-      "<WORLD>/data/compression-shims.zsh"
-    ]
+    "written": ["<WORLD>/data/compression-env.sh", "<WORLD>/data/compression-shims.zsh"]
   },
   "tool": "compression_set_provider"
 }

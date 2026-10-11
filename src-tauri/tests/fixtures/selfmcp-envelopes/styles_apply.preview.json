@@ -1,8 +1,6 @@
 {
   "arguments": {
-    "client_keys": [
-      "aider"
-    ],
+    "client_keys": ["aider"],
     "name": "plain"
   },
   "isError": false,

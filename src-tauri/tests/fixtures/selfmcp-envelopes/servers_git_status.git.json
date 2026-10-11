@@ -12,9 +12,7 @@
     "name": "forked",
     "path": "<WORLD>/fork-work",
     "remoteRef": "origin/main",
-    "summaries": [
-      "6a4a877 upstream change"
-    ]
+    "summaries": ["6a4a877 upstream change"]
   },
   "tool": "servers_git_status"
 }

@@ -11,9 +11,7 @@
     "lockUpdated": true,
     "name": "helper",
     "outputRoot": "<WORLD>/home",
-    "outputs": [
-      "<WORLD>/home/.claude/agents/helper.md"
-    ],
+    "outputs": ["<WORLD>/home/.claude/agents/helper.md"],
     "repo": "<WORLD>/skills-repo",
     "scope": "global",
     "sourcePath": "<WORLD>/skills-repo/agents/helper"

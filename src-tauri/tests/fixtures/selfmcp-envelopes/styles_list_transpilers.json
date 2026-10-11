@@ -2,10 +2,7 @@
   "arguments": {},
   "isError": false,
   "result": {
-    "tier1": [
-      "claude-code",
-      "roomodes-style"
-    ],
+    "tier1": ["claude-code", "roomodes-style"],
     "tier2": [
       "aider",
       "amazon-q",

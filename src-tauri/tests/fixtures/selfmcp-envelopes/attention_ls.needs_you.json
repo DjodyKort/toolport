@@ -12,12 +12,7 @@
     "items": [
       {
         "action": {
-          "command": [
-            "toolportctl",
-            "task",
-            "resume",
-            "run-fixture-waiting"
-          ],
+          "command": ["toolportctl", "task", "resume", "run-fixture-waiting"],
           "label": "Continue"
         },
         "detail": "It stopped at a step that only you can do. Continue it when you are ready.",

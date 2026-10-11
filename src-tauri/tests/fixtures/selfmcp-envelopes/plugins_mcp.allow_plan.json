@@ -17,9 +17,7 @@
       "steps": [
         {
           "detail": "put back 1 key(s) owned by mcp:ecc@ecc:chrome-devtools",
-          "keys": [
-            "deniedMcpServers"
-          ],
+          "keys": ["deniedMcpServers"],
           "op": "delete",
           "path": "<WORLD>/home/work/acme-erp/.claude/settings.local.json"
         },

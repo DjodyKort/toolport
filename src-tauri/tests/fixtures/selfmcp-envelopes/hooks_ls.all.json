@@ -17,9 +17,7 @@
           "ecc@ecc: run-with-flags.js pre:mcp-health-check"
         ],
         "note": "strictest answer wins (deny, then defer, then ask, then allow)",
-        "tools": [
-          "Bash"
-        ]
+        "tools": ["Bash"]
       },
       {
         "event": "PreToolUse",
@@ -34,9 +32,7 @@
           "ecc@ecc: run-with-flags.js pre:edit-write:gateguard-fact-force"
         ],
         "note": "strictest answer wins (deny, then defer, then ask, then allow)",
-        "tools": [
-          "Edit"
-        ]
+        "tools": ["Edit"]
       },
       {
         "event": "PreToolUse",
@@ -52,9 +48,7 @@
           "ecc@ecc: run-with-flags.js pre:edit-write:gateguard-fact-force"
         ],
         "note": "strictest answer wins (deny, then defer, then ask, then allow)",
-        "tools": [
-          "Write"
-        ]
+        "tools": ["Write"]
       },
       {
         "event": "PreToolUse",
@@ -65,9 +59,7 @@
           "ecc@ecc: run-with-flags.js pre:mcp-health-check"
         ],
         "note": "strictest answer wins (deny, then defer, then ask, then allow)",
-        "tools": [
-          "Read"
-        ]
+        "tools": ["Read"]
       }
     ],
     "counts": {
@@ -217,12 +209,7 @@
           "method": "edit-settings"
         },
         "timeoutSec": 5,
-        "tools": [
-          "Bash",
-          "Edit",
-          "Write",
-          "Read"
-        ],
+        "tools": ["Bash", "Edit", "Write", "Read"],
         "type": "command"
       },
       {
@@ -243,12 +230,7 @@
           "method": "edit-settings"
         },
         "timeoutSec": 5,
-        "tools": [
-          "Bash",
-          "Edit",
-          "Write",
-          "Read"
-        ],
+        "tools": ["Bash", "Edit", "Write", "Read"],
         "type": "command"
       },
       {
@@ -332,12 +314,7 @@
           "method": "edit-settings"
         },
         "timeoutSec": 5,
-        "tools": [
-          "Bash",
-          "Edit",
-          "Write",
-          "Read"
-        ],
+        "tools": ["Bash", "Edit", "Write", "Read"],
         "type": "command"
       },
       {
@@ -358,12 +335,7 @@
           "method": "edit-settings"
         },
         "timeoutSec": 5,
-        "tools": [
-          "Bash",
-          "Edit",
-          "Write",
-          "Read"
-        ],
+        "tools": ["Bash", "Edit", "Write", "Read"],
         "type": "command"
       },
       {
@@ -384,9 +356,7 @@
           "method": "edit-settings"
         },
         "timeoutSec": 10,
-        "tools": [
-          "Bash"
-        ],
+        "tools": ["Bash"],
         "type": "command"
       },
       {
@@ -407,9 +377,7 @@
           "method": "edit-settings"
         },
         "timeoutSec": 10,
-        "tools": [
-          "Bash"
-        ],
+        "tools": ["Bash"],
         "type": "command"
       },
       {
@@ -430,9 +398,7 @@
           "method": "edit-settings"
         },
         "timeoutSec": 5,
-        "tools": [
-          "Read"
-        ],
+        "tools": ["Read"],
         "type": "command"
       },
       {
@@ -453,10 +419,7 @@
           "method": "edit-settings"
         },
         "timeoutSec": 10,
-        "tools": [
-          "Edit",
-          "Write"
-        ],
+        "tools": ["Edit", "Write"],
         "type": "command"
       },
       {
@@ -750,12 +713,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 10,
-        "tools": [
-          "Bash",
-          "Edit",
-          "Write",
-          "Read"
-        ],
+        "tools": ["Bash", "Edit", "Write", "Read"],
         "type": "command"
       },
       {
@@ -776,12 +734,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 30,
-        "tools": [
-          "Bash",
-          "Edit",
-          "Write",
-          "Read"
-        ],
+        "tools": ["Bash", "Edit", "Write", "Read"],
         "type": "command"
       },
       {
@@ -865,9 +818,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 30,
-        "tools": [
-          "Bash"
-        ],
+        "tools": ["Bash"],
         "type": "command"
       },
       {
@@ -888,9 +839,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 30,
-        "tools": [
-          "Write"
-        ],
+        "tools": ["Write"],
         "type": "command"
       },
       {
@@ -911,10 +860,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 30,
-        "tools": [
-          "Edit",
-          "Write"
-        ],
+        "tools": ["Edit", "Write"],
         "type": "command"
       },
       {
@@ -935,12 +881,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 10,
-        "tools": [
-          "Bash",
-          "Edit",
-          "Write",
-          "Read"
-        ],
+        "tools": ["Bash", "Edit", "Write", "Read"],
         "type": "command"
       },
       {
@@ -961,11 +902,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 30,
-        "tools": [
-          "Bash",
-          "Edit",
-          "Write"
-        ],
+        "tools": ["Bash", "Edit", "Write"],
         "type": "command"
       },
       {
@@ -986,10 +923,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 30,
-        "tools": [
-          "Edit",
-          "Write"
-        ],
+        "tools": ["Edit", "Write"],
         "type": "command"
       },
       {
@@ -1010,12 +944,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 30,
-        "tools": [
-          "Bash",
-          "Edit",
-          "Write",
-          "Read"
-        ],
+        "tools": ["Bash", "Edit", "Write", "Read"],
         "type": "command"
       },
       {
@@ -1036,10 +965,7 @@
           "method": "disable-plugin"
         },
         "timeoutSec": 30,
-        "tools": [
-          "Edit",
-          "Write"
-        ],
+        "tools": ["Edit", "Write"],
         "type": "command"
       },
       {
