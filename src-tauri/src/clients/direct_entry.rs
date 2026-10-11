@@ -261,6 +261,7 @@ pub fn set_direct_entry(
     match (&def.format, json_layout(&def.format)) {
         (_, Some(layout)) => edit_json(&path, &layout, name, entry)?,
         (Format::JsonOpenCodeMcp, None) => edit_opencode(&path, name, entry)?,
+        (Format::JsonZCodeMcp, None) => super::zcode::edit_entry(&path, name, entry)?,
         (Format::TomlMcpServers, None) => edit_toml(&path, name, entry)?,
         (Format::YamlExtensions, None) => {
             edit_yaml_map(&path, "extensions", name, entry, entry_to_goose_yaml)?

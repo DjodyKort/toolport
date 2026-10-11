@@ -403,6 +403,28 @@ pub(super) fn edit_gateway(path: &Path, entry: Option<&ServerEntry>) -> Result<(
     write_map(path, root, original.as_deref(), servers)
 }
 
+/// Add, replace or remove the one entry `name` in `mcp.servers`, leaving every other
+/// server, the gateway included, as it is.
+pub(super) fn edit_entry(path: &Path, name: &str, entry: Option<&ServerEntry>) -> Result<(), String> {
+    if entry.is_some() {
+        refuse_fallback(path)?;
+    }
+    let (root, original) = read_root(path)?;
+    let mut servers = server_map(&root)?;
+    inventory(&servers)?;
+    match entry {
+        Some(entry) => {
+            servers.insert(name.to_string(), entry_value(entry)?);
+        }
+        None => {
+            if servers.remove(name).is_none() {
+                return Ok(());
+            }
+        }
+    }
+    write_map(path, root, original.as_deref(), servers)
+}
+
 pub(super) fn write_servers(path: &Path, entries: &[ServerEntry]) -> Result<(), String> {
     refuse_fallback(path)?;
     let (root, original) = read_root(path)?;
