@@ -42,6 +42,9 @@ case "$MOCK_MODE" in
   bound_url)
     echo "Open https://auth.example.invalid/consent?token=$2" >&2
     sleep 30 ;;
+  client_id)
+    echo "Open https://auth.example.invalid/consent?client_id=$MOCK_CLIENT_ID&key=$MOCK_SECRET&state=abc123" >&2
+    sleep 30 ;;
   crash)
     exit 3 ;;
   silent)

@@ -38,6 +38,9 @@ Entries before the rename below shipped under the project's former name, Conduit
   entry alone. Missing, stale and orphan entries still warn.
 - The sources scan gets 12 s per detector and 40 s in all (was 2 s and 10 s), so a large tree of
   client repos no longer ends in "The scan stopped early" with the vendored and inert sources missing.
+- Signing in to a server that runs its own Google sign-in (google-docs-mcp) opens a working
+  page again. The client id from the vault was hidden in the sign-in address as well, so Google
+  answered "The OAuth client was not found".
 - Signing in to Miro no longer fails at the last step with "invalid_client: Missing client_id". A
   server that accepts the client secret in the form body now gets it there, client id included.
 - A login whose access token is short-lived but comes with a refresh token (Miro, for one) is no

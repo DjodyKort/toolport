@@ -293,6 +293,30 @@ mod launch {
     }
 
     #[test]
+    fn a_client_id_from_the_vault_stays_in_the_consent_url_while_other_secrets_are_hidden() {
+        with_world("client-id", |world| {
+            let mut value = mock(world, "acme", "client_id");
+            let env = value["env"].as_array_mut().unwrap();
+            env.push(env_var("MOCK_CLIENT_ID", "", true));
+            env.push(env_var("MOCK_SECRET", "", true));
+            crate::secrets::set_secret("acme", "MOCK_CLIENT_ID", "FAKE-client-77.example").unwrap();
+            crate::secrets::set_secret("acme", "MOCK_SECRET", LEAKY).unwrap();
+            write_registry(vec![value.clone()], &[]);
+
+            let mut session = start(&server(value)).unwrap();
+            let capture = session.wait_url(Duration::from_secs(10));
+            session.kill();
+            assert_eq!(
+                capture.url.as_deref(),
+                Some(
+                    "https://auth.example.invalid/consent?client_id=FAKE-client-77.example\
+                     &key=<redacted>&state=abc123"
+                )
+            );
+        });
+    }
+
+    #[test]
     fn launch_secrets_never_reach_the_capture_or_the_status_cache() {
         with_world("leak", |world| {
             let mut value = mock(world, "acme", "leak");

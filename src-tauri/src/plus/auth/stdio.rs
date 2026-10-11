@@ -178,9 +178,23 @@ impl Session {
     }
 
     /// A consent URL is the one line that must come through, so only values the launcher bound
-    /// into the arguments are held back, not the whole message.
+    /// into the arguments are held back, not the whole message. The `client_id` parameter stays
+    /// even when it comes from the vault: OAuth makes it a public identifier, and the browser
+    /// cannot sign in without it.
     fn scrub_url(&self, url: String) -> Option<String> {
-        let url = redact_env_secrets(&self.server, &self.env, url);
+        let client_id = url::Url::parse(&url).ok().and_then(|parsed| {
+            parsed
+                .query_pairs()
+                .find(|(key, _)| key == "client_id")
+                .map(|(_, value)| value.into_owned())
+        });
+        let redactable: Vec<(String, String)> = self
+            .env
+            .iter()
+            .filter(|(_, value)| client_id.as_deref() != Some(value.as_str()))
+            .cloned()
+            .collect();
+        let url = redact_env_secrets(&self.server, &redactable, url);
         let bound = self
             .resolved
             .args
