@@ -11,56 +11,6 @@ Entries before the rename below shipped under the project's former name, Conduit
 - Command Code is a supported client. Toolport finds it, connects it through
   `~/.commandcode/mcp.json`, imports the servers already set up there, and keeps
   agent rules in `~/.commandcode/AGENTS.md` and project `AGENTS.md` files.
-
-## [1.24.0] - 2026-10-06
-
-### Added
-
-- Servers that fail to connect when Toolport starts keep retrying in the background,
-  from every 2 seconds up to every 5 minutes, and join your AI clients without a
-  restart. `toolport_status` shows which servers are retrying and which need you to
-  sign in. Servers that refuse your credentials wait for a new sign-in instead of
-  retrying. (#1003)
-- Disconnecting a client puts back the servers "Move into gateway" took out of its
-  config. (#1002)
-- ZCode is a supported client. (#990)
-- The Linux app has a "Check servers again" button. (#999)
-
-### Changed
-
-- Importing servers, or moving them into Toolport, turns them on, so your AI clients
-  get their tools right away. (#1002)
-- Shared setups no longer carry API keys in server URLs. Keys in the path, query and
-  userinfo are replaced with placeholders, and the import asks the recipient to fill
-  in their own. (#1001)
-- The Teams page shows the current plans: Free for 2 people, and Team at $19 a month
-  for up to 10. (#1009)
-- The Arch installer runs a full system upgrade (`pacman -Syu`) instead of a partial
-  one. (#997)
-
-### Fixed
-
-- The Linux app no longer relaunches every server while you search, refocus the
-  window or edit one server. Long names no longer widen the window, sidebar text is
-  readable on all themes, and an approval notification closes once the call is
-  decided, even after you click it. (#999)
-- An agent can no longer turn on a team server that is waiting for your review. (#1001)
-- Project rules are never written through a symbolic link that points outside the
-  project. (#1001)
-- A sign-in waiting on another Toolport window no longer reports a failure when that
-  window finishes at the same moment. (#1005)
-
-## [1.23.5] - 2026-10-02
-
-### Fixed
-
-- Toolport no longer repeats a downstream mutation when its reply is lost during
-  reconnect recovery. The call returns the original error and the fresh connection
-  is used for subsequent requests. Read recovery and classified retries are preserved.
-  (#986, thanks @jckail)
-
-### Added
-
 - Plugin updates can be seen and run in the app. `toolportctl cc list --refresh` asks the plugin
   marketplaces what is new; Library > Plugins and System > Updates do that when they open and on
   "Check for updates" (before, a plugin read as up to date until an update was run). The scheduled
@@ -114,6 +64,53 @@ Entries before the rename below shipped under the project's former name, Conduit
 - A folder pasted with its flag or half its quotes (`--cwd '/a b/`) is read as the plain path, and a
   fragment an earlier version stored is repaired. The Context tabs no longer fail on it with "is not
   a folder". A missing folder, one macOS keeps private, and a file are now told apart.
+
+## [1.24.0] - 2026-10-06
+
+### Added
+
+- Servers that fail to connect when Toolport starts keep retrying in the background,
+  from every 2 seconds up to every 5 minutes, and join your AI clients without a
+  restart. `toolport_status` shows which servers are retrying and which need you to
+  sign in. Servers that refuse your credentials wait for a new sign-in instead of
+  retrying. (#1003)
+- Disconnecting a client puts back the servers "Move into gateway" took out of its
+  config. (#1002)
+- ZCode is a supported client. (#990)
+- The Linux app has a "Check servers again" button. (#999)
+
+### Changed
+
+- Importing servers, or moving them into Toolport, turns them on, so your AI clients
+  get their tools right away. (#1002)
+- Shared setups no longer carry API keys in server URLs. Keys in the path, query and
+  userinfo are replaced with placeholders, and the import asks the recipient to fill
+  in their own. (#1001)
+- The Teams page shows the current plans: Free for 2 people, and Team at $19 a month
+  for up to 10. (#1009)
+- The Arch installer runs a full system upgrade (`pacman -Syu`) instead of a partial
+  one. (#997)
+
+### Fixed
+
+- The Linux app no longer relaunches every server while you search, refocus the
+  window or edit one server. Long names no longer widen the window, sidebar text is
+  readable on all themes, and an approval notification closes once the call is
+  decided, even after you click it. (#999)
+- An agent can no longer turn on a team server that is waiting for your review. (#1001)
+- Project rules are never written through a symbolic link that points outside the
+  project. (#1001)
+- A sign-in waiting on another Toolport window no longer reports a failure when that
+  window finishes at the same moment. (#1005)
+
+## [1.23.5] - 2026-10-02
+
+### Fixed
+
+- Toolport no longer repeats a downstream mutation when its reply is lost during
+  reconnect recovery. The call returns the original error and the fresh connection
+  is used for subsequent requests. Read recovery and classified retries are preserved.
+  (#986, thanks @jckail)
 
 ## [1.23.4] - 2026-10-02
 
