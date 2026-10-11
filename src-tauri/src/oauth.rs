@@ -1363,6 +1363,11 @@ fn registration_auth_method(advertised: Option<&[String]>) -> Option<ClientAuthM
     if advertised.iter().any(|method| method == "none") {
         return None;
     }
+    // Miro's token endpoint reads client_id only from the form body and refuses a Basic
+    // header alone with "Missing client_id". Post carries both, so it wins when offered.
+    if advertised.iter().any(|method| method == "client_secret_post") {
+        return Some(ClientAuthMethod::ClientSecretPost);
+    }
     select_client_auth_method(None, Some(advertised)).ok()
 }
 
@@ -3758,16 +3763,16 @@ mod tests {
         let miro = advertised(MIRO_AUTHORIZATION_SERVER);
         assert_eq!(
             registration_auth_method(miro.as_deref()),
-            Some(ClientAuthMethod::ClientSecretBasic)
+            Some(ClientAuthMethod::ClientSecretPost)
         );
         let figma = advertised(FIGMA_AUTHORIZATION_SERVER);
         assert_eq!(
             registration_auth_method(figma.as_deref()),
-            Some(ClientAuthMethod::ClientSecretBasic)
+            Some(ClientAuthMethod::ClientSecretPost)
         );
         assert_eq!(
-            registration_auth_method(Some(&methods(&["client_secret_post"]))),
-            Some(ClientAuthMethod::ClientSecretPost)
+            registration_auth_method(Some(&methods(&["client_secret_basic"]))),
+            Some(ClientAuthMethod::ClientSecretBasic)
         );
     }
 
@@ -4259,7 +4264,7 @@ mod tests {
         assert_eq!(endpoints.issuer, slashed);
         assert_eq!(
             registration_auth_method(endpoints.token_endpoint_auth_methods_supported.as_deref()),
-            Some(ClientAuthMethod::ClientSecretBasic)
+            Some(ClientAuthMethod::ClientSecretPost)
         );
     }
 

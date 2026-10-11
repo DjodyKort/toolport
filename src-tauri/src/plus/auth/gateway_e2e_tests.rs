@@ -562,18 +562,18 @@ fn a_secret_only_server_gets_a_confidential_client_that_authenticates_every_toke
         mock.advertise_secret_methods(&["client_secret_post", "client_secret_basic"]);
         let server = remote("miro", &mock.mcp_url);
         sign_in(&server);
-        assert_eq!(mock.registered_methods(), ["client_secret_basic"]);
+        assert_eq!(mock.registered_methods(), ["client_secret_post"]);
         let state: Value =
             serde_json::from_str(&vaulted("miro", "__oauth_state__").unwrap()).unwrap();
         assert_eq!(state["client_secret"], CLIENT_SECRET);
-        assert_eq!(state["client_auth_method"], "client_secret_basic");
+        assert_eq!(state["client_auth_method"], "client_secret_post");
 
         mock.expire_access_tokens();
         let mut ds = crate::remote::connect_remote(&server).unwrap();
         ds.call("echo", json!({"text": "FAKE-ping"})).unwrap();
 
         assert_eq!(mock.grants(), ["authorization_code", "refresh_token"]);
-        assert_eq!(mock.token_auth(), ["basic", "basic"]);
+        assert_eq!(mock.token_auth(), ["post", "post"]);
         let state: Value =
             serde_json::from_str(&vaulted("miro", "__oauth_state__").unwrap()).unwrap();
         assert_eq!(state["client_secret"], CLIENT_SECRET, "refresh keeps the secret");
@@ -582,17 +582,17 @@ fn a_secret_only_server_gets_a_confidential_client_that_authenticates_every_toke
 }
 
 #[test]
-fn a_post_only_server_receives_the_secret_in_the_form_body() {
+fn a_basic_only_server_receives_the_secret_in_the_authorization_header() {
     with_world(|| {
         let mock = Mock::start(3600, true, &[]);
-        mock.advertise_secret_methods(&["client_secret_post"]);
+        mock.advertise_secret_methods(&["client_secret_basic"]);
         let server = remote("miro", &mock.mcp_url);
         sign_in(&server);
-        assert_eq!(mock.registered_methods(), ["client_secret_post"]);
+        assert_eq!(mock.registered_methods(), ["client_secret_basic"]);
         mock.expire_access_tokens();
         let mut ds = crate::remote::connect_remote(&server).unwrap();
         ds.call("echo", json!({"text": "FAKE-ping"})).unwrap();
-        assert_eq!(mock.token_auth(), ["post", "post"]);
+        assert_eq!(mock.token_auth(), ["basic", "basic"]);
     });
 }
 
