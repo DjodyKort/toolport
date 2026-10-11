@@ -154,6 +154,18 @@
       {
         "appPresent": false,
         "gatewayInstalled": false,
+        "id": "zcode",
+        "name": "ZCode"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
+        "id": "command-code",
+        "name": "Command Code"
+      },
+      {
+        "appPresent": false,
+        "gatewayInstalled": false,
         "id": "zed",
         "name": "Zed"
       },

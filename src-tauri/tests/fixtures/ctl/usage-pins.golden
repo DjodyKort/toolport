@@ -2028,7 +2028,7 @@ exit 1
 --- stdout
 --- stderr
 toolportctl: Client 'nope' is not supported.
-Available clients: claude-desktop, cursor, droid, crush, anythingllm, vscode, amp, windsurf, devin-cli, opencode, kilo-code, grok, codex, github-copilot-cli, antigravity, claude-code, gemini-cli, qwen-code, junie, cline, roo-code, warp, amazon-q, kiro, kimi-code, zed, lm-studio, jan, boltai, pi, omp, goose, hermes, continue, witsy
+Available clients: claude-desktop, cursor, droid, crush, anythingllm, vscode, amp, windsurf, devin-cli, opencode, kilo-code, grok, codex, github-copilot-cli, antigravity, claude-code, gemini-cli, qwen-code, junie, cline, roo-code, warp, amazon-q, kiro, kimi-code, zcode, command-code, zed, lm-studio, jan, boltai, pi, omp, goose, hermes, continue, witsy
 === ["direct"]
 exit 2
 --- stdout
