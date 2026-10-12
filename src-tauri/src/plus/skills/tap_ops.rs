@@ -2,11 +2,15 @@
 //! handlers and the selfmcp tools: one function per operation, no rendering. mcpm keeps these in
 //! its sync plugin (`TapManager`). Differences kept on purpose: tap names and install specs are
 //! validated before they reach a path, a duplicate or unknown tap is an error, nothing the tap
-//! ships is followed outside the clone (symlinks are skipped), and every write has a dry run.
+//! ships is followed outside the clone (symlinks are skipped), every write has a dry run, and a
+//! tap with no skill in `skills/` or `rules/` is read in the Agent Skills layout instead.
 
 use super::audit::{audit_skills, AuditFinding};
 use super::git::GitRunner;
-use super::parser::{discover_skills_report, valid_name, Discovery, Skill, SkillType};
+use super::kind::{discover_report, ContentKind};
+use super::parser::{
+    discover_skills_report, parse_skill_file, valid_name, Discovery, Skill, SkillKind, SkillType,
+};
 use super::taps::{
     load_taps, parse_source, plain_segment, redact, save_taps, tap_dir, taps_path, taps_root,
     valid_tap_name, Tap,
@@ -287,10 +291,33 @@ fn kind_name(kind: SkillType) -> &'static str {
     }
 }
 
-/// The skills of a tap clone. A skill whose files resolve outside the clone (a symlink in the
-/// tap) is dropped with a warning.
+struct AgentSkillsLayout;
+
+impl ContentKind for AgentSkillsLayout {
+    type Item = Skill;
+    const NOUN: &'static str = SkillKind::NOUN;
+    const DIRS: &'static [&'static str] = &[".agents/skills", ".claude/skills"];
+    const FILE: &'static str = SkillKind::FILE;
+
+    fn parse(path: &Path) -> Result<Skill, String> {
+        parse_skill_file(path)
+    }
+}
+
+/// The skills of a tap clone: those in `skills/` and `rules/`, or, when these hold none, those
+/// in `.agents/skills/` and `.claude/skills/`, the first of a name kept. A skill whose files
+/// resolve outside the clone (a symlink in the tap) is dropped with a warning.
 fn discover(clone: &Path) -> Discovery {
     let mut found = discover_skills_report(clone);
+    if found.skills.is_empty() {
+        let (skills, warnings) = discover_report::<AgentSkillsLayout>(clone);
+        let mut names = BTreeSet::new();
+        found.skills = skills
+            .into_iter()
+            .filter(|skill| names.insert(skill.name().to_string()))
+            .collect();
+        found.warnings.extend(warnings);
+    }
     let Ok(root) = clone.canonicalize() else {
         return found;
     };

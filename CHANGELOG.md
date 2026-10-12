@@ -8,6 +8,10 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ### Added
 
+- Skill taps find skills in `.agents/skills/` and `.claude/skills/`, the layout many skills.sh
+  repositories use, when the tap has none in `skills/` or `rules/`. `toolportctl skills search`
+  and `skills install @user/repo/skill` (and the `skills_search` and `skills_install` tools) offer
+  them; a tap with skills in `skills/` or `rules/` reads as before.
 - Command Code is a supported client. Toolport finds it, connects it through
   `~/.commandcode/mcp.json`, imports the servers already set up there, and keeps
   agent rules in `~/.commandcode/AGENTS.md` and project `AGENTS.md` files.

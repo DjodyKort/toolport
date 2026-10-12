@@ -23,7 +23,9 @@
 //! DEV-SKL10-8 (tap names, `a_malicious_tap_name_is_rejected_before_anything_is_written`),
 //! DEV-SKL10-9 (install specs and skill names, `a_skill_named_with_a_traversal_is_never_installed`),
 //! DEV-SKL10-10 (no symlinks or `.git` copied, `tap_ops_tests::install_keeps_file_modes_and_leaves_symlinks_and_git_data_behind`),
-//! DEV-SKL10-11 (sources, `a_hostile_tap_source_is_rejected`).
+//! DEV-SKL10-11 (sources, `a_hostile_tap_source_is_rejected`),
+//! DEV-SKL12-1 (a tap with no skill in `skills/` or `rules/` is read from `.agents/skills/` and
+//! `.claude/skills/`, `tap_ops_tests::search_reads_the_agent_skills_layout_when_skills_and_rules_hold_none`).
 
 use super::run_with;
 use crate::plus::skills::tap_fixtures::{fixture_root, Remotes};
