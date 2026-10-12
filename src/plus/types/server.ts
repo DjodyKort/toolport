@@ -59,6 +59,7 @@ export type ServerSearchData = Infer<typeof serverSearchData>;
 export const serverShapes: Record<string, Shape<unknown>> = {
   "server-edit.after": serverInfoData,
   "server-edit.apply": serverEditData,
+  "server-edit.env": serverEditData,
   "server-install.apply": serverInstallData,
   "server-new.after": serverLsData,
   "server-new.apply": serverNewData,

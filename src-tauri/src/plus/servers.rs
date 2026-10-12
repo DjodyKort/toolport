@@ -4,6 +4,7 @@
 use crate::catalog::CatalogEntry;
 use crate::plus::client_sync::{prune_launchers, prune_matching, Prune};
 use crate::plus::op::OpError;
+use crate::plus::server_env::{self, Change};
 use crate::plus::status::readable_registry;
 use crate::registry::{self, Registry, ServerEntry};
 use crate::registry_controller::{self, ServerFields};
@@ -86,11 +87,45 @@ pub(crate) fn fields_from(patch: Patch, base: Option<&ServerEntry>) -> ServerFie
     }
 }
 
+#[cfg(test)]
 pub(crate) fn add_returning_id(fields: ServerFields) -> Result<String, AddError> {
+    add_returning_id_with_env(fields, &[])
+}
+
+pub(crate) fn add_returning_id_with_env(
+    fields: ServerFields,
+    env: &[Change],
+) -> Result<String, AddError> {
     let name = fields.name.trim().to_string();
     add_unique(&name, |reg| {
-        registry_controller::apply_add_server(reg, fields)
+        let id = registry_controller::apply_add_server(reg, fields)?;
+        let server = reg
+            .servers
+            .iter_mut()
+            .find(|s| s.id == id)
+            .ok_or_else(|| format!("No server with id '{id}'"))?;
+        server_env::apply(&mut server.env, &server.transport, env).map_err(|r| r.message)?;
+        Ok(id)
     })
+}
+
+/// Commits the field update and the env edit together, so a refused env change leaves the server
+/// as it was. Returns the env keys whose entry changed.
+pub(crate) fn update_with_env(
+    server_id: &str,
+    fields: ServerFields,
+    env: &[Change],
+) -> Result<Vec<String>, String> {
+    let (_, changed) = registry::update(|reg| {
+        registry_controller::apply_update_server_fields(reg, server_id, fields)?;
+        let server = reg
+            .servers
+            .iter_mut()
+            .find(|s| s.id == server_id)
+            .ok_or_else(|| format!("No server with id '{server_id}'"))?;
+        server_env::apply(&mut server.env, &server.transport, env).map_err(|r| r.message)
+    })?;
+    Ok(changed)
 }
 
 pub(crate) fn add_catalog_returning_id(entry: CatalogEntry) -> Result<String, AddError> {
@@ -448,6 +483,67 @@ mod tests {
             Err(AddError::Failed("give the server a name".into()))
         );
         assert!(!fx.dir.join("registry.json").exists());
+    }
+
+    fn set(key: &str, value: &str) -> Change {
+        Change::Set {
+            key: key.into(),
+            value: value.into(),
+        }
+    }
+
+    #[test]
+    fn a_new_server_stores_plain_env_and_a_refused_entry_writes_nothing() {
+        let fx = DataDirFx::new("servers-core", "env-add");
+        let refused = add_returning_id_with_env(stdio("gamma"), &[set("API_KEY", "x")]);
+        assert!(
+            matches!(&refused, Err(AddError::Failed(m)) if m.contains("rule credential-name")),
+            "{refused:?}"
+        );
+        assert!(!fx.dir.join("registry.json").exists());
+
+        let id =
+            add_returning_id_with_env(stdio("gamma"), &[set("JAVA_HOME", "/opt/jdk")]).unwrap();
+        let reg = registry::load_resolved().unwrap();
+        assert_eq!(
+            find(&reg, &id).unwrap().env,
+            [crate::registry::EnvVar {
+                key: "JAVA_HOME".into(),
+                value: Some("/opt/jdk".into()),
+                secret: false,
+            }]
+        );
+    }
+
+    #[test]
+    fn an_update_commits_the_fields_and_the_env_together_or_not_at_all() {
+        let fx = DataDirFx::new("servers-core", "env-update");
+        let id = add_returning_id_with_env(stdio("rea"), &[set("JAVA_HOME", "/opt/jdk")]).unwrap();
+        let before = std::fs::read(fx.dir.join("registry.json")).unwrap();
+        let moved = ServerFields {
+            args: vec!["--moved".into()],
+            ..stdio("rea")
+        };
+
+        let refused = update_with_env(&id, moved.clone(), &[set("GITHUB_TOKEN", "x")]).unwrap_err();
+        assert!(refused.contains("rule credential-name"), "{refused}");
+        assert_eq!(std::fs::read(fx.dir.join("registry.json")).unwrap(), before);
+
+        let changed = update_with_env(
+            &id,
+            moved,
+            &[Change::Unset { key: "JAVA_HOME".into() }, set("MODE", "fast")],
+        )
+        .unwrap();
+        assert_eq!(changed, ["JAVA_HOME", "MODE"]);
+        let reg = registry::load_resolved().unwrap();
+        let server = find(&reg, &id).unwrap();
+        assert_eq!(server.args, ["--moved"]);
+        assert_eq!(server.env.len(), 1);
+        assert_eq!(server.env[0].key, "MODE");
+
+        let vanished = update_with_env("ghost", stdio("rea"), &[]).unwrap_err();
+        assert_eq!(vanished, "No server with id 'ghost'");
     }
 
     #[test]

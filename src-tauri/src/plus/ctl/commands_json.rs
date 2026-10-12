@@ -191,6 +191,12 @@ pub(super) const GLOBAL: &[Meta] = &[
     ),
     m("--enable", Bool, "Turn folder profiles on"),
     m(
+        "--env",
+        Str,
+        "Plain environment variable of the server process as KEY=VALUE; a credential is refused, store it with secret set (repeatable)",
+    )
+    .repeats(),
+    m(
         "--event",
         Str,
         "Only hooks on this event (PreToolUse, SessionStart, ...)",
@@ -490,6 +496,12 @@ pub(super) const GLOBAL: &[Meta] = &[
         "Remote transport",
     ),
     m("--type", Ty::Choice(&["skill", "rule"]), "What to create"),
+    m(
+        "--unset-env",
+        Str,
+        "Name of a plain environment variable to remove from the server (repeatable)",
+    )
+    .repeats(),
     m("--url", Str, "Server URL for an http or sse server"),
     m(
         "--value-env",

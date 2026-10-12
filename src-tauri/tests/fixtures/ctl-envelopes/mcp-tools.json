@@ -2127,7 +2127,7 @@
               "type": "string"
             },
             {
-              "description": "Server configuration",
+              "description": "Server configuration; env is {NAME: value} for plain settings, never a credential",
               "name": "config",
               "required": true,
               "type": "object"
@@ -2154,7 +2154,7 @@
           "tier": 3
         },
         {
-          "description": "Patch a server's configuration",
+          "description": "Patch a server's configuration, including plain env entries",
           "dryRunDefault": false,
           "gate": "always",
           "name": "servers_update_config",
@@ -2166,7 +2166,7 @@
               "type": "string"
             },
             {
-              "description": "Fields to change",
+              "description": "Fields to change; env is {NAME: value}, null removes a name, a credential is refused",
               "name": "patch",
               "required": true,
               "type": "object"

@@ -298,6 +298,8 @@ impl World {
             s(&["server", "info", "import-bearer"]),
             s(&["server", "new", "newsrv", "--command", &self.quiet]),
             s(&["server", "edit", "newsrv", "--arg", "x"]),
+            s(&["server", "edit", "newsrv", "--env", &format!("SERVICE_API_KEY={}", self.canary.val("edit-env-name"))]),
+            s(&["server", "edit", "newsrv", "--env", &format!("SERVICE_SETTING=ghp_{}", self.canary.val("edit-env-value"))]),
             s(&["server", "restart", "alpha", "--dry-run"]),
             s(&["server", "source", "set", "newsrv", "--remote", "origin"]),
             s(&["client", "direct", "add", "newsrv", "--client", "cursor", "--dry-run"]),

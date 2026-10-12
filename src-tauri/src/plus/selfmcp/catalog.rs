@@ -911,7 +911,12 @@ pub const TOOLS: &[ToolDef] = &[
         "Register a new server",
         [
             NAME,
-            p("config", Ty::Obj, true, "Server configuration"),
+            p(
+                "config",
+                Ty::Obj,
+                true,
+                "Server configuration; env is {NAME: value} for plain settings, never a credential"
+            ),
             p("profile_tags", Ty::StrList, false, "Profiles to join"),
             p("force", Ty::Bool, false, "Replace an existing entry")
         ],
@@ -921,8 +926,16 @@ pub const TOOLS: &[ToolDef] = &[
         "servers_update_config",
         3,
         Always,
-        "Patch a server's configuration",
-        [NAME, p("patch", Ty::Obj, true, "Fields to change")],
+        "Patch a server's configuration, including plain env entries",
+        [
+            NAME,
+            p(
+                "patch",
+                Ty::Obj,
+                true,
+                "Fields to change; env is {NAME: value}, null removes a name, a credential is refused"
+            )
+        ],
         servers::update_config
     ),
     tool!(

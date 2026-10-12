@@ -1012,6 +1012,45 @@ fn execute_persists_only_on_apply_and_init() {
 }
 
 #[test]
+fn a_pinned_npx_server_with_plain_env_is_still_checked_and_updated_and_keeps_its_env() {
+    let fx = Fixture::new(
+        "env-pin",
+        json!([{"id": "rea", "name": "rea", "transport": "stdio", "command": "npx",
+                "args": ["-y", "rea-agents@6.4.0", "mcp"]}]),
+    );
+    let http = MockHttp::default();
+    http.text(
+        "https://npm.example.invalid/rea-agents/latest",
+        r#"{"version":"6.5.0"}"#,
+    );
+    let env = env_with(&http, &MockShell::default(), Box::new(SystemGit));
+
+    crate::plus::selfmcp::call_tool(
+        "servers_update_config",
+        &json!({
+            "name": "rea",
+            "patch": {"env": {"JAVA_HOME": "/opt/jdk", "REA_JADX_MCP_JAR": "/x/jadx.jar"}},
+            "confirm": true,
+        }),
+    )
+    .unwrap();
+    let configured = fx.servers();
+    assert_eq!(configured[0]["args"], json!(["-y", "rea-agents@6.4.0", "mcp"]));
+    assert_eq!(configured[0]["env"].as_array().unwrap().len(), 2);
+
+    let check = execute_with(&env, &Options::new(Mode::Check)).unwrap();
+    assert_eq!(check.servers[0].status, Status::UpdateAvailable);
+    assert!(check.servers[0].detected);
+    assert_eq!(fx.servers(), configured, "a check writes nothing");
+
+    let done = execute_with(&env, &Options::new(Mode::Apply)).unwrap();
+    assert_eq!(done.servers[0].status, Status::Updated);
+    let updated = fx.servers();
+    assert_eq!(updated[0]["args"], json!(["-y", "rea-agents@6.5.0", "mcp"]));
+    assert_eq!(updated[0]["env"], configured[0]["env"], "an update rewrites the pin, not the env");
+}
+
+#[test]
 fn handlers_and_ctl_are_wired() {
     let fx = Fixture::new(
         "wired",

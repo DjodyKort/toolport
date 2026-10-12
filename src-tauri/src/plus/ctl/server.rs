@@ -1,6 +1,7 @@
 use super::flags::{switch, value, Flags, Spec};
 use super::output::{CtlError, Output};
 use crate::catalog::{self, CatalogEntry};
+use crate::plus::server_env::{self, Change};
 use crate::plus::server_restart;
 use crate::plus::servers::{self, AddError, Patch, UninstallArgs};
 use crate::plus::status::readable_registry;
@@ -13,8 +14,8 @@ use serde_json::{json, Value};
 
 const SEARCH_USAGE: &str = "usage: server search [<query>] [--offline] [--limit <n>]";
 const INSTALL_USAGE: &str = "usage: server install <catalog name> [--offline]";
-const NEW_USAGE: &str = "usage: server new <name> (--command <cmd> [--arg <a>]... | --url <url> [--transport http|sse]) [--cwd <dir>]";
-const EDIT_USAGE: &str = "usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--url <url>] [--transport <t>] [--cwd <dir>] [--declare-client-capabilities on|off] [--forward-instructions on|off]";
+const NEW_USAGE: &str = "usage: server new <name> (--command <cmd> [--arg <a>]... [--env <KEY=VALUE>]... | --url <url> [--transport http|sse]) [--cwd <dir>]";
+const EDIT_USAGE: &str = "usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--env <KEY=VALUE>]... [--unset-env <KEY>]... [--url <url>] [--transport <t>] [--cwd <dir>] [--declare-client-capabilities on|off] [--forward-instructions on|off]";
 const INFO_USAGE: &str = "usage: server info <id|name>";
 const UNINSTALL_USAGE: &str =
     "usage: server uninstall <id|name> [--dry-run] [--keep-clients] [--keep-secrets]";
@@ -33,6 +34,7 @@ pub(super) const NEW: Spec = Spec {
     flags: &[
         value("--command"),
         value("--arg"),
+        value("--env"),
         value("--url"),
         value("--transport"),
         value("--cwd"),
@@ -44,6 +46,8 @@ pub(super) const EDIT: Spec = Spec {
         value("--name"),
         value("--command"),
         value("--arg"),
+        value("--env"),
+        value("--unset-env"),
         value("--url"),
         value("--transport"),
         value("--cwd"),
@@ -222,15 +226,36 @@ fn patch_from(flags: &Flags, name: Option<&str>) -> Result<Patch, CtlError> {
     })
 }
 
+fn env_changes(flags: &Flags) -> Result<Vec<Change>, CtlError> {
+    let mut changes = Vec::new();
+    for raw in flags.all("--env") {
+        changes.push(server_env::parse_assignment(&raw).map_err(CtlError::usage)?);
+    }
+    for key in flags.all("--unset-env") {
+        if key.is_empty() || key.contains('=') {
+            return Err(CtlError::usage("--unset-env takes a name, not KEY=VALUE"));
+        }
+        changes.push(Change::Unset { key });
+    }
+    server_env::check_distinct(&changes).map_err(CtlError::usage)?;
+    Ok(changes)
+}
+
+fn refused(refusal: server_env::Refusal) -> CtlError {
+    CtlError::failed("input", refusal.message)
+}
+
 pub fn new(rest: &[String]) -> Result<Output, CtlError> {
     let flags = NEW.parse(rest)?;
     let name = flags.single(NEW_USAGE)?.to_string();
     if flags.one("--command").is_none() && flags.one("--url").is_none() {
         return Err(CtlError::usage(NEW_USAGE));
     }
+    let env = env_changes(&flags)?;
     let fields = servers::fields_from(patch_from(&flags, Some(&name))?, None);
+    server_env::apply(&mut Vec::new(), &fields.transport, &env).map_err(refused)?;
     require_readable()?;
-    let added = servers::add_returning_id(fields).map_err(|e| match e {
+    let added = servers::add_returning_id_with_env(fields, &env).map_err(|e| match e {
         AddError::Exists => CtlError::conflict(format!("server '{name}' already exists")),
         AddError::Failed(message) => CtlError::failed("input", message),
     })?;
@@ -246,12 +271,14 @@ pub fn edit(rest: &[String]) -> Result<Output, CtlError> {
     if !flags.has_values() {
         return Err(CtlError::usage(EDIT_USAGE));
     }
+    let env = env_changes(&flags)?;
     let patch = patch_from(&flags, None)?;
     let reg = readable_registry()?;
     let server = resolve(&reg, key)?;
     let id = server.id.clone();
     let fields = servers::fields_from(patch, Some(server));
-    let changed: Vec<&str> = [
+    server_env::apply(&mut server.env.clone(), &fields.transport, &env).map_err(refused)?;
+    let mut changed: Vec<String> = [
         ("name", fields.name != server.name),
         ("transport", fields.transport != server.transport),
         ("command", fields.command != server.command),
@@ -273,10 +300,11 @@ pub fn edit(rest: &[String]) -> Result<Output, CtlError> {
     ]
     .iter()
     .filter(|(_, differs)| *differs)
-    .map(|(n, _)| *n)
+    .map(|(n, _)| n.to_string())
     .collect();
-    registry_controller::update_server_fields(&id, fields)
-        .map_err(|e| CtlError::failed("input", e))?;
+    let env_changed =
+        servers::update_with_env(&id, fields, &env).map_err(|e| CtlError::failed("input", e))?;
+    changed.extend(env_changed.iter().map(|key| format!("env.{key}")));
     Ok(Output::new(
         json!({"id": id, "changed": changed}),
         if changed.is_empty() {

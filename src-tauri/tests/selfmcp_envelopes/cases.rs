@@ -1020,6 +1020,17 @@ pub const ALL: &[Case] = &[
                 "servers_update_config",
                 r#"{"name":"gamma","patch":{"args":["--changed"]},"confirm":true}"#,
             ),
+            write(
+                "env",
+                "servers_update_config",
+                r#"{"name":"gamma","patch":{"env":{"JAVA_HOME":"/opt/jdk","MODE":"fast"}},"confirm":true}"#,
+            ),
+            fails(
+                "env-refused",
+                "invalid_arguments",
+                "servers_update_config",
+                r#"{"name":"gamma","patch":{"env":{"API_KEY":"plain"}},"confirm":true}"#,
+            ),
             fails(
                 "missing",
                 "not_found",

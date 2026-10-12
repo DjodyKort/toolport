@@ -368,6 +368,25 @@ pub const MORE: &[Case] = &[
             ),
             read("after", &["server", "info", "gamma"]),
             apply(
+                "env",
+                &[
+                    "server",
+                    "edit",
+                    "gamma",
+                    "--env",
+                    "JAVA_HOME=/opt/jdk",
+                    "--env",
+                    "MODE=fast",
+                    "--unset-env",
+                    "NEVER_SET",
+                ],
+            ),
+            apply(
+                "env-refused",
+                &["server", "edit", "gamma", "--env", "API_KEY=plain"],
+            )
+            .exit(1),
+            apply(
                 "unknown",
                 &["server", "edit", "no-such-server", "--arg", "q"],
             )

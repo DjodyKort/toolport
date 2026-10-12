@@ -217,6 +217,8 @@ export type ServersUninstallResult = Infer<typeof serversUninstallResult>;
 export const serversUpdateConfigResult = obj({
   id: str,
   updatedKeys: arr(str),
+  // Present only when the patch carried env: the names whose entry changed.
+  envChanged: opt(arr(str)),
 });
 export type ServersUpdateConfigResult = Infer<typeof serversUpdateConfigResult>;
 

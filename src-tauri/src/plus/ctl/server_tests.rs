@@ -754,6 +754,327 @@ fn server_source_set_can_add_and_validate_an_upstream() {
     });
 }
 
+fn raw_servers(w: &World) -> Value {
+    let doc: Value =
+        serde_json::from_str(&std::fs::read_to_string(w.data.join("registry.json")).unwrap())
+            .unwrap();
+    doc["servers"].clone()
+}
+
+fn raw_server(w: &World, id: &str) -> Value {
+    raw_servers(w)
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["id"] == id)
+        .unwrap()
+        .clone()
+}
+
+fn fake_token() -> String {
+    format!("ghp_{}", "aB3dE5fG7hJ9kL2m".repeat(3))
+}
+
+#[test]
+fn server_edit_sets_replaces_and_unsets_plain_env() {
+    world(|w| {
+        let (code, value) = cli_json(&[
+            "server",
+            "edit",
+            "alpha",
+            "--env",
+            "JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home",
+            "--env",
+            "REA_JADX_MCP_JAR=/Users/someone/.local/share/rea/jadx-mcp.jar",
+            "--env",
+            "MODE=slow",
+        ]);
+        assert_eq!(code, 0, "{value}");
+        assert_eq!(
+            value["data"],
+            json!({
+                "id": "alpha",
+                "changed": ["env.JAVA_HOME", "env.REA_JADX_MCP_JAR", "env.MODE"],
+            })
+        );
+        assert_eq!(
+            raw_server(w, "alpha")["env"],
+            json!([
+                {"key": "API_KEY", "secret": true},
+                {"key": "MODE", "value": "slow", "secret": false},
+                {
+                    "key": "JAVA_HOME",
+                    "value": "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home",
+                    "secret": false,
+                },
+                {
+                    "key": "REA_JADX_MCP_JAR",
+                    "value": "/Users/someone/.local/share/rea/jadx-mcp.jar",
+                    "secret": false,
+                },
+            ])
+        );
+        assert_eq!(raw_server(w, "alpha")["command"], "alpha-mcp");
+
+        let (_, text, _) = cli(&["server", "edit", "alpha", "--env", "MODE=slow"]);
+        assert_eq!(text.trim_end(), "alpha: nothing changed.");
+
+        let (code, value) = cli_json(&[
+            "server",
+            "edit",
+            "alpha",
+            "--unset-env",
+            "REA_JADX_MCP_JAR",
+            "--unset-env",
+            "NEVER_SET",
+            "--arg",
+            "--changed",
+        ]);
+        assert_eq!(code, 0, "{value}");
+        assert_eq!(
+            value["data"]["changed"],
+            json!(["args", "env.REA_JADX_MCP_JAR"])
+        );
+        let env = raw_server(w, "alpha")["env"].clone();
+        assert!(!env.to_string().contains("REA_JADX_MCP_JAR"), "{env}");
+        assert_eq!(raw_server(w, "alpha")["args"], json!(["--changed"]));
+
+        let (_, info) = cli_json(&["server", "info", "alpha"]);
+        assert_eq!(
+            info["data"]["env"],
+            json!([
+                {"key": "API_KEY", "secret": true},
+                {"key": "MODE", "secret": false},
+                {"key": "JAVA_HOME", "secret": false},
+            ]),
+            "server info names the keys and never the values"
+        );
+        let (_, text, _) = cli(&["server", "info", "alpha"]);
+        assert!(!text.contains("openjdk") && !text.contains("slow"), "{text}");
+    });
+}
+
+#[test]
+fn server_edit_refuses_a_credential_and_changes_nothing() {
+    world(|w| {
+        let path = w.data.join("registry.json");
+        let mut doc: Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        doc["servers"][0]["env"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"key": "ALPHA_PROJECT", "secret": true}));
+        std::fs::write(&path, doc.to_string()).unwrap();
+        let before = std::fs::read(&path).unwrap();
+        let token = fake_token();
+
+        for (assignment, rule) in [
+            ("API_KEY=plain".to_string(), "credential-name"),
+            ("GITHUB_TOKEN=plain".to_string(), "credential-name"),
+            (format!("SOME_SETTING={token}"), "credential-value"),
+            ("SOME_SETTING=Bearer fake-bearer-value".to_string(), "credential-value"),
+            (
+                "SOME_SETTING=https://fake-user:fake-pass@host.example.invalid/x".to_string(),
+                "credential-value",
+            ),
+            ("ALPHA_PROJECT=plain".to_string(), "secret-entry"),
+            ("alpha_project=plain".to_string(), "secret-entry"),
+            ("LD_PRELOAD=/tmp/x.so".to_string(), "launch-screen"),
+            ("BAD-NAME=x".to_string(), "invalid-key"),
+        ] {
+            let (code, out, err) = cli(&[
+                "server",
+                "edit",
+                "alpha",
+                "--cwd",
+                "/should-not-land",
+                "--env",
+                "OK_SETTING=1",
+                "--env",
+                &assignment,
+            ]);
+            assert_eq!(code, 1, "{assignment}: {out}{err}");
+            assert!(err.contains(&format!("rule {rule}")), "{assignment}: {err}");
+            for leaked in [token.as_str(), "fake-bearer-value", "fake-pass"] {
+                assert!(!out.contains(leaked) && !err.contains(leaked), "{err}");
+            }
+            assert_eq!(std::fs::read(&path).unwrap(), before, "{assignment}");
+        }
+        let (_, value) = cli_json(&["server", "edit", "alpha", "--env", "API_KEY=plain"]);
+        assert_eq!(value["error"]["code"], "input");
+        assert!(
+            value["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("toolportctl secret set <server> API_KEY"),
+            "{value}"
+        );
+
+        let (code, _, err) = cli(&["server", "edit", "alpha", "--unset-env", "ALPHA_PROJECT"]);
+        assert_eq!(code, 1);
+        assert!(err.contains("rule secret-entry") && err.contains("secret rm"), "{err}");
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+
+        let (code, _, err) = cli(&["server", "edit", "beta", "--env", "SOME_SETTING=1"]);
+        assert_eq!(code, 1);
+        assert!(err.contains("rule stdio-only"), "{err}");
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+
+        let (code, _, err) = cli(&[
+            "server",
+            "edit",
+            "alpha",
+            "--url",
+            "https://example.invalid/mcp",
+            "--env",
+            "SOME_SETTING=1",
+        ]);
+        assert_eq!(code, 1, "an edit that makes the server remote refuses new env");
+        assert!(err.contains("rule stdio-only"), "{err}");
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+    });
+}
+
+#[test]
+fn server_edit_env_flags_are_parsed_strictly() {
+    world(|w| {
+        let before = std::fs::read(w.data.join("registry.json")).unwrap();
+        for (bad, message) in [
+            (&["--env", "NOEQUALS"][..], "--env takes KEY=VALUE"),
+            (&["--env", "=value"][..], "--env takes KEY=VALUE"),
+            (&["--env", ""][..], "--env takes KEY=VALUE"),
+            (&["--env"][..], "--env requires a value"),
+            (&["--unset-env"][..], "--unset-env requires a value"),
+            (&["--unset-env", "A=b"][..], "--unset-env takes a name, not KEY=VALUE"),
+            (&["--unset-env", ""][..], "--unset-env takes a name, not KEY=VALUE"),
+            (
+                &["--env", "A=1", "--env", "A=2"][..],
+                "env A is named more than once",
+            ),
+            (
+                &["--env", "A=1", "--unset-env", "A"][..],
+                "env A is named more than once",
+            ),
+        ] {
+            let mut argv = vec!["server", "edit", "alpha"];
+            argv.extend_from_slice(bad);
+            let (code, value) = cli_json(&argv);
+            assert_eq!(
+                (code, value["error"]["code"].as_str()),
+                (2, Some("usage")),
+                "{bad:?}: {value}"
+            );
+            assert!(
+                value["error"]["message"].as_str().unwrap().contains(message),
+                "{bad:?}: {value}"
+            );
+        }
+        let (code, _) = cli_json(&["server", "new", "gamma", "--command", "x", "--unset-env", "A"]);
+        assert_eq!(code, 2, "server new takes no unset");
+        let (code, value) = cli_json(&["server", "edit", "alpha", "--env", "A=b=c"]);
+        assert_eq!(code, 0, "{value}");
+        assert_eq!(
+            raw_server(w, "alpha")["env"][2],
+            json!({"key": "A", "value": "b=c", "secret": false}),
+            "a value keeps every = after the first"
+        );
+        assert_ne!(std::fs::read(w.data.join("registry.json")).unwrap(), before);
+    });
+}
+
+#[test]
+fn server_new_takes_plain_env_and_refuses_a_credential_or_a_remote_server() {
+    world(|w| {
+        let (code, value) = cli_json(&[
+            "server",
+            "new",
+            "rea",
+            "--command",
+            "npx",
+            "--arg",
+            "-y",
+            "--arg",
+            "rea-agents@6.4.0",
+            "--arg",
+            "mcp",
+            "--env",
+            "JAVA_HOME=/opt/jdk",
+            "--env",
+            "REA_JADX_MCP_JAR=/x/jadx.jar",
+        ]);
+        assert_eq!(code, 0, "{value}");
+        assert_eq!(value["data"], json!({"id": "rea", "name": "rea"}));
+        assert_eq!(
+            raw_server(w, "rea")["env"],
+            json!([
+                {"key": "JAVA_HOME", "value": "/opt/jdk", "secret": false},
+                {"key": "REA_JADX_MCP_JAR", "value": "/x/jadx.jar", "secret": false},
+            ])
+        );
+
+        let before = std::fs::read(w.data.join("registry.json")).unwrap();
+        let token = format!("NEXT={}", fake_token());
+        for argv in [
+            &["--command", "x", "--env", "API_KEY=plain"][..],
+            &["--command", "x", "--env", &token][..],
+            &["--url", "https://example.invalid/mcp", "--env", "SOME_SETTING=1"][..],
+        ] {
+            let mut full = vec!["server", "new", "delta"];
+            full.extend_from_slice(argv);
+            let (code, _, err) = cli(&full);
+            assert_eq!(code, 1, "{argv:?}: {err}");
+            assert!(err.contains("refused by rule"), "{err}");
+            assert!(!err.contains(&fake_token()), "{err}");
+            assert_eq!(std::fs::read(w.data.join("registry.json")).unwrap(), before);
+        }
+    });
+}
+
+#[test]
+fn an_npx_pin_is_still_detected_after_server_edit_changes_the_env() {
+    use crate::plus::update::exec::SystemGit;
+    use crate::plus::update::source::{self, Source};
+
+    world(|w| {
+        let (code, value) = cli_json(&[
+            "server",
+            "new",
+            "rea",
+            "--command",
+            "npx",
+            "--arg",
+            "-y",
+            "--arg",
+            "rea-agents@6.4.0",
+            "--arg",
+            "mcp",
+        ]);
+        assert_eq!(code, 0, "{value}");
+        let detected = |w: &World| {
+            let entry: crate::registry::ServerEntry =
+                serde_json::from_value(raw_server(w, "rea")).unwrap();
+            source::detect(&entry, None, &SystemGit)
+        };
+        assert_eq!(detected(w), Source::Npx { package: "rea-agents".into() });
+
+        let (code, value) = cli_json(&[
+            "server",
+            "edit",
+            "rea",
+            "--env",
+            "JAVA_HOME=/opt/jdk",
+            "--env",
+            "REA_JADX_MCP_JAR=/x/jadx.jar",
+        ]);
+        assert_eq!(code, 0, "{value}");
+        let server = raw_server(w, "rea");
+        assert_eq!(server["args"], json!(["-y", "rea-agents@6.4.0", "mcp"]));
+        assert_eq!(server["command"], "npx");
+        assert!(server.get("mcpmSource").is_none());
+        assert_eq!(detected(w), Source::Npx { package: "rea-agents".into() });
+    });
+}
+
 #[test]
 fn server_new_refuses_a_name_taken_ignoring_case_and_padding() {
     world(|w| {

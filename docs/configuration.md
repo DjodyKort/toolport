@@ -105,6 +105,31 @@ which of `roots`, `sampling` and `elicitation` your client supports, for servers
 use them when told. Both default to off and are left out of `registry.json` while off.
 See `docs/odh-integration.md`, B6.
 
+**Environment variables of a server.** A stdio server's plain settings (`JAVA_HOME`, the path
+of a jar, a URL) are kept in `registry.json` as `{"key", "value", "secret": false}` and passed to
+the process when it starts. Set them with `toolportctl server edit <server> --env KEY=VALUE`
+(repeatable; `server new` takes `--env` too) and remove one with `--unset-env KEY`. The
+`servers_install` config and the `servers_update_config` patch take `"env": {"KEY": "value"}`,
+and `null` removes a name. Credentials never take this path. These are refused, each with the
+rule that fired and never the value:
+
+- `credential-name`: a name containing KEY, TOKEN, SECRET, PASSWORD, PASSWD, PASSPHRASE,
+  CREDENTIAL, AUTH, COOKIE, BEARER or PRIVATE, in any case.
+- `credential-value`: a value with a token prefix (`sk-`, `ghp_`, `xox`, `AKIA` and the like),
+  `Bearer`, `Basic` or `Digest` followed by a credential, a JWT, a URL with user info
+  (`user:pass@host`), an inline `password=`, `token=` or `api-key=`, or a string of 32 or more
+  characters with the entropy of a key.
+- `secret-entry`: a name that already holds a secret. Its value stays in the vault and is not
+  overwritten, downgraded to plain or removed here; use `toolportctl secret set` and `secret rm`.
+- `launch-screen`: a variable the gateway refuses to start a process with, such as `LD_PRELOAD`.
+- `invalid-key`, `invalid-value` and `stdio-only`: a name that is not letters, digits and
+  underscores, a value over 4096 bytes or with control characters, and any server that is not
+  stdio.
+
+Store a credential with `toolportctl secret set <server> KEY`. `server info` and `servers_get`
+list the names and never the values, and a shared setup keeps the names and drops every value.
+A change reaches a running server on its next start (`toolportctl server restart <server>`).
+
 **Code mode limits.** Execution, validation, and saved routines run Boa in a separate
 worker process. The parent enforces the 60-second wall-clock budget even during pure
 JavaScript and permits at most four simultaneous runs. Saved routines can set lower

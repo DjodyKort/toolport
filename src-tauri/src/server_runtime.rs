@@ -349,6 +349,37 @@ mod tests {
     }
 
     #[test]
+    fn a_plain_inline_value_is_launched_and_only_secret_values_are_redacted() {
+        let mut server = server();
+        server.env = ["JAVA_HOME", "DECLARED", "VAULTED"]
+            .iter()
+            .map(|key| crate::registry::EnvVar {
+                key: (*key).into(),
+                value: (*key == "JAVA_HOME").then(|| "/opt/jdk".into()),
+                secret: *key == "VAULTED",
+            })
+            .collect();
+        let env = environment_for_probe_with(&server, |_, key| {
+            Ok((key == "VAULTED").then(|| "synthetic-vault-value".to_string()))
+        })
+        .unwrap();
+        assert_eq!(
+            env,
+            [
+                ("JAVA_HOME".to_string(), "/opt/jdk".to_string()),
+                ("VAULTED".to_string(), "synthetic-vault-value".to_string()),
+            ],
+            "a declaration without a value is not launched"
+        );
+        let echoed = crate::launch_inputs::redact_env_secrets(
+            &server,
+            &env,
+            "bad JAVA_HOME /opt/jdk and key synthetic-vault-value".into(),
+        );
+        assert_eq!(echoed, "bad JAVA_HOME /opt/jdk and key <redacted>");
+    }
+
+    #[test]
     fn optional_catalog_env_is_skipped_but_required_env_and_vault_errors_fail() {
         let mut server = server();
         server.env.push(crate::registry::EnvVar {

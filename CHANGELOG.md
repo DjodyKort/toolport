@@ -8,6 +8,15 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ### Added
 
+- Plain environment variables of a stdio server can be set without the vault.
+  `toolportctl server edit <server> --env KEY=VALUE` (repeatable) sets or replaces one and
+  `--unset-env KEY` removes one; `server new` takes `--env` too. The `servers_update_config` patch
+  and the `servers_install` config take the same as `"env": {"KEY": "value"}`, with `null` removing
+  a name. The value is stored as given and launched with the process, so `JAVA_HOME` or a jar path
+  no longer needs `secret set` (and a pinned `npx` or `uvx` server keeps its update tracking). A name
+  or value that looks like a credential, a name that already holds a secret and a variable the
+  gateway refuses to launch with are refused with the rule that fired; `server info` and
+  `servers_get` still show names only.
 - Skill taps find skills in `.agents/skills/` and `.claude/skills/`, the layout many skills.sh
   repositories use, when the tap has none in `skills/` or `rules/`. `toolportctl skills search`
   and `skills install @user/repo/skill` (and the `skills_search` and `skills_install` tools) offer

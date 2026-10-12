@@ -1813,6 +1813,34 @@ fn a_profile_that_sends_no_text_still_carries_the_forwarded_instructions() {
 }
 
 #[test]
+fn a_plain_env_value_set_with_server_edit_reaches_the_server_process() {
+    const FROM_EDIT: &str = "FAKE-instructions-set-by-server-edit";
+    let scratch = Scratch::new("edit-env");
+    write_registry(&scratch, mock_entry(&scratch), |reg| {
+        reg.profiles[0].instructions = Some(String::new());
+    });
+    let edit = Command::new(env!("CARGO_BIN_EXE_toolportctl"))
+        .args(["--json", "server", "edit", "odh", "--forward-instructions", "on"])
+        .args(["--env", &format!("MOCK_MCP_INSTRUCTIONS={FROM_EDIT}")])
+        .env("TOOLPORT_DATA_DIR", &scratch.0)
+        .env("TOOLPORT_REGISTRY", scratch.0.join("registry.json"))
+        .env("HOME", &scratch.0)
+        .output()
+        .expect("run toolportctl");
+    let said = String::from_utf8_lossy(&edit.stdout);
+    assert!(edit.status.success(), "{said} {}", String::from_utf8_lossy(&edit.stderr));
+    assert!(said.contains("env.MOCK_MCP_INSTRUCTIONS"), "{said}");
+
+    let mut client = Client::start(&scratch.0);
+    let init = client.initialize("2025-06-18", json!({}));
+    assert_eq!(
+        init["result"]["instructions"],
+        format!("{}{FROM_EDIT}", forwarded_heading()).as_str(),
+        "the mock answers with the env value only when the gateway passed it to the process"
+    );
+}
+
+#[test]
 fn with_forward_instructions_off_the_gateway_text_is_unchanged() {
     let scratch = Scratch::new("forward-off");
     write_registry(&scratch, mock_entry(&scratch), |reg| {

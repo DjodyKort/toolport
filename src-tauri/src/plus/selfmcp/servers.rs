@@ -5,6 +5,7 @@ use crate::plus::args::{flag, flag_or, list, str_arg, str_nonempty};
 use crate::plus::auth::login;
 use crate::plus::auth::stdio::{self, LaunchFault};
 use crate::plus::client_sync::{self, SyncArgs};
+use crate::plus::server_env::{self, Change};
 use crate::plus::server_restart;
 use crate::plus::servers::{self, AddError, Patch, UninstallArgs};
 use crate::plus::update::exec::{CmdOutput, GitRunner, ShellRunner, SystemGit, SystemShell};
@@ -20,9 +21,10 @@ type Outcome = Result<Value, ToolError>;
 
 const GIT_TIMEOUT: Duration = Duration::from_secs(120);
 const AUTH_WAIT: Duration = Duration::from_secs(20);
-const CONFIG_KEYS: [&str; 7] = [
+const CONFIG_KEYS: [&str; 8] = [
     "command",
     "args",
+    "env",
     "url",
     "transport",
     "cwd",
@@ -320,13 +322,34 @@ fn config_switch(
     }
 }
 
+fn env_changes(cfg: &serde_json::Map<String, Value>) -> Result<Vec<Change>, ToolError> {
+    let invalid = |message: &str| ToolError::new("invalid_arguments", message);
+    let map = match cfg.get("env") {
+        None | Some(Value::Null) => return Ok(Vec::new()),
+        Some(Value::Object(map)) => map,
+        Some(_) => {
+            return Err(invalid(
+                "env must be an object of NAME: value pairs; null removes a name",
+            ))
+        }
+    };
+    map.iter()
+        .map(|(key, value)| match value {
+            Value::String(value) => Ok(Change::Set {
+                key: key.clone(),
+                value: value.clone(),
+            }),
+            Value::Null => Ok(Change::Unset { key: key.clone() }),
+            _ => Err(invalid("an env value must be a string, or null to remove it")),
+        })
+        .collect()
+}
+
+fn refused(refusal: server_env::Refusal) -> ToolError {
+    ToolError::new("invalid_arguments", refusal.message)
+}
+
 fn check_config(cfg: &serde_json::Map<String, Value>) -> Result<(), ToolError> {
-    if cfg.contains_key("env") {
-        return Err(ToolError::new(
-            "invalid_arguments",
-            "env values never pass through this tool; set them with toolportctl secret set",
-        ));
-    }
     if let Some(key) = cfg
         .keys()
         .find(|k| !CONFIG_KEYS.contains(&k.as_str()) && k.as_str() != "name")
@@ -395,6 +418,7 @@ pub(super) fn install(args: &Value) -> Outcome {
     let reg = read_registry()?;
     let existing = servers::named(&reg, name).cloned();
     let fields = fields_from(name, cfg, existing.as_ref())?;
+    let env = env_changes(cfg)?;
     let exists = || {
         ToolError::new(
             "conflict",
@@ -404,13 +428,17 @@ pub(super) fn install(args: &Value) -> Outcome {
     let id = match existing {
         Some(_) if !flag(args, "force") => return Err(exists()),
         Some(server) => {
-            registry_controller::update_server_fields(&server.id, fields).map_err(ToolError::backend)?;
+            server_env::apply(&mut server.env.clone(), &fields.transport, &env).map_err(refused)?;
+            servers::update_with_env(&server.id, fields, &env).map_err(ToolError::backend)?;
             server.id
         }
-        None => servers::add_returning_id(fields).map_err(|e| match e {
-            AddError::Exists => exists(),
-            AddError::Failed(message) => ToolError::backend(message),
-        })?,
+        None => {
+            server_env::apply(&mut Vec::new(), &fields.transport, &env).map_err(refused)?;
+            servers::add_returning_id_with_env(fields, &env).map_err(|e| match e {
+                AddError::Exists => exists(),
+                AddError::Failed(message) => ToolError::backend(message),
+            })?
+        }
     };
     let server = resolve(&read_registry()?, &id)?;
     if let Some(tags) = list(args, "profile_tags") {
@@ -434,10 +462,17 @@ pub(super) fn update_config(args: &Value) -> Outcome {
         ));
     }
     let fields = fields_from(&server.name, patch, Some(&server))?;
-    registry_controller::update_server_fields(&server.id, fields).map_err(ToolError::backend)?;
+    let env = env_changes(patch)?;
+    server_env::apply(&mut server.env.clone(), &fields.transport, &env).map_err(refused)?;
+    let env_changed =
+        servers::update_with_env(&server.id, fields, &env).map_err(ToolError::backend)?;
     let mut keys: Vec<&String> = patch.keys().collect();
     keys.sort();
-    Ok(json!({"id": server.id, "updatedKeys": keys}))
+    let mut done = json!({"id": server.id, "updatedKeys": keys});
+    if patch.contains_key("env") {
+        done["envChanged"] = json!(env_changed);
+    }
+    Ok(done)
 }
 
 pub(super) fn set_mode(args: &Value) -> Outcome {

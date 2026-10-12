@@ -380,6 +380,17 @@
             },
             {
               "aliases": [],
+              "effect": "Plain environment variable of the server process as KEY=VALUE; a credential is refused, store it with secret set (repeatable)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--env",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
               "effect": "Server URL for an http or sse server",
               "escalates": false,
               "hidden": false,
@@ -479,6 +490,28 @@
             },
             {
               "aliases": [],
+              "effect": "Plain environment variable of the server process as KEY=VALUE; a credential is refused, store it with secret set (repeatable)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--env",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Name of a plain environment variable to remove from the server (repeatable)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--unset-env",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
               "effect": "Server URL for an http or sse server",
               "escalates": false,
               "hidden": false,
@@ -557,7 +590,7 @@
             "flag": null,
             "mode": "none"
           },
-          "summary": "Edit a server's name, command, args, url or cwd",
+          "summary": "Edit a server's name, command, args, env, url or cwd",
           "surface": "screen",
           "tier": "write",
           "tools": ["servers_update_config"]

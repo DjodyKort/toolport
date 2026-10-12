@@ -391,6 +391,244 @@ fn skills_git_push_commits_and_pushes_only_when_confirmed() {
     assert_eq!(clean["pushed"], false);
 }
 
+fn registry_server(name: &str) -> crate::registry::ServerEntry {
+    crate::plus::registry_ro::read()
+        .unwrap()
+        .servers
+        .into_iter()
+        .find(|s| s.name == name)
+        .unwrap()
+}
+
+fn plain_env(name: &str) -> Vec<(String, Option<String>, bool)> {
+    registry_server(name)
+        .env
+        .into_iter()
+        .map(|e| (e.key, e.value, e.secret))
+        .collect()
+}
+
+fn fake_token() -> String {
+    format!("ghp_{}", "aB3dE5fG7hJ9kL2m".repeat(3))
+}
+
+#[test]
+fn plain_env_is_set_replaced_and_removed_through_install_and_update_config() {
+    let fixture = Fixture::new("wired-env");
+    let installed = call(
+        "servers_install",
+        json!({
+            "name": "rea",
+            "config": {
+                "command": "npx",
+                "args": ["-y", "rea-agents@6.4.0", "mcp"],
+                "env": {"JAVA_HOME": "/opt/jdk"},
+            },
+            "confirm": true,
+        }),
+    )
+    .unwrap();
+    assert_eq!(installed["installed"], true);
+    assert_eq!(
+        plain_env("rea"),
+        [("JAVA_HOME".to_string(), Some("/opt/jdk".to_string()), false)]
+    );
+
+    let updated = call(
+        "servers_update_config",
+        json!({
+            "name": "rea",
+            "patch": {"env": {
+                "JAVA_HOME": "/opt/jdk21",
+                "REA_JADX_MCP_JAR": "/Users/someone/.local/share/rea/jadx-mcp.jar",
+            }},
+            "confirm": true,
+        }),
+    )
+    .unwrap();
+    assert_eq!(updated["updatedKeys"], json!(["env"]));
+    assert_eq!(
+        updated["envChanged"],
+        json!(["JAVA_HOME", "REA_JADX_MCP_JAR"])
+    );
+    assert_eq!(
+        plain_env("rea"),
+        [
+            ("JAVA_HOME".to_string(), Some("/opt/jdk21".to_string()), false),
+            (
+                "REA_JADX_MCP_JAR".to_string(),
+                Some("/Users/someone/.local/share/rea/jadx-mcp.jar".to_string()),
+                false
+            ),
+        ]
+    );
+    assert_eq!(registry_server("rea").args, ["-y", "rea-agents@6.4.0", "mcp"]);
+
+    let same = call(
+        "servers_update_config",
+        json!({"name": "rea", "patch": {"env": {"JAVA_HOME": "/opt/jdk21"}}, "confirm": true}),
+    )
+    .unwrap();
+    assert_eq!(same["envChanged"], json!([]));
+
+    let removed = call(
+        "servers_update_config",
+        json!({
+            "name": "rea",
+            "patch": {"env": {"REA_JADX_MCP_JAR": null, "NEVER_SET": null}, "cwd": "/tmp"},
+            "confirm": true,
+        }),
+    )
+    .unwrap();
+    assert_eq!(removed["envChanged"], json!(["REA_JADX_MCP_JAR"]));
+    assert_eq!(plain_env("rea").len(), 1);
+    assert_eq!(registry_server("rea").cwd.as_deref(), Some("/tmp"));
+
+    let got = call("servers_get", json!({"name": "rea"})).unwrap();
+    assert_eq!(got["env"], json!([{"key": "JAVA_HOME", "secret": false}]));
+    assert!(!got.to_string().contains("/opt/jdk21"), "{got}");
+
+    let untouched = call(
+        "servers_update_config",
+        json!({"name": "rea", "patch": {"cwd": "/var"}, "confirm": true}),
+    )
+    .unwrap();
+    assert!(untouched.get("envChanged").is_none());
+    assert_eq!(plain_env("rea").len(), 1, "a patch without env keeps the env");
+    drop(fixture);
+}
+
+#[test]
+fn update_config_refuses_credentials_and_secret_entries_and_changes_nothing() {
+    let fixture = Fixture::new("wired-env-refused");
+    let registry_path = fixture.dir.join("registry.json");
+    let mut reg: Value =
+        serde_json::from_str(&std::fs::read_to_string(&registry_path).unwrap()).unwrap();
+    reg["servers"][0]["env"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"key": "ALPHA_PROJECT", "secret": true}));
+    std::fs::write(&registry_path, reg.to_string()).unwrap();
+    let before = std::fs::read(&registry_path).unwrap();
+    let token = fake_token();
+
+    let attempts = [
+        (json!({"API_KEY": "plain"}), "credential-name"),
+        (json!({"GITHUB_TOKEN": "plain"}), "credential-name"),
+        (json!({"SOME_SETTING": token}), "credential-value"),
+        (json!({"SOME_SETTING": "Bearer fake-bearer-value"}), "credential-value"),
+        (
+            json!({"SOME_SETTING": "https://fake-user:fake-pass@host.example.invalid/x"}),
+            "credential-value",
+        ),
+        (json!({"ALPHA_PROJECT": "plain"}), "secret-entry"),
+        (json!({"ALPHA_PROJECT": null}), "secret-entry"),
+        (json!({"LD_PRELOAD": "/tmp/x.so"}), "launch-screen"),
+        (json!({"BAD-NAME": "x"}), "invalid-key"),
+    ];
+    for (env, rule) in attempts {
+        let mut merged = env.as_object().unwrap().clone();
+        merged.insert("OK_SETTING".into(), json!("1"));
+        let result = call(
+            "servers_update_config",
+            json!({
+                "name": "alpha",
+                "patch": {"cwd": "/should-not-land", "env": merged},
+                "confirm": true,
+            }),
+        );
+        let error = result.unwrap_err();
+        assert_eq!(error.kind, "invalid_arguments", "{env}");
+        assert!(error.message.contains(&format!("rule {rule}")), "{env}: {error:?}");
+        assert!(!error.message.contains(&token), "{error:?}");
+        assert!(!error.message.contains("fake-bearer-value"), "{error:?}");
+        assert!(!error.message.contains("fake-pass"), "{error:?}");
+        assert_eq!(
+            std::fs::read(&registry_path).unwrap(),
+            before,
+            "{env}: a refused patch writes nothing, not even its other fields"
+        );
+    }
+
+    let remote = call(
+        "servers_update_config",
+        json!({"name": "beta", "patch": {"env": {"SOME_SETTING": "1"}}, "confirm": true}),
+    )
+    .unwrap_err();
+    assert_eq!(remote.kind, "invalid_arguments");
+    assert!(remote.message.contains("rule stdio-only"), "{remote:?}");
+
+    for bad in [json!("A=b"), json!(["A"]), json!(7)] {
+        let error = call(
+            "servers_update_config",
+            json!({"name": "alpha", "patch": {"env": bad}, "confirm": true}),
+        )
+        .unwrap_err();
+        assert_eq!(error.kind, "invalid_arguments");
+    }
+    for bad in [json!(1), json!(true), json!(["x"]), json!({"a": "b"})] {
+        let error = call(
+            "servers_update_config",
+            json!({"name": "alpha", "patch": {"env": {"SOME_SETTING": bad}}, "confirm": true}),
+        )
+        .unwrap_err();
+        assert_eq!(error.kind, "invalid_arguments");
+    }
+    assert_eq!(std::fs::read(&registry_path).unwrap(), before);
+
+    assert_eq!(
+        kind(call(
+            "servers_install",
+            json!({"name": "fresh", "config": {"command": "x", "env": {"AUTH_HEADER": "plain"}}, "confirm": true})
+        )),
+        "invalid_arguments"
+    );
+    assert_eq!(
+        kind(call(
+            "servers_install",
+            json!({"name": "fresh", "config": {"url": "https://example.invalid/mcp", "env": {"SOME_SETTING": "1"}}, "confirm": true})
+        )),
+        "invalid_arguments"
+    );
+    assert_eq!(std::fs::read(&registry_path).unwrap(), before);
+}
+
+#[test]
+fn an_npx_pin_is_still_detected_and_rewritable_after_an_env_patch() {
+    use crate::plus::update::exec::SystemGit;
+    use crate::plus::update::pins;
+    use crate::plus::update::source::{self, Source};
+
+    let _fixture = Fixture::new("wired-env-pin");
+    call(
+        "servers_install",
+        json!({
+            "name": "rea",
+            "config": {"command": "npx", "args": ["-y", "rea-agents@6.4.0", "mcp"]},
+            "confirm": true,
+        }),
+    )
+    .unwrap();
+    let detect = || source::detect(&registry_server("rea"), None, &SystemGit);
+    assert_eq!(detect(), Source::Npx { package: "rea-agents".into() });
+
+    call(
+        "servers_update_config",
+        json!({
+            "name": "rea",
+            "patch": {"env": {"JAVA_HOME": "/opt/jdk", "REA_JADX_MCP_JAR": "/x/jadx.jar"}},
+            "confirm": true,
+        }),
+    )
+    .unwrap();
+    let server = registry_server("rea");
+    assert_eq!(detect(), Source::Npx { package: "rea-agents".into() });
+    assert_eq!(server.command.as_deref(), Some("npx"));
+    assert_eq!(server.args, ["-y", "rea-agents@6.4.0", "mcp"]);
+    let spec = pins::parse_spec(&server.args, false).unwrap();
+    assert_eq!((spec.name.as_str(), spec.version.as_deref()), ("rea-agents", Some("6.4.0")));
+}
+
 #[test]
 fn server_mutations_follow_their_tiers() {
     let _fixture = Fixture::new("wired-servers");
@@ -431,7 +669,7 @@ fn server_mutations_follow_their_tiers() {
     assert_eq!(
         kind(call(
             "servers_install",
-            json!({"name": "delta", "config": {"command": "d", "env": {"K": "v"}}, "confirm": true})
+            json!({"name": "delta", "config": {"command": "d", "env": {"API_KEY": "v"}}, "confirm": true})
         )),
         "invalid_arguments"
     );

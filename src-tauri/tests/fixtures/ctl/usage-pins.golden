@@ -16,7 +16,7 @@ Commands:
   server restart Restart one server's process in every running gateway (--dry-run, --wait <seconds>)
   server info    Show one server's definition and profiles
   server new     Add a custom server (--command or --url)
-  server edit    Edit a server's name, command, args, url or cwd
+  server edit    Edit a server's name, command, args, env, url or cwd
   server source set Set a git-backed server's remote, branch, upstream or post-update command
   catalog sync   Sync the local index of the MCP Registry (--full starts over; resumes an unfinished sync)
   catalog status Show the local registry index: servers, last sync, whether it is complete and whether a sync runs
@@ -217,7 +217,7 @@ Commands:
   server restart Restart one server's process in every running gateway (--dry-run, --wait <seconds>)
   server info    Show one server's definition and profiles
   server new     Add a custom server (--command or --url)
-  server edit    Edit a server's name, command, args, url or cwd
+  server edit    Edit a server's name, command, args, env, url or cwd
   server source set Set a git-backed server's remote, branch, upstream or post-update command
   catalog sync   Sync the local index of the MCP Registry (--full starts over; resumes an unfinished sync)
   catalog status Show the local registry index: servers, last sync, whether it is complete and whether a sync runs
@@ -418,7 +418,7 @@ Commands:
   server restart Restart one server's process in every running gateway (--dry-run, --wait <seconds>)
   server info    Show one server's definition and profiles
   server new     Add a custom server (--command or --url)
-  server edit    Edit a server's name, command, args, url or cwd
+  server edit    Edit a server's name, command, args, env, url or cwd
   server source set Set a git-backed server's remote, branch, upstream or post-update command
   catalog sync   Sync the local index of the MCP Registry (--full starts over; resumes an unfinished sync)
   catalog status Show the local registry index: servers, last sync, whether it is complete and whether a sync runs
@@ -619,7 +619,7 @@ Commands:
   server restart Restart one server's process in every running gateway (--dry-run, --wait <seconds>)
   server info    Show one server's definition and profiles
   server new     Add a custom server (--command or --url)
-  server edit    Edit a server's name, command, args, url or cwd
+  server edit    Edit a server's name, command, args, env, url or cwd
   server source set Set a git-backed server's remote, branch, upstream or post-update command
   catalog sync   Sync the local index of the MCP Registry (--full starts over; resumes an unfinished sync)
   catalog status Show the local registry index: servers, last sync, whether it is complete and whether a sync runs
@@ -1215,13 +1215,13 @@ exit 1
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: server new <name> (--command <cmd> [--arg <a>]... | --url <url> [--transport http|sse]) [--cwd <dir>]
+toolportctl: usage: server new <name> (--command <cmd> [--arg <a>]... [--env <KEY=VALUE>]... | --url <url> [--transport http|sse]) [--cwd <dir>]
 Run `toolportctl --help` for usage.
 === ["server","new","a"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: server new <name> (--command <cmd> [--arg <a>]... | --url <url> [--transport http|sse]) [--cwd <dir>]
+toolportctl: usage: server new <name> (--command <cmd> [--arg <a>]... [--env <KEY=VALUE>]... | --url <url> [--transport http|sse]) [--cwd <dir>]
 Run `toolportctl --help` for usage.
 === ["server","new","a","--command"]
 exit 2
@@ -1245,13 +1245,13 @@ Run `toolportctl --help` for usage.
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: server new <name> (--command <cmd> [--arg <a>]... | --url <url> [--transport http|sse]) [--cwd <dir>]
+toolportctl: usage: server new <name> (--command <cmd> [--arg <a>]... [--env <KEY=VALUE>]... | --url <url> [--transport http|sse]) [--cwd <dir>]
 Run `toolportctl --help` for usage.
 === ["server","new","--command","x"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: server new <name> (--command <cmd> [--arg <a>]... | --url <url> [--transport http|sse]) [--cwd <dir>]
+toolportctl: usage: server new <name> (--command <cmd> [--arg <a>]... [--env <KEY=VALUE>]... | --url <url> [--transport http|sse]) [--cwd <dir>]
 Run `toolportctl --help` for usage.
 === ["server","new","a","--name","b","--command","x"]
 exit 2
@@ -1273,13 +1273,13 @@ exit 1
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--url <url>] [--transport <t>] [--cwd <dir>] [--declare-client-capabilities on|off] [--forward-instructions on|off]
+toolportctl: usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--env <KEY=VALUE>]... [--unset-env <KEY>]... [--url <url>] [--transport <t>] [--cwd <dir>] [--declare-client-capabilities on|off] [--forward-instructions on|off]
 Run `toolportctl --help` for usage.
 === ["server","edit","a"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--url <url>] [--transport <t>] [--cwd <dir>] [--declare-client-capabilities on|off] [--forward-instructions on|off]
+toolportctl: usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--env <KEY=VALUE>]... [--unset-env <KEY>]... [--url <url>] [--transport <t>] [--cwd <dir>] [--declare-client-capabilities on|off] [--forward-instructions on|off]
 Run `toolportctl --help` for usage.
 === ["server","edit","a","--name"]
 exit 2
@@ -1315,7 +1315,7 @@ Run `toolportctl --help` for usage.
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--url <url>] [--transport <t>] [--cwd <dir>] [--declare-client-capabilities on|off] [--forward-instructions on|off]
+toolportctl: usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--env <KEY=VALUE>]... [--unset-env <KEY>]... [--url <url>] [--transport <t>] [--cwd <dir>] [--declare-client-capabilities on|off] [--forward-instructions on|off]
 Run `toolportctl --help` for usage.
 === ["server","edit","nope","--name","x"]
 exit 1

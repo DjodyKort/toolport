@@ -64,11 +64,20 @@ Read `mcpm://architecture` first for the model behind these recipes.
 
 ## Register a new server
 
-1. `servers_install` with `name` and `config` (command and args, or url). Confirm required.
-2. Store any secrets from a shell: `toolportctl secret set <server> <KEY>`.
+1. `servers_install` with `name` and `config` (command and args, or url). Confirm required. Plain
+   settings go in `config.env` as `{NAME: value}`.
+2. Store any secrets from a shell: `toolportctl secret set <server> <KEY>`. A credential-looking
+   name or value is refused in `env`, and so is a name that already holds a secret.
 3. `servers_add_profile_tag` to enable it in a profile.
 4. `clients_sync` so every managed client picks up the gateway entry (`dry_run=false` and
    `confirm=true` apply it).
+
+## Set plain environment variables on a server
+
+1. `servers_update_config` with `name` and `patch` such as
+   `{\"env\": {\"JAVA_HOME\": \"/opt/jdk\", \"OLD_SETTING\": null}}`. `null` removes a name. Confirm
+   required. Each value is stored in the registry as given, never in the vault.
+2. `servers_restart` so the running process picks the values up.
 
 ## Remove a server cleanly
 

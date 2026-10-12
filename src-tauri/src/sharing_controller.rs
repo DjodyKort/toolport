@@ -547,6 +547,32 @@ mod controller_tests {
             .all(|input| input.value.is_none()));
     }
 
+    #[test]
+    fn share_keeps_env_names_and_drops_every_env_value_plain_ones_included() {
+        let mut registry = Registry::default();
+        registry.servers.push(
+            serde_json::from_value(serde_json::json!({
+                "id":"rea", "name":"rea", "transport":"stdio", "command":"npx",
+                "args":["-y", "rea-agents@6.4.0", "mcp"],
+                "env":[{"key":"JAVA_HOME", "value":"/opt/private-jdk", "secret":false},
+                       {"key":"REA_TOKEN", "secret":true}]
+            }))
+            .unwrap(),
+        );
+        let exported = build_export(&registry, None, None, None);
+        assert!(!exported.to_string().contains("private-jdk"));
+        assert_eq!(
+            exported["servers"][0]["env"],
+            serde_json::json!([
+                {"key":"JAVA_HOME", "secret":false},
+                {"key":"REA_TOKEN", "secret":true}
+            ])
+        );
+        let mut imported = Registry::default();
+        assert_eq!(apply_import(&mut imported, &exported.to_string()).unwrap(), 1);
+        assert!(imported.servers[0].env.iter().all(|entry| entry.value.is_none()));
+    }
+
     const INSTANTLY_KEY: &str =
         "aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY3zA5bC7dE9fG1hJ3kL5mN7pQ9rS1tU3vW5xY";
 

@@ -4,7 +4,7 @@
     "command": "server new",
     "error": {
       "code": "usage",
-      "message": "usage: server new <name> (--command <cmd> [--arg <a>]... | --url <url> [--transport http|sse]) [--cwd <dir>]"
+      "message": "usage: server new <name> (--command <cmd> [--arg <a>]... [--env <KEY=VALUE>]... | --url <url> [--transport http|sse]) [--cwd <dir>]"
     },
     "ok": false,
     "schemaVersion": 1
