@@ -567,8 +567,11 @@ Screenshots (1280x800, from `npm run screenshots:gui`): `docs/assets/gui-tasks-l
 | compression (`tokens`) | `compression:drift` for presets whose snapshot differs from the pin                                               | look      | `tokens`, Compression        | `compression presets --refresh`           |
 | library (`sources`)    | `library:behind`, `library:ahead` (stored refs, no fetch)                                                         | fyi       | `library`, Sources           | none                                      |
 | hooks (`context`)      | `hooks:bash` when one Bash call starts 10 or more hook processes                                                  | fyi       | `context`, Hooks             | none                                      |
+| updates (`update`)     | `updates:<server>:<kind>:<signature>` from the scheduled update check (`update-watch.json`)                       | look      | `servers`, the server        | none                                      |
 
-Not built yet, for want of a local record: update available (`update --check` keeps no result), sync finished and new skills detected. A login that is only about to expire is left out on purpose: the contract lists expired or failing logins.
+Not built yet, for want of a local record: sync finished and new skills detected. A login that is only about to expire is left out on purpose: the contract lists expired or failing logins.
+
+The updates feed shows what the last scheduled check stored. A `package` row records the version the check saw (`<current>><latest>`), and the feed compares it with the server's launch arguments on every read: once the server is removed or launches another version (an update applied from the app, `update --apply`, `servers_apply_update` or a hand edit), the row is left out right away instead of after the next check. Git rows (`fork`, `upstream`, `conflict`) need git to re-check and stay until the next check.
 
 ## Attention screen
 

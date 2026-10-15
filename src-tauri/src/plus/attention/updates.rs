@@ -286,7 +286,8 @@ pub fn collect(ctx: &Ctx) -> Vec<Item> {
     if !file.settings.enabled {
         return Vec::new();
     }
-    let servers = file.active.values().map(|f| {
+    let registry = crate::plus::registry_ro::read_opt();
+    let servers = file.active.values().filter(|f| still_applies(registry.as_ref(), f)).map(|f| {
         let level = if f.kind == "conflict" { Level::NeedsYou } else { Level::Look };
         Item::new(ctx, f.id(), level, "update", f.title.clone(), f.detail.clone())
             .target("servers", &[("server", &f.server)])
@@ -298,6 +299,24 @@ pub fn collect(ctx: &Ctx) -> Vec<Item> {
             .since_epoch(f.since)
     });
     servers.chain(plugins).collect()
+}
+
+/// A package finding is about the version the check saw. Once the server is removed or launches
+/// another version (an update applied by any route, or a hand edit), the row is stale until the
+/// next check; the registry says so offline, so it is left out now. Git findings need git to
+/// re-check and stay until the next check.
+fn still_applies(registry: Option<&crate::registry::Registry>, finding: &Finding) -> bool {
+    if finding.kind != "package" {
+        return true;
+    }
+    let Some(registry) = registry else { return true };
+    let Some(entry) = registry.servers.iter().find(|s| s.id == finding.server) else {
+        return false;
+    };
+    match (finding.signature.split_once('>'), crate::plus::update::pins::launched_version(entry)) {
+        (Some((seen, _)), Some(now)) => seen == now,
+        _ => true,
+    }
 }
 
 pub fn settings_handler(args: Value) -> Result<Value, String> {

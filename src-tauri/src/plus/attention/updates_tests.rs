@@ -333,3 +333,29 @@ fn a_plugin_finding_is_raised_once_per_version_and_cleared_when_the_plugin_is_cu
     write(&file).unwrap();
     assert!(collect(&Ctx { now: T0 + 4 * HOUR }).is_empty());
 }
+
+#[test]
+fn a_package_row_leaves_as_soon_as_the_server_launches_another_version() {
+    let world = World::new("applied");
+    let registry = Registry::default();
+    registry.publish(Some("2.0.0"));
+    let fx = fixture("applied", &world, true);
+    let env = env(&world, &registry);
+
+    assert_eq!(kinds(&tick_with(&env, T0, true).unwrap()), ["pkg:package"]);
+    let ids = |items: Vec<Item>| items.into_iter().map(|i| i.id).collect::<Vec<_>>();
+    assert_eq!(ids(collect(&Ctx { now: T0 })), ["updates:pkg:package:1.0.0>2.0.0"]);
+
+    let with_pin = |pin: &str| json!({"version": 1, "servers": [world.server(),
+        {"id": "pkg", "name": "pkg", "transport": "stdio", "command": "npx", "args": ["-y", pin]}],
+        "profiles": [{"id": "default", "name": "Default", "enabledServerIds": []}], "activeProfileId": "default"});
+    fx.write_registry(&with_pin("pkg@2.0.0"));
+    assert!(collect(&Ctx { now: T0 }).is_empty());
+
+    fx.write_registry(&with_pin("pkg@1.0.0"));
+    assert_eq!(ids(collect(&Ctx { now: T0 })), ["updates:pkg:package:1.0.0>2.0.0"]);
+
+    fx.write_registry(&json!({"version": 1, "servers": [world.server()],
+        "profiles": [{"id": "default", "name": "Default", "enabledServerIds": []}], "activeProfileId": "default"}));
+    assert!(collect(&Ctx { now: T0 }).is_empty());
+}

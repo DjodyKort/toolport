@@ -88,6 +88,22 @@ pub fn parse_spec(args: &[String], uvx: bool) -> Option<PinSpec> {
     None
 }
 
+/// The version an npx or uvx server is launched with, as written in its arguments: what an
+/// update check records as the current version. `None` for any other launcher, an unpinned
+/// package or a uvx git reference.
+pub fn launched_version(entry: &crate::registry::ServerEntry) -> Option<String> {
+    let uvx = match entry.command.as_deref().map(str::trim)? {
+        "npx" | "npx.cmd" => false,
+        "uvx" => true,
+        _ => return None,
+    };
+    let spec = parse_spec(&entry.args, uvx)?;
+    if uvx && is_git_url(&spec.name) {
+        return None;
+    }
+    spec.version
+}
+
 pub fn is_floating(version: &str) -> bool {
     matches!(version, "latest" | "next" | "*" | "")
 }

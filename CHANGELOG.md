@@ -51,6 +51,9 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ### Fixed
 
+- An Attention row for a package update no longer stays up to a day after the update. The row
+  compares the version it recorded with the server's launch arguments when Attention is read, so it
+  leaves as soon as the server launches another version, whichever route applied it.
 - `toolportctl doctor` no longer warns about a direct entry the user edited since Toolport wrote it
   (a server Claude Code now holds as its own remote entry, for instance); it says so and leaves the
   entry alone. Missing, stale and orphan entries still warn.
