@@ -8,6 +8,11 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ### Added
 
+- Toolport says when a client's profile leaves out a server that is on in the active profile.
+  `toolportctl client reach` (and `clients_reach`) report it as `left-out-by-profile`, Attention
+  shows one row per client, and `toolport_status` names the left-out servers to the client adapter
+  itself. Before, a server added after a client profile was made never reached that client, and
+  nothing said so.
 - Plain environment variables of a stdio server can be set without the vault.
   `toolportctl server edit <server> --env KEY=VALUE` (repeatable) sets or replaces one and
   `--unset-env KEY` removes one; `server new` takes `--env` too. The `servers_update_config` patch

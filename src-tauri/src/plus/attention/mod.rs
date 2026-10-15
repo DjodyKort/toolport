@@ -10,6 +10,7 @@ mod feed_context;
 mod feed_hooks;
 mod feed_library;
 mod feed_plugins;
+mod feed_profiles;
 mod feed_secrets;
 mod feed_sources;
 mod feed_tasks;
@@ -130,6 +131,7 @@ pub const FEEDS: &[(&str, Feed)] = &[
     ("sources", feed_sources::collect),
     ("context", feed_context::collect),
     ("plugins", feed_plugins::collect),
+    ("profiles", feed_profiles::collect),
     ("hooks", feed_hooks::collect),
     ("compression", feed_compression::collect),
     ("library", feed_library::collect),

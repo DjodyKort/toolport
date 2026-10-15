@@ -187,6 +187,8 @@ pub fn assess(reg: &Registry, detected: &[DetectedClient]) -> Report {
         .collect();
     let mut report = Report::default();
     let mut reached: Vec<Vec<Route>> = vec![Vec::new(); reg.servers.len()];
+    let active = reg.active_profile_id();
+    let mut left_out: Vec<Vec<(&DetectedClient, String)>> = vec![Vec::new(); reg.servers.len()];
     for client in &present {
         let scope = reg.client_scopes.get(&client.id).map_or("", String::as_str);
         let profile_id = reg.resolve_profile_id(scope);
@@ -214,6 +216,12 @@ pub fn assess(reg: &Registry, detected: &[DetectedClient]) -> Report {
                             .then(|| "the gateway entry was edited by hand".to_string()),
                         held: None,
                     });
+                } else if profile_id != active
+                    && reg.is_enabled(&active, &server.id)
+                    && !clients::is_gateway_server(server)
+                {
+                    let profile = profile_name(reg, &profile_id).unwrap_or_else(|| profile_id.clone());
+                    left_out[at].push((client, profile));
                 }
             }
         }
@@ -292,13 +300,30 @@ pub fn assess(reg: &Registry, detected: &[DetectedClient]) -> Report {
             }
         }
     }
-    for (server, routes) in reg.servers.iter().zip(reached) {
+    let active_name = profile_name(reg, &active).unwrap_or_else(|| active.clone());
+    for ((server, routes), left_out) in reg.servers.iter().zip(reached).zip(left_out) {
         let profiles: Vec<String> = reg
             .profiles
             .iter()
             .filter(|p| p.enabled_server_ids.iter().any(|id| *id == server.id))
             .map(|p| p.name.clone())
             .collect();
+        for (client, profile) in left_out {
+            if routes.iter().any(|r| r.client == client.id) {
+                continue;
+            }
+            report.findings.push(Finding {
+                level: "look",
+                kind: "left-out-by-profile",
+                server: Some(server.id.clone()),
+                client: Some(client.id.clone()),
+                text: format!(
+                    "{} is on in {active_name}, but the profile {profile} of {} leaves it out, \
+                     so {} does not reach it.",
+                    server.name, client.name, client.name
+                ),
+            });
+        }
         for route in routes.iter().filter(|r| r.how == How::OwnEntry) {
             let also_gateway = routes
                 .iter()

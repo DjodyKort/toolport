@@ -194,3 +194,60 @@ fn the_task_feed_reads_the_attention_records() {
     assert_eq!(items[0].since, cron::rfc3339(NOW - 100));
     assert_eq!(items[0].action.as_ref().unwrap().label, "Run task");
 }
+
+fn left_out_report(servers: &[(&str, &str)]) -> crate::plus::reach::Report {
+    use crate::plus::reach::{ClientRow, Finding, Report, ServerReach};
+    Report {
+        clients: vec![ClientRow {
+            id: "claude-code".into(),
+            name: "Claude Code".into(),
+            gateway: "managed",
+            profile: Some("claude-code".into()),
+        }],
+        servers: servers
+            .iter()
+            .map(|(id, name)| ServerReach {
+                id: id.to_string(),
+                name: name.to_string(),
+                transport: "http".into(),
+                profiles: vec!["Default".into()],
+                routes: Vec::new(),
+            })
+            .collect(),
+        unregistered: Vec::new(),
+        findings: servers
+            .iter()
+            .map(|(id, _)| Finding {
+                level: "look",
+                kind: "left-out-by-profile",
+                server: Some(id.to_string()),
+                client: Some("claude-code".into()),
+                text: String::new(),
+            })
+            .collect(),
+    }
+}
+
+#[test]
+fn servers_a_clients_profile_leaves_out_are_one_row_for_that_client() {
+    let items = feed_profiles::rows(&ctx(), &left_out_report(&[("slack", "Slack"), ("biblio", "biblio")]));
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].level, Level::Look);
+    assert_eq!(items[0].title, "Claude Code does not get 2 servers that are on in the active profile");
+    assert!(items[0].detail.starts_with("The profile claude-code leaves out biblio, Slack."), "{}", items[0].detail);
+    assert!(items[0].id.starts_with("profiles:claude-code:left-out:"), "{}", items[0].id);
+}
+
+#[test]
+fn a_row_comes_back_under_a_new_id_when_another_server_is_left_out() {
+    let one = feed_profiles::rows(&ctx(), &left_out_report(&[("slack", "Slack")]));
+    let two = feed_profiles::rows(&ctx(), &left_out_report(&[("slack", "Slack"), ("biblio", "biblio")]));
+    let again = feed_profiles::rows(&ctx(), &left_out_report(&[("slack", "Slack")]));
+    assert_ne!(one[0].id, two[0].id);
+    assert_eq!(one[0].id, again[0].id);
+}
+
+#[test]
+fn a_report_without_left_out_servers_raises_nothing() {
+    assert!(feed_profiles::rows(&ctx(), &left_out_report(&[])).is_empty());
+}

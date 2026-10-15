@@ -105,6 +105,9 @@ struct ActiveRequestContext {
     /// registered HTTP client's profile, or the stdio gateway's own. Selects the
     /// per-profile server instructions (#971). `None` = the dispatch `profile` argument.
     connection_profile: Option<String>,
+    /// The request came through a local client adapter (Claude Code, Cursor, ...), which is the
+    /// machine owner's own client rather than a registered HTTP tenant.
+    adapter_caller: bool,
 }
 
 thread_local! {
@@ -116,6 +119,7 @@ thread_local! {
             adapter_root: None,
             upstream_transport: UpstreamTransport::Unknown,
             connection_profile: None,
+            adapter_caller: false,
         }) };
 }
 
@@ -285,6 +289,24 @@ impl Drop for ConnectionProfileGuard {
 
 fn active_connection_profile() -> Option<String> {
     ACTIVE_REQUEST_CONTEXT.with(|cell| cell.borrow().connection_profile.clone())
+}
+
+struct AdapterCallerGuard(bool);
+
+impl AdapterCallerGuard {
+    fn enter(adapter: bool) -> Self {
+        Self(ACTIVE_REQUEST_CONTEXT.with(|cell| std::mem::replace(&mut cell.borrow_mut().adapter_caller, adapter)))
+    }
+}
+
+impl Drop for AdapterCallerGuard {
+    fn drop(&mut self) {
+        ACTIVE_REQUEST_CONTEXT.with(|cell| cell.borrow_mut().adapter_caller = self.0);
+    }
+}
+
+fn active_adapter_caller() -> bool {
+    ACTIVE_REQUEST_CONTEXT.with(|cell| cell.borrow().adapter_caller)
 }
 
 /// Installs a complete request context on a worker that continues work for a
@@ -3078,6 +3100,7 @@ fn enabled_summary(
     cached: &[Value],
     profile: Option<&str>,
     allowed: Option<&std::collections::HashSet<String>>,
+    name_left_out: bool,
 ) -> String {
     let active = match profile {
         Some(p) => reg.resolve_profile_id(p),
@@ -3131,6 +3154,32 @@ fn enabled_summary(
             s.transport,
             target.trim()
         ));
+    }
+    // Names only, and only to the owner's own client adapters: a registered HTTP tenant
+    // must not learn which servers sit outside its scope.
+    if name_left_out && allowed.is_some() {
+        let base = reg.active_profile_id();
+        let left_out: Vec<&str> = reg
+            .servers
+            .iter()
+            .filter(|s| {
+                reg.is_enabled(&base, &s.id)
+                    && !clients::is_gateway_server(s)
+                    && !visible.contains(&s.id)
+            })
+            .map(|s| s.name.as_str())
+            .collect();
+        if !left_out.is_empty() {
+            let base_name = reg
+                .profiles
+                .iter()
+                .find(|p| p.id == base)
+                .map_or(base.as_str(), |p| p.name.as_str());
+            out.push_str(&format!(
+                "\nOn in profile '{base_name}' but left out of this client's profile: {}\n",
+                left_out.join(", ")
+            ));
+        }
     }
 
     // Servers that failed to connect and are being retried, or wait for a sign-in.
@@ -8285,7 +8334,7 @@ fn handle_request_with_cancel(
                 return Some(success(
                     id,
                     json!({
-                        "content": [{ "type": "text", "text": enabled_summary(host, reg, cached, profile, allowed) }],
+                        "content": [{ "type": "text", "text": enabled_summary(host, reg, cached, profile, allowed, active_adapter_caller()) }],
                         "isError": false
                     }),
                 ));
@@ -15937,6 +15986,7 @@ fn process_request(
             .or(profile_snapshot.as_deref())
             .map(str::to_string),
     );
+    let _adapter_caller = AdapterCallerGuard::enter(adapter_profile.is_some());
     handle_request_with_cancel(
         state,
         req,
@@ -27380,14 +27430,14 @@ mod tests {
         reg.set_server_enabled(&billing, "bravo", true).unwrap();
         let cached = vec![json!({ "name": "alpha__x" }), json!({ "name": "bravo__y" })];
         // Unscoped (legacy/stdio): the active profile -> alpha only.
-        let full = enabled_summary(&host, &reg, &cached, None, None);
+        let full = enabled_summary(&host, &reg, &cached, None, None, false);
         assert!(full.contains("alpha"));
         assert!(!full.contains("bravo")); // not in the active profile
         assert!(full.contains("tokens of MCP tool definitions out of context"));
         // Scoped to bravo: shows bravo (its real scope) even though bravo isn't in
         // the active profile, and never leaks alpha's name/command/tool count.
         let allowed: HashSet<String> = ["bravo".to_string()].into_iter().collect();
-        let scoped = enabled_summary(&host, &reg, &cached, None, Some(&allowed));
+        let scoped = enabled_summary(&host, &reg, &cached, None, Some(&allowed), false);
         assert!(scoped.contains("bravo"));
         assert!(!scoped.contains("alpha"));
         assert!(!scoped.contains("alpha-cmd"));
@@ -27395,6 +27445,12 @@ mod tests {
         assert!(!scoped.contains("alpha-only-schema"));
         assert!(!scoped.contains("peak full catalog"));
         assert!(!scoped.contains("load(s)"));
+        // The owner's own adapter learns the name of what its profile leaves out, nothing more.
+        let adapter = enabled_summary(&host, &reg, &cached, None, Some(&allowed), true);
+        assert!(adapter.contains("left out of this client's profile: alpha"), "{adapter}");
+        assert!(!adapter.contains("alpha-cmd"));
+        assert!(!adapter.contains("alpha: 1 tool(s)"));
+        assert!(!full.contains("left out"));
         let rpc = handle_request(
             &host,
             &json!({"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"toolport_status","arguments":{}}}),
@@ -27413,7 +27469,7 @@ mod tests {
         assert!(!rpc_text.contains("tokens of MCP tool definitions out of context"));
         // The status line reports the mode of the host it is asked about.
         host.set_discovery_mode(DiscoveryMode::Grouped);
-        let grouped = enabled_summary(&host, &reg, &cached, None, None);
+        let grouped = enabled_summary(&host, &reg, &cached, None, None, false);
         assert!(grouped.contains("Discovery mode: grouped"), "{grouped}");
         savings::try_clear().unwrap();
         let _ = std::fs::remove_dir_all(dir);
@@ -27452,7 +27508,7 @@ mod tests {
             json!({ "name": "github__list_repos" }),
             json!({ "name": "github__create_issue" }),
         ];
-        let out = enabled_summary(&host, &reg, &cached, None, None);
+        let out = enabled_summary(&host, &reg, &cached, None, None, false);
         assert!(out.contains("github: 2 tool(s)"));
         assert!(out.contains("Enabled but exposing 0 tools"));
         // The silent server is named under the hint; the one with tools is not.
@@ -27476,13 +27532,13 @@ mod tests {
             json!({ "name": "file_system__read" }),
             json!({ "name": "file_system__write" }),
         ];
-        let out = enabled_summary(&host, &reg, &cached, None, None);
+        let out = enabled_summary(&host, &reg, &cached, None, None, false);
         assert!(out.contains("file_system: 2 tool(s)"), "{out}");
         assert!(!out.contains("Enabled but exposing 0 tools"), "{out}");
         // Same answer for a scoped HTTP caller, whose allow-set is raw ids too.
         let allowed: std::collections::HashSet<String> =
             ["file-system".to_string()].into_iter().collect();
-        let scoped = enabled_summary(&host, &reg, &cached, None, Some(&allowed));
+        let scoped = enabled_summary(&host, &reg, &cached, None, Some(&allowed), false);
         assert!(scoped.contains("file_system: 2 tool(s)"), "{scoped}");
 
         // A prefix two tenants share is counted for neither, rather than crediting
@@ -27500,6 +27556,7 @@ mod tests {
             &[json!({ "name": "team_slack__send" })],
             None,
             None,
+            false,
         );
         assert!(!out.contains("team_slack: 1 tool(s)"), "{out}");
     }
@@ -27531,7 +27588,7 @@ mod tests {
             unknown_fields: serde_json::Map::new(),
         });
         reg.set_server_enabled("default", "github", true).unwrap();
-        let out = enabled_summary(&host, &reg, &[], None, None);
+        let out = enabled_summary(&host, &reg, &[], None, None, false);
         assert!(!out.contains("Enabled but exposing 0 tools"));
     }
 

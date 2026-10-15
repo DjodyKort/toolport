@@ -100,6 +100,52 @@ fn a_server_outside_the_clients_profile_is_not_served_to_it() {
     assert!(route(&report, "alpha", "claude-code").is_empty());
 }
 
+fn scoped_to_work(enabled_in_work: &[&str]) -> Registry {
+    let mut reg = registry(
+        vec![
+            server("alpha", "Alpha", "stdio", None),
+            server("slack", "Slack", "http", Some("https://mcp.slack.com/mcp")),
+        ],
+        &["alpha", "slack"],
+    );
+    reg.profiles.push(crate::registry::Profile {
+        id: "work".into(),
+        name: "Work".into(),
+        enabled_server_ids: enabled_in_work.iter().map(|s| s.to_string()).collect(),
+        tool_scope: Default::default(),
+        instructions: None,
+    });
+    reg.client_scopes.insert("claude-code".into(), "Work".into());
+    reg
+}
+
+#[test]
+fn a_server_on_in_the_active_profile_but_left_out_of_a_clients_profile_is_a_finding() {
+    let reg = scoped_to_work(&["alpha"]);
+    let report = assess(&reg, &[client("claude-code", GatewayEntryState::Managed, vec![])]);
+    let found: Vec<&Finding> = report.findings.iter().filter(|f| f.kind == "left-out-by-profile").collect();
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].level, "look");
+    assert_eq!(found[0].server.as_deref(), Some("slack"));
+    assert_eq!(found[0].client.as_deref(), Some("claude-code"));
+    assert!(found[0].text.contains("the profile Work of claude-code leaves it out"), "{}", found[0].text);
+}
+
+#[test]
+fn a_left_out_server_the_client_reaches_through_its_own_entry_is_no_finding() {
+    let reg = scoped_to_work(&["alpha"]);
+    let own = entry("slack", "http", Some("https://mcp.slack.com/mcp"), None, &[]);
+    let report = assess(&reg, &[client("claude-code", GatewayEntryState::Managed, vec![own])]);
+    assert!(report.findings.iter().all(|f| f.kind != "left-out-by-profile"));
+}
+
+#[test]
+fn a_client_without_the_gateway_entry_has_no_profile_to_leave_servers_out() {
+    let reg = scoped_to_work(&[]);
+    let report = assess(&reg, &[client("claude-code", GatewayEntryState::Absent, vec![])]);
+    assert!(report.findings.iter().all(|f| f.kind != "left-out-by-profile"));
+}
+
 #[test]
 fn an_entry_the_client_holds_on_its_own_is_matched_by_name_and_reported_as_direct_only() {
     let reg = registry(vec![server("figma-mcp-server", "Figma MCP Server", "sse", None)], &[]);
