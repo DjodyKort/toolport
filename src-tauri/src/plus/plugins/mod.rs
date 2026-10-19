@@ -3,7 +3,8 @@
 //! `enabledPlugins` of a folder, the `plugins ls|show` rows and the `hooks ls` inventory.
 //!
 //! Nothing in here starts a hook or a plugin process; the only child process is the `claude`
-//! binary, and only with the fixed `plugin list|details|configure|marketplace update` arguments.
+//! binary, and only with the fixed `plugin list|details|configure|enable|disable|install|
+//! uninstall|update` and `plugin marketplace add|remove|update` arguments.
 
 pub mod adapters;
 pub mod api;
@@ -12,7 +13,9 @@ pub mod cli;
 pub mod config;
 pub mod hooks;
 pub mod installed;
+pub mod link;
 pub mod manifest;
+pub mod marketplace;
 pub mod report;
 pub mod settings;
 pub mod switch;
@@ -24,6 +27,8 @@ pub use installed::PluginStatus;
 mod tests;
 #[cfg(test)]
 mod config_tests;
+#[cfg(test)]
+mod link_tests;
 #[cfg(test)]
 mod switch_tests;
 

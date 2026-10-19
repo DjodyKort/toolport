@@ -21,7 +21,7 @@ use std::time::Duration;
 
 const CLAUDE_TIMEOUT: Duration = Duration::from_secs(60);
 const SHOWN_NAMES: usize = 8;
-const RESTART: &str = "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart";
+pub(super) const RESTART: &str = "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart";
 const STAYS: &str = "your own skills, agents, commands and hooks, every other plugin and the servers behind the Toolport gateway";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
