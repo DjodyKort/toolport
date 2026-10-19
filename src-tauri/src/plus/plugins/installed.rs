@@ -61,6 +61,9 @@ pub struct Installed {
     pub name: String,
     pub marketplace: Option<String>,
     pub version: Option<String>,
+    /// The version the plugin's source folder carries now (`folderVersion`), which differs from
+    /// `version` once a directory marketplace moved on and the install was not updated yet.
+    pub folder_version: Option<String>,
     pub install_path: Option<PathBuf>,
     pub scope: Option<String>,
     pub flagged_enabled: Option<bool>,
@@ -102,6 +105,7 @@ impl Installed {
             name,
             marketplace,
             version,
+            folder_version: str_field(entry, &["folderVersion"]),
             install_path: str_field(entry, &["installPath"]).map(PathBuf::from),
             scope: str_field(entry, &["scope"]),
             flagged_enabled: entry.get("enabled").and_then(Value::as_bool),
@@ -190,6 +194,7 @@ pub fn file_list(claude_home: &Path) -> Vec<Installed> {
                 name,
                 marketplace,
                 version: str_field(record, &["version"]),
+                folder_version: None,
                 install_path: str_field(record, &["installPath"]).map(PathBuf::from),
                 scope: str_field(record, &["scope"]),
                 flagged_enabled: None,

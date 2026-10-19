@@ -162,12 +162,16 @@ fn survey(
         if opts.marketplace.is_some() && opts.marketplace != plugin.marketplace {
             continue;
         }
-        let available = plugin.marketplace.as_ref().and_then(|m| {
-            catalog
-                .get(&(m.clone(), plugin.name.clone()))
-                .cloned()
-                .flatten()
-        });
+        let available = plugin
+            .marketplace
+            .as_ref()
+            .and_then(|m| {
+                catalog
+                    .get(&(m.clone(), plugin.name.clone()))
+                    .cloned()
+                    .flatten()
+            })
+            .or_else(|| plugin.folder_version.clone());
         let status = PluginStatus::of(plugin.version.as_deref(), available.as_deref());
         let enabled = layers
             .enabled(&plugin.id)

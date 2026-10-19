@@ -104,6 +104,23 @@ fn list_reports_installed_vs_available_without_mutating() {
 }
 
 #[test]
+fn a_plugin_without_a_catalog_version_is_judged_by_its_folder_version() {
+    let env = Env::new("folder");
+    env.catalog();
+    let listed = r#"[
+ {"name":"epsilon","marketplace":"mkt-a","version":"1.0.0","folderVersion":"1.1.0"},
+ {"name":"zeta","marketplace":"mkt-a","version":"2.0.0","folderVersion":"2.0.0"},
+ {"name":"gamma","marketplace":"mkt-a","version":"x","folderVersion":"9.9.9"}
+]"#;
+    let mock = env.mock(listed, "echo done");
+    let r = list(&mock, &env.opts()).unwrap();
+    assert_eq!(row(&r, "epsilon").status, PluginStatus::Update);
+    assert_eq!(row(&r, "epsilon").available.as_deref(), Some("1.1.0"));
+    assert_eq!(row(&r, "zeta").status, PluginStatus::Current);
+    assert_eq!(row(&r, "gamma").available.as_deref(), Some("0123456789ab"));
+}
+
+#[test]
 fn update_applies_only_updatable_plugins() {
     let env = Env::new("apply");
     env.catalog();
