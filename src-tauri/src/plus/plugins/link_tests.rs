@@ -330,6 +330,20 @@ fn link_warns_that_the_clone_replaces_a_synced_copy_and_that_hooks_run() {
 }
 
 #[test]
+fn link_finds_the_synced_copy_in_the_folder_the_organization_sync_writes() {
+    let fx = Fx::new("link-synced-dir");
+    marketplace_tap(&fx);
+    fx.put("home/.claude/plugins/synced/org_user/core/.claude-plugin/plugin.json", "{}");
+    fx.put("home/.claude/plugins/synced/org_user/core.meta.json", "{}");
+    std::fs::create_dir_all(fx.path("home/.claude/plugins/synced/other_user")).unwrap();
+    let out = link(&fx.env(), &Recorder::new(), TAP, &[], true).unwrap();
+    let text = out["plan"]["warnings"].to_string();
+    assert!(text.contains("core@synced is the same plugin as core@acme"), "{text}");
+    assert!(!text.contains("labs@synced"), "{text}");
+    assert_eq!(text.matches("core@synced").count(), 1, "{text}");
+}
+
+#[test]
 fn link_names_the_undo_when_a_later_step_fails() {
     let fx = Fx::new("link-fail");
     marketplace_tap(&fx);

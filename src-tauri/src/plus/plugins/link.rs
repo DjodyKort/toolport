@@ -228,14 +228,25 @@ fn row(market: &Marketplace, plugin: &Plugin, linked: bool) -> Value {
     })
 }
 
+/// The plugins of `chosen` that the organization sync also provides. `claude plugin list` does not
+/// show them, so the folders the sync writes (`plugins/synced/<org>_<user>/<plugin>`) are read too.
 fn synced_twins(env: &Env, runner: &dyn ClaudeRunner, chosen: &[&Plugin]) -> Vec<String> {
-    installed::list(Some(runner), &env.claude_home)
+    let mut twins: Vec<String> = installed::list(Some(runner), &env.claude_home)
         .plugins
         .into_iter()
         .filter(|p| p.marketplace.as_deref() == Some(SYNCED))
         .filter(|p| chosen.iter().any(|c| c.name == p.name))
         .map(|p| p.id)
-        .collect()
+        .collect();
+    for account in fsx::list_dir(&env.claude_home.join("plugins").join(SYNCED)) {
+        for plugin in chosen {
+            let id = format!("{}@{SYNCED}", plugin.name);
+            if fsx::is_dir(&account.path.join(&plugin.name)) && !twins.contains(&id) {
+                twins.push(id);
+            }
+        }
+    }
+    twins
 }
 
 fn applied(commands: &[Command], undo: String) -> ResultV1 {
