@@ -2,9 +2,11 @@
 
 use super::fsx;
 use super::item::{self, Placement};
+use super::layout;
 use super::library::scan_skills_repo;
 use super::model::{Item, Origin, SourceMeta};
 use super::{DetectorOutput, ScanCtx, SourceDetector};
+use crate::plus::plugins::marketplace;
 use crate::plus::skills::taps::{load_taps, tap_dir, taps_root};
 
 pub struct TapDetector;
@@ -35,10 +37,20 @@ impl SourceDetector for TapDetector {
             let cloned = fsx::is_dir(&dir);
             let mut items: Vec<Item> = Vec::new();
             if cloned {
-                for file in scan_skills_repo(&dir, ctx) {
-                    if file.kind == "agent" {
-                        continue;
-                    }
+                let plugin_files: Vec<_> = match marketplace::read(&dir) {
+                    Some(Ok(market)) => market
+                        .plugins
+                        .iter()
+                        .flat_map(|p| layout::scan_layout(&p.dir, ctx.budget))
+                        .filter(|f| f.kind != "rule")
+                        .collect(),
+                    _ => Vec::new(),
+                };
+                let files = scan_skills_repo(&dir, ctx)
+                    .into_iter()
+                    .filter(|f| f.kind != "agent")
+                    .chain(plugin_files);
+                for file in files {
                     if let Some(parsed) = item::parse_file(ctx.cache, file.kind, &file.path) {
                         let kind = if file.kind == "rule" {
                             "rule"

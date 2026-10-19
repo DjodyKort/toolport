@@ -323,6 +323,21 @@ pub(super) fn skills_tap_update(args: &Value) -> Outcome {
     })))
 }
 
+pub(super) fn skills_tap_link(args: &Value) -> Outcome {
+    tapped(taps::tap_link_value(&json!({
+        "name": str_arg(args, "name"),
+        "plugins": args.get("plugins").cloned().unwrap_or(Value::Null),
+        "dry_run": !applies(args),
+    })))
+}
+
+pub(super) fn skills_tap_unlink(args: &Value) -> Outcome {
+    tapped(taps::tap_unlink_value(&json!({
+        "name": str_arg(args, "name"),
+        "dry_run": !applies(args),
+    })))
+}
+
 /// Installs into the discovered skills repository, never into the working directory, and always
 /// with the audit on.
 pub(super) fn skills_install(args: &Value) -> Outcome {

@@ -537,3 +537,49 @@ fn the_plus_skills_routes_take_snake_case_arguments_and_return_camel_case() {
     let removed = call("tapRemove", json!({"name": "acme-skills"})).unwrap();
     assert_eq!(removed["removed"], json!(true));
 }
+
+#[test]
+fn tap_ls_lists_the_plugins_of_a_marketplace_tap_under_the_table() {
+    let taps = vec![
+        json!({"name": "agent-skills", "marketplace": {
+            "name": "acme",
+            "declared": "here",
+            "plugins": [
+                {"name": "core", "version": "2026.10.14.0", "skills": 5, "agents": 0, "linked": true},
+                {"name": "labs", "version": "2026.10.14.0", "skills": 3, "agents": 1, "linked": false},
+            ],
+        }}),
+        json!({"name": "plain"}),
+        json!({"name": "broken", "marketplace": {"error": "marketplace.json is not valid JSON"}}),
+    ];
+    let text = super::skills_taps::marketplace_lines(&taps);
+    assert!(text.contains("agent-skills: plugin marketplace acme, linked to Claude Code"), "{text}");
+    assert!(text.contains("core 2026.10.14.0 (5 skills, 0 agents), installed"), "{text}");
+    assert!(text.contains("labs 2026.10.14.0 (3 skills, 1 agents)"), "{text}");
+    assert!(!text.contains("1 agents), installed"), "{text}");
+    assert!(text.contains("broken: plugin marketplace is unreadable"), "{text}");
+    assert!(!text.contains("plain"), "{text}");
+    assert!(super::skills_taps::marketplace_lines(&[json!({"name": "plain"})]).is_empty());
+}
+
+#[test]
+fn tap_update_names_each_plugin_it_touched_and_asks_for_a_restart() {
+    let data = json!({"restartRequired": true, "plugins": [
+        {"tap": "agent-skills", "id": "core@acme", "from": "2026.10.14.0", "to": "2026.10.19.0", "outcome": "updated"},
+        {"tap": "agent-skills", "id": "labs@acme", "from": "1", "to": "2", "error": "boom"},
+        {"tap": "other", "error": "claude not found on PATH"},
+    ]});
+    let text = super::skills_taps::plugin_lines(&data);
+    assert!(text.contains("Updated plugin core@acme (2026.10.14.0 -> 2026.10.19.0)"), "{text}");
+    assert!(text.contains("Failed to update plugin labs@acme: boom"), "{text}");
+    assert!(text.contains("Failed to check the plugins of other: claude not found on PATH"), "{text}");
+    assert!(text.ends_with("Restart running Claude Code sessions to load the updated plugins."), "{text}");
+
+    let dry = json!({"plugins": [
+        {"tap": "agent-skills", "id": "core@acme", "from": "1", "to": "2", "outcome": "would update"},
+    ]});
+    let text = super::skills_taps::plugin_lines(&dry);
+    assert!(text.contains("Would update plugin core@acme (1 -> 2)"), "{text}");
+    assert!(!text.contains("Restart"), "{text}");
+    assert!(super::skills_taps::plugin_lines(&json!({"results": []})).is_empty());
+}

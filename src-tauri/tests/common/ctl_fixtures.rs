@@ -212,6 +212,7 @@ pub fn git(dir: &Path, home: &Path, args: &[&str]) {
 }
 
 /// `{base}/tap-src` is a local skills repository with one commit (a tap, a git-sync source),
+/// `{base}/plugin-src` a plugin marketplace with one plugin (a tap that `skills tap link` links),
 /// `{base}/remote.git` an empty bare repository (the sync remote) and `{home}/a.txt` the file a
 /// sync project tracks: no network is involved.
 pub fn git_world(world: &CtlWorld) {
@@ -223,14 +224,27 @@ pub fn git_world(world: &CtlWorld) {
         "---\nname: tapskill\ndescription: A synthetic tap skill\n---\nTap body\n",
     )
     .unwrap();
-    git(&tap, &world.home, &["init", "-q"]);
-    git(
-        &tap,
-        &world.home,
-        &["symbolic-ref", "HEAD", "refs/heads/main"],
-    );
-    git(&tap, &world.home, &["add", "-A"]);
-    git(&tap, &world.home, &["commit", "-q", "-m", "fixture"]);
+    commit_fixture(&tap, &world.home);
+    let market = world.base.join("plugin-src");
+    for (rel, text) in [
+        (
+            ".claude-plugin/marketplace.json",
+            r#"{"name": "acme", "plugins": [{"name": "core", "source": "./plugins/core"}]}"#,
+        ),
+        (
+            "plugins/core/.claude-plugin/plugin.json",
+            r#"{"name": "core", "version": "2026.10.14.0"}"#,
+        ),
+        (
+            "plugins/core/skills/task/SKILL.md",
+            "---\nname: task\ndescription: A synthetic plugin skill\n---\nPlugin body\n",
+        ),
+    ] {
+        let path = market.join(rel);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    }
+    commit_fixture(&market, &world.home);
     let remote = world.base.join("remote.git");
     std::fs::create_dir_all(&remote).unwrap();
     git(&remote, &world.home, &["init", "-q", "--bare"]);
@@ -240,6 +254,13 @@ pub fn git_world(world: &CtlWorld) {
         &["symbolic-ref", "HEAD", "refs/heads/main"],
     );
     std::fs::write(world.home.join("a.txt"), "tracked by the sync project\n").unwrap();
+}
+
+fn commit_fixture(dir: &Path, home: &Path) {
+    git(dir, home, &["init", "-q"]);
+    git(dir, home, &["symbolic-ref", "HEAD", "refs/heads/main"]);
+    git(dir, home, &["add", "-A"]);
+    git(dir, home, &["commit", "-q", "-m", "fixture"]);
 }
 
 /// An mcpm config root with two servers, a tool list and a file that refers to a renamed tool.

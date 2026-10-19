@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "local"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "tap 'local' is not a plugin marketplace: it has no .claude-plugin/marketplace.json"
+    }
+  },
+  "text": "invalid_arguments: tap 'local' is not a plugin marketplace: it has no .claude-plugin/marketplace.json",
+  "tool": "skills_tap_link"
+}

@@ -756,6 +756,29 @@ fn install_dry_run_writes_nothing_for_a_known_tap() {
 }
 
 #[test]
+fn install_points_a_plugin_marketplace_tap_at_tap_link() {
+    let t = Tmp::new("marketplace");
+    let config = t.config();
+    let git = MockGit::with_head("abc");
+    let env = env(&config, &git);
+    tap_ops::add(&env, "acme/agent-skills", None, false).unwrap();
+    let clone = config.join("taps/acme-agent-skills");
+    fs::create_dir_all(clone.join(".claude-plugin")).unwrap();
+    fs::write(
+        clone.join(".claude-plugin/marketplace.json"),
+        r#"{"name": "acme", "plugins": []}"#,
+    )
+    .unwrap();
+    let error = tap_ops::install(&env, "@acme/agent-skills", &opts(&t.target())).unwrap_err();
+    assert_eq!(error.kind, Kind::NotFound);
+    assert!(
+        error.message.contains("skills tap link acme-agent-skills"),
+        "{}",
+        error.message
+    );
+}
+
+#[test]
 fn install_dry_run_for_an_unknown_tap_reports_the_clone_and_touches_nothing() {
     let t = Tmp::new("installunknown");
     let config = t.config();

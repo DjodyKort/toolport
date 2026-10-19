@@ -3,6 +3,7 @@
 //! `mcpm sync tap|search|install`; the texts follow it with `toolportctl` in the hints (D-042).
 //! Errors go to stderr with exit 1 where mcpm prints them and exits 0, and `--dry-run` is new.
 
+use super::context_bundle::plan_text;
 use super::flags::{switch, value, Spec};
 use super::output::{table, table_min, wrap_cell, CtlError, Output};
 use super::skills_repo::{no_operands, operand, spec, str_of, strings, PATH};
@@ -12,17 +13,22 @@ const TAP_ADD_USAGE: &str = "usage: skills tap add <user/repo|url> [--name <alia
 const TAP_LS_USAGE: &str = "usage: skills tap ls";
 const TAP_REMOVE_USAGE: &str = "usage: skills tap remove <name> [--dry-run]";
 const TAP_UPDATE_USAGE: &str = "usage: skills tap update [<name>] [--dry-run]";
+const TAP_LINK_USAGE: &str = "usage: skills tap link <name> [--plugin <plugin>]... [--dry-run]";
+const TAP_UNLINK_USAGE: &str = "usage: skills tap unlink <name> [--dry-run]";
 const SEARCH_USAGE: &str = "usage: skills search <query>";
 const INSTALL_USAGE: &str =
     "usage: skills install <@user/repo[/skill][@version]> [--path <dir>] [--no-audit] [--dry-run]";
-const TAP_USAGE: &str = "usage: skills tap add|ls|remove|update \
+const TAP_USAGE: &str = "usage: skills tap add|ls|remove|update|link|unlink \
      (add: <user/repo|url> [--name <alias>] [--dry-run]; ls; remove: <name> [--dry-run]; \
-     update: [<name>] [--dry-run])";
+     update: [<name>] [--dry-run]; link: <name> [--plugin <plugin>]... [--dry-run]; \
+     unlink: <name> [--dry-run])";
 
 pub(super) const TAP_ADD: Spec = spec(&[value("--name"), switch("--dry-run")], TAP_ADD_USAGE);
 pub(super) const TAP_LS: Spec = spec(&[], TAP_LS_USAGE);
 pub(super) const TAP_REMOVE: Spec = spec(&[switch("--dry-run")], TAP_REMOVE_USAGE);
 pub(super) const TAP_UPDATE: Spec = spec(&[switch("--dry-run")], TAP_UPDATE_USAGE);
+pub(super) const TAP_LINK: Spec = spec(&[value("--plugin"), switch("--dry-run")], TAP_LINK_USAGE);
+pub(super) const TAP_UNLINK: Spec = spec(&[switch("--dry-run")], TAP_UNLINK_USAGE);
 pub(super) const SEARCH: Spec = spec(&[], SEARCH_USAGE);
 pub(super) const INSTALL: Spec = spec(
     &[PATH, switch("--no-audit"), switch("--dry-run")],
@@ -89,9 +95,42 @@ pub fn tap_ls(rest: &[String]) -> Result<Output, CtlError> {
                 ]
             })
             .collect();
-        table(&["Name", "Repository", "Path"], &rows)
+        format!(
+            "{}{}",
+            table(&["Name", "Repository", "Path"], &rows),
+            marketplace_lines(taps)
+        )
     };
     Ok(Output::new(data, human))
+}
+
+pub(super) fn marketplace_lines(taps: &[Value]) -> String {
+    let mut text = String::new();
+    for tap in taps.iter().filter(|t| !t["marketplace"].is_null()) {
+        let shown = &tap["marketplace"];
+        let name = str_of(tap, "name");
+        if let Some(error) = shown["error"].as_str() {
+            text.push_str(&format!("\n\n{name}: plugin marketplace is unreadable: {error}"));
+            continue;
+        }
+        let linked = match str_of(shown, "declared") {
+            "here" => "linked to Claude Code".to_string(),
+            "no" => "not linked; `skills tap link` links it".to_string(),
+            other => format!("not linked ({other})"),
+        };
+        text.push_str(&format!("\n\n{name}: plugin marketplace {}, {linked}", str_of(shown, "name")));
+        for plugin in shown["plugins"].as_array().into_iter().flatten() {
+            text.push_str(&format!(
+                "\n  {} {} ({} skills, {} agents){}",
+                str_of(plugin, "name"),
+                str_of(plugin, "version"),
+                plugin["skills"],
+                plugin["agents"],
+                if plugin["linked"] == json!(true) { ", installed" } else { "" }
+            ));
+        }
+    }
+    text
 }
 
 pub fn tap_remove(rest: &[String]) -> Result<Output, CtlError> {
@@ -146,9 +185,70 @@ pub fn tap_update(rest: &[String]) -> Result<Output, CtlError> {
             .collect::<Vec<_>>()
             .join("\n")
     };
-    let mut out = Output::new(data.clone(), human);
-    out.failed = data["failed"].as_u64().unwrap_or(0) > 0;
+    let mut out = Output::new(data.clone(), format!("{human}{}", plugin_lines(&data)));
+    out.failed = data["failed"].as_u64().unwrap_or(0) > 0
+        || data["plugins"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|p| p.get("error").is_some());
     Ok(out)
+}
+
+pub(super) fn plugin_lines(data: &Value) -> String {
+    let mut text = String::new();
+    for row in data["plugins"].as_array().into_iter().flatten() {
+        let id = str_of(row, "id");
+        let line = match (row["error"].as_str(), row["outcome"].as_str()) {
+            (Some(error), _) if id.is_empty() => format!(
+                "  Failed to check the plugins of {}: {error}",
+                str_of(row, "tap")
+            ),
+            (Some(error), _) => format!("  Failed to update plugin {id}: {error}"),
+            (None, Some("would update")) => format!(
+                "  Would update plugin {id} ({} -> {})",
+                str_of(row, "from"),
+                str_of(row, "to")
+            ),
+            (None, _) => format!(
+                "  Updated plugin {id} ({} -> {})",
+                str_of(row, "from"),
+                str_of(row, "to")
+            ),
+        };
+        text.push('\n');
+        text.push_str(&line);
+    }
+    if data["restartRequired"] == json!(true) {
+        text.push_str("\nRestart running Claude Code sessions to load the updated plugins.");
+    }
+    text
+}
+
+pub fn tap_link(rest: &[String]) -> Result<Output, CtlError> {
+    let args = TAP_LINK.parse(rest)?;
+    let name = operand(&args, "tap name", TAP_LINK_USAGE)?;
+    let data = call(
+        "plus.skills.tapLink",
+        json!({
+            "name": name,
+            "plugins": args.all("--plugin"),
+            "dry_run": args.on("--dry-run"),
+        }),
+    )?;
+    let human = plan_text(&data);
+    Ok(Output::new(data, human))
+}
+
+pub fn tap_unlink(rest: &[String]) -> Result<Output, CtlError> {
+    let args = TAP_UNLINK.parse(rest)?;
+    let name = operand(&args, "tap name", TAP_UNLINK_USAGE)?;
+    let data = call(
+        "plus.skills.tapUnlink",
+        json!({"name": name, "dry_run": args.on("--dry-run")}),
+    )?;
+    let human = plan_text(&data);
+    Ok(Output::new(data, human))
 }
 
 /// mcpm cuts the description at 60 characters and appends `...`, then lets rich wrap it.

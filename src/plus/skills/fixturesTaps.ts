@@ -8,6 +8,7 @@ import type {
   SkillsTapRemoveData,
   SkillsTapUpdateData,
   SkillsUnbundleData,
+  TapMarketplace,
 } from "../types/skills";
 import { REPO } from "./fixtures";
 
@@ -15,11 +16,30 @@ import { REPO } from "./fixtures";
  * cloned, one local tap whose spec cannot be derived, and a risky skill the audit blocks. */
 export const TAPS_ROOT = "/fixture/data/taps";
 
+export const tapMarketplaceOf = (declared: "no" | "here"): TapMarketplace => ({
+  declared,
+  name: "acme",
+  plugins: [
+    ["core", 5, 0, false],
+    ["labs", 3, 1, true],
+  ].map(([name, skills, agents, hooks]) => ({
+    agents: agents as number,
+    hooks: hooks as boolean,
+    id: `${name}@acme`,
+    linked: declared === "here",
+    name: name as string,
+    skills: skills as number,
+    version: "2026.10.14.0",
+  })),
+  warnings: [],
+});
+
 export const tapLs: SkillsTapLsData = {
   tapsRoot: TAPS_ROOT,
   taps: [
     {
       cloned: true,
+      marketplace: tapMarketplaceOf("no"),
       name: "acme-skills",
       path: `${TAPS_ROOT}/acme-skills`,
       repo: "acme/skills",
@@ -81,6 +101,47 @@ export const tapRemoveData = (dryRun: boolean): SkillsTapRemoveData => ({
   path: `${TAPS_ROOT}/acme-skills`,
   removed: !dryRun,
 });
+
+/** `skills tap link|unlink acme-skills` answers with a `PlanV1`; applied, it carries the result. */
+export const tapLinkData = (linking: boolean, dryRun: boolean) => {
+  const commands = linking
+    ? [
+        "claude plugin marketplace add /fixture/data/taps/acme-skills --scope user",
+        "claude plugin install core@acme --scope user",
+        "claude plugin install labs@acme --scope user",
+      ]
+    : [
+        "claude plugin uninstall core@acme --scope user",
+        "claude plugin uninstall labs@acme --scope user",
+        "claude plugin marketplace remove acme",
+      ];
+  const undo = `toolportctl skills tap ${linking ? "unlink" : "link"} acme-skills`;
+  const outcome = linking
+    ? { marketplace: "acme", plugins: tapMarketplaceOf("no").plugins }
+    : { marketplaces: ["acme"] };
+  return {
+    ...outcome,
+    changes: [],
+    conflicts: [],
+    cwd: null,
+    dryRun,
+    id: "acme",
+    plan: {
+      summary: linking
+        ? "Link tap acme-skills to Claude Code as marketplace acme"
+        : "Unlink tap acme-skills from Claude Code",
+      steps: commands.map((detail) => ({ op: "exec", detail })),
+      effects: {},
+      warnings: [
+        "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart",
+      ],
+      undo,
+    },
+    result: dryRun ? null : { applied: true, changed: commands, undo, backups: [] },
+    scope: "user",
+    tap: "acme-skills",
+  };
+};
 
 export const tapUpdateData = (dryRun: boolean, failing = false): SkillsTapUpdateData => ({
   dryRun,

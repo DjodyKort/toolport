@@ -11,6 +11,8 @@ const WRITERS: &[&str] = &[
     "skills_tap_add",
     "skills_tap_remove",
     "skills_tap_update",
+    "skills_tap_link",
+    "skills_tap_unlink",
     "skills_install",
 ];
 const READERS: &[&str] = &["skills_tap_list", "skills_search"];
@@ -261,6 +263,24 @@ fn the_tap_tools_reject_bad_input_with_their_kind() {
             json!({"name": "../x"}),
             "invalid_arguments",
         ),
+        ("skills_tap_link", json!({}), "invalid_arguments"),
+        (
+            "skills_tap_link",
+            json!({"name": "../x"}),
+            "invalid_arguments",
+        ),
+        ("skills_tap_link", json!({"name": "nope"}), "not_found"),
+        (
+            "skills_tap_link",
+            json!({"name": "nope", "plugins": "core"}),
+            "invalid_arguments",
+        ),
+        (
+            "skills_tap_unlink",
+            json!({"name": "../x"}),
+            "invalid_arguments",
+        ),
+        ("skills_tap_unlink", json!({"name": "nope"}), "not_found"),
         ("skills_search", json!({}), "invalid_arguments"),
         (
             "skills_tap_list",
@@ -305,4 +325,11 @@ fn the_tap_tools_reject_bad_input_with_their_kind() {
         )),
         "not_found"
     );
+    assert_eq!(
+        kind(call_tool("skills_tap_link", &json!({"name": "acme-skills"}))),
+        "invalid_arguments"
+    );
+    let unlinked = call_tool("skills_tap_unlink", &json!({"name": "acme-skills"})).unwrap();
+    assert_eq!(unlinked["dryRun"], true);
+    assert_eq!(unlinked["marketplaces"], json!([]));
 }

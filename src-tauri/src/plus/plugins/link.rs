@@ -160,6 +160,10 @@ fn exec(runner: &dyn ClaudeRunner, command: &Command) -> Result<(), OpError> {
 }
 
 fn exec_all(runner: &dyn ClaudeRunner, commands: &[Command], undo: &str) -> Result<(), OpError> {
+    let Some(first) = commands.first() else {
+        return Ok(());
+    };
+    require_claude(runner, &first.shown())?;
     for (done, command) in commands.iter().enumerate() {
         if let Err(error) = exec(runner, command) {
             let note = if done == 0 {
@@ -251,7 +255,6 @@ pub fn link(
     only: &[String],
     dry_run: bool,
 ) -> Result<Value, OpError> {
-    require_claude(runner, "claude plugin marketplace add")?;
     let target = resolve(env, tap)?;
     let market = &target.market;
     let chosen = choose(market, only)?;
@@ -357,7 +360,6 @@ pub fn link(
 /// `skills tap unlink <tap>`: works from what Claude Code recorded, so it also cleans up after a
 /// clone that is gone or a marketplace file that no longer parses.
 pub fn unlink(env: &Env, runner: &dyn ClaudeRunner, tap: &str, dry_run: bool) -> Result<Value, OpError> {
-    require_claude(runner, "claude plugin uninstall")?;
     let clone = clone_of(env, tap)?;
     let names = declared_here(&env.claude_home, &clone);
     let mut commands: Vec<Command> = Vec::new();

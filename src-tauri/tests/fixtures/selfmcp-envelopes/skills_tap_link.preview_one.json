@@ -1,0 +1,71 @@
+{
+  "arguments": {
+    "name": "plugins",
+    "plugins": ["core"]
+  },
+  "isError": false,
+  "result": {
+    "changes": [
+      {
+        "action": "marketplace add",
+        "command": [
+          "claude",
+          "plugin",
+          "marketplace",
+          "add",
+          "<WORLD>/data/taps/plugins",
+          "--scope",
+          "user"
+        ],
+        "scope": "user"
+      },
+      {
+        "action": "install",
+        "command": ["claude", "plugin", "install", "core@acme", "--scope", "user"],
+        "scope": "user"
+      }
+    ],
+    "conflicts": [],
+    "cwd": null,
+    "dryRun": true,
+    "id": "acme",
+    "marketplace": "acme",
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "claude plugin marketplace add <WORLD>/data/taps/plugins --scope user",
+          "op": "exec"
+        },
+        {
+          "detail": "claude plugin install core@acme --scope user",
+          "op": "exec"
+        },
+        {
+          "detail": "updates: `toolportctl skills tap update` pulls the clone and runs `claude plugin update` for what is linked",
+          "op": "note"
+        }
+      ],
+      "summary": "Link tap plugins to Claude Code as marketplace acme",
+      "undo": "toolportctl skills tap unlink plugins",
+      "warnings": [
+        "Claude Code reads plugin settings when a session starts: sessions that are already running keep the old state until they restart"
+      ]
+    },
+    "plugins": [
+      {
+        "agents": 0,
+        "hooks": false,
+        "id": "core@acme",
+        "linked": false,
+        "name": "core",
+        "skills": 1,
+        "version": "<masked>"
+      }
+    ],
+    "result": null,
+    "scope": "user",
+    "tap": "plugins"
+  },
+  "tool": "skills_tap_link"
+}

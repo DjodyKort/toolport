@@ -36,6 +36,9 @@ function stem(argv: string): string | null {
       return argv.endsWith("nothing") ? "skills-search.empty" : "skills-search.hit";
     case "install":
       return "skills-install.preview";
+    case "tap-link":
+    case "tap-unlink":
+      return `skills-${verb}.preview`;
     default:
       return `skills-${verb}.${kind}`;
   }

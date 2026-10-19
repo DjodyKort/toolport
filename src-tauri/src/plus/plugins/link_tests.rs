@@ -349,7 +349,7 @@ fn link_names_the_undo_when_a_later_step_fails() {
 fn link_needs_claude_a_registered_tap_and_a_marketplace() {
     let fx = Fx::new("link-pre");
     marketplace_tap(&fx);
-    let missing = link(&fx.env(), &Recorder::new().without_claude(), TAP, &[], true).unwrap_err();
+    let missing = link(&fx.env(), &Recorder::new().without_claude(), TAP, &[], false).unwrap_err();
     assert!(missing.message.contains(NOT_FOUND), "{}", missing.message);
 
     let unknown = link(&fx.env(), &Recorder::new(), "nope", &[], true).unwrap_err();
@@ -359,6 +359,22 @@ fn link_needs_claude_a_registered_tap_and_a_marketplace() {
     let plain = link(&fx.env(), &Recorder::new(), TAP, &[], true).unwrap_err();
     assert_eq!(plain.kind, ErrorKind::Usage);
     assert!(plain.message.contains("not a plugin marketplace"), "{}", plain.message);
+}
+
+#[test]
+fn only_an_apply_that_has_something_to_run_needs_claude() {
+    let fx = Fx::new("no-claude");
+    let clone = marketplace_tap(&fx);
+    let runner = Recorder::new().without_claude();
+    let planned = link(&fx.env(), &runner, TAP, &[], true).unwrap();
+    assert_eq!(exec_steps(&planned).len(), 3);
+    let nothing = unlink(&fx.env(), &runner, TAP, false).unwrap();
+    assert!(exec_steps(&nothing).is_empty());
+    assert!(runner.writes().is_empty());
+
+    declare_here(&fx, &clone);
+    let error = unlink(&fx.env(), &runner, TAP, false).unwrap_err();
+    assert!(error.message.contains(NOT_FOUND), "{}", error.message);
 }
 
 #[test]

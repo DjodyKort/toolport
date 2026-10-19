@@ -392,6 +392,12 @@ pub(super) const GLOBAL: &[Meta] = &[
         Bool,
         "Print the launch plan and do not start Claude Code",
     ),
+    m(
+        "--plugin",
+        Str,
+        "Link only this plugin of the marketplace; repeat for several",
+    )
+    .repeats(),
     m("--port", Int, "Local port"),
     m("--preset", Str, "Compression preset"),
     m("--profile", Str, "Profile id (default: the active profile)"),

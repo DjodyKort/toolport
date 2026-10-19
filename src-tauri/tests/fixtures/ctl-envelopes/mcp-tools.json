@@ -826,7 +826,7 @@
           "tier": 2
         },
         {
-          "description": "Pull one tap or all of them; dry_run is on by default",
+          "description": "Pull one tap or all of them and update the plugins linked to Claude Code; dry_run is on by default",
           "dryRunDefault": true,
           "gate": "none",
           "name": "skills_tap_update",
@@ -835,6 +835,54 @@
               "description": "Limit to one tap",
               "name": "name",
               "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Link a plugin marketplace tap to Claude Code at user scope: declare its clone and install its plugins; dry_run is on by default",
+          "dryRunDefault": true,
+          "gate": "none",
+          "name": "skills_tap_link",
+          "params": [
+            {
+              "description": "Tap name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Plugins to link, default all of the marketplace",
+              "name": "plugins",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Unlink a tap from Claude Code: uninstall its plugins and remove its marketplace; dry_run is on by default",
+          "dryRunDefault": true,
+          "gate": "none",
+          "name": "skills_tap_unlink",
+          "params": [
+            {
+              "description": "Tap name",
+              "name": "name",
+              "required": true,
               "type": "string"
             },
             {

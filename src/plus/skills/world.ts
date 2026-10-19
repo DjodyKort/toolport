@@ -24,7 +24,9 @@ import {
   installData,
   searchData,
   tapAddData,
+  tapLinkData,
   tapLs,
+  tapMarketplaceOf,
   tapRemoveData,
   tapUpdateData,
   unbundleData,
@@ -476,6 +478,21 @@ export function createSkillsWorld(
       name,
       path: `${TAPS_ROOT}/${name}`,
     });
+    for (const linking of [true, false]) {
+      const verb = linking ? "link" : "unlink";
+      both(
+        `skills tap ${verb} ${name}`,
+        () => tapLinkData(linking, true),
+        () => {
+          s.taps = s.taps.map((t) =>
+            t.name === name && t.marketplace
+              ? { ...t, marketplace: tapMarketplaceOf(linking ? "here" : "no") }
+              : t,
+          );
+          return tapLinkData(linking, false);
+        },
+      );
+    }
     both(
       `skills tap remove ${name}`,
       () => removal(true),

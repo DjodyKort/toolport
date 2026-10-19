@@ -353,6 +353,55 @@ describe("Skills tab, end to end: Taps", () => {
     expect(bridge.count("skills tap ls")).toBe(2);
   });
 
+  it("skills.tap.link: the plan names every claude command, then the tap reads as linked", async () => {
+    const user = await openLibrary("Taps");
+    await screen.findByRole("list", { name: "Taps" });
+    expect(within(taps()[0]).getByText("plugin marketplace")).toBeVisible();
+    expect(
+      within(taps()[0]).getByText(/2 plugins: core 2026.10.14.0, labs/),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Link local-notes" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Link acme-skills" }));
+    const box = await screen.findByRole("dialog", { name: /Link tap acme-skills/ });
+    expect(
+      await within(box).findByText(/claude plugin install core@acme --scope user/),
+    ).toBeVisible();
+    expect(within(box).getByText(/sessions that are already running/)).toBeVisible();
+    expect(bridge.count("skills tap link acme-skills")).toBe(0);
+    await user.click(within(box).getByRole("button", { name: "Link" }));
+    await screen.findByText("Linked tap acme-skills to Claude Code");
+    await user.click(
+      within(screen.getByRole("dialog"))
+        .getAllByRole("button", { name: "Close" })
+        .at(-1)!,
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(bridge.count("skills tap link acme-skills --dry-run")).toBe(1);
+    expect(bridge.count("skills tap link acme-skills")).toBe(1);
+    await waitFor(() =>
+      expect(within(taps()[0]).getByText("linked to Claude Code")).toBeVisible(),
+    );
+    expect(screen.queryByRole("button", { name: "Link acme-skills" })).toBeNull();
+  });
+
+  it("skills.tap.unlink: a linked tap cannot be removed until it is unlinked", async () => {
+    const user = await openLibrary("Taps");
+    await screen.findByRole("list", { name: "Taps" });
+    await write(user, "Link acme-skills", "Link", {
+      done: "Linked tap acme-skills to Claude Code",
+    });
+    const remove = await screen.findByRole("button", { name: "Remove acme-skills" });
+    await waitFor(() => expect(remove).toBeDisabled());
+    await write(user, "Unlink acme-skills", "Unlink", {
+      done: "Unlinked tap acme-skills from Claude Code",
+    });
+    expect(bridge.count("skills tap unlink acme-skills")).toBe(1);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Remove acme-skills" })).toBeEnabled(),
+    );
+    expect(screen.getByRole("button", { name: "Link acme-skills" })).toBeVisible();
+  });
+
   it("skills.tap.remove: a plain confirmation removes the tap, and its hits leave the search", async () => {
     const user = await openLibrary("Taps");
     await screen.findByRole("list", { name: "Taps" });

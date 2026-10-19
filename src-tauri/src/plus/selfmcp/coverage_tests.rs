@@ -26,6 +26,7 @@ const SOURCES: &[(&str, &str)] = &[
 const SKILLS_EDITS: &str = "tier_three_skill_edits_need_confirm_and_validate";
 const SKILLS_ROUND_TRIP: &str = "skills_scaffold_sync_and_status_round_trip";
 const TAPS_APPLY: &str = "the_tap_tools_apply_when_dry_run_is_false";
+const TAPS_BAD_INPUT: &str = "the_tap_tools_reject_bad_input_with_their_kind";
 const AGENTS_FLOW: &str = "agents_flow_scaffold_sync_edit";
 const STYLES_FLOW: &str = "styles_flow_with_apply_and_remove_tiers";
 const SERVER_MUTATIONS: &str = "server_mutations_follow_their_tiers";
@@ -64,6 +65,8 @@ const SIDE_EFFECT_TESTS: &[(&str, &str, &str)] = &[
     ("skills_tap_add", "tap_tools_tests.rs", TAPS_APPLY),
     ("skills_tap_remove", "tap_tools_tests.rs", TAPS_APPLY),
     ("skills_tap_update", "tap_tools_tests.rs", TAPS_APPLY),
+    ("skills_tap_link", "tap_tools_tests.rs", TAPS_BAD_INPUT),
+    ("skills_tap_unlink", "tap_tools_tests.rs", TAPS_BAD_INPUT),
     ("skills_install", "tap_tools_tests.rs", TAPS_APPLY),
     (
         "skills_bundle",

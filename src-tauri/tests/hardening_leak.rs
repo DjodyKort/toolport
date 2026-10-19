@@ -564,6 +564,8 @@ impl World {
             s(&["skills", "tap", "ls"]),
             s(&["skills", "tap", "remove", "acme-skills", "--dry-run"]),
             s(&["skills", "tap", "update", "--dry-run"]),
+            s(&["skills", "tap", "link", "acme-skills", "--dry-run"]),
+            s(&["skills", "tap", "unlink", "acme-skills", "--dry-run"]),
             s(&["skills", "search", "review"]),
             s(&[
                 "skills",

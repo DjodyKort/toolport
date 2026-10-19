@@ -8433,10 +8433,107 @@
             "flag": "--dry-run",
             "mode": "flag"
           },
-          "summary": "Pull one or all taps; exits 1 if one fails (<name>, --dry-run)",
+          "summary": "Pull one or all taps and update the linked plugins; exits 1 if one fails (<name>, --dry-run)",
           "surface": "screen",
           "tier": "write",
           "tools": ["skills_tap_update"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Link only this plugin of the marketplace; repeat for several",
+              "escalates": false,
+              "hidden": false,
+              "name": "--plugin",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "skills",
+          "id": "skills tap link",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "skills tap",
+          "path": ["skills", "tap", "link"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Link a plugin marketplace tap to Claude Code at user scope (<name>, --plugin <plugin>, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["skills_tap_link"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "skills",
+          "id": "skills tap unlink",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "skills tap",
+          "path": ["skills", "tap", "unlink"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Unlink a tap from Claude Code: uninstall its plugins and remove its marketplace (<name>, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["skills_tap_unlink"]
         },
         {
           "baseTier": null,
@@ -8455,7 +8552,7 @@
           "path": ["skills", "tap"],
           "planned": false,
           "preview": null,
-          "summary": "Taps: add ls remove update",
+          "summary": "Taps: add ls remove update link unlink",
           "surface": null,
           "tier": null,
           "tools": []
@@ -10815,10 +10912,10 @@
         }
       ],
       "counts": {
-        "commands": 178,
+        "commands": 180,
         "groups": 33,
-        "rows": 211,
-        "tools": 106
+        "rows": 213,
+        "tools": 108
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
       "tiers": ["read", "write", "destructive"],
@@ -11065,6 +11162,20 @@
           "command": "skills tap update",
           "dryRun": "default-on",
           "name": "skills_tap_update",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": "skills tap link",
+          "dryRun": "default-on",
+          "name": "skills_tap_link",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": "skills tap unlink",
+          "dryRun": "default-on",
+          "name": "skills_tap_unlink",
           "tier": "write",
           "toolTier": 2
         },

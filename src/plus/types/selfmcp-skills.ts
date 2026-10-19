@@ -10,7 +10,7 @@ import {
   type Infer,
   type Shape,
 } from "../bridge/shape";
-import { origin } from "../bridge/data";
+import { origin, planV1, resultV1 } from "../bridge/data";
 import { libraryChecks } from "./library";
 
 /** Results of the skills self-MCP tools, checked against the golden results by `selfmcp.test.ts`. */
@@ -279,6 +279,7 @@ export const skillsTapListResult = obj({
   taps: arr(
     obj({
       cloned: bool,
+      marketplace: opt(any),
       name: str,
       path: str,
       repo: str,
@@ -301,6 +302,8 @@ export type SkillsTapRemoveResult = Infer<typeof skillsTapRemoveResult>;
 export const skillsTapUpdateResult = obj({
   dryRun: bool,
   failed: num,
+  plugins: opt(arr(any)),
+  restartRequired: opt(bool),
   results: arr(
     obj({
       error: nullable(str),
@@ -311,6 +314,51 @@ export const skillsTapUpdateResult = obj({
   ),
 });
 export type SkillsTapUpdateResult = Infer<typeof skillsTapUpdateResult>;
+
+const tapLinkChange = obj({
+  action: str,
+  command: arr(str),
+  scope: str,
+});
+
+export const skillsTapLinkResult = obj({
+  changes: arr(tapLinkChange),
+  conflicts: arr(str),
+  cwd: nullable(str),
+  dryRun: bool,
+  id: str,
+  marketplace: str,
+  plan: planV1,
+  plugins: arr(
+    obj({
+      agents: num,
+      hooks: bool,
+      id: str,
+      linked: bool,
+      name: str,
+      skills: num,
+      version: nullable(str),
+    }),
+  ),
+  result: nullable(resultV1),
+  scope: str,
+  tap: str,
+});
+export type SkillsTapLinkResult = Infer<typeof skillsTapLinkResult>;
+
+export const skillsTapUnlinkResult = obj({
+  changes: arr(tapLinkChange),
+  conflicts: arr(str),
+  cwd: nullable(str),
+  dryRun: bool,
+  id: str,
+  marketplaces: arr(str),
+  plan: planV1,
+  result: nullable(resultV1),
+  scope: str,
+  tap: str,
+});
+export type SkillsTapUnlinkResult = Infer<typeof skillsTapUnlinkResult>;
 
 export const skillsUnbundleResult = obj({
   bundle: str,
@@ -357,8 +405,10 @@ export const skillsToolShapes: Record<string, Shape<unknown>> = {
   skills_status: skillsStatusResult,
   skills_sync: skillsSyncResult,
   skills_tap_add: skillsTapAddResult,
+  skills_tap_link: skillsTapLinkResult,
   skills_tap_list: skillsTapListResult,
   skills_tap_remove: skillsTapRemoveResult,
+  skills_tap_unlink: skillsTapUnlinkResult,
   skills_tap_update: skillsTapUpdateResult,
   skills_unbundle: skillsUnbundleResult,
   skills_uninstall: skillsUninstallResult,

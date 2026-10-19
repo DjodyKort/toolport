@@ -5,10 +5,12 @@ import {
   nullable,
   num,
   obj,
+  opt,
   str,
   type Infer,
   type Shape,
 } from "../bridge/shape";
+import { planV1, resultV1 } from "../bridge/data";
 
 /** `data` of the skills commands, checked against the golden envelopes by `data.test.ts`. */
 
@@ -170,10 +172,29 @@ export const skillsStatusData = obj({
 });
 export type SkillsStatusData = Infer<typeof skillsStatusData>;
 
+export const tapMarketplace = obj({
+  declared: str,
+  name: str,
+  plugins: arr(
+    obj({
+      agents: num,
+      hooks: bool,
+      id: str,
+      linked: bool,
+      name: str,
+      skills: num,
+      version: nullable(str),
+    }),
+  ),
+  warnings: arr(str),
+});
+export type TapMarketplace = Infer<typeof tapMarketplace>;
+
 export const skillsTapLsData = obj({
   taps: arr(
     obj({
       cloned: bool,
+      marketplace: opt(tapMarketplace),
       name: str,
       path: str,
       repo: str,
@@ -204,9 +225,52 @@ export const skillsTapRemoveData = obj({
 });
 export type SkillsTapRemoveData = Infer<typeof skillsTapRemoveData>;
 
+const tapLinkChange = obj({ action: str, command: arr(str), scope: str });
+
+export const skillsTapLinkData = obj({
+  changes: arr(tapLinkChange),
+  conflicts: arr(str),
+  cwd: nullable(str),
+  dryRun: bool,
+  id: str,
+  marketplace: str,
+  plan: planV1,
+  plugins: arr(
+    obj({
+      agents: num,
+      hooks: bool,
+      id: str,
+      linked: bool,
+      name: str,
+      skills: num,
+      version: nullable(str),
+    }),
+  ),
+  result: nullable(resultV1),
+  scope: str,
+  tap: str,
+});
+export type SkillsTapLinkData = Infer<typeof skillsTapLinkData>;
+
+export const skillsTapUnlinkData = obj({
+  changes: arr(tapLinkChange),
+  conflicts: arr(str),
+  cwd: nullable(str),
+  dryRun: bool,
+  id: str,
+  marketplaces: arr(str),
+  plan: planV1,
+  result: nullable(resultV1),
+  scope: str,
+  tap: str,
+});
+export type SkillsTapUnlinkData = Infer<typeof skillsTapUnlinkData>;
+
 export const skillsTapUpdateData = obj({
   dryRun: bool,
   failed: num,
+  plugins: opt(arr(any)),
+  restartRequired: opt(bool),
   results: arr(
     obj({
       error: nullable(str),
@@ -264,6 +328,9 @@ export const skillsShapes: Record<string, Shape<unknown>> = {
   "skills-tap-ls": skillsTapLsData,
   "skills-tap-add.apply": skillsTapAddData,
   "skills-tap-add.preview": skillsTapAddData,
+  "skills-tap-link.listed": skillsTapLsData,
+  "skills-tap-link.preview": skillsTapLinkData,
+  "skills-tap-unlink.preview": skillsTapUnlinkData,
   "skills-tap-remove.apply": skillsTapRemoveData,
   "skills-tap-remove.preview": skillsTapRemoveData,
   "skills-tap-update.apply": skillsTapUpdateData,

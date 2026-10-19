@@ -26,6 +26,16 @@ Entries before the rename below shipped under the project's former name, Conduit
   repositories use, when the tap has none in `skills/` or `rules/`. `toolportctl skills search`
   and `skills install @user/repo/skill` (and the `skills_search` and `skills_install` tools) offer
   them; a tap with skills in `skills/` or `rules/` reads as before.
+- A tap that is a Claude Code plugin marketplace (a repository with a
+  `.claude-plugin/marketplace.json`, such as a company's shared skills) can be linked to Claude Code. `toolportctl skills tap link <name>`
+  (and `skills_tap_link`; `--plugin` limits it to some plugins) declares the clone as a directory
+  marketplace and installs its plugins at user scope through Claude Code's own `claude plugin`
+  commands, so they keep their `plugin:skill` names; `skills tap unlink` takes it back out.
+  `skills tap update` pulls the clone and then runs `claude plugin update` for the linked plugins
+  whose clone carries a newer version, because Claude Code runs a copy cached per version.
+  `skills tap remove` refuses while a tap is linked, `skills tap ls` shows the marketplace and each
+  plugin, and the sources list counts the plugins' skills and agents. Before, a marketplace
+  repository read as a tap with no skills.
 - Command Code is a supported client. Toolport finds it, connects it through
   `~/.commandcode/mcp.json`, imports the servers already set up there, and keeps
   agent rules in `~/.commandcode/AGENTS.md` and project `AGENTS.md` files.
@@ -51,6 +61,9 @@ Entries before the rename below shipped under the project's former name, Conduit
 
 ### Fixed
 
+- `toolportctl cc list` and `cc update` judge a plugin of a directory marketplace by the version its
+  folder carries now. Such a marketplace keeps the version in `plugin.json`, not in its catalog, so
+  the plugin read as unknown and an update was never offered.
 - An Attention row for a package update no longer stays up to a day after the update. The row
   compares the version it recorded with the server's launch arguments when Attention is read, so it
   leaves as soon as the server launches another version, whichever route applied it.

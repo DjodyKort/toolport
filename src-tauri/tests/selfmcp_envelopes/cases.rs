@@ -29,6 +29,8 @@ const UNCONFIRMED: &str = r#"{"dry_run":false}"#;
 const TEARDOWN: &str = r#"{"teardown":true}"#;
 const TEARDOWN_UNCONFIRMED: &str = r#"{"teardown":true,"dry_run":false}"#;
 const ADD_TAP: &str = r#"{"repo":"{base}/tap-src","name":"local","dry_run":false}"#;
+const ADD_MARKETPLACE: &str =
+    r#"{"repo":"{base}/plugin-src","name":"plugins","dry_run":false}"#;
 const DIRECT: &str = r#"{"server":"alpha","client":"claude-code"}"#;
 const DIRECT_APPLY: &str = r#"{"server":"alpha","client":"claude-code","dry_run":false}"#;
 const GAMMA: &str = r#"{"name":"gamma","config":{"command":"gamma-mcp","args":["--flag"]}}"#;
@@ -339,6 +341,46 @@ pub const ALL: &[Case] = &[
             setup("skills_tap_add", ADD_TAP),
             read("preview", "skills_tap_update", "{}"),
             write("apply", "skills_tap_update", r#"{"dry_run":false}"#),
+        ],
+    ),
+    prepared(
+        "skills_tap_link",
+        git_world,
+        &[
+            fails(
+                "unknown",
+                "not_found",
+                "skills_tap_link",
+                r#"{"name":"local"}"#,
+            ),
+            setup("skills_tap_add", ADD_TAP),
+            fails(
+                "plain_tap",
+                "invalid_arguments",
+                "skills_tap_link",
+                r#"{"name":"local"}"#,
+            ),
+            setup("skills_tap_add", ADD_MARKETPLACE),
+            read("preview", "skills_tap_link", r#"{"name":"plugins"}"#),
+            read(
+                "preview_one",
+                "skills_tap_link",
+                r#"{"name":"plugins","plugins":["core"]}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "skills_tap_unlink",
+        git_world,
+        &[
+            fails(
+                "unknown",
+                "not_found",
+                "skills_tap_unlink",
+                r#"{"name":"local"}"#,
+            ),
+            setup("skills_tap_add", ADD_TAP),
+            read("preview", "skills_tap_unlink", r#"{"name":"local"}"#),
         ],
     ),
     // an `@user/repo` spec clones from github, so only the dry-run plan is recorded

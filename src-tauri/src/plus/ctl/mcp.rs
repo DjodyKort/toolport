@@ -488,7 +488,7 @@ mod tests {
         assert_eq!(check_of(&before, "handshake")["ok"], true);
         assert_eq!(
             check_of(&before, "catalog")["detail"],
-            "106 tools, 11 resources"
+            "108 tools, 11 resources"
         );
 
         run(&["--json", "mcp", "install", "--profile", "default"]);
@@ -534,7 +534,7 @@ mod tests {
         let data = &value["data"];
         assert_eq!(data["server"], "toolport-plus-self");
         let tools = data["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 106);
+        assert_eq!(tools.len(), 108);
         assert_eq!(data["resources"].as_array().unwrap().len(), 11);
         for tool in tools {
             assert!(

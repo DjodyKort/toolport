@@ -1377,6 +1377,51 @@ pub const MORE: &[Case] = &[
         ],
     ),
     prepared(
+        "skills tap link",
+        git_world,
+        &[
+            apply("unknown", &["skills", "tap", "link", "local"]).exit(1),
+            setup(
+                "setup",
+                &["skills", "tap", "add", "{base}/tap-src", "--name", "local"],
+            ),
+            apply("plain_tap", &["skills", "tap", "link", "local"]).exit(1),
+            setup(
+                "setup_plugins",
+                &[
+                    "skills",
+                    "tap",
+                    "add",
+                    "{base}/plugin-src",
+                    "--name",
+                    "plugins",
+                ],
+            ),
+            read("listed", &["skills", "tap", "ls"]),
+            read(
+                "preview",
+                &["skills", "tap", "link", "plugins", "--dry-run"],
+            ),
+            usage("usage", &["skills", "tap", "link"]),
+        ],
+    ),
+    prepared(
+        "skills tap unlink",
+        git_world,
+        &[
+            apply("unknown", &["skills", "tap", "unlink", "local"]).exit(1),
+            setup(
+                "setup",
+                &["skills", "tap", "add", "{base}/tap-src", "--name", "local"],
+            ),
+            read(
+                "preview",
+                &["skills", "tap", "unlink", "local", "--dry-run"],
+            ),
+            usage("usage", &["skills", "tap", "unlink"]),
+        ],
+    ),
+    prepared(
         "skills search",
         git_world,
         &[

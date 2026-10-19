@@ -156,8 +156,10 @@ Commands:
   skills tap add Register and clone a tap (<user/repo|url>, --name <alias>, --dry-run)
   skills tap ls  List the registered taps
   skills tap remove Unregister a tap and delete its clone (<name>, --dry-run)
-  skills tap update Pull one or all taps; exits 1 if one fails (<name>, --dry-run)
-  skills tap     Taps: add ls remove update
+  skills tap update Pull one or all taps and update the linked plugins; exits 1 if one fails (<name>, --dry-run)
+  skills tap link Link a plugin marketplace tap to Claude Code at user scope (<name>, --plugin <plugin>, --dry-run)
+  skills tap unlink Unlink a tap from Claude Code: uninstall its plugins and remove its marketplace (<name>, --dry-run)
+  skills tap     Taps: add ls remove update link unlink
   skills search  Search the taps for skills by name, description or tags (<query>)
   skills install Install skills from a tap; a high-severity audit finding blocks it (<@user/repo[/skill]>, --path, --no-audit, --dry-run)
   skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve tap search install
@@ -357,8 +359,10 @@ Commands:
   skills tap add Register and clone a tap (<user/repo|url>, --name <alias>, --dry-run)
   skills tap ls  List the registered taps
   skills tap remove Unregister a tap and delete its clone (<name>, --dry-run)
-  skills tap update Pull one or all taps; exits 1 if one fails (<name>, --dry-run)
-  skills tap     Taps: add ls remove update
+  skills tap update Pull one or all taps and update the linked plugins; exits 1 if one fails (<name>, --dry-run)
+  skills tap link Link a plugin marketplace tap to Claude Code at user scope (<name>, --plugin <plugin>, --dry-run)
+  skills tap unlink Unlink a tap from Claude Code: uninstall its plugins and remove its marketplace (<name>, --dry-run)
+  skills tap     Taps: add ls remove update link unlink
   skills search  Search the taps for skills by name, description or tags (<query>)
   skills install Install skills from a tap; a high-severity audit finding blocks it (<@user/repo[/skill]>, --path, --no-audit, --dry-run)
   skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve tap search install
@@ -558,8 +562,10 @@ Commands:
   skills tap add Register and clone a tap (<user/repo|url>, --name <alias>, --dry-run)
   skills tap ls  List the registered taps
   skills tap remove Unregister a tap and delete its clone (<name>, --dry-run)
-  skills tap update Pull one or all taps; exits 1 if one fails (<name>, --dry-run)
-  skills tap     Taps: add ls remove update
+  skills tap update Pull one or all taps and update the linked plugins; exits 1 if one fails (<name>, --dry-run)
+  skills tap link Link a plugin marketplace tap to Claude Code at user scope (<name>, --plugin <plugin>, --dry-run)
+  skills tap unlink Unlink a tap from Claude Code: uninstall its plugins and remove its marketplace (<name>, --dry-run)
+  skills tap     Taps: add ls remove update link unlink
   skills search  Search the taps for skills by name, description or tags (<query>)
   skills install Install skills from a tap; a high-severity audit finding blocks it (<@user/repo[/skill]>, --path, --no-audit, --dry-run)
   skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve tap search install
@@ -759,8 +765,10 @@ Commands:
   skills tap add Register and clone a tap (<user/repo|url>, --name <alias>, --dry-run)
   skills tap ls  List the registered taps
   skills tap remove Unregister a tap and delete its clone (<name>, --dry-run)
-  skills tap update Pull one or all taps; exits 1 if one fails (<name>, --dry-run)
-  skills tap     Taps: add ls remove update
+  skills tap update Pull one or all taps and update the linked plugins; exits 1 if one fails (<name>, --dry-run)
+  skills tap link Link a plugin marketplace tap to Claude Code at user scope (<name>, --plugin <plugin>, --dry-run)
+  skills tap unlink Unlink a tap from Claude Code: uninstall its plugins and remove its marketplace (<name>, --dry-run)
+  skills tap     Taps: add ls remove update link unlink
   skills search  Search the taps for skills by name, description or tags (<query>)
   skills install Install skills from a tap; a high-severity audit finding blocks it (<@user/repo[/skill]>, --path, --no-audit, --dry-run)
   skills         Skills: init add ls lint audit bundle unbundle sync diff status clean uninstall resolve tap search install
@@ -5036,18 +5044,18 @@ Run `toolportctl --help` for usage.
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: skills tap add|ls|remove|update (add: <user/repo|url> [--name <alias>] [--dry-run]; ls; remove: <name> [--dry-run]; update: [<name>] [--dry-run])
+toolportctl: usage: skills tap add|ls|remove|update|link|unlink (add: <user/repo|url> [--name <alias>] [--dry-run]; ls; remove: <name> [--dry-run]; update: [<name>] [--dry-run]; link: <name> [--plugin <plugin>]... [--dry-run]; unlink: <name> [--dry-run])
 Run `toolportctl --help` for usage.
 === ["--json","skills","tap"]
 exit 2
 --- stdout
-{"command":"skills tap","error":{"code":"usage","message":"usage: skills tap add|ls|remove|update (add: <user/repo|url> [--name <alias>] [--dry-run]; ls; remove: <name> [--dry-run]; update: [<name>] [--dry-run])"},"ok":false,"schemaVersion":1}
+{"command":"skills tap","error":{"code":"usage","message":"usage: skills tap add|ls|remove|update|link|unlink (add: <user/repo|url> [--name <alias>] [--dry-run]; ls; remove: <name> [--dry-run]; update: [<name>] [--dry-run]; link: <name> [--plugin <plugin>]... [--dry-run]; unlink: <name> [--dry-run])"},"ok":false,"schemaVersion":1}
 --- stderr
 === ["skills","tap","nope"]
 exit 2
 --- stdout
 --- stderr
-toolportctl: usage: skills tap add|ls|remove|update (add: <user/repo|url> [--name <alias>] [--dry-run]; ls; remove: <name> [--dry-run]; update: [<name>] [--dry-run])
+toolportctl: usage: skills tap add|ls|remove|update|link|unlink (add: <user/repo|url> [--name <alias>] [--dry-run]; ls; remove: <name> [--dry-run]; update: [<name>] [--dry-run]; link: <name> [--plugin <plugin>]... [--dry-run]; unlink: <name> [--dry-run])
 Run `toolportctl --help` for usage.
 === ["skills","tap","add"]
 exit 2

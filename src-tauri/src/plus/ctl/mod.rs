@@ -744,10 +744,24 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["skills", "tap", "update"],
-        "Pull one or all taps; exits 1 if one fails (<name>, --dry-run)",
+        "Pull one or all taps and update the linked plugins; exits 1 if one fails (<name>, --dry-run)",
         skills_taps::tap_update,
     ),
-    cmd(&["skills", "tap"], "Taps: add ls remove update", skills_taps::tap_group),
+    cmd(
+        &["skills", "tap", "link"],
+        "Link a plugin marketplace tap to Claude Code at user scope (<name>, --plugin <plugin>, --dry-run)",
+        skills_taps::tap_link,
+    ),
+    cmd(
+        &["skills", "tap", "unlink"],
+        "Unlink a tap from Claude Code: uninstall its plugins and remove its marketplace (<name>, --dry-run)",
+        skills_taps::tap_unlink,
+    ),
+    cmd(
+        &["skills", "tap"],
+        "Taps: add ls remove update link unlink",
+        skills_taps::tap_group,
+    ),
     cmd(
         &["skills", "search"],
         "Search the taps for skills by name, description or tags (<query>)",

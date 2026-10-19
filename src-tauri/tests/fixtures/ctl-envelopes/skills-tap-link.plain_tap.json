@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "tap", "link", "local"],
+  "envelope": {
+    "command": "skills tap link",
+    "error": {
+      "code": "skills",
+      "message": "tap 'local' is not a plugin marketplace: it has no .claude-plugin/marketplace.json"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

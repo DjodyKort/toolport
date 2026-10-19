@@ -65,7 +65,7 @@ Global flag `--json` prints one envelope (`schemaVersion`, `command`, `data`). E
 | `task ls / show / history / run / resume / cancel / add / edit / rm`    | Named tasks of steps: list, run, resume, cancel, define            |
 | `hooks ls`                                                              | Every hook Claude Code would start in a folder (never runs one)    |
 | `skills status / clean / uninstall / resolve`                           | Lock vs outputs, remove managed outputs, uninstall, collisions     |
-| `skills tap add/ls/remove/update, search, install`                      | Skill taps: register, list, pull, search, install (`--dry-run`)    |
+| `skills tap add/ls/remove/update/link/unlink, search, install`          | Skill taps: add, list, pull, link to Claude Code, search, install  |
 | `agents add/ls/lint/audit/diff/status/clean/uninstall/sync`             | Agents: template, list, lint, audit, drift, sync, remove           |
 | `styles add/ls/lint/diff/status/sync/apply/remove/clean`                | Output styles: template, list, lint, drift, sync, apply, remove    |
 | `sync`                                                                  | Encrypted sync (init, push, pull, diff, status, reset, ...)        |

@@ -371,6 +371,29 @@ fn account_inert_and_tap_sources_read_their_inputs() {
 }
 
 #[test]
+fn a_marketplace_tap_counts_the_skills_and_agents_of_its_plugins() {
+    let fx = Fx::new("marketplace-tap");
+    let clone = fx.w.data.join("taps/acme-tools");
+    world::put(
+        &clone.join(".claude-plugin/marketplace.json"),
+        r#"{"name": "acme", "plugins": [{"name": "core", "source": "./plugins/core"}]}"#,
+    );
+    world::put(
+        &clone.join("plugins/core/skills/task/SKILL.md"),
+        "---\nname: task\ndescription: A plugin skill\n---\nBody.\n",
+    );
+    world::put(
+        &clone.join("plugins/core/agents/helper.md"),
+        "---\nname: helper\ndescription: A plugin agent\n---\nBody.\n",
+    );
+    let report = fx.all();
+    let tap = source(&report, "tap:acme-tools");
+    assert_eq!((tap.counts.skill, tap.counts.agent), (2, 1));
+    item(&report, "tap:acme-tools", "skill", "task");
+    item(&report, "tap:acme-tools", "agent", "helper");
+}
+
+#[test]
 fn a_selector_names_a_source_a_detector_or_a_kind_of_origin() {
     let fx = Fx::new("select");
     let by = |s: &str| {

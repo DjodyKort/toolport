@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Download, Link, Plus, RefreshCw, Trash2, Unlink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +13,7 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import type { SkillsTapLsData } from "../types/skills";
-import { AsyncView } from "../ui";
+import { AsyncView, planOf } from "../ui";
 import type { WriteControl } from "./hooks";
 import { useRead } from "./hooks";
 import { plural } from "./model";
@@ -27,6 +27,12 @@ function sourceProblem(source: string): string | null {
     return "This URL carries a credential, and a command line is not a safe place for one. Use an SSH URL or let git's credential helper sign in";
   return SOURCE.test(source) ? null : "Use user/repo or the URL of a git repository";
 }
+
+/** The plan of a link or unlink reads in the present tense; once it is applied, `past` says so. */
+const worded = (past: string) => (data: unknown, done: boolean) => {
+  const plan = planOf(data);
+  return done && plan ? { plan: { ...plan, summary: past } } : null;
+};
 
 function AddTapDialog({
   onSubmit,
@@ -172,13 +178,77 @@ export function TapsPanel({ write }: { write: WriteControl }) {
                       <Badge variant={tap.cloned ? "success" : "warning"}>
                         {tap.cloned ? "cloned" : "clone missing"}
                       </Badge>
+                      {tap.marketplace && (
+                        <Badge
+                          variant={
+                            tap.marketplace.declared === "here" ? "info" : "outline"
+                          }
+                        >
+                          {tap.marketplace.declared === "here"
+                            ? "linked to Claude Code"
+                            : "plugin marketplace"}
+                        </Badge>
+                      )}
                     </b>
                     <code className="font-mono text-xs break-all text-muted-foreground">
                       {tap.url}
                     </code>
                     <PathLine path={tap.path} />
+                    {tap.marketplace && (
+                      <span className="text-xs text-muted-foreground">
+                        {plural(tap.marketplace.plugins.length, "plugin")}:{" "}
+                        {tap.marketplace.plugins
+                          .map((plugin) =>
+                            `${plugin.name} ${plugin.version ?? ""}`.trim(),
+                          )
+                          .join(", ")}
+                        {tap.marketplace.declared.startsWith("elsewhere")
+                          ? `. Not linked: the marketplace name ${tap.marketplace.name} is already taken in Claude Code (${tap.marketplace.declared.slice("elsewhere: ".length)}).`
+                          : ""}
+                      </span>
+                    )}
                   </span>
                   <span className="flex gap-2">
+                    {tap.marketplace?.declared === "no" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        aria-label={`Link ${tap.name}`}
+                        disabled={write.busy}
+                        onClick={() =>
+                          write.begin({
+                            command: "skills tap link",
+                            title: `Link tap ${tap.name} to Claude Code`,
+                            argv: ["skills", "tap", "link", tap.name],
+                            confirmLabel: "Link",
+                            phrase: tap.name,
+                            view: worded(`Linked tap ${tap.name} to Claude Code`),
+                          })
+                        }
+                      >
+                        <Link /> Link…
+                      </Button>
+                    )}
+                    {tap.marketplace?.declared === "here" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        aria-label={`Unlink ${tap.name}`}
+                        disabled={write.busy}
+                        onClick={() =>
+                          write.begin({
+                            command: "skills tap unlink",
+                            title: `Unlink tap ${tap.name} from Claude Code`,
+                            argv: ["skills", "tap", "unlink", tap.name],
+                            confirmLabel: "Unlink",
+                            phrase: tap.name,
+                            view: worded(`Unlinked tap ${tap.name} from Claude Code`),
+                          })
+                        }
+                      >
+                        <Unlink /> Unlink…
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="outline"
@@ -200,7 +270,12 @@ export function TapsPanel({ write }: { write: WriteControl }) {
                       size="sm"
                       variant="outline"
                       aria-label={`Remove ${tap.name}`}
-                      disabled={write.busy}
+                      title={
+                        tap.marketplace?.declared === "here"
+                          ? "Unlink the tap from Claude Code first"
+                          : undefined
+                      }
+                      disabled={write.busy || tap.marketplace?.declared === "here"}
                       onClick={() =>
                         write.begin({
                           command: "skills tap remove",

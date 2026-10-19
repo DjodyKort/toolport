@@ -83,6 +83,8 @@ const HANDLERS: &[(&str, Handler)] = &[
     ("plus.skills.tapList", skills::tap_handlers::tap_list_handler),
     ("plus.skills.tapRemove", skills::tap_handlers::tap_remove_handler),
     ("plus.skills.tapUpdate", skills::tap_handlers::tap_update_handler),
+    ("plus.skills.tapLink", skills::tap_handlers::tap_link_handler),
+    ("plus.skills.tapUnlink", skills::tap_handlers::tap_unlink_handler),
     ("plus.skills.search", skills::tap_handlers::search_handler),
     ("plus.skills.install", skills::tap_handlers::install_handler),
     ("plus.agents.list", skills::agents::handlers::list_handler),

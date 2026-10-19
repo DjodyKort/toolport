@@ -654,6 +654,14 @@ pub(super) const ROWS: &[Row] = &[
         .needs(&[Network])
         .spec(&[&skills_taps::TAP_UPDATE])
         .args(&[opt("name")]),
+    row("skills tap link", W)
+        .dry()
+        .spec(&[&skills_taps::TAP_LINK])
+        .args(&[req("name")]),
+    row("skills tap unlink", W)
+        .dry()
+        .spec(&[&skills_taps::TAP_UNLINK])
+        .args(&[req("name")]),
     row("skills search", R)
         .spec(&[&skills_taps::SEARCH])
         .args(&[some("query")]),
@@ -862,6 +870,8 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("skills_tap_add", W, "skills tap add").on(),
     maps("skills_tap_remove", W, "skills tap remove").on(),
     maps("skills_tap_update", W, "skills tap update").on(),
+    maps("skills_tap_link", W, "skills tap link").on(),
+    maps("skills_tap_unlink", W, "skills tap unlink").on(),
     maps("skills_install", W, "skills install").on(),
     maps("skills_diff", R, "skills diff"),
     maps("skills_audit", R, "skills audit"),

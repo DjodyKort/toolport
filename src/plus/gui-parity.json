@@ -373,6 +373,18 @@
       "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
       "summary": "Pull one tap or all taps after a preview; a tap that fails is named in the plan"
     },
+    "skills.tap.link": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "Link a plugin marketplace tap to Claude Code after a preview that lists each claude command, the hooks it runs and the synced copy it replaces"
+    },
+    "skills.tap.unlink": {
+      "route": "library",
+      "status": "built",
+      "test": "src/plus/skills/SkillsTab.e2e.test.tsx",
+      "summary": "Unlink a tap from Claude Code after a preview of the plugins it uninstalls; a linked tap cannot be removed"
+    },
     "skills.tap.remove": {
       "route": "library",
       "status": "built",
@@ -1907,6 +1919,16 @@
       "action": "skills.tap.add",
       "surface": "screen"
     },
+    "skills tap link": {
+      "route": "library",
+      "action": "skills.tap.link",
+      "surface": "screen"
+    },
+    "skills tap unlink": {
+      "route": "library",
+      "action": "skills.tap.unlink",
+      "surface": "screen"
+    },
     "skills tap ls": {
       "route": "library",
       "action": "skills.tap.ls",
@@ -2522,6 +2544,16 @@
     "skills_tap_add": {
       "route": "library",
       "action": "skills.tap.add",
+      "surface": "screen"
+    },
+    "skills_tap_link": {
+      "route": "library",
+      "action": "skills.tap.link",
+      "surface": "screen"
+    },
+    "skills_tap_unlink": {
+      "route": "library",
+      "action": "skills.tap.unlink",
       "surface": "screen"
     },
     "skills_tap_list": {

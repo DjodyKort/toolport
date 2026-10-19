@@ -15,6 +15,7 @@ use super::taps::{
     load_taps, parse_source, plain_segment, redact, save_taps, tap_dir, taps_path, taps_root,
     valid_tap_name, Tap,
 };
+use crate::plus::plugins::marketplace;
 use serde_yaml::Value as Yaml;
 use std::collections::BTreeSet;
 use std::fs;
@@ -631,6 +632,14 @@ pub fn install(env: &Env, spec: &str, opts: &InstallOptions) -> Result<InstallRe
         skills.retain(|s| s.name() == wanted);
     }
     if skills.is_empty() {
+        if marketplace::is_marketplace(&clone) {
+            return Err(TapError::not_found(format!(
+                "Tap '{name}' is a Claude Code plugin marketplace, not a skills repository: its \
+                 plugins keep their own namespace and are linked, not installed. Run \
+                 `toolportctl skills tap link {name}`",
+                name = tap.name
+            )));
+        }
         let mut message = format!("No skills found for '{}'", shown(spec));
         for warning in &report.warnings {
             message.push('\n');

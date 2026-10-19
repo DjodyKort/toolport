@@ -9,7 +9,9 @@ use super::tap_ops::{
     self, Env, InstallOptions, InstallReport, Kind, Planned, TapError, UpdateRow,
 };
 use super::taps::redact;
-use crate::plus::args::{flag, str_nonempty};
+use crate::plus::args::{flag, nonempty_strings, str_nonempty};
+use crate::plus::op::{ErrorKind, OpError};
+use crate::plus::plugins::{self, link, marketplace};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 
@@ -77,27 +79,78 @@ pub fn tap_add_value(args: &Value) -> Outcome {
     }))
 }
 
+fn tap_failure(error: OpError) -> TapError {
+    let kind = match error.kind {
+        ErrorKind::Usage => Kind::Invalid,
+        ErrorKind::NotFound => Kind::NotFound,
+        ErrorKind::Conflict => Kind::Conflict,
+        _ => Kind::Backend,
+    };
+    TapError {
+        kind,
+        message: error.message,
+    }
+}
+
+fn plugin_env() -> Result<plugins::Env, TapError> {
+    plugins::Env::host().ok_or_else(|| TapError {
+        kind: Kind::Backend,
+        message: "home directory could not be resolved".into(),
+    })
+}
+
+fn refuse_while_linked(name: &str) -> Result<(), TapError> {
+    let Some(env) = plugins::Env::host() else {
+        return Ok(());
+    };
+    if link::linked_taps(&env, &[name.to_string()]).is_empty() {
+        return Ok(());
+    }
+    Err(TapError {
+        kind: Kind::Conflict,
+        message: format!(
+            "Tap '{name}' is linked to Claude Code; run `toolportctl skills tap unlink {name}` first"
+        ),
+    })
+}
+
 pub fn tap_list_value(_args: &Value) -> Outcome {
     let dir = config_dir()?;
     let rows = with_env(|env| Ok(tap_ops::list(env)))?;
+    let plugin_env = rows
+        .iter()
+        .any(|r| r.cloned && marketplace::is_marketplace(&r.path))
+        .then(plugins::Env::host)
+        .flatten();
     Ok(json!({
         "tapsRoot": display(&super::taps::taps_root(&dir)),
         "taps": rows
             .iter()
-            .map(|r| json!({
-                "name": r.tap.name,
-                "repo": r.tap.repo,
-                "url": redact(&r.tap.url),
-                "path": display(&r.path),
-                "cloned": r.cloned,
-            }))
+            .map(|r| {
+                let mut row = json!({
+                    "name": r.tap.name,
+                    "repo": r.tap.repo,
+                    "url": redact(&r.tap.url),
+                    "path": display(&r.path),
+                    "cloned": r.cloned,
+                });
+                if let Some(shown) = plugin_env
+                    .as_ref()
+                    .and_then(|env| link::describe(env, &r.tap.name))
+                {
+                    row["marketplace"] = shown;
+                }
+                row
+            })
             .collect::<Vec<_>>(),
     }))
 }
 
 pub fn tap_remove_value(args: &Value) -> Outcome {
     let dry_run = flag(args, "dry_run");
-    let report = with_env(|env| tap_ops::remove(env, required(args, "name")?, dry_run))?;
+    let name = required(args, "name")?;
+    refuse_while_linked(name)?;
+    let report = with_env(|env| tap_ops::remove(env, name, dry_run))?;
     Ok(json!({
         "name": report.name,
         "path": display(&report.path),
@@ -111,14 +164,47 @@ fn update_row(row: &UpdateRow) -> Value {
     json!({"name": row.name, "ok": row.ok, "head": row.head, "error": row.error})
 }
 
+/// Pulls the taps; for the ones linked to Claude Code, also updates the linked plugins whose
+/// clone moved on, since Claude Code runs a copy cached per version.
 pub fn tap_update_value(args: &Value) -> Outcome {
     let dry_run = flag(args, "dry_run");
     let rows = with_env(|env| tap_ops::update(env, str_nonempty(args, "name"), dry_run))?;
-    Ok(json!({
+    let pulled: Vec<String> = rows.iter().filter(|r| r.ok).map(|r| r.name.clone()).collect();
+    let refreshed = plugins::Env::host()
+        .map(|env| link::refresh(&env, &plugins::SystemClaude::from_env(), &pulled, dry_run))
+        .unwrap_or_default();
+    let mut out = json!({
         "results": rows.iter().map(update_row).collect::<Vec<_>>(),
         "failed": rows.iter().filter(|r| !r.ok).count(),
         "dryRun": dry_run,
-    }))
+    });
+    if !refreshed.is_empty() {
+        out["restartRequired"] = json!(refreshed.iter().any(|r| r["outcome"] == "updated"));
+        out["plugins"] = json!(refreshed);
+    }
+    Ok(out)
+}
+
+pub fn tap_link_value(args: &Value) -> Outcome {
+    let only = nonempty_strings(args, "plugins").unwrap_or_default();
+    link::link(
+        &plugin_env()?,
+        &plugins::SystemClaude::from_env(),
+        required(args, "name")?,
+        &only,
+        flag(args, "dry_run"),
+    )
+    .map_err(tap_failure)
+}
+
+pub fn tap_unlink_value(args: &Value) -> Outcome {
+    link::unlink(
+        &plugin_env()?,
+        &plugins::SystemClaude::from_env(),
+        required(args, "name")?,
+        flag(args, "dry_run"),
+    )
+    .map_err(tap_failure)
 }
 
 pub fn search_value(args: &Value) -> Outcome {
@@ -230,6 +316,14 @@ pub fn tap_remove_handler(args: Value) -> Result<Value, String> {
 
 pub fn tap_update_handler(args: Value) -> Result<Value, String> {
     finish(tap_update_value(&args))
+}
+
+pub fn tap_link_handler(args: Value) -> Result<Value, String> {
+    finish(tap_link_value(&args))
+}
+
+pub fn tap_unlink_handler(args: Value) -> Result<Value, String> {
+    finish(tap_unlink_value(&args))
 }
 
 pub fn search_handler(args: Value) -> Result<Value, String> {
