@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "bundle", "add", "lean"],
+  "envelope": {
+    "command": "context bundle add",
+    "error": {
+      "code": "conflict",
+      "message": "bundle lean exists already (<WORLD>/home/.config/mcpm/skills_repo/profiles/lean.yaml); use `context bundle edit`"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

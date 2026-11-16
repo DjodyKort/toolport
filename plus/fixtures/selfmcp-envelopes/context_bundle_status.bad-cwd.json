@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/gone"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "<WORLD>/home/gone does not exist"
+    }
+  },
+  "text": "invalid_arguments: <WORLD>/home/gone does not exist",
+  "tool": "context_bundle_status"
+}

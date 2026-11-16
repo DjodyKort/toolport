@@ -1,0 +1,42 @@
+{
+  "argv": ["context", "bundle", "show", "lean"],
+  "envelope": {
+    "command": "context bundle show",
+    "data": {
+      "agents": {
+        "off": []
+      },
+      "appliedTo": [],
+      "bind": [],
+      "description": "",
+      "dirs": {
+        "add": []
+      },
+      "issues": [],
+      "layers": {
+        "add": [],
+        "exclude": []
+      },
+      "legacy": false,
+      "mcp": {
+        "deny": []
+      },
+      "name": "lean",
+      "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/lean.yaml",
+      "plugins": {
+        "config": {},
+        "off": []
+      },
+      "servers": null,
+      "skills": {
+        "allow": [],
+        "nameOnly": [],
+        "off": ["scratch-1"]
+      },
+      "yaml": "format: 1\nname: lean\nskills:\n  off:\n  - scratch-1\n"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

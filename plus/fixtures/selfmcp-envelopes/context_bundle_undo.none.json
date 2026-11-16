@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/proj"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "no bundle is applied in <WORLD>/home/proj"
+    }
+  },
+  "text": "conflict: no bundle is applied in <WORLD>/home/proj",
+  "tool": "context_bundle_undo"
+}

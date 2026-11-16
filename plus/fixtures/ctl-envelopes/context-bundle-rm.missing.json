@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "bundle", "rm", "acme-dev"],
+  "envelope": {
+    "command": "context bundle rm",
+    "error": {
+      "code": "not_found",
+      "message": "unknown bundle: acme-dev"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -1,0 +1,55 @@
+{
+  "argv": [
+    "context",
+    "leave-out",
+    "rm",
+    "{home}/.claude/CLAUDE.md",
+    "--cwd",
+    "{home}/proj"
+  ],
+  "envelope": {
+    "command": "context leave-out",
+    "data": {
+      "cwd": "<WORLD>/home/proj",
+      "dryRun": false,
+      "id": "leave-out",
+      "leftOut": [],
+      "memoryOff": true,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "1 key(s) owned by leave-out",
+            "diff": {
+              "after": "autoMemoryEnabled: false\n",
+              "before": "autoMemoryEnabled: (absent)\n"
+            },
+            "keys": ["autoMemoryEnabled"],
+            "op": "merge",
+            "path": "<WORLD>/home/proj/.claude/settings.local.json"
+          },
+          {
+            "detail": "record every key Toolport owns with the value it replaces, so undo restores exactly that",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          }
+        ],
+        "summary": "Load <WORLD>/home/.claude/CLAUDE.md again in <WORLD>/home/proj",
+        "undo": "toolportctl context leave-out add <WORLD>/home/.claude/CLAUDE.md --cwd <WORLD>/home/proj",
+        "warnings": [
+          "Open sessions keep what they loaded; the change applies from the next session"
+        ]
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["<WORLD>/home/proj/.claude/settings.local.json"],
+        "undo": "toolportctl context leave-out add <WORLD>/home/.claude/CLAUDE.md --cwd <WORLD>/home/proj"
+      },
+      "scope": "folder"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

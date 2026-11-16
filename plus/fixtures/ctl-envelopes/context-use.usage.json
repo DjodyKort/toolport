@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "use"],
+  "envelope": {
+    "command": "context use",
+    "error": {
+      "code": "usage",
+      "message": "usage: context use <name> [--cwd <dir>] [--dry-run] | context use --none [--cwd <dir>] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

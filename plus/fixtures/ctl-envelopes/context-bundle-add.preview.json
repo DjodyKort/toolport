@@ -1,0 +1,34 @@
+{
+  "argv": ["context", "bundle", "add", "lean", "--skills-off", "scratch-1", "--dry-run"],
+  "envelope": {
+    "command": "context bundle add",
+    "data": {
+      "created": true,
+      "dryRun": true,
+      "issues": [],
+      "name": "lean",
+      "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/lean.yaml",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "write the new bundle lean",
+            "diff": {
+              "after": "format: 1\nname: lean\nskills:\n  off:\n  - scratch-1\n",
+              "before": ""
+            },
+            "op": "create",
+            "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/lean.yaml"
+          }
+        ],
+        "summary": "Add bundle lean",
+        "undo": "toolportctl context bundle rm lean",
+        "warnings": []
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

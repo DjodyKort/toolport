@@ -1,0 +1,34 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "bundles": [
+      {
+        "agents": {
+          "off": ["reviewer-bot"]
+        },
+        "appliedTo": [],
+        "bind": ["~/work/acme-erp/clients/*"],
+        "description": "ERP work: no marketplace plugins, only the ERP skills",
+        "issues": 0,
+        "layers": {
+          "add": ["acme-knowledge"],
+          "exclude": ["**/acme-erp/CLAUDE.md"]
+        },
+        "name": "acme-dev",
+        "path": "<WORLD>/home/.config/mcpm/skills_repo/profiles/acme-dev.yaml",
+        "plugins": {
+          "off": ["tools-pack@tools-market", "loop-runner@official"]
+        },
+        "servers": "Default",
+        "skills": {
+          "allow": 0,
+          "nameOnly": 1,
+          "off": 2
+        }
+      }
+    ],
+    "directory": "<WORLD>/home/.config/mcpm/skills_repo/profiles"
+  },
+  "tool": "context_bundle_ls"
+}

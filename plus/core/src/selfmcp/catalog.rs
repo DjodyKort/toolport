@@ -1,7 +1,7 @@
 use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
 
-use super::{backend, servers, ToolError};
+use super::{backend, context, servers, ToolError};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Gate {
@@ -65,6 +65,13 @@ pub const fn on_by_default(param: Param) -> Param {
 }
 
 const NAME: Param = p("name", Ty::Str, true, "Server id or name");
+const DRY: Param = p(
+    "dry_run",
+    Ty::Bool,
+    false,
+    "Report the plan and write nothing",
+);
+const CWD: Param = p("cwd", Ty::Str, true, "The folder where Claude Code starts");
 const DRY_ON: Param = on_by_default(p(
     "dry_run",
     Ty::Bool,
@@ -232,6 +239,56 @@ pub const TOOLS: &[ToolDef] = &[
         "Start a server's sign-in. A stdio server's own auth command runs and its consent URL comes back to open in a browser; a remote server runs upstream's browser sign-in and the call returns when it ends. The server's own callback stores the token; no credential is returned",
         [NAME],
         servers::auth
+    ),
+    tool!(
+        "context_bundle_ls",
+        1,
+        None,
+        "List the context bundles (profiles/<name>.yaml in the skills repository) with what each hides and adds and the folders it is applied in",
+        [],
+        context::ls
+    ),
+    tool!(
+        "context_bundle_status",
+        1,
+        None,
+        "Report which context bundle is applied in a folder, whether a key it owns changed since, and the keys an undo would leave alone",
+        [CWD],
+        context::status
+    ),
+    tool!(
+        "context_bundle_apply",
+        2,
+        None,
+        "Apply a context bundle in a folder: skill, plugin, agent and CLAUDE.md hiding goes into the folder's git-ignored .claude/settings.local.json and layers into one managed block of CLAUDE.local.md, with a ledger that undo restores from. Pass dry_run to see the plan and write nothing",
+        [
+            p("name", Ty::Str, true, "The bundle's name (profiles/<name>.yaml)"),
+            p("cwd", Ty::Str, true, "The folder where Claude Code starts; nothing is written above it"),
+            DRY
+        ],
+        context::apply
+    ),
+    tool!(
+        "context_bundle_undo",
+        2,
+        None,
+        "Undo the bundle applied in a folder: put back the keys it replaced and remove its block; a key changed since is left alone and listed in conflicts. Pass dry_run to see the plan and write nothing",
+        [CWD, DRY],
+        context::undo
+    ),
+    tool!(
+        "context_leave_out",
+        2,
+        None,
+        "Leave one CLAUDE.md or rule file out of a folder's stack, or turn auto memory off there: add writes the file's absolute path into claudeMdExcludes (or autoMemoryEnabled: false) in the folder's git-ignored .claude/settings.local.json, rm puts it back. Ledgered like the other folder controls, so undo removes only what Toolport wrote; the file itself is never changed and a managed policy CLAUDE.md cannot be left out. dry_run is on by default: the call previews and writes only with dry_run=false",
+        [
+            p("action", Ty::Str, true, "add (leave out) or rm (load again)"),
+            p("path", Ty::Str, false, "Absolute path, or ~/..., of the instruction file; leave empty when memory is true"),
+            p("memory", Ty::Bool, false, "Act on auto memory instead of a file"),
+            p("cwd", Ty::Str, true, "Folder where Claude Code starts; nothing is written above it"),
+            DRY_ON
+        ],
+        context::leave_out
     ),
 ];
 

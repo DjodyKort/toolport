@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "bundle", "apply", "nope", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "context bundle apply",
+    "error": {
+      "code": "not_found",
+      "message": "unknown bundle: nope (no <WORLD>/home/.config/mcpm/skills_repo/profiles/nope.yaml)"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

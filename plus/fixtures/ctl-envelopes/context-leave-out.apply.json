@@ -1,0 +1,69 @@
+{
+  "argv": [
+    "context",
+    "leave-out",
+    "add",
+    "{home}/.claude/CLAUDE.md",
+    "--cwd",
+    "{home}/proj"
+  ],
+  "envelope": {
+    "command": "context leave-out",
+    "data": {
+      "cwd": "<WORLD>/home/proj",
+      "dryRun": false,
+      "id": "leave-out",
+      "leftOut": ["<WORLD>/home/.claude/CLAUDE.md"],
+      "memoryOff": false,
+      "plan": {
+        "effects": {
+          "tokens": {
+            "after": 3,
+            "basis": "estimate",
+            "before": 6
+          }
+        },
+        "steps": [
+          {
+            "detail": "1 key(s) owned by leave-out",
+            "diff": {
+              "after": "claudeMdExcludes: \"<WORLD>/home/.claude/CLAUDE.md\"\n",
+              "before": "claudeMdExcludes: (absent)\n"
+            },
+            "keys": ["claudeMdExcludes"],
+            "op": "create",
+            "path": "<WORLD>/home/proj/.claude/settings.local.json"
+          },
+          {
+            "detail": "git-ignore .claude/settings.local.json",
+            "op": "update",
+            "path": "<WORLD>/home/proj/.git/info/exclude"
+          },
+          {
+            "detail": "record every key Toolport owns with the value it replaces, so undo restores exactly that",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          }
+        ],
+        "summary": "Leave out <WORLD>/home/.claude/CLAUDE.md in <WORLD>/home/proj",
+        "undo": "toolportctl context leave-out rm <WORLD>/home/.claude/CLAUDE.md --cwd <WORLD>/home/proj",
+        "warnings": [
+          "Open sessions keep what they loaded; the change applies from the next session"
+        ]
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [
+          "<WORLD>/home/proj/.claude/settings.local.json",
+          "<WORLD>/home/proj/.git/info/exclude"
+        ],
+        "undo": "toolportctl context leave-out rm <WORLD>/home/.claude/CLAUDE.md --cwd <WORLD>/home/proj"
+      },
+      "scope": "folder"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

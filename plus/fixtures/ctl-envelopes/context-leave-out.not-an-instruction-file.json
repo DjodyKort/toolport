@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "context",
+    "leave-out",
+    "add",
+    "{home}/proj/.git/info/exclude",
+    "--cwd",
+    "{home}/proj"
+  ],
+  "envelope": {
+    "command": "context leave-out",
+    "error": {
+      "code": "not_found",
+      "message": "<WORLD>/home/proj/.git/info/exclude is not an instruction file Claude Code reads in this folder"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

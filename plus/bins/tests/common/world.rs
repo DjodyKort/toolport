@@ -70,6 +70,36 @@ impl World {
         world
     }
 
+    /// A skills repository with one bundle, a global and a project CLAUDE.md and a git folder.
+    pub fn context_files(&self) {
+        let world = self;
+        let put = |rel: &str, text: &str| {
+            let path = world.home.join(rel);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, text).unwrap();
+        };
+        let repo = ".config/mcpm/skills_repo";
+        for skill in ["notes-helper", "scratch-1", "long-guide"] {
+            put(
+                &format!("{repo}/skills/{skill}/SKILL.md"),
+                &format!("---\nname: {skill}\ndescription: d\n---\nbody\n"),
+            );
+        }
+        put(
+            &format!("{repo}/rules/acme-knowledge/SKILL.md"),
+            "---\nname: acme-knowledge\ndescription: d\n---\n\nUse the ERP naming rules.\n",
+        );
+        put(
+            &format!("{repo}/profiles/acme-dev.yaml"),
+            include_str!("../../../fixtures/bundles/acme-dev.yaml")
+                .replace("servers: acme-dev", "servers: Default")
+                .as_str(),
+        );
+        put(".claude/CLAUDE.md", "global rules\n");
+        put("proj/CLAUDE.md", "project rules\n");
+        std::fs::create_dir_all(world.home.join("proj/.git/info")).unwrap();
+    }
+
     /// A gateway binary in the data dir's `bin`, holding `content`.
     pub fn stub_gateway(&self, content: &[u8]) {
         std::fs::write(self.data.join("bin/toolport-gateway"), content).unwrap();

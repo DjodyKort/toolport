@@ -1,0 +1,55 @@
+{
+  "argv": ["context", "bundle", "undo", "--cwd", "{home}/proj", "--dry-run"],
+  "envelope": {
+    "command": "context bundle undo",
+    "data": {
+      "bundle": "acme-dev",
+      "conflicts": [],
+      "cwd": "<WORLD>/home/proj",
+      "dryRun": true,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "put back 7 key(s) of bundle acme-dev",
+            "keys": [
+              "skillOverrides",
+              "enabledPlugins",
+              "claudeMdExcludes",
+              "permissions.deny"
+            ],
+            "op": "delete",
+            "path": "<WORLD>/home/proj/.claude/settings.local.json"
+          },
+          {
+            "detail": "remove the managed block",
+            "op": "delete",
+            "path": "<WORLD>/home/proj/CLAUDE.local.md"
+          },
+          {
+            "detail": "stop git-ignoring .claude/settings.local.json",
+            "op": "update",
+            "path": "<WORLD>/home/proj/.git/info/exclude"
+          },
+          {
+            "detail": "stop git-ignoring CLAUDE.local.md",
+            "op": "update",
+            "path": "<WORLD>/home/proj/.git/info/exclude"
+          },
+          {
+            "detail": "drop the record of this folder",
+            "op": "note",
+            "path": "<WORLD>/data/plus/profile-ledger.json"
+          }
+        ],
+        "summary": "Undo bundle acme-dev in <WORLD>/home/proj",
+        "undo": "toolportctl context bundle apply acme-dev --cwd <WORLD>/home/proj",
+        "warnings": []
+      },
+      "result": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -18,6 +18,10 @@
       "status": "built",
       "page": "settings:toolport",
       "component": "src/plus/settings/ToolportPlusPage.tsx"
+    },
+    "context": {
+      "title": "Context",
+      "status": "planned"
     }
   },
   "actions": {
@@ -157,6 +161,26 @@
       "route": "servers",
       "status": "planned",
       "summary": "The login summary line for a statusline or a session hook, counting stdio and Google logins only; no client is wired to it (auth statusline, auth hook)"
+    },
+    "context.bundles": {
+      "route": "context",
+      "status": "planned",
+      "summary": "Folder bundles: list, show, create (from a folder too), edit and delete a bundle definition (context bundle ls|show|add|edit|rm, context_bundle_ls)"
+    },
+    "context.bundle-apply": {
+      "route": "context",
+      "status": "planned",
+      "summary": "Apply a bundle to a folder after its plan, drift per key, undo, copy the launch command and the auto-apply switch (context bundle apply|undo|status|launch|config, context_bundle_apply|undo|status)"
+    },
+    "context.use": {
+      "route": "context",
+      "status": "planned",
+      "summary": "Apply a bundle and route the folder to its access set, or drop both (context use)"
+    },
+    "context.leave-out": {
+      "route": "context",
+      "status": "planned",
+      "summary": "Leave a CLAUDE.md or rule out of a folder, or turn auto memory off, one click with Undo (context leave-out, context_leave_out)"
     }
   },
   "owners": {
@@ -166,7 +190,8 @@
     "mcp": "MIG-2X-S1",
     "server": "MIG-2X-S2",
     "secret": "MIG-2X-S3",
-    "auth": "MIG-2X-S3"
+    "auth": "MIG-2X-S3",
+    "context": "MIG-2X-S5"
   },
   "commands": {
     "status": {
@@ -283,6 +308,66 @@
       "route": "servers",
       "action": "servers.login",
       "surface": "screen"
+    },
+    "context bundle ls": {
+      "route": "context",
+      "action": "context.bundles",
+      "surface": "screen"
+    },
+    "context bundle show": {
+      "route": "context",
+      "action": "context.bundles",
+      "surface": "screen"
+    },
+    "context bundle add": {
+      "route": "context",
+      "action": "context.bundles",
+      "surface": "screen"
+    },
+    "context bundle edit": {
+      "route": "context",
+      "action": "context.bundles",
+      "surface": "screen"
+    },
+    "context bundle rm": {
+      "route": "context",
+      "action": "context.bundles",
+      "surface": "screen"
+    },
+    "context bundle apply": {
+      "route": "context",
+      "action": "context.bundle-apply",
+      "surface": "screen"
+    },
+    "context bundle undo": {
+      "route": "context",
+      "action": "context.bundle-apply",
+      "surface": "screen"
+    },
+    "context bundle status": {
+      "route": "context",
+      "action": "context.bundle-apply",
+      "surface": "screen"
+    },
+    "context bundle launch": {
+      "route": "context",
+      "action": "context.bundle-apply",
+      "surface": "screen"
+    },
+    "context bundle config": {
+      "route": "context",
+      "action": "context.bundle-apply",
+      "surface": "screen"
+    },
+    "context use": {
+      "route": "context",
+      "action": "context.use",
+      "surface": "screen"
+    },
+    "context leave-out": {
+      "route": "context",
+      "action": "context.leave-out",
+      "surface": "screen"
     }
   },
   "tools": {
@@ -354,6 +439,31 @@
     "servers_auth": {
       "route": "servers",
       "action": "servers.login",
+      "surface": "screen"
+    },
+    "context_bundle_ls": {
+      "route": "context",
+      "action": "context.bundles",
+      "surface": "screen"
+    },
+    "context_bundle_status": {
+      "route": "context",
+      "action": "context.bundle-apply",
+      "surface": "screen"
+    },
+    "context_bundle_apply": {
+      "route": "context",
+      "action": "context.bundle-apply",
+      "surface": "screen"
+    },
+    "context_bundle_undo": {
+      "route": "context",
+      "action": "context.bundle-apply",
+      "surface": "screen"
+    },
+    "context_leave_out": {
+      "route": "context",
+      "action": "context.leave-out",
       "surface": "screen"
     }
   }

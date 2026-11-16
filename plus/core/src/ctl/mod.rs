@@ -9,6 +9,7 @@
 mod auth;
 mod commands;
 mod commands_json;
+mod context;
 mod flags;
 mod mcp;
 mod output;
@@ -158,6 +159,68 @@ pub const COMMANDS: &[Command] = &[
         secret::get,
     ),
     cmd(&["secret", "rm"], "Remove a secret", secret::rm),
+    cmd(
+        &["context", "bundle", "ls"],
+        "List the context bundles with where each is applied",
+        context::ls,
+    )
+    .no_options(),
+    cmd(
+        &["context", "bundle", "show"],
+        "Show one bundle's definition and lint (<name>)",
+        context::show,
+    )
+    .no_options(),
+    cmd(
+        &["context", "bundle", "add"],
+        "Write a new bundle (<name>, --from-folder, --description, --skills-off, --skills-name-only, --skills-allow, --plugins-off, --layers-add, --layers-exclude, --agents-off, --servers, --bind, --dry-run)",
+        context::add,
+    ),
+    cmd(
+        &["context", "bundle", "edit"],
+        "Change a bundle; each given list replaces that list (<name>, same flags as add, --dry-run)",
+        context::edit,
+    ),
+    cmd(
+        &["context", "bundle", "rm"],
+        "Delete a bundle definition; refuses while applied unless --force (<name>, --force, --dry-run)",
+        context::rm,
+    ),
+    cmd(
+        &["context", "bundle", "apply"],
+        "Apply a bundle in the folder where Claude starts, through git-ignored local files (<name>, --cwd, --dry-run)",
+        context::apply,
+    ),
+    cmd(
+        &["context", "bundle", "undo"],
+        "Undo the applied bundle in a folder; keys changed since are left alone (--cwd, --dry-run)",
+        context::undo,
+    ),
+    cmd(
+        &["context", "bundle", "status"],
+        "Show the bundle applied in a folder and any drift (--cwd)",
+        context::status,
+    ),
+    cmd(
+        &["context", "bundle", "launch"],
+        "Write the --settings file of a bundle and print the claude command (<name>, --cwd)",
+        context::launch,
+    ),
+    cmd(
+        &["context", "bundle", "config"],
+        "Show or set whether context sync applies bound bundles (--auto-apply on|off)",
+        context::config,
+    ),
+    cmd(
+        &["context", "use"],
+        "Apply a bundle and its paired access set to a folder, or drop both (<name>, --none, --cwd, --dry-run)",
+        context::use_bundle,
+    ),
+    cmd(
+        &["context", "leave-out"],
+        "Leave a CLAUDE.md or rule out of a folder, or turn auto memory off there (add|rm <path> or --memory, --cwd, --dry-run)",
+        context::leave_out,
+    ),
     cmd(
         &["mcp"],
         "Self-management server: install [--access-set <id>] uninstall doctor tools call <tool> [--args <json> | --args-stdin]",

@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "use", "nope", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "context use",
+    "error": {
+      "code": "not_found",
+      "message": "nothing is called nope: no bundle in the skills repo's profiles/ and no access set"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

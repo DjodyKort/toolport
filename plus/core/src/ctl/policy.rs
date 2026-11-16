@@ -12,6 +12,7 @@
 //! the rows, so a new command is classified by adding its row and nothing else.
 
 use super::auth;
+use super::context;
 use super::flags::{Flag, Spec};
 use super::mcp;
 use super::secret;
@@ -96,6 +97,14 @@ pub(super) struct Operand {
     pub name: &'static str,
     pub required: bool,
     pub variadic: bool,
+}
+
+const fn opt(name: &'static str) -> Operand {
+    Operand {
+        name,
+        required: false,
+        variadic: false,
+    }
 }
 
 const fn req(name: &'static str) -> Operand {
@@ -200,6 +209,13 @@ impl Row {
         }
     }
 
+    const fn requires(self, flags: &'static [&'static str]) -> Self {
+        Self {
+            requires: flags,
+            ..self
+        }
+    }
+
     const fn skip(self, reason: &'static str) -> Self {
         Self {
             smoke: Smoke::Skip(reason),
@@ -291,6 +307,55 @@ pub(super) const ROWS: &[Row] = &[
     row("secret rm", D)
         .args(&[req("server"), req("key")])
         .skip("removes a vault entry; the contract case runs it against a scratch vault"),
+    row("context bundle ls", R).spec(&[&context::LS]),
+    row("context bundle show", R)
+        .spec(&[&context::SHOW])
+        .args(&[req("name")])
+        .smoke(&["nope"]),
+    row("context bundle add", W)
+        .dry()
+        .spec(&[&context::ADD])
+        .args(&[req("name")])
+        .skip("writes a bundle file; its --dry-run is a golden step"),
+    row("context bundle edit", W)
+        .dry()
+        .spec(&[&context::EDIT])
+        .args(&[req("name")])
+        .skip("changes a bundle file; its --dry-run is a golden step"),
+    row("context bundle rm", D)
+        .dry()
+        .spec(&[&context::RM])
+        .args(&[req("name")])
+        .skip("deletes a bundle file; its --dry-run is a golden step"),
+    row("context leave-out", W)
+        .dry()
+        .spec(&[&context::LEAVE_OUT])
+        .args(&[req("action"), opt("path")])
+        .requires(&["--cwd"])
+        .skip("writes a folder's settings; its --dry-run is a golden step"),
+    row("context bundle apply", W)
+        .dry()
+        .spec(&[&context::APPLY])
+        .args(&[req("name")])
+        .skip("writes a folder's settings; its --dry-run is a golden step"),
+    row("context bundle undo", W)
+        .dry()
+        .spec(&[&context::UNDO])
+        .skip("writes a folder's settings; its --dry-run is a golden step"),
+    row("context bundle status", R).spec(&[&context::STATUS]),
+    row("context bundle launch", W)
+        .spec(&[&context::LAUNCH])
+        .args(&[req("name")])
+        .skip("writes a settings file under the home directory"),
+    row("context bundle config", W)
+        .reads(&["--auto-apply"])
+        .spec(&[&context::CONFIG])
+        .skip("a read without --auto-apply; the switch itself writes context.json"),
+    row("context use", W)
+        .dry()
+        .spec(&[&context::USE])
+        .args(&[opt("name")])
+        .skip("applies a bundle and routes a folder; its --dry-run is a golden step"),
     row("mcp install", W)
         .spec(&[&mcp::INSTALL])
         .skip("registers the server and lists it in access sets; plus_mcp.rs round trip"),
@@ -407,6 +472,11 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("servers_uninstall", D, "server uninstall"),
     maps("servers_restart", W, "server restart").on(),
     maps("servers_auth", W, "auth login"),
+    maps("context_bundle_ls", R, "context bundle ls"),
+    maps("context_bundle_status", R, "context bundle status"),
+    maps("context_bundle_apply", W, "context bundle apply").param(),
+    maps("context_bundle_undo", W, "context bundle undo").param(),
+    maps("context_leave_out", W, "context leave-out").on(),
 ];
 
 #[derive(Clone, Copy, Debug)]

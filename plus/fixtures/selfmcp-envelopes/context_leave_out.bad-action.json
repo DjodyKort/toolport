@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "action": "drop",
+    "cwd": "<WORLD>/home/proj",
+    "memory": true
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "action must be add or rm"
+    }
+  },
+  "text": "invalid_arguments: action must be add or rm",
+  "tool": "context_leave_out"
+}

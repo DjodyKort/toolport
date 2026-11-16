@@ -133,6 +133,10 @@ fn opt_alpha_into_the_stdio_probe(world: &World) {
     world.write_registry(&registry);
 }
 
+fn context_files(world: &World) {
+    world.context_files();
+}
+
 fn unreadable_registry(world: &World) {
     std::fs::write(world.data.join("registry.json"), "{ not json").unwrap();
 }
@@ -427,6 +431,322 @@ const CASES: &[Case] = &[
                     r#"{"name":"alpha","mode":"search","confirm":true}"#,
                 ],
             ),
+        ],
+    ),
+    case(
+        "context bundle ls",
+        &[
+            hook("files", context_files),
+            read("", &["context", "bundle", "ls"]),
+        ],
+    ),
+    case(
+        "context bundle show",
+        &[
+            hook("files", context_files),
+            read("bundle", &["context", "bundle", "show", "acme-dev"]),
+            read("missing", &["context", "bundle", "show", "nope"]).exit(1),
+            usage("usage", &["context", "bundle", "show"]),
+        ],
+    ),
+    case(
+        "context bundle add",
+        &[
+            hook("files", context_files),
+            read(
+                "preview",
+                &[
+                    "context",
+                    "bundle",
+                    "add",
+                    "lean",
+                    "--skills-off",
+                    "scratch-1",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &[
+                    "context",
+                    "bundle",
+                    "add",
+                    "lean",
+                    "--skills-off",
+                    "scratch-1",
+                ],
+            ),
+            read("exists", &["context", "bundle", "add", "lean"]).exit(1),
+            read("show", &["context", "bundle", "show", "lean"]),
+        ],
+    ),
+    case(
+        "context bundle edit",
+        &[
+            hook("files", context_files),
+            read(
+                "preview",
+                &[
+                    "context",
+                    "bundle",
+                    "edit",
+                    "acme-dev",
+                    "--plugins-off",
+                    "tools-pack@tools-market",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &[
+                    "context",
+                    "bundle",
+                    "edit",
+                    "acme-dev",
+                    "--plugins-off",
+                    "tools-pack@tools-market",
+                ],
+            ),
+            read(
+                "missing",
+                &["context", "bundle", "edit", "nope", "--description", "x"],
+            )
+            .exit(1),
+        ],
+    ),
+    case(
+        "context bundle rm",
+        &[
+            hook("files", context_files),
+            read(
+                "preview",
+                &["context", "bundle", "rm", "acme-dev", "--dry-run"],
+            ),
+            apply("apply", &["context", "bundle", "rm", "acme-dev"]),
+            read("missing", &["context", "bundle", "rm", "acme-dev"]).exit(1),
+        ],
+    ),
+    case(
+        "context bundle apply",
+        &[
+            hook("files", context_files),
+            read(
+                "plan",
+                &[
+                    "context",
+                    "bundle",
+                    "apply",
+                    "acme-dev",
+                    "--cwd",
+                    "{home}/proj",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "result",
+                &[
+                    "context",
+                    "bundle",
+                    "apply",
+                    "acme-dev",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            ),
+            read(
+                "status",
+                &["context", "bundle", "status", "--cwd", "{home}/proj"],
+            ),
+            read(
+                "missing",
+                &["context", "bundle", "apply", "nope", "--cwd", "{home}/proj"],
+            )
+            .exit(1),
+            read(
+                "no-folder",
+                &[
+                    "context",
+                    "bundle",
+                    "apply",
+                    "acme-dev",
+                    "--cwd",
+                    "{home}/gone",
+                ],
+            )
+            .exit(2),
+            usage("usage", &["context", "bundle", "apply"]),
+        ],
+    ),
+    case(
+        "context bundle undo",
+        &[
+            hook("files", context_files),
+            setup(
+                "setup",
+                &[
+                    "context",
+                    "bundle",
+                    "apply",
+                    "acme-dev",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            ),
+            read(
+                "plan",
+                &[
+                    "context",
+                    "bundle",
+                    "undo",
+                    "--cwd",
+                    "{home}/proj",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "result",
+                &["context", "bundle", "undo", "--cwd", "{home}/proj"],
+            ),
+            read(
+                "none",
+                &["context", "bundle", "undo", "--cwd", "{home}/proj"],
+            )
+            .exit(1),
+        ],
+    ),
+    case(
+        "context bundle status",
+        &[
+            hook("files", context_files),
+            read(
+                "none",
+                &["context", "bundle", "status", "--cwd", "{home}/proj"],
+            ),
+        ],
+    ),
+    case(
+        "context bundle launch",
+        &[
+            hook("files", context_files),
+            apply(
+                "launch",
+                &[
+                    "context",
+                    "bundle",
+                    "launch",
+                    "acme-dev",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            ),
+            read("missing", &["context", "bundle", "launch", "nope"]).exit(1),
+        ],
+    ),
+    case(
+        "context bundle config",
+        &[
+            read("show", &["context", "bundle", "config"]),
+            apply("on", &["context", "bundle", "config", "--auto-apply", "on"]),
+            read("after", &["context", "bundle", "config"]),
+            usage(
+                "bad",
+                &["context", "bundle", "config", "--auto-apply", "maybe"],
+            ),
+        ],
+    ),
+    case(
+        "context use",
+        &[
+            hook("files", context_files),
+            read(
+                "plan",
+                &[
+                    "context",
+                    "use",
+                    "acme-dev",
+                    "--cwd",
+                    "{home}/proj",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "routed",
+                &["context", "use", "acme-dev", "--cwd", "{home}/proj"],
+            ),
+            apply(
+                "none",
+                &["context", "use", "--none", "--cwd", "{home}/proj"],
+            ),
+            read(
+                "missing",
+                &["context", "use", "nope", "--cwd", "{home}/proj"],
+            )
+            .exit(1),
+            usage("usage", &["context", "use"]),
+        ],
+    ),
+    case(
+        "context leave-out",
+        &[
+            hook("files", context_files),
+            read(
+                "plan",
+                &[
+                    "context",
+                    "leave-out",
+                    "add",
+                    "{home}/.claude/CLAUDE.md",
+                    "--cwd",
+                    "{home}/proj",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &[
+                    "context",
+                    "leave-out",
+                    "add",
+                    "{home}/.claude/CLAUDE.md",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            ),
+            apply(
+                "memory",
+                &[
+                    "context",
+                    "leave-out",
+                    "add",
+                    "--memory",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            ),
+            apply(
+                "back",
+                &[
+                    "context",
+                    "leave-out",
+                    "rm",
+                    "{home}/.claude/CLAUDE.md",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            ),
+            read(
+                "not-an-instruction-file",
+                &[
+                    "context",
+                    "leave-out",
+                    "add",
+                    "{home}/proj/.git/info/exclude",
+                    "--cwd",
+                    "{home}/proj",
+                ],
+            )
+            .exit(1),
+            usage("usage", &["context", "leave-out", "add"]),
         ],
     ),
 ];

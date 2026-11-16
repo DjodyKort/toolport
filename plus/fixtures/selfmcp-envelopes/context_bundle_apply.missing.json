@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/proj",
+    "name": "nope"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "unknown bundle: nope (no <WORLD>/home/.config/mcpm/skills_repo/profiles/nope.yaml)"
+    }
+  },
+  "text": "not_found: unknown bundle: nope (no <WORLD>/home/.config/mcpm/skills_repo/profiles/nope.yaml)",
+  "tool": "context_bundle_apply"
+}

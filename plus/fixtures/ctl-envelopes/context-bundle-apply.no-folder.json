@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "bundle", "apply", "acme-dev", "--cwd", "{home}/gone"],
+  "envelope": {
+    "command": "context bundle apply",
+    "error": {
+      "code": "usage",
+      "message": "<WORLD>/home/gone does not exist"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "bundle", "apply"],
+  "envelope": {
+    "command": "context bundle apply",
+    "error": {
+      "code": "usage",
+      "message": "usage: context bundle apply <name> [--cwd <dir>] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

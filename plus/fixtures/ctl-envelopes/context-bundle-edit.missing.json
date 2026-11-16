@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "bundle", "edit", "nope", "--description", "x"],
+  "envelope": {
+    "command": "context bundle edit",
+    "error": {
+      "code": "not_found",
+      "message": "unknown bundle: nope"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -88,10 +88,23 @@ const GAMMA_APPLY: &str =
 struct Case {
     tool: &'static str,
     calls: &'static [Call],
+    prepare: Option<fn(&World)>,
 }
 
 const fn case(tool: &'static str, calls: &'static [Call]) -> Case {
-    Case { tool, calls }
+    Case {
+        tool,
+        calls,
+        prepare: None,
+    }
+}
+
+/// A case whose world first gets the skills repository, CLAUDE.md files and project folder.
+const fn context_case(tool: &'static str, calls: &'static [Call]) -> Case {
+    Case {
+        prepare: Some(World::context_files),
+        ..case(tool, calls)
+    }
 }
 
 const CASES: &[Case] = &[
@@ -282,6 +295,100 @@ const CASES: &[Case] = &[
             ),
         ],
     ),
+    context_case("context_bundle_ls", &[read("", "context_bundle_ls", "{}")]),
+    context_case(
+        "context_bundle_status",
+        &[
+            read("none", "context_bundle_status", r#"{"cwd":"{home}/proj"}"#),
+            fails("no-cwd", "invalid_arguments", "context_bundle_status", "{}"),
+            fails(
+                "bad-cwd",
+                "invalid_arguments",
+                "context_bundle_status",
+                r#"{"cwd":"{home}/gone"}"#,
+            ),
+        ],
+    ),
+    context_case(
+        "context_bundle_apply",
+        &[
+            read(
+                "plan",
+                "context_bundle_apply",
+                r#"{"name":"acme-dev","cwd":"{home}/proj","dry_run":true}"#,
+            ),
+            write(
+                "result",
+                "context_bundle_apply",
+                r#"{"name":"acme-dev","cwd":"{home}/proj"}"#,
+            ),
+            fails(
+                "missing",
+                "not_found",
+                "context_bundle_apply",
+                r#"{"name":"nope","cwd":"{home}/proj"}"#,
+            ),
+            fails(
+                "no-name",
+                "invalid_arguments",
+                "context_bundle_apply",
+                r#"{"cwd":"{home}/proj"}"#,
+            ),
+        ],
+    ),
+    context_case(
+        "context_bundle_undo",
+        &[
+            fails(
+                "none",
+                "conflict",
+                "context_bundle_undo",
+                r#"{"cwd":"{home}/proj"}"#,
+            ),
+            setup(
+                "context_bundle_apply",
+                r#"{"name":"acme-dev","cwd":"{home}/proj"}"#,
+            ),
+            read(
+                "plan",
+                "context_bundle_undo",
+                r#"{"cwd":"{home}/proj","dry_run":true}"#,
+            ),
+            write("result", "context_bundle_undo", r#"{"cwd":"{home}/proj"}"#),
+        ],
+    ),
+    context_case(
+        "context_leave_out",
+        &[
+            read(
+                "plan",
+                "context_leave_out",
+                r#"{"action":"add","path":"{home}/.claude/CLAUDE.md","cwd":"{home}/proj"}"#,
+            ),
+            write(
+                "apply",
+                "context_leave_out",
+                r#"{"action":"add","path":"{home}/.claude/CLAUDE.md","cwd":"{home}/proj","dry_run":false}"#,
+            ),
+            write(
+                "memory",
+                "context_leave_out",
+                r#"{"action":"add","memory":true,"cwd":"{home}/proj","dry_run":false}"#,
+            ),
+            fails(
+                "bad-action",
+                "invalid_arguments",
+                "context_leave_out",
+                r#"{"action":"drop","memory":true,"cwd":"{home}/proj"}"#,
+            ),
+            fails(
+                "both-targets",
+                "invalid_arguments",
+                "context_leave_out",
+                r#"{"action":"add","memory":true,"path":"{home}/x","cwd":"{home}/proj"}"#,
+            ),
+        ],
+    ),
 ];
 
 fn stem(case: &Case, call: &Call) -> String {
@@ -317,18 +424,21 @@ fn changed_files(
         .collect()
 }
 
-fn arguments(case: &Case, call: &Call) -> Value {
-    serde_json::from_str(call.args)
+fn arguments(world: &World, case: &Case, call: &Call) -> Value {
+    serde_json::from_str(&call.args.replace("{home}", &world.path(&world.home)))
         .unwrap_or_else(|e| panic!("{} {}: arguments are not JSON: {e}", case.tool, call.label))
 }
 
 fn run_case(case: &Case) {
     let world = World::new(case.tool);
+    if let Some(prepare) = case.prepare {
+        prepare(&world);
+    }
     let mut client = Client::spawn(&world, &[FAKE_SECRET, SECRET_KEY]);
     client.handshake();
     for call in case.calls {
         let name = format!("{} {}", case.tool, call.label);
-        let args = arguments(case, call);
+        let args = arguments(&world, case, call);
         let before = world.snapshot();
         let reply = client.call(call.tool, args.clone());
         match call.expect {
@@ -552,10 +662,13 @@ fn selfmcp_coverage() {
 fn no_output_carries_the_vault_key_or_a_server_secret() {
     for case in CASES {
         let world = World::new(case.tool);
+        if let Some(prepare) = case.prepare {
+            prepare(&world);
+        }
         let mut client = Client::spawn(&world, &[FAKE_SECRET, SECRET_KEY]);
         client.handshake();
         for call in case.calls {
-            let reply = client.call(call.tool, arguments(case, call));
+            let reply = client.call(call.tool, arguments(&world, case, call));
             let text = reply.0.to_string();
             for secret in [FAKE_SECRET, SECRET_KEY] {
                 assert!(!text.contains(secret), "{} {}", case.tool, call.label);

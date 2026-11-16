@@ -1,0 +1,12 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/proj"
+  },
+  "isError": false,
+  "result": {
+    "applied": null,
+    "conflicts": [],
+    "folder": "<WORLD>/home/proj"
+  },
+  "tool": "context_bundle_status"
+}

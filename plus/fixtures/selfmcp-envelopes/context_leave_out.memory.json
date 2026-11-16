@@ -1,0 +1,50 @@
+{
+  "arguments": {
+    "action": "add",
+    "cwd": "<WORLD>/home/proj",
+    "dry_run": false,
+    "memory": true
+  },
+  "isError": false,
+  "result": {
+    "cwd": "<WORLD>/home/proj",
+    "dryRun": false,
+    "id": "leave-out",
+    "leftOut": ["<WORLD>/home/.claude/CLAUDE.md"],
+    "memoryOff": true,
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "2 key(s) owned by leave-out",
+          "diff": {
+            "after": "claudeMdExcludes: \"<WORLD>/home/.claude/CLAUDE.md\"\nautoMemoryEnabled: false\n",
+            "before": "claudeMdExcludes: (absent)\nautoMemoryEnabled: (absent)\n"
+          },
+          "keys": ["claudeMdExcludes", "autoMemoryEnabled"],
+          "op": "merge",
+          "path": "<WORLD>/home/proj/.claude/settings.local.json"
+        },
+        {
+          "detail": "record every key Toolport owns with the value it replaces, so undo restores exactly that",
+          "op": "note",
+          "path": "<WORLD>/data/plus/profile-ledger.json"
+        }
+      ],
+      "summary": "Turn auto memory off in <WORLD>/home/proj",
+      "undo": "toolportctl context leave-out rm --memory --cwd <WORLD>/home/proj",
+      "warnings": [
+        "Claude then neither reads from nor writes to this project's auto memory directory",
+        "Open sessions keep what they loaded; the change applies from the next session"
+      ]
+    },
+    "result": {
+      "applied": true,
+      "backups": [],
+      "changed": ["<WORLD>/home/proj/.claude/settings.local.json"],
+      "undo": "toolportctl context leave-out rm --memory --cwd <WORLD>/home/proj"
+    },
+    "scope": "folder"
+  },
+  "tool": "context_leave_out"
+}

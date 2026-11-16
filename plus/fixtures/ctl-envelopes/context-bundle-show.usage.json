@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "bundle", "show"],
+  "envelope": {
+    "command": "context bundle show",
+    "error": {
+      "code": "usage",
+      "message": "usage: context bundle show <name>"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}
