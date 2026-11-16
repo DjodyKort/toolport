@@ -4,8 +4,9 @@ use std::path::PathBuf;
 
 use serde_json::{Map, Value};
 use toolport_plus_api::{
-    convert, plus_ops, AuthProbe, DirectEntry, ForkServerFields, McpmSource, RegistryAccess,
-    RegistryPlus, SelfMcpRecord, ServerRecord,
+    convert, plus_ops, AuthProbe, DirectEntry, ForkServerFields, HttpAccess, HttpBody, HttpError,
+    HttpRequest, HttpResponse, McpmSource, RegistryAccess, RegistryPlus, SelfMcpRecord,
+    ServerRecord,
 };
 
 pub struct HostAdapter;
@@ -220,6 +221,121 @@ impl RegistryAccess for HostAdapter {
             fields.max_request_timeout_ms = timeout_ms;
             Ok(())
         })
+    }
+}
+
+/// Upstream's own agent, so the egress guard and upstream's resolvers apply to every request.
+impl HttpAccess for HostAdapter {
+    fn send(&self, request: &HttpRequest) -> Result<HttpResponse, HttpError> {
+        let (content_type, body) = encode_body(&request.body)?;
+        let mut builder = ureq::http::Request::builder()
+            .method(request.method.as_str())
+            .uri(request.url.as_str());
+        for (name, value) in &request.headers {
+            builder = builder.header(name.as_str(), value.as_str());
+        }
+        if let Some(content_type) = content_type.filter(|_| !request.has_header("content-type")) {
+            builder = builder.header("Content-Type", content_type);
+        }
+        let invalid =
+            |error: ureq::http::Error| HttpError::Other(format!("invalid request: {error}"));
+        let agent = crate::http_client::agent();
+        let response = match body {
+            Some(bytes) => run(&agent, builder.body(bytes).map_err(invalid)?, request),
+            None => run(&agent, builder.body(()).map_err(invalid)?, request),
+        }
+        .map_err(map_error)?;
+        read_response(response, request.max_body_bytes)
+    }
+}
+
+fn run<B: ureq::AsSendBody>(
+    agent: &ureq::Agent,
+    http_request: ureq::http::Request<B>,
+    request: &HttpRequest,
+) -> Result<crate::http_client::Response, ureq::Error> {
+    use ureq::RequestExt as _;
+
+    let configure = http_request
+        .with_agent(agent)
+        .configure()
+        .timeout_global(Some(request.timeout));
+    if request.follow_redirects {
+        configure.run()
+    } else {
+        // Without will_error a 3xx past the limit is returned as a response.
+        configure
+            .max_redirects(0)
+            .max_redirects_will_error(false)
+            .run()
+    }
+}
+
+fn encode_body(body: &HttpBody) -> Result<(Option<&'static str>, Option<Vec<u8>>), HttpError> {
+    Ok(match body {
+        HttpBody::Empty => (None, None),
+        HttpBody::Json(value) => (
+            Some("application/json"),
+            Some(serde_json::to_vec(value).map_err(|error| HttpError::Other(error.to_string()))?),
+        ),
+        HttpBody::Form(pairs) => (
+            Some("application/x-www-form-urlencoded"),
+            Some(
+                url::form_urlencoded::Serializer::new(String::new())
+                    .extend_pairs(pairs)
+                    .finish()
+                    .into_bytes(),
+            ),
+        ),
+    })
+}
+
+fn read_response(
+    mut response: crate::http_client::Response,
+    max_body_bytes: usize,
+) -> Result<HttpResponse, HttpError> {
+    use std::io::Read as _;
+    use ureq::ResponseExt as _;
+
+    let status = response.status().as_u16();
+    let url = response.get_uri().to_string();
+    let headers = response
+        .headers()
+        .iter()
+        .filter_map(|(name, value)| {
+            Some((name.as_str().to_string(), value.to_str().ok()?.to_string()))
+        })
+        .collect();
+    let mut body = Vec::new();
+    response
+        .body_mut()
+        .as_reader()
+        .take(max_body_bytes as u64 + 1)
+        .read_to_end(&mut body)
+        .map_err(|error| HttpError::Other(format!("reading the response failed: {error}")))?;
+    let truncated = body.len() > max_body_bytes;
+    body.truncate(max_body_bytes);
+    Ok(HttpResponse {
+        status,
+        headers,
+        body,
+        truncated,
+        url,
+    })
+}
+
+fn map_error(error: ureq::Error) -> HttpError {
+    if crate::http_client::connect_error(&error).is_some() {
+        return HttpError::Connect(crate::http_client::transport_error_message(&error));
+    }
+    match &error {
+        ureq::Error::Timeout(_) => HttpError::Timeout(error.to_string()),
+        ureq::Error::HostNotFound => HttpError::Connect(error.to_string()),
+        ureq::Error::TooManyRedirects => HttpError::TooManyRedirects,
+        ureq::Error::Other(inner) if toolport_plus::egress::is_refusal(&inner.to_string()) => {
+            HttpError::EgressRefused(inner.to_string())
+        }
+        _ => HttpError::Other(crate::http_client::transport_error_message(&error)),
     }
 }
 
@@ -562,5 +678,282 @@ mod tests {
             before["plus"].as_object().map_or(0, |plus| plus.len()),
             scratch.raw_registry()["version"]
         );
+    }
+
+    mod http {
+        use super::*;
+        use std::io::{Read, Write};
+        use std::net::{TcpListener, TcpStream};
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+        use std::time::Duration;
+        use toolport_plus_api::HttpMethod;
+
+        /// Answers a fixed set of paths on 127.0.0.1 until dropped.
+        struct Loopback {
+            port: u16,
+            stop: Arc<AtomicBool>,
+        }
+
+        impl Loopback {
+            fn start() -> Self {
+                let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+                listener.set_nonblocking(true).unwrap();
+                let port = listener.local_addr().unwrap().port();
+                let stop = Arc::new(AtomicBool::new(false));
+                let flag = Arc::clone(&stop);
+                std::thread::spawn(move || {
+                    while !flag.load(Ordering::Relaxed) {
+                        match listener.accept() {
+                            Ok((stream, _)) => {
+                                std::thread::spawn(move || answer(stream));
+                            }
+                            Err(_) => std::thread::sleep(Duration::from_millis(5)),
+                        }
+                    }
+                });
+                Self { port, stop }
+            }
+
+            fn url(&self, path: &str) -> String {
+                format!("http://127.0.0.1:{}{path}", self.port)
+            }
+        }
+
+        impl Drop for Loopback {
+            fn drop(&mut self) {
+                self.stop.store(true, Ordering::Relaxed);
+            }
+        }
+
+        fn answer(mut stream: TcpStream) {
+            stream.set_nonblocking(false).unwrap();
+            let mut received = Vec::new();
+            let mut chunk = [0u8; 1024];
+            let header_end = loop {
+                let read = stream.read(&mut chunk).unwrap_or(0);
+                if read == 0 {
+                    return;
+                }
+                received.extend_from_slice(&chunk[..read]);
+                if let Some(at) = received.windows(4).position(|w| w == b"\r\n\r\n") {
+                    break at + 4;
+                }
+            };
+            let head = String::from_utf8_lossy(&received[..header_end]).into_owned();
+            let length = head
+                .lines()
+                .find_map(|line| {
+                    let (name, value) = line.split_once(':')?;
+                    name.eq_ignore_ascii_case("content-length")
+                        .then(|| value.trim().parse::<usize>().ok())?
+                })
+                .unwrap_or(0);
+            while received.len() < header_end + length {
+                let read = stream.read(&mut chunk).unwrap_or(0);
+                if read == 0 {
+                    break;
+                }
+                received.extend_from_slice(&chunk[..read]);
+            }
+            let request_line = head.lines().next().unwrap_or_default().to_string();
+            let mut parts = request_line.split(' ');
+            let method = parts.next().unwrap_or_default();
+            let path = parts.next().unwrap_or_default();
+            let content_type = head
+                .lines()
+                .find_map(|line| {
+                    let (name, value) = line.split_once(':')?;
+                    name.eq_ignore_ascii_case("content-type")
+                        .then(|| value.trim().to_string())
+                })
+                .unwrap_or_default();
+            let sent_body = String::from_utf8_lossy(&received[header_end..]).into_owned();
+
+            let (status, extra, payload) = match path {
+                "/ok" => ("200 OK", "", "fine".to_string()),
+                "/json" => (
+                    "200 OK",
+                    "Content-Type: application/json\r\n",
+                    r#"{"ok":true}"#.to_string(),
+                ),
+                "/unauthorized" => (
+                    "401 Unauthorized",
+                    "Content-Type: application/json\r\n",
+                    r#"{"error":"invalid_token"}"#.to_string(),
+                ),
+                "/missing" => ("404 Not Found", "", "nothing here".to_string()),
+                "/boom" => ("500 Internal Server Error", "", "broken".to_string()),
+                "/redirect" => ("302 Found", "Location: /ok\r\n", String::new()),
+                "/loop" => ("302 Found", "Location: /loop\r\n", String::new()),
+                "/to-blocked" => (
+                    "302 Found",
+                    "Location: http://toolport.app/latest.json\r\n",
+                    String::new(),
+                ),
+                "/big" => ("200 OK", "", "x".repeat(5000)),
+                "/slow" => {
+                    std::thread::sleep(Duration::from_secs(2));
+                    ("200 OK", "", "late".to_string())
+                }
+                "/echo" => (
+                    "200 OK",
+                    "Content-Type: application/json\r\n",
+                    serde_json::json!({
+                        "method": method,
+                        "contentType": content_type,
+                        "body": sent_body,
+                    })
+                    .to_string(),
+                ),
+                _ => ("404 Not Found", "", String::new()),
+            };
+            let response = format!(
+                "HTTP/1.1 {status}\r\n{extra}Content-Length: {}\r\nConnection: close\r\n\r\n{payload}",
+                payload.len()
+            );
+            let _ = stream.write_all(response.as_bytes());
+        }
+
+        fn send(request: HttpRequest) -> Result<HttpResponse, HttpError> {
+            HostAdapter.send(&request)
+        }
+
+        #[test]
+        fn a_200_returns_body_headers_and_final_url() {
+            let server = Loopback::start();
+            let response = send(HttpRequest::get(server.url("/json"))).unwrap();
+            assert_eq!(response.status, 200);
+            assert!(response.is_success());
+            assert_eq!(response.json(), Some(json!({"ok": true})));
+            assert_eq!(response.header("content-type"), Some("application/json"));
+            assert_eq!(response.url, server.url("/json"));
+        }
+
+        #[test]
+        fn a_401_is_a_response_with_its_body_not_an_error() {
+            let server = Loopback::start();
+            let response = send(HttpRequest::get(server.url("/unauthorized"))).unwrap();
+            assert_eq!(response.status, 401);
+            assert!(!response.is_success());
+            assert_eq!(response.json(), Some(json!({"error": "invalid_token"})));
+        }
+
+        #[test]
+        fn a_404_and_a_500_are_responses() {
+            let server = Loopback::start();
+            let missing = send(HttpRequest::get(server.url("/missing"))).unwrap();
+            assert_eq!(
+                (missing.status, missing.text()),
+                (404, "nothing here".into())
+            );
+            let broken = send(HttpRequest::get(server.url("/boom"))).unwrap();
+            assert_eq!((broken.status, broken.text()), (500, "broken".into()));
+        }
+
+        #[test]
+        fn a_redirect_is_followed_and_reports_where_it_ended() {
+            let server = Loopback::start();
+            let response = send(HttpRequest::get(server.url("/redirect"))).unwrap();
+            assert_eq!(response.status, 200);
+            assert_eq!(response.text(), "fine");
+            assert_eq!(response.url, server.url("/ok"));
+        }
+
+        #[test]
+        fn a_redirect_is_returned_as_it_is_when_following_is_off() {
+            let server = Loopback::start();
+            let response = send(HttpRequest::get(server.url("/redirect")).no_redirects()).unwrap();
+            assert_eq!(response.status, 302);
+            assert_eq!(response.header("location"), Some("/ok"));
+        }
+
+        #[test]
+        fn a_redirect_loop_ends_in_too_many_redirects() {
+            let server = Loopback::start();
+            let error = send(HttpRequest::get(server.url("/loop"))).unwrap_err();
+            assert_eq!(error, HttpError::TooManyRedirects);
+        }
+
+        #[test]
+        fn a_refused_connection_is_a_connect_error() {
+            let closed = {
+                let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+                listener.local_addr().unwrap().port()
+            };
+            let error = send(HttpRequest::get(format!("http://127.0.0.1:{closed}/"))).unwrap_err();
+            assert!(matches!(error, HttpError::Connect(_)), "{error:?}");
+        }
+
+        #[test]
+        fn a_blocked_host_is_refused_before_any_connection() {
+            for url in [
+                "https://toolport.app/",
+                "http://updates.toolport.app/latest.json",
+            ] {
+                let error = send(HttpRequest::get(url)).unwrap_err();
+                assert!(
+                    matches!(&error, HttpError::EgressRefused(message) if message.contains("egress to toolport.app")),
+                    "{url}: {error:?}"
+                );
+            }
+        }
+
+        #[test]
+        fn a_redirect_to_a_blocked_host_is_refused_too() {
+            let server = Loopback::start();
+            let error = send(HttpRequest::get(server.url("/to-blocked"))).unwrap_err();
+            assert!(matches!(error, HttpError::EgressRefused(_)), "{error:?}");
+        }
+
+        #[test]
+        fn json_and_form_bodies_go_out_with_their_content_type() {
+            let server = Loopback::start();
+            let sent = send(HttpRequest::post(
+                server.url("/echo"),
+                HttpBody::Json(json!({"a": 1})),
+            ))
+            .unwrap()
+            .json()
+            .unwrap();
+            assert_eq!(sent["method"], "POST");
+            assert_eq!(sent["contentType"], "application/json");
+            assert_eq!(sent["body"], r#"{"a":1}"#);
+
+            let sent = send(HttpRequest::post(
+                server.url("/echo"),
+                HttpBody::Form(vec![("grant_type".into(), "refresh token".into())]),
+            ))
+            .unwrap()
+            .json()
+            .unwrap();
+            assert_eq!(sent["contentType"], "application/x-www-form-urlencoded");
+            assert_eq!(sent["body"], "grant_type=refresh+token");
+
+            let put = send(HttpRequest::new(HttpMethod::Put, server.url("/echo")))
+                .unwrap()
+                .json()
+                .unwrap();
+            assert_eq!(put["method"], "PUT");
+        }
+
+        #[test]
+        fn a_body_past_the_cap_is_cut_and_flagged() {
+            let server = Loopback::start();
+            let response = send(HttpRequest::get(server.url("/big")).max_body_bytes(100)).unwrap();
+            assert_eq!(response.status, 200);
+            assert_eq!(response.body.len(), 100);
+            assert!(response.truncated);
+            assert_eq!(response.json(), None);
+        }
+
+        #[test]
+        fn a_slow_server_hits_the_request_timeout() {
+            let server = Loopback::start();
+            let error =
+                send(HttpRequest::get(server.url("/slow")).timeout(Duration::from_millis(200)))
+                    .unwrap_err();
+            assert!(matches!(error, HttpError::Timeout(_)), "{error:?}");
+        }
     }
 }

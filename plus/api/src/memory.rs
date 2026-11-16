@@ -2,12 +2,13 @@
 //! edit rules as the conduit adapter, on mirror types and a plain `plus` map.
 
 use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::path::PathBuf;
 
 use serde_json::{Map, Value};
 
 use crate::fork_data::{plus_ops, AuthProbe, DirectEntry, McpmSource, RegistryPlus, SelfMcpRecord};
-use crate::{RegistryAccess, ServerRecord};
+use crate::{HttpAccess, HttpError, HttpRequest, HttpResponse, RegistryAccess, ServerRecord};
 
 #[derive(Debug, Default)]
 pub struct MemoryRegistry {
@@ -214,6 +215,32 @@ impl RegistryAccess for MemoryRegistry {
             server.fork.max_request_timeout_ms = timeout_ms;
             Ok(())
         })
+    }
+}
+
+/// An `HttpAccess` that answers from a queue and records what it was asked.
+#[derive(Debug, Default)]
+pub struct ScriptedHttp {
+    pub responses: RefCell<VecDeque<Result<HttpResponse, HttpError>>>,
+    pub requests: RefCell<Vec<HttpRequest>>,
+}
+
+impl ScriptedHttp {
+    pub fn answering(responses: Vec<Result<HttpResponse, HttpError>>) -> Self {
+        Self {
+            responses: RefCell::new(responses.into()),
+            ..Default::default()
+        }
+    }
+}
+
+impl HttpAccess for ScriptedHttp {
+    fn send(&self, request: &HttpRequest) -> Result<HttpResponse, HttpError> {
+        self.requests.borrow_mut().push(request.clone());
+        self.responses
+            .borrow_mut()
+            .pop_front()
+            .unwrap_or_else(|| Err(HttpError::Other("no scripted response left".into())))
     }
 }
 

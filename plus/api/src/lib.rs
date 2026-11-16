@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use serde_json::{Map, Value};
 
 pub mod fork_data;
+pub mod http;
 pub mod memory;
 pub mod mirror;
 
@@ -15,7 +16,8 @@ pub use fork_data::{
     plus_ops, AuthProbe, DirectEntry, ForkServerFields, McpmSource, RegistryPlus, SelfMcpRecord,
     ServerPlus,
 };
-pub use memory::MemoryRegistry;
+pub use http::{HttpAccess, HttpBody, HttpError, HttpMethod, HttpRequest, HttpResponse};
+pub use memory::{MemoryRegistry, ScriptedHttp};
 pub use mirror::{convert, ServerRecord};
 
 /// Registry access for the fork logic.

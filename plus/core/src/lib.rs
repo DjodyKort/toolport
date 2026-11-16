@@ -2,4 +2,5 @@
 //! `seam.rs` in conduit and the binaries in `toolport-plus-bins` call it directly.
 
 pub mod egress;
+pub mod http;
 pub mod status;
