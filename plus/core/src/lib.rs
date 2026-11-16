@@ -6,3 +6,4 @@ pub mod http;
 pub mod keychain_trust;
 pub mod login_keychain;
 pub mod status;
+pub mod vault_backup;

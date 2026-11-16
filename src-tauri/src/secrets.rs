@@ -1879,6 +1879,7 @@ mod file {
     fn save(store: &Store) -> Result<(), String> {
         let key = crate::seam::vault_key(key_material(), true)?;
         let plain = serde_json::to_vec(store).map_err(|e| e.to_string())?;
+        crate::seam::keep_vault_backup(&path()?)?;
         crate::registry::atomic_write(&path()?, &seal(&key, &plain)?)
     }
 

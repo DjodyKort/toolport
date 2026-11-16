@@ -77,6 +77,18 @@ pub(crate) fn vault_key(env_key: Option<[u8; 32]>, create: bool) -> Result<[u8; 
     }
 }
 
+/// Before `secrets.enc` is replaced: keeps its current ciphertext as `secrets.enc.bak`.
+/// An error means the replace must not happen.
+pub(crate) fn keep_vault_backup(vault: &std::path::Path) -> Result<(), String> {
+    #[cfg(feature = "plus")]
+    return toolport_plus::vault_backup::keep_previous(vault, crate::registry::atomic_write);
+    #[cfg(not(feature = "plus"))]
+    {
+        let _ = vault;
+        Ok(())
+    }
+}
+
 /// App start: true when the login-keychain mode owns the secrets, after
 /// re-applying the master key's trusted binaries. The caller then skips
 /// upstream's data-protection keychain migration.
@@ -370,5 +382,145 @@ mod tests {
             oauth_present,
             expect("TOOLPORT_MAC_CHECK_EXPECT_SESSIONS", 5)
         );
+    }
+
+    mod vault_backup {
+        use crate::secrets;
+
+        const SERVER: &str = "synthetic-server";
+
+        fn vault_path() -> std::path::PathBuf {
+            crate::registry::conduit_dir().unwrap().join("secrets.enc")
+        }
+
+        fn backup_path() -> std::path::PathBuf {
+            toolport_plus::vault_backup::backup_path(&vault_path())
+        }
+
+        #[test]
+        fn test01_the_first_write_has_no_previous_generation_to_back_up() {
+            secrets::tests::with_isolated_vault(|| {
+                secrets::set_secret(SERVER, "ONE", "synthetic-first").unwrap();
+                assert!(!backup_path().exists());
+            });
+        }
+
+        #[test]
+        fn test02_the_backup_is_written_before_each_replace_and_holds_the_previous_ciphertext() {
+            secrets::tests::with_isolated_vault(|| {
+                secrets::set_secret(SERVER, "ONE", "synthetic-first").unwrap();
+                let first = std::fs::read(vault_path()).unwrap();
+
+                secrets::set_secret(SERVER, "TWO", "synthetic-second").unwrap();
+                let second = std::fs::read(vault_path()).unwrap();
+                assert_ne!(second, first);
+                assert_eq!(std::fs::read(backup_path()).unwrap(), first);
+
+                secrets::delete_secret(SERVER, "ONE").unwrap();
+                assert_eq!(
+                    std::fs::read(backup_path()).unwrap(),
+                    second,
+                    "the backup rolls forward with every replace"
+                );
+            });
+        }
+
+        #[cfg(unix)]
+        #[test]
+        fn test03_the_backup_is_owner_only_and_never_holds_plaintext() {
+            use std::os::unix::fs::PermissionsExt;
+            secrets::tests::with_isolated_vault(|| {
+                secrets::set_secret(SERVER, "ONE", "synthetic-plaintext-marker-first").unwrap();
+                // A looser file from before must come out 0600 too.
+                std::fs::write(backup_path(), "stale").unwrap();
+                std::fs::set_permissions(backup_path(), std::fs::Permissions::from_mode(0o644))
+                    .unwrap();
+                secrets::set_secret(SERVER, "TWO", "synthetic-plaintext-marker-second").unwrap();
+
+                let mode = std::fs::metadata(backup_path())
+                    .unwrap()
+                    .permissions()
+                    .mode();
+                assert_eq!(mode & 0o777, 0o600, "mode {mode:o}");
+                let text = std::fs::read_to_string(backup_path()).unwrap();
+                assert!(!text.contains("synthetic-plaintext-marker"), "{text}");
+                let leftovers: Vec<_> = std::fs::read_dir(crate::registry::conduit_dir().unwrap())
+                    .unwrap()
+                    .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+                    .filter(|name| name.ends_with(".conduit-tmp"))
+                    .collect();
+                assert!(leftovers.is_empty(), "{leftovers:?}");
+            });
+        }
+
+        #[test]
+        fn test04_copying_the_backup_back_restores_the_previous_generation() {
+            secrets::tests::with_isolated_vault(|| {
+                secrets::set_secret(SERVER, "ONE", "synthetic-first").unwrap();
+                secrets::set_secret(SERVER, "TWO", "synthetic-second").unwrap();
+
+                std::fs::copy(backup_path(), vault_path()).unwrap();
+                assert_eq!(
+                    secrets::get_secret_result(SERVER, "ONE")
+                        .unwrap()
+                        .as_deref(),
+                    Some("synthetic-first")
+                );
+                assert_eq!(secrets::get_secret_result(SERVER, "TWO").unwrap(), None);
+            });
+        }
+
+        #[test]
+        fn test05_a_failed_backup_write_aborts_the_replace_and_keeps_the_vault() {
+            secrets::tests::with_isolated_vault(|| {
+                secrets::set_secret(SERVER, "ONE", "synthetic-first").unwrap();
+                let before = std::fs::read(vault_path()).unwrap();
+                // A directory in the backup's place makes the backup write fail.
+                std::fs::create_dir(backup_path()).unwrap();
+
+                let error = secrets::set_secret(SERVER, "TWO", "synthetic-second").unwrap_err();
+                assert!(error.contains("secrets.enc.bak"), "{error}");
+                assert!(error.contains("left unchanged"), "{error}");
+                assert_eq!(std::fs::read(vault_path()).unwrap(), before);
+
+                let error = secrets::delete_secret(SERVER, "ONE").unwrap_err();
+                assert!(error.contains("secrets.enc.bak"), "{error}");
+                assert_eq!(std::fs::read(vault_path()).unwrap(), before);
+                assert_eq!(
+                    secrets::get_secret_result(SERVER, "ONE")
+                        .unwrap()
+                        .as_deref(),
+                    Some("synthetic-first")
+                );
+            });
+        }
+
+        #[test]
+        fn test06_a_damaged_vault_is_not_rolled_into_the_backup() {
+            secrets::tests::with_isolated_vault(|| {
+                secrets::set_secret(SERVER, "ONE", "synthetic-first").unwrap();
+                secrets::set_secret(SERVER, "TWO", "synthetic-second").unwrap();
+                let good_backup = std::fs::read(backup_path()).unwrap();
+
+                std::fs::write(vault_path(), "@@@ damaged @@@").unwrap();
+                assert!(secrets::set_secret(SERVER, "THREE", "synthetic-third").is_err());
+                assert_eq!(std::fs::read(backup_path()).unwrap(), good_backup);
+                assert_eq!(std::fs::read(vault_path()).unwrap(), b"@@@ damaged @@@");
+            });
+        }
+    }
+}
+
+#[cfg(all(test, not(feature = "plus")))]
+mod tests_without_plus {
+    #[test]
+    fn a_replace_of_the_vault_writes_no_backup() {
+        crate::secrets::tests::with_isolated_vault(|| {
+            crate::secrets::set_secret("synthetic-server", "ONE", "synthetic-first").unwrap();
+            crate::secrets::set_secret("synthetic-server", "TWO", "synthetic-second").unwrap();
+            let dir = crate::registry::conduit_dir().unwrap();
+            assert!(dir.join("secrets.enc").exists());
+            assert!(!dir.join("secrets.enc.bak").exists());
+        });
     }
 }

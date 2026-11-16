@@ -7,7 +7,7 @@
 7	src-tauri/Cargo.toml
 2	src-tauri/src/http_client.rs
 3	src-tauri/src/lib.rs
-# secrets.rs, 19 changed lines for the login-keychain mode, all forwarding to seam.rs:
+# secrets.rs, 20 changed lines for the login-keychain mode and the vault backup, all forwarding to seam.rs:
 #   2: `mod platform` becomes pub(crate), so the adapter reaches read/ensure_master_key
 #   2: `add_with_shared_access` becomes pub(crate), so the adapter can rewrite the ACL
 #   3: the trusted-application list also names the extra binaries (toolportctl, selfmcp)
@@ -15,7 +15,9 @@
 #   4: `file::load` resolves its key through seam::vault_key, after the missing-file check
 #   3: `file::save` resolves its key through seam::vault_key, creating it for a writer
 #   3: `migrate_secrets_to_dpk` returns at once in that mode, after the ACL refresh
-19	src-tauri/src/secrets.rs
+#   1: `file::save` calls seam::keep_vault_backup before the replace (rolling secrets.enc.bak,
+#      D-044/D-133); an error aborts the replace, so a failed backup never costs the vault
+20	src-tauri/src/secrets.rs
 2	src/lib/openUrl.ts
 3	src/lib/starPrompt.ts
 3	src/lib/teamUrl.ts
