@@ -1,0 +1,13 @@
+{
+  "arguments": {
+    "name": "alpha"
+  },
+  "isError": false,
+  "result": {
+    "gateways": [],
+    "id": "srv-alpha",
+    "name": "alpha",
+    "status": "dry_run"
+  },
+  "tool": "servers_restart"
+}

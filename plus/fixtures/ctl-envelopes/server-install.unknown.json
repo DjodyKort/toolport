@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "install", "no-such-server", "--offline"],
+  "envelope": {
+    "command": "server install",
+    "error": {
+      "code": "not_found",
+      "message": "no catalog entry named 'no-such-server'"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "edit", "gamma", "--arg", "y", "--forward-instructions", "off"],
+  "envelope": {
+    "command": "server edit",
+    "data": {
+      "changed": ["args"],
+      "id": "gamma"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

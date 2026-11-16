@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "server",
+    "new",
+    "remote1",
+    "--url",
+    "https://example.invalid/mcp2",
+    "--transport",
+    "http"
+  ],
+  "envelope": {
+    "command": "server new",
+    "data": {
+      "id": "remote1",
+      "name": "remote1"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

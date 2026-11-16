@@ -1,5 +1,13 @@
 use serde_json::Value;
 
+pub(crate) fn str_arg<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
+    args.get(key).and_then(Value::as_str)
+}
+
+pub(crate) fn list<'a>(args: &'a Value, key: &str) -> Option<&'a Vec<Value>> {
+    args.get(key).and_then(Value::as_array)
+}
+
 pub(crate) fn flag_or(args: &Value, key: &str, default: bool) -> bool {
     args.get(key).and_then(Value::as_bool).unwrap_or(default)
 }

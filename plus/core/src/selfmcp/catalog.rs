@@ -1,7 +1,7 @@
 use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
 
-use super::{backend, ToolError};
+use super::{backend, servers, ToolError};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Gate {
@@ -64,6 +64,14 @@ pub const fn on_by_default(param: Param) -> Param {
     }
 }
 
+const NAME: Param = p("name", Ty::Str, true, "Server id or name");
+const DRY_ON: Param = on_by_default(p(
+    "dry_run",
+    Ty::Bool,
+    false,
+    "Report without writing; true unless you pass false to apply",
+));
+
 macro_rules! tool {
     ($name:literal, $tier:literal, $gate:ident, $desc:literal, [$($param:expr),* $(,)?], $run:path) => {
         ToolDef {
@@ -101,6 +109,129 @@ pub const TOOLS: &[ToolDef] = &[
         "Data-flow diagram of skills and servers",
         [],
         backend::flow_diagram
+    ),
+    tool!(
+        "servers_list",
+        1,
+        None,
+        "List registered servers",
+        [p(
+            "include_sources",
+            Ty::Bool,
+            false,
+            "Include source information"
+        )],
+        servers::list_servers
+    ),
+    tool!(
+        "servers_get",
+        1,
+        None,
+        "Read one server entry without secret values",
+        [NAME],
+        servers::get
+    ),
+    tool!(
+        "servers_list_profiles",
+        1,
+        None,
+        "List access sets (profiles) and the servers each lists",
+        [],
+        servers::list_profiles
+    ),
+    tool!(
+        "servers_add_profile_tag",
+        2,
+        None,
+        "List a server in an access set, by the set's name or id; a server that is switched off stays unreachable until it is switched on",
+        [NAME, p("profile_tag", Ty::Str, true, "Access set name or id")],
+        servers::add_profile_tag
+    ),
+    tool!(
+        "servers_remove_profile_tag",
+        2,
+        None,
+        "Take a server out of an access set, by the set's name or id",
+        [NAME, p("profile_tag", Ty::Str, true, "Access set name or id")],
+        servers::remove_profile_tag
+    ),
+    tool!(
+        "servers_install",
+        3,
+        Always,
+        "Register a new server",
+        [
+            NAME,
+            p(
+                "config",
+                Ty::Obj,
+                true,
+                "Server configuration; env is {NAME: value} for plain settings, never a credential; inheritEnv gives the process the whole shell environment"
+            ),
+            p("profile_tags", Ty::StrList, false, "Access sets to list it in"),
+            p("force", Ty::Bool, false, "Replace an existing entry")
+        ],
+        servers::install
+    ),
+    tool!(
+        "servers_update_config",
+        3,
+        Always,
+        "Patch a server's configuration, including plain env entries and inheritEnv",
+        [
+            NAME,
+            p(
+                "patch",
+                Ty::Obj,
+                true,
+                "Fields to change; env is {NAME: value}, null removes a name, a credential is refused"
+            )
+        ],
+        servers::update_config
+    ),
+    tool!(
+        "servers_set_mode",
+        3,
+        Always,
+        "Change how a server is exposed to clients",
+        [
+            NAME,
+            p(
+                "mode",
+                Ty::Str,
+                true,
+                "auto, direct, router, legacy or bridge"
+            )
+        ],
+        servers::set_mode
+    ),
+    tool!(
+        "servers_uninstall",
+        4,
+        Always,
+        "Remove a server and its vault entries",
+        [
+            NAME,
+            p(
+                "propagate_to_clients",
+                Ty::Bool,
+                false,
+                "Remove client entries too"
+            )
+        ],
+        servers::uninstall
+    ),
+    tool!(
+        "servers_restart",
+        3,
+        UnlessDryRun,
+        "Restart one server's process in every running gateway so it runs its current code and its tool list is read again; dry_run is on by default (apply with dry_run=false and confirm=true); if_idle=true restarts only when no call is in flight, because a restart ends them",
+        [
+            NAME,
+            DRY_ON,
+            p("if_idle", Ty::Bool, false, "Restart only when no call is in flight")
+        ],
+        servers::restart_server
     ),
 ];
 

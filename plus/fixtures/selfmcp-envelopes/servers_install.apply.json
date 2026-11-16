@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "config": {
+      "args": ["--flag"],
+      "command": "gamma-mcp"
+    },
+    "confirm": true,
+    "name": "gamma"
+  },
+  "isError": false,
+  "result": {
+    "id": "gamma",
+    "installed": true,
+    "name": "gamma"
+  },
+  "tool": "servers_install"
+}

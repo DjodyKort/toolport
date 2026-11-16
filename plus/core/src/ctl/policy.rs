@@ -13,6 +13,7 @@
 
 use super::flags::{Flag, Spec};
 use super::mcp;
+use super::server;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tier {
@@ -190,6 +191,13 @@ impl Row {
         }
     }
 
+    const fn one_of(self, groups: &'static [&'static [&'static str]]) -> Self {
+        Self {
+            one_of: groups,
+            ..self
+        }
+    }
+
     const fn skip(self, reason: &'static str) -> Self {
         Self {
             smoke: Smoke::Skip(reason),
@@ -230,6 +238,33 @@ pub(super) const ROWS: &[Row] = &[
     row("status", R),
     row("doctor", R),
     row("commands", R),
+    row("server ls", R),
+    row("server info", R)
+        .args(&[req("server")])
+        .smoke(&["alpha"]),
+    row("server install", W)
+        .spec(&[&server::INSTALL])
+        .args(&[req("name")])
+        .skip("adds a curated catalog server; plus_ctl_contract round trip in a scratch registry"),
+    row("server new", W)
+        .spec(&[&server::NEW])
+        .args(&[req("name")])
+        .one_of(&[&["--command", "--url"]])
+        .skip("adds a server; plus_ctl_contract round trip in a scratch registry"),
+    row("server edit", W)
+        .spec(&[&server::EDIT])
+        .args(&[req("server")])
+        .skip("edits a server; plus_ctl_contract round trip in a scratch registry"),
+    row("server uninstall", D)
+        .dry()
+        .spec(&[&server::UNINSTALL])
+        .args(&[req("server")])
+        .skip("removes a server; its --dry-run is a golden step"),
+    row("server restart", W)
+        .dry()
+        .spec(&[&server::RESTART])
+        .args(&[req("server")])
+        .skip("asks every gateway to restart a server; its --dry-run is a golden step"),
     row("mcp install", W)
         .spec(&[&mcp::INSTALL])
         .skip("registers the server and lists it in access sets; plus_mcp.rs round trip"),
@@ -335,6 +370,16 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     own("where_am_i", R),
     maps("doctor", R, "doctor"),
     own("flow_diagram", R),
+    maps("servers_list", R, "server ls"),
+    maps("servers_get", R, "server info"),
+    own("servers_list_profiles", R),
+    own("servers_add_profile_tag", W),
+    own("servers_remove_profile_tag", W),
+    maps("servers_install", W, "server new"),
+    maps("servers_update_config", W, "server edit"),
+    own("servers_set_mode", W),
+    maps("servers_uninstall", D, "server uninstall"),
+    maps("servers_restart", W, "server restart").on(),
 ];
 
 #[derive(Clone, Copy, Debug)]

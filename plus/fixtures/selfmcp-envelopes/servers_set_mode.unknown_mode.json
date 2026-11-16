@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "confirm": true,
+    "mode": "bogus",
+    "name": "alpha"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "mode must be auto, direct, router, legacy or bridge"
+    }
+  },
+  "text": "invalid_arguments: mode must be auto, direct, router, legacy or bridge",
+  "tool": "servers_set_mode"
+}

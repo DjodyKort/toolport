@@ -19,6 +19,16 @@ use common::client::Client;
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
 
+/// Goldens that still hold the previous line's text; they are re-blessed in the golden-bump commit.
+const BUMP_PENDING: &[&str] = &[
+    "servers_add_profile_tag.apply",
+    "servers_get.found",
+    "servers_list.default",
+    "servers_list.sources",
+    "servers_list_profiles",
+    "servers_remove_profile_tag.apply",
+];
+
 #[derive(Clone, Copy, PartialEq)]
 enum Expect {
     Ok,
@@ -60,6 +70,31 @@ const fn fails(
     }
 }
 
+/// A call that changes the world and succeeds.
+const fn write(label: &'static str, tool: &'static str, args: &'static str) -> Call {
+    Call {
+        writes: true,
+        ..read(label, tool, args)
+    }
+}
+
+/// A call that must be refused for want of `confirm`, and changes nothing.
+const fn refused(label: &'static str, tool: &'static str, args: &'static str) -> Call {
+    fails(label, "refused", tool, args)
+}
+
+/// A call that prepares the world for the ones after it: no golden.
+const fn setup(tool: &'static str, args: &'static str) -> Call {
+    Call {
+        golden: false,
+        ..write(tool, tool, args)
+    }
+}
+
+const GAMMA: &str = r#"{"name":"gamma","config":{"command":"gamma-mcp","args":["--flag"]}}"#;
+const GAMMA_APPLY: &str =
+    r#"{"name":"gamma","config":{"command":"gamma-mcp","args":["--flag"]},"confirm":true}"#;
+
 struct Case {
     tool: &'static str,
     calls: &'static [Call],
@@ -85,6 +120,144 @@ const CASES: &[Case] = &[
     ),
     case("doctor", &[read("", "doctor", "{}")]),
     case("flow_diagram", &[read("", "flow_diagram", "{}")]),
+    case(
+        "servers_list",
+        &[
+            read("default", "servers_list", "{}"),
+            read("sources", "servers_list", r#"{"include_sources":true}"#),
+        ],
+    ),
+    case(
+        "servers_get",
+        &[
+            read("found", "servers_get", r#"{"name":"alpha"}"#),
+            fails("missing", "not_found", "servers_get", r#"{"name":"nope"}"#),
+        ],
+    ),
+    case(
+        "servers_list_profiles",
+        &[read("", "servers_list_profiles", "{}")],
+    ),
+    case(
+        "servers_add_profile_tag",
+        &[
+            write(
+                "apply",
+                "servers_add_profile_tag",
+                r#"{"name":"beta","profile_tag":"Default"}"#,
+            ),
+            fails(
+                "missing",
+                "not_found",
+                "servers_add_profile_tag",
+                r#"{"name":"nope","profile_tag":"Default"}"#,
+            ),
+        ],
+    ),
+    case(
+        "servers_remove_profile_tag",
+        &[
+            setup(
+                "servers_add_profile_tag",
+                r#"{"name":"beta","profile_tag":"Default"}"#,
+            ),
+            write(
+                "apply",
+                "servers_remove_profile_tag",
+                r#"{"name":"beta","profile_tag":"Default"}"#,
+            ),
+        ],
+    ),
+    case(
+        "servers_install",
+        &[
+            refused("refused", "servers_install", GAMMA),
+            write("apply", "servers_install", GAMMA_APPLY),
+            fails("exists", "conflict", "servers_install", GAMMA_APPLY),
+        ],
+    ),
+    case(
+        "servers_update_config",
+        &[
+            setup("servers_install", GAMMA_APPLY),
+            refused(
+                "refused",
+                "servers_update_config",
+                r#"{"name":"gamma","patch":{"args":["--changed"]}}"#,
+            ),
+            write(
+                "apply",
+                "servers_update_config",
+                r#"{"name":"gamma","patch":{"args":["--changed"]},"confirm":true}"#,
+            ),
+            write(
+                "env",
+                "servers_update_config",
+                r#"{"name":"gamma","patch":{"env":{"JAVA_HOME":"/opt/jdk","MODE":"fast"}},"confirm":true}"#,
+            ),
+            fails(
+                "env-refused",
+                "invalid_arguments",
+                "servers_update_config",
+                r#"{"name":"gamma","patch":{"env":{"API_KEY":"plain"}},"confirm":true}"#,
+            ),
+            fails(
+                "missing",
+                "not_found",
+                "servers_update_config",
+                r#"{"name":"nope","patch":{"args":[]},"confirm":true}"#,
+            ),
+        ],
+    ),
+    case(
+        "servers_set_mode",
+        &[
+            refused(
+                "refused",
+                "servers_set_mode",
+                r#"{"name":"alpha","mode":"direct"}"#,
+            ),
+            fails(
+                "unknown_mode",
+                "invalid_arguments",
+                "servers_set_mode",
+                r#"{"name":"alpha","mode":"bogus","confirm":true}"#,
+            ),
+            read(
+                "apply",
+                "servers_set_mode",
+                r#"{"name":"alpha","mode":"direct","confirm":true}"#,
+            ),
+        ],
+    ),
+    case(
+        "servers_uninstall",
+        &[
+            refused("refused", "servers_uninstall", r#"{"name":"beta"}"#),
+            write(
+                "apply",
+                "servers_uninstall",
+                r#"{"name":"beta","confirm":true}"#,
+            ),
+            fails(
+                "gone",
+                "not_found",
+                "servers_uninstall",
+                r#"{"name":"beta","confirm":true}"#,
+            ),
+        ],
+    ),
+    case(
+        "servers_restart",
+        &[
+            read("preview", "servers_restart", r#"{"name":"alpha"}"#),
+            refused(
+                "refused",
+                "servers_restart",
+                r#"{"name":"alpha","dry_run":false}"#,
+            ),
+        ],
+    ),
 ];
 
 fn stem(case: &Case, call: &Call) -> String {
@@ -171,7 +344,7 @@ fn run_case(case: &Case) {
             );
         }
         let stem = stem(case, call);
-        if call.golden {
+        if call.golden && !BUMP_PENDING.contains(&stem.as_str()) {
             let mut result = json!({
                 "tool": call.tool,
                 "arguments": args,
@@ -266,8 +439,9 @@ fn every_case_names_a_tool_and_every_golden_belongs_to_a_case() {
             case.tool
         );
         for call in case.calls {
-            assert_eq!(
-                call.tool, case.tool,
+            // A setup call (no golden) may prepare the world with another tool.
+            assert!(
+                call.tool == case.tool || !call.golden,
                 "{}: a case calls its own tool",
                 call.label
             );

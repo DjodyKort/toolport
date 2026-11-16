@@ -12,6 +12,7 @@ mod flags;
 mod mcp;
 mod output;
 mod policy;
+mod server;
 
 use toolport_plus_api::Host;
 
@@ -81,6 +82,42 @@ pub const COMMANDS: &[Command] = &[
         commands_json::run,
     )
     .no_options(),
+    cmd(
+        &["server", "ls"],
+        "List servers with their global switch and default access",
+        server::ls,
+    )
+    .no_options(),
+    cmd(
+        &["server", "info"],
+        "Show one server: command, plain env keys, access sets and what its process sees",
+        server::info,
+    ),
+    cmd(
+        &["server", "install"],
+        "Add a curated catalog server <name> [--offline]",
+        server::install,
+    ),
+    cmd(
+        &["server", "new"],
+        "Add a server <name> from a command or a URL, with plain env and --inherit-env",
+        server::new,
+    ),
+    cmd(
+        &["server", "edit"],
+        "Change a server's command, args, url, cwd, plain env or --inherit-env",
+        server::edit,
+    ),
+    cmd(
+        &["server", "uninstall"],
+        "Remove a server and its vault entries [--dry-run] [--keep-secrets]",
+        server::uninstall,
+    ),
+    cmd(
+        &["server", "restart"],
+        "Restart a server's process in every running gateway [--dry-run] [--wait <s>] [--if-idle]",
+        server::restart,
+    ),
     cmd(
         &["mcp"],
         "Self-management server: install [--access-set <id>] uninstall doctor tools call <tool> [--args <json> | --args-stdin]",

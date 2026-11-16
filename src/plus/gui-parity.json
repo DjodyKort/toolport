@@ -7,6 +7,10 @@
       "page": "settings:toolport",
       "component": "src/plus/settings/AllCommands.tsx"
     },
+    "servers": {
+      "title": "Servers",
+      "status": "planned"
+    },
     "system": {
       "title": "Toolport+ settings",
       "status": "built",
@@ -62,6 +66,56 @@
       "status": "built",
       "summary": "Registry, access sets, secrets backend and gateway state (status)",
       "test": "src/plus/settings/ToolportPlusPage.test.tsx"
+    },
+    "servers.list": {
+      "route": "servers",
+      "status": "planned",
+      "summary": "The servers list: every server with its global switch and the default access (server ls, servers_list); upstream's list stays whole, the fork adds banner rows"
+    },
+    "servers.detail": {
+      "route": "servers",
+      "status": "planned",
+      "summary": "One server's Operations rows: command, plain env keys, access sets and what its process sees of the shell environment (server info, servers_get)"
+    },
+    "servers.add-catalog": {
+      "route": "servers",
+      "status": "planned",
+      "summary": "Add a curated catalog server and finish its setup: secrets, who can reach it (server install)"
+    },
+    "servers.add": {
+      "route": "servers",
+      "status": "planned",
+      "summary": "Add a server from a command or a URL, with plain env and the shell-environment switch, then Finish setup (server new, servers_install)"
+    },
+    "servers.edit": {
+      "route": "servers",
+      "status": "planned",
+      "summary": "Edit a server's command, arguments, URL, plain env and the shell-environment switch through upstream's Edit; the Runtime row explains what the process sees (server edit, servers_update_config)"
+    },
+    "servers.remove": {
+      "route": "servers",
+      "status": "planned",
+      "summary": "Remove a server and its vault entries, with a preview first (server uninstall, servers_uninstall)"
+    },
+    "servers.restart": {
+      "route": "servers",
+      "status": "planned",
+      "summary": "Restart a server in every running gateway: one click when idle, a confirmation naming the calls in flight otherwise, a result per gateway with retry (server restart, servers_restart)"
+    },
+    "servers.access-sets": {
+      "route": "servers",
+      "status": "planned",
+      "summary": "Servers by access set in one table (servers_list_profiles)"
+    },
+    "servers.access-set-member": {
+      "route": "servers",
+      "status": "planned",
+      "summary": "List a server in an access set or take it out: a table cell with Undo, the Finish setup chips, the Reach row (servers_add_profile_tag, servers_remove_profile_tag)"
+    },
+    "servers.advanced-mode": {
+      "route": "servers",
+      "status": "planned",
+      "summary": "The per-server exposure mode, in the Advanced disclosure; 2.3.6 has no per-server modes, so the call changes nothing and the row is hidden (servers_set_mode)"
     }
   },
   "owners": {
@@ -110,6 +164,41 @@
       "route": "catalog",
       "action": "catalog.mcp-call",
       "surface": "screen"
+    },
+    "server ls": {
+      "route": "servers",
+      "action": "servers.list",
+      "surface": "screen"
+    },
+    "server info": {
+      "route": "servers",
+      "action": "servers.detail",
+      "surface": "screen"
+    },
+    "server install": {
+      "route": "servers",
+      "action": "servers.add-catalog",
+      "surface": "screen"
+    },
+    "server new": {
+      "route": "servers",
+      "action": "servers.add",
+      "surface": "screen"
+    },
+    "server edit": {
+      "route": "servers",
+      "action": "servers.edit",
+      "surface": "screen"
+    },
+    "server uninstall": {
+      "route": "servers",
+      "action": "servers.remove",
+      "surface": "screen"
+    },
+    "server restart": {
+      "route": "servers",
+      "action": "servers.restart",
+      "surface": "screen"
     }
   },
   "tools": {
@@ -126,6 +215,56 @@
     "flow_diagram": {
       "route": "catalog",
       "action": "catalog.mcp-call",
+      "surface": "screen"
+    },
+    "servers_list": {
+      "route": "servers",
+      "action": "servers.list",
+      "surface": "screen"
+    },
+    "servers_get": {
+      "route": "servers",
+      "action": "servers.detail",
+      "surface": "screen"
+    },
+    "servers_list_profiles": {
+      "route": "servers",
+      "action": "servers.access-sets",
+      "surface": "screen"
+    },
+    "servers_add_profile_tag": {
+      "route": "servers",
+      "action": "servers.access-set-member",
+      "surface": "screen"
+    },
+    "servers_remove_profile_tag": {
+      "route": "servers",
+      "action": "servers.access-set-member",
+      "surface": "screen"
+    },
+    "servers_install": {
+      "route": "servers",
+      "action": "servers.add",
+      "surface": "screen"
+    },
+    "servers_update_config": {
+      "route": "servers",
+      "action": "servers.edit",
+      "surface": "screen"
+    },
+    "servers_set_mode": {
+      "route": "servers",
+      "action": "servers.advanced-mode",
+      "surface": "screen"
+    },
+    "servers_uninstall": {
+      "route": "servers",
+      "action": "servers.remove",
+      "surface": "screen"
+    },
+    "servers_restart": {
+      "route": "servers",
+      "action": "servers.restart",
       "surface": "screen"
     }
   }

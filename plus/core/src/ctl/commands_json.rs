@@ -59,10 +59,44 @@ const fn m(flag: &'static str, ty: Ty, effect: &'static str) -> Meta {
     }
 }
 
-use Ty::{Bool, Str};
+impl Meta {
+    const fn repeats(self) -> Self {
+        Self {
+            repeatable: true,
+            ..self
+        }
+    }
+}
+
+use Ty::{Bool, Choice, Int, Path, Str};
 
 /// What each flag does, per command row. A flag without an entry fails the policy test.
 pub(super) const META: &[(&str, Meta)] = &[
+    ("server install", m("--offline", Bool, "Accepted for 1.x scripts: install only reads the curated catalog, which needs no network")),
+    ("server new", m("--command", Str, "Program to run; makes the server a local (stdio) one")),
+    ("server new", m("--arg", Str, "One argument for the program (repeatable, in order)").repeats()),
+    ("server new", m("--env", Str, "A plain KEY=VALUE for the process (repeatable); a credential is refused, use secret set").repeats()),
+    ("server new", m("--url", Str, "Endpoint of a remote server (http or https)")),
+    ("server new", m("--transport", Choice(&["http", "sse"]), "Transport of a remote server; http unless the URL is an SSE one")),
+    ("server new", m("--cwd", Path, "Working directory of the process")),
+    ("server new", m("--inherit-env", Choice(&["on", "off"]), "Give the process the whole shell environment; off keeps the fixed set (PATH, HOME, locale, certificates) plus its own entries")),
+    ("server edit", m("--name", Str, "New name for the server")),
+    ("server edit", m("--command", Str, "New program; makes the server a local (stdio) one")),
+    ("server edit", m("--arg", Str, "Replace the arguments; give it once per argument").repeats()),
+    ("server edit", m("--env", Str, "Set a plain KEY=VALUE (repeatable); a credential or an existing secret entry is refused").repeats()),
+    ("server edit", m("--unset-env", Str, "Remove a plain env entry by name (repeatable)").repeats()),
+    ("server edit", m("--url", Str, "New endpoint of a remote server")),
+    ("server edit", m("--transport", Choice(&["stdio", "http", "sse"]), "Move the server to this transport")),
+    ("server edit", m("--cwd", Path, "New working directory of the process")),
+    ("server edit", m("--inherit-env", Choice(&["on", "off"]), "Give the process the whole shell environment, or only the fixed set plus its own entries")),
+    ("server edit", m("--declare-client-capabilities", Choice(&["on", "off"]), "Tell this server what the connected client can do (sampling, roots)")),
+    ("server edit", m("--forward-instructions", Choice(&["on", "off"]), "Pass this server's instructions on to the client")),
+    ("server uninstall", m("--dry-run", Bool, "Show what would be removed and change nothing")),
+    ("server uninstall", m("--keep-clients", Bool, "Leave client entries alone; none exist per server on the gateway, direct entries are handled with them")),
+    ("server uninstall", m("--keep-secrets", Bool, "Leave the server's vault entries in place")),
+    ("server restart", m("--dry-run", Bool, "Say what would be restarted and ask no gateway")),
+    ("server restart", m("--wait", Int, "Seconds to wait for the gateways to answer (default 20; 0 asks and does not wait)")),
+    ("server restart", m("--if-idle", Bool, "Ask first how many calls are in flight and restart only when there are none, because a restart ends them")),
     (
         "mcp install",
         m(

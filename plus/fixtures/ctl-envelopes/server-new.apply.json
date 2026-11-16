@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "new", "gamma", "--command", "/bin/true", "--arg", "x"],
+  "envelope": {
+    "command": "server new",
+    "data": {
+      "id": "gamma",
+      "name": "gamma"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

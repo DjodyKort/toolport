@@ -1,0 +1,15 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "activeProfile": "default",
+    "profiles": [
+      {
+        "enabledServerIds": ["srv-alpha"],
+        "id": "default",
+        "name": "Default"
+      }
+    ]
+  },
+  "tool": "servers_list_profiles"
+}

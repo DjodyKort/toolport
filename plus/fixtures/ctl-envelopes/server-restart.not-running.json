@@ -1,0 +1,15 @@
+{
+  "argv": ["server", "restart", "alpha", "--wait", "1"],
+  "envelope": {
+    "command": "server restart",
+    "data": {
+      "gateways": [],
+      "id": "srv-alpha",
+      "name": "alpha",
+      "status": "not_running"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

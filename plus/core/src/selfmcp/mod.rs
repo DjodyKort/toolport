@@ -5,6 +5,7 @@
 mod backend;
 mod catalog;
 pub mod register;
+mod servers;
 
 pub use catalog::{find_resource, find_tool, Gate, ToolDef, RESOURCES, TOOLS};
 

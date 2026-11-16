@@ -1,0 +1,24 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "activeProfile": "default",
+    "servers": [
+      {
+        "enabled": true,
+        "id": "srv-alpha",
+        "name": "alpha",
+        "source": null,
+        "transport": "stdio"
+      },
+      {
+        "enabled": false,
+        "id": "srv-beta",
+        "name": "beta",
+        "source": null,
+        "transport": "http"
+      }
+    ]
+  },
+  "tool": "servers_list"
+}

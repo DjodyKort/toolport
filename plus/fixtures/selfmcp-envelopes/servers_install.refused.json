@@ -1,0 +1,18 @@
+{
+  "arguments": {
+    "config": {
+      "args": ["--flag"],
+      "command": "gamma-mcp"
+    },
+    "name": "gamma"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: servers_install (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: servers_install (tier 3). Pass confirm=true to proceed.",
+  "tool": "servers_install"
+}
