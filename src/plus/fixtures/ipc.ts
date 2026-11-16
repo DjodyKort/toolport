@@ -1,0 +1,137 @@
+import type { CtlEnvelope, CtlResult } from "../bridge/ctl";
+import { registerAttentionFeed } from "../shell/attentionFeed";
+import {
+  createCtlWorld,
+  type CtlReply,
+  type CtlWorld,
+  type WorldOptions,
+} from "./ctlWorld";
+
+interface Job {
+  argv: string[];
+  stdin: string | undefined;
+}
+
+let world: CtlWorld = createCtlWorld();
+let down = false;
+const jobs = new Map<string, Job>();
+let counter = 0;
+
+/** Starts a fresh in-memory toolportctl. `down` makes every start fail the way a build without the
+ * bundled toolportctl does. */
+export function resetPlusFixture(options: WorldOptions & { down?: boolean } = {}) {
+  world = createCtlWorld(options);
+  down = options.down === true;
+  jobs.clear();
+}
+
+const HOUR = 3_600_000;
+
+/** The three rows of the attention mockup, so the footer bell can be seen in the fixture. */
+function registerFixtureBell() {
+  const now = Date.now();
+  const snapshot = {
+    checkedAt: now - 120_000,
+    items: [
+      {
+        id: "secret",
+        urgency: "needs-you" as const,
+        title: "alpha-api is missing a secret",
+        detail: "API_KEY is not set. The server cannot start without it.",
+        source: "Servers",
+        since: now - HOUR,
+      },
+      {
+        id: "task",
+        urgency: "needs-you" as const,
+        title: "Task portal-token is waiting for you",
+        detail: "It stopped at a step that only you can do.",
+        source: "Tasks",
+        since: now - 25 * 60_000,
+      },
+      {
+        id: "login",
+        urgency: "needs-you" as const,
+        title: "beta needs a new sign-in",
+        detail: "The login stopped working. Check it again, or sign in once more.",
+        source: "Servers",
+        since: now - 3 * HOUR,
+      },
+    ],
+  };
+  registerAttentionFeed({ snapshot: () => snapshot, subscribe: () => () => {} });
+}
+
+/** `?plus-bell` shows the footer bell with three rows. `?plus-self=missing|enabled|disabled|opted-out|not-enabled`, `?plus-doctor=warn|fail` and
+ * `?plus-bridge=down` pick the state the fixture page starts in. */
+export function plusFixtureFromSearch(search: string) {
+  const params = new URLSearchParams(search);
+  const self = params.get("plus-self");
+  const doctor = params.get("plus-doctor");
+  resetPlusFixture({
+    self: ["missing", "enabled", "disabled", "opted-out", "not-enabled"].includes(
+      self ?? "",
+    )
+      ? (self as WorldOptions["self"])
+      : "enabled",
+    doctor: doctor === "warn" || doctor === "fail" ? doctor : "ok",
+    down: params.get("plus-bridge") === "down",
+  });
+  if (params.has("plus-bell")) registerFixtureBell();
+}
+
+if (typeof location !== "undefined") plusFixtureFromSearch(location.search);
+
+function envelopeOf(command: string, reply: CtlReply): CtlEnvelope {
+  return reply.ok
+    ? { ok: true, command, schemaVersion: 1, data: reply.data }
+    : {
+        ok: false,
+        command,
+        schemaVersion: 1,
+        data: reply.data,
+        error: reply.error,
+      };
+}
+
+function resultOf(job: string, run: Job): CtlResult {
+  const reply = world.run(run.argv, run.stdin);
+  return {
+    job,
+    exitCode: reply.ok ? 0 : 1,
+    signal: null,
+    cancelled: false,
+    envelope: envelopeOf(run.argv[0], reply),
+    parseError: null,
+    stderr: [],
+    truncated: false,
+  };
+}
+
+/** The three IPC commands of the fork bridge, answered by the in-memory toolportctl. */
+export function plusFixtureIpc(command: string, args: Record<string, unknown>): unknown {
+  switch (command) {
+    case "plus_ctl": {
+      if (down)
+        throw new Error("toolportctl not found: no toolportctl next to the Toolport app");
+      const job = `fixture-job-${++counter}`;
+      jobs.set(job, {
+        argv: args.argv as string[],
+        stdin: (args.stdinSecret as string | null | undefined) ?? undefined,
+      });
+      return job;
+    }
+    case "plus_ctl_result": {
+      const job = String(args.job);
+      const run = jobs.get(job);
+      if (!run) throw new Error(`unknown job: ${job}`);
+      jobs.delete(job);
+      return resultOf(job, run);
+    }
+    case "plus_ctl_cancel":
+      jobs.delete(String(args.job));
+      return null;
+    default:
+      throw new Error(`Unimplemented fixture command: ${command}`);
+  }
+}

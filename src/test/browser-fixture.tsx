@@ -2,6 +2,7 @@ import { initializeLanguage, isLanguageChoice, LanguageProvider } from "@/lib/i1
 import { LocalizationControls } from "./localization-controls";
 import { securityFixture } from "./security-fixture";
 import { applySkillState, skillsFixture } from "./skills-fixture";
+import { plusFixtureIpc } from "@/plus/fixtures/ipc";
 const fixtureLocations: import("@/lib/types").DetectedClient[] = [];
 // Separate development entry. Never imported by the shipping application.
 import { mockIPC } from "@tauri-apps/api/mocks";
@@ -1298,6 +1299,10 @@ mockIPC(
       case "get_inspect_log":
       case "list_tool_identities":
         return [];
+      case "plus_ctl":
+      case "plus_ctl_result":
+      case "plus_ctl_cancel":
+        return plusFixtureIpc(command, args);
       default:
         missing.push(command);
         throw new Error(`Unimplemented fixture command: ${command}`);

@@ -1,5 +1,6 @@
 import { EmptyState } from "@/components/ui/empty-state";
 import type { Registry, View } from "@/lib/types";
+import ToolportPlusPage from "../settings/ToolportPlusPage";
 import { isPlusView, PLUS_SCREENS, type PlusScreen } from "./views";
 
 /** A page of the "Claude" group whose slice has not landed. It says what the page will do and
@@ -24,7 +25,18 @@ export interface PlusViewsProps {
 
 /** Everything the fork renders inside upstream's content area: the pages of the "Claude" group and
  * the Toolport+ page of Settings. App.tsx mounts this once, lazily. */
-export default function PlusViews({ view }: PlusViewsProps) {
+export default function PlusViews({
+  view,
+  registry,
+  onRegistryChange,
+  onOpenServers,
+}: PlusViewsProps) {
   if (isPlusView(view)) return <NotBuiltYet screen={PLUS_SCREENS[view]} />;
-  return null;
+  return (
+    <ToolportPlusPage
+      registry={registry}
+      onRegistryChange={onRegistryChange}
+      onOpenServers={onOpenServers}
+    />
+  );
 }

@@ -52,3 +52,6 @@
 8	src/locales/shell/pt-BR.json
 8	src/locales/shell/zh-CN.json
 8	src/locales/shell/zh-TW.json
+# browser-fixture.tsx, 5 changed lines: the fixture answers the three plus_ctl IPC commands with the in-memory
+# toolportctl of src/plus/fixtures (an unknown command still fails), as upstream's fixture rule asks.
+5	src/test/browser-fixture.tsx

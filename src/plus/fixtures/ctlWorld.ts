@@ -1,0 +1,275 @@
+import commandsGolden from "../../../plus/fixtures/ctl-envelopes/commands.json";
+import toolsGolden from "../../../plus/fixtures/ctl-envelopes/mcp-tools.json";
+import type {
+  AccessSetStanding,
+  CommandsData,
+  DoctorCheck,
+  DoctorData,
+  McpDoctorData,
+  McpInstallData,
+  McpToolsData,
+  McpUninstallData,
+  SelfMcpCheck,
+  SelfMcpState,
+  StatusData,
+} from "../bridge/data";
+
+export const SELF_ID = "toolport-plus-self";
+const DATA_DIR = "/Users/example/Library/Application Support/Toolport";
+const BIN_DIR = "/Applications/Toolport.app/Contents/MacOS";
+const SELFMCP_BIN = `${BIN_DIR}/toolport-selfmcp`;
+
+export interface CtlReply {
+  ok: boolean;
+  data?: unknown;
+  error?: { code: string; message: string };
+}
+
+export interface WorldOptions {
+  /** Where the self-management server starts. */
+  self?: SelfMcpState;
+  /** `warn`: the gateway lacks the fork seam. `fail`: the registry cannot be read. */
+  doctor?: "ok" | "warn" | "fail";
+  /** Access sets of the fixture registry, default first. */
+  accessSets?: string[];
+}
+
+/** A small in-memory toolportctl: enough state for install, uninstall and doctor to answer the way
+ * the real binary does, and for a second read to see the first write. */
+export function createCtlWorld(options: WorldOptions = {}) {
+  const accessSets = options.accessSets ?? ["local", "work"];
+  const defaultAccess = accessSets[0] ?? null;
+  const doctorMode = options.doctor ?? "ok";
+  let state: SelfMcpState = options.self ?? "missing";
+  let listedIn = new Set<string>(
+    state === "enabled" || state === "disabled" ? [accessSets[0]] : [],
+  );
+
+  const standing = (id: string): AccessSetStanding => ({
+    id,
+    member: listedIn.has(id),
+    optedOut: state === "opted-out",
+  });
+
+  function selfChecks(): SelfMcpCheck[] {
+    const registered = state !== "missing" && state !== "opted-out";
+    const skipped = state === "opted-out" ? "skipped: opted out" : "-";
+    const detail = (ok: string) => (registered ? ok : skipped);
+    return [
+      {
+        name: "registry_entry",
+        ok: state !== "missing",
+        detail:
+          state === "missing"
+            ? "run `toolportctl mcp install`"
+            : state === "opted-out"
+              ? "opted out; `toolportctl mcp install` brings it back"
+              : SELF_ID,
+      },
+      { name: "command_matches_binary", ok: true, detail: detail(SELFMCP_BIN) },
+      { name: "binary_present", ok: true, detail: SELFMCP_BIN },
+      {
+        name: "server_enabled",
+        ok: state === "enabled" || state === "not-enabled",
+        detail: registered
+          ? state === "disabled"
+            ? "switched off in Servers"
+            : "switched on"
+          : skipped,
+      },
+      {
+        name: "listed_in_default_access",
+        ok: state !== "not-enabled" && state !== "missing",
+        detail: !registered
+          ? skipped
+          : state === "not-enabled"
+            ? `${defaultAccess}: run \`toolportctl mcp install\``
+            : (defaultAccess ?? ""),
+      },
+      {
+        name: "listed_in_client_access_sets",
+        ok: true,
+        detail: "no client is scoped to an access set",
+      },
+      { name: "handshake", ok: true, detail: SELF_ID },
+      { name: "catalog", ok: true, detail: "3 tools, 4 resources" },
+    ];
+  }
+
+  function mcpDoctor(): CtlReply {
+    const checks = selfChecks();
+    const data: McpDoctorData = {
+      state,
+      switchedOn: state === "enabled" || state === "not-enabled",
+      defaultAccess: defaultAccess === null ? null : standing(defaultAccess),
+      clientAccessSets: [],
+      checks,
+    };
+    return checks.some((c) => !c.ok)
+      ? {
+          ok: false,
+          data,
+          error: { code: "unhealthy", message: "one or more checks failed" },
+        }
+      : { ok: true, data };
+  }
+
+  function doctor(): CtlReply {
+    const checks: DoctorCheck[] = [
+      { name: "dataDir", status: "ok", detail: `${DATA_DIR} is writable` },
+      {
+        name: "registry",
+        status: doctorMode === "fail" ? "fail" : "ok",
+        detail:
+          doctorMode === "fail"
+            ? `registry is not readable: ${DATA_DIR}/registry.json: key must be a string at line 1 column 3`
+            : `3 servers, ${accessSets.length} access sets`,
+      },
+      {
+        name: "defaultAccess",
+        status: doctorMode === "fail" ? "warn" : "ok",
+        detail: doctorMode === "fail" ? "no registry to inspect" : "all enabled servers",
+      },
+      { name: "secretsBackend", status: "ok", detail: "encrypted-file" },
+      {
+        name: "gatewayBinary",
+        status: "ok",
+        detail: `${DATA_DIR}/bin/toolport-gateway`,
+      },
+      {
+        name: "plusBuilt",
+        status: doctorMode === "ok" ? "ok" : "warn",
+        detail:
+          doctorMode === "ok"
+            ? `this binary and ${DATA_DIR}/bin/toolport-gateway carry the fork seam`
+            : `${DATA_DIR}/bin/toolport-gateway was built without the fork seam: the egress guard and fork hooks are off in it`,
+      },
+    ];
+    const data: DoctorData = {
+      checks,
+      healthy: checks.every((c) => c.status !== "fail"),
+    };
+    return data.healthy
+      ? { ok: true, data }
+      : {
+          ok: false,
+          data,
+          error: { code: "unhealthy", message: "one or more checks failed" },
+        };
+  }
+
+  function status(): CtlReply {
+    const broken = doctorMode === "fail";
+    const data: StatusData = {
+      version: "2.3.6",
+      dataDir: DATA_DIR,
+      serverCount: broken ? 0 : 3,
+      accessSetCount: broken ? 0 : accessSets.length,
+      defaultAccess: broken ? null : defaultAccess,
+      secretsBackend: "encrypted-file",
+      gateway: { path: `${DATA_DIR}/bin/toolport-gateway`, present: true },
+      registry: {
+        path: `${DATA_DIR}/registry.json`,
+        exists: true,
+        readable: !broken,
+        error: broken
+          ? `registry is not readable: ${DATA_DIR}/registry.json: key must be a string at line 1 column 3`
+          : null,
+      },
+    };
+    return { ok: true, data };
+  }
+
+  function install(argv: string[]): CtlReply {
+    const at = argv.findIndex((a) => a === "--access-set" || a === "--profile");
+    const set = at >= 0 ? (argv[at + 1] ?? null) : null;
+    if (set !== null && !accessSets.includes(set)) {
+      return {
+        ok: false,
+        error: { code: "not_found", message: `unknown access set: ${set}` },
+      };
+    }
+    const created = state === "missing";
+    state = state === "disabled" ? "disabled" : "enabled";
+    if (state === "enabled")
+      listedIn = new Set([...listedIn, defaultAccess ?? "", ...(set ? [set] : [])]);
+    listedIn.delete("");
+    const data: McpInstallData = {
+      id: SELF_ID,
+      action: created ? "created" : "updated",
+      command: SELFMCP_BIN,
+      accessSet: set,
+      enabled: [...listedIn],
+    };
+    return { ok: true, data };
+  }
+
+  function uninstall(): CtlReply {
+    if (state === "missing" || state === "opted-out") {
+      return {
+        ok: false,
+        error: { code: "not_found", message: `${SELF_ID} is not registered` },
+      };
+    }
+    state = "opted-out";
+    listedIn = new Set();
+    const data: McpUninstallData = { id: SELF_ID, removed: true };
+    return { ok: true, data };
+  }
+
+  const commands = commandsGolden.envelope.data as unknown as CommandsData;
+  const tools = toolsGolden.envelope.data as unknown as McpToolsData;
+
+  function call(argv: string[], stdin: string | undefined): CtlReply {
+    const tool = argv[2];
+    const row = tools.tools.find((t) => t.name === tool);
+    if (!row) {
+      return {
+        ok: false,
+        error: { code: "usage", message: `unknown tool: ${tool ?? ""}` },
+      };
+    }
+    if (stdin?.trim() && stdin.trim() !== "{}") {
+      return {
+        ok: false,
+        error: {
+          code: "invalid_arguments",
+          message: `unknown argument: ${Object.keys(JSON.parse(stdin) as object)[0]}`,
+        },
+      };
+    }
+    const result =
+      tool === "doctor"
+        ? doctor().data
+        : tool === "where_am_i"
+          ? status().data
+          : {
+              format: "mermaid",
+              diagram: "flowchart LR\n  skills --> claude\n  servers --> gateway",
+            };
+    return { ok: true, data: { tool, tier: row.tier, isError: false, result } };
+  }
+
+  return {
+    get state() {
+      return state;
+    },
+    run(argv: string[], stdin?: string): CtlReply {
+      const key = argv.filter((a) => a !== "--json");
+      const [first, second] = key;
+      if (first === "status") return status();
+      if (first === "doctor") return doctor();
+      if (first === "commands") return { ok: true, data: commands };
+      if (first === "mcp") {
+        if (second === "install") return install(key);
+        if (second === "uninstall") return uninstall();
+        if (second === "doctor") return mcpDoctor();
+        if (second === "tools") return { ok: true, data: tools };
+        if (second === "call") return call(key, stdin);
+      }
+      throw new Error(`Unimplemented fixture command: plus_ctl ${key.join(" ")}`);
+    },
+  };
+}
+
+export type CtlWorld = ReturnType<typeof createCtlWorld>;
