@@ -1,8 +1,16 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "identifier": "com.djodykort.toolportplus",
+  "build": {
+    "beforeBuildCommand": "node scripts/fork/prepare-plus-sidecar.mjs && npm run build:bundle"
+  },
   "bundle": {
-    "createUpdaterArtifacts": false
+    "createUpdaterArtifacts": false,
+    "externalBin": [
+      "binaries/toolport-gateway",
+      "binaries/toolportctl",
+      "binaries/toolport-selfmcp"
+    ]
   },
   "plugins": {
     "updater": {
