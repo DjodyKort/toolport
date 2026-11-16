@@ -3,12 +3,11 @@ import { Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatusCard } from "@/components/ui/status-card";
-import { getRegistry } from "@/lib/api";
 import type { Registry } from "@/lib/types";
 import { plural } from "../settings/model";
 import { listAccessSets, listServers } from "./commands";
 import type { AccessSetRow, ServerListRow } from "./data";
-import { changeMembership } from "./membership";
+import { changeMembership, useMembershipSync, type MembershipChange } from "./membership";
 import { identicalSets } from "./model";
 import { useLoad } from "./useLoad";
 
@@ -33,6 +32,7 @@ export default function AccessCompare({
   const servers = useLoad(listServers, registry);
   const sets = useLoad(listAccessSets, registry);
   const grid = useRef<HTMLDivElement>(null);
+  const syncRegistry = useMembershipSync(registry, onRegistryChange);
 
   if (servers.error || sets.error) {
     return (
@@ -65,8 +65,8 @@ export default function AccessCompare({
   const columns = sets.data.accessSets;
   const same = identicalSets(columns);
 
-  async function refresh() {
-    onRegistryChange(await getRegistry());
+  function refresh(change: MembershipChange) {
+    syncRegistry(change);
     servers.reload();
     sets.reload();
   }

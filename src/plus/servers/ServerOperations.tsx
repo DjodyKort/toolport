@@ -10,6 +10,7 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { Badge } from "@/components/ui/badge";
 import { listAccessSets, serverInfo } from "./commands";
 import { FinishSetup } from "./FinishSetup";
+import { useMembershipSync, type MembershipChange } from "./membership";
 import { leftOutOfDefault } from "./model";
 import { ReachRow } from "./ReachRow";
 import { RemoveRow } from "./RemoveRow";
@@ -51,13 +52,14 @@ export default function ServerOperations({
   const info = useLoad(() => serverInfo(server.id), key);
   const accessSets = useLoad(listAccessSets, key);
   const restart = useRestartState(server.id);
+  const syncRegistry = useMembershipSync(registry, onRegistryChange);
 
   useEffect(() => {
     if (registry) observeServers(registry.servers);
   }, [registry]);
 
-  async function refresh() {
-    onRegistryChange(await getRegistry());
+  function refresh(change: MembershipChange) {
+    syncRegistry(change);
     info.reload();
     accessSets.reload();
   }

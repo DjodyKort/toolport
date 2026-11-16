@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import type { Registry, ServerEntry } from "@/lib/types";
 import { plural } from "../settings/model";
 import type { AccessSetsData, ServerInfoData } from "./data";
-import { changeMembership, clientBindings } from "./membership";
+import { changeMembership, clientBindings, type MembershipChange } from "./membership";
 import { leftOutOfDefault } from "./model";
 import { OperationRow } from "./OperationRow";
 import type { Loaded } from "./useLoad";
@@ -17,7 +17,7 @@ export interface ReachRowProps {
   info: Loaded<ServerInfoData>;
   sets: Loaded<AccessSetsData>;
   /** Runs after a membership changed, so the app's registry and both readers follow. */
-  onChanged: () => void | Promise<void>;
+  onChanged: (change: MembershipChange) => void | Promise<void>;
   onOpenAccessSets: () => void;
 }
 

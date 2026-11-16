@@ -2,7 +2,7 @@ import { initializeLanguage, isLanguageChoice, LanguageProvider } from "@/lib/i1
 import { LocalizationControls } from "./localization-controls";
 import { securityFixture } from "./security-fixture";
 import { applySkillState, skillsFixture } from "./skills-fixture";
-import { plusFixtureIpc } from "@/plus/fixtures/ipc";
+import { plusFixtureAccess, plusFixtureIpc } from "@/plus/fixtures/ipc";
 const fixtureLocations: import("@/lib/types").DetectedClient[] = [];
 // Separate development entry. Never imported by the shipping application.
 import { mockIPC } from "@tauri-apps/api/mocks";
@@ -686,6 +686,7 @@ mockIPC(
         ? payload
         : {};
     calls[command] = (calls[command] ?? 0) + 1;
+    plusFixtureAccess(registry);
     const state = new URLSearchParams(location.search).get("visual-state");
     const stateCommands = [
       "get_registry",
@@ -905,6 +906,7 @@ mockIPC(
         registry.defaultAccessProfileId = args.profile as string | null;
         return registry;
       case "set_access_server": {
+        plusFixtureAccess(registry, args);
         const profile = registry.profiles.find((p) => p.id === args.profileId)!;
         profile.enabledServerIds = profile.enabledServerIds.filter(
           (id) => id !== args.serverId,

@@ -192,7 +192,7 @@ describe("Operations list", () => {
   });
 
   it("test08_a_server_the_default_access_leaves_out_is_flagged_and_added_with_one_click", async () => {
-    const { servers } = setup({
+    const { servers, onRegistryChange } = setup({
       defaultAccess: "work",
       sets: [
         { id: "local", name: "Local fixture", serverIds: ["srv-alpha", "srv-beta"] },
@@ -222,7 +222,10 @@ describe("Operations list", () => {
       name: "srv-alpha",
       profile_tag: "work",
     });
-    expect(getRegistryMock).toHaveBeenCalled();
+    const next = onRegistryChange.mock.calls.at(-1)![0];
+    expect(
+      next.profiles.find((p: { id: string }) => p.id === "work").enabledServerIds,
+    ).toEqual(["srv-beta", "srv-alpha"]);
     expect(screen.queryByText("1 need you")).not.toBeInTheDocument();
   });
 

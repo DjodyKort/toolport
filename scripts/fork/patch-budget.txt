@@ -78,7 +78,9 @@
 8	src/locales/shell/pt-BR.json
 8	src/locales/shell/zh-CN.json
 8	src/locales/shell/zh-TW.json
-# browser-fixture.tsx, 6 changed lines: the fixture answers the three plus_ctl IPC commands, and the
+# browser-fixture.tsx, 8 changed lines: the fixture answers the three plus_ctl IPC commands, and the
 # secret_status command the Finish setup line reads, with the in-memory toolportctl of src/plus/fixtures
-# (an unknown command still fails), as upstream's fixture rule asks.
-6	src/test/browser-fixture.tsx
+# (an unknown command still fails), as upstream's fixture rule asks. Two lines call plusFixtureAccess, which
+# keeps the fixture registry's access sets and the fork's world one state: a toolportctl write shows on
+# upstream's Access page, and upstream's set_access_server shows in the compare table.
+8	src/test/browser-fixture.tsx

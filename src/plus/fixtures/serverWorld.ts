@@ -239,6 +239,11 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
     };
   }
 
+  function setAccess(set: WorldSet, serverId: string, included: boolean) {
+    set.serverIds = set.serverIds.filter((id) => id !== serverId);
+    if (included) set.serverIds.push(serverId);
+  }
+
   function tool(name: string, args: Record<string, unknown>): CtlReply | null {
     const wrap = (result: unknown, tier: number): CtlReply => ({
       ok: true,
@@ -264,9 +269,7 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
           },
         };
       }
-      const add = name === "servers_add_profile_tag";
-      set.serverIds = set.serverIds.filter((id) => id !== server.id);
-      if (add) set.serverIds.push(server.id);
+      setAccess(set, server.id, name === "servers_add_profile_tag");
       return wrap(
         {
           name: server.name,
@@ -286,6 +289,11 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
       return keys.map((key) => [key, vault.has(`${serverId}/${key}`)]);
     },
     tool,
+    /** Upstream's own write of an access set (its Access page), so both readers see one state. */
+    setAccessServer(setId: string, serverId: string, included: boolean) {
+      const set = setOf(setId);
+      if (set) setAccess(set, serverId, included);
+    },
     run(argv: string[]): CtlReply {
       const [, verb, key] = argv;
       if (verb === "ls") {

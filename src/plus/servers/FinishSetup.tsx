@@ -19,7 +19,7 @@ import { errorHeadline, shortenUrls } from "@/lib/errors";
 import type { ProbeResult, Registry, ServerEntry } from "@/lib/types";
 import { plural } from "../settings/model";
 import type { AccessSetsData } from "./data";
-import { changeMembership } from "./membership";
+import { changeMembership, type MembershipChange } from "./membership";
 import { setupDone, setupFacts, type SetupFacts } from "./model";
 import { OperationRow } from "./OperationRow";
 import { restart, useRestartState } from "./restartStore";
@@ -33,7 +33,7 @@ export interface FinishSetupProps {
   registry: Registry | null;
   sets: Loaded<AccessSetsData>;
   onRegistryChange: (registry: Registry) => void;
-  onMembershipChanged: () => void | Promise<void>;
+  onMembershipChanged: (change: MembershipChange) => void | Promise<void>;
 }
 
 function StartsLine({

@@ -26,6 +26,30 @@ export function resetPlusFixture(options: WorldOptions & { down?: boolean } = {}
   jobs.clear();
 }
 
+/** Keeps the app fixture's access sets and the fork's world as one state: an upstream
+ * `set_access_server` call (`write`) goes into the world, and the registry's memberships of the
+ * world's servers then follow the world, so what toolportctl wrote shows in upstream's reads. */
+export function plusFixtureAccess(
+  registry: { profiles: Array<{ id: string; enabledServerIds: string[] }> },
+  write?: Record<string, unknown>,
+) {
+  if (write)
+    world.servers.setAccessServer(
+      String(write.profileId),
+      String(write.serverId),
+      write.included === true,
+    );
+  const known = new Set(world.servers.servers.map((s) => s.id));
+  for (const { id, serverIds } of world.servers.sets) {
+    const profile = registry.profiles.find((p) => p.id === id);
+    if (profile)
+      profile.enabledServerIds = [
+        ...profile.enabledServerIds.filter((serverId) => !known.has(serverId)),
+        ...serverIds,
+      ];
+  }
+}
+
 const HOUR = 3_600_000;
 
 /** The three rows of the attention mockup, so the footer bell can be seen in the fixture. */
