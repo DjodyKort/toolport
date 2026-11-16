@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "measure", "--cwd", "{home}/gone"],
+  "envelope": {
+    "command": "context measure",
+    "error": {
+      "code": "usage",
+      "message": "--cwd <WORLD>/home/gone does not exist"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

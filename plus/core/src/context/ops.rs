@@ -398,3 +398,34 @@ pub fn sync(host: &dyn Host, dry_run: bool) -> Result<Value, OpError> {
         "deploy": { "built": false, "note": "rule layers, shims and launch profiles are not part of this build yet" },
     }))
 }
+
+/// `context measure`: the real size of a folder's stack from Claude Code. Without `confirm` and
+/// without a cached answer it returns the plan and starts nothing.
+pub fn measure(
+    host: &dyn Host,
+    cwd: Option<&str>,
+    model: Option<&str>,
+    force: bool,
+    confirm: bool,
+) -> Result<Value, OpError> {
+    let (_, cwd, rows) = stack(host, cwd)?;
+    let data = host.data_dir().ok_or_else(|| {
+        OpError::failed("no_data_dir", "the data directory could not be resolved")
+    })?;
+    let launcher = super::measure::ProcessLauncher::from_env();
+    let env = super::measure::Env {
+        data_dir: &data,
+        launcher: &launcher,
+        rows: &rows,
+    };
+    let request = super::measure::Request {
+        cwd,
+        model: model.map(String::from),
+        force,
+        confirm,
+    };
+    super::measure::measure(&env, &request).map_err(|e| match e.code {
+        "usage" => OpError::usage(e.message),
+        code => OpError::failed(code, e.message),
+    })
+}

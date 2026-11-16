@@ -155,6 +155,10 @@ pub(super) const META: &[(&str, Meta)] = &[
     ("context loads", m("--cwd", Path, "Folder where Claude Code starts (default: the current folder)")),
     ("context compose", m("--cwd", Path, "Folder where Claude Code starts (default: the current folder)")),
     ("context sync", m("--dry-run", Bool, "Show what would be applied and change nothing")),
+    ("context measure", m("--cwd", Path, "Folder where Claude Code starts (default: the current folder)")),
+    ("context measure", m("--model", Str, "Model to ask (default haiku)")),
+    ("context measure", m("--force", Bool, "Measure again instead of answering from the cache")),
+    ("context measure", m("--yes", Bool, "Start the request: it spends model tokens, so nothing starts without it")),
     ("server restart", m("--wait", Int, "Seconds to wait for the gateways to answer (default 20; 0 asks and does not wait)")),
     ("server restart", m("--if-idle", Bool, "Ask first how many calls are in flight and restart only when there are none, because a restart ends them")),
     (

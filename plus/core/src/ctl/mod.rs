@@ -217,6 +217,11 @@ pub const COMMANDS: &[Command] = &[
         context::loads,
     ),
     cmd(
+        &["context", "measure"],
+        "Measure what a folder really loads, in tokens, with Claude Code (--cwd, --model, --force, --yes)",
+        context::measure,
+    ),
+    cmd(
         &["context", "compose"],
         "Show the instruction text Claude gets in a folder, part by part in load order (--cwd)",
         context::compose,

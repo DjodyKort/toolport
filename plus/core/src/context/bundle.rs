@@ -8,6 +8,9 @@ use serde_yaml::{Mapping, Value as Yaml};
 
 pub const FORMAT: u64 = 1;
 
+/// Per plugin id, its knobs as text pairs.
+pub type PluginKnobs = Vec<(String, Vec<(String, String)>)>;
+
 const TOP_KEYS: [&str; 12] = [
     "format",
     "name",
@@ -40,7 +43,7 @@ pub struct Bundle {
     pub skills_allow: Vec<String>,
     pub plugins_off: Vec<String>,
     /// `plugins.config`: per plugin id, the knob and its value as text (a list is comma-joined).
-    pub plugins_config: Vec<(String, Vec<(String, String)>)>,
+    pub plugins_config: PluginKnobs,
     pub mcp_deny: Vec<String>,
     pub layers_add: Vec<String>,
     pub layers_exclude: Vec<String>,
@@ -113,7 +116,7 @@ fn knob_text(plugin: &str, knob: &str, value: &Yaml) -> Result<String, String> {
 }
 
 /// `plugins.config`: `{<plugin id>: {<knob>: value | [values]}}` as ordered text pairs.
-pub fn plugins_config(node: Option<&Yaml>) -> Result<Vec<(String, Vec<(String, String)>)>, String> {
+pub fn plugins_config(node: Option<&Yaml>) -> Result<PluginKnobs, String> {
     let map = match node {
         None | Some(Yaml::Null) => return Ok(Vec::new()),
         Some(Yaml::Mapping(m)) => m,

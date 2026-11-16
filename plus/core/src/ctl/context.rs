@@ -460,3 +460,44 @@ pub fn sync(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     };
     Ok(Output::new(data, human))
 }
+
+const MEASURE_USAGE: &str = "usage: context measure [--cwd <dir>] [--model <m>] [--force] [--yes]";
+
+pub(super) const MEASURE: Spec = Spec {
+    flags: &[
+        value("--cwd"),
+        value("--model"),
+        switch("--force"),
+        switch("--yes"),
+    ],
+    operands: Operands::Max(0, MEASURE_USAGE),
+    ..LS
+};
+
+pub fn measure(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    let flags = MEASURE.parse(rest)?;
+    let data = api::measure(
+        host,
+        flags.one("--cwd"),
+        flags.one("--model"),
+        flags.on("--force"),
+        flags.on("--yes"),
+    )
+    .map_err(flagged)?;
+    let human = if data["ran"] == Value::Bool(false) {
+        format!(
+            "Not measured yet. {}\nRun again with --yes to start the request.\n",
+            data["plan"]["cost"].as_str().unwrap_or("")
+        )
+    } else {
+        format!(
+            "{} tokens measured ({}% of the window), {} of them itemised as estimates, {} not itemised{}\n",
+            data["total"],
+            data["windowPercent"],
+            data["itemised"]["tokens"],
+            data["notItemised"]["tokens"],
+            if data["stale"] == Value::Bool(true) { " (stale)" } else { "" }
+        )
+    };
+    Ok(Output::new(data, human))
+}

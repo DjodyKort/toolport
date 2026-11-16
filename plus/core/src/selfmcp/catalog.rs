@@ -306,6 +306,19 @@ pub const TOOLS: &[ToolDef] = &[
         [CWD],
         context::compose
     ),
+    tool!(
+        "context_measure",
+        2,
+        None,
+        "Measure what a folder really loads, in tokens, by asking Claude Code itself: one request, which spends model tokens and is cached per Claude Code version, model and settings. Without start=true and without a cached answer it only returns the plan and starts nothing. The result separates the estimated instruction rows from the part that is not itemised",
+        [
+            CWD,
+            p("model", Ty::Str, false, "Model to ask, haiku by default"),
+            p("force", Ty::Bool, false, "Measure again instead of answering from the cache"),
+            p("start", Ty::Bool, false, "Start the request; without it a cache miss returns the plan only")
+        ],
+        context::measure
+    ),
 ];
 
 pub const RESOURCES: &[ResourceDef] = &[

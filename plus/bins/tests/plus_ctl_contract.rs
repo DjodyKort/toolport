@@ -778,6 +778,14 @@ const CASES: &[Case] = &[
             read("auto-preview", &["context", "sync", "--dry-run"]),
         ],
     ),
+    case(
+        "context measure",
+        &[
+            hook("files", context_files),
+            read("plan", &["context", "measure", "--cwd", "{home}/proj"]),
+            read("no-folder", &["context", "measure", "--cwd", "{home}/gone"]).exit(2),
+        ],
+    ),
 ];
 
 struct Run {

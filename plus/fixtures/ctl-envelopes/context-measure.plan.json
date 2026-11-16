@@ -1,0 +1,21 @@
+{
+  "argv": ["context", "measure", "--cwd", "{home}/proj"],
+  "envelope": {
+    "command": "context measure",
+    "data": {
+      "cwd": "<WORLD>/home/proj",
+      "plan": {
+        "cost": "about as many input tokens as the folder's stack, on the chosen model, roughly a minute",
+        "model": "haiku",
+        "requests": 1,
+        "sends": "the instruction files go to the model like in any session",
+        "writes": "nothing in the folder; the answer is cached"
+      },
+      "ran": false,
+      "start": "run again with --yes (start: true in the tool) to start the request"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

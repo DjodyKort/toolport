@@ -209,6 +209,10 @@ impl Row {
         }
     }
 
+    const fn costs(self) -> Self {
+        Self { cost: true, ..self }
+    }
+
     const fn requires(self, flags: &'static [&'static str]) -> Self {
         Self {
             requires: flags,
@@ -309,6 +313,10 @@ pub(super) const ROWS: &[Row] = &[
         .skip("removes a vault entry; the contract case runs it against a scratch vault"),
     row("context loads", R).spec(&[&context::LOADS]),
     row("context compose", R).spec(&[&context::COMPOSE]),
+    row("context measure", R)
+        .needs(&[Needs::LongRunning])
+        .costs()
+        .spec(&[&context::MEASURE]),
     row("context sync", W)
         .dry()
         .spec(&[&context::SYNC])
@@ -484,6 +492,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("context_bundle_undo", W, "context bundle undo").param(),
     maps("context_leave_out", W, "context leave-out").on(),
     maps("context_loads", R, "context loads"),
+    maps("context_measure", W, "context measure"),
     maps("context_compose", R, "context compose"),
 ];
 

@@ -79,3 +79,15 @@ pub(super) fn loads(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
 pub(super) fn compose(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
     Ok(api::compose(host, Some(required(args, "cwd")?))?)
 }
+
+pub(super) fn measure(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    Ok(api::measure(
+        host,
+        Some(required(args, "cwd")?),
+        str_arg(args, "model")
+            .map(str::trim)
+            .filter(|m| !m.is_empty()),
+        flag(args, "force"),
+        flag(args, "start"),
+    )?)
+}

@@ -191,6 +191,11 @@
       "route": "context",
       "status": "planned",
       "summary": "Sync now on Rules and launch: bound bundles and, later, the layers deploy (context sync)"
+    },
+    "context.measure": {
+      "route": "context",
+      "status": "planned",
+      "summary": "Measure for real: confirmation first, the measured total with the not-itemised part, stale and cached states (context measure, context_measure)"
     }
   },
   "owners": {
@@ -393,6 +398,11 @@
       "route": "context",
       "action": "context.sync",
       "surface": "screen"
+    },
+    "context measure": {
+      "route": "context",
+      "action": "context.measure",
+      "surface": "screen"
     }
   },
   "tools": {
@@ -499,6 +509,11 @@
     "context_compose": {
       "route": "context",
       "action": "context.folder",
+      "surface": "screen"
+    },
+    "context_measure": {
+      "route": "context",
+      "action": "context.measure",
       "surface": "screen"
     }
   }

@@ -16,6 +16,7 @@ pub mod hash;
 pub mod layers;
 pub mod leave_out;
 pub mod loads;
+pub mod measure;
 pub mod ops;
 pub mod plan;
 pub mod roots;

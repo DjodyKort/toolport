@@ -72,6 +72,13 @@ pub struct InstructionLoads<'a> {
 }
 
 #[derive(Default)]
+struct Walk {
+    items: Vec<LoadItem>,
+    seen: BTreeSet<PathBuf>,
+    settings: Settings,
+}
+
+#[derive(Default)]
 struct Settings {
     excludes: Vec<String>,
     memory: Option<bool>,
@@ -191,28 +198,26 @@ impl InstructionLoads<'_> {
 
     fn push_file(
         &self,
-        items: &mut Vec<LoadItem>,
-        seen: &mut BTreeSet<PathBuf>,
+        walk: &mut Walk,
         kind: &'static str,
         source: &'static str,
         path: &Path,
-        settings: &Settings,
         hop: usize,
     ) {
-        if items.len() >= MAX_ITEMS {
+        if walk.items.len() >= MAX_ITEMS {
             return;
         }
         let canonical = fsx::canonical(path);
-        if !fsx::is_file(path) || !seen.insert(canonical) {
+        if !fsx::is_file(path) || !walk.seen.insert(canonical) {
             return;
         }
         let Some(text) = fsx::read_text(path, fsx::TEXT_CAP) else {
             return;
         };
         let lazy = kind == "rule" && has_paths_front_matter(&text);
-        let row = self.row(kind, source, path, &text, lazy, settings);
+        let row = self.row(kind, source, path, &text, lazy, &walk.settings);
         let followed = row.loaded;
-        items.push(row);
+        walk.items.push(row);
         if !followed || hop >= MAX_IMPORT_HOPS {
             return;
         }
@@ -223,7 +228,7 @@ impl InstructionLoads<'_> {
                 None if token.starts_with('/') => PathBuf::from(&token),
                 None => base.join(&token),
             };
-            self.push_file(items, seen, "import", source, &target, settings, hop + 1);
+            self.push_file(walk, "import", source, &target, hop + 1);
         }
     }
 }
@@ -239,26 +244,25 @@ impl LoadSource for InstructionLoads<'_> {
         read_settings(&user_claude.join("settings.json"), &mut settings);
         read_settings(&cwd.join(".claude/settings.json"), &mut settings);
         read_settings(&cwd.join(".claude/settings.local.json"), &mut settings);
-        let mut items = Vec::new();
-        let mut seen = BTreeSet::new();
+        let mut walk = Walk {
+            items: Vec::new(),
+            seen: BTreeSet::new(),
+            settings,
+        };
         if let Some(policy) = self.policy_file {
-            self.push_file(
-                &mut items, &mut seen, "memory", "policy", policy, &settings, 0,
-            );
+            self.push_file(&mut walk, "memory", "policy", policy, 0);
         }
         self.push_file(
-            &mut items,
-            &mut seen,
+            &mut walk,
             "memory",
             "user",
             &user_claude.join("CLAUDE.md"),
-            &settings,
             0,
         );
         let mut rules = Vec::new();
         markdown_files(&user_claude.join("rules"), 0, &mut rules);
         for rule in rules {
-            self.push_file(&mut items, &mut seen, "rule", "user", &rule, &settings, 0);
+            self.push_file(&mut walk, "rule", "user", &rule, 0);
         }
         let mut chain: Vec<&Path> = cwd.ancestors().collect();
         chain.reverse();
@@ -268,24 +272,19 @@ impl LoadSource for InstructionLoads<'_> {
                 (".claude/CLAUDE.md", "project"),
                 ("CLAUDE.local.md", "local"),
             ] {
-                self.push_file(
-                    &mut items,
-                    &mut seen,
-                    "memory",
-                    source,
-                    &dir.join(file),
-                    &settings,
-                    0,
-                );
+                self.push_file(&mut walk, "memory", source, &dir.join(file), 0);
             }
             let mut rules = Vec::new();
             markdown_files(&dir.join(".claude/rules"), 0, &mut rules);
             for rule in rules {
-                self.push_file(
-                    &mut items, &mut seen, "rule", "project", &rule, &settings, 0,
-                );
+                self.push_file(&mut walk, "rule", "project", &rule, 0);
             }
         }
+        let Walk {
+            mut items,
+            settings,
+            ..
+        } = walk;
         let index = user_claude
             .join("projects")
             .join(project_slug(&cwd))

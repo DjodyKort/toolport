@@ -408,6 +408,13 @@ const CASES: &[Case] = &[
             ),
         ],
     ),
+    context_case(
+        "context_measure",
+        &[
+            read("plan", "context_measure", r#"{"cwd":"{home}/proj"}"#),
+            fails("no-cwd", "invalid_arguments", "context_measure", "{}"),
+        ],
+    ),
 ];
 
 fn stem(case: &Case, call: &Call) -> String {
