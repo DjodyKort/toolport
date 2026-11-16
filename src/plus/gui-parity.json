@@ -122,7 +122,8 @@
     "status": "MIG-2X-S1",
     "doctor": "MIG-2X-S1",
     "commands": "MIG-2X-S1",
-    "mcp": "MIG-2X-S1"
+    "mcp": "MIG-2X-S1",
+    "server": "MIG-2X-S2"
   },
   "commands": {
     "status": {

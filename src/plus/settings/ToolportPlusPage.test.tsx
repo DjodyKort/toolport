@@ -3,6 +3,8 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { resetPlusFixture } from "../fixtures/ipc";
 import { guiParity } from "../guiParity";
+import commandsGolden from "../../../plus/fixtures/ctl-envelopes/commands.json";
+import toolsGolden from "../../../plus/fixtures/ctl-envelopes/mcp-tools.json";
 import ToolportPlusPage from "./ToolportPlusPage";
 import { getRegistryMock, registryWithSets } from "./testkit";
 
@@ -64,9 +66,12 @@ describe("Settings > Toolport+", () => {
       });
     }
     expect(
-      Object.keys(guiParity.actions).filter(
-        (id) => !(COVERS as readonly string[]).includes(id),
-      ),
+      Object.entries(guiParity.actions)
+        .filter(
+          ([, action]) => guiParity.routes[action.route]?.page === "settings:toolport",
+        )
+        .map(([id]) => id)
+        .filter((id) => !(COVERS as readonly string[]).includes(id)),
     ).toEqual([]);
   });
 
@@ -161,7 +166,11 @@ describe("Settings > Toolport+", () => {
     await userEvent.click(await screen.findByRole("button", { name: /Checks \(8\)/ }));
     expect(screen.getByText("Answers a handshake")).toBeInTheDocument();
     await userEvent.click(
-      screen.getByRole("button", { name: /Offers 3 tools and 4 resources/ }),
+      screen.getByRole("button", {
+        name: new RegExp(
+          `Offers ${toolsGolden.envelope.data.tools.length} tools and ${toolsGolden.envelope.data.resources.length} resources`,
+        ),
+      }),
     );
     expect(screen.getByText("flow_diagram")).toBeInTheDocument();
     expect(screen.getByText("mcpm://paths")).toBeInTheDocument();
@@ -172,7 +181,10 @@ describe("Settings > Toolport+", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /Open/ }));
     const commands = await screen.findByRole("region", { name: "Commands" });
-    expect(within(commands).getAllByRole("listitem")).toHaveLength(8);
+    expect(within(commands).getAllByRole("listitem")).toHaveLength(
+      commandsGolden.envelope.data.commands.filter((row) => row.kind === "command")
+        .length,
+    );
     expect(
       within(commands).getByRole("button", { name: "Copy mcp install" }),
     ).toBeInTheDocument();

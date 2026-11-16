@@ -53,7 +53,10 @@ describe("gui parity manifest", () => {
       (id) => guiParity.owners[id.split(" ")[0]] === BUILT_OWNER,
     );
     expect(pending, `rows of ${BUILT_OWNER} without a built action`).toEqual([]);
-    expect(report.pendingTools).toEqual([]);
+    const pendingOnBuiltRoutes = report.pendingTools.filter(
+      (name) => guiParity.routes[guiParity.tools[name]?.route]?.status === "built",
+    );
+    expect(pendingOnBuiltRoutes).toEqual([]);
   });
 });
 

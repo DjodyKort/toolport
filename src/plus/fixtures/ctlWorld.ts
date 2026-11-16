@@ -92,7 +92,11 @@ export function createCtlWorld(options: WorldOptions = {}) {
         detail: "no client is scoped to an access set",
       },
       { name: "handshake", ok: true, detail: SELF_ID },
-      { name: "catalog", ok: true, detail: "3 tools, 4 resources" },
+      {
+        name: "catalog",
+        ok: true,
+        detail: `${toolsGolden.envelope.data.tools.length} tools, ${toolsGolden.envelope.data.resources.length} resources`,
+      },
     ];
   }
 
