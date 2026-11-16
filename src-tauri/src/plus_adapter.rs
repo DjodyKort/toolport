@@ -5,8 +5,8 @@ use std::path::PathBuf;
 use serde_json::{Map, Value};
 use toolport_plus_api::{
     convert, plus_ops, AuthProbe, DirectEntry, ForkServerFields, HttpAccess, HttpBody, HttpError,
-    HttpRequest, HttpResponse, McpmSource, RegistryAccess, RegistryPlus, SelfMcpRecord,
-    ServerRecord,
+    HttpRequest, HttpResponse, McpmSource, RegistryAccess, RegistryPlus, SecretsHost,
+    SelfMcpRecord, ServerRecord, TrustInputs,
 };
 
 pub struct HostAdapter;
@@ -220,6 +220,70 @@ impl RegistryAccess for HostAdapter {
         edit_server_fork_fields(server_id, |fields| {
             fields.max_request_timeout_ms = timeout_ms;
             Ok(())
+        })
+    }
+}
+
+/// The macOS calls live in upstream's `secrets::platform`; off macOS the mode is never
+/// available, so no other method is reached.
+impl SecretsHost for HostAdapter {
+    fn data_dir(&self) -> Option<PathBuf> {
+        crate::registry::conduit_dir()
+    }
+
+    fn env_var(&self, name: &str) -> Option<String> {
+        std::env::var(name).ok()
+    }
+
+    fn login_keychain_available(&self) -> bool {
+        cfg!(target_os = "macos")
+    }
+
+    fn read_master_key(&self) -> Result<Option<[u8; 32]>, String> {
+        #[cfg(target_os = "macos")]
+        return crate::secrets::platform::read_master_key();
+        #[cfg(not(target_os = "macos"))]
+        Ok(None)
+    }
+
+    fn ensure_master_key(&self) -> Result<[u8; 32], String> {
+        #[cfg(target_os = "macos")]
+        return crate::secrets::platform::ensure_master_key();
+        #[cfg(not(target_os = "macos"))]
+        Err("no login keychain on this OS".to_string())
+    }
+
+    fn rewrite_master_key_acl(&self) -> Result<bool, String> {
+        #[cfg(target_os = "macos")]
+        {
+            use crate::secrets::platform;
+            use base64::Engine as _;
+            let Some(key) = platform::read_master_key()? else {
+                return Ok(false);
+            };
+            let encoded = base64::engine::general_purpose::STANDARD.encode(key);
+            platform::add_with_shared_access(platform::MASTER_KEY_ACCOUNT, &encoded)?;
+            Ok(true)
+        }
+        #[cfg(not(target_os = "macos"))]
+        Ok(false)
+    }
+
+    fn trust_inputs(&self) -> Result<TrustInputs, String> {
+        let home = dirs::home_dir();
+        Ok(TrustInputs {
+            exe: std::env::current_exe().map_err(|error| error.to_string())?,
+            gateway: crate::clients::resolve_gateway_path().ok().flatten(),
+            data_bin: crate::registry::conduit_dir().map(|dir| dir.join("bin")),
+            extra_dirs: home
+                .into_iter()
+                .flat_map(|home| {
+                    [
+                        home.join(".local").join("bin"),
+                        home.join(".cargo").join("bin"),
+                    ]
+                })
+                .collect(),
         })
     }
 }

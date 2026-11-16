@@ -1,6 +1,8 @@
 //! Fork hook points. Each function forwards to `toolport-plus` and does nothing
 //! without the `plus` feature.
 
+use std::path::PathBuf;
+
 /// Refuse a request before the connection phase when the fork blocks its host.
 pub(crate) fn egress_check(uri: &ureq::http::Uri) -> Result<(), ureq::Error> {
     #[cfg(feature = "plus")]
@@ -10,6 +12,100 @@ pub(crate) fn egress_check(uri: &ureq::http::Uri) -> Result<(), ureq::Error> {
     #[cfg(not(feature = "plus"))]
     let _ = uri;
     Ok(())
+}
+
+/// The secrets host the hooks below use. Unit tests never reach the real keychain
+/// code: they get an inert host unless a test installs its own with `secrets_host_override`.
+#[cfg(all(feature = "plus", not(test)))]
+fn with_secrets_host<R>(use_host: impl FnOnce(&dyn toolport_plus_api::SecretsHost) -> R) -> R {
+    use_host(&crate::plus_adapter::HostAdapter)
+}
+
+#[cfg(all(feature = "plus", test))]
+thread_local! {
+    static SECRETS_HOST: std::cell::RefCell<Option<std::rc::Rc<dyn toolport_plus_api::SecretsHost>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+#[cfg(all(feature = "plus", test))]
+fn with_secrets_host<R>(use_host: impl FnOnce(&dyn toolport_plus_api::SecretsHost) -> R) -> R {
+    let installed = SECRETS_HOST.with(|host| host.borrow().clone());
+    match installed {
+        Some(host) => use_host(&*host),
+        None => use_host(&toolport_plus_api::MemorySecrets::default()),
+    }
+}
+
+#[cfg(all(feature = "plus", test))]
+pub(crate) struct SecretsHostGuard;
+
+#[cfg(all(feature = "plus", test))]
+impl Drop for SecretsHostGuard {
+    fn drop(&mut self) {
+        SECRETS_HOST.with(|host| *host.borrow_mut() = None);
+    }
+}
+
+#[cfg(all(feature = "plus", test))]
+pub(crate) fn secrets_host_override(
+    host: std::rc::Rc<dyn toolport_plus_api::SecretsHost>,
+) -> SecretsHostGuard {
+    SECRETS_HOST.with(|slot| *slot.borrow_mut() = Some(host));
+    SecretsHostGuard
+}
+
+/// Whether `secrets.enc` is sealed with the login-keychain master key
+/// (the `secrets-backend` marker), so upstream's file backend is active.
+pub(crate) fn login_keychain_enabled() -> bool {
+    #[cfg(feature = "plus")]
+    return with_secrets_host(toolport_plus::login_keychain::enabled);
+    #[cfg(not(feature = "plus"))]
+    false
+}
+
+/// The key that seals `secrets.enc`: `env_key` when set, else the login-keychain
+/// master key in that mode. Fails rather than yielding an empty vault.
+pub(crate) fn vault_key(env_key: Option<[u8; 32]>, create: bool) -> Result<[u8; 32], String> {
+    #[cfg(feature = "plus")]
+    return with_secrets_host(|host| {
+        toolport_plus::login_keychain::vault_key(host, env_key, create)
+    });
+    #[cfg(not(feature = "plus"))]
+    {
+        let _ = create;
+        env_key.ok_or_else(|| "TOOLPORT_SECRET_KEY (legacy CONDUIT_SECRET_KEY) is not set".into())
+    }
+}
+
+/// App start: true when the login-keychain mode owns the secrets, after
+/// re-applying the master key's trusted binaries. The caller then skips
+/// upstream's data-protection keychain migration.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub(crate) fn login_keychain_start() -> bool {
+    #[cfg(feature = "plus")]
+    return match with_secrets_host(toolport_plus::login_keychain::at_start) {
+        None => false,
+        Some(refreshed) => {
+            if let Err(error) = refreshed {
+                eprintln!(
+                    "toolport: keychain ACL refresh failed, will retry next launch ({error})"
+                );
+            }
+            true
+        }
+    };
+    #[cfg(not(feature = "plus"))]
+    false
+}
+
+/// Toolport binaries the master key should trust beyond the running binary and
+/// the gateway, which upstream already names.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub(crate) fn extra_trusted_binaries() -> Vec<PathBuf> {
+    #[cfg(feature = "plus")]
+    return with_secrets_host(toolport_plus::login_keychain::extra_trusted_binaries);
+    #[cfg(not(feature = "plus"))]
+    Vec::new()
 }
 
 #[cfg(all(test, feature = "plus"))]
@@ -33,6 +129,246 @@ mod tests {
         assert!(
             error.to_string().contains("egress to toolport.app"),
             "{error}"
+        );
+    }
+
+    mod login_keychain {
+        use std::rc::Rc;
+
+        use toolport_plus_api::MemorySecrets;
+
+        use crate::seam::secrets_host_override;
+        use crate::{secret_redact, secrets};
+
+        const SERVER: &str = "synthetic-server";
+        const KEY: &str = "SYNTHETIC_TOKEN";
+        const VALUE: &str = "synthetic-login-keychain-value-0123456789";
+
+        fn vault_path() -> std::path::PathBuf {
+            crate::registry::conduit_dir().unwrap().join("secrets.enc")
+        }
+
+        /// A data dir with the marker, no key in the environment and an in-memory login
+        /// keychain, so nothing here can reach a real keychain.
+        fn in_fork_mode(test: impl FnOnce(&Rc<MemorySecrets>)) {
+            secrets::tests::with_isolated_vault(|| {
+                let saved: Vec<_> = ["TOOLPORT_SECRET_KEY", "CONDUIT_SECRET_KEY"]
+                    .into_iter()
+                    .map(|name| (name, std::env::var_os(name)))
+                    .collect();
+                for (name, _) in &saved {
+                    std::env::remove_var(name);
+                }
+                let dir = crate::registry::conduit_dir().unwrap();
+                std::fs::write(dir.join("secrets-backend"), "login-keychain\n").unwrap();
+                let host = Rc::new(MemorySecrets::macos(dir));
+                let guard = secrets_host_override(host.clone());
+                test(&host);
+                drop(guard);
+                for (name, value) in saved {
+                    if let Some(value) = value {
+                        std::env::set_var(name, value);
+                    }
+                }
+            });
+        }
+
+        #[test]
+        fn test01_marker_selects_the_vault_and_the_keychain_supplies_its_key() {
+            in_fork_mode(|host| {
+                assert!(super::super::login_keychain_enabled());
+                secrets::set_secret(SERVER, KEY, VALUE).unwrap();
+                assert_eq!(host.ensures.get(), 1, "the first write creates the key");
+                let sealed = std::fs::read_to_string(vault_path()).unwrap();
+                assert!(!sealed.contains(VALUE));
+                assert_eq!(
+                    secrets::get_secret_result(SERVER, KEY).unwrap().as_deref(),
+                    Some(VALUE)
+                );
+                assert!(
+                    host.reads.get() >= 1,
+                    "reads take the key from the keychain"
+                );
+            });
+        }
+
+        #[test]
+        fn test02_without_the_marker_upstream_default_stays() {
+            secrets::tests::with_isolated_vault(|| {
+                let dir = crate::registry::conduit_dir().unwrap();
+                let _guard = secrets_host_override(Rc::new(MemorySecrets::macos(dir)));
+                assert!(!super::super::login_keychain_enabled());
+                assert!(!super::super::login_keychain_start());
+            });
+        }
+
+        #[cfg(target_os = "macos")]
+        #[test]
+        fn test03_the_data_protection_migration_is_skipped_in_this_mode() {
+            in_fork_mode(|_| {
+                let dir = crate::registry::conduit_dir().unwrap();
+                let report = secrets::migrate_secrets_to_dpk(&[(SERVER.into(), KEY.into())]);
+                assert_eq!(report, secrets::MigrationReport::default());
+                assert!(
+                    !dir.join(".keychain-dpk-migrated").exists(),
+                    "the one-time marker must not be written by a pass that did not run"
+                );
+            });
+        }
+
+        #[test]
+        fn test04_a_key_the_keychain_cannot_read_is_an_error_and_the_vault_stays() {
+            in_fork_mode(|host| {
+                secrets::set_secret(SERVER, KEY, VALUE).unwrap();
+                let before = std::fs::read(vault_path()).unwrap();
+
+                *host.read_error.borrow_mut() = Some("user interaction is not allowed".into());
+                let error = secrets::get_secret_result(SERVER, KEY).unwrap_err();
+                assert!(
+                    error.contains("could not read the vault master key")
+                        && error.contains("user interaction is not allowed"),
+                    "{error}"
+                );
+                assert!(secrets::set_secret(SERVER, "OTHER", VALUE).is_err());
+                assert_eq!(std::fs::read(vault_path()).unwrap(), before);
+            });
+        }
+
+        #[test]
+        fn test05_a_missing_master_key_never_becomes_a_new_empty_vault() {
+            in_fork_mode(|host| {
+                secrets::set_secret(SERVER, KEY, VALUE).unwrap();
+                let before = std::fs::read(vault_path()).unwrap();
+                let ensures = host.ensures.get();
+
+                host.key.set(None);
+                let error = secrets::get_secret_result(SERVER, KEY).unwrap_err();
+                assert!(error.contains("no vault master key"), "{error}");
+                assert!(secrets::set_secret(SERVER, "OTHER", VALUE).is_err());
+                assert_eq!(host.ensures.get(), ensures, "no replacement key was made");
+                assert_eq!(host.key.get(), None);
+                assert_eq!(std::fs::read(vault_path()).unwrap(), before);
+            });
+        }
+
+        #[test]
+        fn test06_a_value_written_in_this_mode_is_registered_for_redaction() {
+            in_fork_mode(|_| {
+                secrets::set_secret(SERVER, KEY, VALUE).unwrap();
+                let line = format!("launching with token {VALUE}");
+                let redacted = secret_redact::redact_text(&line);
+                assert!(!redacted.contains(VALUE), "{redacted}");
+                assert!(redacted.contains("[secret:"), "{redacted}");
+            });
+        }
+
+        #[test]
+        fn test07_a_value_read_in_this_mode_is_registered_for_redaction() {
+            in_fork_mode(|_| {
+                let read_value = "synthetic-read-only-value-5566778899";
+                secrets::set_backup_secret(SERVER, "backup:unregistered", read_value).unwrap();
+                let line = format!("launching with token {read_value}");
+                assert!(secret_redact::redact_text(&line).contains(read_value));
+                secrets::get_secret_result(SERVER, "backup:unregistered").unwrap();
+                assert!(!secret_redact::redact_text(&line).contains(read_value));
+            });
+        }
+
+        #[test]
+        fn test08_client_config_backups_use_the_vault_and_stay_unregistered() {
+            in_fork_mode(|host| {
+                let backup_value = "synthetic backup body 9876543210 line two";
+                secrets::set_backup_secret(SERVER, "backup:abc123", backup_value).unwrap();
+                assert_eq!(host.ensures.get(), 1);
+                assert_eq!(
+                    secrets::get_backup_secret_result(SERVER, "backup:abc123")
+                        .unwrap()
+                        .as_deref(),
+                    Some(backup_value)
+                );
+                let sealed = std::fs::read_to_string(vault_path()).unwrap();
+                assert!(!sealed.contains("synthetic backup body"));
+                assert!(secret_redact::redact_text(backup_value).contains("synthetic backup body"));
+            });
+        }
+    }
+
+    /// Mac check only (scripts/fork/MAC-CHECK-1.4.md). Opens a COPY of the data dir with the
+    /// real login keychain, through the real adapter, and prints names only. This test
+    /// binary is not in the master key's trusted-application list, so macOS asks once.
+    #[cfg(target_os = "macos")]
+    #[test]
+    #[ignore = "Mac check: reads the real login keychain"]
+    fn mac_check_the_login_keychain_opens_a_copied_vault() {
+        use std::rc::Rc;
+
+        let copy = std::path::PathBuf::from(
+            std::env::var("TOOLPORT_MAC_CHECK_DATA_DIR")
+                .expect("set TOOLPORT_MAC_CHECK_DATA_DIR to a copy of the data dir"),
+        );
+        let live = dirs::home_dir()
+            .unwrap()
+            .join("Library/Application Support");
+        assert!(
+            !copy.starts_with(&live),
+            "refusing to run against the live data dir; pass a copy outside {}",
+            live.display()
+        );
+        let _lock = crate::registry::data_dir_test_lock();
+        let _data = crate::registry::DataDirOverride::set(&copy);
+        let _guard = super::secrets_host_override(Rc::new(crate::plus_adapter::HostAdapter));
+        assert!(
+            super::login_keychain_enabled(),
+            "the copy has no secrets-backend marker"
+        );
+
+        let registry = crate::registry::load_resolved().unwrap();
+        let (mut env_present, mut env_total, mut oauth_present) = (0, 0, 0);
+        for server in &registry.servers {
+            for var in server.env.iter().filter(|var| var.secret) {
+                env_total += 1;
+                match crate::secrets::get_secret_result(&server.id, &var.key) {
+                    Ok(Some(_)) => {
+                        env_present += 1;
+                        println!("env present: {}/{}", server.id, var.key);
+                    }
+                    Ok(None) => println!("env missing: {}/{}", server.id, var.key),
+                    Err(error) => panic!("{}/{}: {error}", server.id, var.key),
+                }
+            }
+            if server.url.is_some() {
+                let found = [
+                    crate::secrets::HTTP_AUTH_KEY,
+                    crate::remote::OAUTH_STATE_KEY,
+                ]
+                .into_iter()
+                .any(|key| {
+                    matches!(
+                        crate::secrets::get_secret_result(&server.id, key),
+                        Ok(Some(_))
+                    )
+                });
+                if found {
+                    oauth_present += 1;
+                }
+                println!(
+                    "session {}: {}",
+                    if found { "present" } else { "missing" },
+                    server.id
+                );
+            }
+        }
+        let expect = |name: &str, default: usize| {
+            std::env::var(name)
+                .ok()
+                .and_then(|value| value.parse().ok())
+                .unwrap_or(default)
+        };
+        println!("env secrets {env_present}/{env_total}, remote sessions {oauth_present}");
+        assert_eq!(env_present, expect("TOOLPORT_MAC_CHECK_EXPECT_ENV", 13));
+        assert_eq!(
+            oauth_present,
+            expect("TOOLPORT_MAC_CHECK_EXPECT_SESSIONS", 5)
         );
     }
 }

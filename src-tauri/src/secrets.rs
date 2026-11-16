@@ -79,7 +79,7 @@ fn account(server_id: &str, key: &str) -> String {
 // path) are retained: the master key for the encrypted-file backend still lives
 // in the legacy keychain, and migration reads the old legacy items through them.
 #[cfg(target_os = "macos")]
-mod platform {
+pub(crate) mod platform {
     use core_foundation::base::TCFType;
     use security_framework::item::{ItemClass, ItemSearchOptions, Limit, Reference, SearchResult};
     use security_framework::os::macos::keychain_item::SecKeychainItem;
@@ -191,7 +191,7 @@ mod platform {
     /// `keychain-access-groups` entitlement is SIGKILLed by AMFI at launch,
     /// -34018 / amfid -413). The legacy ACL works for Developer ID distribution
     /// with no profile; the APIs are deprecated-but-functional.
-    fn add_with_shared_access(account_str: &str, value: &str) -> Result<(), String> {
+    pub(crate) fn add_with_shared_access(account_str: &str, value: &str) -> Result<(), String> {
         use core_foundation::array::CFArray;
         use core_foundation::base::{CFType, CFTypeRef, TCFType};
         use core_foundation::data::CFData;
@@ -249,6 +249,9 @@ mod platform {
                 Err(e) => eprintln!("toolport: gateway not added to keychain ACL ({e}); app-only"),
             },
             None => eprintln!("toolport: gateway path unresolved; keychain ACL is app-only"),
+        }
+        for extra in crate::seam::extra_trusted_binaries() {
+            trusted_apps.extend(trusted_app(&extra));
         }
         let trusted = CFArray::from_CFTypes(&trusted_apps);
         let label = CFString::new("conduit-mcp");
@@ -1824,7 +1827,7 @@ mod file {
     }
 
     pub fn active() -> bool {
-        key_material().is_some()
+        key_material().is_some() || crate::seam::login_keychain_enabled()
     }
 
     fn path() -> Result<PathBuf, String> {
@@ -1863,19 +1866,18 @@ mod file {
     }
 
     fn load() -> Result<Store, String> {
-        let key =
-            key_material().ok_or("TOOLPORT_SECRET_KEY (legacy CONDUIT_SECRET_KEY) is not set")?;
+        let env_key = key_material();
         let encoded = match std::fs::read_to_string(path()?) {
             Ok(s) => s,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Store::new()),
             Err(e) => return Err(e.to_string()),
         };
+        let key = crate::seam::vault_key(env_key, false)?;
         serde_json::from_slice(&open(&key, &encoded)?).map_err(|e| e.to_string())
     }
 
     fn save(store: &Store) -> Result<(), String> {
-        let key =
-            key_material().ok_or("TOOLPORT_SECRET_KEY (legacy CONDUIT_SECRET_KEY) is not set")?;
+        let key = crate::seam::vault_key(key_material(), true)?;
         let plain = serde_json::to_vec(store).map_err(|e| e.to_string())?;
         crate::registry::atomic_write(&path()?, &seal(&key, &plain)?)
     }
@@ -2988,6 +2990,9 @@ fn create_file_migration_marker() -> bool {
 pub fn migrate_secrets_to_dpk(secret_keys: &[(String, String)]) -> MigrationReport {
     #[cfg(target_os = "macos")]
     {
+        if crate::seam::login_keychain_start() {
+            return MigrationReport::default();
+        }
         if dpk_migration_marker_exists() {
             return MigrationReport::default();
         }
