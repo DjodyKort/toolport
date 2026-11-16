@@ -5,3 +5,7 @@
 7	src-tauri/Cargo.toml
 2	src-tauri/src/http_client.rs
 3	src-tauri/src/lib.rs
+2	src/lib/openUrl.ts
+3	src/lib/starPrompt.ts
+3	src/lib/teamUrl.ts
+2	src/lib/updater.ts

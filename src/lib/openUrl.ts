@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { refuseUpstreamUrl } from "@/plus/egress";
 
 /**
  * Open an external link, but only real web URLs.
@@ -42,6 +43,7 @@ export function openExternal(url: string | null | undefined): Promise<void> {
     console.warn(`openExternal: refusing to open link-local/metadata URL: ${url}`);
     return Promise.resolve();
   }
+  if (refuseUpstreamUrl(url)) return Promise.resolve();
   return invoke<void>("open_external", { url }).catch((error: unknown) => {
     console.warn(`openExternal: could not open ${url}: ${String(error)}`);
   });

@@ -1,4 +1,5 @@
 import { translate } from "@/lib/i18n";
+import { isEgressRefused, UPSTREAM_DISABLED_MESSAGE } from "@/plus/egress";
 /** The hosted Toolport Teams **app**, prefilled as the default server URL. Self-hosters
  * replace it with their own server. */
 export const HOSTED_TEAMS_URL = "https://teams.toolport.app";
@@ -36,6 +37,8 @@ export const TEAMS_CREATE_URL = `${HOSTED_TEAMS_URL}/?intent=create-team&from=ap
 export function teamUrlError(raw: string): string | null {
   const value = raw.trim();
   if (!value) return translate("Server URL is required.");
+
+  if (isEgressRefused(value)) return UPSTREAM_DISABLED_MESSAGE;
 
   let url: URL;
   try {
