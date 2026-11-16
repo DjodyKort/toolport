@@ -1,4 +1,4 @@
-# Upstream files the fork patches, against upstream/release/2.3.6.
+# Upstream files the fork patches, against v2.3.6 (b0557679).
 # <changed lines (added + removed)><TAB><path>. Regenerate with
 # scripts/fork/patch-budget.py --update and review the diff like code.
 # Lines starting with # between entries give the reason for a patch; --update drops them.
