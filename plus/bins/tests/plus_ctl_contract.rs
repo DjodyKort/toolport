@@ -28,6 +28,8 @@ struct Step {
     exit: i32,
     writes: bool,
     golden: bool,
+    /// The step prints the vaulted value on purpose; the golden holds `<VAULTED>` for it.
+    reveals: bool,
     hook: Option<fn(&World)>,
 }
 
@@ -40,6 +42,7 @@ const fn read(label: &'static str, argv: &'static [&'static str]) -> Step {
         exit: 0,
         writes: false,
         golden: true,
+        reveals: false,
         hook: None,
     }
 }
@@ -82,6 +85,13 @@ impl Step {
         Self { exit, ..self }
     }
 
+    const fn reveals(self) -> Self {
+        Self {
+            reveals: true,
+            ..self
+        }
+    }
+
     const fn stdin(self, stdin: &'static str) -> Self {
         Self {
             stdin: Some(stdin),
@@ -120,6 +130,8 @@ fn explicit_default_access(world: &World) {
 fn unreadable_registry(world: &World) {
     std::fs::write(world.data.join("registry.json"), "{ not json").unwrap();
 }
+
+const VAULTED: &str = "FAKE-vaulted-value-1c9e";
 
 const CASES: &[Case] = &[
     case("commands", &[read("", &["commands"])]),
@@ -263,6 +275,36 @@ const CASES: &[Case] = &[
                 "not-running",
                 &["server", "restart", "alpha", "--wait", "1"],
             ),
+        ],
+    ),
+    case(
+        "secret set",
+        &[
+            apply("apply", &["secret", "set", "alpha", "API_TOKEN"]).stdin(VAULTED),
+            read("get", &["secret", "get", "alpha", "API_TOKEN"]),
+        ],
+    ),
+    case(
+        "secret get",
+        &[
+            setup("setup", &["secret", "set", "alpha", "API_TOKEN"]).stdin(VAULTED),
+            read("set", &["secret", "get", "alpha", "API_TOKEN"]),
+            read(
+                "reveal",
+                &["secret", "get", "alpha", "API_TOKEN", "--reveal"],
+            )
+            .reveals(),
+            read("unset", &["secret", "get", "alpha", "NO_SUCH_KEY"]).exit(1),
+            usage("usage", &["secret", "get"]),
+        ],
+    ),
+    case(
+        "secret rm",
+        &[
+            setup("setup", &["secret", "set", "alpha", "API_TOKEN"]).stdin(VAULTED),
+            apply("apply", &["secret", "rm", "alpha", "API_TOKEN"]),
+            read("after", &["secret", "get", "alpha", "API_TOKEN"]).exit(1),
+            usage("usage", &["secret", "rm"]),
         ],
     ),
     case("mcp doctor", &[read("", &["mcp", "doctor"]).exit(1)]),
@@ -410,6 +452,11 @@ fn run_ctl(world: &World, argv: &[String], stdin: Option<&str>) -> Run {
     }
 }
 
+fn scrub(envelope: &Value) -> Value {
+    let text = serde_json::to_string(envelope).unwrap();
+    serde_json::from_str(&text.replace(VAULTED, "<VAULTED>")).unwrap()
+}
+
 fn stem(case: &Case, step: &Step) -> String {
     if step.label.is_empty() {
         golden::file_stem(case.id)
@@ -485,10 +532,24 @@ fn run_case(case: &Case) {
                 "{name}: failed envelope without error code and message"
             );
         }
-        for canary in [FAKE_SECRET, SECRET_KEY] {
+        let canaries: &[&str] = if step.reveals {
+            &[FAKE_SECRET, SECRET_KEY]
+        } else {
+            &[FAKE_SECRET, SECRET_KEY, VAULTED]
+        };
+        for canary in canaries {
             assert!(
                 !run.stdout.contains(canary) && !run.stderr.contains(canary),
                 "{name}: leaked a secret value"
+            );
+        }
+        for (path, bytes) in world.snapshot() {
+            assert!(
+                !bytes
+                    .windows(VAULTED.len())
+                    .any(|window| window == VAULTED.as_bytes()),
+                "{name}: {} holds the vaulted value in plain text",
+                path.display()
             );
         }
         if !step.writes {
@@ -505,7 +566,7 @@ fn run_case(case: &Case) {
                 &json!({
                     "argv": step.argv,
                     "exitCode": step.exit,
-                    "envelope": normalize::normalize(&world, &envelope),
+                    "envelope": scrub(&normalize::normalize(&world, &envelope)),
                 }),
             );
         }
@@ -749,7 +810,7 @@ fn data_dir_flag_points_the_command_at_another_data_dir() {
 fn a_secret_key_never_shows_in_any_golden() {
     for entry in std::fs::read_dir(golden::root()).unwrap().flatten() {
         let text = std::fs::read_to_string(entry.path()).unwrap();
-        for secret in [FAKE_SECRET, SECRET_KEY] {
+        for secret in [FAKE_SECRET, SECRET_KEY, VAULTED] {
             assert!(
                 !text.contains(secret),
                 "golden {} contains a secret value",

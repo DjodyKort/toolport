@@ -13,6 +13,7 @@
 
 use super::flags::{Flag, Spec};
 use super::mcp;
+use super::secret;
 use super::server;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -269,6 +270,18 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&server::RESTART])
         .args(&[req("server")])
         .skip("asks every gateway to restart a server; its --dry-run is a golden step"),
+    row("secret set", W)
+        .needs(&[Needs::Stdin])
+        .spec(&[&secret::SET])
+        .args(&[req("server"), req("key")])
+        .skip("stores a value in the vault; the contract case runs it against a scratch vault"),
+    row("secret get", R)
+        .spec(&[&secret::GET])
+        .args(&[req("server"), req("key")])
+        .smoke(&["alpha", "API_TOKEN"]),
+    row("secret rm", D)
+        .args(&[req("server"), req("key")])
+        .skip("removes a vault entry; the contract case runs it against a scratch vault"),
     row("mcp install", W)
         .spec(&[&mcp::INSTALL])
         .skip("registers the server and lists it in access sets; plus_mcp.rs round trip"),

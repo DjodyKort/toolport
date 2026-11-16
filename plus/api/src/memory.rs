@@ -13,6 +13,7 @@ use crate::{
     AccessSetInfo, CallsInFlight, CatalogAccess, CatalogEntryRecord, EnvEntry, GatewayRouter,
     HostEnv, HttpAccess, HttpError, HttpRequest, HttpResponse, RegistryAccess, RegistryTx,
     RegistryView, RestartOutcome, SecretsHost, ServerRecord, ServerRules, ServerSpec, TrustInputs,
+    VaultAccess,
 };
 
 #[derive(Debug, Default)]
@@ -610,6 +611,10 @@ pub struct MemorySecrets {
     pub acl_rewrites: Cell<usize>,
     /// Every `(server, key)` removed with `delete_server_secret`.
     pub deleted_secrets: RefCell<Vec<(String, String)>>,
+    /// The vault: `(server, key)` to value.
+    pub vault: RefCell<BTreeMap<(String, String), String>>,
+    /// Makes every vault read fail with this message.
+    pub vault_error: RefCell<Option<String>>,
 }
 
 impl MemorySecrets {
@@ -677,6 +682,9 @@ impl SecretsHost for MemorySecrets {
         self.deleted_secrets
             .borrow_mut()
             .push((server_id.into(), key.into()));
+        self.vault
+            .borrow_mut()
+            .remove(&(server_id.to_string(), key.to_string()));
         Ok(())
     }
 }
@@ -824,6 +832,84 @@ impl SecretsHost for MemoryHost {
     }
     fn delete_server_secret(&self, server_id: &str, key: &str) -> Result<(), String> {
         self.secrets.delete_server_secret(server_id, key)
+    }
+}
+
+impl MemoryHost {
+    fn put_in_vault(&self, server_id: &str, key: &str, value: &str) {
+        self.secrets
+            .vault
+            .borrow_mut()
+            .insert((server_id.into(), key.into()), value.into());
+    }
+
+    fn change_env(
+        &self,
+        server_id: &str,
+        change: impl Fn(&mut Vec<EnvEntry>),
+    ) -> Result<(), String> {
+        self.registry.transact(&mut |tx| {
+            let server = tx
+                .servers()?
+                .into_iter()
+                .find(|server| server.id == server_id)
+                .ok_or_else(|| format!("No server with id '{server_id}'"))?;
+            let mut env = server.env()?;
+            change(&mut env);
+            tx.set_server_env(server_id, env)
+        })
+    }
+}
+
+impl VaultAccess for MemoryHost {
+    fn read_vault_secret(&self, server_id: &str, key: &str) -> Result<Option<String>, String> {
+        if let Some(error) = self.secrets.vault_error.borrow().clone() {
+            return Err(error);
+        }
+        Ok(self
+            .secrets
+            .vault
+            .borrow()
+            .get(&(server_id.to_string(), key.to_string()))
+            .cloned())
+    }
+
+    fn store_env_secret(&self, server_id: &str, key: &str, value: &str) -> Result<(), String> {
+        self.change_env(server_id, |env| {
+            match env.iter_mut().find(|entry| entry.key == key) {
+                Some(entry) => {
+                    entry.secret = true;
+                    entry.value = None;
+                }
+                None => env.push(EnvEntry {
+                    key: key.to_string(),
+                    secret: true,
+                    ..Default::default()
+                }),
+            }
+        })?;
+        self.put_in_vault(server_id, key, value);
+        Ok(())
+    }
+
+    fn store_launch_secret(&self, server_id: &str, key: &str, value: &str) -> Result<(), String> {
+        self.put_in_vault(server_id, key, value);
+        Ok(())
+    }
+
+    fn store_access_token(&self, server_id: &str, token: &str) -> Result<(), String> {
+        self.put_in_vault(server_id, crate::secrets::HTTP_AUTH_KEY, token);
+        Ok(())
+    }
+
+    fn remove_env_secret(&self, server_id: &str, key: &str) -> Result<(), String> {
+        self.change_env(server_id, |env| env.retain(|entry| entry.key != key))?;
+        self.secrets.delete_server_secret(server_id, key)
+    }
+
+    fn clear_access_token(&self, server_id: &str) -> Result<(), String> {
+        self.secrets
+            .delete_server_secret(server_id, crate::secrets::HTTP_AUTH_KEY)
     }
 }
 

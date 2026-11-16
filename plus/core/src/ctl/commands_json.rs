@@ -60,6 +60,20 @@ const fn m(flag: &'static str, ty: Ty, effect: &'static str) -> Meta {
 }
 
 impl Meta {
+    const fn hidden(self) -> Self {
+        Self {
+            hidden: true,
+            ..self
+        }
+    }
+
+    const fn sensitive(self) -> Self {
+        Self {
+            sensitive: true,
+            ..self
+        }
+    }
+
     const fn repeats(self) -> Self {
         Self {
             repeatable: true,
@@ -95,6 +109,8 @@ pub(super) const META: &[(&str, Meta)] = &[
     ("server uninstall", m("--keep-clients", Bool, "Leave client entries alone; none exist per server on the gateway, direct entries are handled with them")),
     ("server uninstall", m("--keep-secrets", Bool, "Leave the server's vault entries in place")),
     ("server restart", m("--dry-run", Bool, "Say what would be restarted and ask no gateway")),
+    ("secret set", m("--value-env", Str, "Name of an environment variable holding the value (the GUI sends it on stdin)").hidden().sensitive()),
+    ("secret get", m("--reveal", Bool, "Print the secret value").sensitive()),
     ("server restart", m("--wait", Int, "Seconds to wait for the gateways to answer (default 20; 0 asks and does not wait)")),
     ("server restart", m("--if-idle", Bool, "Ask first how many calls are in flight and restart only when there are none, because a restart ends them")),
     (

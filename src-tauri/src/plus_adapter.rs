@@ -8,7 +8,7 @@ use toolport_plus_api::{
     DirectEntry, EnvEntry, ForkServerFields, GatewayRouter, HostEnv, HttpAccess, HttpBody,
     HttpError, HttpRequest, HttpResponse, McpmSource, RegistryAccess, RegistryPlus, RegistryTx,
     RegistryView, RestartOutcome, SecretsHost, SelfMcpRecord, ServerRecord, ServerRules,
-    ServerSpec, TrustInputs,
+    ServerSpec, TrustInputs, VaultAccess,
 };
 
 pub struct HostAdapter;
@@ -565,6 +565,58 @@ impl SecretsHost for HostAdapter {
 
     fn delete_server_secret(&self, server_id: &str, key: &str) -> Result<(), String> {
         crate::secrets::delete_secret(server_id, key)
+    }
+}
+
+const PLACEHOLDER_REFUSED: &str = "Enter a credential value. Placeholder values cannot be saved.";
+
+fn refuse_placeholder(value: &str) -> Result<(), String> {
+    if crate::import_credentials::provided(value) {
+        Ok(())
+    } else {
+        Err(PLACEHOLDER_REFUSED.to_string())
+    }
+}
+
+/// The same controllers the app's secret commands run, so a value set here and one set in the
+/// app land in the same vault entry and the same registry declaration.
+impl VaultAccess for HostAdapter {
+    fn read_vault_secret(&self, server_id: &str, key: &str) -> Result<Option<String>, String> {
+        crate::secrets::get_vault_secret_result(server_id, key)
+    }
+
+    fn store_env_secret(&self, server_id: &str, key: &str, value: &str) -> Result<(), String> {
+        refuse_placeholder(value)?;
+        crate::registry_controller::set_server_secret_with(
+            server_id,
+            key,
+            value,
+            |server_id, key| {
+                let (registry, ()) = crate::registry::update(|registry| {
+                    crate::registry_controller::apply_secret_declaration(registry, server_id, key)
+                })?;
+                Ok(registry)
+            },
+        )
+        .map(|_| ())
+    }
+
+    fn store_launch_secret(&self, server_id: &str, key: &str, value: &str) -> Result<(), String> {
+        refuse_placeholder(value)?;
+        crate::registry_controller::set_launch_secret(server_id, key, value).map(|_| ())
+    }
+
+    fn store_access_token(&self, server_id: &str, token: &str) -> Result<(), String> {
+        refuse_placeholder(token)?;
+        crate::registry_controller::set_auth_token(server_id, token)
+    }
+
+    fn remove_env_secret(&self, server_id: &str, key: &str) -> Result<(), String> {
+        crate::registry_controller::delete_server_secret(server_id, key).map(|_| ())
+    }
+
+    fn clear_access_token(&self, server_id: &str) -> Result<(), String> {
+        crate::registry_controller::clear_auth_token(server_id)
     }
 }
 
@@ -1186,6 +1238,151 @@ mod tests {
             before["plus"].as_object().map_or(0, |plus| plus.len()),
             scratch.raw_registry()["version"]
         );
+    }
+
+    mod vault {
+        use super::*;
+        use toolport_plus_api::HTTP_AUTH_KEY;
+
+        const VALUE: &str = "FAKE-vaulted-value-1c9e";
+
+        fn with_registry(test: impl FnOnce(&std::path::Path)) {
+            crate::secrets::tests::with_isolated_vault(|| {
+                let dir = crate::registry::conduit_dir().unwrap();
+                std::fs::write(
+                    dir.join("registry.json"),
+                    json!({
+                        "version": 1,
+                        "servers": [
+                            {"id": "srv-alpha", "name": "alpha", "transport": "stdio",
+                             "command": "alpha-mcp", "args": ["<launch-input>"],
+                             "launch": {"inputs": [{"key": "LAUNCH_TOKEN", "label": "Token", "secret": true}],
+                                        "bindings": [{"index": 0, "parts": [{"kind": "input", "key": "LAUNCH_TOKEN"}]}]}},
+                            {"id": "srv-beta", "name": "beta", "transport": "http",
+                             "url": "https://beta.example.invalid/mcp"},
+                        ],
+                        "profiles": [{"id": "default", "name": "Default",
+                                      "enabledServerIds": ["srv-alpha"]}],
+                        "activeProfileId": "default",
+                    })
+                    .to_string(),
+                )
+                .unwrap();
+                test(&dir.join("registry.json"));
+            });
+        }
+
+        fn env_of_alpha(registry: &std::path::Path) -> serde_json::Value {
+            let text = std::fs::read_to_string(registry).unwrap();
+            let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+            assert!(!text.contains(VALUE));
+            match &value["servers"][0]["env"] {
+                serde_json::Value::Null => json!([]),
+                env => env.clone(),
+            }
+        }
+
+        #[test]
+        fn the_access_token_key_is_the_one_upstream_uses() {
+            assert_eq!(HTTP_AUTH_KEY, crate::secrets::HTTP_AUTH_KEY);
+        }
+
+        #[test]
+        fn an_env_secret_lands_in_the_vault_and_is_declared_without_its_value() {
+            with_registry(|registry| {
+                HostAdapter
+                    .store_env_secret("srv-alpha", "API_TOKEN", VALUE)
+                    .unwrap();
+                assert_eq!(
+                    HostAdapter
+                        .read_vault_secret("srv-alpha", "API_TOKEN")
+                        .unwrap()
+                        .as_deref(),
+                    Some(VALUE)
+                );
+                assert_eq!(
+                    env_of_alpha(registry),
+                    json!([{"key": "API_TOKEN", "secret": true}])
+                );
+                HostAdapter
+                    .remove_env_secret("srv-alpha", "API_TOKEN")
+                    .unwrap();
+                assert_eq!(
+                    HostAdapter
+                        .read_vault_secret("srv-alpha", "API_TOKEN")
+                        .unwrap(),
+                    None
+                );
+                assert_eq!(env_of_alpha(registry), json!([]));
+            });
+        }
+
+        #[test]
+        fn a_placeholder_is_refused_and_nothing_is_stored() {
+            with_registry(|registry| {
+                for placeholder in ["${API_TOKEN}", "<your-key>", "YOUR_API_KEY"] {
+                    let error = HostAdapter
+                        .store_env_secret("srv-alpha", "API_TOKEN", placeholder)
+                        .unwrap_err();
+                    assert!(
+                        error.contains("Placeholder values cannot be saved"),
+                        "{error}"
+                    );
+                }
+                assert_eq!(
+                    HostAdapter
+                        .read_vault_secret("srv-alpha", "API_TOKEN")
+                        .unwrap(),
+                    None
+                );
+                assert_eq!(env_of_alpha(registry), json!([]));
+            });
+        }
+
+        #[test]
+        fn a_launch_secret_is_vaulted_without_an_env_declaration() {
+            with_registry(|registry| {
+                HostAdapter
+                    .store_launch_secret("srv-alpha", "LAUNCH_TOKEN", VALUE)
+                    .unwrap();
+                assert_eq!(
+                    HostAdapter
+                        .read_vault_secret("srv-alpha", "LAUNCH_TOKEN")
+                        .unwrap()
+                        .as_deref(),
+                    Some(VALUE)
+                );
+                assert_eq!(env_of_alpha(registry), json!([]));
+                let error = HostAdapter
+                    .store_launch_secret("srv-alpha", "NOT_DECLARED", VALUE)
+                    .unwrap_err();
+                assert!(
+                    error.contains("not a declared secret launch input"),
+                    "{error}"
+                );
+            });
+        }
+
+        #[test]
+        fn the_access_token_of_a_remote_server_is_stored_and_cleared() {
+            with_registry(|_| {
+                HostAdapter.store_access_token("srv-beta", VALUE).unwrap();
+                assert_eq!(
+                    HostAdapter
+                        .read_vault_secret("srv-beta", HTTP_AUTH_KEY)
+                        .unwrap()
+                        .as_deref(),
+                    Some(VALUE)
+                );
+                HostAdapter.clear_access_token("srv-beta").unwrap();
+                assert_eq!(
+                    HostAdapter
+                        .read_vault_secret("srv-beta", HTTP_AUTH_KEY)
+                        .unwrap(),
+                    None
+                );
+            });
+        }
     }
 
     mod http {

@@ -46,3 +46,30 @@ pub trait SecretsHost {
     /// Removes one entry of a server from the vault. A missing entry is not an error.
     fn delete_server_secret(&self, server_id: &str, key: &str) -> Result<(), String>;
 }
+
+/// Key under which a remote server's access token sits in the vault. Upstream's own constant is
+/// `secrets::HTTP_AUTH_KEY`; a test in `plus_adapter.rs` keeps the two equal.
+pub const HTTP_AUTH_KEY: &str = "__http_auth__";
+
+/// The vault upstream keeps server secrets in, through upstream's own controllers: a write also
+/// updates the server's entry in the registry and tells running gateways to reload.
+pub trait VaultAccess {
+    /// What the vault holds for the key. `Ok(None)` when nothing is stored; an error when the
+    /// vault cannot be read, never an empty answer.
+    fn read_vault_secret(&self, server_id: &str, key: &str) -> Result<Option<String>, String>;
+
+    /// Vaults an environment secret and declares it on the server.
+    fn store_env_secret(&self, server_id: &str, key: &str, value: &str) -> Result<(), String>;
+
+    /// Vaults a launch argument input; no environment variable is declared.
+    fn store_launch_secret(&self, server_id: &str, key: &str, value: &str) -> Result<(), String>;
+
+    /// Stores the access token of a remote server and clears its previous sign-in state.
+    fn store_access_token(&self, server_id: &str, token: &str) -> Result<(), String>;
+
+    /// Removes an environment secret from the vault and from the server's entry.
+    fn remove_env_secret(&self, server_id: &str, key: &str) -> Result<(), String>;
+
+    /// Removes the access token and the sign-in state of a remote server.
+    fn clear_access_token(&self, server_id: &str) -> Result<(), String>;
+}

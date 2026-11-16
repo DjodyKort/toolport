@@ -24,7 +24,7 @@ pub use memory::{
     MemoryGateway, MemoryHost, MemoryRegistry, MemorySecrets, MemoryState, ScriptedHttp,
 };
 pub use mirror::{convert, ServerRecord};
-pub use secrets::{SecretsHost, TrustInputs};
+pub use secrets::{SecretsHost, TrustInputs, VaultAccess, HTTP_AUTH_KEY};
 pub use servers::{
     CallsInFlight, CatalogAccess, CatalogEntryRecord, EnvEntry, GatewayRouter, RestartOutcome,
     ServerRules, ServerSpec,
@@ -153,6 +153,12 @@ pub trait HostEnv {
 }
 
 /// Everything a command or tool runs against.
-pub trait Host: RegistryAccess + SecretsHost + HostEnv + ServerRules + CatalogAccess {}
+pub trait Host:
+    RegistryAccess + SecretsHost + VaultAccess + HostEnv + ServerRules + CatalogAccess
+{
+}
 
-impl<T: RegistryAccess + SecretsHost + HostEnv + ServerRules + CatalogAccess> Host for T {}
+impl<T: RegistryAccess + SecretsHost + VaultAccess + HostEnv + ServerRules + CatalogAccess> Host
+    for T
+{
+}

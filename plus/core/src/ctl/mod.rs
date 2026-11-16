@@ -12,6 +12,7 @@ mod flags;
 mod mcp;
 mod output;
 mod policy;
+mod secret;
 mod server;
 
 use toolport_plus_api::Host;
@@ -123,6 +124,17 @@ pub const COMMANDS: &[Command] = &[
         "Restart a server's process in every running gateway [--dry-run] [--wait <s>] [--if-idle]",
         server::restart,
     ),
+    cmd(
+        &["secret", "set"],
+        "Store a secret read from stdin or --value-env",
+        secret::set,
+    ),
+    cmd(
+        &["secret", "get"],
+        "Check a secret (--reveal prints the value)",
+        secret::get,
+    ),
+    cmd(&["secret", "rm"], "Remove a secret", secret::rm),
     cmd(
         &["mcp"],
         "Self-management server: install [--access-set <id>] uninstall doctor tools call <tool> [--args <json> | --args-stdin]",
