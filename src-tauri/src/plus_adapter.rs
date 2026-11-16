@@ -1312,6 +1312,83 @@ mod tests {
         assert!(HostAdapter.seam_live());
     }
 
+    /// docs/migration.md says a global off "removes it from every access set"; the code only
+    /// flips the flag. The Servers screen and the restart flow rely on the code.
+    #[test]
+    fn turning_a_v3_server_off_keeps_its_access_set_memberships() {
+        let scratch = Scratch::new("off-keeps-sets");
+        scratch.write_registry(
+            &json!({
+                "version": 3,
+                "servers": [
+                    {"id": "alpha", "name": "alpha", "transport": "stdio", "command": "a", "enabled": true},
+                    {"id": "beta", "name": "beta", "transport": "stdio", "command": "b", "enabled": true},
+                ],
+                "profiles": [
+                    {"id": "focus", "name": "Focus", "enabledServerIds": ["alpha"]},
+                    {"id": "wide", "name": "Wide", "enabledServerIds": ["alpha", "beta"]},
+                ],
+                "defaultAccessProfileId": "wide",
+                "clientScopes": {"cursor": "focus"},
+            })
+            .to_string(),
+        );
+        let members = |registry: &Registry| -> Vec<Vec<String>> {
+            registry
+                .profiles
+                .iter()
+                .map(|profile| profile.enabled_server_ids.clone())
+                .collect()
+        };
+        let before = members(&registry::load_resolved().unwrap());
+
+        // The command behind the Servers page switch.
+        registry::update(|registry| {
+            crate::registry_controller::apply_server_enabled(registry, "", "alpha", false, false)
+        })
+        .unwrap();
+        let off = registry::load_resolved().unwrap();
+        assert!(!off.server_enabled("alpha"));
+        assert_eq!(
+            members(&off),
+            before,
+            "an off server stays listed in its sets"
+        );
+        assert!(
+            !off.is_enabled("focus", "alpha"),
+            "off: unreachable through its set"
+        );
+        assert!(!off.is_enabled("wide", "alpha"));
+
+        registry::update(|registry| {
+            crate::registry_controller::apply_server_enabled(registry, "", "alpha", true, false)
+        })
+        .unwrap();
+        let on = registry::load_resolved().unwrap();
+        assert!(
+            on.is_enabled("focus", "alpha"),
+            "back on: its sets reach it again"
+        );
+        assert!(on.is_enabled("wide", "alpha"));
+        assert!(
+            !on.is_enabled("focus", "beta"),
+            "a server never listed stays out"
+        );
+
+        // The bulk switch and the fork's own transaction keep memberships too.
+        registry::update(|registry| registry.set_all_enabled("wide", false)).unwrap();
+        assert_eq!(members(&registry::load_resolved().unwrap()), before);
+        HostAdapter
+            .transact(&mut |tx| {
+                tx.set_server_enabled("alpha", true)?;
+                tx.set_server_enabled("beta", false)
+            })
+            .unwrap();
+        let after = registry::load_resolved().unwrap();
+        assert_eq!(members(&after), before);
+        assert!(after.is_enabled("focus", "alpha") && !after.is_enabled("wide", "beta"));
+    }
+
     #[test]
     fn the_self_server_is_reachable_through_the_access_sets_clients_use_and_no_other() {
         use toolport_plus::selfmcp::register::{install, Intent};
