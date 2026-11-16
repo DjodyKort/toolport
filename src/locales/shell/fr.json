@@ -280,5 +280,11 @@
   "Keep English": "Garder l’anglais",
   "Skills and rules each agent loads, and where they live": "Les compétences et règles chargées par chaque agent et leur emplacement",
   "Back to servers": "Retour aux serveurs",
-  "Add a config folder for a client Toolport did not find on its own": "Ajouter un dossier de configuration pour un client que Toolport n’a pas détecté automatiquement"
+  "Add a config folder for a client Toolport did not find on its own": "Ajouter un dossier de configuration pour un client que Toolport n’a pas détecté automatiquement",
+  "Claude": "Claude",
+  "Library": "Bibliothèque",
+  "Context": "Contexte",
+  "Tasks": "Tâches",
+  "Toolport+": "Toolport+",
+  "Self-management, installation checks and every toolportctl command.": "Autogestion, vérifications de l'installation et toutes les commandes toolportctl."
 }

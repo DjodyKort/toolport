@@ -1,8 +1,10 @@
+import type { PlusView } from "@/plus/shell/views";
 export type Transport = "stdio" | "http" | "sse" | "unknown";
 
 /** The main content views, selected from the sidebar. */
-export type View =
+export type UpstreamView =
   "servers" | "clients" | "skills" | "activity" | "catalog" | "teams" | "settings";
+export type View = UpstreamView | PlusView;
 
 export interface McpServer {
   name: string;

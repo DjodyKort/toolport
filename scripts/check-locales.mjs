@@ -536,7 +536,7 @@ export function checkRustSource(source, file, messages, options = {}) {
 async function sourceFiles(dir, rust = false) {
   const files = [];
   for (const entry of await readdir(dir, { withFileTypes: true })) {
-    if (["locales", "test", "node_modules"].includes(entry.name)) continue;
+    if (["locales", "plus", "test", "node_modules"].includes(entry.name)) continue;
     const file = path.join(dir, entry.name);
     if (entry.isDirectory()) files.push(...(await sourceFiles(file, rust)));
     else if (

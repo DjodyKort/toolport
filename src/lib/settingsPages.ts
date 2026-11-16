@@ -26,6 +26,13 @@ export const SETTINGS_PAGES = [
     description: msg("Your local HTTP endpoint and gateway processes."),
   },
   {
+    id: "toolport",
+    label: msg("Toolport+"),
+    description: msg(
+      "Self-management, installation checks and every toolportctl command.",
+    ),
+  },
+  {
     id: "help",
     label: msg("Help and data"),
     description: msg("Support reports, local files and removing Toolport."),

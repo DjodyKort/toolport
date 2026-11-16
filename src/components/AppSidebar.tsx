@@ -18,6 +18,7 @@ import {
   Layers,
   Loader2,
   MonitorCog,
+  Puzzle,
   ScrollText,
   Settings,
   Share2,
@@ -55,6 +56,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ShareDialog } from "@/components/ShareDialog";
 import { navItemTitle } from "@/lib/shortcuts";
+import { PlusFooterBell, PlusNavGroup } from "@/plus/shell";
 
 const FOCUS_RING =
   "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -290,6 +292,7 @@ function VersionFooter({
         progressLabel={progressLabel}
         onInstall={applyUpdate}
       />
+      <PlusFooterBell />
       <Popover.Root>
         <Popover.Trigger asChild>
           <button
@@ -649,7 +652,7 @@ export function AppSidebar({
               {SETTINGS_PAGES.map((item, index) => (
                 <div key={item.id} className="relative">
                   {navItem(
-                    [House, Wrench, Shield, KeyRound, Network, LifeBuoy][index],
+                    [House, Wrench, Shield, KeyRound, Network, Puzzle, LifeBuoy][index],
                     item.label,
                     settingsPage === item.id,
                     () => onSettingsPageChange?.(item.id),
@@ -675,6 +678,7 @@ export function AppSidebar({
               .length ?? 0,
           )}
         </nav>
+        <PlusNavGroup view={view} onSelectView={onSelectView} row={navItem} />
 
         {savings && (savings.tokenizedLoads ?? 0) > 0 && (
           <button

@@ -5,6 +5,9 @@
 # +1 line: toolport-plus depends on sha2 (content fingerprint of the trusted binaries).
 19	src-tauri/Cargo.lock
 7	src-tauri/Cargo.toml
+# check-locales.mjs, 2 changed lines: `plus` joins the directories the scan skips; the fork's own screens
+# are English only (D-135) and its shell labels are wrapped through msg() in src/lib/settingsPages.ts.
+2	scripts/check-locales.mjs
 # desktop.rs, 4 changed lines: the invoke handler is wrapped in seam::ipc, which answers the
 # plus_ctl commands (D-060) and hands every other command on.
 4	src-tauri/src/desktop.rs
@@ -21,7 +24,31 @@
 #   1: `file::save` calls seam::keep_vault_backup before the replace (rolling secrets.enc.bak,
 #      D-044/D-133); an error aborts the replace, so a failed backup never costs the vault
 20	src-tauri/src/secrets.rs
+# App.tsx, 15 changed lines for the Claude group and the Toolport+ page of Settings:
+#   2: the isPlusRoute/plusPageHeader import and the lazy PlusViews chunk
+#   2: `plusHeader`, computed beside upstream's title and subtitle
+#   4: the PageHeader title and subtitle fall back to upstream's text when `plusHeader` is empty
+#   7: one render branch before upstream's Settings branch that mounts PlusViews
+15	src/App.tsx
+# AppSidebar.tsx, 6 changed lines: the Claude group under upstream's nav (1), the footer bell (1), the Puzzle icon
+# of the new Settings page in the position-based icon array (2), and the imports (2).
+6	src/components/AppSidebar.tsx
 2	src/lib/openUrl.ts
+# settingsPages.ts: one entry, `toolport`, between Connections and Help and data.
+7	src/lib/settingsPages.ts
 3	src/lib/starPrompt.ts
 3	src/lib/teamUrl.ts
+# types.ts: `View` becomes UpstreamView | PlusView, so the group's three view ids typecheck everywhere.
+4	src/lib/types.ts
 2	src/lib/updater.ts
+# Shell labels of the Claude group and the Settings page, 8 changed lines per language: Claude, Library, Context,
+# Tasks, Toolport+ and the page description, so the sidebar translates like upstream's own entries.
+8	src/locales/shell/de.json
+8	src/locales/shell/en.json
+8	src/locales/shell/es.json
+8	src/locales/shell/fr.json
+8	src/locales/shell/ja.json
+8	src/locales/shell/ko.json
+8	src/locales/shell/pt-BR.json
+8	src/locales/shell/zh-CN.json
+8	src/locales/shell/zh-TW.json

@@ -4,6 +4,7 @@ import { useI18n } from "@/lib/i18n";
 import { needsTeamEnableReview, sameReviewedDefinition } from "@/lib/importReview";
 import { serverPostureCopy } from "@/lib/serverPosture";
 import { type SettingsSubpage } from "@/lib/settingsPages";
+import { isPlusRoute, plusPageHeader } from "@/plus/shell";
 import { visibleExecutionText } from "@/lib/visibleExecutionText";
 import { isPersonalSync } from "@/lib/personalSync";
 import { requestClientRecoveryScan } from "@/lib/clientRecoveryEvents";
@@ -104,6 +105,7 @@ const ExecutionReview = lazy(() => import("@/components/ExecutionReview"));
 const TeamsView = lazy(() =>
   import("@/components/TeamsView").then((m) => ({ default: m.TeamsView })),
 );
+const PlusViews = lazy(() => import("@/plus/shell/PlusViews"));
 const SettingsView = lazy(() =>
   import("@/components/SettingsView").then((m) => ({ default: m.SettingsView })),
 );
@@ -1011,6 +1013,8 @@ function App() {
                       ? translate("Loading…")
                       : translate("One gateway in front of every MCP server you run");
 
+  const plusHeader = plusPageHeader(view);
+
   const serverRow = (server: ServerEntry) => (
     <RegistryServerRow
       key={server.id}
@@ -1056,8 +1060,8 @@ function App() {
             onRegistryChange={applyRegistryChange}
           />
           <PageHeader
-            title={pageTitle}
-            subtitle={pageSubtitle}
+            title={plusHeader?.title ?? pageTitle}
+            subtitle={plusHeader?.subtitle ?? pageSubtitle}
             back={
               view === "catalog"
                 ? {
@@ -1333,6 +1337,13 @@ function App() {
                         onRegistryChange={applyRegistryChange}
                         health={health}
                         onReprobe={() => void retryProbe().catch(() => {})}
+                        onOpenServers={() => selectView("servers")}
+                      />
+                    ) : isPlusRoute(view, settingsPage) ? (
+                      <PlusViews
+                        view={view}
+                        registry={registry}
+                        onRegistryChange={applyRegistryChange}
                         onOpenServers={() => selectView("servers")}
                       />
                     ) : view === "settings" ? (

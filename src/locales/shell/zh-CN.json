@@ -280,5 +280,11 @@
   "Keep English": "保留英语",
   "Skills and rules each agent loads, and where they live": "每个智能体加载的技能和规则，以及它们的存放位置",
   "Back to servers": "返回服务器",
-  "Add a config folder for a client Toolport did not find on its own": "为 Toolport 未自动找到的客户端添加配置文件夹"
+  "Add a config folder for a client Toolport did not find on its own": "为 Toolport 未自动找到的客户端添加配置文件夹",
+  "Claude": "Claude",
+  "Library": "资源库",
+  "Context": "上下文",
+  "Tasks": "任务",
+  "Toolport+": "Toolport+",
+  "Self-management, installation checks and every toolportctl command.": "自我管理、安装检查以及所有 toolportctl 命令。"
 }

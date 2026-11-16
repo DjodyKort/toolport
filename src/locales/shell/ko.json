@@ -280,5 +280,11 @@
   "Keep English": "영어 유지",
   "Skills and rules each agent loads, and where they live": "각 에이전트가 불러오는 스킬과 규칙, 그리고 저장 위치",
   "Back to servers": "서버로 돌아가기",
-  "Add a config folder for a client Toolport did not find on its own": "Toolport가 자동으로 찾지 못한 클라이언트의 설정 폴더 추가"
+  "Add a config folder for a client Toolport did not find on its own": "Toolport가 자동으로 찾지 못한 클라이언트의 설정 폴더 추가",
+  "Claude": "Claude",
+  "Library": "라이브러리",
+  "Context": "컨텍스트",
+  "Tasks": "작업",
+  "Toolport+": "Toolport+",
+  "Self-management, installation checks and every toolportctl command.": "자체 관리, 설치 점검, 모든 toolportctl 명령."
 }
