@@ -30,6 +30,13 @@ pub struct ServerRecord {
     pub extra: Map<String, Value>,
 }
 
+impl ServerRecord {
+    /// A string-valued field upstream types itself (`transport`, `command`, `source`, `url`).
+    pub fn text(&self, key: &str) -> Option<&str> {
+        self.extra.get(key).and_then(Value::as_str)
+    }
+}
+
 /// Convert between two serde types through `serde_json::Value`.
 pub fn convert<Src, Dst>(value: &Src) -> Result<Dst, String>
 where

@@ -6,6 +6,8 @@ use std::path::PathBuf;
 /// Refuse a request before the connection phase when the fork blocks its host.
 pub(crate) fn egress_check(uri: &ureq::http::Uri) -> Result<(), ureq::Error> {
     #[cfg(feature = "plus")]
+    std::hint::black_box(toolport_plus_api::SEAM_MARKER);
+    #[cfg(feature = "plus")]
     if let Some(host) = uri.host() {
         toolport_plus::egress::check(host).map_err(|message| ureq::Error::Other(message.into()))?;
     }

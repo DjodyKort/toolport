@@ -4,9 +4,9 @@ use std::path::PathBuf;
 
 use serde_json::{Map, Value};
 use toolport_plus_api::{
-    convert, plus_ops, AuthProbe, DirectEntry, ForkServerFields, HttpAccess, HttpBody, HttpError,
-    HttpRequest, HttpResponse, McpmSource, RegistryAccess, RegistryPlus, SecretsHost,
-    SelfMcpRecord, ServerRecord, TrustInputs,
+    convert, plus_ops, AccessSetInfo, AuthProbe, DirectEntry, ForkServerFields, HostEnv,
+    HttpAccess, HttpBody, HttpError, HttpRequest, HttpResponse, McpmSource, RegistryAccess,
+    RegistryPlus, RegistryTx, RegistryView, SecretsHost, SelfMcpRecord, ServerRecord, TrustInputs,
 };
 
 pub struct HostAdapter;
@@ -42,7 +42,184 @@ fn mirror(entry: &crate::registry::ServerEntry) -> Result<ServerRecord, String> 
     convert(entry).map_err(|error| format!("server {}: {error}", entry.id))
 }
 
+fn view_servers(registry: &crate::registry::Registry) -> Result<Vec<ServerRecord>, String> {
+    registry
+        .servers
+        .iter()
+        .map(|entry| {
+            let mut record = mirror(entry)?;
+            record.enabled = registry.server_enabled(&entry.id);
+            Ok(record)
+        })
+        .collect()
+}
+
+fn view_access_sets(registry: &crate::registry::Registry) -> Vec<AccessSetInfo> {
+    registry
+        .profiles
+        .iter()
+        .map(|profile| AccessSetInfo {
+            id: profile.id.clone(),
+            name: profile.name.clone(),
+            server_ids: profile.enabled_server_ids.clone(),
+        })
+        .collect()
+}
+
+/// Below version 3 the loader turns the active profile into the legacy context of an implicit
+/// default, which is every enabled server; only an explicit set is reported.
+fn view_default_access(registry: &crate::registry::Registry) -> Option<String> {
+    if registry.version < 3 {
+        return None;
+    }
+    registry
+        .default_access_profile_id
+        .clone()
+        .filter(|id| registry.profiles.iter().any(|profile| &profile.id == id))
+}
+
+fn view_client_access_sets(registry: &crate::registry::Registry) -> Vec<String> {
+    let mut ids: Vec<String> = registry
+        .client_scopes
+        .values()
+        .filter_map(|reference| registry.canonical_profile_id(reference).ok())
+        .filter(|id| registry.profiles.iter().any(|profile| &profile.id == id))
+        .collect();
+    ids.sort();
+    ids.dedup();
+    ids
+}
+
+fn view_selfmcp_record(
+    registry: &crate::registry::Registry,
+) -> Result<Option<SelfMcpRecord>, String> {
+    Ok(RegistryPlus::extract(&registry.unknown_fields)?.selfmcp)
+}
+
+macro_rules! registry_view {
+    ($ty:ty, $registry:ident) => {
+        impl RegistryView for $ty {
+            fn version(&self) -> u32 {
+                self.$registry().version
+            }
+            fn servers(&self) -> Result<Vec<ServerRecord>, String> {
+                view_servers(self.$registry())
+            }
+            fn access_sets(&self) -> Vec<AccessSetInfo> {
+                view_access_sets(self.$registry())
+            }
+            fn default_access(&self) -> Option<String> {
+                view_default_access(self.$registry())
+            }
+            fn client_access_sets(&self) -> Vec<String> {
+                view_client_access_sets(self.$registry())
+            }
+            fn selfmcp_record(&self) -> Result<Option<SelfMcpRecord>, String> {
+                view_selfmcp_record(self.$registry())
+            }
+        }
+    };
+}
+
+/// A registry read straight from its file.
+struct ReadOnlyView(crate::registry::Registry);
+
+impl ReadOnlyView {
+    fn registry(&self) -> &crate::registry::Registry {
+        &self.0
+    }
+}
+
+/// The registry inside `registry::update`.
+struct TxView<'a>(&'a mut crate::registry::Registry);
+
+impl TxView<'_> {
+    fn registry(&self) -> &crate::registry::Registry {
+        self.0
+    }
+
+    fn entry(&mut self, server_id: &str) -> Result<&mut crate::registry::ServerEntry, String> {
+        self.0
+            .servers
+            .iter_mut()
+            .find(|server| server.id == server_id)
+            .ok_or_else(|| format!("unknown server {server_id}"))
+    }
+}
+
+registry_view!(ReadOnlyView, registry);
+registry_view!(TxView<'_>, registry);
+
+impl RegistryTx for TxView<'_> {
+    fn add_stdio_server(
+        &mut self,
+        name: &str,
+        command: &str,
+        source: &str,
+    ) -> Result<String, String> {
+        let entry: crate::registry::ServerEntry = serde_json::from_value(serde_json::json!({
+            "id": "",
+            "name": name,
+            "transport": "stdio",
+            "command": command,
+            "source": source,
+        }))
+        .map_err(|error| error.to_string())?;
+        Ok(self.0.add_server(entry))
+    }
+
+    fn repoint_stdio_server(&mut self, server_id: &str, command: &str) -> Result<(), String> {
+        let entry = self.entry(server_id)?;
+        entry.transport = "stdio".into();
+        entry.command = Some(command.to_string());
+        entry.url = None;
+        Ok(())
+    }
+
+    fn remove_server(&mut self, server_id: &str) -> Result<(), String> {
+        self.0.remove_server(server_id)
+    }
+
+    fn set_server_enabled(&mut self, server_id: &str, enabled: bool) -> Result<(), String> {
+        let profile = self.0.active_profile_id();
+        self.0.set_server_enabled(&profile, server_id, enabled)
+    }
+
+    fn set_access_server(
+        &mut self,
+        access_set_id: &str,
+        server_id: &str,
+        included: bool,
+    ) -> Result<(), String> {
+        self.0.set_access_server(access_set_id, server_id, included)
+    }
+
+    fn set_selfmcp_record(&mut self, record: Option<SelfMcpRecord>) -> Result<(), String> {
+        plus_ops::set_selfmcp(&mut self.0.unknown_fields, record.as_ref())
+    }
+}
+
 impl RegistryAccess for HostAdapter {
+    fn read_view(&self) -> Result<Option<Box<dyn RegistryView>>, String> {
+        let Some(path) = crate::registry::resolved_path() else {
+            return Ok(None);
+        };
+        match std::fs::read_to_string(&path) {
+            Ok(text) => serde_json::from_str(&text)
+                .map(|registry| Some(Box::new(ReadOnlyView(registry)) as Box<dyn RegistryView>))
+                .map_err(|error| format!("registry is not readable: {}: {error}", path.display())),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(error) => Err(format!("cannot read registry: {error}")),
+        }
+    }
+
+    fn transact(
+        &self,
+        edit: &mut dyn FnMut(&mut dyn RegistryTx) -> Result<(), String>,
+    ) -> Result<(), String> {
+        crate::registry::update(|registry| edit(&mut TxView(registry))).map(|_| ())
+    }
+
     fn registry_path(&self) -> Option<PathBuf> {
         crate::registry::resolved_path()
     }
@@ -221,6 +398,22 @@ impl RegistryAccess for HostAdapter {
             fields.max_request_timeout_ms = timeout_ms;
             Ok(())
         })
+    }
+}
+
+impl HostEnv for HostAdapter {
+    fn app_version(&self) -> &'static str {
+        env!("CARGO_PKG_VERSION")
+    }
+
+    fn use_data_dir(&self, dir: &std::path::Path) {
+        std::env::set_var("TOOLPORT_DATA_DIR", dir);
+    }
+
+    fn seam_live(&self) -> bool {
+        "https://toolport.app/"
+            .parse()
+            .is_ok_and(|uri| crate::seam::egress_check(&uri).is_err())
     }
 }
 
@@ -1019,5 +1212,103 @@ mod tests {
                     .unwrap_err();
             assert!(matches!(error, HttpError::Timeout(_)), "{error:?}");
         }
+    }
+
+    #[test]
+    fn read_view_never_writes_and_reads_a_v1_registry_as_it_is_on_disk() {
+        let scratch = Scratch::new("read-view-v1");
+        assert!(HostAdapter.read_view().unwrap().is_none());
+        scratch.write_registry(REGISTRY_V1);
+        let path = scratch.data_dir.dir.join("registry.json");
+        let before = std::fs::read(&path).unwrap();
+        let view = HostAdapter.read_view().unwrap().unwrap();
+        assert_eq!(view.version(), 1);
+        assert_eq!(view.servers().unwrap().len(), 8);
+        assert_eq!(view.access_sets().len(), 8);
+        assert_eq!(view.default_access(), None);
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+    }
+
+    #[test]
+    fn read_view_reports_a_registry_that_does_not_parse() {
+        let scratch = Scratch::new("read-view-bad");
+        scratch.write_registry("{ not json");
+        let error = HostAdapter.read_view().err().unwrap();
+        assert!(error.starts_with("registry is not readable:"), "{error}");
+    }
+
+    #[test]
+    fn a_transaction_adds_a_server_and_lists_it_in_an_access_set_in_one_save() {
+        let scratch = Scratch::new("transact-add");
+        scratch.write_registry(
+            &json!({
+                "version": 3,
+                "servers": [],
+                "profiles": [{"id": "focus", "name": "Focus", "enabledServerIds": []}],
+            })
+            .to_string(),
+        );
+        HostAdapter
+            .transact(&mut |tx| {
+                let id = tx.add_stdio_server("Probe", "probe-mcp", "test:probe")?;
+                tx.set_server_enabled(&id, true)?;
+                tx.set_access_server("focus", &id, true)?;
+                tx.set_selfmcp_record(Some(SelfMcpRecord {
+                    enabled_in: Some(vec!["focus".into()]),
+                    ..Default::default()
+                }))
+            })
+            .unwrap();
+        let saved = scratch.raw_registry();
+        assert_eq!(saved["servers"][0]["id"], "probe");
+        assert_eq!(saved["servers"][0]["enabled"], true);
+        assert_eq!(saved["servers"][0]["source"], "test:probe");
+        assert_eq!(saved["profiles"][0]["enabledServerIds"], json!(["probe"]));
+        assert_eq!(saved["plus"]["selfmcp"]["enabledIn"], json!(["focus"]));
+        let view = HostAdapter.read_view().unwrap().unwrap();
+        assert!(view.servers().unwrap()[0].enabled);
+        assert_eq!(view.default_access(), None);
+    }
+
+    #[test]
+    fn a_failing_transaction_leaves_the_registry_file_as_it_was() {
+        let scratch = Scratch::new("transact-fail");
+        scratch.write_registry(&json!({"version": 3, "servers": [], "profiles": []}).to_string());
+        let before = scratch.raw_registry();
+        let result = HostAdapter.transact(&mut |tx| {
+            tx.add_stdio_server("Probe", "probe-mcp", "test:probe")?;
+            tx.set_access_server("missing", "probe", true)
+        });
+        assert!(result.is_err());
+        assert_eq!(scratch.raw_registry(), before);
+    }
+
+    #[test]
+    fn the_view_resolves_the_access_sets_clients_are_scoped_to_by_id_or_name() {
+        let scratch = Scratch::new("client-sets");
+        scratch.write_registry(
+            &json!({
+                "version": 3,
+                "servers": [],
+                "profiles": [
+                    {"id": "a", "name": "Alpha", "enabledServerIds": []},
+                    {"id": "b", "name": "Beta", "enabledServerIds": []},
+                ],
+                "defaultAccessProfileId": "a",
+                "clientScopes": {"claude-code": "b", "cursor": "Alpha", "zed": "gone"},
+            })
+            .to_string(),
+        );
+        let view = HostAdapter.read_view().unwrap().unwrap();
+        assert_eq!(
+            view.client_access_sets(),
+            vec!["a".to_string(), "b".to_string()]
+        );
+        assert_eq!(view.default_access().as_deref(), Some("a"));
+    }
+
+    #[test]
+    fn the_seam_is_live_in_a_plus_build() {
+        assert!(HostAdapter.seam_live());
     }
 }

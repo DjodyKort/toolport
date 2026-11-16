@@ -12,15 +12,21 @@ pub mod http;
 pub mod memory;
 pub mod mirror;
 pub mod secrets;
+pub mod view;
 
 pub use fork_data::{
     plus_ops, AuthProbe, DirectEntry, ForkServerFields, McpmSource, RegistryPlus, SelfMcpRecord,
     ServerPlus,
 };
 pub use http::{HttpAccess, HttpBody, HttpError, HttpMethod, HttpRequest, HttpResponse};
-pub use memory::{MemoryRegistry, MemorySecrets, ScriptedHttp};
+pub use memory::{MemoryHost, MemoryRegistry, MemorySecrets, MemoryState, ScriptedHttp};
 pub use mirror::{convert, ServerRecord};
 pub use secrets::{SecretsHost, TrustInputs};
+pub use view::{AccessSetInfo, RegistryTx, RegistryView};
+
+/// Written into every binary that forwards upstream code to the fork logic, so
+/// `toolportctl doctor` can tell a gateway built with the fork seam from one built without.
+pub const SEAM_MARKER: &str = "toolport-plus-seam/1";
 
 /// Registry access for the fork logic.
 ///
@@ -37,6 +43,17 @@ pub trait RegistryAccess {
     fn get_server(&self, server_id: &str) -> Result<Option<ServerRecord>, String>;
 
     fn profile_count(&self) -> Result<usize, String>;
+
+    /// A read-only view that never recovers, migrates or writes on disk, so
+    /// inspection leaves the data dir as it is. `Ok(None)` when no registry file exists.
+    fn read_view(&self) -> Result<Option<Box<dyn RegistryView>>, String>;
+
+    /// Runs `edit` inside the registry's lock on a fresh copy and saves the
+    /// result. An error from `edit` saves nothing.
+    fn transact(
+        &self,
+        edit: &mut dyn FnMut(&mut dyn RegistryTx) -> Result<(), String>,
+    ) -> Result<(), String>;
 
     /// Fails when no server has `server_id`.
     fn set_server_enabled(&self, server_id: &str, enabled: bool) -> Result<(), String>;
@@ -111,3 +128,21 @@ pub trait RegistryAccess {
         timeout_ms: Option<u64>,
     ) -> Result<(), String>;
 }
+
+/// What the command line and the self-MCP server need from the process they run in.
+pub trait HostEnv {
+    /// Upstream's version, as `toolportctl status` reports it.
+    fn app_version(&self) -> &'static str;
+
+    /// Points the process at another data dir. Called before the first data
+    /// dir lookup, which upstream memoises.
+    fn use_data_dir(&self, dir: &std::path::Path);
+
+    /// Whether upstream code in this process forwards to the fork logic.
+    fn seam_live(&self) -> bool;
+}
+
+/// Everything a command or tool runs against.
+pub trait Host: RegistryAccess + SecretsHost + HostEnv {}
+
+impl<T: RegistryAccess + SecretsHost + HostEnv> Host for T {}
