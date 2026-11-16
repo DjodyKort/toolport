@@ -1,10 +1,10 @@
 {
-  "argv": ["mcp", "call", "skils_get"],
+  "argv": ["mcp", "call", "where_am"],
   "envelope": {
     "command": "mcp",
     "error": {
       "code": "usage",
-      "message": "unknown tool: skils_get; closest: skills_get, styles_get"
+      "message": "unknown tool: where_am; closest: where_am_i"
     },
     "ok": false,
     "schemaVersion": 1

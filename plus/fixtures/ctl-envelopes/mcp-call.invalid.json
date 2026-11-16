@@ -1,10 +1,10 @@
 {
-  "argv": ["mcp", "call", "skills_get", "--args", "{}"],
+  "argv": ["mcp", "call", "where_am_i", "--args", "{\"depth\":2}"],
   "envelope": {
     "command": "mcp",
     "error": {
       "code": "invalid_arguments",
-      "message": "missing required argument: name"
+      "message": "unknown argument: depth"
     },
     "ok": false,
     "schemaVersion": 1

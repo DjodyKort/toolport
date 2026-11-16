@@ -19,9 +19,6 @@ use common::client::Client;
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
 
-/// Goldens that still hold the previous line's text; they are re-blessed in the golden-bump commit.
-const BUMP_PENDING: &[&str] = &["doctor", "resource-paths", "resource-status", "where_am_i"];
-
 #[derive(Clone, Copy, PartialEq)]
 enum Expect {
     Ok,
@@ -174,7 +171,7 @@ fn run_case(case: &Case) {
             );
         }
         let stem = stem(case, call);
-        if call.golden && !BUMP_PENDING.contains(&stem.as_str()) {
+        if call.golden {
             let mut result = json!({
                 "tool": call.tool,
                 "arguments": args,
@@ -235,13 +232,11 @@ fn every_resource_matches_its_golden_result() {
         };
         let stem = resource_stem(def.uri);
         assert!(seen.insert(stem.clone()), "{} collides", def.uri);
-        if !BUMP_PENDING.contains(&stem.as_str()) {
-            golden::assert_golden_in(
-                &golden::selfmcp_root(),
-                &stem,
-                &normalize::normalize(&world, &body),
-            );
-        }
+        golden::assert_golden_in(
+            &golden::selfmcp_root(),
+            &stem,
+            &normalize::normalize(&world, &body),
+        );
     }
     assert_eq!(changed_files(&world, &before), Vec::<String>::new());
     assert!(client.close().success());

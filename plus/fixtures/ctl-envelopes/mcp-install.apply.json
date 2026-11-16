@@ -3,11 +3,11 @@
   "envelope": {
     "command": "mcp",
     "data": {
+      "accessSet": null,
       "action": "created",
       "command": "<BIN>/toolport-selfmcp",
-      "enabled": ["default"],
-      "id": "toolport-plus-self",
-      "profile": null
+      "enabled": [],
+      "id": "toolport-plus-self"
     },
     "ok": true,
     "schemaVersion": 1

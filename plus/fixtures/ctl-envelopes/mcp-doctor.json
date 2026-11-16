@@ -3,7 +3,6 @@
   "envelope": {
     "command": "mcp",
     "data": {
-      "activeProfile": null,
       "checks": [
         {
           "detail": "run `toolportctl mcp install`",
@@ -22,12 +21,17 @@
         },
         {
           "detail": "-",
-          "name": "enabled_in_active_profile",
+          "name": "server_enabled",
           "ok": false
         },
         {
-          "detail": "no client is scoped to a profile",
-          "name": "enabled_in_client_profiles",
+          "detail": "-",
+          "name": "listed_in_default_access",
+          "ok": false
+        },
+        {
+          "detail": "no client is scoped to an access set",
+          "name": "listed_in_client_access_sets",
           "ok": true
         },
         {
@@ -36,13 +40,15 @@
           "ok": true
         },
         {
-          "detail": "108 tools, 11 resources",
+          "detail": "3 tools, 4 resources",
           "name": "catalog",
           "ok": true
         }
       ],
-      "clientProfiles": [],
-      "state": "missing"
+      "clientAccessSets": [],
+      "defaultAccess": null,
+      "state": "missing",
+      "switchedOn": false
     },
     "error": {
       "code": "unhealthy",

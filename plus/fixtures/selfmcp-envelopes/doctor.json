@@ -9,13 +9,13 @@
         "status": "ok"
       },
       {
-        "detail": "2 servers, 1 profiles",
+        "detail": "2 servers, 1 access sets",
         "name": "registry",
         "status": "ok"
       },
       {
-        "detail": "default",
-        "name": "activeProfile",
+        "detail": "all enabled servers",
+        "name": "defaultAccess",
         "status": "ok"
       },
       {
@@ -24,8 +24,13 @@
         "status": "ok"
       },
       {
-        "detail": "<BIN>/toolport-gateway",
+        "detail": "<WORLD>/data/bin/toolport-gateway",
         "name": "gatewayBinary",
+        "status": "ok"
+      },
+      {
+        "detail": "this binary and <WORLD>/data/bin/toolport-gateway carry the fork seam",
+        "name": "plusBuilt",
         "status": "ok"
       }
     ],

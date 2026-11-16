@@ -20,22 +20,6 @@ mod common;
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
 
-/// Goldens that still hold the previous line's text; they are re-blessed in the golden-bump commit.
-const BUMP_PENDING: &[&str] = &[
-    "commands",
-    "doctor",
-    "mcp-call.invalid",
-    "mcp-call.secret",
-    "mcp-call.stdin",
-    "mcp-call.unknown",
-    "mcp-call.where_am_i",
-    "mcp-doctor",
-    "mcp-install.apply",
-    "mcp-install.profile",
-    "mcp-tools",
-    "status",
-];
-
 #[derive(Clone, Copy)]
 struct Step {
     label: &'static str,
@@ -343,7 +327,7 @@ fn run_case(case: &Case) {
             );
         }
         let stem = stem(case, step);
-        if step.golden && !BUMP_PENDING.contains(&stem.as_str()) {
+        if step.golden {
             golden::assert_golden(
                 &stem,
                 &json!({
