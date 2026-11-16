@@ -1,0 +1,20 @@
+[package]
+name = "toolport-plus-bins"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Fork binaries: toolportctl and toolport-selfmcp"
+
+[dependencies]
+conduit = { path = "../../src-tauri", default-features = false, features = ["plus"] }
+toolport-plus = { path = "../core" }
+toolport-plus-api = { path = "../api" }
+serde_json = "1"
+
+[[bin]]
+name = "toolportctl"
+path = "src/bin/toolportctl.rs"
+
+[[bin]]
+name = "toolport-selfmcp"
+path = "src/bin/toolport-selfmcp.rs"
