@@ -15,9 +15,9 @@ use serde_json::{Map, Value};
 use crate::fork_data::{plus_ops, AuthProbe, DirectEntry, McpmSource, RegistryPlus, SelfMcpRecord};
 use crate::{
     AccessSetInfo, AuthAccess, AuthChild, CallsInFlight, CatalogAccess, CatalogEntryRecord,
-    EnvEntry, GatewayRouter, HostEnv, HttpAccess, HttpError, HttpRequest, HttpResponse,
-    LaunchError, LaunchFault, RegistryAccess, RegistryTx, RegistryView, RestartOutcome,
-    SecretsHost, ServerRecord, ServerRules, ServerSpec, TrustInputs, VaultAccess,
+    ContextHost, EnvEntry, FolderRoute, GatewayRouter, HostEnv, HttpAccess, HttpError, HttpRequest,
+    HttpResponse, LaunchError, LaunchFault, RegistryAccess, RegistryTx, RegistryView,
+    RestartOutcome, SecretsHost, ServerRecord, ServerRules, ServerSpec, TrustInputs, VaultAccess,
 };
 
 #[derive(Debug, Default)]
@@ -31,6 +31,7 @@ pub struct MemoryRegistry {
     pub access_sets: RefCell<Vec<AccessSetInfo>>,
     pub default_access: RefCell<Option<String>>,
     pub client_access_sets: RefCell<Vec<String>>,
+    pub folder_routes: RefCell<Vec<FolderRoute>>,
 }
 
 /// One registry state a transaction edits: the same rules as the conduit adapter.
@@ -40,6 +41,7 @@ pub struct MemoryState {
     pub access_sets: Vec<AccessSetInfo>,
     pub default_access: Option<String>,
     pub client_access_sets: Vec<String>,
+    pub folder_routes: Vec<FolderRoute>,
     pub unknown_fields: Map<String, Value>,
 }
 
@@ -73,6 +75,10 @@ impl RegistryView for MemoryState {
         self.client_access_sets.clone()
     }
 
+    fn folder_routes(&self) -> Vec<FolderRoute> {
+        self.folder_routes.clone()
+    }
+
     fn selfmcp_record(&self) -> Result<Option<SelfMcpRecord>, String> {
         Ok(RegistryPlus::extract(&self.unknown_fields)?.selfmcp)
     }
@@ -102,6 +108,27 @@ impl MemoryState {
 }
 
 impl RegistryTx for MemoryState {
+    fn set_folder_route(&mut self, path: &str, access_set: Option<&str>) -> Result<(), String> {
+        let path = path.trim();
+        if path.is_empty() {
+            return Err("choose a project folder".into());
+        }
+        self.folder_routes.retain(|route| route.path.trim() != path);
+        if let Some(reference) = access_set {
+            let id = self
+                .access_sets
+                .iter()
+                .find(|set| set.id == reference || set.name == reference)
+                .map(|set| set.id.clone())
+                .ok_or_else(|| "the selected profile no longer exists".to_string())?;
+            self.folder_routes.push(FolderRoute {
+                path: path.to_string(),
+                access_set_id: id,
+            });
+        }
+        Ok(())
+    }
+
     fn add_stdio_server(
         &mut self,
         name: &str,
@@ -347,6 +374,7 @@ impl MemoryRegistry {
             access_sets: self.access_sets.borrow().clone(),
             default_access: self.default_access.borrow().clone(),
             client_access_sets: self.client_access_sets.borrow().clone(),
+            folder_routes: self.folder_routes.borrow().clone(),
             unknown_fields: self.unknown_fields.borrow().clone(),
         }
     }
@@ -401,6 +429,7 @@ impl RegistryAccess for MemoryRegistry {
         edit(&mut state)?;
         *self.servers.borrow_mut() = state.servers;
         *self.access_sets.borrow_mut() = state.access_sets;
+        *self.folder_routes.borrow_mut() = state.folder_routes;
         *self.unknown_fields.borrow_mut() = state.unknown_fields;
         Ok(())
     }
@@ -700,6 +729,8 @@ pub struct MemoryHost {
     pub secrets: MemorySecrets,
     pub seam: bool,
     pub data_dir_used: RefCell<Option<PathBuf>>,
+    /// The home directory `ContextHost` reports.
+    pub home: Option<PathBuf>,
     /// What `CatalogAccess::curated` searches.
     pub catalog: Vec<CatalogEntryRecord>,
     pub http: ScriptedHttp,
@@ -1085,6 +1116,15 @@ impl GatewayRouter for MemoryGateway {
     fn mark_lists_stale(&self) {
         self.stale_marks
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+impl ContextHost for MemoryHost {
+    fn home_dir(&self) -> Option<PathBuf> {
+        self.home.clone()
+    }
+    fn count_tokens(&self, text: &str) -> u64 {
+        (text.len() as u64).div_ceil(4)
     }
 }
 

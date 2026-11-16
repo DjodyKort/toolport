@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use serde_json::{Map, Value};
 
 pub mod auth;
+pub mod context;
 pub mod fork_data;
 pub mod http;
 pub mod memory;
@@ -17,6 +18,7 @@ pub mod servers;
 pub mod view;
 
 pub use auth::{AuthAccess, AuthChild, LaunchError, LaunchFault};
+pub use context::ContextHost;
 pub use fork_data::{
     plus_ops, AuthProbe, DirectEntry, ForkServerFields, McpmSource, RegistryPlus, SelfMcpRecord,
     ServerPlus,
@@ -31,7 +33,7 @@ pub use servers::{
     CallsInFlight, CatalogAccess, CatalogEntryRecord, EnvEntry, GatewayRouter, RestartOutcome,
     ServerRules, ServerSpec,
 };
-pub use view::{AccessSetInfo, RegistryTx, RegistryView};
+pub use view::{AccessSetInfo, FolderRoute, RegistryTx, RegistryView};
 
 /// Written into every binary that forwards upstream code to the fork logic, so
 /// `toolportctl doctor` can tell a gateway built with the fork seam from one built without.
@@ -171,6 +173,7 @@ pub trait Host:
     + CatalogAccess
     + HttpAccess
     + AuthAccess
+    + ContextHost
 {
 }
 
@@ -182,7 +185,8 @@ impl<
             + ServerRules
             + CatalogAccess
             + HttpAccess
-            + AuthAccess,
+            + AuthAccess
+            + ContextHost,
     > Host for T
 {
 }
