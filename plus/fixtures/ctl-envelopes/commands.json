@@ -268,9 +268,7 @@
           "kind": "command",
           "maxOperands": null,
           "needs": [],
-          "oneOf": [
-            ["--command", "--url"]
-          ],
+          "oneOf": [["--command", "--url"]],
           "operandEscalates": false,
           "operands": [
             {
