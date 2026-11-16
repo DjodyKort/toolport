@@ -42,4 +42,7 @@ pub trait SecretsHost {
     fn rewrite_master_key_acl(&self) -> Result<bool, String>;
 
     fn trust_inputs(&self) -> Result<TrustInputs, String>;
+
+    /// Removes one entry of a server from the vault. A missing entry is not an error.
+    fn delete_server_secret(&self, server_id: &str, key: &str) -> Result<(), String>;
 }

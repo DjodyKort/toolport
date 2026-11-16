@@ -12922,6 +12922,7 @@ fn watch_tick(
 ) -> TickOutcome {
     host.reap_root_launches();
     drive_reconnects(host, stdio, profile);
+    conduit_lib::seam::gateway_tick(&host.router, &host.downstream_dirty);
     // Everything host-scoped in this tick comes off the host, so a caller cannot pair
     // one host with another host's router, cache, session table, or rebuild lock.
     let registry = &host.registry;

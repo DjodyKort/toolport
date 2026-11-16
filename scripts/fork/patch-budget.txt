@@ -8,11 +8,25 @@
 # check-locales.mjs, 2 changed lines: `plus` joins the directories the scan skips; the fork's own screens
 # are English only (D-135) and its shell labels are wrapped through msg() in src/lib/settingsPages.ts.
 2	scripts/check-locales.mjs
+# bin/toolport-gateway.rs, 1 line: watch_tick calls seam::gateway_tick(&host.router, &host.downstream_dirty)
+# once per tick, so the gateway process that owns the router answers server restart and in-flight
+# requests (the restart listener; its logic is toolport_plus::servers::restart behind the seam).
+1	src-tauri/src/bin/toolport-gateway.rs
 # desktop.rs, 4 changed lines: the invoke handler is wrapped in seam::ipc, which answers the
 # plus_ctl commands (D-060) and hands every other command on.
 4	src-tauri/src/desktop.rs
 2	src-tauri/src/http_client.rs
+# lib.rs, 3 lines: the two fork modules, and seam is pub (was pub(crate)) so the gateway binary can call
+# seam::gateway_tick.
 3	src-tauri/src/lib.rs
+# registry_controller.rs, 2 lines: `catalog_server` becomes pub(crate), so the adapter adds a catalog entry
+# inside the fork's registry transaction (name check and add under one lock) instead of copying its body.
+2	src-tauri/src/registry_controller.rs
+# router.rs, 4 lines: `#[cfg(feature = "plus")] #[path = "plus_router.rs"] mod plus_ext;` declares a child
+# module that reaches the private slots: holds_server, calls in flight (the one confirmation before a
+# restart) and the restart itself (a fresh connection swapped in under the lifecycle lock). Upstream
+# has no restart verb and no accessor for calls in flight.
+4	src-tauri/src/router.rs
 # secrets.rs, 20 changed lines for the login-keychain mode and the vault backup, all forwarding to seam.rs:
 #   2: `mod platform` becomes pub(crate), so the adapter reaches read/ensure_master_key
 #   2: `add_with_shared_access` becomes pub(crate), so the adapter can rewrite the ACL

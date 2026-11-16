@@ -1024,7 +1024,7 @@ pub fn add_snippet_servers_inputs(
     add_snippet_imports(imports, inputs)
 }
 
-fn catalog_server(entry: crate::catalog::CatalogEntry) -> ServerEntry {
+pub(crate) fn catalog_server(entry: crate::catalog::CatalogEntry) -> ServerEntry {
     ServerEntry {
         enabled: false,
         inherit_env: false,

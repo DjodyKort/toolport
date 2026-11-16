@@ -58,7 +58,7 @@ pub mod router;
 pub mod savings;
 pub(crate) mod schema_compat;
 pub mod scrub_io;
-pub(crate) mod seam;
+pub mod seam;
 pub mod searchtrace;
 pub mod secret_normalize;
 pub mod secret_redact;

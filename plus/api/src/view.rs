@@ -9,7 +9,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::fork_data::SelfMcpRecord;
-use crate::ServerRecord;
+use crate::{CatalogEntryRecord, EnvEntry, ServerRecord, ServerSpec};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccessSetInfo {
@@ -68,4 +68,29 @@ pub trait RegistryTx: RegistryView {
     ) -> Result<(), String>;
 
     fn set_selfmcp_record(&mut self, record: Option<SelfMcpRecord>) -> Result<(), String>;
+
+    /// Adds a server through upstream's own add and returns its id. Upstream switches the new
+    /// server on and lists it in the default access set when it needs no credential.
+    fn add_server(&mut self, spec: &ServerSpec) -> Result<String, String>;
+
+    /// Adds a curated catalog entry as upstream's catalog add does: switched on only when the
+    /// entry needs no credential.
+    fn add_catalog_server(&mut self, entry: &CatalogEntryRecord) -> Result<String, String>;
+
+    /// Edits a server through upstream's own edit, which also drops a launch
+    /// recipe that no longer matches the command.
+    fn update_server(&mut self, server_id: &str, spec: &ServerSpec) -> Result<(), String>;
+
+    /// Replaces the environment entries of a server.
+    fn set_server_env(&mut self, server_id: &str, env: Vec<EnvEntry>) -> Result<(), String>;
+
+    /// Off removes the key.
+    fn set_forward_instructions(&mut self, server_id: &str, enabled: bool) -> Result<(), String>;
+
+    /// Off removes the key.
+    fn set_declare_client_capabilities(
+        &mut self,
+        server_id: &str,
+        enabled: bool,
+    ) -> Result<(), String>;
 }

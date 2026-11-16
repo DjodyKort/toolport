@@ -11,5 +11,6 @@ pub mod login_keychain;
 pub mod op;
 mod redact;
 pub mod selfmcp;
+pub mod servers;
 pub mod status;
 pub mod vault_backup;

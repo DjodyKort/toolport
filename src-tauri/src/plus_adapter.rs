@@ -4,9 +4,10 @@ use std::path::PathBuf;
 
 use serde_json::{Map, Value};
 use toolport_plus_api::{
-    convert, plus_ops, AccessSetInfo, AuthProbe, DirectEntry, ForkServerFields, HostEnv,
-    HttpAccess, HttpBody, HttpError, HttpRequest, HttpResponse, McpmSource, RegistryAccess,
-    RegistryPlus, RegistryTx, RegistryView, SecretsHost, SelfMcpRecord, ServerRecord, TrustInputs,
+    convert, plus_ops, AccessSetInfo, AuthProbe, CatalogAccess, CatalogEntryRecord, DirectEntry,
+    EnvEntry, ForkServerFields, GatewayRouter, HostEnv, HttpAccess, HttpBody, HttpError,
+    HttpRequest, HttpResponse, McpmSource, RegistryAccess, RegistryPlus, RegistryTx, RegistryView,
+    RestartOutcome, SecretsHost, SelfMcpRecord, ServerRecord, ServerRules, ServerSpec, TrustInputs,
 };
 
 pub struct HostAdapter;
@@ -145,6 +146,33 @@ impl TxView<'_> {
             .find(|server| server.id == server_id)
             .ok_or_else(|| format!("unknown server {server_id}"))
     }
+
+    fn fork_fields(
+        &mut self,
+        server_id: &str,
+        edit: impl FnOnce(&mut ForkServerFields),
+    ) -> Result<(), String> {
+        let entry = self.entry(server_id)?;
+        let mut fields = ForkServerFields::extract(&entry.unknown_fields)
+            .map_err(|error| format!("server {server_id}: {error}"))?;
+        edit(&mut fields);
+        fields.store(&mut entry.unknown_fields)
+    }
+}
+
+fn server_fields(spec: &ServerSpec) -> crate::registry_controller::ServerFields {
+    crate::registry_controller::ServerFields {
+        sync_local_only: false,
+        initialize_timeout_ms: None,
+        name: spec.name.clone(),
+        transport: spec.transport.clone(),
+        command: spec.command.clone(),
+        args: spec.args.clone(),
+        url: spec.url.clone(),
+        cwd: spec.cwd.clone(),
+        inherit_env: spec.inherit_env,
+        hide_prompts: None,
+    }
 }
 
 registry_view!(ReadOnlyView, registry);
@@ -196,6 +224,53 @@ impl RegistryTx for TxView<'_> {
 
     fn set_selfmcp_record(&mut self, record: Option<SelfMcpRecord>) -> Result<(), String> {
         plus_ops::set_selfmcp(&mut self.0.unknown_fields, record.as_ref())
+    }
+
+    fn add_server(&mut self, spec: &ServerSpec) -> Result<String, String> {
+        crate::registry_controller::apply_add_server(self.0, server_fields(spec))
+    }
+
+    fn add_catalog_server(&mut self, entry: &CatalogEntryRecord) -> Result<String, String> {
+        let entry: crate::catalog::CatalogEntry = convert(entry)?;
+        if entry.url.is_none() && entry.command.is_none() {
+            return Err(format!(
+                "{} needs its own endpoint URL. Open it from the catalog to enter one.",
+                entry.name
+            ));
+        }
+        Ok(crate::registry_controller::apply_add_entry(
+            self.0,
+            crate::registry_controller::catalog_server(entry),
+        ))
+    }
+
+    fn update_server(&mut self, server_id: &str, spec: &ServerSpec) -> Result<(), String> {
+        crate::registry_controller::apply_update_server_fields(
+            self.0,
+            server_id,
+            server_fields(spec),
+        )
+    }
+
+    fn set_server_env(&mut self, server_id: &str, env: Vec<EnvEntry>) -> Result<(), String> {
+        self.entry(server_id)?.env = convert(&env)?;
+        Ok(())
+    }
+
+    fn set_forward_instructions(&mut self, server_id: &str, enabled: bool) -> Result<(), String> {
+        self.fork_fields(server_id, |fields| {
+            fields.forward_instructions = enabled.then_some(true)
+        })
+    }
+
+    fn set_declare_client_capabilities(
+        &mut self,
+        server_id: &str,
+        enabled: bool,
+    ) -> Result<(), String> {
+        self.fork_fields(server_id, |fields| {
+            fields.declare_client_capabilities = enabled.then_some(true)
+        })
     }
 }
 
@@ -478,6 +553,59 @@ impl SecretsHost for HostAdapter {
                 })
                 .collect(),
         })
+    }
+
+    fn delete_server_secret(&self, server_id: &str, key: &str) -> Result<(), String> {
+        crate::secrets::delete_secret(server_id, key)
+    }
+}
+
+impl ServerRules for HostAdapter {
+    fn credential_text(&self, text: &str) -> bool {
+        crate::registry::arg_looks_secret(text) || crate::registry::redact_secret_text(text) != text
+    }
+
+    fn spawn_env_refused(&self, key: &str, value: &str) -> bool {
+        crate::downstream::screen_spawn_env(&[(key.to_string(), value.to_string())]).is_err()
+    }
+}
+
+impl CatalogAccess for HostAdapter {
+    fn curated(&self, query: &str) -> Vec<CatalogEntryRecord> {
+        crate::catalog::search_curated(query)
+            .iter()
+            .filter_map(|entry| convert(entry).ok())
+            .collect()
+    }
+}
+
+/// The router one gateway process owns, as the restart listener sees it.
+pub(crate) struct RouterHandle {
+    pub(crate) router: std::sync::Arc<crate::router::Router>,
+    pub(crate) dirty: std::sync::Arc<std::sync::atomic::AtomicU8>,
+}
+
+impl GatewayRouter for RouterHandle {
+    fn holds_server(&self, server_id: &str) -> bool {
+        self.router.plus_holds_server(server_id)
+    }
+
+    fn calls_in_flight(&self, server_id: &str) -> Option<usize> {
+        self.router.plus_calls_in_flight(server_id)
+    }
+
+    fn restart_server(&self, server_id: &str) -> Option<RestartOutcome> {
+        self.router
+            .plus_restart_server(server_id)
+            .map(|(restarted, detail)| RestartOutcome { restarted, detail })
+    }
+
+    fn mark_lists_stale(&self) {
+        use crate::downstream::change;
+        self.dirty.fetch_or(
+            change::TOOLS | change::RESOURCES | change::PROMPTS,
+            std::sync::atomic::Ordering::SeqCst,
+        );
     }
 }
 
@@ -1310,6 +1438,140 @@ mod tests {
     #[test]
     fn the_seam_is_live_in_a_plus_build() {
         assert!(HostAdapter.seam_live());
+    }
+
+    #[test]
+    fn server_operations_run_upstreams_own_add_edit_and_remove() {
+        let scratch = Scratch::new("server-ops");
+        scratch.write_registry(
+            &json!({"version": 3, "servers": [], "profiles": [
+            {"id": "focus", "name": "Focus", "enabledServerIds": []}]})
+            .to_string(),
+        );
+        let spec = ServerSpec {
+            name: " Gamma ".into(),
+            transport: "stdio".into(),
+            command: Some("gamma-mcp".into()),
+            args: vec!["--x".into()],
+            inherit_env: Some(true),
+            ..Default::default()
+        };
+        let mut added = String::new();
+        HostAdapter
+            .transact(&mut |tx| {
+                added = tx.add_server(&spec)?;
+                tx.set_server_env(
+                    &added,
+                    vec![EnvEntry {
+                        key: "MODE".into(),
+                        value: Some("fast".into()),
+                        ..Default::default()
+                    }],
+                )?;
+                tx.set_forward_instructions(&added, true)?;
+                tx.set_access_server("focus", &added, true)
+            })
+            .unwrap();
+        let stored = scratch.raw_registry();
+        let server = &stored["servers"][0];
+        assert_eq!(server["name"], "Gamma", "upstream's add trims the name");
+        assert_eq!(
+            server["enabled"], true,
+            "upstream's add switches a server on when it needs no credential"
+        );
+        assert_eq!(server["inheritEnv"], true);
+        assert_eq!(
+            server["env"][0],
+            json!({"key": "MODE", "value": "fast", "secret": false})
+        );
+        assert_eq!(server["forwardInstructions"], true);
+        assert_eq!(stored["profiles"][0]["enabledServerIds"], json!([added]));
+
+        let edit = ServerSpec {
+            args: vec!["--y".into()],
+            inherit_env: None,
+            ..spec.clone()
+        };
+        HostAdapter
+            .transact(&mut |tx| {
+                tx.update_server(&added, &edit)?;
+                tx.set_forward_instructions(&added, false)
+            })
+            .unwrap();
+        let stored = scratch.raw_registry();
+        assert_eq!(stored["servers"][0]["args"], json!(["--y"]));
+        assert_eq!(
+            stored["servers"][0]["inheritEnv"], true,
+            "None keeps the saved choice"
+        );
+        assert!(stored["servers"][0].get("forwardInstructions").is_none());
+
+        let rejected = HostAdapter
+            .transact(&mut |tx| {
+                tx.update_server(
+                    &added,
+                    &ServerSpec {
+                        command: None,
+                        ..edit.clone()
+                    },
+                )
+            })
+            .unwrap_err();
+        assert_eq!(rejected, "enter the command to run");
+        HostAdapter
+            .transact(&mut |tx| tx.remove_server(&added))
+            .unwrap();
+        let stored = scratch.raw_registry();
+        assert_eq!(stored["servers"], json!([]));
+        assert_eq!(stored["profiles"][0]["enabledServerIds"], json!([]));
+    }
+
+    #[test]
+    fn a_curated_catalog_entry_is_added_the_way_upstreams_catalog_add_does_it() {
+        let scratch = Scratch::new("catalog-add");
+        scratch.write_registry(&json!({"version": 3, "servers": [], "profiles": []}).to_string());
+        let entry = HostAdapter
+            .curated("")
+            .into_iter()
+            .find(|entry| !entry.env_keys.is_empty() && entry.text("command").is_some())
+            .expect("the curated catalog has a local entry that needs a key");
+        let upstream: crate::catalog::CatalogEntry = convert(&entry).unwrap();
+        assert_eq!(convert::<_, CatalogEntryRecord>(&upstream).unwrap(), entry);
+        let mut id = String::new();
+        HostAdapter
+            .transact(&mut |tx| {
+                id = tx.add_catalog_server(&entry)?;
+                Ok(())
+            })
+            .unwrap();
+        let loaded = registry::load_resolved().unwrap();
+        let server = loaded.servers.iter().find(|s| s.id == id).unwrap();
+        assert_eq!(server.name, entry.name);
+        assert!(!server.enabled);
+        assert_eq!(
+            server.source.as_deref(),
+            Some(format!("catalog:{}", entry.source).as_str())
+        );
+        assert!(server.env.iter().all(|e| e.secret && e.value.is_none()));
+        let hosted = CatalogEntryRecord {
+            extra: Default::default(),
+            ..entry
+        };
+        assert!(HostAdapter
+            .transact(&mut |tx| tx.add_catalog_server(&hosted).map(drop))
+            .is_err());
+    }
+
+    #[test]
+    fn the_credential_and_launch_rules_are_upstreams_own() {
+        let rules = HostAdapter;
+        assert!(rules.credential_text("sk-abcdefghijklmnop"));
+        assert!(rules.credential_text("password=hunter2"));
+        assert!(!rules.credential_text("/opt/jdk"));
+        assert!(!rules.credential_text("sk-x"));
+        assert!(rules.spawn_env_refused("LD_PRELOAD", "/tmp/x.so"));
+        assert!(rules.spawn_env_refused("NODE_OPTIONS", "--require ./x.js"));
+        assert!(!rules.spawn_env_refused("JAVA_TOOL_OPTIONS", "-Xmx512m"));
     }
 
     /// docs/migration.md says a global off "removes it from every access set"; the code only

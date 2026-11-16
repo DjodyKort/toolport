@@ -35,6 +35,33 @@ pub(crate) fn egress_check(uri: &ureq::http::Uri) -> Result<(), ureq::Error> {
     Ok(())
 }
 
+/// One watcher tick of a gateway process, which owns the router: answers the server restart and
+/// in-flight requests other processes left in the data dir. Cheap when there are none.
+pub fn gateway_tick(
+    router: &std::sync::Mutex<std::sync::Arc<crate::router::Router>>,
+    dirty: &std::sync::Arc<std::sync::atomic::AtomicU8>,
+) {
+    #[cfg(feature = "plus")]
+    if let Some(dir) = crate::registry::conduit_dir() {
+        let live = std::sync::Arc::clone(
+            &router
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        );
+        let gateway = crate::plus_adapter::RouterHandle {
+            router: live,
+            dirty: std::sync::Arc::clone(dirty),
+        };
+        // The restarts run on their own threads; this tick never waits for one.
+        drop(toolport_plus::servers::restart::serve(
+            &dir,
+            std::sync::Arc::new(gateway),
+        ));
+    }
+    #[cfg(not(feature = "plus"))]
+    let _ = (router, dirty);
+}
+
 /// The secrets host the hooks below use. Unit tests never reach the real keychain
 /// code: they get an inert host unless a test installs its own with `secrets_host_override`.
 #[cfg(all(feature = "plus", not(test)))]

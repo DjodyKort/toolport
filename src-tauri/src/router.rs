@@ -4987,6 +4987,10 @@ impl Router {
     }
 }
 
+#[cfg(feature = "plus")]
+#[path = "plus_router.rs"]
+mod plus_ext;
+
 #[cfg(test)]
 mod tests {
     use super::*;

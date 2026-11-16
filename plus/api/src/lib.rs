@@ -12,6 +12,7 @@ pub mod http;
 pub mod memory;
 pub mod mirror;
 pub mod secrets;
+pub mod servers;
 pub mod view;
 
 pub use fork_data::{
@@ -19,9 +20,15 @@ pub use fork_data::{
     ServerPlus,
 };
 pub use http::{HttpAccess, HttpBody, HttpError, HttpMethod, HttpRequest, HttpResponse};
-pub use memory::{MemoryHost, MemoryRegistry, MemorySecrets, MemoryState, ScriptedHttp};
+pub use memory::{
+    MemoryGateway, MemoryHost, MemoryRegistry, MemorySecrets, MemoryState, ScriptedHttp,
+};
 pub use mirror::{convert, ServerRecord};
 pub use secrets::{SecretsHost, TrustInputs};
+pub use servers::{
+    CatalogAccess, CatalogEntryRecord, EnvEntry, GatewayRouter, RestartOutcome, ServerRules,
+    ServerSpec,
+};
 pub use view::{AccessSetInfo, RegistryTx, RegistryView};
 
 /// Written into every binary that forwards upstream code to the fork logic, so
@@ -143,6 +150,6 @@ pub trait HostEnv {
 }
 
 /// Everything a command or tool runs against.
-pub trait Host: RegistryAccess + SecretsHost + HostEnv {}
+pub trait Host: RegistryAccess + SecretsHost + HostEnv + ServerRules + CatalogAccess {}
 
-impl<T: RegistryAccess + SecretsHost + HostEnv> Host for T {}
+impl<T: RegistryAccess + SecretsHost + HostEnv + ServerRules + CatalogAccess> Host for T {}

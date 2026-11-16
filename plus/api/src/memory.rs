@@ -10,8 +10,9 @@ use serde_json::{Map, Value};
 
 use crate::fork_data::{plus_ops, AuthProbe, DirectEntry, McpmSource, RegistryPlus, SelfMcpRecord};
 use crate::{
-    AccessSetInfo, HostEnv, HttpAccess, HttpError, HttpRequest, HttpResponse, RegistryAccess,
-    RegistryTx, RegistryView, SecretsHost, ServerRecord, TrustInputs,
+    AccessSetInfo, CatalogAccess, CatalogEntryRecord, EnvEntry, GatewayRouter, HostEnv, HttpAccess,
+    HttpError, HttpRequest, HttpResponse, RegistryAccess, RegistryTx, RegistryView, RestartOutcome,
+    SecretsHost, ServerRecord, ServerRules, ServerSpec, TrustInputs,
 };
 
 #[derive(Debug, Default)]
@@ -73,6 +74,20 @@ impl RegistryView for MemoryState {
 }
 
 impl MemoryState {
+    /// Upstream's add switches a ready server on and lists it in the default access set (the
+    /// first set when none is explicit).
+    fn switch_on_like_upstream(&mut self, server_id: &str) -> Result<(), String> {
+        self.server_mut(server_id)?.enabled = true;
+        let set = self
+            .default_access
+            .clone()
+            .or_else(|| self.access_sets.first().map(|set| set.id.clone()));
+        if let Some(set) = set {
+            self.set_access_server(&set, server_id, true)?;
+        }
+        Ok(())
+    }
+
     fn server_mut(&mut self, server_id: &str) -> Result<&mut ServerRecord, String> {
         self.servers
             .iter_mut()
@@ -159,6 +174,157 @@ impl RegistryTx for MemoryState {
     fn set_selfmcp_record(&mut self, record: Option<SelfMcpRecord>) -> Result<(), String> {
         plus_ops::set_selfmcp(&mut self.unknown_fields, record.as_ref())
     }
+
+    fn add_server(&mut self, spec: &ServerSpec) -> Result<String, String> {
+        let spec = normalized(spec)?;
+        let id = self.add_stdio_server(&spec.name, "placeholder", "manual")?;
+        self.update_server(&id, &spec)?;
+        self.switch_on_like_upstream(&id)?;
+        Ok(id)
+    }
+
+    fn add_catalog_server(&mut self, entry: &CatalogEntryRecord) -> Result<String, String> {
+        let command = entry.text("command").map(String::from);
+        let url = entry.text("url").map(String::from);
+        if command.is_none() && url.is_none() {
+            return Err(format!(
+                "{} needs its own endpoint URL. Open it from the catalog to enter one.",
+                entry.name
+            ));
+        }
+        let id = self.add_stdio_server(
+            &entry.name,
+            "placeholder",
+            &format!("catalog:{}", entry.source),
+        )?;
+        let server = self.server_mut(&id)?;
+        server
+            .extra
+            .insert("transport".into(), Value::String(entry.transport.clone()));
+        match &command {
+            Some(command) => server
+                .extra
+                .insert("command".into(), Value::String(command.clone())),
+            None => server.extra.remove("command"),
+        };
+        match &url {
+            Some(url) => server
+                .extra
+                .insert("url".into(), Value::String(url.clone())),
+            None => server.extra.remove("url"),
+        };
+        let env: Vec<EnvEntry> = entry
+            .env_keys
+            .iter()
+            .map(|key| EnvEntry {
+                key: key.clone(),
+                value: None,
+                secret: true,
+                extra: Map::new(),
+            })
+            .collect();
+        let needs_credential = !env.is_empty();
+        self.set_server_env(&id, env)?;
+        if !needs_credential {
+            self.switch_on_like_upstream(&id)?;
+        }
+        Ok(id)
+    }
+
+    fn update_server(&mut self, server_id: &str, spec: &ServerSpec) -> Result<(), String> {
+        let spec = normalized(spec)?;
+        let server = self.server_mut(server_id)?;
+        server.name = spec.name.clone();
+        let set = |server: &mut ServerRecord, key: &str, value: &Option<String>| match value {
+            Some(value) => {
+                server
+                    .extra
+                    .insert(key.into(), Value::String(value.clone()));
+            }
+            None => {
+                server.extra.remove(key);
+            }
+        };
+        server
+            .extra
+            .insert("transport".into(), Value::String(spec.transport.clone()));
+        set(server, "command", &spec.command);
+        set(server, "url", &spec.url);
+        set(server, "cwd", &spec.cwd);
+        server.extra.insert(
+            "args".into(),
+            Value::Array(spec.args.iter().cloned().map(Value::String).collect()),
+        );
+        if let Some(inherit) = spec.inherit_env {
+            server
+                .extra
+                .insert("inheritEnv".into(), Value::Bool(inherit));
+        }
+        Ok(())
+    }
+
+    fn set_server_env(&mut self, server_id: &str, env: Vec<EnvEntry>) -> Result<(), String> {
+        let value = serde_json::to_value(env).map_err(|error| error.to_string())?;
+        self.server_mut(server_id)?
+            .extra
+            .insert("env".into(), value);
+        Ok(())
+    }
+
+    fn set_forward_instructions(&mut self, server_id: &str, enabled: bool) -> Result<(), String> {
+        self.server_mut(server_id)?.fork.forward_instructions = enabled.then_some(true);
+        Ok(())
+    }
+
+    fn set_declare_client_capabilities(
+        &mut self,
+        server_id: &str,
+        enabled: bool,
+    ) -> Result<(), String> {
+        self.server_mut(server_id)?.fork.declare_client_capabilities = enabled.then_some(true);
+        Ok(())
+    }
+}
+
+/// The rules upstream's editor applies before it stores a server.
+fn normalized(spec: &ServerSpec) -> Result<ServerSpec, String> {
+    let mut spec = spec.clone();
+    spec.name = spec.name.trim().to_string();
+    if spec.name.is_empty() {
+        return Err("give the server a name".into());
+    }
+    let nonempty = |value: Option<String>| {
+        value
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+    };
+    match spec.transport.as_str() {
+        "stdio" => {
+            spec.command = nonempty(spec.command);
+            if spec.command.is_none() {
+                return Err("enter the command to run".into());
+            }
+            spec.url = None;
+            spec.cwd = nonempty(spec.cwd);
+        }
+        "http" | "sse" => {
+            spec.url = nonempty(spec.url);
+            let valid = spec
+                .url
+                .as_deref()
+                .map(str::to_ascii_lowercase)
+                .is_some_and(|url| url.starts_with("http://") || url.starts_with("https://"));
+            if !valid {
+                return Err("enter an http:// or https:// server URL".into());
+            }
+            spec.command = None;
+            spec.args.clear();
+            spec.cwd = None;
+            spec.inherit_env = spec.inherit_env.map(|_| false);
+        }
+        _ => return Err("choose stdio, HTTP, or SSE transport".into()),
+    }
+    Ok(spec)
 }
 
 impl MemoryRegistry {
@@ -435,6 +601,8 @@ pub struct MemorySecrets {
     pub reads: Cell<usize>,
     pub ensures: Cell<usize>,
     pub acl_rewrites: Cell<usize>,
+    /// Every `(server, key)` removed with `delete_server_secret`.
+    pub deleted_secrets: RefCell<Vec<(String, String)>>,
 }
 
 impl MemorySecrets {
@@ -497,6 +665,13 @@ impl SecretsHost for MemorySecrets {
     fn trust_inputs(&self) -> Result<TrustInputs, String> {
         Ok(self.trust_inputs.borrow().clone())
     }
+
+    fn delete_server_secret(&self, server_id: &str, key: &str) -> Result<(), String> {
+        self.deleted_secrets
+            .borrow_mut()
+            .push((server_id.into(), key.into()));
+        Ok(())
+    }
 }
 
 /// A registry, a secrets host and a process in memory, for tests of commands and tools.
@@ -506,6 +681,8 @@ pub struct MemoryHost {
     pub secrets: MemorySecrets,
     pub seam: bool,
     pub data_dir_used: RefCell<Option<PathBuf>>,
+    /// What `CatalogAccess::curated` searches.
+    pub catalog: Vec<CatalogEntryRecord>,
 }
 
 impl RegistryAccess for MemoryHost {
@@ -634,6 +811,111 @@ impl SecretsHost for MemoryHost {
     }
     fn trust_inputs(&self) -> Result<TrustInputs, String> {
         self.secrets.trust_inputs()
+    }
+    fn delete_server_secret(&self, server_id: &str, key: &str) -> Result<(), String> {
+        self.secrets.delete_server_secret(server_id, key)
+    }
+}
+
+impl ServerRules for MemoryHost {
+    fn credential_text(&self, text: &str) -> bool {
+        let lower = text.to_ascii_lowercase();
+        let prefixed = [
+            "sk-",
+            "ghp_",
+            "gho_",
+            "github_pat_",
+            "xoxb-",
+            "xoxp-",
+            "xoxa-",
+            "akia",
+        ]
+        .iter()
+        .any(|prefix| lower.starts_with(prefix) && text.len() >= 12);
+        prefixed
+            || ["password=", "token=", "api-key=", "api_key="]
+                .iter()
+                .any(|needle| lower.contains(needle))
+    }
+
+    fn spawn_env_refused(&self, key: &str, value: &str) -> bool {
+        match key {
+            "LD_PRELOAD" | "DYLD_INSERT_LIBRARIES" | "BASH_ENV" => true,
+            "NODE_OPTIONS" => value.contains("--require"),
+            "JAVA_TOOL_OPTIONS" => value.contains("-javaagent"),
+            _ => false,
+        }
+    }
+}
+
+impl CatalogAccess for MemoryHost {
+    fn curated(&self, query: &str) -> Vec<CatalogEntryRecord> {
+        let query = query.trim().to_ascii_lowercase();
+        self.catalog
+            .iter()
+            .filter(|entry| query.is_empty() || entry.name.to_ascii_lowercase().contains(&query))
+            .cloned()
+            .collect()
+    }
+}
+
+/// A gateway router in memory: the servers it holds, with the calls in flight on each, and a
+/// log of what the listener did to it.
+#[derive(Debug, Default)]
+pub struct MemoryGateway {
+    pub held: std::sync::Mutex<BTreeMap<String, usize>>,
+    /// Servers whose restart fails, with the detail to report.
+    pub failing: std::sync::Mutex<BTreeMap<String, String>>,
+    pub restarted: std::sync::Mutex<Vec<String>>,
+    pub stale_marks: std::sync::atomic::AtomicUsize,
+}
+
+impl MemoryGateway {
+    pub fn holding(servers: &[(&str, usize)]) -> Self {
+        let gateway = Self::default();
+        *gateway.held.lock().unwrap() = servers
+            .iter()
+            .map(|(id, calls)| (id.to_string(), *calls))
+            .collect();
+        gateway
+    }
+
+    pub fn restarted(&self) -> Vec<String> {
+        self.restarted.lock().unwrap().clone()
+    }
+
+    pub fn stale_marks(&self) -> usize {
+        self.stale_marks.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
+impl GatewayRouter for MemoryGateway {
+    fn holds_server(&self, server_id: &str) -> bool {
+        self.held.lock().unwrap().contains_key(server_id)
+    }
+
+    fn calls_in_flight(&self, server_id: &str) -> Option<usize> {
+        self.held.lock().unwrap().get(server_id).copied()
+    }
+
+    fn restart_server(&self, server_id: &str) -> Option<RestartOutcome> {
+        self.held.lock().unwrap().get(server_id)?;
+        if let Some(detail) = self.failing.lock().unwrap().get(server_id) {
+            return Some(RestartOutcome {
+                restarted: false,
+                detail: detail.clone(),
+            });
+        }
+        self.restarted.lock().unwrap().push(server_id.into());
+        Some(RestartOutcome {
+            restarted: true,
+            detail: "restarted".into(),
+        })
+    }
+
+    fn mark_lists_stale(&self) {
+        self.stale_marks
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     }
 }
 
