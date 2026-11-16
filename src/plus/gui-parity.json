@@ -142,6 +142,21 @@
       "route": "servers",
       "status": "planned",
       "summary": "Remove a secret and its declaration after a confirmation, typed when the policy tier is destructive (secret rm)"
+    },
+    "servers.login": {
+      "route": "servers",
+      "status": "planned",
+      "summary": "Sign in to a server again from its Login row: a remote server through the Sign in button's flow, a stdio or Google server through its own auth command with the consent link shown (auth login, servers_auth)"
+    },
+    "servers.login-check": {
+      "route": "servers",
+      "status": "planned",
+      "summary": "Check now on the Login row of a stdio or Google server, with the state, its reason and when it was last checked; remote servers have no Login row (auth probe)"
+    },
+    "servers.login-summary": {
+      "route": "servers",
+      "status": "planned",
+      "summary": "The login summary line for a statusline or a session hook, counting stdio and Google logins only; no client is wired to it (auth statusline, auth hook)"
     }
   },
   "owners": {
@@ -150,7 +165,8 @@
     "commands": "MIG-2X-S1",
     "mcp": "MIG-2X-S1",
     "server": "MIG-2X-S2",
-    "secret": "MIG-2X-S3"
+    "secret": "MIG-2X-S3",
+    "auth": "MIG-2X-S3"
   },
   "commands": {
     "status": {
@@ -247,6 +263,26 @@
       "route": "servers",
       "action": "servers.secret-remove",
       "surface": "screen"
+    },
+    "auth statusline": {
+      "route": "servers",
+      "action": "servers.login-summary",
+      "surface": "screen"
+    },
+    "auth hook": {
+      "route": "servers",
+      "action": "servers.login-summary",
+      "surface": "screen"
+    },
+    "auth probe": {
+      "route": "servers",
+      "action": "servers.login-check",
+      "surface": "screen"
+    },
+    "auth login": {
+      "route": "servers",
+      "action": "servers.login",
+      "surface": "screen"
     }
   },
   "tools": {
@@ -313,6 +349,11 @@
     "servers_restart": {
       "route": "servers",
       "action": "servers.restart",
+      "surface": "screen"
+    },
+    "servers_auth": {
+      "route": "servers",
+      "action": "servers.login",
       "surface": "screen"
     }
   }
