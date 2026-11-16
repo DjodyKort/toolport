@@ -94,6 +94,21 @@ pub(super) fn get(host: &dyn Host, args: &Value) -> Outcome {
     servers::info_value(&server, &sets).map_err(registry_error)
 }
 
+pub(super) fn auth(host: &dyn Host, args: &Value) -> Outcome {
+    use crate::auth::LoginError;
+    use toolport_plus_api::LaunchFault;
+    crate::auth::start_sign_in(host, name_arg(args)?).map_err(|error| match error {
+        LoginError::NotFound(message) => ToolError::new("not_found", message),
+        LoginError::Unsupported { .. } => ToolError::new("refused", error.message()),
+        LoginError::Launch(launch) => match launch.fault {
+            LaunchFault::Unsupported => invalid(launch.message),
+            LaunchFault::Refused => ToolError::new("refused", launch.message),
+            LaunchFault::Spawn => ToolError::backend(launch.message),
+        },
+        LoginError::Failed(message) => ToolError::backend(message),
+    })
+}
+
 pub(super) fn list_profiles(host: &dyn Host, _: &Value) -> Outcome {
     let view = host.read_view().map_err(registry_error)?;
     let (sets, default_access) = match &view {

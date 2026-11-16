@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "alpha"
+  },
+  "isError": false,
+  "result": {
+    "authUrl": null,
+    "exited": true,
+    "hint": null,
+    "name": "alpha",
+    "started": true,
+    "stderrTail": [],
+    "timedOut": false
+  },
+  "tool": "servers_auth"
+}

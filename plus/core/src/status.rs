@@ -140,6 +140,7 @@ pub fn status(host: &dyn Host, snap: &Snapshot) -> Value {
         "accessSetCount": access_sets,
         "defaultAccess": default_access,
         "secretsBackend": secrets_backend(host),
+        "auth": crate::auth::status_section(host),
         "gateway": {
             "present": gateway.is_some(),
             "path": path_str(&gateway),
@@ -221,6 +222,40 @@ fn plus_built_check(host: &dyn Host, gateway: Option<&Path>) -> Check {
     }
 }
 
+/// Stdio and Google logins only: a remote server's sign-in state is upstream's, shown in its row.
+fn logins_check(host: &dyn Host) -> Check {
+    let section = crate::auth::status_section(host);
+    let count = |key: &str| section["counts"][key].as_u64().unwrap_or(0);
+    let needing: Vec<String> = section["servers"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|row| row["fix"].is_object())
+        .filter_map(|row| row["server"].as_str().map(String::from))
+        .collect();
+    let known = count("ok") + needing.len() as u64;
+    if !needing.is_empty() {
+        return check(
+            "logins",
+            Health::Warn,
+            format!(
+                "{} of {known} logins need attention: {}; run `toolportctl auth probe --force`",
+                needing.len(),
+                needing.join(", ")
+            ),
+        );
+    }
+    check(
+        "logins",
+        Health::Ok,
+        if known == 0 {
+            "no stdio or Google logins checked yet".to_string()
+        } else {
+            format!("{known} logins ok")
+        },
+    )
+}
+
 pub fn doctor(host: &dyn Host, snap: &Snapshot) -> Doctor {
     let mut checks = Vec::new();
 
@@ -273,6 +308,7 @@ pub fn doctor(host: &dyn Host, snap: &Snapshot) -> Doctor {
         None => check("gatewayBinary", Health::Warn, "toolport-gateway not found"),
     });
     checks.push(plus_built_check(host, gateway.as_deref()));
+    checks.push(logins_check(host));
 
     let healthy = !checks.iter().any(|c| c.status == Health::Fail);
     Doctor { healthy, checks }

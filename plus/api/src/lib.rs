@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 use serde_json::{Map, Value};
 
+pub mod auth;
 pub mod fork_data;
 pub mod http;
 pub mod memory;
@@ -15,6 +16,7 @@ pub mod secrets;
 pub mod servers;
 pub mod view;
 
+pub use auth::{AuthAccess, AuthChild, LaunchError, LaunchFault};
 pub use fork_data::{
     plus_ops, AuthProbe, DirectEntry, ForkServerFields, McpmSource, RegistryPlus, SelfMcpRecord,
     ServerPlus,
@@ -150,15 +152,37 @@ pub trait HostEnv {
 
     /// Whether upstream code in this process forwards to the fork logic.
     fn seam_live(&self) -> bool;
+
+    /// Seconds since the Unix epoch; a test host moves it by hand.
+    fn now_unix(&self) -> i64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |elapsed| elapsed.as_secs() as i64)
+    }
 }
 
 /// Everything a command or tool runs against.
 pub trait Host:
-    RegistryAccess + SecretsHost + VaultAccess + HostEnv + ServerRules + CatalogAccess
+    RegistryAccess
+    + SecretsHost
+    + VaultAccess
+    + HostEnv
+    + ServerRules
+    + CatalogAccess
+    + HttpAccess
+    + AuthAccess
 {
 }
 
-impl<T: RegistryAccess + SecretsHost + VaultAccess + HostEnv + ServerRules + CatalogAccess> Host
-    for T
+impl<
+        T: RegistryAccess
+            + SecretsHost
+            + VaultAccess
+            + HostEnv
+            + ServerRules
+            + CatalogAccess
+            + HttpAccess
+            + AuthAccess,
+    > Host for T
 {
 }

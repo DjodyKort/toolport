@@ -328,7 +328,7 @@ fn attempts() -> &'static Mutex<std::collections::HashMap<String, Arc<Attempt>>>
     ATTEMPTS.get_or_init(Mutex::default)
 }
 
-#[cfg(any(feature = "desktop", feature = "gtk-desktop", test))]
+#[cfg(any(feature = "desktop", feature = "gtk-desktop", feature = "plus", test))]
 pub(crate) fn start_attempt() -> String {
     let id = oauth_attempt_id();
     attempts()

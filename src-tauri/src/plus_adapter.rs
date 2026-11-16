@@ -897,6 +897,256 @@ fn map_error(error: ureq::Error) -> HttpError {
     }
 }
 
+fn read_registry_copy() -> Result<crate::registry::Registry, String> {
+    let Some(path) = crate::registry::resolved_path() else {
+        return Ok(crate::registry::Registry::default());
+    };
+    match std::fs::read_to_string(&path) {
+        Ok(text) => serde_json::from_str(&text)
+            .map_err(|error| format!("registry is not readable: {}: {error}", path.display())),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            Ok(crate::registry::Registry::default())
+        }
+        Err(error) => Err(format!("cannot read registry: {error}")),
+    }
+}
+
+/// The environment of an `auth` run: what upstream hands a server process, built from the same
+/// allowlist, with the server's own entries last.
+fn auth_environment(server: &crate::registry::ServerEntry) -> Vec<(String, String)> {
+    let own: Vec<(String, String)> = server
+        .env
+        .iter()
+        .filter_map(|var| {
+            let value = if var.secret {
+                crate::secrets::get_secret(&server.id, &var.key)
+            } else {
+                var.value.clone()
+            };
+            value.map(|value| (var.key.clone(), value))
+        })
+        .collect();
+    let mut env: Vec<(String, String)> = std::env::vars()
+        .filter(|(name, _)| {
+            if crate::downstream::is_control_env_name(name) {
+                return false;
+            }
+            server.inherit_env || crate::downstream::CHILD_ENV_ALLOWLIST.contains(&name.as_str())
+        })
+        .collect();
+    env.retain(|(name, _)| !own.iter().any(|(key, _)| key == name));
+    env.extend(own);
+    env
+}
+
+struct AuthProcess {
+    child: Option<std::process::Child>,
+    stderr: Option<std::process::ChildStderr>,
+    server: crate::registry::ServerEntry,
+    env: Vec<(String, String)>,
+    resolved: crate::launch_inputs::ResolvedArgs,
+}
+
+impl AuthProcess {
+    fn secret_values(&self) -> impl Iterator<Item = &str> {
+        self.server
+            .env
+            .iter()
+            .filter(|var| var.secret)
+            .filter_map(|var| {
+                self.env
+                    .iter()
+                    .find(|(key, _)| key == &var.key)
+                    .map(|(_, value)| value.as_str())
+            })
+            .filter(|value| !value.is_empty())
+    }
+}
+
+impl toolport_plus_api::AuthChild for AuthProcess {
+    fn take_stderr(&mut self) -> Option<Box<dyn std::io::Read + Send>> {
+        self.stderr
+            .take()
+            .map(|stderr| Box::new(stderr) as Box<dyn std::io::Read + Send>)
+    }
+
+    fn try_exit(&mut self) -> Option<i32> {
+        let status = self.child.as_mut()?.try_wait().ok().flatten()?;
+        Some(status.code().unwrap_or(-1))
+    }
+
+    fn kill(&mut self) {
+        let Some(mut child) = self.child.take() else {
+            return;
+        };
+        // The child leads its own process group, so this reaches `npx` to `node` chains. An
+        // unreaped child still owns its pid, which keeps the group id from being reused.
+        #[cfg(unix)]
+        if child.try_wait().ok().flatten().is_none() {
+            // SAFETY: signals the process group of a child this value spawned and has not reaped.
+            unsafe {
+                libc::kill(-(child.id() as libc::pid_t), libc::SIGKILL);
+            }
+        }
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+
+    fn detach(mut self: Box<Self>) {
+        if let Some(mut child) = self.child.take() {
+            std::thread::spawn(move || {
+                let _ = child.wait();
+            });
+        }
+    }
+
+    fn scrub(&self, line: String) -> String {
+        let line = self.resolved.redact(line);
+        self.secret_values()
+            .fold(line, |text, value| text.replace(value, "***"))
+    }
+
+    fn scrub_url(&self, url: String) -> Option<String> {
+        let client_id = url::Url::parse(&url).ok().and_then(|parsed| {
+            parsed
+                .query_pairs()
+                .find(|(key, _)| key == "client_id")
+                .map(|(_, value)| value.into_owned())
+        });
+        let url = self
+            .secret_values()
+            .filter(|value| client_id.as_deref() != Some(*value))
+            .fold(url, |text, value| text.replace(value, "***"));
+        let bound = self
+            .resolved
+            .args
+            .iter()
+            .zip(&self.server.args)
+            .filter(|(resolved, configured)| resolved != configured)
+            .map(|(resolved, _)| resolved.as_str());
+        let leaks = bound
+            .into_iter()
+            .any(|value| !value.is_empty() && url.contains(value));
+        (!leaks).then_some(url)
+    }
+
+    fn hides_output(&self) -> bool {
+        self.server.launch.is_some()
+    }
+}
+
+impl Drop for AuthProcess {
+    fn drop(&mut self) {
+        toolport_plus_api::AuthChild::kill(self);
+    }
+}
+
+fn launch_error(
+    fault: toolport_plus_api::LaunchFault,
+    message: impl Into<String>,
+) -> toolport_plus_api::LaunchError {
+    toolport_plus_api::LaunchError::new(fault, message)
+}
+
+impl toolport_plus_api::AuthAccess for HostAdapter {
+    fn start_auth(
+        &self,
+        server_id: &str,
+    ) -> Result<Box<dyn toolport_plus_api::AuthChild>, toolport_plus_api::LaunchError> {
+        use toolport_plus_api::LaunchFault::{Refused, Spawn, Unsupported};
+        let registry = read_registry_copy().map_err(|m| launch_error(Spawn, m))?;
+        let server = registry
+            .servers
+            .iter()
+            .find(|server| server.id == server_id)
+            .cloned()
+            .ok_or_else(|| launch_error(Unsupported, "unknown server"))?;
+        let command = match (&server.command, server.transport.as_str()) {
+            (Some(command), "stdio") => command.clone(),
+            _ => {
+                return Err(launch_error(
+                    Unsupported,
+                    "the auth flow only applies to stdio servers",
+                ))
+            }
+        };
+        let resolved = crate::launch_inputs::resolve_args(&server)
+            .map_err(|message| launch_error(Refused, message))?;
+        let env = auth_environment(&server);
+        let (command, mut args) = crate::downstream::normalize_invocation(&command, &resolved.args);
+        args.push("auth".to_string());
+        crate::downstream::screen_spawn_command(&command, &args)
+            .and_then(|()| crate::downstream::screen_spawn_env(&env))
+            .map_err(|message| launch_error(Refused, resolved.redact(message)))?;
+        let mut cmd = std::process::Command::new(crate::downstream::resolve_command(&command));
+        crate::hostenv::strip_bundled_env(&mut cmd);
+        cmd.env_clear().args(&args).envs(env.iter().cloned());
+        #[cfg(not(windows))]
+        if !server.inherit_env {
+            cmd.env("PATH", crate::downstream::augmented_path());
+        }
+        if let Some(dir) = server
+            .cwd
+            .as_deref()
+            .map(str::trim)
+            .filter(|d| !d.is_empty())
+        {
+            let dir = std::path::Path::new(dir);
+            if !dir.is_dir() {
+                return Err(launch_error(
+                    Refused,
+                    format!("working directory {} does not exist", dir.display()),
+                ));
+            }
+            cmd.current_dir(dir);
+        }
+        #[cfg(unix)]
+        std::os::unix::process::CommandExt::process_group(&mut cmd, 0);
+        cmd.stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped());
+        let mut child = cmd.spawn().map_err(|error| {
+            launch_error(Spawn, resolved.redact(format!("could not start: {error}")))
+        })?;
+        let stderr = child.stderr.take();
+        Ok(Box::new(AuthProcess {
+            child: Some(child),
+            stderr,
+            server,
+            env,
+            resolved,
+        }))
+    }
+
+    fn awaits_review(&self, server_id: &str) -> Result<bool, String> {
+        let registry = read_registry_copy()?;
+        Ok(registry
+            .servers
+            .iter()
+            .find(|server| server.id == server_id)
+            .is_some_and(|server| {
+                server.needs_team_enable_review()
+                    && !registry.is_enabled(&registry.active_profile_id(), server_id)
+            }))
+    }
+
+    fn sign_in_remote(&self, server_id: &str) -> Result<(), String> {
+        let registry = read_registry_copy()?;
+        let url = registry
+            .servers
+            .iter()
+            .find(|server| server.id == server_id)
+            .and_then(|server| server.url.clone())
+            .ok_or_else(|| "the server has no address to sign in to".to_string())?;
+        let attempt = crate::oauth_controller::start_attempt();
+        crate::oauth_controller::authenticate(server_id, &url, &attempt)
+    }
+
+    fn open_url(&self, url: &str) -> Result<(), String> {
+        crate::oauth::open_web_url(url)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1382,6 +1632,101 @@ mod tests {
                     None
                 );
             });
+        }
+    }
+
+    mod auth {
+        use super::*;
+        use toolport_plus::auth::{AuthState, Prober, Selector};
+        use toolport_plus_api::AuthAccess;
+
+        const LAUNCH_VALUE: &str = "FAKE-launch-value-5d2c";
+
+        /// A stdio server whose `auth` command prints its vault value and a consent link, then waits.
+        fn write_server(dir: &std::path::Path, script_body: &str, probe: bool) -> String {
+            let script = dir.join("fake-auth-mcp");
+            std::fs::write(&script, format!("#!/bin/sh\n{script_body}\n")).unwrap();
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+            }
+            let mut server = json!({
+                "id": "srv-auth", "name": "auth-mcp", "enabled": true, "transport": "stdio",
+                "command": script.to_string_lossy(), "args": [],
+                "env": [{"key": "LAUNCH_TOKEN", "secret": true}],
+            });
+            if probe {
+                server["plus"] = json!({"authProbe": {"kind": "stdio"}});
+            }
+            std::fs::write(
+                dir.join("registry.json"),
+                json!({"version": 1, "servers": [server], "profiles": [], "activeProfileId": "default"})
+                    .to_string(),
+            )
+            .unwrap();
+            "srv-auth".to_string()
+        }
+
+        #[test]
+        fn a_stdio_probe_runs_the_real_auth_command_and_keeps_vault_values_out_of_the_status_file()
+        {
+            crate::secrets::tests::with_isolated_vault(|| {
+                let dir = crate::registry::conduit_dir().unwrap();
+                let id = write_server(
+                    &dir,
+                    "[ \"$1\" = auth ] || exit 2\necho \"token $LAUNCH_TOKEN\" >&2\necho \"open https://accounts.example.invalid/consent?client_id=pub\" >&2\nsleep 30",
+                    true,
+                );
+                crate::secrets::set_secret(&id, "LAUNCH_TOKEN", LAUNCH_VALUE).unwrap();
+                let prober = Prober::new(&HostAdapter).unwrap();
+                let run = prober.run(&Selector::One(id.clone()), true).unwrap();
+                assert_eq!(run.reports[0].tracked.state, AuthState::NeedsReauth);
+                assert_eq!(run.reports[0].tracked.reason, "not_authed");
+                let status = std::fs::read_to_string(dir.join("auth/status.json")).unwrap();
+                assert!(!status.contains(LAUNCH_VALUE));
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    let mode = std::fs::metadata(dir.join("auth/status.json"))
+                        .unwrap()
+                        .permissions()
+                        .mode();
+                    assert_eq!(mode & 0o777, 0o600);
+                }
+            });
+        }
+
+        #[test]
+        fn the_sign_in_tool_returns_the_link_and_scrubs_the_vault_value_from_the_tail() {
+            crate::secrets::tests::with_isolated_vault(|| {
+                let dir = crate::registry::conduit_dir().unwrap();
+                let id = write_server(
+                    &dir,
+                    "echo \"token $LAUNCH_TOKEN\" >&2\necho \"open https://accounts.example.invalid/consent?client_id=pub\" >&2\nsleep 1",
+                    false,
+                );
+                crate::secrets::set_secret(&id, "LAUNCH_TOKEN", LAUNCH_VALUE).unwrap();
+                let out = toolport_plus::auth::start_sign_in(&HostAdapter, &id).unwrap();
+                assert_eq!(
+                    out["authUrl"],
+                    "https://accounts.example.invalid/consent?client_id=pub"
+                );
+                assert!(!out.to_string().contains(LAUNCH_VALUE));
+            });
+        }
+
+        #[test]
+        fn a_team_server_awaiting_review_is_not_started() {
+            let scratch = Scratch::new("auth-review");
+            let id = write_server(&scratch.data_dir.dir, "exit 0", true);
+            let mut registry = scratch.raw_registry();
+            registry["servers"][0]["source"] = json!("team:acme");
+            registry["servers"][0]["teamEnableReview"] = json!(true);
+            scratch.write_registry(&registry.to_string());
+            assert!(HostAdapter.awaits_review(&id).unwrap());
+            let prober = Prober::new(&HostAdapter).unwrap();
+            assert!(!prober.has_probe(&id));
         }
     }
 

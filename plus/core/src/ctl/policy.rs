@@ -11,6 +11,7 @@
 //! writes either names an argv that only reads or gives the reason it is not run. The test walks
 //! the rows, so a new command is classified by adding its row and nothing else.
 
+use super::auth;
 use super::flags::{Flag, Spec};
 use super::mcp;
 use super::secret;
@@ -270,6 +271,14 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&server::RESTART])
         .args(&[req("server")])
         .skip("asks every gateway to restart a server; its --dry-run is a golden step"),
+    row("auth statusline", R),
+    row("auth hook", R),
+    row("auth probe", R).needs(&[Needs::Network]).spec(&[&auth::PROBE]),
+    row("auth login", W)
+        .needs(&[Needs::Browser, Needs::LongRunning, Needs::Network])
+        .spec(&[&auth::LOGIN])
+        .args(&[req("server")])
+        .skip("starts a sign-in in a browser; plus_ctl_contract runs it against a scripted auth command"),
     row("secret set", W)
         .needs(&[Needs::Stdin])
         .spec(&[&secret::SET])
@@ -397,6 +406,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("servers_set_mode", W, "server mode"),
     maps("servers_uninstall", D, "server uninstall"),
     maps("servers_restart", W, "server restart").on(),
+    maps("servers_auth", W, "auth login"),
 ];
 
 #[derive(Clone, Copy, Debug)]

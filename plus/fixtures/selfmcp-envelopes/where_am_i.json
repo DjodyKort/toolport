@@ -3,6 +3,18 @@
   "isError": false,
   "result": {
     "accessSetCount": 1,
+    "auth": {
+      "counts": {
+        "expiring": 0,
+        "misconfigured": 0,
+        "needs_reauth": 0,
+        "ok": 0,
+        "revoked": 0,
+        "unknown": 0,
+        "unreachable": 0
+      },
+      "servers": []
+    },
     "dataDir": "<WORLD>/data",
     "defaultAccess": null,
     "gateway": {

@@ -225,6 +225,14 @@ pub const TOOLS: &[ToolDef] = &[
         ],
         servers::restart_server
     ),
+    tool!(
+        "servers_auth",
+        3,
+        Always,
+        "Start a server's sign-in. A stdio server's own auth command runs and its consent URL comes back to open in a browser; a remote server runs upstream's browser sign-in and the call returns when it ends. The server's own callback stores the token; no credential is returned",
+        [NAME],
+        servers::auth
+    ),
 ];
 
 pub const RESOURCES: &[ResourceDef] = &[

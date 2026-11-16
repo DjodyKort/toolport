@@ -1,0 +1,13 @@
+{
+  "argv": ["auth", "login", "beta", "--no-open"],
+  "envelope": {
+    "command": "auth login",
+    "error": {
+      "code": "unsupported",
+      "message": "the sign-in of beta opens the browser itself, so --no-open cannot print the link. Next: run it without --no-open, or sign in from the app"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

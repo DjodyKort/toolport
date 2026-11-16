@@ -1,0 +1,13 @@
+{
+  "argv": ["auth", "probe", "extra"],
+  "envelope": {
+    "command": "auth probe",
+    "error": {
+      "code": "usage",
+      "message": "unexpected argument: extra\nusage: auth probe [--server <id>] [--force]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

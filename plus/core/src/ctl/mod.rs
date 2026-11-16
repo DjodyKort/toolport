@@ -6,6 +6,7 @@
 //! [`policy`], and `toolportctl commands` prints both, so the registry cannot drift from what a
 //! handler accepts.
 
+mod auth;
 mod commands;
 mod commands_json;
 mod flags;
@@ -123,6 +124,28 @@ pub const COMMANDS: &[Command] = &[
         &["server", "restart"],
         "Restart a server's process in every running gateway [--dry-run] [--wait <s>] [--if-idle]",
         server::restart,
+    ),
+    cmd(
+        &["auth", "statusline"],
+        "Compact login-health JSON for a Claude Code statusline",
+        auth::statusline,
+    )
+    .no_options(),
+    cmd(
+        &["auth", "hook"],
+        "Login-health JSON for a Claude Code SessionStart hook",
+        auth::hook,
+    )
+    .no_options(),
+    cmd(
+        &["auth", "probe"],
+        "Probe login health now (--server <id>, --force)",
+        auth::probe,
+    ),
+    cmd(
+        &["auth", "login"],
+        "Sign in to a server again (<server>, --no-open)",
+        auth::login,
     ),
     cmd(
         &["secret", "set"],

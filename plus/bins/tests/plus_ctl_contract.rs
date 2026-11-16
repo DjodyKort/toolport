@@ -127,6 +127,12 @@ fn explicit_default_access(world: &World) {
     world.write_registry(&registry);
 }
 
+fn opt_alpha_into_the_stdio_probe(world: &World) {
+    let mut registry = world.registry();
+    registry["servers"][0]["plus"] = json!({"authProbe": {"kind": "stdio"}});
+    world.write_registry(&registry);
+}
+
 fn unreadable_registry(world: &World) {
     std::fs::write(world.data.join("registry.json"), "{ not json").unwrap();
 }
@@ -275,6 +281,25 @@ const CASES: &[Case] = &[
                 "not-running",
                 &["server", "restart", "alpha", "--wait", "1"],
             ),
+        ],
+    ),
+    case("auth statusline", &[read("", &["auth", "statusline"])]),
+    case("auth hook", &[read("", &["auth", "hook"])]),
+    case(
+        "auth probe",
+        &[
+            hook("opt-in", opt_alpha_into_the_stdio_probe),
+            apply("apply", &["auth", "probe"]),
+            read("unknown", &["auth", "probe", "--server", "beta"]).exit(1),
+            usage("usage", &["auth", "probe", "extra"]),
+        ],
+    ),
+    case(
+        "auth login",
+        &[
+            read("signed-in", &["auth", "login", "alpha", "--no-open"]),
+            read("remote-no-open", &["auth", "login", "beta", "--no-open"]).exit(1),
+            usage("usage", &["auth", "login"]),
         ],
     ),
     case(

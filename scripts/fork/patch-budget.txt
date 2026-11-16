@@ -2,8 +2,9 @@
 # <changed lines (added + removed)><TAB><path>. Regenerate with
 # scripts/fork/patch-budget.py --update and review the diff like code.
 # Lines starting with # between entries give the reason for a patch; --update drops them.
-# +1 line: toolport-plus depends on sha2 (content fingerprint of the trusted binaries).
-19	src-tauri/Cargo.lock
+# +1 line each: toolport-plus depends on sha2 (content fingerprint of the trusted binaries), on serde
+# (the status file of the login probes) and on libc (its cross-process lock).
+21	src-tauri/Cargo.lock
 7	src-tauri/Cargo.toml
 # check-locales.mjs, 2 changed lines: `plus` joins the directories the scan skips; the fork's own screens
 # are English only (D-135) and its shell labels are wrapped through msg() in src/lib/settingsPages.ts.
@@ -29,6 +30,9 @@
 # lib.rs, 3 lines: the two fork modules, and seam is pub (was pub(crate)) so the gateway binary can call
 # seam::gateway_tick.
 3	src-tauri/src/lib.rs
+# oauth_controller.rs, 2 changed lines: `start_attempt` also exists in the plus build, so `toolportctl auth login`
+# starts a remote sign-in through `authenticate`, the call of the app's Sign in button, without the desktop feature.
+2	src-tauri/src/oauth_controller.rs
 # registry_controller.rs, 2 lines: `catalog_server` becomes pub(crate), so the adapter adds a catalog entry
 # inside the fork's registry transaction (name check and add under one lock) instead of copying its body.
 2	src-tauri/src/registry_controller.rs

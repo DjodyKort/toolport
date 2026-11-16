@@ -11,7 +11,8 @@ use serde_json::{json, Value};
 
 pub const SECRET_KEY: &str = "abababababababababababababababababababababababababababababababab";
 pub const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
-pub const MOCK: &str = "/mock/mock-mcp-server";
+/// The mock server: its `auth` command exits 0 as a server that is already signed in does.
+const MOCK_SCRIPT: &str = "#!/bin/sh\n[ \"$1\" = auth ] && exit 0\nexit 2\n";
 /// What the stub gateway holds so the doctor's seam check finds the marker in it.
 pub const SEAM_MARKER: &str = toolport_plus_api::SEAM_MARKER;
 
@@ -32,14 +33,21 @@ impl World {
             NEXT.fetch_add(1, Ordering::SeqCst)
         ));
         let _ = std::fs::remove_dir_all(&base);
+        let mock = base.join("mock-mcp-server");
         let world = Self {
             data: base.join("data"),
             home: base.join("home"),
+            mock: mock.to_string_lossy().into_owned(),
             base,
-            mock: MOCK.to_string(),
         };
         for dir in [&world.data, &world.home, &world.data.join("bin")] {
             std::fs::create_dir_all(dir).unwrap();
+        }
+        std::fs::write(&mock, MOCK_SCRIPT).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&mock, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
         write_json(
             &world.data.join("registry.json"),
@@ -47,7 +55,7 @@ impl World {
                 "version": 1,
                 "servers": [
                     {"id": "srv-alpha", "name": "alpha", "transport": "stdio",
-                     "command": MOCK, "args": [],
+                     "command": world.mock, "args": [],
                      "mcpmSource": {"type": "unknown", "reason": "synthetic fixture"},
                      "env": [{"key": "API_KEY", "value": FAKE_SECRET, "secret": true}]},
                     {"id": "srv-beta", "name": "beta", "transport": "http",

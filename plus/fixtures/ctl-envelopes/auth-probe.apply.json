@@ -1,0 +1,48 @@
+{
+  "argv": ["auth", "probe"],
+  "envelope": {
+    "command": "auth probe",
+    "data": {
+      "counts": {
+        "expiring": 0,
+        "misconfigured": 0,
+        "needs_reauth": 0,
+        "ok": 1,
+        "revoked": 0,
+        "unknown": 0,
+        "unreachable": 0
+      },
+      "failures": [],
+      "mode": "due",
+      "probes": [
+        {
+          "nextDueAt": 0,
+          "ran": true,
+          "server": "srv-alpha",
+          "skipped": null,
+          "tracked": {
+            "reason": "ok",
+            "since": 0,
+            "state": "ok",
+            "transient": null
+          }
+        }
+      ],
+      "servers": [
+        {
+          "expiresAt": null,
+          "fix": null,
+          "lastProbe": 0,
+          "reason": "ok",
+          "server": "srv-alpha",
+          "since": 0,
+          "state": "ok",
+          "ttlSecs": null
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

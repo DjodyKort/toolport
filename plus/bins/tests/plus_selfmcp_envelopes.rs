@@ -255,6 +255,23 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "servers_auth",
+        &[
+            refused("refused", "servers_auth", r#"{"name":"alpha"}"#),
+            read(
+                "apply",
+                "servers_auth",
+                r#"{"name":"alpha","confirm":true}"#,
+            ),
+            fails(
+                "unknown",
+                "not_found",
+                "servers_auth",
+                r#"{"name":"ghost","confirm":true}"#,
+            ),
+        ],
+    ),
+    case(
         "servers_restart",
         &[
             read("preview", "servers_restart", r#"{"name":"alpha"}"#),

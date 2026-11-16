@@ -3,17 +3,21 @@
 
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::collections::VecDeque;
+use std::io::Read;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use serde_json::{Map, Value};
 
 use crate::fork_data::{plus_ops, AuthProbe, DirectEntry, McpmSource, RegistryPlus, SelfMcpRecord};
 use crate::{
-    AccessSetInfo, CallsInFlight, CatalogAccess, CatalogEntryRecord, EnvEntry, GatewayRouter,
-    HostEnv, HttpAccess, HttpError, HttpRequest, HttpResponse, RegistryAccess, RegistryTx,
-    RegistryView, RestartOutcome, SecretsHost, ServerRecord, ServerRules, ServerSpec, TrustInputs,
-    VaultAccess,
+    AccessSetInfo, AuthAccess, AuthChild, CallsInFlight, CatalogAccess, CatalogEntryRecord,
+    EnvEntry, GatewayRouter, HostEnv, HttpAccess, HttpError, HttpRequest, HttpResponse,
+    LaunchError, LaunchFault, RegistryAccess, RegistryTx, RegistryView, RestartOutcome,
+    SecretsHost, ServerRecord, ServerRules, ServerSpec, TrustInputs, VaultAccess,
 };
 
 #[derive(Debug, Default)]
@@ -698,6 +702,9 @@ pub struct MemoryHost {
     pub data_dir_used: RefCell<Option<PathBuf>>,
     /// What `CatalogAccess::curated` searches.
     pub catalog: Vec<CatalogEntryRecord>,
+    pub http: ScriptedHttp,
+    pub auth: ScriptedAuth,
+    pub now: Cell<i64>,
 }
 
 impl RegistryAccess for MemoryHost {
@@ -1090,6 +1097,113 @@ impl HostEnv for MemoryHost {
     }
     fn seam_live(&self) -> bool {
         self.seam
+    }
+    fn now_unix(&self) -> i64 {
+        self.now.get()
+    }
+}
+
+impl HttpAccess for MemoryHost {
+    fn send(&self, request: &HttpRequest) -> Result<HttpResponse, HttpError> {
+        self.http.send(request)
+    }
+}
+
+/// One `auth` subcommand run: what it prints on stderr and how it ends.
+#[derive(Debug, Clone, Default)]
+pub struct ScriptedRun {
+    pub stderr: Vec<String>,
+    /// `None` keeps the process running until it is killed.
+    pub exit: Option<i32>,
+    pub killed: Arc<AtomicBool>,
+    pub detached: Arc<AtomicBool>,
+    /// Marks every line and URL as holding a value the launcher keeps secret.
+    pub secret: Option<String>,
+}
+
+/// The stdio launcher, the review gate, the remote flow and the browser, in memory.
+#[derive(Debug, Default)]
+pub struct ScriptedAuth {
+    pub runs: RefCell<VecDeque<Result<ScriptedRun, LaunchError>>>,
+    pub started: RefCell<Vec<String>>,
+    pub awaiting_review: RefCell<BTreeSet<String>>,
+    pub remote_result: RefCell<Option<Result<(), String>>>,
+    pub remote_signins: RefCell<Vec<String>>,
+    pub opened: RefCell<Vec<String>>,
+}
+
+struct ScriptedChild {
+    run: ScriptedRun,
+}
+
+impl AuthChild for ScriptedChild {
+    fn take_stderr(&mut self) -> Option<Box<dyn Read + Send>> {
+        let text: String = self
+            .run
+            .stderr
+            .iter()
+            .map(|line| format!("{line}\n"))
+            .collect();
+        Some(Box::new(std::io::Cursor::new(text.into_bytes())))
+    }
+
+    fn try_exit(&mut self) -> Option<i32> {
+        self.run.exit
+    }
+
+    fn kill(&mut self) {
+        self.run.killed.store(true, Ordering::SeqCst);
+    }
+
+    fn detach(self: Box<Self>) {
+        self.run.detached.store(true, Ordering::SeqCst);
+    }
+
+    fn scrub(&self, line: String) -> String {
+        match &self.run.secret {
+            Some(secret) => line.replace(secret.as_str(), "***"),
+            None => line,
+        }
+    }
+
+    fn scrub_url(&self, url: String) -> Option<String> {
+        match &self.run.secret {
+            Some(secret) if url.contains(secret.as_str()) => None,
+            _ => Some(url),
+        }
+    }
+
+    fn hides_output(&self) -> bool {
+        false
+    }
+}
+
+impl AuthAccess for MemoryHost {
+    fn start_auth(&self, server_id: &str) -> Result<Box<dyn AuthChild>, LaunchError> {
+        self.auth.started.borrow_mut().push(server_id.to_string());
+        let next = self.auth.runs.borrow_mut().pop_front();
+        match next {
+            Some(Ok(run)) => Ok(Box::new(ScriptedChild { run })),
+            Some(Err(error)) => Err(error),
+            None => Err(LaunchError::new(LaunchFault::Spawn, "no scripted run left")),
+        }
+    }
+
+    fn awaits_review(&self, server_id: &str) -> Result<bool, String> {
+        Ok(self.auth.awaiting_review.borrow().contains(server_id))
+    }
+
+    fn sign_in_remote(&self, server_id: &str) -> Result<(), String> {
+        self.auth
+            .remote_signins
+            .borrow_mut()
+            .push(server_id.to_string());
+        self.auth.remote_result.borrow().clone().unwrap_or(Ok(()))
+    }
+
+    fn open_url(&self, url: &str) -> Result<(), String> {
+        self.auth.opened.borrow_mut().push(url.to_string());
+        Ok(())
     }
 }
 

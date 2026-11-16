@@ -82,6 +82,10 @@ pub fn normalize(world: &World, envelope: &Value) -> Value {
     let run_id = Regex::new(r"run-\d{10}-[0-9a-f]{8}").unwrap();
     let mut text = serde_json::to_string(envelope).unwrap();
     for root in world_roots(world) {
+        let name = std::path::Path::new(&world.mock).file_name().unwrap();
+        text = text.replace(&format!("{root}/{}", name.to_string_lossy()), "<MOCK>");
+    }
+    for root in world_roots(world) {
         text = text.replace(&root, "<WORLD>");
     }
     for root in world_roots(world) {

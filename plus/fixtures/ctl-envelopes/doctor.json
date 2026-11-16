@@ -33,6 +33,11 @@
           "detail": "this binary and <WORLD>/data/bin/toolport-gateway carry the fork seam",
           "name": "plusBuilt",
           "status": "ok"
+        },
+        {
+          "detail": "no stdio or Google logins checked yet",
+          "name": "logins",
+          "status": "ok"
         }
       ],
       "healthy": true

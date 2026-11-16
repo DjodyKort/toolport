@@ -287,6 +287,27 @@
             }
           ],
           "tier": 3
+        },
+        {
+          "description": "Start a server's sign-in. A stdio server's own auth command runs and its consent URL comes back to open in a browser; a remote server runs upstream's browser sign-in and the call returns when it ends. The server's own callback stores the token; no credential is returned",
+          "dryRunDefault": false,
+          "gate": "always",
+          "name": "servers_auth",
+          "params": [
+            {
+              "description": "Server id or name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
         }
       ]
     },

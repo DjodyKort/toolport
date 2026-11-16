@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "ghost"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "unknown server: ghost"
+    }
+  },
+  "text": "not_found: unknown server: ghost",
+  "tool": "servers_auth"
+}

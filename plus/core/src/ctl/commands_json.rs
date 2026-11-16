@@ -111,6 +111,9 @@ pub(super) const META: &[(&str, Meta)] = &[
     ("server restart", m("--dry-run", Bool, "Say what would be restarted and ask no gateway")),
     ("secret set", m("--value-env", Str, "Name of an environment variable holding the value (the GUI sends it on stdin)").hidden().sensitive()),
     ("secret get", m("--reveal", Bool, "Print the secret value").sensitive()),
+    ("auth probe", m("--server", Str, "Server id")),
+    ("auth probe", m("--force", Bool, "Probe every server, not only the ones that are due")),
+    ("auth login", m("--no-open", Bool, "Do not open the browser; print the sign-in link")),
     ("server restart", m("--wait", Int, "Seconds to wait for the gateways to answer (default 20; 0 asks and does not wait)")),
     ("server restart", m("--if-idle", Bool, "Ask first how many calls are in flight and restart only when there are none, because a restart ends them")),
     (
