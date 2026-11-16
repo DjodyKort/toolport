@@ -123,7 +123,8 @@ step_fork_ts() {
 
 step_codesign_tests() {
   bash scripts/fork/fork-codesign.Tests.bash &&
-    bash scripts/fork/keychain-partition-list.Tests.bash
+    bash scripts/fork/keychain-partition-list.Tests.bash &&
+    bash scripts/fork/mac-install.Tests.bash
 }
 
 # Upstream's clippy feature sets, plus the same two with the fork feature on.
