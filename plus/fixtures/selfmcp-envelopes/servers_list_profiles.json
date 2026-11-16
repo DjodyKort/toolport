@@ -2,14 +2,14 @@
   "arguments": {},
   "isError": false,
   "result": {
-    "activeProfile": "default",
-    "profiles": [
+    "accessSets": [
       {
-        "enabledServerIds": ["srv-alpha"],
         "id": "default",
-        "name": "Default"
+        "name": "Default",
+        "serverIds": ["srv-alpha"]
       }
-    ]
+    ],
+    "defaultAccess": null
   },
   "tool": "servers_list_profiles"
 }

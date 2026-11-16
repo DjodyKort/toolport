@@ -11,8 +11,9 @@
     "data": {
       "isError": false,
       "result": {
-        "name": "beta",
-        "profileTags": []
+        "accessSets": [],
+        "enabled": false,
+        "name": "beta"
       },
       "tier": 2,
       "tool": "servers_remove_profile_tag"

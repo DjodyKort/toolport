@@ -3,7 +3,7 @@
   "envelope": {
     "command": "server ls",
     "data": {
-      "activeProfile": "default",
+      "defaultAccess": null,
       "servers": [
         {
           "enabled": true,
@@ -18,13 +18,13 @@
           "transport": "http"
         },
         {
-          "enabled": false,
+          "enabled": true,
           "id": "gamma",
           "name": "gamma",
           "transport": "stdio"
         },
         {
-          "enabled": false,
+          "enabled": true,
           "id": "remote1",
           "name": "remote1",
           "transport": "http"

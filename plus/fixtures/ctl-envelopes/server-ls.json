@@ -3,7 +3,7 @@
   "envelope": {
     "command": "server ls",
     "data": {
-      "activeProfile": "default",
+      "defaultAccess": null,
       "servers": [
         {
           "enabled": true,

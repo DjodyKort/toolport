@@ -3,16 +3,18 @@
   "envelope": {
     "command": "server info",
     "data": {
+      "accessSets": ["default"],
       "args": ["y"],
       "command": "/bin/true",
       "cwd": null,
       "declareClientCapabilities": false,
       "disabledTools": [],
+      "enabled": true,
       "env": [],
       "forwardInstructions": false,
       "id": "gamma",
+      "inheritEnv": false,
       "name": "gamma",
-      "profiles": [],
       "source": "manual",
       "transport": "stdio",
       "url": null

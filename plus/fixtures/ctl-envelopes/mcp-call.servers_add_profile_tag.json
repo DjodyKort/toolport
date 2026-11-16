@@ -11,8 +11,9 @@
     "data": {
       "isError": false,
       "result": {
-        "name": "beta",
-        "profileTags": ["Default"]
+        "accessSets": ["default"],
+        "enabled": false,
+        "name": "beta"
       },
       "tier": 2,
       "tool": "servers_add_profile_tag"

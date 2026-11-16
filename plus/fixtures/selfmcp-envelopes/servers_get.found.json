@@ -4,6 +4,7 @@
   },
   "isError": false,
   "result": {
+    "accessSets": ["default"],
     "args": [],
     "command": "<MOCK>",
     "cwd": null,
@@ -18,6 +19,7 @@
     ],
     "forwardInstructions": false,
     "id": "srv-alpha",
+    "inheritEnv": false,
     "name": "alpha",
     "source": null,
     "transport": "stdio",

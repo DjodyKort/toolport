@@ -80,6 +80,505 @@
           "tools": []
         },
         {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "server",
+          "id": "server ls",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["server", "ls"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "List servers with their global switch and default access",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["servers_list"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "server",
+          "id": "server info",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "server",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["server", "info"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Show one server: command, plain env keys, access sets and what its process sees",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["servers_get"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Accepted for 1.x scripts: install only reads the curated catalog, which needs no network",
+              "escalates": false,
+              "hidden": false,
+              "name": "--offline",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "server",
+          "id": "server install",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["server", "install"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Add a curated catalog server <name> [--offline]",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Program to run; makes the server a local (stdio) one",
+              "escalates": false,
+              "hidden": false,
+              "name": "--command",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "One argument for the program (repeatable, in order)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--arg",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "A plain KEY=VALUE for the process (repeatable); a credential is refused, use secret set",
+              "escalates": false,
+              "hidden": false,
+              "name": "--env",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Endpoint of a remote server (http or https)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--url",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "choices": ["http", "sse"],
+              "effect": "Transport of a remote server; http unless the URL is an SSE one",
+              "escalates": false,
+              "hidden": false,
+              "name": "--transport",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            },
+            {
+              "aliases": [],
+              "effect": "Working directory of the process",
+              "escalates": false,
+              "hidden": false,
+              "name": "--cwd",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "choices": ["on", "off"],
+              "effect": "Give the process the whole shell environment; off keeps the fixed set (PATH, HOME, locale, certificates) plus its own entries",
+              "escalates": false,
+              "hidden": false,
+              "name": "--inherit-env",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            }
+          ],
+          "group": "server",
+          "id": "server new",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [
+            ["--command", "--url"]
+          ],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["server", "new"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Add a server <name> from a command or a URL, with plain env and --inherit-env",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["servers_install"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "New name for the server",
+              "escalates": false,
+              "hidden": false,
+              "name": "--name",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "New program; makes the server a local (stdio) one",
+              "escalates": false,
+              "hidden": false,
+              "name": "--command",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Replace the arguments; give it once per argument",
+              "escalates": false,
+              "hidden": false,
+              "name": "--arg",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Set a plain KEY=VALUE (repeatable); a credential or an existing secret entry is refused",
+              "escalates": false,
+              "hidden": false,
+              "name": "--env",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Remove a plain env entry by name (repeatable)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--unset-env",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "New endpoint of a remote server",
+              "escalates": false,
+              "hidden": false,
+              "name": "--url",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "choices": ["stdio", "http", "sse"],
+              "effect": "Move the server to this transport",
+              "escalates": false,
+              "hidden": false,
+              "name": "--transport",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            },
+            {
+              "aliases": [],
+              "effect": "New working directory of the process",
+              "escalates": false,
+              "hidden": false,
+              "name": "--cwd",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "choices": ["on", "off"],
+              "effect": "Give the process the whole shell environment, or only the fixed set plus its own entries",
+              "escalates": false,
+              "hidden": false,
+              "name": "--inherit-env",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            },
+            {
+              "aliases": [],
+              "choices": ["on", "off"],
+              "effect": "Tell this server what the connected client can do (sampling, roots)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--declare-client-capabilities",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            },
+            {
+              "aliases": [],
+              "choices": ["on", "off"],
+              "effect": "Pass this server's instructions on to the client",
+              "escalates": false,
+              "hidden": false,
+              "name": "--forward-instructions",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            }
+          ],
+          "group": "server",
+          "id": "server edit",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "server",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["server", "edit"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Change a server's command, args, url, cwd, plain env or --inherit-env",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["servers_update_config"]
+        },
+        {
+          "baseTier": "destructive",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Show what would be removed and change nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Leave client entries alone; none exist per server on the gateway, direct entries are handled with them",
+              "escalates": false,
+              "hidden": false,
+              "name": "--keep-clients",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Leave the server's vault entries in place",
+              "escalates": false,
+              "hidden": false,
+              "name": "--keep-secrets",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "server",
+          "id": "server uninstall",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "server",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["server", "uninstall"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Remove a server and its vault entries [--dry-run] [--keep-secrets]",
+          "surface": "screen",
+          "tier": "destructive",
+          "tools": ["servers_uninstall"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Say what would be restarted and ask no gateway",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Seconds to wait for the gateways to answer (default 20; 0 asks and does not wait)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--wait",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "integer"
+            },
+            {
+              "aliases": [],
+              "effect": "Ask first how many calls are in flight and restart only when there are none, because a restart ends them",
+              "escalates": false,
+              "hidden": false,
+              "name": "--if-idle",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "server",
+          "id": "server restart",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "server",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["server", "restart"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Restart a server's process in every running gateway [--dry-run] [--wait <s>] [--if-idle]",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["servers_restart"]
+        },
+        {
           "baseTier": null,
           "cost": false,
           "dryRun": false,
@@ -269,10 +768,10 @@
         }
       ],
       "counts": {
-        "commands": 8,
+        "commands": 15,
         "groups": 1,
-        "rows": 9,
-        "tools": 3
+        "rows": 16,
+        "tools": 13
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
       "tiers": ["read", "write", "destructive"],
@@ -297,6 +796,76 @@
           "name": "flow_diagram",
           "tier": "read",
           "toolTier": 1
+        },
+        {
+          "command": "server ls",
+          "dryRun": "none",
+          "name": "servers_list",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "server info",
+          "dryRun": "none",
+          "name": "servers_get",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": null,
+          "dryRun": "none",
+          "name": "servers_list_profiles",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": null,
+          "dryRun": "none",
+          "name": "servers_add_profile_tag",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": null,
+          "dryRun": "none",
+          "name": "servers_remove_profile_tag",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": "server new",
+          "dryRun": "none",
+          "name": "servers_install",
+          "tier": "write",
+          "toolTier": 3
+        },
+        {
+          "command": "server edit",
+          "dryRun": "none",
+          "name": "servers_update_config",
+          "tier": "write",
+          "toolTier": 3
+        },
+        {
+          "command": null,
+          "dryRun": "none",
+          "name": "servers_set_mode",
+          "tier": "write",
+          "toolTier": 3
+        },
+        {
+          "command": "server uninstall",
+          "dryRun": "none",
+          "name": "servers_uninstall",
+          "tier": "destructive",
+          "toolTier": 4
+        },
+        {
+          "command": "server restart",
+          "dryRun": "default-on",
+          "name": "servers_restart",
+          "tier": "write",
+          "toolTier": 3
         }
       ]
     },

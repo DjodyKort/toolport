@@ -19,16 +19,6 @@ use common::client::Client;
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
 
-/// Goldens that still hold the previous line's text; they are re-blessed in the golden-bump commit.
-const BUMP_PENDING: &[&str] = &[
-    "servers_add_profile_tag.apply",
-    "servers_get.found",
-    "servers_list.default",
-    "servers_list.sources",
-    "servers_list_profiles",
-    "servers_remove_profile_tag.apply",
-];
-
 #[derive(Clone, Copy, PartialEq)]
 enum Expect {
     Ok,
@@ -344,7 +334,7 @@ fn run_case(case: &Case) {
             );
         }
         let stem = stem(case, call);
-        if call.golden && !BUMP_PENDING.contains(&stem.as_str()) {
+        if call.golden {
             let mut result = json!({
                 "tool": call.tool,
                 "arguments": args,

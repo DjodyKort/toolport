@@ -5,8 +5,9 @@
   },
   "isError": false,
   "result": {
-    "name": "beta",
-    "profileTags": []
+    "accessSets": [],
+    "enabled": false,
+    "name": "beta"
   },
   "tool": "servers_remove_profile_tag"
 }

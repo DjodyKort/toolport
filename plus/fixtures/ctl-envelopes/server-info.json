@@ -3,11 +3,13 @@
   "envelope": {
     "command": "server info",
     "data": {
+      "accessSets": ["default"],
       "args": [],
       "command": "<MOCK>",
       "cwd": null,
       "declareClientCapabilities": false,
       "disabledTools": [],
+      "enabled": true,
       "env": [
         {
           "key": "API_KEY",
@@ -16,8 +18,8 @@
       ],
       "forwardInstructions": false,
       "id": "srv-alpha",
+      "inheritEnv": false,
       "name": "alpha",
-      "profiles": ["default"],
       "source": null,
       "transport": "stdio",
       "url": null

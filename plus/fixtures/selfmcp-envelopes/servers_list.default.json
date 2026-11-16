@@ -2,7 +2,7 @@
   "arguments": {},
   "isError": false,
   "result": {
-    "activeProfile": "default",
+    "defaultAccess": null,
     "servers": [
       {
         "enabled": true,

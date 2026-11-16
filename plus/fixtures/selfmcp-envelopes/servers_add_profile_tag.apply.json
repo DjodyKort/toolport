@@ -5,8 +5,9 @@
   },
   "isError": false,
   "result": {
-    "name": "beta",
-    "profileTags": ["Default"]
+    "accessSets": ["default"],
+    "enabled": false,
+    "name": "beta"
   },
   "tool": "servers_add_profile_tag"
 }
