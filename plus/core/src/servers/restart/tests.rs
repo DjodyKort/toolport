@@ -7,6 +7,8 @@ use toolport_plus_api::{
     GatewayRouter, MemoryGateway, MemoryHost, MemoryRegistry, MemorySecrets, ServerRecord,
 };
 
+use serde_json::json;
+
 use super::*;
 
 const FAST: Timing = Timing {
@@ -241,4 +243,106 @@ fn test08_an_answer_still_missing_at_the_deadline_is_reported_not_hidden() {
     );
     assert_eq!(found.len(), 1);
     assert!(!found[0].restarted && found[0].detail.starts_with("still restarting after"));
+}
+
+#[test]
+fn test09_a_server_that_runs_per_folder_is_restarted_in_every_folder() {
+    let base = scratch("folders");
+    let gateway = Arc::new(MemoryGateway::holding_rooted(
+        "srv-alpha",
+        &[("/work/b", 0), ("/work/a", 0)],
+    ));
+    let _running = Running::start(&base, Arc::clone(&gateway), 4009);
+    let done = restart(&host(&base), &args("alpha")).unwrap();
+    assert_eq!(done.status, Status::Restarted);
+    assert_eq!(
+        gateway.restarted(),
+        ["srv-alpha in /work/a", "srv-alpha in /work/b"]
+    );
+    assert_eq!(gateway.stale_marks(), 1);
+    assert_eq!(done.outcomes[0].detail, "restarted in 2 project folders");
+    assert_eq!(
+        done.to_value()["gateways"][0]["roots"],
+        json!([
+            {"root": "/work/a", "restarted": true, "detail": "restarted"},
+            {"root": "/work/b", "restarted": true, "detail": "restarted"},
+        ])
+    );
+    assert!(done
+        .line()
+        .starts_with("Restarted alpha (srv-alpha) in 1 gateway process (2 project folders);"));
+}
+
+#[test]
+fn test10_one_folder_that_fails_fails_the_gateway_and_is_named_with_its_reason() {
+    let base = scratch("folder-failure");
+    let gateway = Arc::new(MemoryGateway::holding_rooted(
+        "srv-alpha",
+        &[("/work/a", 0), ("/work/b", 0)],
+    ));
+    gateway.failing_roots.lock().unwrap().insert(
+        "srv-alpha".into(),
+        [(
+            "/work/b".to_string(),
+            "could not bring a fresh process up".to_string(),
+        )]
+        .into(),
+    );
+    let _running = Running::start(&base, Arc::clone(&gateway), 4010);
+    let done = restart(&host(&base), &args("alpha")).unwrap();
+    assert_eq!(done.status, Status::Failed);
+    assert_eq!(gateway.restarted(), ["srv-alpha in /work/a"]);
+    assert_eq!(
+        gateway.stale_marks(),
+        1,
+        "the folder that restarted reads its lists again"
+    );
+    let roots = &done.outcomes[0].roots;
+    assert!(roots[0].restarted && !roots[1].restarted);
+    assert!(done
+        .line()
+        .contains("pid 4010: /work/b: could not bring a fresh process up"));
+}
+
+#[test]
+fn test11_if_idle_counts_every_folder_and_names_the_busy_ones() {
+    let base = scratch("folder-idle");
+    let gateway = Arc::new(MemoryGateway::holding_rooted(
+        "srv-alpha",
+        &[("/work/a", 0), ("/work/b", 2), ("/work/c", 1)],
+    ));
+    let _running = Running::start(&base, Arc::clone(&gateway), 4011);
+    let idle_only = RestartArgs {
+        if_idle: true,
+        ..args("alpha")
+    };
+    let busy = restart(&host(&base), &idle_only).unwrap();
+    assert_eq!(busy.status, Status::Busy);
+    assert_eq!(busy.outcomes[0].in_flight, Some(3));
+    assert!(gateway.restarted().is_empty(), "no folder was restarted");
+    assert!(busy
+        .line()
+        .contains("pid 4011: 3 calls in flight: /work/b (2), /work/c (1)."));
+    let value = busy.to_value();
+    assert_eq!(value["gateways"][0]["roots"][0]["detail"], "idle");
+    assert_eq!(value["gateways"][0]["roots"][1]["inFlight"], 2);
+
+    gateway
+        .rooted
+        .lock()
+        .unwrap()
+        .insert("srv-alpha".into(), [("/work/a".to_string(), 0)].into());
+    let done = restart(&host(&base), &idle_only).unwrap();
+    assert_eq!(done.status, Status::Restarted);
+    assert_eq!(gateway.restarted(), ["srv-alpha in /work/a"]);
+}
+
+#[test]
+fn test12_a_server_with_one_shared_connection_answers_without_folders() {
+    let base = scratch("no-folders");
+    let gateway = Arc::new(MemoryGateway::holding(&[("srv-alpha", 0)]));
+    let _running = Running::start(&base, Arc::clone(&gateway), 4012);
+    let done = restart(&host(&base), &args("alpha")).unwrap();
+    assert!(done.outcomes[0].roots.is_empty());
+    assert!(done.to_value()["gateways"][0].get("roots").is_none());
 }

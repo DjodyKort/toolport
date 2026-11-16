@@ -16,12 +16,7 @@ impl Router {
     /// client's input. `None` when this router does not hold the server.
     pub(crate) fn plus_calls_in_flight(&self, server_id: &str) -> Option<usize> {
         let slot = self.servers.get(*self.by_id.get(server_id)?)?;
-        let running = slot.handle_calls.load(Ordering::Acquire);
-        let suspended = slot
-            .inner
-            .try_lock()
-            .map_or(0, |server| server.suspended_calls());
-        Some(running + suspended)
+        Some(calls_in_flight(slot))
     }
 
     /// Replaces the server's connection with a fresh one now, so a server whose code changed runs
@@ -29,56 +24,81 @@ impl Router {
     /// for the result. The old connection stays when a fresh one cannot start.
     pub(crate) fn plus_restart_server(&self, server_id: &str) -> Option<(bool, String)> {
         let slot = self.servers.get(*self.by_id.get(server_id)?)?;
-        let Some(supervisor) = &slot.supervisor else {
-            let Some(reconnect) = &slot.reconnect else {
-                return Some((
-                    false,
-                    "this connection cannot be restarted on request".into(),
-                ));
-            };
-            return Some(match reconnect() {
-                Some(fresh) => swap_connection(slot, None, fresh),
-                None => (false, NOT_STARTED.into()),
-            });
-        };
-        let connect = {
-            let state = supervisor
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            if slot.retired.load(Ordering::Acquire) {
-                return Some((
-                    false,
-                    "it was reconfigured; the registry change replaces it".into(),
-                ));
-            }
-            match state.state {
-                SupervisorState::Ready => Arc::clone(&state.connect),
-                SupervisorState::Stopped => {
-                    return Some((
-                        true,
-                        "it was stopped for being idle; it starts fresh at its next call".into(),
-                    ))
-                }
-                _ => {
-                    drop(state);
-                    slot.start(true);
-                    return Some((
-                        false,
-                        format!(
-                            "it is not connected; started a new attempt ({})",
-                            slot.unavailable()
-                        ),
-                    ));
-                }
-            }
-        };
-        Some(match connect() {
-            Ok(fresh) => swap_connection(slot, Some(supervisor), fresh),
-            Err(failure) => (
+        Some(restart_slot(slot))
+    }
+}
+
+/// A launch the gateway keeps for one project folder, as `plus_calls_in_flight` and
+/// `plus_restart_server` do for the router's own servers.
+impl SharedServerSlot {
+    pub(crate) fn plus_calls_in_flight(&self) -> usize {
+        calls_in_flight(&self.0)
+    }
+
+    pub(crate) fn plus_restart(&self) -> (bool, String) {
+        restart_slot(&self.0)
+    }
+}
+
+fn calls_in_flight(slot: &ServerSlot) -> usize {
+    let running = slot.handle_calls.load(Ordering::Acquire);
+    let suspended = slot
+        .inner
+        .try_lock()
+        .map_or(0, |server| server.suspended_calls());
+    running + suspended
+}
+
+fn restart_slot(slot: &Arc<ServerSlot>) -> (bool, String) {
+    let Some(supervisor) = &slot.supervisor else {
+        let Some(reconnect) = &slot.reconnect else {
+            return (
                 false,
-                format!("{NOT_STARTED}: {}", client_safe_error(&failure.message)),
-            ),
-        })
+                "this connection cannot be restarted on request".into(),
+            );
+        };
+        return match reconnect() {
+            Some(fresh) => swap_connection(slot, None, fresh),
+            None => (false, NOT_STARTED.into()),
+        };
+    };
+    let connect = {
+        let state = supervisor
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if slot.retired.load(Ordering::Acquire) {
+            return (
+                false,
+                "it was reconfigured; the registry change replaces it".into(),
+            );
+        }
+        match state.state {
+            SupervisorState::Ready => Arc::clone(&state.connect),
+            SupervisorState::Stopped => {
+                return (
+                    true,
+                    "it was stopped for being idle; it starts fresh at its next call".into(),
+                )
+            }
+            _ => {
+                drop(state);
+                slot.start(true);
+                return (
+                    false,
+                    format!(
+                        "it is not connected; started a new attempt ({})",
+                        slot.unavailable()
+                    ),
+                );
+            }
+        }
+    };
+    match connect() {
+        Ok(fresh) => swap_connection(slot, Some(supervisor), fresh),
+        Err(failure) => (
+            false,
+            format!("{NOT_STARTED}: {}", client_safe_error(&failure.message)),
+        ),
     }
 }
 
@@ -246,6 +266,153 @@ mod tests {
         assert!(router.plus_holds_server("s") && !router.plus_holds_server("ghost"));
     }
 
+    fn folder_launch(spawns: &Arc<AtomicU64>, fail: bool) -> SharedServerSlot {
+        let router = router_with(counting(spawns, fail), SupervisorState::Ready);
+        router.server_slot("s").unwrap()
+    }
+
+    fn handle(
+        pooled: Vec<(String, String, SharedServerSlot)>,
+    ) -> crate::plus_adapter::RouterHandle {
+        crate::plus_adapter::RouterHandle {
+            router: Arc::new(Router::new()),
+            pooled,
+            dirty: Arc::new(std::sync::atomic::AtomicU8::new(0)),
+        }
+    }
+
+    #[test]
+    fn a_launch_kept_for_a_folder_restarts_and_counts_its_calls_like_a_router_slot() {
+        let spawns = Arc::new(AtomicU64::new(0));
+        let launch = folder_launch(&spawns, false);
+        assert_eq!(launch.plus_calls_in_flight(), 0);
+        launch.0.handle_calls.store(3, Ordering::SeqCst);
+        assert_eq!(launch.plus_calls_in_flight(), 3);
+        let generation = launch.0.generation.load(Ordering::Acquire);
+        assert_eq!(launch.plus_restart(), (true, "restarted".into()));
+        assert_eq!(spawns.load(Ordering::SeqCst), 1);
+        assert_eq!(launch.0.generation.load(Ordering::Acquire), generation + 1);
+    }
+
+    #[test]
+    fn a_restart_reaches_every_folder_instance_and_names_the_one_that_failed() {
+        use toolport_plus_api::GatewayRouter;
+        let (spawns, failing_spawns) = (Arc::new(AtomicU64::new(0)), Arc::new(AtomicU64::new(0)));
+        let handle = handle(vec![
+            (
+                "s".into(),
+                "/work/b".into(),
+                folder_launch(&failing_spawns, true),
+            ),
+            ("s".into(), "/work/a".into(), folder_launch(&spawns, false)),
+            (
+                "other".into(),
+                "/work/a".into(),
+                folder_launch(&spawns, false),
+            ),
+        ]);
+        assert!(handle.holds_server("s") && !handle.holds_server("ghost"));
+        let outcomes = handle.restart_server("s").unwrap();
+        let by_root = |root: &str| {
+            outcomes
+                .iter()
+                .find(|o| o.root.as_deref() == Some(root))
+                .unwrap()
+        };
+        assert_eq!(outcomes.len(), 2, "the other server's folder is left alone");
+        assert!(by_root("/work/a").restarted);
+        assert!(!by_root("/work/b").restarted);
+        assert!(by_root("/work/b").detail.starts_with(NOT_STARTED));
+        assert_eq!(spawns.load(Ordering::SeqCst), 1);
+        assert_eq!(failing_spawns.load(Ordering::SeqCst), 1);
+        assert_eq!(handle.restart_server("ghost"), None);
+    }
+
+    #[test]
+    fn calls_in_flight_are_counted_per_folder_and_beside_the_shared_connection() {
+        use toolport_plus_api::{CallsInFlight, GatewayRouter};
+        let spawns = Arc::new(AtomicU64::new(0));
+        let (busy, quiet) = (folder_launch(&spawns, false), folder_launch(&spawns, false));
+        busy.0.handle_calls.store(2, Ordering::SeqCst);
+        let mut handle = handle(vec![
+            ("s".into(), "/work/busy".into(), busy),
+            ("s".into(), "/work/quiet".into(), quiet),
+        ]);
+        let calls = |root: Option<&str>, calls| CallsInFlight {
+            root: root.map(String::from),
+            calls,
+        };
+        assert_eq!(
+            handle.calls_in_flight("s"),
+            Some(vec![
+                calls(Some("/work/busy"), 2),
+                calls(Some("/work/quiet"), 0)
+            ])
+        );
+        handle.router = Arc::new(router_with(
+            counting(&spawns, false),
+            SupervisorState::Ready,
+        ));
+        assert_eq!(
+            handle.calls_in_flight("s").unwrap()[0],
+            calls(None, 0),
+            "the shared connection comes first"
+        );
+        assert_eq!(handle.calls_in_flight("ghost"), None);
+    }
+
+    #[test]
+    fn a_gateway_tick_restarts_the_folder_instances_the_pool_hands_it() {
+        use std::sync::atomic::AtomicU8;
+        use toolport_plus::servers::restart::{request, Kind};
+        let data = crate::registry::DataDirTestEnv::new("plus-gateway-tick-folders");
+        let spawns = Arc::new(AtomicU64::new(0));
+        let launches = [
+            (
+                "s".to_string(),
+                "/work/a".to_string(),
+                folder_launch(&spawns, false),
+            ),
+            (
+                "s".to_string(),
+                "/work/b".to_string(),
+                folder_launch(&spawns, false),
+            ),
+        ];
+        let live = Mutex::new(Arc::new(Router::new()));
+        let dirty = Arc::new(AtomicU8::new(0));
+        let sent = request(&data.dir, Kind::Restart, "s", "S").unwrap();
+
+        crate::seam::gateway_tick(&live, &dirty, &|| launches.to_vec());
+
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let answer = loop {
+            let found = std::fs::read_dir(data.dir.join("server-restarts"))
+                .unwrap()
+                .flatten()
+                .find(|entry| {
+                    let name = entry.file_name().to_string_lossy().into_owned();
+                    name.starts_with(&format!("res-{}-", sent.nonce)) && name.ends_with(".json")
+                });
+            if let Some(entry) = found {
+                break serde_json::from_slice::<Value>(&std::fs::read(entry.path()).unwrap())
+                    .unwrap();
+            }
+            assert!(Instant::now() < deadline, "no answer");
+            std::thread::sleep(Duration::from_millis(10));
+        };
+        assert_eq!(answer["restarted"], true);
+        assert_eq!(answer["detail"], "restarted in 2 project folders");
+        assert_eq!(answer["roots"][0]["root"], "/work/a");
+        assert_eq!(answer["roots"][1]["root"], "/work/b");
+        assert_eq!(
+            spawns.load(Ordering::SeqCst),
+            2,
+            "one fresh process per folder"
+        );
+        assert_eq!(dirty.load(Ordering::SeqCst), 7);
+    }
+
     #[test]
     fn a_gateway_tick_answers_a_restart_request_in_the_data_dir_and_marks_the_lists_stale() {
         use std::sync::atomic::AtomicU8;
@@ -261,8 +428,8 @@ mod tests {
         let elsewhere = request(&data.dir, Kind::Restart, "ghost", "Ghost").unwrap();
         let sent = request(&data.dir, Kind::Restart, "s", "S").unwrap();
 
-        crate::seam::gateway_tick(&live, &dirty);
-        crate::seam::gateway_tick(&live, &dirty);
+        crate::seam::gateway_tick(&live, &dirty, &Vec::new);
+        crate::seam::gateway_tick(&live, &dirty, &Vec::new);
 
         let answers = |nonce: &str| -> Vec<Value> {
             std::fs::read_dir(data.dir.join("server-restarts"))

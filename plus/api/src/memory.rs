@@ -10,9 +10,9 @@ use serde_json::{Map, Value};
 
 use crate::fork_data::{plus_ops, AuthProbe, DirectEntry, McpmSource, RegistryPlus, SelfMcpRecord};
 use crate::{
-    AccessSetInfo, CatalogAccess, CatalogEntryRecord, EnvEntry, GatewayRouter, HostEnv, HttpAccess,
-    HttpError, HttpRequest, HttpResponse, RegistryAccess, RegistryTx, RegistryView, RestartOutcome,
-    SecretsHost, ServerRecord, ServerRules, ServerSpec, TrustInputs,
+    AccessSetInfo, CallsInFlight, CatalogAccess, CatalogEntryRecord, EnvEntry, GatewayRouter,
+    HostEnv, HttpAccess, HttpError, HttpRequest, HttpResponse, RegistryAccess, RegistryTx,
+    RegistryView, RestartOutcome, SecretsHost, ServerRecord, ServerRules, ServerSpec, TrustInputs,
 };
 
 #[derive(Debug, Default)]
@@ -864,8 +864,13 @@ impl CatalogAccess for MemoryHost {
 #[derive(Debug, Default)]
 pub struct MemoryGateway {
     pub held: std::sync::Mutex<BTreeMap<String, usize>>,
+    /// Servers that run once per project folder: server id, then folder, with the calls in flight.
+    pub rooted: std::sync::Mutex<BTreeMap<String, BTreeMap<String, usize>>>,
     /// Servers whose restart fails, with the detail to report.
     pub failing: std::sync::Mutex<BTreeMap<String, String>>,
+    /// Folders of a rooted server whose restart fails, keyed `server id` then folder.
+    pub failing_roots: std::sync::Mutex<BTreeMap<String, BTreeMap<String, String>>>,
+    /// Restarts, as the server id and, for a folder instance, `" in <folder>"`.
     pub restarted: std::sync::Mutex<Vec<String>>,
     pub stale_marks: std::sync::atomic::AtomicUsize,
 }
@@ -877,6 +882,19 @@ impl MemoryGateway {
             .iter()
             .map(|(id, calls)| (id.to_string(), *calls))
             .collect();
+        gateway
+    }
+
+    /// A gateway that runs `server_id` once per project folder, with the calls in flight in each.
+    pub fn holding_rooted(server_id: &str, folders: &[(&str, usize)]) -> Self {
+        let gateway = Self::default();
+        gateway.rooted.lock().unwrap().insert(
+            server_id.to_string(),
+            folders
+                .iter()
+                .map(|(root, calls)| (root.to_string(), *calls))
+                .collect(),
+        );
         gateway
     }
 
@@ -892,25 +910,73 @@ impl MemoryGateway {
 impl GatewayRouter for MemoryGateway {
     fn holds_server(&self, server_id: &str) -> bool {
         self.held.lock().unwrap().contains_key(server_id)
+            || self.rooted.lock().unwrap().contains_key(server_id)
     }
 
-    fn calls_in_flight(&self, server_id: &str) -> Option<usize> {
-        self.held.lock().unwrap().get(server_id).copied()
-    }
-
-    fn restart_server(&self, server_id: &str) -> Option<RestartOutcome> {
-        self.held.lock().unwrap().get(server_id)?;
-        if let Some(detail) = self.failing.lock().unwrap().get(server_id) {
-            return Some(RestartOutcome {
-                restarted: false,
-                detail: detail.clone(),
-            });
+    fn calls_in_flight(&self, server_id: &str) -> Option<Vec<CallsInFlight>> {
+        let shared = self.held.lock().unwrap().get(server_id).copied();
+        let rooted = self.rooted.lock().unwrap().get(server_id).cloned();
+        if shared.is_none() && rooted.is_none() {
+            return None;
         }
-        self.restarted.lock().unwrap().push(server_id.into());
-        Some(RestartOutcome {
-            restarted: true,
-            detail: "restarted".into(),
-        })
+        Some(
+            shared
+                .map(|calls| CallsInFlight { root: None, calls })
+                .into_iter()
+                .chain(
+                    rooted
+                        .into_iter()
+                        .flatten()
+                        .map(|(root, calls)| CallsInFlight {
+                            root: Some(root),
+                            calls,
+                        }),
+                )
+                .collect(),
+        )
+    }
+
+    fn restart_server(&self, server_id: &str) -> Option<Vec<RestartOutcome>> {
+        let shared = self.held.lock().unwrap().contains_key(server_id);
+        let rooted = self.rooted.lock().unwrap().get(server_id).cloned();
+        if !shared && rooted.is_none() {
+            return None;
+        }
+        let mut outcomes = Vec::new();
+        let mut restart = |root: Option<String>, failure: Option<String>| {
+            outcomes.push(match failure {
+                Some(detail) => RestartOutcome {
+                    root,
+                    restarted: false,
+                    detail,
+                },
+                None => {
+                    self.restarted.lock().unwrap().push(match &root {
+                        Some(root) => format!("{server_id} in {root}"),
+                        None => server_id.to_string(),
+                    });
+                    RestartOutcome {
+                        root,
+                        restarted: true,
+                        detail: "restarted".into(),
+                    }
+                }
+            });
+        };
+        if shared {
+            restart(None, self.failing.lock().unwrap().get(server_id).cloned());
+        }
+        for root in rooted.into_iter().flat_map(|folders| folders.into_keys()) {
+            let failure = self
+                .failing_roots
+                .lock()
+                .unwrap()
+                .get(server_id)
+                .and_then(|folders| folders.get(&root))
+                .cloned();
+            restart(Some(root), failure);
+        }
+        Some(outcomes)
     }
 
     fn mark_lists_stale(&self) {

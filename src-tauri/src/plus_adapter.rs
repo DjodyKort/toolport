@@ -4,10 +4,11 @@ use std::path::PathBuf;
 
 use serde_json::{Map, Value};
 use toolport_plus_api::{
-    convert, plus_ops, AccessSetInfo, AuthProbe, CatalogAccess, CatalogEntryRecord, DirectEntry,
-    EnvEntry, ForkServerFields, GatewayRouter, HostEnv, HttpAccess, HttpBody, HttpError,
-    HttpRequest, HttpResponse, McpmSource, RegistryAccess, RegistryPlus, RegistryTx, RegistryView,
-    RestartOutcome, SecretsHost, SelfMcpRecord, ServerRecord, ServerRules, ServerSpec, TrustInputs,
+    convert, plus_ops, AccessSetInfo, AuthProbe, CallsInFlight, CatalogAccess, CatalogEntryRecord,
+    DirectEntry, EnvEntry, ForkServerFields, GatewayRouter, HostEnv, HttpAccess, HttpBody,
+    HttpError, HttpRequest, HttpResponse, McpmSource, RegistryAccess, RegistryPlus, RegistryTx,
+    RegistryView, RestartOutcome, SecretsHost, SelfMcpRecord, ServerRecord, ServerRules,
+    ServerSpec, TrustInputs,
 };
 
 pub struct HostAdapter;
@@ -579,25 +580,75 @@ impl CatalogAccess for HostAdapter {
     }
 }
 
-/// The router one gateway process owns, as the restart listener sees it.
+/// The router one gateway process owns, as the restart listener sees it, with the launches it
+/// keeps once per project folder.
 pub(crate) struct RouterHandle {
     pub(crate) router: std::sync::Arc<crate::router::Router>,
+    pub(crate) pooled: Vec<crate::seam::PooledLaunch>,
     pub(crate) dirty: std::sync::Arc<std::sync::atomic::AtomicU8>,
+}
+
+impl RouterHandle {
+    fn folders<'a>(
+        &'a self,
+        server_id: &'a str,
+    ) -> impl Iterator<Item = (&'a String, &'a crate::router::SharedServerSlot)> {
+        self.pooled
+            .iter()
+            .filter(move |(id, _, _)| id == server_id)
+            .map(|(_, root, slot)| (root, slot))
+    }
 }
 
 impl GatewayRouter for RouterHandle {
     fn holds_server(&self, server_id: &str) -> bool {
-        self.router.plus_holds_server(server_id)
+        self.router.plus_holds_server(server_id) || self.folders(server_id).next().is_some()
     }
 
-    fn calls_in_flight(&self, server_id: &str) -> Option<usize> {
-        self.router.plus_calls_in_flight(server_id)
+    fn calls_in_flight(&self, server_id: &str) -> Option<Vec<CallsInFlight>> {
+        let shared = self
+            .router
+            .plus_calls_in_flight(server_id)
+            .map(|calls| CallsInFlight { root: None, calls });
+        let instances: Vec<_> = shared
+            .into_iter()
+            .chain(self.folders(server_id).map(|(root, slot)| CallsInFlight {
+                root: Some(root.clone()),
+                calls: slot.plus_calls_in_flight(),
+            }))
+            .collect();
+        (!instances.is_empty()).then_some(instances)
     }
 
-    fn restart_server(&self, server_id: &str) -> Option<RestartOutcome> {
-        self.router
+    fn restart_server(&self, server_id: &str) -> Option<Vec<RestartOutcome>> {
+        let shared = self
+            .router
             .plus_restart_server(server_id)
-            .map(|(restarted, detail)| RestartOutcome { restarted, detail })
+            .map(|(restarted, detail)| RestartOutcome {
+                root: None,
+                restarted,
+                detail,
+            });
+        // One thread per folder: each fresh process can take seconds to come up.
+        let folders: Vec<_> = std::thread::scope(|scope| {
+            self.folders(server_id)
+                .map(|(root, slot)| {
+                    scope.spawn(move || {
+                        let (restarted, detail) = slot.plus_restart();
+                        RestartOutcome {
+                            root: Some(root.clone()),
+                            restarted,
+                            detail,
+                        }
+                    })
+                })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .filter_map(|handle| handle.join().ok())
+                .collect()
+        });
+        let instances: Vec<_> = shared.into_iter().chain(folders).collect();
+        (!instances.is_empty()).then_some(instances)
     }
 
     fn mark_lists_stale(&self) {

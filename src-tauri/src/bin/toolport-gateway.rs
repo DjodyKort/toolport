@@ -12922,7 +12922,19 @@ fn watch_tick(
 ) -> TickOutcome {
     host.reap_root_launches();
     drive_reconnects(host, stdio, profile);
-    conduit_lib::seam::gateway_tick(&host.router, &host.downstream_dirty);
+    conduit_lib::seam::gateway_tick(&host.router, &host.downstream_dirty, &|| {
+        let pool = host
+            .root_launch_pool
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        pool.launches
+            .iter()
+            .map(|(key, launch)| {
+                let folder = launch.subscription_key.1.clone();
+                (key.server.clone(), folder, launch.slot.clone())
+            })
+            .collect()
+    });
     // Everything host-scoped in this tick comes off the host, so a caller cannot pair
     // one host with another host's router, cache, session table, or rebuild lock.
     let registry = &host.registry;

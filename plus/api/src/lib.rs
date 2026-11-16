@@ -26,8 +26,8 @@ pub use memory::{
 pub use mirror::{convert, ServerRecord};
 pub use secrets::{SecretsHost, TrustInputs};
 pub use servers::{
-    CatalogAccess, CatalogEntryRecord, EnvEntry, GatewayRouter, RestartOutcome, ServerRules,
-    ServerSpec,
+    CallsInFlight, CatalogAccess, CatalogEntryRecord, EnvEntry, GatewayRouter, RestartOutcome,
+    ServerRules, ServerSpec,
 };
 pub use view::{AccessSetInfo, RegistryTx, RegistryView};
 

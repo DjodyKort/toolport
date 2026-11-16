@@ -104,23 +104,35 @@ pub trait CatalogAccess {
     fn curated(&self, query: &str) -> Vec<CatalogEntryRecord>;
 }
 
-/// What one gateway process did when asked to restart a server.
+/// What happened to one instance of a server when a gateway process was asked to restart it. A
+/// server whose working directory uses `${ROOT}` runs once per project folder: `root` names the
+/// folder of such an instance. It is `None` for the server's one shared connection.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RestartOutcome {
+    pub root: Option<String>,
     pub restarted: bool,
     pub detail: String,
 }
 
+/// The calls running on or waiting for one instance of a server; `root` as in [`RestartOutcome`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CallsInFlight {
+    pub root: Option<String>,
+    pub calls: usize,
+}
+
 /// What the restart listener needs of the router a gateway process owns.
 pub trait GatewayRouter: Send + Sync {
-    /// Whether this router holds a slot for the server.
+    /// Whether this router holds an instance of the server, shared or for a project folder.
     fn holds_server(&self, server_id: &str) -> bool;
 
-    /// Calls running on or waiting for the server in this process; `None` when it is not held.
-    fn calls_in_flight(&self, server_id: &str) -> Option<usize>;
+    /// The calls in flight on every instance of the server in this process; `None` when it is
+    /// not held.
+    fn calls_in_flight(&self, server_id: &str) -> Option<Vec<CallsInFlight>>;
 
-    /// Replaces the server's connection with a fresh one now. `None` when it is not held.
-    fn restart_server(&self, server_id: &str) -> Option<RestartOutcome>;
+    /// Replaces the connection of every instance of the server with a fresh one now. `None` when
+    /// it is not held.
+    fn restart_server(&self, server_id: &str) -> Option<Vec<RestartOutcome>>;
 
     /// Marks the tool, resource and prompt lists stale so connected clients read them again.
     fn mark_lists_stale(&self);

@@ -8,10 +8,13 @@
 # check-locales.mjs, 2 changed lines: `plus` joins the directories the scan skips; the fork's own screens
 # are English only (D-135) and its shell labels are wrapped through msg() in src/lib/settingsPages.ts.
 2	scripts/check-locales.mjs
-# bin/toolport-gateway.rs, 1 line: watch_tick calls seam::gateway_tick(&host.router, &host.downstream_dirty)
-# once per tick, so the gateway process that owns the router answers server restart and in-flight
-# requests (the restart listener; its logic is toolport_plus::servers::restart behind the seam).
-1	src-tauri/src/bin/toolport-gateway.rs
+# bin/toolport-gateway.rs, 13 changed lines: watch_tick calls seam::gateway_tick(&host.router,
+# &host.downstream_dirty, <the pool's launches>) once per tick, so the gateway process that owns the router
+# answers server restart and in-flight requests (the restart listener; its logic is
+# toolport_plus::servers::restart behind the seam). The third argument is a closure that lists the launches
+# kept once per project folder (server id, folder, slot): RootLaunchPool is private to this binary and the
+# router holds none of them, so a restart cannot reach those instances without it.
+13	src-tauri/src/bin/toolport-gateway.rs
 # desktop.rs, 4 changed lines: the invoke handler is wrapped in seam::ipc, which answers the
 # plus_ctl commands (D-060) and hands every other command on.
 4	src-tauri/src/desktop.rs

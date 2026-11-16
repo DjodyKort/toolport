@@ -6,6 +6,10 @@
 //!
 //! The caller can first ask how many calls are in flight (`--if-idle`): a restart ends them, so the
 //! screen asks for confirmation only when there are some.
+//!
+//! A server whose working directory uses `${ROOT}` runs once per project folder. A gateway answers
+//! for all of its instances: calls in flight are counted over them, a restart replaces each one,
+//! and the answer names every folder with what happened to it.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -15,7 +19,7 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde_json::{json, Value};
-use toolport_plus_api::{GatewayRouter, Host};
+use toolport_plus_api::{CallsInFlight, GatewayRouter, Host, RestartOutcome};
 
 use super::{find, read_servers};
 use crate::op::OpError;
@@ -106,15 +110,52 @@ impl Record for Request {
     }
 }
 
+/// What happened to the instance of a server that runs for one project folder.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RootOutcome {
+    pub root: String,
+    pub restarted: bool,
+    pub detail: String,
+    pub in_flight: Option<usize>,
+}
+
+impl Record for RootOutcome {
+    fn to_value(&self) -> Value {
+        let mut value = json!({
+            "root": self.root, "restarted": self.restarted, "detail": self.detail,
+        });
+        if let Some(calls) = self.in_flight {
+            value["inFlight"] = json!(calls);
+        }
+        value
+    }
+
+    fn from_value(value: &Value) -> Option<Self> {
+        Some(Self {
+            root: text(value, "root")?,
+            restarted: value.get("restarted")?.as_bool()?,
+            detail: text(value, "detail")?,
+            in_flight: value
+                .get("inFlight")
+                .and_then(Value::as_u64)
+                .map(|n| n as usize),
+        })
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Outcome {
     pub nonce: String,
     pub pid: u32,
     pub server_id: String,
+    /// Whether every instance of the server in this gateway process restarted.
     pub restarted: bool,
     pub detail: String,
-    /// Calls running on or waiting for the server in this gateway process.
+    /// Calls running on or waiting for the server in this gateway process, over all its instances.
     pub in_flight: Option<usize>,
+    /// The instances that run for a project folder, sorted by folder; empty for a server with one
+    /// shared connection.
+    pub roots: Vec<RootOutcome>,
 }
 
 impl Record for Outcome {
@@ -125,6 +166,9 @@ impl Record for Outcome {
         });
         if let Some(calls) = self.in_flight {
             value["inFlight"] = json!(calls);
+        }
+        if !self.roots.is_empty() {
+            value["roots"] = self.roots.iter().map(Record::to_value).collect();
         }
         value
     }
@@ -140,6 +184,11 @@ impl Record for Outcome {
                 .get("inFlight")
                 .and_then(Value::as_u64)
                 .map(|n| n as usize),
+            roots: value
+                .get("roots")
+                .and_then(Value::as_array)
+                .map(|roots| roots.iter().filter_map(RootOutcome::from_value).collect())
+                .unwrap_or_default(),
         })
     }
 }
@@ -352,20 +401,13 @@ pub fn serve_with(
             restarted: false,
             detail: String::new(),
             in_flight: None,
+            roots: Vec::new(),
         };
         if request.kind == Kind::Probe {
-            let calls = gateway.calls_in_flight(&request.server_id).unwrap_or(0);
-            let _ = record(
-                base,
-                &Outcome {
-                    detail: match calls {
-                        0 => "idle".to_string(),
-                        n => format!("{n} call{} in flight", if n == 1 { "" } else { "s" }),
-                    },
-                    in_flight: Some(calls),
-                    ..outcome
-                },
-            );
+            let instances = gateway
+                .calls_in_flight(&request.server_id)
+                .unwrap_or_default();
+            let _ = record(base, &probe_outcome(outcome, instances));
             continue;
         }
         let base = base.to_path_buf();
@@ -373,32 +415,116 @@ pub fn serve_with(
         let spawned = std::thread::Builder::new()
             .name(format!("restart-{}", request.server_id))
             .spawn(move || {
-                let answer = gateway.restart_server(&request.server_id);
-                let (restarted, detail) = match answer {
-                    Some(answer) => (answer.restarted, answer.detail),
-                    None => (false, "the gateway no longer holds the server".to_string()),
-                };
-                if restarted {
+                let (outcome, any_restarted) =
+                    restart_outcome(outcome, gateway.restart_server(&request.server_id));
+                if any_restarted {
                     gateway.mark_lists_stale();
                 }
                 eprintln!(
-                    "toolport: restart of '{}' asked for: {detail}",
-                    request.server
+                    "toolport: restart of '{}' asked for: {}",
+                    request.server, outcome.detail
                 );
-                let _ = record(
-                    &base,
-                    &Outcome {
-                        restarted,
-                        detail,
-                        ..outcome
-                    },
-                );
+                let _ = record(&base, &outcome);
             });
         if let Ok(handle) = spawned {
             running.push(handle);
         }
     }
     running
+}
+
+fn calls_text(calls: usize) -> String {
+    match calls {
+        0 => "idle".to_string(),
+        n => format!("{n} call{} in flight", if n == 1 { "" } else { "s" }),
+    }
+}
+
+fn folders_text(count: usize) -> String {
+    format!(
+        "{count} project folder{}",
+        if count == 1 { "" } else { "s" }
+    )
+}
+
+fn probe_outcome(base: Outcome, instances: Vec<CallsInFlight>) -> Outcome {
+    let total = instances.iter().map(|instance| instance.calls).sum();
+    let mut roots: Vec<RootOutcome> = instances
+        .into_iter()
+        .filter_map(|instance| {
+            Some(RootOutcome {
+                root: instance.root?,
+                restarted: false,
+                detail: calls_text(instance.calls),
+                in_flight: Some(instance.calls),
+            })
+        })
+        .collect();
+    roots.sort_by(|a, b| a.root.cmp(&b.root));
+    let busy: Vec<String> = roots
+        .iter()
+        .filter(|root| root.in_flight.unwrap_or(0) > 0)
+        .map(|root| format!("{} ({})", root.root, root.in_flight.unwrap_or(0)))
+        .collect();
+    let mut detail = calls_text(total);
+    if !busy.is_empty() {
+        detail = format!("{detail}: {}", busy.join(", "));
+    }
+    Outcome {
+        detail,
+        in_flight: Some(total),
+        roots,
+        ..base
+    }
+}
+
+/// The gateway's answer to a restart request, and whether any instance got a fresh process, so
+/// its lists are read again even when another instance failed.
+fn restart_outcome(base: Outcome, answer: Option<Vec<RestartOutcome>>) -> (Outcome, bool) {
+    let Some(mut instances) = answer.filter(|instances| !instances.is_empty()) else {
+        let detail = "the gateway no longer holds the server".to_string();
+        return (Outcome { detail, ..base }, false);
+    };
+    instances.sort_by(|a, b| a.root.cmp(&b.root));
+    let any_restarted = instances.iter().any(|instance| instance.restarted);
+    let restarted = instances.iter().all(|instance| instance.restarted);
+    let roots: Vec<RootOutcome> = instances
+        .iter()
+        .filter_map(|instance| {
+            Some(RootOutcome {
+                root: instance.root.clone()?,
+                restarted: instance.restarted,
+                detail: instance.detail.clone(),
+                in_flight: None,
+            })
+        })
+        .collect();
+    let detail = if roots.is_empty() {
+        instances[0].detail.clone()
+    } else {
+        let failed: Vec<String> = instances
+            .iter()
+            .filter(|instance| !instance.restarted)
+            .map(|instance| match &instance.root {
+                Some(root) => format!("{root}: {}", instance.detail),
+                None => instance.detail.clone(),
+            })
+            .collect();
+        if failed.is_empty() {
+            format!("restarted in {}", folders_text(roots.len()))
+        } else {
+            failed.join("; ")
+        }
+    };
+    (
+        Outcome {
+            restarted,
+            detail,
+            roots,
+            ..base
+        },
+        any_restarted,
+    )
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -472,6 +598,9 @@ impl Restart {
                 if let Some(calls) = o.in_flight {
                     gateway["inFlight"] = json!(calls);
                 }
+                if !o.roots.is_empty() {
+                    gateway["roots"] = o.roots.iter().map(Record::to_value).collect();
+                }
                 gateway
             }).collect::<Vec<_>>(),
         })
@@ -492,12 +621,20 @@ impl Restart {
                 "No running gateway holds {} ({}), so there is nothing to restart. It starts fresh at its next call.",
                 self.name, self.id
             ),
-            Status::Restarted => format!(
-                "Restarted {} ({}) in {count} gateway process{}; its tools refresh now.",
-                self.name,
-                self.id,
-                if count == 1 { "" } else { "es" }
-            ),
+            Status::Restarted => {
+                let folders: usize = self.outcomes.iter().map(|o| o.roots.len()).sum();
+                format!(
+                    "Restarted {} ({}) in {count} gateway process{}{}; its tools refresh now.",
+                    self.name,
+                    self.id,
+                    if count == 1 { "" } else { "es" },
+                    if folders == 0 {
+                        String::new()
+                    } else {
+                        format!(" ({})", folders_text(folders))
+                    }
+                )
+            }
             Status::Busy => {
                 let busy: Vec<String> = self
                     .outcomes
@@ -584,6 +721,7 @@ fn ask(
                 restarted: false,
                 detail: format!("{unanswered} after {} s", wait.as_secs()),
                 in_flight: None,
+                roots: Vec::new(),
             });
         }
     }

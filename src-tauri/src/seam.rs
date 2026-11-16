@@ -35,11 +35,16 @@ pub(crate) fn egress_check(uri: &ureq::http::Uri) -> Result<(), ureq::Error> {
     Ok(())
 }
 
+/// A launch the gateway keeps for one project folder: the server id, the folder and the slot.
+pub type PooledLaunch = (String, String, crate::router::SharedServerSlot);
+
 /// One watcher tick of a gateway process, which owns the router: answers the server restart and
 /// in-flight requests other processes left in the data dir. Cheap when there are none.
+/// `pooled` lists the launches the process keeps once per project folder, which the router does not.
 pub fn gateway_tick(
     router: &std::sync::Mutex<std::sync::Arc<crate::router::Router>>,
     dirty: &std::sync::Arc<std::sync::atomic::AtomicU8>,
+    pooled: &dyn Fn() -> Vec<PooledLaunch>,
 ) {
     #[cfg(feature = "plus")]
     if let Some(dir) = crate::registry::conduit_dir() {
@@ -50,6 +55,7 @@ pub fn gateway_tick(
         );
         let gateway = crate::plus_adapter::RouterHandle {
             router: live,
+            pooled: pooled(),
             dirty: std::sync::Arc::clone(dirty),
         };
         // The restarts run on their own threads; this tick never waits for one.
@@ -59,7 +65,7 @@ pub fn gateway_tick(
         ));
     }
     #[cfg(not(feature = "plus"))]
-    let _ = (router, dirty);
+    let _ = (router, dirty, pooled);
 }
 
 /// The secrets host the hooks below use. Unit tests never reach the real keychain
