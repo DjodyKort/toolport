@@ -11,14 +11,16 @@ pub mod fork_data;
 pub mod http;
 pub mod memory;
 pub mod mirror;
+pub mod secrets;
 
 pub use fork_data::{
     plus_ops, AuthProbe, DirectEntry, ForkServerFields, McpmSource, RegistryPlus, SelfMcpRecord,
     ServerPlus,
 };
 pub use http::{HttpAccess, HttpBody, HttpError, HttpMethod, HttpRequest, HttpResponse};
-pub use memory::{MemoryRegistry, ScriptedHttp};
+pub use memory::{MemoryRegistry, MemorySecrets, ScriptedHttp};
 pub use mirror::{convert, ServerRecord};
+pub use secrets::{SecretsHost, TrustInputs};
 
 /// Registry access for the fork logic.
 ///

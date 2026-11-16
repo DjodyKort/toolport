@@ -1,14 +1,18 @@
 //! An in-memory `RegistryAccess` for tests of fork logic. It applies the same
 //! edit rules as the conduit adapter, on mirror types and a plain `plus` map.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
+use std::collections::BTreeMap;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 
 use serde_json::{Map, Value};
 
 use crate::fork_data::{plus_ops, AuthProbe, DirectEntry, McpmSource, RegistryPlus, SelfMcpRecord};
-use crate::{HttpAccess, HttpError, HttpRequest, HttpResponse, RegistryAccess, ServerRecord};
+use crate::{
+    HttpAccess, HttpError, HttpRequest, HttpResponse, RegistryAccess, SecretsHost, ServerRecord,
+    TrustInputs,
+};
 
 #[derive(Debug, Default)]
 pub struct MemoryRegistry {
@@ -241,6 +245,89 @@ impl HttpAccess for ScriptedHttp {
             .borrow_mut()
             .pop_front()
             .unwrap_or_else(|| Err(HttpError::Other("no scripted response left".into())))
+    }
+}
+
+/// A login keychain in memory. Nothing here reaches a real keychain: the key,
+/// its failures and the call counts are fields a test sets and reads.
+#[derive(Debug, Default)]
+pub struct MemorySecrets {
+    pub data_dir: Option<PathBuf>,
+    pub env: RefCell<BTreeMap<String, String>>,
+    /// What `login_keychain_available` answers; off by default, as off macOS.
+    pub available: bool,
+    pub key: Cell<Option<[u8; 32]>>,
+    /// Makes `read_master_key` fail with this message.
+    pub read_error: RefCell<Option<String>>,
+    /// Makes `ensure_master_key` fail with this message.
+    pub ensure_error: RefCell<Option<String>>,
+    /// Makes `rewrite_master_key_acl` fail with this message.
+    pub acl_error: RefCell<Option<String>>,
+    pub trust_inputs: RefCell<TrustInputs>,
+    pub reads: Cell<usize>,
+    pub ensures: Cell<usize>,
+    pub acl_rewrites: Cell<usize>,
+}
+
+impl MemorySecrets {
+    /// A macOS-like host: the login keychain is available.
+    pub fn macos(data_dir: impl Into<PathBuf>) -> Self {
+        Self {
+            data_dir: Some(data_dir.into()),
+            available: true,
+            ..Default::default()
+        }
+    }
+
+    pub fn set_env(&self, name: &str, value: &str) {
+        self.env.borrow_mut().insert(name.into(), value.into());
+    }
+}
+
+impl SecretsHost for MemorySecrets {
+    fn data_dir(&self) -> Option<PathBuf> {
+        self.data_dir.clone()
+    }
+
+    fn env_var(&self, name: &str) -> Option<String> {
+        self.env.borrow().get(name).cloned()
+    }
+
+    fn login_keychain_available(&self) -> bool {
+        self.available
+    }
+
+    fn read_master_key(&self) -> Result<Option<[u8; 32]>, String> {
+        self.reads.set(self.reads.get() + 1);
+        match self.read_error.borrow().clone() {
+            Some(error) => Err(error),
+            None => Ok(self.key.get()),
+        }
+    }
+
+    fn ensure_master_key(&self) -> Result<[u8; 32], String> {
+        self.ensures.set(self.ensures.get() + 1);
+        if let Some(error) = self.ensure_error.borrow().clone() {
+            return Err(error);
+        }
+        let key = self.key.get().unwrap_or([0x42; 32]);
+        self.key.set(Some(key));
+        Ok(key)
+    }
+
+    fn rewrite_master_key_acl(&self) -> Result<bool, String> {
+        if let Some(error) = self.acl_error.borrow().clone() {
+            return Err(error);
+        }
+        if self.key.get().is_none() {
+            return Ok(false);
+        }
+        self.acl_rewrites.set(self.acl_rewrites.get() + 1);
+        Ok(true)
+    }
+
+    fn trust_inputs(&self) -> Result<TrustInputs, String> {
+        Ok(self.trust_inputs.borrow().clone())
     }
 }
 

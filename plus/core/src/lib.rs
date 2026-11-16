@@ -3,4 +3,6 @@
 
 pub mod egress;
 pub mod http;
+pub mod keychain_trust;
+pub mod login_keychain;
 pub mod status;
