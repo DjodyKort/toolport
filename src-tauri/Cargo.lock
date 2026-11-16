@@ -1001,6 +1001,8 @@ dependencies = [
  "tokio",
  "toml 0.8.2",
  "toml_edit 0.22.27",
+ "toolport-plus",
+ "toolport-plus-api",
  "trash",
  "unicode-normalization",
  "unsafe-libyaml",
@@ -6693,6 +6695,22 @@ name = "toml_writer"
 version = "1.1.1+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "756daf9b1013ebe47a8776667b466417e2d4c5679d441c26230efd9ef78692db"
+
+[[package]]
+name = "toolport-plus"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "toolport-plus-api",
+]
+
+[[package]]
+name = "toolport-plus-api"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "tower"

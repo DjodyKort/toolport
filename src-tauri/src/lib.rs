@@ -47,6 +47,8 @@ pub mod observability_controller;
 pub mod personal_sync;
 pub mod pii;
 pub mod playground;
+#[cfg(feature = "plus")]
+pub mod plus_adapter;
 pub mod purge;
 pub mod rate_limits;
 pub mod registry;
@@ -56,6 +58,7 @@ pub mod router;
 pub mod savings;
 pub(crate) mod schema_compat;
 pub mod scrub_io;
+pub(crate) mod seam;
 pub mod searchtrace;
 pub mod secret_normalize;
 pub mod secret_redact;

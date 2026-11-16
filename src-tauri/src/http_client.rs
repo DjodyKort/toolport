@@ -206,6 +206,7 @@ impl ureq::unversioned::resolver::Resolver for DirectResolver {
         config: &ureq::config::Config,
         timeout: ureq::unversioned::transport::NextTimeout,
     ) -> Result<ureq::unversioned::resolver::ResolvedSocketAddrs, ureq::Error> {
+        crate::seam::egress_check(uri)?;
         ureq::unversioned::resolver::DefaultResolver::default()
             .resolve(uri, config, timeout)
             .map_err(|error| match error {
@@ -288,6 +289,7 @@ impl ureq::unversioned::resolver::Resolver for ScreenedResolver {
     ) -> Result<ureq::unversioned::resolver::ResolvedSocketAddrs, ureq::Error> {
         use std::net::ToSocketAddrs;
         use ureq::unversioned::resolver::DefaultResolver;
+        crate::seam::egress_check(uri)?;
         let netloc = uri
             .scheme()
             .zip(uri.authority())

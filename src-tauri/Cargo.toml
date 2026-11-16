@@ -31,7 +31,10 @@ required-features = ["test-support"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["desktop", "search-static"]
+default = ["desktop", "search-static", "plus"]
+# Fork hook points in `seam` and the adapter for the fork crates under plus/;
+# upstream's own CI commands build with `--no-default-features` and see none of it.
+plus = ["dep:toolport-plus", "dep:toolport-plus-api"]
 # Required by every gateway build, including headless and bundled sidecars.
 search-static = ["dep:tokenizers", "dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:rayon"]
 desktop = [
@@ -141,6 +144,8 @@ httpdate = "1"
 # Minimal synchronous HTTP server for the gateway's native HTTP/OpenAPI mode
 # (first-class Open WebUI and any OpenAPI tool client, no external bridge).
 tiny_http = "0.12"
+toolport-plus = { path = "../plus/core", optional = true }
+toolport-plus-api = { path = "../plus/api", optional = true }
 tauri-plugin-deep-link = { version = "2", optional = true }
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"], optional = true }
 

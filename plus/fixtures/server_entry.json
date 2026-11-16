@@ -1,0 +1,12 @@
+{
+  "enabled": false,
+  "id": "fixture-files",
+  "name": "Files",
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+  "hidePrompts": true,
+  "requestTimeoutMs": 45000,
+  "plus": {"origin": "import", "futurePlusField": 7},
+  "fieldFromNewerUpstream": {"nested": [1, 2, 3]}
+}
