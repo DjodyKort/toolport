@@ -1,7 +1,7 @@
 use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
 
-use super::{backend, context, servers, ToolError};
+use super::{backend, context, servers, skills, ToolError};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Gate {
@@ -72,6 +72,16 @@ const DRY: Param = p(
     "Report the plan and write nothing",
 );
 const CWD: Param = p("cwd", Ty::Str, true, "The folder where Claude Code starts");
+const SKILL_NAME: Param = p("name", Ty::Str, true, "Skill or rule name");
+const REPO: Param = p("repo_path", Ty::Str, false, "Skills repository root");
+const CLIENTS: Param = p("client_keys", Ty::StrList, false, "Client keys to target");
+const CLIENT: Param = p("client", Ty::Str, false, "Limit to one client key");
+const GLOBAL: Param = p(
+    "global_mode",
+    Ty::Bool,
+    false,
+    "User-level locations, the default; false works inside the repository",
+);
 const DRY_ON: Param = on_by_default(p(
     "dry_run",
     Ty::Bool,
@@ -116,6 +126,128 @@ pub const TOOLS: &[ToolDef] = &[
         "Data-flow diagram of skills and servers",
         [],
         backend::flow_diagram
+    ),
+    tool!(
+        "skills_list",
+        1,
+        None,
+        "List skills and rules in the repository",
+        [REPO],
+        skills::list
+    ),
+    tool!(
+        "skills_get",
+        1,
+        None,
+        "Read one skill including its body",
+        [SKILL_NAME, REPO],
+        skills::get
+    ),
+    tool!(
+        "skills_lint",
+        1,
+        None,
+        "Lint skills, the files a sync leaves out and links that would not be installed",
+        [
+            REPO,
+            p("names", Ty::StrList, false, "Limit to these skills")
+        ],
+        skills::lint
+    ),
+    tool!(
+        "skills_status",
+        1,
+        None,
+        "Drift between repository and client outputs, with a file-by-file verification",
+        [REPO, CLIENTS],
+        skills::status
+    ),
+    tool!(
+        "skills_list_transpilers",
+        1,
+        None,
+        "List client transpilers",
+        [],
+        skills::list_transpilers
+    ),
+    tool!(
+        "skills_scaffold",
+        2,
+        None,
+        "Create a new skill skeleton",
+        [SKILL_NAME, p("skill_type", Ty::Str, false, "skill or rule"), REPO],
+        skills::scaffold
+    ),
+    tool!(
+        "skills_sync",
+        2,
+        UnlessDryRun,
+        "Transpile skills to client outputs; dry_run is on by default (apply with dry_run=false and confirm=true). Removals, new hooks and files that differ wait unless apply_held=true",
+        [
+            REPO,
+            CLIENTS,
+            DRY_ON,
+            GLOBAL,
+            p(
+                "migrate",
+                Ty::Bool,
+                false,
+                "Back up and replace files that shadow a synced skill; otherwise they are only reported"
+            ),
+            p(
+                "apply_held",
+                Ty::Bool,
+                false,
+                "Also remove files that left the library, install new hooks and replace files that differ (after a backup)"
+            )
+        ],
+        skills::sync
+    ),
+    tool!(
+        "skills_diff",
+        1,
+        None,
+        "Compare the skills with the lockfile: new, modified, removed and unchanged",
+        [REPO],
+        skills::diff
+    ),
+    tool!(
+        "skills_audit",
+        1,
+        None,
+        "Scan skills for prompt injection and risky commands",
+        [REPO],
+        skills::audit
+    ),
+    tool!(
+        "skills_clean",
+        4,
+        UnlessDryRun,
+        "Remove the synced skill outputs and the lockfile; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [REPO, CLIENT, GLOBAL, DRY_ON],
+        skills::clean
+    ),
+    tool!(
+        "skills_uninstall",
+        4,
+        UnlessDryRun,
+        "Delete one skill or rule from the repository with its synced outputs and lock entry; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [SKILL_NAME, REPO, GLOBAL, DRY_ON],
+        skills::uninstall
+    ),
+    tool!(
+        "skills_resolve",
+        3,
+        UnlessDryRun,
+        "Find files that shadow synced skills; migrate=true backs them up and replaces them, otherwise they are only reported; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            REPO,
+            CLIENT,
+            GLOBAL,
+            p("migrate", Ty::Bool, false, "Back up and replace the shadowing files"),
+            DRY_ON
+        ],
+        skills::resolve
     ),
     tool!(
         "servers_list",

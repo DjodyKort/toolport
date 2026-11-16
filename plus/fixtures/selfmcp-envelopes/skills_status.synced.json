@@ -1,0 +1,43 @@
+{
+  "arguments": {
+    "client_keys": ["claude-code"]
+  },
+  "isError": false,
+  "result": {
+    "drift": false,
+    "entries": [
+      {
+        "clientsSynced": ["claude-code"],
+        "currentHash": "sha256:97acfa6525aa502a",
+        "drifted": false,
+        "knownToLockfile": true,
+        "lockfileHash": "sha256:97acfa6525aa502a",
+        "name": "demo",
+        "type": "skill"
+      }
+    ],
+    "lockedCount": 1,
+    "lockfile": "<WORLD>/data/mcpm-skills.lock",
+    "lockfilePresent": true,
+    "lockfileSyncedAt": "<TIME>",
+    "outputRoot": "<WORLD>/home",
+    "outputs": [
+      {
+        "client": "claude-code",
+        "name": "demo",
+        "present": true
+      }
+    ],
+    "rejected": [],
+    "repo": "<WORLD>/skills-repo",
+    "targetedClients": ["claude-code"],
+    "verify": {
+      "checked": 1,
+      "clean": true,
+      "differing": [],
+      "missing": []
+    },
+    "warnings": []
+  },
+  "tool": "skills_status"
+}

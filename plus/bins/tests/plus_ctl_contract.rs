@@ -926,6 +926,145 @@ const CASES: &[Case] = &[
             usage("usage", &["context", "status", "extra"]),
         ],
     ),
+    case(
+        "skills ls",
+        &[read("repo", &["skills", "ls", "--repo", "{repo}"])],
+    ),
+    case(
+        "skills lint",
+        &[read("", &["skills", "lint", "--repo", "{repo}"])],
+    ),
+    case(
+        "skills diff",
+        &[read("", &["skills", "diff", "--repo", "{repo}"]).exit(1)],
+    ),
+    case(
+        "skills audit",
+        &[read("", &["skills", "audit", "--repo", "{repo}"])],
+    ),
+    case(
+        "skills status",
+        &[read("", &["skills", "status", "--repo", "{repo}"])],
+    ),
+    case(
+        "skills sync",
+        &[
+            read(
+                "preview",
+                &["skills", "sync", "--repo", "{repo}", "--dry-run"],
+            ),
+            apply("apply", &["skills", "sync", "--repo", "{repo}"]),
+        ],
+    ),
+    case(
+        "skills init",
+        &[
+            read(
+                "preview",
+                &[
+                    "skills",
+                    "init",
+                    "--path",
+                    "{base}/fresh",
+                    "--name",
+                    "contract",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &[
+                    "skills",
+                    "init",
+                    "--path",
+                    "{base}/fresh",
+                    "--name",
+                    "contract",
+                ],
+            ),
+        ],
+    ),
+    case(
+        "skills add",
+        &[
+            setup(
+                "setup",
+                &[
+                    "skills",
+                    "init",
+                    "--path",
+                    "{base}/fresh",
+                    "--name",
+                    "contract",
+                ],
+            ),
+            read(
+                "preview",
+                &[
+                    "skills",
+                    "add",
+                    "fresh-skill",
+                    "--path",
+                    "{base}/fresh",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &["skills", "add", "fresh-skill", "--path", "{base}/fresh"],
+            ),
+            usage("usage", &["skills", "add"]),
+        ],
+    ),
+    case(
+        "skills clean",
+        &[
+            setup("setup", &["skills", "sync", "--repo", "{repo}"]),
+            read(
+                "preview",
+                &["skills", "clean", "--repo", "{repo}", "--dry-run"],
+            ),
+            apply("apply", &["skills", "clean", "--repo", "{repo}"]),
+        ],
+    ),
+    case(
+        "skills uninstall",
+        &[
+            setup("setup", &["skills", "sync", "--repo", "{repo}"]),
+            read(
+                "preview",
+                &[
+                    "skills",
+                    "uninstall",
+                    "demo",
+                    "--repo",
+                    "{repo}",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &["skills", "uninstall", "demo", "--repo", "{repo}"],
+            ),
+            apply(
+                "unknown",
+                &["skills", "uninstall", "demo", "--repo", "{repo}"],
+            )
+            .exit(1),
+            usage("usage", &["skills", "uninstall"]),
+        ],
+    ),
+    case(
+        "skills resolve",
+        &[
+            setup("setup", &["skills", "sync", "--repo", "{repo}"]),
+            read(
+                "preview",
+                &["skills", "resolve", "--repo", "{repo}", "--dry-run"],
+            ),
+            apply("apply", &["skills", "resolve", "--repo", "{repo}"]),
+        ],
+    ),
 ];
 
 struct Run {
@@ -938,6 +1077,7 @@ fn expand(world: &World, word: &str) -> String {
     word.replace("{home}", &world.path(&world.home))
         .replace("{data}", &world.path(&world.data))
         .replace("{base}", &world.path(&world.base))
+        .replace("{repo}", &world.path(&world.repo))
 }
 
 fn run_ctl(world: &World, argv: &[String], stdin: Option<&str>) -> Run {

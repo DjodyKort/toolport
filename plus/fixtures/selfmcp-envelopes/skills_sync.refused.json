@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "client_keys": ["claude-code"],
+    "dry_run": false
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: skills_sync (tier 2). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: skills_sync (tier 2). Pass confirm=true to proceed.",
+  "tool": "skills_sync"
+}

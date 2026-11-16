@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "add"],
+  "envelope": {
+    "command": "skills add",
+    "error": {
+      "code": "usage",
+      "message": "missing skill name\nusage: skills add <name> [--type skill|rule] [--path <dir>] [--with-progressive] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -1,0 +1,21 @@
+{
+  "argv": ["skills", "clean", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills clean",
+    "data": {
+      "cleanRoot": "<WORLD>/home",
+      "dryRun": false,
+      "ignored": [],
+      "lockDir": "<WORLD>/data",
+      "lockfilePresent": true,
+      "lockfileRemoved": true,
+      "managed": ["demo"],
+      "removed": ["<WORLD>/home/.claude/skills/demo/SKILL.md"],
+      "scope": "global",
+      "skipped": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

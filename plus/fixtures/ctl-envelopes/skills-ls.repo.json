@@ -1,0 +1,28 @@
+{
+  "argv": ["skills", "ls", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills ls",
+    "data": {
+      "repo": "<WORLD>/skills-repo",
+      "skills": [
+        {
+          "activation": "auto",
+          "description": "A synthetic demo skill",
+          "invisibleReason": null,
+          "name": "demo",
+          "origin": {
+            "kind": "library",
+            "name": "skills-repo"
+          },
+          "path": "<WORLD>/skills-repo/skills/demo/SKILL.md",
+          "type": "skill",
+          "visible": true,
+          "writable": true
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

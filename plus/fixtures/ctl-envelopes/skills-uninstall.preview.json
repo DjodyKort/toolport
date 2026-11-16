@@ -1,0 +1,20 @@
+{
+  "argv": ["skills", "uninstall", "demo", "--repo", "{repo}", "--dry-run"],
+  "envelope": {
+    "command": "skills uninstall",
+    "data": {
+      "dryRun": true,
+      "lockDir": "<WORLD>/data",
+      "lockUpdated": true,
+      "name": "demo",
+      "outputRoot": "<WORLD>/home",
+      "outputs": ["<WORLD>/home/.claude/skills/demo/SKILL.md"],
+      "repo": "<WORLD>/skills-repo",
+      "scope": "global",
+      "sourcePath": "<WORLD>/skills-repo/skills/demo"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

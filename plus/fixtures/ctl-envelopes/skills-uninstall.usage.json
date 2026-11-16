@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "uninstall"],
+  "envelope": {
+    "command": "skills uninstall",
+    "error": {
+      "code": "usage",
+      "message": "missing skill name\nusage: skills uninstall <name> [--repo <dir>] [--home <dir>] [--project] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

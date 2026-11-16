@@ -18,6 +18,9 @@ use super::mcp;
 use super::plugins;
 use super::secret;
 use super::server;
+use super::skills;
+use super::skills_repo;
+use super::skills_state;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tier {
@@ -384,6 +387,37 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&context::USE])
         .args(&[opt("name")])
         .skip("applies a bundle and routes a folder; its --dry-run is a golden step"),
+    row("skills sync", W)
+        .dry()
+        .spec(&[&skills::SYNC])
+        .skip("installs skill files; the plan runs with --dry-run in the skills_sync tests"),
+    row("skills ls", R).spec(&[&skills::LS_SOURCE]),
+    row("skills lint", R).spec(&[&skills::LINT]),
+    row("skills diff", R).spec(&[&skills::DIFF]),
+    row("skills init", W)
+        .dry()
+        .spec(&[&skills_repo::INIT])
+        .skip("creates a repository; its --dry-run is a golden step"),
+    row("skills add", W)
+        .dry()
+        .spec(&[&skills_repo::ADD])
+        .args(&[req("name")])
+        .skip("creates a skill folder; its --dry-run is a golden step"),
+    row("skills audit", R).spec(&[&skills_repo::AUDIT]),
+    row("skills status", R).spec(&[&skills_state::STATUS]),
+    row("skills clean", D)
+        .dry()
+        .spec(&[&skills_state::CLEAN])
+        .skip("removes synced outputs; its --dry-run is a golden step"),
+    row("skills uninstall", D)
+        .dry()
+        .spec(&[&skills_state::UNINSTALL])
+        .args(&[req("name")])
+        .skip("deletes a skill folder; its --dry-run is a golden step"),
+    row("skills resolve", W)
+        .dry()
+        .spec(&[&skills_state::RESOLVE])
+        .skip("backs up shadowing files; its --dry-run is a golden step"),
     row("mcp install", W)
         .spec(&[&mcp::INSTALL])
         .skip("registers the server and lists it in access sets; plus_mcp.rs round trip"),
@@ -509,6 +543,18 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("context_measure", W, "context measure"),
     maps("context_status", R, "context status"),
     maps("context_compose", R, "context compose"),
+    maps("skills_list", R, "skills ls"),
+    own("skills_get", R),
+    maps("skills_lint", R, "skills lint"),
+    maps("skills_status", R, "skills status"),
+    maps("skills_diff", R, "skills diff"),
+    maps("skills_sync", W, "skills sync").on(),
+    own("skills_list_transpilers", R),
+    maps("skills_scaffold", W, "skills add"),
+    maps("skills_audit", R, "skills audit"),
+    maps("skills_clean", D, "skills clean").on(),
+    maps("skills_uninstall", D, "skills uninstall").on(),
+    maps("skills_resolve", W, "skills resolve").on(),
 ];
 
 #[derive(Clone, Copy, Debug)]

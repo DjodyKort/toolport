@@ -1,0 +1,20 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false
+  },
+  "isError": false,
+  "result": {
+    "cleanRoot": "<WORLD>/home",
+    "dryRun": false,
+    "ignored": [],
+    "lockDir": "<WORLD>/data",
+    "lockfilePresent": true,
+    "lockfileRemoved": true,
+    "managed": ["demo"],
+    "removed": ["<WORLD>/home/.claude/skills/demo/SKILL.md"],
+    "scope": "global",
+    "skipped": []
+  },
+  "tool": "skills_clean"
+}

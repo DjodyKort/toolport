@@ -26,7 +26,7 @@ impl Client {
     pub fn spawn(world: &World, forbidden: &[&str]) -> Self {
         let mut command = Command::new(env!("CARGO_BIN_EXE_toolport-selfmcp"));
         command
-            .current_dir(&world.home)
+            .current_dir(&world.repo)
             .env_clear()
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

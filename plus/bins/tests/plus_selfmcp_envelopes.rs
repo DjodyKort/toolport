@@ -107,6 +107,12 @@ const fn context_case(tool: &'static str, calls: &'static [Call]) -> Case {
     }
 }
 
+const APPLY: &str = r#"{"dry_run":false,"confirm":true}"#;
+const UNCONFIRMED: &str = r#"{"dry_run":false}"#;
+const CLAUDE: &str = r#"{"client_keys":["claude-code"]}"#;
+const CLAUDE_UNCONFIRMED: &str = r#"{"client_keys":["claude-code"],"dry_run":false}"#;
+const CLAUDE_APPLY: &str = r#"{"client_keys":["claude-code"],"dry_run":false,"confirm":true}"#;
+
 const CASES: &[Case] = &[
     case(
         "where_am_i",
@@ -430,6 +436,125 @@ const CASES: &[Case] = &[
         &[
             read("folder", "context_status", r#"{"cwd":"{home}/proj"}"#),
             fails("no-cwd", "invalid_arguments", "context_status", "{}"),
+        ],
+    ),
+    case("skills_list", &[read("", "skills_list", "{}")]),
+    case(
+        "skills_get",
+        &[
+            read("found", "skills_get", r#"{"name":"demo"}"#),
+            fails("missing", "not_found", "skills_get", r#"{"name":"nope"}"#),
+        ],
+    ),
+    case("skills_lint", &[read("", "skills_lint", "{}")]),
+    case(
+        "skills_status",
+        &[
+            read("fresh", "skills_status", "{}"),
+            setup("skills_sync", CLAUDE_APPLY),
+            read("synced", "skills_status", CLAUDE),
+        ],
+    ),
+    case(
+        "skills_list_transpilers",
+        &[read("", "skills_list_transpilers", "{}")],
+    ),
+    case(
+        "skills_scaffold",
+        &[
+            write("skill", "skills_scaffold", r#"{"name":"fresh"}"#),
+            write(
+                "rule",
+                "skills_scaffold",
+                r#"{"name":"house-rule","skill_type":"rule"}"#,
+            ),
+            fails(
+                "exists",
+                "conflict",
+                "skills_scaffold",
+                r#"{"name":"fresh"}"#,
+            ),
+            fails(
+                "escaping_name",
+                "invalid_arguments",
+                "skills_scaffold",
+                r#"{"name":"../escape"}"#,
+            ),
+            fails(
+                "unknown_type",
+                "invalid_arguments",
+                "skills_scaffold",
+                r#"{"name":"odd","skill_type":"bogus"}"#,
+            ),
+        ],
+    ),
+    case(
+        "skills_sync",
+        &[
+            read("preview", "skills_sync", CLAUDE),
+            refused("refused", "skills_sync", CLAUDE_UNCONFIRMED),
+            write("apply", "skills_sync", CLAUDE_APPLY),
+            read(
+                "unknown_client",
+                "skills_sync",
+                r#"{"client_keys":["no-such-client"],"dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
+    case(
+        "skills_diff",
+        &[
+            read("fresh", "skills_diff", "{}"),
+            setup("skills_sync", CLAUDE_APPLY),
+            read("synced", "skills_diff", "{}"),
+        ],
+    ),
+    case("skills_audit", &[read("", "skills_audit", "{}")]),
+    case(
+        "skills_clean",
+        &[
+            setup("skills_sync", CLAUDE_APPLY),
+            read("preview", "skills_clean", "{}"),
+            refused("refused", "skills_clean", UNCONFIRMED),
+            write("apply", "skills_clean", APPLY),
+        ],
+    ),
+    case(
+        "skills_uninstall",
+        &[
+            setup("skills_sync", CLAUDE_APPLY),
+            read("preview", "skills_uninstall", r#"{"name":"demo"}"#),
+            refused(
+                "refused",
+                "skills_uninstall",
+                r#"{"name":"demo","dry_run":false}"#,
+            ),
+            fails(
+                "escaping_name",
+                "invalid_arguments",
+                "skills_uninstall",
+                r#"{"name":"../agents/helper","dry_run":false,"confirm":true}"#,
+            ),
+            write(
+                "apply",
+                "skills_uninstall",
+                r#"{"name":"demo","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "gone",
+                "not_found",
+                "skills_uninstall",
+                r#"{"name":"demo","dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
+    case(
+        "skills_resolve",
+        &[
+            setup("skills_sync", CLAUDE_APPLY),
+            read("preview", "skills_resolve", "{}"),
+            refused("refused", "skills_resolve", UNCONFIRMED),
+            write("apply", "skills_resolve", APPLY),
         ],
     ),
 ];

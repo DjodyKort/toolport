@@ -1,0 +1,16 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "errors": 0,
+    "messages": [
+      {
+        "level": "info",
+        "message": "Description lacks 'when to use' guidance. Consider adding context for agent discovery.",
+        "name": "demo"
+      }
+    ],
+    "warnings": 0
+  },
+  "tool": "skills_lint"
+}

@@ -22,6 +22,10 @@
     "context": {
       "title": "Context",
       "status": "planned"
+    },
+    "library": {
+      "title": "Library",
+      "status": "planned"
     }
   },
   "actions": {
@@ -211,6 +215,31 @@
       "route": "context",
       "status": "planned",
       "summary": "The This folder tab's read-only summary: applied bundle, leave-outs, plugin switches, the estimate, the last measurement with its calibration factor (context status, context_status)"
+    },
+    "library.sync": {
+      "route": "library",
+      "status": "planned",
+      "summary": "The Sync tab: plan with held removals, hooks and differing files, Apply, verification line (skills sync, status, diff, clean; skills_sync, skills_status, skills_diff, skills_clean)"
+    },
+    "library.checks": {
+      "route": "library",
+      "status": "planned",
+      "summary": "The Checks list: lint, skipped files, dead links, audit and shadowing files (skills lint, audit, resolve; skills_lint, skills_audit, skills_resolve)"
+    },
+    "library.items": {
+      "route": "library",
+      "status": "planned",
+      "summary": "The library items and skill detail with its files (skills ls, skills_list, skills_get, skills_list_transpilers)"
+    },
+    "library.new": {
+      "route": "library",
+      "status": "planned",
+      "summary": "New skill, rule or library (skills add, init; skills_scaffold)"
+    },
+    "library.uninstall": {
+      "route": "library",
+      "status": "planned",
+      "summary": "Delete a skill from the library with its installed files (skills uninstall; skills_uninstall)"
     }
   },
   "owners": {
@@ -222,7 +251,8 @@
     "secret": "MIG-2X-S3",
     "auth": "MIG-2X-S3",
     "context": "MIG-2X-S5",
-    "plugins": "MIG-2X-S5"
+    "plugins": "MIG-2X-S5",
+    "skills": "MIG-2X-S4"
   },
   "commands": {
     "status": {
@@ -298,6 +328,61 @@
     "server restart": {
       "route": "servers",
       "action": "servers.restart",
+      "surface": "screen"
+    },
+    "skills sync": {
+      "route": "library",
+      "action": "library.sync",
+      "surface": "screen"
+    },
+    "skills status": {
+      "route": "library",
+      "action": "library.sync",
+      "surface": "screen"
+    },
+    "skills diff": {
+      "route": "library",
+      "action": "library.sync",
+      "surface": "screen"
+    },
+    "skills clean": {
+      "route": "library",
+      "action": "library.sync",
+      "surface": "screen"
+    },
+    "skills lint": {
+      "route": "library",
+      "action": "library.checks",
+      "surface": "screen"
+    },
+    "skills audit": {
+      "route": "library",
+      "action": "library.checks",
+      "surface": "screen"
+    },
+    "skills resolve": {
+      "route": "library",
+      "action": "library.checks",
+      "surface": "screen"
+    },
+    "skills ls": {
+      "route": "library",
+      "action": "library.items",
+      "surface": "screen"
+    },
+    "skills add": {
+      "route": "library",
+      "action": "library.new",
+      "surface": "screen"
+    },
+    "skills init": {
+      "route": "library",
+      "action": "library.new",
+      "surface": "screen"
+    },
+    "skills uninstall": {
+      "route": "library",
+      "action": "library.uninstall",
       "surface": "screen"
     },
     "server mode": {
@@ -550,6 +635,71 @@
     "context_status": {
       "route": "context",
       "action": "context.status",
+      "surface": "screen"
+    },
+    "skills_sync": {
+      "route": "library",
+      "action": "library.sync",
+      "surface": "screen"
+    },
+    "skills_status": {
+      "route": "library",
+      "action": "library.sync",
+      "surface": "screen"
+    },
+    "skills_diff": {
+      "route": "library",
+      "action": "library.sync",
+      "surface": "screen"
+    },
+    "skills_clean": {
+      "route": "library",
+      "action": "library.sync",
+      "surface": "screen"
+    },
+    "skills_lint": {
+      "route": "library",
+      "action": "library.checks",
+      "surface": "screen"
+    },
+    "skills_audit": {
+      "route": "library",
+      "action": "library.checks",
+      "surface": "screen"
+    },
+    "skills_resolve": {
+      "route": "library",
+      "action": "library.checks",
+      "surface": "screen"
+    },
+    "skills_list": {
+      "route": "library",
+      "action": "library.items",
+      "surface": "screen"
+    },
+    "skills_get": {
+      "route": "library",
+      "action": "library.items",
+      "surface": "screen"
+    },
+    "skills_list_transpilers": {
+      "route": "library",
+      "action": "library.items",
+      "surface": "screen"
+    },
+    "skills_scaffold": {
+      "route": "library",
+      "action": "library.new",
+      "surface": "screen"
+    },
+    "skills_uninstall": {
+      "route": "library",
+      "action": "library.uninstall",
+      "surface": "screen"
+    },
+    "server mode": {
+      "route": "servers",
+      "action": "servers.advanced-mode",
       "surface": "screen"
     }
   }

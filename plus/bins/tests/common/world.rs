@@ -20,6 +20,7 @@ static NEXT: AtomicUsize = AtomicUsize::new(0);
 
 pub struct World {
     pub base: PathBuf,
+    pub repo: PathBuf,
     pub data: PathBuf,
     pub home: PathBuf,
     pub mock: String,
@@ -39,6 +40,7 @@ impl World {
         let world = Self {
             data: base.join("data"),
             home: base.join("home"),
+            repo: base.join("skills-repo"),
             mock: mock.to_string_lossy().into_owned(),
             idp: Default::default(),
             base,
@@ -69,6 +71,13 @@ impl World {
                 "activeProfileId": "default"
             }),
         );
+        let demo = world.repo.join("skills/demo/SKILL.md");
+        std::fs::create_dir_all(demo.parent().unwrap()).unwrap();
+        std::fs::write(
+            demo,
+            "---\nname: demo\ndescription: A synthetic demo skill\n---\nBody text\n",
+        )
+        .unwrap();
         world.stub_gateway(SEAM_MARKER.as_bytes());
         world
     }

@@ -143,9 +143,10 @@ fn the_self_mcp_server_and_toolportctl_mcp_call_give_the_same_result() {
     let mut client = Client::spawn(&world, &[]);
     client.handshake();
     for name in TOOLS.iter().filter(|t| t.tier == 1).map(|t| t.name) {
-        // The tools that name a server or a folder need one; the others take no arguments.
+        // The tools that name a server, a skill or a folder need one; the others take no arguments.
         let arguments = match name {
             "servers_get" => json!({"name": "alpha"}),
+            "skills_get" => json!({"name": "demo"}),
             "context_bundle_status" | "context_loads" | "context_compose" | "context_status" => {
                 json!({"cwd": world.home.display().to_string()})
             }
@@ -158,7 +159,7 @@ fn the_self_mcp_server_and_toolportctl_mcp_call_give_the_same_result() {
             .args(["--json", "mcp", "call", name, "--args"])
             .arg(arguments.to_string())
             .env_clear()
-            .current_dir(&world.home)
+            .current_dir(&world.repo)
             .stdin(Stdio::null());
         for (key, value) in world.env() {
             command.env(key, value);

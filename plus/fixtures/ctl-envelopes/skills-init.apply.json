@@ -1,0 +1,23 @@
+{
+  "argv": ["skills", "init", "--path", "{base}/fresh", "--name", "contract"],
+  "envelope": {
+    "command": "skills init",
+    "data": {
+      "alreadyExists": false,
+      "created": [
+        "mcpm-skills.yaml",
+        "skills/",
+        "rules/",
+        "agents/",
+        "styles/",
+        "profiles/"
+      ],
+      "dryRun": false,
+      "name": "contract",
+      "repo": "<WORLD>/fresh"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

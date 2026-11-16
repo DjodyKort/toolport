@@ -23,3 +23,7 @@ pub(crate) fn nonempty_strings(args: &Value, key: &str) -> Option<Vec<String>> {
         .collect();
     (!keys.is_empty()).then_some(keys)
 }
+
+pub(crate) fn str_nonempty<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
+    str_arg(args, key).filter(|s| !s.is_empty())
+}

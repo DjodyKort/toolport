@@ -1,0 +1,18 @@
+{
+  "argv": ["skills", "audit", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills audit",
+    "data": {
+      "clean": true,
+      "findings": [],
+      "high": 0,
+      "low": 0,
+      "medium": 0,
+      "repo": "<WORLD>/skills-repo",
+      "skillCount": 1
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -7,6 +7,7 @@ mod catalog;
 mod context;
 pub mod register;
 mod servers;
+mod skills;
 
 pub use catalog::{find_resource, find_tool, Gate, ToolDef, RESOURCES, TOOLS};
 

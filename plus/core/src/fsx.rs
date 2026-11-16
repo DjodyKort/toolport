@@ -84,12 +84,18 @@ thread_local! {
     static PATHS: RefCell<Option<Paths>> = const { RefCell::new(None) };
 }
 
-/// Runs `f` with these dirs for this thread; without it `home` reads `HOME` and there is no data dir.
-pub fn scoped<R>(paths: Paths, f: impl FnOnce() -> R) -> R {
-    let prev = PATHS.with(|p| p.borrow_mut().replace(paths));
-    let out = f();
-    PATHS.with(|p| *p.borrow_mut() = prev);
-    out
+/// Keeps these dirs for this thread until dropped; without a guard `home` reads `HOME` and there
+/// is no data dir.
+pub struct PathsGuard(Option<Paths>);
+
+pub fn enter(paths: Paths) -> PathsGuard {
+    PathsGuard(PATHS.with(|p| p.borrow_mut().replace(paths)))
+}
+
+impl Drop for PathsGuard {
+    fn drop(&mut self) {
+        PATHS.with(|p| *p.borrow_mut() = self.0.take());
+    }
 }
 
 pub fn home() -> Option<PathBuf> {

@@ -1,0 +1,56 @@
+{
+  "argv": ["skills", "sync", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills sync",
+    "data": {
+      "backupRoot": "<WORLD>/home/.mcpm-backups",
+      "cleaned": [],
+      "clientCount": 1,
+      "clientSource": "default",
+      "collisions": [],
+      "dryRun": false,
+      "entries": [
+        {
+          "clientsSynced": ["claude-code"],
+          "name": "demo",
+          "type": "skill",
+          "warnings": []
+        }
+      ],
+      "globalMode": true,
+      "kept": 0,
+      "outputRoot": "<WORLD>/home",
+      "plan": {
+        "changes": [
+          {
+            "client": "claude-code",
+            "held": false,
+            "op": "add",
+            "path": ".claude/skills/demo/SKILL.md",
+            "skill": "demo"
+          }
+        ],
+        "counts": {
+          "add": 1,
+          "adopt": 0,
+          "differs": 0,
+          "hook": 0,
+          "remove": 0,
+          "unchanged": 0,
+          "update": 0
+        },
+        "held": 0,
+        "skipped": []
+      },
+      "replaced": 0,
+      "repo": "<WORLD>/skills-repo",
+      "ruleCount": 0,
+      "skillCount": 1,
+      "syncedAt": "<TIME>",
+      "targetedClients": ["claude-code"]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

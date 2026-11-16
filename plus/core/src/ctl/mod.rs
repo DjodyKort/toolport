@@ -17,6 +17,9 @@ mod plugins;
 mod policy;
 mod secret;
 mod server;
+mod skills;
+mod skills_repo;
+mod skills_state;
 
 use toolport_plus_api::Host;
 
@@ -256,6 +259,61 @@ pub const COMMANDS: &[Command] = &[
         &["plugins", "on"],
         "Turn a plugin back on in a folder: removes the entry `plugins off` wrote (<id>, --cwd, --dry-run)",
         plugins::on,
+    ),
+    cmd(
+        &["skills", "sync"],
+        "Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run, --apply-held)",
+        skills::sync,
+    ),
+    cmd(
+        &["skills", "ls"],
+        "List skills and rules (--repo <dir>, --home <dir>, --source <id>)",
+        skills::ls,
+    ),
+    cmd(
+        &["skills", "lint"],
+        "Lint skills, skipped files and links; exits 1 on errors (--repo, --home, --name <skill>)",
+        skills::lint,
+    ),
+    cmd(
+        &["skills", "diff"],
+        "Compare skills with the lockfile; exits 1 on changes (--repo, --home)",
+        skills::diff,
+    ),
+    cmd(
+        &["skills", "init"],
+        "Create a skills repository (--path <dir>, --name <name>, --dry-run)",
+        skills_repo::init,
+    ),
+    cmd(
+        &["skills", "add"],
+        "Create a skill or rule from a template (<name>, --type, --path, --with-progressive, --dry-run)",
+        skills_repo::add,
+    ),
+    cmd(
+        &["skills", "audit"],
+        "Scan skills for prompt injection and risky commands; exits 1 on high findings (--path <dir>)",
+        skills_repo::audit,
+    ),
+    cmd(
+        &["skills", "status"],
+        "Show whether synced outputs still exist and match the library; --strict exits 1 on drift (--repo, --home, --client <key>)",
+        skills_state::status,
+    ),
+    cmd(
+        &["skills", "clean"],
+        "Remove synced outputs and the lockfile (--repo, --home, --client <key>, --project, --dry-run)",
+        skills_state::clean,
+    ),
+    cmd(
+        &["skills", "uninstall"],
+        "Remove a skill, its outputs and its lock entry (<name>, --repo, --home, --project, --dry-run)",
+        skills_state::uninstall,
+    ),
+    cmd(
+        &["skills", "resolve"],
+        "Find files shadowing synced skills; --migrate backs them up (--repo, --home, --client <key>, --project, --dry-run)",
+        skills_state::resolve,
     ),
     cmd(
         &["mcp"],

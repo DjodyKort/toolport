@@ -1,0 +1,16 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "clean": false,
+    "lockfile": null,
+    "modified": [],
+    "new": ["demo"],
+    "noLockfile": true,
+    "removed": [],
+    "repo": "<WORLD>/skills-repo",
+    "unchanged": 0,
+    "warnings": []
+  },
+  "tool": "skills_diff"
+}
