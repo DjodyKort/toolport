@@ -7,6 +7,8 @@
 # 2. fork-codesign.sh list names the sidecars, and verify fails on the unsigned
 #    (or ad-hoc signed) bundle, naming each file.
 # 3. The sign plan (--dry-run) covers every sidecar.
+# 4. toolportctl doctor, run on a scratch data dir, finds the fork seam in its own binary and in the
+#    bundle's gateway (the plusBuilt check).
 # Nothing is signed and no keychain is read: the positive sign-and-verify path needs a
 # trusted code-signing identity and is covered by fork-codesign.Tests.bash with stubs.
 set -euo pipefail
@@ -53,3 +55,17 @@ grep -qF -- "--identifier com.djodykort.toolportplus.gateway $APP/Contents/MacOS
   fail "sign plan does not cover the gateway"
 grep -qF -- "--deep" <<<"$plan" && fail "sign plan uses --deep"
 ok "sign plan covers every sidecar, inside-out, without --deep"
+
+data_dir="$(mktemp -d "${TMPDIR:-/tmp}/verify-bundle-XXXXXX")"
+trap 'rm -rf "$data_dir"' EXIT
+doctor="$(env -i PATH=/usr/bin:/bin HOME="$data_dir" TOOLPORT_DATA_DIR="$data_dir" \
+  TOOLPORT_SECRET_KEY=abababababababababababababababababababababababababababababababab \
+  "$APP/Contents/MacOS/toolportctl" --json doctor || true)"
+python3 -c '
+import json, sys
+checks = {c["name"]: c for c in json.loads(sys.stdin.read())["data"]["checks"]}
+plus = checks["plusBuilt"]
+assert plus["status"] == "ok", plus
+assert "toolport-gateway" in plus["detail"], plus
+' <<<"$doctor" || fail "doctor does not find the fork seam in the bundle: $doctor"
+ok "doctor finds the fork seam in toolportctl and in the bundle's gateway"
