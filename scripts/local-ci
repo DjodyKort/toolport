@@ -13,14 +13,15 @@
 # cross-platform-rust). Everything runs at nice 10 with CARGO_BUILD_JOBS=4 and
 # toolchain 1.99.0. Logs go to ~/.cache/toolport-local-ci/<timestamp>/.
 #
-# Not covered yet (see C3 report): fork-ci's verify.mjs, the cutover and codesign
-# bash tests, smoke-headless, frontend lint/tests, nextest, Linux-only jobs.
+# Not covered (see C3 report): fork-ci's verify.mjs, the cutover and codesign bash
+# tests, smoke-headless, frontend lint/tests, nextest, and the Linux-only gtk-desktop
+# clippy set (it fails identically on pristine upstream when built on macOS).
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/fork/env.sh"
 cd "$FORK_ROOT"
 
 QUICK_STEPS="fork-scripts patch-budget rustfmt locales gitleaks plus-fmt plus-clippy plus-test seam-tests"
-FULL_ONLY_STEPS="clippy-headless clippy-headless-plus clippy-desktop clippy-desktop-plus clippy-gtk rust-tests"
+FULL_ONLY_STEPS="clippy-headless clippy-headless-plus clippy-desktop clippy-desktop-plus rust-tests"
 
 MODE=quick
 ONLY=""
@@ -63,6 +64,7 @@ FAILED=0
 step_fork_scripts() {
   python3 -I scripts/fork/test-patch-budget.py &&
     python3 -I scripts/fork/test-check-clippy.py &&
+    python3 -I scripts/fork/test-check-tests.py &&
     python3 scripts/test-check-rustfmt.py
 }
 
@@ -125,13 +127,21 @@ step_clippy_headless() { run_clippy search-static,test-support; }
 step_clippy_headless_plus() { run_clippy search-static,test-support,plus; }
 step_clippy_desktop() { run_clippy search-static,test-support,desktop; }
 step_clippy_desktop_plus() { run_clippy search-static,test-support,desktop,plus; }
-step_clippy_gtk() { run_clippy search-static,test-support,gtk-desktop; }
 
 step_rust_tests() {
   # Upstream's cross-platform-rust command (no plus): lib, bins and every integration
-  # target, including bin_layout. The fork feature is covered by seam-tests.
-  app_cargo test --locked --manifest-path "$APP_MANIFEST" \
-    --no-default-features --features test-support,search-static --lib --bins --tests
+  # target, including bin_layout. --no-fail-fast runs every target; check-tests.py
+  # tolerates only the tests that also fail on pristine upstream on macOS.
+  # The fork feature is covered by seam-tests.
+  local log="$LOG_DIR/rust-tests-raw.$$"
+  app_cargo test --no-fail-fast --locked --manifest-path "$APP_MANIFEST" \
+    --no-default-features --features test-support,search-static --lib --bins --tests >"$log" 2>&1
+  local code=$?
+  cat "$log"
+  python3 -I scripts/fork/check-tests.py "$log" "$code"
+  local verdict=$?
+  rm -f "$log"
+  return $verdict
 }
 
 # ---- runner -----------------------------------------------------------------
