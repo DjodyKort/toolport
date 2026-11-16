@@ -269,10 +269,9 @@ mod tests {
                 .unwrap()
                 .flatten()
                 .filter(|entry| {
-                    entry
-                        .file_name()
-                        .to_string_lossy()
-                        .starts_with(&format!("res-{nonce}-"))
+                    // A file is written under a .tmp name and renamed, so only .json is whole.
+                    let name = entry.file_name().to_string_lossy().into_owned();
+                    name.starts_with(&format!("res-{nonce}-")) && name.ends_with(".json")
                 })
                 .map(|entry| serde_json::from_slice(&std::fs::read(entry.path()).unwrap()).unwrap())
                 .collect()
