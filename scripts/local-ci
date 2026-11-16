@@ -2,8 +2,11 @@
 # One entry point for every gate a fork commit has to pass, run on this Mac.
 # The fork starts no GitHub workflow runs (D-131); this is the replacement.
 #
-#   scripts/local-ci                 quick: fork crates, patch budget, rustfmt, locales, seam tests
-#   scripts/local-ci --full          quick plus upstream's clippy matrix and the Rust test suite
+#   scripts/local-ci                 quick: fork crates, patch budget, rustfmt, locales, seam tests,
+#                                    fork TypeScript guards, codesign bash tests
+#   scripts/local-ci --full          quick plus upstream's clippy matrix, the Rust test suite,
+#                                    verify.mjs --frontend, smoke-headless, the unsigned app build
+#                                    and the bundle/codesign check
 #   scripts/local-ci --only a,b      run the named steps only
 #   scripts/local-ci --list          print the steps and the mode each belongs to
 #   scripts/local-ci --fail-fast     stop at the first failing step
@@ -13,15 +16,14 @@
 # cross-platform-rust). Everything runs at nice 10 with CARGO_BUILD_JOBS=4 and
 # toolchain 1.99.0. Logs go to ~/.cache/toolport-local-ci/<timestamp>/.
 #
-# Not covered (see C3 report): fork-ci's verify.mjs, the cutover and codesign bash
-# tests, smoke-headless, frontend lint/tests, nextest, and the Linux-only gtk-desktop
-# clippy set (it fails identically on pristine upstream when built on macOS).
+# Not covered: the Linux-only gtk-desktop clippy set (it fails identically on pristine
+# upstream when built on macOS), Windows and Linux packaging jobs, Dockerfile.source.
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/fork/env.sh"
 cd "$FORK_ROOT"
 
-QUICK_STEPS="fork-scripts patch-budget rustfmt locales gitleaks plus-fmt plus-clippy plus-test seam-tests"
-FULL_ONLY_STEPS="clippy-headless clippy-headless-plus clippy-desktop clippy-desktop-plus rust-tests"
+QUICK_STEPS="fork-scripts patch-budget rustfmt locales gitleaks plus-fmt plus-clippy plus-test seam-tests fork-ts codesign-tests"
+FULL_ONLY_STEPS="clippy-headless clippy-headless-plus clippy-desktop clippy-desktop-plus rust-tests verify-frontend smoke-headless app-build bundle-verify"
 
 MODE=quick
 ONLY=""
@@ -38,7 +40,7 @@ while [ $# -gt 0 ]; do
       for step in $QUICK_STEPS; do echo "quick  $step"; done
       for step in $FULL_ONLY_STEPS; do echo "full   $step"; done
       exit 0 ;;
-    -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
   shift
@@ -108,6 +110,21 @@ step_seam_tests() {
     --no-default-features --features search-static,test-support,plus -- seam:: plus_adapter::
 }
 
+ensure_node_modules() {
+  if [ ! -d node_modules/typescript ]; then
+    npm ci --ignore-scripts --no-audit --no-fund
+  fi
+}
+
+step_fork_ts() {
+  # The egress guards, the overlay merge and the sidecar names; these run in the vitest "logic" and "ui" projects.
+  ensure_node_modules && npx vitest run src/plus
+}
+
+step_codesign_tests() {
+  bash scripts/fork/fork-codesign.Tests.bash
+}
+
 # Upstream's clippy feature sets, plus the same two with the fork feature on.
 # --keep-going reports every target; check-clippy.py then tolerates only the
 # macOS-only errors that pristine upstream also has.
@@ -129,19 +146,47 @@ step_clippy_desktop() { run_clippy search-static,test-support,desktop; }
 step_clippy_desktop_plus() { run_clippy search-static,test-support,desktop,plus; }
 
 step_rust_tests() {
-  # Upstream's cross-platform-rust command (no plus): lib, bins and every integration
-  # target, including bin_layout. --no-fail-fast runs every target; check-tests.py
-  # tolerates only the tests that also fail on pristine upstream on macOS.
+  # Upstream's headless nextest job (profile ci, test groups from src-tauri/.config/nextest.toml):
+  # lib, bins and every integration target, including bin_layout. check-tests.py tolerates only
+  # the tests that also fail on pristine upstream on macOS (scripts/fork/test-macos-allowlist.txt).
   # The fork feature is covered by seam-tests.
+  if ! command -v cargo-nextest >/dev/null 2>&1; then
+    echo "cargo-nextest is missing: cargo install --locked cargo-nextest --version 0.9.151"
+    return 1
+  fi
   local log="$LOG_DIR/rust-tests-raw.$$"
-  app_cargo test --no-fail-fast --locked --manifest-path "$APP_MANIFEST" \
-    --no-default-features --features test-support,search-static --lib --bins --tests >"$log" 2>&1
+  TOOLPORT_TEST_FAILURE_LOG_DIR="$LOG_DIR/one-gateway-failures" \
+    app_cargo nextest run --locked --manifest-path "$APP_MANIFEST" --profile ci \
+    --no-default-features --features test-support,search-static --lib --bins --test '*' >"$log" 2>&1
   local code=$?
   cat "$log"
   python3 -I scripts/fork/check-tests.py "$log" "$code"
   local verdict=$?
   rm -f "$log"
   return $verdict
+}
+
+step_verify_frontend() {
+  # Upstream's own frontend gate: format:check, lint, build (tsc + vite), the whole
+  # vitest suite, bench:bundle and the offline browser smoke.
+  ensure_node_modules && node scripts/verify.mjs --frontend
+}
+
+step_smoke_headless() {
+  # What `npm run build:gateway` and `npm run smoke:headless` do, in the app target dir.
+  # The smoke uses a temporary TOOLPORT_DATA_DIR.
+  app_cargo build --locked --manifest-path "$APP_MANIFEST" --bin toolport-gateway --bin mock-mcp-server \
+    --no-default-features --features test-support,search-static &&
+    CARGO_TARGET_DIR="$FORK_APP_TARGET_DIR" node scripts/smoke-headless.mjs
+}
+
+step_app_build() {
+  # The unsigned fork .app: frontend, sidecars (gateway, toolportctl, toolport-selfmcp), overlay.
+  ensure_node_modules && scripts/fork/build-app.sh
+}
+
+step_bundle_verify() {
+  scripts/fork/verify-bundle.sh
 }
 
 # ---- runner -----------------------------------------------------------------

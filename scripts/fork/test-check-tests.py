@@ -33,6 +33,14 @@ class CheckTestsTest(unittest.TestCase):
     def test_failure_without_a_failing_test_fails(self):
         self.assertEqual(self.run_check("error: could not compile\n"), 1)
 
+    def test_nextest_known_failure_passes(self):
+        out = "        FAIL [   2.101s] (2483/3971) conduit mod::known\n        PASS [   0.1s] conduit mod::ok\n"
+        self.assertEqual(self.run_check(out), 0)
+
+    def test_nextest_timeout_and_other_failures_fail(self):
+        out = "     TIMEOUT [  60.0s] conduit::bin mod::new\n"
+        self.assertEqual(self.run_check(out), 1)
+
     def test_clean_run_passes(self):
         self.assertEqual(self.run_check("test mod::ok ... ok\n", exit_code=0), 0)
 

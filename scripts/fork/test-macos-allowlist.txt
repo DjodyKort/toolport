@@ -7,4 +7,4 @@ secret_refs::tests::fake_output_rejects_multiple_values_invalid_json_missing_and
 secret_refs::tests::fake_path_success_preserves_spaces_and_never_runs_shell_interpolation
 secret_refs::tests::fake_fixture_publication_is_safe_during_concurrent_spawns
 secret_refs::tests::fake_errors_never_echo_stdout_stderr_or_reference  # flaky: passed on one pristine run
-matrix_cold_start_twenty_simultaneous_adapters_elect_exactly_one_daemon  # counts toolport-gateway daemons machine-wide; fails while /Applications/Toolport.app runs its daemon (nextest runs it alone)
+matrix_cold_start_twenty_simultaneous_adapters_elect_exactly_one_daemon  # counts toolport-gateway daemons machine-wide; fails under cargo test while /Applications/Toolport.app runs its daemon; passed under nextest, which runs it alone
