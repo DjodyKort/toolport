@@ -1,0 +1,13 @@
+{
+  "argv": ["mcp", "call", "skils_get"],
+  "envelope": {
+    "command": "mcp",
+    "error": {
+      "code": "usage",
+      "message": "unknown tool: skils_get; closest: skills_get, styles_get"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

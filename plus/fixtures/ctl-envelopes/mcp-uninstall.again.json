@@ -1,0 +1,13 @@
+{
+  "argv": ["mcp", "uninstall"],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "id": null,
+      "removed": false
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

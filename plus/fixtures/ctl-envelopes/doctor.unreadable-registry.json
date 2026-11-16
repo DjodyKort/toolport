@@ -1,0 +1,48 @@
+{
+  "argv": ["doctor"],
+  "envelope": {
+    "command": "doctor",
+    "data": {
+      "checks": [
+        {
+          "detail": "<WORLD>/data is writable",
+          "name": "dataDir",
+          "status": "ok"
+        },
+        {
+          "detail": "registry is not readable: <WORLD>/data/registry.json: key must be a string at line 1 column 3",
+          "name": "registry",
+          "status": "fail"
+        },
+        {
+          "detail": "no registry to inspect",
+          "name": "defaultAccess",
+          "status": "warn"
+        },
+        {
+          "detail": "encrypted-file",
+          "name": "secretsBackend",
+          "status": "ok"
+        },
+        {
+          "detail": "<WORLD>/data/bin/toolport-gateway",
+          "name": "gatewayBinary",
+          "status": "ok"
+        },
+        {
+          "detail": "<WORLD>/data/bin/toolport-gateway was built without the fork seam: the egress guard and fork hooks are off in it",
+          "name": "plusBuilt",
+          "status": "warn"
+        }
+      ],
+      "healthy": false
+    },
+    "error": {
+      "code": "unhealthy",
+      "message": "one or more checks failed"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

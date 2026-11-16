@@ -1,0 +1,44 @@
+{
+  "argv": ["doctor"],
+  "envelope": {
+    "command": "doctor",
+    "data": {
+      "checks": [
+        {
+          "detail": "<WORLD>/data is writable",
+          "name": "dataDir",
+          "status": "ok"
+        },
+        {
+          "detail": "2 servers, 1 access sets",
+          "name": "registry",
+          "status": "ok"
+        },
+        {
+          "detail": "all enabled servers",
+          "name": "defaultAccess",
+          "status": "ok"
+        },
+        {
+          "detail": "encrypted-file",
+          "name": "secretsBackend",
+          "status": "ok"
+        },
+        {
+          "detail": "<WORLD>/data/bin/toolport-gateway",
+          "name": "gatewayBinary",
+          "status": "ok"
+        },
+        {
+          "detail": "<WORLD>/data/bin/toolport-gateway was built without the fork seam: the egress guard and fork hooks are off in it",
+          "name": "plusBuilt",
+          "status": "warn"
+        }
+      ],
+      "healthy": true
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

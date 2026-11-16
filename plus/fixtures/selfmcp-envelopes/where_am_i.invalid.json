@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "depth": 2
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "unknown argument: depth"
+    }
+  },
+  "text": "invalid_arguments: unknown argument: depth",
+  "tool": "where_am_i"
+}

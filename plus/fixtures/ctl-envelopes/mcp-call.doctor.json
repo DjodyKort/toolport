@@ -1,0 +1,49 @@
+{
+  "argv": ["mcp", "call", "doctor"],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "isError": false,
+      "result": {
+        "checks": [
+          {
+            "detail": "<WORLD>/data is writable",
+            "name": "dataDir",
+            "status": "ok"
+          },
+          {
+            "detail": "2 servers, 1 access sets",
+            "name": "registry",
+            "status": "ok"
+          },
+          {
+            "detail": "all enabled servers",
+            "name": "defaultAccess",
+            "status": "ok"
+          },
+          {
+            "detail": "encrypted-file",
+            "name": "secretsBackend",
+            "status": "ok"
+          },
+          {
+            "detail": "<WORLD>/data/bin/toolport-gateway",
+            "name": "gatewayBinary",
+            "status": "ok"
+          },
+          {
+            "detail": "this binary and <WORLD>/data/bin/toolport-gateway carry the fork seam",
+            "name": "plusBuilt",
+            "status": "ok"
+          }
+        ],
+        "healthy": true
+      },
+      "tier": 1,
+      "tool": "doctor"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,27 @@
+{
+  "argv": ["status"],
+  "envelope": {
+    "command": "status",
+    "data": {
+      "accessSetCount": 2,
+      "dataDir": "<WORLD>/data",
+      "defaultAccess": "default",
+      "gateway": {
+        "path": "<WORLD>/data/bin/toolport-gateway",
+        "present": true
+      },
+      "registry": {
+        "error": null,
+        "exists": true,
+        "path": "<WORLD>/data/registry.json",
+        "readable": true
+      },
+      "secretsBackend": "encrypted-file",
+      "serverCount": 2,
+      "version": "<masked>"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

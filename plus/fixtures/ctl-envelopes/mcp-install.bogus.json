@@ -1,0 +1,13 @@
+{
+  "argv": ["mcp", "install", "--bogus"],
+  "envelope": {
+    "command": "mcp",
+    "error": {
+      "code": "usage",
+      "message": "unknown argument: --bogus"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

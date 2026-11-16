@@ -1,0 +1,16 @@
+{
+  "argv": ["mcp", "install", "--access-set", "focus"],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "accessSet": "focus",
+      "action": "updated",
+      "command": "<BIN>/toolport-selfmcp",
+      "enabled": ["focus"],
+      "id": "toolport-plus-self"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

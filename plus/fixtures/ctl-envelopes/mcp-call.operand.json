@@ -1,0 +1,13 @@
+{
+  "argv": ["mcp", "call"],
+  "envelope": {
+    "command": "mcp",
+    "error": {
+      "code": "usage",
+      "message": "usage: mcp call <tool> [--args <json> | --args-stdin]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

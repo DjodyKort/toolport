@@ -2920,6 +2920,7 @@ name = "toolport-plus-bins"
 version = "0.1.0"
 dependencies = [
  "conduit",
+ "regex",
  "serde_json",
  "toolport-plus",
  "toolport-plus-api",

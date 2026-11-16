@@ -1,0 +1,12 @@
+{
+  "arguments": [1],
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "arguments must be an object"
+    }
+  },
+  "text": "invalid_arguments: arguments must be an object",
+  "tool": "where_am_i"
+}

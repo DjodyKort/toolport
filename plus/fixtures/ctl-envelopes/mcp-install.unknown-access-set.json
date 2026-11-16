@@ -1,0 +1,13 @@
+{
+  "argv": ["mcp", "install", "--access-set", "nope"],
+  "envelope": {
+    "command": "mcp",
+    "error": {
+      "code": "mcp",
+      "message": "access set not found: nope"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

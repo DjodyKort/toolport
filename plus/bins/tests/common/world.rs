@@ -1,0 +1,130 @@
+#![allow(dead_code)]
+
+//! A synthetic world for tests that run the real binaries: data directory and home. Nothing in it
+//! is a real credential and nothing outside its temp directory is read or written.
+
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+use serde_json::{json, Value};
+
+pub const SECRET_KEY: &str = "abababababababababababababababababababababababababababababababab";
+pub const FAKE_SECRET: &str = "FAKE-SECRET-VALUE-do-not-print-7f3a";
+pub const MOCK: &str = "/mock/mock-mcp-server";
+/// What the stub gateway holds so the doctor's seam check finds the marker in it.
+pub const SEAM_MARKER: &str = toolport_plus_api::SEAM_MARKER;
+
+static NEXT: AtomicUsize = AtomicUsize::new(0);
+
+pub struct World {
+    pub base: PathBuf,
+    pub data: PathBuf,
+    pub home: PathBuf,
+    pub mock: String,
+}
+
+impl World {
+    pub fn new(tag: &str) -> Self {
+        let base = std::env::temp_dir().join(format!(
+            "plus-world-{tag}-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::SeqCst)
+        ));
+        let _ = std::fs::remove_dir_all(&base);
+        let world = Self {
+            data: base.join("data"),
+            home: base.join("home"),
+            base,
+            mock: MOCK.to_string(),
+        };
+        for dir in [&world.data, &world.home, &world.data.join("bin")] {
+            std::fs::create_dir_all(dir).unwrap();
+        }
+        write_json(
+            &world.data.join("registry.json"),
+            &json!({
+                "version": 1,
+                "servers": [
+                    {"id": "srv-alpha", "name": "alpha", "transport": "stdio",
+                     "command": MOCK, "args": [],
+                     "mcpmSource": {"type": "unknown", "reason": "synthetic fixture"},
+                     "env": [{"key": "API_KEY", "value": FAKE_SECRET, "secret": true}]},
+                    {"id": "srv-beta", "name": "beta", "transport": "http",
+                     "url": "https://example.invalid/mcp"}
+                ],
+                "profiles": [{"id": "default", "name": "Default",
+                              "enabledServerIds": ["srv-alpha"]}],
+                "activeProfileId": "default"
+            }),
+        );
+        world.stub_gateway(SEAM_MARKER.as_bytes());
+        world
+    }
+
+    /// A gateway binary in the data dir's `bin`, holding `content`.
+    pub fn stub_gateway(&self, content: &[u8]) {
+        std::fs::write(self.data.join("bin/toolport-gateway"), content).unwrap();
+    }
+
+    pub fn path(&self, p: &Path) -> String {
+        p.to_string_lossy().into_owned()
+    }
+
+    /// The environment a child binary runs in: nothing inherited from the real machine.
+    pub fn env(&self) -> Vec<(&'static str, String)> {
+        vec![
+            ("PATH", "/usr/bin:/bin".to_string()),
+            ("HOME", self.path(&self.home)),
+            ("XDG_CONFIG_HOME", self.path(&self.home.join(".config"))),
+            ("XDG_DATA_HOME", self.path(&self.home.join(".local/share"))),
+            ("XDG_CACHE_HOME", self.path(&self.home.join(".cache"))),
+            ("TOOLPORT_DATA_DIR", self.path(&self.data)),
+            ("TOOLPORT_SECRET_KEY", SECRET_KEY.to_string()),
+        ]
+    }
+
+    /// Every file of the scratch tree, for "this step changed nothing" checks. Lock files are
+    /// left out: taking the registry lock creates one and is not state.
+    pub fn snapshot(&self) -> BTreeMap<PathBuf, Vec<u8>> {
+        fn collect(dir: &Path, files: &mut BTreeMap<PathBuf, Vec<u8>>) {
+            for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    collect(&path, files);
+                } else if path.extension().is_some_and(|ext| ext == "lock") {
+                    continue;
+                } else if let Ok(bytes) = std::fs::read(&path) {
+                    files.insert(path, bytes);
+                }
+            }
+        }
+        let mut files = BTreeMap::new();
+        collect(&self.base, &mut files);
+        files
+    }
+
+    pub fn registry(&self) -> Value {
+        read_json(&self.data.join("registry.json"))
+    }
+
+    /// Replaces the registry with `value`.
+    pub fn write_registry(&self, value: &Value) {
+        write_json(&self.data.join("registry.json"), value);
+    }
+}
+
+impl Drop for World {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.base);
+    }
+}
+
+pub fn write_json(path: &Path, value: &Value) {
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(path, serde_json::to_string_pretty(value).unwrap()).unwrap();
+}
+
+pub fn read_json(path: &Path) -> Value {
+    serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
+}

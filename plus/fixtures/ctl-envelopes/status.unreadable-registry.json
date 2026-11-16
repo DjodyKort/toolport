@@ -1,0 +1,27 @@
+{
+  "argv": ["status"],
+  "envelope": {
+    "command": "status",
+    "data": {
+      "accessSetCount": 0,
+      "dataDir": "<WORLD>/data",
+      "defaultAccess": null,
+      "gateway": {
+        "path": "<WORLD>/data/bin/toolport-gateway",
+        "present": true
+      },
+      "registry": {
+        "error": "registry is not readable: <WORLD>/data/registry.json: key must be a string at line 1 column 3",
+        "exists": true,
+        "path": "<WORLD>/data/registry.json",
+        "readable": false
+      },
+      "secretsBackend": "encrypted-file",
+      "serverCount": 0,
+      "version": "<masked>"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

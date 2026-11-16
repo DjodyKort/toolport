@@ -1,0 +1,16 @@
+{
+  "argv": ["mcp", "install"],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "accessSet": null,
+      "action": "created",
+      "command": "<BIN>/toolport-selfmcp",
+      "enabled": [],
+      "id": "toolport-plus-self"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,57 @@
+{
+  "argv": ["mcp", "doctor"],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "checks": [
+        {
+          "detail": "opted out; `toolportctl mcp install` brings it back",
+          "name": "registry_entry",
+          "ok": true
+        },
+        {
+          "detail": "skipped: opted out",
+          "name": "command_matches_binary",
+          "ok": true
+        },
+        {
+          "detail": "skipped: opted out",
+          "name": "binary_present",
+          "ok": true
+        },
+        {
+          "detail": "skipped: opted out",
+          "name": "server_enabled",
+          "ok": true
+        },
+        {
+          "detail": "skipped: opted out",
+          "name": "listed_in_default_access",
+          "ok": true
+        },
+        {
+          "detail": "skipped: opted out",
+          "name": "listed_in_client_access_sets",
+          "ok": true
+        },
+        {
+          "detail": "toolport-plus-self",
+          "name": "handshake",
+          "ok": true
+        },
+        {
+          "detail": "3 tools, 4 resources",
+          "name": "catalog",
+          "ok": true
+        }
+      ],
+      "clientAccessSets": [],
+      "defaultAccess": null,
+      "state": "opted-out",
+      "switchedOn": false
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

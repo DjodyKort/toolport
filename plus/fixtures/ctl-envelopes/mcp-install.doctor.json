@@ -1,0 +1,67 @@
+{
+  "argv": ["mcp", "doctor"],
+  "envelope": {
+    "command": "mcp",
+    "data": {
+      "checks": [
+        {
+          "detail": "toolport-plus-self",
+          "name": "registry_entry",
+          "ok": true
+        },
+        {
+          "detail": "<BIN>/toolport-selfmcp",
+          "name": "command_matches_binary",
+          "ok": true
+        },
+        {
+          "detail": "<BIN>/toolport-selfmcp",
+          "name": "binary_present",
+          "ok": true
+        },
+        {
+          "detail": "switched on",
+          "name": "server_enabled",
+          "ok": true
+        },
+        {
+          "detail": "default: taken out on purpose",
+          "name": "listed_in_default_access",
+          "ok": true
+        },
+        {
+          "detail": "focus",
+          "name": "listed_in_client_access_sets",
+          "ok": true
+        },
+        {
+          "detail": "toolport-plus-self",
+          "name": "handshake",
+          "ok": true
+        },
+        {
+          "detail": "3 tools, 4 resources",
+          "name": "catalog",
+          "ok": true
+        }
+      ],
+      "clientAccessSets": [
+        {
+          "id": "focus",
+          "member": true,
+          "optedOut": false
+        }
+      ],
+      "defaultAccess": {
+        "id": "default",
+        "member": false,
+        "optedOut": true
+      },
+      "state": "disabled",
+      "switchedOn": true
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

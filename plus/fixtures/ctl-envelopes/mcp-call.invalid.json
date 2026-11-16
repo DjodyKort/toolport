@@ -1,0 +1,13 @@
+{
+  "argv": ["mcp", "call", "skills_get", "--args", "{}"],
+  "envelope": {
+    "command": "mcp",
+    "error": {
+      "code": "invalid_arguments",
+      "message": "missing required argument: name"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}
