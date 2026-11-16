@@ -30,6 +30,7 @@ function NameLinks({
             className="font-medium text-primary underline-offset-2 hover:underline focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
             onClick={() => host.openServer(id)}
           >
+            <span className="sr-only">Open </span>
             {servers.find((s) => s.id === id)?.name ?? id}
           </button>
         </Fragment>

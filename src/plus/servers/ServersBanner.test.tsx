@@ -133,7 +133,7 @@ describe("Servers list rows", () => {
     expect(
       await screen.findByText("A restart failed in some gateways"),
     ).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "alpha-api" }));
+    await userEvent.click(screen.getByRole("button", { name: "Open alpha-api" }));
     expect(host.openServer).toHaveBeenCalledWith("srv-alpha");
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(() =>
@@ -162,7 +162,7 @@ describe("Add a server", () => {
   it("test05_servers_add_names_a_server_that_appeared_and_opens_it_from_the_list", async () => {
     addNotes();
     expect(await screen.findByText("1 new server has setup left")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "november-notes" }));
+    await userEvent.click(screen.getByRole("button", { name: "Open november-notes" }));
     expect(host.openServer).toHaveBeenCalledWith("srv-notes");
   });
 
