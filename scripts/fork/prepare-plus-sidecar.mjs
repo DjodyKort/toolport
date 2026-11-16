@@ -5,7 +5,8 @@
 //
 // Builds for the host triple. Set CONDUIT_SIDECAR_TARGET to cross-build for another
 // target (the same variable prepare-sidecar.mjs reads). Pass `--debug` for a debug build.
-// plus/ is its own workspace: CARGO_TARGET_DIR, when set, is used for it as well.
+// plus/ is its own workspace. PLUS_SIDECAR_TARGET_DIR sets its target dir (default plus/target,
+// which Prettier and ESLint would scan; scripts/fork/build-app.sh points it into ~/.cache).
 import { execSync } from "node:child_process";
 import {
   chmodSync,
@@ -34,9 +35,9 @@ function main() {
   const ext = process.platform === "win32" ? ".exe" : "";
   const requested = process.env.CONDUIT_SIDECAR_TARGET || "";
   const triple = requested || hostTriple();
-  const targetDir = process.env.CARGO_TARGET_DIR
-    ? resolve(process.env.CARGO_TARGET_DIR)
-    : resolve("plus", "target");
+  const targetDir = resolve(
+    process.env.PLUS_SIDECAR_TARGET_DIR || join("plus", "target"),
+  );
   const staticCrt = windowsMsvc(triple);
   const env = staticCrt
     ? {

@@ -5,12 +5,14 @@
 #
 # The bundle lands in src-tauri/target/release/bundle/macos/. Nothing is
 # installed, signed with a real identity or uploaded. src-tauri/target is the
-# default because upstream's prepare-sidecar.mjs looks for the gateway there.
+# default because upstream's prepare-sidecar.mjs looks for the gateway there; the plus
+# sidecars build into the plus target dir under ~/.cache.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 cd "$FORK_ROOT"
 
 unset CARGO_TARGET_DIR
+export PLUS_SIDECAR_TARGET_DIR="$FORK_PLUS_TARGET_DIR"
 export RUSTUP_TOOLCHAIN="$FORK_TOOLCHAIN"
 
 if [ ! -d node_modules/@tauri-apps/cli ]; then
