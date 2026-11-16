@@ -3,7 +3,7 @@
 # The fork starts no GitHub workflow runs (D-131); this is the replacement.
 #
 #   scripts/local-ci                 quick: fork crates, patch budget, rustfmt, locales, seam tests,
-#                                    fork TypeScript guards, codesign bash tests
+#                                    fork TypeScript guards, codesign and keychain-script bash tests
 #   scripts/local-ci --full          quick plus upstream's clippy matrix, the Rust test suite,
 #                                    verify.mjs --frontend, smoke-headless, the unsigned app build
 #                                    and the bundle/codesign check
@@ -122,7 +122,8 @@ step_fork_ts() {
 }
 
 step_codesign_tests() {
-  bash scripts/fork/fork-codesign.Tests.bash
+  bash scripts/fork/fork-codesign.Tests.bash &&
+    bash scripts/fork/keychain-partition-list.Tests.bash
 }
 
 # Upstream's clippy feature sets, plus the same two with the fork feature on.
