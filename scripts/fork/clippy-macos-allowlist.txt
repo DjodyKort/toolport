@@ -1,0 +1,9 @@
+# Clippy errors that upstream's pristine code produces on macOS, where its CI
+# only runs clippy on Linux (found on upstream/release/2.3.6, toolchain 1.99.0).
+# Linux-only helpers are unused on macOS. Anything not listed here fails local-ci.
+# <path><TAB><error message>
+tests/chaos_process_kill.rs	unused import: `pid_alive`
+tests/daemon_crash_recovery.rs	function `running` is never used
+tests/daemon_crash_recovery.rs	function `start_serving` is never used
+src/bin/../gateway/search_static.rs	method `load_for_benchmark` is never used
+src/bin/../gateway/search_static.rs	function `with_native_queries_for_measurement` is never used

@@ -1,0 +1,182 @@
+#!/usr/bin/env bash
+# One entry point for every gate a fork commit has to pass, run on this Mac.
+# The fork starts no GitHub workflow runs (D-131); this is the replacement.
+#
+#   scripts/local-ci                 quick: fork crates, patch budget, rustfmt, locales, seam tests
+#   scripts/local-ci --full          quick plus upstream's clippy matrix and the Rust test suite
+#   scripts/local-ci --only a,b      run the named steps only
+#   scripts/local-ci --list          print the steps and the mode each belongs to
+#   scripts/local-ci --fail-fast     stop at the first failing step
+#   scripts/local-ci --base REF      upstream ref for the budget, rustfmt and gitleaks (default: scripts/fork/upstream-ref)
+#
+# Commands are copied from .github/workflows/ci.yml (clippy, rustfmt, locales,
+# cross-platform-rust). Everything runs at nice 10 with CARGO_BUILD_JOBS=4 and
+# toolchain 1.99.0. Logs go to ~/.cache/toolport-local-ci/<timestamp>/.
+#
+# Not covered yet (see C3 report): fork-ci's verify.mjs, the cutover and codesign
+# bash tests, smoke-headless, frontend lint/tests, nextest, Linux-only jobs.
+set -uo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/fork/env.sh"
+cd "$FORK_ROOT"
+
+QUICK_STEPS="fork-scripts patch-budget rustfmt locales gitleaks plus-fmt plus-clippy plus-test seam-tests"
+FULL_ONLY_STEPS="clippy-headless clippy-headless-plus clippy-desktop clippy-desktop-plus clippy-gtk rust-tests"
+
+MODE=quick
+ONLY=""
+FAIL_FAST=0
+BASE="$FORK_UPSTREAM_REF"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --quick) MODE=quick ;;
+    --full) MODE=full ;;
+    --only) ONLY="${2:?--only needs a comma separated list}"; shift ;;
+    --base) BASE="${2:?--base needs a ref}"; shift ;;
+    --fail-fast) FAIL_FAST=1 ;;
+    --list)
+      for step in $QUICK_STEPS; do echo "quick  $step"; done
+      for step in $FULL_ONLY_STEPS; do echo "full   $step"; done
+      exit 0 ;;
+    -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "unknown argument: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+if [ -n "$ONLY" ]; then
+  STEPS="$(echo "$ONLY" | tr ',' ' ')"
+elif [ "$MODE" = full ]; then
+  STEPS="$QUICK_STEPS $FULL_ONLY_STEPS"
+else
+  STEPS="$QUICK_STEPS"
+fi
+
+LOG_DIR="$HOME/.cache/toolport-local-ci/$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$LOG_DIR"
+
+APP_MANIFEST=src-tauri/Cargo.toml
+RESULTS=""
+FAILED=0
+
+# ---- steps ------------------------------------------------------------------
+
+step_fork_scripts() {
+  python3 -I scripts/fork/test-patch-budget.py &&
+    python3 -I scripts/fork/test-check-clippy.py &&
+    python3 scripts/test-check-rustfmt.py
+}
+
+step_patch_budget() {
+  python3 -I scripts/fork/patch-budget.py --base "$BASE"
+}
+
+step_rustfmt() {
+  # Same script and toolchain as the upstream rustfmt job; only changed lines count.
+  rustup run "$FORK_TOOLCHAIN" python3 scripts/check-rustfmt.py --base "$BASE"
+}
+
+step_locales() {
+  # check-locales imports typescript, so it needs the same `npm ci` the CI job runs.
+  if [ ! -d node_modules/typescript ]; then
+    npm ci --ignore-scripts --no-audit --no-fund || return 1
+  fi
+  node --test scripts/check-locales.test.mjs && node scripts/check-locales.mjs
+}
+
+step_gitleaks() {
+  gitleaks detect --no-banner --redact --log-opts "$BASE..HEAD"
+}
+
+step_plus_fmt() {
+  plus_cargo fmt --manifest-path plus/Cargo.toml --all -- --check
+}
+
+step_plus_clippy() {
+  plus_cargo clippy --locked --manifest-path plus/Cargo.toml --workspace --all-targets -- -D warnings
+}
+
+step_plus_test() {
+  # Includes the toolportctl integration test and the mirror round trip in toolport-plus-api.
+  plus_cargo test --locked --manifest-path plus/Cargo.toml --workspace
+}
+
+step_seam_tests() {
+  # Egress guard in conduit and the upstream -> mirror -> upstream round trip against the fixture.
+  app_cargo test --locked --manifest-path "$APP_MANIFEST" --lib \
+    --no-default-features --features search-static,test-support,plus -- seam:: plus_adapter::
+}
+
+# Upstream's clippy feature sets, plus the same two with the fork feature on.
+# --keep-going reports every target; check-clippy.py then tolerates only the
+# macOS-only errors that pristine upstream also has.
+run_clippy() {
+  local features="$1" log="$LOG_DIR/clippy-raw.$$"
+  app_cargo clippy --keep-going --locked --manifest-path "$APP_MANIFEST" \
+    --no-default-features --features "$features" --all-targets -- -D warnings >"$log" 2>&1
+  local code=$?
+  cat "$log"
+  python3 -I scripts/fork/check-clippy.py "$log" "$code"
+  local verdict=$?
+  rm -f "$log"
+  return $verdict
+}
+
+step_clippy_headless() { run_clippy search-static,test-support; }
+step_clippy_headless_plus() { run_clippy search-static,test-support,plus; }
+step_clippy_desktop() { run_clippy search-static,test-support,desktop; }
+step_clippy_desktop_plus() { run_clippy search-static,test-support,desktop,plus; }
+step_clippy_gtk() { run_clippy search-static,test-support,gtk-desktop; }
+
+step_rust_tests() {
+  # Upstream's cross-platform-rust command (no plus): lib, bins and every integration
+  # target, including bin_layout. The fork feature is covered by seam-tests.
+  app_cargo test --locked --manifest-path "$APP_MANIFEST" \
+    --no-default-features --features test-support,search-static --lib --bins --tests
+}
+
+# ---- runner -----------------------------------------------------------------
+
+run_step() {
+  local name="$1" fn log started elapsed code
+  fn="step_$(echo "$name" | tr '-' '_')"
+  if ! type "$fn" >/dev/null 2>&1; then
+    echo "unknown step: $name" >&2
+    RESULTS="$RESULTS$name|UNKNOWN|0
+"
+    FAILED=1
+    return
+  fi
+  log="$LOG_DIR/$name.log"
+  printf '%-22s ' "$name"
+  started=$SECONDS
+  "$fn" >"$log" 2>&1
+  code=$?
+  elapsed=$((SECONDS - started))
+  if [ $code -eq 0 ]; then
+    echo "ok    ${elapsed}s"
+    RESULTS="$RESULTS$name|ok|$elapsed
+"
+  else
+    echo "FAIL  ${elapsed}s  (log: $log)"
+    tail -n 25 "$log" | sed 's/^/    /'
+    RESULTS="$RESULTS$name|FAIL|$elapsed
+"
+    FAILED=1
+  fi
+}
+
+echo "local-ci mode=$MODE toolchain=$FORK_TOOLCHAIN base=$BASE jobs=$CARGO_BUILD_JOBS"
+echo "target dirs: app=$FORK_APP_TARGET_DIR plus=$FORK_PLUS_TARGET_DIR"
+total_start=$SECONDS
+for step in $STEPS; do
+  run_step "$step"
+  if [ $FAILED -ne 0 ] && [ $FAIL_FAST -eq 1 ]; then break; fi
+done
+
+echo
+echo "summary (${MODE}, $((SECONDS - total_start))s total, logs in $LOG_DIR)"
+printf '%s' "$RESULTS" | awk -F'|' 'NF == 3 { printf "  %-22s %-7s %5ss\n", $1, $2, $3 }'
+if [ "$MODE" = quick ] && [ -z "$ONLY" ]; then
+  echo "quick mode skipped: $FULL_ONLY_STEPS"
+fi
+exit $FAILED
