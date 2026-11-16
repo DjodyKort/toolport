@@ -765,6 +765,14 @@ pub fn restart(host: &dyn Host, args: &RestartArgs) -> Result<Restart, OpError> 
             args.timing,
             "no answer to the question",
         );
+        if answers.is_empty() {
+            return Ok(Restart {
+                id,
+                name,
+                status: Status::NotRunning,
+                outcomes: answers,
+            });
+        }
         if answers.iter().any(|o| o.in_flight.unwrap_or(0) > 0) {
             return Ok(Restart {
                 id,

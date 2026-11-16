@@ -198,6 +198,28 @@ fn test05_if_idle_stops_at_a_call_in_flight_and_goes_ahead_when_idle() {
 }
 
 #[test]
+fn test05b_if_idle_with_no_gateway_answers_not_running_after_one_wait_and_sends_no_restart() {
+    let base = scratch("idle-none");
+    let started = std::time::Instant::now();
+    let done = restart(
+        &host(&base),
+        &RestartArgs {
+            if_idle: true,
+            ..args("alpha")
+        },
+    )
+    .unwrap();
+    assert_eq!(done.status, Status::NotRunning);
+    assert!(done.outcomes.is_empty());
+    assert!(
+        started.elapsed() < FAST.ack_wait * 2,
+        "the probe's wait is the only one: {:?}",
+        started.elapsed()
+    );
+    assert!(pending(&base, now_ms()).is_empty());
+}
+
+#[test]
 fn test06_a_request_for_a_server_the_gateway_does_not_hold_waits_for_one_that_does() {
     let base = scratch("elsewhere");
     let sent = request(&base, Kind::Restart, "srv-alpha", "alpha").unwrap();
