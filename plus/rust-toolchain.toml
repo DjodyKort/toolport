@@ -1,0 +1,5 @@
+# Same pin as upstream's clippy and rustfmt jobs (.github/workflows/ci.yml).
+[toolchain]
+channel = "1.99.0"
+profile = "minimal"
+components = ["clippy", "rustfmt"]

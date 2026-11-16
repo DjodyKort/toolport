@@ -1,0 +1,10 @@
+[package]
+name = "toolport-plus"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Fork logic that runs on top of upstream Toolport through toolport-plus-api"
+
+[dependencies]
+toolport-plus-api = { path = "../api" }
+serde_json = "1"
