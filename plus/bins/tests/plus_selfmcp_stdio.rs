@@ -143,11 +143,11 @@ fn the_self_mcp_server_and_toolportctl_mcp_call_give_the_same_result() {
     let mut client = Client::spawn(&world, &[]);
     client.handshake();
     for name in TOOLS.iter().filter(|t| t.tier == 1).map(|t| t.name) {
-        // The tools that name a server need one; the others take no arguments.
-        let arguments = if name == "servers_get" {
-            json!({"name": "alpha"})
-        } else {
-            json!({})
+        // The tools that name a server or a folder need one; the others take no arguments.
+        let arguments = match name {
+            "servers_get" => json!({"name": "alpha"}),
+            "context_bundle_status" => json!({"cwd": world.home.display().to_string()}),
+            _ => json!({}),
         };
         let served = client.call(name, arguments.clone());
         assert!(!served.is_error(), "{name}: {}", served.0);
