@@ -22,7 +22,9 @@ mod plus_gateway {
                 })),
                 "tools/call" => {
                     self.calls.fetch_add(1, Ordering::SeqCst);
-                    Ok(json!({ "content": [{ "type": "text", "text": "called" }], "isError": false }))
+                    Ok(
+                        json!({ "content": [{ "type": "text", "text": "called" }], "isError": false }),
+                    )
                 }
                 other => Err(conduit_lib::downstream::TransportError::Fatal(format!(
                     "unexpected {other}"
@@ -63,7 +65,9 @@ mod plus_gateway {
             let mut entry = stub_server(id, id);
             entry.enabled = true;
             if let (true, Some(mode)) = (id == "big", big_mode) {
-                entry.unknown_fields.insert("serverMode".into(), json!(mode));
+                entry
+                    .unknown_fields
+                    .insert("serverMode".into(), json!(mode));
             }
             reg.servers.push(entry);
         }
@@ -78,7 +82,11 @@ mod plus_gateway {
 
     fn set_big_mode(world: &World, mode: Option<&str>) {
         let mut reg = world.state.registry.lock().unwrap();
-        let big = reg.servers.iter_mut().find(|server| server.id == "big").unwrap();
+        let big = reg
+            .servers
+            .iter_mut()
+            .find(|server| server.id == "big")
+            .unwrap();
         match mode {
             Some(mode) => big.unknown_fields.insert("serverMode".into(), json!(mode)),
             None => big.unknown_fields.remove("serverMode"),
@@ -199,7 +207,10 @@ mod plus_gateway {
             .find(|row| row["kind"] == "catalog_exposure")
             .expect("the first list records its exposure");
         assert_eq!(row["fullToolCount"], 4, "status, fetch, big, small: {row}");
-        assert_eq!(row["exposedToolCount"], 5, "floor, both helpers, small: {row}");
+        assert_eq!(
+            row["exposedToolCount"], 5,
+            "floor, both helpers, small: {row}"
+        );
         assert!(row["byServerBytes"]["big"].as_u64().unwrap() > 0, "{row}");
         assert!(row["byServerBytes"].get("small").is_none(), "{row}");
     }
