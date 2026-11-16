@@ -7,6 +7,15 @@
   "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
   "hidePrompts": true,
   "requestTimeoutMs": 45000,
-  "plus": { "origin": "import", "futurePlusField": 7 },
+  "plus": {
+    "authProbe": { "kind": "slack", "tokenKey": "SYNTHETIC_TOKEN" },
+    "futurePlusField": 7
+  },
+  "mcpmSource": { "type": "git", "path": "/synthetic/path", "drift": false },
+  "mcpmTags": ["synthetic"],
+  "mcpmOauth": true,
+  "forwardInstructions": true,
+  "declareClientCapabilities": true,
+  "maxRequestTimeoutMs": 600000,
   "fieldFromNewerUpstream": { "nested": [1, 2, 3] }
 }
