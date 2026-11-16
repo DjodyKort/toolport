@@ -47,7 +47,9 @@ pub struct HttpRequest {
     pub body: HttpBody,
     /// Deadline for the whole exchange, redirects included.
     pub timeout: Duration,
-    /// Follow up to five redirects. Off returns a 3xx response as it is.
+    /// Follow up to five redirects. Off returns a 3xx response as it is. Headers set on the
+    /// request travel only to the origin it names; a redirect to another origin keeps just
+    /// `Accept`, `Accept-Language` and `User-Agent`.
     pub follow_redirects: bool,
     /// The response body is cut here and flagged `truncated`.
     pub max_body_bytes: usize,

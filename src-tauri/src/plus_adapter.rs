@@ -667,51 +667,114 @@ impl GatewayRouter for RouterHandle {
     }
 }
 
+const MAX_REDIRECTS: u32 = 5;
+
+/// Headers a caller sets for one origin: they travel only to that origin.
+const CROSS_ORIGIN_HEADERS: [&str; 3] = ["accept", "accept-language", "user-agent"];
+
 /// Upstream's own agent, so the egress guard and upstream's resolvers apply to every request.
+///
+/// Redirects are followed here, hop by hop: ureq drops `Authorization` and `Cookie` on a
+/// redirect but forwards every other header, so a token in `X-Api-Key` would reach another host.
 impl HttpAccess for HostAdapter {
     fn send(&self, request: &HttpRequest) -> Result<HttpResponse, HttpError> {
         let (content_type, body) = encode_body(&request.body)?;
-        let mut builder = ureq::http::Request::builder()
-            .method(request.method.as_str())
-            .uri(request.url.as_str());
-        for (name, value) in &request.headers {
-            builder = builder.header(name.as_str(), value.as_str());
-        }
+        let mut headers = request.headers.clone();
         if let Some(content_type) = content_type.filter(|_| !request.has_header("content-type")) {
-            builder = builder.header("Content-Type", content_type);
+            headers.push(("Content-Type".into(), content_type.into()));
         }
-        let invalid =
-            |error: ureq::http::Error| HttpError::Other(format!("invalid request: {error}"));
         let agent = crate::http_client::agent();
-        let response = match body {
-            Some(bytes) => run(&agent, builder.body(bytes).map_err(invalid)?, request),
-            None => run(&agent, builder.body(()).map_err(invalid)?, request),
+        let mut method = request.method.as_str().to_string();
+        let mut url = url::Url::parse(&request.url)
+            .map_err(|error| HttpError::Other(format!("invalid request: {error}")))?;
+        let started = std::time::Instant::now();
+        let mut body = body;
+        let mut redirects = 0;
+        loop {
+            let mut builder = ureq::http::Request::builder()
+                .method(method.as_str())
+                .uri(url.as_str());
+            for (name, value) in &headers {
+                builder = builder.header(name.as_str(), value.as_str());
+            }
+            let invalid =
+                |error: ureq::http::Error| HttpError::Other(format!("invalid request: {error}"));
+            let left = request.timeout.saturating_sub(started.elapsed());
+            if left.is_zero() {
+                return Err(HttpError::Timeout("the request deadline passed".into()));
+            }
+            let response = match &body {
+                Some(bytes) => run(&agent, builder.body(bytes.clone()).map_err(invalid)?, left),
+                None => run(&agent, builder.body(()).map_err(invalid)?, left),
+            }
+            .map_err(map_error)?;
+            let Some(next) = request
+                .follow_redirects
+                .then(|| redirect_target(&response, &url))
+                .flatten()
+            else {
+                return read_response(response, request.max_body_bytes);
+            };
+            let status = response.status().as_u16();
+            let keeps_method = matches!(status, 307 | 308);
+            if keeps_method && (method != "GET" || body.is_some()) {
+                return read_response(response, request.max_body_bytes);
+            }
+            if redirects == MAX_REDIRECTS {
+                return Err(HttpError::TooManyRedirects);
+            }
+            redirects += 1;
+            if !keeps_method {
+                method = "GET".into();
+                body = None;
+                headers.retain(|(name, _)| !name.eq_ignore_ascii_case("content-type"));
+            }
+            headers.retain(|(name, _)| !name.eq_ignore_ascii_case("cookie"));
+            if origin(&next) != origin(&url) {
+                headers.retain(|(name, _)| {
+                    CROSS_ORIGIN_HEADERS
+                        .iter()
+                        .any(|kept| name.eq_ignore_ascii_case(kept))
+                });
+            }
+            url = next;
         }
-        .map_err(map_error)?;
-        read_response(response, request.max_body_bytes)
     }
+}
+
+fn origin(url: &url::Url) -> (String, Option<String>, Option<u16>) {
+    (
+        url.scheme().to_string(),
+        url.host_str().map(str::to_string),
+        url.port_or_known_default(),
+    )
+}
+
+fn redirect_target(
+    response: &crate::http_client::Response,
+    current: &url::Url,
+) -> Option<url::Url> {
+    if !matches!(response.status().as_u16(), 301 | 302 | 303 | 307 | 308) {
+        return None;
+    }
+    let location = response.headers().get("location")?.to_str().ok()?;
+    current.join(location).ok()
 }
 
 fn run<B: ureq::AsSendBody>(
     agent: &ureq::Agent,
     http_request: ureq::http::Request<B>,
-    request: &HttpRequest,
+    timeout: std::time::Duration,
 ) -> Result<crate::http_client::Response, ureq::Error> {
     use ureq::RequestExt as _;
 
-    let configure = http_request
+    http_request
         .with_agent(agent)
         .configure()
-        .timeout_global(Some(request.timeout));
-    if request.follow_redirects {
-        configure.run()
-    } else {
-        // Without will_error a 3xx past the limit is returned as a response.
-        configure
-            .max_redirects(0)
-            .max_redirects_will_error(false)
-            .run()
-    }
+        .timeout_global(Some(timeout))
+        .max_redirects(0)
+        .max_redirects_will_error(false)
+        .run()
 }
 
 fn encode_body(body: &HttpBody) -> Result<(Option<&'static str>, Option<Vec<u8>>), HttpError> {
@@ -1163,6 +1226,11 @@ mod tests {
             fn url(&self, path: &str) -> String {
                 format!("http://127.0.0.1:{}{path}", self.port)
             }
+
+            /// The same listener under another host name, which counts as another host.
+            fn other_host_url(&self, path: &str) -> String {
+                format!("http://localhost:{}{path}", self.port)
+            }
         }
 
         impl Drop for Loopback {
@@ -1231,6 +1299,32 @@ mod tests {
                 "/boom" => ("500 Internal Server Error", "", "broken".to_string()),
                 "/redirect" => ("302 Found", "Location: /ok\r\n", String::new()),
                 "/loop" => ("302 Found", "Location: /loop\r\n", String::new()),
+                "/headers" => (
+                    "200 OK",
+                    "Content-Type: application/json\r\n",
+                    serde_json::Value::Object(
+                        head.lines()
+                            .skip(1)
+                            .filter_map(|line| {
+                                let (name, value) = line.split_once(':')?;
+                                Some((
+                                    name.to_ascii_lowercase(),
+                                    serde_json::Value::String(value.trim().to_string()),
+                                ))
+                            })
+                            .collect(),
+                    )
+                    .to_string(),
+                ),
+                p if p.starts_with("/redirect-to/") => {
+                    let (code, target) = p["/redirect-to/".len()..].split_once('?').unwrap();
+                    return respond_with(
+                        &mut stream,
+                        &format!("{code} Redirect"),
+                        &format!("Location: {target}\r\n"),
+                        "",
+                    );
+                }
                 "/to-blocked" => (
                     "302 Found",
                     "Location: http://toolport.app/latest.json\r\n",
@@ -1253,6 +1347,10 @@ mod tests {
                 ),
                 _ => ("404 Not Found", "", String::new()),
             };
+            respond_with(&mut stream, status, extra, &payload);
+        }
+
+        fn respond_with(stream: &mut TcpStream, status: &str, extra: &str, payload: &str) {
             let response = format!(
                 "HTTP/1.1 {status}\r\n{extra}Content-Length: {}\r\nConnection: close\r\n\r\n{payload}",
                 payload.len()
@@ -1311,6 +1409,115 @@ mod tests {
             let response = send(HttpRequest::get(server.url("/redirect")).no_redirects()).unwrap();
             assert_eq!(response.status, 302);
             assert_eq!(response.header("location"), Some("/ok"));
+        }
+
+        fn credentialed(url: String) -> HttpRequest {
+            HttpRequest::get(url)
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer synthetic-token")
+                .header("Cookie", "session=synthetic")
+                .header("Proxy-Authorization", "Basic c3ludGhldGlj")
+                .header("X-Api-Key", "synthetic-key")
+        }
+
+        const CREDENTIAL_HEADERS: [&str; 4] = [
+            "authorization",
+            "cookie",
+            "proxy-authorization",
+            "x-api-key",
+        ];
+
+        #[test]
+        fn ureq_alone_forwards_credential_headers_other_than_authorization_and_cookie() {
+            let first = Loopback::start();
+            let second = Loopback::start();
+            let target = second.other_host_url("/headers");
+            let mut response = crate::http_client::agent()
+                .get(first.url(&format!("/redirect-to/302?{target}")))
+                .header("Authorization", "Bearer synthetic-token")
+                .header("Cookie", "session=synthetic")
+                .header("Proxy-Authorization", "Basic c3ludGhldGlj")
+                .header("X-Api-Key", "synthetic-key")
+                .call()
+                .unwrap();
+            let seen: Value = response.body_mut().read_json().unwrap();
+            assert!(seen.get("authorization").is_none(), "{seen}");
+            assert!(seen.get("cookie").is_none(), "{seen}");
+            assert_eq!(seen["x-api-key"], "synthetic-key");
+            assert_eq!(seen["proxy-authorization"], "Basic c3ludGhldGlj");
+        }
+
+        #[test]
+        fn a_redirect_to_another_host_carries_no_credential_header() {
+            let first = Loopback::start();
+            let second = Loopback::start();
+            let target = second.other_host_url("/headers");
+            let response = send(credentialed(
+                first.url(&format!("/redirect-to/302?{target}")),
+            ))
+            .unwrap();
+            assert_eq!(response.url, target);
+            let seen = response.json().unwrap();
+            for name in CREDENTIAL_HEADERS {
+                assert!(seen.get(name).is_none(), "{name} was forwarded: {seen}");
+            }
+            assert_eq!(seen["accept"], "application/json");
+        }
+
+        #[test]
+        fn a_redirect_to_another_port_of_the_same_host_counts_as_another_origin() {
+            let first = Loopback::start();
+            let second = Loopback::start();
+            let target = second.url("/headers");
+            let seen = send(credentialed(
+                first.url(&format!("/redirect-to/302?{target}")),
+            ))
+            .unwrap()
+            .json()
+            .unwrap();
+            assert!(seen.get("x-api-key").is_none(), "{seen}");
+        }
+
+        #[test]
+        fn a_redirect_inside_one_origin_keeps_the_headers_but_not_the_cookie() {
+            let server = Loopback::start();
+            let target = server.url("/headers");
+            let seen = send(credentialed(
+                server.url(&format!("/redirect-to/302?{target}")),
+            ))
+            .unwrap()
+            .json()
+            .unwrap();
+            assert_eq!(seen["authorization"], "Bearer synthetic-token");
+            assert_eq!(seen["x-api-key"], "synthetic-key");
+            assert!(seen.get("cookie").is_none(), "{seen}");
+        }
+
+        #[test]
+        fn a_302_after_a_post_becomes_a_get_without_body_or_content_type() {
+            let server = Loopback::start();
+            let target = server.url("/echo");
+            let request = HttpRequest::post(
+                server.url(&format!("/redirect-to/302?{target}")),
+                HttpBody::Json(json!({"a": 1})),
+            );
+            let seen = send(request).unwrap().json().unwrap();
+            assert_eq!(seen["method"], "GET");
+            assert_eq!(seen["body"], "");
+            assert_eq!(seen["contentType"], "");
+        }
+
+        #[test]
+        fn a_307_after_a_post_is_returned_as_a_response_not_replayed() {
+            let server = Loopback::start();
+            let target = server.url("/echo");
+            let request = HttpRequest::post(
+                server.url(&format!("/redirect-to/307?{target}")),
+                HttpBody::Json(json!({"a": 1})),
+            );
+            let response = send(request).unwrap();
+            assert_eq!(response.status, 307);
+            assert_eq!(response.header("location"), Some(target.as_str()));
         }
 
         #[test]
