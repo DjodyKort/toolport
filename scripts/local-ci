@@ -111,9 +111,10 @@ step_plus_test() {
 }
 
 step_seam_tests() {
-  # Egress guard in conduit and the upstream -> mirror -> upstream round trip against the fixture.
+  # Egress guard in conduit, the upstream -> mirror -> upstream round trip against the fixture, the adapter's
+  # server operations and the router extension (restart, calls in flight).
   app_cargo test --locked --manifest-path "$APP_MANIFEST" --lib \
-    --no-default-features --features search-static,test-support,plus -- seam:: plus_adapter::
+    --no-default-features --features search-static,test-support,plus -- seam:: plus_adapter:: router::plus_ext::
 }
 
 ensure_node_modules() {
