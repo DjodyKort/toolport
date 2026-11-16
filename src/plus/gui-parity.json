@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "routes": {
+    "catalog": {
+      "title": "Command catalog",
+      "status": "planned"
+    },
+    "servers": {
+      "title": "Servers",
+      "status": "planned"
+    },
+    "system": {
+      "title": "System",
+      "status": "planned"
+    }
+  },
+  "actions": {
+    "catalog.commands": {
+      "route": "catalog",
+      "status": "planned",
+      "summary": "The registry listing (toolportctl commands): every command with its tier, search, group filter and a form per command"
+    },
+    "catalog.mcp-call": {
+      "route": "catalog",
+      "status": "planned",
+      "summary": "Run a self-management tool through mcp call with its arguments as JSON on stdin, dry run first, typed confirmation for the destructive tier"
+    },
+    "servers.gateway": {
+      "route": "servers",
+      "status": "planned",
+      "summary": "Registry, access sets, secrets backend and gateway state (status)"
+    },
+    "servers.health": {
+      "route": "servers",
+      "status": "planned",
+      "summary": "Doctor checks, including whether this build carries the fork seam, with one-click named fixes (doctor)"
+    },
+    "system.mcp-install": {
+      "route": "system",
+      "status": "planned",
+      "summary": "Register the self-management server and list it in an access set (mcp install)"
+    },
+    "system.mcp-uninstall": {
+      "route": "system",
+      "status": "planned",
+      "summary": "Remove the self-management server and keep it removed (mcp uninstall)"
+    },
+    "system.mcp-doctor": {
+      "route": "system",
+      "status": "planned",
+      "summary": "Check the self-management server and where it is listed (mcp doctor)"
+    },
+    "system.mcp-tools": {
+      "route": "system",
+      "status": "planned",
+      "summary": "List the self-management tools and resources (mcp tools)"
+    },
+    "system.where-am-i": {
+      "route": "system",
+      "status": "planned",
+      "summary": "Absolute paths and state of this installation (where_am_i)"
+    },
+    "system.flow-diagram": {
+      "route": "system",
+      "status": "planned",
+      "summary": "Data-flow diagram of skills and servers (flow_diagram)"
+    }
+  },
+  "owners": {
+    "status": "MIG-2X-S1",
+    "doctor": "MIG-2X-S1",
+    "commands": "MIG-2X-S1",
+    "mcp": "MIG-2X-S1"
+  },
+  "commands": {
+    "status": {
+      "route": "servers",
+      "action": "servers.gateway",
+      "surface": "screen"
+    },
+    "doctor": {
+      "route": "servers",
+      "action": "servers.health",
+      "surface": "screen"
+    },
+    "commands": {
+      "route": "catalog",
+      "action": "catalog.commands",
+      "surface": "screen"
+    },
+    "mcp install": {
+      "route": "system",
+      "action": "system.mcp-install",
+      "surface": "screen"
+    },
+    "mcp uninstall": {
+      "route": "system",
+      "action": "system.mcp-uninstall",
+      "surface": "screen"
+    },
+    "mcp doctor": {
+      "route": "system",
+      "action": "system.mcp-doctor",
+      "surface": "screen"
+    },
+    "mcp tools": {
+      "route": "system",
+      "action": "system.mcp-tools",
+      "surface": "screen"
+    },
+    "mcp call": {
+      "route": "catalog",
+      "action": "catalog.mcp-call",
+      "surface": "screen"
+    }
+  },
+  "tools": {
+    "where_am_i": {
+      "route": "system",
+      "action": "system.where-am-i",
+      "surface": "screen"
+    },
+    "doctor": {
+      "route": "servers",
+      "action": "servers.health",
+      "surface": "screen"
+    },
+    "flow_diagram": {
+      "route": "system",
+      "action": "system.flow-diagram",
+      "surface": "screen"
+    }
+  }
+}
