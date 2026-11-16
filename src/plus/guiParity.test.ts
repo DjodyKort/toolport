@@ -10,7 +10,7 @@ import {
   summaryLine,
   type RegistrySnapshot,
 } from "./guiParityCheck";
-import { PLUS_VIEWS } from "./shell/views";
+import { PLUS_EXTENDED_VIEWS, PLUS_VIEWS } from "./shell/views";
 
 const repo = join(__dirname, "../..");
 const files = {
@@ -25,8 +25,11 @@ function snapshot(): RegistrySnapshot {
   return envelope.envelope.data;
 }
 
-/** The slice whose screen is built; its rows must all be on a built action. */
-const BUILT_OWNER = "MIG-2X-S1";
+/** The slices whose screen is built; their rows must all be on a built action. */
+const BUILT_OWNERS = ["MIG-2X-S1", "MIG-2X-S2"];
+
+/** Tools of a built screen that stay planned because their meaning is still being decided. */
+const PLANNED_ON_BUILT = ["servers_set_mode"];
 
 describe("gui parity manifest", () => {
   it("has an entry for every registry command and tool and nothing stale", () => {
@@ -47,16 +50,16 @@ describe("gui parity manifest", () => {
     ).toBeGreaterThanOrEqual(0);
   });
 
-  it("has a built screen action for every command of the built slice", () => {
+  it("has a built screen action for every command of the built slices", () => {
     const report = checkParity(guiParity, snapshot(), files);
-    const pending = report.pendingCommands.filter(
-      (id) => guiParity.owners[id.split(" ")[0]] === BUILT_OWNER,
+    const pending = report.pendingCommands.filter((id) =>
+      BUILT_OWNERS.includes(guiParity.owners[id.split(" ")[0]]),
     );
-    expect(pending, `rows of ${BUILT_OWNER} without a built action`).toEqual([]);
+    expect(pending, `rows of ${BUILT_OWNERS} without a built action`).toEqual([]);
     const pendingOnBuiltRoutes = report.pendingTools.filter(
       (name) => guiParity.routes[guiParity.tools[name]?.route]?.status === "built",
     );
-    expect(pendingOnBuiltRoutes).toEqual([]);
+    expect(pendingOnBuiltRoutes).toEqual(PLANNED_ON_BUILT);
   });
 });
 
@@ -75,7 +78,10 @@ describe("gui parity routes", () => {
         ).toContain(name);
       } else {
         expect(kind, `route ${id} names no page`).toBe("view");
-        expect(PLUS_VIEWS, `route ${id} -> ${route.page}`).toContain(name);
+        expect(
+          [...PLUS_VIEWS, ...PLUS_EXTENDED_VIEWS],
+          `route ${id} -> ${route.page}`,
+        ).toContain(name);
       }
     }
   });

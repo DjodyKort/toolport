@@ -9,7 +9,9 @@
     },
     "servers": {
       "title": "Servers",
-      "status": "planned"
+      "status": "built",
+      "page": "view:servers",
+      "component": "src/plus/servers/slots.tsx"
     },
     "system": {
       "title": "Toolport+ settings",
@@ -69,48 +71,57 @@
     },
     "servers.list": {
       "route": "servers",
-      "status": "planned",
-      "summary": "The servers list: every server with its global switch and the default access (server ls, servers_list); upstream's list stays whole, the fork adds banner rows"
+      "status": "built",
+      "summary": "The servers list: every server with its global switch and the default access (server ls, servers_list); upstream's list stays whole, the fork adds banner rows",
+      "test": "src/plus/servers/ServersBanner.test.tsx"
     },
     "servers.detail": {
       "route": "servers",
-      "status": "planned",
-      "summary": "One server's Operations rows: command, plain env keys, access sets and what its process sees of the shell environment (server info, servers_get)"
+      "status": "built",
+      "summary": "One server's Operations rows: command, plain env keys, access sets and what its process sees of the shell environment (server info, servers_get)",
+      "test": "src/plus/servers/ServerOperations.test.tsx"
     },
     "servers.add-catalog": {
       "route": "servers",
-      "status": "planned",
-      "summary": "Add a curated catalog server and finish its setup: secrets, who can reach it (server install)"
+      "status": "built",
+      "summary": "Add a curated catalog server and finish its setup: secrets, who can reach it (server install)",
+      "test": "src/plus/servers/ServersBanner.test.tsx"
     },
     "servers.add": {
       "route": "servers",
-      "status": "planned",
-      "summary": "Add a server from a command or a URL, with plain env and the shell-environment switch, then Finish setup (server new, servers_install)"
+      "status": "built",
+      "summary": "Add a server from a command or a URL, with plain env and the shell-environment switch, then Finish setup (server new, servers_install)",
+      "test": "src/plus/servers/ServersBanner.test.tsx"
     },
     "servers.edit": {
       "route": "servers",
-      "status": "planned",
-      "summary": "Edit a server's command, arguments, URL, plain env and the shell-environment switch through upstream's Edit; the Runtime row explains what the process sees (server edit, servers_update_config)"
+      "status": "built",
+      "summary": "Edit a server's command, arguments, URL, plain env and the shell-environment switch through upstream's Edit; the Runtime row explains what the process sees (server edit, servers_update_config)",
+      "test": "src/plus/servers/ServerOperations.test.tsx"
     },
     "servers.remove": {
       "route": "servers",
-      "status": "planned",
-      "summary": "Remove a server and its vault entries, with a preview first (server uninstall, servers_uninstall)"
+      "status": "built",
+      "summary": "Remove a server and its vault entries, with a preview first (server uninstall, servers_uninstall)",
+      "test": "src/plus/servers/ServerOperations.test.tsx"
     },
     "servers.restart": {
       "route": "servers",
-      "status": "planned",
-      "summary": "Restart a server in every running gateway: one click when idle, a confirmation naming the calls in flight otherwise, a result per gateway with retry (server restart, servers_restart)"
+      "status": "built",
+      "summary": "Restart a server in every running gateway: one click when idle, a confirmation naming the calls in flight otherwise, a result per gateway with retry (server restart, servers_restart)",
+      "test": "src/plus/servers/RuntimeRow.test.tsx"
     },
     "servers.access-sets": {
       "route": "servers",
-      "status": "planned",
-      "summary": "Servers by access set in one table (servers_list_profiles)"
+      "status": "built",
+      "summary": "Servers by access set in one table (servers_list_profiles)",
+      "test": "src/plus/servers/AccessCompare.test.tsx"
     },
     "servers.access-set-member": {
       "route": "servers",
-      "status": "planned",
-      "summary": "List a server in an access set or take it out: a table cell with Undo, the Finish setup chips, the Reach row (servers_add_profile_tag, servers_remove_profile_tag)"
+      "status": "built",
+      "summary": "List a server in an access set or take it out: a table cell with Undo, the Finish setup chips, the Reach row (servers_add_profile_tag, servers_remove_profile_tag)",
+      "test": "src/plus/servers/AccessCompare.test.tsx"
     },
     "servers.advanced-mode": {
       "route": "servers",

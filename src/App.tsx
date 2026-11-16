@@ -5,6 +5,7 @@ import { needsTeamEnableReview, sameReviewedDefinition } from "@/lib/importRevie
 import { serverPostureCopy } from "@/lib/serverPosture";
 import { type SettingsSubpage } from "@/lib/settingsPages";
 import { isPlusRoute, plusPageHeader } from "@/plus/shell";
+import { PlusServerDetail, PlusServersEnd, PlusServersTop } from "@/plus/servers/slots";
 import { visibleExecutionText } from "@/lib/visibleExecutionText";
 import { isPersonalSync } from "@/lib/personalSync";
 import { requestClientRecoveryScan } from "@/lib/clientRecoveryEvents";
@@ -1014,6 +1015,14 @@ function App() {
                       : translate("One gateway in front of every MCP server you run");
 
   const plusHeader = plusPageHeader(view);
+  const plusHost = {
+    openServer: (id: string) => selectServer(id),
+    openAccessSets: () => {
+      selectView("settings");
+      setSettingsPage("access");
+    },
+    closeServer: () => backFromDetail("servers"),
+  };
 
   const serverRow = (server: ServerEntry) => (
     <RegistryServerRow
@@ -1434,6 +1443,7 @@ function App() {
                               disabled={servers.length - enabledCount}
                             />
                           ))}
+                        <PlusServersTop registry={registry} host={plusHost} />
                         {/* Turned-off servers get their own group, as in the GTK shell. */}
                         {[
                           {
@@ -1460,9 +1470,19 @@ function App() {
                               </div>
                             </section>
                           ))}
+                        <PlusServersEnd registry={registry} host={plusHost} />
                       </div>
                     )}
                   </Suspense>
+                  {view === "servers" && selectedServer && (
+                    <PlusServerDetail
+                      server={selectedServer}
+                      registry={registry}
+                      health={health[selectedServer.id]}
+                      host={plusHost}
+                      onRegistryChange={applyRegistryChange}
+                    />
+                  )}
                 </ErrorBoundary>
               </div>
             </ScrollArea>

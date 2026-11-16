@@ -94,6 +94,7 @@ import { isGatewayServer } from "@/lib/types";
 import { keptSafetySummary } from "@/lib/keptSafety";
 import { useTheme, type Theme } from "@/lib/theme";
 import { Switch } from "@/components/ui/switch";
+import { PlusAccessCompare } from "@/plus/servers/slots";
 import {
   Select,
   SelectContent,
@@ -1898,6 +1899,7 @@ export function SettingsView({
               )}
             </p>
           )}
+          <PlusAccessCompare registry={registry} onRegistryChange={onRegistryChange} />
         </section>
       )}
       {page === "connections" && (
