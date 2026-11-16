@@ -71,6 +71,41 @@ pub fn gateway_tick(
     let _ = (router, dirty, pooled);
 }
 
+/// Takes the tools of servers whose mode is `search` out of the surface a Full tools/list sends.
+/// Leaves `surface` as it is, and parses nothing, when the list is not a Full one or no server
+/// has that mode. `owner_of` names the server behind an exposed tool and `helpers` builds the
+/// search and call tools.
+pub fn search_only_surface(
+    full_list: bool,
+    reg: &crate::registry::Registry,
+    owner_of: impl Fn(&str) -> Option<String>,
+    surface: &mut std::sync::Arc<crate::savings::SerializedSurface>,
+    helpers: impl FnOnce() -> [serde_json::Value; 2],
+) {
+    #[cfg(feature = "plus")]
+    {
+        use toolport_plus::servers::mode;
+        let hidden: std::collections::HashSet<&str> = reg
+            .servers
+            .iter()
+            .filter(|server| mode::is_search_only(&server.unknown_fields))
+            .map(|server| server.id.as_str())
+            .collect();
+        if !full_list || hidden.is_empty() {
+            return;
+        }
+        let Ok(tools) = serde_json::from_str(surface.json.get()) else {
+            return;
+        };
+        let is_hidden =
+            |name: &str| owner_of(name).is_some_and(|owner| hidden.contains(owner.as_str()));
+        let listed = mode::listing(tools, is_hidden, helpers());
+        *surface = std::sync::Arc::new(crate::savings::SerializedSurface::from_tools(listed));
+    }
+    #[cfg(not(feature = "plus"))]
+    let _ = (full_list, reg, owner_of, surface, helpers);
+}
+
 /// The secrets host the hooks below use. Unit tests never reach the real keychain
 /// code: they get an inert host unless a test installs its own with `secrets_host_override`.
 #[cfg(all(feature = "plus", not(test)))]

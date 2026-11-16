@@ -18217,6 +18217,18 @@ fn process_request_wire_inner(
         } else {
             discovery
         };
+        let owners = unique_prefix_owners(&reg);
+        conduit_lib::seam::search_only_surface(
+            discovery == DiscoveryMode::Full,
+            &reg,
+            |name| owner_of_exposed_tool(Some(&router), &owners, name),
+            &mut exposed,
+            || {
+                let mut helpers = [search_tool_def(), call_tool_def()];
+                ResultSizeHints::new(&reg, allowed).apply_all(&mut helpers, &router);
+                helpers
+            },
+        );
         {
             guard.catalog.resolve_baseline_eligibility(|| {
                 !over_client_tool_limit(client, full.summary.tool_count())
@@ -24101,6 +24113,8 @@ mod tests {
         );
     }
     use super::*;
+    #[cfg(feature = "plus")]
+    include!("../plus_gateway.rs");
     // Test-only: the blend-ranking test builds these directly. Kept here rather than at
     // module scope so a non-test build doesn't warn about an unused import.
     use conduit_lib::semantic::SemanticConfig;
