@@ -1,5 +1,6 @@
 import type { CtlEnvelope, CtlResult } from "../bridge/ctl";
 import { registerAttentionFeed } from "../shell/attentionFeed";
+import { fixtureServers, type RestartScript } from "./serverWorld";
 import {
   createCtlWorld,
   type CtlReply,
@@ -62,8 +63,17 @@ function registerFixtureBell() {
   registerAttentionFeed({ snapshot: () => snapshot, subscribe: () => () => {} });
 }
 
+const RESTART_SCENARIOS: Record<string, RestartScript> = {
+  busy: { kind: "busy" },
+  partial: { kind: "partial" },
+  none: { kind: "none" },
+  slow: { kind: "ok", delayMs: 6000 },
+};
+
 /** `?plus-bell` shows the footer bell with three rows. `?plus-self=missing|enabled|disabled|opted-out|not-enabled`, `?plus-doctor=warn|fail` and
- * `?plus-bridge=down` pick the state the fixture page starts in. */
+ * `?plus-bridge=down` pick the state the fixture page starts in. `?plus-restart=busy|partial|none|slow`
+ * picks how a server restart answers and `?plus-default=<access set id>` the default access; the servers follow
+ * `?auth-guidance` of the app fixture. */
 export function plusFixtureFromSearch(search: string) {
   const params = new URLSearchParams(search);
   const self = params.get("plus-self");
@@ -76,11 +86,21 @@ export function plusFixtureFromSearch(search: string) {
       : "enabled",
     doctor: doctor === "warn" || doctor === "fail" ? doctor : "ok",
     down: params.get("plus-bridge") === "down",
+    servers: {
+      servers: fixtureServers(params.has("auth-guidance")),
+      restart: restartScripts(params.get("plus-restart")),
+      defaultAccess: params.get("plus-default"),
+    },
   });
   if (params.has("plus-bell")) registerFixtureBell();
 }
 
 if (typeof location !== "undefined") plusFixtureFromSearch(location.search);
+
+function restartScripts(scenario: string | null): Record<string, RestartScript> {
+  const script = RESTART_SCENARIOS[scenario ?? ""];
+  return script ? { "fixture-0": script, "fixture-1": script, "fixture-2": script } : {};
+}
 
 function envelopeOf(command: string, reply: CtlReply): CtlEnvelope {
   return reply.ok
@@ -94,9 +114,10 @@ function envelopeOf(command: string, reply: CtlReply): CtlEnvelope {
       };
 }
 
-function resultOf(job: string, run: Job): CtlResult {
+/** Answers at once, or after the reply's delay when it has one (a restart that waits on gateways). */
+function resultOf(job: string, run: Job): CtlResult | Promise<CtlResult> {
   const reply = world.run(run.argv, run.stdin);
-  return {
+  const result: CtlResult = {
     job,
     exitCode: reply.ok ? 0 : 1,
     signal: null,
@@ -106,6 +127,9 @@ function resultOf(job: string, run: Job): CtlResult {
     stderr: [],
     truncated: false,
   };
+  return reply.delayMs
+    ? new Promise((resolve) => setTimeout(() => resolve(result), reply.delayMs))
+    : result;
 }
 
 /** The three IPC commands of the fork bridge, answered by the in-memory toolportctl. */
@@ -128,6 +152,8 @@ export function plusFixtureIpc(command: string, args: Record<string, unknown>): 
       jobs.delete(job);
       return resultOf(job, run);
     }
+    case "secret_status":
+      return world.servers.secretStatus(String(args.serverId), args.keys as string[]);
     case "plus_ctl_cancel":
       jobs.delete(String(args.job));
       return null;

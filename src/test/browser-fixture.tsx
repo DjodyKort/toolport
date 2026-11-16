@@ -1302,6 +1302,7 @@ mockIPC(
       case "plus_ctl":
       case "plus_ctl_result":
       case "plus_ctl_cancel":
+      case "secret_status":
         return plusFixtureIpc(command, args);
       default:
         missing.push(command);

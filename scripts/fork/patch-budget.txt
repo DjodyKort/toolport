@@ -46,10 +46,19 @@
 #   2: `plusHeader`, computed beside upstream's title and subtitle
 #   4: the PageHeader title and subtitle fall back to upstream's text when `plusHeader` is empty
 #   7: one render branch before upstream's Settings branch that mounts PlusViews
-15	src/App.tsx
+# Servers screen (S2), 20 more lines, all calls into src/plus/servers/slots.tsx:
+#   1: the slots import
+#   8: `plusHost`, the three callbacks a fork row needs (open a server, open Settings > Access, leave a server)
+#   1: PlusServersTop after upstream's sign-in or status card (banner rows)
+#   1: PlusServersEnd at the end of the list (default access line)
+#   9: PlusServerDetail after the detail card (Finish setup and the Operations list)
+35	src/App.tsx
 # AppSidebar.tsx, 6 changed lines: the Claude group under upstream's nav (1), the footer bell (1), the Puzzle icon
 # of the new Settings page in the position-based icon array (2), and the imports (2).
 6	src/components/AppSidebar.tsx
+# SettingsView.tsx, 2 lines (S2): the Compare access sets table (src/plus/servers/AccessCompare.tsx) at the end of
+# the Access page, as the one place that already lists the access sets.
+2	src/components/SettingsView.tsx
 2	src/lib/openUrl.ts
 # settingsPages.ts: one entry, `toolport`, between Connections and Help and data.
 7	src/lib/settingsPages.ts
@@ -69,6 +78,7 @@
 8	src/locales/shell/pt-BR.json
 8	src/locales/shell/zh-CN.json
 8	src/locales/shell/zh-TW.json
-# browser-fixture.tsx, 5 changed lines: the fixture answers the three plus_ctl IPC commands with the in-memory
-# toolportctl of src/plus/fixtures (an unknown command still fails), as upstream's fixture rule asks.
-5	src/test/browser-fixture.tsx
+# browser-fixture.tsx, 6 changed lines: the fixture answers the three plus_ctl IPC commands, and the
+# secret_status command the Finish setup line reads, with the in-memory toolportctl of src/plus/fixtures
+# (an unknown command still fails), as upstream's fixture rule asks.
+6	src/test/browser-fixture.tsx

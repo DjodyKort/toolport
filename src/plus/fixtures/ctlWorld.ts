@@ -1,5 +1,6 @@
 import commandsGolden from "../../../plus/fixtures/ctl-envelopes/commands.json";
 import toolsGolden from "../../../plus/fixtures/ctl-envelopes/mcp-tools.json";
+import { createServerWorld, type ServerWorldOptions } from "./serverWorld";
 import type {
   AccessSetStanding,
   CommandsData,
@@ -23,6 +24,8 @@ export interface CtlReply {
   ok: boolean;
   data?: unknown;
   error?: { code: string; message: string };
+  /** How long the fixture takes to answer, for a restart that waits on the gateways. */
+  delayMs?: number;
 }
 
 export interface WorldOptions {
@@ -32,12 +35,15 @@ export interface WorldOptions {
   doctor?: "ok" | "warn" | "fail";
   /** Access sets of the fixture registry, default first. */
   accessSets?: string[];
+  /** The servers, their access sets and how a restart answers. */
+  servers?: ServerWorldOptions;
 }
 
 /** A small in-memory toolportctl: enough state for install, uninstall and doctor to answer the way
  * the real binary does, and for a second read to see the first write. */
 export function createCtlWorld(options: WorldOptions = {}) {
   const accessSets = options.accessSets ?? ["local", "work"];
+  const serverWorld = createServerWorld({ setIds: accessSets, ...options.servers });
   const defaultAccess = accessSets[0] ?? null;
   const doctorMode = options.doctor ?? "ok";
   let state: SelfMcpState = options.self ?? "missing";
@@ -167,7 +173,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
     const data: StatusData = {
       version: "2.3.6",
       dataDir: DATA_DIR,
-      serverCount: broken ? 0 : 3,
+      serverCount: broken ? 0 : serverWorld.servers.length,
       accessSetCount: broken ? 0 : accessSets.length,
       defaultAccess: broken ? null : defaultAccess,
       secretsBackend: "encrypted-file",
@@ -226,6 +232,8 @@ export function createCtlWorld(options: WorldOptions = {}) {
 
   function call(argv: string[], stdin: string | undefined): CtlReply {
     const tool = argv[2];
+    const handled = serverWorld.tool(tool ?? "", stdin?.trim() ? JSON.parse(stdin) : {});
+    if (handled) return handled;
     const row = tools.tools.find((t) => t.name === tool);
     if (!row) {
       return {
@@ -258,12 +266,14 @@ export function createCtlWorld(options: WorldOptions = {}) {
     get state() {
       return state;
     },
+    servers: serverWorld,
     run(argv: string[], stdin?: string): CtlReply {
       const key = argv.filter((a) => a !== "--json");
       const [first, second] = key;
       if (first === "status") return status();
       if (first === "doctor") return doctor();
       if (first === "commands") return { ok: true, data: commands };
+      if (first === "server") return serverWorld.run(key);
       if (first === "mcp") {
         if (second === "install") return install(key);
         if (second === "uninstall") return uninstall();
