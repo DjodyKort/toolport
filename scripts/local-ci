@@ -100,8 +100,14 @@ step_plus_clippy() {
 }
 
 step_plus_test() {
-  # Includes the toolportctl integration test and the mirror round trip in toolport-plus-api.
-  plus_cargo test --locked --manifest-path plus/Cargo.toml --workspace
+  # The plus workspace through nextest, with plus/.config/nextest.toml: unit tests of the fork logic
+  # and the plus_* tests that run the real toolportctl and toolport-selfmcp (envelope goldens,
+  # the stdio protocol, the GUI parity manifest).
+  if ! command -v cargo-nextest >/dev/null 2>&1; then
+    echo "cargo-nextest is missing: cargo install --locked cargo-nextest --version 0.9.151"
+    return 1
+  fi
+  plus_cargo nextest run --locked --manifest-path plus/Cargo.toml --workspace
 }
 
 step_seam_tests() {

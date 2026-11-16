@@ -1,0 +1,9 @@
+# Config of the plus workspace; upstream's src-tauri/.config/nextest.toml is not touched.
+# The plus_* integration tests start the real binaries and each case spawns several
+# processes, so they run a few at a time instead of one per core.
+[test-groups]
+plus-binaries = { max-threads = 4 }
+
+[[profile.default.overrides]]
+filter = "package(toolport-plus-bins) and kind(test)"
+test-group = "plus-binaries"
