@@ -127,6 +127,21 @@
       "route": "servers",
       "status": "planned",
       "summary": "Per server, whether its tools are listed to clients that get the full tool list (auto) or only found through toolport_search_tools and called by name (search), in the Advanced disclosure; the screen row comes later (server mode, servers_set_mode)"
+    },
+    "servers.secret-set": {
+      "route": "servers",
+      "status": "planned",
+      "summary": "Set or replace a secret of a server, or the access token of a remote one, through a write-only field in upstream's Secrets dialog; the value goes to stdin only, a placeholder is refused (secret set)"
+    },
+    "servers.secret-reveal": {
+      "route": "servers",
+      "status": "planned",
+      "summary": "Say which declared keys of a server are set, and reveal one after a confirmation; it hides after 10 seconds and the access token is never shown (secret get)"
+    },
+    "servers.secret-remove": {
+      "route": "servers",
+      "status": "planned",
+      "summary": "Remove a secret and its declaration after a confirmation, typed when the policy tier is destructive (secret rm)"
     }
   },
   "owners": {
@@ -134,7 +149,8 @@
     "doctor": "MIG-2X-S1",
     "commands": "MIG-2X-S1",
     "mcp": "MIG-2X-S1",
-    "server": "MIG-2X-S2"
+    "server": "MIG-2X-S2",
+    "secret": "MIG-2X-S3"
   },
   "commands": {
     "status": {
@@ -215,6 +231,21 @@
     "server mode": {
       "route": "servers",
       "action": "servers.advanced-mode",
+      "surface": "screen"
+    },
+    "secret set": {
+      "route": "servers",
+      "action": "servers.secret-set",
+      "surface": "screen"
+    },
+    "secret get": {
+      "route": "servers",
+      "action": "servers.secret-reveal",
+      "surface": "screen"
+    },
+    "secret rm": {
+      "route": "servers",
+      "action": "servers.secret-remove",
       "surface": "screen"
     }
   },
