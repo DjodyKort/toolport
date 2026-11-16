@@ -1,4 +1,4 @@
-import { BookOpen, ListTodo, Layers2, type LucideIcon } from "lucide-react";
+import { BookOpen, Gauge, ListTodo, type LucideIcon } from "lucide-react";
 import { msg, type SourceMessage } from "@/lib/i18n";
 import type { View } from "@/lib/types";
 
@@ -39,7 +39,7 @@ export const PLUS_SCREENS: Record<PlusView, PlusScreen> = {
   context: {
     view: "context",
     label: msg("Context"),
-    icon: Layers2,
+    icon: Gauge,
     title: "Context",
     subtitle: "What Claude loads in a folder, and what it costs",
     slice: "S5",

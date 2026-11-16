@@ -74,6 +74,15 @@ describe("the sidebar with the Claude group", () => {
     ).toBeTruthy();
   });
 
+  it("test01b_no_entry_of_the_sidebar_draws_the_same_icon_as_another", () => {
+    render(sidebar());
+    const drawings = screen
+      .getAllByRole("button")
+      .map((b) => b.querySelector("svg.lucide")?.innerHTML)
+      .filter(Boolean);
+    expect(new Set(drawings).size).toBe(drawings.length);
+  });
+
   it("test02_opens_the_group_pages_and_marks_the_current_one", async () => {
     const onSelectView = vi.fn();
     render(sidebar({ view: "context", onSelectView }));
