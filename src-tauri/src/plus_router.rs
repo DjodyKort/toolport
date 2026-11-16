@@ -362,6 +362,28 @@ mod tests {
     }
 
     #[test]
+    fn a_gateway_tick_reads_the_pool_only_while_a_request_waits() {
+        use std::sync::atomic::AtomicU8;
+        use toolport_plus::servers::restart::{request, Kind};
+        let data = crate::registry::DataDirTestEnv::new("plus-gateway-tick-lazy-pool");
+        let live = Mutex::new(Arc::new(Router::new()));
+        let dirty = Arc::new(AtomicU8::new(0));
+        let reads = AtomicU64::new(0);
+        let pool = || {
+            reads.fetch_add(1, Ordering::SeqCst);
+            Vec::new()
+        };
+
+        crate::seam::gateway_tick(&live, &dirty, &pool);
+        crate::seam::gateway_tick(&live, &dirty, &pool);
+        assert_eq!(reads.load(Ordering::SeqCst), 0, "nothing waits");
+
+        request(&data.dir, Kind::Probe, "s", "S").unwrap();
+        crate::seam::gateway_tick(&live, &dirty, &pool);
+        assert_eq!(reads.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
     fn a_gateway_tick_restarts_the_folder_instances_the_pool_hands_it() {
         use std::sync::atomic::AtomicU8;
         use toolport_plus::servers::restart::{request, Kind};

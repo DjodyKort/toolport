@@ -346,3 +346,13 @@ fn test12_a_server_with_one_shared_connection_answers_without_folders() {
     assert!(done.outcomes[0].roots.is_empty());
     assert!(done.to_value()["gateways"][0].get("roots").is_none());
 }
+
+#[test]
+fn test13_the_directory_is_awaiting_only_while_it_holds_a_file() {
+    let base = scratch("awaiting");
+    assert!(!awaiting(&base), "no directory yet");
+    let sent = request(&base, Kind::Restart, "srv-alpha", "alpha").unwrap();
+    assert!(awaiting(&base));
+    finish(&base, &sent.nonce);
+    assert!(!awaiting(&base));
+}

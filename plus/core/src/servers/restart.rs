@@ -280,6 +280,13 @@ fn file_age_stale(path: &Path, now: u64) -> bool {
     modified.is_some_and(|m| now.saturating_sub(m) > TTL_MS)
 }
 
+/// Whether the restart directory holds anything: a request, an acknowledgement or an answer.
+/// Cheap enough for every watcher tick, which then calls `serve` only when it says yes; `serve`
+/// also removes what has gone stale.
+pub fn awaiting(base: &Path) -> bool {
+    std::fs::read_dir(dir(base)).is_ok_and(|mut entries| entries.next().is_some())
+}
+
 /// The requests still worth answering at `now`; stale requests and leftovers are removed.
 pub fn pending(base: &Path, now: u64) -> Vec<Request> {
     for (path, _) in read_all::<Outcome>(base, OUTCOME) {

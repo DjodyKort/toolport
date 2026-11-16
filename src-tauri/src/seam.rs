@@ -40,14 +40,17 @@ pub type PooledLaunch = (String, String, crate::router::SharedServerSlot);
 
 /// One watcher tick of a gateway process, which owns the router: answers the server restart and
 /// in-flight requests other processes left in the data dir. Cheap when there are none.
-/// `pooled` lists the launches the process keeps once per project folder, which the router does not.
+/// `pooled` lists the launches the process keeps once per project folder, which the router does not;
+/// it is called only when the data dir holds a request to answer.
 pub fn gateway_tick(
     router: &std::sync::Mutex<std::sync::Arc<crate::router::Router>>,
     dirty: &std::sync::Arc<std::sync::atomic::AtomicU8>,
     pooled: &dyn Fn() -> Vec<PooledLaunch>,
 ) {
     #[cfg(feature = "plus")]
-    if let Some(dir) = crate::registry::conduit_dir() {
+    if let Some(dir) =
+        crate::registry::conduit_dir().filter(|dir| toolport_plus::servers::restart::awaiting(dir))
+    {
         let live = std::sync::Arc::clone(
             &router
                 .lock()
