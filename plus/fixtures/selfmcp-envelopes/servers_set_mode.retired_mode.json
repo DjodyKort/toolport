@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "confirm": true,
+    "mode": "direct",
+    "name": "alpha"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "mode 'direct' no longer exists: it was an mcpm transport shape. A server's mode is auto or search"
+    }
+  },
+  "text": "invalid_arguments: mode 'direct' no longer exists: it was an mcpm transport shape. A server's mode is auto or search",
+  "tool": "servers_set_mode"
+}

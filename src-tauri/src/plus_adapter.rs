@@ -475,6 +475,13 @@ impl RegistryAccess for HostAdapter {
             Ok(())
         })
     }
+
+    fn set_server_mode(&self, server_id: &str, mode: Option<&str>) -> Result<(), String> {
+        edit_server_fork_fields(server_id, |fields| {
+            fields.server_mode = mode.map(String::from);
+            Ok(())
+        })
+    }
 }
 
 impl HostEnv for HostAdapter {
@@ -995,6 +1002,7 @@ mod tests {
         adapter
             .set_server_max_request_timeout_ms("srv-git", None)
             .unwrap();
+        adapter.set_server_mode("srv-git", None).unwrap();
         adapter.set_server_auth_probe("srv-untyped", None).unwrap();
         adapter
             .merge_server_mcpm_source(
@@ -1018,6 +1026,7 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .remove("maxRequestTimeoutMs");
+        expected.as_object_mut().unwrap().remove("serverMode");
         expected["mcpmSource"]["branch"] = json!("next");
         expected["mcpmSource"]["last_checked"] = json!("later");
         let got = git(&after);

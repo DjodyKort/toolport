@@ -17,5 +17,6 @@
   "forwardInstructions": true,
   "declareClientCapabilities": true,
   "maxRequestTimeoutMs": 600000,
+  "serverMode": "search",
   "fieldFromNewerUpstream": { "nested": [1, 2, 3] }
 }

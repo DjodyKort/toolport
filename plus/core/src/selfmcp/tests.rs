@@ -252,7 +252,7 @@ mod servers {
     }
 
     #[test]
-    fn test05_set_mode_is_accepted_and_says_nothing_changed() {
+    fn test05_set_mode_stores_search_and_refuses_the_retired_mcpm_modes() {
         let host = host();
         call(
             &host,
@@ -263,17 +263,29 @@ mod servers {
         let done = call(
             &host,
             "servers_set_mode",
-            r#"{"name":"beta","mode":"direct","confirm":true}"#,
+            r#"{"name":"beta","mode":"search","confirm":true}"#,
         )
         .unwrap();
-        assert_eq!(done["changed"], false);
-        assert_eq!(done["dropped"], true);
-        let bad = call(
-            &host,
-            "servers_set_mode",
-            r#"{"name":"beta","mode":"bogus","confirm":true}"#,
+        assert_eq!(done["mode"], "search");
+        assert_eq!(done["changed"], true);
+        assert_eq!(
+            call(&host, "servers_get", r#"{"name":"beta"}"#).unwrap()["mode"],
+            "search"
         );
-        assert_eq!(bad.unwrap_err().kind, "invalid_arguments");
+        for retired in ["direct", "router", "legacy", "bridge", "bogus"] {
+            let bad = call(
+                &host,
+                "servers_set_mode",
+                &format!(r#"{{"name":"beta","mode":"{retired}","confirm":true}}"#),
+            )
+            .unwrap_err();
+            assert_eq!(bad.kind, "invalid_arguments", "{retired}");
+        }
+        assert_eq!(
+            call(&host, "servers_get", r#"{"name":"beta"}"#).unwrap()["mode"],
+            "search",
+            "a refused mode leaves the stored one alone"
+        );
     }
 
     #[test]

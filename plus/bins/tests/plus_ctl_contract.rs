@@ -237,6 +237,18 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "server mode",
+        &[
+            apply("apply", &["server", "mode", "alpha", "search"]),
+            apply("unchanged", &["server", "mode", "alpha", "search"]),
+            read("info", &["server", "info", "alpha"]),
+            apply("back", &["server", "mode", "alpha", "auto"]),
+            usage("retired", &["server", "mode", "alpha", "direct"]),
+            usage("usage", &["server", "mode", "alpha"]),
+            read("unknown", &["server", "mode", "no-such-server", "auto"]).exit(1),
+        ],
+    ),
+    case(
         "server uninstall",
         &[read(
             "preview",
@@ -334,7 +346,7 @@ const CASES: &[Case] = &[
                     "call",
                     "servers_set_mode",
                     "--args",
-                    r#"{"name":"alpha","mode":"direct"}"#,
+                    r#"{"name":"alpha","mode":"search"}"#,
                 ],
             )
             .exit(1),
@@ -345,7 +357,7 @@ const CASES: &[Case] = &[
                     "call",
                     "servers_set_mode",
                     "--args",
-                    r#"{"name":"alpha","mode":"direct","confirm":true}"#,
+                    r#"{"name":"alpha","mode":"search","confirm":true}"#,
                 ],
             ),
         ],

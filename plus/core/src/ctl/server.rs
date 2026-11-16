@@ -1,13 +1,14 @@
-//! `toolportctl server ls|info|install|new|edit|uninstall|restart`: the servers the gateway
+//! `toolportctl server ls|info|install|new|edit|mode|uninstall|restart`: the servers the gateway
 //! exposes. Add, edit and remove run upstream's own operations; plain environment entries, the
 //! shell-environment switch and the restart through the gateway are this layer's.
 
 use serde_json::json;
 use toolport_plus_api::{Host, ServerRecord};
 
-use super::flags::{switch, value, Flags, Spec};
+use super::flags::{switch, value, Flags, Operands, Spec};
 use super::output::{CtlError, Output};
 use crate::servers::env::{self, Change};
+use crate::servers::mode;
 use crate::servers::restart::{self, RestartArgs};
 use crate::servers::{self, Patch, ServerError, UninstallArgs};
 
@@ -17,6 +18,7 @@ const EDIT_USAGE: &str = "usage: server edit <id|name> [--name <n>] [--command <
 const INFO_USAGE: &str = "usage: server info <id|name>";
 const UNINSTALL_USAGE: &str =
     "usage: server uninstall <id|name> [--dry-run] [--keep-clients] [--keep-secrets]";
+const MODE_USAGE: &str = "usage: server mode <id|name> auto|search";
 const RESTART_USAGE: &str =
     "usage: server restart <id|name> [--dry-run] [--wait <seconds>] [--if-idle]";
 
@@ -58,6 +60,10 @@ pub(super) const UNINSTALL: Spec = Spec {
         switch("--keep-clients"),
         switch("--keep-secrets"),
     ],
+    ..Spec::PLAIN
+};
+pub(super) const MODE: Spec = Spec {
+    operands: Operands::Max(2, MODE_USAGE),
     ..Spec::PLAIN
 };
 pub(super) const RESTART: Spec = Spec {
@@ -153,6 +159,12 @@ pub fn info(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     }
     if server.fork.forward_instructions == Some(true) {
         human.push_str("\nForwards:     instructions");
+    }
+    if data["mode"] != mode::AUTO {
+        human.push_str(&format!(
+            "\nMode:         {}",
+            data["mode"].as_str().unwrap_or("")
+        ));
     }
     Ok(Output::new(data, human))
 }
@@ -319,6 +331,24 @@ pub fn edit(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
             format!("Updated {id}: {}.", changed.join(", "))
         },
     ))
+}
+
+pub fn mode(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    let flags = MODE.parse(rest)?;
+    let [key, requested] = flags.operands() else {
+        return Err(CtlError::usage(MODE_USAGE));
+    };
+    let requested = mode::parse(requested).map_err(CtlError::usage)?;
+    let all = servers::read_servers(host)?;
+    let server = resolve(&all, key)?;
+    let done = mode::apply(host, server, requested)
+        .map_err(|error| CtlError::failed("input", describe(&error)))?;
+    let human = if done["changed"] == true {
+        format!("{} is now {requested}.", server.name)
+    } else {
+        format!("{} is already {requested}.", server.name)
+    };
+    Ok(Output::new(done, human))
 }
 
 pub fn uninstall(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {

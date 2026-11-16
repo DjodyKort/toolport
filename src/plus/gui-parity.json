@@ -126,7 +126,7 @@
     "servers.advanced-mode": {
       "route": "servers",
       "status": "planned",
-      "summary": "The per-server exposure mode, in the Advanced disclosure; 2.3.6 has no per-server modes, so the call changes nothing and the row is hidden (servers_set_mode)"
+      "summary": "Per server, whether its tools are listed to clients that get the full tool list (auto) or only found through toolport_search_tools and called by name (search), in the Advanced disclosure; the screen row comes later (server mode, servers_set_mode)"
     }
   },
   "owners": {
@@ -210,6 +210,11 @@
     "server restart": {
       "route": "servers",
       "action": "servers.restart",
+      "surface": "screen"
+    },
+    "server mode": {
+      "route": "servers",
+      "action": "servers.advanced-mode",
       "surface": "screen"
     }
   },

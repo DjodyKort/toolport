@@ -1,0 +1,32 @@
+{
+  "argv": ["server", "info", "alpha"],
+  "envelope": {
+    "command": "server info",
+    "data": {
+      "accessSets": ["default"],
+      "args": [],
+      "command": "<MOCK>",
+      "cwd": null,
+      "declareClientCapabilities": false,
+      "disabledTools": [],
+      "enabled": true,
+      "env": [
+        {
+          "key": "API_KEY",
+          "secret": true
+        }
+      ],
+      "forwardInstructions": false,
+      "id": "srv-alpha",
+      "inheritEnv": true,
+      "mode": "search",
+      "name": "alpha",
+      "source": null,
+      "transport": "stdio",
+      "url": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

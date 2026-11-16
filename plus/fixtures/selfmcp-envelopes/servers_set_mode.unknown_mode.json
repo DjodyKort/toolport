@@ -8,9 +8,9 @@
   "result": {
     "error": {
       "kind": "invalid_arguments",
-      "message": "mode must be auto, direct, router, legacy or bridge"
+      "message": "mode must be auto or search"
     }
   },
-  "text": "invalid_arguments: mode must be auto, direct, router, legacy or bridge",
+  "text": "invalid_arguments: mode must be auto or search",
   "tool": "servers_set_mode"
 }

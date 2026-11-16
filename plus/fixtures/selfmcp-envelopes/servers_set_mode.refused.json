@@ -1,6 +1,6 @@
 {
   "arguments": {
-    "mode": "direct",
+    "mode": "search",
     "name": "alpha"
   },
   "isError": true,

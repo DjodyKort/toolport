@@ -554,6 +554,13 @@ impl RegistryAccess for MemoryRegistry {
             Ok(())
         })
     }
+
+    fn set_server_mode(&self, server_id: &str, mode: Option<&str>) -> Result<(), String> {
+        self.edit(server_id, |server| {
+            server.fork.server_mode = mode.map(String::from);
+            Ok(())
+        })
+    }
 }
 
 /// An `HttpAccess` that answers from a queue and records what it was asked.
@@ -787,6 +794,9 @@ impl RegistryAccess for MemoryHost {
     ) -> Result<(), String> {
         self.registry
             .set_server_max_request_timeout_ms(server_id, timeout_ms)
+    }
+    fn set_server_mode(&self, server_id: &str, mode: Option<&str>) -> Result<(), String> {
+        self.registry.set_server_mode(server_id, mode)
     }
 }
 

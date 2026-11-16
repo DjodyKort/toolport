@@ -109,6 +109,11 @@ pub const COMMANDS: &[Command] = &[
         server::edit,
     ),
     cmd(
+        &["server", "mode"],
+        "Choose whether a server's tools are listed (auto) or only searched (search): <server> auto|search",
+        server::mode,
+    ),
+    cmd(
         &["server", "uninstall"],
         "Remove a server and its vault entries [--dry-run] [--keep-secrets]",
         server::uninstall,

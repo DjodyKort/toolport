@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "mode", "alpha", "direct"],
+  "envelope": {
+    "command": "server mode",
+    "error": {
+      "code": "usage",
+      "message": "mode 'direct' no longer exists: it was an mcpm transport shape. A server's mode is auto or search"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

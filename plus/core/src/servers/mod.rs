@@ -4,6 +4,7 @@
 //! membership and the restart through the gateway.
 
 pub mod env;
+pub mod mode;
 pub mod restart;
 
 use serde_json::{json, Value};
@@ -400,6 +401,7 @@ pub fn info_value(server: &ServerRecord, access_sets: &[String]) -> Result<Value
         "disabledTools": server.strings("disabledTools"),
         "declareClientCapabilities": server.fork.declare_client_capabilities.unwrap_or(false),
         "forwardInstructions": server.fork.forward_instructions.unwrap_or(false),
+        "mode": mode::normalize(server.fork.server_mode.as_deref()),
         "accessSets": access_sets,
     }))
 }

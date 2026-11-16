@@ -134,6 +134,9 @@ pub trait RegistryAccess {
         server_id: &str,
         timeout_ms: Option<u64>,
     ) -> Result<(), String>;
+
+    /// `None` removes the key.
+    fn set_server_mode(&self, server_id: &str, mode: Option<&str>) -> Result<(), String>;
 }
 
 /// What the command line and the self-MCP server need from the process they run in.

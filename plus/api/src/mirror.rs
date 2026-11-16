@@ -99,7 +99,7 @@ mod tests {
         let upstream = json!({
             "id": "srv-3", "name": "Edge", "enabled": true,
             "mcpmOauth": false, "mcpmTags": [], "forwardInstructions": false,
-            "maxRequestTimeoutMs": 0, "plus": {}, "mcpmSource": {"last_updated": "x"},
+            "maxRequestTimeoutMs": 0, "serverMode": "", "plus": {}, "mcpmSource": {"last_updated": "x"},
         });
         let record: ServerRecord = convert(&upstream).unwrap();
         let back: Value = convert(&record).unwrap();

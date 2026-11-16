@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "confirm": true,
+    "mode": "auto",
+    "name": "alpha"
+  },
+  "isError": false,
+  "result": {
+    "changed": true,
+    "id": "srv-alpha",
+    "mode": "auto",
+    "name": "alpha"
+  },
+  "tool": "servers_set_mode"
+}

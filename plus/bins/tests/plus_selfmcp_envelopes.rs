@@ -205,7 +205,7 @@ const CASES: &[Case] = &[
             refused(
                 "refused",
                 "servers_set_mode",
-                r#"{"name":"alpha","mode":"direct"}"#,
+                r#"{"name":"alpha","mode":"search"}"#,
             ),
             fails(
                 "unknown_mode",
@@ -213,10 +213,27 @@ const CASES: &[Case] = &[
                 "servers_set_mode",
                 r#"{"name":"alpha","mode":"bogus","confirm":true}"#,
             ),
-            read(
-                "apply",
+            fails(
+                "retired_mode",
+                "invalid_arguments",
                 "servers_set_mode",
                 r#"{"name":"alpha","mode":"direct","confirm":true}"#,
+            ),
+            fails(
+                "missing",
+                "not_found",
+                "servers_set_mode",
+                r#"{"name":"nope","mode":"search","confirm":true}"#,
+            ),
+            write(
+                "apply",
+                "servers_set_mode",
+                r#"{"name":"alpha","mode":"search","confirm":true}"#,
+            ),
+            write(
+                "back_to_auto",
+                "servers_set_mode",
+                r#"{"name":"alpha","mode":"auto","confirm":true}"#,
             ),
         ],
     ),

@@ -4,7 +4,7 @@
     "call",
     "servers_set_mode",
     "--args",
-    "{\"name\":\"alpha\",\"mode\":\"direct\"}"
+    "{\"name\":\"alpha\",\"mode\":\"search\"}"
   ],
   "envelope": {
     "command": "mcp",

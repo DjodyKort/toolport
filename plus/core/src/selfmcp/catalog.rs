@@ -193,16 +193,8 @@ pub const TOOLS: &[ToolDef] = &[
         "servers_set_mode",
         3,
         Always,
-        "Change how a server is exposed to clients",
-        [
-            NAME,
-            p(
-                "mode",
-                Ty::Str,
-                true,
-                "auto, direct, router, legacy or bridge"
-            )
-        ],
+        "Choose whether a server's tools are listed to clients that get the full tool list (auto) or only found through toolport_search_tools and called by name (search)",
+        [NAME, p("mode", Ty::Str, true, "auto or search")],
         servers::set_mode
     ),
     tool!(

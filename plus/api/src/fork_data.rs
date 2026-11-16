@@ -100,11 +100,17 @@ pub struct ForkServerFields {
     /// Absolute cap on one call to a stdio server.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_request_timeout_ms: Option<u64>,
+    /// How the gateway lists the server's tools: `auto` or `search` (see
+    /// `toolport_plus::servers::mode`). Absent means `auto`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server_mode: Option<String>,
 }
 
 impl ForkServerFields {
+    pub const SERVER_MODE_KEY: &'static str = "serverMode";
+
     /// The registry keys these fields occupy on a server entry.
-    pub const KEYS: [&'static str; 7] = [
+    pub const KEYS: [&'static str; 8] = [
         "plus",
         "mcpmSource",
         "mcpmOauth",
@@ -112,6 +118,7 @@ impl ForkServerFields {
         "forwardInstructions",
         "declareClientCapabilities",
         "maxRequestTimeoutMs",
+        Self::SERVER_MODE_KEY,
     ];
 
     /// Reads the fork keys out of a server entry's unknown fields. Fails, and
@@ -340,6 +347,7 @@ mod tests {
             forward_instructions: Some(true),
             declare_client_capabilities: Some(true),
             max_request_timeout_ms: Some(1),
+            server_mode: Some("search".into()),
         };
         let Value::Object(written) = serde_json::to_value(&full).unwrap() else {
             panic!("not an object")

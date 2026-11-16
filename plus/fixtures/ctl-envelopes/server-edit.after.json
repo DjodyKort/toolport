@@ -14,6 +14,7 @@
       "forwardInstructions": false,
       "id": "gamma",
       "inheritEnv": false,
+      "mode": "auto",
       "name": "gamma",
       "source": "manual",
       "transport": "stdio",

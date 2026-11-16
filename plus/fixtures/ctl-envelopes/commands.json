@@ -447,6 +447,42 @@
           "tools": ["servers_update_config"]
         },
         {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "server",
+          "id": "server mode",
+          "kind": "command",
+          "maxOperands": 2,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "server",
+              "required": true,
+              "variadic": false
+            },
+            {
+              "name": "mode",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["server", "mode"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Choose whether a server's tools are listed (auto) or only searched (search): <server> auto|search",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["servers_set_mode"]
+        },
+        {
           "baseTier": "destructive",
           "cost": false,
           "dryRun": true,
@@ -766,9 +802,9 @@
         }
       ],
       "counts": {
-        "commands": 15,
+        "commands": 16,
         "groups": 1,
-        "rows": 16,
+        "rows": 17,
         "tools": 13
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
@@ -845,7 +881,7 @@
           "toolTier": 3
         },
         {
-          "command": null,
+          "command": "server mode",
           "dryRun": "none",
           "name": "servers_set_mode",
           "tier": "write",

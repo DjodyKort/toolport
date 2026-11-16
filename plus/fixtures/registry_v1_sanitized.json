@@ -29,7 +29,8 @@
       "initializeTimeoutMs": 20000,
       "forwardInstructions": true,
       "declareClientCapabilities": true,
-      "maxRequestTimeoutMs": 600000
+      "maxRequestTimeoutMs": 600000,
+      "serverMode": "search"
     },
     {
       "id": "srv-npx",

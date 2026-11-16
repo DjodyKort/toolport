@@ -19,6 +19,7 @@
       "forwardInstructions": false,
       "id": "srv-alpha",
       "inheritEnv": false,
+      "mode": "auto",
       "name": "alpha",
       "source": null,
       "transport": "stdio",

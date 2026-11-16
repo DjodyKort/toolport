@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "mode", "no-such-server", "auto"],
+  "envelope": {
+    "command": "server mode",
+    "error": {
+      "code": "not_found",
+      "message": "no server 'no-such-server'"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

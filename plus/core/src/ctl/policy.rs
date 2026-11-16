@@ -255,6 +255,10 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&server::EDIT])
         .args(&[req("server")])
         .skip("edits a server; plus_ctl_contract round trip in a scratch registry"),
+    row("server mode", W)
+        .spec(&[&server::MODE])
+        .args(&[req("server"), req("mode")])
+        .skip("changes how a server is listed; plus_ctl_contract round trip in a scratch registry"),
     row("server uninstall", D)
         .dry()
         .spec(&[&server::UNINSTALL])
@@ -377,7 +381,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     own("servers_remove_profile_tag", W),
     maps("servers_install", W, "server new"),
     maps("servers_update_config", W, "server edit"),
-    own("servers_set_mode", W),
+    maps("servers_set_mode", W, "server mode"),
     maps("servers_uninstall", D, "server uninstall"),
     maps("servers_restart", W, "server restart").on(),
 ];

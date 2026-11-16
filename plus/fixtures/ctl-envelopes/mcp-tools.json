@@ -202,7 +202,7 @@
           "tier": 3
         },
         {
-          "description": "Change how a server is exposed to clients",
+          "description": "Choose whether a server's tools are listed to clients that get the full tool list (auto) or only found through toolport_search_tools and called by name (search)",
           "dryRunDefault": false,
           "gate": "always",
           "name": "servers_set_mode",
@@ -214,7 +214,7 @@
               "type": "string"
             },
             {
-              "description": "auto, direct, router, legacy or bridge",
+              "description": "auto or search",
               "name": "mode",
               "required": true,
               "type": "string"

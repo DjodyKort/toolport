@@ -1,0 +1,15 @@
+{
+  "argv": ["server", "mode", "alpha", "auto"],
+  "envelope": {
+    "command": "server mode",
+    "data": {
+      "changed": true,
+      "id": "srv-alpha",
+      "mode": "auto",
+      "name": "alpha"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

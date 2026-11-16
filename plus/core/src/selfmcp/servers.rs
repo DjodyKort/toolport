@@ -11,7 +11,7 @@ use super::ToolError;
 use crate::args::{flag, flag_or, list, str_arg};
 use crate::servers::env::{Change, Refusal};
 use crate::servers::restart::{self, RestartArgs};
-use crate::servers::{self, Patch, ServerError, UninstallArgs};
+use crate::servers::{self, mode, Patch, ServerError, UninstallArgs};
 
 type Outcome = Result<Value, ToolError>;
 
@@ -26,7 +26,6 @@ const CONFIG_KEYS: [&str; 9] = [
     "declareClientCapabilities",
     "forwardInstructions",
 ];
-const MODES: [&str; 5] = ["auto", "direct", "router", "legacy", "bridge"];
 
 fn invalid(message: impl Into<String>) -> ToolError {
     ToolError::new("invalid_arguments", message)
@@ -280,22 +279,10 @@ pub(super) fn update_config(host: &dyn Host, args: &Value) -> Outcome {
     Ok(done)
 }
 
-/// Upstream has no per-server proxy modes; the call is accepted and says so.
 pub(super) fn set_mode(host: &dyn Host, args: &Value) -> Outcome {
     let server = load(host, args)?;
-    let mode = str_arg(args, "mode").unwrap_or_default();
-    if !MODES.contains(&mode) {
-        return Err(invalid(
-            "mode must be auto, direct, router, legacy or bridge",
-        ));
-    }
-    Ok(json!({
-        "name": server.name,
-        "mode": mode,
-        "changed": false,
-        "dropped": true,
-        "note": "Toolport+ has no per-server proxy modes; the shared gateway daemon exposes every server (D-008).",
-    }))
+    let requested = mode::parse(str_arg(args, "mode").unwrap_or_default()).map_err(invalid)?;
+    mode::apply(host, &server, requested).map_err(server_error)
 }
 
 pub(super) fn uninstall(host: &dyn Host, args: &Value) -> Outcome {
