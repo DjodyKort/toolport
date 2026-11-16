@@ -6701,8 +6701,10 @@ name = "toolport-plus"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "regex",
  "serde",
  "serde_json",
+ "serde_yaml",
  "sha2",
  "toolport-plus-api",
 ]

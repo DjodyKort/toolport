@@ -1,0 +1,13 @@
+format: 1
+name: unknown-keys
+description: "keeps what it does not know"
+extra: {note: kept}
+skills:
+  off: [a-skill]
+  future: [x]
+plugins:
+  off: ["tools-pack@tools-market"]
+  config:
+    tools-pack@tools-market: { profile: minimal }
+mcp:
+  deny: ["plugin:tools-pack:browser"]

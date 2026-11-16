@@ -3,6 +3,7 @@
 
 mod args;
 pub mod auth;
+pub mod context;
 pub mod ctl;
 pub mod egress;
 pub mod health;
