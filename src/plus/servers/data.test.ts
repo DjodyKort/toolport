@@ -59,6 +59,7 @@ describe("the server envelope types match the Rust goldens", () => {
         "forwardInstructions",
         "id",
         "inheritEnv",
+        "mode",
         "name",
         "source",
         "transport",

@@ -33,6 +33,8 @@ export interface ServerInfoData {
   cwd: string | null;
   env: ServerEnvKey[];
   inheritEnv: boolean;
+  /** `search` keeps the server's tools out of a Full tool list; they stay callable and searchable. */
+  mode: "auto" | "search";
   declareClientCapabilities: boolean;
   forwardInstructions: boolean;
   disabledTools: string[];

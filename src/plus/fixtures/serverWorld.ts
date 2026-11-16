@@ -21,6 +21,7 @@ export interface WorldServer {
   cwd: string | null;
   env: Array<{ key: string; secret: boolean }>;
   inheritEnv: boolean;
+  mode: "auto" | "search";
   declareClientCapabilities: boolean;
   forwardInstructions: boolean;
   source: string | null;
@@ -65,6 +66,7 @@ export function stdioServer(id: string, name: string, extra: Partial<WorldServer
     cwd: null,
     env: [],
     inheritEnv: false,
+    mode: "auto" as const,
     declareClientCapabilities: false,
     forwardInstructions: false,
     source: "manual",
@@ -140,6 +142,7 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
       cwd: server.cwd,
       env: server.env,
       inheritEnv: server.inheritEnv,
+      mode: server.mode,
       declareClientCapabilities: server.declareClientCapabilities,
       forwardInstructions: server.forwardInstructions,
       disabledTools: [],
