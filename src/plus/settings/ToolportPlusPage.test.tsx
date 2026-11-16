@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { resetPlusFixture } from "../fixtures/ipc";
+import { guiParity } from "../guiParity";
 import ToolportPlusPage from "./ToolportPlusPage";
 import { getRegistryMock, registryWithSets } from "./testkit";
 
@@ -22,6 +23,20 @@ vi.mock("@/lib/api", async (importOriginal) => ({
 
 const registry = registryWithSets("local", "work");
 
+/** The actions of src/plus/gui-parity.json this file proves: status and doctor lead the page and
+ * list the checks, the self-management row connects, removes, shows its checks and tools, and the
+ * commands page lists the registry and runs a tool through mcp call. */
+const COVERS = [
+  "system.status",
+  "system.doctor",
+  "system.mcp-install",
+  "system.mcp-uninstall",
+  "system.mcp-doctor",
+  "system.mcp-tools",
+  "catalog.commands",
+  "catalog.mcp-call",
+] as const;
+
 function renderPage(props: Partial<React.ComponentProps<typeof ToolportPlusPage>> = {}) {
   const onRegistryChange = vi.fn();
   const onOpenServers = vi.fn();
@@ -41,6 +56,20 @@ beforeEach(() => {
 });
 
 describe("Settings > Toolport+", () => {
+  it("test00_every_covered_parity_action_is_built_and_names_this_file", () => {
+    for (const id of COVERS) {
+      expect(guiParity.actions[id], id).toMatchObject({
+        status: "built",
+        test: "src/plus/settings/ToolportPlusPage.test.tsx",
+      });
+    }
+    expect(
+      Object.keys(guiParity.actions).filter(
+        (id) => !(COVERS as readonly string[]).includes(id),
+      ),
+    ).toEqual([]);
+  });
+
   it("test01_leads_with_a_working_state_and_lists_the_installation_checks", async () => {
     resetPlusFixture({ self: "enabled" });
     renderPage();

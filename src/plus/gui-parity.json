@@ -2,68 +2,66 @@
   "schemaVersion": 1,
   "routes": {
     "catalog": {
-      "title": "Command catalog",
-      "status": "planned"
-    },
-    "servers": {
-      "title": "Servers",
-      "status": "planned"
+      "title": "All commands",
+      "status": "built",
+      "page": "settings:toolport",
+      "component": "src/plus/settings/AllCommands.tsx"
     },
     "system": {
-      "title": "System",
-      "status": "planned"
+      "title": "Toolport+ settings",
+      "status": "built",
+      "page": "settings:toolport",
+      "component": "src/plus/settings/ToolportPlusPage.tsx"
     }
   },
   "actions": {
     "catalog.commands": {
       "route": "catalog",
-      "status": "planned",
-      "summary": "The registry listing (toolportctl commands): every command with its tier, search, group filter and a form per command"
+      "status": "built",
+      "summary": "The registry listing (toolportctl commands): every command with its tier and a search, Run for the read-only ones and Copy for the rest; a form per command arrives with the first command that needs operands",
+      "test": "src/plus/settings/ToolportPlusPage.test.tsx"
     },
     "catalog.mcp-call": {
       "route": "catalog",
-      "status": "planned",
-      "summary": "Run a self-management tool through mcp call with its arguments as JSON on stdin, dry run first, typed confirmation for the destructive tier"
+      "status": "built",
+      "summary": "Run a self-management tool through mcp call with its arguments as JSON on stdin, a preview when the tool offers one, the tool name typed to confirm for a tool that changes things",
+      "test": "src/plus/settings/ToolportPlusPage.test.tsx"
     },
-    "servers.gateway": {
-      "route": "servers",
-      "status": "planned",
-      "summary": "Registry, access sets, secrets backend and gateway state (status)"
-    },
-    "servers.health": {
-      "route": "servers",
-      "status": "planned",
-      "summary": "Doctor checks, including whether this build carries the fork seam, with one-click named fixes (doctor)"
-    },
-    "system.mcp-install": {
+    "system.doctor": {
       "route": "system",
-      "status": "planned",
-      "summary": "Register the self-management server and list it in an access set (mcp install)"
-    },
-    "system.mcp-uninstall": {
-      "route": "system",
-      "status": "planned",
-      "summary": "Remove the self-management server and keep it removed (mcp uninstall)"
+      "status": "built",
+      "summary": "Installation checks, including whether this build carries the fork seam (doctor)",
+      "test": "src/plus/settings/ToolportPlusPage.test.tsx"
     },
     "system.mcp-doctor": {
       "route": "system",
-      "status": "planned",
-      "summary": "Check the self-management server and where it is listed (mcp doctor)"
+      "status": "built",
+      "summary": "Check the self-management server and where it is listed (mcp doctor)",
+      "test": "src/plus/settings/ToolportPlusPage.test.tsx"
+    },
+    "system.mcp-install": {
+      "route": "system",
+      "status": "built",
+      "summary": "Register the self-management server and list it in an access set (mcp install)",
+      "test": "src/plus/settings/ToolportPlusPage.test.tsx"
     },
     "system.mcp-tools": {
       "route": "system",
-      "status": "planned",
-      "summary": "List the self-management tools and resources (mcp tools)"
+      "status": "built",
+      "summary": "List the self-management tools and resources (mcp tools)",
+      "test": "src/plus/settings/ToolportPlusPage.test.tsx"
     },
-    "system.where-am-i": {
+    "system.mcp-uninstall": {
       "route": "system",
-      "status": "planned",
-      "summary": "Absolute paths and state of this installation (where_am_i)"
+      "status": "built",
+      "summary": "Remove the self-management server and keep it removed (mcp uninstall)",
+      "test": "src/plus/settings/ToolportPlusPage.test.tsx"
     },
-    "system.flow-diagram": {
+    "system.status": {
       "route": "system",
-      "status": "planned",
-      "summary": "Data-flow diagram of skills and servers (flow_diagram)"
+      "status": "built",
+      "summary": "Registry, access sets, secrets backend and gateway state (status)",
+      "test": "src/plus/settings/ToolportPlusPage.test.tsx"
     }
   },
   "owners": {
@@ -74,13 +72,13 @@
   },
   "commands": {
     "status": {
-      "route": "servers",
-      "action": "servers.gateway",
+      "route": "system",
+      "action": "system.status",
       "surface": "screen"
     },
     "doctor": {
-      "route": "servers",
-      "action": "servers.health",
+      "route": "system",
+      "action": "system.doctor",
       "surface": "screen"
     },
     "commands": {
@@ -116,18 +114,18 @@
   },
   "tools": {
     "where_am_i": {
-      "route": "system",
-      "action": "system.where-am-i",
+      "route": "catalog",
+      "action": "catalog.mcp-call",
       "surface": "screen"
     },
     "doctor": {
-      "route": "servers",
-      "action": "servers.health",
+      "route": "system",
+      "action": "system.doctor",
       "surface": "screen"
     },
     "flow_diagram": {
-      "route": "system",
-      "action": "system.flow-diagram",
+      "route": "catalog",
+      "action": "catalog.mcp-call",
       "surface": "screen"
     }
   }
