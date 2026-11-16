@@ -5,6 +5,9 @@
 # +1 line: toolport-plus depends on sha2 (content fingerprint of the trusted binaries).
 19	src-tauri/Cargo.lock
 7	src-tauri/Cargo.toml
+# desktop.rs, 4 changed lines: the invoke handler is wrapped in seam::ipc, which answers the
+# plus_ctl commands (D-060) and hands every other command on.
+4	src-tauri/src/desktop.rs
 2	src-tauri/src/http_client.rs
 3	src-tauri/src/lib.rs
 # secrets.rs, 20 changed lines for the login-keychain mode and the vault backup, all forwarding to seam.rs:

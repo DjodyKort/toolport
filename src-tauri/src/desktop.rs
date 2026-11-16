@@ -4703,7 +4703,7 @@ pub fn run() {
         .manage(PendingShare::default())
         .manage(PendingTrayApprovals::default())
         .manage(RestartAdvice::default())
-        .invoke_handler(crate::activity_revision_ipc::handler(tauri::generate_handler![
+        .invoke_handler(crate::seam::ipc(crate::activity_revision_ipc::handler(tauri::generate_handler![
             detect_clients,
             list_client_recoveries,
             retry_client_recovery,
@@ -4863,7 +4863,7 @@ pub fn run() {
             disable_launch_at_login,
             is_launch_at_login_enabled,
             open_external,
-        ]))
+        ])))
         // Only a usable tray can keep a closed window reachable. Without one,
         // close exits through the normal run-loop cleanup.
         .on_window_event(|window, event| {

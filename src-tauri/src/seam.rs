@@ -3,6 +3,25 @@
 
 use std::path::PathBuf;
 
+// The child-process bridge behind the `plus_ctl` IPC commands (D-060). Tests build it without
+// the desktop feature so the headless seam tests cover it.
+#[cfg(all(feature = "plus", any(feature = "desktop", test)))]
+mod bridge;
+#[cfg(all(feature = "plus", feature = "desktop"))]
+mod plus_ctl;
+
+/// Wraps the app's invoke handler so the fork's `plus_ctl*` commands are answered here and every
+/// other command still reaches `next`.
+#[cfg(feature = "desktop")]
+pub(crate) fn ipc(
+    next: impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static,
+) -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
+    #[cfg(feature = "plus")]
+    return plus_ctl::handler(next);
+    #[cfg(not(feature = "plus"))]
+    next
+}
+
 /// Refuse a request before the connection phase when the fork blocks its host.
 pub(crate) fn egress_check(uri: &ureq::http::Uri) -> Result<(), ureq::Error> {
     #[cfg(feature = "plus")]
