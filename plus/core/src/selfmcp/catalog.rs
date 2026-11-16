@@ -225,7 +225,7 @@ pub const TOOLS: &[ToolDef] = &[
         "servers_restart",
         3,
         UnlessDryRun,
-        "Restart one server's process in every running gateway so it runs its current code and its tool list is read again; dry_run is on by default (apply with dry_run=false and confirm=true); if_idle=true restarts only when no call is in flight, because a restart ends them",
+        "Restart one server's process in every running gateway, and in every project folder of a server that runs once per folder, so it runs its current code and its tool list is read again; dry_run is on by default (apply with dry_run=false and confirm=true); if_idle=true restarts only when no call is in flight in any of them and names the busy folders, because a restart ends the calls",
         [
             NAME,
             DRY_ON,
