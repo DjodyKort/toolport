@@ -1311,4 +1311,35 @@ mod tests {
     fn the_seam_is_live_in_a_plus_build() {
         assert!(HostAdapter.seam_live());
     }
+
+    #[test]
+    fn the_self_server_is_reachable_through_the_access_sets_clients_use_and_no_other() {
+        use toolport_plus::selfmcp::register::{install, Intent};
+        let scratch = Scratch::new("selfmcp-access");
+        scratch.write_registry(
+            &json!({
+                "version": 3,
+                "servers": [],
+                "profiles": [
+                    {"id": "focus", "name": "Focus", "enabledServerIds": []},
+                    {"id": "wide", "name": "Wide", "enabledServerIds": []},
+                    {"id": "idle", "name": "Idle", "enabledServerIds": []},
+                ],
+                "defaultAccessProfileId": "focus",
+                "clientScopes": {"cursor": "wide"},
+            })
+            .to_string(),
+        );
+        let done = install(&HostAdapter, None, Intent::Install).unwrap();
+        let loaded = registry::load_resolved().unwrap();
+        assert!(loaded.server_enabled(&done.id));
+        assert!(loaded.is_enabled("focus", &done.id));
+        assert!(loaded.is_enabled("wide", &done.id));
+        assert!(!loaded.is_enabled("idle", &done.id));
+        assert_eq!(
+            scratch.raw_registry()["plus"]["selfmcp"]["enabledIn"],
+            json!(["focus", "wide"])
+        );
+        assert_eq!(done.enabled, vec!["focus".to_string(), "wide".to_string()]);
+    }
 }
