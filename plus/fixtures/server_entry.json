@@ -7,6 +7,6 @@
   "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
   "hidePrompts": true,
   "requestTimeoutMs": 45000,
-  "plus": {"origin": "import", "futurePlusField": 7},
-  "fieldFromNewerUpstream": {"nested": [1, 2, 3]}
+  "plus": { "origin": "import", "futurePlusField": 7 },
+  "fieldFromNewerUpstream": { "nested": [1, 2, 3] }
 }
