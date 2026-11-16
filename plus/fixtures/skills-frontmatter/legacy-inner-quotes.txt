@@ -1,0 +1,9 @@
+---
+name: quote-check
+description: "Check that "double quotes" survive a sync.
+Use when a description quotes a phrase."
+---
+
+# Quote check
+
+Compare the deployed file with the source.

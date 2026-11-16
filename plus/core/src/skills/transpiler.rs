@@ -1,0 +1,174 @@
+//! Transpiler abstraction and registry; concrete per-client transpilers live in later items.
+
+use super::parser::{Skill, SkillType};
+use std::path::{Path, PathBuf};
+
+pub const MCPM_BLOCK_START: &str = "<!-- mcpm:start -->";
+pub const MCPM_BLOCK_END: &str = "<!-- mcpm:end -->";
+
+/// What a transpiler's output means for a sync.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Capabilities {
+    /// Writes relative to a project, so a global sync skips it.
+    pub project_only: bool,
+    /// Aggregates every skill into one file through `transpile_all`.
+    pub append_mode: bool,
+}
+
+impl Capabilities {
+    pub const PER_FILE: Self = Self {
+        project_only: false,
+        append_mode: false,
+    };
+    pub const PROJECT_APPEND: Self = Self {
+        project_only: true,
+        append_mode: true,
+    };
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TranspileResult {
+    pub output_path: PathBuf,
+    pub content: String,
+    pub warnings: Vec<String>,
+}
+
+pub trait Transpiler {
+    fn client_key(&self) -> &str;
+
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::PER_FILE
+    }
+
+    fn transpile(&self, skill: &Skill, output_root: &Path) -> Result<TranspileResult, String>;
+
+    fn get_output_path(&self, skill: &Skill, output_root: &Path) -> PathBuf;
+
+    fn get_collision_paths(&self, _skill: &Skill, _output_root: &Path) -> Vec<PathBuf> {
+        Vec::new()
+    }
+
+    /// Append-mode transpilers combine all skills into one output.
+    fn transpile_all(
+        &self,
+        _skills: &[Skill],
+        _output_root: &Path,
+    ) -> Option<Result<TranspileResult, String>> {
+        None
+    }
+
+    /// The identifiers [`Transpiler::install_hooks`] would install, without installing them.
+    fn hook_ids(&self, _skill: &Skill, _output_root: &Path) -> Vec<String> {
+        Vec::new()
+    }
+
+    /// Returns the identifiers installed so a later sync can revoke them.
+    fn install_hooks(&self, _skill: &Skill, _output_root: &Path) -> Result<Vec<String>, String> {
+        Ok(Vec::new())
+    }
+
+    fn uninstall_hooks(&self, _output_root: &Path, _ids: &[String]) -> Result<Vec<String>, String> {
+        Ok(Vec::new())
+    }
+
+    /// The paths [`Transpiler::clean`] would remove; nothing is touched.
+    fn clean_targets(&self, root: &Path, managed: &[String]) -> Vec<PathBuf> {
+        let mut targets: Vec<PathBuf> = Vec::new();
+        for name in managed {
+            let dummy = Skill::placeholder(name, SkillType::Skill);
+            let path = self.get_output_path(&dummy, root);
+            if path.exists() && !targets.contains(&path) {
+                targets.push(path);
+            }
+        }
+        targets
+    }
+
+    /// Removes the primary output of each managed skill and one now-empty parent directory.
+    /// Append-mode clients override this to strip their managed block instead.
+    fn clean(&self, root: &Path, managed: &[String]) -> Result<Vec<PathBuf>, String> {
+        let mut removed = Vec::new();
+        for path in self.clean_targets(root, managed) {
+            std::fs::remove_file(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+            if let Some(parent) = path.parent() {
+                if parent.is_dir()
+                    && std::fs::read_dir(parent).is_ok_and(|mut r| r.next().is_none())
+                {
+                    std::fs::remove_dir(parent).map_err(|e| e.to_string())?;
+                }
+            }
+            removed.push(path);
+        }
+        Ok(removed)
+    }
+}
+
+#[derive(Default)]
+pub struct TranspilerRegistry {
+    items: Vec<Box<dyn Transpiler>>,
+}
+
+impl TranspilerRegistry {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// A repeated key replaces the earlier registration in place, like a dict assignment.
+    pub fn register(&mut self, transpiler: Box<dyn Transpiler>) {
+        match self
+            .items
+            .iter_mut()
+            .find(|t| t.client_key() == transpiler.client_key())
+        {
+            Some(slot) => *slot = transpiler,
+            None => self.items.push(transpiler),
+        }
+    }
+
+    pub fn get(&self, key: &str) -> Option<&dyn Transpiler> {
+        self.items
+            .iter()
+            .find(|t| t.client_key() == key)
+            .map(|t| t.as_ref())
+    }
+
+    pub fn all(&self) -> impl Iterator<Item = &dyn Transpiler> {
+        self.items.iter().map(|t| t.as_ref())
+    }
+
+    #[cfg(test)]
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    #[cfg(test)]
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+}
+
+/// Replaces the managed block when both delimiters exist, otherwise appends it. Whitespace
+/// around the block is normalised so repeated syncs yield identical bytes; unlike mcpm, text
+/// after the block is trimmed at both ends and a block-only file gets no leading blank lines.
+pub fn inject_managed_block(existing: &str, block: &str) -> String {
+    let managed = format!("{MCPM_BLOCK_START}\n{block}\n{MCPM_BLOCK_END}");
+    if let Some(start) = existing.find(MCPM_BLOCK_START) {
+        if let Some(end) = existing[start..].find(MCPM_BLOCK_END) {
+            let before = existing[..start].trim_end();
+            let after = existing[start + end + MCPM_BLOCK_END.len()..].trim();
+            let mut parts = Vec::with_capacity(3);
+            if !before.is_empty() {
+                parts.push(before);
+            }
+            parts.push(managed.as_str());
+            if !after.is_empty() {
+                parts.push(after);
+            }
+            return format!("{}\n", parts.join("\n\n"));
+        }
+    }
+    if !existing.trim().is_empty() {
+        return format!("{}\n\n{managed}\n", existing.trim_end());
+    }
+    format!("{managed}\n")
+}
