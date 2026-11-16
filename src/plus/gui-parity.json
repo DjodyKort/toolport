@@ -181,6 +181,16 @@
       "route": "context",
       "status": "planned",
       "summary": "Leave a CLAUDE.md or rule out of a folder, or turn auto memory off, one click with Undo (context leave-out, context_leave_out)"
+    },
+    "context.folder": {
+      "route": "context",
+      "status": "planned",
+      "summary": "This folder: what loads with the estimate, the composed text and the leave-out switches (context loads|compose, context_loads, context_compose)"
+    },
+    "context.sync": {
+      "route": "context",
+      "status": "planned",
+      "summary": "Sync now on Rules and launch: bound bundles and, later, the layers deploy (context sync)"
     }
   },
   "owners": {
@@ -368,6 +378,21 @@
       "route": "context",
       "action": "context.leave-out",
       "surface": "screen"
+    },
+    "context loads": {
+      "route": "context",
+      "action": "context.folder",
+      "surface": "screen"
+    },
+    "context compose": {
+      "route": "context",
+      "action": "context.folder",
+      "surface": "screen"
+    },
+    "context sync": {
+      "route": "context",
+      "action": "context.sync",
+      "surface": "screen"
     }
   },
   "tools": {
@@ -464,6 +489,16 @@
     "context_leave_out": {
       "route": "context",
       "action": "context.leave-out",
+      "surface": "screen"
+    },
+    "context_loads": {
+      "route": "context",
+      "action": "context.folder",
+      "surface": "screen"
+    },
+    "context_compose": {
+      "route": "context",
+      "action": "context.folder",
       "surface": "screen"
     }
   }

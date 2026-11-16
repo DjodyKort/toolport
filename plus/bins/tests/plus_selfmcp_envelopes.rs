@@ -389,6 +389,25 @@ const CASES: &[Case] = &[
             ),
         ],
     ),
+    context_case(
+        "context_loads",
+        &[
+            read("folder", "context_loads", r#"{"cwd":"{home}/proj"}"#),
+            fails("no-cwd", "invalid_arguments", "context_loads", "{}"),
+        ],
+    ),
+    context_case(
+        "context_compose",
+        &[
+            read("folder", "context_compose", r#"{"cwd":"{home}/proj"}"#),
+            fails(
+                "bad-cwd",
+                "invalid_arguments",
+                "context_compose",
+                r#"{"cwd":"{home}/gone"}"#,
+            ),
+        ],
+    ),
 ];
 
 fn stem(case: &Case, call: &Call) -> String {

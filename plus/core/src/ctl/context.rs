@@ -388,3 +388,75 @@ pub fn leave_out(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let human = plan_text(&data);
     Ok(Output::new(data, human))
 }
+
+const LOADS_USAGE: &str = "usage: context loads [--cwd <dir>]";
+const COMPOSE_USAGE: &str = "usage: context compose [--cwd <dir>]";
+const SYNC_USAGE: &str = "usage: context sync [--dry-run]";
+
+pub(super) const LOADS: Spec = Spec {
+    flags: &[value("--cwd")],
+    operands: Operands::Max(0, LOADS_USAGE),
+    ..LS
+};
+
+pub(super) const COMPOSE: Spec = Spec {
+    operands: Operands::Max(0, COMPOSE_USAGE),
+    ..LOADS
+};
+
+pub(super) const SYNC: Spec = Spec {
+    flags: &[switch("--dry-run")],
+    operands: Operands::Max(0, SYNC_USAGE),
+    ..LS
+};
+
+pub fn loads(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    let flags = LOADS.parse(rest)?;
+    let data = api::loads(host, flags.one("--cwd")).map_err(flagged)?;
+    let mut human = String::new();
+    for item in data["items"].as_array().into_iter().flatten() {
+        let state = match (item["loaded"].as_bool(), item["lazy"].as_bool()) {
+            (Some(true), _) => "loads",
+            (_, Some(true)) => "on demand",
+            _ => "left out",
+        };
+        human.push_str(&format!(
+            "{:<10} {:>7}  {:<8} {}\n",
+            state,
+            item["tokens"],
+            item["kind"].as_str().unwrap_or(""),
+            item["path"].as_str().unwrap_or(""),
+        ));
+    }
+    human.push_str(&format!(
+        "about {} tokens in the rows above ({}); {}\n",
+        data["totalTokens"],
+        data["tokenizer"].as_str().unwrap_or(""),
+        data["notItemised"].as_str().unwrap_or("")
+    ));
+    Ok(Output::new(data, human))
+}
+
+pub fn compose(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    let flags = COMPOSE.parse(rest)?;
+    let data = api::compose(host, flags.one("--cwd")).map_err(flagged)?;
+    let mut human = String::new();
+    for part in data["parts"].as_array().into_iter().flatten() {
+        human.push_str(&format!(
+            "# {}\n{}\n",
+            part["path"].as_str().unwrap_or(""),
+            part["text"].as_str().unwrap_or("")
+        ));
+    }
+    Ok(Output::new(data, human))
+}
+
+pub fn sync(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    let flags = SYNC.parse(rest)?;
+    let data = api::sync(host, flags.on("--dry-run"))?;
+    let human = match data["bundles"].as_array() {
+        Some(rows) => format!("{} bound bundle folder(s) handled\n", rows.len()),
+        None => "bundle auto-apply is off\n".to_string(),
+    };
+    Ok(Output::new(data, human))
+}

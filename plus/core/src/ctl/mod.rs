@@ -212,6 +212,21 @@ pub const COMMANDS: &[Command] = &[
         context::config,
     ),
     cmd(
+        &["context", "loads"],
+        "Show what a Claude Code session in a folder loads, with an estimated token cost (--cwd)",
+        context::loads,
+    ),
+    cmd(
+        &["context", "compose"],
+        "Show the instruction text Claude gets in a folder, part by part in load order (--cwd)",
+        context::compose,
+    ),
+    cmd(
+        &["context", "sync"],
+        "Apply the bound bundles when auto-apply is on (--dry-run); rule layers and shims are not built yet",
+        context::sync,
+    ),
+    cmd(
         &["context", "use"],
         "Apply a bundle and its paired access set to a folder, or drop both (<name>, --none, --cwd, --dry-run)",
         context::use_bundle,

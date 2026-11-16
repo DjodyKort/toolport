@@ -749,6 +749,35 @@ const CASES: &[Case] = &[
             usage("usage", &["context", "leave-out", "add"]),
         ],
     ),
+    case(
+        "context loads",
+        &[
+            hook("files", context_files),
+            read("folder", &["context", "loads", "--cwd", "{home}/proj"]),
+            read("no-folder", &["context", "loads", "--cwd", "{home}/gone"]).exit(2),
+        ],
+    ),
+    case(
+        "context compose",
+        &[
+            hook("files", context_files),
+            read("folder", &["context", "compose", "--cwd", "{home}/proj"]),
+            usage("usage", &["context", "compose", "extra"]),
+        ],
+    ),
+    case(
+        "context sync",
+        &[
+            hook("files", context_files),
+            read("preview", &["context", "sync", "--dry-run"]),
+            apply("off", &["context", "sync"]),
+            setup(
+                "auto",
+                &["context", "bundle", "config", "--auto-apply", "on"],
+            ),
+            read("auto-preview", &["context", "sync", "--dry-run"]),
+        ],
+    ),
 ];
 
 struct Run {

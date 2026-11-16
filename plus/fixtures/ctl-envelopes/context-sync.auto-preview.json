@@ -1,0 +1,18 @@
+{
+  "argv": ["context", "sync", "--dry-run"],
+  "envelope": {
+    "command": "context sync",
+    "data": {
+      "autoApply": true,
+      "bundles": [],
+      "deploy": {
+        "built": false,
+        "note": "rule layers, shims and launch profiles are not part of this build yet"
+      },
+      "dryRun": true
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

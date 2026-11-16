@@ -152,6 +152,9 @@ pub(super) const META: &[(&str, Meta)] = &[
     ("context bundle undo", m("--dry-run", Bool, "Show the plan and change nothing")),
     ("context use", m("--dry-run", Bool, "Show the plan and change nothing")),
     ("context leave-out", m("--dry-run", Bool, "Show the plan and change nothing")),
+    ("context loads", m("--cwd", Path, "Folder where Claude Code starts (default: the current folder)")),
+    ("context compose", m("--cwd", Path, "Folder where Claude Code starts (default: the current folder)")),
+    ("context sync", m("--dry-run", Bool, "Show what would be applied and change nothing")),
     ("server restart", m("--wait", Int, "Seconds to wait for the gateways to answer (default 20; 0 asks and does not wait)")),
     ("server restart", m("--if-idle", Bool, "Ask first how many calls are in flight and restart only when there are none, because a restart ends them")),
     (

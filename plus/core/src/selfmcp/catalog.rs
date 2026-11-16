@@ -290,6 +290,22 @@ pub const TOOLS: &[ToolDef] = &[
         ],
         context::leave_out
     ),
+    tool!(
+        "context_loads",
+        1,
+        None,
+        "List the instruction files a Claude Code session in a folder loads (CLAUDE.md files, rules, imports, auto memory index) with an estimated token cost, which are left out and by whom. Skills, plugins, agents and tools are not rows. Read only",
+        [CWD],
+        context::loads
+    ),
+    tool!(
+        "context_compose",
+        1,
+        None,
+        "Show the instruction text Claude Code gets when it starts in a folder, part by part in load order, each with its origin, whether it loads lazily and an estimated token count. Read only",
+        [CWD],
+        context::compose
+    ),
 ];
 
 pub const RESOURCES: &[ResourceDef] = &[

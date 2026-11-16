@@ -1,0 +1,13 @@
+{
+  "argv": ["context", "loads", "--cwd", "{home}/gone"],
+  "envelope": {
+    "command": "context loads",
+    "error": {
+      "code": "usage",
+      "message": "--cwd <WORLD>/home/gone does not exist"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -8,7 +8,7 @@ use super::bundle_store::{self, BundleError};
 use super::bundle_use;
 use super::fsx;
 use super::leave_out::{self, Op, Target};
-use super::loads::{InstructionLoads, POLICY_CLAUDE_MD};
+use super::loads::{InstructionLoads, LoadSource, POLICY_CLAUDE_MD};
 use super::Roots;
 use crate::op::OpError;
 use serde_json::{json, Value};
@@ -301,4 +301,100 @@ pub fn leave_out(
             dry_run,
         },
     )
+}
+
+fn item_value(item: &super::loads::LoadItem) -> Value {
+    json!({
+        "kind": item.kind,
+        "name": item.name,
+        "path": item.path,
+        "source": item.source,
+        "loaded": item.loaded,
+        "lazy": item.lazy,
+        "reason": item.reason,
+        "tokens": item.tokens,
+        "leftOutBy": item.left_out_by,
+    })
+}
+
+fn stack(
+    host: &dyn Host,
+    cwd: Option<&str>,
+) -> Result<(PathBuf, PathBuf, super::loads::WhatLoads), OpError> {
+    let home = host
+        .home_dir()
+        .ok_or_else(|| OpError::failed("no_home", "home directory could not be resolved"))?;
+    let data = host.data_dir().ok_or_else(|| {
+        OpError::failed("no_data_dir", "the data directory could not be resolved")
+    })?;
+    let cwd = folder(cwd);
+    if let Some(problem) = fsx::folder_problem(&cwd) {
+        return Err(OpError::usage(format!("cwd {problem}")));
+    }
+    let count = |text: &str| host.count_tokens(text);
+    let loads = InstructionLoads {
+        home: &home,
+        policy_file: Some(Path::new(POLICY_CLAUDE_MD)),
+        count_tokens: &count,
+    };
+    let mut report = loads
+        .what_loads(&cwd)
+        .map_err(|e| OpError::failed("context_invalid", e))?;
+    leave_out::mark(&mut report.items, &data, &cwd);
+    Ok((home, cwd, report))
+}
+
+/// What a session in a folder loads, as rows with an estimated cost. Skills, plugins, agents,
+/// tools and Claude Code's own prompt are not rows, so the total is never presented as a
+/// measurement.
+pub fn loads(host: &dyn Host, cwd: Option<&str>) -> Result<Value, OpError> {
+    let (_, cwd, report) = stack(host, cwd)?;
+    Ok(json!({
+        "cwd": fsx::display(&fsx::canonical(&cwd)),
+        "items": report.items.iter().map(item_value).collect::<Vec<_>>(),
+        "totalTokens": report.total_tokens,
+        "basis": "estimate",
+        "tokenizer": "cl100k_base",
+        "notItemised": "skills, plugins, agents, tool definitions and Claude Code's own prompt are not rows; `context measure` gives the real total",
+    }))
+}
+
+const COMPOSE_TEXT_CAP: usize = 64 * 1024;
+
+/// The instruction text Claude gets in a folder, part by part in load order.
+pub fn compose(host: &dyn Host, cwd: Option<&str>) -> Result<Value, OpError> {
+    let (_, cwd, report) = stack(host, cwd)?;
+    let parts: Vec<Value> = report
+        .items
+        .iter()
+        .filter(|item| item.loaded || item.lazy)
+        .map(|item| {
+            let mut part = item_value(item);
+            let text = item
+                .path
+                .as_deref()
+                .and_then(|path| fsx::read_text(Path::new(path), COMPOSE_TEXT_CAP))
+                .unwrap_or_default();
+            part["text"] = Value::String(text);
+            part
+        })
+        .collect();
+    Ok(json!({
+        "cwd": fsx::display(&fsx::canonical(&cwd)),
+        "parts": parts,
+        "totalTokens": report.total_tokens,
+        "basis": "estimate",
+    }))
+}
+
+/// `context sync`: the bundle part (apply the bound bundles when auto-apply is on). The layers
+/// deploy and the shell shims are not built yet and say so.
+pub fn sync(host: &dyn Host, dry_run: bool) -> Result<Value, OpError> {
+    let bundles = sync_bundles(host, dry_run);
+    Ok(json!({
+        "dryRun": dry_run,
+        "bundles": bundles,
+        "autoApply": bundles.is_some(),
+        "deploy": { "built": false, "note": "rule layers, shims and launch profiles are not part of this build yet" },
+    }))
 }

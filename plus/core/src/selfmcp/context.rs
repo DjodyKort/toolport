@@ -71,3 +71,11 @@ pub(super) fn leave_out(host: &dyn Host, args: &Value) -> Result<Value, ToolErro
         flag_or(args, "dry_run", true),
     )?)
 }
+
+pub(super) fn loads(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    Ok(api::loads(host, Some(required(args, "cwd")?))?)
+}
+
+pub(super) fn compose(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    Ok(api::compose(host, Some(required(args, "cwd")?))?)
+}

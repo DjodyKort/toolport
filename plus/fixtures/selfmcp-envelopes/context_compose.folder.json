@@ -1,0 +1,38 @@
+{
+  "arguments": {
+    "cwd": "<WORLD>/home/proj"
+  },
+  "isError": false,
+  "result": {
+    "basis": "estimate",
+    "cwd": "<WORLD>/home/proj",
+    "parts": [
+      {
+        "kind": "memory",
+        "lazy": false,
+        "leftOutBy": null,
+        "loaded": true,
+        "name": "CLAUDE.md",
+        "path": "<WORLD>/home/.claude/CLAUDE.md",
+        "reason": "",
+        "source": "user",
+        "text": "global rules\n",
+        "tokens": 3
+      },
+      {
+        "kind": "memory",
+        "lazy": false,
+        "leftOutBy": null,
+        "loaded": true,
+        "name": "CLAUDE.md",
+        "path": "<WORLD>/home/proj/CLAUDE.md",
+        "reason": "",
+        "source": "project",
+        "text": "project rules\n",
+        "tokens": 3
+      }
+    ],
+    "totalTokens": 6
+  },
+  "tool": "context_compose"
+}

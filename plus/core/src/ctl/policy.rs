@@ -307,6 +307,12 @@ pub(super) const ROWS: &[Row] = &[
     row("secret rm", D)
         .args(&[req("server"), req("key")])
         .skip("removes a vault entry; the contract case runs it against a scratch vault"),
+    row("context loads", R).spec(&[&context::LOADS]),
+    row("context compose", R).spec(&[&context::COMPOSE]),
+    row("context sync", W)
+        .dry()
+        .spec(&[&context::SYNC])
+        .skip("applies bundles to folders; the context goldens cover its --dry-run"),
     row("context bundle ls", R).spec(&[&context::LS]),
     row("context bundle show", R)
         .spec(&[&context::SHOW])
@@ -477,6 +483,8 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("context_bundle_apply", W, "context bundle apply").param(),
     maps("context_bundle_undo", W, "context bundle undo").param(),
     maps("context_leave_out", W, "context leave-out").on(),
+    maps("context_loads", R, "context loads"),
+    maps("context_compose", R, "context compose"),
 ];
 
 #[derive(Clone, Copy, Debug)]
