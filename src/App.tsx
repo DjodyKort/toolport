@@ -1354,6 +1354,10 @@ function App() {
                         registry={registry}
                         onRegistryChange={applyRegistryChange}
                         onOpenServers={() => selectView("servers")}
+                        onOpenSettings={() => {
+                          selectView("settings");
+                          setSettingsPage("general");
+                        }}
                       />
                     ) : view === "settings" ? (
                       <SettingsView

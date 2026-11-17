@@ -33,7 +33,9 @@
     },
     "tasks": {
       "title": "Tasks",
-      "status": "planned"
+      "status": "built",
+      "page": "view:tasks",
+      "component": "src/plus/tasks/TasksPage.tsx"
     }
   },
   "actions": {
@@ -346,48 +348,57 @@
     },
     "tasks.list": {
       "route": "tasks",
-      "status": "planned",
-      "summary": "Task list with trigger chips, last run, next run, the waiting-for-you state and the missed-run notes; invalid task files named (task ls, tasks_list)"
+      "status": "built",
+      "summary": "Task list with trigger chips, last run, next run, the waiting-for-you state and the missed-run notes; invalid task files named (task ls, tasks_list)",
+      "test": "src/plus/tasks/TasksPage.test.tsx"
     },
     "tasks.detail": {
       "route": "tasks",
-      "status": "planned",
-      "summary": "Task detail: the steps with the needs-you ones marked, the secrets it may write by name, what it needs, triggers and the recent runs with their redacted logs (task show, tasks_get)"
+      "status": "built",
+      "summary": "Task detail: the steps with the needs-you ones marked, the secrets it may write by name, what it needs, triggers and the recent runs with their redacted logs (task show, tasks_get)",
+      "test": "src/plus/tasks/TasksPage.test.tsx"
     },
     "tasks.run": {
       "route": "tasks",
-      "status": "planned",
-      "summary": "Run a task: dry-run plan first, then the run with live steps, a wait at a needs-you step, a result or a failure with the redacted log (task run, tasks_run)"
+      "status": "built",
+      "summary": "Run a task: dry-run plan first, then the run with live steps, a wait at a needs-you step, a result or a failure with the redacted log (task run, tasks_run)",
+      "test": "src/plus/tasks/TasksPage.test.tsx"
     },
     "tasks.continue": {
       "route": "tasks",
-      "status": "planned",
-      "summary": "Continue on a step that waits for you (task resume)"
+      "status": "built",
+      "summary": "Continue on a step that waits for you (task resume)",
+      "test": "src/plus/tasks/TasksPage.test.tsx"
     },
     "tasks.cancel": {
       "route": "tasks",
-      "status": "planned",
-      "summary": "Cancel a running or waiting run (task cancel, tasks_cancel)"
+      "status": "built",
+      "summary": "Cancel a running or waiting run (task cancel, tasks_cancel)",
+      "test": "src/plus/tasks/TasksPage.test.tsx"
     },
     "tasks.history": {
       "route": "tasks",
-      "status": "planned",
-      "summary": "History tab: every run with result and trigger, catch-up runs marked, the redacted step log of one run (task history, tasks_history)"
+      "status": "built",
+      "summary": "History tab: every run with result and trigger, catch-up runs marked, the redacted step log of one run (task history, tasks_history)",
+      "test": "src/plus/tasks/TasksPage.test.tsx"
     },
     "tasks.manage": {
       "route": "tasks",
-      "status": "planned",
-      "summary": "Add, edit and remove a task from a definition, with a diff preview and a backup (task add, task edit, task rm)"
+      "status": "built",
+      "summary": "Add, edit and remove a task from a definition, with a diff preview and a backup (task add, task edit, task rm)",
+      "test": "src/plus/tasks/TasksPage.test.tsx"
     },
     "tasks.ledger": {
       "route": "tasks",
-      "status": "planned",
-      "summary": "Skipped and caught-up slots from the scheduler ledger: dimmed rows in a task's runs and in History, a start toast (task missed, tasks_missed)"
+      "status": "built",
+      "summary": "Skipped and caught-up slots from the scheduler ledger: dimmed rows in a task's runs and in History, a start toast (task missed, tasks_missed)",
+      "test": "src/plus/tasks/TasksPage.test.tsx"
     },
     "tasks.switch": {
       "route": "tasks",
-      "status": "planned",
-      "summary": "The On and Off switch of a task, one click with Undo (task enable, task disable, tasks_set_enabled)"
+      "status": "built",
+      "summary": "The On and Off switch of a task, one click with Undo (task enable, task disable, tasks_set_enabled)",
+      "test": "src/plus/tasks/TasksPage.test.tsx"
     }
   },
   "owners": {

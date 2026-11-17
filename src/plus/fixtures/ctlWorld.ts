@@ -1,6 +1,7 @@
 import commandsGolden from "../../../plus/fixtures/ctl-envelopes/commands.json";
 import toolsGolden from "../../../plus/fixtures/ctl-envelopes/mcp-tools.json";
 import { createServerWorld, type ServerWorldOptions } from "./serverWorld";
+import { createTaskWorld, type TaskWorldOptions } from "./taskWorld";
 import type {
   AccessSetStanding,
   CommandsData,
@@ -39,6 +40,8 @@ export interface WorldOptions {
   accessSets?: string[];
   /** The servers, their access sets and how a restart answers. */
   servers?: ServerWorldOptions;
+  /** The tasks, their runs and how the `task` commands answer. */
+  tasks?: TaskWorldOptions;
 }
 
 /** A small in-memory toolportctl: enough state for install, uninstall and doctor to answer the way
@@ -46,6 +49,7 @@ export interface WorldOptions {
 export function createCtlWorld(options: WorldOptions = {}) {
   const accessSets = options.accessSets ?? ["local", "work"];
   const serverWorld = createServerWorld({ setIds: accessSets, ...options.servers });
+  const taskWorld = createTaskWorld(options.tasks);
   const defaultAccess = accessSets[0] ?? null;
   const doctorMode = options.doctor ?? "ok";
   let state: SelfMcpState = options.self ?? "missing";
@@ -270,6 +274,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
       return state;
     },
     servers: serverWorld,
+    tasks: taskWorld,
     run(argv: string[], stdin?: string): CtlReply {
       const key = argv.filter((a) => a !== "--json");
       const [first, second] = key;
@@ -279,6 +284,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
       if (first === "server") return serverWorld.run(key);
       if (first === "secret") return serverWorld.secret(key, stdin);
       if (first === "auth") return serverWorld.auth(key);
+      if (first === "task") return taskWorld.run(key.slice(1), stdin);
       if (first === "mcp") {
         if (second === "install") return install(key);
         if (second === "uninstall") return uninstall();

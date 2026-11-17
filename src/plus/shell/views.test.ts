@@ -26,7 +26,7 @@ describe("plus views", () => {
     expect(PLUS_SCREENS.library.slice).toBe("S4");
     expect(PLUS_SCREENS.context.slice).toBe("S5");
     expect(PLUS_SCREENS.tasks.slice).toBe("S6");
-    expect(PLUS_SCREENS.tasks.subtitle).toBe("Scheduled jobs");
+    expect(PLUS_SCREENS.tasks.subtitle).toBe("Named jobs Toolport can run for you");
   });
 
   it("test03_plus_routes_are_the_group_pages_and_the_toolport_settings_page", () => {

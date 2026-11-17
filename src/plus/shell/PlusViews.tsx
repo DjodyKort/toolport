@@ -1,6 +1,7 @@
 import { EmptyState } from "@/components/ui/empty-state";
 import type { Registry, View } from "@/lib/types";
 import ToolportPlusPage from "../settings/ToolportPlusPage";
+import TasksPage from "../tasks/TasksPage";
 import { isPlusView, PLUS_SCREENS, type PlusScreen } from "./views";
 
 /** A page of the "Claude" group whose slice has not landed. It says what the page will do and
@@ -21,6 +22,7 @@ export interface PlusViewsProps {
   registry: Registry | null;
   onRegistryChange: (registry: Registry) => void;
   onOpenServers: () => void;
+  onOpenSettings: () => void;
 }
 
 /** Everything the fork renders inside upstream's content area: the pages of the "Claude" group and
@@ -30,7 +32,9 @@ export default function PlusViews({
   registry,
   onRegistryChange,
   onOpenServers,
+  onOpenSettings,
 }: PlusViewsProps) {
+  if (view === "tasks") return <TasksPage onOpenSettings={onOpenSettings} />;
   if (isPlusView(view)) return <NotBuiltYet screen={PLUS_SCREENS[view]} />;
   return (
     <ToolportPlusPage

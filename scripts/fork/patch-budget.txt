@@ -105,7 +105,9 @@
 #   1: PlusServersTop after upstream's sign-in or status card (banner rows)
 #   1: PlusServersEnd at the end of the list (default access line)
 #   9: PlusServerDetail after the detail card (Finish setup and the Operations list)
-35	src/App.tsx
+# Tasks screen (S6), 4 more lines: PlusViews gets onOpenSettings, which opens Settings > General where Launch at
+# login lives (upstream's Settings has no anchor, so the Tasks screen links without highlighting).
+39	src/App.tsx
 # AppSidebar.tsx, 6 changed lines: the Claude group under upstream's nav (1), the footer bell (1), the Puzzle icon
 # of the new Settings page in the position-based icon array (2), and the imports (2).
 6	src/components/AppSidebar.tsx

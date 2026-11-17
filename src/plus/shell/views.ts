@@ -50,7 +50,7 @@ export const PLUS_SCREENS: Record<PlusView, PlusScreen> = {
     label: msg("Tasks"),
     icon: ListTodo,
     title: "Tasks",
-    subtitle: "Scheduled jobs",
+    subtitle: "Named jobs Toolport can run for you",
     slice: "S6",
     what: "Run named jobs on a schedule or on demand, and read their history.",
   },

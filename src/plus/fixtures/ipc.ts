@@ -1,5 +1,7 @@
 import type { CtlEnvelope, CtlResult } from "../bridge/ctl";
 import { registerAttentionFeed } from "../shell/attentionFeed";
+import { setClock } from "../tasks/clock";
+import { FIXTURE_NOW, type TaskWorldOptions } from "./taskWorld";
 import {
   fixtureServers,
   type LoginSeed,
@@ -159,11 +161,25 @@ export function plusFixtureFromSearch(search: string) {
       defaultAccess: params.get("plus-default"),
       ...loginWorld(params),
     },
+    tasks: tasksFromSearch(params),
   });
   if (params.has("plus-bell")) registerFixtureBell();
 }
 
 if (typeof location !== "undefined") plusFixtureFromSearch(location.search);
+
+/** `?plus-tasks=morning` shows the tasks of the design at its fixed time (Tuesday 09:58 in Amsterdam),
+ * `empty` shows none and `edge` adds a 1.x routine task and an unreadable task file;
+ * `?plus-tasks-live` keeps a started run live for a minute. */
+function tasksFromSearch(params: URLSearchParams): TaskWorldOptions {
+  const scenario = params.get("plus-tasks");
+  if (scenario === null) return {};
+  setClock(FIXTURE_NOW);
+  return {
+    scenario: scenario === "empty" || scenario === "edge" ? scenario : "default",
+    stepMs: params.has("plus-tasks-live") ? 60_000 : undefined,
+  };
+}
 
 function restartScripts(scenario: string | null): Record<string, RestartScript> {
   const script = RESTART_SCENARIOS[scenario ?? ""];
