@@ -279,6 +279,7 @@ pub fn status(args: &Args) -> Result<Value, OpError> {
         verify = super::verify::verify_installed(&skills, &read.lock, &transpilers, &root);
         verify.missing.retain(|f| targeted.contains(&f.client));
         verify.differing.retain(|f| targeted.contains(&f.client));
+        verify.edited.retain(|f| targeted.contains(&f.client));
         output_root = json!(root.to_string_lossy());
     }
     Ok(json!({
@@ -297,6 +298,7 @@ pub fn status(args: &Args) -> Result<Value, OpError> {
             "clean": verify.clean(),
             "missing": finding_rows(&verify.missing),
             "differing": finding_rows(&verify.differing),
+            "edited": finding_rows(&verify.edited),
         },
         "outputs": outputs
             .iter()

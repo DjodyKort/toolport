@@ -37,6 +37,7 @@
         "add": 1,
         "adopt": 0,
         "differs": 0,
+        "edited": 0,
         "hook": 0,
         "remove": 0,
         "unchanged": 0,

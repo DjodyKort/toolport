@@ -5,13 +5,16 @@
 //!
 //! - missing: added; identical and already in the lock: unchanged; identical but not in the lock:
 //!   adopted (recorded, nothing written); different and in the lock: updated.
+//! - different and in the lock, but the file no longer matches the hash the lock recorded for it:
+//!   held as "edited" (someone changed it after the sync installed it). A lock without hashes
+//!   records them on this sync and holds nothing.
 //! - different and not in the lock: held as "differs" (the file is not ours to replace).
 //! - in the lock, no longer in the source: held as a removal. Files the lock never recorded are
 //!   never touched.
 //! - a hook a skill declares that no earlier sync installed: held until confirmed.
 //!
-//! Held changes are applied only with `apply_held`; a differing file is moved to the backup folder
-//! first.
+//! Held changes are applied only with `apply_held`; a differing, edited or removed edited file is
+//! moved to the backup folder first.
 
 use super::assets::{compute_skill_hash, inventory, is_plain_relative, rel_string, SkillFile};
 use super::clock::Clock;
@@ -22,6 +25,7 @@ use super::lock::{get_entry, get_entry_mut, load_lockfile, set_entry, LockEntry,
 use super::parser::{Skill, SkillType};
 use super::pyfs::write_text;
 use super::transpiler::{Transpiler, TranspilerRegistry};
+use crate::hashing::lock_hash;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -46,6 +50,7 @@ pub enum Op {
     Adopt,
     Unchanged,
     Differs,
+    Edited,
     Remove,
     Hook,
 }
@@ -58,6 +63,7 @@ impl Op {
             Self::Adopt => "adopt",
             Self::Unchanged => "unchanged",
             Self::Differs => "differs",
+            Self::Edited => "edited",
             Self::Remove => "remove",
             Self::Hook => "hook",
         }
@@ -65,7 +71,10 @@ impl Op {
 
     /// Changes whose effect is not visible until later wait for a decision.
     pub fn needs_decision(self) -> bool {
-        matches!(self, Self::Differs | Self::Remove | Self::Hook)
+        matches!(
+            self,
+            Self::Differs | Self::Edited | Self::Remove | Self::Hook
+        )
     }
 }
 
@@ -128,19 +137,23 @@ pub fn delete_stale(stale: &[PathBuf], stop_at: &Path) -> Vec<PathBuf> {
             continue;
         }
         deleted.push(path.clone());
-        let mut parent = path.parent().map(Path::to_path_buf);
-        while let Some(dir) = parent.take() {
-            let empty = dir != stop_at
-                && dir.starts_with(stop_at)
-                && dir.is_dir()
-                && fs::read_dir(&dir).is_ok_and(|mut r| r.next().is_none());
-            if !empty || fs::remove_dir(&dir).is_err() {
-                break;
-            }
-            parent = dir.parent().map(Path::to_path_buf);
-        }
+        prune_empty_parents(path, stop_at);
     }
     deleted
+}
+
+fn prune_empty_parents(path: &Path, stop_at: &Path) {
+    let mut parent = path.parent().map(Path::to_path_buf);
+    while let Some(dir) = parent.take() {
+        let empty = dir != stop_at
+            && dir.starts_with(stop_at)
+            && dir.is_dir()
+            && fs::read_dir(&dir).is_ok_and(|mut r| r.next().is_none());
+        if !empty || fs::remove_dir(&dir).is_err() {
+            break;
+        }
+        parent = dir.parent().map(Path::to_path_buf);
+    }
 }
 
 fn bucket<'a>(lock: &'a mut LockFile, skill: &Skill) -> &'a mut Vec<(String, LockEntry)> {
@@ -167,6 +180,28 @@ pub(crate) enum Found {
     Missing,
     Same,
     Different,
+}
+
+impl Desired {
+    fn content_hash(&self) -> String {
+        match &self.source {
+            Source::Text(text) => lock_hash(text),
+            Source::File(src) => fs::read(src).map(lock_hash).unwrap_or_default(),
+            Source::Link(text) => lock_hash(format!("link:{}", text.display())),
+        }
+    }
+}
+
+/// The hash a file would have been recorded with: links by their target text, files by content.
+pub(crate) fn installed_hash(path: &Path) -> Option<String> {
+    let meta = fs::symlink_metadata(path).ok()?;
+    if meta.file_type().is_symlink() {
+        return Some(lock_hash(format!(
+            "link:{}",
+            fs::read_link(path).ok()?.display()
+        )));
+    }
+    meta.is_file().then(|| fs::read(path).ok().map(lock_hash))?
 }
 
 pub(crate) fn compare(desired: &Desired) -> Found {
@@ -291,6 +326,15 @@ fn tracked_rels(previous: Option<&LockFile>, skill: &Skill, client: &str) -> BTr
         .unwrap_or_default()
 }
 
+fn previous_entry<'a>(previous: Option<&'a LockFile>, skill: &Skill) -> Option<&'a LockEntry> {
+    let prev = previous?;
+    let map = match skill.skill_type {
+        SkillType::Rule => &prev.rules,
+        SkillType::Skill => &prev.skills,
+    };
+    get_entry(map, skill.name())
+}
+
 fn previous_hooks(previous: Option<&LockFile>, skill: &Skill, client: &str) -> Vec<String> {
     let Some(prev) = previous else {
         return Vec::new();
@@ -318,23 +362,29 @@ fn sync_one(
     entry.clients_synced.push(key.clone());
     entry.warnings.extend(layout.warnings);
     let tracked = tracked_rels(ctx.previous, skill, &key);
+    let previous = previous_entry(ctx.previous, skill);
     let mut kept = Vec::new();
     for d in &desired {
         ctx.desired_abs.insert(d.abs.clone());
         let found = compare(d);
         let is_tracked = tracked.contains(&d.rel);
+        let recorded = previous.and_then(|e| e.file_hash(&key, &d.rel));
+        let edited_since_install = is_tracked
+            && recorded.is_some_and(|hash| installed_hash(&d.abs).as_deref() != Some(hash));
         let op = match (found, is_tracked) {
             (Found::Missing, _) => Op::Add,
             (Found::Same, true) => Op::Unchanged,
             (Found::Same, false) => Op::Adopt,
+            (Found::Different, true) if edited_since_install => Op::Edited,
             (Found::Different, true) => Op::Update,
             (Found::Different, false) => Op::Differs,
         };
         let mut held = false;
         let mut owned = true;
+        let mut hash = d.content_hash();
         match op {
             Op::Add | Op::Update if !ctx.dry_run => install(d)?,
-            Op::Differs if ctx.apply_held => {
+            Op::Differs | Op::Edited if ctx.apply_held => {
                 if !ctx.dry_run {
                     backup_path_aside(&d.abs, ctx.output_root, ctx.clock)?;
                     install(d)?;
@@ -348,6 +398,14 @@ fn sync_one(
                     d.rel
                 ));
             }
+            Op::Edited => {
+                held = true;
+                hash = recorded.unwrap_or_default().to_string();
+                entry.warnings.push(format!(
+                    "{key}: {} was edited after the last sync, held",
+                    d.rel
+                ));
+            }
             _ => {}
         }
         ctx.plan.changes.push(Change {
@@ -358,6 +416,7 @@ fn sync_one(
             held,
         });
         if owned {
+            entry.set_file_hash(&key, &d.rel, hash);
             kept.push(d.rel.clone());
         }
     }
@@ -430,6 +489,15 @@ struct Ctx<'a> {
     desired_abs: BTreeSet<PathBuf>,
 }
 
+struct Removal {
+    name: String,
+    client: String,
+    rel: String,
+    abs: PathBuf,
+    /// The file no longer matches the hash recorded when it was installed.
+    edited: bool,
+}
+
 /// Files a previous sync recorded that this run no longer installs, per skill and client, for the
 /// clients this run synced. Entries with unsafe paths are skipped, so a tampered lock cannot reach
 /// outside the output root.
@@ -438,7 +506,7 @@ fn removals(
     new_lock: &LockFile,
     synced_clients: &BTreeSet<String>,
     ctx: &Ctx<'_>,
-) -> Vec<(String, String, String, PathBuf)> {
+) -> Vec<Removal> {
     let mut out = Vec::new();
     for (prev, new) in [
         (&previous.skills, &new_lock.skills),
@@ -462,7 +530,16 @@ fn removals(
                     if ctx.desired_abs.contains(&abs) {
                         continue;
                     }
-                    out.push((name.clone(), client.clone(), rel.clone(), abs));
+                    let edited = entry
+                        .file_hash(client, rel)
+                        .is_some_and(|hash| installed_hash(&abs).as_deref() != Some(hash));
+                    out.push(Removal {
+                        name: name.clone(),
+                        client: client.clone(),
+                        rel: rel.clone(),
+                        abs,
+                        edited,
+                    });
                 }
             }
         }
@@ -545,6 +622,13 @@ pub fn sync_skills(
                     .warnings
                     .push(format!("{key}: transpilation failed: {e}"));
                 let tracked = tracked_rels(ctx.previous, skill, key);
+                for rel in &tracked {
+                    if let Some(hash) =
+                        previous_entry(ctx.previous, skill).and_then(|e| e.file_hash(key, rel))
+                    {
+                        entry.set_file_hash(key, rel, hash.to_string());
+                    }
+                }
                 entry.extend_outputs(key, tracked.into_iter().collect());
             }
         }
@@ -586,7 +670,15 @@ pub fn sync_skills(
         let found = removals(prev, &lock, &synced, &ctx);
         let mut doomed = Vec::new();
         let mut carried: BTreeMap<String, Vec<(String, String)>> = BTreeMap::new();
-        for (name, client, rel, abs) in found {
+        let mut backed_up = Vec::new();
+        for Removal {
+            name,
+            client,
+            rel,
+            abs,
+            edited,
+        } in found
+        {
             let gone = fs::symlink_metadata(&abs).is_err();
             if gone {
                 continue;
@@ -598,16 +690,22 @@ pub fn sync_skills(
                 op: Op::Remove,
                 held: !opts.apply_held,
             });
-            if opts.apply_held {
-                doomed.push(abs);
-            } else {
+            if !opts.apply_held {
                 carried.entry(name).or_default().push((client, rel));
+            } else if edited && !opts.dry_run {
+                backup_path_aside(&abs, output_root, opts.clock)?;
+                prune_empty_parents(&abs, output_root);
+                backed_up.push(abs);
+            } else {
+                doomed.push(abs);
             }
         }
         cleaned = if opts.dry_run {
             doomed.clone()
         } else {
-            delete_stale(&doomed, output_root)
+            let mut gone = delete_stale(&doomed, output_root);
+            gone.extend(backed_up);
+            gone
         };
         carry_held_removals(prev, &mut lock, &carried, &synced);
         if !opts.dry_run {
@@ -671,6 +769,9 @@ fn carry_held_removals(
                 entry
                     .output_files
                     .retain(|(client, _)| !synced.contains(client));
+                entry
+                    .file_hashes
+                    .retain(|(client, _)| !synced.contains(client));
                 entry.hooks_installed.retain(|(client, _)| {
                     !synced.contains(client) || files.iter().any(|(c, _)| c == client)
                 });
@@ -680,6 +781,9 @@ fn carry_held_removals(
             if let Some(entry) = get_entry_mut(new_map, name) {
                 for (client, rel) in files {
                     entry.extend_outputs(client, vec![rel.clone()]);
+                    if let Some(hash) = prev_entry.file_hash(client, rel) {
+                        entry.set_file_hash(client, rel, hash.to_string());
+                    }
                 }
             }
         }

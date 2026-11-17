@@ -64,6 +64,7 @@ fn plan_json(plan: &Plan) -> Value {
         Op::Adopt,
         Op::Unchanged,
         Op::Differs,
+        Op::Edited,
         Op::Remove,
         Op::Hook,
     ];

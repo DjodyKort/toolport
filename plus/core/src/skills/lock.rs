@@ -16,6 +16,9 @@ pub struct LockEntry {
     pub warnings: Vec<String>,
     pub output_files: OrderedMap<Vec<String>>,
     pub hooks_installed: OrderedMap<Vec<String>>,
+    /// Per client, the content hash of each file the sync installed, keyed by relative path.
+    /// Absent in locks written before hashes were recorded.
+    pub file_hashes: OrderedMap<OrderedMap<String>>,
 }
 
 impl LockEntry {
@@ -28,6 +31,29 @@ impl LockEntry {
             warnings: Vec::new(),
             output_files: Vec::new(),
             hooks_installed: Vec::new(),
+            file_hashes: Vec::new(),
+        }
+    }
+
+    pub fn file_hash(&self, client: &str, rel: &str) -> Option<&str> {
+        let (_, files) = self.file_hashes.iter().find(|(k, _)| k == client)?;
+        files
+            .iter()
+            .find(|(r, _)| r == rel)
+            .map(|(_, h)| h.as_str())
+    }
+
+    pub fn set_file_hash(&mut self, client: &str, rel: &str, hash: String) {
+        let files = match self.file_hashes.iter().position(|(k, _)| k == client) {
+            Some(i) => &mut self.file_hashes[i].1,
+            None => {
+                self.file_hashes.push((client.to_string(), Vec::new()));
+                &mut self.file_hashes.last_mut().expect("just pushed").1
+            }
+        };
+        match files.iter_mut().find(|(r, _)| r == rel) {
+            Some(slot) => slot.1 = hash,
+            None => files.push((rel.to_string(), hash)),
         }
     }
 
@@ -47,7 +73,7 @@ impl LockEntry {
     }
 
     fn to_json(&self) -> J {
-        J::Obj(vec![
+        let mut fields = vec![
             ("source".into(), J::str(&self.source)),
             (
                 "version".into(),
@@ -58,7 +84,22 @@ impl LockEntry {
             ("warnings".into(), str_arr(&self.warnings)),
             ("output_files".into(), list_map(&self.output_files)),
             ("hooks_installed".into(), list_map(&self.hooks_installed)),
-        ])
+        ];
+        if !self.file_hashes.is_empty() {
+            fields.push((
+                "file_hashes".into(),
+                J::Obj(
+                    self.file_hashes
+                        .iter()
+                        .map(|(client, files)| {
+                            let files = files.iter().map(|(r, h)| (r.clone(), J::str(h)));
+                            (client.clone(), J::Obj(files.collect()))
+                        })
+                        .collect(),
+                ),
+            ));
+        }
+        J::Obj(fields)
     }
 
     fn from_json(v: &J) -> Option<Self> {
@@ -71,6 +112,7 @@ impl LockEntry {
             warnings: opt_str_list(v.get("warnings"))?,
             output_files: opt_list_map(v.get("output_files"))?,
             hooks_installed: opt_list_map(v.get("hooks_installed"))?,
+            file_hashes: opt_hash_map(v.get("file_hashes"))?,
         })
     }
 }
@@ -115,6 +157,24 @@ fn opt_list_map(v: Option<&J>) -> Option<OrderedMap<Vec<String>>> {
         Some(J::Obj(items)) => items
             .iter()
             .map(|(k, v)| Some((k.clone(), opt_str_list(Some(v))?)))
+            .collect(),
+        Some(_) => None,
+    }
+}
+
+fn opt_hash_map(v: Option<&J>) -> Option<OrderedMap<OrderedMap<String>>> {
+    match v {
+        None => Some(Vec::new()),
+        Some(J::Obj(clients)) => clients
+            .iter()
+            .map(|(client, files)| {
+                let J::Obj(files) = files else { return None };
+                let files = files
+                    .iter()
+                    .map(|(rel, h)| Some((rel.clone(), h.as_str()?.to_string())))
+                    .collect::<Option<Vec<_>>>()?;
+                Some((client.clone(), files))
+            })
             .collect(),
         Some(_) => None,
     }

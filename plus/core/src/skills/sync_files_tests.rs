@@ -1,6 +1,6 @@
 use super::clock::{FixedClock, Instant};
 use super::lint::{lint_description_lengths, lint_files};
-use super::lock::load_lockfile;
+use super::lock::{load_lockfile, save_lockfile};
 use super::parser::discover_skills;
 use super::sync::{sync_skills, Op, SyncOptions, SyncResult};
 use super::transpilers::registry_with_home;
@@ -389,4 +389,154 @@ fn test16_a_description_over_the_spec_limit_warns_and_errors_once_another_client
         &format!("---\nname: nacht\ndescription: \"{too_long}\"\n---\n\n# Nacht\n"),
     );
     assert!(discover_skills(&w.repo.0).is_empty());
+}
+
+const GUIDE: &str = ".claude/skills/nacht/references/guide.md";
+
+fn recorded_hash(w: &World, rel: &str) -> Option<String> {
+    let lock = load_lockfile(&w.home.0).unwrap();
+    lock.skills[0]
+        .1
+        .file_hash("claude-code", rel)
+        .map(str::to_string)
+}
+
+#[test]
+fn test17_the_lock_records_a_hash_for_every_installed_file() {
+    let w = World::new("hashes");
+    w.sync(false, false);
+    let lock = load_lockfile(&w.home.0).unwrap();
+    let hashes = &lock.skills[0].1.file_hashes;
+    assert_eq!(hashes.len(), 1);
+    assert_eq!(hashes[0].0, "claude-code");
+    assert_eq!(hashes[0].1.len(), 5);
+    assert!(hashes[0].1.iter().all(|(_, h)| h.starts_with("sha256:")));
+    assert_eq!(
+        lock,
+        super::lock::LockFile::parse(&lock.serialize()).unwrap()
+    );
+}
+
+#[test]
+fn test18_a_hand_edit_of_an_installed_file_is_held_and_left_in_place() {
+    let w = World::new("edited");
+    w.sync(false, false);
+    let before = recorded_hash(&w, GUIDE).unwrap();
+    put(&w.installed(), "references/guide.md", "my notes\n");
+
+    let held = w.sync(false, false);
+    assert_eq!(ops(&held, Op::Edited), [GUIDE]);
+    assert_eq!(held.plan.count(Op::Update), 0);
+    assert_eq!(held.plan.held().count(), 1);
+    assert_eq!(
+        fs::read_to_string(w.installed().join("references/guide.md")).unwrap(),
+        "my notes\n"
+    );
+    assert!(!w.home.0.join(".mcpm-backups").exists());
+    assert_eq!(recorded_hash(&w, GUIDE).unwrap(), before);
+
+    let again = w.sync(false, false);
+    assert_eq!(ops(&again, Op::Edited), [GUIDE]);
+}
+
+#[test]
+fn test19_a_held_edit_is_backed_up_before_the_confirmed_sync_replaces_it() {
+    let w = World::new("edited-apply");
+    w.sync(false, false);
+    put(&w.installed(), "references/guide.md", "my notes\n");
+    w.sync(false, false);
+
+    let applied = w.sync(true, false);
+    assert_eq!(ops(&applied, Op::Edited), [GUIDE]);
+    assert_eq!(applied.plan.held().count(), 0);
+    assert_eq!(
+        fs::read_to_string(w.installed().join("references/guide.md")).unwrap(),
+        "guide\n"
+    );
+    let backups = tree(&w.home.0.join(".mcpm-backups"));
+    let (_, saved) = backups
+        .iter()
+        .find(|(k, _)| k.contains("guide.md."))
+        .expect("the edit is in the backup folder");
+    assert_eq!(saved, b"my notes\n");
+    assert_eq!(w.sync(false, false).plan.held().count(), 0);
+}
+
+#[test]
+fn test20_an_edit_that_matches_the_library_copy_is_not_held() {
+    let w = World::new("edited-same");
+    w.sync(false, false);
+    put(&w.installed(), "references/guide.md", "guide v2\n");
+    put(&w.repo.0, "skills/nacht/references/guide.md", "guide v2\n");
+    let result = w.sync(false, false);
+    assert_eq!(result.plan.count(Op::Edited), 0);
+    assert_eq!(result.plan.held().count(), 0);
+    assert_ne!(recorded_hash(&w, GUIDE).unwrap(), "");
+}
+
+#[test]
+fn test21_a_lock_without_hashes_updates_a_changed_file_and_adopts_hashes() {
+    let w = World::new("old-lock");
+    w.sync(false, false);
+    let mut lock = load_lockfile(&w.home.0).unwrap();
+    lock.skills[0].1.file_hashes.clear();
+    save_lockfile(&w.home.0, &lock).unwrap();
+    assert!(!fs::read_to_string(w.home.0.join(super::LOCKFILE_NAME))
+        .unwrap()
+        .contains("file_hashes"));
+    put(&w.installed(), "references/guide.md", "my notes\n");
+
+    let result = w.sync(false, false);
+    assert_eq!(ops(&result, Op::Update), [GUIDE]);
+    assert_eq!(result.plan.count(Op::Edited), 0);
+    assert_eq!(result.plan.held().count(), 0);
+    assert_eq!(
+        load_lockfile(&w.home.0).unwrap().skills[0].1.file_hashes[0]
+            .1
+            .len(),
+        5
+    );
+}
+
+#[test]
+fn test22_a_removal_of_an_edited_file_keeps_a_copy_and_a_plain_one_does_not() {
+    let w = World::new("edited-gone");
+    w.sync(false, false);
+    put(&w.installed(), "references/guide.md", "my notes\n");
+    fs::remove_file(w.repo.0.join("skills/nacht/references/guide.md")).unwrap();
+    fs::remove_file(w.repo.0.join("skills/nacht/modules/a.md")).unwrap();
+
+    let held = w.sync(false, false);
+    assert_eq!(ops(&held, Op::Remove).len(), 2);
+    assert_eq!(held.plan.held().count(), 2);
+    assert!(w.installed().join("references/guide.md").exists());
+    assert!(recorded_hash(&w, GUIDE).is_some());
+
+    w.sync(true, false);
+    assert!(!w.installed().join("references").exists());
+    assert!(!w.installed().join("modules").exists());
+    let backups = tree(&w.home.0.join(".mcpm-backups"));
+    let names: Vec<&String> = backups.keys().filter(|k| k.contains("guide.md.")).collect();
+    assert_eq!(names.len(), 1);
+    assert!(!backups.keys().any(|k| k.contains("a.md.")));
+}
+
+#[test]
+fn test23_verification_names_a_file_changed_by_hand_since_the_sync() {
+    let w = World::new("verify-edited");
+    w.sync(false, false);
+    let registry = registry_with_home(Some(w.home.0.clone()));
+    let skills = discover_skills(&w.repo.0);
+    fs::write(w.installed().join("SETUP.md"), "stale").unwrap();
+    let lock = load_lockfile(&w.home.0).unwrap();
+    let report = verify_installed(&skills, &lock, &registry, &w.home.0);
+    assert_eq!(report.edited.len(), 1);
+    assert_eq!(report.edited[0].path, ".claude/skills/nacht/SETUP.md");
+
+    put(&w.repo.0, "skills/nacht/SETUP.md", "# setup v2\n");
+    let skills = discover_skills(&w.repo.0);
+    fs::write(w.installed().join("SETUP.md"), "# setup\n").unwrap();
+    let report = verify_installed(&skills, &lock, &registry, &w.home.0);
+    assert_eq!(report.differing.len(), 1);
+    assert!(report.edited.is_empty());
 }

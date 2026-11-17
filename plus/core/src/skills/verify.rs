@@ -3,7 +3,7 @@
 
 use super::lock::{get_entry, LockFile};
 use super::parser::{Skill, SkillType};
-use super::sync::{compare, desired_for, Found};
+use super::sync::{compare, desired_for, installed_hash, Found};
 use super::transpiler::TranspilerRegistry;
 use std::path::Path;
 
@@ -19,6 +19,9 @@ pub struct Verify {
     pub checked: usize,
     pub missing: Vec<Finding>,
     pub differing: Vec<Finding>,
+    /// Differing files that also no longer match the hash the lock recorded when the sync
+    /// installed them: changed by hand since.
+    pub edited: Vec<Finding>,
 }
 
 impl Verify {
@@ -63,7 +66,15 @@ pub fn verify_installed(
                 match compare(&file) {
                     Found::Same => {}
                     Found::Missing => out.missing.push(finding()),
-                    Found::Different => out.differing.push(finding()),
+                    Found::Different => {
+                        out.differing.push(finding());
+                        let edited = entry
+                            .file_hash(client, &file.rel)
+                            .is_some_and(|hash| installed_hash(&file.abs).as_deref() != Some(hash));
+                        if edited {
+                            out.edited.push(finding());
+                        }
+                    }
                 }
             }
         }
