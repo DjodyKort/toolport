@@ -1157,7 +1157,10 @@ const CASES: &[Case] = &[
             setup("compression_enable", ENABLE_OFF_PORT),
             refused("refused", "compression_seal", UNCONFIRMED),
             fails("no_proxy", "backend_error", "compression_seal", APPLY),
-            setup("compression_enable", ENABLE_PROXY_PORT),
+            Call {
+                label: "enable-proxy",
+                ..setup("compression_enable", ENABLE_PROXY_PORT)
+            },
             read("preview", "compression_seal", "{}"),
             write("apply", "compression_seal", APPLY),
             read("sealed", "compression_seal", APPLY),

@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "provider": "parsec"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "parsec has a closed engine and sends code off this machine: accept that with toolportctl compression enable --provider parsec --accept-egress parsec"
+    }
+  },
+  "text": "invalid_arguments: parsec has a closed engine and sends code off this machine: accept that with toolportctl compression enable --provider parsec --accept-egress parsec",
+  "tool": "compression_enable"
+}

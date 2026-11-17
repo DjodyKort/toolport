@@ -567,8 +567,10 @@ fn sync_adopts_a_legacy_policy_once_and_migrates_its_shape() {
 #[test]
 fn a_policy_already_in_the_data_dir_is_never_replaced_by_the_legacy_one() {
     let mut w = World::new("legacy-keep");
-    let mut cfg = CompressionConfig::default();
-    cfg.active_preset = "balanced".into();
+    let cfg = CompressionConfig {
+        active_preset: "balanced".into(),
+        ..CompressionConfig::default()
+    };
     store::save(&w.paths(), &cfg).unwrap();
     legacy_file(&w, OLD_SHAPE);
     let data = w.run(|cx| sync(cx, None, false)).unwrap();

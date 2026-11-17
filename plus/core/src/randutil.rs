@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};

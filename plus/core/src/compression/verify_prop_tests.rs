@@ -377,10 +377,10 @@ fn schema_check_looks_only_at_the_first_transcript_with_usage() {
     let empty = write("c.jsonl", "");
     let junk = write("d.jsonl", "not json");
     assert!(
-        schema_ok(&[with.clone()]),
+        schema_ok(std::slice::from_ref(&with)),
         "a present key counts, whatever its value"
     );
-    assert!(!schema_ok(&[without.clone()]));
+    assert!(!schema_ok(std::slice::from_ref(&without)));
     assert!(!schema_ok(&[]));
     assert!(!schema_ok(&[empty.clone(), junk.clone()]));
     assert!(schema_ok(&[empty.clone(), junk.clone(), with.clone()]));

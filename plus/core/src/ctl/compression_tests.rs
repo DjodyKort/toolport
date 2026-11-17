@@ -12,7 +12,7 @@ thread_local! {
 }
 
 struct Fx {
-    scratch: crate::randutil::ScratchDir,
+    _scratch: crate::randutil::ScratchDir,
     dir: std::path::PathBuf,
 }
 
@@ -34,7 +34,10 @@ impl Fx {
                 ..Default::default()
             }))
         });
-        Self { scratch, dir }
+        Self {
+            _scratch: scratch,
+            dir,
+        }
     }
 }
 

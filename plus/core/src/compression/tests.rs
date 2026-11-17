@@ -211,8 +211,10 @@ fn presets_08_pin_is_exact_never_a_floor() {
 
 #[test]
 fn preset_for_never_fails() {
-    let mut cfg = CompressionConfig::default();
-    cfg.active_preset = "ghost".into();
+    let mut cfg = CompressionConfig {
+        active_preset: "ghost".into(),
+        ..CompressionConfig::default()
+    };
     assert_eq!(cfg.preset_for(None).port, DEFAULT_PORT);
     cfg.presets = OrderedMap::new();
     assert_eq!(cfg.preset_for(Some("x")), CompressionPreset::default());

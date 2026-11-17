@@ -17,10 +17,9 @@ thread_local! {
 struct Fixture {
     _env: EnvGuard,
     _lock: std::sync::MutexGuard<'static, ()>,
-    scratch: crate::randutil::ScratchDir,
+    _scratch: crate::randutil::ScratchDir,
     dir: PathBuf,
     home: PathBuf,
-    repo: PathBuf,
 }
 
 impl Fixture {
@@ -47,10 +46,9 @@ impl Fixture {
         Self {
             _env: env,
             _lock: lock,
-            scratch,
+            _scratch: scratch,
             dir,
             home,
-            repo,
         }
     }
 }
