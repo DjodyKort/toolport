@@ -6,6 +6,7 @@
   "isError": false,
   "result": {
     "autoSync": {
+      "lastRun": null,
       "paused": true,
       "reason": "undo",
       "since": "<masked>"

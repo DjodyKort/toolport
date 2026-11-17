@@ -4,6 +4,7 @@
     "command": "skills auto resume",
     "data": {
       "changed": false,
+      "lastRun": null,
       "paused": false,
       "reason": null,
       "since": null

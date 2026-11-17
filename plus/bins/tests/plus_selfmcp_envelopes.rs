@@ -1109,9 +1109,26 @@ const CASES: &[Case] = &[
     case(
         "skills_auto_status",
         &[
-            read("running", "skills_auto_status", "{}"),
+            read("off", "skills_auto_status", "{}"),
             setup("skills_auto_pause", "{}"),
             read("paused", "skills_auto_status", "{}"),
+        ],
+    ),
+    case(
+        "skills_auto_on",
+        &[
+            read("preview", "skills_auto_on", r#"{"dry_run":true}"#),
+            Call {
+                writes: true,
+                ..fails("no_broker", "approval_unavailable", "skills_auto_on", "{}")
+            },
+        ],
+    ),
+    case(
+        "skills_auto_off",
+        &[
+            read("already_off", "skills_auto_off", r#"{"dry_run":true}"#),
+            write("off", "skills_auto_off", "{}"),
         ],
     ),
     case(

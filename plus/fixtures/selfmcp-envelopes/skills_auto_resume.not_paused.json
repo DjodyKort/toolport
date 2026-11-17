@@ -3,6 +3,7 @@
   "isError": false,
   "result": {
     "changed": false,
+    "lastRun": null,
     "paused": false,
     "reason": null,
     "since": null

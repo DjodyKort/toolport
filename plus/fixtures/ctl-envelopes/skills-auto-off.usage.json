@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "auto", "off", "extra"],
+  "envelope": {
+    "command": "skills auto off",
+    "error": {
+      "code": "usage",
+      "message": "unexpected argument: extra"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

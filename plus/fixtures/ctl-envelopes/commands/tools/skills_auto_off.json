@@ -1,0 +1,7 @@
+{
+  "command": "skills auto off",
+  "dryRun": "param",
+  "name": "skills_auto_off",
+  "tier": "write",
+  "toolTier": 2
+}

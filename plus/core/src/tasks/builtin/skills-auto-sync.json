@@ -1,0 +1,25 @@
+{
+  "id": "skills-auto-sync",
+  "title": "Sync the skills library",
+  "description": "Copies new and changed skills from your library into Claude Code every morning, and again at the next launch when the Mac was off at the time. It applies only new files and files Toolport already tracks. Removals, new hooks and files that differ are held for you to review in the Library screen.",
+  "enabled": false,
+  "requires": { "servers": [], "commands": ["toolportctl"] },
+  "writesSecrets": [],
+  "steps": [
+    {
+      "id": "sync",
+      "title": "Sync the skills library",
+      "type": "exec",
+      "program": "toolportctl",
+      "args": ["skills", "sync", "--unattended"]
+    }
+  ],
+  "triggers": {
+    "manual": true,
+    "cli": true,
+    "selfMcp": { "enabled": false, "approval": "every-run" },
+    "schedule": { "cron": "30 6 * * *", "autoRun": true },
+    "onAuthFailure": []
+  },
+  "createdFrom": { "kind": "manual" }
+}

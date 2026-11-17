@@ -4,6 +4,7 @@
     "command": "skills auto pause",
     "data": {
       "changed": true,
+      "lastRun": null,
       "paused": true,
       "reason": "manual",
       "since": "<masked>"

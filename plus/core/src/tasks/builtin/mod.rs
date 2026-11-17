@@ -5,7 +5,12 @@
 use super::store;
 use std::path::{Path, PathBuf};
 
-const SHIPPED: [(&str, &str); 1] = [("moodle-token", include_str!("moodle-token.json"))];
+pub const SKILLS_AUTO_SYNC: &str = "skills-auto-sync";
+
+const SHIPPED: [(&str, &str); 2] = [
+    ("moodle-token", include_str!("moodle-token.json")),
+    (SKILLS_AUTO_SYNC, include_str!("skills-auto-sync.json")),
+];
 
 fn marker(base: &Path) -> PathBuf {
     store::tasks_dir(base).join(".shipped")

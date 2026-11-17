@@ -409,12 +409,42 @@
           "tier": 1
         },
         {
-          "description": "Whether the unattended sync is paused, since when and why (undo or manual)",
+          "description": "Whether the unattended sync is scheduled (on or off, when it runs next, how its task last ran), whether it is paused and why (undo or manual), and what the last unattended run applied and held",
           "dryRunDefault": false,
           "gate": "none",
           "name": "skills_auto_status",
           "params": [],
           "tier": 1
+        },
+        {
+          "description": "Schedule the unattended sync every morning by turning on the shipped task skills-auto-sync. Asks the person to approve it through the approval broker, because the schedule then runs on its own. Pass dry_run to see the change without making it",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "skills_auto_on",
+          "params": [
+            {
+              "description": "Report the change only; nothing is asked and nothing changes",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Stop scheduling the unattended sync by turning off the shipped task skills-auto-sync; asks nothing. Pass dry_run to see the change without making it",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "skills_auto_off",
+          "params": [
+            {
+              "description": "Report the change only; nothing changes",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
         },
         {
           "description": "Pause the unattended sync until skills_auto_resume",

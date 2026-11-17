@@ -104,6 +104,8 @@ pub(super) const META: &[(&str, Meta)] = &[
     ("skills undo", m("--project", Bool, "Undo the project sync instead of the user one")),
     ("skills undo", m("--global", Bool, "Undo the user sync (the default)")),
     ("skills undo", m("--dry-run", Bool, "Report what would be restored and write nothing")),
+    ("skills auto on", m("--dry-run", Bool, "Report the change and write nothing")),
+    ("skills auto off", m("--dry-run", Bool, "Report the change and write nothing")),
     ("skills verify", m("--repo", Path, "Skills repository (default: the configured one)")),
     ("skills verify", m("--home", Path, "Home folder the outputs went under (default: the user home)")),
     ("skills verify", m("--client", Str, "Check only this client key (repeatable)").repeats()),

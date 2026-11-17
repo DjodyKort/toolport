@@ -6,6 +6,7 @@
 use super::assets::compute_skill_hash;
 use super::auto;
 use super::client_scope::{self, default_clients, ClientSource};
+use super::clock::Clock;
 use super::fix::chmod_hooks;
 use super::frontmatter::frontmatter_accepted;
 use super::lint::{
@@ -508,9 +509,60 @@ fn paused_by_policy(args: &Args) -> Result<Option<Value>, OpError> {
     Ok(state.paused.then(|| paused_report(args, &state)))
 }
 
+fn held_items(data: &Value) -> Vec<auto::HeldItem> {
+    serde_json::from_value(data["held"].clone()).unwrap_or_default()
+}
+
+fn count(data: &Value, key: &str) -> u64 {
+    data["plan"][key]
+        .as_array()
+        .map_or(0, |rows| rows.len() as u64)
+}
+
+fn last_run_of(data: &Value) -> auto::LastRun {
+    let applied = data["plan"]["changes"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|change| change["held"] != json!(true))
+        .count() as u64;
+    auto::LastRun {
+        at: SystemClock.now().zulu(),
+        applied,
+        held: held_items(data),
+        skipped: count(data, "skipped"),
+        error: None,
+    }
+}
+
+/// An unattended run leaves its outcome in the auto-sync record; a manual run that no longer
+/// holds what that run held clears it from there. A paused run did nothing and records nothing.
+fn record_outcome(args: &Args, result: &Result<Value, OpError>) -> Result<(), OpError> {
+    let Some(base) = crate::fsx::data_dir() else {
+        return Ok(());
+    };
+    match result {
+        Ok(data) if data["paused"] == json!(true) => Ok(()),
+        Ok(data) if args.unattended => auto::record_run(&base, last_run_of(data)),
+        Ok(_) if args.clients.is_some() || !args.global => Ok(()),
+        Ok(data) => auto::settle_held(&base, &held_items(data)),
+        Err(error) if args.unattended => auto::record_error(&base, &error.message, &SystemClock),
+        Err(_) => Ok(()),
+    }
+}
+
 /// `settings` is where hooks are installed; `None` only for a dry run, which never writes them.
 /// A run that writes first keeps a snapshot of what it is about to change (`skills undo`).
 pub fn sync(args: &Args, settings: Option<&dyn SettingsStore>) -> Result<Value, OpError> {
+    check_unattended(args)?;
+    let result = run_sync(args, settings);
+    if !args.dry_run {
+        record_outcome(args, &result)?;
+    }
+    result
+}
+
+fn run_sync(args: &Args, settings: Option<&dyn SettingsStore>) -> Result<Value, OpError> {
     let mut args = args.clone();
     if args.unattended {
         check_unattended(&args)?;

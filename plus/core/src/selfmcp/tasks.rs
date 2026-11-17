@@ -37,7 +37,7 @@ pub(super) fn history(host: &dyn Host, args: &Value) -> Result<Value, ToolError>
     )?)
 }
 
-fn refused(error: OpError) -> ToolError {
+pub(super) fn refused(error: OpError) -> ToolError {
     match error.kind {
         ErrorKind::Failed("approval_unavailable") => {
             ToolError::new("approval_unavailable", error.message)

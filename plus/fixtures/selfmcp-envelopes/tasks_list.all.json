@@ -108,6 +108,29 @@
           }
         },
         "waiting": true
+      },
+      {
+        "enabled": false,
+        "id": "skills-auto-sync",
+        "kind": "script",
+        "lastRun": null,
+        "nextRun": null,
+        "refreshes": [],
+        "title": "Sync the skills library",
+        "triggers": {
+          "cli": true,
+          "manual": true,
+          "onAuthFailure": [],
+          "schedule": {
+            "autoRun": true,
+            "cron": "30 6 * * *"
+          },
+          "selfMcp": {
+            "approval": "every-run",
+            "enabled": false
+          }
+        },
+        "waiting": false
       }
     ]
   },

@@ -288,8 +288,18 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["skills", "auto", "status"],
-        "Say whether the unattended sync is paused, since when and why",
+        "Say whether the unattended sync is scheduled and paused, when it runs next and what its last run did",
         skills_undo::auto_status,
+    ),
+    cmd(
+        &["skills", "auto", "on"],
+        "Schedule the unattended sync every morning (--dry-run)",
+        skills_undo::auto_on,
+    ),
+    cmd(
+        &["skills", "auto", "off"],
+        "Stop scheduling the unattended sync (--dry-run)",
+        skills_undo::auto_off,
     ),
     cmd(
         &["skills", "auto", "pause"],

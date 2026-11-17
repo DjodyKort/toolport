@@ -1,0 +1,22 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "lastRun": null,
+    "paused": false,
+    "reason": null,
+    "schedule": {
+      "autoRun": true,
+      "cron": "30 6 * * *",
+      "enabled": false,
+      "lastRun": null,
+      "nextRun": null,
+      "present": true,
+      "scheduler": null,
+      "task": "skills-auto-sync",
+      "when": "daily 06:30 UTC"
+    },
+    "since": null
+  },
+  "tool": "skills_auto_status"
+}

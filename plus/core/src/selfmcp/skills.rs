@@ -6,8 +6,9 @@ use std::path::{Path, PathBuf};
 use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
 
+use super::tasks::refused;
 use super::ToolError;
-use crate::args::{flag_or, str_arg, str_nonempty};
+use crate::args::{flag, flag_or, str_arg, str_nonempty};
 use crate::op::ErrorKind;
 use crate::skills::agents::handlers as agents;
 use crate::skills::api::{self, Args};
@@ -16,6 +17,7 @@ use crate::skills::files::skill_files;
 use crate::skills::repo::{skill_bucket, skill_template};
 use crate::skills::styles::handlers as styles;
 use crate::skills::{repo_handlers, state, tap_handlers as taps, SystemClock};
+use crate::tasks::approval;
 
 type Outcome = Result<Value, ToolError>;
 type Handler = fn(Value) -> Result<Value, String>;
@@ -157,7 +159,23 @@ pub(super) fn undo(host: &dyn Host, args: &Value) -> Outcome {
 }
 
 pub(super) fn auto_status(host: &dyn Host, _args: &Value) -> Outcome {
-    with_paths(host, || Ok(auto::status_op()?))
+    with_paths(host, || Ok(auto::full_status_op(host)?))
+}
+
+fn auto_switch(host: &dyn Host, args: &Value, enabled: bool) -> Outcome {
+    with_paths(host, || {
+        let data = approval::set_enabled(auto::TASK_ID, enabled, flag(args, "dry_run"), host)
+            .map_err(refused)?;
+        Ok(auto::finish_switch(host, data, enabled)?)
+    })
+}
+
+pub(super) fn auto_on(host: &dyn Host, args: &Value) -> Outcome {
+    auto_switch(host, args, true)
+}
+
+pub(super) fn auto_off(host: &dyn Host, args: &Value) -> Outcome {
+    auto_switch(host, args, false)
 }
 
 pub(super) fn auto_pause(host: &dyn Host, _args: &Value) -> Outcome {

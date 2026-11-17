@@ -1,0 +1,26 @@
+{
+  "argv": ["skills", "auto", "status"],
+  "envelope": {
+    "command": "skills auto status",
+    "data": {
+      "lastRun": null,
+      "paused": false,
+      "reason": null,
+      "schedule": {
+        "autoRun": true,
+        "cron": "30 6 * * *",
+        "enabled": false,
+        "lastRun": null,
+        "nextRun": null,
+        "present": true,
+        "scheduler": null,
+        "task": "skills-auto-sync",
+        "when": "daily 06:30 UTC"
+      },
+      "since": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -3,8 +3,25 @@
   "envelope": {
     "command": "skills auto status",
     "data": {
+      "lastRun": {
+        "applied": 1,
+        "at": "<TIME>",
+        "held": [],
+        "skipped": 0
+      },
       "paused": true,
       "reason": "manual",
+      "schedule": {
+        "autoRun": true,
+        "cron": "30 6 * * *",
+        "enabled": true,
+        "lastRun": null,
+        "nextRun": "<TIME>",
+        "present": true,
+        "scheduler": null,
+        "task": "skills-auto-sync",
+        "when": "daily 06:30 UTC"
+      },
       "since": "<masked>"
     },
     "ok": true,

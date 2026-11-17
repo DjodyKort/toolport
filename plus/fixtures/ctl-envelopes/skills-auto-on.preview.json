@@ -1,0 +1,40 @@
+{
+  "argv": ["skills", "auto", "on", "--dry-run"],
+  "envelope": {
+    "command": "skills auto on",
+    "data": {
+      "dryRun": true,
+      "enabled": true,
+      "path": "<WORLD>/data/plus/tasks/skills-auto-sync.json",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "turn task skills-auto-sync on",
+            "op": "update",
+            "path": "<WORLD>/data/plus/tasks/skills-auto-sync.json"
+          }
+        ],
+        "summary": "Turn task skills-auto-sync on",
+        "undo": "toolportctl skills auto off",
+        "warnings": ["the schedule runs the task on its own (autoRun)"]
+      },
+      "result": null,
+      "schedule": {
+        "autoRun": true,
+        "cron": "30 6 * * *",
+        "enabled": false,
+        "lastRun": null,
+        "nextRun": null,
+        "present": true,
+        "scheduler": null,
+        "task": "skills-auto-sync",
+        "when": "daily 06:30 UTC"
+      },
+      "task": "skills-auto-sync"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -4,6 +4,7 @@
     "command": "skills undo",
     "data": {
       "autoSync": {
+        "lastRun": null,
         "paused": true,
         "reason": "undo",
         "since": "<masked>"

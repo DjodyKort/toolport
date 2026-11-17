@@ -1500,10 +1500,36 @@ const CASES: &[Case] = &[
     case(
         "skills auto status",
         &[
-            read("running", &["skills", "auto", "status"]),
+            read("off", &["skills", "auto", "status"]),
+            setup("switch_on", &["skills", "auto", "on"]),
+            read("on", &["skills", "auto", "status"]),
+            setup(
+                "sync",
+                &["skills", "sync", "--repo", "{repo}", "--unattended"],
+            ),
+            read("last_run", &["skills", "auto", "status"]),
             setup("pause", &["skills", "auto", "pause"]),
             read("paused", &["skills", "auto", "status"]),
             usage("usage", &["skills", "auto", "status", "extra"]),
+        ],
+    ),
+    case(
+        "skills auto on",
+        &[
+            read("preview", &["skills", "auto", "on", "--dry-run"]),
+            apply("apply", &["skills", "auto", "on"]),
+            apply("again", &["skills", "auto", "on"]),
+            usage("usage", &["skills", "auto", "on", "extra"]),
+        ],
+    ),
+    case(
+        "skills auto off",
+        &[
+            read("already_off", &["skills", "auto", "off", "--dry-run"]),
+            setup("on", &["skills", "auto", "on"]),
+            read("preview", &["skills", "auto", "off", "--dry-run"]),
+            apply("apply", &["skills", "auto", "off"]),
+            usage("usage", &["skills", "auto", "off", "extra"]),
         ],
     ),
     case(

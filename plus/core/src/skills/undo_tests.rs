@@ -9,7 +9,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 use toolport_plus_api::memory::MemoryHost;
+use toolport_plus_api::{FakeTaskHost, ProcessOutcome};
 
+/// 2026-11-17T12:00:00Z
+const AT: i64 = 1_794_916_800;
 const SKILL_MD: &str = "---\nname: nacht\ndescription: \"Runs night jobs. Use when work should continue unattended.\"\n---\n\n# Nacht\n\nSee [setup](SETUP.md).\n";
 const HOOKED_MD: &str = "---\nname: nacht\ndescription: \"Runs night jobs. Use when work should continue unattended.\"\nhooks:\n  Stop:\n    command: scripts/stop.sh\n---\n\n# Nacht\n";
 
@@ -596,4 +599,180 @@ fn test19_an_unattended_run_holds_a_tracked_file_that_differs_when_the_lock_has_
         fs::read_to_string(env.installed("SETUP.md")).unwrap(),
         "# setup, edited\n"
     );
+}
+
+fn last_run(_env: &Env) -> Value {
+    auto::status_op().unwrap()["lastRun"].clone()
+}
+
+fn reasons(run: &Value) -> Vec<String> {
+    let mut reasons: Vec<String> = run["held"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|h| h["reason"].as_str().unwrap().to_string())
+        .collect();
+    reasons.sort();
+    reasons
+}
+
+#[test]
+fn test20_an_unattended_run_records_what_it_applied_and_held() {
+    let env = Env::new();
+    assert_eq!(last_run(&env), Value::Null);
+    put(env.home.path(), ".claude/skills/nacht/SETUP.md", "mine\n");
+    env.unattended().unwrap();
+    let run = last_run(&env);
+    assert_eq!(run["applied"], 3);
+    assert_eq!(run["skipped"], 0);
+    assert_eq!(reasons(&run), ["differs"]);
+    assert!(run["at"].as_str().unwrap().ends_with('Z'));
+    assert!(run.get("error").is_none());
+}
+
+#[test]
+fn test21_a_paused_or_dry_unattended_run_records_nothing() {
+    let env = Env::new();
+    env.sync_with(Args {
+        unattended: true,
+        dry_run: true,
+        ..env.args()
+    })
+    .unwrap();
+    assert_eq!(last_run(&env), Value::Null);
+    auto::pause_op(&super::SystemClock).unwrap();
+    env.unattended().unwrap();
+    assert_eq!(last_run(&env), Value::Null);
+}
+
+#[test]
+fn test22_a_manual_apply_clears_what_it_applied_from_the_held_list_and_keeps_the_rest() {
+    let env = Env::new();
+    put(env.home.path(), ".claude/skills/nacht/SETUP.md", "mine\n");
+    env.unattended().unwrap();
+    env.lib("modules/a.md", "a, edited\n");
+    fs::remove_file(env.repo.path().join("skills/nacht/references/guide.md")).unwrap();
+    env.unattended().unwrap();
+    assert_eq!(reasons(&last_run(&env)), ["differs", "removal"]);
+
+    env.sync();
+    assert_eq!(reasons(&last_run(&env)), ["differs", "removal"]);
+
+    env.apply();
+    assert_eq!(last_run(&env)["held"], json!([]));
+    assert_eq!(last_run(&env)["applied"], 1);
+}
+
+#[test]
+fn test23_a_manual_sync_for_some_clients_leaves_the_held_list_alone() {
+    let env = Env::new();
+    put(env.home.path(), ".claude/skills/nacht/SETUP.md", "mine\n");
+    env.unattended().unwrap();
+    env.sync_with(Args {
+        apply_held: true,
+        clients: Some(vec!["claude-code".into()]),
+        ..env.args()
+    })
+    .unwrap();
+    assert_eq!(reasons(&last_run(&env)), ["differs"]);
+}
+
+#[test]
+fn test24_a_failed_unattended_run_records_the_error_and_keeps_what_was_held() {
+    let env = Env::new();
+    put(env.home.path(), ".claude/skills/nacht/SETUP.md", "mine\n");
+    env.unattended().unwrap();
+    let error = env
+        .sync_with(Args {
+            unattended: true,
+            clients: Some(vec!["cursor".into()]),
+            ..env.args()
+        })
+        .unwrap_err();
+    let run = last_run(&env);
+    assert_eq!(run["error"], json!(error.message));
+    assert_eq!(run["applied"], 0);
+    assert_eq!(reasons(&run), ["differs"]);
+}
+
+#[test]
+fn test25_pause_and_resume_keep_the_last_run() {
+    let env = Env::new();
+    put(env.home.path(), ".claude/skills/nacht/SETUP.md", "mine\n");
+    env.unattended().unwrap();
+    auto::pause_op(&super::SystemClock).unwrap();
+    assert_eq!(reasons(&last_run(&env)), ["differs"]);
+    auto::resume_op().unwrap();
+    assert_eq!(reasons(&last_run(&env)), ["differs"]);
+}
+
+#[test]
+fn test26_the_schedule_is_the_shipped_task_off_until_it_is_turned_on() {
+    let env = Env::new();
+    let host = FakeTaskHost::at(env.data.path().to_path_buf(), AT);
+    let off = auto::schedule_json(&host);
+    assert_eq!(off["task"], "skills-auto-sync");
+    assert_eq!(off["enabled"], false);
+    assert_eq!(off["cron"], "30 6 * * *");
+    assert_eq!(off["when"], "daily 06:30 UTC");
+    assert_eq!(off["autoRun"], true);
+    assert_eq!(off["nextRun"], Value::Null);
+
+    let on = auto::switch_op(&host, true, false).unwrap();
+    assert_eq!(on["schedule"]["enabled"], true);
+    assert_eq!(on["schedule"]["nextRun"], "2026-11-18T06:30:00Z");
+    assert_eq!(on["result"]["undo"], "toolportctl skills auto off");
+    assert_eq!(
+        auto::full_status_op(&host).unwrap()["schedule"]["enabled"],
+        true
+    );
+
+    let off_again = auto::switch_op(&host, false, false).unwrap();
+    assert_eq!(off_again["schedule"]["enabled"], false);
+    assert_eq!(off_again["result"]["undo"], "toolportctl skills auto on");
+}
+
+#[test]
+fn test27_a_dry_run_switch_changes_nothing_and_a_removed_task_is_reported() {
+    let env = Env::new();
+    let host = FakeTaskHost::at(env.data.path().to_path_buf(), AT);
+    let preview = auto::switch_op(&host, true, true).unwrap();
+    assert_eq!(preview["dryRun"], true);
+    assert_eq!(preview["schedule"]["enabled"], false);
+    assert_eq!(preview["plan"]["undo"], "toolportctl skills auto off");
+
+    auto::switch_op(&host, true, false).unwrap();
+    crate::tasks::store::remove_task(env.data.path(), auto::TASK_ID).unwrap();
+    let gone = auto::schedule_json(&host);
+    assert_eq!(gone["present"], false);
+    assert_eq!(gone["enabled"], false);
+}
+
+#[test]
+fn test28_the_shipped_task_runs_the_unattended_sync_through_the_bundled_ctl() {
+    let env = Env::new();
+    let host = FakeTaskHost::at(env.data.path().to_path_buf(), AT);
+    auto::switch_op(&host, true, false).unwrap();
+    host.process_results
+        .borrow_mut()
+        .push_back(ProcessOutcome::Exited {
+            code: Some(0),
+            output: String::new(),
+        });
+    let started = crate::tasks::api::run(auto::TASK_ID, "manual", false, &host).unwrap();
+    let run_id = started["run"]["id"].as_str().unwrap();
+    let run = crate::tasks::runner::execute(&host, env.data.path(), run_id).unwrap();
+    assert_eq!(run.status, crate::tasks::store::Status::Ok);
+    let spec = host.processes.borrow()[0].clone();
+    assert_eq!(spec.program, crate::tasks::proc::CTL_NAME);
+    assert_eq!(spec.args, ["skills", "sync", "--unattended"]);
+}
+
+#[test]
+fn test29_the_shipped_task_is_started_by_its_schedule_and_not_by_a_client() {
+    let env = Env::new();
+    let task = crate::tasks::store::load_task(env.data.path(), auto::TASK_ID).unwrap();
+    assert!(crate::tasks::triggers::auto_runs(&task));
+    assert!(!task.triggers.self_mcp.enabled);
+    assert_eq!(crate::tasks::model::validate(&task), Ok(()));
 }

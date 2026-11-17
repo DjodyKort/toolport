@@ -72,7 +72,12 @@ pub fn run_process(
     cancelled: &dyn Fn() -> bool,
     started: &dyn Fn(u32),
 ) -> ProcessOutcome {
-    let mut cmd = Command::new(&spec.program);
+    let program = if spec.program == CTL_NAME {
+        ctl_program()
+    } else {
+        PathBuf::from(&spec.program)
+    };
+    let mut cmd = Command::new(program);
     cmd.args(&spec.args);
     for name in CHILD_ENV_DROP {
         cmd.env_remove(name);
@@ -126,6 +131,9 @@ pub fn run_process(
     }
 }
 
+/// An exec step that names this program runs the bundled ctl, the one that starts the runner.
+pub const CTL_NAME: &str = "toolportctl";
+
 fn ctl_program() -> PathBuf {
     if let Some(path) = std::env::var_os("TOOLPORT_CTL_BIN") {
         return path.into();
@@ -133,7 +141,7 @@ fn ctl_program() -> PathBuf {
     let name = if cfg!(windows) {
         "toolportctl.exe"
     } else {
-        "toolportctl"
+        CTL_NAME
     };
     std::env::current_exe()
         .ok()
@@ -158,4 +166,37 @@ pub fn spawn_runner(run_id: &str) -> Result<(), String> {
         let _ = child.wait();
     });
     Ok(())
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn an_exec_step_named_toolportctl_runs_the_bundled_ctl() {
+        let dir = std::env::temp_dir().join(format!("plus-proc-ctl-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let ctl = dir.join("fake-ctl");
+        std::fs::write(&ctl, "#!/bin/sh\necho \"ctl $@\"\n").unwrap();
+        std::fs::set_permissions(&ctl, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::env::set_var("TOOLPORT_CTL_BIN", &ctl);
+        let outcome = run_process(
+            &ProcessSpec {
+                program: CTL_NAME.into(),
+                args: vec!["skills".into(), "sync".into()],
+            },
+            &|| false,
+            &|_| {},
+        );
+        std::env::remove_var("TOOLPORT_CTL_BIN");
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(
+            outcome,
+            ProcessOutcome::Exited {
+                code: Some(0),
+                output: "ctl skills sync\n".into()
+            }
+        );
+    }
 }

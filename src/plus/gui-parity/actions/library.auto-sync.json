@@ -1,6 +1,6 @@
 {
   "route": "library",
   "status": "built",
-  "summary": "Auto-sync status, Pause and Resume, and the held items a run reports for the bell (skills auto status|pause|resume, skills sync --unattended; skills_auto_status, skills_auto_pause, skills_auto_resume)",
+  "summary": "Auto-sync: on or off with a daily schedule, Pause and Resume, the last run and what it held (skills auto status|on|off|pause|resume, skills sync --unattended; skills_auto_status, skills_auto_on, skills_auto_off, skills_auto_pause, skills_auto_resume)",
   "test": "src/plus/library/LibraryScreen.test.tsx"
 }

@@ -457,6 +457,14 @@ pub(super) const ROWS: &[Row] = &[
         .skip("restores the last sync's snapshot; its --dry-run is a golden step"),
     row("skills verify", R).spec(&[&skills_undo::VERIFY]),
     row("skills auto status", R),
+    row("skills auto on", W)
+        .dry()
+        .spec(&[&skills_undo::SWITCH])
+        .skip("turns the shipped sync task on; its --dry-run is a golden step"),
+    row("skills auto off", W)
+        .dry()
+        .spec(&[&skills_undo::SWITCH])
+        .skip("turns the shipped sync task off; its --dry-run is a golden step"),
     row("skills auto pause", W).skip("sets the pause flag in the data dir; golden step"),
     row("skills auto resume", W).skip("clears the pause flag in the data dir; golden step"),
     row("skills ls", R).spec(&[&skills::LS_SOURCE]),
@@ -892,6 +900,8 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("skills_undo", W, "skills undo").on(),
     maps("skills_verify", R, "skills verify"),
     maps("skills_auto_status", R, "skills auto status"),
+    maps("skills_auto_on", W, "skills auto on").param(),
+    maps("skills_auto_off", W, "skills auto off").param(),
     maps("skills_auto_pause", W, "skills auto pause"),
     maps("skills_auto_resume", W, "skills auto resume"),
     own("skills_list_transpilers", R),

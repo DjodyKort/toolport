@@ -18,7 +18,7 @@
     "flag": null,
     "mode": "none"
   },
-  "summary": "Say whether the unattended sync is paused, since when and why",
+  "summary": "Say whether the unattended sync is scheduled and paused, when it runs next and what its last run did",
   "surface": "screen",
   "tier": "read",
   "tools": ["skills_auto_status"]

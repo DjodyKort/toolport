@@ -1,4 +1,4 @@
-//! `toolportctl skills undo|verify` and `skills auto status|pause|resume`: renderers over
+//! `toolportctl skills undo|verify` and `skills auto status|on|off|pause|resume`: renderers over
 //! `skills::api` and `skills::auto`, which the self-MCP tools `skills_undo`, `skills_verify` and
 //! `skills_auto_*` call as well.
 
@@ -146,19 +146,67 @@ pub fn verify(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     Ok(out)
 }
 
-fn auto_text(data: &Value) -> String {
-    if data["paused"] == json!(true) {
-        format!(
-            "Auto-sync is paused since {} (reason: {}).",
-            str_of(data, "since"),
-            str_of(data, "reason")
-        )
+fn paused_line(data: &Value) -> String {
+    format!(
+        "Auto-sync is paused since {} (reason: {}).",
+        str_of(data, "since"),
+        str_of(data, "reason")
+    )
+}
+
+fn schedule_line(schedule: &Value) -> String {
+    let when = schedule["when"].as_str().unwrap_or("no schedule");
+    if schedule["present"] == json!(false) {
+        return format!(
+            "The task {} is not available, so nothing runs the sync.",
+            str_of(schedule, "task")
+        );
+    }
+    if schedule["enabled"] == json!(true) {
+        let next = schedule["nextRun"]
+            .as_str()
+            .map_or(String::new(), |at| format!(", next run {at}"));
+        format!("Auto-sync is on: {when}{next}.")
     } else {
-        "Auto-sync is running.".to_string()
+        format!("Auto-sync is off ({when}); turn it on with `toolportctl skills auto on`.")
     }
 }
 
+fn last_run_line(run: &Value) -> String {
+    let held = run["held"].as_array().map_or(0, Vec::len);
+    let mut line = format!(
+        "Last run {}: {} applied, {held} held, {} skipped.",
+        str_of(run, "at"),
+        run["applied"],
+        run["skipped"]
+    );
+    if let Some(error) = run["error"].as_str() {
+        line.push_str(&format!(" It failed: {error}"));
+    }
+    line
+}
+
+fn auto_text(data: &Value) -> String {
+    let mut lines = Vec::new();
+    if data["schedule"].is_object() {
+        lines.push(schedule_line(&data["schedule"]));
+    }
+    if data["paused"] == json!(true) {
+        lines.push(paused_line(data));
+    } else if !data["schedule"].is_object() {
+        lines.push("Auto-sync is not paused.".to_string());
+    }
+    if data["lastRun"].is_object() {
+        lines.push(last_run_line(&data["lastRun"]));
+    }
+    lines.join("\n")
+}
+
 const NONE: Spec = Spec { flags: &[], ..BASE };
+pub(super) const SWITCH: Spec = Spec {
+    flags: &[switch("--dry-run")],
+    ..BASE
+};
 
 fn auto_run(
     host: &dyn Host,
@@ -177,7 +225,7 @@ fn auto_run(
 }
 
 pub fn auto_status(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
-    auto_run(host, rest, auto::status_op, ("", ""))
+    auto_run(host, rest, || auto::full_status_op(host), ("", ""))
 }
 
 pub fn auto_pause(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
@@ -191,4 +239,29 @@ pub fn auto_pause(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> 
 
 pub fn auto_resume(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     auto_run(host, rest, auto::resume_op, ("Resumed.", "Was not paused."))
+}
+
+fn auto_switch(host: &dyn Host, rest: &[String], enabled: bool) -> Result<Output, CtlError> {
+    let flags = SWITCH.parse(rest)?;
+    let _paths = enter_paths(host, None);
+    let data = served(auto::switch_op(host, enabled, flags.on("--dry-run")))?;
+    let mut human = data["plan"]["summary"].as_str().unwrap_or("").to_string();
+    for warning in strings(&data["plan"], "warnings") {
+        human.push_str(&format!("\nwarning: {warning}"));
+    }
+    if data["dryRun"] == json!(true) {
+        human.push_str("\n(dry run, nothing changed)");
+    } else if let Some(undo) = data["result"]["undo"].as_str() {
+        human.push_str(&format!("\nundo: {undo}"));
+    }
+    human.push_str(&format!("\n{}", schedule_line(&data["schedule"])));
+    Ok(Output::new(data, human))
+}
+
+pub fn auto_on(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    auto_switch(host, rest, true)
+}
+
+pub fn auto_off(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    auto_switch(host, rest, false)
 }

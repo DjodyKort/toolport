@@ -276,9 +276,25 @@ pub const TOOLS: &[ToolDef] = &[
         "skills_auto_status",
         1,
         None,
-        "Whether the unattended sync is paused, since when and why (undo or manual)",
+        "Whether the unattended sync is scheduled (on or off, when it runs next, how its task last ran), whether it is paused and why (undo or manual), and what the last unattended run applied and held",
         [],
         skills::auto_status
+    ),
+    tool!(
+        "skills_auto_on",
+        2,
+        None,
+        "Schedule the unattended sync every morning by turning on the shipped task skills-auto-sync. Asks the person to approve it through the approval broker, because the schedule then runs on its own. Pass dry_run to see the change without making it",
+        [p("dry_run", Ty::Bool, false, "Report the change only; nothing is asked and nothing changes")],
+        skills::auto_on
+    ),
+    tool!(
+        "skills_auto_off",
+        2,
+        None,
+        "Stop scheduling the unattended sync by turning off the shipped task skills-auto-sync; asks nothing. Pass dry_run to see the change without making it",
+        [p("dry_run", Ty::Bool, false, "Report the change only; nothing changes")],
+        skills::auto_off
     ),
     tool!(
         "skills_auto_pause",
