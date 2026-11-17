@@ -953,6 +953,21 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "skills_files",
+        &[
+            read("demo", "skills_files", r#"{"name":"demo"}"#),
+            hook("files", World::checks_files),
+            read("acceptance", "skills_files", r#"{"name":"acceptance"}"#),
+            setup("skills_sync", CLAUDE_APPLY),
+            read(
+                "synced",
+                "skills_files",
+                r#"{"name":"acceptance","client_keys":["claude-code"]}"#,
+            ),
+            fails("missing", "not_found", "skills_files", r#"{"name":"nope"}"#),
+        ],
+    ),
+    case(
         "skills_fix",
         &[
             hook("files", World::checks_files),

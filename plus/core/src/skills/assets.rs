@@ -69,6 +69,16 @@ pub fn rel_string(rel: &Path) -> String {
         .join("/")
 }
 
+/// The deny-list as the screen prints it: folders with a trailing slash, suffixes as globs.
+pub fn deny_list() -> Vec<String> {
+    DENY_DIRS
+        .iter()
+        .map(|dir| format!("{dir}/"))
+        .chain(DENY_FILES.iter().map(|file| (*file).to_string()))
+        .chain(DENY_SUFFIXES.iter().map(|suffix| format!("*{suffix}")))
+        .collect()
+}
+
 /// The deny-list rule that excludes a folder entry, if any.
 pub fn denied_by(name: &str, is_dir: bool) -> Option<String> {
     if is_dir {

@@ -311,6 +311,11 @@ pub const COMMANDS: &[Command] = &[
         skills::lint,
     ),
     cmd(
+        &["skills", "files"],
+        "List every file of a skill with what the next sync does to it (<skill>, --repo, --home, --client <key>, --project)",
+        skills_checks::files,
+    ),
+    cmd(
         &["skills", "fix"],
         "Apply the one safe lint fix: make hook scripts executable (chmod [<skill>...], --repo, --home, --dry-run)",
         skills_checks::fix,

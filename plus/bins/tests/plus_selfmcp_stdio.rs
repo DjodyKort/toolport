@@ -148,7 +148,7 @@ fn the_self_mcp_server_and_toolportctl_mcp_call_give_the_same_result() {
         // The tools that name a server, a skill or a folder need one; the others take no arguments.
         let arguments = match name {
             "servers_get" => json!({"name": "alpha"}),
-            "skills_get" => json!({"name": "demo"}),
+            "skills_get" | "skills_files" => json!({"name": "demo"}),
             "agents_get" => json!({"name": "helper"}),
             "styles_get" => json!({"name": "plain"}),
             "skills_search" => json!({"query": "demo"}),

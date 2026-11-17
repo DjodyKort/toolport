@@ -1,0 +1,7 @@
+{
+  "command": "skills files",
+  "dryRun": "none",
+  "name": "skills_files",
+  "tier": "read",
+  "toolTier": 1
+}

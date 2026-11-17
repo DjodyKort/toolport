@@ -1,0 +1,60 @@
+{
+  "arguments": {
+    "name": "demo"
+  },
+  "isError": false,
+  "result": {
+    "counts": {
+      "copied": 0,
+      "differs": 0,
+      "hand-edited": 0,
+      "not-copied": 0,
+      "not-yours": 0,
+      "removed-on-next-sync": 0,
+      "would-copy": 1
+    },
+    "denyList": [
+      ".git/",
+      "__pycache__/",
+      "node_modules/",
+      ".venv/",
+      ".pytest_cache/",
+      "dist/",
+      "build/",
+      "target/",
+      ".DS_Store",
+      "*.pyc",
+      "*.log"
+    ],
+    "description": {
+      "length": 22,
+      "limit": 1536,
+      "specLimit": 1024
+    },
+    "files": [
+      {
+        "client": "claude-code",
+        "op": "add",
+        "path": "SKILL.md",
+        "reason": null,
+        "size": 65,
+        "status": "would-copy"
+      }
+    ],
+    "installed": [
+      {
+        "client": "claude-code",
+        "dir": "<WORLD>/home/.claude/skills/demo",
+        "present": false
+      }
+    ],
+    "links": [],
+    "lockfilePresent": false,
+    "repo": "<WORLD>/skills-repo",
+    "skill": "demo",
+    "source": "<WORLD>/skills-repo/skills/demo",
+    "targetedClients": ["claude-code"],
+    "type": "skill"
+  },
+  "tool": "skills_files"
+}

@@ -1,0 +1,87 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": ["--repo"],
+      "effect": "Skills repository (default: the configured one)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--path",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Home folder the outputs live under",
+      "escalates": false,
+      "hidden": false,
+      "name": "--home",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Only this client key (repeatable)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--client",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Read the project lock",
+      "escalates": false,
+      "hidden": false,
+      "name": "--project",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Read the user lock (the default)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--global",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "skills",
+  "id": "skills files",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "skill",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["skills", "files"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "List every file of a skill with what the next sync does to it (<skill>, --repo, --home, --client <key>, --project)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["skills_files"]
+}

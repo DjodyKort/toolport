@@ -1294,6 +1294,34 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "skills files",
+        &[
+            read("demo", &["skills", "files", "demo", "--repo", "{repo}"]),
+            hook("files", checks_files),
+            read(
+                "checks",
+                &["skills", "files", "acceptance", "--repo", "{repo}"],
+            ),
+            setup(
+                "sync",
+                &[
+                    "skills",
+                    "sync",
+                    "--repo",
+                    "{repo}",
+                    "--client",
+                    "claude-code",
+                ],
+            ),
+            read(
+                "synced",
+                &["skills", "files", "acceptance", "--repo", "{repo}"],
+            ),
+            read("unknown", &["skills", "files", "nope", "--repo", "{repo}"]).exit(1),
+            usage("usage", &["skills", "files", "--repo", "{repo}"]),
+        ],
+    ),
+    case(
         "skills fix",
         &[
             hook("files", checks_files),

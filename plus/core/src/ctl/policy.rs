@@ -460,6 +460,10 @@ pub(super) const ROWS: &[Row] = &[
     row("skills auto resume", W).skip("clears the pause flag in the data dir; golden step"),
     row("skills ls", R).spec(&[&skills::LS_SOURCE]),
     row("skills lint", R).spec(&[&skills::LINT]),
+    row("skills files", R)
+        .spec(&[&skills_checks::FILES])
+        .args(&[req("skill")])
+        .smoke(&["demo"]),
     row("skills fix", W)
         .dry()
         .spec(&[&skills_checks::FIX])
@@ -864,6 +868,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("skills_list", R, "skills ls"),
     own("skills_get", R),
     maps("skills_lint", R, "skills lint"),
+    maps("skills_files", R, "skills files"),
     maps("skills_fix", W, "skills fix").on(),
     maps("skills_status", R, "skills status"),
     maps("skills_diff", R, "skills diff"),

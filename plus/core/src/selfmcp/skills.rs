@@ -12,6 +12,7 @@ use crate::op::ErrorKind;
 use crate::skills::agents::handlers as agents;
 use crate::skills::api::{self, Args};
 use crate::skills::auto;
+use crate::skills::files::skill_files;
 use crate::skills::repo::{skill_bucket, skill_template};
 use crate::skills::styles::handlers as styles;
 use crate::skills::{repo_handlers, state, tap_handlers as taps, SystemClock};
@@ -123,6 +124,10 @@ pub(super) fn get(host: &dyn Host, args: &Value) -> Outcome {
 
 pub(super) fn lint(host: &dyn Host, args: &Value) -> Outcome {
     with_paths(host, || Ok(api::lint(&Args::from_json(args))?))
+}
+
+pub(super) fn files(host: &dyn Host, args: &Value) -> Outcome {
+    with_paths(host, || Ok(skill_files(&Args::from_json(args))?))
 }
 
 pub(super) fn fix(host: &dyn Host, args: &Value) -> Outcome {

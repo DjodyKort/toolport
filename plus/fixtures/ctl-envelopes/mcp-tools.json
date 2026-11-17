@@ -113,6 +113,39 @@
           "tier": 1
         },
         {
+          "description": "Every file of one library skill with what the next sync does to it (copied, would-copy, differs, hand-edited, removed-on-next-sync, not-copied with its reason, not-yours), its links and the two description limits",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "skills_files",
+          "params": [
+            {
+              "description": "Skill or rule name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Client keys to target",
+              "name": "client_keys",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "User-level locations, the default; false works inside the repository",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 1
+        },
+        {
           "description": "Apply the one safe lint fix: fix=chmod makes the hook scripts of skills executable; dry_run is on by default (apply with dry_run=false and confirm=true)",
           "dryRunDefault": true,
           "gate": "unless-dry-run",

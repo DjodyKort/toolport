@@ -10,6 +10,7 @@ pub mod bundle;
 pub mod client_scope;
 pub mod clock;
 pub mod collisions;
+pub mod files;
 pub mod fix;
 pub mod frontmatter;
 pub mod git;

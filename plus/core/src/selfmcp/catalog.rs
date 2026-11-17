@@ -158,6 +158,14 @@ pub const TOOLS: &[ToolDef] = &[
         skills::lint
     ),
     tool!(
+        "skills_files",
+        1,
+        None,
+        "Every file of one library skill with what the next sync does to it (copied, would-copy, differs, hand-edited, removed-on-next-sync, not-copied with its reason, not-yours), its links and the two description limits",
+        [SKILL_NAME, REPO, CLIENTS, GLOBAL],
+        skills::files
+    ),
+    tool!(
         "skills_fix",
         2,
         UnlessDryRun,

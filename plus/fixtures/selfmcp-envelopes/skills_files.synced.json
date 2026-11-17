@@ -1,0 +1,120 @@
+{
+  "arguments": {
+    "client_keys": ["claude-code"],
+    "name": "acceptance"
+  },
+  "isError": false,
+  "result": {
+    "counts": {
+      "copied": 5,
+      "differs": 0,
+      "hand-edited": 0,
+      "not-copied": 1,
+      "not-yours": 0,
+      "removed-on-next-sync": 0,
+      "would-copy": 0
+    },
+    "denyList": [
+      ".git/",
+      "__pycache__/",
+      "node_modules/",
+      ".venv/",
+      ".pytest_cache/",
+      "dist/",
+      "build/",
+      "target/",
+      ".DS_Store",
+      "*.pyc",
+      "*.log"
+    ],
+    "description": {
+      "length": 1200,
+      "limit": 1536,
+      "specLimit": 1024
+    },
+    "files": [
+      {
+        "client": "claude-code",
+        "op": "unchanged",
+        "path": "SKILL.md",
+        "reason": null,
+        "size": 1384,
+        "status": "copied"
+      },
+      {
+        "client": "claude-code",
+        "op": "unchanged",
+        "path": "SETUP.md",
+        "reason": null,
+        "size": 8,
+        "status": "copied"
+      },
+      {
+        "client": "claude-code",
+        "op": "unchanged",
+        "path": "references/guide.md",
+        "reason": null,
+        "size": 6,
+        "status": "copied"
+      },
+      {
+        "client": "claude-code",
+        "op": "unchanged",
+        "path": "scripts/stop.sh",
+        "reason": null,
+        "size": 10,
+        "status": "copied"
+      },
+      {
+        "client": "claude-code",
+        "op": "unchanged",
+        "path": "templates/x/.gitignore",
+        "reason": null,
+        "size": 6,
+        "status": "copied"
+      },
+      {
+        "client": null,
+        "op": null,
+        "path": ".DS_Store",
+        "reason": "on the deny-list (.DS_Store)",
+        "size": 1,
+        "status": "not-copied"
+      }
+    ],
+    "installed": [
+      {
+        "client": "claude-code",
+        "dir": "<WORLD>/home/.claude/skills/acceptance",
+        "present": true
+      }
+    ],
+    "links": [
+      {
+        "line": 11,
+        "reason": null,
+        "state": "installed",
+        "target": "SETUP.md"
+      },
+      {
+        "line": 11,
+        "reason": null,
+        "state": "installed",
+        "target": "references/guide.md"
+      },
+      {
+        "line": 11,
+        "reason": null,
+        "state": "missing",
+        "target": "references/gone.md"
+      }
+    ],
+    "lockfilePresent": true,
+    "repo": "<WORLD>/skills-repo",
+    "skill": "acceptance",
+    "source": "<WORLD>/skills-repo/skills/acceptance",
+    "targetedClients": ["claude-code"],
+    "type": "skill"
+  },
+  "tool": "skills_files"
+}

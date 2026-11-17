@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "files", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills files",
+    "error": {
+      "code": "usage",
+      "message": "missing skill name\nusage: skills files <skill> [--repo <dir>] [--home <dir>] [--client <key>]... [--project]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

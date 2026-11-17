@@ -1,4 +1,5 @@
 use super::api::{self, Args};
+use super::files::skill_files;
 use super::lint::{lint_outputs, Consequence};
 use super::parser::{discover_skills, Skill};
 use super::transpiler::{Capabilities, TranspileResult, Transpiler, TranspilerRegistry};
@@ -42,6 +43,10 @@ impl World {
         self.base.join("repo")
     }
 
+    fn installed(&self) -> PathBuf {
+        self.base.join("home/.claude/skills/nacht")
+    }
+
     fn put(&self, rel: &str, body: &str) {
         let path = self.repo().join(rel);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -54,6 +59,18 @@ impl World {
             name: "nacht".into(),
             ..Args::default()
         }
+    }
+
+    fn sync(&self, apply_held: bool) {
+        let args = Args {
+            apply_held,
+            ..self.args()
+        };
+        api::sync(&args, Some(&MemoryHost::default())).unwrap();
+    }
+
+    fn files(&self) -> Value {
+        skill_files(&self.args()).unwrap()
     }
 
     fn lint(&self) -> Vec<Value> {
@@ -72,6 +89,18 @@ fn row<'a>(rows: &'a [Value], code: &str) -> &'a Value {
     rows.iter()
         .find(|m| m["code"] == code)
         .unwrap_or_else(|| panic!("no {code} row in {rows:?}"))
+}
+
+fn status_of(data: &Value, path: &str) -> String {
+    data["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["path"] == path)
+        .unwrap_or_else(|| panic!("no {path} in {data}"))["status"]
+        .as_str()
+        .unwrap()
+        .to_string()
 }
 
 fn make_unreadable(w: &World) {
@@ -362,4 +391,136 @@ mod hooks {
         assert_eq!(done["fixed"][0]["skill"], "other");
         assert_eq!(mode(&w), 0o644);
     }
+}
+
+#[test]
+fn test13_files_before_the_first_sync_would_all_be_copied() {
+    let w = World::new("fresh");
+    w.put("skills/nacht/.DS_Store", "x");
+    let data = w.files();
+    assert_eq!(data["skill"], "nacht");
+    assert_eq!(status_of(&data, "SKILL.md"), "would-copy");
+    assert_eq!(status_of(&data, "SETUP.md"), "would-copy");
+    assert_eq!(status_of(&data, "references/guide.md"), "would-copy");
+    assert_eq!(status_of(&data, "templates/x/.gitignore"), "would-copy");
+    assert_eq!(status_of(&data, ".DS_Store"), "not-copied");
+    let skipped = data["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["path"] == ".DS_Store")
+        .unwrap();
+    assert!(skipped["reason"].as_str().unwrap().contains("deny-list"));
+    assert_eq!(data["counts"]["would-copy"], 4);
+    assert_eq!(data["counts"]["not-copied"], 1);
+    assert_eq!(data["files"][0]["path"], "SKILL.md");
+    assert_eq!(data["installed"][0]["present"], false);
+    assert!(data["denyList"]
+        .as_array()
+        .unwrap()
+        .contains(&Value::from(".git/")));
+    assert_eq!(data["description"]["limit"], 1536);
+}
+
+#[test]
+fn test14_files_after_a_sync_are_copied_and_a_hand_edit_is_marked() {
+    let w = World::new("edited");
+    w.sync(false);
+    let data = w.files();
+    assert_eq!(data["counts"]["copied"], 4);
+    assert_eq!(status_of(&data, "SETUP.md"), "copied");
+    fs::write(w.installed().join("SETUP.md"), "# mine\n").unwrap();
+    fs::write(w.repo().join("skills/nacht/SETUP.md"), "# new\n").unwrap();
+    let edited = w.files();
+    assert_eq!(status_of(&edited, "SETUP.md"), "hand-edited");
+    assert_eq!(status_of(&edited, "references/guide.md"), "copied");
+}
+
+#[test]
+fn test15_a_changed_source_would_copy_and_an_untracked_different_file_differs() {
+    let w = World::new("differs");
+    w.sync(false);
+    fs::write(w.repo().join("skills/nacht/references/guide.md"), "v2\n").unwrap();
+    assert_eq!(status_of(&w.files(), "references/guide.md"), "would-copy");
+    let fresh = World::new("differs-untracked");
+    fs::create_dir_all(fresh.installed()).unwrap();
+    fs::write(fresh.installed().join("SETUP.md"), "by hand\n").unwrap();
+    assert_eq!(status_of(&fresh.files(), "SETUP.md"), "differs");
+}
+
+#[test]
+fn test16_a_file_dropped_from_the_library_is_removed_on_the_next_confirmed_sync() {
+    let w = World::new("removal");
+    w.sync(false);
+    fs::remove_file(w.repo().join("skills/nacht/SETUP.md")).unwrap();
+    let data = w.files();
+    assert_eq!(status_of(&data, "SETUP.md"), "removed-on-next-sync");
+    assert_eq!(data["counts"]["removed-on-next-sync"], 1);
+    w.sync(true);
+    assert!(data_without(&w.files(), "SETUP.md"));
+}
+
+fn data_without(data: &Value, path: &str) -> bool {
+    !data["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|f| f["path"] == path)
+}
+
+#[test]
+fn test17_a_file_the_sync_never_wrote_is_not_yours_and_stays() {
+    let w = World::new("foreign");
+    w.sync(false);
+    fs::create_dir_all(w.installed().join("notes")).unwrap();
+    fs::write(w.installed().join("notes/mine.md"), "mine\n").unwrap();
+    let data = w.files();
+    assert_eq!(status_of(&data, "notes/mine.md"), "not-yours");
+    assert_eq!(data["counts"]["not-yours"], 1);
+    w.sync(true);
+    assert!(Path::new(&w.installed().join("notes/mine.md")).exists());
+}
+
+#[test]
+fn test18_links_list_every_relative_link_with_what_the_sync_does_with_it() {
+    let w = World::new("linkstate");
+    w.put("skills/nacht/build/out.md", "x");
+    w.put(
+        "skills/nacht/SKILL.md",
+        "---\nname: nacht\ndescription: \"Runs night jobs. Use when work should continue unattended.\"\n---\n\nSee [a](references/guide.md), [b](build/out.md), [c](nope.md) and [d](../x.md).\n",
+    );
+    let data = w.files();
+    let states: Vec<(String, String)> = data["links"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| {
+            (
+                l["target"].as_str().unwrap().to_string(),
+                l["state"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        states,
+        [
+            ("references/guide.md".into(), "installed".into()),
+            ("build/out.md".into(), "not-installed".into()),
+            ("nope.md".into(), "missing".into()),
+            ("../x.md".into(), "outside-folder".into()),
+        ]
+    );
+    assert_eq!(data["links"][0]["line"], 6);
+}
+
+#[test]
+fn test19_files_of_an_unknown_skill_is_not_found_and_writes_nothing() {
+    let w = World::new("unknown");
+    let args = Args {
+        name: "nope".into(),
+        ..w.args()
+    };
+    let error = skill_files(&args).unwrap_err();
+    assert!(error.message.contains("skill not found: nope"));
+    assert!(!w.base.join("home/.claude").exists());
 }
