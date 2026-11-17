@@ -1,4 +1,6 @@
 {
   "title": "Hooks & compression",
-  "status": "planned"
+  "page": "view:context",
+  "status": "built",
+  "component": "src/plus/compression/HooksCompression.tsx"
 }

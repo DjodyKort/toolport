@@ -1,14 +1,16 @@
-import { useCallback, useRef, useState, type KeyboardEvent } from "react";
+import { lazy, Suspense, useCallback, useRef, useState, type KeyboardEvent } from "react";
 import { FolderOpen } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { useLoad } from "../servers/useLoad";
 import { listBundles } from "./commands";
 import Bundles from "./Bundles";
 import FolderPicker from "./FolderPicker";
-import HooksCompression from "./HooksCompression";
 import RulesLaunch from "./RulesLaunch";
 import ThisFolder from "./ThisFolder";
 import { useFolder } from "./useFolder";
+
+const HooksCompression = lazy(() => import("../compression/HooksCompression"));
 
 const TABS = [
   { id: "folder", label: "This folder" },
@@ -109,7 +111,13 @@ export default function ContextScreen() {
             )}
             {tab === "bundles" && <Bundles folder={folder} home={home} />}
             {tab === "rules" && <RulesLaunch home={home} />}
-            {tab === "hooks" && <HooksCompression />}
+            {tab === "hooks" && (
+              <Suspense
+                fallback={<SkeletonRows label="Loading the compression hooks…" />}
+              >
+                <HooksCompression />
+              </Suspense>
+            )}
           </>
         )}
       </div>

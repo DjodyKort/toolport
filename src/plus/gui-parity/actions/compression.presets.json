@@ -1,5 +1,5 @@
 {
-  "route": "compression",
+  "route": "compression-engine",
   "status": "planned",
   "summary": "List the presets and refresh their snapshots from the engine (compression presets)"
 }

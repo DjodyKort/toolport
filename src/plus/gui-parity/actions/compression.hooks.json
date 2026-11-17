@@ -1,5 +1,6 @@
 {
   "route": "compression",
-  "status": "planned",
-  "summary": "The rtk and read-once hook entries: wrapped or not, counted calls and latency, apply and Undo, pause and resume (hooks status, apply, undo, pause, resume)"
+  "status": "built",
+  "summary": "The rtk and read-once hook entries: adopt and Undo, counted calls with the median and 95th percentile latency, health (ok, edited by hand, missing) with restore or re-apply, pause and resume (hooks status, apply, undo, pause, resume)",
+  "test": "src/plus/compression/HooksCompression.test.tsx"
 }

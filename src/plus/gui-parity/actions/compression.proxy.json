@@ -1,5 +1,5 @@
 {
-  "route": "compression",
+  "route": "compression-engine",
   "status": "planned",
   "summary": "Start, stop and restart the local proxy (proxy up, down, restart)"
 }

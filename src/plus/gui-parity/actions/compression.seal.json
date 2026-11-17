@@ -1,5 +1,5 @@
 {
-  "route": "compression",
+  "route": "compression-engine",
   "status": "planned",
   "summary": "Declare the live proxy posture as policy (seal)"
 }

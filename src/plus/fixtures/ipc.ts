@@ -1,6 +1,7 @@
 import type { CtlEnvelope, CtlResult } from "../bridge/ctl";
 import { registerAttentionFeed } from "../shell/attentionFeed";
 import { setClock } from "../tasks/clock";
+import type { HooksScenario, MeasureScenario } from "./compressionWorld";
 import { FIXTURE_NOW, type TaskWorldOptions } from "./taskWorld";
 import {
   fixtureServers,
@@ -139,9 +140,13 @@ function loginWorld(params: URLSearchParams) {
   };
 }
 
+const HOOK_SCENARIOS = ["adopt", "on", "paused", "missing", "edited", "none"];
+
 /** `?plus-bell` shows the footer bell with three rows. `?plus-self=missing|enabled|disabled|opted-out|not-enabled`, `?plus-doctor=warn|fail` and
  * `?plus-bridge=down` pick the state the fixture page starts in. `?plus-restart=busy|partial|none|slow`
- * picks how a server restart answers, `?plus-measured=fresh|stale`, `?plus-measure=slow|fail` and `?plus-bundles=none` set the Context screen's world, and `?plus-default=<access set id>` the default access; the servers follow
+ * picks how a server restart answers, `?plus-measured=fresh|stale`, `?plus-measure=slow|fail` and `?plus-bundles=none` set the Context screen's world,
+ * `?plus-compression=adopt|on|paused|missing|edited|none` the hooks of its Hooks & compression tab and
+ * `?plus-measurements=compared|empty` its measurements, and `?plus-default=<access set id>` the default access; the servers follow
  * `?auth-guidance` of the app fixture. */
 export function plusFixtureFromSearch(search: string) {
   const params = new URLSearchParams(search);
@@ -162,6 +167,14 @@ export function plusFixtureFromSearch(search: string) {
         ? (params.get("plus-measure") as "slow" | "fail")
         : "ok",
       bundles: params.get("plus-bundles") !== "none",
+    },
+    compression: {
+      hooks: HOOK_SCENARIOS.includes(params.get("plus-compression") ?? "")
+        ? (params.get("plus-compression") as HooksScenario)
+        : "adopt",
+      measure: ["compared", "empty"].includes(params.get("plus-measurements") ?? "")
+        ? (params.get("plus-measurements") as MeasureScenario)
+        : "refused",
     },
     down: params.get("plus-bridge") === "down",
     servers: {

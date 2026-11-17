@@ -1,5 +1,6 @@
 {
   "route": "compression",
-  "status": "planned",
-  "summary": "Provider, preset, engine pin and shims of the compression policy (compression status)"
+  "status": "built",
+  "summary": "The providers of the policy: the hook tiles, the proxy and the locked hosted engine with their trust, and the engine pin read-out under Advanced (compression status)",
+  "test": "src/plus/compression/HooksCompression.test.tsx"
 }

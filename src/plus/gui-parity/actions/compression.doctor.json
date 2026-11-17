@@ -1,5 +1,6 @@
 {
   "route": "compression",
-  "status": "planned",
-  "summary": "Engine, pin and shims checks (doctor)"
+  "status": "built",
+  "summary": "Verify all: the entries read back from settings.json and the engine, pin and shim checks of the policy (doctor)",
+  "test": "src/plus/compression/HooksCompression.test.tsx"
 }

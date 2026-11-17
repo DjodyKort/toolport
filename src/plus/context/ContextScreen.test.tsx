@@ -412,15 +412,14 @@ describe("Context screen", () => {
     expect(ranArgv()).toContainEqual(["context", "sync", "--dry-run"]);
   });
 
-  it("test17_hooks_and_compression_says_it_lands_with_s7_and_reads_nothing", async () => {
+  it("test17_hooks_and_compression_reads_the_hook_state_of_the_machine", async () => {
     setup();
     await onThisFolder();
-    const before = ranArgv().length;
     await userEvent.click(screen.getByRole("tab", { name: "Hooks & compression" }));
     expect(
-      await screen.findByText("Hooks and compression land with slice S7"),
+      await screen.findByText("Toolport found 2 compression hooks it did not write"),
     ).toBeVisible();
-    expect(ranArgv()).toHaveLength(before);
+    expect(ranArgv()).toContainEqual(["compression", "hooks", "status"]);
   });
 
   it("test18_tabs_follow_the_arrow_keys_and_the_folder_chip_belongs_to_three_of_them", async () => {

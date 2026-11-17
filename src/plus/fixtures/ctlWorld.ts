@@ -1,5 +1,6 @@
 import { commandsGolden } from "./commandsGolden";
 import toolsGolden from "../../../plus/fixtures/ctl-envelopes/mcp-tools.json";
+import { createCompressionWorld, type CompressionWorldOptions } from "./compressionWorld";
 import { createContextWorld, type ContextWorldOptions } from "./contextWorld";
 import { createServerWorld, type ServerWorldOptions } from "./serverWorld";
 import { createTaskWorld, type TaskWorldOptions } from "./taskWorld";
@@ -45,6 +46,8 @@ export interface WorldOptions {
   tasks?: TaskWorldOptions;
   /** The Context screen's folders, bundles and measurements. */
   context?: ContextWorldOptions;
+  /** The hook entries, the pause and the measurements of the Hooks & compression tab. */
+  compression?: CompressionWorldOptions;
 }
 
 /** A small in-memory toolportctl: enough state for install, uninstall and doctor to answer the way
@@ -54,6 +57,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
   const serverWorld = createServerWorld({ setIds: accessSets, ...options.servers });
   const taskWorld = createTaskWorld(options.tasks);
   const contextWorld = createContextWorld(options.context);
+  const compressionWorld = createCompressionWorld(options.compression);
   const defaultAccess = accessSets[0] ?? null;
   const doctorMode = options.doctor ?? "ok";
   let state: SelfMcpState = options.self ?? "missing";
@@ -290,6 +294,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
       if (first === "auth") return serverWorld.auth(key);
       if (first === "task") return taskWorld.run(key.slice(1), stdin);
       if (first === "context" || first === "plugins") return contextWorld.run(key);
+      if (first === "compression") return compressionWorld.run(key);
       if (first === "mcp") {
         if (second === "install") return install(key);
         if (second === "uninstall") return uninstall();

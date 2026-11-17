@@ -1,5 +1,5 @@
 {
-  "route": "compression",
+  "route": "compression-engine",
   "status": "planned",
   "summary": "Launch claude under the folder policy; terminal only (run)"
 }

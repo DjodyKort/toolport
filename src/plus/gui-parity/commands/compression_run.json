@@ -1,5 +1,5 @@
 {
-  "route": "compression",
+  "route": "compression-engine",
   "action": "compression.run",
   "surface": "terminal"
 }

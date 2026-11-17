@@ -1,5 +1,6 @@
 {
   "route": "compression",
-  "status": "planned",
-  "summary": "The four honest questions with their population and limits: where context tokens come from, what the hooks did, the billed outcome per epoch and a rework check (measure, compression_measure)"
+  "status": "built",
+  "summary": "The four honest questions with their population and limits: where context tokens come from, what the hooks did, the billed outcome per epoch with a refusal when a window is thin, and a rework check; one missing source never blanks the page (measure, compression_measure)",
+  "test": "src/plus/compression/HooksCompression.test.tsx"
 }
