@@ -145,10 +145,11 @@ pub fn publish_state(dir: &Path, declarations: &Declarations) -> std::io::Result
     let _guard = PUBLISHING.lock().unwrap_or_else(PoisonError::into_inner);
     let dir = dir.join(STATE_DIR);
     std::fs::create_dir_all(&dir)?;
-    let pid = std::process::id();
-    let scratch = dir.join(format!("{pid}.tmp"));
-    std::fs::write(&scratch, declarations.snapshot().to_string())?;
-    std::fs::rename(&scratch, dir.join(format!("{pid}.json")))?;
+    crate::fsx::atomic_write(
+        &dir.join(format!("{}.json", std::process::id())),
+        &declarations.snapshot().to_string(),
+        crate::fsx::Mode::Private,
+    )?;
     for entry in std::fs::read_dir(&dir)?.flatten() {
         if state_pid(&entry.path()).is_some_and(|other| !crate::tasks::proc::alive(other)) {
             let _ = std::fs::remove_file(entry.path());
