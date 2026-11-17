@@ -1,0 +1,13 @@
+{
+  "argv": ["sources", "root", "add", "{home}/work"],
+  "envelope": {
+    "command": "sources root add",
+    "error": {
+      "code": "conflict",
+      "message": "<WORLD>/home/work is already a source root"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

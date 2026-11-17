@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "ls", "--source", "nope"],
+  "envelope": {
+    "command": "skills ls",
+    "error": {
+      "code": "skills",
+      "message": "unknown source: nope"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

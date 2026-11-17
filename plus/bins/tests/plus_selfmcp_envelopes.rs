@@ -952,6 +952,21 @@ const CASES: &[Case] = &[
             read("checks", "skills_lint", "{}"),
         ],
     ),
+    prepared(
+        "sources_ls",
+        sources_home,
+        &[
+            read("summary", "sources_ls", "{}"),
+            read("items", "sources_ls", r#"{"items":true,"kind":"skill"}"#),
+            read("org", "sources_ls", r#"{"source":"org","items":true}"#),
+            fails(
+                "bad_kind",
+                "invalid_arguments",
+                "sources_ls",
+                r#"{"kind":"nope"}"#,
+            ),
+        ],
+    ),
     case(
         "skills_files",
         &[
@@ -1466,6 +1481,10 @@ fn arguments(world: &World, case: &Case, call: &Call) -> Value {
         .replace("{base}", &world.base.to_string_lossy());
     serde_json::from_str(&expanded)
         .unwrap_or_else(|e| panic!("{} {}: arguments are not JSON: {e}", case.tool, call.label))
+}
+
+fn sources_home(world: &World) {
+    common::sources_world::build_in(&world.base);
 }
 
 fn demo_skill_file(world: &World) {

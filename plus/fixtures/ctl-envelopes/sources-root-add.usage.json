@@ -1,0 +1,13 @@
+{
+  "argv": ["sources", "root", "add"],
+  "envelope": {
+    "command": "sources root add",
+    "error": {
+      "code": "usage",
+      "message": "usage: sources root add|rm <dir> [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

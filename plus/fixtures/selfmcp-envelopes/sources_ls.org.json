@@ -1,0 +1,114 @@
+{
+  "arguments": {
+    "items": true,
+    "source": "org"
+  },
+  "isError": false,
+  "result": {
+    "generatedAt": "<TIME>",
+    "items": [
+      {
+        "audit": "unchecked",
+        "kind": "command",
+        "lazy": true,
+        "name": "odoo-upgrade",
+        "origin": {
+          "kind": "org",
+          "name": "corp-tools"
+        },
+        "path": "<WORLD>/home/.claude/commands/odoo-upgrade.md",
+        "shadowedBy": null,
+        "sourceId": "org",
+        "tokens": {
+          "basis": "estimate",
+          "value": 5
+        },
+        "writable": false
+      },
+      {
+        "audit": "unchecked",
+        "kind": "command",
+        "lazy": true,
+        "name": "ship",
+        "origin": {
+          "kind": "org",
+          "name": "corp-tools"
+        },
+        "path": "<WORLD>/home/.claude/commands/ship.md",
+        "shadowedBy": null,
+        "sourceId": "org",
+        "tokens": {
+          "basis": "estimate",
+          "value": 2
+        },
+        "writable": false
+      },
+      {
+        "audit": "unchecked",
+        "kind": "memory",
+        "lazy": false,
+        "name": "CLAUDE.md",
+        "origin": {
+          "kind": "org",
+          "name": "corp-tools"
+        },
+        "path": "<WORLD>/home/.claude/CLAUDE.md",
+        "shadowedBy": null,
+        "sourceId": "org",
+        "tokens": {
+          "basis": "estimate",
+          "value": 9
+        },
+        "writable": false
+      }
+    ],
+    "partial": false,
+    "skipped": [],
+    "sources": [
+      {
+        "counts": {
+          "agent": 0,
+          "command": 2,
+          "memory": 1,
+          "rule": 0,
+          "skill": 0
+        },
+        "detector": "org",
+        "freshness": {
+          "ahead": 0,
+          "behind": 1,
+          "inCheckout": true,
+          "lastSync": "<TIME>",
+          "ref": "origin/main"
+        },
+        "id": "org",
+        "managedBy": "corp-tools sync (about every 4 h)",
+        "origin": {
+          "kind": "org",
+          "name": "corp-tools"
+        },
+        "owner": "org",
+        "root": "<WORLD>/home/.local/share/corp-tools",
+        "status": {
+          "checkedAt": "<TIME>",
+          "detail": "1 file(s) differ from the clone; the clone is 1 commit(s) behind origin/main; 1 clone command(s) are not deployed",
+          "state": "stale"
+        },
+        "tokens": {
+          "basis": "estimate",
+          "value": 16
+        },
+        "visible": {
+          "skill": 0,
+          "skillTotal": 0
+        },
+        "warnings": [
+          "command ship differs from the clone (not synced yet, or edited by hand)",
+          "shell-wrapper.sh changed since the hash recorded in context.json"
+        ],
+        "writable": false
+      }
+    ]
+  },
+  "tool": "sources_ls"
+}

@@ -1,0 +1,115 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Only this source or detector (library, repo:odh, tap:acme-skills)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--source",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "choices": ["skill", "command", "agent", "rule", "memory"],
+      "effect": "Only items of this kind",
+      "escalates": false,
+      "hidden": false,
+      "name": "--kind",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    },
+    {
+      "aliases": [],
+      "effect": "Also list every item (skill, command, agent, rule, memory), not only the sources",
+      "escalates": false,
+      "hidden": false,
+      "name": "--items",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Also read the repository around this folder",
+      "escalates": false,
+      "hidden": false,
+      "name": "--cwd",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Also look for checkouts in this folder (repeatable)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--root",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Double the time and depth budget of every detector",
+      "escalates": false,
+      "hidden": false,
+      "name": "--deep",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Ignore the scan cache and read everything again",
+      "escalates": false,
+      "hidden": false,
+      "name": "--refresh",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Test seam: <detector>=<milliseconds> time budget for one detector",
+      "escalates": false,
+      "hidden": true,
+      "name": "--budget",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    }
+  ],
+  "group": "sources",
+  "id": "sources ls",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["sources", "ls"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "List where skills, commands, agents, rules and CLAUDE.md come from (--source, --kind, --items, --cwd, --root, --deep, --refresh)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["sources_ls"]
+}

@@ -28,6 +28,7 @@ mod skills_repo;
 mod skills_state;
 mod skills_taps;
 mod skills_undo;
+mod sources;
 mod styles;
 mod task;
 
@@ -451,6 +452,26 @@ pub const COMMANDS: &[Command] = &[
         &["styles", "clean"],
         "Remove every synced and applied style file (--path, --home, --project, --dry-run)",
         styles::clean,
+    ),
+    cmd(
+        &["sources", "ls"],
+        "List where skills, commands, agents, rules and CLAUDE.md come from (--source, --kind, --items, --cwd, --root, --deep, --refresh)",
+        sources::ls,
+    ),
+    cmd(
+        &["sources", "root", "ls"],
+        "List the folders searched for repo checkouts",
+        sources::root_ls,
+    ),
+    cmd(
+        &["sources", "root", "add"],
+        "Search a folder for repo checkouts (<dir>, --dry-run)",
+        sources::root_add,
+    ),
+    cmd(
+        &["sources", "root", "rm"],
+        "Stop searching a folder (<dir>, --dry-run)",
+        sources::root_rm,
     ),
     cmd(
         &["library", "status"],

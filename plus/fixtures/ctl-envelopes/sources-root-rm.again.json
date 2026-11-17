@@ -1,0 +1,13 @@
+{
+  "argv": ["sources", "root", "rm", "{home}/dups"],
+  "envelope": {
+    "command": "sources root rm",
+    "error": {
+      "code": "not_found",
+      "message": "<WORLD>/home/dups: not a configured source root"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

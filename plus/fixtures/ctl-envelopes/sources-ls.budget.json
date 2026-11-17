@@ -1,0 +1,13 @@
+{
+  "argv": ["sources", "ls", "--budget", "repo"],
+  "envelope": {
+    "command": "sources ls",
+    "error": {
+      "code": "usage",
+      "message": "--budget needs <detector>=<milliseconds>"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["sources", "root", "add", "{home}/nowhere", "--dry-run"],
+  "envelope": {
+    "command": "sources root add",
+    "error": {
+      "code": "not_found",
+      "message": "not a directory: <WORLD>/home/nowhere"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

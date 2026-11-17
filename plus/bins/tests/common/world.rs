@@ -189,13 +189,16 @@ impl World {
     }
 
     /// Every file of the scratch tree, for "this step changed nothing" checks. Lock files are
-    /// left out: taking the registry lock creates one and is not state.
+    /// left out: taking the registry lock creates one and is not state, and neither is the scan
+    /// cache under `plus/cache`, which a read of the sources fills.
     pub fn snapshot(&self) -> BTreeMap<PathBuf, Vec<u8>> {
         fn collect(dir: &Path, files: &mut BTreeMap<PathBuf, Vec<u8>>) {
             for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
                 let path = entry.path();
                 if path.is_dir() {
-                    collect(&path, files);
+                    if !path.ends_with("plus/cache") {
+                        collect(&path, files);
+                    }
                 } else if path.extension().is_some_and(|ext| ext == "lock") {
                     continue;
                 } else if let Ok(bytes) = std::fs::read(&path) {

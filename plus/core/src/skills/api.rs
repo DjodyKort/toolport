@@ -214,11 +214,46 @@ fn library_row(skill: &Skill, origin: &Value, reason: Option<String>) -> Value {
     row
 }
 
+/// The skills, rules and commands of one source from the sources scan, in the shape of a library row.
+fn source_rows(id: &str) -> Result<Value, OpError> {
+    let report = crate::sources::scan_host(&crate::sources::ScanOptions {
+        source: Some(id.to_string()),
+        items: true,
+        ..Default::default()
+    })
+    .ok_or_else(|| OpError::not_found("home directory unknown"))?;
+    if report.sources.is_empty() {
+        return Err(OpError::not_found(format!("unknown source: {id}")));
+    }
+    let rows: Vec<Value> = report
+        .items
+        .iter()
+        .filter(|i| matches!(i.kind, "skill" | "rule" | "command"))
+        .map(|i| {
+            json!({
+                "name": i.name,
+                "description": i.description,
+                "activation": i.activation.as_deref().unwrap_or("auto"),
+                "type": i.kind,
+                "path": i.path,
+                "origin": i.origin,
+                "writable": i.writable,
+                "visible": i.visible,
+                "invisibleReason": i.invisible_reason,
+            })
+        })
+        .collect();
+    Ok(json!({
+        "repo": report.sources.first().and_then(|s| s.root.clone()),
+        "skills": rows,
+        "partial": report.partial,
+        "skipped": report.skipped,
+    }))
+}
+
 pub fn list_skills(args: &Args) -> Result<Value, OpError> {
     if let Some(id) = args.source.as_deref().filter(|s| *s != "library") {
-        return Err(OpError::not_implemented(format!(
-            "listing the source {id} lands with the sources port"
-        )));
+        return source_rows(id);
     }
     let (repo, skills) = load(args)?;
     let origin = library_origin(&repo);

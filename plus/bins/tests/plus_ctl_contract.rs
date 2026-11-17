@@ -163,6 +163,10 @@ fn checks_files(world: &World) {
     world.checks_files();
 }
 
+fn sources_home(world: &World) {
+    common::sources_world::build_in(&world.base);
+}
+
 fn plugin_files(world: &World) {
     world.context_files();
     let put = |rel: &str, text: &str| {
@@ -1283,7 +1287,62 @@ const CASES: &[Case] = &[
     ),
     case(
         "skills ls",
-        &[read("repo", &["skills", "ls", "--repo", "{repo}"])],
+        &[
+            read("repo", &["skills", "ls", "--repo", "{repo}"]),
+            hook("sources", sources_home),
+            read("library", &["skills", "ls", "--source", "library"]),
+            read("source", &["skills", "ls", "--source", "repo:odh"]),
+            read("unknown", &["skills", "ls", "--source", "nope"]).exit(1),
+        ],
+    ),
+    case(
+        "sources ls",
+        &[
+            hook("sources", sources_home),
+            read("summary", &["sources", "ls"]),
+            read("items", &["sources", "ls", "--items"]),
+            read("partial", &["sources", "ls", "--budget", "repo=0"]),
+            read("org", &["sources", "ls", "--source", "org", "--items"]),
+            usage("bad-kind", &["sources", "ls", "--kind", "nope"]),
+            usage("budget", &["sources", "ls", "--budget", "repo"]),
+        ],
+    ),
+    case(
+        "sources root ls",
+        &[
+            hook("sources", sources_home),
+            read("", &["sources", "root", "ls"]),
+        ],
+    ),
+    case(
+        "sources root add",
+        &[
+            hook("sources", sources_home),
+            read(
+                "preview",
+                &["sources", "root", "add", "{home}/work", "--dry-run"],
+            ),
+            apply("apply", &["sources", "root", "add", "{home}/work"]),
+            read("again", &["sources", "root", "add", "{home}/work"]).exit(1),
+            read(
+                "missing",
+                &["sources", "root", "add", "{home}/nowhere", "--dry-run"],
+            )
+            .exit(1),
+            usage("usage", &["sources", "root", "add"]),
+        ],
+    ),
+    case(
+        "sources root rm",
+        &[
+            hook("sources", sources_home),
+            read(
+                "preview",
+                &["sources", "root", "rm", "{home}/dups", "--dry-run"],
+            ),
+            apply("apply", &["sources", "root", "rm", "{home}/dups"]),
+            read("again", &["sources", "root", "rm", "{home}/dups"]).exit(1),
+        ],
     ),
     case(
         "skills lint",

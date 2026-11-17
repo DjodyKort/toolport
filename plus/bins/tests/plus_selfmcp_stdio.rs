@@ -137,6 +137,20 @@ fn arguments_are_validated_before_a_tool_runs() {
     assert!(client.close().success());
 }
 
+/// A scan stamps the moment it ran; two runs a second apart still say the same.
+fn without_clock(mut value: Value) -> Value {
+    match &mut value {
+        Value::Object(map) => {
+            map.remove("generatedAt");
+            map.remove("checkedAt");
+            map.values_mut().for_each(|v| *v = without_clock(v.take()));
+        }
+        Value::Array(items) => items.iter_mut().for_each(|v| *v = without_clock(v.take())),
+        _ => {}
+    }
+    value
+}
+
 #[test]
 fn the_self_mcp_server_and_toolportctl_mcp_call_give_the_same_result() {
     let world = World::new("stdio-parity");
@@ -173,7 +187,11 @@ fn the_self_mcp_server_and_toolportctl_mcp_call_give_the_same_result() {
         let output = command.output().unwrap();
         let envelope: Value = serde_json::from_slice(&output.stdout).unwrap();
         assert_eq!(envelope["ok"], true, "{name}: {envelope}");
-        assert_eq!(&envelope["data"]["result"], served.data(), "{name}");
+        assert_eq!(
+            without_clock(envelope["data"]["result"].clone()),
+            without_clock(served.data().clone()),
+            "{name}"
+        );
     }
     assert!(client.close().success());
 }

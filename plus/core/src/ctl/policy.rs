@@ -26,6 +26,7 @@ use super::skills_repo;
 use super::skills_state;
 use super::skills_taps;
 use super::skills_undo;
+use super::sources;
 use super::styles;
 use super::task;
 use super::{compression, compression_cfg, compression_hooks};
@@ -460,6 +461,18 @@ pub(super) const ROWS: &[Row] = &[
     row("skills auto resume", W).skip("clears the pause flag in the data dir; golden step"),
     row("skills ls", R).spec(&[&skills::LS_SOURCE]),
     row("skills lint", R).spec(&[&skills::LINT]),
+    row("sources ls", R).spec(&[&sources::LS]),
+    row("sources root ls", R).spec(&[&sources::ROOT_LS]),
+    row("sources root add", W)
+        .dry()
+        .spec(&[&sources::ROOT_CHANGE])
+        .args(&[req("dir")])
+        .skip("edits sourceRoots in context.json; its --dry-run is a golden step"),
+    row("sources root rm", W)
+        .dry()
+        .spec(&[&sources::ROOT_CHANGE])
+        .args(&[req("dir")])
+        .skip("edits sourceRoots in context.json; its --dry-run is a golden step"),
     row("skills files", R)
         .spec(&[&skills_checks::FILES])
         .args(&[req("skill")])
@@ -869,6 +882,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     own("skills_get", R),
     maps("skills_lint", R, "skills lint"),
     maps("skills_files", R, "skills files"),
+    maps("sources_ls", R, "sources ls"),
     maps("skills_fix", W, "skills fix").on(),
     maps("skills_status", R, "skills status"),
     maps("skills_diff", R, "skills diff"),

@@ -1,0 +1,31 @@
+{
+  "argv": ["sources", "root", "ls"],
+  "envelope": {
+    "command": "sources root ls",
+    "data": {
+      "roots": [
+        {
+          "exists": true,
+          "origin": "default",
+          "path": "<WORLD>/home/work/odh",
+          "repo": true
+        },
+        {
+          "exists": true,
+          "origin": "default",
+          "path": "<WORLD>/home/work/odh/clients",
+          "repo": false
+        },
+        {
+          "exists": true,
+          "origin": "config",
+          "path": "<WORLD>/home/dups",
+          "repo": false
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

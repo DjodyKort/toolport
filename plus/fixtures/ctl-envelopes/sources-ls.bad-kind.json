@@ -1,0 +1,13 @@
+{
+  "argv": ["sources", "ls", "--kind", "nope"],
+  "envelope": {
+    "command": "sources ls",
+    "error": {
+      "code": "usage",
+      "message": "--kind must be one of skill, command, agent, rule, memory"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

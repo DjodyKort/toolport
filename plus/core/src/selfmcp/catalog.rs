@@ -1,7 +1,9 @@
 use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
 
-use super::{backend, compression, content, context, library, servers, skills, tasks, ToolError};
+use super::{
+    backend, compression, content, context, library, servers, skills, sources, tasks, ToolError,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Gate {
@@ -156,6 +158,21 @@ pub const TOOLS: &[ToolDef] = &[
             p("names", Ty::StrList, false, "Limit to these skills")
         ],
         skills::lint
+    ),
+    tool!(
+        "sources_ls",
+        1,
+        None,
+        "List where skills, commands, agents, rules and CLAUDE.md files come from: repos, clients, the org sync, the library, taps and loose files",
+        [
+            p("source", Ty::Str, false, "Only this source id, detector or origin kind"),
+            p("kind", Ty::Str, false, "Only items of this kind: skill, command, agent, rule or memory"),
+            p("items", Ty::Bool, false, "Include the items of every source"),
+            p("cwd", Ty::Str, false, "Add the repository around this directory to the scan"),
+            p("deep", Ty::Bool, false, "Double the depth and time budgets"),
+            p("refresh", Ty::Bool, false, "Ignore the scan cache")
+        ],
+        sources::ls
     ),
     tool!(
         "skills_files",

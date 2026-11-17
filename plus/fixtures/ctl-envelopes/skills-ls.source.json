@@ -1,0 +1,58 @@
+{
+  "argv": ["skills", "ls", "--source", "repo:odh"],
+  "envelope": {
+    "command": "skills ls",
+    "data": {
+      "partial": false,
+      "repo": "<WORLD>/home/work/odh",
+      "skills": [
+        {
+          "activation": "auto",
+          "description": "Work on the odh area",
+          "invisibleReason": null,
+          "name": "odh",
+          "origin": {
+            "kind": "repo",
+            "name": "odh"
+          },
+          "path": "origin/main:.claude/skills/odh/SKILL.md",
+          "type": "skill",
+          "visible": true,
+          "writable": false
+        },
+        {
+          "activation": "auto",
+          "description": "Work on the odh-develop area",
+          "invisibleReason": null,
+          "name": "odh-develop",
+          "origin": {
+            "kind": "repo",
+            "name": "odh"
+          },
+          "path": "origin/main:.claude/skills/odh-develop/SKILL.md",
+          "type": "skill",
+          "visible": true,
+          "writable": false
+        },
+        {
+          "activation": "auto",
+          "description": "An untracked local skill",
+          "invisibleReason": null,
+          "name": "v18-local",
+          "origin": {
+            "kind": "repo",
+            "name": "odh"
+          },
+          "path": "<WORLD>/home/work/odh/.claude/skills/v18-local/SKILL.md",
+          "type": "skill",
+          "visible": true,
+          "writable": false
+        }
+      ],
+      "skipped": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

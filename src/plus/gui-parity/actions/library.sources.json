@@ -1,0 +1,5 @@
+{
+  "route": "library",
+  "status": "planned",
+  "summary": "Where skills, commands, agents, rules and CLAUDE.md come from, one row per source with its state, and the folders scanned for checkouts (sources ls, sources root ls|add|rm, skills ls --source; sources_ls)"
+}
