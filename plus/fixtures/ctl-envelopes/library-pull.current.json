@@ -1,0 +1,31 @@
+{
+  "argv": ["library", "pull", "--dry-run"],
+  "envelope": {
+    "command": "library pull",
+    "data": {
+      "dryRun": true,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "git fetch origin (refs only, network)",
+            "op": "exec",
+            "path": "<WORLD>/home/lib/ai-skills"
+          },
+          {
+            "detail": "git merge --ff-only origin/main",
+            "op": "exec",
+            "path": "<WORLD>/home/lib/ai-skills"
+          }
+        ],
+        "summary": "Already up to date with origin/main",
+        "undo": "git -C '<WORLD>/home/lib/ai-skills' reset --hard 628cdc8e96446f245fd563ae57cf0fac2f74c3a2",
+        "warnings": []
+      },
+      "repo": "<WORLD>/home/lib/ai-skills"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

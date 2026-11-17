@@ -19,6 +19,7 @@ use toolport_plus::ctl::{registry, rows, Smoke, Tier, COMMANDS, SCHEMA_VERSION};
 mod common;
 use common::oauth_mock::{self, OauthMock};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
+use common::library_world::{self, library_home};
 use common::{golden, normalize};
 
 #[derive(Clone, Copy)]
@@ -1047,6 +1048,54 @@ const CASES: &[Case] = &[
                 &["skills", "install", "@acme/skills", "--dry-run"],
             ),
             usage("usage", &["skills", "install"]),
+        ],
+    ),
+    case(
+        "library status",
+        &[
+            hook("library-world", library_home),
+            hook("ahead-world", library_world::ahead_one),
+            read("ahead", &["library", "status"]),
+            hook("duplicate-world", library_world::add_copy),
+            read("duplicate", &["library", "status"]),
+            hook("behind-world", library_world::behind_two),
+            read("behind", &["library", "status"]),
+            read("fetch", &["library", "status", "--fetch"]),
+            hook("dirty-world", library_world::dirty),
+            read("dirty", &["library", "status"]),
+            hook("no-remote-world", library_world::no_remote),
+            read("no-remote", &["library", "status"]),
+            usage("usage", &["library", "status", "extra"]),
+        ],
+    ),
+    case(
+        "library pull",
+        &[
+            hook("library-world", library_home),
+            hook("behind-world", library_world::behind_two),
+            hook("dirty-world", library_world::dirty),
+            read("dirty-preview", &["library", "pull", "--dry-run"]).exit(1),
+            apply("dirty", &["library", "pull"]).exit(1),
+            hook("clean-world", library_world::clean),
+            read("preview", &["library", "pull", "--dry-run"]),
+            apply("apply", &["library", "pull"]),
+            read("current", &["library", "pull", "--dry-run"]),
+            usage("usage", &["library", "pull", "extra"]),
+        ],
+    ),
+    case(
+        "library push",
+        &[
+            hook("library-world", library_home),
+            hook("ahead-world", library_world::ahead_one),
+            read("dry-run", &["library", "push", "--dry-run"]),
+            hook("secret-world", library_world::secret_commit),
+            read("secret-preview", &["library", "push", "--dry-run"]),
+            apply("secret", &["library", "push"]).exit(1),
+            hook("secret-dropped", library_world::drop_last_commit),
+            apply("apply", &["library", "push"]),
+            read("current", &["library", "push", "--dry-run"]),
+            usage("usage", &["library", "push", "extra"]),
         ],
     ),
     case(

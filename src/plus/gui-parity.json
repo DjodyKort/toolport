@@ -250,6 +250,11 @@
       "route": "library",
       "status": "planned",
       "summary": "Taps: add, list, update and remove git sources of skills, search them and install a skill with its audit (skills tap add|ls|remove|update, search, install; skills_tap_list, skills_tap_add, skills_tap_remove, skills_tap_update, skills_search, skills_install)"
+    },
+    "library.remote": {
+      "route": "library",
+      "status": "planned",
+      "summary": "The library against its remote: status, pull and review the plan, push after the audit and the secret scan (library status|pull|push; library_status, library_pull, skills_git_push)"
     }
   },
   "owners": {
@@ -262,7 +267,8 @@
     "auth": "MIG-2X-S3",
     "context": "MIG-2X-S5",
     "plugins": "MIG-2X-S5",
-    "skills": "MIG-2X-S4"
+    "skills": "MIG-2X-S4",
+    "library": "MIG-2X-S4"
   },
   "commands": {
     "status": {
@@ -569,6 +575,21 @@
       "route": "library",
       "action": "library.taps",
       "surface": "screen"
+    },
+    "library status": {
+      "route": "library",
+      "action": "library.remote",
+      "surface": "screen"
+    },
+    "library pull": {
+      "route": "library",
+      "action": "library.remote",
+      "surface": "screen"
+    },
+    "library push": {
+      "route": "library",
+      "action": "library.remote",
+      "surface": "screen"
     }
   },
   "tools": {
@@ -785,6 +806,21 @@
     "skills_install": {
       "route": "library",
       "action": "library.taps",
+      "surface": "screen"
+    },
+    "library_status": {
+      "route": "library",
+      "action": "library.remote",
+      "surface": "screen"
+    },
+    "library_pull": {
+      "route": "library",
+      "action": "library.remote",
+      "surface": "screen"
+    },
+    "skills_git_push": {
+      "route": "library",
+      "action": "library.remote",
       "surface": "screen"
     }
   }

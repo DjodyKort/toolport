@@ -10,7 +10,7 @@ pub mod clock;
 pub mod collisions;
 pub mod frontmatter;
 pub mod git;
-mod gitexec;
+pub(crate) mod gitexec;
 pub mod json;
 pub mod kind;
 pub mod lint;

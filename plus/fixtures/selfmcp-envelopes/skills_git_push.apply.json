@@ -1,0 +1,33 @@
+{
+  "arguments": {
+    "commit_message": "add extra",
+    "confirm": true
+  },
+  "isError": false,
+  "result": {
+    "checks": {
+      "audit": {
+        "findings": [],
+        "high": 0,
+        "ran": true,
+        "skills": 1
+      },
+      "blocked": false,
+      "builtinScan": {
+        "count": 0,
+        "findings": []
+      },
+      "gitleaks": {
+        "available": false,
+        "count": 0,
+        "error": "not installed",
+        "findings": [],
+        "ran": false
+      }
+    },
+    "commitSha": "<masked>",
+    "pushed": true,
+    "repo": "<WORLD>/skills-repo"
+  },
+  "tool": "skills_git_push"
+}

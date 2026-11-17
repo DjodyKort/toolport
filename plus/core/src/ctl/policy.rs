@@ -14,6 +14,7 @@
 use super::auth;
 use super::context;
 use super::flags::{Flag, Spec};
+use super::library;
 use super::mcp;
 use super::plugins;
 use super::secret;
@@ -449,6 +450,17 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&skills_taps::INSTALL])
         .args(&[req("spec")])
         .skip("copies skills out of a tap; its --dry-run is a golden step"),
+    row("library status", R).spec(&[&library::STATUS]),
+    row("library pull", W)
+        .dry()
+        .needs(&[Needs::Network])
+        .spec(&[&library::PULL])
+        .skip("moves the library's branch; its --dry-run is a golden step"),
+    row("library push", W)
+        .dry()
+        .needs(&[Needs::Network])
+        .spec(&[&library::CHANGE])
+        .skip("commits and pushes the library; its --dry-run is a golden step"),
     row("skills bundle", W)
         .dry()
         .spec(&[&skills_repo::BUNDLE])
@@ -612,6 +624,9 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("skills_tap_remove", W, "skills tap remove").on(),
     maps("skills_tap_update", W, "skills tap update").on(),
     maps("skills_install", W, "skills install").on(),
+    maps("library_status", R, "library status"),
+    maps("library_pull", W, "library pull").on(),
+    own("skills_git_push", D),
     maps("skills_bundle", W, "skills bundle").on(),
     maps("skills_unbundle", W, "skills unbundle").on(),
     maps("skills_clean", D, "skills clean").on(),

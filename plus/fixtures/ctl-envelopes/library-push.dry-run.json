@@ -1,0 +1,66 @@
+{
+  "argv": ["library", "push", "--dry-run"],
+  "envelope": {
+    "command": "library push",
+    "data": {
+      "branch": "main",
+      "checks": {
+        "audit": {
+          "findings": [],
+          "high": 0,
+          "ran": true,
+          "skills": 3
+        },
+        "blocked": false,
+        "builtinScan": {
+          "count": 0,
+          "findings": []
+        },
+        "gitleaks": {
+          "available": false,
+          "count": 0,
+          "error": "not installed",
+          "findings": [],
+          "ran": false
+        }
+      },
+      "commits": [
+        {
+          "sha": "7caa837",
+          "subject": "Add new-local"
+        }
+      ],
+      "dryRun": true,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "audit: 3 skill(s), 0 finding(s), 0 high",
+            "op": "note"
+          },
+          {
+            "detail": "gitleaks not installed; built-in scan: 0 finding(s)",
+            "op": "note"
+          },
+          {
+            "detail": "commit 7caa837 Add new-local",
+            "op": "note"
+          },
+          {
+            "detail": "git push (never forced)",
+            "op": "exec",
+            "path": "<WORLD>/home/lib/ai-skills"
+          }
+        ],
+        "summary": "Push 1 commit(s) to origin/main",
+        "undo": "git -C '<WORLD>/home/lib/ai-skills' revert --no-edit 789e5c01712e1a018cbf8f9c24ea2b964678bda9..HEAD",
+        "warnings": []
+      },
+      "pushed": false,
+      "repo": "<WORLD>/home/lib/ai-skills"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

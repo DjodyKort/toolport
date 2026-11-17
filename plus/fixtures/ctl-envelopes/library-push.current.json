@@ -1,0 +1,57 @@
+{
+  "argv": ["library", "push", "--dry-run"],
+  "envelope": {
+    "command": "library push",
+    "data": {
+      "branch": "main",
+      "checks": {
+        "audit": {
+          "findings": [],
+          "high": 0,
+          "ran": true,
+          "skills": 3
+        },
+        "blocked": false,
+        "builtinScan": {
+          "count": 0,
+          "findings": []
+        },
+        "gitleaks": {
+          "available": true,
+          "count": 0,
+          "error": null,
+          "findings": [],
+          "ran": false
+        }
+      },
+      "commits": [],
+      "dryRun": true,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "audit: 3 skill(s), 0 finding(s), 0 high",
+            "op": "note"
+          },
+          {
+            "detail": "gitleaks: nothing to scan; built-in scan: 0 finding(s)",
+            "op": "note"
+          },
+          {
+            "detail": "git push (never forced)",
+            "op": "exec",
+            "path": "<WORLD>/home/lib/ai-skills"
+          }
+        ],
+        "summary": "Nothing to push",
+        "undo": "git -C '<WORLD>/home/lib/ai-skills' revert --no-edit 7caa8377d84e41210426119cd0ebb2a05cce5078..HEAD",
+        "warnings": []
+      },
+      "pushed": false,
+      "repo": "<WORLD>/home/lib/ai-skills"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

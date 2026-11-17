@@ -140,6 +140,7 @@ fn arguments_are_validated_before_a_tool_runs() {
 #[test]
 fn the_self_mcp_server_and_toolportctl_mcp_call_give_the_same_result() {
     let world = World::new("stdio-parity");
+    common::library_world::library_home(&world);
     let mut client = Client::spawn(&world, &[]);
     client.handshake();
     for name in TOOLS.iter().filter(|t| t.tier == 1).map(|t| t.name) {

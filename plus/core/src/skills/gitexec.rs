@@ -46,6 +46,21 @@ impl CmdOutput {
     pub fn ok(&self) -> bool {
         self.code == 0
     }
+
+    pub fn first_error_line(&self) -> String {
+        let text = if self.stderr.trim().is_empty() {
+            &self.stdout
+        } else {
+            &self.stderr
+        };
+        text.lines()
+            .find(|l| !l.trim().is_empty())
+            .unwrap_or("")
+            .trim()
+            .chars()
+            .take(200)
+            .collect()
+    }
 }
 
 fn drain<R: Read + Send + 'static>(pipe: Option<R>) -> std::thread::JoinHandle<String> {
@@ -117,6 +132,11 @@ pub fn run_command_input(
         stdout: out_thread.join().unwrap_or_default(),
         stderr: err_thread.join().unwrap_or_default(),
     })
+}
+
+/// True when `error` came from [`run_command`] failing because the program does not exist.
+pub fn is_not_found(error: &str) -> bool {
+    error.starts_with(NOT_FOUND_PREFIX)
 }
 
 pub fn git_command(dir: Option<&Path>, args: &[&str]) -> Command {

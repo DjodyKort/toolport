@@ -11,6 +11,7 @@ mod hashing;
 pub mod health;
 pub mod http;
 pub mod keychain_trust;
+pub mod library;
 pub mod login_keychain;
 pub mod oauth;
 pub mod op;

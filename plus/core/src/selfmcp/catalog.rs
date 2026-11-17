@@ -1,7 +1,7 @@
 use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
 
-use super::{backend, context, servers, skills, ToolError};
+use super::{backend, context, library, servers, skills, ToolError};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Gate {
@@ -75,6 +75,7 @@ const CWD: Param = p("cwd", Ty::Str, true, "The folder where Claude Code starts"
 const SKILL_NAME: Param = p("name", Ty::Str, true, "Skill or rule name");
 const REPO: Param = p("repo_path", Ty::Str, false, "Skills repository root");
 const CLIENTS: Param = p("client_keys", Ty::StrList, false, "Client keys to target");
+const COMMIT: Param = p("commit_message", Ty::Str, true, "Commit message");
 const CLIENT: Param = p("client", Ty::Str, false, "Limit to one client key");
 const GLOBAL: Param = p(
     "global_mode",
@@ -280,6 +281,30 @@ pub const TOOLS: &[ToolDef] = &[
             DRY_ON
         ],
         skills::install
+    ),
+    tool!(
+        "library_status",
+        1,
+        None,
+        "Show the skills library against its remote: branch, commits ahead and behind, uncommitted files, how git authenticates (gh, a credential helper or ssh) and any other clone of the same remote with its own counts. Pass fetch to contact the remote and test the credentials; without it nothing touches the network. Read only",
+        [p("fetch", Ty::Bool, false, "Contact the remote (ls-remote, then fetch) to refresh the counts and test the credentials")],
+        library::status
+    ),
+    tool!(
+        "library_pull",
+        2,
+        None,
+        "Fast-forward the skills library from its remote (fetches first). Refuses over uncommitted changes and never merges or rewrites history. dry_run is on by default and only reports the plan; pass dry_run false to apply, and review true to also get the plan skills sync would carry out afterwards",
+        [DRY_ON, p("review", Ty::Bool, false, "After a pull that applied, also return the dry-run plan of skills sync; nothing is synced")],
+        library::pull
+    ),
+    tool!(
+        "skills_git_push",
+        4,
+        Always,
+        "Commit and push the skills repository to its remote",
+        [COMMIT, REPO],
+        library::git_push
     ),
     tool!(
         "skills_bundle",

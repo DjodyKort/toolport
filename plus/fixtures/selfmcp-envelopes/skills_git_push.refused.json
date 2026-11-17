@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "commit_message": "add extra"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: skills_git_push (tier 4). Pass confirm=true to proceed. WARNING: this modifies remote state or removes entries."
+    }
+  },
+  "text": "refused: Refused: skills_git_push (tier 4). Pass confirm=true to proceed. WARNING: this modifies remote state or removes entries.",
+  "tool": "skills_git_push"
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "status", "extra"],
+  "envelope": {
+    "command": "library status",
+    "error": {
+      "code": "usage",
+      "message": "unexpected argument: extra"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

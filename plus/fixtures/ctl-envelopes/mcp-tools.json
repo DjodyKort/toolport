@@ -375,6 +375,69 @@
           "tier": 2
         },
         {
+          "description": "Show the skills library against its remote: branch, commits ahead and behind, uncommitted files, how git authenticates (gh, a credential helper or ssh) and any other clone of the same remote with its own counts. Pass fetch to contact the remote and test the credentials; without it nothing touches the network. Read only",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "library_status",
+          "params": [
+            {
+              "description": "Contact the remote (ls-remote, then fetch) to refresh the counts and test the credentials",
+              "name": "fetch",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Fast-forward the skills library from its remote (fetches first). Refuses over uncommitted changes and never merges or rewrites history. dry_run is on by default and only reports the plan; pass dry_run false to apply, and review true to also get the plan skills sync would carry out afterwards",
+          "dryRunDefault": true,
+          "gate": "none",
+          "name": "library_pull",
+          "params": [
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "After a pull that applied, also return the dry-run plan of skills sync; nothing is synced",
+              "name": "review",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Commit and push the skills repository to its remote",
+          "dryRunDefault": false,
+          "gate": "always",
+          "name": "skills_git_push",
+          "params": [
+            {
+              "description": "Commit message",
+              "name": "commit_message",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 4
+        },
+        {
           "description": "Pack skills into a new .zip bundle; never overwrites a file; dry_run is on by default",
           "dryRunDefault": true,
           "gate": "none",

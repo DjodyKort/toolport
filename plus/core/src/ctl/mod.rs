@@ -11,6 +11,7 @@ mod commands;
 mod commands_json;
 mod context;
 mod flags;
+mod library;
 mod mcp;
 mod output;
 mod plugins;
@@ -321,6 +322,21 @@ pub const COMMANDS: &[Command] = &[
         &["skills", "install"],
         "Install skills from a tap; a high-severity audit finding blocks it (<@user/repo[/skill]>, --path, --no-audit, --dry-run)",
         skills_taps::install,
+    ),
+    cmd(
+        &["library", "status"],
+        "Show the skills library against its remote: ahead, behind, uncommitted, credentials, duplicate clones (--fetch contacts the remote)",
+        library::status,
+    ),
+    cmd(
+        &["library", "pull"],
+        "Fast-forward the skills library from its remote; refuses over uncommitted changes (--dry-run, --review adds the sync plan)",
+        library::pull,
+    ),
+    cmd(
+        &["library", "push"],
+        "Audit and secret-scan, then push the skills library; never forces (--dry-run)",
+        library::push,
     ),
     cmd(
         &["skills", "bundle"],

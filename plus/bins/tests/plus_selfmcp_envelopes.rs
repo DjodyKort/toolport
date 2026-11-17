@@ -16,6 +16,7 @@ use toolport_plus::selfmcp::{RESOURCES, TOOLS};
 
 mod common;
 use common::client::Client;
+use common::library_world::{self, library_home};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
 
@@ -33,6 +34,7 @@ struct Call {
     expect: Expect,
     writes: bool,
     golden: bool,
+    hook: Option<fn(&World)>,
 }
 
 /// A call that succeeds and leaves the world as it was: a read or a dry run.
@@ -44,6 +46,16 @@ const fn read(label: &'static str, tool: &'static str, args: &'static str) -> Ca
         expect: Expect::Ok,
         writes: false,
         golden: true,
+        hook: None,
+    }
+}
+
+/// Reshapes the world for the calls after it; makes no call and records no golden.
+const fn hook(label: &'static str, prepare: fn(&World)) -> Call {
+    Call {
+        golden: false,
+        hook: Some(prepare),
+        ..read(label, "", "{}")
     }
 }
 
@@ -107,6 +119,14 @@ const fn context_case(tool: &'static str, calls: &'static [Call]) -> Case {
     }
 }
 
+/// A case that starts in a world `prepare` has reshaped.
+const fn prepared(tool: &'static str, prepare: fn(&World), calls: &'static [Call]) -> Case {
+    Case {
+        prepare: Some(prepare),
+        ..case(tool, calls)
+    }
+}
+
 const BUNDLE: &str = r#"{"bundle_path":"{repo}/skills-repo-bundle.zip"}"#;
 const ADD_TAP: &str = r#"{"repo":"{base}/tap-src","name":"local","dry_run":false}"#;
 const APPLY: &str = r#"{"dry_run":false,"confirm":true}"#;
@@ -130,6 +150,67 @@ const CASES: &[Case] = &[
         ],
     ),
     case("doctor", &[read("", "doctor", "{}")]),
+    prepared(
+        "library_status",
+        library_home,
+        &[
+            hook("ahead-one-world", library_world::ahead_one),
+            read("clone", "library_status", "{}"),
+            read("fetch", "library_status", r#"{"fetch":true}"#),
+        ],
+    ),
+    prepared(
+        "library_pull",
+        library_home,
+        &[
+            hook("behind-two-world", library_world::behind_two),
+            hook("dirty-world", library_world::dirty),
+            fails("dirty", "refused", "library_pull", "{}"),
+            fails(
+                "dirty_apply",
+                "refused",
+                "library_pull",
+                r#"{"dry_run":false}"#,
+            ),
+            hook("clean-world", library_world::clean),
+            read("preview", "library_pull", "{}"),
+            write("apply", "library_pull", r#"{"dry_run":false}"#),
+            read("current", "library_pull", "{}"),
+        ],
+    ),
+    prepared(
+        "skills_git_push",
+        library_world::skills_repo_remote_world,
+        &[
+            refused(
+                "refused",
+                "skills_git_push",
+                r#"{"commit_message":"add extra"}"#,
+            ),
+            fails(
+                "empty_message",
+                "invalid_arguments",
+                "skills_git_push",
+                r#"{"commit_message":" ","confirm":true}"#,
+            ),
+            fails(
+                "not_a_repository",
+                "not_found",
+                "skills_git_push",
+                r#"{"commit_message":"x","repo_path":"{data}","confirm":true}"#,
+            ),
+            write(
+                "apply",
+                "skills_git_push",
+                r#"{"commit_message":"add extra","confirm":true}"#,
+            ),
+            read(
+                "clean",
+                "skills_git_push",
+                r#"{"commit_message":"again","confirm":true}"#,
+            ),
+        ],
+    ),
     case("flow_diagram", &[read("", "flow_diagram", "{}")]),
     case(
         "servers_list",
@@ -674,6 +755,7 @@ fn changed_files(
     let after = world.snapshot();
     after
         .iter()
+        .filter(|(path, _)| !path.ends_with(".git/FETCH_HEAD"))
         .filter(|(path, bytes)| before.get(*path) != Some(*bytes))
         .map(|(path, _)| path.display().to_string())
         .chain(
@@ -690,6 +772,7 @@ fn arguments(world: &World, case: &Case, call: &Call) -> Value {
         .args
         .replace("{home}", &world.path(&world.home))
         .replace("{repo}", &world.repo.to_string_lossy())
+        .replace("{data}", &world.data.to_string_lossy())
         .replace("{base}", &world.base.to_string_lossy());
     serde_json::from_str(&expanded)
         .unwrap_or_else(|e| panic!("{} {}: arguments are not JSON: {e}", case.tool, call.label))
@@ -738,12 +821,13 @@ fn run_case(case: &Case) {
     if let Some(prepare) = case.prepare {
         prepare(&world);
     }
-    if case.tool == "skills_tap_remove" {
-        tap_source(&world);
-    }
     let mut client = Client::spawn(&world, &[FAKE_SECRET, SECRET_KEY]);
     client.handshake();
     for call in case.calls {
+        if let Some(prepare) = call.hook {
+            prepare(&world);
+            continue;
+        }
         let name = format!("{} {}", case.tool, call.label);
         let args = arguments(&world, case, call);
         let before = world.snapshot();
