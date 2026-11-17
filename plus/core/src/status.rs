@@ -256,6 +256,33 @@ fn logins_check(host: &dyn Host) -> Check {
     )
 }
 
+/// The scheduler ticks from the desktop app, which is the only always-on process, so tasks that
+/// start on their own need it to be there after a login.
+fn scheduled_tasks_check(host: &dyn Host) -> Option<Check> {
+    let base = host.tasks_base()?;
+    let count = crate::tasks::schedule::auto_scheduled_count(&base);
+    if count == 0 {
+        return None;
+    }
+    let tasks = if count == 1 {
+        "1 scheduled task starts".to_string()
+    } else {
+        format!("{count} scheduled tasks start")
+    };
+    match host.launch_at_login()? {
+        true => Some(check(
+            "scheduledTasks",
+            Health::Ok,
+            format!("{tasks} on its own; launch at login is on"),
+        )),
+        false => Some(check(
+            "scheduledTasks",
+            Health::Warn,
+            format!("{tasks} on its own while Toolport runs; launch at login is off, so a run waits until something starts Toolport (turn on Launch at login in Settings)"),
+        )),
+    }
+}
+
 pub fn doctor(host: &dyn Host, snap: &Snapshot) -> Doctor {
     let mut checks = Vec::new();
 
@@ -309,6 +336,7 @@ pub fn doctor(host: &dyn Host, snap: &Snapshot) -> Doctor {
     });
     checks.push(plus_built_check(host, gateway.as_deref()));
     checks.push(logins_check(host));
+    checks.extend(scheduled_tasks_check(host));
 
     let healthy = !checks.iter().any(|c| c.status == Health::Fail);
     Doctor { healthy, checks }
@@ -416,5 +444,41 @@ mod tests {
         std::fs::write(&file, vec![1u8; 2_000_000]).unwrap();
         assert!(!file_contains(&file, b"needle").unwrap());
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn doctor_warns_when_tasks_start_on_their_own_and_launch_at_login_is_off() {
+        let dir = scratch("scheduled");
+        let host = host(&dir);
+        let names = |host: &MemoryHost| {
+            doctor(host, &snapshot(host))
+                .checks
+                .iter()
+                .filter(|c| c.name == "scheduledTasks")
+                .map(|c| (c.status, c.detail.clone()))
+                .collect::<Vec<_>>()
+        };
+        host.launch_at_login.set(Some(false));
+        assert!(names(&host).is_empty(), "no scheduled task, no check");
+
+        let task = crate::tasks::model::parse(
+            &serde_json::json!({
+                "id": "plugins-update", "title": "Update", "enabled": true,
+                "requires": {"servers": [], "commands": ["echo"]},
+                "steps": [{"id": "say", "title": "Say", "type": "exec", "program": "echo", "args": []}],
+                "triggers": {"schedule": {"cron": "7 */4 * * *", "autoRun": true}}
+            })
+            .to_string(),
+        )
+        .unwrap();
+        crate::tasks::store::save_task(&dir, &task).unwrap();
+        let off = names(&host);
+        assert_eq!(off[0].0, Health::Warn);
+        assert!(off[0].1.contains("launch at login is off"), "{}", off[0].1);
+
+        host.launch_at_login.set(Some(true));
+        assert_eq!(names(&host)[0].0, Health::Ok);
+        host.launch_at_login.set(None);
+        assert!(names(&host).is_empty(), "unknown platform, no claim");
     }
 }

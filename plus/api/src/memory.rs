@@ -745,6 +745,7 @@ pub struct MemoryHost {
     /// The settings files `SettingsStore` reports; they are read and written as plain files.
     pub settings_paths: Vec<PathBuf>,
     pub tasks: crate::tasks::FakeTaskHost,
+    pub launch_at_login: Cell<Option<bool>>,
 }
 
 impl crate::SettingsStore for MemoryHost {
@@ -1304,6 +1305,9 @@ impl AuthAccess for MemoryHost {
     fn open_url(&self, url: &str) -> Result<(), String> {
         self.auth.opened.borrow_mut().push(url.to_string());
         Ok(())
+    }
+    fn launch_at_login(&self) -> Option<bool> {
+        self.launch_at_login.get()
     }
 }
 

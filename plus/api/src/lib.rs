@@ -165,6 +165,12 @@ pub trait HostEnv {
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |elapsed| elapsed.as_secs() as i64)
     }
+
+    /// Whether the desktop app is registered to start at login; `None` when this platform has
+    /// no way to tell. Reads only.
+    fn launch_at_login(&self) -> Option<bool> {
+        None
+    }
 }
 
 /// Everything a command or tool runs against.

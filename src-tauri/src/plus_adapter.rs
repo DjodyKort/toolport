@@ -547,6 +547,24 @@ impl HostEnv for HostAdapter {
             .parse()
             .is_ok_and(|uri| crate::seam::egress_check(&uri).is_err())
     }
+
+    fn launch_at_login(&self) -> Option<bool> {
+        let home = std::env::var_os("HOME").map(PathBuf::from)?;
+        let (dir, extension) = if cfg!(target_os = "macos") {
+            (home.join("Library/LaunchAgents"), "plist")
+        } else if cfg!(target_os = "linux") {
+            (home.join(".config/autostart"), "desktop")
+        } else {
+            return None;
+        };
+        let found = std::fs::read_dir(dir).ok().is_some_and(|entries| {
+            entries.flatten().any(|entry| {
+                let name = entry.file_name().to_string_lossy().to_lowercase();
+                name.contains("toolport") && name.ends_with(extension)
+            })
+        });
+        Some(found)
+    }
 }
 
 impl toolport_plus_api::SettingsStore for HostAdapter {
