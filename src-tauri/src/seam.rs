@@ -71,6 +71,8 @@ pub fn gateway_tick(
     pooled: &dyn Fn() -> Vec<PooledLaunch>,
 ) {
     #[cfg(feature = "plus")]
+    toolport_plus::tasks::schedule::tick_in_thread(crate::plus_adapter::HostAdapter);
+    #[cfg(feature = "plus")]
     if let Some(dir) =
         crate::registry::conduit_dir().filter(|dir| toolport_plus::servers::restart::awaiting(dir))
     {
@@ -92,6 +94,14 @@ pub fn gateway_tick(
     }
     #[cfg(not(feature = "plus"))]
     let _ = (router, dirty, pooled);
+}
+
+/// The desktop app is up: starts the fork's scheduler thread, whose first pass catches up the
+/// task runs that came due while nothing ticked.
+#[cfg(feature = "desktop")]
+pub(crate) fn app_started() {
+    #[cfg(feature = "plus")]
+    toolport_plus::tasks::schedule::spawn_app_ticker(crate::plus_adapter::HostAdapter);
 }
 
 /// Takes the tools of servers whose mode is `search` out of the surface a Full tools/list sends.

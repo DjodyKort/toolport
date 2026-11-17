@@ -16,6 +16,7 @@ pub mod mirror;
 pub mod secrets;
 pub mod servers;
 pub mod settings;
+pub mod tasks;
 pub mod view;
 
 pub use auth::{AuthAccess, AuthChild, ConsentSink, LaunchError, LaunchFault};
@@ -35,6 +36,7 @@ pub use servers::{
     ServerRules, ServerSpec,
 };
 pub use settings::SettingsStore;
+pub use tasks::{FakeTaskHost, ProcessOutcome, ProcessSpec, RunApproval, RunDecision, TaskHost};
 pub use view::{AccessSetInfo, FolderRoute, RegistryTx, RegistryView};
 
 /// Written into every binary that forwards upstream code to the fork logic, so
@@ -177,6 +179,7 @@ pub trait Host:
     + AuthAccess
     + ContextHost
     + SettingsStore
+    + TaskHost
 {
 }
 
@@ -190,7 +193,8 @@ impl<
             + HttpAccess
             + AuthAccess
             + ContextHost
-            + SettingsStore,
+            + SettingsStore
+            + TaskHost,
     > Host for T
 {
 }

@@ -4613,6 +4613,8 @@ pub fn run() {
         }
     };
 
+    crate::seam::app_started();
+
     // Migrate legacy keychain secrets into the data-protection keychain (the
     // team-scoped shared access group) in the background. On macOS, older versions
     // of Toolport stored secrets as per-app-ACL keychain items that trigger a

@@ -744,6 +744,7 @@ pub struct MemoryHost {
     pub now: Cell<i64>,
     /// The settings files `SettingsStore` reports; they are read and written as plain files.
     pub settings_paths: Vec<PathBuf>,
+    pub tasks: crate::tasks::FakeTaskHost,
 }
 
 impl crate::SettingsStore for MemoryHost {
@@ -1303,6 +1304,64 @@ impl AuthAccess for MemoryHost {
     fn open_url(&self, url: &str) -> Result<(), String> {
         self.auth.opened.borrow_mut().push(url.to_string());
         Ok(())
+    }
+}
+
+impl crate::tasks::TaskHost for MemoryHost {
+    fn tasks_base(&self) -> Option<PathBuf> {
+        self.tasks.tasks_base().or_else(|| self.secrets.data_dir())
+    }
+    fn now(&self) -> i64 {
+        self.tasks.now()
+    }
+    fn task_call_tool(&self, server: &str, tool: &str, args: Value) -> Result<Value, String> {
+        self.tasks.task_call_tool(server, tool, args)
+    }
+    fn task_run_script(
+        &self,
+        source: &str,
+        args: Value,
+        servers: &[String],
+    ) -> Result<Value, String> {
+        self.tasks.task_run_script(source, args, servers)
+    }
+    fn task_set_secret(&self, server: &str, key: &str, value: &str) -> Result<(), String> {
+        self.tasks.task_set_secret(server, key, value)
+    }
+    fn task_secret_is_set(&self, server: &str, key: &str) -> bool {
+        self.tasks.task_secret_is_set(server, key)
+    }
+    fn task_restart_server(&self, server: &str) -> Result<String, String> {
+        self.tasks.task_restart_server(server)
+    }
+    fn task_server_installed(&self, server: &str) -> bool {
+        match self.registry.list_servers() {
+            Ok(servers) if !servers.is_empty() => servers.iter().any(|s| s.id == server),
+            _ => self.tasks.task_server_installed(server),
+        }
+    }
+    fn task_run_process(
+        &self,
+        spec: &crate::tasks::ProcessSpec,
+        cancelled: &dyn Fn() -> bool,
+        started: &dyn Fn(u32),
+    ) -> crate::tasks::ProcessOutcome {
+        self.tasks.task_run_process(spec, cancelled, started)
+    }
+    fn task_claude_program(&self) -> String {
+        self.tasks.task_claude_program()
+    }
+    fn task_spawn_runner(&self, run_id: &str) -> Result<(), String> {
+        self.tasks.task_spawn_runner(run_id)
+    }
+    fn task_process_alive(&self, pid: u32) -> bool {
+        self.tasks.task_process_alive(pid)
+    }
+    fn task_kill_group(&self, pid: u32) {
+        self.tasks.task_kill_group(pid)
+    }
+    fn task_approve_run(&self, ask: &crate::tasks::RunApproval) -> crate::tasks::RunDecision {
+        self.tasks.task_approve_run(ask)
     }
 }
 

@@ -27,6 +27,7 @@ pub mod selfmcp;
 pub mod servers;
 pub mod skills;
 pub mod status;
+pub mod tasks;
 #[cfg(test)]
 mod testutil;
 pub mod vault_backup;
