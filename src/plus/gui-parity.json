@@ -697,7 +697,7 @@
       "action": "library.uninstall",
       "surface": "screen"
     },
-    "server mode": {
+    "servers_set_mode": {
       "route": "servers",
       "action": "servers.advanced-mode",
       "surface": "screen"

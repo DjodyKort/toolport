@@ -56,6 +56,323 @@
           "tier": 1
         },
         {
+          "description": "List skills and rules in the repository",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "skills_list",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Read one skill including its body",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "skills_get",
+          "params": [
+            {
+              "description": "Skill or rule name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Lint skills, the files a sync leaves out and links that would not be installed",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "skills_lint",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Limit to these skills",
+              "name": "names",
+              "required": false,
+              "type": "string[]"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Drift between repository and client outputs, with a file-by-file verification",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "skills_status",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Client keys to target",
+              "name": "client_keys",
+              "required": false,
+              "type": "string[]"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "List client transpilers",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "skills_list_transpilers",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "Create a new skill skeleton",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "skills_scaffold",
+          "params": [
+            {
+              "description": "Skill or rule name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "skill or rule",
+              "name": "skill_type",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Transpile skills to client outputs; dry_run is on by default (apply with dry_run=false and confirm=true). Removals, new hooks and files that differ wait unless apply_held=true",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "skills_sync",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Client keys to target",
+              "name": "client_keys",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "User-level locations, the default; false works inside the repository",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Back up and replace files that shadow a synced skill; otherwise they are only reported",
+              "name": "migrate",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Also remove files that left the library, install new hooks and replace files that differ (after a backup)",
+              "name": "apply_held",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Compare the skills with the lockfile: new, modified, removed and unchanged",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "skills_diff",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Scan skills for prompt injection and risky commands",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "skills_audit",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Remove the synced skill outputs and the lockfile; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "skills_clean",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Limit to one client key",
+              "name": "client",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "User-level locations, the default; false works inside the repository",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 4
+        },
+        {
+          "description": "Delete one skill or rule from the repository with its synced outputs and lock entry; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "skills_uninstall",
+          "params": [
+            {
+              "description": "Skill or rule name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "User-level locations, the default; false works inside the repository",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 4
+        },
+        {
+          "description": "Find files that shadow synced skills; migrate=true backs them up and replaces them, otherwise they are only reported; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "skills_resolve",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Limit to one client key",
+              "name": "client",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "User-level locations, the default; false works inside the repository",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Back up and replace the shadowing files",
+              "name": "migrate",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
           "description": "List registered servers",
           "dryRunDefault": false,
           "gate": "none",
