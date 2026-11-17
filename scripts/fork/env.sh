@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Shared settings for the fork scripts. Source it; do not run it.
+# Shared settings for the fork scripts. Source it from bash or zsh; do not run it.
 #
 # The app (src-tauri) and the plus crates get separate target directories: after
 # several conduit builds with different feature sets, a shared one produced
 # bogus "multiple versions of crate serde_core" errors in plus/.
 
-FORK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# zsh has no BASH_SOURCE; %x is the file being sourced there.
+FORK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-${(%):-%x}}")/../.." && pwd)"
 
 # The upstream ref this fork line is merged up to; change it in the merge commit.
 FORK_UPSTREAM_REF="${FORK_UPSTREAM_REF:-$(head -n 1 "$FORK_ROOT/scripts/fork/upstream-ref")}"

@@ -67,6 +67,7 @@ step_fork_scripts() {
   python3 -I scripts/fork/test-patch-budget.py &&
     python3 -I scripts/fork/test-check-clippy.py &&
     python3 -I scripts/fork/test-check-tests.py &&
+    python3 -I scripts/fork/test-env-sh.py &&
     python3 scripts/test-check-rustfmt.py
 }
 
