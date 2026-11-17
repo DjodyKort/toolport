@@ -29,6 +29,11 @@ function readRecent(): string[] {
   }
 }
 
+/** Makes `folder` the one the Context page opens on next. */
+export function rememberFolder(folder: string) {
+  write(CURRENT_KEY, folder);
+}
+
 export interface FolderChoice {
   folder: string | null;
   recent: string[];

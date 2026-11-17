@@ -1,0 +1,6 @@
+{
+  "route": "context",
+  "status": "built",
+  "summary": "The Sessions tab: size, age and expiry of a repository's sessions, clear to trash or archive with Undo, restore, the global retention (sessions ls|clear|undo|restore|retention)",
+  "test": "src/plus/memory/MemoryCard.test.tsx"
+}

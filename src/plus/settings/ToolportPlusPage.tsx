@@ -17,6 +17,8 @@ import { toastError } from "@/lib/toast";
 import type { Registry } from "@/lib/types";
 import { ctlData } from "../bridge/ctl";
 import type { McpInstallData, McpUninstallData } from "../bridge/data";
+import { rememberFolder } from "../context/useFolder";
+import MemoryOverview from "../memory/MemoryOverview";
 import { AllCommands } from "./AllCommands";
 import { Installation } from "./Installation";
 import { leadFor, type LeadVariant } from "./model";
@@ -157,6 +159,18 @@ export default function ToolportPlusPage({
           status={overview.status.data}
           doctorError={overview.doctor.error}
           statusError={overview.status.error}
+        />
+      </section>
+
+      <section aria-label="Memory & history">
+        <SectionHeader>Memory &amp; history</SectionHeader>
+        <MemoryOverview
+          onOpen={(root) => {
+            rememberFolder(root);
+            toast.message("Context now opens on this repository", {
+              description: "Choose Context in the sidebar to see it.",
+            });
+          }}
         />
       </section>
 

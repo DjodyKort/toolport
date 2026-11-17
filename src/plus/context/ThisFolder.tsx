@@ -38,6 +38,7 @@ import {
   tokens,
 } from "./model";
 import { Group, InstructionRow, LayerStrip, LeverRow, RowShell } from "./StackRows";
+import MemoryCard from "../memory/MemoryCard";
 import { changeWithUndo } from "./useWrites";
 
 function ComposedText({ folder, onClose }: { folder: string; onClose: () => void }) {
@@ -324,6 +325,8 @@ export default function ThisFolder({ folder, onOpenBundles, onHome }: ThisFolder
           />
         </Group>
       )}
+
+      <MemoryCard folder={folder} onChanged={reload} />
 
       <Group
         title="Plugins"

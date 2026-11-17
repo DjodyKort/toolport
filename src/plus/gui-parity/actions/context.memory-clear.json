@@ -1,0 +1,6 @@
+{
+  "route": "context",
+  "status": "built",
+  "summary": "Clear a repository's auto memory to Toolport's trash with the file list first, and put it back (memory clear|undo, memory_clear, memory_undo)",
+  "test": "src/plus/memory/MemoryCard.test.tsx"
+}

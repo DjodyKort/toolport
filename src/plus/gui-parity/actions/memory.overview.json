@@ -1,0 +1,6 @@
+{
+  "route": "memory",
+  "status": "built",
+  "summary": "Settings > Toolport+ > Memory & history: one row per repository with memory, instruction files and sessions, filters and bulk actions (memory overview, memory_overview)",
+  "test": "src/plus/settings/ToolportPlusPage.test.tsx"
+}

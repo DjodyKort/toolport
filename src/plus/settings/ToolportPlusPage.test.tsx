@@ -37,6 +37,7 @@ const COVERS = [
   "system.mcp-tools",
   "catalog.commands",
   "catalog.mcp-call",
+  "memory.overview",
 ] as const;
 
 function renderPage(props: Partial<React.ComponentProps<typeof ToolportPlusPage>> = {}) {
@@ -220,5 +221,12 @@ describe("Settings > Toolport+", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Run" }));
     await waitFor(() => expect(within(dialog).getByText("Done")).toBeInTheDocument());
     expect(within(dialog).getByLabelText("Output")).toHaveTextContent('"serverCount": 3');
+  });
+
+  it("test20_memory_overview_lists_the_repositories_in_its_own_section", async () => {
+    resetPlusFixture({ self: "enabled" });
+    renderPage();
+    const section = await screen.findByRole("region", { name: "Memory & history" });
+    expect(await within(section).findByRole("row", { name: /web-app/ })).toBeVisible();
   });
 });

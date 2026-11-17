@@ -1,0 +1,6 @@
+{
+  "route": "context",
+  "status": "built",
+  "summary": "The Memory and history card in This folder: the auto memory switch with who set it, the memory files, the global default (memory ls|status|set, memory_ls, memory_status, memory_set)",
+  "test": "src/plus/memory/MemoryCard.test.tsx"
+}
