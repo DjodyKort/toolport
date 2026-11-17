@@ -1,0 +1,2 @@
+  ✓ saved config (provider=rtk-only)
+[exit 0]

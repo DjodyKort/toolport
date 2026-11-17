@@ -17,6 +17,7 @@ use serde_json::{json, Value};
 use toolport_plus::ctl::{registry, rows, Smoke, Tier, COMMANDS, SCHEMA_VERSION};
 
 mod common;
+use common::compression::{fake_proxy, transcripts};
 use common::library_world::{self, library_home};
 use common::oauth_mock::{self, OauthMock};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
@@ -180,6 +181,15 @@ fn unreadable_registry(world: &World) {
 }
 
 const VAULTED: &str = "FAKE-vaulted-value-1c9e";
+
+const OFF_PORT_PROXY: &[&str] = &[
+    "compression",
+    "enable",
+    "--provider",
+    "headroom",
+    "--port",
+    "29213",
+];
 
 const CASES: &[Case] = &[
     case("commands", &[read("", &["commands"])]),
@@ -1361,6 +1371,184 @@ const CASES: &[Case] = &[
             ),
             apply("apply", &["skills", "resolve", "--repo", "{repo}"]),
         ],
+    ),
+    case(
+        "compression status",
+        &[read("", &["compression", "status"])],
+    ),
+    case(
+        "compression presets",
+        &[read("", &["compression", "presets"])],
+    ),
+    case("compression pin", &[read("", &["compression", "pin"])]),
+    case("compression env", &[read("", &["compression", "env"])]),
+    case(
+        "compression doctor",
+        &[read("", &["compression", "doctor"])],
+    ),
+    case(
+        "compression ledger summary",
+        &[read("", &["compression", "ledger", "summary"])],
+    ),
+    // compression
+    case(
+        "compression enable",
+        &[
+            read(
+                "preview",
+                &[
+                    "compression",
+                    "enable",
+                    "--provider",
+                    "rtk-only",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &["compression", "enable", "--provider", "rtk-only"],
+            ),
+        ],
+    ),
+    case(
+        "compression use",
+        &[
+            read("preview", &["compression", "use", "agent", "--dry-run"]),
+            apply("apply", &["compression", "use", "agent"]),
+            usage("usage", &["compression", "use"]),
+        ],
+    ),
+    case(
+        "compression set-provider",
+        &[
+            read(
+                "preview",
+                &["compression", "set-provider", "headroom", "--dry-run"],
+            ),
+            apply("apply", &["compression", "set-provider", "headroom"]),
+            usage("usage", &["compression", "set-provider"]),
+        ],
+    ),
+    case(
+        "compression sync",
+        &[
+            read("preview", &["compression", "sync", "--dry-run"]),
+            apply("apply", &["compression", "sync"]),
+        ],
+    ),
+    case(
+        "compression seal",
+        &[
+            hook("fake-proxy", fake_proxy),
+            setup("setup", OFF_PORT_PROXY),
+            read("no-proxy", &["compression", "seal"]).exit(1),
+            setup(
+                "proxy",
+                &[
+                    "compression",
+                    "enable",
+                    "--provider",
+                    "headroom",
+                    "--port",
+                    "29214",
+                ],
+            ),
+            read("preview", &["compression", "seal", "--dry-run"]),
+            apply("apply", &["compression", "seal", "--apply"]),
+            apply("again", &["compression", "seal", "--apply"]),
+        ],
+    ),
+    case(
+        "compression disable",
+        &[
+            read(
+                "preview",
+                &["compression", "disable", "--teardown", "--dry-run"],
+            ),
+            apply("apply", &["compression", "disable", "--teardown"]),
+        ],
+    ),
+    // terminal surface: `--plan` prints what would run instead of replacing the process
+    case(
+        "compression run",
+        &[read("plan", &["compression", "run", "--plan", "claude"])],
+    ),
+    case(
+        "compression verify",
+        &[
+            hook("transcripts", transcripts),
+            read(
+                "no-transcripts",
+                &["compression", "verify", "--transcripts", "{base}/none"],
+            )
+            .exit(1),
+            read(
+                "measured",
+                &[
+                    "compression",
+                    "verify",
+                    "--transcripts",
+                    "{home}/.claude/projects",
+                    "--min-turns",
+                    "1",
+                ],
+            ),
+        ],
+    ),
+    case(
+        "compression ledger record",
+        &[
+            apply(
+                "apply",
+                &[
+                    "compression",
+                    "ledger",
+                    "record",
+                    "--provider",
+                    "rtk-only",
+                    "--before",
+                    "1000",
+                    "--after",
+                    "400",
+                    "--source",
+                    "contract",
+                    "--session",
+                    "s1",
+                ],
+            ),
+            usage("usage", &["compression", "ledger", "record"]),
+        ],
+    ),
+    // the proxy needs the engine on PATH, which the contract world does not have
+    case(
+        "compression proxy up",
+        &[
+            setup("setup", OFF_PORT_PROXY),
+            apply("no-engine", &["compression", "proxy", "up"]).exit(1),
+        ],
+    ),
+    case(
+        "compression proxy down",
+        &[
+            setup("setup", OFF_PORT_PROXY),
+            apply("no-proxy", &["compression", "proxy", "down"]).exit(1),
+        ],
+    ),
+    case(
+        "compression proxy restart",
+        &[
+            setup("setup", OFF_PORT_PROXY),
+            apply("no-engine", &["compression", "proxy", "restart"]).exit(1),
+        ],
+    ),
+    // `--accept` would install the engine with uv and the latest version comes from the network,
+    // so only the preview of an explicit target is recorded
+    case(
+        "compression update",
+        &[read(
+            "preview",
+            &["compression", "update", "--to", "0.30.0"],
+        )],
     ),
 ];
 

@@ -1,0 +1,25 @@
+{
+  "argv": ["compression", "sync", "--dry-run"],
+  "envelope": {
+    "command": "compression sync",
+    "data": {
+      "actions": ["would save config (provider=none)"],
+      "adopted": null,
+      "dryRun": true,
+      "preset": {
+        "mode": "cache",
+        "name": "interactive",
+        "port": 8787,
+        "savingsProfile": null
+      },
+      "provider": "none",
+      "removed": [],
+      "runtime": "none",
+      "warnings": [],
+      "written": []
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

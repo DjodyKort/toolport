@@ -1,0 +1,15 @@
+{
+  "argv": ["compression", "ledger", "summary"],
+  "envelope": {
+    "command": "compression ledger",
+    "data": {
+      "launchesPath": "<WORLD>/data/compression-launches.jsonl",
+      "providers": [],
+      "savingsPath": "<WORLD>/data/compression-savings.jsonl",
+      "tokensSaved": 0
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

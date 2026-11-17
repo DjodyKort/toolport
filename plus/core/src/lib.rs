@@ -3,6 +3,7 @@
 
 mod args;
 pub mod auth;
+pub mod compression;
 pub mod context;
 pub mod ctl;
 pub mod egress;
@@ -15,9 +16,13 @@ pub mod library;
 pub mod login_keychain;
 pub mod oauth;
 pub mod op;
+#[cfg(test)]
+mod randutil;
 mod redact;
 pub mod selfmcp;
 pub mod servers;
 pub mod skills;
 pub mod status;
+#[cfg(test)]
+mod testutil;
 pub mod vault_backup;

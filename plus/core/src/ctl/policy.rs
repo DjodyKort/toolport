@@ -14,7 +14,7 @@
 use super::agents;
 use super::auth;
 use super::context;
-use super::flags::{Flag, Spec};
+use super::flags::{switch, value, Flag, Spec};
 use super::library;
 use super::mcp;
 use super::plugins;
@@ -25,6 +25,7 @@ use super::skills_repo;
 use super::skills_state;
 use super::skills_taps;
 use super::styles;
+use super::{compression, compression_cfg};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tier {
@@ -151,6 +152,14 @@ pub(super) struct Row {
     pub smoke: Smoke,
 }
 
+const fn many(name: &'static str) -> Operand {
+    Operand {
+        name,
+        required: false,
+        variadic: true,
+    }
+}
+
 const fn row(id: &'static str, tier: Tier) -> Row {
     Row {
         id,
@@ -182,6 +191,35 @@ impl Row {
             preview: Preview::Flag("--dry-run"),
             ..self
         }
+    }
+
+    const fn plan(self) -> Self {
+        Self {
+            preview: Preview::Flag("--plan"),
+            ..self
+        }
+    }
+
+    const fn unless(self, apply: &'static str) -> Self {
+        Self {
+            preview: Preview::UnlessApplied(apply),
+            ..self
+        }
+    }
+
+    const fn operand_writes(self) -> Self {
+        Self {
+            operand_escalates: true,
+            ..self
+        }
+    }
+
+    const fn extra(self, extra: &'static [Flag]) -> Self {
+        Self { extra, ..self }
+    }
+
+    const fn requires(self, requires: &'static [&'static str]) -> Self {
+        Self { requires, ..self }
     }
 
     const fn reads(self, escalators: &'static [&'static str]) -> Self {
@@ -269,6 +307,11 @@ pub(super) const SUBS: &[Sub] = &[
     sub("mcp", "uninstall", "Remove the self-management server and keep it removed"),
     sub("mcp", "doctor", "Check the self-management server"),
     sub("mcp", "tools", "List the self-management tools and resources"),
+    sub("compression proxy", "up", "Start the local compression proxy"),
+    sub("compression proxy", "down", "Stop the local compression proxy"),
+    sub("compression proxy", "restart", "Stop and start the local compression proxy"),
+    sub("compression ledger", "summary", "Summarise the token-savings ledger (--provider, --since)"),
+    sub("compression ledger", "record", "Append a savings record to the ledger (--provider, --before, --after, --source, --session)"),
     sub("mcp", "call", "Run one self-management tool in-process (<tool>, --args, --args-stdin)"),
 ];
 
@@ -527,6 +570,80 @@ pub(super) const ROWS: &[Row] = &[
         .dry()
         .spec(&[&skills_state::RESOLVE])
         .skip("backs up shadowing files; its --dry-run is a golden step"),
+    row("compression status", R),
+    row("compression presets", W)
+        .reads(&["--refresh"])
+        .dry()
+        .spec(&[&compression_cfg::PRESETS])
+        .skip("writes only with --refresh; the refresh preview is a golden step"),
+    row("compression enable", W)
+        .dry()
+        .spec(&[&compression_cfg::ENABLE])
+        .skip(
+            "writes the policy, shims and the engine's MCP entry; its --dry-run is a golden step",
+        ),
+    row("compression disable", D)
+        .dry()
+        .spec(&[&compression_cfg::DISABLE])
+        .skip("removes generated files; its --dry-run is a golden step"),
+    row("compression set-provider", W)
+        .dry()
+        .spec(&[&compression_cfg::DRY])
+        .args(&[req("provider")])
+        .skip("switches the provider; its --dry-run is a golden step"),
+    row("compression use", W)
+        .dry()
+        .spec(&[&compression_cfg::DRY])
+        .args(&[req("preset")])
+        .skip("switches the preset; its --dry-run is a golden step"),
+    row("compression sync", W)
+        .dry()
+        .spec(&[&compression_cfg::SYNC])
+        .skip("re-applies the policy; its --dry-run is a golden step"),
+    row("compression pin", W)
+        .reads(&["--install", "--refresh"])
+        .operand_writes()
+        .dry()
+        .needs(&[Needs::Network, Needs::LongRunning])
+        .spec(&[&compression_cfg::PIN])
+        .args(&[opt("version")])
+        .smoke(&[]),
+    row("compression seal", W)
+        .reads(&["--apply"])
+        .dry()
+        .spec(&[&compression_cfg::SEAL])
+        .args(&[opt("preset")])
+        .skip("reads the running proxy; its preview is a golden step"),
+    row("compression env", R).spec(&[&compression_cfg::ENV]),
+    row("compression doctor", R),
+    row("compression run", W)
+        .plan()
+        .needs(&[Needs::TerminalOnly, Needs::LongRunning])
+        .terminal()
+        .extra(&[switch("--plan"), switch("--force"), value("--cwd")])
+        .args(&[many("claude-args")])
+        .skip("replaces the process with claude; its --plan is a golden step"),
+    row("compression verify", R)
+        .needs(&[Needs::LongRunning])
+        .spec(&[&compression::VERIFY]),
+    row("compression update", W)
+        .reads(&["--accept"])
+        .unless("--accept")
+        .needs(&[Needs::Network, Needs::LongRunning])
+        .spec(&[&compression::UPDATE])
+        .skip("moves the engine pin; the preview is a golden step"),
+    row("compression proxy up", W)
+        .needs(&[Needs::LongRunning])
+        .skip("starts a process; the no-engine run is a golden step"),
+    row("compression proxy down", W).skip("stops a process; the no-proxy run is a golden step"),
+    row("compression proxy restart", W)
+        .needs(&[Needs::LongRunning])
+        .skip("restarts a process; the no-engine run is a golden step"),
+    row("compression ledger summary", R).spec(&[&compression::LEDGER_SUMMARY]),
+    row("compression ledger record", W)
+        .spec(&[&compression::LEDGER_RECORD])
+        .requires(&["--provider"])
+        .skip("appends to the ledger; its golden step runs in a scratch data dir"),
     row("mcp install", W)
         .spec(&[&mcp::INSTALL])
         .skip("registers the server and lists it in access sets; plus_mcp.rs round trip"),
@@ -632,6 +749,13 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     own("where_am_i", R),
     maps("doctor", R, "doctor"),
     own("flow_diagram", R),
+    maps("compression_status", R, "compression status"),
+    maps("compression_enable", W, "compression enable").on(),
+    maps("compression_disable", D, "compression disable").on(),
+    maps("compression_set_provider", W, "compression set-provider").on(),
+    maps("compression_use", W, "compression use").on(),
+    maps("compression_sync", W, "compression sync").on(),
+    maps("compression_seal", W, "compression seal").on(),
     maps("servers_list", R, "server ls"),
     maps("servers_get", R, "server info"),
     own("servers_list_profiles", R),
@@ -737,6 +861,10 @@ pub fn terminal_only(argv: &[String]) -> Option<String> {
     let (command, _) = super::find_command(&words)?;
     let id = command.path.join(" ");
     if row_of(&id)?.surface != Surface::Terminal {
+        return None;
+    }
+    let tail = &argv[start + command.path.len()..];
+    if id == "compression run" && compression::is_plan_only(tail) {
         return None;
     }
     Some(format!(

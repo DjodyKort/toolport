@@ -16,6 +16,7 @@ use toolport_plus::selfmcp::{RESOURCES, TOOLS};
 
 mod common;
 use common::client::Client;
+use common::compression;
 use common::library_world::{self, library_home};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
@@ -92,6 +93,13 @@ const fn setup(tool: &'static str, args: &'static str) -> Call {
         ..write(tool, tool, args)
     }
 }
+
+const ENABLE_PROXY_PORT: &str =
+    r#"{"provider":"headroom","port":29214,"dry_run":false,"confirm":true}"#;
+const ENABLE_OFF_PORT: &str =
+    r#"{"provider":"headroom","port":29213,"dry_run":false,"confirm":true}"#;
+const TEARDOWN: &str = r#"{"teardown":true}"#;
+const TEARDOWN_UNCONFIRMED: &str = r#"{"teardown":true,"dry_run":false}"#;
 
 const GAMMA: &str = r#"{"name":"gamma","config":{"command":"gamma-mcp","args":["--flag"]}}"#;
 const GAMMA_APPLY: &str =
@@ -1010,6 +1018,145 @@ const CASES: &[Case] = &[
             write("apply", "skills_resolve", APPLY),
         ],
     ),
+    // compression
+    case(
+        "compression_status",
+        &[
+            read("fresh", "compression_status", "{}"),
+            setup("compression_enable", ENABLE_OFF_PORT),
+            read("enabled", "compression_status", "{}"),
+        ],
+    ),
+    case(
+        "compression_enable",
+        &[
+            read(
+                "preview",
+                "compression_enable",
+                r#"{"provider":"rtk-only","port":29213,"mode":"cache"}"#,
+            ),
+            refused(
+                "refused",
+                "compression_enable",
+                r#"{"provider":"rtk-only","port":29213,"mode":"cache","dry_run":false}"#,
+            ),
+            fails(
+                "unknown_provider",
+                "invalid_arguments",
+                "compression_enable",
+                r#"{"provider":"bogus","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "port_not_a_number",
+                "invalid_arguments",
+                "compression_enable",
+                r#"{"port":"29213","dry_run":false,"confirm":true}"#,
+            ),
+            write(
+                "apply",
+                "compression_enable",
+                r#"{"provider":"rtk-only","port":29213,"mode":"cache","dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
+    case(
+        "compression_disable",
+        &[
+            setup("compression_enable", ENABLE_OFF_PORT),
+            read("preview", "compression_disable", "{}"),
+            read("teardown_preview", "compression_disable", TEARDOWN),
+            refused("refused", "compression_disable", UNCONFIRMED),
+            refused(
+                "teardown_refused",
+                "compression_disable",
+                TEARDOWN_UNCONFIRMED,
+            ),
+            write("apply", "compression_disable", APPLY),
+        ],
+    ),
+    case(
+        "compression_set_provider",
+        &[
+            read(
+                "preview",
+                "compression_set_provider",
+                r#"{"provider":"headroom"}"#,
+            ),
+            refused(
+                "refused",
+                "compression_set_provider",
+                r#"{"provider":"headroom","dry_run":false}"#,
+            ),
+            write(
+                "apply",
+                "compression_set_provider",
+                r#"{"provider":"headroom","dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
+    case(
+        "compression_use",
+        &[
+            read("preview", "compression_use", r#"{"preset":"agent"}"#),
+            refused(
+                "refused",
+                "compression_use",
+                r#"{"preset":"agent","dry_run":false}"#,
+            ),
+            write(
+                "apply",
+                "compression_use",
+                r#"{"preset":"agent","dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "compression_sync",
+        demo_skill_file,
+        &[
+            read("preview", "compression_sync", "{}"),
+            read(
+                "root_preview",
+                "compression_sync",
+                r#"{"mcpm_root":"{home}"}"#,
+            ),
+            fails(
+                "root_relative",
+                "invalid_arguments",
+                "compression_sync",
+                r#"{"mcpm_root":"relative/mcpm"}"#,
+            ),
+            fails(
+                "root_missing",
+                "invalid_arguments",
+                "compression_sync",
+                r#"{"mcpm_root":"{home}/absent"}"#,
+            ),
+            fails(
+                "root_file",
+                "invalid_arguments",
+                "compression_sync",
+                r#"{"mcpm_root":"{base}/skills-repo/skills/demo/SKILL.md"}"#,
+            ),
+            refused("refused", "compression_sync", UNCONFIRMED),
+            write("apply", "compression_sync", APPLY),
+        ],
+    ),
+    // seal reads the proxy's /health, even for a preview: first a port nothing listens on, then
+    // one that answers like the proxy
+    prepared(
+        "compression_seal",
+        compression::fake_proxy,
+        &[
+            setup("compression_enable", ENABLE_OFF_PORT),
+            refused("refused", "compression_seal", UNCONFIRMED),
+            fails("no_proxy", "backend_error", "compression_seal", APPLY),
+            setup("compression_enable", ENABLE_PROXY_PORT),
+            read("preview", "compression_seal", "{}"),
+            write("apply", "compression_seal", APPLY),
+            read("sealed", "compression_seal", APPLY),
+        ],
+    ),
 ];
 
 fn stem(case: &Case, call: &Call) -> String {
@@ -1055,6 +1202,12 @@ fn arguments(world: &World, case: &Case, call: &Call) -> Value {
         .replace("{base}", &world.base.to_string_lossy());
     serde_json::from_str(&expanded)
         .unwrap_or_else(|e| panic!("{} {}: arguments are not JSON: {e}", case.tool, call.label))
+}
+
+fn demo_skill_file(world: &World) {
+    let file = world.base.join("skills-repo/skills/demo/SKILL.md");
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    std::fs::write(file, "# Demo\n").unwrap();
 }
 
 /// A local git repository with one commit, so a tap can be added without a network.

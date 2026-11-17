@@ -4,6 +4,9 @@
 
 mod backend;
 mod catalog;
+mod compression;
+#[cfg(test)]
+mod compression_tests;
 mod content;
 mod context;
 mod library;

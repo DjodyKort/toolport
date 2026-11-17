@@ -1,0 +1,6 @@
+Enabling compression: none (preset interactive, mode cache)
+  ✓ saved config (provider=none)
+
+Next steps:
+  • verify: mcpm compression status / doctor   (MCP presence already propagated)
+[exit 0]

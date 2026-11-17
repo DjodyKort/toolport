@@ -26,6 +26,10 @@
     "library": {
       "title": "Library",
       "status": "planned"
+    },
+    "compression": {
+      "title": "Hooks & compression",
+      "status": "planned"
     }
   },
   "actions": {
@@ -270,6 +274,61 @@
       "route": "library",
       "status": "planned",
       "summary": "Edit a skill's body or frontmatter in the library, or delete it (skills_edit_body, skills_edit_frontmatter, skills_delete)"
+    },
+    "compression.status": {
+      "route": "compression",
+      "status": "planned",
+      "summary": "Provider, preset, engine pin and shims of the compression policy (compression status)"
+    },
+    "compression.presets": {
+      "route": "compression",
+      "status": "planned",
+      "summary": "List the presets and refresh their snapshots from the engine (compression presets)"
+    },
+    "compression.provider": {
+      "route": "compression",
+      "status": "planned",
+      "summary": "Choose the provider and the active preset, enable or disable compression and re-apply the policy (enable, disable, set-provider, use, sync)"
+    },
+    "compression.pin": {
+      "route": "compression",
+      "status": "planned",
+      "summary": "Show and move the exact engine pin (pin, update)"
+    },
+    "compression.seal": {
+      "route": "compression",
+      "status": "planned",
+      "summary": "Declare the live proxy posture as policy (seal)"
+    },
+    "compression.env": {
+      "route": "compression",
+      "status": "planned",
+      "summary": "The proxy environment a folder would get (env)"
+    },
+    "compression.doctor": {
+      "route": "compression",
+      "status": "planned",
+      "summary": "Engine, pin and shims checks (doctor)"
+    },
+    "compression.run": {
+      "route": "compression",
+      "status": "planned",
+      "summary": "Launch claude under the folder policy; terminal only (run)"
+    },
+    "compression.verify": {
+      "route": "compression",
+      "status": "planned",
+      "summary": "Health checks and the prompt-cache measurement over transcripts (verify)"
+    },
+    "compression.ledger": {
+      "route": "compression",
+      "status": "planned",
+      "summary": "The launch and savings ledger, with a record form (ledger summary, ledger record)"
+    },
+    "compression.proxy": {
+      "route": "compression",
+      "status": "planned",
+      "summary": "Start, stop and restart the local proxy (proxy up, down, restart)"
     }
   },
   "owners": {
@@ -285,7 +344,8 @@
     "skills": "MIG-2X-S4",
     "library": "MIG-2X-S4",
     "agents": "MIG-2X-S4",
-    "styles": "MIG-2X-S4"
+    "styles": "MIG-2X-S4",
+    "compression": "MIG-2X-S7"
   },
   "commands": {
     "status": {
@@ -697,6 +757,101 @@
       "route": "library",
       "action": "library.styles",
       "surface": "screen"
+    },
+    "compression status": {
+      "route": "compression",
+      "action": "compression.status",
+      "surface": "screen"
+    },
+    "compression presets": {
+      "route": "compression",
+      "action": "compression.presets",
+      "surface": "screen"
+    },
+    "compression enable": {
+      "route": "compression",
+      "action": "compression.provider",
+      "surface": "screen"
+    },
+    "compression disable": {
+      "route": "compression",
+      "action": "compression.provider",
+      "surface": "screen"
+    },
+    "compression set-provider": {
+      "route": "compression",
+      "action": "compression.provider",
+      "surface": "screen"
+    },
+    "compression use": {
+      "route": "compression",
+      "action": "compression.provider",
+      "surface": "screen"
+    },
+    "compression sync": {
+      "route": "compression",
+      "action": "compression.provider",
+      "surface": "screen"
+    },
+    "compression pin": {
+      "route": "compression",
+      "action": "compression.pin",
+      "surface": "screen"
+    },
+    "compression update": {
+      "route": "compression",
+      "action": "compression.pin",
+      "surface": "screen"
+    },
+    "compression seal": {
+      "route": "compression",
+      "action": "compression.seal",
+      "surface": "screen"
+    },
+    "compression env": {
+      "route": "compression",
+      "action": "compression.env",
+      "surface": "screen"
+    },
+    "compression doctor": {
+      "route": "compression",
+      "action": "compression.doctor",
+      "surface": "screen"
+    },
+    "compression run": {
+      "route": "compression",
+      "action": "compression.run",
+      "surface": "terminal"
+    },
+    "compression verify": {
+      "route": "compression",
+      "action": "compression.verify",
+      "surface": "screen"
+    },
+    "compression ledger summary": {
+      "route": "compression",
+      "action": "compression.ledger",
+      "surface": "screen"
+    },
+    "compression ledger record": {
+      "route": "compression",
+      "action": "compression.ledger",
+      "surface": "screen"
+    },
+    "compression proxy up": {
+      "route": "compression",
+      "action": "compression.proxy",
+      "surface": "screen"
+    },
+    "compression proxy down": {
+      "route": "compression",
+      "action": "compression.proxy",
+      "surface": "screen"
+    },
+    "compression proxy restart": {
+      "route": "compression",
+      "action": "compression.proxy",
+      "surface": "screen"
     }
   },
   "tools": {
@@ -1068,6 +1223,41 @@
     "skills_delete": {
       "route": "library",
       "action": "library.edit",
+      "surface": "screen"
+    },
+    "compression_status": {
+      "route": "compression",
+      "action": "compression.status",
+      "surface": "screen"
+    },
+    "compression_enable": {
+      "route": "compression",
+      "action": "compression.provider",
+      "surface": "screen"
+    },
+    "compression_disable": {
+      "route": "compression",
+      "action": "compression.provider",
+      "surface": "screen"
+    },
+    "compression_set_provider": {
+      "route": "compression",
+      "action": "compression.provider",
+      "surface": "screen"
+    },
+    "compression_use": {
+      "route": "compression",
+      "action": "compression.provider",
+      "surface": "screen"
+    },
+    "compression_sync": {
+      "route": "compression",
+      "action": "compression.provider",
+      "surface": "screen"
+    },
+    "compression_seal": {
+      "route": "compression",
+      "action": "compression.seal",
       "surface": "screen"
     }
   }

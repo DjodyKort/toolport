@@ -1,0 +1,2 @@
+unknown preset 'ghost' (have: interactive, agent, balanced)
+[exit 1]

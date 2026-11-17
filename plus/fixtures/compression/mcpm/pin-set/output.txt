@@ -1,0 +1,9 @@
+Pin → 0.30.1  (requirement: headroom-ai[proxy,code,ml]==0.30.1)
+  presets still hold values snapshotted from another build — re-snapshot with `--install --refresh`.
+pin          0.30.1
+requirement  headroom-ai[proxy,code,ml]==0.30.1
+installed    0.29.0
+             drift — installed ≠ pin
+
+  Install the pin: mcpm compression pin --install --refresh
+[exit 0]

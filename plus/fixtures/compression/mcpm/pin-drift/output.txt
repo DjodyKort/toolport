@@ -1,0 +1,7 @@
+pin          0.29.0
+requirement  headroom-ai[proxy,code,ml]==0.29.0
+installed    0.30.1
+             drift — installed ≠ pin
+
+  Install the pin: mcpm compression pin --install --refresh
+[exit 0]

@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "provider": "headroom"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: compression_set_provider (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: compression_set_provider (tier 3). Pass confirm=true to proceed.",
+  "tool": "compression_set_provider"
+}

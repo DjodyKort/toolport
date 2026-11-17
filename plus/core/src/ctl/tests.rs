@@ -156,6 +156,12 @@ fn leaf_ids() -> Vec<String> {
             .filter(|s| s.parent == id)
             .map(|s| s.id())
             .collect();
+        let has_children = COMMANDS.iter().any(|other| {
+            other.path.len() > command.path.len() && other.path.starts_with(command.path)
+        });
+        if has_children {
+            continue;
+        }
         if subs.is_empty() {
             ids.push(id);
         } else {

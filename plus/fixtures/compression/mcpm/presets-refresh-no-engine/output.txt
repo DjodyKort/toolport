@@ -1,0 +1,2 @@
+  ✗ preset 'agent': headroom is not on PATH — cannot snapshot profile env. Install the pinned build: mcpm compression pin --install
+[exit 1]

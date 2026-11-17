@@ -32,6 +32,8 @@ pub struct MemoryRegistry {
     pub default_access: RefCell<Option<String>>,
     pub client_access_sets: RefCell<Vec<String>>,
     pub folder_routes: RefCell<Vec<FolderRoute>>,
+    /// Where `registry_path` points; the data dir of tests that write files next to it.
+    pub path: Option<PathBuf>,
 }
 
 /// One registry state a transaction edits: the same rules as the conduit adapter.
@@ -395,7 +397,11 @@ impl MemoryRegistry {
 
 impl RegistryAccess for MemoryRegistry {
     fn registry_path(&self) -> Option<PathBuf> {
-        Some(PathBuf::from("/memory/registry.json"))
+        Some(
+            self.path
+                .clone()
+                .unwrap_or_else(|| PathBuf::from("/memory/registry.json")),
+        )
     }
 
     fn list_servers(&self) -> Result<Vec<ServerRecord>, String> {

@@ -10,6 +10,8 @@ mod agents;
 mod auth;
 mod commands;
 mod commands_json;
+pub(crate) mod compression;
+mod compression_cfg;
 mod context;
 mod flags;
 mod library;
@@ -457,6 +459,91 @@ pub const COMMANDS: &[Command] = &[
         skills_state::resolve,
     ),
     cmd(
+        &["compression", "status"],
+        "Show the compression policy, pin and drift",
+        compression::status,
+    ),
+    cmd(
+        &["compression", "presets"],
+        "List presets (--refresh re-snapshots knobs, --dry-run)",
+        compression::presets,
+    ),
+    cmd(
+        &["compression", "enable"],
+        "Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)",
+        compression_cfg::enable,
+    ),
+    cmd(
+        &["compression", "disable"],
+        "Disable compression (--teardown, --dry-run)",
+        compression_cfg::disable,
+    ),
+    cmd(
+        &["compression", "set-provider"],
+        "Swap the active provider and re-apply (--dry-run)",
+        compression_cfg::set_provider,
+    ),
+    cmd(
+        &["compression", "use"],
+        "Switch the active preset and re-apply (--dry-run)",
+        compression_cfg::use_preset,
+    ),
+    cmd(
+        &["compression", "sync"],
+        "Re-apply the policy: shims, env snippet, MCP entry (--mcpm-root, --dry-run)",
+        compression_cfg::sync,
+    ),
+    cmd(
+        &["compression", "pin"],
+        "Show or set the exact engine pin (--install, --refresh, --dry-run)",
+        compression_cfg::pin,
+    ),
+    cmd(
+        &["compression", "seal"],
+        "Declare the live proxy posture as policy (--apply, --dry-run)",
+        compression_cfg::seal,
+    ),
+    cmd(
+        &["compression", "env"],
+        "Print the proxy env for a directory, for eval (--cwd)",
+        compression_cfg::env,
+    ),
+    cmd(
+        &["compression", "doctor"],
+        "Run the compression health checks",
+        compression_cfg::doctor,
+    ),
+    cmd(
+        &["compression", "run"],
+        "Launch claude under the directory's policy (--plan to preview)",
+        compression::run,
+    ),
+    cmd(
+        &["compression", "verify"],
+        "Check provider health, pin, shims and measure cache behaviour",
+        compression::verify,
+    ),
+    cmd(
+        &["compression", "ledger"],
+        "Launch and token-savings ledger (summary | record)",
+        compression::ledger_cmd,
+    ),
+    cmd(
+        &["compression", "proxy"],
+        "Proxy lifecycle: up, down, restart",
+        compression::proxy,
+    ),
+    cmd(
+        &["compression", "update"],
+        "Move the engine pin (--to V | --latest, --accept to apply)",
+        compression::update,
+    ),
+    cmd(
+        &["compression"],
+        "Compression: status presets enable disable set-provider use sync pin seal env doctor run verify ledger proxy update",
+        compression_cfg::group,
+    ),
+    cmd(
         &["mcp"],
         "Self-management server: install [--access-set <id>] uninstall doctor tools call <tool> [--args <json> | --args-stdin]",
         mcp::run,
@@ -482,7 +569,12 @@ pub fn parse(args: &[String]) -> Result<Parsed, String> {
             continue;
         }
         match arg.as_str() {
-            "--" => rest_positional = true,
+            "--" => {
+                rest_positional = true;
+                if parsed.positional.first().map(String::as_str) == Some("compression") {
+                    parsed.positional.push(arg.clone());
+                }
+            }
             "--json" => parsed.json = true,
             "-h" | "--help" => parsed.help = true,
             "-V" | "--version" => parsed.version = true,
@@ -653,5 +745,11 @@ fn emit(
     code
 }
 
+#[cfg(test)]
+mod compression_cfg_tests;
+#[cfg(test)]
+mod compression_golden_tests;
+#[cfg(test)]
+mod compression_tests;
 #[cfg(test)]
 mod tests;

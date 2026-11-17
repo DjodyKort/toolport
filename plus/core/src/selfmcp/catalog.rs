@@ -1,7 +1,7 @@
 use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
 
-use super::{backend, content, context, library, servers, skills, ToolError};
+use super::{backend, compression, content, context, library, servers, skills, ToolError};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Gate {
@@ -576,6 +576,81 @@ pub const TOOLS: &[ToolDef] = &[
             DRY_ON
         ],
         skills::resolve
+    ),
+    tool!(
+        "compression_status",
+        1,
+        None,
+        "Show the compression provider, active preset, engine pin and shims",
+        [],
+        compression::status
+    ),
+    tool!(
+        "compression_enable",
+        3,
+        UnlessDryRun,
+        "Enable compression: writes the policy config, the shell shims and the registry entry of the provider (default headroom); dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("provider", Ty::Str, false, "headroom, rtk-only, parsec or none"),
+            p("port", Ty::Int, false, "Proxy port of the active preset"),
+            p("telemetry", Ty::Str, false, "on or off"),
+            p("preset", Ty::Str, false, "Preset to make active"),
+            p("mode", Ty::Str, false, "cache or token"),
+            DRY_ON
+        ],
+        compression::enable
+    ),
+    tool!(
+        "compression_disable",
+        4,
+        UnlessDryRun,
+        "Switch compression off (provider none) and remove the generated shims and registry entry; presets and the pin stay; with teardown=true it also runs `headroom mcp uninstall` and `headroom unwrap claude`, which the plan names and a dry run only lists; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("teardown", Ty::Bool, false, "Also uninstall the engine's MCP entry and unwrap Claude; the engine's own data stays"),
+            DRY_ON
+        ],
+        compression::disable
+    ),
+    tool!(
+        "compression_set_provider",
+        3,
+        UnlessDryRun,
+        "Switch the compression provider and re-apply the policy; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("provider", Ty::Str, true, "headroom, rtk-only, parsec or none"),
+            DRY_ON
+        ],
+        compression::set_provider
+    ),
+    tool!(
+        "compression_use",
+        3,
+        UnlessDryRun,
+        "Make a compression preset active and re-apply the policy; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [p("preset", Ty::Str, true, "Preset name"), DRY_ON],
+        compression::use_preset
+    ),
+    tool!(
+        "compression_sync",
+        3,
+        UnlessDryRun,
+        "Re-apply the stored compression policy to the shims, the registry entry and the engine, adopting a legacy mcpm policy when none is stored; mcpm_root names the directory that policy is read from (read only); dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("mcpm_root", Ty::Str, false, "Absolute path of an existing directory to read the legacy mcpm policy from instead of the default location; it is only read"),
+            DRY_ON
+        ],
+        compression::sync
+    ),
+    tool!(
+        "compression_seal",
+        3,
+        UnlessDryRun,
+        "Read the running proxy's /health and record the settings the policy never declared into the preset; needs a running proxy; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("preset", Ty::Str, false, "Preset to seal, default the active one"),
+            DRY_ON
+        ],
+        compression::seal
     ),
     tool!(
         "servers_list",
