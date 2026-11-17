@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   ChevronRight,
   CircleCheck,
+  DatabaseBackup,
   Info,
   RotateCw,
   SquareTerminal,
@@ -18,6 +19,7 @@ import type { Registry } from "@/lib/types";
 import { ctlData } from "../bridge/ctl";
 import type { McpInstallData, McpUninstallData } from "../bridge/data";
 import { AllCommands } from "./AllCommands";
+import { SetupPage } from "../setup/SetupPage";
 import { Installation } from "./Installation";
 import { leadFor, type LeadVariant } from "./model";
 import { SelfManagement } from "./SelfManagement";
@@ -46,6 +48,7 @@ export default function ToolportPlusPage({
   const { overview, refreshing, reload } = useOverview();
   const [busy, setBusy] = useState(false);
   const [showCommands, setShowCommands] = useState(false);
+  const [showSetup, setShowSetup] = useState(false);
 
   async function change(argv: string[], done: (data: unknown) => string) {
     setBusy(true);
@@ -82,6 +85,8 @@ export default function ToolportPlusPage({
       />
     );
   }
+
+  if (showSetup) return <SetupPage onBack={() => setShowSetup(false)} />;
 
   if (showCommands && overview.commands.data) {
     return (
@@ -158,6 +163,30 @@ export default function ToolportPlusPage({
           doctorError={overview.doctor.error}
           statusError={overview.status.error}
         />
+      </section>
+
+      <section aria-label="Setup and backup">
+        <SectionHeader>Setup &amp; backup</SectionHeader>
+        <div className="toolport-list">
+          <div className="flex items-center gap-3 px-4 py-3">
+            <div
+              aria-hidden="true"
+              className="grid size-8 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground [&_svg]:size-4"
+            >
+              <DatabaseBackup />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">Setup file</p>
+              <p className="text-meta text-muted-foreground">
+                Export your setup, restore it on a new machine, and check what a reset
+                would lose.
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => setShowSetup(true)}>
+              Manage <ChevronRight />
+            </Button>
+          </div>
+        </div>
       </section>
 
       <section aria-label="Commands">

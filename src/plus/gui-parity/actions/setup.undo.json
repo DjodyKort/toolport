@@ -1,0 +1,6 @@
+{
+  "route": "setup",
+  "status": "built",
+  "summary": "Undo the last restore: settings, access, tasks, files and clones (setup undo)",
+  "test": "src/plus/setup/SetupPage.test.tsx"
+}
