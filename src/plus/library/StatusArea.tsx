@@ -18,6 +18,7 @@ import { StatusCard } from "@/components/ui/status-card";
 import type { AutoStatus, RemoteStatus, SyncData, VerifyData } from "./data";
 import {
   autoLine,
+  type AutoAction,
   canPull,
   count,
   doneSummary,
@@ -33,6 +34,7 @@ import {
   type TickNeeds,
   needsTick,
 } from "./model";
+import { useNow } from "../tasks/useNow";
 import type { SyncOutcome } from "./useLibrary";
 
 export interface StatusAreaProps {
@@ -60,7 +62,7 @@ export interface StatusAreaProps {
   onUndo: () => void;
   onRetry: () => void;
   onReload: () => void;
-  onAuto: (action: "pause" | "resume") => void;
+  onAuto: (action: AutoAction["id"]) => void;
   onInit: () => void;
   onReview: () => void;
 }
@@ -131,33 +133,53 @@ function RemoteLine({
 function AutoRow({
   auto,
   onAuto,
+  onReview,
 }: {
   auto: AutoStatus | null;
-  onAuto: (action: "pause" | "resume") => void;
+  onAuto: (action: AutoAction["id"]) => void;
+  onReview: () => void;
 }) {
+  const now = useNow(30_000);
   if (!auto) return null;
-  const line = autoLine(auto);
+  const line = autoLine(auto, now);
+  const button = (action: AutoAction, primary: boolean) => (
+    <Button
+      key={action.id}
+      variant={primary ? "default" : "ghost"}
+      size="sm"
+      onClick={() => onAuto(action.id)}
+    >
+      {action.id === "pause" && <Pause />}
+      {action.label}
+    </Button>
+  );
   return (
-    <div className="flex flex-wrap items-center gap-2 text-meta">
-      <Badge variant={line.on ? "success" : "warning"}>
-        {line.on ? "Auto-sync on" : "Auto-sync paused"}
-      </Badge>
-      {!line.on && auto.reason === "undo" && (
-        <span className="text-muted-foreground">{line.text}</span>
+    <div className="flex flex-col gap-1.5 text-meta" data-testid="auto-row">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge
+          variant={
+            line.kind === "on" ? "success" : line.kind === "off" ? "off" : "warning"
+          }
+        >
+          {line.label}
+        </Badge>
+        {line.detail && <span className="text-muted-foreground">{line.detail}</span>}
+        {line.action && button(line.action, line.kind !== "on")}
+        {line.secondary && button(line.secondary, false)}
+      </div>
+      {line.failed && (
+        <p className="text-destructive">Last auto-sync failed: {line.failed}</p>
       )}
-      <Button
-        variant={line.on ? "ghost" : "default"}
-        size="sm"
-        onClick={() => onAuto(line.on ? "pause" : "resume")}
-      >
-        {line.on ? (
-          <>
-            <Pause /> Pause
-          </>
-        ) : (
-          "Resume auto-sync"
-        )}
-      </Button>
+      {line.heldCount > 0 && (
+        <p className="flex flex-wrap items-center gap-2">
+          <span>
+            Last auto-sync held {plural(line.heldCount, "change")} — review in the plan
+          </span>
+          <Button variant="outline" size="sm" onClick={onReview}>
+            Review plan
+          </Button>
+        </p>
+      )}
     </div>
   );
 }
@@ -438,10 +460,12 @@ export default function StatusArea(props: StatusAreaProps) {
               onPush={props.onPush}
             />
           )}
-          <AutoRow auto={auto} onAuto={props.onAuto} />
+          <AutoRow auto={auto} onAuto={props.onAuto} onReview={props.onReview} />
         </div>
       </StatusCard>
-      {autoHeld && <AutoHeldCard held={autoHeld} onReview={props.onReview} />}
+      {autoHeld && !auto?.lastRun?.held.length && (
+        <AutoHeldCard held={autoHeld} onReview={props.onReview} />
+      )}
     </div>
   );
 }

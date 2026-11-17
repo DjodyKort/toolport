@@ -7,6 +7,7 @@ import type {
   AgentSyncData,
   AuditData,
   AutoStatus,
+  AutoSwitchData,
   BundleData,
   CleanData,
   FilesData,
@@ -64,6 +65,8 @@ export const skillFiles = (name: string) => ctlData<FilesData>(["skills", "files
 export const autoStatus = () => ctlData<AutoStatus>(["skills", "auto", "status"]);
 export const autoSet = (action: "pause" | "resume") =>
   ctlData<AutoStatus>(["skills", "auto", action]);
+export const autoSwitch = (on: boolean) =>
+  ctlData<AutoSwitchData>(["skills", "auto", on ? "on" : "off"]);
 
 export const undoSync = (dryRun: boolean) =>
   ctlData<UndoData>(["skills", "undo", ...dry(dryRun)]);

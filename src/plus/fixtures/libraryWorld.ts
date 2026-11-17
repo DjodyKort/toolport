@@ -2,6 +2,8 @@ import type { SkillEntry, SkillsInventory } from "@/lib/types";
 import type { CtlReply } from "./ctlWorld";
 import type {
   AuditFinding,
+  AutoLastRun,
+  AutoSchedule,
   LibrarySkill,
   LintRow,
   PlanChange,
@@ -21,8 +23,13 @@ const SNAPSHOT_AT = "2026-11-16T17:42:00.000Z";
 export type LibraryScenario =
   "plan" | "done" | "held" | "blocked" | "behind" | "empty" | "catchup" | "busy";
 
+/** Where auto-sync stands: the shipped task is off (the default), on with a clean last run, on
+ * with a last run that held changes, on with a last run that failed, or paused after an Undo. */
+export type LibraryAuto = "off" | "on" | "held" | "failed" | "paused";
+
 export interface LibraryWorldOptions {
   scenario?: LibraryScenario;
+  auto?: LibraryAuto;
   /** A hook script that is not executable: an error row with the chmod fix. */
   chmod?: boolean;
   /** The verification after Apply finds this many files that differ. */
@@ -660,7 +667,12 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
           ],
         }
       : null;
-  let pause: { reason: string; since: string } | null = null;
+  const autoState = options.auto ?? "off";
+  let pause: { reason: string; since: string } | null =
+    autoState === "paused" ? { reason: "undo", since: "2026-11-17T09:00:00.000Z" } : null;
+  let autoOn = autoState !== "off";
+  let lastRun: AutoLastRun | null = null;
+  let taskRun: AutoSchedule["lastRun"] = null;
   let remote = {
     ahead: 0,
     behind: scenario === "behind" ? 3 : 0,
@@ -880,6 +892,27 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
       changes = changes.filter((c) => !apply.includes(c));
       lockfile = true;
     }
+    const stillHeld = rowsHeld(visibleChanges());
+    if (unattended)
+      recordRun({
+        at: new Date().toISOString(),
+        applied: apply.length,
+        held: stillHeld,
+        skipped: 0,
+      });
+    else if (lastRun)
+      lastRun = {
+        ...lastRun,
+        held: lastRun.held.filter((h) =>
+          stillHeld.some(
+            (s) =>
+              s.skill === h.skill &&
+              s.client === h.client &&
+              s.path === h.path &&
+              s.op === h.op,
+          ),
+        ),
+      };
     const total = TOTAL_FILES;
     const mismatched = Array.from({ length: drift }, (_, n) => ({
       client: "claude-code",
@@ -973,16 +1006,108 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
     return drift === 0 ? ok(data) : fail("unhealthy", "one or more checks failed", data);
   }
 
-  function auto(argv: string[]): CtlReply {
-    const action = argv[2];
-    if (action === "pause" && !pause)
-      pause = { reason: "manual", since: "2026-11-17T09:00:00.000Z" };
-    if (action === "resume") pause = null;
-    return ok({
+  const HOUR_MS = 3_600_000;
+  const AUTO_SLOT = "30 6 * * *";
+
+  /** The next 06:30 UTC after now, which is what the shipped cron fires on. */
+  function nextSlot(): string {
+    const at = new Date();
+    at.setUTCHours(6, 30, 0, 0);
+    if (at.getTime() <= Date.now()) at.setUTCDate(at.getUTCDate() + 1);
+    return at.toISOString();
+  }
+
+  function schedule(): AutoSchedule {
+    return {
+      task: "skills-auto-sync",
+      present: true,
+      enabled: autoOn,
+      cron: AUTO_SLOT,
+      when: "daily 06:30 UTC",
+      autoRun: true,
+      nextRun: autoOn ? nextSlot() : null,
+      lastRun: taskRun,
+    };
+  }
+
+  function recordRun(run: AutoLastRun) {
+    const at = Date.parse(run.at);
+    lastRun = run;
+    taskRun = {
+      runId: "run-1794932392-bf0eb57a",
+      status: run.error ? "failed" : "ok",
+      trigger: "schedule",
+      startedAt: new Date(at).toISOString(),
+    };
+  }
+
+  function seedLastRun() {
+    if (autoState === "off" || autoState === "paused") return;
+    const at = new Date(Date.now() - 2.5 * HOUR_MS).toISOString();
+    if (autoState === "failed")
+      return recordRun({
+        at,
+        applied: 0,
+        held: [],
+        skipped: 0,
+        error: "no skills repository found",
+      });
+    const held = autoState === "held" ? rowsHeld(visibleChanges()) : [];
+    recordRun({ at, applied: autoState === "held" ? 6 : 3, held, skipped: 0 });
+  }
+
+  function autoData() {
+    return {
       paused: pause !== null,
       reason: pause?.reason ?? null,
       since: pause?.since ?? null,
+      lastRun,
+      schedule: schedule(),
+    };
+  }
+
+  function autoSwitch(on: boolean, dryRun: boolean): CtlReply {
+    const changes = autoOn !== on;
+    const word = on ? "on" : "off";
+    if (!dryRun) autoOn = on;
+    const undo = `toolportctl skills auto ${on ? "off" : "on"}`;
+    return ok({
+      dryRun,
+      task: "skills-auto-sync",
+      enabled: on,
+      path: `${LIBRARY_HOME}/Library/Application Support/toolport/plus/tasks/skills-auto-sync.json`,
+      plan: {
+        summary: changes
+          ? `Turn task skills-auto-sync ${word}`
+          : `Task skills-auto-sync is already ${word}`,
+        steps: [],
+        warnings:
+          on && changes ? ["the schedule runs the task on its own (autoRun)"] : [],
+        undo,
+        effects: {},
+      },
+      result: dryRun ? null : { applied: changes, changed: [], undo, backups: [] },
+      schedule: schedule(),
     });
+  }
+
+  function auto(argv: string[]): CtlReply {
+    const action = argv[2];
+    if (action === "on" || action === "off")
+      return autoSwitch(action === "on", argv.includes("--dry-run"));
+    if (action === "pause" && !pause)
+      pause = { reason: "manual", since: "2026-11-17T09:00:00.000Z" };
+    if (action === "resume") pause = null;
+    return ok(
+      action === "status"
+        ? autoData()
+        : {
+            paused: pause !== null,
+            reason: pause?.reason ?? null,
+            since: pause?.since ?? null,
+            lastRun,
+          },
+    );
   }
 
   function status(): CtlReply {
@@ -1564,6 +1689,8 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
         return fail("usage", `unknown styles command: ${argv[1] ?? ""}`);
     }
   }
+
+  seedLastRun();
 
   return {
     scenario,

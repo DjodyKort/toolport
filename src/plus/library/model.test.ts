@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SkillsInventory } from "@/lib/types";
 import type {
+  AutoSchedule,
   AutoStatus,
   LibrarySkill,
   LintData,
@@ -12,6 +13,7 @@ import type {
 } from "./data";
 import {
   applyChoice,
+  autoLine,
   bytes,
   claudeState,
   fileBadge,
@@ -248,7 +250,13 @@ describe("library model", () => {
   });
 
   it("test09_headline_tells_in_sync_first_sync_held_back_behind_and_undone_apart", () => {
-    const auto: AutoStatus = { paused: false, reason: null, since: null };
+    const auto: AutoStatus = {
+      paused: false,
+      reason: null,
+      since: null,
+      lastRun: null,
+      schedule: null,
+    };
     const one = sync([change("alpha", "1", "update")]);
     const none = remoteState(remote());
     expect(headline(sync([]), [], none, auto, true).kind).toBe("in-sync");
@@ -260,10 +268,17 @@ describe("library model", () => {
     const held = headline(one, [{ skill: "bad", rows: [] }], none, auto, true);
     expect(held.title).toBe("1 change can sync; 1 skill is held back");
     expect(
-      headline(one, [], none, { paused: true, reason: "undo", since: "x" }, true).kind,
+      headline(one, [], none, { ...auto, paused: true, reason: "undo", since: "x" }, true)
+        .kind,
     ).toBe("undone");
     expect(
-      headline(one, [], none, { paused: true, reason: "manual", since: "x" }, true).kind,
+      headline(
+        one,
+        [],
+        none,
+        { ...auto, paused: true, reason: "manual", since: "x" },
+        true,
+      ).kind,
     ).toBe("changes");
   });
 
@@ -349,5 +364,135 @@ describe("library model", () => {
     expect(verifyLine({ clean: true, matched: 183, total: 183, mismatched: [] })).toBe(
       "183 of 183 library files match",
     );
+  });
+
+  describe("autoLine", () => {
+    const NOW = Date.parse("2026-11-17T09:00:00Z");
+    const schedule = (over: Partial<AutoSchedule> = {}): AutoSchedule => ({
+      task: "skills-auto-sync",
+      present: true,
+      enabled: true,
+      cron: "30 6 * * *",
+      when: "daily 06:30 UTC",
+      autoRun: true,
+      nextRun: "2026-11-18T06:30:00Z",
+      lastRun: null,
+      ...over,
+    });
+    const status = (over: Partial<AutoStatus> = {}): AutoStatus => ({
+      paused: false,
+      reason: null,
+      since: null,
+      lastRun: null,
+      schedule: schedule(),
+      ...over,
+    });
+    const held = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({
+        skill: `s${i}`,
+        client: "claude-code",
+        path: `p${i}`,
+        op: "remove",
+        reason: "removal",
+      }));
+
+    it("test13_a_task_that_is_off_offers_to_turn_it_on_with_the_time_it_would_run", () => {
+      const line = autoLine(status({ schedule: schedule({ enabled: false }) }), NOW);
+      expect(line.kind).toBe("off");
+      expect(line.label).toBe("Auto-sync off");
+      expect(line.action).toEqual({
+        id: "on",
+        label: expect.stringMatching(/^Turn on \(daily \d\d:\d\d\)$/),
+      });
+      expect(line.secondary).toBeNull();
+    });
+
+    it("test14_a_task_that_is_on_says_when_it_runs_and_how_long_ago_it_last_did", () => {
+      const never = autoLine(status(), NOW);
+      expect(never.kind).toBe("on");
+      expect(never.label).toMatch(/^Auto-sync daily \d\d:\d\d$/);
+      expect(never.detail).toBe("no run yet");
+      const ran = autoLine(
+        status({
+          lastRun: {
+            at: "2026-11-17T06:30:20Z",
+            applied: 3,
+            held: [],
+            skipped: 0,
+          },
+        }),
+        NOW,
+      );
+      expect(ran.detail).toBe("last run 3 h ago");
+      expect(ran.action?.id).toBe("pause");
+      expect(ran.secondary?.id).toBe("off");
+    });
+
+    it("test15_a_pause_outranks_the_schedule_and_names_what_caused_it", () => {
+      const line = autoLine(
+        status({ paused: true, reason: "undo", since: "2026-11-17T08:00:00Z" }),
+        NOW,
+      );
+      expect(line.kind).toBe("paused");
+      expect(line.detail).toContain("(after Undo)");
+      expect(line.detail).toContain("skips its runs");
+      expect(line.action).toEqual({ id: "resume", label: "Resume" });
+      const off = autoLine(
+        status({
+          paused: true,
+          reason: "manual",
+          since: "2026-11-17T08:00:00Z",
+          schedule: schedule({ enabled: false }),
+        }),
+        NOW,
+      );
+      expect(off.detail).toContain("(by you)");
+      expect(off.detail).not.toContain("skips its runs");
+    });
+
+    it("test16_the_held_count_and_a_failure_come_from_the_last_run", () => {
+      const line = autoLine(
+        status({
+          lastRun: { at: "2026-11-17T06:30:20Z", applied: 0, held: held(5), skipped: 0 },
+        }),
+        NOW,
+      );
+      expect(line.heldCount).toBe(5);
+      expect(line.failed).toBeNull();
+      const failed = autoLine(
+        status({
+          lastRun: {
+            at: "2026-11-17T06:30:20Z",
+            applied: 0,
+            held: [],
+            skipped: 0,
+            error: "no skills repository found",
+          },
+        }),
+        NOW,
+      );
+      expect(failed.failed).toBe("no skills repository found");
+      const crashed = autoLine(
+        status({
+          schedule: schedule({
+            lastRun: {
+              runId: "run-1",
+              status: "failed",
+              trigger: "schedule",
+              startedAt: "2026-11-17T06:30:00Z",
+            },
+          }),
+        }),
+        NOW,
+      );
+      expect(crashed.failed).toContain("failed before it recorded");
+    });
+
+    it("test17_a_removed_task_and_an_unreadable_status_offer_nothing_to_click", () => {
+      const gone = autoLine(status({ schedule: schedule({ present: false }) }), NOW);
+      expect(gone.kind).toBe("missing");
+      expect(gone.action).toBeNull();
+      expect(autoLine(null, NOW).kind).toBe("unknown");
+    });
   });
 });

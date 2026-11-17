@@ -96,9 +96,56 @@ const READS: Array<{
     keys: ["clean", "matched", "total", "mismatched"],
   },
   {
-    golden: "skills-auto-status.running",
+    golden: "skills-auto-status.off",
     argv: ["skills", "auto", "status"],
-    keys: ["paused", "reason", "since"],
+    keys: [
+      "paused",
+      "reason",
+      "since",
+      "lastRun",
+      "schedule.task",
+      "schedule.present",
+      "schedule.enabled",
+      "schedule.cron",
+      "schedule.when",
+      "schedule.autoRun",
+      "schedule.nextRun",
+      "schedule.lastRun",
+    ],
+  },
+  {
+    golden: "skills-auto-status.last_run",
+    argv: ["skills", "auto", "status"],
+    options: { auto: "on" },
+    keys: [
+      "lastRun.at",
+      "lastRun.applied",
+      "lastRun.held",
+      "lastRun.skipped",
+      "schedule.enabled",
+      "schedule.nextRun",
+    ],
+  },
+  {
+    golden: "skills-auto-on.apply",
+    argv: ["skills", "auto", "on"],
+    keys: [
+      "dryRun",
+      "task",
+      "enabled",
+      "plan.summary",
+      "plan.undo",
+      "result.applied",
+      "result.undo",
+      "schedule.enabled",
+      "schedule.nextRun",
+    ],
+  },
+  {
+    golden: "skills-auto-off.apply",
+    argv: ["skills", "auto", "off"],
+    options: { auto: "on" },
+    keys: ["enabled", "schedule.enabled", "result.undo"],
   },
   {
     golden: "skills-status",
@@ -427,5 +474,53 @@ describe("the Library fixture world", () => {
       "--unattended",
     ]).data as { held: unknown[] };
     expect(held.held.length).toBeGreaterThan(0);
+  });
+
+  it("test06_auto_sync_starts_off_turns_on_and_off_and_keeps_the_pause_apart", () => {
+    const world = createLibraryWorld();
+    const status = () =>
+      world.run(["skills", "auto", "status"]).data as {
+        paused: boolean;
+        lastRun: unknown;
+        schedule: { enabled: boolean; nextRun: string | null };
+      };
+    expect(status().schedule).toMatchObject({ enabled: false, nextRun: null });
+    expect(status().lastRun).toBeNull();
+    const preview = world.run(["skills", "auto", "on", "--dry-run"]).data as {
+      dryRun: boolean;
+    };
+    expect(preview.dryRun).toBe(true);
+    expect(status().schedule.enabled).toBe(false);
+    world.run(["skills", "auto", "on"]);
+    expect(status().schedule.enabled).toBe(true);
+    expect(Date.parse(status().schedule.nextRun ?? "")).toBeGreaterThan(Date.now());
+    world.run(["skills", "auto", "pause"]);
+    expect(status()).toMatchObject({ paused: true, schedule: { enabled: true } });
+    world.run(["skills", "auto", "off"]);
+    expect(status().schedule.enabled).toBe(false);
+  });
+
+  it("test07_an_unattended_run_records_what_it_held_and_a_manual_apply_clears_it", () => {
+    const world = createLibraryWorld({ scenario: "held", auto: "on" });
+    world.run(["skills", "sync", "--unattended"]);
+    const run = () =>
+      (world.run(["skills", "auto", "status"]).data as { lastRun: { held: unknown[] } })
+        .lastRun;
+    expect(run().held).toHaveLength(5);
+    world.run(["skills", "sync"]);
+    expect(run().held).toHaveLength(5);
+    world.run(["skills", "sync", "--apply-held"]);
+    expect(run().held).toEqual([]);
+  });
+
+  it("test08_the_seeded_states_are_off_on_held_failed_and_paused", () => {
+    const last = (auto: LibraryWorldOptions["auto"]) =>
+      createLibraryWorld({ scenario: "held", auto }).run(["skills", "auto", "status"])
+        .data as { lastRun: { held: unknown[]; error?: string } | null; paused: boolean };
+    expect(last("off").lastRun).toBeNull();
+    expect(last("on").lastRun?.held).toEqual([]);
+    expect(last("held").lastRun?.held).toHaveLength(5);
+    expect(last("failed").lastRun?.error).toBe("no skills repository found");
+    expect(last("paused")).toMatchObject({ paused: true, lastRun: null });
   });
 });

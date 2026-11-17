@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { toast } from "sonner";
 import { resetPlusFixture } from "../fixtures/ipc";
 import type { LibraryWorldOptions } from "../fixtures/libraryWorld";
 import { guiParity } from "../guiParity";
@@ -120,8 +121,8 @@ describe("Library screen, Sync tab", () => {
     expect(
       await screen.findByText(/Undone\. Claude Code is back to before/),
     ).toBeVisible();
-    expect(screen.getByRole("button", { name: "Resume auto-sync" })).toBeVisible();
-    await userEvent.click(screen.getByRole("button", { name: "Resume auto-sync" }));
+    expect(screen.getByText(/\(after Undo\)/)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Resume" }));
     await waitFor(() => expect(ranExactly("skills", "auto", "resume")).toBe(true));
   });
 
@@ -136,7 +137,7 @@ describe("Library screen, Sync tab", () => {
   });
 
   it("test05_auto_sync_shows_its_state_pauses_and_reports_what_it_would_hold", async () => {
-    setup({ scenario: "held" });
+    setup({ scenario: "held", auto: "on" });
     expect(
       await screen.findByText("The next auto-sync would stop before writing"),
     ).toBeVisible();
@@ -146,6 +147,73 @@ describe("Library screen, Sync tab", () => {
     await waitFor(() => expect(ranExactly("skills", "auto", "pause")).toBe(true));
     await waitFor(() => expect(screen.getByText("Auto-sync paused")).toBeVisible());
     expect(screen.queryByText("The next auto-sync would stop before writing")).toBeNull();
+    expect(screen.getByText(/The schedule stays on and skips its runs/)).toBeVisible();
+  });
+
+  it("test05a_auto_sync_that_is_off_says_so_and_turns_on_with_an_undo", async () => {
+    setup();
+    await planReady();
+    const row = screen.getByTestId("auto-row");
+    expect(within(row).getByText("Auto-sync off")).toBeVisible();
+    expect(within(row).queryByRole("button", { name: /Pause/ })).toBeNull();
+    expect(screen.queryByText("The next auto-sync would stop before writing")).toBeNull();
+    expect(ran("skills", "sync", "--dry-run", "--unattended")).toBe(false);
+    await userEvent.click(
+      within(row).getByRole("button", { name: /^Turn on \(daily \d\d:\d\d\)$/ }),
+    );
+    await waitFor(() => expect(ranExactly("skills", "auto", "on")).toBe(true));
+    await waitFor(() => expect(within(row).getByText(/^Auto-sync daily/)).toBeVisible());
+    expect(within(row).getByText("no run yet")).toBeVisible();
+    const [message, options] = vi.mocked(toast.message).mock.calls[0];
+    expect(message).toBe("Auto-sync is on");
+    (options as unknown as { action: { onClick: () => void } }).action.onClick();
+    await waitFor(() => expect(ranExactly("skills", "auto", "off")).toBe(true));
+    await waitFor(() => expect(within(row).getByText("Auto-sync off")).toBeVisible());
+  });
+
+  it("test05b_auto_sync_that_is_on_shows_when_it_last_ran_and_turns_off", async () => {
+    setup({ auto: "on" });
+    await planReady();
+    const row = screen.getByTestId("auto-row");
+    expect(within(row).getByText(/^Auto-sync daily \d\d:\d\d$/)).toBeVisible();
+    expect(within(row).getByText("last run 3 h ago")).toBeVisible();
+    expect(within(row).queryByText(/held/)).toBeNull();
+    await userEvent.click(within(row).getByRole("button", { name: "Turn off" }));
+    await waitFor(() => expect(ranExactly("skills", "auto", "off")).toBe(true));
+    await waitFor(() => expect(within(row).getByText("Auto-sync off")).toBeVisible());
+  });
+
+  it("test05c_auto_sync_paused_after_an_undo_says_since_when_and_resumes", async () => {
+    setup({ auto: "paused" });
+    const row = await screen.findByTestId("auto-row");
+    expect(within(row).getByText("Auto-sync paused")).toBeVisible();
+    expect(within(row).getByText(/\(after Undo\)/)).toBeVisible();
+    await userEvent.click(within(row).getByRole("button", { name: "Resume" }));
+    await waitFor(() => expect(ranExactly("skills", "auto", "resume")).toBe(true));
+    await waitFor(() => expect(within(row).getByText(/^Auto-sync daily/)).toBeVisible());
+  });
+
+  it("test05d_what_the_last_auto_sync_held_is_counted_and_marked_in_the_plan", async () => {
+    const reviewed = vi.fn();
+    Element.prototype.scrollIntoView = reviewed;
+    setup({ scenario: "held", auto: "held" });
+    const row = await screen.findByTestId("auto-row");
+    expect(
+      await within(row).findByText("Last auto-sync held 5 changes — review in the plan"),
+    ).toBeVisible();
+    expect(screen.queryByText("The next auto-sync would stop before writing")).toBeNull();
+    const plan = screen.getByRole("region", { name: "Sync plan" });
+    expect(within(plan).getAllByText(/Held by the last auto-sync/)).toHaveLength(2);
+    await userEvent.click(within(row).getByRole("button", { name: "Review plan" }));
+    expect(reviewed).toHaveBeenCalled();
+  });
+
+  it("test05e_a_failed_auto_sync_says_what_went_wrong", async () => {
+    setup({ auto: "failed" });
+    const row = await screen.findByTestId("auto-row");
+    expect(
+      await within(row).findByText(/Last auto-sync failed: no skills repository found/),
+    ).toBeVisible();
   });
 
   it("test06_the_states_the_library_can_be_in_each_have_their_own_card", async () => {

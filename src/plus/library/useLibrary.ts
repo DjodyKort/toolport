@@ -66,7 +66,7 @@ async function optional<T>(load: () => Promise<T>): Promise<T | null> {
 
 export interface LibraryData {
   outcome: SyncOutcome | null;
-  /** What the next auto-sync run would hold back; null when auto-sync is not running. */
+  /** What the next auto-sync run would hold back; null when auto-sync is off or paused. */
   autoHeld: SyncData | null;
   lint: LintData | null;
   lintError: string | null;
@@ -102,7 +102,8 @@ export function useLibraryData(clients: readonly string[] | null): LibraryData {
   const skills = useLoad(() => optional(listLibrary), "skills");
   const inv = useLoad(inventory, "inventory");
   const undo = useLoad(undoSnapshot, "undo");
-  const autoRunning = auto.data !== null && !auto.data.paused;
+  const autoRunning =
+    auto.data !== null && !auto.data.paused && auto.data.schedule?.enabled === true;
   const autoHeld = useLoad(async () => {
     if (!autoRunning) return null;
     const result = await previewOutcome(["skills", "sync", "--dry-run", "--unattended"]);

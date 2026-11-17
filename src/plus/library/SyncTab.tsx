@@ -1,8 +1,9 @@
 import { useRef, useState } from "react";
+import { toast } from "sonner";
 import { toastError } from "@/lib/toast";
 import { errorText } from "../settings/useCtl";
 import ChecksPanel from "./ChecksPanel";
-import { autoSet, syncRun, verifySync } from "./commands";
+import { autoSet, autoSwitch, syncRun, verifySync } from "./commands";
 import type { SyncData, VerifyData } from "./data";
 import ItemsList, { Targets } from "./ItemsList";
 import {
@@ -12,6 +13,7 @@ import {
   remoteState,
   rowCount,
   tickNeeds,
+  type AutoAction,
 } from "./model";
 import PlanPanel from "./PlanPanel";
 import StatusArea from "./StatusArea";
@@ -19,6 +21,13 @@ import { useLibraryData } from "./useLibrary";
 import { InitDialog, PullDialog, PushDialog, UndoDialog } from "./writes";
 
 type Dialog = "undo" | "pull" | "push" | "init" | null;
+
+const AUTO_DONE: Record<AutoAction["id"], string> = {
+  on: "Auto-sync is on",
+  off: "Auto-sync is off",
+  pause: "Auto-sync is paused",
+  resume: "Auto-sync is running again",
+};
 
 export default function SyncTab({
   onOpenSkill,
@@ -60,9 +69,23 @@ export default function SyncTab({
     }
   }
 
-  async function auto(action: "pause" | "resume") {
+  async function auto(action: AutoAction["id"]) {
+    const change = (id: AutoAction["id"]) =>
+      id === "on" || id === "off" ? autoSwitch(id === "on") : autoSet(id);
+    const opposite = { on: "off", off: "on", pause: "resume", resume: "pause" } as const;
     try {
-      await autoSet(action);
+      await change(action);
+      toast.message(AUTO_DONE[action], {
+        action: {
+          label: "Undo",
+          onClick: () =>
+            void change(opposite[action])
+              .catch((e: unknown) =>
+                toastError("Undo failed", { description: errorText(e) }),
+              )
+              .finally(lib.reload),
+        },
+      });
     } catch (error) {
       toastError("Could not change auto-sync", { description: errorText(error) });
     }
@@ -121,6 +144,7 @@ export default function SyncTab({
               sync={sync}
               held={lib.held}
               tapSkills={lib.tapSkills}
+              autoHeld={lib.auto?.lastRun?.held ?? []}
               canUndo={canUndo}
               onUndo={() => setDialog("undo")}
               onOpenSkill={onOpenSkill}

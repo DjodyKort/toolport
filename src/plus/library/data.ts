@@ -118,10 +118,42 @@ export interface UndoData {
   autoSync: { willPause?: boolean; paused?: boolean; reason?: string; since?: string };
 }
 
+/** What the last unattended sync did. `held` are the changes it left for the user. */
+export interface AutoLastRun {
+  at: string;
+  applied: number;
+  held: HeldRow[];
+  skipped: number;
+  error?: string;
+}
+
+/** The shipped task that runs the unattended sync. `nextRun` is null while it is off. */
+export interface AutoSchedule {
+  task: string;
+  /** False once the task was removed: nothing runs the sync. */
+  present: boolean;
+  enabled: boolean;
+  cron: string | null;
+  when: string | null;
+  autoRun: boolean;
+  nextRun: string | null;
+  /** The task's own last run, which says whether the ctl started and exited cleanly. */
+  lastRun: { runId: string; status: string; trigger: string; startedAt: string } | null;
+}
+
 export interface AutoStatus {
   paused: boolean;
   reason: string | null;
   since: string | null;
+  lastRun: AutoLastRun | null;
+  schedule: AutoSchedule | null;
+}
+
+export interface AutoSwitchData {
+  dryRun: boolean;
+  task: string;
+  enabled: boolean;
+  schedule: AutoSchedule | null;
 }
 
 export type LintLevel = "error" | "warning" | "info";

@@ -1,5 +1,6 @@
 import type { SkillsInventory, SkillLoadState } from "@/lib/types";
 import { plural } from "../settings/model";
+import { ago, clockTime, ms } from "../tasks/model";
 import type {
   AutoStatus,
   LibrarySkill,
@@ -555,17 +556,104 @@ export function pullBlockedReason(state: RemoteState): string | null {
   }
 }
 
-export function autoLine(auto: AutoStatus | null): { on: boolean; text: string } {
-  if (!auto) return { on: false, text: "Auto-sync: unknown" };
-  if (auto.paused)
+export interface AutoAction {
+  id: "on" | "off" | "pause" | "resume";
+  label: string;
+}
+
+export interface AutoView {
+  kind: "off" | "on" | "paused" | "missing" | "unknown";
+  label: string;
+  detail: string;
+  action: AutoAction | null;
+  /** Turning the schedule off while it is on; the pause is `action`. */
+  secondary: AutoAction | null;
+  heldCount: number;
+  /** Why the last run failed, or that the scheduled task itself did. */
+  failed: string | null;
+}
+
+/** The shipped schedule is a UTC cron; the screen says when it fires on the viewer's clock. */
+export function dailyAt(auto: AutoStatus): string {
+  const schedule = auto.schedule;
+  const match = /^(\d{1,2}) (\d{1,2}) \* \* \*$/.exec(schedule?.cron?.trim() ?? "");
+  if (!match) return schedule?.when ?? "on a schedule";
+  const at = new Date();
+  at.setUTCHours(Number(match[2]), Number(match[1]), 0, 0);
+  return `daily ${clockTime(at.getTime())}`;
+}
+
+function lastRunAt(auto: AutoStatus): number | null {
+  const times = [ms(auto.lastRun?.at), ms(auto.schedule?.lastRun?.startedAt)].filter(
+    (t): t is number => t !== null,
+  );
+  return times.length ? Math.max(...times) : null;
+}
+
+function failure(auto: AutoStatus): string | null {
+  if (auto.lastRun?.error) return auto.lastRun.error;
+  const task = auto.schedule?.lastRun;
+  const recorded = ms(auto.lastRun?.at);
+  const started = ms(task?.startedAt);
+  if (task?.status === "failed" && started !== null && (recorded ?? 0) < started)
+    return "the scheduled task failed before it recorded a result";
+  return null;
+}
+
+/** What the status line says about auto-sync: whether anything runs it, when, and how the last
+ * run went. A pause outranks the schedule because it is what stops the next run. */
+export function autoLine(auto: AutoStatus | null, now: number): AutoView {
+  const view: AutoView = {
+    kind: "unknown",
+    label: "Auto-sync unknown",
+    detail: "",
+    action: null,
+    secondary: null,
+    heldCount: auto?.lastRun?.held.length ?? 0,
+    failed: auto ? failure(auto) : null,
+  };
+  if (!auto) return view;
+  if (auto.paused) {
+    const cause =
+      auto.reason === "undo"
+        ? " (after Undo)"
+        : auto.reason === "manual"
+          ? " (by you)"
+          : "";
     return {
-      on: false,
-      text:
-        auto.reason === "undo"
-          ? "Auto-sync is paused because you undid a sync, so it does not redo it."
-          : "Auto-sync is paused.",
+      ...view,
+      kind: "paused",
+      label: "Auto-sync paused",
+      detail: `since ${when(auto.since)}${cause}.${auto.schedule?.enabled ? " The schedule stays on and skips its runs until you resume." : ""}`,
+      action: { id: "resume", label: "Resume" },
     };
-  return { on: true, text: "Auto-sync on" };
+  }
+  if (!auto.schedule?.present)
+    return {
+      ...view,
+      kind: "missing",
+      label: "Auto-sync unavailable",
+      detail:
+        "The scheduled task that runs it was removed from Tasks, so nothing syncs on its own.",
+    };
+  const at = dailyAt(auto);
+  if (!auto.schedule.enabled)
+    return {
+      ...view,
+      kind: "off",
+      label: "Auto-sync off",
+      detail: "Nothing syncs on its own.",
+      action: { id: "on", label: `Turn on (${at})` },
+    };
+  const last = lastRunAt(auto);
+  return {
+    ...view,
+    kind: "on",
+    label: `Auto-sync ${at}`,
+    detail: last === null ? "no run yet" : `last run ${ago(last, now)}`,
+    action: { id: "pause", label: "Pause" },
+    secondary: { id: "off", label: "Turn off" },
+  };
 }
 
 /** Skills that came from a tap: their hooks need an extra tick. */

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useLoad } from "../servers/useLoad";
 import { skillFiles } from "./commands";
-import type { SyncData } from "./data";
+import type { HeldRow, SyncData } from "./data";
 import {
   bytes,
   fileBadge,
@@ -77,7 +77,24 @@ function Files({ skill }: { skill: string }) {
   );
 }
 
-function Row({ row }: { row: PlanRow }) {
+const HELD_BY_AUTO = "Held by the last auto-sync. It waits for your decision here.";
+
+/** The row has a held change the last auto-sync reported as held. */
+function heldByAuto(row: PlanRow, last: HeldRow[]): boolean {
+  return row.changes.some(
+    (c) =>
+      c.held &&
+      last.some(
+        (h) =>
+          h.skill === c.skill &&
+          h.client === c.client &&
+          h.path === c.path &&
+          h.op === c.op,
+      ),
+  );
+}
+
+function Row({ row, byAuto }: { row: PlanRow; byAuto: boolean }) {
   const [open, setOpen] = useState(false);
   const Chevron = open ? ChevronDown : ChevronRight;
   return (
@@ -94,6 +111,9 @@ function Row({ row }: { row: PlanRow }) {
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="text-sm font-medium">{row.skill}</span>
           <span className="text-meta text-muted-foreground">{row.summary}</span>
+          {byAuto && (
+            <span className="text-meta text-muted-foreground">{HELD_BY_AUTO}</span>
+          )}
         </span>
         <Badge variant={row.held ? "warning" : "outline"}>
           {row.held ? OP_BADGE[row.op] : plural(row.files, "file")}
@@ -105,7 +125,15 @@ function Row({ row }: { row: PlanRow }) {
   );
 }
 
-function HookRow({ row, fromTap }: { row: PlanRow; fromTap: boolean }) {
+function HookRow({
+  row,
+  fromTap,
+  byAuto,
+}: {
+  row: PlanRow;
+  fromTap: boolean;
+  byAuto: boolean;
+}) {
   return (
     <li className="flex items-start gap-3 px-4 py-2.5 shadow-[inset_3px_0_0_var(--primary)]">
       <span aria-hidden className="w-3 pt-0.5 font-mono text-sm text-muted-foreground">
@@ -116,6 +144,9 @@ function HookRow({ row, fromTap }: { row: PlanRow; fromTap: boolean }) {
           {row.skill} · {row.changes[0].path.split("#")[1] ?? "hook"}
         </span>
         <span className="text-meta text-muted-foreground">{row.summary}</span>
+        {byAuto && (
+          <span className="text-meta text-muted-foreground">{HELD_BY_AUTO}</span>
+        )}
       </span>
       <Badge variant={fromTap ? "warning" : "outline"}>
         {fromTap ? "From a tap" : "From your library"}
@@ -128,6 +159,8 @@ export interface PlanPanelProps {
   sync: SyncData;
   held: HeldBack[];
   tapSkills: ReadonlySet<string>;
+  /** What the last auto-sync left held, to mark the same rows in this plan. */
+  autoHeld: HeldRow[];
   canUndo: boolean;
   onUndo: () => void;
   onOpenSkill: (name: string) => void;
@@ -139,6 +172,7 @@ export default function PlanPanel({
   sync,
   held,
   tapSkills,
+  autoHeld,
   canUndo,
   onUndo,
   onOpenSkill,
@@ -168,7 +202,7 @@ export default function PlanPanel({
           <GroupLabel title="Skills" count={groups.skills.length} />
           <ul className="divide-y">
             {groups.skills.map((row) => (
-              <Row key={row.skill} row={row} />
+              <Row key={row.skill} row={row} byAuto={heldByAuto(row, autoHeld)} />
             ))}
           </ul>
         </>
@@ -178,7 +212,7 @@ export default function PlanPanel({
           <GroupLabel title="Rules" count={groups.rules.length} />
           <ul className="divide-y">
             {groups.rules.map((row) => (
-              <Row key={row.skill} row={row} />
+              <Row key={row.skill} row={row} byAuto={heldByAuto(row, autoHeld)} />
             ))}
           </ul>
         </>
@@ -192,7 +226,12 @@ export default function PlanPanel({
           />
           <ul className="divide-y">
             {groups.hooks.map((row) => (
-              <HookRow key={row.skill} row={row} fromTap={tapSkills.has(row.skill)} />
+              <HookRow
+                key={row.skill}
+                row={row}
+                fromTap={tapSkills.has(row.skill)}
+                byAuto={heldByAuto(row, autoHeld)}
+              />
             ))}
           </ul>
         </>

@@ -9,7 +9,7 @@ import {
   type RestartScript,
   type SignInScript,
 } from "./serverWorld";
-import type { LibraryScenario, LibraryWorldOptions } from "./libraryWorld";
+import type { LibraryAuto, LibraryScenario, LibraryWorldOptions } from "./libraryWorld";
 import {
   createCtlWorld,
   type CtlReply,
@@ -70,6 +70,8 @@ const LIBRARY_SCENARIOS = [
   "catchup",
   "busy",
 ];
+
+const LIBRARY_AUTO = ["on", "held", "failed", "paused"];
 
 /** The three rows of the attention mockup, so the footer bell can be seen in the fixture. */
 function registerFixtureBell() {
@@ -203,9 +205,11 @@ export function plusFixtureFromSearch(search: string) {
 if (typeof location !== "undefined") plusFixtureFromSearch(location.search);
 
 /** `?plus-library=plan|done|held|blocked|behind|empty|catchup|busy` picks the state of the Library
- * screen; `plus-library-chmod`, `-drift`, `-secret` and `-dirty` add one more thing that is wrong. */
+ * screen; `plus-library-chmod`, `-drift`, `-secret` and `-dirty` add one more thing that is wrong;
+ * `plus-library-auto=on|held|failed|paused` sets where auto-sync stands (off without it). */
 function libraryFromSearch(params: URLSearchParams): LibraryWorldOptions {
   const scenario = params.get("plus-library") ?? "";
+  const auto = params.get("plus-library-auto") ?? "";
   return {
     scenario: LIBRARY_SCENARIOS.includes(scenario)
       ? (scenario as LibraryScenario)
@@ -214,6 +218,7 @@ function libraryFromSearch(params: URLSearchParams): LibraryWorldOptions {
     drift: Number(params.get("plus-library-drift") ?? 0),
     secret: params.has("plus-library-secret"),
     dirty: params.has("plus-library-dirty"),
+    auto: LIBRARY_AUTO.includes(auto) ? (auto as LibraryAuto) : "off",
   };
 }
 
