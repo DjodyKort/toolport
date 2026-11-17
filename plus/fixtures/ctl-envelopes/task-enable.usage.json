@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "enable"],
+  "envelope": {
+    "command": "task enable",
+    "error": {
+      "code": "usage",
+      "message": "usage: task enable <id> [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

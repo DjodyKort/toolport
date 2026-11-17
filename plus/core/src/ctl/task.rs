@@ -20,6 +20,9 @@ const ADD_USAGE: &str =
     "usage: task add <id> (--file <task.json|-> | --from-command <path>) [--dry-run]";
 const EDIT_USAGE: &str = "usage: task edit <id> --file <task.json|-> [--dry-run]";
 const RM_USAGE: &str = "usage: task rm <id> [--dry-run]";
+const ENABLE_USAGE: &str = "usage: task enable <id> [--dry-run]";
+const DISABLE_USAGE: &str = "usage: task disable <id> [--dry-run]";
+const MISSED_USAGE: &str = "usage: task missed [<id>]";
 const HISTORY_USAGE: &str = "usage: task history [<id>] [--run <run-id>] [--limit <n>]";
 
 pub(super) const LS: Spec = Spec {
@@ -78,6 +81,23 @@ pub(super) const RM: Spec = Spec {
 pub(super) const HISTORY: Spec = Spec {
     flags: &[value("--run"), value("--limit")],
     operands: Operands::Max(1, HISTORY_USAGE),
+    ..LS
+};
+
+pub(super) const ENABLE: Spec = Spec {
+    flags: &[switch("--dry-run")],
+    operands: Operands::Max(1, ENABLE_USAGE),
+    ..LS
+};
+
+pub(super) const DISABLE: Spec = Spec {
+    operands: Operands::Max(1, DISABLE_USAGE),
+    ..ENABLE
+};
+
+pub(super) const MISSED: Spec = Spec {
+    flags: &[],
+    operands: Operands::Max(1, MISSED_USAGE),
     ..LS
 };
 
@@ -227,6 +247,48 @@ pub fn history(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
         }
     }
     Ok(Output::new(data, human))
+}
+
+pub fn missed(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    let flags = MISSED.parse(rest)?;
+    let task = flags.operands().first().map(String::as_str);
+    let data = api::missed(host, task)?;
+    let mut human = String::new();
+    for m in data["missed"].as_array().into_iter().flatten() {
+        human.push_str(&format!(
+            "{:<24} {:<10} {} slot(s), first due {}, last due {}\n",
+            text(m, "task"),
+            text(m, "outcome"),
+            m["slots"],
+            text(m, "firstDue"),
+            text(m, "lastDue")
+        ));
+    }
+    if human.is_empty() {
+        human.push_str("no missed slots\n");
+    }
+    Ok(Output::new(data, human))
+}
+
+fn set_enabled(
+    host: &dyn Host,
+    rest: &[String],
+    spec: &Spec,
+    usage: &str,
+    enabled: bool,
+) -> Result<Output, CtlError> {
+    let flags = spec.parse(rest)?;
+    let data = api::set_enabled(host, flags.single(usage)?, enabled, flags.on("--dry-run"))?;
+    let human = plan_text(&data);
+    Ok(Output::new(data, human))
+}
+
+pub fn enable(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    set_enabled(host, rest, &ENABLE, ENABLE_USAGE, true)
+}
+
+pub fn disable(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    set_enabled(host, rest, &DISABLE, DISABLE_USAGE, false)
 }
 
 fn step_lines(run: &store::Run, shown: &mut Vec<store::Status>, run_id: &str) {

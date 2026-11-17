@@ -297,6 +297,34 @@ pub fn parse(text: &str) -> Result<Task, String> {
     serde_json::from_value::<Task>(raw).map_err(|e| format!("not a valid task definition: {e}"))
 }
 
+/// A 1.x task whose steps name a saved routine: the file is refused as a definition, but the
+/// screen still lists the task and says what to fix. Returns the shadow task (routine steps
+/// as empty scripts, never run or written back) and one problem per such step.
+pub fn read_with_routines(text: &str) -> Option<(Task, Vec<Value>)> {
+    let mut raw: Value = serde_json::from_str(text).ok()?;
+    let mut problems = Vec::new();
+    for (index, step) in raw["steps"].as_array_mut()?.iter_mut().enumerate() {
+        let Some(routine) = step
+            .get("routineId")
+            .and_then(Value::as_str)
+            .map(String::from)
+        else {
+            continue;
+        };
+        let id = step["id"].as_str().unwrap_or("").to_string();
+        let title = step["title"].as_str().unwrap_or("").to_string();
+        problems.push(serde_json::json!({
+            "code": "routine-step", "step": id, "index": index, "routine": routine,
+            "message": format!("step {} ({title}) names the routine {routine}; routines left Toolport 2.3, so replace it with a script step", index + 1),
+        }));
+        *step = serde_json::json!({"id": id, "title": title, "type": "routine", "script": ""});
+    }
+    if problems.is_empty() {
+        return None;
+    }
+    Some((serde_json::from_value(raw).ok()?, problems))
+}
+
 pub fn validate(task: &Task) -> Result<(), String> {
     let mut problems: Vec<String> = Vec::new();
     if !valid_id(&task.id) {

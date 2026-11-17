@@ -54,3 +54,48 @@ pub fn run(id: &str, dry_run: bool, host: &dyn TaskHost) -> Result<Value, OpErro
     }
     api::run(id, TRIGGER, false, host)
 }
+
+/// `tasks_set_enabled`: turning a task off needs no approval; turning one on does, because its
+/// schedule and triggers can then run programs with nobody in front of the screen.
+pub fn set_enabled(
+    id: &str,
+    enabled: bool,
+    dry_run: bool,
+    host: &dyn TaskHost,
+) -> Result<Value, OpError> {
+    let preview = api::set_enabled(host, id, enabled, true)?;
+    let needs_approval = enabled
+        && !preview["plan"]["steps"]
+            .as_array()
+            .is_none_or(Vec::is_empty);
+    if dry_run || !needs_approval {
+        return if dry_run {
+            Ok(preview)
+        } else {
+            api::set_enabled(host, id, enabled, false)
+        };
+    }
+    let base = triggers::base_of(host)?;
+    let task = store::load_task(&base, id)?;
+    let mut steps = vec![format!(
+        "turn the task {id} on: its schedule and triggers can then run it"
+    )];
+    steps.extend(
+        preview["plan"]["warnings"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|w| w.as_str().map(String::from)),
+    );
+    let request = RunApproval {
+        task: id.into(),
+        steps,
+        writes_secrets: serde_json::json!(task.writes_secrets),
+        requires: serde_json::json!({"servers": task.requires.servers, "commands": task.requires.commands}),
+    };
+    let decision = host.task_approve_run(&request);
+    if !decision.is_approved() {
+        return Err(refusal(decision));
+    }
+    api::set_enabled(host, id, enabled, false)
+}

@@ -1,0 +1,23 @@
+{
+  "argv": ["task", "enable", "nightly-report", "--dry-run"],
+  "envelope": {
+    "command": "task enable",
+    "data": {
+      "dryRun": true,
+      "enabled": true,
+      "path": "<WORLD>/data/plus/tasks/nightly-report.json",
+      "plan": {
+        "effects": {},
+        "steps": [],
+        "summary": "Task nightly-report is already on",
+        "undo": "toolportctl task disable nightly-report",
+        "warnings": []
+      },
+      "result": null,
+      "task": "nightly-report"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

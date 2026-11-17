@@ -378,6 +378,16 @@
       "route": "tasks",
       "status": "planned",
       "summary": "Add, edit and remove a task from a definition, with a diff preview and a backup (task add, task edit, task rm)"
+    },
+    "tasks.ledger": {
+      "route": "tasks",
+      "status": "planned",
+      "summary": "Skipped and caught-up slots from the scheduler ledger: dimmed rows in a task's runs and in History, a start toast (task missed, tasks_missed)"
+    },
+    "tasks.switch": {
+      "route": "tasks",
+      "status": "planned",
+      "summary": "The On and Off switch of a task, one click with Undo (task enable, task disable, tasks_set_enabled)"
     }
   },
   "owners": {
@@ -977,6 +987,21 @@
       "route": "tasks",
       "action": "tasks.manage",
       "surface": "screen"
+    },
+    "task missed": {
+      "route": "tasks",
+      "action": "tasks.ledger",
+      "surface": "screen"
+    },
+    "task enable": {
+      "route": "tasks",
+      "action": "tasks.switch",
+      "surface": "screen"
+    },
+    "task disable": {
+      "route": "tasks",
+      "action": "tasks.switch",
+      "surface": "screen"
     }
   },
   "tools": {
@@ -1408,6 +1433,16 @@
     "tasks_cancel": {
       "route": "tasks",
       "action": "tasks.cancel",
+      "surface": "screen"
+    },
+    "tasks_missed": {
+      "route": "tasks",
+      "action": "tasks.ledger",
+      "surface": "screen"
+    },
+    "tasks_set_enabled": {
+      "route": "tasks",
+      "action": "tasks.switch",
       "surface": "screen"
     }
   }

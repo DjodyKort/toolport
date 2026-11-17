@@ -28,6 +28,9 @@ impl ErrorKind {
 pub struct OpError {
     pub kind: ErrorKind,
     pub message: String,
+    /// Structured facts about the failure (the live run a refused start found); the command
+    /// line prints them as the `data` of the failed envelope.
+    pub details: Option<serde_json::Value>,
 }
 
 impl OpError {
@@ -35,6 +38,14 @@ impl OpError {
         Self {
             kind,
             message: message.into(),
+            details: None,
+        }
+    }
+
+    pub fn with_details(self, details: serde_json::Value) -> Self {
+        Self {
+            details: Some(details),
+            ..self
         }
     }
 

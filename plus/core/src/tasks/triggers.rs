@@ -65,7 +65,8 @@ pub fn start(
         return Err(OpError::conflict(format!(
             "task {:?} is already running as {}",
             task.id, busy.id
-        )));
+        ))
+        .with_details(json!({"task": task.id, "run": busy.id, "status": busy.status})));
     }
     let mut run = store::new_run(task, trigger, host.now());
     run.missed = missed;

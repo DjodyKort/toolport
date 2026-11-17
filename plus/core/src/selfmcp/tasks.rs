@@ -1,4 +1,4 @@
-//! `tasks_list|get|history` (tier 1) and `tasks_run|cancel` (tier 2): adapters over
+//! `tasks_list|get|history|missed` (tier 1) and `tasks_run|cancel|set_enabled` (tier 2): adapters over
 //! `tasks::api`, which `toolportctl task` renders as well. `tasks_run` asks the approval
 //! broker on every run; adding, editing and removing tasks is not exposed (D-067), so a prompt
 //! injected model cannot define a task that writes secrets. No result carries a captured value.
@@ -50,6 +50,18 @@ fn refused(error: OpError) -> ToolError {
 pub(super) fn run(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
     let id = required(args, "id")?;
     approval::run(id, flag(args, "dry_run"), host).map_err(refused)
+}
+
+pub(super) fn missed(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    Ok(api::missed(host, str_nonempty(args, "id"))?)
+}
+
+pub(super) fn set_enabled(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    let id = required(args, "id")?;
+    let Some(enabled) = args.get("enabled").and_then(Value::as_bool) else {
+        return Err(ToolError::new("invalid_arguments", "enabled is required"));
+    };
+    approval::set_enabled(id, enabled, flag(args, "dry_run"), host).map_err(refused)
 }
 
 pub(super) fn cancel(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {

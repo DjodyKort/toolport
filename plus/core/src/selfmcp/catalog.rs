@@ -893,6 +893,14 @@ pub const TOOLS: &[ToolDef] = &[
         tasks::history
     ),
     tool!(
+        "tasks_missed",
+        1,
+        None,
+        "List the scheduled slots that did not start a run on time, newest first (the last 50 the scheduler keeps): caught up by one run after a quiet period, too old to run, or skipped because a run was live",
+        [p("id", Ty::Str, false, "Only the slots of this task")],
+        tasks::missed
+    ),
+    tool!(
         "tasks_run",
         2,
         None,
@@ -902,6 +910,18 @@ pub const TOOLS: &[ToolDef] = &[
             p("dry_run", Ty::Bool, false, "Report the plan only; nothing is asked and nothing starts")
         ],
         tasks::run
+    ),
+    tool!(
+        "tasks_set_enabled",
+        2,
+        None,
+        "Turn a task on or off. Turning one on asks the person to approve it through the approval broker, because its schedule and triggers can then run programs on their own; turning one off asks nothing. Pass dry_run to see the change without making it",
+        [
+            p("id", Ty::Str, true, "The task id"),
+            p("enabled", Ty::Bool, true, "true to turn the task on, false to turn it off"),
+            p("dry_run", Ty::Bool, false, "Report the change only; nothing is asked and nothing changes")
+        ],
+        tasks::set_enabled
     ),
     tool!(
         "tasks_cancel",

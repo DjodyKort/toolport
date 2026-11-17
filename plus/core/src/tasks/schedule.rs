@@ -32,6 +32,10 @@ const SLOT_SCAN_CAP: usize = 5000;
 const LEDGER_WAIT: Duration = Duration::from_secs(2);
 pub const APP_TICK_EVERY: Duration = Duration::from_secs(20);
 
+/// Who ticked: the desktop app (every [`APP_TICK_EVERY`]) or a gateway process (once a minute).
+pub const TICKER_APP: &str = "app";
+pub const TICKER_GATEWAY: &str = "gateway";
+
 pub const OUTCOME_CAUGHT_UP: &str = "caught-up";
 pub const OUTCOME_TOO_OLD: &str = "too-old";
 pub const OUTCOME_BUSY: &str = "busy";
@@ -76,6 +80,38 @@ pub fn disabled() -> bool {
         .is_ok_and(|v| matches!(v.trim(), "0" | "off" | "false"))
 }
 
+/// The last time a process looked at the schedule, for the "last checked" line of the screen.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Heartbeat {
+    pub at: String,
+    pub by: String,
+    pub interval_secs: u64,
+}
+
+fn heartbeat_path(base: &Path) -> PathBuf {
+    store::plus_dir(base).join("task-heartbeat.json")
+}
+
+pub fn read_heartbeat(base: &Path) -> Option<Heartbeat> {
+    serde_json::from_str(&std::fs::read_to_string(heartbeat_path(base)).ok()?).ok()
+}
+
+fn beat(base: &Path, now: i64, by: &str) {
+    let interval = if by == TICKER_APP {
+        APP_TICK_EVERY.as_secs()
+    } else {
+        60
+    };
+    let beat = Heartbeat {
+        at: rfc3339(now),
+        by: by.into(),
+        interval_secs: interval,
+    };
+    let text = serde_json::to_string(&beat).unwrap_or_default() + "\n";
+    let _ = store::write(&heartbeat_path(base), &text);
+}
+
 pub fn ledger_path(base: &Path) -> PathBuf {
     store::plus_dir(base).join("task-schedule.json")
 }
@@ -114,6 +150,10 @@ fn first_sight(base: &Path, task: &Task, now: i64) -> i64 {
 }
 
 pub fn tick(host: &dyn TaskHost) -> TickReport {
+    tick_as(host, TICKER_GATEWAY)
+}
+
+pub fn tick_as(host: &dyn TaskHost, by: &str) -> TickReport {
     let mut report = TickReport::default();
     if disabled() {
         return report;
@@ -125,6 +165,7 @@ pub fn tick(host: &dyn TaskHost) -> TickReport {
     if due.is_empty() {
         return report;
     }
+    beat(&base, host.now(), by);
     let Some(_guard) = store::lock(&ledger_lock_path(&base), LEDGER_WAIT) else {
         return report;
     };
@@ -288,7 +329,7 @@ pub fn spawn_app_ticker<H: TaskHost + Send + 'static>(host: H) {
         .name("task-app-ticker".into())
         .spawn(move || loop {
             let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                tick(&host);
+                tick_as(&host, TICKER_APP);
             }));
             std::thread::sleep(APP_TICK_EVERY);
         });
@@ -301,4 +342,24 @@ pub fn auto_scheduled_count(base: &Path) -> usize {
         .iter()
         .filter(|(task, _)| triggers::auto_runs(task))
         .count()
+}
+
+/// Counts a task from now on: a task turned on again does not catch up the slots that came
+/// due while it was off.
+pub fn skip_ahead(host: &dyn TaskHost, id: &str) {
+    let Some(base) = host.tasks_base() else {
+        return;
+    };
+    let Some(_guard) = store::lock(&ledger_lock_path(&base), LEDGER_WAIT) else {
+        return;
+    };
+    let mut ledger = read_ledger(&base);
+    ledger.tasks.insert(
+        id.to_string(),
+        Entry {
+            handled_slot: host.now(),
+        },
+    );
+    let text = serde_json::to_string_pretty(&ledger).unwrap_or_default() + "\n";
+    let _ = store::write(&ledger_path(&base), &text);
 }

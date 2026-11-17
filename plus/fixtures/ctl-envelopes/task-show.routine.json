@@ -1,0 +1,58 @@
+{
+  "argv": ["task", "show", "refresh-reports"],
+  "envelope": {
+    "command": "task show",
+    "data": {
+      "problems": [
+        {
+          "code": "routine-step",
+          "index": 1,
+          "message": "step 2 (Run the routine) names the routine reports-refresh; routines left Toolport 2.3, so replace it with a script step",
+          "routine": "reports-refresh",
+          "step": "refresh"
+        }
+      ],
+      "runs": [],
+      "task": {
+        "createdFrom": null,
+        "description": "",
+        "enabled": true,
+        "id": "refresh-reports",
+        "requires": {
+          "commands": ["echo"],
+          "servers": []
+        },
+        "steps": [
+          {
+            "args": ["warm"],
+            "id": "warm",
+            "program": "echo",
+            "title": "Warm up",
+            "type": "exec"
+          },
+          {
+            "id": "refresh",
+            "routineId": "reports-refresh",
+            "title": "Run the routine",
+            "type": "routine"
+          }
+        ],
+        "title": "Refresh the report cache",
+        "triggers": {
+          "cli": false,
+          "manual": true,
+          "onAuthFailure": [],
+          "schedule": null,
+          "selfMcp": {
+            "approval": "every-run",
+            "enabled": false
+          }
+        },
+        "writesSecrets": []
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

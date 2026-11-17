@@ -716,6 +716,19 @@ pub(super) const ROWS: &[Row] = &[
     row("task history", R)
         .spec(&[&task::HISTORY])
         .args(&[opt("id")]),
+    row("task missed", R)
+        .spec(&[&task::MISSED])
+        .args(&[opt("id")]),
+    row("task enable", W)
+        .dry()
+        .spec(&[&task::ENABLE])
+        .args(&[req("id")])
+        .skip("turns a task on; its --dry-run is a golden step"),
+    row("task disable", W)
+        .dry()
+        .spec(&[&task::DISABLE])
+        .args(&[req("id")])
+        .skip("turns a task off; its --dry-run is a golden step"),
     row("mcp install", W)
         .spec(&[&mcp::INSTALL])
         .skip("registers the server and lists it in access sets; plus_mcp.rs round trip"),
@@ -902,6 +915,8 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("tasks_list", R, "task ls"),
     maps("tasks_get", R, "task show"),
     maps("tasks_history", R, "task history"),
+    maps("tasks_missed", R, "task missed"),
+    maps("tasks_set_enabled", W, "task enable").param(),
     maps("tasks_run", W, "task run").param(),
     maps("tasks_cancel", W, "task cancel"),
 ];

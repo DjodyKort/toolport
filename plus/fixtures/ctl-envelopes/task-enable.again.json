@@ -1,0 +1,28 @@
+{
+  "argv": ["task", "enable", "draft-cleanup"],
+  "envelope": {
+    "command": "task enable",
+    "data": {
+      "dryRun": false,
+      "enabled": true,
+      "path": "<WORLD>/data/plus/tasks/draft-cleanup.json",
+      "plan": {
+        "effects": {},
+        "steps": [],
+        "summary": "Task draft-cleanup is already on",
+        "undo": "toolportctl task disable draft-cleanup",
+        "warnings": []
+      },
+      "result": {
+        "applied": false,
+        "backups": [],
+        "changed": [],
+        "undo": "toolportctl task disable draft-cleanup"
+      },
+      "task": "draft-cleanup"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

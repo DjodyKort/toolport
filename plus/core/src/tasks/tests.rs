@@ -524,3 +524,236 @@ fn test18_the_app_ticker_catches_up_at_launch_without_waiting_for_its_interval()
     let run = &store::list_runs(&dir.0, Some("plugins-update"))[0];
     assert_eq!(run.trigger, "schedule");
 }
+
+#[test]
+fn test19_a_refused_start_names_the_live_run_in_the_error_details() {
+    let (_dir, host) = fixture("refused-details", at(17, 7, 6, 0));
+    save(
+        &host,
+        &task("plugins-update", "7 * * * *", true, echo_steps()),
+    );
+    let live = api::run("plugins-update", "manual", false, &host).unwrap();
+
+    let error = api::run("plugins-update", "manual", false, &host).unwrap_err();
+
+    let details = error.details.expect("a refused start carries details");
+    assert_eq!(details["run"], live["run"]["id"]);
+    assert_eq!(details["task"], "plugins-update");
+}
+
+#[test]
+fn test20_the_tick_leaves_a_heartbeat_that_names_who_ticked() {
+    let (dir, host) = fixture("heartbeat", at(17, 7, 6, 0));
+    save(
+        &host,
+        &task("plugins-update", "7 * * * *", true, echo_steps()),
+    );
+    assert!(api::ls(&host, true).unwrap().get("scheduler").is_none());
+
+    schedule::tick_as(&host, schedule::TICKER_APP);
+
+    let scheduler = &api::ls(&host, true).unwrap()["scheduler"];
+    assert_eq!(scheduler["by"], "app");
+    assert_eq!(scheduler["at"], "2026-11-17T07:06:00Z");
+    assert_eq!(scheduler["intervalSecs"], 20);
+    assert!(schedule::read_heartbeat(&dir.0).is_some());
+}
+
+#[test]
+fn test21_a_task_turned_on_again_does_not_catch_up_the_slots_it_was_off() {
+    let (dir, host) = fixture("enable-no-backfill", at(17, 7, 6, 0));
+    save(
+        &host,
+        &task("plugins-update", "7 * * * *", true, echo_steps()),
+    );
+    schedule::tick(&host);
+    api::set_enabled(&host, "plugins-update", false, false).unwrap();
+
+    host.clock.set(at(17, 10, 30, 0));
+    let on = api::set_enabled(&host, "plugins-update", true, false).unwrap();
+    assert_eq!(on["result"]["applied"], true);
+    host.clock.set(at(17, 10, 31, 0));
+    let report = schedule::tick(&host);
+
+    assert!(report.missed.is_empty(), "{:?}", report.missed);
+    assert!(report.raised.is_empty());
+    assert_eq!(runs(&host, "plugins-update").len(), 0);
+    assert!(schedule::read_ledger(&dir.0).missed.is_empty());
+}
+
+#[test]
+fn test22_enable_and_disable_change_one_field_and_say_when_nothing_changes() {
+    let (_dir, host) = fixture("enable", at(17, 7, 6, 0));
+    save(
+        &host,
+        &task("plugins-update", "7 * * * *", true, echo_steps()),
+    );
+
+    let preview = api::set_enabled(&host, "plugins-update", false, true).unwrap();
+    assert_eq!(preview["plan"]["summary"], "Turn task plugins-update off");
+    assert!(
+        api::ls(&host, false).unwrap()["tasks"]
+            .as_array()
+            .unwrap()
+            .len()
+            == 1
+    );
+
+    api::set_enabled(&host, "plugins-update", false, false).unwrap();
+    assert!(api::ls(&host, false).unwrap()["tasks"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+    let again = api::set_enabled(&host, "plugins-update", false, false).unwrap();
+    assert_eq!(again["result"]["applied"], false);
+    assert_eq!(
+        again["plan"]["summary"],
+        "Task plugins-update is already off"
+    );
+
+    let on = api::set_enabled(&host, "plugins-update", true, false).unwrap();
+    assert_eq!(
+        on["plan"]["warnings"][0],
+        "the schedule runs the task on its own (autoRun)"
+    );
+    let error = api::set_enabled(&host, "no-such", true, false).unwrap_err();
+    assert!(error.message.contains("no task"), "{}", error.message);
+}
+
+#[test]
+fn test23_turning_a_task_on_through_a_tool_asks_and_turning_it_off_does_not() {
+    let (_dir, host) = fixture("enable-approval", at(17, 7, 6, 0));
+    let mut t = task("plugins-update", "7 * * * *", true, echo_steps());
+    t.enabled = false;
+    save(&host, &t);
+
+    host.decision.set(RunDecision::Denied);
+    let denied = approval::set_enabled("plugins-update", true, false, &host).unwrap_err();
+    assert_eq!(denied.code(), "approval_denied");
+    assert!(
+        !store::load_task(&host.tasks_base().unwrap(), "plugins-update")
+            .unwrap()
+            .enabled
+    );
+
+    host.decision.set(RunDecision::Approved);
+    approval::set_enabled("plugins-update", true, false, &host).unwrap();
+    assert!(
+        store::load_task(&host.tasks_base().unwrap(), "plugins-update")
+            .unwrap()
+            .enabled
+    );
+
+    approval::set_enabled("plugins-update", false, false, &host).unwrap();
+    assert!(
+        !store::load_task(&host.tasks_base().unwrap(), "plugins-update")
+            .unwrap()
+            .enabled
+    );
+}
+
+#[test]
+fn test24_a_dry_run_of_add_and_edit_lists_the_next_five_runs_in_utc() {
+    let (_dir, host) = fixture("next-runs", at(17, 7, 6, 0));
+    let t = task("plugins-update", "7 */4 * * *", true, echo_steps());
+    let text = serde_json::to_string(&t).unwrap();
+
+    let preview = api::add(&host, "plugins-update", api::Source::Stdin(&text), true).unwrap();
+
+    let runs: Vec<&str> = preview["nextRuns"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(Value::as_str)
+        .collect();
+    assert_eq!(
+        runs,
+        [
+            "2026-11-17T08:07:00Z",
+            "2026-11-17T12:07:00Z",
+            "2026-11-17T16:07:00Z",
+            "2026-11-17T20:07:00Z",
+            "2026-11-18T00:07:00Z"
+        ]
+    );
+    let mut manual = t.clone();
+    manual.triggers.schedule = None;
+    let text = serde_json::to_string(&manual).unwrap();
+    let preview = api::add(&host, "plugins-update", api::Source::Stdin(&text), true).unwrap();
+    assert!(preview.get("nextRuns").is_none());
+}
+
+#[test]
+fn test25_a_task_that_names_a_routine_is_listed_with_a_problem_and_shown_as_it_is_stored() {
+    let (_dir, host) = fixture("routine-problem", at(17, 7, 6, 0));
+    let base = host.tasks_base().unwrap();
+    let stored = json!({
+        "id": "refresh-reports", "title": "Refresh", "enabled": true,
+        "steps": [
+            {"id": "warm", "title": "Warm", "type": "exec", "program": "echo", "args": []},
+            {"id": "refresh", "title": "Run the routine", "type": "routine", "routineId": "reports-refresh"}
+        ]
+    });
+    std::fs::create_dir_all(store::tasks_dir(&base)).unwrap();
+    std::fs::write(
+        store::tasks_dir(&base).join("refresh-reports.json"),
+        stored.to_string(),
+    )
+    .unwrap();
+
+    let listed = api::ls(&host, false).unwrap();
+    assert!(listed["invalid"].as_array().unwrap().is_empty());
+    let row = &listed["tasks"][0];
+    assert_eq!(row["id"], "refresh-reports");
+    assert_eq!(row["problems"][0]["code"], "routine-step");
+    assert_eq!(row["problems"][0]["step"], "refresh");
+    assert_eq!(row["problems"][0]["index"], 1);
+
+    let shown = api::show(&host, "refresh-reports").unwrap();
+    assert_eq!(shown["task"]["steps"][1]["routineId"], "reports-refresh");
+    assert_eq!(shown["problems"][0]["routine"], "reports-refresh");
+    let error = api::run("refresh-reports", "manual", true, &host).unwrap_err();
+    assert!(error.message.contains("saved routine"), "{}", error.message);
+}
+
+#[test]
+fn test26_the_ledger_is_read_newest_first_and_per_task() {
+    let (dir, host) = fixture("missed", at(17, 7, 6, 0));
+    let record = |task: &str, outcome: &str| json!({"task": task, "slots": 1, "firstDue": "2026-11-16T07:07:00Z", "lastDue": "2026-11-16T07:07:00Z", "outcome": outcome, "at": "2026-11-16T07:07:00Z"});
+    std::fs::create_dir_all(store::plus_dir(&dir.0)).unwrap();
+    std::fs::write(
+        schedule::ledger_path(&dir.0),
+        json!({"missed": [record("a", "busy"), record("b", "too-old"), record("a", "caught-up")]})
+            .to_string(),
+    )
+    .unwrap();
+
+    let all = api::missed(&host, None).unwrap();
+    assert_eq!(all["missed"][0]["outcome"], "caught-up");
+    assert_eq!(all["missed"].as_array().unwrap().len(), 3);
+    let only_a = api::missed(&host, Some("a")).unwrap();
+    assert_eq!(only_a["missed"].as_array().unwrap().len(), 2);
+}
+
+#[test]
+fn test27_a_catch_up_run_shows_what_it_covers_in_its_view() {
+    let (_dir, host) = fixture("catch-up-view", at(17, 7, 6, 0));
+    save(
+        &host,
+        &task("plugins-update", "7 * * * *", true, echo_steps()),
+    );
+    std::fs::write(
+        schedule::ledger_path(&host.tasks_base().unwrap()),
+        json!({"tasks": {"plugins-update": {"handledSlot": at(17, 4, 7, 0)}}}).to_string(),
+    )
+    .unwrap();
+    host.clock.set(at(17, 7, 7, 5));
+    schedule::tick(&host);
+
+    let history = api::history(&host, Some("plugins-update"), None, None).unwrap();
+
+    let run = &history["runs"][0];
+    assert_eq!(run["trigger"], "catch-up");
+    assert_eq!(run["missed"]["slots"], 3);
+    assert_eq!(run["missed"]["firstDue"], "2026-11-17T05:07:00Z");
+}

@@ -20,7 +20,7 @@ mod common;
 use common::compression::{fake_proxy, rtk_home, transcripts};
 use common::library_world::{self, library_home};
 use common::oauth_mock::{self, OauthMock};
-use common::tasks_world::tasks_home;
+use common::tasks_world::{scheduler_extras, tasks_home};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
 
@@ -209,6 +209,8 @@ const CASES: &[Case] = &[
             read("default", &["task", "ls"]),
             read("all", &["task", "ls", "--all"]),
             usage("usage", &["task", "ls", "extra"]),
+            hook("scheduler", scheduler_extras),
+            read("routine-and-scheduler", &["task", "ls", "--all"]),
         ],
     ),
     case(
@@ -219,6 +221,8 @@ const CASES: &[Case] = &[
             read("scheduled", &["task", "show", "nightly-report"]),
             read("missing", &["task", "show", "no-such-task"]).exit(1),
             usage("usage", &["task", "show"]),
+            hook("scheduler", scheduler_extras),
+            read("routine", &["task", "show", "refresh-reports"]),
         ],
     ),
     case(
@@ -233,6 +237,8 @@ const CASES: &[Case] = &[
             apply("apply", &["task", "run", "nightly-report"])
                 .env(&[("TOOLPORT_CTL_BIN", "/usr/bin/true")]),
             usage("usage", &["task", "run"]),
+            hook("scheduler", scheduler_extras),
+            read("routine", &["task", "run", "refresh-reports", "--dry-run"]).exit(1),
         ],
     ),
     case(
@@ -455,6 +461,49 @@ const CASES: &[Case] = &[
             read("missing-run", &["task", "history", "--run", "run-no-such"]).exit(1),
             read("missing-task", &["task", "history", "no-such-task"]).exit(1),
             usage("bad-limit", &["task", "history", "--limit", "many"]),
+            hook("scheduler", scheduler_extras),
+            read("catch-up", &["task", "history", "nightly-report"]),
+        ],
+    ),
+    case(
+        "task missed",
+        &[
+            hook("tasks", tasks_home),
+            read("none", &["task", "missed"]),
+            hook("scheduler", scheduler_extras),
+            read("all", &["task", "missed"]),
+            read("one", &["task", "missed", "nightly-report"]),
+            read("quiet-task", &["task", "missed", "draft-cleanup"]),
+            usage("usage", &["task", "missed", "a", "b"]),
+        ],
+    ),
+    case(
+        "task enable",
+        &[
+            hook("tasks", tasks_home),
+            read("preview", &["task", "enable", "draft-cleanup", "--dry-run"]),
+            apply("apply", &["task", "enable", "draft-cleanup"]),
+            apply("again", &["task", "enable", "draft-cleanup"]),
+            read(
+                "already-on",
+                &["task", "enable", "nightly-report", "--dry-run"],
+            ),
+            apply("missing", &["task", "enable", "no-such-task"]).exit(1),
+            usage("usage", &["task", "enable"]),
+        ],
+    ),
+    case(
+        "task disable",
+        &[
+            hook("tasks", tasks_home),
+            read(
+                "preview",
+                &["task", "disable", "nightly-report", "--dry-run"],
+            ),
+            apply("apply", &["task", "disable", "nightly-report"]),
+            apply("again", &["task", "disable", "nightly-report"]),
+            apply("missing", &["task", "disable", "no-such-task"]).exit(1),
+            usage("usage", &["task", "disable"]),
         ],
     ),
     case("commands", &[read("", &["commands"])]),

@@ -5,6 +5,7 @@
 use super::cron::{rfc3339, Cron};
 use super::model::{self, Step, Task, WaitKind};
 use super::runner;
+use super::schedule;
 use super::store::{self, Run, Status};
 use super::triggers;
 use crate::op::OpError;
@@ -41,6 +42,9 @@ pub fn run_view(run: &Run, with_output: bool) -> Value {
     if let Some(action) = &run.action {
         view["action"] = action.clone();
     }
+    if let Some(missed) = &run.missed {
+        view["missed"] = json!(missed);
+    }
     view
 }
 
@@ -65,34 +69,79 @@ pub fn ls(host: &dyn TaskHost, all: bool) -> Result<Value, OpError> {
     let mut tasks = Vec::new();
     let mut invalid = Vec::new();
     for item in store::list_tasks(&base) {
-        match item {
-            Ok(t) if t.enabled || all => {
-                let waiting = runs
-                    .iter()
-                    .any(|r| r.task == t.id && r.status == Status::Waiting);
-                let kind = if t.triggers.on_auth_failure.is_empty() && t.writes_secrets.is_empty() {
-                    "script"
-                } else {
-                    "login"
-                };
-                tasks.push(json!({"id": t.id, "title": t.title, "enabled": t.enabled, "triggers": t.triggers, "lastRun": last_run(&runs, &t.id), "nextRun": next_run(&t, host.now()), "waiting": waiting, "refreshes": t.triggers.on_auth_failure, "kind": kind}));
+        let (task, problems) = match item {
+            Ok(t) => (t, Vec::new()),
+            Err((id, error)) => {
+                let routines = std::fs::read_to_string(store::task_path(&base, &id)?)
+                    .ok()
+                    .and_then(|text| model::read_with_routines(&text));
+                match routines {
+                    Some(found) => found,
+                    None => {
+                        invalid.push(json!({"id": id, "error": error}));
+                        continue;
+                    }
+                }
             }
-            Ok(_) => {}
-            Err((id, error)) => invalid.push(json!({"id": id, "error": error})),
+        };
+        if !(task.enabled || all) {
+            continue;
         }
+        let waiting = runs
+            .iter()
+            .any(|r| r.task == task.id && r.status == Status::Waiting);
+        let kind = if task.triggers.on_auth_failure.is_empty() && task.writes_secrets.is_empty() {
+            "script"
+        } else {
+            "login"
+        };
+        let mut row = json!({"id": task.id, "title": task.title, "enabled": task.enabled, "triggers": task.triggers, "lastRun": last_run(&runs, &task.id), "nextRun": next_run(&task, host.now()), "waiting": waiting, "refreshes": task.triggers.on_auth_failure, "kind": kind});
+        if !problems.is_empty() {
+            row["problems"] = json!(problems);
+        }
+        tasks.push(row);
     }
-    Ok(json!({"tasks": tasks, "invalid": invalid}))
+    let mut data = json!({"tasks": tasks, "invalid": invalid});
+    if let Some(beat) = schedule::read_heartbeat(&base) {
+        data["scheduler"] = json!(beat);
+    }
+    Ok(data)
 }
 
 pub fn show(host: &dyn TaskHost, id: &str) -> Result<Value, OpError> {
     let base = triggers::base_of(host)?;
-    let task = store::load_task(&base, id)?;
+    let (task, problems) = match store::load_task(&base, id) {
+        Ok(task) => (json!(task), Vec::new()),
+        Err(error) => {
+            let text = std::fs::read_to_string(store::task_path(&base, id)?).unwrap_or_default();
+            match model::read_with_routines(&text) {
+                Some((_, problems)) => {
+                    (serde_json::from_str(&text).unwrap_or(Value::Null), problems)
+                }
+                None => return Err(error),
+            }
+        }
+    };
     let runs: Vec<Value> = store::list_runs(&base, Some(id))
         .iter()
         .take(SHOW_RUNS)
         .map(|r| run_view(r, false))
         .collect();
-    Ok(json!({"task": task, "runs": runs}))
+    let mut data = json!({"task": task, "runs": runs});
+    if !problems.is_empty() {
+        data["problems"] = json!(problems);
+    }
+    Ok(data)
+}
+
+/// The scheduler ledger: slots that did not start a run on time (caught up, too old, busy),
+/// newest first, the last 50 the ledger keeps.
+pub fn missed(host: &dyn TaskHost, task: Option<&str>) -> Result<Value, OpError> {
+    let base = triggers::base_of(host)?;
+    let mut records = schedule::read_ledger(&base).missed;
+    records.retain(|m| task.is_none_or(|t| m.task == t));
+    records.reverse();
+    Ok(json!({"missed": records}))
 }
 
 pub fn history(
@@ -383,11 +432,94 @@ fn save(host: &dyn TaskHost, task: Task, create: bool, dry_run: bool) -> Result<
         (None, false) => format!("restore {path_text} from the backup the apply prints"),
     };
     let verb = if create { "Add" } else { "Edit" };
-    Ok(json!({
+    let mut data = json!({
         "dryRun": dry_run, "task": id, "path": path_text, "created": create,
         "plan": {"summary": format!("{verb} task {id}"), "steps": [step], "effects": {}, "warnings": warnings, "undo": undo},
         "result": result,
-    }))
+    });
+    if let Some(runs) = next_runs(&task, host.now()) {
+        data["nextRuns"] = runs;
+    }
+    Ok(data)
+}
+
+pub const NEXT_RUNS: usize = 5;
+
+/// The next slots of a task's schedule in UTC, so the editor needs no cron parser of its own.
+fn next_runs(task: &Task, now: i64) -> Option<Value> {
+    let cron = Cron::parse(&task.triggers.schedule.as_ref()?.cron).ok()?;
+    let mut runs = Vec::new();
+    let mut after = now;
+    while runs.len() < NEXT_RUNS {
+        let Some(next) = cron.next_after(after) else {
+            break;
+        };
+        runs.push(rfc3339(next));
+        after = next;
+    }
+    Some(json!(runs))
+}
+
+/// Turns a task on or off by changing the one field, under a lock, with no backup: the opposite
+/// command is the undo. Turning a task on counts its schedule from now.
+pub fn set_enabled(
+    host: &dyn TaskHost,
+    id: &str,
+    enabled: bool,
+    dry_run: bool,
+) -> Result<Value, OpError> {
+    let base = triggers::base_of(host)?;
+    let path_text = store::task_path(&base, id)?.display().to_string();
+    let _guard = store::lock(
+        &store::tasks_dir(&base).join(format!(".{id}.lock")),
+        Duration::from_secs(5),
+    )
+    .ok_or_else(|| OpError::conflict(format!("task {id:?} is being changed elsewhere")))?;
+    let mut task = store::load_task(&base, id)?;
+    let word = if enabled { "on" } else { "off" };
+    let changes = task.enabled != enabled;
+    let mut warnings = Vec::new();
+    if enabled && changes {
+        if triggers::auto_runs(&task) {
+            warnings.push("the schedule runs the task on its own (autoRun)".to_string());
+        }
+        for s in &task.writes_secrets {
+            warnings.push(format!(
+                "the task may write the secret {}/{} when it runs",
+                s.server, s.key
+            ));
+        }
+    }
+    let opposite = format!(
+        "toolportctl task {} {id}",
+        if enabled { "disable" } else { "enable" }
+    );
+    let steps: Vec<Value> = if changes {
+        vec![json!({"op": "update", "path": path_text, "detail": format!("turn task {id} {word}")})]
+    } else {
+        Vec::new()
+    };
+    let summary = if changes {
+        format!("Turn task {id} {word}")
+    } else {
+        format!("Task {id} is already {word}")
+    };
+    let plan = json!({"summary": summary, "steps": steps, "effects": {}, "warnings": warnings, "undo": opposite});
+    let result = if dry_run {
+        Value::Null
+    } else {
+        if changes {
+            task.enabled = enabled;
+            store::save_task(&base, &task)?;
+            if enabled {
+                schedule::skip_ahead(host, id);
+            }
+        }
+        json!({"applied": changes, "changed": if changes { vec![path_text.clone()] } else { Vec::new() }, "undo": opposite, "backups": []})
+    };
+    Ok(
+        json!({"dryRun": dry_run, "task": id, "enabled": enabled, "path": path_text, "plan": plan, "result": result}),
+    )
 }
 
 fn definition(id: &str, text: &str, origin: &str) -> Result<Task, OpError> {

@@ -601,6 +601,21 @@ pub const COMMANDS: &[Command] = &[
         task::history,
     ),
     cmd(
+        &["task", "missed"],
+        "List the scheduled slots that did not start a run on time, newest first ([<id>])",
+        task::missed,
+    ),
+    cmd(
+        &["task", "enable"],
+        "Turn a task on; its schedule counts from now (<id>, --dry-run)",
+        task::enable,
+    ),
+    cmd(
+        &["task", "disable"],
+        "Turn a task off; nothing runs it until it is turned on (<id>, --dry-run)",
+        task::disable,
+    ),
+    cmd(
         &["mcp"],
         "Self-management server: install [--access-set <id>] uninstall doctor tools call <tool> [--args <json> | --args-stdin]",
         mcp::run,

@@ -18,7 +18,7 @@ mod common;
 use common::client::Client;
 use common::compression;
 use common::library_world::{self, library_home};
-use common::tasks_world::tasks_home;
+use common::tasks_world::{scheduler_home, tasks_home};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
 
@@ -181,6 +181,51 @@ const CASES: &[Case] = &[
                 "not_found",
                 "tasks_history",
                 r#"{"run":"run-nothing"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "tasks_missed",
+        scheduler_home,
+        &[
+            read("all", "tasks_missed", "{}"),
+            read("one", "tasks_missed", r#"{"id":"portal-token"}"#),
+        ],
+    ),
+    prepared(
+        "tasks_set_enabled",
+        tasks_home,
+        &[
+            read(
+                "preview",
+                "tasks_set_enabled",
+                r#"{"id":"draft-cleanup","enabled":true,"dry_run":true}"#,
+            ),
+            Call {
+                writes: true,
+                ..fails(
+                    "no_broker",
+                    "approval_unavailable",
+                    "tasks_set_enabled",
+                    r#"{"id":"draft-cleanup","enabled":true}"#,
+                )
+            },
+            write(
+                "off",
+                "tasks_set_enabled",
+                r#"{"id":"nightly-report","enabled":false}"#,
+            ),
+            fails(
+                "no_enabled",
+                "invalid_arguments",
+                "tasks_set_enabled",
+                r#"{"id":"nightly-report"}"#,
+            ),
+            fails(
+                "unknown",
+                "not_found",
+                "tasks_set_enabled",
+                r#"{"id":"nothing","enabled":false}"#,
             ),
         ],
     ),

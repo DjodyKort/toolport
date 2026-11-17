@@ -1,0 +1,34 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "missed": [
+      {
+        "at": "<TIME>",
+        "firstDue": "<TIME>",
+        "lastDue": "<TIME>",
+        "outcome": "too-old",
+        "slots": 1,
+        "task": "portal-token"
+      },
+      {
+        "at": "<TIME>",
+        "firstDue": "<TIME>",
+        "lastDue": "<TIME>",
+        "outcome": "busy",
+        "slots": 1,
+        "task": "nightly-report"
+      },
+      {
+        "at": "<TIME>",
+        "firstDue": "<TIME>",
+        "lastDue": "<TIME>",
+        "outcome": "caught-up",
+        "run": "run-fixture-catchup",
+        "slots": 2,
+        "task": "nightly-report"
+      }
+    ]
+  },
+  "tool": "tasks_missed"
+}

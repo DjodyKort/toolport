@@ -5,6 +5,7 @@
     "data": {
       "created": false,
       "dryRun": true,
+      "nextRuns": ["<TIME>", "<TIME>", "<TIME>", "<TIME>", "<TIME>"],
       "path": "<WORLD>/data/plus/tasks/nightly-report.json",
       "plan": {
         "effects": {},

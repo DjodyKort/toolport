@@ -1,0 +1,28 @@
+{
+  "argv": ["task", "disable", "nightly-report"],
+  "envelope": {
+    "command": "task disable",
+    "data": {
+      "dryRun": false,
+      "enabled": false,
+      "path": "<WORLD>/data/plus/tasks/nightly-report.json",
+      "plan": {
+        "effects": {},
+        "steps": [],
+        "summary": "Task nightly-report is already off",
+        "undo": "toolportctl task enable nightly-report",
+        "warnings": []
+      },
+      "result": {
+        "applied": false,
+        "backups": [],
+        "changed": [],
+        "undo": "toolportctl task enable nightly-report"
+      },
+      "task": "nightly-report"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

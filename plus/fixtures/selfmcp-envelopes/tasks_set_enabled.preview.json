@@ -1,0 +1,29 @@
+{
+  "arguments": {
+    "dry_run": true,
+    "enabled": true,
+    "id": "draft-cleanup"
+  },
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "enabled": true,
+    "path": "<WORLD>/data/plus/tasks/draft-cleanup.json",
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "turn task draft-cleanup on",
+          "op": "update",
+          "path": "<WORLD>/data/plus/tasks/draft-cleanup.json"
+        }
+      ],
+      "summary": "Turn task draft-cleanup on",
+      "undo": "toolportctl task disable draft-cleanup",
+      "warnings": []
+    },
+    "result": null,
+    "task": "draft-cleanup"
+  },
+  "tool": "tasks_set_enabled"
+}

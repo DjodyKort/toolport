@@ -2,6 +2,11 @@
   "argv": ["task", "run", "portal-token"],
   "envelope": {
     "command": "task run",
+    "data": {
+      "run": "run-fixture-waiting",
+      "status": "waiting",
+      "task": "portal-token"
+    },
     "error": {
       "code": "conflict",
       "message": "task \"portal-token\" is already running as run-fixture-waiting"

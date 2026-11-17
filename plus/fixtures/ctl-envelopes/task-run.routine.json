@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "run", "refresh-reports", "--dry-run"],
+  "envelope": {
+    "command": "task run",
+    "error": {
+      "code": "invalid_task",
+      "message": "<WORLD>/data/plus/tasks/refresh-reports.json: not a valid task definition: step \"refresh\" refers to a saved routine, which Toolport 2 no longer has; use an inline script, mcp, exec or prompt step"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -290,6 +290,8 @@ pub(super) const META: &[(&str, Meta)] = &[
     ("task rm", m("--dry-run", Bool, "Preview the change and write nothing")),
     ("task history", m("--run", Str, "Show this one run with its step logs")),
     ("task history", m("--limit", Int, "Show at most this many results")),
+    ("task enable", m("--dry-run", Bool, "Preview the change and write nothing")),
+    ("task disable", m("--dry-run", Bool, "Preview the change and write nothing")),
     ("server restart", m("--dry-run", Bool, "Say what would be restarted and ask no gateway")),
     ("secret set", m("--value-env", Str, "Name of an environment variable holding the value (the GUI sends it on stdin)").hidden().sensitive()),
     ("secret get", m("--reveal", Bool, "Print the secret value").sensitive()),

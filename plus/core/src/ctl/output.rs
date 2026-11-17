@@ -48,7 +48,7 @@ impl Envelope {
         Self {
             ok: false,
             command: command.to_string(),
-            data: None,
+            data: error.details.clone(),
             error: Some(error),
         }
     }
