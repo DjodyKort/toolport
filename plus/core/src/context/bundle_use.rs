@@ -1,8 +1,6 @@
 //! `context bundle launch`, `context use` and the auto-apply switch (D-064, D-066). Launch writes
-//! the derived `--settings` file and starts nothing; `use` applies a bundle and, when the
-//! folder-profile feature is on (D-031), routes the folder to the paired server profile.
+//! the derived `--settings` file and starts nothing; `use` applies a bundle (D-139).
 
-use super::bundle::Bundle;
 use super::bundle_apply::{self as apply, World};
 use super::bundle_io;
 use super::bundle_ledger as ledger;
@@ -10,10 +8,8 @@ use super::bundle_store::{self, BundleError};
 use super::config;
 use super::fsx;
 use super::globs::glob_match;
-use super::plan::ResultV1;
 use serde_json::{json, Map, Value};
 use std::path::{Path, PathBuf};
-use toolport_plus_api::RegistryAccess;
 
 fn failed(message: impl Into<String>) -> BundleError {
     BundleError::new("failed", message)
@@ -136,179 +132,39 @@ pub fn launch(w: &World, name: &str, cwd: Option<&Path>) -> Result<Value, Bundle
     }))
 }
 
-struct Pair {
-    id: String,
-    name: String,
-}
-
-fn paired_set(
-    reg: &dyn RegistryAccess,
-    bundle: Option<&Bundle>,
-    name: &str,
-) -> Result<Option<Pair>, BundleError> {
-    let Some(view) = reg.read_view().map_err(failed)? else {
-        return Ok(None);
-    };
-    let wanted = bundle.and_then(|b| b.servers.as_deref()).unwrap_or(name);
-    Ok(view
-        .access_sets()
-        .into_iter()
-        .find(|set| set.name == wanted || set.id == wanted)
-        .map(|set| Pair {
-            id: set.id,
-            name: set.name,
-        }))
-}
-
-fn bound_here(reg: &dyn RegistryAccess, folder: &str) -> Result<bool, BundleError> {
-    let Some(view) = reg.read_view().map_err(failed)? else {
-        return Ok(false);
-    };
-    Ok(view
-        .folder_routes()
-        .iter()
-        .any(|route| route.path.trim() == folder))
-}
-
-fn route(reg: &dyn RegistryAccess, folder: &str, set: Option<&str>) -> Result<(), BundleError> {
-    reg.transact(&mut |tx| tx.set_folder_route(folder, set))
-        .map_err(failed)
-}
-
-pub fn use_bundle(
-    w: &World,
-    reg: &dyn RegistryAccess,
-    name: &str,
-    cwd: &Path,
-    dry_run: bool,
-) -> Result<Value, BundleError> {
+pub fn use_bundle(w: &World, name: &str, cwd: &Path, dry_run: bool) -> Result<Value, BundleError> {
     let folder = apply::folder_key(cwd);
-    let loaded = match bundle_store::load(w.roots, name) {
-        Ok(l) => Some(l),
-        Err(e) if e.code == "not_found" => None,
-        Err(e) => return Err(e),
-    };
-    let pair = paired_set(reg, loaded.as_ref().map(|l| &l.bundle), name)?;
-    if loaded.is_none() && pair.is_none() {
-        return Err(BundleError::new(
-            "not_found",
-            format!("nothing is called {name}: no bundle in the skills repo's profiles/ and no access set"),
-        ));
+    if let Err(e) = bundle_store::load(w.roots, name) {
+        return Err(match e.code {
+            "not_found" => BundleError::new(
+                "not_found",
+                format!("no bundle called {name} in the skills repo's profiles/"),
+            ),
+            _ => e,
+        });
     }
-    let mut out = match &loaded {
-        Some(_) => apply::apply(w, name, cwd, dry_run)?,
-        None => {
-            if let Some(problem) = fsx::folder_problem(cwd) {
-                return Err(BundleError::new("usage", problem));
-            }
-            json!({
-                "dryRun": dry_run, "bundle": name, "cwd": folder,
-                "plan": { "summary": "", "steps": [], "effects": {}, "warnings": [], "undo": "" },
-                "result": null, "conflicts": [],
-            })
-        }
-    };
+    let mut out = apply::apply(w, name, cwd, dry_run)?;
     let undo = format!("toolportctl context use --none --cwd {folder}");
     out["plan"]["summary"] = json!(format!("Use {name} in {folder}"));
     out["plan"]["undo"] = json!(undo);
-    let mut bound = false;
-    let mut changed = Vec::new();
-    let steps = out["plan"]["steps"].as_array_mut().expect("steps");
-    if let Some(p) = &pair {
-        steps.push(json!({
-            "op": "update", "path": fsx::display(&registry_file(reg)),
-            "detail": format!("route {folder} to the access set {}", p.name),
-        }));
-        if !dry_run {
-            route(reg, &folder, Some(&p.id))?;
-            changed.push(fsx::display(&registry_file(reg)));
-        }
-        bound = true;
-    }
     if !dry_run {
-        let mut result = match out["result"].take() {
-            Value::Null => serde_json::to_value(ResultV1 {
-                applied: true,
-                changed: Vec::new(),
-                undo: undo.clone(),
-                backups: Vec::new(),
-            })
-            .map_err(|e| failed(e.to_string()))?,
-            v => v,
-        };
-        if let Some(list) = result["changed"].as_array_mut() {
-            list.extend(changed.into_iter().map(Value::String));
-        }
-        result["undo"] = json!(undo);
-        out["result"] = result;
+        out["result"]["undo"] = json!(undo);
     }
     out["name"] = json!(name);
-    out["bundlePart"] = json!(loaded.is_some());
-    out["server"] = json!({ "accessSet": pair.as_ref().map(|p| p.name.clone()), "bound": bound });
     Ok(out)
 }
 
-pub fn use_none(
-    w: &World,
-    reg: &dyn RegistryAccess,
-    cwd: &Path,
-    dry_run: bool,
-) -> Result<Value, BundleError> {
+pub fn use_none(w: &World, cwd: &Path, dry_run: bool) -> Result<Value, BundleError> {
     let folder = apply::folder_key(cwd);
-    let applied = ledger::load(w.data_dir).folders.contains_key(&folder);
-    let mapped = bound_here(reg, &folder)?;
-    if !applied && !mapped {
+    if !ledger::load(w.data_dir).folders.contains_key(&folder) {
         return Err(BundleError::new(
             "not_applied",
-            format!("no bundle and no folder routing is set for {folder}"),
+            format!("no bundle is applied in {folder}"),
         ));
     }
-    let mut out = if applied {
-        apply::undo(w, cwd, dry_run)?
-    } else {
-        json!({
-            "dryRun": dry_run, "bundle": null, "cwd": folder,
-            "plan": { "summary": "", "steps": [], "effects": {}, "warnings": [], "undo": "" },
-            "result": null, "conflicts": [],
-        })
-    };
-    out["plan"]["summary"] = json!(format!("Stop using a bundle and an access set in {folder}"));
-    let mut changed = Vec::new();
-    if mapped {
-        out["plan"]["steps"]
-            .as_array_mut()
-            .expect("steps")
-            .push(json!({
-                "op": "update", "path": fsx::display(&registry_file(reg)),
-                "detail": format!("remove the folder routing of {folder}"),
-            }));
-        if !dry_run {
-            route(reg, &folder, None)?;
-            changed.push(fsx::display(&registry_file(reg)));
-        }
-    }
-    if !dry_run {
-        let mut result = match out["result"].take() {
-            Value::Null => serde_json::to_value(ResultV1 {
-                applied: true,
-                changed: Vec::new(),
-                undo: String::new(),
-                backups: Vec::new(),
-            })
-            .map_err(|e| failed(e.to_string()))?,
-            v => v,
-        };
-        if let Some(list) = result["changed"].as_array_mut() {
-            list.extend(changed.into_iter().map(Value::String));
-        }
-        out["result"] = result;
-    }
-    out["server"] = json!({ "unrouted": mapped });
+    let mut out = apply::undo(w, cwd, dry_run)?;
+    out["plan"]["summary"] = json!(format!("Stop using a bundle in {folder}"));
     Ok(out)
-}
-
-fn registry_file(reg: &dyn RegistryAccess) -> PathBuf {
-    reg.registry_path().unwrap_or_default()
 }
 
 pub fn config(w: &World, auto_apply: Option<bool>) -> Result<Value, BundleError> {

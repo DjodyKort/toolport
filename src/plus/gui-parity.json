@@ -194,7 +194,7 @@
     "context.use": {
       "route": "context",
       "status": "planned",
-      "summary": "Apply a bundle and route the folder to its access set, or drop both (context use); planned and not ported: the 1.x switch that turns folder routing off (context folders --enable|--disable), because upstream always routes; removing it waits for the owner's decision"
+      "summary": "Apply a bundle to the folder, or take the applied one off again (context use); the folder routing that 1.x paired with it is not ported (D-139)"
     },
     "context.leave-out": {
       "route": "context",

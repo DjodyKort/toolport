@@ -18,14 +18,6 @@ pub struct AccessSetInfo {
     pub server_ids: Vec<String>,
 }
 
-/// A project folder routed to an access set: sessions whose client root is the folder or below
-/// it see that set, the longest path winning. Upstream's routing is always on.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FolderRoute {
-    pub path: String,
-    pub access_set_id: String,
-}
-
 /// Read side. Implemented over a read-only load (nothing recovers or migrates
 /// on disk) and over the registry inside a transaction.
 pub trait RegistryView {
@@ -46,9 +38,6 @@ pub trait RegistryView {
     fn client_access_sets(&self) -> Vec<String>;
 
     fn selfmcp_record(&self) -> Result<Option<SelfMcpRecord>, String>;
-
-    /// Folder routes with the set as its id, or as stored when no set matches.
-    fn folder_routes(&self) -> Vec<FolderRoute>;
 }
 
 /// Write side, run inside one lock, load and save. The edit is dropped when the
@@ -79,10 +68,6 @@ pub trait RegistryTx: RegistryView {
     ) -> Result<(), String>;
 
     fn set_selfmcp_record(&mut self, record: Option<SelfMcpRecord>) -> Result<(), String>;
-
-    /// Routes `path` to an access set (id or name) or, with `None`, removes its route. A route for
-    /// the same path is replaced.
-    fn set_folder_route(&mut self, path: &str, access_set: Option<&str>) -> Result<(), String>;
 
     /// Adds a server through upstream's own add and returns its id. Upstream switches the new
     /// server on and lists it in the default access set when it needs no credential.

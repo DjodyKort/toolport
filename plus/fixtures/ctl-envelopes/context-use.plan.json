@@ -4,7 +4,6 @@
     "command": "context use",
     "data": {
       "bundle": "acme-dev",
-      "bundlePart": true,
       "conflicts": [],
       "cwd": "<WORLD>/home/proj",
       "dryRun": true,
@@ -60,22 +59,13 @@
           {
             "detail": "Hiding skills is hygiene, not savings (F0 measured 59 tokens for ten skills); the tokens are in plugins, agents and memory files",
             "op": "note"
-          },
-          {
-            "detail": "route <WORLD>/home/proj to the access set Default",
-            "op": "update",
-            "path": "<WORLD>/data/registry.json"
           }
         ],
         "summary": "Use acme-dev in <WORLD>/home/proj",
         "undo": "toolportctl context use --none --cwd <WORLD>/home/proj",
         "warnings": []
       },
-      "result": null,
-      "server": {
-        "accessSet": "Default",
-        "bound": true
-      }
+      "result": null
     },
     "ok": true,
     "schemaVersion": 1

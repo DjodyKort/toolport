@@ -5,11 +5,11 @@ use std::path::{Path, PathBuf};
 use serde_json::{Map, Value};
 use toolport_plus_api::{
     convert, plus_ops, AccessSetInfo, AuthProbe, CallsInFlight, CatalogAccess, CatalogEntryRecord,
-    ContextHost, DirectEntry, EnvEntry, FolderRoute, ForkServerFields, GatewayRouter, HostEnv,
-    HttpAccess, HttpBody, HttpError, HttpRequest, HttpResponse, McpmSource, ProcessOutcome,
-    ProcessSpec, RegistryAccess, RegistryPlus, RegistryTx, RegistryView, RestartOutcome,
-    RunApproval, RunDecision, SecretsHost, SelfMcpRecord, ServerRecord, ServerRules, ServerSpec,
-    TaskHost, TrustInputs, VaultAccess,
+    ContextHost, DirectEntry, EnvEntry, ForkServerFields, GatewayRouter, HostEnv, HttpAccess,
+    HttpBody, HttpError, HttpRequest, HttpResponse, McpmSource, ProcessOutcome, ProcessSpec,
+    RegistryAccess, RegistryPlus, RegistryTx, RegistryView, RestartOutcome, RunApproval,
+    RunDecision, SecretsHost, SelfMcpRecord, ServerRecord, ServerRules, ServerSpec, TaskHost,
+    TrustInputs, VaultAccess,
 };
 
 pub struct HostAdapter;
@@ -93,19 +93,6 @@ fn view_client_access_sets(registry: &crate::registry::Registry) -> Vec<String> 
     ids
 }
 
-fn view_folder_routes(registry: &crate::registry::Registry) -> Vec<FolderRoute> {
-    registry
-        .folder_profiles
-        .iter()
-        .map(|route| FolderRoute {
-            path: route.path.clone(),
-            access_set_id: registry
-                .canonical_profile_id(&route.profile)
-                .unwrap_or_else(|_| route.profile.clone()),
-        })
-        .collect()
-}
-
 fn view_selfmcp_record(
     registry: &crate::registry::Registry,
 ) -> Result<Option<SelfMcpRecord>, String> {
@@ -132,9 +119,6 @@ macro_rules! registry_view {
             }
             fn selfmcp_record(&self) -> Result<Option<SelfMcpRecord>, String> {
                 view_selfmcp_record(self.$registry())
-            }
-            fn folder_routes(&self) -> Vec<FolderRoute> {
-                view_folder_routes(self.$registry())
             }
         }
     };
@@ -242,28 +226,6 @@ impl RegistryTx for TxView<'_> {
 
     fn set_selfmcp_record(&mut self, record: Option<SelfMcpRecord>) -> Result<(), String> {
         plus_ops::set_selfmcp(&mut self.0.unknown_fields, record.as_ref())
-    }
-
-    fn set_folder_route(&mut self, path: &str, access_set: Option<&str>) -> Result<(), String> {
-        let path = path.trim();
-        if path.is_empty() {
-            return Err("choose a project folder".into());
-        }
-        let mut routes = self.0.folder_profiles.clone();
-        routes.retain(|route| route.path.trim() != path);
-        if let Some(reference) = access_set {
-            let id = self
-                .0
-                .canonical_profile_id(reference)
-                .map_err(|_| "the selected profile no longer exists".to_string())?;
-            routes.push(crate::registry::FolderProfile {
-                path: path.to_string(),
-                profile: id,
-                unknown_fields: Default::default(),
-            });
-        }
-        self.0.set_folder_profiles(routes);
-        Ok(())
     }
 
     fn add_server(&mut self, spec: &ServerSpec) -> Result<String, String> {

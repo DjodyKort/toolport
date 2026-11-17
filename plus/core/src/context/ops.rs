@@ -253,8 +253,8 @@ pub fn use_bundle(
     dry_run: bool,
 ) -> Result<Value, OpError> {
     with_world(host, |w| match (name, none) {
-        (_, true) => bundle_use::use_none(w, host, &folder(cwd), dry_run),
-        (Some(name), false) => bundle_use::use_bundle(w, host, name, &folder(cwd), dry_run),
+        (_, true) => bundle_use::use_none(w, &folder(cwd), dry_run),
+        (Some(name), false) => bundle_use::use_bundle(w, name, &folder(cwd), dry_run),
         (None, false) => Err(BundleError::new("usage", "a name or --none is required")),
     })
 }

@@ -250,7 +250,7 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["context", "use"],
-        "Apply a bundle and its paired access set to a folder, or drop both (<name>, --none, --cwd, --dry-run)",
+        "Apply a bundle to a folder, or drop the applied one (<name>, --none, --cwd, --dry-run)",
         context::use_bundle,
     ),
     cmd(

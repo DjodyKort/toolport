@@ -40,14 +40,9 @@
             "detail": "drop the record of this folder",
             "op": "note",
             "path": "<WORLD>/data/plus/profile-ledger.json"
-          },
-          {
-            "detail": "remove the folder routing of <WORLD>/home/proj",
-            "op": "update",
-            "path": "<WORLD>/data/registry.json"
           }
         ],
-        "summary": "Stop using a bundle and an access set in <WORLD>/home/proj",
+        "summary": "Stop using a bundle in <WORLD>/home/proj",
         "undo": "toolportctl context bundle apply acme-dev --cwd <WORLD>/home/proj",
         "warnings": []
       },
@@ -57,14 +52,10 @@
         "changed": [
           "<WORLD>/home/proj/.claude/settings.local.json",
           "<WORLD>/home/proj/CLAUDE.local.md",
-          "<WORLD>/home/proj/.git/info/exclude",
-          "<WORLD>/data/registry.json"
+          "<WORLD>/home/proj/.git/info/exclude"
         ],
         "ledger": "<WORLD>/data/plus/profile-ledger.json",
         "undo": "toolportctl context bundle apply acme-dev --cwd <WORLD>/home/proj"
-      },
-      "server": {
-        "unrouted": true
       }
     },
     "ok": true,

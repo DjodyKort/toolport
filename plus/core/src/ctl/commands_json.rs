@@ -332,7 +332,7 @@ pub(super) const META: &[(&str, Meta)] = &[
     ("context bundle edit", m("--agents-off", Str, "Comma list of agents the bundle denies")),
     ("context bundle edit", m("--bind", Str, "Comma list of folder patterns the bundle is meant for (used by auto-apply)")),
     ("context bundle config", m("--auto-apply", Str, "on or off: whether context sync applies bound bundles")),
-    ("context use", m("--none", Bool, "Drop the bundle and the folder routing instead of applying one")),
+    ("context use", m("--none", Bool, "Drop the applied bundle instead of applying one")),
     ("context bundle add", m("--dry-run", Bool, "Show the plan and change nothing")),
     ("context bundle edit", m("--dry-run", Bool, "Show the plan and change nothing")),
     ("context bundle rm", m("--dry-run", Bool, "Show the plan and change nothing")),

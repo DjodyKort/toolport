@@ -40,7 +40,7 @@ pub use tasks::{
     FakeTaskHost, ProcessOutcome, ProcessSpec, RunApproval, RunDecision, SharedClockTaskHost,
     TaskHost,
 };
-pub use view::{AccessSetInfo, FolderRoute, RegistryTx, RegistryView};
+pub use view::{AccessSetInfo, RegistryTx, RegistryView};
 
 /// Written into every binary that forwards upstream code to the fork logic, so
 /// `toolportctl doctor` can tell a gateway built with the fork seam from one built without.

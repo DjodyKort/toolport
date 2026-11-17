@@ -443,7 +443,7 @@ pub(super) const ROWS: &[Row] = &[
         .dry()
         .spec(&[&context::USE])
         .args(&[opt("name")])
-        .skip("applies a bundle and routes a folder; its --dry-run is a golden step"),
+        .skip("applies a bundle; its --dry-run is a golden step"),
     row("skills sync", W)
         .dry()
         .spec(&[&skills::SYNC])

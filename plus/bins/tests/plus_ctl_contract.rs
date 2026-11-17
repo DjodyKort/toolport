@@ -1036,7 +1036,7 @@ const CASES: &[Case] = &[
                 ],
             ),
             apply(
-                "routed",
+                "applied",
                 &["context", "use", "acme-dev", "--cwd", "{home}/proj"],
             ),
             apply(

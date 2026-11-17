@@ -1811,7 +1811,7 @@
             },
             {
               "aliases": [],
-              "effect": "Drop the bundle and the folder routing instead of applying one",
+              "effect": "Drop the applied bundle instead of applying one",
               "escalates": false,
               "hidden": false,
               "name": "--none",
@@ -1842,7 +1842,7 @@
             "flag": "--dry-run",
             "mode": "flag"
           },
-          "summary": "Apply a bundle and its paired access set to a folder, or drop both (<name>, --none, --cwd, --dry-run)",
+          "summary": "Apply a bundle to a folder, or drop the applied one (<name>, --none, --cwd, --dry-run)",
           "surface": "screen",
           "tier": "write",
           "tools": []
