@@ -20,7 +20,6 @@ mod common;
 use common::library_world::{self, library_home};
 use common::oauth_mock::{self, OauthMock};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
-use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
 
 #[derive(Clone, Copy)]

@@ -115,14 +115,6 @@ const fn opt(name: &'static str) -> Operand {
     }
 }
 
-const fn opt(name: &'static str) -> Operand {
-    Operand {
-        name,
-        required: false,
-        variadic: false,
-    }
-}
-
 const fn some(name: &'static str) -> Operand {
     Operand {
         name,

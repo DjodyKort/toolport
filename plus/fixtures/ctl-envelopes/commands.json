@@ -2026,6 +2026,2492 @@
           "tools": []
         },
         {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Skills repository (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--repo",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Home folder the outputs go under (default: the user home)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--home",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Client key to sync to (repeatable); default: the clients of the lock, else claude-code",
+              "escalates": false,
+              "hidden": false,
+              "name": "--client",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Write inside the repository instead of the user folder",
+              "escalates": false,
+              "hidden": false,
+              "name": "--project",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Write to the user folder (the default)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--global",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Report the plan and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Back up and replace files that shadow a synced skill",
+              "escalates": false,
+              "hidden": false,
+              "name": "--migrate",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Only report files that shadow a synced skill",
+              "escalates": false,
+              "hidden": false,
+              "name": "--no-migrate",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Also remove files that left the library, install new hooks and replace files that differ (after a backup); without it they wait",
+              "escalates": false,
+              "hidden": false,
+              "name": "--apply-held",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Also install hooks of skills that came from a tap (with --apply-held)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--allow-tap-hooks",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "skills",
+          "id": "skills sync",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["skills", "sync"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run, --apply-held)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["skills_sync"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Skills repository (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--repo",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Home folder used to judge what Claude Code can read",
+              "escalates": false,
+              "hidden": false,
+              "name": "--home",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Only the items of this source (library, repo:odh, plugin:ecc@ecc)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--source",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            }
+          ],
+          "group": "skills",
+          "id": "skills ls",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["skills", "ls"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "List skills and rules (--repo <dir>, --home <dir>, --source <id>)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["skills_list"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Skills repository (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--repo",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Home folder used to check the emitted outputs",
+              "escalates": false,
+              "hidden": false,
+              "name": "--home",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Lint only this skill (repeatable)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--name",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            }
+          ],
+          "group": "skills",
+          "id": "skills lint",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["skills", "lint"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Lint skills, skipped files and links; exits 1 on errors (--repo, --home, --name <skill>)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["skills_lint"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Skills repository (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--repo",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Home folder of the lock",
+              "escalates": false,
+              "hidden": false,
+              "name": "--home",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Compare with the project lock",
+              "escalates": false,
+              "hidden": false,
+              "name": "--project",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Compare with the user lock (the default)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--global",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "skills",
+          "id": "skills diff",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["skills", "diff"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Compare skills with the lockfile; exits 1 on changes (--repo, --home)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["skills_diff"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Folder to create the skills repository in",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Name of the skills repository",
+              "escalates": false,
+              "hidden": false,
+              "name": "--name",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Report what would be created",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "skills",
+          "id": "skills init",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["skills", "init"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Create a skills repository (--path <dir>, --name <name>, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Skills repository (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "choices": ["skill", "rule"],
+              "effect": "Create a skill or a rule",
+              "escalates": false,
+              "hidden": false,
+              "name": "--type",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            },
+            {
+              "aliases": [],
+              "effect": "Also create modules, reference, templates and examples folders",
+              "escalates": false,
+              "hidden": false,
+              "name": "--with-progressive",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Report what would be created",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "skills",
+          "id": "skills add",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["skills", "add"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Create a skill or rule from a template (<name>, --type, --path, --with-progressive, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["skills_scaffold"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Skills repository (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            }
+          ],
+          "group": "skills",
+          "id": "skills audit",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["skills", "audit"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Scan skills for prompt injection and risky commands; exits 1 on high findings (--path <dir>)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["skills_audit"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Alias for the tap (default: derived from the source)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--name",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Report what would be cloned",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "skills",
+          "id": "skills tap add",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": ["network"],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "repo",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["skills", "tap", "add"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Register and clone a tap (<user/repo|url>, --name <alias>, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["skills_tap_add"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "skills",
+          "id": "skills tap ls",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["skills", "tap", "ls"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "List the registered taps",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["skills_tap_list"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Report what would be removed",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "skills",
+          "id": "skills tap remove",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["skills", "tap", "remove"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Unregister a tap and delete its clone (<name>, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["skills_tap_remove"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Report which taps would be pulled",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "skills",
+          "id": "skills tap update",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": ["network"],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": false,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["skills", "tap", "update"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Pull one or all taps; exits 1 if one fails (<name>, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["skills_tap_update"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "skills",
+          "id": "skills search",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "query",
+              "required": true,
+              "variadic": true
+            }
+          ],
+          "parent": null,
+          "path": ["skills", "search"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Search the taps for skills by name, description or tags (<query>)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["skills_search"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Skills repository to install into (default: the working directory)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Skip the security audit of the skills",
+              "escalates": false,
+              "hidden": false,
+              "name": "--no-audit",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Report what would be installed",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "skills",
+          "id": "skills install",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": ["network"],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "spec",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["skills", "install"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Install skills from a tap; a high-severity audit finding blocks it (<@user/repo[/skill]>, --path, --no-audit, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["skills_install"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Repository folder (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "agents",
+          "id": "agents add",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["agents", "add"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Create an agent from a template (<name>, --path, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["agents_scaffold"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Repository folder (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            }
+          ],
+          "group": "agents",
+          "id": "agents ls",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["agents", "ls"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "List agents (--path <dir>)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["agents_list"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Repository folder (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            }
+          ],
+          "group": "agents",
+          "id": "agents lint",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["agents", "lint"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Lint agents; exits 1 on errors (--path <dir>)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["agents_lint"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Repository folder (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            }
+          ],
+          "group": "agents",
+          "id": "agents audit",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["agents", "audit"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Scan agents for prompt injection and risky commands; exits 1 on high findings (--path <dir>)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["agents_audit"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Repository folder (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            }
+          ],
+          "group": "agents",
+          "id": "agents diff",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["agents", "diff"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Show new, modified and removed agents since the last sync (--path <dir>)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["agents_diff"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Repository folder (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Home directory override (test seam; the GUI never passes it)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--home",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Exit 1 when synced outputs drifted",
+              "escalates": false,
+              "hidden": false,
+              "name": "--strict",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "agents",
+          "id": "agents status",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["agents", "status"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Show whether synced agent outputs still exist; --strict exits 1 on drift (--path, --home)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["agents_status"]
+        },
+        {
+          "baseTier": "destructive",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Repository folder (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Home directory override (test seam; the GUI never passes it)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--home",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Limit to one client key; repeat for several",
+              "escalates": false,
+              "hidden": false,
+              "name": "--client",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Use the project-level location instead of the user level",
+              "escalates": false,
+              "hidden": false,
+              "name": "--project",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Use the user-level location (the default)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--global",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "agents",
+          "id": "agents clean",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["agents", "clean"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Remove synced agent outputs, keeping the lockfile (--path, --home, --client <key>, --project, --dry-run)",
+          "surface": "screen",
+          "tier": "destructive",
+          "tools": ["agents_clean"]
+        },
+        {
+          "baseTier": "destructive",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Repository folder (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Home directory override (test seam; the GUI never passes it)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--home",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Use the project-level location instead of the user level",
+              "escalates": false,
+              "hidden": false,
+              "name": "--project",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Use the user-level location (the default)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--global",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "agents",
+          "id": "agents uninstall",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["agents", "uninstall"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Remove an agent, its outputs and its lock entry (<name>, --path, --home, --project, --dry-run)",
+          "surface": "screen",
+          "tier": "destructive",
+          "tools": ["agents_uninstall"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Repository folder (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Home directory override (test seam; the GUI never passes it)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--home",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Limit to one client key; repeat for several",
+              "escalates": false,
+              "hidden": false,
+              "name": "--client",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Use the project-level location instead of the user level",
+              "escalates": false,
+              "hidden": false,
+              "name": "--project",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Use the user-level location (the default)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--global",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "agents",
+          "id": "agents sync",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["agents", "sync"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Transpile agents to client outputs (--path, --home, --client <key>, --project, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["agents_sync"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Repository folder (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "styles",
+          "id": "styles add",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["styles", "add"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Create an output style from a template (<name>, --path, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["styles_scaffold"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Repository folder (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            }
+          ],
+          "group": "styles",
+          "id": "styles ls",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["styles", "ls"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "List output styles and where they are synced (--path <dir>)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["styles_list"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Repository folder (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            }
+          ],
+          "group": "styles",
+          "id": "styles lint",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["styles", "lint"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Lint output styles; exits 1 on errors (--path <dir>)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["styles_lint"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Repository folder (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            }
+          ],
+          "group": "styles",
+          "id": "styles diff",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["styles", "diff"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Show new, modified and removed styles since the last sync (--path <dir>)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["styles_diff"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Repository folder (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            }
+          ],
+          "group": "styles",
+          "id": "styles status",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["styles", "status"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Show the synced and the active styles per client (--path <dir>)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["styles_status"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Repository folder (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Home directory override (test seam; the GUI never passes it)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--home",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Limit to one client key; repeat for several",
+              "escalates": false,
+              "hidden": false,
+              "name": "--client",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Use the project-level location instead of the user level",
+              "escalates": false,
+              "hidden": false,
+              "name": "--project",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Use the user-level location (the default)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--global",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "styles",
+          "id": "styles sync",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["styles", "sync"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Write every style to the native-toggle clients (--path, --home, --client <key>, --project, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["styles_sync_tier1"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Repository folder (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Home directory override (test seam; the GUI never passes it)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--home",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Limit to one client key; repeat for several",
+              "escalates": false,
+              "hidden": false,
+              "name": "--client",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Use the project-level location instead of the user level",
+              "escalates": false,
+              "hidden": false,
+              "name": "--project",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Use the user-level location (the default)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--global",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "styles",
+          "id": "styles apply",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["styles", "apply"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Apply one style as an always-on rule to the other clients (<name>, --path, --home, --client <key>, --project, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["styles_apply"]
+        },
+        {
+          "baseTier": "destructive",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Repository folder (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Home directory override (test seam; the GUI never passes it)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--home",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Limit to one client key; repeat for several",
+              "escalates": false,
+              "hidden": false,
+              "name": "--client",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Use the project-level location instead of the user level",
+              "escalates": false,
+              "hidden": false,
+              "name": "--project",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Use the user-level location (the default)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--global",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "styles",
+          "id": "styles remove",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["styles", "remove"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Remove the active style from the other clients (--path, --home, --client <key>, --project, --dry-run)",
+          "surface": "screen",
+          "tier": "destructive",
+          "tools": ["styles_remove"]
+        },
+        {
+          "baseTier": "destructive",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Repository folder (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Home directory override (test seam; the GUI never passes it)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--home",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Use the project-level location instead of the user level",
+              "escalates": false,
+              "hidden": false,
+              "name": "--project",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Use the user-level location (the default)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--global",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "styles",
+          "id": "styles clean",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["styles", "clean"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Remove every synced and applied style file (--path, --home, --project, --dry-run)",
+          "surface": "screen",
+          "tier": "destructive",
+          "tools": ["styles_clean"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Contact the remote (a read-only ls-remote, then a fetch) to test the credentials and refresh the counts; the only network call of library status",
+              "escalates": false,
+              "hidden": false,
+              "name": "--fetch",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "library",
+          "id": "library status",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["library", "status"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Show the skills library against its remote: ahead, behind, uncommitted, credentials, duplicate clones (--fetch contacts the remote)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["library_status"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "After a pull that applied, also show the plan skills sync would carry out; nothing is synced",
+              "escalates": false,
+              "hidden": false,
+              "name": "--review",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "library",
+          "id": "library pull",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": ["network"],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["library", "pull"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Fast-forward the skills library from its remote; refuses over uncommitted changes (--dry-run, --review adds the sync plan)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["library_pull"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Preview the change and write nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "library",
+          "id": "library push",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": ["network"],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["library", "push"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Audit and secret-scan, then push the skills library; never forces (--dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Skills repository (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Zip to create (default: <repository name>-bundle.zip in the repository)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--output",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Only these skills, comma separated",
+              "escalates": false,
+              "hidden": false,
+              "name": "--skills",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Report what would be packed",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "skills",
+          "id": "skills bundle",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["skills", "bundle"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Pack skills into a portable zip (--output <zip>, --path <dir>, --skills <a,b>, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["skills_bundle"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Skills repository (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Report what would be extracted",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "skills",
+          "id": "skills unbundle",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "bundle",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["skills", "unbundle"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Extract a skills bundle (<bundle.zip>, --path <dir>, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["skills_unbundle"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Skills repository (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Home folder the outputs live under",
+              "escalates": false,
+              "hidden": false,
+              "name": "--home",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Only this client key (repeatable)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--client",
+              "repeatable": true,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Read the project lock",
+              "escalates": false,
+              "hidden": false,
+              "name": "--project",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Read the user lock (the default)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--global",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Exit 1 when an output is missing or differs from the library",
+              "escalates": false,
+              "hidden": false,
+              "name": "--strict",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "skills",
+          "id": "skills status",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["skills", "status"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Show whether synced outputs still exist and match the library; --strict exits 1 on drift (--repo, --home, --client <key>)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["skills_status"]
+        },
+        {
+          "baseTier": "destructive",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Skills repository (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Home folder the outputs live under",
+              "escalates": false,
+              "hidden": false,
+              "name": "--home",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Only this client key",
+              "escalates": false,
+              "hidden": false,
+              "name": "--client",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Clean the project outputs",
+              "escalates": false,
+              "hidden": false,
+              "name": "--project",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Clean the user outputs (the default)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--global",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Report what would be removed",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "skills",
+          "id": "skills clean",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["skills", "clean"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Remove synced outputs and the lockfile (--repo, --home, --client <key>, --project, --dry-run)",
+          "surface": "screen",
+          "tier": "destructive",
+          "tools": ["skills_clean"]
+        },
+        {
+          "baseTier": "destructive",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Skills repository (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Home folder the outputs live under",
+              "escalates": false,
+              "hidden": false,
+              "name": "--home",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Work on the project outputs",
+              "escalates": false,
+              "hidden": false,
+              "name": "--project",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Work on the user outputs (the default)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--global",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Report what would be removed",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "skills",
+          "id": "skills uninstall",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "name",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["skills", "uninstall"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Remove a skill, its outputs and its lock entry (<name>, --repo, --home, --project, --dry-run)",
+          "surface": "screen",
+          "tier": "destructive",
+          "tools": ["skills_uninstall"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": ["--repo"],
+              "effect": "Skills repository (default: the configured one)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--path",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Home folder the outputs live under",
+              "escalates": false,
+              "hidden": false,
+              "name": "--home",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Only this client key",
+              "escalates": false,
+              "hidden": false,
+              "name": "--client",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Work on the project outputs",
+              "escalates": false,
+              "hidden": false,
+              "name": "--project",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Work on the user outputs (the default)",
+              "escalates": false,
+              "hidden": false,
+              "name": "--global",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Report what would change",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Back up and replace the shadowing files",
+              "escalates": false,
+              "hidden": false,
+              "name": "--migrate",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Only report the shadowing files",
+              "escalates": false,
+              "hidden": false,
+              "name": "--no-migrate",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "skills",
+          "id": "skills resolve",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["skills", "resolve"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Find files shadowing synced skills; --migrate backs them up (--repo, --home, --client <key>, --project, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["skills_resolve"]
+        },
+        {
           "baseTier": null,
           "cost": false,
           "dryRun": false,
@@ -2215,10 +4701,10 @@
         }
       ],
       "counts": {
-        "commands": 42,
+        "commands": 82,
         "groups": 1,
-        "rows": 43,
-        "tools": 23
+        "rows": 83,
+        "tools": 74
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
       "tiers": ["read", "write", "destructive"],
@@ -2243,6 +4729,363 @@
           "name": "flow_diagram",
           "tier": "read",
           "toolTier": 1
+        },
+        {
+          "command": "skills ls",
+          "dryRun": "none",
+          "name": "skills_list",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": null,
+          "dryRun": "none",
+          "name": "skills_get",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "skills lint",
+          "dryRun": "none",
+          "name": "skills_lint",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "skills status",
+          "dryRun": "none",
+          "name": "skills_status",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": null,
+          "dryRun": "none",
+          "name": "skills_list_transpilers",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "skills add",
+          "dryRun": "none",
+          "name": "skills_scaffold",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": "skills sync",
+          "dryRun": "default-on",
+          "name": "skills_sync",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": "skills diff",
+          "dryRun": "none",
+          "name": "skills_diff",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "skills audit",
+          "dryRun": "none",
+          "name": "skills_audit",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "skills tap ls",
+          "dryRun": "none",
+          "name": "skills_tap_list",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "skills search",
+          "dryRun": "none",
+          "name": "skills_search",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "skills tap add",
+          "dryRun": "default-on",
+          "name": "skills_tap_add",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": "skills tap remove",
+          "dryRun": "default-on",
+          "name": "skills_tap_remove",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": "skills tap update",
+          "dryRun": "default-on",
+          "name": "skills_tap_update",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": "skills install",
+          "dryRun": "default-on",
+          "name": "skills_install",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": null,
+          "dryRun": "none",
+          "name": "skills_edit_body",
+          "tier": "write",
+          "toolTier": 3
+        },
+        {
+          "command": null,
+          "dryRun": "none",
+          "name": "skills_edit_frontmatter",
+          "tier": "write",
+          "toolTier": 3
+        },
+        {
+          "command": null,
+          "dryRun": "none",
+          "name": "skills_delete",
+          "tier": "write",
+          "toolTier": 3
+        },
+        {
+          "command": "agents ls",
+          "dryRun": "none",
+          "name": "agents_list",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": null,
+          "dryRun": "none",
+          "name": "agents_get",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "agents lint",
+          "dryRun": "none",
+          "name": "agents_lint",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": null,
+          "dryRun": "none",
+          "name": "agents_list_transpilers",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "agents add",
+          "dryRun": "none",
+          "name": "agents_scaffold",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": "agents sync",
+          "dryRun": "default-on",
+          "name": "agents_sync",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": "agents diff",
+          "dryRun": "none",
+          "name": "agents_diff",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "agents audit",
+          "dryRun": "none",
+          "name": "agents_audit",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "agents status",
+          "dryRun": "none",
+          "name": "agents_status",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "agents clean",
+          "dryRun": "default-on",
+          "name": "agents_clean",
+          "tier": "destructive",
+          "toolTier": 4
+        },
+        {
+          "command": "agents uninstall",
+          "dryRun": "default-on",
+          "name": "agents_uninstall",
+          "tier": "destructive",
+          "toolTier": 4
+        },
+        {
+          "command": null,
+          "dryRun": "none",
+          "name": "agents_edit_body",
+          "tier": "write",
+          "toolTier": 3
+        },
+        {
+          "command": "styles ls",
+          "dryRun": "none",
+          "name": "styles_list",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": null,
+          "dryRun": "none",
+          "name": "styles_get",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "styles lint",
+          "dryRun": "none",
+          "name": "styles_lint",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": null,
+          "dryRun": "none",
+          "name": "styles_active",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": null,
+          "dryRun": "none",
+          "name": "styles_list_transpilers",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "styles add",
+          "dryRun": "none",
+          "name": "styles_scaffold",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": "styles sync",
+          "dryRun": "default-on",
+          "name": "styles_sync_tier1",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": "styles apply",
+          "dryRun": "default-on",
+          "name": "styles_apply",
+          "tier": "write",
+          "toolTier": 3
+        },
+        {
+          "command": "styles diff",
+          "dryRun": "none",
+          "name": "styles_diff",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "styles status",
+          "dryRun": "none",
+          "name": "styles_status",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "styles clean",
+          "dryRun": "default-on",
+          "name": "styles_clean",
+          "tier": "destructive",
+          "toolTier": 4
+        },
+        {
+          "command": null,
+          "dryRun": "none",
+          "name": "styles_edit_body",
+          "tier": "write",
+          "toolTier": 3
+        },
+        {
+          "command": "styles remove",
+          "dryRun": "default-on",
+          "name": "styles_remove",
+          "tier": "destructive",
+          "toolTier": 4
+        },
+        {
+          "command": "library status",
+          "dryRun": "none",
+          "name": "library_status",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "library pull",
+          "dryRun": "default-on",
+          "name": "library_pull",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": null,
+          "dryRun": "none",
+          "name": "skills_git_push",
+          "tier": "destructive",
+          "toolTier": 4
+        },
+        {
+          "command": "skills bundle",
+          "dryRun": "default-on",
+          "name": "skills_bundle",
+          "tier": "write",
+          "toolTier": 2
+        },
+        {
+          "command": "skills unbundle",
+          "dryRun": "default-on",
+          "name": "skills_unbundle",
+          "tier": "write",
+          "toolTier": 3
+        },
+        {
+          "command": "skills clean",
+          "dryRun": "default-on",
+          "name": "skills_clean",
+          "tier": "destructive",
+          "toolTier": 4
+        },
+        {
+          "command": "skills uninstall",
+          "dryRun": "default-on",
+          "name": "skills_uninstall",
+          "tier": "destructive",
+          "toolTier": 4
+        },
+        {
+          "command": "skills resolve",
+          "dryRun": "default-on",
+          "name": "skills_resolve",
+          "tier": "write",
+          "toolTier": 3
         },
         {
           "command": "server ls",
