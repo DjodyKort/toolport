@@ -131,7 +131,8 @@ fn wait_until_ready(ready: &AtomicBool, deadline: Instant) {
 }
 
 /// Restarts each opted-in server that was connected with an older declaration. A busy or slow
-/// server that is not done by the deadline catches up in the background.
+/// server that is not done by the deadline catches up in the background. A server with a call
+/// running is skipped: it stays stale, so the next client connect tries again.
 fn redeclare(router: &Mutex<Arc<Router>>, opted: Vec<String>, deadline: Instant) {
     let stale: Vec<String> = opted
         .into_iter()
@@ -144,6 +145,13 @@ fn redeclare(router: &Mutex<Arc<Router>>, opted: Vec<String>, deadline: Instant)
     let (done, finished) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
         for id in stale {
+            if live
+                .plus_calls_in_flight(&id)
+                .is_some_and(|calls| calls > 0)
+            {
+                eprintln!("conduit: left '{id}' running: a call is in flight");
+                continue;
+            }
             if live
                 .plus_restart_server(&id)
                 .is_some_and(|(restarted, _)| restarted)

@@ -617,6 +617,44 @@ mod tests {
         toolport_plus::handshake::DECLARATIONS.reset();
     }
 
+    #[test]
+    fn test05_a_stale_server_with_a_call_in_flight_is_left_alone_until_the_next_client_connects() {
+        let _env = crate::registry::DataDirTestEnv::new("s8-redeclare-busy");
+        toolport_plus::handshake::DECLARATIONS.reset();
+        let mut reg = crate::registry::Registry::default();
+        let mut entry: crate::registry::ServerEntry = serde_json::from_value(json!({
+            "id": "odh", "name": "odh", "transport": "stdio", "command": "node", "enabled": true
+        }))
+        .unwrap();
+        entry
+            .unknown_fields
+            .insert("declareClientCapabilities".into(), json!(true));
+        reg.servers.push(entry);
+        crate::registry::save(&reg).unwrap();
+        let mut router = Router::new();
+        let odh = recorded_slot(&mut router, "odh");
+        let (registry, router) = (Mutex::new(reg), Mutex::new(Arc::new(router)));
+        let calls = |count: usize| {
+            router.lock().unwrap().servers[0]
+                .handle_calls
+                .store(count, Ordering::SeqCst)
+        };
+
+        handshake(json!({ "tasks": {} }), &registry, &router);
+        calls(1);
+        handshake(json!({ "elicitation": {} }), &registry, &router);
+        assert_eq!(declared(&odh), [json!({})], "a running call is not cut");
+
+        calls(0);
+        handshake(json!({ "elicitation": {} }), &registry, &router);
+        assert_eq!(
+            declared(&odh),
+            [json!({}), json!({ "elicitation": {} })],
+            "the next connect restarts it once the server is idle"
+        );
+        toolport_plus::handshake::DECLARATIONS.reset();
+    }
+
     struct Linking {
         id: &'static str,
         listed: Option<&'static str>,
