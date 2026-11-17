@@ -3980,6 +3980,7 @@ struct StdioCore {
     /// as before multiplexing, so every later server request has one owner.
     exclusive: AtomicBool,
     exclusive_gate: Mutex<()>,
+    server_id: std::sync::OnceLock<String>,
 }
 
 fn waiter_key(id: &Value) -> String {
@@ -4079,6 +4080,7 @@ impl StdioCore {
             label,
             exclusive: AtomicBool::new(false),
             exclusive_gate: Mutex::new(()),
+            server_id: std::sync::OnceLock::new(),
         });
         // The demux holds only a weak reference, so dropping the transport and
         // its calls frees the core; it ends with the drain channel either way.
@@ -4270,11 +4272,9 @@ impl StdioCore {
         cancel_guard: Option<CancelGuard>,
         forwarded: Arc<AtomicBool>,
     ) -> Result<Value, TransportError> {
-        let deadline = Instant::now() + timeout;
+        let mut clock = crate::seam::CallClock::start(timeout, params, self.server_id.get());
         loop {
-            let remaining = deadline
-                .checked_duration_since(Instant::now())
-                .unwrap_or_default();
+            let remaining = clock.next_wait();
             match rx.recv_timeout(remaining) {
                 Ok(Delivery::Response(value)) => {
                     if let Some(err) = value.get("error") {
@@ -4296,7 +4296,10 @@ impl StdioCore {
                         .lock()
                         .unwrap_or_else(std::sync::PoisonError::into_inner)
                         .clone();
-                    match handler.and_then(|handler| handler(&value)) {
+                    let asked = Instant::now();
+                    let action = handler.and_then(|handler| handler(&value));
+                    clock.charge_back(asked.elapsed());
+                    match action {
                         Some(ServerRequestAction::Respond(response)) => {
                             if let Err(e) = self.write_line(&response) {
                                 self.abandon(&mut waiter, &rx);
@@ -4349,6 +4352,7 @@ impl StdioCore {
                 Ok(Delivery::Rejected(message)) => {
                     return Err(TransportError::FrameRejected(message))
                 }
+                Err(RecvTimeoutError::Timeout) if !clock.expired() => {}
                 Err(RecvTimeoutError::Timeout) => {
                     self.abandon(&mut waiter, &rx);
                     // A launcher child that is alive but never answered `initialize`
@@ -4373,7 +4377,7 @@ impl StdioCore {
                     }
                     return Err(TransportError::Classified(
                         crate::call_failure::CallFailureKind::Timeout { after_send: true },
-                        format!("timed out waiting for '{method}' response"),
+                        format!("timed out waiting for '{method}' response{}", clock.cap_note()),
                     ));
                 }
                 Err(RecvTimeoutError::Disconnected) => {
@@ -4741,6 +4745,7 @@ impl StdioCore {
         }
         // Notifications were already handled by the stdout drain.
         if value.get("method").is_some() {
+            crate::seam::progress_seen(&value);
             return;
         }
         let Some(key) = value.get("id").and_then(id_key) else {
@@ -5857,6 +5862,10 @@ impl StdioTransport {
 impl Transport for StdioTransport {
     fn response_count(&self) -> u64 {
         self.core.responses.load(Ordering::Acquire)
+    }
+
+    fn set_server_id(&mut self, id: &str) {
+        let _ = self.core.server_id.set(id.to_string());
     }
 
     fn request(&mut self, method: &str, params: Value) -> Result<Value, TransportError> {

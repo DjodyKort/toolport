@@ -10,6 +10,9 @@ mod bridge;
 #[cfg(all(feature = "plus", feature = "desktop"))]
 mod plus_ctl;
 
+#[cfg(all(test, feature = "plus"))]
+mod interop_tests;
+
 /// Wraps the app's invoke handler so the fork's `plus_ctl*` commands are answered here and every
 /// other command still reaches `next`.
 #[cfg(feature = "desktop")]
@@ -134,6 +137,102 @@ pub fn is_uv_download_launcher(args: &[String]) -> bool {
         let _ = args;
         false
     }
+}
+
+/// The deadline of one stdio call. A server that reports progress for the call's own
+/// `progressToken` keeps the call alive up to its `maxRequestTimeoutMs`; without the fork it is a
+/// fixed deadline.
+pub struct CallClock {
+    #[cfg(feature = "plus")]
+    clock: toolport_plus::progress::Clock,
+    #[cfg(feature = "plus")]
+    server_id: Option<String>,
+    #[cfg(not(feature = "plus"))]
+    deadline: std::time::Instant,
+}
+
+impl CallClock {
+    pub fn start(
+        window: std::time::Duration,
+        params: &serde_json::Value,
+        server_id: Option<&String>,
+    ) -> Self {
+        #[cfg(feature = "plus")]
+        return Self {
+            clock: toolport_plus::progress::Clock::start(
+                window,
+                toolport_plus::progress::request_token(params),
+            ),
+            server_id: server_id.cloned(),
+        };
+        #[cfg(not(feature = "plus"))]
+        {
+            let _ = (params, server_id);
+            Self {
+                deadline: std::time::Instant::now() + window,
+            }
+        }
+    }
+
+    /// How long to wait for the next message before looking at the deadline again.
+    pub fn next_wait(&mut self) -> std::time::Duration {
+        #[cfg(feature = "plus")]
+        {
+            let server_id = self.server_id.clone();
+            return self.clock.next_wait(move || {
+                toolport_plus::progress::cap_from(max_request_timeout_ms(server_id))
+            });
+        }
+        #[cfg(not(feature = "plus"))]
+        self.deadline
+            .saturating_duration_since(std::time::Instant::now())
+    }
+
+    /// Gives back time the call spent waiting for its client to answer the server.
+    pub fn charge_back(&mut self, waited: std::time::Duration) {
+        #[cfg(feature = "plus")]
+        self.clock.charge_back(waited);
+        #[cfg(not(feature = "plus"))]
+        {
+            self.deadline += waited;
+        }
+    }
+
+    pub fn expired(&self) -> bool {
+        #[cfg(feature = "plus")]
+        return self.clock.expired();
+        #[cfg(not(feature = "plus"))]
+        (std::time::Instant::now() >= self.deadline)
+    }
+
+    /// Appended to the timeout message when the call ended at its cap.
+    pub fn cap_note(&self) -> &'static str {
+        #[cfg(feature = "plus")]
+        return self.clock.cap_note().unwrap_or("");
+        #[cfg(not(feature = "plus"))]
+        ""
+    }
+}
+
+#[cfg(feature = "plus")]
+fn max_request_timeout_ms(server_id: Option<String>) -> Option<u64> {
+    let id = server_id?;
+    crate::registry::load()
+        .ok()?
+        .servers
+        .into_iter()
+        .find(|server| server.id == id)?
+        .unknown_fields
+        .get("maxRequestTimeoutMs")?
+        .as_u64()
+}
+
+/// A server sent a notification on a stdio connection.
+pub fn progress_seen(notification: &serde_json::Value) {
+    #[cfg(feature = "plus")]
+    toolport_plus::progress::note(notification);
+    #[cfg(not(feature = "plus"))]
+    let _ = notification;
 }
 
 /// The secrets host the hooks below use. Unit tests never reach the real keychain

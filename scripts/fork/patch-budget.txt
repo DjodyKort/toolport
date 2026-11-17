@@ -28,9 +28,15 @@
 # desktop.rs, 4 changed lines: the invoke handler is wrapped in seam::ipc, which answers the
 # plus_ctl commands (D-060) and hands every other command on.
 4	src-tauri/src/desktop.rs
-# downstream.rs, 1 changed line: `is_download_launcher` asks seam::is_uv_download_launcher for the `uv` arm, so
-# `uv run` and `uv tool run` get the launcher connect budget and the desktop's background pre-warm.
-1	src-tauri/src/downstream.rs
+# downstream.rs, 22 changed lines:
+#   1: `is_download_launcher` asks seam::is_uv_download_launcher for the `uv` arm, so `uv run` and
+#      `uv tool run` get the launcher connect budget and the desktop's background pre-warm.
+#   21 for progress re-arm on StdioCore: `wait` takes its deadline from seam::CallClock instead of a fixed
+#      Instant (the loop re-reads it, the server-request handler's wait is charged back, the timeout message
+#      appends the cap note); `route_line` hands each notification to seam::progress_seen; StdioCore holds the
+#      server id (OnceLock, set by `set_server_id`) so the clock can read `maxRequestTimeoutMs`. The
+#      deadline logic itself is toolport_plus::progress.
+22	src-tauri/src/downstream.rs
 2	src-tauri/src/http_client.rs
 # lib.rs, 3 lines: the two fork modules, and seam is pub (was pub(crate)) so the gateway binary can call
 # seam::gateway_tick.
