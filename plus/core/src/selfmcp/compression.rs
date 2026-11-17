@@ -5,7 +5,7 @@
 //! CLI flags; `pin --install` is not exposed: it drives the engine.
 
 use super::ToolError;
-use crate::args::{flag, flag_or, str_nonempty};
+use crate::args::{flag, flag_or, str_trimmed};
 use crate::compression::manage::{
     self, parse_mode, parse_provider, parse_telemetry, with_system, CmdError, EnableReq, Kind,
     SealReq,
@@ -31,7 +31,7 @@ fn dry_run(args: &Value) -> bool {
 }
 
 fn required<'a>(args: &'a Value, key: &str) -> Result<&'a str, ToolError> {
-    str_nonempty(args, key)
+    str_trimmed(args, key)
         .ok_or_else(|| ToolError::new("invalid_arguments", format!("{key} is required")))
 }
 
@@ -67,18 +67,18 @@ fn refuse_egress(provider: Option<ProviderName>) -> Result<(), ToolError> {
 }
 
 pub(super) fn enable(host: &dyn Host, args: &Value) -> Outcome {
-    let provider = str_nonempty(args, "provider")
+    let provider = str_trimmed(args, "provider")
         .map(parse_provider)
         .transpose()?;
     refuse_egress(provider)?;
     let req = EnableReq {
         provider,
         port: port(args)?,
-        telemetry: str_nonempty(args, "telemetry")
+        telemetry: str_trimmed(args, "telemetry")
             .map(parse_telemetry)
             .transpose()?,
-        preset: str_nonempty(args, "preset").map(String::from),
-        mode: str_nonempty(args, "mode").map(parse_mode).transpose()?,
+        preset: str_trimmed(args, "preset").map(String::from),
+        mode: str_trimmed(args, "mode").map(parse_mode).transpose()?,
         dry_run: dry_run(args),
     };
     with_system(host, |cx| Ok(manage::enable(cx, &req)?))
@@ -140,7 +140,7 @@ pub(super) fn sync(host: &dyn Host, args: &Value) -> Outcome {
 
 pub(super) fn seal(host: &dyn Host, args: &Value) -> Outcome {
     let req = SealReq {
-        preset: str_nonempty(args, "preset").map(String::from),
+        preset: str_trimmed(args, "preset").map(String::from),
         apply: true,
         dry_run: dry_run(args),
     };

@@ -1297,6 +1297,200 @@
           "tier": 3
         },
         {
+          "description": "Show the compression provider, active preset, engine pin and shims",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "compression_status",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "Enable compression: writes the policy config, the shell shims and the registry entry of the provider (default headroom); dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "compression_enable",
+          "params": [
+            {
+              "description": "headroom, rtk-only, parsec or none",
+              "name": "provider",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Proxy port of the active preset",
+              "name": "port",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "description": "on or off",
+              "name": "telemetry",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Preset to make active",
+              "name": "preset",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "cache or token",
+              "name": "mode",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Switch compression off (provider none) and remove the generated shims and registry entry; presets and the pin stay; with teardown=true it also runs `headroom mcp uninstall` and `headroom unwrap claude`, which the plan names and a dry run only lists; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "compression_disable",
+          "params": [
+            {
+              "description": "Also uninstall the engine's MCP entry and unwrap Claude; the engine's own data stays",
+              "name": "teardown",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 4
+        },
+        {
+          "description": "Switch the compression provider and re-apply the policy; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "compression_set_provider",
+          "params": [
+            {
+              "description": "headroom, rtk-only, parsec or none",
+              "name": "provider",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Make a compression preset active and re-apply the policy; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "compression_use",
+          "params": [
+            {
+              "description": "Preset name",
+              "name": "preset",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Re-apply the stored compression policy to the shims, the registry entry and the engine, adopting a legacy mcpm policy when none is stored; mcpm_root names the directory that policy is read from (read only); dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "compression_sync",
+          "params": [
+            {
+              "description": "Absolute path of an existing directory to read the legacy mcpm policy from instead of the default location; it is only read",
+              "name": "mcpm_root",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Read the running proxy's /health and record the settings the policy never declared into the preset; needs a running proxy; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "compression_seal",
+          "params": [
+            {
+              "description": "Preset to seal, default the active one",
+              "name": "preset",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
           "description": "List registered servers",
           "dryRunDefault": false,
           "gate": "none",

@@ -218,10 +218,6 @@ impl Row {
         Self { extra, ..self }
     }
 
-    const fn requires(self, requires: &'static [&'static str]) -> Self {
-        Self { requires, ..self }
-    }
-
     const fn reads(self, escalators: &'static [&'static str]) -> Self {
         Self {
             reads_by_default: true,

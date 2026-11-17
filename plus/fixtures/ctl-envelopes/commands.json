@@ -4512,6 +4512,1248 @@
           "tools": ["skills_resolve"]
         },
         {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "compression",
+          "id": "compression status",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression",
+          "path": ["compression", "status"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Show the compression policy, pin and drift",
+          "surface": "screen",
+          "tier": "read",
+          "tools": ["compression_status"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Re-snapshot the presets from the installed engine",
+              "escalates": true,
+              "hidden": false,
+              "name": "--refresh",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Show the plan and change nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "compression",
+          "id": "compression presets",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression",
+          "path": ["compression", "presets"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "List presets (--refresh re-snapshots knobs, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Compression provider: headroom, rtk-only, parsec or none",
+              "escalates": false,
+              "hidden": false,
+              "name": "--provider",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Proxy port of the active preset",
+              "escalates": false,
+              "hidden": false,
+              "name": "--port",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "integer"
+            },
+            {
+              "aliases": [],
+              "choices": ["on", "off"],
+              "effect": "Send compression telemetry",
+              "escalates": false,
+              "hidden": false,
+              "name": "--telemetry",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            },
+            {
+              "aliases": [],
+              "effect": "Preset name",
+              "escalates": false,
+              "hidden": false,
+              "name": "--preset",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "choices": ["cache", "token"],
+              "effect": "Compression mode of the preset",
+              "escalates": false,
+              "hidden": false,
+              "name": "--mode",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            },
+            {
+              "aliases": [],
+              "effect": "Name the provider to accept that its closed engine sends code off this machine; asked for parsec only",
+              "escalates": false,
+              "hidden": false,
+              "name": "--accept-egress",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Show the plan and change nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "compression",
+          "id": "compression enable",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression",
+          "path": ["compression", "enable"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["compression_enable"]
+        },
+        {
+          "baseTier": "destructive",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Also run the engine's own uninstall and unwrap; the engine's data stays",
+              "escalates": false,
+              "hidden": false,
+              "name": "--teardown",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Show the plan and change nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "compression",
+          "id": "compression disable",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression",
+          "path": ["compression", "disable"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Disable compression (--teardown, --dry-run)",
+          "surface": "screen",
+          "tier": "destructive",
+          "tools": ["compression_disable"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Show the plan and change nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Name the provider to accept that its closed engine sends code off this machine; asked for parsec only",
+              "escalates": false,
+              "hidden": false,
+              "name": "--accept-egress",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            }
+          ],
+          "group": "compression",
+          "id": "compression set-provider",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "provider",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "compression",
+          "path": ["compression", "set-provider"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Swap the active provider and re-apply (--dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["compression_set_provider"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Show the plan and change nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "compression",
+          "id": "compression use",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "preset",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": "compression",
+          "path": ["compression", "use"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Switch the active preset and re-apply (--dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["compression_use"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "mcpm configuration root to adopt the compression policy from; it is only read",
+              "escalates": false,
+              "hidden": false,
+              "name": "--mcpm-root",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            },
+            {
+              "aliases": [],
+              "effect": "Show the plan and change nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "compression",
+          "id": "compression sync",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression",
+          "path": ["compression", "sync"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Re-apply the policy: shims, env snippet, MCP entry (--mcpm-root, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["compression_sync"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Install the pinned engine build with uv",
+              "escalates": true,
+              "hidden": false,
+              "name": "--install",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Re-snapshot the presets from the installed engine",
+              "escalates": true,
+              "hidden": false,
+              "name": "--refresh",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Show the plan and change nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "compression",
+          "id": "compression pin",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": ["network", "long-running"],
+          "oneOf": [],
+          "operandEscalates": true,
+          "operands": [
+            {
+              "name": "version",
+              "required": false,
+              "variadic": false
+            }
+          ],
+          "parent": "compression",
+          "path": ["compression", "pin"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Show or set the exact engine pin (--install, --refresh, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Write the declared posture to the policy",
+              "escalates": true,
+              "hidden": false,
+              "name": "--apply",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Show the plan and change nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "compression",
+          "id": "compression seal",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "preset",
+              "required": false,
+              "variadic": false
+            }
+          ],
+          "parent": "compression",
+          "path": ["compression", "seal"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Declare the live proxy posture as policy (--apply, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["compression_seal"]
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Directory whose policy applies",
+              "escalates": false,
+              "hidden": false,
+              "name": "--cwd",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            }
+          ],
+          "group": "compression",
+          "id": "compression env",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression",
+          "path": ["compression", "env"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Print the proxy env for a directory, for eval (--cwd)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": []
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "compression",
+          "id": "compression doctor",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression",
+          "path": ["compression", "doctor"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Run the compression health checks",
+          "surface": "screen",
+          "tier": "read",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Print what would run instead of launching",
+              "escalates": false,
+              "hidden": false,
+              "name": "--plan",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Launch even when the installed engine does not match the pin",
+              "escalates": false,
+              "hidden": false,
+              "name": "--force",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Directory whose policy applies",
+              "escalates": false,
+              "hidden": false,
+              "name": "--cwd",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            }
+          ],
+          "group": "compression",
+          "id": "compression run",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": ["terminal-only", "long-running"],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "claude-args",
+              "required": false,
+              "variadic": true
+            }
+          ],
+          "parent": "compression",
+          "path": ["compression", "run"],
+          "planned": false,
+          "preview": {
+            "flag": "--plan",
+            "mode": "flag"
+          },
+          "summary": "Launch claude under the directory's policy (--plan to preview)",
+          "surface": "terminal",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Group the measured sessions by engine pin",
+              "escalates": false,
+              "hidden": false,
+              "name": "--by-pin",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Newest transcripts to read",
+              "escalates": false,
+              "hidden": false,
+              "name": "--limit",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "integer"
+            },
+            {
+              "aliases": [],
+              "effect": "Sessions with fewer turns are left out",
+              "escalates": false,
+              "hidden": false,
+              "name": "--min-turns",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "integer"
+            },
+            {
+              "aliases": [],
+              "effect": "Directory of Claude Code transcripts to measure",
+              "escalates": false,
+              "hidden": false,
+              "name": "--transcripts",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "path"
+            }
+          ],
+          "group": "compression",
+          "id": "compression verify",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": ["long-running"],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression",
+          "path": ["compression", "verify"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Check provider health, pin, shims and measure cache behaviour",
+          "surface": "screen",
+          "tier": "read",
+          "tools": []
+        },
+        {
+          "baseTier": null,
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "compression",
+          "id": "compression hooks",
+          "kind": "group",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression",
+          "path": ["compression", "hooks"],
+          "planned": false,
+          "preview": null,
+          "summary": "Own the rtk and read-once hook entries: status apply undo pause resume (--dry-run, --provider)",
+          "surface": null,
+          "tier": null,
+          "tools": []
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "compression",
+          "id": "compression hooks status",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression hooks",
+          "path": ["compression", "hooks", "status"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Show the hook entries, whether they are wrapped, and the counted calls",
+          "surface": "screen",
+          "tier": "read",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Show what would be wrapped and change nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "choices": ["rtk", "read-once"],
+              "effect": "Wrap only this provider's entry",
+              "escalates": false,
+              "hidden": false,
+              "name": "--provider",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            }
+          ],
+          "group": "compression",
+          "id": "compression hooks apply",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression hooks",
+          "path": ["compression", "hooks", "apply"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Wrap the existing rtk and read-once entries (--provider, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Show what would be restored and change nothing",
+              "escalates": false,
+              "hidden": false,
+              "name": "--dry-run",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "choices": ["rtk", "read-once"],
+              "effect": "Restore only this provider's entry",
+              "escalates": false,
+              "hidden": false,
+              "name": "--provider",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "choice"
+            }
+          ],
+          "group": "compression",
+          "id": "compression hooks undo",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression hooks",
+          "path": ["compression", "hooks", "undo"],
+          "planned": false,
+          "preview": {
+            "flag": "--dry-run",
+            "mode": "flag"
+          },
+          "summary": "Restore the wrapped entries exactly (--provider, --dry-run)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "compression",
+          "id": "compression hooks pause",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression hooks",
+          "path": ["compression", "hooks", "pause"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Make the wrapped entries answer nothing until resumed",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "compression",
+          "id": "compression hooks resume",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression hooks",
+          "path": ["compression", "hooks", "resume"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Let the wrapped entries answer again",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "compression",
+          "id": "compression hook",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": ["terminal-only"],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "command",
+              "required": false,
+              "variadic": true
+            }
+          ],
+          "parent": "compression",
+          "path": ["compression", "hook"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "The wrapper a hook entry runs: <provider> -- <command...> (counts the call, passes the answer through)",
+          "surface": "terminal",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": null,
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "compression",
+          "id": "compression ledger",
+          "kind": "group",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression",
+          "path": ["compression", "ledger"],
+          "planned": false,
+          "preview": null,
+          "summary": "Launch and token-savings ledger (summary | record)",
+          "surface": null,
+          "tier": null,
+          "tools": []
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Compression provider: headroom, rtk-only, parsec or none",
+              "escalates": false,
+              "hidden": false,
+              "name": "--provider",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Only records from this date on",
+              "escalates": false,
+              "hidden": false,
+              "name": "--since",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            }
+          ],
+          "group": "compression",
+          "id": "compression ledger summary",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression ledger",
+          "path": ["compression", "ledger", "summary"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Summarise the token-savings ledger (--provider, --since)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Compression provider: headroom, rtk-only, parsec or none",
+              "escalates": false,
+              "hidden": false,
+              "name": "--provider",
+              "repeatable": false,
+              "required": true,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Tokens before compression",
+              "escalates": false,
+              "hidden": false,
+              "name": "--before",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "integer"
+            },
+            {
+              "aliases": [],
+              "effect": "Tokens after compression",
+              "escalates": false,
+              "hidden": false,
+              "name": "--after",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "integer"
+            },
+            {
+              "aliases": [],
+              "effect": "Where the record came from",
+              "escalates": false,
+              "hidden": false,
+              "name": "--source",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Session the record belongs to",
+              "escalates": false,
+              "hidden": false,
+              "name": "--session",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            }
+          ],
+          "group": "compression",
+          "id": "compression ledger record",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression ledger",
+          "path": ["compression", "ledger", "record"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Append a savings record to the ledger (--provider, --before, --after, --source, --session)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": null,
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "compression",
+          "id": "compression proxy",
+          "kind": "group",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression",
+          "path": ["compression", "proxy"],
+          "planned": false,
+          "preview": null,
+          "summary": "Proxy lifecycle: up, down, restart",
+          "surface": null,
+          "tier": null,
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "compression",
+          "id": "compression proxy up",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": ["long-running"],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression proxy",
+          "path": ["compression", "proxy", "up"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Start the local compression proxy",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "compression",
+          "id": "compression proxy down",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression proxy",
+          "path": ["compression", "proxy", "down"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Stop the local compression proxy",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "compression",
+          "id": "compression proxy restart",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": ["long-running"],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression proxy",
+          "path": ["compression", "proxy", "restart"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Stop and start the local compression proxy",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": true,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Move the pin to the newest engine release",
+              "escalates": false,
+              "hidden": false,
+              "name": "--latest",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Apply the pin change",
+              "escalates": true,
+              "hidden": false,
+              "name": "--accept",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            },
+            {
+              "aliases": [],
+              "effect": "Engine version to pin",
+              "escalates": false,
+              "hidden": false,
+              "name": "--to",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            }
+          ],
+          "group": "compression",
+          "id": "compression update",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": ["network", "long-running"],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": "compression",
+          "path": ["compression", "update"],
+          "planned": false,
+          "preview": {
+            "flag": "--accept",
+            "mode": "unless-applied"
+          },
+          "summary": "Move the engine pin (--to V | --latest, --accept to apply)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": null,
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "compression",
+          "id": "compression",
+          "kind": "group",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["compression"],
+          "planned": false,
+          "preview": null,
+          "summary": "Compression: status presets enable disable set-provider use sync pin seal env doctor run verify ledger proxy update",
+          "surface": null,
+          "tier": null,
+          "tools": []
+        },
+        {
           "baseTier": null,
           "cost": false,
           "dryRun": false,
@@ -4701,10 +5943,10 @@
         }
       ],
       "counts": {
-        "commands": 82,
-        "groups": 1,
-        "rows": 83,
-        "tools": 74
+        "commands": 107,
+        "groups": 5,
+        "rows": 112,
+        "tools": 81
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
       "tiers": ["read", "write", "destructive"],
@@ -5084,6 +6326,55 @@
           "command": "skills resolve",
           "dryRun": "default-on",
           "name": "skills_resolve",
+          "tier": "write",
+          "toolTier": 3
+        },
+        {
+          "command": "compression status",
+          "dryRun": "none",
+          "name": "compression_status",
+          "tier": "read",
+          "toolTier": 1
+        },
+        {
+          "command": "compression enable",
+          "dryRun": "default-on",
+          "name": "compression_enable",
+          "tier": "write",
+          "toolTier": 3
+        },
+        {
+          "command": "compression disable",
+          "dryRun": "default-on",
+          "name": "compression_disable",
+          "tier": "destructive",
+          "toolTier": 4
+        },
+        {
+          "command": "compression set-provider",
+          "dryRun": "default-on",
+          "name": "compression_set_provider",
+          "tier": "write",
+          "toolTier": 3
+        },
+        {
+          "command": "compression use",
+          "dryRun": "default-on",
+          "name": "compression_use",
+          "tier": "write",
+          "toolTier": 3
+        },
+        {
+          "command": "compression sync",
+          "dryRun": "default-on",
+          "name": "compression_sync",
+          "tier": "write",
+          "toolTier": 3
+        },
+        {
+          "command": "compression seal",
+          "dryRun": "default-on",
+          "name": "compression_seal",
           "tier": "write",
           "toolTier": 3
         },

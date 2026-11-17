@@ -27,3 +27,7 @@ pub(crate) fn nonempty_strings(args: &Value, key: &str) -> Option<Vec<String>> {
 pub(crate) fn str_nonempty<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
     str_arg(args, key).filter(|s| !s.is_empty())
 }
+
+pub(crate) fn str_trimmed<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
+    str_arg(args, key).map(str::trim).filter(|v| !v.is_empty())
+}
