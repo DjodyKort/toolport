@@ -1692,6 +1692,11 @@ const CASES: &[Case] = &[
                 &["skills", "clean", "--repo", "{repo}", "--dry-run"],
             ),
             apply("apply", &["skills", "clean", "--repo", "{repo}"]),
+            read(
+                "unknown_client",
+                &["skills", "clean", "--repo", "{repo}", "--client", "cursor"],
+            )
+            .exit(1),
         ],
     ),
     case(

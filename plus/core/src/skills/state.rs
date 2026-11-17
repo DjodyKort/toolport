@@ -12,6 +12,7 @@ use super::repo::{find_repo, resolve_path};
 use super::sync_report::collision_rows;
 use super::transpilers::registry;
 use crate::args::{flag, flag_or, str_nonempty};
+use crate::op::OpError;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 
@@ -36,9 +37,14 @@ pub(super) fn literal_repo(args: &Value) -> PathBuf {
 }
 
 pub fn clean_handler(args: Value) -> Result<Value, String> {
+    clean(args).map_err(|error| error.message)
+}
+
+pub fn clean(args: Value) -> Result<Value, OpError> {
     let global = flag_or(&args, "global_mode", true);
     let dry_run = flag(&args, "dry_run");
-    let scope = Scope::new(global, &literal_repo(&args))?;
+    let scope =
+        Scope::new(global, &literal_repo(&args)).map_err(|e| OpError::failed("skills", e))?;
     let lock = load_lockfile(&scope.lock_dir);
     let registry = registry();
     let client = str_nonempty(&args, "client");
@@ -47,7 +53,7 @@ pub fn clean_handler(args: Value) -> Result<Value, String> {
             .as_ref()
             .is_some_and(|l| lock_records_outputs(l, client))
         {
-            ensure_supported([client], &registry)?;
+            ensure_supported([client], &registry).map_err(OpError::usage)?;
         }
     }
     let out = ops::clean_skills(

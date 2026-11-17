@@ -8,6 +8,7 @@ use toolport_plus_api::Host;
 
 use super::ToolError;
 use crate::args::{flag_or, str_arg, str_nonempty};
+use crate::op::ErrorKind;
 use crate::skills::agents::handlers as agents;
 use crate::skills::api::{self, Args};
 use crate::skills::repo::{skill_bucket, skill_template};
@@ -93,6 +94,10 @@ pub(super) fn kebab(name: &str) -> Result<&str, ToolError> {
 }
 
 fn scoped(args: &Value, handler: Handler, extra: &[(&str, Value)]) -> Outcome {
+    handler(scoped_request(args, extra)?).map_err(failed)
+}
+
+fn scoped_request(args: &Value, extra: &[(&str, Value)]) -> Result<Value, ToolError> {
     let mut map = request(args)?;
     map.insert("dry_run".into(), json!(flag_or(args, "dry_run", true)));
     if let Some(global) = args.get("global_mode").and_then(Value::as_bool) {
@@ -104,7 +109,7 @@ fn scoped(args: &Value, handler: Handler, extra: &[(&str, Value)]) -> Outcome {
     for (key, value) in extra {
         map.insert((*key).to_string(), value.clone());
     }
-    handler(Value::Object(map)).map_err(failed)
+    Ok(Value::Object(map))
 }
 
 pub(super) fn list(host: &dyn Host, args: &Value) -> Outcome {
@@ -169,7 +174,12 @@ pub(super) fn scaffold(host: &dyn Host, args: &Value) -> Outcome {
 }
 
 pub(super) fn clean(host: &dyn Host, args: &Value) -> Outcome {
-    with_paths(host, || scoped(args, state::clean_handler, &[]))
+    with_paths(host, || {
+        state::clean(scoped_request(args, &[])?).map_err(|error| match error.kind {
+            ErrorKind::Usage => ToolError::from(error),
+            _ => failed(error.message),
+        })
+    })
 }
 
 pub(super) fn uninstall(host: &dyn Host, args: &Value) -> Outcome {

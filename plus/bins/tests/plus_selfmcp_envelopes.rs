@@ -1113,7 +1113,7 @@ const CASES: &[Case] = &[
             refused("refused", "skills_clean", UNCONFIRMED),
             fails(
                 "unknown_client",
-                "backend_error",
+                "invalid_arguments",
                 "skills_clean",
                 r#"{"client":"cursor"}"#,
             ),
