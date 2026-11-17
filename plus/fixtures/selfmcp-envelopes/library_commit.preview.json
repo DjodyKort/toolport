@@ -1,0 +1,59 @@
+{
+  "arguments": {
+    "message": "Update skills"
+  },
+  "isError": false,
+  "result": {
+    "checks": {
+      "audit": {
+        "findings": [],
+        "high": 0,
+        "ran": true,
+        "skills": 3
+      },
+      "blocked": false,
+      "builtinScan": {
+        "count": 0,
+        "findings": []
+      },
+      "gitleaks": {
+        "available": false,
+        "count": 0,
+        "error": "not installed",
+        "findings": [],
+        "ran": false
+      }
+    },
+    "committed": false,
+    "dryRun": true,
+    "files": ["kills/review/SKILL.md", "skills/draft/SKILL.md"],
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "git add -A",
+          "op": "exec",
+          "path": "<WORLD>/home/lib/ai-skills"
+        },
+        {
+          "detail": "git commit -m \"Update skills\"",
+          "op": "exec",
+          "path": "<WORLD>/home/lib/ai-skills"
+        },
+        {
+          "detail": "commit kills/review/SKILL.md",
+          "op": "note"
+        },
+        {
+          "detail": "commit skills/draft/SKILL.md",
+          "op": "note"
+        }
+      ],
+      "summary": "Commit 2 changed file(s)",
+      "undo": "git -C '<WORLD>/home/lib/ai-skills' reset --soft HEAD~1",
+      "warnings": []
+    },
+    "repo": "<WORLD>/home/lib/ai-skills"
+  },
+  "tool": "library_commit"
+}

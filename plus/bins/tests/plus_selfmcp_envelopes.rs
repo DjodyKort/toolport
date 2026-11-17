@@ -594,6 +594,103 @@ const CASES: &[Case] = &[
         ],
     ),
     prepared(
+        "library_connect",
+        library_world::remote_only,
+        &[
+            read(
+                "preview",
+                "library_connect",
+                r#"{"url":"{base}/lib-remote.git","clone_to":"{home}/lib/ai-skills"}"#,
+            ),
+            refused(
+                "refused",
+                "library_connect",
+                r#"{"url":"{base}/lib-remote.git","clone_to":"{home}/lib/ai-skills","dry_run":false}"#,
+            ),
+            write(
+                "apply",
+                "library_connect",
+                r#"{"url":"{base}/lib-remote.git","clone_to":"{home}/lib/ai-skills","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "again",
+                "refused",
+                "library_connect",
+                r#"{"url":"{base}/lib-remote.git","clone_to":"{home}/lib/other"}"#,
+            ),
+            fails(
+                "credential",
+                "invalid_arguments",
+                "library_connect",
+                r#"{"url":"https://user:pass@example.invalid/o/skills.git"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "library_remote_add",
+        library_home,
+        &[
+            hook("no-remote-world", library_world::no_remote),
+            read(
+                "preview",
+                "library_remote_add",
+                r#"{"url":"{base}/lib-remote.git"}"#,
+            ),
+            refused(
+                "refused",
+                "library_remote_add",
+                r#"{"url":"{base}/lib-remote.git","dry_run":false}"#,
+            ),
+            write(
+                "apply",
+                "library_remote_add",
+                r#"{"url":"{base}/lib-remote.git","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "again",
+                "refused",
+                "library_remote_add",
+                r#"{"url":"{base}/lib-remote.git"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "library_commit",
+        library_home,
+        &[
+            read("clean", "library_commit", r#"{"message":"Nothing to do"}"#),
+            hook("dirty-world", library_world::dirty),
+            read(
+                "preview",
+                "library_commit",
+                r#"{"message":"Update skills"}"#,
+            ),
+            refused(
+                "refused",
+                "library_commit",
+                r#"{"message":"Update skills","dry_run":false}"#,
+            ),
+            write(
+                "apply",
+                "library_commit",
+                r#"{"message":"Update skills","dry_run":false,"confirm":true}"#,
+            ),
+            hook("secret-world", library_world::secret_dirty),
+            fails(
+                "secret",
+                "refused",
+                "library_commit",
+                r#"{"message":"Add leaky","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "no_message",
+                "invalid_arguments",
+                "library_commit",
+                r#"{"message":" ","dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
+    prepared(
         "skills_git_push",
         library_world::skills_repo_remote_world,
         &[

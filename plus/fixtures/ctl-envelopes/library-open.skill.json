@@ -1,0 +1,14 @@
+{
+  "argv": ["library", "open", "review"],
+  "envelope": {
+    "command": "library open",
+    "data": {
+      "kind": "skill",
+      "path": "<WORLD>/home/lib/ai-skills/skills/review",
+      "skill": "review"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

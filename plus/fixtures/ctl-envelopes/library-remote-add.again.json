@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "remote", "add", "{base}/lib-remote.git"],
+  "envelope": {
+    "command": "library remote add",
+    "error": {
+      "code": "refused",
+      "message": "the library already has a remote: <WORLD>/lib-remote.git"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "library",
+    "connect",
+    "{base}/lib-remote.git",
+    "--clone-to",
+    "{home}/lib/other",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "library connect",
+    "error": {
+      "code": "refused",
+      "message": "a library is already connected at <WORLD>/home/lib/ai-skills; connect a repository there only after moving it away"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

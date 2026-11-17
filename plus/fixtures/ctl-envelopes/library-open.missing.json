@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "open", "nope"],
+  "envelope": {
+    "command": "library open",
+    "error": {
+      "code": "not_found",
+      "message": "the library has no skill named nope"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

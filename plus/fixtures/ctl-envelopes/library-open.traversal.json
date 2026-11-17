@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "open", "../x"],
+  "envelope": {
+    "command": "library open",
+    "error": {
+      "code": "usage",
+      "message": "\"../x\" is not a skill name"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

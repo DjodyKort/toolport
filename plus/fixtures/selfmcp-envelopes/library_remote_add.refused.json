@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "url": "<WORLD>/lib-remote.git"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: library_remote_add (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: library_remote_add (tier 3). Pass confirm=true to proceed.",
+  "tool": "library_remote_add"
+}

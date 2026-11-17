@@ -1474,7 +1474,14 @@ const CASES: &[Case] = &[
             .exit(1),
             usage(
                 "move_link_usage",
-                &["skills", "fix", "move-link", "acceptance", "--repo", "{repo}"],
+                &[
+                    "skills",
+                    "fix",
+                    "move-link",
+                    "acceptance",
+                    "--repo",
+                    "{repo}",
+                ],
             ),
             usage(
                 "dest_for_chmod",
@@ -2015,6 +2022,17 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "library open",
+        &[
+            hook("library-world", library_home),
+            read("library", &["library", "open"]),
+            read("skill", &["library", "open", "review"]),
+            read("missing", &["library", "open", "nope"]).exit(1),
+            read("traversal", &["library", "open", "../x"]).exit(2),
+            usage("usage", &["library", "open", "a", "b"]),
+        ],
+    ),
+    case(
         "library pull",
         &[
             hook("library-world", library_home),
@@ -2030,6 +2048,102 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "library connect",
+        &[
+            hook("remote-world", library_world::remote_only),
+            read(
+                "preview",
+                &[
+                    "library",
+                    "connect",
+                    "{base}/lib-remote.git",
+                    "--clone-to",
+                    "{home}/lib/ai-skills",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &[
+                    "library",
+                    "connect",
+                    "{base}/lib-remote.git",
+                    "--clone-to",
+                    "{home}/lib/ai-skills",
+                ],
+            ),
+            read(
+                "again",
+                &[
+                    "library",
+                    "connect",
+                    "{base}/lib-remote.git",
+                    "--clone-to",
+                    "{home}/lib/other",
+                    "--dry-run",
+                ],
+            )
+            .exit(1),
+            usage("usage", &["library", "connect"]),
+            usage(
+                "credential",
+                &[
+                    "library",
+                    "connect",
+                    "https://user:pass@example.invalid/o/skills.git",
+                ],
+            ),
+        ],
+    ),
+    case(
+        "library remote add",
+        &[
+            hook("library-world", library_home),
+            hook("no-remote-world", library_world::no_remote),
+            read(
+                "preview",
+                &[
+                    "library",
+                    "remote",
+                    "add",
+                    "{base}/lib-remote.git",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &["library", "remote", "add", "{base}/lib-remote.git"],
+            ),
+            read(
+                "again",
+                &["library", "remote", "add", "{base}/lib-remote.git"],
+            )
+            .exit(1),
+            usage("usage", &["library", "remote", "add"]),
+        ],
+    ),
+    case(
+        "library commit",
+        &[
+            hook("library-world", library_home),
+            read("clean", &["library", "commit", "-m", "Nothing to do"]),
+            hook("dirty-world", library_world::dirty),
+            read(
+                "preview",
+                &["library", "commit", "-m", "Update skills", "--dry-run"],
+            ),
+            apply("apply", &["library", "commit", "-m", "Update skills"]),
+            hook("secret-world", library_world::secret_dirty),
+            read(
+                "secret_preview",
+                &["library", "commit", "-m", "Add leaky", "--dry-run"],
+            ),
+            apply("secret", &["library", "commit", "-m", "Add leaky"]).exit(1),
+            usage("no_message", &["library", "commit"]),
+            usage("extra", &["library", "commit", "-m", "x", "extra"]),
+        ],
+    ),
+    case(
         "library push",
         &[
             hook("library-world", library_home),
@@ -2041,6 +2155,12 @@ const CASES: &[Case] = &[
             hook("secret-dropped", library_world::drop_last_commit),
             apply("apply", &["library", "push"]),
             read("current", &["library", "push", "--dry-run"]),
+            hook("no-remote-world", library_world::no_remote),
+            read("no_remote_preview", &["library", "push", "--dry-run"]),
+            apply("no_remote", &["library", "push"]).exit(1),
+            hook("empty-remote-world", library_world::empty_remote),
+            read("first_preview", &["library", "push", "--dry-run"]),
+            apply("first", &["library", "push"]),
             usage("usage", &["library", "push", "extra"]),
         ],
     ),

@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "clone_to": "<WORLD>/home/lib/other",
+    "url": "<WORLD>/lib-remote.git"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "a library is already connected at <WORLD>/home/lib/ai-skills; connect a repository there only after moving it away"
+    }
+  },
+  "text": "refused: a library is already connected at <WORLD>/home/lib/ai-skills; connect a repository there only after moving it away",
+  "tool": "library_connect"
+}

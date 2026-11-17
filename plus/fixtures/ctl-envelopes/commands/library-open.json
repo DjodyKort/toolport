@@ -1,0 +1,31 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "library",
+  "id": "library open",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "skill",
+      "required": false,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["library", "open"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Print the folder of the skills library, or of one skill in it, to open in an editor or file manager; launches nothing (<skill>)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": []
+}

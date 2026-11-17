@@ -80,7 +80,7 @@ pub fn normalize(world: &World, envelope: &Value) -> Value {
     let time =
         Regex::new(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?").unwrap();
     let backup_stamp = Regex::new(r"/\d{13}-").unwrap();
-    let stamp = Regex::new(r"\b\d{8}-\d{6}\b").unwrap();
+    let stamp = Regex::new(r"\b\d{8}-\d{6}(?:-\d{2})?\b").unwrap();
     let run_id = Regex::new(r"run-\d{10}-[0-9a-f]{8}").unwrap();
     let loopback_port = Regex::new(r"(?i)(127\.0\.0\.1(?::|%3A))\d+").unwrap();
     let pkce_challenge = Regex::new(r"code_challenge=[^&\x22]+").unwrap();

@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "push"],
+  "envelope": {
+    "command": "library push",
+    "error": {
+      "code": "refused",
+      "message": "the library has no remote; add one first (library remote add <url>)"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

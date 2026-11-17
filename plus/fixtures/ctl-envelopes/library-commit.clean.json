@@ -1,0 +1,16 @@
+{
+  "argv": ["library", "commit", "-m", "Nothing to do"],
+  "envelope": {
+    "command": "library commit",
+    "data": {
+      "committed": false,
+      "dryRun": false,
+      "files": [],
+      "message": "working tree clean; nothing to commit",
+      "repo": "<WORLD>/home/lib/ai-skills"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

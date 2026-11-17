@@ -103,7 +103,7 @@ fn git_run(repo: &Path, args: &[&str]) -> Result<CmdOutput, OpError> {
     })
 }
 
-fn git_must(repo: &Path, args: &[&str]) -> Result<String, OpError> {
+pub(super) fn git_must(repo: &Path, args: &[&str]) -> Result<String, OpError> {
     let out = git_run(repo, args)?;
     if out.ok() {
         Ok(out.stdout)
@@ -134,6 +134,10 @@ fn commit_list(repo: &Path, range: &str) -> Vec<Value> {
 
 fn note(detail: impl Into<String>) -> Value {
     json!({"op": "note", "detail": detail.into()})
+}
+
+pub(super) fn note_step(detail: impl Into<String>) -> Value {
+    note(detail)
 }
 
 fn exec(repo: &Path, detail: impl Into<String>) -> Value {
@@ -333,13 +337,34 @@ fn scan_untracked(repo: &Path) -> Vec<Finding> {
     out
 }
 
-struct Checks {
-    value: Value,
-    findings: Vec<Finding>,
+pub(super) struct Checks {
+    pub(super) value: Value,
+    pub(super) findings: Vec<Finding>,
+}
+
+impl Checks {
+    /// The audit and the secret scans over what `state` says would leave the machine.
+    pub(super) fn run(repo: &Path, state: &LocalState) -> Self {
+        run_checks(repo, state)
+    }
+
+    pub(super) fn describe(&self) -> String {
+        describe(&self.findings)
+    }
 }
 
 fn findings_json(rows: &[Finding]) -> Value {
     serde_json::to_value(rows).unwrap_or(Value::Null)
+}
+
+/// The commits a push would send: those past the upstream, or the whole history on the first push
+/// to a remote that has no branch of ours yet.
+fn send_range(state: &LocalState) -> Option<String> {
+    match (&state.upstream, &state.url) {
+        (Some(upstream), _) => Some(format!("{upstream}..HEAD")),
+        (None, Some(_)) => Some("HEAD".to_string()),
+        (None, None) => None,
+    }
 }
 
 fn run_checks(repo: &Path, state: &LocalState) -> Checks {
@@ -357,7 +382,7 @@ fn run_checks(repo: &Path, state: &LocalState) -> Checks {
         }),
         Err(error) => json!({"ran": false, "error": error}),
     };
-    let range = state.upstream.as_ref().map(|u| format!("{u}..HEAD"));
+    let range = send_range(state);
     let mut builtin = Vec::new();
     if state.uncommitted > 0 {
         let tracked = git_out(
@@ -388,7 +413,7 @@ fn run_checks(repo: &Path, state: &LocalState) -> Checks {
     if state.uncommitted > 0 {
         runs.push(Mode::Worktree);
     }
-    if state.ahead > 0 {
+    if state.ahead > 0 || (state.upstream.is_none() && range.is_some()) {
         if let Some(range) = &range {
             runs.push(Mode::Commits(range));
         }
@@ -452,7 +477,7 @@ pub fn push(repo: &Path, message: Option<&str>, dry_run: bool) -> Result<Value, 
         .filter(|m| !m.is_empty())
         .unwrap_or(DEFAULT_MESSAGE);
     let checks = run_checks(repo, &state);
-    let range = state.upstream.as_ref().map(|u| format!("{u}..HEAD"));
+    let range = send_range(&state);
     let commits = range
         .as_deref()
         .map(|r| commit_list(repo, r))
@@ -462,11 +487,20 @@ pub fn push(repo: &Path, message: Option<&str>, dry_run: bool) -> Result<Value, 
         .as_deref()
         .and_then(|u| git_out(repo, &["rev-parse", "--verify", "-q", u]))
         .unwrap_or_default();
-    let undo = format!(
-        "git -C {} revert --no-edit {remote_head}..HEAD",
-        quote(repo)
-    );
-    let nothing = state.uncommitted == 0 && state.ahead == 0;
+    let undo = if state.upstream.is_some() {
+        format!(
+            "git -C {} revert --no-edit {remote_head}..HEAD",
+            quote(repo)
+        )
+    } else {
+        format!(
+            "git -C {} push origin --delete {}",
+            quote(repo),
+            state.branch.as_deref().unwrap_or("<branch>")
+        )
+    };
+    let first_push = state.upstream.is_none() && state.head.is_some();
+    let nothing = state.uncommitted == 0 && state.ahead == 0 && !first_push;
     if !dry_run && !checks.findings.is_empty() {
         return Err(OpError::failed(
             "refused",
@@ -515,7 +549,15 @@ pub fn push(repo: &Path, message: Option<&str>, dry_run: bool) -> Result<Value, 
                 c["subject"].as_str().unwrap_or("")
             ))
         }));
-        steps.push(exec(repo, "git push (never forced)"));
+        steps.push(exec(
+            repo,
+            match (&state.upstream, &state.branch) {
+                (None, Some(branch)) if state.url.is_some() => {
+                    format!("git push -u origin {branch} (first push, never forced)")
+                }
+                _ => "git push (never forced)".to_string(),
+            },
+        ));
         let mut warnings = Vec::new();
         if !checks.findings.is_empty() {
             warnings.push(format!(
@@ -526,8 +568,10 @@ pub fn push(repo: &Path, message: Option<&str>, dry_run: bool) -> Result<Value, 
         if checks.value["audit"]["high"].as_u64().unwrap_or(0) > 0 {
             warnings.push("the skills audit reports high severity findings".to_string());
         }
-        if state.upstream.is_none() {
-            warnings.push("no upstream branch: the push would be refused".to_string());
+        if state.url.is_none() {
+            warnings.push("the library has no remote: the push would be refused".to_string());
+        } else if state.upstream.is_none() && state.branch.is_none() {
+            warnings.push("no branch is checked out: the push would be refused".to_string());
         }
         let total = commits.len() + usize::from(state.uncommitted > 0);
         return Ok(json!({
@@ -562,12 +606,18 @@ pub fn push(repo: &Path, message: Option<&str>, dry_run: bool) -> Result<Value, 
             "result": applied(Vec::new(), String::new()),
         }));
     }
-    if state.upstream.is_none() {
+    if state.url.is_none() {
         return Err(OpError::failed(
             "refused",
-            "no upstream branch; run git push -u origin <branch> once from the repository",
+            "the library has no remote; add one first (library remote add <url>)",
         ));
     }
+    let Some(branch) = state.branch.clone() else {
+        return Err(OpError::failed(
+            "refused",
+            "no branch is checked out; check one out before pushing",
+        ));
+    };
     let mut changed = Vec::new();
     if state.uncommitted > 0 {
         git_must(repo, &["add", "-A"])?;
@@ -579,7 +629,11 @@ pub fn push(repo: &Path, message: Option<&str>, dry_run: bool) -> Result<Value, 
         git_must(repo, &["commit", "-q", "-m", message])?;
     }
     let sha = git_out(repo, &["rev-parse", "HEAD"]).unwrap_or_default();
-    git_must(repo, &["push"])?;
+    if state.upstream.is_some() {
+        git_must(repo, &["push"])?;
+    } else {
+        git_must(repo, &["push", "-u", "origin", &branch])?;
+    }
     Ok(json!({
         "dryRun": false,
         "repo": repo.display().to_string(),

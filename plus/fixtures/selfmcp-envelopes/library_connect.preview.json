@@ -1,0 +1,30 @@
+{
+  "arguments": {
+    "clone_to": "<WORLD>/home/lib/ai-skills",
+    "url": "<WORLD>/lib-remote.git"
+  },
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "git clone (network)",
+          "op": "exec",
+          "path": "<WORLD>/home/lib/ai-skills"
+        },
+        {
+          "detail": "point the library at <WORLD>/home/lib/ai-skills",
+          "op": "note"
+        }
+      ],
+      "summary": "Clone <WORLD>/lib-remote.git into <WORLD>/home/lib/ai-skills",
+      "undo": "remove the folder <WORLD>/home/lib/ai-skills and the local_path entry of <WORLD>/data/skills_sync.json",
+      "warnings": []
+    },
+    "remote": "<WORLD>/lib-remote.git",
+    "repo": "<WORLD>/home/lib/ai-skills"
+  },
+  "tool": "library_connect"
+}

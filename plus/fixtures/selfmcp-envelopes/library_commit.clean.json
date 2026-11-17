@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "message": "Nothing to do"
+  },
+  "isError": false,
+  "result": {
+    "committed": false,
+    "dryRun": true,
+    "files": [],
+    "message": "working tree clean; nothing to commit",
+    "repo": "<WORLD>/home/lib/ai-skills"
+  },
+  "tool": "library_commit"
+}

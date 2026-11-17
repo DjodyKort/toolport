@@ -1399,6 +1399,93 @@
           "tier": 2
         },
         {
+          "description": "Clone a repository as the skills library and point Toolport at it (skills_sync.json in the data folder). Refuses while a library is connected, a target folder that holds files and a url that carries a credential; credentials stay with git and gh. dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "library_connect",
+          "params": [
+            {
+              "description": "https, ssh, git or file url, user@host:path or an absolute path",
+              "name": "url",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Absolute folder to clone into, default ~/.config/mcpm/skills_repo",
+              "name": "clone_to",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Give the skills library without a remote its origin; nothing is fetched or pushed. dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "library_remote_add",
+          "params": [
+            {
+              "description": "https, ssh, git or file url, user@host:path or an absolute path",
+              "name": "url",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Commit the uncommitted work of the skills library with a message after the secret scan a push runs; a finding refuses the commit by rule, file and line, never the matched text. Never pushes. dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "library_commit",
+          "params": [
+            {
+              "description": "The commit message",
+              "name": "message",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
           "description": "Commit and push the skills repository to its remote",
           "dryRunDefault": false,
           "gate": "always",

@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "message": "Update skills"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: library_commit (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: library_commit (tier 3). Pass confirm=true to proceed.",
+  "tool": "library_commit"
+}

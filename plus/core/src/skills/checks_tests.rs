@@ -361,7 +361,9 @@ mod hooks {
         let w = World::new("fixbad");
         with_hook(&w, 0o644);
         let unknown = api::fix(&w.args(), "delete").unwrap_err();
-        assert!(unknown.message.contains("safe fixes are chmod and move-link"));
+        assert!(unknown
+            .message
+            .contains("safe fixes are chmod and move-link"));
         let skills = Args {
             names: Some(vec!["nope".into()]),
             ..w.args()

@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "commit", "-m", "x", "extra"],
+  "envelope": {
+    "command": "library commit",
+    "error": {
+      "code": "usage",
+      "message": "unexpected argument: extra\nusage: library commit -m <message> [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

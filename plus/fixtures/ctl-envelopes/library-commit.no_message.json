@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "commit"],
+  "envelope": {
+    "command": "library commit",
+    "error": {
+      "code": "usage",
+      "message": "the commit needs a message\nusage: library commit -m <message> [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -114,7 +114,7 @@
     "snapshot": {
       "files": 5,
       "hooks": 0,
-      "id": "<STAMP>-02"
+      "id": "<STAMP>"
     },
     "syncedAt": "<TIME>",
     "targetedClients": ["claude-code"],

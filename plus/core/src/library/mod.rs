@@ -1,6 +1,7 @@
 //! The skills library as a source: where its clone stands against the remote, and the
 //! fast-forward pull and the guarded push.
 
+pub mod connect;
 pub mod remote;
 pub mod sync;
 

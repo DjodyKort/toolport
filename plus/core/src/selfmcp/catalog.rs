@@ -647,6 +647,40 @@ pub const TOOLS: &[ToolDef] = &[
         library::pull
     ),
     tool!(
+        "library_connect",
+        3,
+        UnlessDryRun,
+        "Clone a repository as the skills library and point Toolport at it (skills_sync.json in the data folder). Refuses while a library is connected, a target folder that holds files and a url that carries a credential; credentials stay with git and gh. dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("url", Ty::Str, true, "https, ssh, git or file url, user@host:path or an absolute path"),
+            p("clone_to", Ty::Str, false, "Absolute folder to clone into, default ~/.config/mcpm/skills_repo"),
+            DRY_ON
+        ],
+        library::connect_repository
+    ),
+    tool!(
+        "library_remote_add",
+        3,
+        UnlessDryRun,
+        "Give the skills library without a remote its origin; nothing is fetched or pushed. dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("url", Ty::Str, true, "https, ssh, git or file url, user@host:path or an absolute path"),
+            DRY_ON
+        ],
+        library::remote_add
+    ),
+    tool!(
+        "library_commit",
+        3,
+        UnlessDryRun,
+        "Commit the uncommitted work of the skills library with a message after the secret scan a push runs; a finding refuses the commit by rule, file and line, never the matched text. Never pushes. dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            p("message", Ty::Str, true, "The commit message"),
+            DRY_ON
+        ],
+        library::commit
+    ),
+    tool!(
         "skills_git_push",
         4,
         Always,

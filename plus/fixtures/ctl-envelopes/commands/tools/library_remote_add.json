@@ -1,0 +1,7 @@
+{
+  "command": "library remote add",
+  "dryRun": "default-on",
+  "name": "library_remote_add",
+  "tier": "write",
+  "toolTier": 3
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "remote", "add"],
+  "envelope": {
+    "command": "library remote add",
+    "error": {
+      "code": "usage",
+      "message": "missing url\nusage: library remote add <url> [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "open", "a", "b"],
+  "envelope": {
+    "command": "library open",
+    "error": {
+      "code": "usage",
+      "message": "usage: library open [<skill>]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

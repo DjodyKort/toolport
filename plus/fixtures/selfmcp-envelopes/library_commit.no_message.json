@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "message": " "
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "the commit needs a message"
+    }
+  },
+  "text": "invalid_arguments: the commit needs a message",
+  "tool": "library_commit"
+}

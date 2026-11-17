@@ -1,0 +1,21 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "url": "<WORLD>/lib-remote.git"
+  },
+  "isError": false,
+  "result": {
+    "branch": "main",
+    "dryRun": false,
+    "remote": "<WORLD>/lib-remote.git",
+    "repo": "<WORLD>/home/lib/ai-skills",
+    "result": {
+      "applied": true,
+      "backups": [],
+      "changed": [],
+      "undo": "git -C '<WORLD>/home/lib/ai-skills' remote remove origin"
+    }
+  },
+  "tool": "library_remote_add"
+}

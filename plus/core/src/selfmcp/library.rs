@@ -3,7 +3,7 @@
 
 use super::ToolError;
 use crate::args::{flag, flag_or, str_arg};
-use crate::library::{self, remote, sync};
+use crate::library::{self, connect, remote, sync};
 use crate::op::OpError;
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -63,5 +63,33 @@ pub(super) fn git_push(host: &dyn Host, args: &Value) -> Result<Value, ToolError
         } else {
             Ok(json!({"pushed": false, "message": done["message"]}))
         }
+    })
+}
+
+pub(super) fn connect_repository(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    with_paths(host, || {
+        let url = str_arg(args, "url").unwrap_or_default();
+        connect::connect(
+            url,
+            str_arg(args, "clone_to"),
+            flag_or(args, "dry_run", true),
+        )
+        .map_err(tool_error)
+    })
+}
+
+pub(super) fn remote_add(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    with_paths(host, || {
+        let repo = remote::locate().map_err(tool_error)?;
+        let url = str_arg(args, "url").unwrap_or_default();
+        connect::remote_add(&repo, url, flag_or(args, "dry_run", true)).map_err(tool_error)
+    })
+}
+
+pub(super) fn commit(host: &dyn Host, args: &Value) -> Result<Value, ToolError> {
+    with_paths(host, || {
+        let repo = remote::locate().map_err(tool_error)?;
+        let message = str_arg(args, "message").unwrap_or_default();
+        connect::commit(&repo, message, flag_or(args, "dry_run", true)).map_err(tool_error)
     })
 }

@@ -1,0 +1,21 @@
+{
+  "argv": ["library", "remote", "add", "{base}/lib-remote.git"],
+  "envelope": {
+    "command": "library remote add",
+    "data": {
+      "branch": "main",
+      "dryRun": false,
+      "remote": "<WORLD>/lib-remote.git",
+      "repo": "<WORLD>/home/lib/ai-skills",
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": [],
+        "undo": "git -C '<WORLD>/home/lib/ai-skills' remote remove origin"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

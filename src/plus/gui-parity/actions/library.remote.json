@@ -1,6 +1,6 @@
 {
   "route": "library",
   "status": "built",
-  "summary": "The library against its remote: status, pull and review the plan, push after the audit and the secret scan (library status|pull|push; library_status, library_pull, skills_git_push)",
+  "summary": "The library against its remote: status, pull and review the plan, commit with a message after the secret scan, push, add a remote, connect a repository and copy the git status (library status|pull|commit|push|connect|remote add; library_status, library_pull, library_commit, skills_git_push, library_connect, library_remote_add)",
   "test": "src/plus/library/SourcesTab.test.tsx"
 }

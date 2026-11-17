@@ -1,0 +1,43 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Preview the change and write nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "library",
+  "id": "library remote add",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "url",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["library", "remote", "add"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Give a library without a remote its origin; nothing is fetched or pushed (<url>, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["library_remote_add"]
+}

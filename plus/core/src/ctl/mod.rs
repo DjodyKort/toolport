@@ -494,9 +494,29 @@ pub const COMMANDS: &[Command] = &[
         library::status,
     ),
     cmd(
+        &["library", "open"],
+        "Print the folder of the skills library, or of one skill in it, to open in an editor or file manager; launches nothing (<skill>)",
+        library::open,
+    ),
+    cmd(
         &["library", "pull"],
         "Fast-forward the skills library from its remote; refuses over uncommitted changes (--dry-run, --review adds the sync plan)",
         library::pull,
+    ),
+    cmd(
+        &["library", "connect"],
+        "Clone a repository as the skills library and point Toolport at it; refuses while a library is connected (<url>, --clone-to <dir>, --dry-run)",
+        library::connect,
+    ),
+    cmd(
+        &["library", "remote", "add"],
+        "Give a library without a remote its origin; nothing is fetched or pushed (<url>, --dry-run)",
+        library::remote_add,
+    ),
+    cmd(
+        &["library", "commit"],
+        "Secret-scan the uncommitted work and commit it with a message; never pushes (-m <message>, --dry-run)",
+        library::commit,
     ),
     cmd(
         &["library", "push"],

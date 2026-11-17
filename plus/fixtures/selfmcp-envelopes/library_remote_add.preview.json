@@ -1,0 +1,25 @@
+{
+  "arguments": {
+    "url": "<WORLD>/lib-remote.git"
+  },
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "plan": {
+      "effects": {},
+      "steps": [
+        {
+          "detail": "git remote add origin (nothing is fetched or pushed)",
+          "op": "exec",
+          "path": "<WORLD>/home/lib/ai-skills"
+        }
+      ],
+      "summary": "Add <WORLD>/lib-remote.git as origin",
+      "undo": "git -C '<WORLD>/home/lib/ai-skills' remote remove origin",
+      "warnings": []
+    },
+    "remote": "<WORLD>/lib-remote.git",
+    "repo": "<WORLD>/home/lib/ai-skills"
+  },
+  "tool": "library_remote_add"
+}

@@ -119,6 +119,46 @@ pub fn library_home(world: &World) {
     );
 }
 
+/// The bare remote with its two skills and no clone of it: nothing is connected yet, and the data
+/// dir holds no `skills_sync.json`.
+pub fn remote_only(world: &World) {
+    let bare = remote(world);
+    std::fs::create_dir_all(&bare).unwrap();
+    git(&bare, &world.home, &["init", "-q", "--bare", "-b", "main"]);
+    let seed = other(world);
+    std::fs::create_dir_all(&seed).unwrap();
+    git(&seed, &world.home, &["init", "-q", "-b", "main"]);
+    identity(world, &seed);
+    add_skill(world, &seed, "review");
+    add_skill(world, &seed, "odoo-upgrade");
+    git(
+        &seed,
+        &world.home,
+        &["remote", "add", "origin", &world.path(&bare)],
+    );
+    git(&seed, &world.home, &["push", "-q", "-u", "origin", "main"]);
+}
+
+/// An empty bare repository as the library's only remote, for a first push.
+pub fn empty_remote(world: &World) {
+    let bare = world.base.join("lib-empty.git");
+    std::fs::create_dir_all(&bare).unwrap();
+    git(&bare, &world.home, &["init", "-q", "--bare", "-b", "main"]);
+    git(
+        &library(world),
+        &world.home,
+        &["remote", "add", "origin", &world.path(&bare)],
+    );
+}
+
+/// A changed file that holds a secret-shaped value and is not committed.
+pub fn secret_dirty(world: &World) {
+    put(
+        library(world).join("skills/leaky/SKILL.md"),
+        &format!("---\nname: leaky\ndescription: Holds a pasted token\n---\ntoken = {SECRET}\n"),
+    );
+}
+
 /// One local commit that is not on the remote.
 pub fn ahead_one(world: &World) {
     add_skill(world, &library(world), "new-local");

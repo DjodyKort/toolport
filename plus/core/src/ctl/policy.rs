@@ -588,11 +588,30 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&styles::CLEAN])
         .skip("removes synced outputs; its --dry-run is a golden step"),
     row("library status", R).spec(&[&library::STATUS]),
+    row("library open", R)
+        .spec(&[&library::OPEN])
+        .args(&[opt("skill")]),
     row("library pull", W)
         .dry()
         .needs(&[Needs::Network])
         .spec(&[&library::PULL])
         .skip("moves the library's branch; its --dry-run is a golden step"),
+    row("library connect", W)
+        .dry()
+        .needs(&[Needs::Network])
+        .spec(&[&library::CONNECT])
+        .args(&[req("url")])
+        .skip("clones a repository; its --dry-run is a golden step"),
+    row("library remote add", W)
+        .dry()
+        .spec(&[&library::REMOTE_ADD])
+        .args(&[req("url")])
+        .skip("adds a git remote to the library; its --dry-run is a golden step"),
+    row("library commit", W)
+        .dry()
+        .spec(&[&library::COMMIT])
+        .requires(&["--message"])
+        .skip("commits the library's uncommitted work; its --dry-run is a golden step"),
     row("library push", W)
         .dry()
         .needs(&[Needs::Network])
@@ -970,6 +989,9 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("styles_remove", D, "styles remove").on(),
     maps("library_status", R, "library status"),
     maps("library_pull", W, "library pull").on(),
+    maps("library_connect", W, "library connect").on(),
+    maps("library_remote_add", W, "library remote add").on(),
+    maps("library_commit", W, "library commit").on(),
     own("skills_git_push", D),
     own("skills_edit_body", W),
     own("skills_edit_frontmatter", W),

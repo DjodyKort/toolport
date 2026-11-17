@@ -1,0 +1,54 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Where to clone (default ~/.config/mcpm/skills_repo); the folder must not exist yet or be empty",
+      "escalates": false,
+      "hidden": false,
+      "name": "--clone-to",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Preview the change and write nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "library",
+  "id": "library connect",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": ["network"],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "url",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["library", "connect"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Clone a repository as the skills library and point Toolport at it; refuses while a library is connected (<url>, --clone-to <dir>, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["library_connect"]
+}

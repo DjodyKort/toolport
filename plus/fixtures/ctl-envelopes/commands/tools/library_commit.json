@@ -1,0 +1,7 @@
+{
+  "command": "library commit",
+  "dryRun": "default-on",
+  "name": "library_commit",
+  "tier": "write",
+  "toolTier": 3
+}

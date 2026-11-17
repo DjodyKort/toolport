@@ -1,0 +1,13 @@
+{
+  "argv": ["library", "connect"],
+  "envelope": {
+    "command": "library connect",
+    "error": {
+      "code": "usage",
+      "message": "missing url\nusage: library connect <url> [--clone-to <dir>] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

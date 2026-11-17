@@ -14,7 +14,7 @@ use std::time::{Duration, UNIX_EPOCH};
 
 const READ_TIMEOUT: Duration = Duration::from_secs(20);
 const NET_TIMEOUT: Duration = Duration::from_secs(60);
-const SYNC_CONFIG: &str = "skills_sync.json";
+pub(super) const SYNC_CONFIG: &str = "skills_sync.json";
 const CONTENT_DIRS: [&str; 6] = [
     "skills", "rules", "agents", "commands", "styles", "profiles",
 ];
@@ -322,6 +322,25 @@ fn duplicates(home: &Path, root: &Path, remote: &str) -> Vec<PathBuf> {
         found.push(dir);
     }
     found
+}
+
+/// The folder `library open` points at: the library, or one skill inside it. Nothing is
+/// launched; the caller hands the path to an editor or file manager.
+pub fn open_target(repo: &Path, skill: Option<&str>) -> Result<Value, OpError> {
+    let Some(name) = skill else {
+        return Ok(json!({"kind": "library", "skill": null, "path": repo.display().to_string()}));
+    };
+    let plain = !name.is_empty() && name != "." && name != ".." && !name.contains(['/', '\\']);
+    if !plain {
+        return Err(OpError::usage(format!("{name:?} is not a skill name")));
+    }
+    let dir = repo.join("skills").join(name);
+    if !dir.join("SKILL.md").is_file() {
+        return Err(OpError::not_found(format!(
+            "the library has no skill named {name}"
+        )));
+    }
+    Ok(json!({"kind": "skill", "skill": name, "path": dir.display().to_string()}))
 }
 
 fn skill_count(repo: &Path) -> usize {

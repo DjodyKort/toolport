@@ -1,0 +1,5 @@
+{
+  "route": "library",
+  "action": "library.remote",
+  "surface": "screen"
+}

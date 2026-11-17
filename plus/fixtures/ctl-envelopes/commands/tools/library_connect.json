@@ -1,0 +1,7 @@
+{
+  "command": "library connect",
+  "dryRun": "default-on",
+  "name": "library_connect",
+  "tier": "write",
+  "toolTier": 3
+}
