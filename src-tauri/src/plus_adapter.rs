@@ -8,8 +8,8 @@ use toolport_plus_api::{
     ContextHost, DirectEntry, EnvEntry, ForkServerFields, GatewayRouter, HostEnv, HttpAccess,
     HttpBody, HttpError, HttpRequest, HttpResponse, McpmSource, ProcessOutcome, ProcessSpec,
     RegistryAccess, RegistryPlus, RegistryTx, RegistryView, RestartOutcome, RunApproval,
-    RunDecision, SecretsHost, SelfMcpRecord, ServerRecord, ServerRules, ServerSpec, TaskHost,
-    TrustInputs, VaultAccess,
+    RunDecision, SecretsHost, SelfMcpRecord, ServerRecord, ServerRules, ServerSpec, SetupHost,
+    TaskHost, TrustInputs, VaultAccess,
 };
 
 pub struct HostAdapter;
@@ -682,6 +682,468 @@ impl ServerRules for HostAdapter {
 
     fn spawn_env_refused(&self, key: &str, value: &str) -> bool {
         crate::downstream::screen_spawn_env(&[(key.to_string(), value.to_string())]).is_err()
+    }
+}
+
+/// Registry settings that travel between machines. Ports, tokens and paths stay behind.
+const SETUP_SETTINGS: [&str; 12] = [
+    "safetyLevel",
+    "lazyDiscovery",
+    "discoveryMode",
+    "codeMode",
+    "piiRedaction",
+    "blockOnInjection",
+    "quarantineOnDrift",
+    "humanApproval",
+    "denyDestructive",
+    "confirmDestructive",
+    "gatewayInstructions",
+    "liveInspect",
+];
+
+fn setup_fork_switches(server: &crate::registry::ServerEntry) -> Value {
+    let Ok(fields) = ForkServerFields::extract(&server.unknown_fields) else {
+        return Value::Object(Map::new());
+    };
+    let mut switches = Map::new();
+    let mut put = |key: &str, value: Option<Value>| {
+        if let Some(value) = value {
+            switches.insert(key.into(), value);
+        }
+    };
+    put(
+        "forwardInstructions",
+        fields.forward_instructions.map(Value::from),
+    );
+    put(
+        "declareClientCapabilities",
+        fields.declare_client_capabilities.map(Value::from),
+    );
+    put(
+        "maxRequestTimeoutMs",
+        fields.max_request_timeout_ms.map(Value::from),
+    );
+    put("serverMode", fields.server_mode.map(Value::from));
+    put("mcpmOauth", fields.mcpm_oauth.map(Value::from));
+    put("mcpmTags", fields.mcpm_tags.map(Value::from));
+    Value::Object(switches)
+}
+
+fn setup_profile_name(registry: &crate::registry::Registry, reference: &str) -> String {
+    registry
+        .canonical_profile_id(reference)
+        .ok()
+        .and_then(|id| registry.profiles.iter().find(|p| p.id == id))
+        .map_or_else(|| reference.to_string(), |profile| profile.name.clone())
+}
+
+fn setup_profile_id(registry: &crate::registry::Registry, name: &str) -> Option<String> {
+    registry
+        .profiles
+        .iter()
+        .find(|p| p.name.eq_ignore_ascii_case(name))
+        .map(|p| p.id.clone())
+}
+
+/// The registry's own servers, without the gateway entry and the ones kept local.
+fn setup_eligible(
+    registry: &crate::registry::Registry,
+) -> impl Iterator<Item = &crate::registry::ServerEntry> {
+    registry
+        .servers
+        .iter()
+        .filter(|s| !crate::clients::is_gateway_server(s) && !crate::personal_sync::keep_local(s))
+}
+
+/// The registry as it is on disk. Inspection must not recover, migrate or write, so this reads the
+/// file the way `read_view` does; no file is an empty registry.
+fn read_registry() -> Result<crate::registry::Registry, String> {
+    let empty = || {
+        serde_json::from_str(r#"{"servers": [], "profiles": []}"#)
+            .map_err(|e: serde_json::Error| e.to_string())
+    };
+    let Some(path) = crate::registry::resolved_path() else {
+        return empty();
+    };
+    match std::fs::read_to_string(&path) {
+        Ok(text) => serde_json::from_str(&text)
+            .map_err(|error| format!("registry is not readable: {}: {error}", path.display())),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => empty(),
+        Err(error) => Err(format!("cannot read registry: {error}")),
+    }
+}
+
+impl SetupHost for HostAdapter {
+    fn setup_servers(&self) -> Result<Vec<Value>, String> {
+        let registry = read_registry()?;
+        Ok(setup_eligible(&registry)
+            .map(|server| {
+                let mut doc = crate::personal_sync::export(server);
+                if let Some(env) = doc.get_mut("env").and_then(Value::as_array_mut) {
+                    env.retain(|entry| {
+                        !crate::personal_sync::risky_sync_env(entry["key"].as_str().unwrap_or(""))
+                    });
+                }
+                doc["forkSwitches"] = setup_fork_switches(server);
+                doc
+            })
+            .collect())
+    }
+
+    fn setup_add_servers(
+        &self,
+        servers: &[Value],
+    ) -> Result<Vec<toolport_plus_api::AddedServer>, String> {
+        let before: std::collections::HashSet<String> = read_registry()?
+            .servers
+            .iter()
+            .map(|s| s.name.to_lowercase())
+            .collect();
+        let documents: Vec<Value> = servers
+            .iter()
+            .map(|doc| {
+                let mut doc = doc.clone();
+                if let Some(map) = doc.as_object_mut() {
+                    for key in ["id", "disabled", "forkSwitches"] {
+                        map.remove(key);
+                    }
+                }
+                doc
+            })
+            .collect();
+        let text = serde_json::json!({"kind": "conduit-setup", "version": 1, "servers": documents})
+            .to_string();
+        crate::registry::update(|registry| {
+            crate::sharing_controller::apply_import(registry, &text)
+        })?;
+        let registry = read_registry()?;
+        let mut added = Vec::new();
+        for doc in servers {
+            let name = doc["name"].as_str().unwrap_or_default();
+            if before.contains(&name.to_lowercase()) {
+                continue;
+            }
+            let Some(entry) = registry
+                .servers
+                .iter()
+                .find(|s| s.name.eq_ignore_ascii_case(name))
+            else {
+                continue;
+            };
+            let switches = doc["forkSwitches"].clone();
+            edit_server_fork_fields(&entry.id, |fields| {
+                if let Some(on) = switches["forwardInstructions"].as_bool() {
+                    fields.forward_instructions = Some(on);
+                }
+                if let Some(on) = switches["declareClientCapabilities"].as_bool() {
+                    fields.declare_client_capabilities = Some(on);
+                }
+                if let Some(ms) = switches["maxRequestTimeoutMs"].as_u64() {
+                    fields.max_request_timeout_ms = Some(ms);
+                }
+                if let Some(mode) = switches["serverMode"].as_str() {
+                    fields.server_mode = Some(mode.to_string());
+                }
+                if let Some(on) = switches["mcpmOauth"].as_bool() {
+                    fields.mcpm_oauth = Some(on);
+                }
+                if let Ok(tags) =
+                    serde_json::from_value::<Vec<String>>(switches["mcpmTags"].clone())
+                {
+                    fields.mcpm_tags = Some(tags);
+                }
+                Ok(())
+            })?;
+            added.push(toolport_plus_api::AddedServer {
+                name: entry.name.clone(),
+                id: entry.id.clone(),
+            });
+        }
+        Ok(added)
+    }
+
+    fn setup_access(&self) -> Result<Value, String> {
+        let registry = read_registry()?;
+        let server_name = |id: &String| {
+            registry
+                .servers
+                .iter()
+                .find(|s| &s.id == id)
+                .map_or_else(|| id.clone(), |s| s.name.clone())
+        };
+        let sets: Vec<Value> = registry
+            .profiles
+            .iter()
+            .map(|profile| {
+                serde_json::json!({
+                    "id": profile.id,
+                    "name": profile.name,
+                    "servers": profile.enabled_server_ids.iter().map(server_name).collect::<Vec<_>>(),
+                })
+            })
+            .collect();
+        let scopes: std::collections::BTreeMap<&String, String> = registry
+            .client_scopes
+            .iter()
+            .filter(|(_, reference)| !reference.is_empty())
+            .map(|(client, reference)| (client, setup_profile_name(&registry, reference)))
+            .collect();
+        let folders: Vec<Value> = registry
+            .folder_profiles
+            .iter()
+            .map(|folder| {
+                serde_json::json!({
+                    "path": folder.path,
+                    "profile": setup_profile_name(&registry, &folder.profile),
+                })
+            })
+            .collect();
+        let discovery: std::collections::BTreeMap<&String, &String> =
+            registry.client_discovery.iter().collect();
+        let mut clients: Vec<&String> = registry.client_managed_entries.keys().collect();
+        clients.sort();
+        Ok(serde_json::json!({
+            "accessSets": sets,
+            "defaultAccess": registry
+                .default_access_profile_id
+                .as_deref()
+                .map(|id| setup_profile_name(&registry, id)),
+            "clientScopes": scopes,
+            "clientDiscovery": discovery,
+            "folderProfiles": folders,
+            "discoveryMode": registry.discovery_mode,
+            "clients": clients,
+        }))
+    }
+
+    fn setup_merge_access(&self, doc: &Value) -> Result<Value, String> {
+        crate::registry::update(|registry| {
+            let mut added = serde_json::json!({
+                "accessSets": [], "clientScopes": [], "clientDiscovery": [], "folderProfiles": [],
+            });
+            for set in doc["accessSets"].as_array().into_iter().flatten() {
+                let name = set["name"].as_str().unwrap_or_default();
+                if name.is_empty() || setup_profile_id(registry, name).is_some() {
+                    continue;
+                }
+                let ids: Vec<String> = set["servers"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(Value::as_str)
+                    .filter_map(|server| {
+                        registry
+                            .servers
+                            .iter()
+                            .find(|s| s.name.eq_ignore_ascii_case(server))
+                            .map(|s| s.id.clone())
+                    })
+                    .collect();
+                let id = registry.add_profile(name);
+                if let Some(profile) = registry.profiles.iter_mut().find(|p| p.id == id) {
+                    profile.enabled_server_ids = ids;
+                }
+                added["accessSets"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(Value::from(id));
+            }
+            for (client, set) in doc["clientScopes"].as_object().into_iter().flatten() {
+                let has = registry
+                    .client_scopes
+                    .get(client)
+                    .is_some_and(|v| !v.is_empty());
+                let Some(id) = set
+                    .as_str()
+                    .and_then(|name| setup_profile_id(registry, name))
+                else {
+                    continue;
+                };
+                if !has {
+                    registry.client_scopes.insert(client.clone(), id.clone());
+                    added["clientScopes"]
+                        .as_array_mut()
+                        .unwrap()
+                        .push(serde_json::json!({"client": client, "set": id}));
+                }
+            }
+            for (client, mode) in doc["clientDiscovery"].as_object().into_iter().flatten() {
+                if let (false, Some(mode)) = (
+                    registry.client_discovery.contains_key(client),
+                    mode.as_str(),
+                ) {
+                    registry
+                        .client_discovery
+                        .insert(client.clone(), mode.to_string());
+                    added["clientDiscovery"]
+                        .as_array_mut()
+                        .unwrap()
+                        .push(serde_json::json!({"client": client, "mode": mode}));
+                }
+            }
+            for folder in doc["folderProfiles"].as_array().into_iter().flatten() {
+                let (Some(path), Some(id)) = (
+                    folder["path"].as_str(),
+                    folder["profile"]
+                        .as_str()
+                        .and_then(|name| setup_profile_id(registry, name)),
+                ) else {
+                    continue;
+                };
+                if !registry.folder_profiles.iter().any(|f| f.path == path) {
+                    registry
+                        .folder_profiles
+                        .push(crate::registry::FolderProfile {
+                            path: path.to_string(),
+                            profile: id.clone(),
+                            unknown_fields: Default::default(),
+                        });
+                    added["folderProfiles"]
+                        .as_array_mut()
+                        .unwrap()
+                        .push(serde_json::json!({"path": path, "set": id}));
+                }
+            }
+            Ok(added)
+        })
+        .map(|(_, added)| added)
+    }
+
+    fn setup_unmerge_access(&self, added: &Value) -> Result<(), String> {
+        crate::registry::update(|registry| {
+            for entry in added["clientScopes"].as_array().into_iter().flatten() {
+                let (Some(client), Some(set)) = (entry["client"].as_str(), entry["set"].as_str())
+                else {
+                    continue;
+                };
+                if registry.client_scopes.get(client).map(String::as_str) == Some(set) {
+                    registry.client_scopes.remove(client);
+                }
+            }
+            for entry in added["clientDiscovery"].as_array().into_iter().flatten() {
+                let (Some(client), Some(mode)) = (entry["client"].as_str(), entry["mode"].as_str())
+                else {
+                    continue;
+                };
+                if registry.client_discovery.get(client).map(String::as_str) == Some(mode) {
+                    registry.client_discovery.remove(client);
+                }
+            }
+            for entry in added["folderProfiles"].as_array().into_iter().flatten() {
+                let (Some(path), Some(set)) = (entry["path"].as_str(), entry["set"].as_str())
+                else {
+                    continue;
+                };
+                registry
+                    .folder_profiles
+                    .retain(|f| !(f.path == path && f.profile == set));
+            }
+            for id in added["accessSets"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+            {
+                let in_use = registry.client_scopes.values().any(|v| v == id)
+                    || registry.folder_profiles.iter().any(|f| f.profile == id)
+                    || registry.default_access_profile_id.as_deref() == Some(id)
+                    || registry.active_profile_id.as_deref() == Some(id);
+                if !in_use {
+                    let _ = registry.remove_profile(id);
+                }
+            }
+            Ok(())
+        })
+        .map(|_| ())
+    }
+
+    fn setup_settings(&self) -> Result<Map<String, Value>, String> {
+        let registry = read_registry()?;
+        let Value::Object(all) = serde_json::to_value(&registry).map_err(|e| e.to_string())? else {
+            return Err("the registry did not serialise to an object".into());
+        };
+        Ok(SETUP_SETTINGS
+            .iter()
+            .filter_map(|key| all.get(*key).map(|v| ((*key).to_string(), v.clone())))
+            .collect())
+    }
+
+    fn setup_apply_settings(
+        &self,
+        changes: &Map<String, Value>,
+    ) -> Result<Map<String, Value>, String> {
+        crate::registry::update(|registry| {
+            let Value::Object(mut all) =
+                serde_json::to_value(&*registry).map_err(|e| e.to_string())?
+            else {
+                return Err("the registry did not serialise to an object".to_string());
+            };
+            let mut previous = Map::new();
+            for (key, value) in changes {
+                if !SETUP_SETTINGS.contains(&key.as_str()) {
+                    return Err(format!("{key} is not a setting that travels"));
+                }
+                previous.insert(key.clone(), all.get(key).cloned().unwrap_or(Value::Null));
+                if value.is_null() {
+                    all.remove(key);
+                } else {
+                    all.insert(key.clone(), value.clone());
+                }
+            }
+            *registry = serde_json::from_value(Value::Object(all)).map_err(|e| e.to_string())?;
+            Ok(previous)
+        })
+        .map(|(_, previous)| previous)
+    }
+
+    fn setup_secrets(&self) -> Result<Vec<toolport_plus_api::StaticSecret>, String> {
+        let registry = read_registry()?;
+        let mut found = Vec::new();
+        let mut read =
+            |server: &crate::registry::ServerEntry, key: &str, kind: &str| -> Result<(), String> {
+                if let Some(value) = crate::secrets::get_vault_secret_result(&server.id, key)? {
+                    found.push(toolport_plus_api::StaticSecret {
+                        server: server.name.clone(),
+                        key: key.to_string(),
+                        kind: kind.to_string(),
+                        value,
+                    });
+                }
+                Ok(())
+            };
+        for server in setup_eligible(&registry) {
+            for entry in server.env.iter().filter(|e| e.secret) {
+                read(server, &entry.key, "env")?;
+            }
+            for input in server
+                .launch
+                .iter()
+                .flat_map(|l| l.inputs.iter())
+                .filter(|i| i.secret)
+            {
+                read(server, &input.key, "launch")?;
+            }
+            if server.url.is_some() {
+                read(server, toolport_plus_api::HTTP_AUTH_KEY, "token")?;
+            }
+        }
+        Ok(found)
+    }
+
+    fn setup_store_secret(&self, secret: &toolport_plus_api::StaticSecret) -> Result<(), String> {
+        let registry = read_registry()?;
+        let id = registry
+            .servers
+            .iter()
+            .find(|s| s.name.eq_ignore_ascii_case(&secret.server))
+            .map(|s| s.id.clone())
+            .ok_or_else(|| format!("no server named {}", secret.server))?;
+        match secret.kind.as_str() {
+            "env" => self.store_env_secret(&id, &secret.key, &secret.value),
+            "launch" => self.store_launch_secret(&id, &secret.key, &secret.value),
+            "token" => self.store_access_token(&id, &secret.value),
+            other => Err(format!("unknown kind of secret: {other}")),
+        }
     }
 }
 
