@@ -1,5 +1,6 @@
 {
   "route": "library",
-  "status": "planned",
-  "summary": "The library items and skill detail with its files (skills ls, skills files, skills_list, skills_files, skills_get, skills_list_transpilers)"
+  "status": "built",
+  "summary": "The library items and skill detail with its files (skills ls, skills files, skills_list, skills_files, skills_get, skills_list_transpilers)",
+  "test": "src/plus/library/LibraryScreen.test.tsx"
 }

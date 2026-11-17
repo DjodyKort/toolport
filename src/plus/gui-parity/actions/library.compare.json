@@ -1,0 +1,5 @@
+{
+  "route": "library-later",
+  "status": "planned",
+  "summary": "Compare a hand-edited file with the library copy: skills diff lists names only, there is no content diff to show yet (skills diff; skills_diff)"
+}

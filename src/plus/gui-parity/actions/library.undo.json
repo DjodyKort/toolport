@@ -1,5 +1,6 @@
 {
   "route": "library",
-  "status": "planned",
-  "summary": "Undo on the Done card and in the plan header: restore the last snapshot, skip files changed since, pause auto-sync (skills undo; skills_undo)"
+  "status": "built",
+  "summary": "Undo on the Done card and in the plan header: restore the last snapshot, skip files changed since, pause auto-sync (skills undo; skills_undo)",
+  "test": "src/plus/library/LibraryScreen.test.tsx"
 }

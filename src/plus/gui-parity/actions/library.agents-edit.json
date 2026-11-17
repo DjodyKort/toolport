@@ -1,0 +1,5 @@
+{
+  "route": "library-later",
+  "status": "planned",
+  "summary": "Agents: add, edit the body, scaffold, get, clean synced copies and compare (agents add|clean|diff; agents_clean, agents_diff, agents_edit_body, agents_get, agents_list_transpilers, agents_scaffold)"
+}

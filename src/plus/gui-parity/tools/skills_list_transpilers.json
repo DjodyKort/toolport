@@ -1,5 +1,5 @@
 {
-  "route": "library",
-  "action": "library.items",
+  "route": "library-later",
+  "action": "library.edit",
   "surface": "screen"
 }

@@ -1,5 +1,6 @@
 {
   "route": "library",
-  "status": "planned",
-  "summary": "The Sync tab: plan with held removals, hooks and differing files, Apply, verification line (skills sync, status, diff, clean; skills_sync, skills_status, skills_diff, skills_clean)"
+  "status": "built",
+  "summary": "The Sync tab: plan with held removals, hooks and differing files, Apply, the status of the library (skills sync, status, clean; skills_sync, skills_status, skills_clean)",
+  "test": "src/plus/library/LibraryScreen.test.tsx"
 }

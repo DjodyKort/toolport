@@ -1,5 +1,6 @@
 {
   "route": "library",
-  "status": "planned",
-  "summary": "Agents: list, lint, audit, diff, status, scaffold, sync, clean, uninstall and edit the body (agents add|ls|lint|audit|diff|status|sync|clean|uninstall; agents_* tools)"
+  "status": "built",
+  "summary": "Agents tab: list, status, lint, audit, sync and uninstall an agent (agents ls|status|lint|audit|sync|uninstall; agents_list, agents_status, agents_lint, agents_audit, agents_sync, agents_uninstall)",
+  "test": "src/plus/library/AgentsStyles.test.tsx"
 }

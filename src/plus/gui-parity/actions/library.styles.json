@@ -1,5 +1,6 @@
 {
   "route": "library",
-  "status": "planned",
-  "summary": "Styles: list, lint, diff, status, scaffold, sync, apply, remove, clean and edit the body (styles add|ls|lint|diff|status|sync|apply|remove|clean; styles_* tools)"
+  "status": "built",
+  "summary": "Styles on the Agents & styles tab: list, status, lint, sync and remove (styles ls|status|lint|sync|remove; styles_list, styles_status, styles_lint, styles_sync_tier1, styles_remove, styles_active)",
+  "test": "src/plus/library/AgentsStyles.test.tsx"
 }

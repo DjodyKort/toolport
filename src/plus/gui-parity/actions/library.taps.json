@@ -1,5 +1,6 @@
 {
   "route": "library",
-  "status": "planned",
-  "summary": "Taps: add, list, update and remove git sources of skills, search them and install a skill with its audit (skills tap add|ls|remove|update, search, install; skills_tap_list, skills_tap_add, skills_tap_remove, skills_tap_update, skills_search, skills_install)"
+  "status": "built",
+  "summary": "Taps: add, list, update and remove git sources of skills, search them and install a skill with its audit (skills tap add|ls|remove|update, search, install; skills_tap_list, skills_tap_add, skills_tap_remove, skills_tap_update, skills_search, skills_install)",
+  "test": "src/plus/library/SourcesTab.test.tsx"
 }

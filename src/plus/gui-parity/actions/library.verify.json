@@ -1,5 +1,6 @@
 {
   "route": "library",
-  "status": "planned",
-  "summary": "The verification line after Apply and on demand: N of N files match, each mismatch with its reason (skills verify; skills_verify)"
+  "status": "built",
+  "summary": "The verification line after Apply and on demand: N of N files match, each mismatch with its reason (skills verify; skills_verify)",
+  "test": "src/plus/library/LibraryScreen.test.tsx"
 }

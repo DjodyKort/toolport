@@ -1,4 +1,6 @@
 {
   "title": "Library",
-  "status": "planned"
+  "page": "view:library",
+  "status": "built",
+  "component": "src/plus/library/LibraryScreen.tsx"
 }
