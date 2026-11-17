@@ -331,7 +331,38 @@ describe("a change that needs a restart", () => {
     await waitFor(() => expect(row.queryByText(/Not told yet/)).not.toBeInTheDocument());
   });
 
-  it("test12_flipping_it_back_before_a_restart_takes_the_hint_away", async () => {
+  it("test12_a_server_a_gateway_still_has_to_tell_says_so_after_a_reload_without_any_toggle", async () => {
+    setup({ server: { declareClientCapabilities: true, pendingRedeclare: true } });
+    const row = await open();
+    expect(await row.findByText(/Not told yet\./)).toBeInTheDocument();
+    expect(edits()).toEqual([]);
+
+    await userEvent.click(row.getByRole("button", { name: "Restart now" }));
+    await waitFor(() => expect(row.queryByText(/Not told yet/)).not.toBeInTheDocument());
+  });
+
+  it("test13_a_server_that_is_up_to_date_or_not_running_has_no_hint", async () => {
+    setup({ server: { declareClientCapabilities: true } });
+    const row = await open();
+    await waitFor(() =>
+      expect(row.getByRole("switch", { name: /questions/ })).toBeChecked(),
+    );
+    expect(row.queryByText(/Not told yet|Still told/)).not.toBeInTheDocument();
+  });
+
+  it("test14_a_pending_server_that_is_not_running_has_nothing_to_restart", async () => {
+    setup({
+      running: false,
+      server: { declareClientCapabilities: true, pendingRedeclare: true },
+    });
+    const row = await open();
+    await waitFor(() =>
+      expect(row.getByRole("switch", { name: /questions/ })).toBeChecked(),
+    );
+    expect(row.queryByText(/Not told yet/)).not.toBeInTheDocument();
+  });
+
+  it("test15_flipping_it_back_before_a_restart_takes_the_hint_away", async () => {
     setup();
     const row = await open();
     await userEvent.click(questions(row));
@@ -340,7 +371,7 @@ describe("a change that needs a restart", () => {
     await waitFor(() => expect(row.queryByText(/Not told yet/)).not.toBeInTheDocument());
   });
 
-  it("test13_turning_it_off_says_the_running_server_is_still_told", async () => {
+  it("test16_turning_it_off_says_the_running_server_is_still_told", async () => {
     setup({ server: { declareClientCapabilities: true } });
     const row = await open();
     await userEvent.click(questions(row));
@@ -348,7 +379,7 @@ describe("a change that needs a restart", () => {
     expect(row.getByText(/stops being told at its next start/)).toBeInTheDocument();
   });
 
-  it("test14_a_running_call_sends_the_question_to_the_runtime_row", async () => {
+  it("test17_a_running_call_sends_the_question_to_the_runtime_row", async () => {
     setup({ restart: { kind: "busy" } });
     const row = await open();
     await userEvent.click(questions(row));
@@ -361,7 +392,7 @@ describe("a change that needs a restart", () => {
     ).toBeInTheDocument();
   });
 
-  it("test15_a_server_that_is_not_running_has_nothing_to_restart", async () => {
+  it("test18_a_server_that_is_not_running_has_nothing_to_restart", async () => {
     setup({ running: false });
     const row = await open();
     expect(
@@ -373,7 +404,7 @@ describe("a change that needs a restart", () => {
     expect(row.queryByRole("button", { name: "Restart now" })).not.toBeInTheDocument();
   });
 
-  it("test16_a_server_that_is_off_keeps_the_settings_for_its_next_start", async () => {
+  it("test19_a_server_that_is_off_keeps_the_settings_for_its_next_start", async () => {
     setup({ server: { enabled: false } });
     const row = await open();
     expect(

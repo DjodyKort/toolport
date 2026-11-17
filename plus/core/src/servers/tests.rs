@@ -387,7 +387,7 @@ fn test12_the_views_carry_no_secret_value_and_say_what_the_process_sees() {
         "inheritEnv": true,
         "env": [{"key": "TOKEN_A", "value": "FAKE-VALUE-123456", "secret": true}],
     }));
-    let info = info_value(&server, &["default".to_string()], &[]).unwrap();
+    let info = info_value(&server, &["default".to_string()], &[], false).unwrap();
     assert!(!info.to_string().contains("FAKE-VALUE-123456"));
     assert_eq!(info["env"], json!([{"key": "TOKEN_A", "secret": true}]));
     assert_eq!(info["inheritEnv"], true);
@@ -454,7 +454,7 @@ fn test15_an_add_stores_the_call_limit_and_the_info_names_who_sets_the_bridge_ce
     )
     .unwrap();
     let all = vec![stored(&host, "delta"), stored(&host, &id)];
-    let info = info_value(&all[1], &[], &all).unwrap();
+    let info = info_value(&all[1], &[], &all, false).unwrap();
     assert_eq!(info["maxRequestTimeoutMs"], 5_400_000);
     assert_eq!(info["requestTimeoutMs"], json!(null));
     let interop = &info["interop"];
@@ -469,7 +469,7 @@ fn test15_an_add_stores_the_call_limit_and_the_info_names_who_sets_the_bridge_ce
     );
     assert_eq!(interop["bridgeBaseMs"], 600_000);
 
-    let alone = info_value(&all[1], &[], &all[1..]).unwrap();
+    let alone = info_value(&all[1], &[], &all[1..], false).unwrap();
     assert_eq!(alone["interop"]["bridgeSetBy"], "bravo");
     assert_eq!(alone["interop"]["otherLongest"], json!(null));
 }
@@ -486,8 +486,42 @@ fn test16_a_bridge_that_keeps_its_ten_minutes_is_set_by_nobody_and_a_disabled_se
         "maxRequestTimeoutMs": 7_200_000,
     }));
     let all = vec![short, long];
-    let interop = &info_value(&all[0], &[], &all).unwrap()["interop"];
+    let interop = &info_value(&all[0], &[], &all, false).unwrap()["interop"];
     assert_eq!(interop["bridgeCeilingMs"], 600_000);
     assert_eq!(interop["bridgeSetBy"], json!(null));
     assert_eq!(interop["otherLongest"], json!(null));
+}
+
+#[test]
+fn test17_a_server_opted_in_is_pending_while_a_running_gateway_has_it_connected_with_less() {
+    let dir = std::env::temp_dir().join(format!("toolport-pending-{}", std::process::id()));
+    let mut host = host_with(vec![
+        record(json!({
+            "id": "odh", "name": "odh", "enabled": true, "transport": "stdio",
+            "command": "o", "declareClientCapabilities": true,
+        })),
+        base("plain", "plain", "stdio"),
+    ]);
+    host.tasks = toolport_plus_api::FakeTaskHost::at(dir.clone(), 0);
+    let (odh, plain) = (stored(&host, "odh"), stored(&host, "plain"));
+    assert!(!pending_redeclare(&host, &odh), "no gateway has published");
+
+    let declarations = crate::handshake::Declarations::default();
+    declarations.note_client(Some(&json!({ "elicitation": {} })));
+    crate::handshake::publish_state(&dir, &declarations).unwrap();
+    assert!(pending_redeclare(&host, &odh));
+    assert!(
+        !pending_redeclare(&host, &plain),
+        "a server that did not opt in is never told"
+    );
+    let all = vec![odh.clone(), plain];
+    assert_eq!(
+        info_value(&odh, &[], &all, true).unwrap()["interop"]["pendingRedeclare"],
+        true
+    );
+
+    declarations.told("odh", &declarations.clients());
+    crate::handshake::publish_state(&dir, &declarations).unwrap();
+    assert!(!pending_redeclare(&host, &odh));
+    std::fs::remove_dir_all(&dir).unwrap();
 }

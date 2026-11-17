@@ -33,7 +33,8 @@
         "otherLongest": {
           "ceilingMs": 3600000,
           "name": "alpha"
-        }
+        },
+        "pendingRedeclare": false
       },
       "maxRequestTimeoutMs": 5400000,
       "mode": "auto",

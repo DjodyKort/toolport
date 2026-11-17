@@ -20,6 +20,7 @@ const interop: InteropData = {
   defaultRequestTimeoutMs: 30_000,
   bridgeBaseMs: 600_000,
   bridgeGraceMs: 60_000,
+  pendingRedeclare: false,
 };
 
 function info(extra: Partial<ServerInfoData> = {}): ServerInfoData {

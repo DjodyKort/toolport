@@ -6,6 +6,7 @@
 //! declaration and the gateway's own text.
 
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::{Mutex, PoisonError};
 
 use serde_json::{json, Map, Value};
@@ -121,8 +122,70 @@ impl Declarations {
     pub fn is_stale(&self, server: &str) -> bool {
         let wanted = self.clients();
         let told = self.told.lock().unwrap_or_else(PoisonError::into_inner);
-        told.get(server).unwrap_or(&Map::new()) != &wanted
+        told_differs(told.get(server), &wanted)
     }
+
+    fn snapshot(&self) -> Value {
+        let told = self.told.lock().unwrap_or_else(PoisonError::into_inner);
+        json!({ "clients": self.clients(), "told": &*told })
+    }
+}
+
+fn told_differs(told: Option<&Map<String, Value>>, wanted: &Map<String, Value>) -> bool {
+    told.unwrap_or(&Map::new()) != wanted
+}
+
+const STATE_DIR: &str = "client-declarations";
+static PUBLISHING: Mutex<()> = Mutex::new(());
+
+/// Writes what this gateway process told its servers where `toolportctl server info` can read it:
+/// the declarations live in the gateway process, and the command line runs in another one. Files
+/// of gateways that are gone are removed.
+pub fn publish_state(dir: &Path, declarations: &Declarations) -> std::io::Result<()> {
+    let _guard = PUBLISHING.lock().unwrap_or_else(PoisonError::into_inner);
+    let dir = dir.join(STATE_DIR);
+    std::fs::create_dir_all(&dir)?;
+    let pid = std::process::id();
+    let scratch = dir.join(format!("{pid}.tmp"));
+    std::fs::write(&scratch, declarations.snapshot().to_string())?;
+    std::fs::rename(&scratch, dir.join(format!("{pid}.json")))?;
+    for entry in std::fs::read_dir(&dir)?.flatten() {
+        if state_pid(&entry.path()).is_some_and(|other| !crate::tasks::proc::alive(other)) {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
+    Ok(())
+}
+
+fn state_pid(path: &Path) -> Option<u32> {
+    if path.extension()? != "json" {
+        return None;
+    }
+    path.file_stem()?.to_str()?.parse().ok()
+}
+
+/// Whether a running gateway connected `server` with fewer capabilities than its clients have
+/// declared since, so that the server learns them at the next client connect.
+pub fn pending_redeclare(dir: &Path, server: &str) -> bool {
+    let Ok(entries) = std::fs::read_dir(dir.join(STATE_DIR)) else {
+        return false;
+    };
+    entries.flatten().any(|entry| {
+        let path = entry.path();
+        let Some(pid) = state_pid(&path).filter(|pid| crate::tasks::proc::alive(*pid)) else {
+            return false;
+        };
+        let Some(state) = std::fs::read_to_string(&path)
+            .ok()
+            .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+        else {
+            return false;
+        };
+        let object = |value: Option<&Value>| value.and_then(Value::as_object).cloned();
+        let wanted = object(state.get("clients")).unwrap_or_default();
+        let told = object(state.get("told").and_then(|told| told.get(server)));
+        told_differs(told.as_ref(), &wanted)
+    })
 }
 
 pub static DECLARATIONS: std::sync::LazyLock<Declarations> =
@@ -406,5 +469,49 @@ mod tests {
         assert!(switched_on(&fields, DECLARE_KEY));
         assert!(!switched_on(&fields, FORWARD_KEY));
         assert!(!switched_on(&fields, "absent"));
+    }
+
+    #[test]
+    fn test12_a_running_gateways_declarations_are_readable_from_another_process() {
+        let dir = std::env::temp_dir().join(format!("toolport-declared-{}", std::process::id()));
+        let declarations = Declarations::default();
+        assert!(
+            !pending_redeclare(&dir, "odh"),
+            "no gateway has written yet"
+        );
+
+        publish_state(&dir, &declarations).unwrap();
+        assert!(!pending_redeclare(&dir, "odh"), "nothing declared");
+
+        declarations.note_client(Some(&json!({ "elicitation": {} })));
+        publish_state(&dir, &declarations).unwrap();
+        assert!(
+            pending_redeclare(&dir, "odh"),
+            "a client declared, odh was not told"
+        );
+
+        declarations.told("odh", &declarations.clients());
+        publish_state(&dir, &declarations).unwrap();
+        assert!(!pending_redeclare(&dir, "odh"));
+        assert!(pending_redeclare(&dir, "other"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn test13_the_file_of_a_gateway_that_is_gone_says_nothing_and_is_swept() {
+        let dir = std::env::temp_dir().join(format!("toolport-gone-{}", std::process::id()));
+        let state = dir.join(STATE_DIR);
+        std::fs::create_dir_all(&state).unwrap();
+        let gone = state.join("999999999.json");
+        std::fs::write(
+            &gone,
+            json!({"clients": {"roots": {}}, "told": {}}).to_string(),
+        )
+        .unwrap();
+        assert!(!pending_redeclare(&dir, "odh"));
+
+        publish_state(&dir, &Declarations::default()).unwrap();
+        assert!(!gone.exists());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

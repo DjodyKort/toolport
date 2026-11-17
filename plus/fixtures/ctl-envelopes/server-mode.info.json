@@ -26,7 +26,8 @@
         "bridgeSetBy": "alpha",
         "defaultLimitMs": 3600000,
         "defaultRequestTimeoutMs": 30000,
-        "otherLongest": null
+        "otherLongest": null,
+        "pendingRedeclare": false
       },
       "maxRequestTimeoutMs": null,
       "mode": "search",

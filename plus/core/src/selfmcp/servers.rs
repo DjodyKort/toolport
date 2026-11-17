@@ -92,7 +92,13 @@ pub(super) fn get(host: &dyn Host, args: &Value) -> Outcome {
         .as_ref()
         .map(|view| servers::access_sets_of(&view.access_sets(), &server.id))
         .unwrap_or_default();
-    servers::info_value(&server, &sets, &all).map_err(registry_error)
+    servers::info_value(
+        &server,
+        &sets,
+        &all,
+        servers::pending_redeclare(host, &server),
+    )
+    .map_err(registry_error)
 }
 
 pub(super) fn auth(host: &dyn Host, args: &Value) -> Outcome {

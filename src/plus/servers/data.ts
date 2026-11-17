@@ -37,6 +37,10 @@ export interface InteropData {
   defaultRequestTimeoutMs: number;
   bridgeBaseMs: number;
   bridgeGraceMs: number;
+  /** A running gateway has the server connected with fewer client capabilities than its clients
+   * declared since, and the server opted in to being told them. It learns them at the next client
+   * connect or restart. */
+  pendingRedeclare: boolean;
 }
 
 export interface ServerInfoData {

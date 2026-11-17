@@ -85,6 +85,7 @@ describe("the server envelope types match the Rust goldens", () => {
         "defaultLimitMs",
         "defaultRequestTimeoutMs",
         "otherLongest",
+        "pendingRedeclare",
       ].sort(),
     );
   });

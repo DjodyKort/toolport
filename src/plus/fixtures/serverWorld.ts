@@ -37,6 +37,9 @@ export interface WorldServer {
   maxRequestTimeoutMs: number | null;
   requestTimeoutMs: number | null;
   source: string | null;
+  /** A running gateway has this server connected with fewer client capabilities than its clients
+   * declared; a restart ends it. */
+  pendingRedeclare?: boolean;
 }
 
 export interface WorldSet {
@@ -182,6 +185,8 @@ function interopOf(server: WorldServer, all: WorldServer[]): InteropData {
     bridgeCeilingMs: Math.max(DEFAULTS.bridgeBaseMs, ceiling),
     bridgeSetBy: ceiling > DEFAULTS.bridgeBaseMs && top ? top.name : null,
     otherLongest: other ? { name: other.name, ceilingMs: ceilingOf(other) } : null,
+    pendingRedeclare:
+      server.declareClientCapabilities && server.pendingRedeclare === true,
   };
 }
 
@@ -417,6 +422,7 @@ export function createServerWorld(options: ServerWorldOptions = {}) {
         error: { code: "unhealthy", message: "one or more checks failed" },
       };
     }
+    server.pendingRedeclare = false;
     return {
       ok: true,
       data: {

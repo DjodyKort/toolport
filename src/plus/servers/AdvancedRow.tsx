@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -424,6 +424,12 @@ export function AdvancedRow({ server, enabled, health, info }: AdvancedRowProps)
   const [told, setTold] = useState<{ baseline: boolean; at: number } | null>(null);
   const runtime = useRestartState(server.id);
   const data = info.data;
+  const reloadInfo = info.reload;
+  const restartedAt = runtime.last?.status === "restarted" ? runtime.last.at : null;
+
+  useEffect(() => {
+    if (restartedAt !== null) reloadInfo();
+  }, [restartedAt, reloadInfo]);
 
   if (!data) {
     return (
@@ -453,10 +459,12 @@ export function AdvancedRow({ server, enabled, health, info }: AdvancedRowProps)
 
   const restartedSince = (at: number) =>
     runtime.last?.status === "restarted" && runtime.last.at > at;
-  const stillTold =
+  const toldHere =
     told !== null && !restartedSince(told.at)
       ? values.declareClientCapabilities !== told.baseline
       : false;
+  const notToldYet = values.declareClientCapabilities && data.interop.pendingRedeclare;
+  const stillTold = toldHere || notToldYet;
 
   async function applyChange(
     key: string,

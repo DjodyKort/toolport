@@ -117,7 +117,13 @@ pub fn info(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
         .as_ref()
         .map(|view| servers::access_sets_of(&view.access_sets(), &server.id))
         .unwrap_or_default();
-    let data = servers::info_value(server, &sets, &all).map_err(registry_error)?;
+    let data = servers::info_value(
+        server,
+        &sets,
+        &all,
+        servers::pending_redeclare(host, server),
+    )
+    .map_err(registry_error)?;
     let list = |items: Vec<String>| {
         if items.is_empty() {
             "-".to_string()

@@ -445,7 +445,7 @@ fn millis(duration: std::time::Duration) -> u64 {
 
 /// How long the stdio adapter keeps a call open for the enabled servers, which of them sets that,
 /// and the longest of the other enabled servers, so a screen can preview a change of one limit.
-fn interop_value(server: &ServerRecord, all: &[ServerRecord]) -> Value {
+fn interop_value(server: &ServerRecord, all: &[ServerRecord], pending_redeclare: bool) -> Value {
     let enabled: Vec<(&ServerRecord, std::time::Duration)> = all
         .iter()
         .filter(|s| s.enabled)
@@ -475,15 +475,27 @@ fn interop_value(server: &ServerRecord, all: &[ServerRecord]) -> Value {
         "defaultRequestTimeoutMs": millis(progress::DEFAULT_WINDOW),
         "bridgeBaseMs": millis(progress::EXTENDABLE_FROM),
         "bridgeGraceMs": millis(progress::ADAPTER_GRACE),
+        "pendingRedeclare": pending_redeclare,
     })
+}
+
+/// Whether the server opted in to the declaration of its clients' capabilities and a running
+/// gateway still has it connected with less than they have declared.
+pub fn pending_redeclare(host: &dyn Host, server: &ServerRecord) -> bool {
+    server.fork.declare_client_capabilities == Some(true)
+        && host
+            .tasks_base()
+            .is_some_and(|dir| crate::handshake::pending_redeclare(&dir, &server.id))
 }
 
 /// One server without any secret value, the access sets that list it, and, from `all` (every
 /// server of the registry), what the call limits of the others mean for the stdio bridge.
+/// `pending_redeclare` is [`pending_redeclare`] for this server.
 pub fn info_value(
     server: &ServerRecord,
     access_sets: &[String],
     all: &[ServerRecord],
+    pending_redeclare: bool,
 ) -> Result<Value, String> {
     let env: Vec<Value> = server
         .env()?
@@ -508,7 +520,7 @@ pub fn info_value(
         "mode": mode::normalize(server.fork.server_mode.as_deref()),
         "maxRequestTimeoutMs": server.fork.max_request_timeout_ms,
         "requestTimeoutMs": timeouts_of(server).request_timeout_ms,
-        "interop": interop_value(server, all),
+        "interop": interop_value(server, all, pending_redeclare),
         "accessSets": access_sets,
     }))
 }
