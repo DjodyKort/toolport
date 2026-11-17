@@ -181,6 +181,7 @@ impl World {
             ("XDG_CACHE_HOME", self.path(&self.home.join(".cache"))),
             ("TOOLPORT_DATA_DIR", self.path(&self.data)),
             ("TOOLPORT_SECRET_KEY", SECRET_KEY.to_string()),
+            ("TOOLPORT_GITLEAKS_BIN", "/nonexistent/gitleaks".to_string()),
             (
                 "TOOLPORT_CLAUDE_BIN",
                 self.path(&self.home.join("no-claude")),
