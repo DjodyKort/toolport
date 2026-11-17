@@ -2,6 +2,7 @@ import { commandsGolden } from "./commandsGolden";
 import toolsGolden from "../../../plus/fixtures/ctl-envelopes/mcp-tools.json";
 import { createCompressionWorld, type CompressionWorldOptions } from "./compressionWorld";
 import { createContextWorld, type ContextWorldOptions } from "./contextWorld";
+import { createLibraryWorld, type LibraryWorldOptions } from "./libraryWorld";
 import { createServerWorld, type ServerWorldOptions } from "./serverWorld";
 import { createTaskWorld, type TaskWorldOptions } from "./taskWorld";
 import type {
@@ -48,6 +49,8 @@ export interface WorldOptions {
   context?: ContextWorldOptions;
   /** The hook entries, the pause and the measurements of the Hooks & compression tab. */
   compression?: CompressionWorldOptions;
+  /** The Library screen's library, plan, remote, taps and sources. */
+  library?: LibraryWorldOptions;
 }
 
 /** A small in-memory toolportctl: enough state for install, uninstall and doctor to answer the way
@@ -58,6 +61,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
   const taskWorld = createTaskWorld(options.tasks);
   const contextWorld = createContextWorld(options.context);
   const compressionWorld = createCompressionWorld(options.compression);
+  const libraryWorld = createLibraryWorld(options.library);
   const defaultAccess = accessSets[0] ?? null;
   const doctorMode = options.doctor ?? "ok";
   let state: SelfMcpState = options.self ?? "missing";
@@ -283,6 +287,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
     },
     servers: serverWorld,
     tasks: taskWorld,
+    library: libraryWorld,
     run(argv: string[], stdin?: string): CtlReply {
       const key = argv.filter((a) => a !== "--json");
       const [first, second] = key;
@@ -295,6 +300,8 @@ export function createCtlWorld(options: WorldOptions = {}) {
       if (first === "task") return taskWorld.run(key.slice(1), stdin);
       if (first === "context" || first === "plugins") return contextWorld.run(key);
       if (first === "compression") return compressionWorld.run(key);
+      if (["skills", "library", "sources", "agents", "styles"].includes(first ?? ""))
+        return libraryWorld.run(key);
       if (first === "mcp") {
         if (second === "install") return install(key);
         if (second === "uninstall") return uninstall();

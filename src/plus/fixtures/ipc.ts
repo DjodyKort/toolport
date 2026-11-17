@@ -9,6 +9,7 @@ import {
   type RestartScript,
   type SignInScript,
 } from "./serverWorld";
+import type { LibraryScenario, LibraryWorldOptions } from "./libraryWorld";
 import {
   createCtlWorld,
   type CtlReply,
@@ -59,6 +60,16 @@ export function plusFixtureAccess(
 }
 
 const HOUR = 3_600_000;
+const LIBRARY_SCENARIOS = [
+  "plan",
+  "done",
+  "held",
+  "blocked",
+  "behind",
+  "empty",
+  "catchup",
+  "busy",
+];
 
 /** The three rows of the attention mockup, so the footer bell can be seen in the fixture. */
 function registerFixtureBell() {
@@ -184,11 +195,27 @@ export function plusFixtureFromSearch(search: string) {
       ...loginWorld(params),
     },
     tasks: tasksFromSearch(params),
+    library: libraryFromSearch(params),
   });
   if (params.has("plus-bell")) registerFixtureBell();
 }
 
 if (typeof location !== "undefined") plusFixtureFromSearch(location.search);
+
+/** `?plus-library=plan|done|held|blocked|behind|empty|catchup|busy` picks the state of the Library
+ * screen; `plus-library-chmod`, `-drift`, `-secret` and `-dirty` add one more thing that is wrong. */
+function libraryFromSearch(params: URLSearchParams): LibraryWorldOptions {
+  const scenario = params.get("plus-library") ?? "";
+  return {
+    scenario: LIBRARY_SCENARIOS.includes(scenario)
+      ? (scenario as LibraryScenario)
+      : "plan",
+    chmod: params.has("plus-library-chmod"),
+    drift: Number(params.get("plus-library-drift") ?? 0),
+    secret: params.has("plus-library-secret"),
+    dirty: params.has("plus-library-dirty"),
+  };
+}
 
 /** `?plus-tasks=morning` shows the tasks of the design at its fixed time (Tuesday 09:58 in Amsterdam),
  * `empty` shows none and `edge` adds a 1.x routine task and an unreadable task file;
@@ -275,6 +302,8 @@ export function plusFixtureIpc(command: string, args: Record<string, unknown>): 
       jobs.delete(job);
       return resultOf(job, run);
     }
+    case "skills_inventory":
+      return world.library.inventory();
     case "secret_status":
       return world.servers.secretStatus(String(args.serverId), args.keys as string[]);
     case "set_secret":
