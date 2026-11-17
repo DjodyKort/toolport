@@ -19,8 +19,19 @@
       "forwardInstructions": false,
       "id": "srv-alpha",
       "inheritEnv": true,
+      "interop": {
+        "bridgeBaseMs": 600000,
+        "bridgeCeilingMs": 3660000,
+        "bridgeGraceMs": 60000,
+        "bridgeSetBy": "alpha",
+        "defaultLimitMs": 3600000,
+        "defaultRequestTimeoutMs": 30000,
+        "otherLongest": null
+      },
+      "maxRequestTimeoutMs": null,
       "mode": "search",
       "name": "alpha",
+      "requestTimeoutMs": null,
       "source": null,
       "transport": "stdio",
       "url": null

@@ -387,7 +387,7 @@ fn test12_the_views_carry_no_secret_value_and_say_what_the_process_sees() {
         "inheritEnv": true,
         "env": [{"key": "TOKEN_A", "value": "FAKE-VALUE-123456", "secret": true}],
     }));
-    let info = info_value(&server, &["default".to_string()]).unwrap();
+    let info = info_value(&server, &["default".to_string()], &[]).unwrap();
     assert!(!info.to_string().contains("FAKE-VALUE-123456"));
     assert_eq!(info["env"], json!([{"key": "TOKEN_A", "secret": true}]));
     assert_eq!(info["inheritEnv"], true);
@@ -397,4 +397,97 @@ fn test12_the_views_carry_no_secret_value_and_say_what_the_process_sees() {
     assert_eq!(child_environment(&remote), "not a local process");
     let plain = record(json!({"id": "p", "name": "p", "transport": "stdio", "command": "x"}));
     assert!(child_environment(&plain).starts_with("only a fixed set"));
+}
+
+#[test]
+fn test13_the_call_limit_is_set_cleared_and_refused_outside_one_millisecond_to_a_day() {
+    let host = host_with(vec![base("srv-a", "a", "stdio")]);
+    let limit = |ms: Option<Option<u64>>| Patch {
+        max_request_timeout_ms: ms,
+        ..Default::default()
+    };
+    update(&host, "srv-a", &limit(Some(Some(5_400_000))), &[]).unwrap();
+    assert_eq!(
+        stored(&host, "srv-a").fork.max_request_timeout_ms,
+        Some(5_400_000)
+    );
+    update(&host, "srv-a", &limit(None), &[]).unwrap();
+    assert_eq!(
+        stored(&host, "srv-a").fork.max_request_timeout_ms,
+        Some(5_400_000),
+        "a patch that does not name it keeps it"
+    );
+    update(&host, "srv-a", &limit(Some(None)), &[]).unwrap();
+    assert_eq!(stored(&host, "srv-a").fork.max_request_timeout_ms, None);
+    for refused in [0, 86_400_001] {
+        let error = update(&host, "srv-a", &limit(Some(Some(refused))), &[]).unwrap_err();
+        assert!(
+            matches!(&error, ServerError::Rejected(m) if m.contains("between 1 and 86400000")),
+            "{error:?}"
+        );
+    }
+    assert_eq!(stored(&host, "srv-a").fork.max_request_timeout_ms, None);
+}
+
+#[test]
+fn test14_the_call_limit_text_is_milliseconds_or_default() {
+    assert_eq!(parse_call_limit(" 90000 "), Ok(Some(90_000)));
+    assert_eq!(parse_call_limit("Default"), Ok(None));
+    for refused in ["0", "86400001", "1.5", "-3", "ninety", ""] {
+        assert!(parse_call_limit(refused).is_err(), "{refused}");
+    }
+}
+
+#[test]
+fn test15_an_add_stores_the_call_limit_and_the_info_names_who_sets_the_bridge_ceiling() {
+    let host = host_with(vec![record(json!({
+        "id": "delta", "name": "delta", "enabled": true, "transport": "stdio",
+        "command": "d", "maxRequestTimeoutMs": 7_200_000,
+    }))]);
+    let id = add(
+        &host,
+        &Patch {
+            max_request_timeout_ms: Some(Some(5_400_000)),
+            ..stdio("bravo")
+        },
+        &[],
+    )
+    .unwrap();
+    let all = vec![stored(&host, "delta"), stored(&host, &id)];
+    let info = info_value(&all[1], &[], &all).unwrap();
+    assert_eq!(info["maxRequestTimeoutMs"], 5_400_000);
+    assert_eq!(info["requestTimeoutMs"], json!(null));
+    let interop = &info["interop"];
+    assert_eq!(
+        interop["bridgeCeilingMs"], 7_260_000,
+        "the longest plus a minute"
+    );
+    assert_eq!(interop["bridgeSetBy"], "delta");
+    assert_eq!(
+        interop["otherLongest"],
+        json!({"name": "delta", "ceilingMs": 7_200_000})
+    );
+    assert_eq!(interop["bridgeBaseMs"], 600_000);
+
+    let alone = info_value(&all[1], &[], &all[1..]).unwrap();
+    assert_eq!(alone["interop"]["bridgeSetBy"], "bravo");
+    assert_eq!(alone["interop"]["otherLongest"], json!(null));
+}
+
+#[test]
+fn test16_a_bridge_that_keeps_its_ten_minutes_is_set_by_nobody_and_a_disabled_server_counts_for_nothing(
+) {
+    let short = record(json!({
+        "id": "s", "name": "s", "enabled": true, "transport": "stdio", "command": "x",
+        "maxRequestTimeoutMs": 60_000,
+    }));
+    let long = record(json!({
+        "id": "l", "name": "l", "enabled": false, "transport": "stdio", "command": "x",
+        "maxRequestTimeoutMs": 7_200_000,
+    }));
+    let all = vec![short, long];
+    let interop = &info_value(&all[0], &[], &all).unwrap()["interop"];
+    assert_eq!(interop["bridgeCeilingMs"], 600_000);
+    assert_eq!(interop["bridgeSetBy"], json!(null));
+    assert_eq!(interop["otherLongest"], json!(null));
 }

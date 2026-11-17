@@ -1,0 +1,13 @@
+{
+  "argv": ["server", "edit", "gamma", "--max-request-timeout-ms", "0"],
+  "envelope": {
+    "command": "server edit",
+    "error": {
+      "code": "usage",
+      "message": "--max-request-timeout-ms: the call limit must be between 1 and 86400000 milliseconds (24 hours)"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

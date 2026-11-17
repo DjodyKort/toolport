@@ -12,7 +12,8 @@ use serde_json::Value;
 
 /// Cap on one progress-extended call of a server without `maxRequestTimeoutMs`.
 pub const DEFAULT_CAP: Duration = Duration::from_secs(60 * 60);
-const MAX_CAP_MS: u64 = 24 * 60 * 60 * 1000;
+/// Longest `maxRequestTimeoutMs` a surface accepts; `cap_from` clamps a stored value to it.
+pub const MAX_CAP_MS: u64 = 24 * 60 * 60 * 1000;
 /// How often a call that carries a progress token looks at the ledger while it waits.
 const POLL_SLICE: Duration = Duration::from_millis(100);
 
@@ -38,11 +39,11 @@ pub fn request_token(params: &Value) -> Option<String> {
 }
 
 /// Default `requestTimeoutMs` of a server without one.
-const DEFAULT_WINDOW: Duration = Duration::from_secs(30);
+pub const DEFAULT_WINDOW: Duration = Duration::from_secs(30);
 /// Slack between a server's deadline and the adapter's, so the server's own timeout text arrives.
-const ADAPTER_GRACE: Duration = Duration::from_secs(60);
+pub const ADAPTER_GRACE: Duration = Duration::from_secs(60);
 /// A caller-set timeout below this is a deliberate short one (tests, probes) and is kept.
-const EXTENDABLE_FROM: Duration = Duration::from_secs(600);
+pub const EXTENDABLE_FROM: Duration = Duration::from_secs(600);
 const ADAPTER_METHODS: [&str; 3] = ["tools/call", "resources/read", "prompts/get"];
 
 /// What one server allows a call: its `requestTimeoutMs`, and for a stdio server also the cap that
@@ -54,7 +55,7 @@ pub struct ServerTimeouts {
 }
 
 impl ServerTimeouts {
-    fn ceiling(&self) -> Duration {
+    pub fn ceiling(&self) -> Duration {
         let window = self
             .request_timeout_ms
             .map_or(DEFAULT_WINDOW, |ms| Duration::from_millis(ms.max(1)));

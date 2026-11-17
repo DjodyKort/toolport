@@ -418,6 +418,17 @@
               "required": false,
               "sensitive": false,
               "valueType": "choice"
+            },
+            {
+              "aliases": [],
+              "effect": "Longest a call to a local server may run while it keeps reporting progress, in milliseconds (1 to 86400000), or default",
+              "escalates": false,
+              "hidden": false,
+              "name": "--max-request-timeout-ms",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
             }
           ],
           "group": "server",

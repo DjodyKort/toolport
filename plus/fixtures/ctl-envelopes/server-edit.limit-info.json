@@ -1,0 +1,50 @@
+{
+  "argv": ["server", "info", "gamma"],
+  "envelope": {
+    "command": "server info",
+    "data": {
+      "accessSets": ["default"],
+      "args": ["y"],
+      "command": "/bin/true",
+      "cwd": null,
+      "declareClientCapabilities": false,
+      "disabledTools": [],
+      "enabled": true,
+      "env": [
+        {
+          "key": "JAVA_HOME",
+          "secret": false
+        },
+        {
+          "key": "MODE",
+          "secret": false
+        }
+      ],
+      "forwardInstructions": false,
+      "id": "gamma",
+      "inheritEnv": false,
+      "interop": {
+        "bridgeBaseMs": 600000,
+        "bridgeCeilingMs": 5460000,
+        "bridgeGraceMs": 60000,
+        "bridgeSetBy": "gamma",
+        "defaultLimitMs": 3600000,
+        "defaultRequestTimeoutMs": 30000,
+        "otherLongest": {
+          "ceilingMs": 3600000,
+          "name": "alpha"
+        }
+      },
+      "maxRequestTimeoutMs": 5400000,
+      "mode": "auto",
+      "name": "gamma",
+      "requestTimeoutMs": null,
+      "source": "manual",
+      "transport": "stdio",
+      "url": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

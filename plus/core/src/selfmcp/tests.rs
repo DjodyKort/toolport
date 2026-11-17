@@ -214,6 +214,34 @@ mod servers {
     }
 
     #[test]
+    fn test07_the_call_limit_is_patched_in_milliseconds_and_null_restores_the_default() {
+        let host = host();
+        call(&host, "servers_install", GAMMA).unwrap();
+        let patch = |value: &str| {
+            call(
+                &host,
+                "servers_update_config",
+                &format!(
+                    r#"{{"name":"gamma","patch":{{"maxRequestTimeoutMs":{value}}},"confirm":true}}"#
+                ),
+            )
+        };
+        patch("5400000").unwrap();
+        let got = call(&host, "servers_get", r#"{"name":"gamma"}"#).unwrap();
+        assert_eq!(got["maxRequestTimeoutMs"], 5_400_000);
+        patch("null").unwrap();
+        let got = call(&host, "servers_get", r#"{"name":"gamma"}"#).unwrap();
+        assert_eq!(got["maxRequestTimeoutMs"], json!(null));
+        for refused in ["0", "86400001", "1.5", "\"90\""] {
+            assert_eq!(
+                patch(refused).unwrap_err().kind,
+                "invalid_arguments",
+                "{refused}"
+            );
+        }
+    }
+
+    #[test]
     fn test03_profile_tags_list_and_unlist_a_server_in_an_access_set_without_switching_it_on() {
         let host = host();
         call(

@@ -14,7 +14,7 @@ use crate::servers::{self, Patch, ServerError, UninstallArgs};
 
 const INSTALL_USAGE: &str = "usage: server install <catalog name> [--offline]";
 const NEW_USAGE: &str = "usage: server new <name> (--command <cmd> [--arg <a>]... [--env <KEY=VALUE>]... | --url <url> [--transport http|sse]) [--cwd <dir>] [--inherit-env on|off]";
-const EDIT_USAGE: &str = "usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--env <KEY=VALUE>]... [--unset-env <KEY>]... [--url <url>] [--transport <t>] [--cwd <dir>] [--inherit-env on|off] [--declare-client-capabilities on|off] [--forward-instructions on|off]";
+const EDIT_USAGE: &str = "usage: server edit <id|name> [--name <n>] [--command <cmd>] [--arg <a>]... [--env <KEY=VALUE>]... [--unset-env <KEY>]... [--url <url>] [--transport <t>] [--cwd <dir>] [--inherit-env on|off] [--declare-client-capabilities on|off] [--forward-instructions on|off] [--max-request-timeout-ms <ms>|default]";
 const INFO_USAGE: &str = "usage: server info <id|name>";
 const UNINSTALL_USAGE: &str =
     "usage: server uninstall <id|name> [--dry-run] [--keep-clients] [--keep-secrets]";
@@ -51,6 +51,7 @@ pub(super) const EDIT: Spec = Spec {
         value("--inherit-env"),
         value("--declare-client-capabilities"),
         value("--forward-instructions"),
+        value("--max-request-timeout-ms"),
     ],
     ..Spec::PLAIN
 };
@@ -116,7 +117,7 @@ pub fn info(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
         .as_ref()
         .map(|view| servers::access_sets_of(&view.access_sets(), &server.id))
         .unwrap_or_default();
-    let data = servers::info_value(server, &sets).map_err(registry_error)?;
+    let data = servers::info_value(server, &sets, &all).map_err(registry_error)?;
     let list = |items: Vec<String>| {
         if items.is_empty() {
             "-".to_string()
@@ -159,6 +160,9 @@ pub fn info(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     }
     if server.fork.forward_instructions == Some(true) {
         human.push_str("\nForwards:     instructions");
+    }
+    if let Some(ms) = server.fork.max_request_timeout_ms {
+        human.push_str(&format!("\nCall limit:   {ms} ms"));
     }
     if data["mode"] != mode::AUTO {
         human.push_str(&format!(
@@ -225,6 +229,13 @@ fn patch_from(flags: &Flags, name: Option<&str>) -> Result<Patch, CtlError> {
         inherit_env: switch_flag(flags, "--inherit-env")?,
         declare_client_capabilities: switch_flag(flags, "--declare-client-capabilities")?,
         forward_instructions: switch_flag(flags, "--forward-instructions")?,
+        max_request_timeout_ms: flags
+            .one("--max-request-timeout-ms")
+            .map(|raw| {
+                servers::parse_call_limit(raw)
+                    .map_err(|e| CtlError::usage(format!("--max-request-timeout-ms: {e}")))
+            })
+            .transpose()?,
     })
 }
 
@@ -314,6 +325,12 @@ pub fn edit(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
             patch
                 .forward_instructions
                 .is_some_and(|on| on != (server.fork.forward_instructions == Some(true))),
+        ),
+        (
+            "maxRequestTimeoutMs",
+            patch
+                .max_request_timeout_ms
+                .is_some_and(|limit| limit != server.fork.max_request_timeout_ms),
         ),
     ]
     .iter()

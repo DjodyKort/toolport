@@ -617,6 +617,31 @@ const CASES: &[Case] = &[
                 &["server", "edit", "no-such-server", "--arg", "q"],
             )
             .exit(1),
+            apply(
+                "limit",
+                &[
+                    "server",
+                    "edit",
+                    "gamma",
+                    "--max-request-timeout-ms",
+                    "5400000",
+                ],
+            ),
+            read("limit-info", &["server", "info", "gamma"]),
+            usage(
+                "limit-refused",
+                &["server", "edit", "gamma", "--max-request-timeout-ms", "0"],
+            ),
+            apply(
+                "limit-default",
+                &[
+                    "server",
+                    "edit",
+                    "gamma",
+                    "--max-request-timeout-ms",
+                    "default",
+                ],
+            ),
             usage("usage", &["server", "edit"]),
         ],
     ),

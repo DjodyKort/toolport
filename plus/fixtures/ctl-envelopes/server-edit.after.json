@@ -14,8 +14,22 @@
       "forwardInstructions": false,
       "id": "gamma",
       "inheritEnv": false,
+      "interop": {
+        "bridgeBaseMs": 600000,
+        "bridgeCeilingMs": 3660000,
+        "bridgeGraceMs": 60000,
+        "bridgeSetBy": "alpha",
+        "defaultLimitMs": 3600000,
+        "defaultRequestTimeoutMs": 30000,
+        "otherLongest": {
+          "ceilingMs": 3600000,
+          "name": "alpha"
+        }
+      },
+      "maxRequestTimeoutMs": null,
       "mode": "auto",
       "name": "gamma",
+      "requestTimeoutMs": null,
       "source": "manual",
       "transport": "stdio",
       "url": null

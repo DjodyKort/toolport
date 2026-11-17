@@ -15,7 +15,7 @@ use crate::servers::{self, mode, Patch, ServerError, UninstallArgs};
 
 type Outcome = Result<Value, ToolError>;
 
-const CONFIG_KEYS: [&str; 9] = [
+const CONFIG_KEYS: [&str; 10] = [
     "command",
     "args",
     "env",
@@ -25,6 +25,7 @@ const CONFIG_KEYS: [&str; 9] = [
     "inheritEnv",
     "declareClientCapabilities",
     "forwardInstructions",
+    "maxRequestTimeoutMs",
 ];
 
 fn invalid(message: impl Into<String>) -> ToolError {
@@ -91,7 +92,7 @@ pub(super) fn get(host: &dyn Host, args: &Value) -> Outcome {
         .as_ref()
         .map(|view| servers::access_sets_of(&view.access_sets(), &server.id))
         .unwrap_or_default();
-    servers::info_value(&server, &sets).map_err(registry_error)
+    servers::info_value(&server, &sets, &all).map_err(registry_error)
 }
 
 pub(super) fn auth(host: &dyn Host, args: &Value) -> Outcome {
@@ -156,6 +157,24 @@ fn config_switch(cfg: &Map<String, Value>, key: &str) -> Result<Option<bool>, To
         None | Some(Value::Null) => Ok(None),
         Some(Value::Bool(on)) => Ok(Some(*on)),
         Some(_) => Err(invalid(format!("{key} must be true or false"))),
+    }
+}
+
+/// Milliseconds, or null for the default limit.
+fn config_call_limit(cfg: &Map<String, Value>) -> Result<Option<Option<u64>>, ToolError> {
+    match cfg.get("maxRequestTimeoutMs") {
+        None => Ok(None),
+        Some(Value::Null) => Ok(Some(None)),
+        Some(Value::Number(n)) => {
+            let ms = n.as_u64().ok_or_else(|| {
+                invalid("maxRequestTimeoutMs must be a whole number of milliseconds")
+            })?;
+            servers::check_call_limit(ms).map_err(invalid)?;
+            Ok(Some(Some(ms)))
+        }
+        Some(_) => Err(invalid(
+            "maxRequestTimeoutMs must be milliseconds, or null for the default",
+        )),
     }
 }
 
@@ -228,6 +247,7 @@ fn patch_from(
         inherit_env: config_switch(cfg, "inheritEnv")?,
         declare_client_capabilities: config_switch(cfg, "declareClientCapabilities")?,
         forward_instructions: config_switch(cfg, "forwardInstructions")?,
+        max_request_timeout_ms: config_call_limit(cfg)?,
     })
 }
 

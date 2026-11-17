@@ -1610,7 +1610,7 @@
           "tier": 3
         },
         {
-          "description": "Patch a server's configuration, including plain env entries and inheritEnv",
+          "description": "Patch a server's configuration, including plain env entries, inheritEnv and maxRequestTimeoutMs (milliseconds, 1 to 86400000; null restores the default)",
           "dryRunDefault": false,
           "gate": "always",
           "name": "servers_update_config",
