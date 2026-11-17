@@ -15,8 +15,8 @@ use super::auth;
 use super::context;
 use super::flags::{Flag, Spec};
 use super::mcp;
-use super::secret;
 use super::plugins;
+use super::secret;
 use super::server;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]

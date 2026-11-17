@@ -1,7 +1,7 @@
 format: 1
 name: unknown-keys
 description: "keeps what it does not know"
-extra: {note: kept}
+extra: { note: kept }
 skills:
   off: [a-skill]
   future: [x]
