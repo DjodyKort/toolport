@@ -85,6 +85,17 @@ export interface PauseData {
   pausedUntil: string | null;
 }
 
+export interface AdoptEditData {
+  provider: HookProviderId;
+  revert: boolean;
+  rows: Array<{
+    file: string;
+    provider: HookProviderId;
+    action: "adopted" | "reverted";
+    command: string;
+  }>;
+}
+
 export interface CompressionStatusData {
   configExists: boolean;
   provider: ProviderName;

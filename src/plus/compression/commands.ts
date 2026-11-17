@@ -1,5 +1,6 @@
 import { ctlData } from "../bridge/ctl";
 import type {
+  AdoptEditData,
   CompressionDoctorData,
   CompressionStatusData,
   HookProviderId,
@@ -52,3 +53,12 @@ export const resumeHooks = () => ctlData<PauseData>(["compression", "hooks", "re
 export function measureCompression(signal?: AbortSignal) {
   return ctlData<MeasureReport>(["compression", "measure"], { signal });
 }
+
+export const adoptEdit = (provider: HookProviderId, revert = false) =>
+  ctlData<AdoptEditData>([
+    "compression",
+    "hooks",
+    "adopt-edit",
+    provider,
+    ...(revert ? ["--revert"] : []),
+  ]);

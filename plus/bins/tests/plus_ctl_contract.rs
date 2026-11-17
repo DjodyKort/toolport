@@ -18,7 +18,9 @@ use toolport_plus::ctl::{registry, rows, Smoke, Tier, COMMANDS, SCHEMA_VERSION};
 use toolport_plus::selfmcp::TOOLS;
 
 mod common;
-use common::compression::{fake_proxy, lose_hooks, measure_world, rtk_home, transcripts};
+use common::compression::{
+    edit_wrapped_hook, fake_proxy, lose_hooks, measure_world, rtk_home, transcripts,
+};
 use common::library_world::{self, library_home};
 use common::oauth_mock::{self, OauthMock};
 use common::tasks_world::{scheduler_extras, tasks_home};
@@ -2039,6 +2041,25 @@ const CASES: &[Case] = &[
             setup("setup", &["compression", "hooks", "pause"]),
             apply("apply", &["compression", "hooks", "resume"]),
             apply("again", &["compression", "hooks", "resume"]),
+        ],
+    ),
+    case(
+        "compression hooks adopt-edit",
+        &[
+            hook("home", rtk_home),
+            setup("setup", &["compression", "hooks", "apply"]),
+            hook("edit", edit_wrapped_hook),
+            read("edited", &["compression", "hooks", "status"]),
+            apply("apply", &["compression", "hooks", "adopt-edit", "rtk"]),
+            read("adopted", &["compression", "hooks", "status"]),
+            apply(
+                "revert",
+                &["compression", "hooks", "adopt-edit", "rtk", "--revert"],
+            ),
+            read("reverted", &["compression", "hooks", "status"]),
+            apply("none", &["compression", "hooks", "adopt-edit", "read-once"]).exit(1),
+            usage("unknown", &["compression", "hooks", "adopt-edit", "nope"]),
+            usage("usage", &["compression", "hooks", "adopt-edit"]),
         ],
     ),
     case(

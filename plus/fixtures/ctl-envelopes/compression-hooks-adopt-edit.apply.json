@@ -1,0 +1,21 @@
+{
+  "argv": ["compression", "hooks", "adopt-edit", "rtk"],
+  "envelope": {
+    "command": "compression hooks",
+    "data": {
+      "provider": "rtk",
+      "revert": false,
+      "rows": [
+        {
+          "action": "adopted",
+          "command": "toolportctl compression hook rtk -- /bin/sh -c 'rtk hook claude'  # edited by hand",
+          "file": "<WORLD>/home/.claude/settings.json",
+          "provider": "rtk"
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

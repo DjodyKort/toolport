@@ -247,3 +247,50 @@ pub fn lose_hooks(world: &World) {
     )
     .unwrap();
 }
+
+/// Somebody appended to the command of the wrapped rtk entry.
+pub fn edit_wrapped_hook(world: &World) {
+    let file = world.home.join(".claude/settings.json");
+    let mut settings: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+    let command = settings["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    settings["hooks"]["PreToolUse"][0]["hooks"][0]["command"] =
+        json!(format!("{command}  # edited by hand"));
+    std::fs::write(file, settings.to_string()).unwrap();
+}
+
+/// A wrapped rtk entry with a comment appended after Toolport wrote it, and the ledger entry
+/// that says what Toolport wrote.
+pub fn edited_rtk_home(world: &World) {
+    let dir = world.home.join(".claude");
+    std::fs::create_dir_all(&dir).unwrap();
+    let wrapped = "toolportctl compression hook rtk -- /bin/sh -c 'rtk hook claude'";
+    let settings = json!({
+        "theme": "dark",
+        "hooks": {"PreToolUse": [
+            {"matcher": "Bash", "hooks": [{"type": "command", "command": format!("{wrapped}  # edited by hand")}]}
+        ]}
+    });
+    std::fs::write(
+        dir.join("settings.json"),
+        serde_json::to_string_pretty(&settings).unwrap(),
+    )
+    .unwrap();
+    let ledger = json!({
+        "entries": [{
+            "file": dir.join("settings.json"),
+            "provider": "rtk",
+            "original": "rtk hook claude",
+            "wrapped": wrapped,
+            "at": "2026-11-05T09:00:00.000Z"
+        }],
+        "epochs": [{"event": "wrap", "at": "2026-11-05T09:00:00.000Z", "provider": "rtk"}],
+    });
+    std::fs::write(
+        world.data.join("compression-hooks.json"),
+        ledger.to_string(),
+    )
+    .unwrap();
+}

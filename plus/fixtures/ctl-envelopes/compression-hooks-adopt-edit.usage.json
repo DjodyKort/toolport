@@ -1,0 +1,13 @@
+{
+  "argv": ["compression", "hooks", "adopt-edit"],
+  "envelope": {
+    "command": "compression hooks",
+    "error": {
+      "code": "usage",
+      "message": "usage: toolportctl compression hooks adopt-edit <hook> [--revert]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

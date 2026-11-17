@@ -50,6 +50,8 @@ interface Slot {
   recorded: { original: string; wrapped: string; at: string } | null;
   /** Calls were counted before, so the counters stay after an undo. */
   counted: boolean;
+  /** What the ledger held before an edit was kept; Undo puts it back. */
+  beforeKeep?: { original: string; wrapped: string } | null;
 }
 
 const COUNTERS: Record<HookProviderId, Omit<HookCounter, "provider" | "basis">> = {
@@ -497,6 +499,32 @@ export function createCompressionWorld(options: CompressionWorldOptions = {}) {
     return ok({ paused: on, changed, pausedSince, pausedUntil });
   }
 
+  function adoptEdit(id: HookProviderId, revert: boolean): CtlReply {
+    const slot = slots[id];
+    const rows = (action: "adopted" | "reverted") => ({
+      provider: id,
+      revert,
+      rows: [{ file: SETTINGS, provider: id, action, command: slot.command }],
+    });
+    if (revert) {
+      if (!slot.beforeKeep || !slot.recorded) {
+        return fail("hooks_failed", `no ${id} entry holds an adopted edit to revert`);
+      }
+      slot.recorded = { ...slot.recorded, ...slot.beforeKeep };
+      slot.beforeKeep = null;
+      return ok(rows("reverted"));
+    }
+    if (healthOf(slot) !== "edited" || !slot.recorded || !slot.command) {
+      return fail("hooks_failed", `no ${id} entry reads as edited`);
+    }
+    slot.beforeKeep = {
+      original: slot.recorded.original,
+      wrapped: slot.recorded.wrapped,
+    };
+    slot.recorded = { ...slot.recorded, original: slot.command, wrapped: slot.command };
+    return ok(rows("adopted"));
+  }
+
   function compressionStatus(): CompressionStatusData {
     return {
       configExists: true,
@@ -533,6 +561,8 @@ export function createCompressionWorld(options: CompressionWorldOptions = {}) {
             flags.includes("--for") ? flags[flags.indexOf("--for") + 1] : null,
           );
         if (verb === "resume") return pause(false, null);
+        if (verb === "adopt-edit")
+          return adoptEdit(flags[0] as HookProviderId, flags.includes("--revert"));
       }
       if (sub === "status") return ok(compressionStatus());
       if (sub === "doctor") return ok(DOCTOR);

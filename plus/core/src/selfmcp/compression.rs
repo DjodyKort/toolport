@@ -33,9 +33,12 @@ fn dry_run(args: &Value) -> bool {
     flag_or(args, "dry_run", true)
 }
 
+fn required_error(key: &str) -> ToolError {
+    ToolError::new("invalid_arguments", format!("{key} is required"))
+}
+
 fn required<'a>(args: &'a Value, key: &str) -> Result<&'a str, ToolError> {
-    str_trimmed(args, key)
-        .ok_or_else(|| ToolError::new("invalid_arguments", format!("{key} is required")))
+    str_trimmed(args, key).ok_or_else(|| required_error(key))
 }
 
 fn port(args: &Value) -> Result<Option<u16>, ToolError> {
@@ -89,6 +92,22 @@ fn hook_paths(host: &dyn Host) -> Result<crate::compression::store::Paths, ToolE
         .ok_or_else(|| ToolError::backend("data directory could not be resolved"))
 }
 
+fn hook_id(args: &Value) -> Result<Option<String>, ToolError> {
+    let Some(id) = str_trimmed(args, "hook") else {
+        return Ok(None);
+    };
+    if hooks::HOOK_PROVIDERS.iter().any(|p| p.id == id) {
+        return Ok(Some(id.to_string()));
+    }
+    Err(ToolError::new(
+        "invalid_arguments",
+        format!(
+            "hook must be {}",
+            hooks::HOOK_PROVIDERS.map(|p| p.id).join(" or ")
+        ),
+    ))
+}
+
 pub(super) fn hooks_pause(host: &dyn Host, args: &Value) -> Outcome {
     let now = now_ms();
     let end = hooks::pause_end(str_trimmed(args, "for"), str_trimmed(args, "until"), now)
@@ -98,6 +117,12 @@ pub(super) fn hooks_pause(host: &dyn Host, args: &Value) -> Outcome {
 
 pub(super) fn hooks_resume(host: &dyn Host, _args: &Value) -> Outcome {
     hooks::set_paused(&hook_paths(host)?, false, None, now_ms()).map_err(ToolError::backend)
+}
+
+pub(super) fn hooks_adopt_edit(host: &dyn Host, args: &Value) -> Outcome {
+    let id = hook_id(args)?.ok_or_else(|| required_error("hook"))?;
+    hooks::adopt_edit(host, &hook_paths(host)?, &id, flag(args, "revert"))
+        .map_err(ToolError::backend)
 }
 
 fn refuse_egress(provider: Option<ProviderName>) -> Result<(), ToolError> {

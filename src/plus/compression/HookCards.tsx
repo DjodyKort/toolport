@@ -237,6 +237,7 @@ export function HookCard({
   onAdopt,
   onUndo,
   onRepair,
+  onKeep,
 }: {
   row: HookRow;
   paused: boolean;
@@ -244,6 +245,7 @@ export function HookCard({
   onAdopt: () => void;
   onUndo: () => void;
   onRepair: () => void;
+  onKeep: () => void;
 }) {
   const info = HOOK_INFO[row.provider];
   if (row.health === "absent") return null;
@@ -293,6 +295,17 @@ export function HookCard({
               {row.health === "missing" ? "Re-apply" : "Restore ours"}
             </Button>
           )}
+          {row.health === "edited" && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              aria-label={`Keep my edit of ${row.provider}`}
+              onClick={onKeep}
+            >
+              Keep my edit
+            </Button>
+          )}
           {owned && row.health !== "missing" && (
             <Button
               size="sm"
@@ -314,6 +327,12 @@ export function HookCard({
       <p className="text-meta break-words" data-testid={`hook-detail-${row.provider}`}>
         {detail}
       </p>
+      {row.health === "edited" && (
+        <p className="text-meta text-muted-foreground">
+          Restore ours puts back what Toolport wrote. Keep my edit makes the edited
+          command Toolport&apos;s own, and Undo adoption then restores your edit.
+        </p>
+      )}
     </RowShell>
   );
 }

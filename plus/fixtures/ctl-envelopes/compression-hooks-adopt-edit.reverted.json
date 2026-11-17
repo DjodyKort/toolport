@@ -1,0 +1,99 @@
+{
+  "argv": ["compression", "hooks", "status"],
+  "envelope": {
+    "command": "compression hooks",
+    "data": {
+      "cannotTell": "Counts hook calls, latency and how often the hook answered. It cannot see the size of the tool output a rewrite later saves; that needs the billed measurement in `compression verify`.",
+      "counters": [
+        {
+          "answered": 0,
+          "basis": "mechanical",
+          "calls": 0,
+          "failed": 0,
+          "firstCall": null,
+          "lastCall": null,
+          "maxLatencyMs": null,
+          "medianLatencyMs": null,
+          "p95LatencyMs": null,
+          "provider": "rtk"
+        },
+        {
+          "answered": 0,
+          "basis": "mechanical",
+          "calls": 0,
+          "failed": 0,
+          "firstCall": null,
+          "lastCall": null,
+          "maxLatencyMs": null,
+          "medianLatencyMs": null,
+          "p95LatencyMs": null,
+          "provider": "read-once"
+        }
+      ],
+      "entries": [
+        {
+          "command": "toolportctl compression hook rtk -- /bin/sh -c 'rtk hook claude'  # edited by hand",
+          "file": "<WORLD>/home/.claude/settings.json",
+          "health": "edited",
+          "provider": "rtk",
+          "state": "ours",
+          "wrappedAt": "<TIME>"
+        },
+        {
+          "command": null,
+          "file": "<WORLD>/home/.claude/settings.json",
+          "health": "absent",
+          "provider": "read-once",
+          "state": "absent",
+          "wrappedAt": null
+        }
+      ],
+      "epochs": 1,
+      "paused": false,
+      "pausedSince": null,
+      "pausedUntil": null,
+      "trust": [
+        {
+          "provider": "headroom",
+          "trust": {
+            "closedEngine": false,
+            "installsGlobalHooks": false,
+            "needsEgressConsent": false,
+            "sendsCodeOffMachine": false
+          }
+        },
+        {
+          "provider": "rtk-only",
+          "trust": {
+            "closedEngine": false,
+            "installsGlobalHooks": true,
+            "needsEgressConsent": false,
+            "sendsCodeOffMachine": false
+          }
+        },
+        {
+          "provider": "parsec",
+          "trust": {
+            "closedEngine": true,
+            "installsGlobalHooks": true,
+            "needsEgressConsent": true,
+            "sendsCodeOffMachine": true
+          }
+        },
+        {
+          "provider": "none",
+          "trust": {
+            "closedEngine": false,
+            "installsGlobalHooks": false,
+            "needsEgressConsent": false,
+            "sendsCodeOffMachine": false
+          }
+        }
+      ],
+      "wrapped": 1
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

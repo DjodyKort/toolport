@@ -1373,6 +1373,36 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "compression_hooks_adopt_edit",
+        &[
+            hook("home", compression::edited_rtk_home),
+            write("apply", "compression_hooks_adopt_edit", r#"{"hook":"rtk"}"#),
+            write(
+                "revert",
+                "compression_hooks_adopt_edit",
+                r#"{"hook":"rtk","revert":true}"#,
+            ),
+            fails(
+                "not_edited",
+                "backend_error",
+                "compression_hooks_adopt_edit",
+                r#"{"hook":"read-once"}"#,
+            ),
+            fails(
+                "unknown_hook",
+                "invalid_arguments",
+                "compression_hooks_adopt_edit",
+                r#"{"hook":"nope"}"#,
+            ),
+            fails(
+                "hook_missing",
+                "invalid_arguments",
+                "compression_hooks_adopt_edit",
+                "{}",
+            ),
+        ],
+    ),
+    case(
         "compression_enable",
         &[
             read(

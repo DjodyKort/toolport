@@ -89,6 +89,25 @@ pub struct LedgerEntry {
     pub at: String,
 }
 
+/// An edited entry Toolport took over. `previous` is what the ledger held before, so a revert
+/// puts it back; without one the ledger had no entry and a revert removes it.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Adoption {
+    pub file: String,
+    pub provider: String,
+    pub at: String,
+    #[serde(default)]
+    pub previous: Option<Previous>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Previous {
+    pub original: String,
+    pub wrapped: String,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Epoch {
     pub event: String,
@@ -106,6 +125,8 @@ pub struct Ledger {
     pub paused_since: Option<String>,
     #[serde(default)]
     pub paused_until: Option<String>,
+    #[serde(default)]
+    pub adopted: Vec<Adoption>,
     #[serde(default)]
     pub epochs: Vec<Epoch>,
     #[serde(default)]
@@ -172,6 +193,16 @@ impl State {
             State::Ours => "ours",
         }
     }
+}
+
+/// The command a wrapped entry runs, when the entry still has the shape `wrap` gives it.
+pub(super) fn unwrap_original(command: &str, id: &str) -> Option<String> {
+    let rest = command.strip_prefix(&format!("{WRAP_PREFIX}{id} -- /bin/sh -c "))?;
+    let inner = rest
+        .strip_prefix('\'')?
+        .strip_suffix('\'')?
+        .replace("'\\''", "'");
+    (shell_quote(&inner) == rest).then_some(inner)
 }
 
 /// Position of the provider's entry in `hooks.PreToolUse`: group, hook, command.
@@ -331,6 +362,9 @@ pub fn apply(
                     ledger.entries.retain(|e| {
                         !(e.file == file.to_string_lossy() && e.provider == provider.id)
                     });
+                    ledger.adopted.retain(|a| {
+                        !(a.file == file.to_string_lossy() && a.provider == provider.id)
+                    });
                     ledger.entries.push(LedgerEntry {
                         file: file.to_string_lossy().into_owned(),
                         provider: provider.id.into(),
@@ -404,6 +438,12 @@ pub fn undo(
         out.push(report);
     }
     ledger.entries = kept;
+    ledger.adopted.retain(|a| {
+        ledger
+            .entries
+            .iter()
+            .any(|e| e.file == a.file && e.provider == a.provider)
+    });
     if !dry_run && !out.is_empty() {
         ledger.epochs.push(Epoch {
             event: "undo".into(),
@@ -413,6 +453,112 @@ pub fn undo(
         write_ledger(paths, &ledger)?;
     }
     Ok(json!({"dryRun": dry_run, "rows": out}))
+}
+
+/// Takes over an entry that reads as edited: the ledger records the edit as what Toolport wrote
+/// (its health turns ok) and what undo restores is the edit's own command, not the original of
+/// before the edit. `revert` puts the ledger back as it was before the adoption.
+pub fn adopt_edit(
+    store: &dyn SettingsStore,
+    paths: &Paths,
+    id: &str,
+    revert: bool,
+) -> Result<Value, String> {
+    let provider = HOOK_PROVIDERS
+        .iter()
+        .find(|p| p.id == id)
+        .ok_or_else(|| format!("unknown hook provider '{id}'"))?;
+    let mut ledger = read_ledger(paths)?;
+    let mut out = Vec::new();
+    for file in store.claude_settings_paths() {
+        let (_, _, hooks) = read_hooks(store, &file)?;
+        let Some((_, _, command)) = find(&hooks, provider) else {
+            continue;
+        };
+        let name = file.to_string_lossy().into_owned();
+        let at = ledger
+            .entries
+            .iter()
+            .position(|e| e.file == name && e.provider == id);
+        let report = |action: &str| json!({"file": name, "provider": id, "action": action, "command": command});
+        if revert {
+            let Some(adoption) = ledger
+                .adopted
+                .iter()
+                .position(|a| a.file == name && a.provider == id)
+                .map(|i| ledger.adopted.remove(i))
+            else {
+                continue;
+            };
+            match (adoption.previous, at) {
+                (Some(previous), Some(i)) => {
+                    ledger.entries[i].original = previous.original;
+                    ledger.entries[i].wrapped = previous.wrapped;
+                }
+                (None, Some(i)) => {
+                    ledger.entries.remove(i);
+                    ledger.epochs.push(Epoch {
+                        event: "undo".into(),
+                        at: format_ts(now_ms()),
+                        provider: Some(id.into()),
+                    });
+                }
+                (_, None) => continue,
+            }
+            out.push(report("reverted"));
+            continue;
+        }
+        let edited =
+            is_wrapped(&command) && at.is_none_or(|i| ledger.entries[i].wrapped != command);
+        if !edited {
+            continue;
+        }
+        let original = unwrap_original(&command, id).unwrap_or_else(|| command.clone());
+        let now = format_ts(now_ms());
+        let previous = at.map(|i| Previous {
+            original: ledger.entries[i].original.clone(),
+            wrapped: ledger.entries[i].wrapped.clone(),
+        });
+        match at {
+            Some(i) => {
+                ledger.entries[i].original = original;
+                ledger.entries[i].wrapped = command.clone();
+            }
+            None => {
+                ledger.entries.push(LedgerEntry {
+                    file: name.clone(),
+                    provider: id.into(),
+                    original,
+                    wrapped: command.clone(),
+                    at: now.clone(),
+                });
+                ledger.epochs.push(Epoch {
+                    event: "wrap".into(),
+                    at: now.clone(),
+                    provider: Some(id.into()),
+                });
+            }
+        }
+        ledger
+            .adopted
+            .retain(|a| !(a.file == name && a.provider == id));
+        ledger.adopted.push(Adoption {
+            file: name.clone(),
+            provider: id.into(),
+            at: now,
+            previous,
+        });
+        out.push(report("adopted"));
+    }
+    if out.is_empty() {
+        return Err(if revert {
+            format!("no {id} entry holds an adopted edit to revert")
+        } else {
+            format!("no {id} entry reads as edited")
+        });
+    }
+    write_ledger(paths, &ledger)?;
+    Ok(json!({"provider": id, "revert": revert, "rows": out}))
 }
 
 const MINUTE_MS: i64 = 60_000;

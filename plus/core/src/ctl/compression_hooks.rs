@@ -14,8 +14,10 @@ use toolport_plus_api::Host;
 
 pub(super) const HOOKS: Spec = spec(&[switch("--dry-run"), value("--provider")]);
 pub(super) const PAUSE: Spec = spec(&[value("--for"), value("--until")]);
+pub(super) const ADOPT_EDIT: Spec = spec(&[switch("--revert")]);
 
-const USAGE: &str = "usage: toolportctl compression hooks [status | apply | undo | pause | resume]";
+const USAGE: &str =
+    "usage: toolportctl compression hooks [status | apply | undo | pause | resume | adopt-edit]";
 
 fn paths(host: &dyn Host) -> Result<Paths, CtlError> {
     Paths::from_host(host)
@@ -35,6 +37,22 @@ fn provider(flags: &super::flags::Flags) -> Result<Option<String>, CtlError> {
     }
     Err(CtlError::usage(format!(
         "unknown hook provider '{id}' (have: {})",
+        HOOK_PROVIDERS.map(|p| p.id).join(", ")
+    )))
+}
+
+/// The optional or required `<hook>` operand: one provider id.
+fn hook_operand(operands: &[String]) -> Result<Option<String>, CtlError> {
+    let (id, rest) = match operands.split_first() {
+        Some((id, rest)) => (id, rest),
+        None => return Ok(None),
+    };
+    no_args(rest)?;
+    if HOOK_PROVIDERS.iter().any(|p| p.id == id) {
+        return Ok(Some(id.clone()));
+    }
+    Err(CtlError::usage(format!(
+        "unknown hook '{id}' (have: {})",
         HOOK_PROVIDERS.map(|p| p.id).join(", ")
     )))
 }
@@ -133,6 +151,24 @@ pub fn hooks(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
             no_args(tail)?;
             let data = hooks::set_paused(&paths, false, None, now_ms()).map_err(failed)?;
             Ok(Output::new(data, "Hooks resumed".to_string()))
+        }
+        "adopt-edit" => {
+            let flags = ADOPT_EDIT.parse(tail)?;
+            let id = hook_operand(flags.operands())?.ok_or_else(|| {
+                CtlError::usage("usage: toolportctl compression hooks adopt-edit <hook> [--revert]")
+            })?;
+            let revert = flags.on("--revert");
+            let data = hooks::adopt_edit(host, &paths, &id, revert).map_err(failed)?;
+            let mut out = vec![format!(
+                "{} the {id} entry",
+                if revert {
+                    "Reverted the adoption of"
+                } else {
+                    "Adopted the edit of"
+                }
+            )];
+            out.extend(rows_text(&data));
+            Ok(Output::new(data, out.join("\n")))
         }
         _ => Err(CtlError::usage(USAGE)),
     }

@@ -1,0 +1,13 @@
+{
+  "argv": ["compression", "hooks", "adopt-edit", "read-once"],
+  "envelope": {
+    "command": "compression hooks",
+    "error": {
+      "code": "hooks_failed",
+      "message": "no read-once entry reads as edited"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

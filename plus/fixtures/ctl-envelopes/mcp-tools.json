@@ -1592,6 +1592,27 @@
           "tier": 2
         },
         {
+          "description": "Take over a hook entry that was edited by hand: the ledger records the edit as what Toolport wrote, so it stops reading as edited and undo restores the edit; changes the ledger only, never settings.json; revert=true puts the ledger back",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "compression_hooks_adopt_edit",
+          "params": [
+            {
+              "description": "rtk or read-once",
+              "name": "hook",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Put the ledger back as it was before the edit was adopted",
+              "name": "revert",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
           "description": "Enable compression: writes the policy config, the shell shims and the registry entry of the provider (default headroom); dry_run is on by default (apply with dry_run=false and confirm=true)",
           "dryRunDefault": true,
           "gate": "unless-dry-run",

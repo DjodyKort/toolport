@@ -1,0 +1,7 @@
+{
+  "command": "compression hooks adopt-edit",
+  "dryRun": "none",
+  "name": "compression_hooks_adopt_edit",
+  "tier": "write",
+  "toolTier": 2
+}

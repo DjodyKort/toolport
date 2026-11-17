@@ -716,6 +716,17 @@ pub const TOOLS: &[ToolDef] = &[
         compression::hooks_resume
     ),
     tool!(
+        "compression_hooks_adopt_edit",
+        2,
+        None,
+        "Take over a hook entry that was edited by hand: the ledger records the edit as what Toolport wrote, so it stops reading as edited and undo restores the edit; changes the ledger only, never settings.json; revert=true puts the ledger back",
+        [
+            p("hook", Ty::Str, true, "rtk or read-once"),
+            p("revert", Ty::Bool, false, "Put the ledger back as it was before the edit was adopted")
+        ],
+        compression::hooks_adopt_edit
+    ),
+    tool!(
         "compression_enable",
         3,
         UnlessDryRun,

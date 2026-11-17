@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "hook": "read-once"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "backend_error",
+      "message": "no read-once entry reads as edited"
+    }
+  },
+  "text": "backend_error: no read-once entry reads as edited",
+  "tool": "compression_hooks_adopt_edit"
+}

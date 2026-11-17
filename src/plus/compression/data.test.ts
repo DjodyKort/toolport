@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { createCompressionWorld } from "../fixtures/compressionWorld";
 import type {
   CompressionDoctorData,
+  AdoptEditData,
   CompressionStatusData,
   HooksStatusData,
   HooksWriteData,
@@ -150,5 +151,17 @@ describe("the compression envelope types match the Rust goldens", () => {
     expect(shape(reply.data)).toEqual(shape(pause));
     const fixture = world.run(["compression", "hooks", "status"]).data as HooksStatusData;
     expect(typeof fixture.pausedUntil).toBe("string");
+  });
+
+  it("test08_adopt_edit_has_the_same_shape_in_the_golden_and_the_fixture", () => {
+    const golden = ctl("compression-hooks-adopt-edit.apply").envelope
+      .data as AdoptEditData;
+    const edited = createCompressionWorld({ hooks: "edited" }).run([
+      "compression",
+      "hooks",
+      "adopt-edit",
+      "rtk",
+    ]);
+    expect(shape(edited.data)).toEqual(shape(golden));
   });
 });

@@ -340,6 +340,45 @@ describe("Hooks & compression tab", () => {
   });
 });
 
+describe("Kept edits", () => {
+  it("test25_an_edited_hook_offers_restore_ours_and_keep_my_edit", async () => {
+    setup({ hooks: "edited" });
+    expect(await screen.findByText("edited by hand")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Restore ours for rtk" })).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Keep my edit of rtk" }));
+    expect(
+      await screen.findByText(
+        "Compression is on: 2 hooks written by Toolport, all healthy",
+      ),
+    ).toBeVisible();
+    expect(ranArgv()).toContainEqual(["compression", "hooks", "adopt-edit", "rtk"]);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(toast.success).toHaveBeenCalledWith(
+      "Kept your edit of rtk",
+      expect.objectContaining({ duration: 10_000 }),
+    );
+  });
+
+  it("test26_undoing_keep_my_edit_brings_the_edited_card_back", async () => {
+    setup({ hooks: "edited" });
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Keep my edit of rtk" }),
+    );
+    await screen.findByText(/Compression is on/);
+    undoOf()!.onClick();
+    await waitFor(() =>
+      expect(ranArgv()).toContainEqual([
+        "compression",
+        "hooks",
+        "adopt-edit",
+        "rtk",
+        "--revert",
+      ]),
+    );
+    expect(await screen.findByText("edited by hand")).toBeVisible();
+  });
+});
+
 describe("Compression measurements", () => {
   async function open(options: CompressionWorldOptions = { hooks: "on" }) {
     setup(options);

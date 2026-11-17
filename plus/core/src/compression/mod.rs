@@ -21,6 +21,8 @@ pub mod sys;
 pub mod verify;
 
 #[cfg(test)]
+mod hooks_adopt_tests;
+#[cfg(test)]
 mod hooks_pause_tests;
 #[cfg(test)]
 mod hooks_testkit;

@@ -1,0 +1,43 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Put the ledger back as it was before the edit was adopted",
+      "escalates": false,
+      "hidden": false,
+      "name": "--revert",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "compression",
+  "id": "compression hooks adopt-edit",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "hook",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": "compression hooks",
+  "path": ["compression", "hooks", "adopt-edit"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Take over an entry that was edited by hand, so undo restores the edit (<hook>, --revert)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["compression_hooks_adopt_edit"]
+}

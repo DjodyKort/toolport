@@ -1,0 +1,19 @@
+{
+  "arguments": {
+    "hook": "rtk"
+  },
+  "isError": false,
+  "result": {
+    "provider": "rtk",
+    "revert": false,
+    "rows": [
+      {
+        "action": "adopted",
+        "command": "toolportctl compression hook rtk -- /bin/sh -c 'rtk hook claude'  # edited by hand",
+        "file": "<WORLD>/home/.claude/settings.json",
+        "provider": "rtk"
+      }
+    ]
+  },
+  "tool": "compression_hooks_adopt_edit"
+}

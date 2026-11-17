@@ -9,6 +9,7 @@ import { Group, RowShell } from "../context/StackRows";
 import { useLoad } from "../servers/useLoad";
 import { errorText } from "../settings/useCtl";
 import {
+  adoptEdit,
   applyHooks,
   compressionDoctor,
   compressionStatus,
@@ -162,6 +163,13 @@ function Overview({ onMeasurements }: { onMeasurements: () => void }) {
       row={row}
       paused={status.paused}
       busy={busy}
+      onKeep={() =>
+        void write(
+          `Kept your edit of ${row.provider}`,
+          () => adoptEdit(row.provider),
+          () => adoptEdit(row.provider, true),
+        )
+      }
       onAdopt={() =>
         void write(
           `Adopted ${row.provider}`,
