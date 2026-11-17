@@ -7,11 +7,13 @@ use super::compression::spec;
 use super::flags::{switch, value, Spec};
 use super::output::{no_args, CtlError, Output};
 use crate::compression::hooks::{self, HOOK_PROVIDERS};
+use crate::compression::ledger::now_ms;
 use crate::compression::store::Paths;
 use serde_json::Value;
 use toolport_plus_api::Host;
 
 pub(super) const HOOKS: Spec = spec(&[switch("--dry-run"), value("--provider")]);
+pub(super) const PAUSE: Spec = spec(&[value("--for"), value("--until")]);
 
 const USAGE: &str = "usage: toolportctl compression hooks [status | apply | undo | pause | resume]";
 
@@ -112,15 +114,25 @@ pub fn hooks(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
             out.extend(rows_text(&data));
             Ok(Output::new(data, out.join("\n")))
         }
-        "pause" | "resume" => {
-            no_args(tail)?;
-            let data = hooks::set_paused(&paths, sub == "pause").map_err(failed)?;
-            let text = if sub == "pause" {
-                "Hooks paused: the wrapped entries answer nothing until resumed"
-            } else {
-                "Hooks resumed"
+        "pause" => {
+            let flags = PAUSE.parse(tail)?;
+            no_args(flags.operands())?;
+            let now = now_ms();
+            let end = hooks::pause_end(flags.one("--for"), flags.one("--until"), now)
+                .map_err(CtlError::usage)?;
+            let data = hooks::set_paused(&paths, true, end, now).map_err(failed)?;
+            let text = match data["pausedUntil"].as_str() {
+                Some(until) => format!(
+                    "Hooks paused until {until}: the wrapped entries answer nothing, then answer again by themselves"
+                ),
+                None => "Hooks paused: the wrapped entries answer nothing until resumed".into(),
             };
-            Ok(Output::new(data, text.to_string()))
+            Ok(Output::new(data, text))
+        }
+        "resume" => {
+            no_args(tail)?;
+            let data = hooks::set_paused(&paths, false, None, now_ms()).map_err(failed)?;
+            Ok(Output::new(data, "Hooks resumed".to_string()))
         }
         _ => Err(CtlError::usage(USAGE)),
     }

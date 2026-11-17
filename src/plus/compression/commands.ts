@@ -38,7 +38,14 @@ export const undoHooks = (provider?: HookProviderId, dryRun = false) =>
     ...(dryRun ? ["--dry-run"] : []),
   ]);
 
-export const pauseHooks = () => ctlData<PauseData>(["compression", "hooks", "pause"]);
+/** Pauses the wrapped hooks; with `duration` ("1d") they answer again by themselves. */
+export const pauseHooks = (duration?: string) =>
+  ctlData<PauseData>([
+    "compression",
+    "hooks",
+    "pause",
+    ...(duration ? ["--for", duration] : []),
+  ]);
 
 export const resumeHooks = () => ctlData<PauseData>(["compression", "hooks", "resume"]);
 

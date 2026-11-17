@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "for": "31d"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "a pause lasts at most 30 days; pause without an end to keep it until you resume"
+    }
+  },
+  "text": "invalid_arguments: a pause lasts at most 30 days; pause without an end to keep it until you resume",
+  "tool": "compression_hooks_pause"
+}

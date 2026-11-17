@@ -6,6 +6,8 @@
 
 use super::ToolError;
 use crate::args::{flag, flag_or, str_trimmed};
+use crate::compression::hooks;
+use crate::compression::ledger::now_ms;
 use crate::compression::manage::{
     self, parse_mode, parse_provider, parse_telemetry, with_system, CmdError, EnableReq, Kind,
     SealReq,
@@ -80,6 +82,22 @@ pub(super) fn measure(host: &dyn Host, args: &Value) -> Outcome {
         since_ms,
     };
     measure::report(&paths, &options).map_err(ToolError::backend)
+}
+
+fn hook_paths(host: &dyn Host) -> Result<crate::compression::store::Paths, ToolError> {
+    crate::compression::store::Paths::from_host(host)
+        .ok_or_else(|| ToolError::backend("data directory could not be resolved"))
+}
+
+pub(super) fn hooks_pause(host: &dyn Host, args: &Value) -> Outcome {
+    let now = now_ms();
+    let end = hooks::pause_end(str_trimmed(args, "for"), str_trimmed(args, "until"), now)
+        .map_err(|e| ToolError::new("invalid_arguments", e))?;
+    hooks::set_paused(&hook_paths(host)?, true, end, now).map_err(ToolError::backend)
+}
+
+pub(super) fn hooks_resume(host: &dyn Host, _args: &Value) -> Outcome {
+    hooks::set_paused(&hook_paths(host)?, false, None, now_ms()).map_err(ToolError::backend)
 }
 
 fn refuse_egress(provider: Option<ProviderName>) -> Result<(), ToolError> {

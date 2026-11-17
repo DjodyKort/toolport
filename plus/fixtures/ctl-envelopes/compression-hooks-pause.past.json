@@ -1,0 +1,13 @@
+{
+  "argv": ["compression", "hooks", "pause", "--until", "2020-01-01"],
+  "envelope": {
+    "command": "compression hooks",
+    "error": {
+      "code": "usage",
+      "message": "the pause would end before it starts"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

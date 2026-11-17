@@ -21,6 +21,10 @@ pub mod sys;
 pub mod verify;
 
 #[cfg(test)]
+mod hooks_pause_tests;
+#[cfg(test)]
+mod hooks_testkit;
+#[cfg(test)]
 mod ledger_prop_tests;
 #[cfg(test)]
 pub(crate) mod manage_tests;

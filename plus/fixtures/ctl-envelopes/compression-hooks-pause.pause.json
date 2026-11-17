@@ -4,7 +4,9 @@
     "command": "compression hooks",
     "data": {
       "changed": true,
-      "paused": true
+      "paused": true,
+      "pausedSince": "<TIME>",
+      "pausedUntil": null
     },
     "ok": true,
     "schemaVersion": 1

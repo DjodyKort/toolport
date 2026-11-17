@@ -1,0 +1,15 @@
+{
+  "argv": ["compression", "hooks", "pause", "--for", "1d"],
+  "envelope": {
+    "command": "compression hooks",
+    "data": {
+      "changed": true,
+      "paused": true,
+      "pausedSince": "<TIME>",
+      "pausedUntil": "<TIME>"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

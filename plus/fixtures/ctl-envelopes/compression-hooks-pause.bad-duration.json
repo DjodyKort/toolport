@@ -1,0 +1,13 @@
+{
+  "argv": ["compression", "hooks", "pause", "--for", "soon"],
+  "envelope": {
+    "command": "compression hooks",
+    "error": {
+      "code": "usage",
+      "message": "'soon' is not a duration (use 1d, 6h, 90m or 1d12h)"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

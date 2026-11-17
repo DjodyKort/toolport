@@ -16,16 +16,17 @@ import type {
 const HOME = "/Users/example";
 const SETTINGS = `${HOME}/.claude/settings.json`;
 const WRAPPED_AT = "2026-11-05T09:00:00.000Z";
-const PAUSED_AT = "2026-11-12T08:54:00.000Z";
 const CANNOT_TELL =
   "Counts hook calls, latency and how often the hook answered. It cannot see the size of the tool output a rewrite later saves; that needs the billed measurement in `compression verify`.";
 
-export type HooksScenario = "adopt" | "on" | "paused" | "missing" | "edited" | "none";
+export type HooksScenario =
+  "adopt" | "on" | "paused" | "paused-open" | "missing" | "edited" | "none";
 export type MeasureScenario = "refused" | "compared" | "empty";
 
 export interface CompressionWorldOptions {
   /** `adopt`: both hooks are hand-written (the first run). `on`, `paused`, `missing` and
-   * `edited` start with the hooks wrapped; `none` has no hook at all. */
+   * `edited` start with the hooks wrapped; `paused` is paused until tomorrow and `paused-open`
+   * with no end; `none` has no hook at all. */
   hooks?: HooksScenario;
   /** `refused`: too few paused sessions for a verdict. `compared`: a verdict with overlapping
    * middle halves. `empty`: no transcripts. */
@@ -351,7 +352,13 @@ const fail = (code: string, message: string): CtlReply => ({
 export function createCompressionWorld(options: CompressionWorldOptions = {}) {
   const scenario = options.hooks ?? "adopt";
   const slots = seedSlots(scenario);
-  let paused = scenario === "paused";
+  const HOUR = 3_600_000;
+  let paused = scenario === "paused" || scenario === "paused-open";
+  let pausedSince: string | null = paused
+    ? new Date(Date.now() - 4 * HOUR).toISOString()
+    : null;
+  let pausedUntil: string | null =
+    scenario === "paused" ? new Date(Date.now() + 20 * HOUR).toISOString() : null;
   let epochs = scenario === "adopt" || scenario === "none" ? 0 : 3;
 
   const ids = Object.keys(slots) as HookProviderId[];
@@ -370,7 +377,8 @@ export function createCompressionWorld(options: CompressionWorldOptions = {}) {
   function status(): HooksStatusData {
     return {
       paused,
-      pausedSince: paused ? PAUSED_AT : null,
+      pausedSince,
+      pausedUntil,
       entries: entries(),
       counters: ids.map((provider) => ({
         provider,
@@ -479,11 +487,14 @@ export function createCompressionWorld(options: CompressionWorldOptions = {}) {
     return ok({ dryRun, rows });
   }
 
-  function pause(on: boolean): CtlReply {
-    const changed = paused !== on;
+  function pause(on: boolean, duration: string | null): CtlReply {
+    const changed = paused !== on || (on && duration !== null);
     paused = on;
-    if (changed) epochs += 1;
-    return ok({ paused: on, changed });
+    pausedSince = on ? new Date().toISOString() : null;
+    pausedUntil =
+      on && duration === "1d" ? new Date(Date.now() + 24 * HOUR).toISOString() : null;
+    if (paused !== on || changed) epochs += 1;
+    return ok({ paused: on, changed, pausedSince, pausedUntil });
   }
 
   function compressionStatus(): CompressionStatusData {
@@ -516,8 +527,12 @@ export function createCompressionWorld(options: CompressionWorldOptions = {}) {
         if (verb === undefined || verb === "status") return ok(status());
         if (verb === "apply") return apply(only, dry);
         if (verb === "undo") return undo(only, dry);
-        if (verb === "pause") return pause(true);
-        if (verb === "resume") return pause(false);
+        if (verb === "pause")
+          return pause(
+            true,
+            flags.includes("--for") ? flags[flags.indexOf("--for") + 1] : null,
+          );
+        if (verb === "resume") return pause(false, null);
       }
       if (sub === "status") return ok(compressionStatus());
       if (sub === "doctor") return ok(DOCTOR);

@@ -8,6 +8,7 @@ import {
   latencyText,
   overall,
   providerTiles,
+  untilText,
   windowText,
 } from "./model";
 
@@ -50,6 +51,7 @@ function status(
   return {
     paused: false,
     pausedSince: null,
+    pausedUntil: null,
     entries: [entry("rtk", rtk), entry("read-once", readOnce)],
     counters: [counter(), counter({ provider: "read-once", calls: 0 })],
     wrapped: 0,
@@ -211,5 +213,21 @@ describe("measurement text", () => {
     );
     expect(dayRange("2026-10-16", "2026-10-16")).toBe("2026-10-16");
     expect(dayRange(null, null)).toBe("no dates");
+  });
+});
+
+describe("untilText", () => {
+  const now = new Date(2026, 10, 17, 10, 0);
+  it("test40_says_today_tomorrow_or_the_day", () => {
+    expect(untilText(new Date(2026, 10, 17, 21, 5).toISOString(), now)).toBe(
+      "today 21:05",
+    );
+    expect(untilText(new Date(2026, 10, 18, 9, 12).toISOString(), now)).toBe(
+      "tomorrow 09:12",
+    );
+    expect(untilText(new Date(2026, 10, 23, 9, 12).toISOString(), now)).toBe(
+      "Mon 23 Nov 09:12",
+    );
+    expect(untilText("not a time", now)).toBe("not a time");
   });
 });

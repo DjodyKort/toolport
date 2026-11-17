@@ -21,6 +21,7 @@ import {
   type HookRow,
   type Tile,
   type TileState,
+  untilText,
 } from "./model";
 import { copyLine } from "./useHookWrites";
 
@@ -88,6 +89,7 @@ export function HeadlineCard({
   headline,
   rows,
   pausedSince,
+  pausedUntil,
   busy,
   preview,
   checks,
@@ -102,6 +104,7 @@ export function HeadlineCard({
   headline: Headline;
   rows: HookRow[];
   pausedSince: string | null;
+  pausedUntil: string | null;
   busy: boolean;
   preview: HooksWriteData | null;
   checks: React.ReactNode;
@@ -142,8 +145,16 @@ export function HeadlineCard({
         <StatusCard
           variant="warning"
           icon={<PauseCircle />}
-          title={`Compression is paused since ${pausedSince?.slice(0, 10) ?? "an earlier day"}`}
-          detail="The wrapped hooks answer nothing until you resume, so Claude Code runs without rtk and read-once. Nothing resumes by itself: compare matched days, then resume."
+          title={
+            pausedUntil
+              ? `Compression is paused until ${untilText(pausedUntil)}`
+              : `Compression is paused since ${pausedSince?.slice(0, 10) ?? "an earlier day"}`
+          }
+          detail={
+            pausedUntil
+              ? "The wrapped hooks answer nothing for the window and answer again by themselves; the ledger records the epoch, so measurements group days correctly."
+              : "The wrapped hooks answer nothing until you resume, so Claude Code runs without rtk and read-once. Nothing resumes by itself: compare matched days, then resume."
+          }
           actions={
             <Button size="sm" disabled={busy} onClick={onResume}>
               Resume now
@@ -184,11 +195,11 @@ export function HeadlineCard({
           variant="success"
           icon={<ShieldCheck />}
           title={`Compression is on: ${headline.owned} ${headline.owned === 1 ? "hook" : "hooks"} written by Toolport, all healthy`}
-          detail="rtk shortens Bash output and read-once skips repeat reads. They act inside Claude Code only; MCP results are shaped by the gateway itself. Pausing lets you compare matched days."
+          detail="rtk shortens Bash output and read-once skips repeat reads. They act inside Claude Code only; MCP results are shaped by the gateway itself. Pausing for a day lets you compare matched days; the hooks resume by themselves."
           actions={
             <>
               <Button size="sm" variant="outline" disabled={busy} onClick={onPause}>
-                Pause compression
+                Pause for a day
               </Button>
               {verify}
             </>

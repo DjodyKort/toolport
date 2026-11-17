@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "for": "soon"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "'soon' is not a duration (use 1d, 6h, 90m or 1d12h)"
+    }
+  },
+  "text": "invalid_arguments: 'soon' is not a duration (use 1d, 6h, 90m or 1d12h)",
+  "tool": "compression_hooks_pause"
+}

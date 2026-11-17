@@ -41,6 +41,8 @@ export interface Trust {
 export interface HooksStatusData {
   paused: boolean;
   pausedSince: string | null;
+  /** When a pause with an end resumes by itself; `null` for a pause with no end. */
+  pausedUntil: string | null;
   entries: HookEntry[];
   counters: HookCounter[];
   wrapped: number;
@@ -79,6 +81,8 @@ export interface HooksWriteData {
 export interface PauseData {
   paused: boolean;
   changed: boolean;
+  pausedSince: string | null;
+  pausedUntil: string | null;
 }
 
 export interface CompressionStatusData {

@@ -5,7 +5,7 @@
 //! in the ledger, so undo puts back exactly what was there. Entries Toolport did not wrap are
 //! never touched.
 
-use super::ledger::{format_ts, now_ms};
+use super::ledger::{format_ts, now_ms, parse_ts};
 use super::model::ProviderName;
 use super::store::Paths;
 use serde::{Deserialize, Serialize};
@@ -104,6 +104,8 @@ pub struct Ledger {
     pub entries: Vec<LedgerEntry>,
     #[serde(default)]
     pub paused_since: Option<String>,
+    #[serde(default)]
+    pub paused_until: Option<String>,
     #[serde(default)]
     pub epochs: Vec<Epoch>,
     #[serde(default)]
@@ -413,27 +415,155 @@ pub fn undo(
     Ok(json!({"dryRun": dry_run, "rows": out}))
 }
 
-pub fn set_paused(paths: &Paths, paused: bool) -> Result<Value, String> {
+const MINUTE_MS: i64 = 60_000;
+const DAY_MS: i64 = 24 * 60 * MINUTE_MS;
+pub const MAX_PAUSE_MS: i64 = 30 * DAY_MS;
+
+/// `1d`, `6h`, `90m`, `1d12h`: whole units of days, hours, minutes and seconds, summed.
+pub fn parse_duration(text: &str) -> Option<i64> {
+    let mut total = 0i64;
+    let mut digits = String::new();
+    let mut seen = false;
+    for c in text.trim().chars() {
+        if c.is_ascii_digit() {
+            digits.push(c);
+            continue;
+        }
+        let unit = match c.to_ascii_lowercase() {
+            'd' => DAY_MS,
+            'h' => 60 * MINUTE_MS,
+            'm' => MINUTE_MS,
+            's' => 1000,
+            _ => return None,
+        };
+        total = total.checked_add(digits.parse::<i64>().ok()?.checked_mul(unit)?)?;
+        digits.clear();
+        seen = true;
+    }
+    (seen && digits.is_empty() && total > 0).then_some(total)
+}
+
+/// An RFC 3339 timestamp with or without seconds, or a date; without an offset the time is UTC.
+fn parse_until(text: &str) -> Option<i64> {
+    let without_seconds = || {
+        let (head, tail) = (text.get(..16)?, text.get(16..)?);
+        parse_ts(&format!("{head}:00{tail}"))
+    };
+    parse_ts(text)
+        .or_else(without_seconds)
+        .or_else(|| parse_ts(&format!("{text}T00:00:00Z")))
+}
+
+/// When a pause ends, from `--for` or `--until`; `None` is a pause with no end.
+pub fn pause_end(
+    duration: Option<&str>,
+    until: Option<&str>,
+    now: i64,
+) -> Result<Option<i64>, String> {
+    let end = match (duration, until) {
+        (Some(_), Some(_)) => return Err("pass either for or until, not both".into()),
+        (Some(text), None) => now
+            + parse_duration(text).ok_or_else(|| {
+                format!("'{text}' is not a duration (use 1d, 6h, 90m or 1d12h)")
+            })?,
+        (None, Some(text)) => parse_until(text).ok_or_else(|| {
+            format!("'{text}' is not a time (use 2026-11-18T09:12+01:00, 2026-11-18T09:12 in UTC or a date)")
+        })?,
+        (None, None) => return Ok(None),
+    };
+    if end <= now {
+        return Err("the pause would end before it starts".into());
+    }
+    if end - now > MAX_PAUSE_MS {
+        return Err(
+            "a pause lasts at most 30 days; pause without an end to keep it until you resume"
+                .into(),
+        );
+    }
+    Ok(Some(end))
+}
+
+/// Whether the wrapped hooks answer nothing at `now`. A pause with an end is over once the end
+/// has passed, with nothing written: the hook reads this, so the hooks resume without an app.
+pub fn pause_active(ledger: &Ledger, now: i64) -> bool {
+    ledger.paused_since.is_some()
+        && ledger
+            .paused_until
+            .as_deref()
+            .is_none_or(|until| parse_ts(until).is_some_and(|end| now < end))
+}
+
+/// Records the end of a pause that ran out as the resume it is, at the time it ran out.
+fn settle(ledger: &mut Ledger, now: i64) -> bool {
+    if ledger.paused_since.is_none() || pause_active(ledger, now) {
+        return false;
+    }
+    let at = ledger
+        .paused_until
+        .as_deref()
+        .and_then(parse_ts)
+        .unwrap_or(now);
+    ledger.paused_since = None;
+    ledger.paused_until = None;
+    ledger.epochs.push(Epoch {
+        event: "resume".into(),
+        at: format_ts(at),
+        provider: None,
+    });
+    true
+}
+
+/// The epochs of the ledger with a pause that ran out already closed.
+pub fn effective_epochs(ledger: &Ledger, now: i64) -> Vec<Epoch> {
+    let mut settled = ledger.clone();
+    settle(&mut settled, now);
+    settled.epochs
+}
+
+pub fn set_paused(
+    paths: &Paths,
+    paused: bool,
+    until: Option<i64>,
+    now: i64,
+) -> Result<Value, String> {
     let mut ledger = read_ledger(paths)?;
-    let now = format_ts(now_ms());
-    let was = ledger.paused_since.is_some();
-    if paused && !was {
-        ledger.paused_since = Some(now.clone());
+    let settled = settle(&mut ledger, now);
+    let was = pause_active(&ledger, now);
+    let until = until.map(format_ts);
+    let changed = if paused && !was {
+        ledger.paused_since = Some(format_ts(now));
+        ledger.paused_until = until;
         ledger.epochs.push(Epoch {
             event: "pause".into(),
-            at: now,
+            at: format_ts(now),
             provider: None,
         });
-    } else if !paused && was {
+        true
+    } else if paused {
+        let moved = ledger.paused_until != until;
+        ledger.paused_until = until;
+        moved
+    } else if was {
         ledger.paused_since = None;
+        ledger.paused_until = None;
         ledger.epochs.push(Epoch {
             event: "resume".into(),
-            at: now,
+            at: format_ts(now),
             provider: None,
         });
+        true
+    } else {
+        false
+    };
+    if changed || settled {
+        write_ledger(paths, &ledger)?;
     }
-    write_ledger(paths, &ledger)?;
-    Ok(json!({"paused": paused, "changed": paused != was}))
+    Ok(json!({
+        "paused": paused,
+        "changed": changed,
+        "pausedSince": ledger.paused_since,
+        "pausedUntil": ledger.paused_until,
+    }))
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -496,6 +626,8 @@ fn health(row: &Row, ledger: &Ledger) -> (&'static str, Option<String>) {
 
 pub fn status(store: &dyn SettingsStore, paths: &Paths) -> Result<Value, String> {
     let ledger = read_ledger(paths)?;
+    let now = now_ms();
+    let paused = pause_active(&ledger, now);
     let rows = rows(store)?;
     let counters: Vec<Value> = HOOK_PROVIDERS
         .iter()
@@ -516,8 +648,9 @@ pub fn status(store: &dyn SettingsStore, paths: &Paths) -> Result<Value, String>
         })
         .collect();
     Ok(json!({
-        "paused": ledger.paused_since.is_some(),
-        "pausedSince": ledger.paused_since,
+        "paused": paused,
+        "pausedSince": ledger.paused_since.as_ref().filter(|_| paused),
+        "pausedUntil": ledger.paused_until.as_ref().filter(|_| paused),
         "entries": rows
             .iter()
             .map(|r| {
@@ -530,7 +663,7 @@ pub fn status(store: &dyn SettingsStore, paths: &Paths) -> Result<Value, String>
             .collect::<Vec<_>>(),
         "counters": counters,
         "wrapped": ledger.entries.len(),
-        "epochs": ledger.epochs.len(),
+        "epochs": effective_epochs(&ledger, now).len(),
         "cannotTell": CANNOT_TELL,
         "trust": ProviderName::ALL.iter().map(|p| json!({"provider": p.as_str(), "trust": trust_json(*p)})).collect::<Vec<_>>(),
     }))
@@ -545,7 +678,8 @@ pub struct Outcome {
 /// Runs the wrapped command with the hook payload on stdin. Fails open: when the command cannot
 /// be started or Toolport cannot count, the call still gets whatever the command answered.
 pub fn run_wrapper(paths: &Paths, id: &str, argv: &[String], stdin: &[u8]) -> Outcome {
-    if read_ledger(paths).is_ok_and(|l| l.paused_since.is_some()) || argv.is_empty() {
+    let paused = read_ledger(paths).is_ok_and(|l| pause_active(&l, now_ms()));
+    if paused || argv.is_empty() {
         return Outcome {
             code: 0,
             stdout: Vec::new(),
@@ -777,13 +911,16 @@ mod tests {
     #[test]
     fn test10_a_paused_wrapper_answers_nothing_and_counts_nothing() {
         let w = world(rtk_settings());
-        set_paused(&w.paths, true).unwrap();
+        set_paused(&w.paths, true, None, now_ms()).unwrap();
         let argv: Vec<String> = ["/bin/sh", "-c", "echo hi"].map(String::from).to_vec();
         let out = run_wrapper(&w.paths, "rtk", &argv, b"");
         assert!(out.stdout.is_empty());
         assert_eq!(summarize(&w.paths, "rtk").calls, 0);
-        assert_eq!(set_paused(&w.paths, true).unwrap()["changed"], false);
-        set_paused(&w.paths, false).unwrap();
+        assert_eq!(
+            set_paused(&w.paths, true, None, now_ms()).unwrap()["changed"],
+            false
+        );
+        set_paused(&w.paths, false, None, now_ms()).unwrap();
         let events: Vec<_> = read_ledger(&w.paths)
             .unwrap()
             .epochs

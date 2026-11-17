@@ -600,7 +600,7 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["compression", "hooks"],
-        "Own the rtk and read-once hook entries: status apply undo pause resume (--dry-run, --provider)",
+        "Own the rtk and read-once hook entries: status apply undo pause resume (--dry-run, --provider, --for, --until)",
         compression_hooks::hooks,
     ),
     cmd(

@@ -1,0 +1,7 @@
+{
+  "command": "compression hooks pause",
+  "dryRun": "none",
+  "name": "compression_hooks_pause",
+  "tier": "write",
+  "toolTier": 2
+}

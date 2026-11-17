@@ -34,6 +34,7 @@
       "epochs": 1,
       "paused": true,
       "pausedSince": "<TIME>",
+      "pausedUntil": null,
       "trust": [
         {
           "provider": "headroom",

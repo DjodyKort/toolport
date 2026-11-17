@@ -2001,6 +2001,36 @@ const CASES: &[Case] = &[
             apply("pause", &["compression", "hooks", "pause"]),
             apply("again", &["compression", "hooks", "pause"]),
             read("paused", &["compression", "hooks", "status"]),
+            apply("for", &["compression", "hooks", "pause", "--for", "1d"]),
+            read("paused-for", &["compression", "hooks", "status"]),
+            usage(
+                "until-too-far",
+                &["compression", "hooks", "pause", "--until", "2099-01-01"],
+            ),
+            usage(
+                "both",
+                &[
+                    "compression",
+                    "hooks",
+                    "pause",
+                    "--for",
+                    "1d",
+                    "--until",
+                    "2099-01-01",
+                ],
+            ),
+            usage(
+                "bad-duration",
+                &["compression", "hooks", "pause", "--for", "soon"],
+            ),
+            usage(
+                "too-long",
+                &["compression", "hooks", "pause", "--for", "31d"],
+            ),
+            usage(
+                "past",
+                &["compression", "hooks", "pause", "--until", "2020-01-01"],
+            ),
         ],
     ),
     case(

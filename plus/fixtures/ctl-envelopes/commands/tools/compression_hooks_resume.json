@@ -1,0 +1,7 @@
+{
+  "command": "compression hooks resume",
+  "dryRun": "none",
+  "name": "compression_hooks_resume",
+  "tier": "write",
+  "toolTier": 2
+}

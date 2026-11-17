@@ -1,0 +1,11 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "changed": true,
+    "paused": false,
+    "pausedSince": null,
+    "pausedUntil": null
+  },
+  "tool": "compression_hooks_resume"
+}

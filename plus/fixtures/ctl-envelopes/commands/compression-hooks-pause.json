@@ -2,7 +2,30 @@
   "baseTier": "write",
   "cost": false,
   "dryRun": false,
-  "flags": [],
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "How long the pause lasts, e.g. 1d, 6h, 90m or 1d12h; at most 30 days",
+      "escalates": false,
+      "hidden": false,
+      "name": "--for",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "When the pause ends: an RFC 3339 time, 2026-11-18T09:12 (UTC) or a date; at most 30 days ahead",
+      "escalates": false,
+      "hidden": false,
+      "name": "--until",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    }
+  ],
   "group": "compression",
   "id": "compression hooks pause",
   "kind": "command",
@@ -18,8 +41,8 @@
     "flag": null,
     "mode": "none"
   },
-  "summary": "Make the wrapped entries answer nothing until resumed",
+  "summary": "Make the wrapped entries answer nothing until resumed, or for a while and then by themselves (--for, --until)",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["compression_hooks_pause"]
 }

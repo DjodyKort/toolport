@@ -103,6 +103,31 @@ export function headline(rows: HookRow[], paused: boolean): Headline {
   return { kind, owned, foreign, broken };
 }
 
+const clock = (at: Date) =>
+  at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+
+/** `today 09:12`, `tomorrow 09:12` or `Mon 23 Nov 09:12`: when a pause resumes by itself. */
+export function untilText(iso: string, now: Date = new Date()): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return iso;
+  const days = Math.round(
+    (new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime() -
+      new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) /
+      86_400_000,
+  );
+  const day =
+    days === 0
+      ? "today"
+      : days === 1
+        ? "tomorrow"
+        : at.toLocaleDateString("en-GB", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+          });
+  return `${day} ${clock(at)}`;
+}
+
 export function latencyText(counter: HookCounter | null): string {
   if (!counter || counter.calls === 0) {
     return "No calls counted yet. The hook counts from the next Claude Code session.";

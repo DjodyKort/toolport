@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Gauge, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import {
 import type { DoctorCheck, HookProviderId, HooksWriteData } from "./data";
 import { AdvancedPanel, HeadlineCard, HookCard, ProviderTile } from "./HookCards";
 import MeasurementsPage from "./MeasurementsPage";
-import { headline, hookRows, providerTiles } from "./model";
+import { headline, hookRows, providerTiles, untilText } from "./model";
 import { changeHooks } from "./useHookWrites";
 
 interface Verification {
@@ -59,6 +59,15 @@ function Overview({ onMeasurements }: { onMeasurements: () => void }) {
   const [preview, setPreview] = useState<HooksWriteData | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [verification, setVerification] = useState<Verification | null>(null);
+  const until = hooks.data?.pausedUntil ?? null;
+  const reload = hooks.reload;
+
+  useEffect(() => {
+    if (!until) return;
+    const wait = Math.min(new Date(until).getTime() - Date.now() + 1000, 2 ** 31 - 1);
+    const timer = setTimeout(reload, Math.max(wait, 0));
+    return () => clearTimeout(timer);
+  }, [until, reload]);
 
   if (!hooks.data) {
     return hooks.error ? (
@@ -84,9 +93,9 @@ function Overview({ onMeasurements }: { onMeasurements: () => void }) {
   const head = headline(rows, status.paused);
   const tiles = providerTiles(status, policy.data);
 
-  async function write(
-    done: string,
-    run: () => Promise<unknown>,
+  async function write<R>(
+    done: string | ((result: R) => string),
+    run: () => Promise<R>,
     undo: (() => Promise<unknown>) | null,
   ) {
     setBusy(true);
@@ -180,6 +189,7 @@ function Overview({ onMeasurements }: { onMeasurements: () => void }) {
           headline={head}
           rows={rows}
           pausedSince={status.pausedSince}
+          pausedUntil={status.pausedUntil}
           busy={busy}
           preview={preview}
           checks={verification && <Verified result={verification} />}
@@ -189,7 +199,16 @@ function Overview({ onMeasurements }: { onMeasurements: () => void }) {
           onRepair={() =>
             void write("Restored the compression hooks", () => applyHooks(), null)
           }
-          onPause={() => void write("Compression paused", pauseHooks, resumeHooks)}
+          onPause={() =>
+            void write(
+              (result) =>
+                result.pausedUntil
+                  ? `Compression paused until ${untilText(result.pausedUntil)}`
+                  : "Compression paused",
+              () => pauseHooks("1d"),
+              resumeHooks,
+            )
+          }
           onResume={() => void write("Compression resumed", resumeHooks, pauseHooks)}
           onVerify={() => void verify()}
         />

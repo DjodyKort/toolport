@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "for": "1d",
+    "until": "2099-01-01"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "pass either for or until, not both"
+    }
+  },
+  "text": "invalid_arguments: pass either for or until, not both",
+  "tool": "compression_hooks_pause"
+}

@@ -153,12 +153,20 @@ function loginWorld(params: URLSearchParams) {
   };
 }
 
-const HOOK_SCENARIOS = ["adopt", "on", "paused", "missing", "edited", "none"];
+const HOOK_SCENARIOS = [
+  "adopt",
+  "on",
+  "paused",
+  "paused-open",
+  "missing",
+  "edited",
+  "none",
+];
 
 /** `?plus-bell` shows the footer bell with three rows. `?plus-self=missing|enabled|disabled|opted-out|not-enabled`, `?plus-doctor=warn|fail` and
  * `?plus-bridge=down` pick the state the fixture page starts in. `?plus-restart=busy|partial|none|slow`
  * picks how a server restart answers, `?plus-measured=fresh|stale`, `?plus-measure=slow|fail` and `?plus-bundles=none` set the Context screen's world,
- * `?plus-compression=adopt|on|paused|missing|edited|none` the hooks of its Hooks & compression tab and
+ * `?plus-compression=adopt|on|paused|paused-open|missing|edited|none` the hooks of its Hooks & compression tab and
  * `?plus-measurements=compared|empty` its measurements, and `?plus-default=<access set id>` the default access; the servers follow
  * `?auth-guidance` of the app fixture. */
 export function plusFixtureFromSearch(search: string) {

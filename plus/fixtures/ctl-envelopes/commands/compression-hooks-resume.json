@@ -21,5 +21,5 @@
   "summary": "Let the wrapped entries answer again",
   "surface": "screen",
   "tier": "write",
-  "tools": []
+  "tools": ["compression_hooks_resume"]
 }

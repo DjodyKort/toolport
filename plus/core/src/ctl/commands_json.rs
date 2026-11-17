@@ -310,6 +310,8 @@ pub(super) const META: &[(&str, Meta)] = &[
     ("compression hooks apply", m("--provider", Choice(&["rtk", "read-once"]), "Wrap only this provider's entry")),
     ("compression hooks undo", m("--dry-run", Bool, "Show what would be restored and change nothing")),
     ("compression hooks undo", m("--provider", Choice(&["rtk", "read-once"]), "Restore only this provider's entry")),
+    ("compression hooks pause", m("--for", Str, "How long the pause lasts, e.g. 1d, 6h, 90m or 1d12h; at most 30 days")),
+    ("compression hooks pause", m("--until", Str, "When the pause ends: an RFC 3339 time, 2026-11-18T09:12 (UTC) or a date; at most 30 days ahead")),
     ("server uninstall", m("--dry-run", Bool, "Show what would be removed and change nothing")),
     ("server uninstall", m("--keep-clients", Bool, "Leave client entries alone; none exist per server on the gateway, direct entries are handled with them")),
     ("server uninstall", m("--keep-secrets", Bool, "Leave the server's vault entries in place")),

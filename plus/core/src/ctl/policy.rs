@@ -313,7 +313,7 @@ pub(super) const SUBS: &[Sub] = &[
     sub("compression hooks", "status", "Show the hook entries, whether they are wrapped, and the counted calls"),
     sub("compression hooks", "apply", "Wrap the existing rtk and read-once entries (--provider, --dry-run)"),
     sub("compression hooks", "undo", "Restore the wrapped entries exactly (--provider, --dry-run)"),
-    sub("compression hooks", "pause", "Make the wrapped entries answer nothing until resumed"),
+    sub("compression hooks", "pause", "Make the wrapped entries answer nothing until resumed, or for a while and then by themselves (--for, --until)"),
     sub("compression hooks", "resume", "Let the wrapped entries answer again"),
     sub("compression ledger", "summary", "Summarise the token-savings ledger (--provider, --since)"),
     sub("compression ledger", "record", "Append a savings record to the ledger (--provider, --before, --after, --source, --session)"),
@@ -691,7 +691,9 @@ pub(super) const ROWS: &[Row] = &[
         .dry()
         .spec(&[&compression_hooks::HOOKS])
         .skip("restores the hook entries of Claude settings; plus_ctl_contract runs it in a scratch home"),
-    row("compression hooks pause", W).skip("records a pause in the hooks ledger; plus_ctl_contract step"),
+    row("compression hooks pause", W)
+        .spec(&[&compression_hooks::PAUSE])
+        .skip("records a pause in the hooks ledger; plus_ctl_contract step"),
     row("compression hooks resume", W).skip("ends a pause in the hooks ledger; plus_ctl_contract step"),
     row("compression hook", W)
         .needs(&[Needs::TerminalOnly])
@@ -862,6 +864,8 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     own("flow_diagram", R),
     maps("compression_status", R, "compression status"),
     maps("compression_measure", R, "compression measure"),
+    maps("compression_hooks_pause", W, "compression hooks pause"),
+    maps("compression_hooks_resume", W, "compression hooks resume"),
     maps("compression_enable", W, "compression enable").on(),
     maps("compression_disable", D, "compression disable").on(),
     maps("compression_set_provider", W, "compression set-provider").on(),

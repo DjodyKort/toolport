@@ -1340,6 +1340,39 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "compression_hooks_pause",
+        &[
+            write("for", "compression_hooks_pause", r#"{"for":"1d"}"#),
+            write("open", "compression_hooks_pause", "{}"),
+            fails(
+                "bad_for",
+                "invalid_arguments",
+                "compression_hooks_pause",
+                r#"{"for":"soon"}"#,
+            ),
+            fails(
+                "both",
+                "invalid_arguments",
+                "compression_hooks_pause",
+                r#"{"for":"1d","until":"2099-01-01"}"#,
+            ),
+            fails(
+                "too_long",
+                "invalid_arguments",
+                "compression_hooks_pause",
+                r#"{"for":"31d"}"#,
+            ),
+        ],
+    ),
+    case(
+        "compression_hooks_resume",
+        &[
+            setup("compression_hooks_pause", r#"{"for":"1d"}"#),
+            write("apply", "compression_hooks_resume", "{}"),
+            read("again", "compression_hooks_resume", "{}"),
+        ],
+    ),
+    case(
         "compression_enable",
         &[
             read(

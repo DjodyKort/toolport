@@ -697,6 +697,25 @@ pub const TOOLS: &[ToolDef] = &[
         compression::measure
     ),
     tool!(
+        "compression_hooks_pause",
+        2,
+        None,
+        "Pause the compression hooks Toolport wrapped: they answer nothing, so Claude Code runs without rtk and read-once. With for or until the pause ends by itself, without an app running; without either it lasts until compression_hooks_resume. Applies from the next session",
+        [
+            p("for", Ty::Str, false, "How long: 1d, 6h, 90m or 1d12h; at most 30 days"),
+            p("until", Ty::Str, false, "When it ends: an RFC 3339 time, 2026-11-18T09:12 (UTC) or a date; at most 30 days ahead")
+        ],
+        compression::hooks_pause
+    ),
+    tool!(
+        "compression_hooks_resume",
+        2,
+        None,
+        "End a pause of the compression hooks now",
+        [],
+        compression::hooks_resume
+    ),
+    tool!(
         "compression_enable",
         3,
         UnlessDryRun,

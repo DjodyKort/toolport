@@ -185,14 +185,17 @@ describe("Hooks & compression tab", () => {
     );
   });
 
-  it("test07_pause_and_resume_are_one_click_with_undo_and_a_pause_never_resumes_silently", async () => {
+  it("test07_pause_for_a_day_is_one_click_with_undo_and_says_when_it_resumes_by_itself", async () => {
     setup({ hooks: "on" });
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Pause compression" }),
+    await userEvent.click(await screen.findByRole("button", { name: "Pause for a day" }));
+    expect(await screen.findByText(/Compression is paused until tomorrow/)).toBeVisible();
+    expect(screen.queryByText(/Nothing resumes by itself/)).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(ranArgv()).toContainEqual(["compression", "hooks", "pause", "--for", "1d"]);
+    expect(toast.success).toHaveBeenCalledWith(
+      expect.stringMatching(/^Compression paused until tomorrow \d{2}:\d{2}$/),
+      expect.anything(),
     );
-    expect(await screen.findByText(/Compression is paused since/)).toBeVisible();
-    expect(screen.getByText(/Nothing resumes by itself/)).toBeVisible();
-    expect(ranArgv()).toContainEqual(["compression", "hooks", "pause"]);
     undoOf()!.onClick();
     await waitFor(() => expect(ran("hooks", "resume")).toBe(true));
     expect(
@@ -201,11 +204,27 @@ describe("Hooks & compression tab", () => {
       ),
     ).toBeVisible();
 
-    await userEvent.click(screen.getByRole("button", { name: "Pause compression" }));
+    await userEvent.click(screen.getByRole("button", { name: "Pause for a day" }));
     await userEvent.click(await screen.findByRole("button", { name: "Resume now" }));
     await waitFor(() =>
       expect(ranArgv().filter((a) => a.includes("resume"))).toHaveLength(2),
     );
+  });
+
+  it("test07b_only_a_pause_without_an_end_warns_that_nothing_resumes_by_itself", async () => {
+    setup({ hooks: "paused-open" });
+    expect(await screen.findByText(/Compression is paused since/)).toBeVisible();
+    expect(screen.getByText(/Nothing resumes by itself/)).toBeVisible();
+  });
+
+  it("test07c_a_pause_with_an_end_shows_the_end_and_resume_now", async () => {
+    setup({ hooks: "paused" });
+    expect(
+      await screen.findByText(/Compression is paused until (today|tomorrow)/),
+    ).toBeVisible();
+    expect(screen.getByText(/answer again by themselves/)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Resume now" }));
+    await waitFor(() => expect(ran("hooks", "resume")).toBe(true));
   });
 
   it("test08_a_missing_hook_asks_to_be_re_applied_and_says_nothing_errors", async () => {

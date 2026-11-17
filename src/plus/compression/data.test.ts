@@ -8,6 +8,7 @@ import type {
   HooksStatusData,
   HooksWriteData,
   MeasureReport,
+  PauseData,
 } from "./data";
 
 const root = join(__dirname, "../../../plus/fixtures");
@@ -47,6 +48,7 @@ describe("the compression envelope types match the Rust goldens", () => {
       "epochs",
       "paused",
       "pausedSince",
+      "pausedUntil",
       "trust",
       "wrapped",
     ]);
@@ -136,5 +138,17 @@ describe("the compression envelope types match the Rust goldens", () => {
     expect(keys((world.data as HooksStatusData).counters[0])).toEqual(
       keys((golden as HooksStatusData).counters[0]),
     );
+  });
+
+  it("test07_a_pause_with_an_end_has_the_same_shape_in_the_golden_and_the_fixture", () => {
+    const status = ctl("compression-hooks-pause.paused-for").envelope
+      .data as HooksStatusData;
+    expect(status.pausedUntil).toEqual(expect.stringMatching(/./));
+    const pause = ctl("compression-hooks-pause.for").envelope.data as PauseData;
+    const world = createCompressionWorld({ hooks: "on" });
+    const reply = world.run(["compression", "hooks", "pause", "--for", "1d"]);
+    expect(shape(reply.data)).toEqual(shape(pause));
+    const fixture = world.run(["compression", "hooks", "status"]).data as HooksStatusData;
+    expect(typeof fixture.pausedUntil).toBe("string");
   });
 });

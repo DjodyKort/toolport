@@ -1,0 +1,13 @@
+{
+  "arguments": {
+    "for": "1d"
+  },
+  "isError": false,
+  "result": {
+    "changed": true,
+    "paused": true,
+    "pausedSince": "<TIME>",
+    "pausedUntil": "<TIME>"
+  },
+  "tool": "compression_hooks_pause"
+}

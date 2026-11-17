@@ -1,0 +1,13 @@
+{
+  "argv": ["compression", "hooks", "pause", "--until", "2099-01-01"],
+  "envelope": {
+    "command": "compression hooks",
+    "error": {
+      "code": "usage",
+      "message": "a pause lasts at most 30 days; pause without an end to keep it until you resume"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}
