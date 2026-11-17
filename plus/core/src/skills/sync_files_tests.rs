@@ -81,6 +81,7 @@ impl World {
             journal: None,
             take: Vec::new(),
             only: None,
+            extras: None,
         };
         let result = sync_skills(&discover_skills(&self.repo.0), &registry, &opts).unwrap();
         if !dry_run {

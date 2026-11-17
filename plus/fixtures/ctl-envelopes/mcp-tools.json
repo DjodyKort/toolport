@@ -286,7 +286,7 @@
           "tier": 2
         },
         {
-          "description": "Transpile skills to client outputs; dry_run is on by default (apply with dry_run=false and confirm=true). Removals, new hooks and files that differ wait unless apply_held=true",
+          "description": "Transpile skills, agents and output styles to client outputs in one plan with one snapshot; dry_run is on by default (apply with dry_run=false and confirm=true). Removals, new hooks and files that differ wait unless apply_held=true",
           "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "skills_sync",
@@ -334,13 +334,13 @@
               "type": "boolean"
             },
             {
-              "description": "Sync only these skills and rules and leave the rest of the lock as it is",
+              "description": "Sync only these skills and rules, or agent:<name> and style:<name>, and leave the rest of the lock as it is",
               "name": "only",
               "required": false,
               "type": "string[]"
             },
             {
-              "description": "Replace these held files with the library copy after a backup, each as <skill>/<path in the skill folder>",
+              "description": "Replace these held files with the library copy after a backup, each as <skill>/<path in the skill folder>, agent:<name>/<file> or style:<name>/<file>",
               "name": "take",
               "required": false,
               "type": "string[]"

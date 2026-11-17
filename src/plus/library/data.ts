@@ -5,7 +5,11 @@
 export type ChangeOp =
   "add" | "update" | "adopt" | "differs" | "edited" | "remove" | "hook" | string;
 
+/** What a plan row is about; skills and rules carry no kind, agents and output styles do. */
+export type ChangeKind = "agent" | "style";
+
 export interface PlanChange {
+  kind?: ChangeKind;
   skill: string;
   client: string;
   path: string;
@@ -25,14 +29,26 @@ export interface PlanCounts {
   kept: number;
 }
 
+/** A step of a run that did not complete while the rest went on; `id` is what `--only` takes. */
+export interface FailedStep {
+  id: string;
+  kind: "skill" | "agent" | "style";
+  name: string;
+  client: string;
+  step: "files" | "hooks" | string;
+  message: string;
+}
+
 export interface SyncPlan {
   counts: PlanCounts;
   held: number;
   changes: PlanChange[];
   skipped: Array<{ skill: string; path: string; reason: string }>;
+  failed?: FailedStep[];
 }
 
 export interface HeldRow {
+  kind?: ChangeKind;
   skill: string;
   client: string;
   path: string;

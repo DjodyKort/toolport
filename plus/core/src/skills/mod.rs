@@ -33,6 +33,7 @@ pub mod snapshot;
 pub mod state;
 pub mod styles;
 pub mod sync;
+pub mod sync_extras;
 pub mod sync_report;
 pub mod tap_handlers;
 pub mod tap_ops;
@@ -52,6 +53,8 @@ pub use transpiler::{Transpiler, TranspilerRegistry};
 mod checks_tests;
 #[cfg(test)]
 mod compare_tests;
+#[cfg(test)]
+mod extras_tests;
 #[cfg(test)]
 mod frontmatter_tests;
 #[cfg(test)]

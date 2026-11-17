@@ -126,7 +126,7 @@
     },
     {
       "aliases": [],
-      "effect": "Replace this held file with the library copy, after a backup: <skill>/<path in the skill folder> (repeatable)",
+      "effect": "Replace this held file with the library copy, after a backup: <skill>/<path in the skill folder>, agent:<name>/<file> or style:<name>/<file> (repeatable)",
       "escalates": false,
       "hidden": false,
       "name": "--take",
@@ -137,7 +137,7 @@
     },
     {
       "aliases": [],
-      "effect": "Sync only this skill or rule and leave the rest of the lock as it is (repeatable)",
+      "effect": "Sync only this skill or rule, or agent:<name> or style:<name>, and leave the rest of the lock as it is (repeatable)",
       "escalates": false,
       "hidden": false,
       "name": "--only",
@@ -162,7 +162,7 @@
     "flag": "--dry-run",
     "mode": "flag"
   },
-  "summary": "Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run, --apply-held)",
+  "summary": "Transpile skills, agents and output styles to client outputs in one plan with one snapshot (--repo, --home, --client, --project, --dry-run, --apply-held, --only, --take)",
   "surface": "screen",
   "tier": "write",
   "tools": ["skills_sync"]

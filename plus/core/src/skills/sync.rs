@@ -30,6 +30,7 @@ use super::origin::{is_tap, read_origins};
 use super::parser::{Skill, SkillType};
 use super::pyfs::write_text;
 use super::snapshot::Journal;
+use super::sync_extras::{sync_extras, Extras};
 use super::transpiler::{Transpiler, TranspilerRegistry};
 use crate::hashing::lock_hash;
 use std::collections::{BTreeMap, BTreeSet};
@@ -62,6 +63,8 @@ pub struct SyncOptions<'a> {
     pub take: Vec<String>,
     /// Only these skills and rules are synced; every other entry of the lock stays as it is.
     pub only: Option<Vec<String>>,
+    /// The library's agents and output styles, synced in the same run; `None` leaves them out.
+    pub extras: Option<Extras>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -102,8 +105,35 @@ impl Op {
     }
 }
 
+/// What a plan row is about: a skill or rule, an agent or an output style.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kind {
+    Skill,
+    Agent,
+    Style,
+}
+
+impl Kind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Skill => "skill",
+            Self::Agent => "agent",
+            Self::Style => "style",
+        }
+    }
+
+    /// How `--take`, `--only` and a kept file name an agent or a style: skills and rules go bare.
+    pub fn scoped(self, name: &str) -> String {
+        match self {
+            Self::Skill => name.to_string(),
+            other => format!("{}:{name}", other.as_str()),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Change {
+    pub kind: Kind,
     pub skill: String,
     pub client: String,
     /// Relative to the output root; absolute when the file lies outside it.
@@ -120,10 +150,22 @@ pub struct SkippedEntry {
     pub reason: String,
 }
 
+/// One step of a run that did not complete; the rest of the run went on without it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Failure {
+    pub kind: Kind,
+    pub name: String,
+    pub client: String,
+    /// `files` or `hooks`.
+    pub step: &'static str,
+    pub message: String,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Plan {
     pub changes: Vec<Change>,
     pub skipped: Vec<SkippedEntry>,
+    pub failed: Vec<Failure>,
 }
 
 impl Plan {
@@ -209,6 +251,14 @@ pub(crate) enum Found {
 }
 
 impl Desired {
+    pub(crate) fn text(abs: PathBuf, rel: String, text: String) -> Self {
+        Self {
+            abs,
+            rel,
+            source: Source::Text(text),
+        }
+    }
+
     fn content_hash(&self) -> String {
         match &self.source {
             Source::Text(text) => lock_hash(text),
@@ -409,12 +459,48 @@ fn sync_one(
     entry.warnings.extend(layout.warnings);
     let tracked = tracked_rels(ctx.previous, skill, &key);
     let previous = previous_entry(ctx.previous, skill);
+    place_files(
+        ctx,
+        Placed {
+            kind: Kind::Skill,
+            name: skill.name(),
+            client: &key,
+        },
+        &desired,
+        &tracked,
+        previous,
+        entry,
+    )?;
+    sync_hooks(t, skill, ctx, entry)
+}
+
+pub(crate) struct Placed<'a> {
+    pub(crate) kind: Kind,
+    pub(crate) name: &'a str,
+    pub(crate) client: &'a str,
+}
+
+/// Plans and writes the files one item installs for one client: each file is added, updated,
+/// adopted, held for a decision or kept, and the lock entry learns what the item now owns.
+pub(crate) fn place_files(
+    ctx: &mut Ctx<'_>,
+    item: Placed<'_>,
+    desired: &[Desired],
+    tracked: &BTreeSet<String>,
+    previous: Option<&LockEntry>,
+    entry: &mut LockEntry,
+) -> Result<(), String> {
+    let Placed {
+        kind,
+        name,
+        client: key,
+    } = item;
     let mut kept = Vec::new();
-    for d in &desired {
+    for d in desired {
         ctx.desired_abs.insert(d.abs.clone());
         let found = compare(d);
         let is_tracked = tracked.contains(&d.rel);
-        let recorded = previous.and_then(|e| e.file_hash(&key, &d.rel));
+        let recorded = previous.and_then(|e| e.file_hash(key, &d.rel));
         let edited_since_install = is_tracked
             && recorded.is_some_and(|hash| installed_hash(&d.abs).as_deref() != Some(hash));
         let unverifiable = ctx.unattended && is_tracked && recorded.is_none();
@@ -427,12 +513,13 @@ fn sync_one(
             (Found::Different, true) => Op::Update,
             (Found::Different, false) => Op::Differs,
         };
-        let in_skill = rel_in_skill(&d.abs, &desired);
-        let taken = ctx.take.contains(&format!("{}/{in_skill}", skill.name()));
+        let in_skill = rel_in_skill(&d.abs, desired);
+        let scoped = kind.scoped(name);
+        let taken = ctx.take.contains(&format!("{scoped}/{in_skill}"));
         let replace_held = ctx.apply_held || taken;
         if matches!(op, Op::Differs | Op::Edited)
             && !replace_held
-            && ctx.is_kept(&key, skill.name(), &in_skill, &d.abs)
+            && ctx.is_kept(key, &scoped, &in_skill, &d.abs)
         {
             op = Op::Kept;
         }
@@ -474,21 +561,22 @@ fn sync_one(
             _ => {}
         }
         ctx.plan.changes.push(Change {
-            skill: skill.name().to_string(),
-            client: key.clone(),
+            kind,
+            skill: name.to_string(),
+            client: key.to_string(),
             path: d.rel.clone(),
             op,
             held,
         });
         if owned {
             if !hash.is_empty() {
-                entry.set_file_hash(&key, &d.rel, hash);
+                entry.set_file_hash(key, &d.rel, hash);
             }
             kept.push(d.rel.clone());
         }
     }
-    entry.extend_outputs(&key, kept);
-    sync_hooks(t, skill, ctx, entry)
+    entry.extend_outputs(key, kept);
+    Ok(())
 }
 
 /// The recorded origin of a skill that did not start in the library; the origins file sits at the
@@ -526,6 +614,7 @@ fn sync_hooks(
         }
         for id in new {
             ctx.plan.changes.push(Change {
+                kind: Kind::Skill,
                 skill: skill.name().to_string(),
                 client: key.to_string(),
                 path: id.clone(),
@@ -540,6 +629,7 @@ fn sync_hooks(
     }
     for id in new {
         ctx.plan.changes.push(Change {
+            kind: Kind::Skill,
             skill: skill.name().to_string(),
             client: key.to_string(),
             path: id.clone(),
@@ -569,42 +659,49 @@ fn sync_hooks(
             entry
                 .warnings
                 .push(format!("{key}: hook install failed: {e}"));
+            ctx.plan.failed.push(Failure {
+                kind: Kind::Skill,
+                name: skill.name().to_string(),
+                client: key.to_string(),
+                step: "hooks",
+                message: e,
+            });
         }
     }
     Ok(())
 }
 
-struct Ctx<'a> {
-    only: Option<&'a [String]>,
-    take: &'a [String],
-    kept: Kept,
-    output_root: &'a Path,
-    previous: Option<&'a LockFile>,
-    dry_run: bool,
-    apply_held: bool,
-    allow_tap_hooks: bool,
-    clock: &'a dyn Clock,
-    settings: Option<&'a dyn SettingsStore>,
-    journal: Option<&'a Journal>,
-    unattended: bool,
-    plan: Plan,
-    desired_abs: BTreeSet<PathBuf>,
+pub(crate) struct Ctx<'a> {
+    pub(crate) only: Option<&'a [String]>,
+    pub(crate) take: &'a [String],
+    pub(crate) kept: Kept,
+    pub(crate) output_root: &'a Path,
+    pub(crate) previous: Option<&'a LockFile>,
+    pub(crate) dry_run: bool,
+    pub(crate) apply_held: bool,
+    pub(crate) allow_tap_hooks: bool,
+    pub(crate) clock: &'a dyn Clock,
+    pub(crate) settings: Option<&'a dyn SettingsStore>,
+    pub(crate) journal: Option<&'a Journal>,
+    pub(crate) unattended: bool,
+    pub(crate) plan: Plan,
+    pub(crate) desired_abs: BTreeSet<PathBuf>,
 }
 
 impl Ctx<'_> {
     /// A skill the run was not asked to sync.
-    fn frozen(&self, name: &str) -> bool {
+    pub(crate) fn frozen(&self, name: &str) -> bool {
         self.only
             .is_some_and(|only| !only.iter().any(|n| n == name))
     }
 
-    fn is_kept(&self, client: &str, skill: &str, in_skill: &str, abs: &Path) -> bool {
+    pub(crate) fn is_kept(&self, client: &str, skill: &str, in_skill: &str, abs: &Path) -> bool {
         self.kept
             .get(&keep::key(client, skill, in_skill))
             .is_some_and(|hash| installed_hash(abs).as_deref() == Some(hash))
     }
 
-    fn touch(&self, path: &Path) -> Result<(), String> {
+    pub(crate) fn touch(&self, path: &Path) -> Result<(), String> {
         match self.journal {
             Some(journal) if !self.dry_run => journal.before_change(path),
             _ => Ok(()),
@@ -765,6 +862,13 @@ pub fn sync_skills(
                 entry
                     .warnings
                     .push(format!("{key}: transpilation failed: {e}"));
+                ctx.plan.failed.push(Failure {
+                    kind: Kind::Skill,
+                    name: skill.name().to_string(),
+                    client: key.to_string(),
+                    step: "files",
+                    message: e.clone(),
+                });
                 let tracked = tracked_rels(ctx.previous, skill, key);
                 for rel in &tracked {
                     if let Some(hash) =
@@ -778,6 +882,16 @@ pub fn sync_skills(
         }
         let name = skill.name().to_string();
         set_entry(bucket(&mut lock, skill), &name, entry);
+    }
+
+    if let Some(extras) = &opts.extras {
+        sync_extras(
+            &mut ctx,
+            &mut lock,
+            extras,
+            opts.global_mode,
+            &opts.client_keys,
+        )?;
     }
 
     if let Some(prev) = ctx.previous.filter(|_| ctx.only.is_some()) {
@@ -842,6 +956,7 @@ pub fn sync_skills(
                 continue;
             }
             ctx.plan.changes.push(Change {
+                kind: Kind::Skill,
                 skill: name.clone(),
                 client: client.clone(),
                 path: rel.clone(),

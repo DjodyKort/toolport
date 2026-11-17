@@ -6,11 +6,11 @@
       "clean": true,
       "lockfile": "<WORLD>/data/mcpm-skills.lock",
       "lockfilePresent": true,
-      "matched": 1,
+      "matched": 3,
       "mismatched": [],
       "outputRoot": "<WORLD>/home",
       "repo": "<WORLD>/skills-repo",
-      "total": 1,
+      "total": 3,
       "warnings": []
     },
     "ok": true,

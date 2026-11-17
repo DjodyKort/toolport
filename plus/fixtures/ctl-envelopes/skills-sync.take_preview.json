@@ -104,6 +104,7 @@
           "unchanged": 0,
           "update": 0
         },
+        "failed": [],
         "held": 1,
         "skipped": [
           {

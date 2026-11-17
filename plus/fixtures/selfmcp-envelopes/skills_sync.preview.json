@@ -31,10 +31,26 @@
           "op": "add",
           "path": ".claude/skills/demo/SKILL.md",
           "skill": "demo"
+        },
+        {
+          "client": "claude-code",
+          "held": false,
+          "kind": "agent",
+          "op": "add",
+          "path": ".claude/agents/helper.md",
+          "skill": "helper"
+        },
+        {
+          "client": "claude-code",
+          "held": false,
+          "kind": "style",
+          "op": "add",
+          "path": ".claude/output-styles/plain.md",
+          "skill": "plain"
         }
       ],
       "counts": {
-        "add": 1,
+        "add": 3,
         "adopt": 0,
         "differs": 0,
         "edited": 0,
@@ -44,6 +60,7 @@
         "unchanged": 0,
         "update": 0
       },
+      "failed": [],
       "held": 0,
       "skipped": []
     },

@@ -361,6 +361,7 @@ fn sync_all(repo: &Path, home: &Path, registry: &TranspilerRegistry, c: &FixedCl
         journal: None,
         take: Vec::new(),
         only: None,
+        extras: None,
     };
     let _ = home;
     let result = sync_skills(&discover_skills(repo), registry, &opts).unwrap();
@@ -454,6 +455,7 @@ fn sync_to_claude_code(root: &Path, c: &FixedClock) -> LockFile {
         journal: None,
         take: Vec::new(),
         only: None,
+        extras: None,
     };
     let result = sync_skills(&discover_skills(root), &registry(), &opts).unwrap();
     save_lockfile(root, &result.lockfile).unwrap();

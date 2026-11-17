@@ -103,6 +103,7 @@
           "unchanged": 0,
           "update": 0
         },
+        "failed": [],
         "held": 1,
         "skipped": [
           {
@@ -119,16 +120,16 @@
       "snapshot": {
         "files": 5,
         "hooks": 0,
-        "id": "<STAMP>"
+        "id": "<STAMP>-02"
       },
       "syncedAt": "<TIME>",
       "targetedClients": ["claude-code"],
       "unattended": false,
       "verify": {
         "clean": true,
-        "matched": 6,
+        "matched": 8,
         "mismatched": [],
-        "total": 6
+        "total": 8
       }
     },
     "ok": true,

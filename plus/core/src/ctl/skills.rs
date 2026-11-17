@@ -200,6 +200,23 @@ fn outcome_lines(data: &Value) -> Vec<String> {
             ));
         }
     }
+    let failed: &[Value] = data["plan"]["failed"].as_array().map_or(&[], Vec::as_slice);
+    if !failed.is_empty() {
+        lines.push(format!(
+            "Failed ({}), the rest was applied; run these again with --only <id>:",
+            failed.len()
+        ));
+        for row in failed {
+            lines.push(format!(
+                "  {:<8} {} {} ({}): {}",
+                str_of(row, "step"),
+                str_of(row, "id"),
+                str_of(row, "client"),
+                str_of(row, "kind"),
+                str_of(row, "message")
+            ));
+        }
+    }
     let snapshot = &data["snapshot"];
     if snapshot.is_object() {
         lines.push(format!(

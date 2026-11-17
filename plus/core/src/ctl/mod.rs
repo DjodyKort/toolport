@@ -273,7 +273,7 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["skills", "sync"],
-        "Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run, --apply-held)",
+        "Transpile skills, agents and output styles to client outputs in one plan with one snapshot (--repo, --home, --client, --project, --dry-run, --apply-held, --only, --take)",
         skills::sync,
     ),
     cmd(

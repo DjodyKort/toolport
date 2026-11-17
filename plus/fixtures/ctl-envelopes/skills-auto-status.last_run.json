@@ -4,7 +4,7 @@
     "command": "skills auto status",
     "data": {
       "lastRun": {
-        "applied": 1,
+        "applied": 3,
         "at": "<TIME>",
         "held": [],
         "skipped": 0

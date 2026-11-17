@@ -223,7 +223,7 @@ pub const TOOLS: &[ToolDef] = &[
         "skills_sync",
         2,
         UnlessDryRun,
-        "Transpile skills to client outputs; dry_run is on by default (apply with dry_run=false and confirm=true). Removals, new hooks and files that differ wait unless apply_held=true",
+        "Transpile skills, agents and output styles to client outputs in one plan with one snapshot; dry_run is on by default (apply with dry_run=false and confirm=true). Removals, new hooks and files that differ wait unless apply_held=true",
         [
             REPO,
             CLIENTS,
@@ -251,13 +251,13 @@ pub const TOOLS: &[ToolDef] = &[
                 "only",
                 Ty::StrList,
                 false,
-                "Sync only these skills and rules and leave the rest of the lock as it is"
+                "Sync only these skills and rules, or agent:<name> and style:<name>, and leave the rest of the lock as it is"
             ),
             p(
                 "take",
                 Ty::StrList,
                 false,
-                "Replace these held files with the library copy after a backup, each as <skill>/<path in the skill folder>"
+                "Replace these held files with the library copy after a backup, each as <skill>/<path in the skill folder>, agent:<name>/<file> or style:<name>/<file>"
             ),
             p(
                 "unattended",

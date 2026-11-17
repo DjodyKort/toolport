@@ -174,6 +174,7 @@ pub fn skill_files(args: &Args) -> Result<Value, OpError> {
         journal: None,
         take: Vec::new(),
         only: None,
+        extras: None,
     };
     let plan = sync_skills(&skills, &registry, &opts)
         .map_err(|message| OpError::failed("skills", message))?

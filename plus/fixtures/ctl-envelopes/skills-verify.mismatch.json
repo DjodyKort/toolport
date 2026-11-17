@@ -6,7 +6,7 @@
       "clean": false,
       "lockfile": "<WORLD>/data/mcpm-skills.lock",
       "lockfilePresent": true,
-      "matched": 0,
+      "matched": 2,
       "mismatched": [
         {
           "client": "claude-code",
@@ -17,7 +17,7 @@
       ],
       "outputRoot": "<WORLD>/home",
       "repo": "<WORLD>/skills-repo",
-      "total": 1,
+      "total": 3,
       "warnings": []
     },
     "error": {

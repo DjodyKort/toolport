@@ -75,7 +75,7 @@ export const OP_BADGE: Record<string, string> = {
 
 export interface PlanRow {
   skill: string;
-  kind: "skill" | "rule";
+  kind: "skill" | "rule" | "agent" | "style";
   /** Strongest op of the row: remove and decisions outrank add and update. */
   op: string;
   changes: PlanChange[];
@@ -88,6 +88,8 @@ export interface PlanRow {
 export interface PlanGroups {
   skills: PlanRow[];
   rules: PlanRow[];
+  agents: PlanRow[];
+  styles: PlanRow[];
   hooks: PlanRow[];
   total: number;
   /** Writes of the plan: files written, files removed, hook entries added. */
@@ -104,7 +106,18 @@ function strongest(ops: string[]): string {
   return [...ops].sort((a, b) => RANK.indexOf(a) - RANK.indexOf(b))[0] ?? "update";
 }
 
-function summarise(skill: string, changes: PlanChange[]): string {
+const FOLDER_OF = {
+  skill: "~/.claude/skills",
+  rule: "~/.claude/skills",
+  agent: "~/.claude/agents",
+  style: "~/.claude/output-styles",
+} as const;
+
+function summarise(
+  skill: string,
+  changes: PlanChange[],
+  kind: keyof typeof FOLDER_OF = "skill",
+): string {
   const of = (op: string) => changes.filter((c) => c.op === op);
   const parts: string[] = [];
   const add = of("add");
@@ -121,7 +134,7 @@ function summarise(skill: string, changes: PlanChange[]): string {
     );
   if (of("edited").length)
     parts.push(
-      `${plural(of("edited").length, "file")} edited in ~/.claude/skills after the last sync; the library copy replaces it and your edit is kept as a backup.`,
+      `${plural(of("edited").length, "file")} edited in ${FOLDER_OF[kind]} after the last sync; the library copy replaces it and your edit is kept as a backup.`,
     );
   if (of("differs").length)
     parts.push(
@@ -132,16 +145,30 @@ function summarise(skill: string, changes: PlanChange[]): string {
   return parts.join(" ") || `${skill}: nothing to write.`;
 }
 
+const GROUP_OF = {
+  skill: "skills",
+  rule: "rules",
+  agent: "agents",
+  style: "styles",
+} as const;
+
+/** One plan row per item: an agent and a skill of the same name are two rows. */
+export const itemId = (change: { kind?: string; skill: string }) =>
+  `${change.kind ?? "item"}:${change.skill}`;
+
 /** The plan as the page draws it: skills, rules and hooks apart, one row per skill. */
 export function groupPlan(sync: SyncData): PlanGroups {
   const type = new Map(sync.entries.map((e) => [e.name, e.type]));
-  const bySkill = new Map<string, PlanChange[]>();
+  const byItem = new Map<string, PlanChange[]>();
   for (const change of sync.plan.changes) {
-    bySkill.set(change.skill, [...(bySkill.get(change.skill) ?? []), change]);
+    const id = itemId(change);
+    byItem.set(id, [...(byItem.get(id) ?? []), change]);
   }
   const groups: PlanGroups = {
     skills: [],
     rules: [],
+    agents: [],
+    styles: [],
     hooks: [],
     total: 0,
     written: 0,
@@ -149,18 +176,19 @@ export function groupPlan(sync: SyncData): PlanGroups {
     hooksAdded: 0,
     held: 0,
   };
-  for (const [skill, changes] of bySkill) {
+  for (const changes of byItem.values()) {
+    const skill = changes[0].skill;
     const files = changes.filter((c) => c.op !== "hook");
     const hooks = changes.filter((c) => c.op === "hook");
-    const kind = type.get(skill) === "rule" ? "rule" : "skill";
+    const kind = changes[0].kind ?? (type.get(skill) === "rule" ? "rule" : "skill");
     if (files.length) {
-      groups[kind === "rule" ? "rules" : "skills"].push({
+      groups[GROUP_OF[kind]].push({
         skill,
         kind,
         op: strongest(files.map((c) => c.op)),
         changes: files,
         held: files.some((c) => c.held),
-        summary: summarise(skill, files),
+        summary: summarise(skill, files, kind),
         files: files.length,
       });
     }
@@ -183,6 +211,8 @@ export function groupPlan(sync: SyncData): PlanGroups {
     );
   sort(groups.skills);
   sort(groups.rules);
+  sort(groups.agents);
+  sort(groups.styles);
   sort(groups.hooks);
   for (const change of sync.plan.changes) {
     groups.total += 1;
@@ -195,8 +225,7 @@ export function groupPlan(sync: SyncData): PlanGroups {
 }
 
 /** The plan counts by skill: one row of the page is one change. */
-export const rowCount = (changes: PlanChange[]) =>
-  new Set(changes.map((c) => c.skill)).size;
+export const rowCount = (changes: PlanChange[]) => new Set(changes.map(itemId)).size;
 
 export interface TickNeeds {
   differs: number;

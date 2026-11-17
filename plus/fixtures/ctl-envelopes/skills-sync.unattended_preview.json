@@ -32,9 +32,10 @@
           "hook": 0,
           "kept": 0,
           "remove": 0,
-          "unchanged": 1,
+          "unchanged": 3,
           "update": 0
         },
+        "failed": [],
         "held": 0,
         "skipped": []
       },

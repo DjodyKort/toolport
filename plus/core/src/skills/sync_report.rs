@@ -5,7 +5,7 @@
 
 use super::collisions::{Action, CollisionSummary, BACKUP_DIR_NAME};
 use super::lock::{LockEntry, LockFile};
-use super::sync::{Op, Plan, SyncResult};
+use super::sync::{Failure, Kind, Op, Plan, SyncResult};
 use serde_json::{json, Map, Value};
 use std::path::Path;
 
@@ -57,6 +57,18 @@ fn merged(lock: &LockFile) -> Vec<(&str, &'static str, &LockEntry)> {
     rows
 }
 
+/// One step that did not complete; `id` is what `--only` takes to run it again.
+fn failed_row(failure: &Failure) -> Value {
+    json!({
+        "id": failure.kind.scoped(&failure.name),
+        "kind": failure.kind.as_str(),
+        "name": failure.name,
+        "client": failure.client,
+        "step": failure.step,
+        "message": failure.message,
+    })
+}
+
 fn plan_json(plan: &Plan) -> Value {
     let ops = [
         Op::Add,
@@ -80,19 +92,26 @@ fn plan_json(plan: &Plan) -> Value {
             .changes
             .iter()
             .filter(|c| !matches!(c.op, Op::Unchanged | Op::Kept))
-            .map(|c| json!({
-                "skill": c.skill,
-                "client": c.client,
-                "path": c.path,
-                "op": c.op.as_str(),
-                "held": c.held,
-            }))
+            .map(|c| {
+                let mut row = json!({
+                    "skill": c.skill,
+                    "client": c.client,
+                    "path": c.path,
+                    "op": c.op.as_str(),
+                    "held": c.held,
+                });
+                if c.kind != Kind::Skill {
+                    row["kind"] = json!(c.kind.as_str());
+                }
+                row
+            })
             .collect::<Vec<_>>(),
         "skipped": plan
             .skipped
             .iter()
             .map(|s| json!({"skill": s.skill, "path": s.path, "reason": s.reason}))
             .collect::<Vec<_>>(),
+        "failed": plan.failed.iter().map(failed_row).collect::<Vec<_>>(),
     })
 }
 
@@ -110,13 +129,17 @@ fn held_reason(op: Op) -> &'static str {
 fn held_rows(plan: &Plan) -> Vec<Value> {
     plan.held()
         .map(|c| {
-            json!({
+            let mut row = json!({
                 "skill": c.skill,
                 "client": c.client,
                 "path": c.path,
                 "op": c.op.as_str(),
                 "reason": held_reason(c.op),
-            })
+            });
+            if c.kind != Kind::Skill {
+                row["kind"] = json!(c.kind.as_str());
+            }
+            row
         })
         .collect()
 }

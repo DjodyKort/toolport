@@ -3,6 +3,7 @@
 //! `plus.skills.*` handlers and the self-MCP skills tools only translate their input into
 //! [`Args`] and render or wrap the result; they share nothing else.
 
+use super::agents::discover_agents;
 use super::assets::compute_skill_hash;
 use super::auto;
 use super::client_scope::{self, default_clients, ClientSource};
@@ -23,6 +24,8 @@ use super::parser::{
     DESCRIPTION_LIMIT, SPEC_DESCRIPTION_LIMIT,
 };
 use super::snapshot::{self, Journal, Recording};
+use super::styles::discover_styles;
+use super::sync_extras::{verify_extras, Extras};
 use super::sync_report::sync_report;
 use super::transpiler::TranspilerRegistry;
 use super::transpilers::registry;
@@ -586,6 +589,10 @@ fn run_sync(args: &Args, settings: Option<&dyn SettingsStore>) -> Result<Value, 
     }
     let repo = resolve_repo(args.repo.as_deref())?;
     let skills = discover_skills(&repo);
+    let extras = Extras {
+        agents: discover_agents(&repo),
+        styles: discover_styles(&repo),
+    };
     let global = args.global;
     let output_root = if global { home()? } else { repo.clone() };
     let dir = lock_dir(global, &repo);
@@ -622,6 +629,7 @@ fn run_sync(args: &Args, settings: Option<&dyn SettingsStore>) -> Result<Value, 
             journal: journal.as_ref(),
             take: args.take.clone(),
             only: args.only.clone(),
+            extras: Some(extras.clone()),
         };
         let outcome = sync_skills(&skills, &registry, &opts);
         let saved = match &outcome {
@@ -649,7 +657,15 @@ fn run_sync(args: &Args, settings: Option<&dyn SettingsStore>) -> Result<Value, 
     let verify = if args.dry_run {
         Value::Null
     } else {
-        verify_installed(&skills, &result.lockfile, &registry, &result.output_root).summary()
+        let mut found = verify_installed(&skills, &result.lockfile, &registry, &result.output_root);
+        verify_extras(
+            &mut found,
+            &extras,
+            &result.lockfile,
+            &result.output_root,
+            None,
+        );
+        found.summary()
     };
     let mut data = json!({
         "repo": repo.to_string_lossy(),
@@ -692,10 +708,21 @@ pub fn verify(args: &Args) -> Result<Value, OpError> {
     };
     let root = lock_output_root(read.source, &repo).map_err(OpError::not_found)?;
     let skills = discover_skills(&repo);
-    let found = verify_clients(
+    let mut found = verify_clients(
         &skills,
         &read.lock,
         &registry,
+        &root,
+        args.clients.as_deref(),
+    );
+    let extras = Extras {
+        agents: discover_agents(&repo),
+        styles: discover_styles(&repo),
+    };
+    verify_extras(
+        &mut found,
+        &extras,
+        &read.lock,
         &root,
         args.clients.as_deref(),
     );

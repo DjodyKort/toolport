@@ -13,6 +13,7 @@ import {
   groupPlan,
   OP_BADGE,
   plural,
+  rowCount,
   syncedLine,
   type HeldBack,
   type PlanRow,
@@ -104,11 +105,34 @@ function heldByAuto(row: PlanRow, last: HeldRow[]): boolean {
       c.held &&
       last.some(
         (h) =>
+          h.kind === c.kind &&
           h.skill === c.skill &&
           h.client === c.client &&
           h.path === c.path &&
           h.op === c.op,
       ),
+  );
+}
+
+/** The files of an agent or a style are the rows of the plan itself: there is no per-file
+ * listing for them. */
+function PlannedFiles({ row }: { row: PlanRow }) {
+  return (
+    <ul className="divide-y border-t bg-muted/20" aria-label={`Files of ${row.skill}`}>
+      {row.changes.map((change) => (
+        <li
+          key={`${change.client}:${change.path}`}
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-1.5 pl-10"
+        >
+          <code className="min-w-40 flex-1 font-mono text-xs break-all">
+            {change.path}
+          </code>
+          <Badge variant={change.held ? "warning" : "outline"}>
+            {OP_BADGE[change.op] ?? change.op}
+          </Badge>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -146,7 +170,12 @@ function Row({
         </Badge>
         <Chevron aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
       </button>
-      {open && <Files skill={row.skill} onCompare={onCompare} />}
+      {open &&
+        (row.kind === "agent" || row.kind === "style" ? (
+          <PlannedFiles row={row} />
+        ) : (
+          <Files skill={row.skill} onCompare={onCompare} />
+        ))}
     </li>
   );
 }
@@ -206,7 +235,7 @@ export default function PlanPanel({
   onCompare,
 }: PlanPanelProps) {
   const groups = groupPlan(sync);
-  const rows = new Set(sync.plan.changes.map((c) => c.skill)).size;
+  const rows = rowCount(sync.plan.changes);
   if (rows === 0 && held.length === 0) return null;
   return (
     <section
@@ -245,6 +274,36 @@ export default function PlanPanel({
           <GroupLabel title="Rules" count={groups.rules.length} />
           <ul className="divide-y">
             {groups.rules.map((row) => (
+              <Row
+                key={row.skill}
+                row={row}
+                byAuto={heldByAuto(row, autoHeld)}
+                onCompare={onCompare}
+              />
+            ))}
+          </ul>
+        </>
+      )}
+      {groups.agents.length > 0 && (
+        <>
+          <GroupLabel title="Agents" count={groups.agents.length} />
+          <ul className="divide-y">
+            {groups.agents.map((row) => (
+              <Row
+                key={row.skill}
+                row={row}
+                byAuto={heldByAuto(row, autoHeld)}
+                onCompare={onCompare}
+              />
+            ))}
+          </ul>
+        </>
+      )}
+      {groups.styles.length > 0 && (
+        <>
+          <GroupLabel title="Output styles" count={groups.styles.length} />
+          <ul className="divide-y">
+            {groups.styles.map((row) => (
               <Row
                 key={row.skill}
                 row={row}

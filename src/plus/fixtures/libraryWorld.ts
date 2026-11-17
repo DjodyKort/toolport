@@ -40,6 +40,8 @@ export interface LibraryWorldOptions {
   dirty?: boolean;
   /** The library holds one output style. */
   styles?: boolean;
+  /** The plan also writes the agent code-scout and the output style plain. */
+  extras?: boolean;
 }
 
 const SKILLS: Array<[string, string]> = [
@@ -664,6 +666,26 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
           : scenario === "catchup"
             ? catchupScenario()
             : [];
+  if (options.extras)
+    changes = [
+      ...changes,
+      {
+        kind: "agent",
+        skill: "code-scout",
+        client: "claude-code",
+        path: ".claude/agents/code-scout.md",
+        op: "add",
+        held: false,
+      },
+      {
+        kind: "style",
+        skill: "plain",
+        client: "claude-code",
+        path: ".claude/output-styles/plain.md",
+        op: "add",
+        held: false,
+      },
+    ];
   const fresh = new Set(changes.filter((c) => c.op === "add").map((c) => c.skill));
   const locked = new Set(
     scenario === "catchup"
@@ -739,17 +761,18 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
     },
   ];
   let agentSynced = true;
-  const styles = options.styles
-    ? [
-        {
-          name: "plain",
-          description: "Short answers without preamble",
-          path: `${LIBRARY_REPO}/styles/plain/STYLE.md`,
-          synced: false,
-          clientsSynced: [] as string[],
-        },
-      ]
-    : [];
+  const styles =
+    options.styles || options.extras
+      ? [
+          {
+            name: "plain",
+            description: "Short answers without preamble",
+            path: `${LIBRARY_REPO}/styles/plain/STYLE.md`,
+            synced: false,
+            clientsSynced: [] as string[],
+          },
+        ]
+      : [];
   const drift = options.drift ?? 0;
 
   function item(name: string, type: string, description: string): LibrarySkill {
@@ -914,6 +937,7 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
         changes: apply,
       };
       for (const c of apply) {
+        if (c.kind) continue;
         locked.add(c.skill);
         if (c.op === "remove") {
           locked.delete(c.skill);
