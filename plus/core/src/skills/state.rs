@@ -104,13 +104,19 @@ pub fn uninstall_handler(args: Value) -> Result<Value, String> {
 }
 
 pub fn resolve_handler(args: Value) -> Result<Value, String> {
+    resolve(args).map_err(|error| error.message)
+}
+
+pub fn resolve(args: Value) -> Result<Value, OpError> {
+    let failed = |e: String| OpError::failed("skills", e);
     let global = flag_or(&args, "global_mode", true);
     let dry_run = flag(&args, "dry_run");
     let migrate = args.get("migrate").and_then(Value::as_bool);
     let start = str_nonempty(&args, "repo_path").map(|p| resolve_path(Path::new(p)));
-    let repo = find_repo(start.as_deref()).ok_or("no skills repository found")?;
+    let repo =
+        find_repo(start.as_deref()).ok_or_else(|| failed("no skills repository found".into()))?;
     let skills = discover_skills(&repo);
-    let scope = Scope::new(global, &repo)?;
+    let scope = Scope::new(global, &repo).map_err(failed)?;
     let summary = if skills.is_empty() {
         CollisionSummary::default()
     } else {
@@ -123,8 +129,10 @@ pub fn resolve_handler(args: Value) -> Result<Value, String> {
             clock: &SystemClock,
         };
         let registry = registry();
-        ensure_supported(request.client, &registry)?;
-        ops::resolve_skill_collisions(&skills, &registry, &request)?.1
+        ensure_supported(request.client, &registry).map_err(OpError::usage)?;
+        ops::resolve_skill_collisions(&skills, &registry, &request)
+            .map_err(failed)?
+            .1
     };
     Ok(json!({
         "repo": display(&repo),

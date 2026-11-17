@@ -174,11 +174,13 @@ pub(super) fn scaffold(host: &dyn Host, args: &Value) -> Outcome {
 }
 
 pub(super) fn clean(host: &dyn Host, args: &Value) -> Outcome {
-    with_paths(host, || {
-        state::clean(scoped_request(args, &[])?).map_err(|error| match error.kind {
-            ErrorKind::Usage => ToolError::from(error),
-            _ => failed(error.message),
-        })
+    with_paths(host, || typed(state::clean(scoped_request(args, &[])?)))
+}
+
+fn typed(result: Result<Value, crate::op::OpError>) -> Outcome {
+    result.map_err(|error| match error.kind {
+        ErrorKind::Usage => ToolError::from(error),
+        _ => failed(error.message),
     })
 }
 
@@ -196,7 +198,9 @@ pub(super) fn resolve(host: &dyn Host, args: &Value) -> Outcome {
         .map(|on| ("migrate", json!(on)))
         .into_iter()
         .collect();
-    with_paths(host, || scoped(args, state::resolve_handler, &migrate))
+    with_paths(host, || {
+        typed(state::resolve(scoped_request(args, &migrate)?))
+    })
 }
 
 /// A bundle is only ever a new `.zip` in an existing directory; the core would overwrite any

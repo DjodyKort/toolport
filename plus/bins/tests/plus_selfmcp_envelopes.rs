@@ -1155,6 +1155,12 @@ const CASES: &[Case] = &[
             setup("skills_sync", CLAUDE_APPLY),
             read("preview", "skills_resolve", "{}"),
             refused("refused", "skills_resolve", UNCONFIRMED),
+            fails(
+                "unknown_client",
+                "invalid_arguments",
+                "skills_resolve",
+                r#"{"client":"cursor"}"#,
+            ),
             write("apply", "skills_resolve", APPLY),
         ],
     ),
