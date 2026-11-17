@@ -1,0 +1,6 @@
+{
+  "route": "servers",
+  "status": "built",
+  "summary": "Sign in again from the Login row of a stdio or Google server through its own auth command, with the consent link shown while the browser sign-in runs; remote servers keep upstream's Sign in button (auth login, servers_auth)",
+  "test": "src/plus/servers/LoginRow.test.tsx"
+}

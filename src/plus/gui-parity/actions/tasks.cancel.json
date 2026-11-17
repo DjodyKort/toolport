@@ -1,0 +1,6 @@
+{
+  "route": "tasks",
+  "status": "built",
+  "summary": "Cancel a running or waiting run (task cancel, tasks_cancel)",
+  "test": "src/plus/tasks/TasksPage.test.tsx"
+}

@@ -1,0 +1,5 @@
+{
+  "route": "compression",
+  "status": "planned",
+  "summary": "Provider, preset, engine pin and shims of the compression policy (compression status)"
+}

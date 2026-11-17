@@ -1,0 +1,6 @@
+{
+  "route": "servers",
+  "status": "built",
+  "summary": "Add a server from a command or a URL, with plain env and the shell-environment switch, then Finish setup (server new, servers_install)",
+  "test": "src/plus/servers/ServersBanner.test.tsx"
+}

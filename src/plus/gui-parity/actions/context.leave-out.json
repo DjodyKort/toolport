@@ -1,0 +1,6 @@
+{
+  "route": "context",
+  "status": "built",
+  "summary": "Leave a CLAUDE.md or rule out of a folder, or turn auto memory off, one click with Undo (context leave-out, context_leave_out)",
+  "test": "src/plus/context/ContextScreen.test.tsx"
+}

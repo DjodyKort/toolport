@@ -1,0 +1,5 @@
+{
+  "route": "servers",
+  "status": "planned",
+  "summary": "The login summary line for a statusline or a session hook, counting stdio and Google logins only; no client is wired to it (auth statusline, auth hook)"
+}

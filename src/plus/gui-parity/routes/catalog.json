@@ -1,0 +1,6 @@
+{
+  "title": "All commands",
+  "status": "built",
+  "page": "settings:toolport",
+  "component": "src/plus/settings/AllCommands.tsx"
+}

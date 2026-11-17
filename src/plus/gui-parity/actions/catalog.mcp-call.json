@@ -1,0 +1,6 @@
+{
+  "route": "catalog",
+  "status": "built",
+  "summary": "Run a self-management tool through mcp call with its arguments as JSON on stdin, a preview when the tool offers one, the tool name typed to confirm for a tool that changes things",
+  "test": "src/plus/settings/ToolportPlusPage.test.tsx"
+}

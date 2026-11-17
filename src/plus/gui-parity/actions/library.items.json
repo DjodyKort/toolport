@@ -1,0 +1,5 @@
+{
+  "route": "library",
+  "status": "planned",
+  "summary": "The library items and skill detail with its files (skills ls, skills_list, skills_get, skills_list_transpilers)"
+}

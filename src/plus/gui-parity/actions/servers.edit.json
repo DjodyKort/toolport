@@ -1,0 +1,6 @@
+{
+  "route": "servers",
+  "status": "built",
+  "summary": "Edit a server's command, arguments, URL, plain env and the shell-environment switch through upstream's Edit; the Runtime row explains what the process sees (server edit, servers_update_config)",
+  "test": "src/plus/servers/ServerOperations.test.tsx"
+}

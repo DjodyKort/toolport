@@ -1,0 +1,6 @@
+{
+  "route": "servers",
+  "status": "built",
+  "summary": "Servers by access set in one table (servers_list_profiles)",
+  "test": "src/plus/servers/AccessCompare.test.tsx"
+}

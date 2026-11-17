@@ -1,0 +1,5 @@
+{
+  "route": "context",
+  "action": "context.plugin-switch",
+  "surface": "screen"
+}

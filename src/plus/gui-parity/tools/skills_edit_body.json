@@ -1,0 +1,5 @@
+{
+  "route": "library",
+  "action": "library.edit",
+  "surface": "screen"
+}

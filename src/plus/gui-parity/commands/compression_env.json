@@ -1,0 +1,5 @@
+{
+  "route": "compression",
+  "action": "compression.env",
+  "surface": "screen"
+}

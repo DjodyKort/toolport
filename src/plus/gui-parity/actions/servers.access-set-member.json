@@ -1,0 +1,6 @@
+{
+  "route": "servers",
+  "status": "built",
+  "summary": "List a server in an access set or take it out: a table cell with Undo, the Finish setup chips, the Reach row (servers_add_profile_tag, servers_remove_profile_tag)",
+  "test": "src/plus/servers/AccessCompare.test.tsx"
+}

@@ -1,0 +1,6 @@
+{
+  "route": "tasks",
+  "status": "built",
+  "summary": "The On and Off switch of a task, one click with Undo (task enable, task disable, tasks_set_enabled)",
+  "test": "src/plus/tasks/TasksPage.test.tsx"
+}

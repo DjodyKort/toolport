@@ -1,0 +1,6 @@
+{
+  "route": "system",
+  "status": "built",
+  "summary": "Check the self-management server and where it is listed (mcp doctor)",
+  "test": "src/plus/settings/ToolportPlusPage.test.tsx"
+}

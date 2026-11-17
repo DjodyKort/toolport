@@ -1,0 +1,6 @@
+{
+  "route": "servers",
+  "status": "built",
+  "summary": "The Login row of a stdio or Google server: the state, its reason, when it was last checked and Check now; the list banner names the servers whose check failed; remote servers have no Login row (auth probe, status)",
+  "test": "src/plus/servers/LoginRow.test.tsx"
+}

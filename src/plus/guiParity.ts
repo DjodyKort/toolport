@@ -1,4 +1,11 @@
-import manifest from "./gui-parity.json";
+const meta = import.meta.glob("./gui-parity/_meta.json", {
+  eager: true,
+  import: "default",
+});
+const entries = import.meta.glob("./gui-parity/*/*.json", {
+  eager: true,
+  import: "default",
+});
 
 export type GuiSurface = "screen" | "terminal";
 export type GuiStatus = "planned" | "built";
@@ -26,8 +33,8 @@ export interface GuiEntry {
   surface: GuiSurface;
 }
 
-/** `src/plus/gui-parity.json` (D-058, R3): where every registry command and self-management
- * tool lives in the app. A row whose action is not `built` is not done. */
+/** `src/plus/gui-parity/` (D-058, R3), one file per entry: where every registry command and
+ * self-management tool lives in the app. A row whose action is not `built` is not done. */
 export interface GuiParityManifest {
   schemaVersion: 1;
   routes: Record<string, GuiRoute>;
@@ -38,4 +45,22 @@ export interface GuiParityManifest {
   tools: Record<string, GuiEntry>;
 }
 
-export const guiParity = manifest as GuiParityManifest;
+/** A command id is stored with its spaces as underscores (`server_ls.json`). */
+function section(name: string): Record<string, unknown> {
+  const rows: Record<string, unknown> = {};
+  for (const [path, value] of Object.entries(entries)) {
+    const [, group, file] = /\/gui-parity\/([^/]+)\/([^/]+)\.json$/.exec(path) ?? [];
+    if (group === name)
+      rows[name === "commands" ? file.replace(/_/g, " ") : file] = value;
+  }
+  return rows;
+}
+
+export const guiParity = {
+  ...(Object.values(meta)[0] as { schemaVersion: 1 }),
+  routes: section("routes"),
+  actions: section("actions"),
+  owners: section("owners"),
+  commands: section("commands"),
+  tools: section("tools"),
+} as GuiParityManifest;

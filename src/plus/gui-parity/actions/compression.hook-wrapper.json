@@ -1,0 +1,5 @@
+{
+  "route": "compression",
+  "status": "planned",
+  "summary": "The wrapper a hook entry runs; terminal only, never started from the screen (hook)"
+}

@@ -1,0 +1,5 @@
+{
+  "route": "compression",
+  "status": "planned",
+  "summary": "The rtk and read-once hook entries: wrapped or not, counted calls and latency, apply and Undo, pause and resume (hooks status, apply, undo, pause, resume)"
+}

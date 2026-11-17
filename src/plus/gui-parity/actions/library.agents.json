@@ -1,0 +1,5 @@
+{
+  "route": "library",
+  "status": "planned",
+  "summary": "Agents: list, lint, audit, diff, status, scaffold, sync, clean, uninstall and edit the body (agents add|ls|lint|audit|diff|status|sync|clean|uninstall; agents_* tools)"
+}

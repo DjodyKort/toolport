@@ -1,0 +1,6 @@
+{
+  "route": "catalog",
+  "status": "built",
+  "summary": "The registry listing (toolportctl commands): every command with its tier and a search, Run for the read-only ones and Copy for the rest; a form per command arrives with the first command that needs operands",
+  "test": "src/plus/settings/ToolportPlusPage.test.tsx"
+}

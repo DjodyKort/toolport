@@ -1,0 +1,6 @@
+{
+  "route": "system",
+  "status": "built",
+  "summary": "Installation checks, including whether this build carries the fork seam (doctor)",
+  "test": "src/plus/settings/ToolportPlusPage.test.tsx"
+}

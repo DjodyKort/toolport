@@ -1,0 +1,5 @@
+{
+  "route": "library",
+  "status": "planned",
+  "summary": "Pack skills into a portable zip or extract one into the library (skills bundle, unbundle; skills_bundle, skills_unbundle)"
+}

@@ -1,0 +1,5 @@
+{
+  "route": "library",
+  "status": "planned",
+  "summary": "Edit a skill's body or frontmatter in the library, or delete it (skills_edit_body, skills_edit_frontmatter, skills_delete)"
+}

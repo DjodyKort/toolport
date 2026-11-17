@@ -25,7 +25,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
 
 const registry = registryWithSets("local", "work");
 
-/** The actions of src/plus/gui-parity.json this file proves: status and doctor lead the page and
+/** The actions of src/plus/gui-parity/ this file proves: status and doctor lead the page and
  * list the checks, the self-management row connects, removes, shows its checks and tools, and the
  * commands page lists the registry and runs a tool through mcp call. */
 const COVERS = [

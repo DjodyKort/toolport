@@ -1,0 +1,5 @@
+{
+  "route": "servers",
+  "action": "servers.advanced-mode",
+  "surface": "screen"
+}

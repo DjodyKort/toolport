@@ -1,0 +1,5 @@
+{
+  "route": "compression",
+  "status": "planned",
+  "summary": "Choose the provider and the active preset, enable or disable compression and re-apply the policy (enable, disable, set-provider, use, sync)"
+}

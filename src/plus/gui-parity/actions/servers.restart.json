@@ -1,0 +1,6 @@
+{
+  "route": "servers",
+  "status": "built",
+  "summary": "Restart a server in every running gateway: one click when idle, a confirmation naming the calls in flight otherwise, a result per gateway with retry (server restart, servers_restart)",
+  "test": "src/plus/servers/RuntimeRow.test.tsx"
+}

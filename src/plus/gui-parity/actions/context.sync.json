@@ -1,0 +1,6 @@
+{
+  "route": "context",
+  "status": "built",
+  "summary": "Sync now on Rules and launch: bound bundles and, later, the layers deploy (context sync)",
+  "test": "src/plus/context/ContextScreen.test.tsx"
+}

@@ -1,0 +1,6 @@
+{
+  "route": "servers",
+  "status": "built",
+  "summary": "One server's Operations rows: command, plain env keys, access sets and what its process sees of the shell environment (server info, servers_get)",
+  "test": "src/plus/servers/ServerOperations.test.tsx"
+}

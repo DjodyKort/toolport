@@ -1,0 +1,6 @@
+{
+  "route": "system",
+  "status": "built",
+  "summary": "Register the self-management server and list it in an access set (mcp install)",
+  "test": "src/plus/settings/ToolportPlusPage.test.tsx"
+}

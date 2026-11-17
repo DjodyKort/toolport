@@ -1,0 +1,6 @@
+{
+  "route": "system",
+  "status": "built",
+  "summary": "Remove the self-management server and keep it removed (mcp uninstall)",
+  "test": "src/plus/settings/ToolportPlusPage.test.tsx"
+}

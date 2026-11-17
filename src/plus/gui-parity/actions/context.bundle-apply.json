@@ -1,0 +1,6 @@
+{
+  "route": "context",
+  "status": "built",
+  "summary": "Apply a bundle to a folder after its plan, drift per key, undo, copy the launch command and the auto-apply switch (context bundle apply|undo|status|launch|config, context_bundle_apply|undo|status)",
+  "test": "src/plus/context/ContextScreen.test.tsx"
+}

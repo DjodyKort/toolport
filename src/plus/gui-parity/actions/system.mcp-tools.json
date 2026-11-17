@@ -1,0 +1,6 @@
+{
+  "route": "system",
+  "status": "built",
+  "summary": "List the self-management tools and resources (mcp tools)",
+  "test": "src/plus/settings/ToolportPlusPage.test.tsx"
+}

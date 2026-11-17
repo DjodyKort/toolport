@@ -1,0 +1,6 @@
+{
+  "route": "context",
+  "status": "built",
+  "summary": "Measure for real: confirmation first, the measured total with the not-itemised part, stale and cached states (context measure, context_measure); also without a plugin or skill or with a bundle, one request per variant with its delta, the rows its InstructionsLoaded log confirms (context loads --measured), and the folder's calibration factor next to the estimates",
+  "test": "src/plus/context/ContextScreen.test.tsx"
+}

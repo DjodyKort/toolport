@@ -1,0 +1,5 @@
+{
+  "route": "tasks",
+  "action": "tasks.switch",
+  "surface": "screen"
+}

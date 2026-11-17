@@ -1,0 +1,5 @@
+{
+  "route": "catalog",
+  "action": "catalog.mcp-call",
+  "surface": "screen"
+}

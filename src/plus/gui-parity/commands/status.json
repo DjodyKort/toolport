@@ -1,0 +1,5 @@
+{
+  "route": "system",
+  "action": "system.status",
+  "surface": "screen"
+}

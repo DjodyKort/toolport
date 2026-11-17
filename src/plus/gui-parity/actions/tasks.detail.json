@@ -1,0 +1,6 @@
+{
+  "route": "tasks",
+  "status": "built",
+  "summary": "Task detail: the steps with the needs-you ones marked, the secrets it may write by name, what it needs, triggers and the recent runs with their redacted logs (task show, tasks_get)",
+  "test": "src/plus/tasks/TasksPage.test.tsx"
+}

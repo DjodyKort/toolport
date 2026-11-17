@@ -1,6 +1,6 @@
 //! GUI parity gates (D-058, D-059): the registry that `toolportctl commands --json` prints must
 //! describe exactly `COMMANDS` and the self-MCP catalog, with a policy for each row, and
-//! `src/plus/gui-parity.json` must give every command and tool a screen or terminal action.
+//! `src/plus/gui-parity/` must give every command and tool a screen or terminal action.
 //! This is the Rust side; the TypeScript side joins when the screen lands.
 //!
 //! While the screen is not built, a row's action is `planned` and counts as pending. Set
@@ -197,10 +197,37 @@ fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
+fn read_json(path: &Path) -> Value {
+    let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    serde_json::from_str(&text).unwrap_or_else(|e| panic!("{} is not JSON: {e}", path.display()))
+}
+
+/// The manifest rebuilt from `src/plus/gui-parity/`: `_meta.json` plus one file per entry in
+/// `routes/`, `actions/`, `owners/`, `commands/` and `tools/`. A command id is stored with its
+/// spaces as underscores.
 fn manifest() -> Value {
-    let text = std::fs::read_to_string(repo_root().join("src/plus/gui-parity.json"))
-        .expect("src/plus/gui-parity.json");
-    serde_json::from_str(&text).expect("gui-parity.json is JSON")
+    let dir = repo_root().join("src/plus/gui-parity");
+    let mut manifest = read_json(&dir.join("_meta.json"));
+    for section in ["routes", "actions", "owners", "commands", "tools"] {
+        let mut rows = serde_json::Map::new();
+        for entry in std::fs::read_dir(dir.join(section)).unwrap().flatten() {
+            let path = entry.path();
+            let Some(stem) = path
+                .file_name()
+                .and_then(|n| n.to_str()?.strip_suffix(".json"))
+            else {
+                continue;
+            };
+            let key = if section == "commands" {
+                stem.replace('_', " ")
+            } else {
+                stem.to_string()
+            };
+            rows.insert(key, read_json(&path));
+        }
+        manifest[section] = Value::Object(rows);
+    }
+    manifest
 }
 
 #[derive(Default, Debug)]

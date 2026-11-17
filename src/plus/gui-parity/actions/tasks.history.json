@@ -1,0 +1,6 @@
+{
+  "route": "tasks",
+  "status": "built",
+  "summary": "History tab: every run with result and trigger, catch-up runs marked, the redacted step log of one run (task history, tasks_history)",
+  "test": "src/plus/tasks/TasksPage.test.tsx"
+}

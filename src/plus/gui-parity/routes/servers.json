@@ -1,0 +1,6 @@
+{
+  "title": "Servers",
+  "status": "built",
+  "page": "view:servers",
+  "component": "src/plus/servers/slots.tsx"
+}

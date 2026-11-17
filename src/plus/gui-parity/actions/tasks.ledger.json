@@ -1,0 +1,6 @@
+{
+  "route": "tasks",
+  "status": "built",
+  "summary": "Skipped and caught-up slots from the scheduler ledger: dimmed rows in a task's runs and in History, a start toast (task missed, tasks_missed)",
+  "test": "src/plus/tasks/TasksPage.test.tsx"
+}

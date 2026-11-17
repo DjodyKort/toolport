@@ -1,0 +1,5 @@
+{
+  "route": "compression",
+  "status": "planned",
+  "summary": "Health checks and the prompt-cache measurement over transcripts (verify)"
+}

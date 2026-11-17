@@ -1,0 +1,6 @@
+{
+  "route": "servers",
+  "status": "built",
+  "summary": "Remove a server and its vault entries, with a preview first (server uninstall, servers_uninstall)",
+  "test": "src/plus/servers/ServerOperations.test.tsx"
+}

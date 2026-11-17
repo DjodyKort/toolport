@@ -1,0 +1,5 @@
+{
+  "route": "system",
+  "action": "system.mcp-uninstall",
+  "surface": "screen"
+}

@@ -1,0 +1,6 @@
+{
+  "route": "context",
+  "status": "built",
+  "summary": "This folder: what loads with the estimate, the composed text and the leave-out switches (context loads|compose, context_loads, context_compose)",
+  "test": "src/plus/context/ContextScreen.test.tsx"
+}

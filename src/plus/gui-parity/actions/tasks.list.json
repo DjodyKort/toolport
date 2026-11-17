@@ -1,0 +1,6 @@
+{
+  "route": "tasks",
+  "status": "built",
+  "summary": "Task list with trigger chips, last run, next run, the waiting-for-you state and the missed-run notes; invalid task files named (task ls, tasks_list)",
+  "test": "src/plus/tasks/TasksPage.test.tsx"
+}

@@ -1,0 +1,6 @@
+{
+  "title": "Toolport+ settings",
+  "status": "built",
+  "page": "settings:toolport",
+  "component": "src/plus/settings/ToolportPlusPage.tsx"
+}

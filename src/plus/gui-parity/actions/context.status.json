@@ -1,0 +1,6 @@
+{
+  "route": "context",
+  "status": "built",
+  "summary": "The This folder tab's read-only summary: applied bundle, leave-outs, plugin switches, the estimate, the last measurement with its calibration factor (context status, context_status)",
+  "test": "src/plus/context/ContextScreen.test.tsx"
+}

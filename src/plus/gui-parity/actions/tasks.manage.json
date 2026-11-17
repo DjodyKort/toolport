@@ -1,0 +1,6 @@
+{
+  "route": "tasks",
+  "status": "built",
+  "summary": "Add, edit and remove a task from a definition, with a diff preview and a backup (task add, task edit, task rm)",
+  "test": "src/plus/tasks/TasksPage.test.tsx"
+}

@@ -1,0 +1,6 @@
+{
+  "route": "context",
+  "status": "built",
+  "summary": "Folder bundles: list, show, create (from a folder too), edit and delete a bundle definition (context bundle ls|show|add|edit|rm, context_bundle_ls)",
+  "test": "src/plus/context/ContextScreen.test.tsx"
+}

@@ -1,0 +1,5 @@
+{
+  "route": "library",
+  "status": "planned",
+  "summary": "Styles: list, lint, diff, status, scaffold, sync, apply, remove, clean and edit the body (styles add|ls|lint|diff|status|sync|apply|remove|clean; styles_* tools)"
+}

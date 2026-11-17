@@ -1,0 +1,6 @@
+{
+  "route": "servers",
+  "status": "built",
+  "summary": "Add a curated catalog server and finish its setup: secrets, who can reach it (server install)",
+  "test": "src/plus/servers/ServersBanner.test.tsx"
+}

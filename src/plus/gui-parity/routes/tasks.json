@@ -1,0 +1,6 @@
+{
+  "title": "Tasks",
+  "status": "built",
+  "page": "view:tasks",
+  "component": "src/plus/tasks/TasksPage.tsx"
+}

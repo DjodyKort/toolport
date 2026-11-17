@@ -1,0 +1,5 @@
+{
+  "route": "compression",
+  "action": "compression.seal",
+  "surface": "screen"
+}

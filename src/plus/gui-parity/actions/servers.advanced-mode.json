@@ -1,0 +1,6 @@
+{
+  "route": "servers",
+  "status": "built",
+  "summary": "The Advanced row: per server, whether its tools are listed to clients that get the full tool list (auto) or only found through toolport_search_tools (search), the two interop switches and the longest a call may run, with the bridge ceiling that follows (server mode, servers_set_mode; the switches and the limit through server edit and servers_update_config). The mode and the switches apply at once with Undo, the limit has Save",
+  "test": "src/plus/servers/AdvancedRow.test.tsx"
+}

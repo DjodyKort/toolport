@@ -1,0 +1,6 @@
+{
+  "route": "tasks",
+  "status": "built",
+  "summary": "Run a task: dry-run plan first, then the run with live steps, a wait at a needs-you step, a result or a failure with the redacted log (task run, tasks_run)",
+  "test": "src/plus/tasks/TasksPage.test.tsx"
+}

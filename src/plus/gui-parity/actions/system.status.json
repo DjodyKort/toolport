@@ -1,0 +1,6 @@
+{
+  "route": "system",
+  "status": "built",
+  "summary": "Registry, access sets, secrets backend and gateway state (status)",
+  "test": "src/plus/settings/ToolportPlusPage.test.tsx"
+}

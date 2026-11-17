@@ -1,0 +1,5 @@
+{
+  "route": "library",
+  "status": "planned",
+  "summary": "Delete a skill from the library with its installed files (skills uninstall; skills_uninstall)"
+}

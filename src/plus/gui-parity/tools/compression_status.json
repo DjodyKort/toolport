@@ -1,0 +1,5 @@
+{
+  "route": "compression",
+  "action": "compression.status",
+  "surface": "screen"
+}

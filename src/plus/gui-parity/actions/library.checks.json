@@ -1,0 +1,5 @@
+{
+  "route": "library",
+  "status": "planned",
+  "summary": "The Checks list: lint, skipped files, dead links, audit and shadowing files (skills lint, audit, resolve; skills_lint, skills_audit, skills_resolve)"
+}
