@@ -328,7 +328,7 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["skills", "fix"],
-        "Apply the one safe lint fix: make hook scripts executable (chmod [<skill>...], --repo, --home, --dry-run)",
+        "Apply a safe lint fix: make hook scripts executable (chmod [<skill>...]) or copy a file a SKILL.md link outside the skill folder points at into the skill and rewrite the link (move-link <skill> <link> --dest, --repo, --home, --dry-run)",
         skills_checks::fix,
     ),
     cmd(

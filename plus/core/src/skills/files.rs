@@ -7,6 +7,7 @@ use super::assets::{deny_list, inventory, rel_string};
 use super::client_scope::{default_clients, ensure_supported};
 use super::lint::{links_of, LinkState};
 use super::lock::{get_entry, load_lockfile, LockFile};
+use super::movelink::{movable_source, FIX_MOVE_LINK};
 use super::ops::lock_dir;
 use super::parser::{discover_skills, Skill, SkillType, DESCRIPTION_LIMIT, SPEC_DESCRIPTION_LIMIT};
 use super::sync::{sync_skills, Change, Op, SyncOptions};
@@ -279,7 +280,16 @@ pub fn skill_files(args: &Args) -> Result<Value, OpError> {
                 LinkState::Missing => ("missing", None),
                 LinkState::NotInstalled(why) => ("not-installed", Some(why)),
             };
-            json!({"target": link.target, "line": link.line, "state": state, "reason": reason})
+            let fixable = (state == "outside-folder"
+                && movable_source(skill, &link.target).is_ok())
+            .then_some(FIX_MOVE_LINK);
+            json!({
+                "target": link.target,
+                "line": link.line,
+                "state": state,
+                "reason": reason,
+                "fixable": fixable,
+            })
         })
         .collect();
     Ok(json!({

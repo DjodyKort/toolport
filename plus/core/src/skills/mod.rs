@@ -21,6 +21,7 @@ pub mod keep;
 pub mod kind;
 pub mod lint;
 pub mod lock;
+pub mod movelink;
 pub mod ops;
 pub mod origin;
 pub mod parser;
@@ -57,6 +58,8 @@ mod compare_tests;
 mod extras_tests;
 #[cfg(test)]
 mod frontmatter_tests;
+#[cfg(test)]
+mod movelink_tests;
 #[cfg(test)]
 mod sync_files_tests;
 #[cfg(test)]

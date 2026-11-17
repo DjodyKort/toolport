@@ -140,6 +140,7 @@ pub(super) const META: &[(&str, Meta)] = &[
     ("skills files", m("--global", Bool, "Read the user lock (the default)")),
     ("skills fix", m("--path", Path, "Skills repository (default: the configured one)")),
     ("skills fix", m("--home", Path, "Home folder of the lock")),
+    ("skills fix", m("--dest", Str, "move-link: the folder of the skill the file is copied to (default references)")),
     ("skills fix", m("--dry-run", Bool, "Report what would change")),
     ("skills diff", m("--repo", Path, "Skills repository (default: the configured one)")),
     ("skills diff", m("--home", Path, "Home folder of the lock")),

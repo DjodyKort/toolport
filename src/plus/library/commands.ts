@@ -17,6 +17,7 @@ import type {
   InstallData,
   KeepData,
   LintData,
+  MoveLinkData,
   PullData,
   PushData,
   RemoteStatus,
@@ -84,6 +85,9 @@ export const verifySync = () => dataOrFailure<VerifyData>(["skills", "verify"]);
 
 export const fixChmod = (skill: string | null, dryRun: boolean) =>
   ctlData<FixData>(["skills", "fix", "chmod", ...(skill ? [skill] : []), ...dry(dryRun)]);
+
+export const moveLink = (skill: string, link: string, dryRun: boolean) =>
+  ctlData<MoveLinkData>(["skills", "fix", "move-link", skill, link, ...dry(dryRun)]);
 
 export const resolveCollisions = (migrate: boolean, dryRun: boolean) =>
   ctlData<SyncData>([

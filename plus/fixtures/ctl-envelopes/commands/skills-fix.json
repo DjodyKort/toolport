@@ -27,6 +27,17 @@
     },
     {
       "aliases": [],
+      "effect": "move-link: the folder of the skill the file is copied to (default references)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dest",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
       "effect": "Report what would change",
       "escalates": false,
       "hidden": false,
@@ -63,7 +74,7 @@
     "flag": "--dry-run",
     "mode": "flag"
   },
-  "summary": "Apply the one safe lint fix: make hook scripts executable (chmod [<skill>...], --repo, --home, --dry-run)",
+  "summary": "Apply a safe lint fix: make hook scripts executable (chmod [<skill>...]) or copy a file a SKILL.md link outside the skill folder points at into the skill and rewrite the link (move-link <skill> <link> --dest, --repo, --home, --dry-run)",
   "surface": "screen",
   "tier": "write",
   "tools": ["skills_fix"]

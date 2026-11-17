@@ -15,6 +15,7 @@ use super::lint::{
     LintMessage, LintResult, FIX_CHMOD,
 };
 use super::lock::{get_entry, load_lockfile, lockfile_path, save_lockfile};
+use super::movelink::{move_link, DEFAULT_DEST, FIX_MOVE_LINK};
 use super::ops::{
     check_outputs, diff_skills, find_skills_repo, has_drift, lock_dir, lock_output_root,
     read_lock_in, skills_status as output_rows, LockRead,
@@ -71,6 +72,9 @@ pub struct Args {
     pub file: Option<String>,
     /// `sync`: only these skills and rules; the rest of the lock stays as it is.
     pub only: Option<Vec<String>>,
+    /// `fix move-link`: the link of SKILL.md to move, and the folder of the skill it goes to.
+    pub link: Option<String>,
+    pub dest: Option<String>,
 }
 
 impl Default for Args {
@@ -90,6 +94,8 @@ impl Default for Args {
             take: Vec::new(),
             file: None,
             only: None,
+            link: None,
+            dest: None,
         }
     }
 }
@@ -118,6 +124,8 @@ impl Args {
             take: nonempty_strings(args, "take").unwrap_or_default(),
             file: str_arg(args, "file").map(String::from),
             only: nonempty_strings(args, "only"),
+            link: str_arg(args, "link").map(String::from),
+            dest: str_arg(args, "dest").map(String::from),
         }
     }
 }
@@ -320,11 +328,54 @@ pub fn lint(args: &Args) -> Result<Value, OpError> {
 /// Applies the one safe fix a lint row offers (`fixable`), to the skills in `args.names` or to
 /// all; `dry_run` reports what would change.
 pub fn fix(args: &Args, kind: &str) -> Result<Value, OpError> {
-    if kind != FIX_CHMOD {
-        return Err(OpError::usage(format!(
-            "unknown fix '{kind}'; the only safe fix is {FIX_CHMOD}"
-        )));
+    match kind {
+        FIX_CHMOD => chmod_fix(args),
+        FIX_MOVE_LINK => move_link_fix(args),
+        _ => Err(OpError::usage(format!(
+            "unknown fix '{kind}'; the safe fixes are {FIX_CHMOD} and {FIX_MOVE_LINK}"
+        ))),
     }
+}
+
+/// `move-link`: the one skill in `args.names` and the link `args.link` of its SKILL.md; the file
+/// is copied into `args.dest` of the skill folder (default `references`).
+fn move_link_fix(args: &Args) -> Result<Value, OpError> {
+    let (repo, skills) = load(args)?;
+    let name = match args.names.as_deref() {
+        Some([one]) => one,
+        _ => return Err(OpError::usage("move-link takes exactly one skill")),
+    };
+    let link = args
+        .link
+        .as_deref()
+        .filter(|link| !link.is_empty())
+        .ok_or_else(|| OpError::usage("move-link needs the link to move"))?;
+    let skill = skills
+        .iter()
+        .find(|s| s.name() == name)
+        .ok_or_else(|| OpError::not_found(format!("skill not found: {name}")))?;
+    let dest = args.dest.as_deref().unwrap_or(DEFAULT_DEST);
+    let moved = move_link(skill, link, dest, args.dry_run)?;
+    Ok(json!({
+        "repo": repo.to_string_lossy(),
+        "fix": FIX_MOVE_LINK,
+        "dryRun": args.dry_run,
+        "skill": skill.name(),
+        "link": link,
+        "from": moved.from.to_string_lossy(),
+        "to": moved.to,
+        "reused": moved.reused,
+        "size": moved.size,
+        "count": moved.rewrites.len(),
+        "rewrites": moved
+            .rewrites
+            .iter()
+            .map(|r| json!({"line": r.line, "before": r.before, "after": r.after}))
+            .collect::<Vec<_>>(),
+    }))
+}
+
+fn chmod_fix(args: &Args) -> Result<Value, OpError> {
     let (repo, mut skills) = load(args)?;
     if let Some(names) = &args.names {
         if let Some(missing) = names
@@ -338,7 +389,7 @@ pub fn fix(args: &Args, kind: &str) -> Result<Value, OpError> {
     let fixed = chmod_hooks(&skills, args.dry_run).map_err(backend)?;
     Ok(json!({
         "repo": repo.to_string_lossy(),
-        "fix": kind,
+        "fix": FIX_CHMOD,
         "dryRun": args.dry_run,
         "count": fixed.len(),
         "fixed": fixed

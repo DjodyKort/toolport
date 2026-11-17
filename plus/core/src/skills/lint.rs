@@ -71,7 +71,7 @@ pub struct Detail {
     /// The link target as written in SKILL.md.
     pub target: Option<String>,
     pub reason: Option<String>,
-    /// The only safe one-click fix: `chmod`.
+    /// The one-click fix the row offers: `chmod` or `move-link`.
     pub fixable: Option<&'static str>,
     pub meter: Option<Meter>,
 }
@@ -645,7 +645,12 @@ pub fn lint_files(skills: &[Skill]) -> LintResult {
                 LinkState::OutsideFolder => result.found(
                     LintLevel::Warning,
                     name,
-                    link("link-outside-folder"),
+                    Detail {
+                        fixable: super::movelink::movable_source(skill, &target)
+                            .is_ok()
+                            .then_some(super::movelink::FIX_MOVE_LINK),
+                        ..link("link-outside-folder")
+                    },
                     format!("Link '{target}' in SKILL.md leaves the skill folder and would not be installed."),
                 ),
                 LinkState::Missing => result.found(

@@ -90,18 +90,21 @@
       ],
       "links": [
         {
+          "fixable": null,
           "line": 11,
           "reason": null,
           "state": "installed",
           "target": "SETUP.md"
         },
         {
+          "fixable": null,
           "line": 11,
           "reason": null,
           "state": "installed",
           "target": "references/guide.md"
         },
         {
+          "fixable": null,
           "line": 11,
           "reason": null,
           "state": "missing",

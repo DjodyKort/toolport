@@ -33,7 +33,7 @@ import {
   meter,
   plural,
 } from "./model";
-import { UninstallDialog } from "./writes";
+import { MoveLinkDialog, UninstallDialog } from "./writes";
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -71,6 +71,7 @@ export default function SkillDetail({
   }, "inventory");
   const [removing, setRemoving] = useState(false);
   const [comparing, setComparing] = useState<string | null>(null);
+  const [moving, setMoving] = useState<string | null>(null);
 
   const entry = library.data?.skills.find((s) => s.name === name);
   const data = files.data;
@@ -312,7 +313,7 @@ export default function SkillDetail({
                     ) : (
                       <AlertTriangle aria-hidden className="mt-0.5 size-4 text-warning" />
                     )}
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="font-mono text-sm break-all">{link.target}</p>
                       <p className="text-meta text-muted-foreground">
                         Line {link.line}.{" "}
@@ -323,6 +324,15 @@ export default function SkillDetail({
                             : "The file does not exist in your library."}
                       </p>
                     </div>
+                    {link.fixable === "move-link" && (
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        onClick={() => setMoving(link.target)}
+                      >
+                        Move into the skill…
+                      </Button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -338,6 +348,17 @@ export default function SkillDetail({
           onDone={() => {
             files.reload();
             onChanged();
+          }}
+        />
+      )}
+      {moving && (
+        <MoveLinkDialog
+          skill={name}
+          link={moving}
+          onClose={() => setMoving(null)}
+          onDone={() => {
+            files.reload();
+            lint.reload();
           }}
         />
       )}

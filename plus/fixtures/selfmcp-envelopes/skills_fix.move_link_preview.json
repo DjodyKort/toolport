@@ -1,0 +1,28 @@
+{
+  "arguments": {
+    "fix": "move-link",
+    "link": "../../shared/rubric.md",
+    "names": ["acceptance"]
+  },
+  "isError": false,
+  "result": {
+    "count": 1,
+    "dryRun": true,
+    "fix": "move-link",
+    "from": "<WORLD>/skills-repo/shared/rubric.md",
+    "link": "../../shared/rubric.md",
+    "repo": "<WORLD>/skills-repo",
+    "reused": false,
+    "rewrites": [
+      {
+        "after": "Also read the [rubric](references/rubric.md).",
+        "before": "Also read the [rubric](../../shared/rubric.md).",
+        "line": 13
+      }
+    ],
+    "size": 9,
+    "skill": "acceptance",
+    "to": "references/rubric.md"
+  },
+  "tool": "skills_fix"
+}

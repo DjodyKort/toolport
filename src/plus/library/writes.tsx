@@ -8,6 +8,7 @@ import {
   cleanSynced,
   fixChmod,
   initLibrary,
+  moveLink,
   pullLibrary,
   pushLibrary,
   resolveCollisions,
@@ -202,6 +203,58 @@ export function ChmodDialog({ skill, onClose, onDone }: Done & { skill: string }
         )
       }
       confirm={() => fixChmod(skill, false)}
+      onClose={onClose}
+      onDone={onDone}
+    />
+  );
+}
+
+export function MoveLinkDialog({
+  skill,
+  link,
+  onClose,
+  onDone,
+}: Done & { skill: string; link: string }) {
+  return (
+    <WriteDialog
+      title="Move the file into the skill"
+      description="A sync only installs what is inside the skill folder, so the link would be dead in Claude Code. The file is copied in and the link rewritten; the original stays where it is."
+      confirmLabel="Move into the skill"
+      preview={() => moveLink(skill, link, true)}
+      render={(data) => (
+        <div className="flex flex-col gap-3 text-meta">
+          <p>
+            {data.reused ? (
+              <>
+                <Mono>{data.to}</Mono> already holds the same content, so nothing is
+                copied.
+              </>
+            ) : (
+              <>
+                Copies <Mono>{data.from}</Mono> ({bytes(data.size)}) to{" "}
+                <Mono>
+                  {skill}/{data.to}
+                </Mono>
+                .
+              </>
+            )}
+          </p>
+          <ul className="flex flex-col gap-2" aria-label="Lines that change">
+            {data.rewrites.map((row) => (
+              <li key={row.line} className="flex flex-col gap-0.5">
+                <span className="text-muted-foreground">SKILL.md line {row.line}</span>
+                <code className="font-mono text-xs break-all text-destructive">
+                  − {row.before}
+                </code>
+                <code className="font-mono text-xs break-all text-success">
+                  + {row.after}
+                </code>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      confirm={() => moveLink(skill, link, false)}
       onClose={onClose}
       onDone={onDone}
     />

@@ -191,13 +191,13 @@
           "tier": 1
         },
         {
-          "description": "Apply the one safe lint fix: fix=chmod makes the hook scripts of skills executable; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "description": "Apply a safe lint fix: fix=chmod makes the hook scripts of skills executable; fix=move-link copies the file a SKILL.md link outside the skill folder points at (inside the library, at most 1 MB) into the skill and rewrites the link; dry_run is on by default and lists the copy and the rewritten lines (apply with dry_run=false and confirm=true)",
           "dryRunDefault": true,
           "gate": "unless-dry-run",
           "name": "skills_fix",
           "params": [
             {
-              "description": "The fix to apply: chmod",
+              "description": "The fix to apply: chmod or move-link",
               "name": "fix",
               "required": true,
               "type": "string"
@@ -209,10 +209,22 @@
               "type": "string"
             },
             {
-              "description": "Limit to these skills",
+              "description": "Limit to these skills; move-link takes exactly one",
               "name": "names",
               "required": false,
               "type": "string[]"
+            },
+            {
+              "description": "move-link: the link as written in SKILL.md, e.g. ../shared/guide.md",
+              "name": "link",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "move-link: the folder of the skill the file is copied to, default references",
+              "name": "dest",
+              "required": false,
+              "type": "string"
             },
             {
               "description": "Report without writing; true unless you pass false to apply",

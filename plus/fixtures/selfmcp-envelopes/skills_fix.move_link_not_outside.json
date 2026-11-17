@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "fix": "move-link",
+    "link": "references/guide.md",
+    "names": ["acceptance"]
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "references/guide.md is not a link of SKILL.md that leaves the skill folder"
+    }
+  },
+  "text": "refused: references/guide.md is not a link of SKILL.md that leaves the skill folder",
+  "tool": "skills_fix"
+}

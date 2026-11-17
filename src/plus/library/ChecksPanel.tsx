@@ -7,7 +7,7 @@ import { useLoad } from "../servers/useLoad";
 import { auditSkills } from "./commands";
 import type { LintData, LintRow, SyncData } from "./data";
 import { count, lintGroups, meter, plural } from "./model";
-import { ChmodDialog, ResolveDialog } from "./writes";
+import { ChmodDialog, MoveLinkDialog, ResolveDialog } from "./writes";
 
 type Tab = "lint" | "audit" | "collisions" | "drift";
 
@@ -84,10 +84,12 @@ function LintRowView({
   row,
   onOpenSkill,
   onChmod,
+  onMoveLink,
 }: {
   row: LintRow;
   onOpenSkill: (name: string) => void;
   onChmod: (skill: string) => void;
+  onMoveLink: (skill: string, link: string) => void;
 }) {
   const Icon =
     row.level === "error" ? XCircle : row.level === "warning" ? AlertTriangle : Info;
@@ -122,6 +124,14 @@ function LintRowView({
         <Button variant="outline" size="xs" onClick={() => onChmod(row.name)}>
           Make executable
         </Button>
+      ) : row.fixable === "move-link" && row.target ? (
+        <Button
+          variant="outline"
+          size="xs"
+          onClick={() => onMoveLink(row.name, row.target ?? "")}
+        >
+          Move into the skill…
+        </Button>
       ) : (
         <Button variant="outline" size="xs" onClick={() => onOpenSkill(row.name)}>
           Open skill
@@ -152,6 +162,7 @@ export default function ChecksPanel({
 }: ChecksPanelProps) {
   const [tab, setTab] = useState<Tab>("lint");
   const [chmod, setChmod] = useState<string | null>(null);
+  const [moving, setMoving] = useState<{ skill: string; link: string } | null>(null);
   const [resolve, setResolve] = useState<boolean | null>(null);
   const [showAdvice, setShowAdvice] = useState(false);
   const audit = useLoad(async () => {
@@ -307,6 +318,7 @@ export default function ChecksPanel({
                         row={row}
                         onOpenSkill={onOpenSkill}
                         onChmod={setChmod}
+                        onMoveLink={(skill, link) => setMoving({ skill, link })}
                       />
                     ))}
                     {group.notCopied && (
@@ -403,6 +415,14 @@ export default function ChecksPanel({
       </div>
       {chmod && (
         <ChmodDialog skill={chmod} onClose={() => setChmod(null)} onDone={onChanged} />
+      )}
+      {moving && (
+        <MoveLinkDialog
+          skill={moving.skill}
+          link={moving.link}
+          onClose={() => setMoving(null)}
+          onDone={onChanged}
+        />
       )}
       {resolve !== null && (
         <ResolveDialog

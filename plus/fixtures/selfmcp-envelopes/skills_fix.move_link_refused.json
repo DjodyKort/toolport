@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "fix": "move-link",
+    "link": "../../shared/rubric.md",
+    "names": ["acceptance"]
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: skills_fix (tier 2). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: skills_fix (tier 2). Pass confirm=true to proceed.",
+  "tool": "skills_fix"
+}

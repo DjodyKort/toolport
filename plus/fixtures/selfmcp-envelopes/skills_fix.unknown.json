@@ -6,9 +6,9 @@
   "result": {
     "error": {
       "kind": "invalid_arguments",
-      "message": "unknown fix 'delete'; the only safe fix is chmod"
+      "message": "unknown fix 'delete'; the safe fixes are chmod and move-link"
     }
   },
-  "text": "invalid_arguments: unknown fix 'delete'; the only safe fix is chmod",
+  "text": "invalid_arguments: unknown fix 'delete'; the safe fixes are chmod and move-link",
   "tool": "skills_fix"
 }

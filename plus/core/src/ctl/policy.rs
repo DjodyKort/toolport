@@ -491,7 +491,7 @@ pub(super) const ROWS: &[Row] = &[
         .dry()
         .spec(&[&skills_checks::FIX])
         .args(&[req("fix"), many("skill")])
-        .skip("sets the execute bit on a hook script; its --dry-run and apply are golden steps"),
+        .skip("sets the execute bit on a hook script or moves a linked file into a skill; its --dry-run and apply are golden steps"),
     row("skills diff", R)
         .spec(&[&skills::DIFF])
         .args(&[opt("skill")]),

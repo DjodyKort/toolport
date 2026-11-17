@@ -166,6 +166,20 @@ fn checks_files(world: &World) {
     world.checks_files();
 }
 
+fn outside_link(world: &World) {
+    let put = |rel: &str, text: &str| {
+        let path = world.repo.join(rel);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    };
+    put("shared/rubric.md", "# rubric\n");
+    let skill = std::fs::read_to_string(world.repo.join("skills/acceptance/SKILL.md")).unwrap();
+    put(
+        "skills/acceptance/SKILL.md",
+        &format!("{skill}\nAlso read the [rubric](../../shared/rubric.md).\n"),
+    );
+}
+
 fn differing_setup(world: &World) {
     let path = world.home.join(".claude/skills/acceptance/SETUP.md");
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -1406,6 +1420,66 @@ const CASES: &[Case] = &[
             .exit(1),
             usage("unknown", &["skills", "fix", "delete", "--repo", "{repo}"]),
             usage("usage", &["skills", "fix"]),
+            hook("outside-link", outside_link),
+            read(
+                "move_link_preview",
+                &[
+                    "skills",
+                    "fix",
+                    "move-link",
+                    "acceptance",
+                    "../../shared/rubric.md",
+                    "--repo",
+                    "{repo}",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "move_link",
+                &[
+                    "skills",
+                    "fix",
+                    "move-link",
+                    "acceptance",
+                    "../../shared/rubric.md",
+                    "--repo",
+                    "{repo}",
+                ],
+            ),
+            read(
+                "move_link_again",
+                &[
+                    "skills",
+                    "fix",
+                    "move-link",
+                    "acceptance",
+                    "../../shared/rubric.md",
+                    "--repo",
+                    "{repo}",
+                ],
+            )
+            .exit(1),
+            read(
+                "move_link_not_outside",
+                &[
+                    "skills",
+                    "fix",
+                    "move-link",
+                    "acceptance",
+                    "references/guide.md",
+                    "--repo",
+                    "{repo}",
+                ],
+            )
+            .exit(1),
+            usage(
+                "move_link_usage",
+                &["skills", "fix", "move-link", "acceptance", "--repo", "{repo}"],
+            ),
+            usage(
+                "dest_for_chmod",
+                &["skills", "fix", "chmod", "--dest", "x", "--repo", "{repo}"],
+            ),
         ],
     ),
     case(

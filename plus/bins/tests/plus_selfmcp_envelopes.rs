@@ -1009,6 +1009,34 @@ const CASES: &[Case] = &[
                 "skills_fix",
                 r#"{"fix":"chmod","names":["nope"]}"#,
             ),
+            hook("outside-link", outside_link),
+            read(
+                "move_link_preview",
+                "skills_fix",
+                r#"{"fix":"move-link","names":["acceptance"],"link":"../../shared/rubric.md"}"#,
+            ),
+            refused(
+                "move_link_refused",
+                "skills_fix",
+                r#"{"fix":"move-link","names":["acceptance"],"link":"../../shared/rubric.md","dry_run":false}"#,
+            ),
+            write(
+                "move_link",
+                "skills_fix",
+                r#"{"fix":"move-link","names":["acceptance"],"link":"../../shared/rubric.md","dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "move_link_not_outside",
+                "refused",
+                "skills_fix",
+                r#"{"fix":"move-link","names":["acceptance"],"link":"references/guide.md"}"#,
+            ),
+            fails(
+                "move_link_no_link",
+                "invalid_arguments",
+                "skills_fix",
+                r#"{"fix":"move-link","names":["acceptance"]}"#,
+            ),
         ],
     ),
     case(
@@ -1681,6 +1709,20 @@ fn arguments(world: &World, case: &Case, call: &Call) -> Value {
         .replace("{base}", &world.base.to_string_lossy());
     serde_json::from_str(&expanded)
         .unwrap_or_else(|e| panic!("{} {}: arguments are not JSON: {e}", case.tool, call.label))
+}
+
+fn outside_link(world: &World) {
+    let put = |rel: &str, text: &str| {
+        let path = world.repo.join(rel);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    };
+    put("shared/rubric.md", "# rubric\n");
+    let skill = std::fs::read_to_string(world.repo.join("skills/acceptance/SKILL.md")).unwrap();
+    put(
+        "skills/acceptance/SKILL.md",
+        &format!("{skill}\nAlso read the [rubric](../../shared/rubric.md).\n"),
+    );
 }
 
 fn differing_setup(world: &World) {

@@ -220,6 +220,19 @@ export interface FixData {
   fixed: Array<{ event: string; file: string; from: string; skill: string; to: string }>;
 }
 
+export interface MoveLinkData {
+  dryRun: boolean;
+  skill: string;
+  link: string;
+  from: string;
+  /** Where the copy sits in the skill folder, and the text the link has afterwards. */
+  to: string;
+  reused: boolean;
+  size: number;
+  count: number;
+  rewrites: Array<{ line: number; before: string; after: string }>;
+}
+
 export type FileStatus =
   | "would-copy"
   | "copied"
@@ -243,8 +256,10 @@ export interface SkillFile {
 export interface SkillLink {
   line: number;
   reason: string | null;
-  state: "installed" | "missing" | "outside" | string;
+  state: "installed" | "missing" | "outside-folder" | "not-installed" | string;
   target: string;
+  /** `move-link` when the file it points at can be moved into the skill. */
+  fixable?: string | null;
 }
 
 export interface FilesData {

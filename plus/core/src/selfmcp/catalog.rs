@@ -186,11 +186,13 @@ pub const TOOLS: &[ToolDef] = &[
         "skills_fix",
         2,
         UnlessDryRun,
-        "Apply the one safe lint fix: fix=chmod makes the hook scripts of skills executable; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        "Apply a safe lint fix: fix=chmod makes the hook scripts of skills executable; fix=move-link copies the file a SKILL.md link outside the skill folder points at (inside the library, at most 1 MB) into the skill and rewrites the link; dry_run is on by default and lists the copy and the rewritten lines (apply with dry_run=false and confirm=true)",
         [
-            p("fix", Ty::Str, true, "The fix to apply: chmod"),
+            p("fix", Ty::Str, true, "The fix to apply: chmod or move-link"),
             REPO,
-            p("names", Ty::StrList, false, "Limit to these skills"),
+            p("names", Ty::StrList, false, "Limit to these skills; move-link takes exactly one"),
+            p("link", Ty::Str, false, "move-link: the link as written in SKILL.md, e.g. ../shared/guide.md"),
+            p("dest", Ty::Str, false, "move-link: the folder of the skill the file is copied to, default references"),
             DRY_ON
         ],
         skills::fix

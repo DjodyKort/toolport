@@ -210,7 +210,7 @@ fn test05_a_link_out_of_the_folder_is_its_own_row() {
     let outside = row(&rows, "link-outside-folder");
     assert_eq!(outside["target"], "../../shared/rubric.md");
     assert_eq!(outside["consequence"], "dead-link");
-    assert!(outside.get("fixable").is_none());
+    assert_eq!(outside["fixable"], "move-link");
 }
 
 #[test]
@@ -361,7 +361,7 @@ mod hooks {
         let w = World::new("fixbad");
         with_hook(&w, 0o644);
         let unknown = api::fix(&w.args(), "delete").unwrap_err();
-        assert!(unknown.message.contains("only safe fix is chmod"));
+        assert!(unknown.message.contains("safe fixes are chmod and move-link"));
         let skills = Args {
             names: Some(vec!["nope".into()]),
             ..w.args()

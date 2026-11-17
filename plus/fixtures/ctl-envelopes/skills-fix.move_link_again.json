@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "skills",
+    "fix",
+    "move-link",
+    "acceptance",
+    "../../shared/rubric.md",
+    "--repo",
+    "{repo}"
+  ],
+  "envelope": {
+    "command": "skills fix",
+    "error": {
+      "code": "skills",
+      "message": "../../shared/rubric.md is not a link of SKILL.md that leaves the skill folder"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

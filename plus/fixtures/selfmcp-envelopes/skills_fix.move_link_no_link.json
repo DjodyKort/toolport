@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "fix": "move-link",
+    "names": ["acceptance"]
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "move-link needs the link to move"
+    }
+  },
+  "text": "invalid_arguments: move-link needs the link to move",
+  "tool": "skills_fix"
+}

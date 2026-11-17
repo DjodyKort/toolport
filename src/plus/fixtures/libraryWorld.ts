@@ -251,9 +251,10 @@ function fullLint(chmod: boolean): LintRow[] {
       name: "spec-writer",
       file: "SKILL.md",
       line: 31,
-      target: "../shared/rubric.md",
+      target: "../shared/glossary.md",
+      fixable: "move-link",
       message:
-        "SKILL.md links ../shared/rubric.md, outside the skill folder. That file will not exist in ~/.claude/skills.",
+        "SKILL.md links ../shared/glossary.md, outside the skill folder. That file will not exist in ~/.claude/skills.",
     }),
     lintRow({
       code: "body-large",
@@ -398,8 +399,9 @@ function linksOf(name: string): SkillLink[] {
     {
       line: 31,
       state: "outside-folder",
-      target: "../shared/rubric.md",
+      target: "../shared/glossary.md",
       reason: "outside the skill folder",
+      fixable: "move-link",
     },
     {
       line: 44,
@@ -801,9 +803,12 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
     };
   }
 
+  let moved = false;
   const lintRows = () =>
     scenario === "plan" || scenario === "blocked" || scenario === "busy"
-      ? fullLint(options.chmod === true)
+      ? fullLint(options.chmod === true).filter(
+          (r) => !(moved && r.code === "link-leaves-folder"),
+        )
       : options.chmod
         ? [
             ...calmLint(),
@@ -1208,7 +1213,37 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
     });
   }
 
+  function moveLink(argv: string[]): CtlReply {
+    const [skill, link] = [argv[3], argv[4]];
+    const dryRun = argv.includes("--dry-run");
+    if (skill !== "spec-writer" || link !== "../shared/glossary.md" || moved)
+      return fail(
+        "refused",
+        `${link ?? ""} is not a link of SKILL.md that leaves the skill folder`,
+      );
+    if (!dryRun) moved = true;
+    return ok({
+      dryRun,
+      fix: "move-link",
+      skill,
+      link,
+      from: `${LIBRARY_REPO}/shared/glossary.md`,
+      to: "references/glossary.md",
+      reused: false,
+      size: 2048,
+      count: 1,
+      rewrites: [
+        {
+          line: 31,
+          before: "Read the [glossary](../shared/glossary.md) before you start.",
+          after: "Read the [glossary](references/glossary.md) before you start.",
+        },
+      ],
+    });
+  }
+
   function fix(argv: string[]): CtlReply {
+    if (argv[2] === "move-link") return moveLink(argv);
     const dryRun = argv.includes("--dry-run");
     const has = options.chmod === true && !fixed;
     if (!dryRun && has) fixed = true;
@@ -1269,7 +1304,9 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
           present: locked.has(found.name),
         },
       ],
-      links: linksOf(found.name),
+      links: linksOf(found.name).filter(
+        (link) => !(moved && link.target === "../shared/glossary.md"),
+      ),
       lockfilePresent: lockfile,
       targetedClients: clients,
     });
