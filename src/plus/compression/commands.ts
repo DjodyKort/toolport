@@ -1,4 +1,4 @@
-import { ctlData } from "../bridge/ctl";
+import { CtlError, ctlData } from "../bridge/ctl";
 import type {
   AdoptEditData,
   CompressionDoctorData,
@@ -8,6 +8,7 @@ import type {
   HooksWriteData,
   MeasureReport,
   PauseData,
+  VerifyData,
 } from "./data";
 
 const only = (provider?: HookProviderId) => (provider ? ["--provider", provider] : []);
@@ -62,3 +63,18 @@ export const adoptEdit = (provider: HookProviderId, revert = false) =>
     provider,
     ...(revert ? ["--revert"] : []),
   ]);
+
+/** A failed check still answers with its rows, so the page can say which hook failed. */
+export async function verifyHooks(provider?: HookProviderId): Promise<VerifyData> {
+  try {
+    return await ctlData<VerifyData>([
+      "compression",
+      "hooks",
+      "verify",
+      ...(provider ? [provider] : []),
+    ]);
+  } catch (error) {
+    if (error instanceof CtlError && error.data) return error.data as VerifyData;
+    throw error;
+  }
+}

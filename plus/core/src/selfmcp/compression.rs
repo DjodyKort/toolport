@@ -7,6 +7,7 @@
 use super::ToolError;
 use crate::args::{flag, flag_or, str_trimmed};
 use crate::compression::hooks;
+use crate::compression::hooks_verify;
 use crate::compression::ledger::now_ms;
 use crate::compression::manage::{
     self, parse_mode, parse_provider, parse_telemetry, with_system, CmdError, EnableReq, Kind,
@@ -123,6 +124,17 @@ pub(super) fn hooks_adopt_edit(host: &dyn Host, args: &Value) -> Outcome {
     let id = hook_id(args)?.ok_or_else(|| required_error("hook"))?;
     hooks::adopt_edit(host, &hook_paths(host)?, &id, flag(args, "revert"))
         .map_err(ToolError::backend)
+}
+
+pub(super) fn hooks_verify(host: &dyn Host, args: &Value) -> Outcome {
+    let id = hook_id(args)?;
+    hooks_verify::verify(
+        host,
+        &hook_paths(host)?,
+        id.as_deref(),
+        &hooks_verify::Options::system(),
+    )
+    .map_err(ToolError::backend)
 }
 
 fn refuse_egress(provider: Option<ProviderName>) -> Result<(), ToolError> {

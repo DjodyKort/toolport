@@ -6,6 +6,7 @@ pub mod apply;
 pub mod capability;
 pub mod engine;
 pub mod hooks;
+pub mod hooks_verify;
 pub mod launch;
 pub mod ledger;
 pub mod legacy;
@@ -26,6 +27,8 @@ mod hooks_adopt_tests;
 mod hooks_pause_tests;
 #[cfg(test)]
 mod hooks_testkit;
+#[cfg(test)]
+mod hooks_verify_tests;
 #[cfg(test)]
 mod ledger_prop_tests;
 #[cfg(test)]

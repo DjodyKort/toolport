@@ -128,6 +128,8 @@ export function untilText(iso: string, now: Date = new Date()): string {
   return `${day} ${clock(at)}`;
 }
 
+export const checkedAt = (at: Date = new Date()) => clock(at);
+
 export function latencyText(counter: HookCounter | null): string {
   if (!counter || counter.calls === 0) {
     return "No calls counted yet. The hook counts from the next Claude Code session.";

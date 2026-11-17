@@ -10,6 +10,7 @@ import type {
   HooksWriteData,
   MeasureReport,
   PauseData,
+  VerifyData,
 } from "./data";
 
 const root = join(__dirname, "../../../plus/fixtures");
@@ -153,7 +154,7 @@ describe("the compression envelope types match the Rust goldens", () => {
     expect(typeof fixture.pausedUntil).toBe("string");
   });
 
-  it("test08_adopt_edit_has_the_same_shape_in_the_golden_and_the_fixture", () => {
+  it("test08_adopt_edit_and_verify_have_the_same_shape_in_the_golden_and_the_fixture", () => {
     const golden = ctl("compression-hooks-adopt-edit.apply").envelope
       .data as AdoptEditData;
     const edited = createCompressionWorld({ hooks: "edited" }).run([
@@ -163,5 +164,15 @@ describe("the compression envelope types match the Rust goldens", () => {
       "rtk",
     ]);
     expect(shape(edited.data)).toEqual(shape(golden));
+
+    const verified = ctl("compression-hooks-verify.wrapped").envelope.data as VerifyData;
+    const fixture = createCompressionWorld({ hooks: "on" }).run([
+      "compression",
+      "hooks",
+      "verify",
+    ]).data as VerifyData;
+    expect(shape({ ...fixture, rows: fixture.rows[0] })).toEqual(
+      shape({ ...verified, rows: verified.rows[0] }),
+    );
   });
 });

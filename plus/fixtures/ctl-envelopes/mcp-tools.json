@@ -1613,6 +1613,21 @@
           "tier": 2
         },
         {
+          "description": "Run the hook commands of Claude settings with a synthetic PreToolUse event (Bash for rtk, a repeated Read for read-once) in a temporary directory and report pass or fail, latency and what each returned; nothing is counted",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "compression_hooks_verify",
+          "params": [
+            {
+              "description": "rtk or read-once; default both",
+              "name": "hook",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 2
+        },
+        {
           "description": "Enable compression: writes the policy config, the shell shims and the registry entry of the provider (default headroom); dry_run is on by default (apply with dry_run=false and confirm=true)",
           "dryRunDefault": true,
           "gate": "unless-dry-run",

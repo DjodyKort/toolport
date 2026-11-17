@@ -19,6 +19,8 @@ use toolport_plus_api::SettingsStore;
 pub const LEDGER_FILE: &str = "compression-hooks.json";
 pub const COUNTERS_FILE: &str = "compression-hooks.jsonl";
 pub const WRAP_PREFIX: &str = "toolportctl compression hook ";
+/// Set by `compression hooks verify`: the wrapper then runs even while paused and counts nothing.
+pub const VERIFY_ENV: &str = "TOOLPORT_HOOK_VERIFY";
 const EVENT: &str = "PreToolUse";
 pub const CANNOT_TELL: &str = "Counts hook calls, latency and how often the hook answered. It cannot see the size of the tool output a rewrite later saves; that needs the billed measurement in `compression verify`.";
 
@@ -174,7 +176,7 @@ pub fn wrap(id: &str, original: &str) -> String {
     format!("{WRAP_PREFIX}{id} -- /bin/sh -c {}", shell_quote(original))
 }
 
-fn is_wrapped(command: &str) -> bool {
+pub(super) fn is_wrapped(command: &str) -> bool {
     command.starts_with(WRAP_PREFIX)
 }
 
@@ -206,7 +208,7 @@ pub(super) fn unwrap_original(command: &str, id: &str) -> Option<String> {
 }
 
 /// Position of the provider's entry in `hooks.PreToolUse`: group, hook, command.
-fn find(hooks: &Value, provider: &HookProvider) -> Option<(usize, usize, String)> {
+pub(super) fn find(hooks: &Value, provider: &HookProvider) -> Option<(usize, usize, String)> {
     let groups = hooks.get(EVENT)?.as_array()?;
     for (gi, group) in groups.iter().enumerate() {
         if group.get("matcher").and_then(Value::as_str) != Some(provider.matcher) {
@@ -273,7 +275,7 @@ impl Row {
     }
 }
 
-fn read_hooks(
+pub(super) fn read_hooks(
     store: &dyn SettingsStore,
     file: &Path,
 ) -> Result<(Value, Option<String>, Value), String> {
@@ -824,7 +826,8 @@ pub struct Outcome {
 /// Runs the wrapped command with the hook payload on stdin. Fails open: when the command cannot
 /// be started or Toolport cannot count, the call still gets whatever the command answered.
 pub fn run_wrapper(paths: &Paths, id: &str, argv: &[String], stdin: &[u8]) -> Outcome {
-    let paused = read_ledger(paths).is_ok_and(|l| pause_active(&l, now_ms()));
+    let verifying = std::env::var_os(VERIFY_ENV).is_some();
+    let paused = !verifying && read_ledger(paths).is_ok_and(|l| pause_active(&l, now_ms()));
     if paused || argv.is_empty() {
         return Outcome {
             code: 0,
@@ -863,6 +866,9 @@ pub fn run_wrapper(paths: &Paths, id: &str, argv: &[String], stdin: &[u8]) -> Ou
             stderr: Vec::new(),
         },
     };
+    if verifying {
+        return outcome;
+    }
     let row = json!({
         "at": format_ts(now_ms()),
         "provider": id,

@@ -11,7 +11,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatusCard } from "@/components/ui/status-card";
 import { RowShell } from "../context/StackRows";
-import type { CompressionStatusData, EntryHealth, HooksWriteData } from "./data";
+import type {
+  CompressionStatusData,
+  EntryHealth,
+  HooksWriteData,
+  VerifyRow,
+} from "./data";
 import {
   HOOK_INFO,
   PARSEC_CONSENT,
@@ -230,22 +235,64 @@ const HEALTH_BADGE: Record<
   foreign: { variant: "off", label: "not written by Toolport" },
 };
 
+export interface CardCheck {
+  at: string;
+  row: VerifyRow;
+}
+
+function VerifyResult({ result }: { result: CardCheck }) {
+  const { row } = result;
+  const pass = row.status === "pass";
+  return (
+    <div
+      className="flex flex-col gap-0.5 text-meta"
+      data-testid={`verify-${row.provider}`}
+    >
+      <p className="flex flex-wrap items-center gap-1.5">
+        <Badge variant={pass ? "success" : row.status === "fail" ? "destructive" : "off"}>
+          {pass ? "verified" : row.status === "fail" ? "failed" : "not checked"}
+        </Badge>
+        <span>
+          Checked at {result.at}
+          {row.latencyMs !== null && row.latencyMs !== undefined && pass
+            ? ` · ${row.latencyMs} ms`
+            : ""}
+        </span>
+      </p>
+      <p className="break-words">
+        {pass
+          ? `It ${row.returned ?? "answered"}.`
+          : (row.reason ?? "No entry to check.")}
+      </p>
+      {row.paused && (
+        <p className="text-muted-foreground">
+          The hooks are paused; this check ran the command anyway.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function HookCard({
   row,
   paused,
   busy,
+  verification,
   onAdopt,
   onUndo,
   onRepair,
   onKeep,
+  onVerify,
 }: {
   row: HookRow;
   paused: boolean;
   busy: boolean;
+  verification: CardCheck | null;
   onAdopt: () => void;
   onUndo: () => void;
   onRepair: () => void;
   onKeep: () => void;
+  onVerify: () => void;
 }) {
   const info = HOOK_INFO[row.provider];
   if (row.health === "absent") return null;
@@ -306,6 +353,17 @@ export function HookCard({
               Keep my edit
             </Button>
           )}
+          {(row.health === "ok" || row.health === "edited") && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              aria-label={`Verify ${row.provider}`}
+              onClick={onVerify}
+            >
+              Verify
+            </Button>
+          )}
           {owned && row.health !== "missing" && (
             <Button
               size="sm"
@@ -333,6 +391,7 @@ export function HookCard({
           command Toolport&apos;s own, and Undo adoption then restores your edit.
         </p>
       )}
+      {verification && <VerifyResult result={verification} />}
     </RowShell>
   );
 }

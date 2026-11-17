@@ -19,7 +19,8 @@ use toolport_plus::selfmcp::TOOLS;
 
 mod common;
 use common::compression::{
-    edit_wrapped_hook, fake_proxy, lose_hooks, measure_world, rtk_home, transcripts,
+    edit_wrapped_hook, fake_proxy, fixture_hooks, lose_hooks, measure_world, rtk_home,
+    silent_hooks, transcripts,
 };
 use common::library_world::{self, library_home};
 use common::oauth_mock::{self, OauthMock};
@@ -2060,6 +2061,20 @@ const CASES: &[Case] = &[
             apply("none", &["compression", "hooks", "adopt-edit", "read-once"]).exit(1),
             usage("unknown", &["compression", "hooks", "adopt-edit", "nope"]),
             usage("usage", &["compression", "hooks", "adopt-edit"]),
+        ],
+    ),
+    case(
+        "compression hooks verify",
+        &[
+            hook("home", fixture_hooks),
+            read("foreign", &["compression", "hooks", "verify"]),
+            setup("wrap", &["compression", "hooks", "apply"]),
+            read("wrapped", &["compression", "hooks", "verify"]),
+            read("one", &["compression", "hooks", "verify", "rtk"]),
+            read("counted", &["compression", "hooks", "status"]),
+            hook("silent", silent_hooks),
+            read("failing", &["compression", "hooks", "verify"]).exit(1),
+            usage("unknown", &["compression", "hooks", "verify", "nope"]),
         ],
     ),
     case(

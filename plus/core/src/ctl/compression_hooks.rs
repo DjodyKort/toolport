@@ -7,6 +7,7 @@ use super::compression::spec;
 use super::flags::{switch, value, Spec};
 use super::output::{no_args, CtlError, Output};
 use crate::compression::hooks::{self, HOOK_PROVIDERS};
+use crate::compression::hooks_verify;
 use crate::compression::ledger::now_ms;
 use crate::compression::store::Paths;
 use serde_json::Value;
@@ -16,8 +17,7 @@ pub(super) const HOOKS: Spec = spec(&[switch("--dry-run"), value("--provider")])
 pub(super) const PAUSE: Spec = spec(&[value("--for"), value("--until")]);
 pub(super) const ADOPT_EDIT: Spec = spec(&[switch("--revert")]);
 
-const USAGE: &str =
-    "usage: toolportctl compression hooks [status | apply | undo | pause | resume | adopt-edit]";
+const USAGE: &str = "usage: toolportctl compression hooks [status | apply | undo | pause | resume | adopt-edit | verify]";
 
 fn paths(host: &dyn Host) -> Result<Paths, CtlError> {
     Paths::from_host(host)
@@ -169,6 +169,32 @@ pub fn hooks(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
             )];
             out.extend(rows_text(&data));
             Ok(Output::new(data, out.join("\n")))
+        }
+        "verify" => {
+            let id = hook_operand(tail)?;
+            let data = hooks_verify::verify(
+                host,
+                &paths,
+                id.as_deref(),
+                &hooks_verify::Options::system(),
+            )
+            .map_err(failed)?;
+            let mut out = Vec::new();
+            for r in data["rows"].as_array().into_iter().flatten() {
+                out.push(format!(
+                    "  {} in {}: {}{}",
+                    r["provider"].as_str().unwrap_or("-"),
+                    r["file"].as_str().unwrap_or("-"),
+                    r["status"].as_str().unwrap_or("-"),
+                    r["reason"]
+                        .as_str()
+                        .map_or(String::new(), |why| format!(" ({why})"))
+                ));
+            }
+            out.push(format!("  {}", hooks_verify::PAYLOAD_NOTE));
+            let mut output = Output::new(data.clone(), out.join("\n"));
+            output.failed = data["failed"].as_u64().unwrap_or(0) > 0;
+            Ok(output)
         }
         _ => Err(CtlError::usage(USAGE)),
     }

@@ -193,6 +193,7 @@ export function plusFixtureFromSearch(search: string) {
       hooks: HOOK_SCENARIOS.includes(params.get("plus-compression") ?? "")
         ? (params.get("plus-compression") as HooksScenario)
         : "adopt",
+      verify: params.get("plus-verify") === "fail" ? "fail" : "pass",
       measure: ["compared", "empty"].includes(params.get("plus-measurements") ?? "")
         ? (params.get("plus-measurements") as MeasureScenario)
         : "refused",

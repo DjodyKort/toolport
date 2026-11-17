@@ -1,0 +1,39 @@
+{
+  "argv": ["compression", "hooks", "verify", "rtk"],
+  "envelope": {
+    "command": "compression hooks",
+    "data": {
+      "failed": 0,
+      "passed": 1,
+      "paused": false,
+      "payload": "A synthetic PreToolUse event for Bash (rtk) or Read (read-once) on stdin, a temporary working directory, no network. The wrapper counts nothing while a hook is verified, and `toolportctl` resolves to the binary that sits next to the one running this check.",
+      "rows": [
+        {
+          "calls": [
+            {
+              "answered": true,
+              "exitCode": 0,
+              "latencyMs": 0,
+              "stderr": "",
+              "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"updatedInput\":{\"command\":\"rtk git status\"}}}",
+              "step": "Bash: git status"
+            }
+          ],
+          "command": "toolportctl compression hook rtk -- /bin/sh -c '<WORLD>/home/.claude/hooks/rtk-hook.sh'",
+          "file": "<WORLD>/home/.claude/settings.json",
+          "latencyMs": 0,
+          "paused": false,
+          "provider": "rtk",
+          "reason": null,
+          "returned": "rewrote `git status` to `rtk git status`",
+          "status": "pass",
+          "wrapped": true
+        }
+      ],
+      "skipped": 0
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

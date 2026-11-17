@@ -1,0 +1,13 @@
+{
+  "argv": ["compression", "hooks", "verify", "nope"],
+  "envelope": {
+    "command": "compression hooks",
+    "error": {
+      "code": "usage",
+      "message": "unknown hook 'nope' (have: rtk, read-once)"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

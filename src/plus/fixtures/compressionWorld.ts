@@ -11,6 +11,8 @@ import type {
   HooksStatusData,
   MeasureReport,
   ProviderName,
+  VerifyData,
+  VerifyRow,
 } from "../compression/data";
 
 const HOME = "/Users/example";
@@ -28,6 +30,8 @@ export interface CompressionWorldOptions {
    * `edited` start with the hooks wrapped; `paused` is paused until tomorrow and `paused-open`
    * with no end; `none` has no hook at all. */
   hooks?: HooksScenario;
+  /** `fail`: Verify finds that the hooks answer nothing. */
+  verify?: "pass" | "fail";
   /** `refused`: too few paused sessions for a verdict. `compared`: a verdict with overlapping
    * middle halves. `empty`: no transcripts. */
   measure?: MeasureScenario;
@@ -342,6 +346,9 @@ function measureReport(scenario: MeasureScenario): MeasureReport {
   };
 }
 
+const REWRITE = '{"hookSpecificOutput":{"updatedInput":{"command":"rtk git status"}}}';
+const BLOCK = '{"decision":"block"}';
+
 const ok = (data: unknown): CtlReply => ({ ok: true, data });
 const fail = (code: string, message: string): CtlReply => ({
   ok: false,
@@ -525,6 +532,82 @@ export function createCompressionWorld(options: CompressionWorldOptions = {}) {
     return ok(rows("adopted"));
   }
 
+  function verify(only: string | null): CtlReply {
+    const failing = options.verify === "fail";
+    const rows: VerifyRow[] = ids
+      .filter((id) => !only || only === id)
+      .map((provider) => {
+        const slot = slots[provider];
+        const base = { file: SETTINGS, provider, command: slot.command ?? undefined };
+        if (slot.state === "absent") {
+          return {
+            ...base,
+            status: "skipped",
+            reason: "no entry in this settings file",
+            calls: [],
+          };
+        }
+        const step =
+          provider === "rtk"
+            ? [
+                {
+                  step: "Bash: git status",
+                  answered: !failing,
+                  stdout: failing ? "" : REWRITE,
+                },
+              ]
+            : [
+                { step: "Read: first read", answered: false, stdout: "" },
+                {
+                  step: "Read: repeat read",
+                  answered: !failing,
+                  stdout: failing ? "" : BLOCK,
+                },
+              ];
+        const calls = step.map((c, i) => ({
+          ...c,
+          exitCode: 0,
+          latencyMs: provider === "rtk" ? 38 : 41 + i,
+          stderr: "",
+        }));
+        return {
+          ...base,
+          wrapped: slot.state === "ours",
+          paused,
+          status: failing ? "fail" : "pass",
+          reason: failing
+            ? provider === "rtk"
+              ? "the hook answered nothing; rtk may be missing or may not rewrite this command"
+              : "the hook let a repeat read of an unchanged file through without an answer"
+            : null,
+          returned: failing
+            ? null
+            : provider === "rtk"
+              ? "rewrote `git status` to `rtk git status`"
+              : `answered the repeat read: ${BLOCK}`,
+          latencyMs: Math.max(...calls.map((c) => c.latencyMs)),
+          calls,
+        };
+      });
+    const count = (status: string) => rows.filter((r) => r.status === status).length;
+    const data: VerifyData = {
+      payload:
+        "A synthetic PreToolUse event on stdin, a temporary working directory, no network.",
+      passed: count("pass"),
+      failed: count("fail"),
+      skipped: count("skipped"),
+      paused,
+      rows,
+    };
+    return failing
+      ? {
+          ok: false,
+          data,
+          error: { code: "unhealthy", message: "one or more checks failed" },
+        }
+      : ok(data);
+  }
+
   function compressionStatus(): CompressionStatusData {
     return {
       configExists: true,
@@ -563,6 +646,7 @@ export function createCompressionWorld(options: CompressionWorldOptions = {}) {
         if (verb === "resume") return pause(false, null);
         if (verb === "adopt-edit")
           return adoptEdit(flags[0] as HookProviderId, flags.includes("--revert"));
+        if (verb === "verify") return verify(flags[0] ?? null);
       }
       if (sub === "status") return ok(compressionStatus());
       if (sub === "doctor") return ok(DOCTOR);

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "hook": "nope"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "hook must be rtk or read-once"
+    }
+  },
+  "text": "invalid_arguments: hook must be rtk or read-once",
+  "tool": "compression_hooks_verify"
+}

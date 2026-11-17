@@ -1,0 +1,31 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "compression",
+  "id": "compression hooks verify",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "hook",
+      "required": false,
+      "variadic": false
+    }
+  ],
+  "parent": "compression hooks",
+  "path": ["compression", "hooks", "verify"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Run the hook commands with a synthetic PreToolUse event and report what came back (<hook>)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["compression_hooks_verify"]
+}

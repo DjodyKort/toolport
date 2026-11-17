@@ -3,7 +3,7 @@
 use super::hooks::{read_ledger, wrap};
 use super::store::Paths;
 use serde_json::{json, Value};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use toolport_plus_api::MemoryHost;
 
 pub(super) struct World {
@@ -11,6 +11,7 @@ pub(super) struct World {
     pub paths: Paths,
     pub host: MemoryHost,
     pub file: PathBuf,
+    pub dir: PathBuf,
 }
 
 pub(super) fn world(settings: Value) -> World {
@@ -25,17 +26,24 @@ pub(super) fn world(settings: Value) -> World {
             ..Default::default()
         },
         file,
+        dir,
         _scratch: scratch,
     }
 }
 
-pub(super) fn rtk_settings() -> Value {
+pub(super) fn entry(matcher: &str, command: &str) -> Value {
+    json!({"matcher": matcher, "hooks": [{"type": "command", "command": command}]})
+}
+
+pub(super) fn settings_with(commands: &[(&str, &str)]) -> Value {
     json!({
         "theme": "dark",
-        "hooks": {"PreToolUse": [
-            {"matcher": "Bash", "hooks": [{"type": "command", "command": "rtk hook claude"}]}
-        ]}
+        "hooks": {"PreToolUse": commands.iter().map(|(m, c)| entry(m, c)).collect::<Vec<_>>()}
     })
+}
+
+pub(super) fn rtk_settings() -> Value {
+    settings_with(&[("Bash", "rtk hook claude")])
 }
 
 impl World {
@@ -80,4 +88,13 @@ impl World {
     pub fn entries(&self) -> usize {
         read_ledger(&self.paths).unwrap().entries.len()
     }
+}
+
+#[cfg(unix)]
+pub(super) fn script(dir: &Path, name: &str, body: &str) -> PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+    let path = dir.join(name);
+    std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    path
 }

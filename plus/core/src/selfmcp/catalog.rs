@@ -727,6 +727,14 @@ pub const TOOLS: &[ToolDef] = &[
         compression::hooks_adopt_edit
     ),
     tool!(
+        "compression_hooks_verify",
+        2,
+        None,
+        "Run the hook commands of Claude settings with a synthetic PreToolUse event (Bash for rtk, a repeated Read for read-once) in a temporary directory and report pass or fail, latency and what each returned; nothing is counted",
+        [p("hook", Ty::Str, false, "rtk or read-once; default both")],
+        compression::hooks_verify
+    ),
+    tool!(
         "compression_enable",
         3,
         UnlessDryRun,

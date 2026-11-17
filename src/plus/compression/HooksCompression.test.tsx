@@ -340,7 +340,7 @@ describe("Hooks & compression tab", () => {
   });
 });
 
-describe("Kept edits", () => {
+describe("Hook edits and verify", () => {
   it("test25_an_edited_hook_offers_restore_ours_and_keep_my_edit", async () => {
     setup({ hooks: "edited" });
     expect(await screen.findByText("edited by hand")).toBeVisible();
@@ -376,6 +376,45 @@ describe("Kept edits", () => {
       ]),
     );
     expect(await screen.findByText("edited by hand")).toBeVisible();
+  });
+
+  it("test27_verify_on_a_card_shows_the_result_latency_and_what_the_hook_returned", async () => {
+    setup({ hooks: "on" });
+    await userEvent.click(await screen.findByRole("button", { name: "Verify rtk" }));
+    const result = await screen.findByTestId("verify-rtk");
+    expect(result).toHaveTextContent("verified");
+    expect(result).toHaveTextContent(/Checked at \d{2}:\d{2} · 38 ms/);
+    expect(result).toHaveTextContent("It rewrote `git status` to `rtk git status`.");
+    expect(ranArgv()).toContainEqual(["compression", "hooks", "verify", "rtk"]);
+    expect(screen.queryByTestId("verify-read-once")).toBeNull();
+  });
+
+  it("test28_a_failed_verify_names_the_reason_on_the_card", async () => {
+    setup({ hooks: "on", verify: "fail" });
+    await userEvent.click(await screen.findByRole("button", { name: "Verify rtk" }));
+    const result = await screen.findByTestId("verify-rtk");
+    expect(result).toHaveTextContent("failed");
+    expect(result).toHaveTextContent("the hook answered nothing");
+  });
+
+  it("test29_verify_all_runs_the_hooks_besides_the_policy_checks", async () => {
+    setup({ hooks: "on" });
+    await userEvent.click(await screen.findByRole("button", { name: "Verify all" }));
+    await screen.findByTestId("verification");
+    expect(ranArgv()).toContainEqual(["compression", "hooks", "verify"]);
+    expect(ranArgv()).toContainEqual(["compression", "doctor"]);
+    expect(await screen.findByTestId("verify-rtk")).toHaveTextContent("verified");
+    expect(screen.getByTestId("verify-read-once")).toHaveTextContent(
+      "answered the repeat read",
+    );
+  });
+
+  it("test30_a_paused_hook_says_the_check_ran_it_anyway", async () => {
+    setup({ hooks: "paused" });
+    await userEvent.click(await screen.findByRole("button", { name: "Verify rtk" }));
+    expect(await screen.findByTestId("verify-rtk")).toHaveTextContent(
+      "The hooks are paused; this check ran the command anyway.",
+    );
   });
 });
 

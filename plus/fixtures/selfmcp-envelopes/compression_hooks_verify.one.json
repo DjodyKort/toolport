@@ -1,0 +1,45 @@
+{
+  "arguments": {
+    "hook": "read-once"
+  },
+  "isError": false,
+  "result": {
+    "failed": 0,
+    "passed": 1,
+    "paused": false,
+    "payload": "A synthetic PreToolUse event for Bash (rtk) or Read (read-once) on stdin, a temporary working directory, no network. The wrapper counts nothing while a hook is verified, and `toolportctl` resolves to the binary that sits next to the one running this check.",
+    "rows": [
+      {
+        "calls": [
+          {
+            "answered": false,
+            "exitCode": 0,
+            "latencyMs": 0,
+            "stderr": "",
+            "stdout": "",
+            "step": "Read: first read"
+          },
+          {
+            "answered": true,
+            "exitCode": 0,
+            "latencyMs": 0,
+            "stderr": "",
+            "stdout": "{\"decision\":\"block\"}",
+            "step": "Read: repeat read"
+          }
+        ],
+        "command": "<WORLD>/home/.claude/hooks/read-once-hook.sh",
+        "file": "<WORLD>/home/.claude/settings.json",
+        "latencyMs": 0,
+        "paused": false,
+        "provider": "read-once",
+        "reason": null,
+        "returned": "answered the repeat read: {\"decision\":\"block\"}",
+        "status": "pass",
+        "wrapped": false
+      }
+    ],
+    "skipped": 0
+  },
+  "tool": "compression_hooks_verify"
+}

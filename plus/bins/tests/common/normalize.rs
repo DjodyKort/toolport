@@ -16,6 +16,7 @@ pub const MASKED_KEYS: &[&str] = &[
     "pid",
     "elapsedMs",
     "durationMs",
+    "latencyMs",
     "tookMs",
     "head",
     "commitSha",

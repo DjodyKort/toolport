@@ -316,6 +316,7 @@ pub(super) const SUBS: &[Sub] = &[
     sub("compression hooks", "pause", "Make the wrapped entries answer nothing until resumed, or for a while and then by themselves (--for, --until)"),
     sub("compression hooks", "resume", "Let the wrapped entries answer again"),
     sub("compression hooks", "adopt-edit", "Take over an entry that was edited by hand, so undo restores the edit (<hook>, --revert)"),
+    sub("compression hooks", "verify", "Run the hook commands with a synthetic PreToolUse event and report what came back (<hook>)"),
     sub("compression ledger", "summary", "Summarise the token-savings ledger (--provider, --since)"),
     sub("compression ledger", "record", "Append a savings record to the ledger (--provider, --before, --after, --source, --session)"),
     sub("mcp", "call", "Run one self-management tool in-process (<tool>, --args, --args-stdin)"),
@@ -700,6 +701,9 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&compression_hooks::ADOPT_EDIT])
         .args(&[req("hook")])
         .skip("records an edited entry in the hooks ledger; plus_ctl_contract step"),
+    row("compression hooks verify", W)
+        .args(&[opt("hook")])
+        .skip("runs the hook commands of Claude settings; plus_ctl_contract runs fixture hooks in a scratch home"),
     row("compression hook", W)
         .needs(&[Needs::TerminalOnly])
         .terminal()
@@ -876,6 +880,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
         W,
         "compression hooks adopt-edit",
     ),
+    maps("compression_hooks_verify", W, "compression hooks verify"),
     maps("compression_enable", W, "compression enable").on(),
     maps("compression_disable", D, "compression disable").on(),
     maps("compression_set_provider", W, "compression set-provider").on(),

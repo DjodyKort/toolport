@@ -17,12 +17,21 @@ import {
   pauseHooks,
   resumeHooks,
   undoHooks,
+  verifyHooks,
 } from "./commands";
 import type { DoctorCheck, HookProviderId, HooksWriteData } from "./data";
-import { AdvancedPanel, HeadlineCard, HookCard, ProviderTile } from "./HookCards";
+import {
+  AdvancedPanel,
+  HeadlineCard,
+  HookCard,
+  ProviderTile,
+  type CardCheck,
+} from "./HookCards";
 import MeasurementsPage from "./MeasurementsPage";
-import { headline, hookRows, providerTiles, untilText } from "./model";
+import { checkedAt, headline, hookRows, providerTiles, untilText } from "./model";
 import { changeHooks } from "./useHookWrites";
+
+type VerifyRows = Awaited<ReturnType<typeof verifyHooks>>["rows"];
 
 interface Verification {
   at: string;
@@ -60,6 +69,7 @@ function Overview({ onMeasurements }: { onMeasurements: () => void }) {
   const [preview, setPreview] = useState<HooksWriteData | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [verification, setVerification] = useState<Verification | null>(null);
+  const [checks, setChecks] = useState<Partial<Record<HookProviderId, CardCheck>>>({});
   const until = hooks.data?.pausedUntil ?? null;
   const reload = hooks.reload;
 
@@ -126,15 +136,40 @@ function Overview({ onMeasurements }: { onMeasurements: () => void }) {
     }
   }
 
+  function record(rows: VerifyRows, at: string) {
+    setChecks((current) => {
+      const next = { ...current };
+      for (const row of rows) {
+        if (row.status === "skipped") delete next[row.provider];
+        else next[row.provider] = { at, row };
+      }
+      return next;
+    });
+  }
+
+  async function verifyOne(provider: HookProviderId) {
+    setBusy(true);
+    try {
+      record((await verifyHooks(provider)).rows, checkedAt());
+    } catch (error) {
+      toastError("Could not verify the hook", { description: errorText(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function verify() {
     setBusy(true);
     try {
-      const [check, fresh] = await Promise.all([compressionDoctor(), hooksStatus()]);
+      const [check, fresh, ran] = await Promise.all([
+        compressionDoctor(),
+        hooksStatus(),
+        verifyHooks(),
+      ]);
+      const at = checkedAt();
+      record(ran.rows, at);
       setVerification({
-        at: new Date().toLocaleTimeString("en-GB", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
+        at,
         checks: check.checks,
         states: hookRows(fresh).map(
           (row) =>
@@ -163,6 +198,7 @@ function Overview({ onMeasurements }: { onMeasurements: () => void }) {
       row={row}
       paused={status.paused}
       busy={busy}
+      verification={checks[row.provider] ?? null}
       onKeep={() =>
         void write(
           `Kept your edit of ${row.provider}`,
@@ -170,6 +206,7 @@ function Overview({ onMeasurements }: { onMeasurements: () => void }) {
           () => adoptEdit(row.provider, true),
         )
       }
+      onVerify={() => void verifyOne(row.provider)}
       onAdopt={() =>
         void write(
           `Adopted ${row.provider}`,

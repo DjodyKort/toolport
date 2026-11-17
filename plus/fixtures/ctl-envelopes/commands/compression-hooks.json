@@ -15,7 +15,7 @@
   "path": ["compression", "hooks"],
   "planned": false,
   "preview": null,
-  "summary": "Own the rtk and read-once hook entries: status apply undo pause resume adopt-edit (--dry-run, --provider, --for, --until, --revert)",
+  "summary": "Own the rtk and read-once hook entries: status apply undo pause resume adopt-edit verify (--dry-run, --provider, --for, --until, --revert)",
   "surface": null,
   "tier": null,
   "tools": []

@@ -1,0 +1,7 @@
+{
+  "command": "compression hooks verify",
+  "dryRun": "none",
+  "name": "compression_hooks_verify",
+  "tier": "write",
+  "toolTier": 2
+}

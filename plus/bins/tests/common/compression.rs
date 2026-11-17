@@ -248,6 +248,49 @@ pub fn lose_hooks(world: &World) {
     .unwrap();
 }
 
+const REWRITE: &str = r#"cat >/dev/null; echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":{"command":"rtk git status"}}}'"#;
+const BLOCK_REPEAT: &str =
+    r#"cat >/dev/null; if [ -e seen ]; then echo '{"decision":"block"}'; fi; touch seen"#;
+
+#[cfg(unix)]
+fn write_script(path: &std::path::Path, body: &str) {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::write(path, format!("#!/bin/sh\n{body}\n")).unwrap();
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+}
+
+/// Claude settings whose rtk and read-once entries run fixture scripts: the rtk one rewrites a
+/// command, the read-once one answers a repeated read.
+#[cfg(unix)]
+pub fn fixture_hooks(world: &World) {
+    let dir = world.home.join(".claude");
+    let hooks = dir.join("hooks");
+    std::fs::create_dir_all(&hooks).unwrap();
+    let (rtk, once) = (hooks.join("rtk-hook.sh"), hooks.join("read-once-hook.sh"));
+    write_script(&rtk, REWRITE);
+    write_script(&once, BLOCK_REPEAT);
+    let settings = json!({
+        "theme": "dark",
+        "hooks": {"PreToolUse": [
+            {"matcher": "Bash", "hooks": [{"type": "command", "command": rtk}]},
+            {"matcher": "Read", "hooks": [{"type": "command", "command": once}]}
+        ]}
+    });
+    std::fs::write(
+        dir.join("settings.json"),
+        serde_json::to_string_pretty(&settings).unwrap(),
+    )
+    .unwrap();
+}
+
+/// The fixture hooks stop answering.
+#[cfg(unix)]
+pub fn silent_hooks(world: &World) {
+    let hooks = world.home.join(".claude/hooks");
+    write_script(&hooks.join("rtk-hook.sh"), "cat >/dev/null");
+    write_script(&hooks.join("read-once-hook.sh"), "cat >/dev/null");
+}
+
 /// Somebody appended to the command of the wrapped rtk entry.
 pub fn edit_wrapped_hook(world: &World) {
     let file = world.home.join(".claude/settings.json");

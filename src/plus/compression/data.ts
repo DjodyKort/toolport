@@ -96,6 +96,38 @@ export interface AdoptEditData {
   }>;
 }
 
+export interface VerifyCall {
+  step: string;
+  exitCode: number | null;
+  latencyMs: number;
+  answered: boolean;
+  stdout: string;
+  stderr: string;
+}
+
+export interface VerifyRow {
+  file: string;
+  provider: HookProviderId;
+  status: "pass" | "fail" | "skipped";
+  reason: string | null;
+  returned?: string | null;
+  latencyMs?: number | null;
+  command?: string;
+  wrapped?: boolean;
+  /** The hook was paused and the check ran it anyway. */
+  paused?: boolean;
+  calls: VerifyCall[];
+}
+
+export interface VerifyData {
+  payload: string;
+  passed: number;
+  failed: number;
+  skipped: number;
+  paused: boolean;
+  rows: VerifyRow[];
+}
+
 export interface CompressionStatusData {
   configExists: boolean;
   provider: ProviderName;

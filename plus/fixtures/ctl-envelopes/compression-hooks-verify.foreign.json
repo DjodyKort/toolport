@@ -1,0 +1,68 @@
+{
+  "argv": ["compression", "hooks", "verify"],
+  "envelope": {
+    "command": "compression hooks",
+    "data": {
+      "failed": 0,
+      "passed": 2,
+      "paused": false,
+      "payload": "A synthetic PreToolUse event for Bash (rtk) or Read (read-once) on stdin, a temporary working directory, no network. The wrapper counts nothing while a hook is verified, and `toolportctl` resolves to the binary that sits next to the one running this check.",
+      "rows": [
+        {
+          "calls": [
+            {
+              "answered": true,
+              "exitCode": 0,
+              "latencyMs": 0,
+              "stderr": "",
+              "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"updatedInput\":{\"command\":\"rtk git status\"}}}",
+              "step": "Bash: git status"
+            }
+          ],
+          "command": "<WORLD>/home/.claude/hooks/rtk-hook.sh",
+          "file": "<WORLD>/home/.claude/settings.json",
+          "latencyMs": 0,
+          "paused": false,
+          "provider": "rtk",
+          "reason": null,
+          "returned": "rewrote `git status` to `rtk git status`",
+          "status": "pass",
+          "wrapped": false
+        },
+        {
+          "calls": [
+            {
+              "answered": false,
+              "exitCode": 0,
+              "latencyMs": 0,
+              "stderr": "",
+              "stdout": "",
+              "step": "Read: first read"
+            },
+            {
+              "answered": true,
+              "exitCode": 0,
+              "latencyMs": 0,
+              "stderr": "",
+              "stdout": "{\"decision\":\"block\"}",
+              "step": "Read: repeat read"
+            }
+          ],
+          "command": "<WORLD>/home/.claude/hooks/read-once-hook.sh",
+          "file": "<WORLD>/home/.claude/settings.json",
+          "latencyMs": 0,
+          "paused": false,
+          "provider": "read-once",
+          "reason": null,
+          "returned": "answered the repeat read: {\"decision\":\"block\"}",
+          "status": "pass",
+          "wrapped": false
+        }
+      ],
+      "skipped": 0
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

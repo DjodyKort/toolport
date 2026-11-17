@@ -1403,6 +1403,22 @@ const CASES: &[Case] = &[
         ],
     ),
     case(
+        "compression_hooks_verify",
+        &[
+            hook("home", compression::fixture_hooks),
+            read("both", "compression_hooks_verify", "{}"),
+            read("one", "compression_hooks_verify", r#"{"hook":"read-once"}"#),
+            fails(
+                "unknown_hook",
+                "invalid_arguments",
+                "compression_hooks_verify",
+                r#"{"hook":"nope"}"#,
+            ),
+            hook("silent", compression::silent_hooks),
+            read("failing", "compression_hooks_verify", "{}"),
+        ],
+    ),
+    case(
         "compression_enable",
         &[
             read(
