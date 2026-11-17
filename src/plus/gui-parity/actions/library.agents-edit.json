@@ -1,5 +1,6 @@
 {
-  "route": "library-later",
-  "status": "planned",
-  "summary": "Agents: add, edit the body, scaffold, get, clean synced copies and compare (agents add|clean|diff; agents_clean, agents_diff, agents_edit_body, agents_get, agents_list_transpilers, agents_scaffold)"
+  "route": "library",
+  "status": "built",
+  "summary": "Agents: add from a template, edit the body, see what changed since the last sync and remove the synced copies (agents add|diff|clean, agents_get and agents_edit_body through mcp call; agents_scaffold, agents_diff, agents_clean, agents_get, agents_edit_body)",
+  "test": "src/plus/library/AgentsStylesEditing.test.tsx"
 }

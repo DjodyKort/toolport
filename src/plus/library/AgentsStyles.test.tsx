@@ -114,11 +114,11 @@ describe("Library screen, Agents & styles tab", () => {
     await waitFor(() => expect(ranExactly("styles", "sync")).toBe(true));
 
     await userEvent.click(
-      await within(styles).findByRole("button", { name: /Remove synced styles/ }),
+      await within(styles).findByRole("button", { name: /Remove applied style/ }),
     );
     dialog = await screen.findByRole("dialog");
     await userEvent.click(
-      within(dialog).getByRole("button", { name: "Remove synced styles" }),
+      within(dialog).getByRole("button", { name: "Remove applied style" }),
     );
     await waitFor(() => expect(ranExactly("styles", "remove")).toBe(true));
     expect(ranExactly("styles", "status")).toBe(true);

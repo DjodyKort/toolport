@@ -251,7 +251,9 @@ export function createCtlWorld(options: WorldOptions = {}) {
 
   function call(argv: string[], stdin: string | undefined): CtlReply {
     const tool = argv[2];
-    const handled = serverWorld.tool(tool ?? "", stdin?.trim() ? JSON.parse(stdin) : {});
+    const given = stdin?.trim() ? JSON.parse(stdin) : {};
+    const handled =
+      serverWorld.tool(tool ?? "", given) ?? libraryWorld.tool(tool ?? "", given);
     if (handled) return handled;
     const row = tools.tools.find((t) => t.name === tool);
     if (!row) {

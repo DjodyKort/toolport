@@ -1,0 +1,5 @@
+{
+  "route": "library-later",
+  "status": "planned",
+  "summary": "Show how each client receives an agent or a style, and which fields it drops, once a second client is on (agents_list_transpilers, styles_list_transpilers)"
+}

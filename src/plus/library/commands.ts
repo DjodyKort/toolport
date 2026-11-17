@@ -11,6 +11,10 @@ import type {
   BundleData,
   CleanData,
   CompareData,
+  ContentAddData,
+  ContentCleanData,
+  ContentDiffData,
+  ContentGet,
   FilesData,
   FixData,
   InitData,
@@ -31,6 +35,7 @@ import type {
   StyleListData,
   StyleSyncData,
   SyncData,
+  ToolCall,
   TapChangeData,
   TapListData,
   TapUpdateData,
@@ -175,3 +180,32 @@ export const removeStyle = (dryRun: boolean) =>
   ctlData<RemoveData>(["styles", "remove", ...dry(dryRun)]);
 export const styleStatus = () =>
   ctlData<{ lockfilePresent: boolean }>(["styles", "status"]);
+
+export type ContentKind = "agents" | "styles";
+
+export const addContent = (kind: ContentKind, name: string, dryRun: boolean) =>
+  ctlData<ContentAddData>([kind, "add", name, ...dry(dryRun)]);
+export const contentDiff = (kind: ContentKind) =>
+  dataOrFailure<ContentDiffData>([kind, "diff"]);
+export const cleanContent = (kind: ContentKind, dryRun: boolean) =>
+  ctlData<ContentCleanData>([kind, "clean", ...dry(dryRun)]);
+
+/** The self-management tools that have no command of their own run through `mcp call`; the
+ * arguments travel on stdin, so a body of any size never reaches a command line. */
+async function callTool<T>(tool: string, args: Record<string, unknown>): Promise<T> {
+  const data = await ctlData<ToolCall<T>>(["mcp", "call", tool, "--args-stdin"], {
+    stdinSecret: JSON.stringify(args),
+  });
+  return data.result;
+}
+
+export const getContent = (kind: ContentKind, name: string) =>
+  callTool<ContentGet>(`${kind}_get`, { name });
+
+/** Replaces the body of an agent or a style in the library; the frontmatter stays. */
+export const editContentBody = (kind: ContentKind, name: string, body: string) =>
+  callTool<{ sourcePath: string; newHash: string }>(`${kind}_edit_body`, {
+    name,
+    new_body: body,
+    confirm: true,
+  });

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, FileText, RefreshCw } from "lucide-react";
+import { CheckCircle2, FileText, Plus, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -10,6 +10,7 @@ import {
   agentAudit,
   agentLint,
   agentStatus,
+  contentDiff,
   listAgents,
   listStyles,
   removeStyle,
@@ -18,7 +19,10 @@ import {
   syncAgents,
   syncStyles,
   uninstallAgent,
+  type ContentKind,
 } from "./commands";
+import type { ContentDiffData } from "./data";
+import { CleanContentDialog, EditBodyDialog, NewContentDialog } from "./ContentDialogs";
 import { FileLines, Mono, WriteDialog } from "./dialogs";
 import { plural } from "./model";
 
@@ -27,7 +31,21 @@ type Dialog =
   | { kind: "uninstall"; name: string }
   | { kind: "sync-styles" }
   | { kind: "remove-styles" }
+  | { kind: "new"; content: ContentKind }
+  | { kind: "clean"; content: ContentKind }
+  | { kind: "edit"; content: ContentKind; name: string }
   | null;
+
+/** What changed in the library since the last sync, as a badge beside the item. */
+function Changed({ diff, name }: { diff: ContentDiffData | null; name: string }) {
+  if (!diff || diff.noLockfile) return null;
+  const label = diff.new.includes(name)
+    ? "New since the last sync"
+    : diff.modified.includes(name)
+      ? "Edited since the last sync"
+      : null;
+  return label ? <Badge variant="warning">{label}</Badge> : null;
+}
 
 function CheckTile({
   title,
@@ -65,6 +83,14 @@ function Section({
   );
 }
 
+async function optionalDiff(kind: ContentKind): Promise<ContentDiffData | null> {
+  try {
+    return await contentDiff(kind);
+  } catch {
+    return null;
+  }
+}
+
 /** Agents and output styles: what the library holds and whether Claude Code has it. Each syncs
  * with its own command and preview; Apply on the Sync tab covers skills, rules and hooks. */
 export default function AgentsStyles() {
@@ -75,9 +101,13 @@ export default function AgentsStyles() {
   const styles = useLoad(listStyles, "styles");
   const styleChecks = useLoad(styleLint, "style-lint");
   const styleState = useLoad(styleStatus, "style-status");
+  const agentDiff = useLoad(() => optionalDiff("agents"), "agent-diff");
+  const styleDiff = useLoad(() => optionalDiff("styles"), "style-diff");
   const [dialog, setDialog] = useState<Dialog>(null);
 
   const reload = () => {
+    agentDiff.reload();
+    styleDiff.reload();
     agents.reload();
     status.reload();
     lint.reload();
@@ -113,7 +143,7 @@ export default function AgentsStyles() {
               ? "Agents are in sync"
               : `${plural(list.length, "agent")} not in Claude Code yet`
         }
-        detail="This tab is for looking at an agent and seeing how Claude Code gets it. Agents and styles sync from here with their own preview; the Sync tab covers skills, rules and hooks."
+        detail="Agents belong to the same Apply as skills: one plan, one snapshot, one Undo. This tab is for looking at an agent, editing it and seeing how Claude Code gets it."
         actions={
           list.length > 0 && (
             <Button
@@ -128,7 +158,26 @@ export default function AgentsStyles() {
       />
 
       <section aria-label="Agents" className="flex flex-col gap-2">
-        <Section title="Agents" count={list.length} />
+        <Section title="Agents" count={list.length}>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDialog({ kind: "new", content: "agents" })}
+            >
+              <Plus /> New agent…
+            </Button>
+            {list.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDialog({ kind: "clean", content: "agents" })}
+              >
+                Remove synced copies…
+              </Button>
+            )}
+          </div>
+        </Section>
         {list.map((agent) => (
           <div key={agent.name} className="rounded-xl border bg-card p-4">
             <div className="flex flex-wrap items-center gap-2">
@@ -139,7 +188,17 @@ export default function AgentsStyles() {
                   {tool}
                 </Badge>
               ))}
-              <span className="ml-auto">
+              <Changed diff={agentDiff.data} name={agent.name} />
+              <span className="ml-auto flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setDialog({ kind: "edit", content: "agents", name: agent.name })
+                  }
+                >
+                  Edit body
+                </Button>
                 <Button
                   variant="destructive"
                   size="sm"
@@ -172,24 +231,40 @@ export default function AgentsStyles() {
 
       <section aria-label="Output styles" className="flex flex-col gap-2">
         <Section title="Output styles" count={styleList.length}>
-          {styleList.length > 0 && (
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDialog({ kind: "sync-styles" })}
-              >
-                <RefreshCw /> Sync styles
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDialog({ kind: "remove-styles" })}
-              >
-                Remove synced styles…
-              </Button>
-            </div>
-          )}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDialog({ kind: "new", content: "styles" })}
+            >
+              <Plus /> New style…
+            </Button>
+            {styleList.length > 0 && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDialog({ kind: "sync-styles" })}
+                >
+                  <RefreshCw /> Sync styles
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDialog({ kind: "clean", content: "styles" })}
+                >
+                  Remove synced copies…
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDialog({ kind: "remove-styles" })}
+                >
+                  Remove applied style…
+                </Button>
+              </>
+            )}
+          </div>
         </Section>
         {styleList.length === 0 ? (
           <EmptyState
@@ -208,9 +283,19 @@ export default function AgentsStyles() {
                   <p className="text-sm font-medium">{style.name}</p>
                   <p className="text-meta text-muted-foreground">{style.description}</p>
                 </div>
+                <Changed diff={styleDiff.data} name={style.name} />
                 <Badge variant={style.synced ? "success" : "warning"}>
                   {style.synced ? "In sync" : "Not synced"}
                 </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setDialog({ kind: "edit", content: "styles", name: style.name })
+                  }
+                >
+                  Edit body
+                </Button>
               </li>
             ))}
           </ul>
@@ -251,6 +336,28 @@ export default function AgentsStyles() {
         </div>
       </section>
 
+      {dialog?.kind === "new" && (
+        <NewContentDialog
+          kind={dialog.content}
+          onClose={() => setDialog(null)}
+          onDone={reload}
+        />
+      )}
+      {dialog?.kind === "clean" && (
+        <CleanContentDialog
+          kind={dialog.content}
+          onClose={() => setDialog(null)}
+          onDone={reload}
+        />
+      )}
+      {dialog?.kind === "edit" && (
+        <EditBodyDialog
+          kind={dialog.content}
+          name={dialog.name}
+          onClose={() => setDialog(null)}
+          onDone={reload}
+        />
+      )}
       {dialog?.kind === "sync-agents" && (
         <WriteDialog
           title="Sync agents"
@@ -296,12 +403,12 @@ export default function AgentsStyles() {
       )}
       {dialog?.kind === "remove-styles" && (
         <WriteDialog
-          title="Remove synced styles"
-          description="Removes the output styles Toolport wrote. Your library keeps them."
-          confirmLabel="Remove synced styles"
+          title="Remove the applied style"
+          description="Takes the style off the clients that got it as an always-on rule. The style stays in your library."
+          confirmLabel="Remove applied style"
           destructive
           preview={() => removeStyle(true)}
-          render={() => <p className="text-meta">The synced copies are removed.</p>}
+          render={() => <p className="text-meta">The applied style is removed.</p>}
           confirm={() => removeStyle(false)}
           onClose={() => setDialog(null)}
           onDone={reload}

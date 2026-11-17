@@ -560,6 +560,49 @@ export interface AddData {
   type: string;
 }
 
+/** `agents add` and `styles add`: the one file a new item starts with. */
+export interface ContentAddData {
+  dryRun: boolean;
+  name: string;
+  path: string;
+  repo: string;
+}
+
+/** `agents diff` and `styles diff`: what changed in the library since the last sync. */
+export interface ContentDiffData {
+  repo: string;
+  noLockfile: boolean;
+  clean: boolean;
+  new: string[];
+  modified: string[];
+  removed: string[];
+  unchanged: number;
+}
+
+/** `agents clean` and `styles clean`: the synced copies removed, the library kept. */
+export interface ContentCleanData {
+  dryRun: boolean;
+  lockfilePresent: boolean;
+  managed: string[];
+  removed: string[];
+  skipped: Array<{ client: string; error: string }>;
+}
+
+/** `mcp call agents_get|styles_get`: one item with its body. */
+export interface ContentGet {
+  name: string;
+  description: string;
+  path: string;
+  body: string;
+}
+
+export interface ToolCall<T> {
+  tool: string;
+  tier: number;
+  isError: boolean;
+  result: T;
+}
+
 export interface AgentRow {
   name: string;
   description: string;

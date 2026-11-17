@@ -1,5 +1,6 @@
 {
-  "route": "library-later",
-  "status": "planned",
-  "summary": "Styles: add, scaffold, edit the body, apply, clean and compare (styles add|apply|clean|diff; styles_apply, styles_clean, styles_diff, styles_edit_body, styles_get, styles_list_transpilers, styles_scaffold)"
+  "route": "library",
+  "status": "built",
+  "summary": "Output styles: add from a template, edit the body, see what changed since the last sync and remove the synced copies (styles add|diff|clean, styles_get and styles_edit_body through mcp call; styles_scaffold, styles_diff, styles_clean, styles_get, styles_edit_body)",
+  "test": "src/plus/library/AgentsStylesEditing.test.tsx"
 }

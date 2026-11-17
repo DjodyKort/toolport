@@ -763,7 +763,7 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
     },
   ];
   let agentSynced = true;
-  const styles =
+  let styles =
     options.styles || options.extras
       ? [
           {
@@ -775,6 +775,11 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
           },
         ]
       : [];
+  const bodies = new Map<string, string>([
+    ["agents:code-scout", "You read a repository and report what you find.\n"],
+    ["styles:plain", "Answer in two short sentences.\n"],
+  ]);
+  const edited = new Set<string>();
   const drift = options.drift ?? 0;
 
   function item(name: string, type: string, description: string): LibrarySkill {
@@ -1766,6 +1771,69 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
     });
   }
 
+  /** What changed since the last sync: an item the lock does not know is new, one edited
+   * through `edit_body` is modified. */
+  function contentDiff(kind: "agents" | "styles", names: string[]) {
+    const fresh = names.filter((n) => !["code-scout", "plain"].includes(n));
+    const modified = names.filter(
+      (n) => edited.has(`${kind}:${n}`) && !fresh.includes(n),
+    );
+    return {
+      repo: LIBRARY_REPO,
+      noLockfile: false,
+      clean: fresh.length + modified.length === 0,
+      new: fresh,
+      modified,
+      removed: [] as string[],
+      unchanged: names.length - fresh.length - modified.length,
+    };
+  }
+
+  /** The self-management tools the Agents and styles tab runs through `mcp call`. */
+  function tool(name: string, args: Record<string, unknown>): CtlReply | null {
+    const [kind, action] = name.split(/_(.*)/s) as ["agents" | "styles", string];
+    if (!["agents", "styles"].includes(kind) || !["get", "edit_body"].includes(action))
+      return null;
+    const item =
+      kind === "agents"
+        ? agents.find((a) => a.name === args.name)
+        : styles.find((s) => s.name === args.name);
+    if (!item)
+      return {
+        ok: false,
+        error: {
+          code: "not_found",
+          message: `${kind.slice(0, -1)} not found: ${String(args.name)}`,
+        },
+      };
+    const key = `${kind}:${item.name}`;
+    if (action === "get")
+      return ok({
+        tool: name,
+        tier: 1,
+        isError: false,
+        result: {
+          name: item.name,
+          description: item.description,
+          path: item.path,
+          body: bodies.get(key) ?? "",
+        },
+      });
+    if (args.confirm !== true)
+      return {
+        ok: false,
+        error: { code: "refused", message: `${name} needs confirm=true` },
+      };
+    bodies.set(key, String(args.new_body ?? ""));
+    edited.add(key);
+    return ok({
+      tool: name,
+      tier: 3,
+      isError: false,
+      result: { sourcePath: item.path, newHash: "sha256:0123456789abcdef" },
+    });
+  }
+
   function agentCmd(argv: string[]): CtlReply {
     const dryRun = argv.includes("--dry-run");
     switch (argv[1]) {
@@ -1809,6 +1877,47 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
             warnings: [],
           })),
         });
+      case "add": {
+        const name = operand(argv, 2) ?? "";
+        if (agents.some((a) => a.name === name))
+          return fail("conflict", `agent ${name} already exists`);
+        const path = `${LIBRARY_REPO}/agents/${name}/AGENT.md`;
+        if (!dryRun) {
+          agents = [
+            ...agents,
+            {
+              name,
+              description: "TODO: Describe the agent.",
+              model: "inherit",
+              path,
+              tools: [],
+            },
+          ];
+          bodies.set(`agents:${name}`, "TODO: Add the agent's system prompt here.\n");
+          agentSynced = false;
+        }
+        return ok({ dryRun, name, path, repo: LIBRARY_REPO });
+      }
+      case "diff":
+        return ok(
+          contentDiff(
+            "agents",
+            agents.map((a) => a.name),
+          ),
+        );
+      case "clean": {
+        const removed = agentSynced
+          ? agents.map((a) => `${OUT}/.claude/agents/${a.name}.md`)
+          : [];
+        if (!dryRun) agentSynced = false;
+        return ok({
+          dryRun,
+          lockfilePresent: true,
+          managed: agents.map((a) => a.name),
+          removed,
+          skipped: [],
+        });
+      }
       case "uninstall": {
         const name = operand(argv, 2) ?? "";
         if (!dryRun) agents = agents.filter((a) => a.name !== name);
@@ -1856,6 +1965,43 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
         });
       case "remove":
         return ok({ dryRun, name: "", outputs: [] });
+      case "add": {
+        const name = operand(argv, 2) ?? "";
+        if (styles.some((s) => s.name === name))
+          return fail("conflict", `style ${name} already exists`);
+        const path = `${LIBRARY_REPO}/styles/${name}/STYLE.md`;
+        if (!dryRun) {
+          styles = [
+            ...styles,
+            {
+              name,
+              description: "TODO: Describe the style.",
+              path,
+              synced: false,
+              clientsSynced: [],
+            },
+          ];
+          bodies.set(`styles:${name}`, "TODO: Describe how replies should read.\n");
+        }
+        return ok({ dryRun, name, path, repo: LIBRARY_REPO });
+      }
+      case "diff":
+        return ok(
+          contentDiff(
+            "styles",
+            styles.map((s) => s.name),
+          ),
+        );
+      case "clean":
+        return ok({
+          dryRun,
+          lockfilePresent: true,
+          managed: styles.map((s) => s.name),
+          removed: styles
+            .filter((s) => s.synced)
+            .map((s) => `${OUT}/.claude/output-styles/${s.name}.md`),
+          skipped: [],
+        });
       default:
         return fail("usage", `unknown styles command: ${argv[1] ?? ""}`);
     }
@@ -1865,6 +2011,7 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
 
   return {
     scenario,
+    tool,
     inventory: inventoryOf,
     run(argv: string[]): CtlReply {
       const [first, second] = argv;

@@ -1,5 +1,5 @@
 {
   "route": "library-later",
-  "action": "library.agents-edit",
+  "action": "library.content-clients",
   "surface": "screen"
 }
