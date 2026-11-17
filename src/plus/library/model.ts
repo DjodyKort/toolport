@@ -484,6 +484,8 @@ export function fileBadge(file: SkillFile): FileBadge {
       return { label: "Not copied", variant: "outline" };
     case "not-yours":
       return { label: "Not yours", variant: "outline" };
+    case "kept":
+      return { label: "Kept as is", variant: "off" };
     case "removed-on-next-sync":
       return { label: "Removed", variant: "destructive" };
     default:
@@ -497,6 +499,7 @@ export const FILE_ORDER = [
   "hand-edited",
   "removed-on-next-sync",
   "copied",
+  "kept",
   "not-yours",
   "not-copied",
 ];
@@ -507,6 +510,7 @@ export const FILE_COUNT_LABEL: Record<string, string> = {
   differs: "differ",
   "hand-edited": "edited outside",
   "removed-on-next-sync": "removed on next sync",
+  kept: "kept as is",
   "not-yours": "not yours",
   "not-copied": "not copied",
 };

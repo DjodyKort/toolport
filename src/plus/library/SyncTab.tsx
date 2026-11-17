@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { toastError } from "@/lib/toast";
 import { errorText } from "../settings/useCtl";
 import ChecksPanel from "./ChecksPanel";
+import CompareDialog from "./CompareDialog";
 import { autoSet, autoSwitch, syncRun, verifySync } from "./commands";
 import type { SyncData, VerifyData } from "./data";
 import ItemsList, { Targets } from "./ItemsList";
@@ -42,6 +43,9 @@ export default function SyncTab({
   const [done, setDone] = useState<SyncData | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [checked, setChecked] = useState<VerifyData | null>(null);
+  const [comparing, setComparing] = useState<{ skill: string; file: string } | null>(
+    null,
+  );
   const plan = useRef<HTMLDivElement>(null);
 
   const sync = lib.outcome?.kind === "ok" ? lib.outcome.data : null;
@@ -148,6 +152,7 @@ export default function SyncTab({
               canUndo={canUndo}
               onUndo={() => setDialog("undo")}
               onOpenSkill={onOpenSkill}
+              onCompare={(skill, file) => setComparing({ skill, file })}
             />
           </div>
           <ChecksPanel
@@ -171,6 +176,14 @@ export default function SyncTab({
             onOpen={onOpenSkill}
           />
         </>
+      )}
+      {comparing && (
+        <CompareDialog
+          skill={comparing.skill}
+          file={comparing.file}
+          onClose={() => setComparing(null)}
+          onDone={fresh}
+        />
       )}
       {dialog === "undo" && <UndoDialog onClose={() => setDialog(null)} onDone={fresh} />}
       {dialog === "pull" && <PullDialog onClose={() => setDialog(null)} onDone={fresh} />}

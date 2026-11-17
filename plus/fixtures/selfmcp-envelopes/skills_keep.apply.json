@@ -1,0 +1,22 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false,
+    "files": ["SETUP.md"],
+    "name": "acceptance"
+  },
+  "isError": false,
+  "result": {
+    "count": 1,
+    "dryRun": false,
+    "kept": [
+      {
+        "client": "claude-code",
+        "path": "SETUP.md",
+        "status": "differs"
+      }
+    ],
+    "skill": "acceptance"
+  },
+  "tool": "skills_keep"
+}

@@ -1,0 +1,17 @@
+{
+  "argv": ["skills", "diff", "acceptance", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills diff",
+    "data": {
+      "differing": 0,
+      "files": [],
+      "lockfilePresent": false,
+      "repo": "<WORLD>/skills-repo",
+      "skill": "acceptance",
+      "type": "skill"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

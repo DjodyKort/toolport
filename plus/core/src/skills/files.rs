@@ -25,8 +25,9 @@ pub const HAND_EDITED: &str = "hand-edited";
 pub const REMOVED_ON_NEXT_SYNC: &str = "removed-on-next-sync";
 pub const NOT_COPIED: &str = "not-copied";
 pub const NOT_YOURS: &str = "not-yours";
+pub const KEPT: &str = "kept";
 
-const STATUSES: [&str; 7] = [
+const STATUSES: [&str; 8] = [
     COPIED,
     WOULD_COPY,
     DIFFERS,
@@ -34,6 +35,7 @@ const STATUSES: [&str; 7] = [
     REMOVED_ON_NEXT_SYNC,
     NOT_COPIED,
     NOT_YOURS,
+    KEPT,
 ];
 
 struct Row {
@@ -52,6 +54,7 @@ fn status_of(op: Op) -> Option<&'static str> {
         Op::Differs => Some(DIFFERS),
         Op::Edited => Some(HAND_EDITED),
         Op::Remove => Some(REMOVED_ON_NEXT_SYNC),
+        Op::Kept => Some(KEPT),
         Op::Hook => None,
     }
 }
@@ -169,6 +172,8 @@ pub fn skill_files(args: &Args) -> Result<Value, OpError> {
         settings: None,
         unattended: false,
         journal: None,
+        take: Vec::new(),
+        only: None,
     };
     let plan = sync_skills(&skills, &registry, &opts)
         .map_err(|message| OpError::failed("skills", message))?

@@ -1,0 +1,7 @@
+{
+  "command": "skills keep",
+  "dryRun": "default-on",
+  "name": "skills_keep",
+  "tier": "write",
+  "toolTier": 2
+}

@@ -1074,6 +1074,24 @@ const CASES: &[Case] = &[
                 r#"{"unattended":true,"apply_held":true}"#,
             ),
             fails(
+                "unattended_take",
+                "invalid_arguments",
+                "skills_sync",
+                r#"{"unattended":true,"take":["acceptance/SETUP.md"]}"#,
+            ),
+            hook("files", World::checks_files),
+            hook("differs", differing_setup),
+            read(
+                "take_preview",
+                "skills_sync",
+                r#"{"client_keys":["claude-code"],"only":["acceptance"],"take":["acceptance/SETUP.md"]}"#,
+            ),
+            write(
+                "take",
+                "skills_sync",
+                r#"{"client_keys":["claude-code"],"only":["acceptance"],"take":["acceptance/SETUP.md"],"dry_run":false,"confirm":true}"#,
+            ),
+            fails(
                 "unknown_client",
                 "invalid_arguments",
                 "skills_sync",
@@ -1152,6 +1170,60 @@ const CASES: &[Case] = &[
             read("fresh", "skills_diff", "{}"),
             setup("skills_sync", CLAUDE_APPLY),
             read("synced", "skills_diff", "{}"),
+            hook("files", World::checks_files),
+            hook("differs", differing_setup),
+            read("held", "skills_diff", r#"{"name":"acceptance"}"#),
+            read(
+                "file",
+                "skills_diff",
+                r#"{"name":"acceptance","file":"SETUP.md"}"#,
+            ),
+            fails(
+                "unknown_file",
+                "not_found",
+                "skills_diff",
+                r#"{"name":"acceptance","file":"nope.md"}"#,
+            ),
+            fails(
+                "file_alone",
+                "invalid_arguments",
+                "skills_diff",
+                r#"{"file":"SETUP.md"}"#,
+            ),
+        ],
+    ),
+    case(
+        "skills_keep",
+        &[
+            hook("files", World::checks_files),
+            hook("differs", differing_setup),
+            read(
+                "preview",
+                "skills_keep",
+                r#"{"name":"acceptance","files":["SETUP.md"]}"#,
+            ),
+            refused(
+                "refused",
+                "skills_keep",
+                r#"{"name":"acceptance","files":["SETUP.md"],"dry_run":false}"#,
+            ),
+            write(
+                "apply",
+                "skills_keep",
+                r#"{"name":"acceptance","files":["SETUP.md"],"dry_run":false,"confirm":true}"#,
+            ),
+            fails(
+                "not_held",
+                "refused",
+                "skills_keep",
+                r#"{"name":"acceptance","files":["references/guide.md"]}"#,
+            ),
+            fails(
+                "no_files",
+                "invalid_arguments",
+                "skills_keep",
+                r#"{"name":"acceptance"}"#,
+            ),
         ],
     ),
     case("skills_audit", &[read("", "skills_audit", "{}")]),
@@ -1609,6 +1681,12 @@ fn arguments(world: &World, case: &Case, call: &Call) -> Value {
         .replace("{base}", &world.base.to_string_lossy());
     serde_json::from_str(&expanded)
         .unwrap_or_else(|e| panic!("{} {}: arguments are not JSON: {e}", case.tool, call.label))
+}
+
+fn differing_setup(world: &World) {
+    let path = world.home.join(".claude/skills/acceptance/SETUP.md");
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(path, "# my setup\nstep one\n").unwrap();
 }
 
 fn sources_home(world: &World) {

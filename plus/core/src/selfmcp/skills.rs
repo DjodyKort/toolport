@@ -13,6 +13,7 @@ use crate::op::ErrorKind;
 use crate::skills::agents::handlers as agents;
 use crate::skills::api::{self, Args};
 use crate::skills::auto;
+use crate::skills::compare::{compare, keep_files};
 use crate::skills::files::skill_files;
 use crate::skills::repo::{skill_bucket, skill_template};
 use crate::skills::styles::handlers as styles;
@@ -145,7 +146,26 @@ pub(super) fn status(host: &dyn Host, args: &Value) -> Outcome {
 }
 
 pub(super) fn diff(host: &dyn Host, args: &Value) -> Outcome {
-    with_paths(host, || Ok(api::diff(&Args::from_json(args))?))
+    let diff = Args::from_json(args);
+    with_paths(host, || {
+        if diff.name.is_empty() {
+            if diff.file.is_some() {
+                return Err(ToolError::new(
+                    "invalid_arguments",
+                    "file needs a skill name",
+                ));
+            }
+            return Ok(api::diff(&diff)?);
+        }
+        Ok(compare(&diff, diff.file.as_deref())?)
+    })
+}
+
+pub(super) fn keep(host: &dyn Host, args: &Value) -> Outcome {
+    let mut keep = Args::from_json(args);
+    keep.dry_run = flag_or(args, "dry_run", true);
+    let files = crate::args::nonempty_strings(args, "files").unwrap_or_default();
+    with_paths(host, || Ok(keep_files(&keep, &files, keep.dry_run)?))
 }
 
 pub(super) fn verify(host: &dyn Host, args: &Value) -> Outcome {

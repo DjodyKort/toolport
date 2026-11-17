@@ -10,10 +10,12 @@ import type {
   AutoSwitchData,
   BundleData,
   CleanData,
+  CompareData,
   FilesData,
   FixData,
   InitData,
   InstallData,
+  KeepData,
   LintData,
   PullData,
   PushData,
@@ -61,6 +63,14 @@ export const auditSkills = () => dataOrFailure<AuditData>(["skills", "audit"]);
 export const listLibrary = () =>
   ctlData<SkillListData>(["skills", "ls", "--source", "library"]);
 export const skillFiles = (name: string) => ctlData<FilesData>(["skills", "files", name]);
+
+export const compareSkill = (name: string, file?: string) =>
+  ctlData<CompareData>(["skills", "diff", name, ...(file ? ["--file", file] : [])]);
+export const keepFiles = (name: string, files: string[], dryRun = false) =>
+  ctlData<KeepData>(["skills", "keep", name, ...files, ...dry(dryRun)]);
+/** Replaces one held file with the library copy (a backup is kept); nothing else is synced. */
+export const takeLibraryCopy = (name: string, file: string) =>
+  ctlData<SyncData>(["skills", "sync", "--only", name, "--take", `${name}/${file}`]);
 
 export const autoStatus = () => ctlData<AutoStatus>(["skills", "auto", "status"]);
 export const autoSet = (action: "pause" | "resume") =>

@@ -10,12 +10,14 @@ pub mod bundle;
 pub mod client_scope;
 pub mod clock;
 pub mod collisions;
+pub mod compare;
 pub mod files;
 pub mod fix;
 pub mod frontmatter;
 pub mod git;
 pub(crate) mod gitexec;
 pub mod json;
+pub mod keep;
 pub mod kind;
 pub mod lint;
 pub mod lock;
@@ -35,6 +37,7 @@ pub mod sync_report;
 pub mod tap_handlers;
 pub mod tap_ops;
 pub mod taps;
+pub mod textdiff;
 pub mod transpiler;
 pub mod transpilers;
 pub mod verify;
@@ -47,6 +50,8 @@ pub use transpiler::{Transpiler, TranspilerRegistry};
 
 #[cfg(test)]
 mod checks_tests;
+#[cfg(test)]
+mod compare_tests;
 #[cfg(test)]
 mod frontmatter_tests;
 #[cfg(test)]

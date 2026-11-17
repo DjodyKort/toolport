@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "keep"],
+  "envelope": {
+    "command": "skills keep",
+    "error": {
+      "code": "usage",
+      "message": "missing skill name\nusage: skills keep <skill> <file>... [--repo <dir>] [--home <dir>] [--project] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

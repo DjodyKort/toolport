@@ -68,6 +68,7 @@ function sync(changes: PlanChange[], extra: Partial<SyncData> = {}): SyncData {
         edited: 0,
         remove: 0,
         hook: 0,
+        kept: 0,
       },
       held: changes.filter((c) => c.held).length,
       changes,

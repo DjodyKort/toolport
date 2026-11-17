@@ -37,7 +37,15 @@ function GroupLabel({
   );
 }
 
-function Files({ skill }: { skill: string }) {
+const COMPARABLE = ["differs", "hand-edited"];
+
+function Files({
+  skill,
+  onCompare,
+}: {
+  skill: string;
+  onCompare: (skill: string, file: string) => void;
+}) {
   const files = useLoad(() => skillFiles(skill), skill);
   if (files.error && !files.data)
     return <p className="px-4 py-2 text-meta text-destructive">{files.error}</p>;
@@ -65,6 +73,16 @@ function Files({ skill }: { skill: string }) {
               )}
               <span className="text-meta text-muted-foreground">{bytes(file.size)}</span>
               <Badge variant={badge.variant}>{badge.label}</Badge>
+              {COMPARABLE.includes(file.status) && (
+                <Button
+                  variant="outline"
+                  size="xs"
+                  aria-label={`Compare ${file.path}`}
+                  onClick={() => onCompare(skill, file.path)}
+                >
+                  Compare…
+                </Button>
+              )}
             </li>
           );
         })}
@@ -94,7 +112,15 @@ function heldByAuto(row: PlanRow, last: HeldRow[]): boolean {
   );
 }
 
-function Row({ row, byAuto }: { row: PlanRow; byAuto: boolean }) {
+function Row({
+  row,
+  byAuto,
+  onCompare,
+}: {
+  row: PlanRow;
+  byAuto: boolean;
+  onCompare: (skill: string, file: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const Chevron = open ? ChevronDown : ChevronRight;
   return (
@@ -120,7 +146,7 @@ function Row({ row, byAuto }: { row: PlanRow; byAuto: boolean }) {
         </Badge>
         <Chevron aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
       </button>
-      {open && <Files skill={row.skill} />}
+      {open && <Files skill={row.skill} onCompare={onCompare} />}
     </li>
   );
 }
@@ -164,6 +190,7 @@ export interface PlanPanelProps {
   canUndo: boolean;
   onUndo: () => void;
   onOpenSkill: (name: string) => void;
+  onCompare: (skill: string, file: string) => void;
 }
 
 /** The plan on the page: what happens to each file, in groups, with the skills a lint error holds
@@ -176,6 +203,7 @@ export default function PlanPanel({
   canUndo,
   onUndo,
   onOpenSkill,
+  onCompare,
 }: PlanPanelProps) {
   const groups = groupPlan(sync);
   const rows = new Set(sync.plan.changes.map((c) => c.skill)).size;
@@ -202,7 +230,12 @@ export default function PlanPanel({
           <GroupLabel title="Skills" count={groups.skills.length} />
           <ul className="divide-y">
             {groups.skills.map((row) => (
-              <Row key={row.skill} row={row} byAuto={heldByAuto(row, autoHeld)} />
+              <Row
+                key={row.skill}
+                row={row}
+                byAuto={heldByAuto(row, autoHeld)}
+                onCompare={onCompare}
+              />
             ))}
           </ul>
         </>
@@ -212,7 +245,12 @@ export default function PlanPanel({
           <GroupLabel title="Rules" count={groups.rules.length} />
           <ul className="divide-y">
             {groups.rules.map((row) => (
-              <Row key={row.skill} row={row} byAuto={heldByAuto(row, autoHeld)} />
+              <Row
+                key={row.skill}
+                row={row}
+                byAuto={heldByAuto(row, autoHeld)}
+                onCompare={onCompare}
+              />
             ))}
           </ul>
         </>

@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "keep", "acceptance", "references/guide.md", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills keep",
+    "error": {
+      "code": "skills",
+      "message": "references/guide.md is not held back for acceptance: only a file that differs or was edited after the last sync can be kept"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

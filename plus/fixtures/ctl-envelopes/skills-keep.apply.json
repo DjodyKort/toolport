@@ -1,0 +1,21 @@
+{
+  "argv": ["skills", "keep", "acceptance", "SETUP.md", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills keep",
+    "data": {
+      "count": 1,
+      "dryRun": false,
+      "kept": [
+        {
+          "client": "claude-code",
+          "path": "SETUP.md",
+          "status": "differs"
+        }
+      ],
+      "skill": "acceptance"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

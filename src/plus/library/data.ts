@@ -22,6 +22,7 @@ export interface PlanCounts {
   edited: number;
   remove: number;
   hook: number;
+  kept: number;
 }
 
 export interface SyncPlan {
@@ -211,6 +212,7 @@ export type FileStatus =
   | "not-copied"
   | "not-yours"
   | "removed-on-next-sync"
+  | "kept"
   | string;
 
 export interface SkillFile {
@@ -241,6 +243,45 @@ export interface FilesData {
   links: SkillLink[];
   lockfilePresent: boolean;
   targetedClients: string[];
+}
+
+export interface CompareSide {
+  present: boolean;
+  size: number;
+  /** Null for a file that is not text or is not there. */
+  text: string | null;
+}
+
+export interface CompareFile {
+  path: string;
+  client: string;
+  status: FileStatus;
+  installedPath: string;
+  binary: boolean;
+  truncated: boolean;
+  identical: boolean;
+  library: CompareSide;
+  installed: CompareSide;
+  /** The unified diff, library to installed; null for a binary file. */
+  diff: string | null;
+  added: number;
+  removed: number;
+}
+
+export interface CompareData {
+  repo: string;
+  skill: string;
+  type: string;
+  lockfilePresent: boolean;
+  differing: number;
+  files: CompareFile[];
+}
+
+export interface KeepData {
+  skill: string;
+  dryRun: boolean;
+  count: number;
+  kept: Array<{ client: string; path: string; status: string }>;
 }
 
 export interface StatusEntry {

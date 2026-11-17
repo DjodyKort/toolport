@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "file": "SETUP.md"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "file needs a skill name"
+    }
+  },
+  "text": "invalid_arguments: file needs a skill name",
+  "tool": "skills_diff"
+}

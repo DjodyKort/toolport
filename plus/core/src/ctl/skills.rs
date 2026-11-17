@@ -10,6 +10,7 @@ use super::skills_state::{collision_line, push_warnings, shown};
 use crate::op::OpError;
 use crate::redact;
 use crate::skills::api::{self, Args};
+use crate::skills::compare::{compare, keep_files};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use toolport_plus_api::Host;
@@ -34,16 +35,37 @@ pub(super) const SYNC: Spec = Spec {
         switch("--apply-held"),
         switch("--allow-tap-hooks"),
         switch("--unattended"),
+        value("--take"),
+        value("--only"),
     ],
     ..BASE
 };
+const DIFF_USAGE: &str =
+    "usage: skills diff [<skill> [--file <path>]] [--repo <dir>] [--home <dir>] [--project]";
 pub(super) const DIFF: Spec = Spec {
+    flags: &[
+        value("--repo"),
+        value("--home"),
+        value("--file"),
+        switch("--project"),
+        switch("--global"),
+    ],
+    unknown: Unknown::ArgumentUsage(DIFF_USAGE),
+    operands: Operands::Max(1, DIFF_USAGE),
+    ..BASE
+};
+const KEEP_USAGE: &str =
+    "usage: skills keep <skill> <file>... [--repo <dir>] [--home <dir>] [--project] [--dry-run]";
+pub(super) const KEEP: Spec = Spec {
     flags: &[
         value("--repo"),
         value("--home"),
         switch("--project"),
         switch("--global"),
+        switch("--dry-run"),
     ],
+    unknown: Unknown::ArgumentUsage(KEEP_USAGE),
+    operands: Operands::Collect,
     ..BASE
 };
 pub(super) const LS_SOURCE: Spec = Spec {
@@ -99,6 +121,8 @@ pub fn sync(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
         apply_held: flags.on("--apply-held"),
         allow_tap_hooks: flags.on("--allow-tap-hooks"),
         unattended: flags.on("--unattended"),
+        take: flags.all("--take"),
+        only: Some(flags.all("--only")).filter(|only| !only.is_empty()),
         ..repo_args(&flags)
     };
     api::check_unattended(&args)?;
@@ -332,10 +356,22 @@ pub fn diff(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
         ));
     }
     let _paths = enter_paths(host, flags.one("--home"));
+    let skill = flags.operands().first().cloned();
+    if skill.is_none() && flags.one("--file").is_some() {
+        return Err(CtlError::usage(format!(
+            "--file needs a skill\n{DIFF_USAGE}"
+        )));
+    }
     let args = Args {
         global: !flags.on("--project"),
+        name: skill.clone().unwrap_or_default(),
         ..repo_args(&flags)
     };
+    if skill.is_some() {
+        let data = served(compare(&args, flags.one("--file")))?;
+        let human = compare_text(&data);
+        return Ok(Output::new(data, human));
+    }
     let data = api::diff(&args).map_err(failed)?;
     let mut human = String::new();
     for (key, mark) in [("new", "+"), ("modified", "~"), ("removed", "-")] {
@@ -351,4 +387,68 @@ pub fn diff(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
     let mut out = Output::new(data.clone(), human);
     out.failed = data["clean"] != json!(true);
     Ok(out)
+}
+
+fn compare_text(data: &Value) -> String {
+    let files: &[Value] = data["files"].as_array().map_or(&[], Vec::as_slice);
+    if files.is_empty() {
+        return format!(
+            "{}: no file differs from the library copy",
+            str_of(data, "skill")
+        );
+    }
+    let mut lines = Vec::new();
+    for file in files {
+        lines.push(format!(
+            "{} ({}, {})",
+            str_of(file, "path"),
+            str_of(file, "client"),
+            str_of(file, "status")
+        ));
+        match file["diff"].as_str() {
+            Some(diff) if !diff.is_empty() => lines.push(diff.trim_end().to_string()),
+            _ if file["binary"] == json!(true) => lines.push("binary file".to_string()),
+            _ => lines.push("same content".to_string()),
+        }
+    }
+    lines.join("\n")
+}
+
+pub fn keep(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
+    let flags = KEEP.parse(rest)?;
+    if flags.on("--project") && flags.on("--global") {
+        return Err(CtlError::usage(
+            "--global and --project are mutually exclusive",
+        ));
+    }
+    let Some((skill, files)) = flags.operands().split_first() else {
+        return Err(CtlError::usage(format!("missing skill name\n{KEEP_USAGE}")));
+    };
+    if files.is_empty() {
+        return Err(CtlError::usage(format!("missing file\n{KEEP_USAGE}")));
+    }
+    let _paths = enter_paths(host, flags.one("--home"));
+    let args = Args {
+        global: !flags.on("--project"),
+        name: skill.clone(),
+        ..repo_args(&flags)
+    };
+    let dry_run = flags.on("--dry-run");
+    let data = served(keep_files(&args, files, dry_run))?;
+    let verb = if dry_run { "Would keep" } else { "Kept" };
+    let human = data["kept"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|row| {
+            format!(
+                "{verb} {}/{} ({})",
+                skill,
+                str_of(row, "path"),
+                str_of(row, "client")
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    Ok(Output::new(data, human))
 }

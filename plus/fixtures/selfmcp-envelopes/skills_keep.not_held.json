@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "files": ["references/guide.md"],
+    "name": "acceptance"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "references/guide.md is not held back for acceptance: only a file that differs or was edited after the last sync can be kept"
+    }
+  },
+  "text": "refused: references/guide.md is not held back for acceptance: only a file that differs or was edited after the last sync can be kept",
+  "tool": "skills_keep"
+}

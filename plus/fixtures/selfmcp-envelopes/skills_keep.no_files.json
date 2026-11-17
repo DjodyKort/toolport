@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "name": "acceptance"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "missing required argument: files"
+    }
+  },
+  "text": "invalid_arguments: missing required argument: files",
+  "tool": "skills_keep"
+}

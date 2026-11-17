@@ -79,6 +79,8 @@ impl World {
             settings: Some(&store),
             unattended: false,
             journal: None,
+            take: Vec::new(),
+            only: None,
         };
         let result = sync_skills(&discover_skills(&self.repo.0), &registry, &opts).unwrap();
         if !dry_run {

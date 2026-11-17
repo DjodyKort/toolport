@@ -1,0 +1,38 @@
+{
+  "arguments": {
+    "name": "acceptance"
+  },
+  "isError": false,
+  "result": {
+    "differing": 1,
+    "files": [
+      {
+        "added": 2,
+        "binary": false,
+        "client": "claude-code",
+        "diff": "--- library\n+++ installed\n@@ -1,1 +1,2 @@\n-# setup\n+# my setup\n+step one\n",
+        "identical": false,
+        "installed": {
+          "present": true,
+          "size": 20,
+          "text": "# my setup\nstep one\n"
+        },
+        "installedPath": "<WORLD>/home/.claude/skills/acceptance/SETUP.md",
+        "library": {
+          "present": true,
+          "size": 8,
+          "text": "# setup\n"
+        },
+        "path": "SETUP.md",
+        "removed": 1,
+        "status": "differs",
+        "truncated": false
+      }
+    ],
+    "lockfilePresent": true,
+    "repo": "<WORLD>/skills-repo",
+    "skill": "acceptance",
+    "type": "skill"
+  },
+  "tool": "skills_diff"
+}

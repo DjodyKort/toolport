@@ -334,6 +334,18 @@
               "type": "boolean"
             },
             {
+              "description": "Sync only these skills and rules and leave the rest of the lock as it is",
+              "name": "only",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Replace these held files with the library copy after a backup, each as <skill>/<path in the skill folder>",
+              "name": "take",
+              "required": false,
+              "type": "string[]"
+            },
+            {
               "description": "The run a schedule makes: does nothing while auto-sync is paused and holds removals, new hooks and files that differ; not with apply_held or migrate",
               "name": "unattended",
               "required": false,
@@ -463,7 +475,7 @@
           "tier": 2
         },
         {
-          "description": "Compare the skills with the lockfile: new, modified, removed and unchanged",
+          "description": "Compare the skills with the lockfile: new, modified, removed and unchanged. With name, show that skill's held files instead (they differ from the library copy or were edited after the last sync): library against installed with a unified diff, binary files flagged; file narrows it to one path of the skill folder",
           "dryRunDefault": false,
           "gate": "none",
           "name": "skills_diff",
@@ -473,9 +485,66 @@
               "name": "repo_path",
               "required": false,
               "type": "string"
+            },
+            {
+              "description": "A skill: show its held files, not the lockfile comparison",
+              "name": "name",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "With name: only this file, relative to the skill folder, whatever its status",
+              "name": "file",
+              "required": false,
+              "type": "string"
             }
           ],
           "tier": 1
+        },
+        {
+          "description": "Keep files of a skill that differ from the library copy as they are: the next sync stops holding them while their content stays the same; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "skills_keep",
+          "params": [
+            {
+              "description": "Skill or rule name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Files relative to the skill folder, held by the sync",
+              "name": "files",
+              "required": true,
+              "type": "string[]"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "User-level locations, the default; false works inside the repository",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
         },
         {
           "description": "Scan skills for prompt injection and risky commands",

@@ -333,8 +333,13 @@ pub const COMMANDS: &[Command] = &[
     ),
     cmd(
         &["skills", "diff"],
-        "Compare skills with the lockfile; exits 1 on changes (--repo, --home)",
+        "Compare skills with the lockfile and exit 1 on changes, or with a skill name show its held files as library against installed, in unified diff (<skill> --file <path>, --repo, --home)",
         skills::diff,
+    ),
+    cmd(
+        &["skills", "keep"],
+        "Keep files that differ from the library copy as they are: the next sync stops holding them while they stay unchanged (<skill> <file>..., --repo, --home, --project, --dry-run)",
+        skills::keep,
     ),
     cmd(
         &["skills", "init"],

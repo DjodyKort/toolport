@@ -67,6 +67,7 @@ fn plan_json(plan: &Plan) -> Value {
         Op::Edited,
         Op::Remove,
         Op::Hook,
+        Op::Kept,
     ];
     let counts: Map<String, Value> = ops
         .iter()
@@ -78,7 +79,7 @@ fn plan_json(plan: &Plan) -> Value {
         "changes": plan
             .changes
             .iter()
-            .filter(|c| c.op != Op::Unchanged)
+            .filter(|c| !matches!(c.op, Op::Unchanged | Op::Kept))
             .map(|c| json!({
                 "skill": c.skill,
                 "client": c.client,

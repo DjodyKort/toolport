@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "diff", "acceptance", "--file", "nope.md", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills diff",
+    "error": {
+      "code": "skills",
+      "message": "acceptance has no file nope.md to compare"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

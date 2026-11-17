@@ -1,5 +1,6 @@
 {
-  "route": "library-later",
-  "status": "planned",
-  "summary": "Compare a hand-edited file with the library copy: skills diff lists names only, there is no content diff to show yet (skills diff; skills_diff)"
+  "route": "library",
+  "status": "built",
+  "summary": "Compare a file the sync holds back, library copy against installed, as a unified diff with binary files flagged, then keep it as it is or replace it with the library copy (skills diff <skill> --file, skills keep, skills sync --only --take; skills_diff, skills_keep)",
+  "test": "src/plus/library/Compare.test.tsx"
 }

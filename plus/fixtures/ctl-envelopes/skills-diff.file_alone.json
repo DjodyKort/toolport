@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "diff", "--file", "SETUP.md", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills diff",
+    "error": {
+      "code": "usage",
+      "message": "--file needs a skill\nusage: skills diff [<skill> [--file <path>]] [--repo <dir>] [--home <dir>] [--project]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

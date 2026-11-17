@@ -20,6 +20,7 @@ import { toastError } from "@/lib/toast";
 import { useLoad } from "../servers/useLoad";
 import { errorText } from "../settings/useCtl";
 import { lintSkills, listLibrary, skillFiles } from "./commands";
+import CompareDialog from "./CompareDialog";
 import { Mono } from "./dialogs";
 import {
   bytes,
@@ -69,6 +70,7 @@ export default function SkillDetail({
     }
   }, "inventory");
   const [removing, setRemoving] = useState(false);
+  const [comparing, setComparing] = useState<string | null>(null);
 
   const entry = library.data?.skills.find((s) => s.name === name);
   const data = files.data;
@@ -262,6 +264,16 @@ export default function SkillDetail({
                       {bytes(file.size)}
                     </span>
                     <Badge variant={badge.variant}>{badge.label}</Badge>
+                    {(file.status === "differs" || file.status === "hand-edited") && (
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        aria-label={`Compare ${file.path}`}
+                        onClick={() => setComparing(file.path)}
+                      >
+                        Compare…
+                      </Button>
+                    )}
                   </li>
                 );
               })}
@@ -306,7 +318,7 @@ export default function SkillDetail({
                         Line {link.line}.{" "}
                         {link.state === "installed"
                           ? "Will be installed."
-                          : link.state === "outside"
+                          : link.state === "outside-folder"
                             ? "Outside this skill folder, so it is not installed. Claude would follow a dead link."
                             : "The file does not exist in your library."}
                       </p>
@@ -317,6 +329,17 @@ export default function SkillDetail({
             </section>
           )}
         </>
+      )}
+      {comparing && (
+        <CompareDialog
+          skill={name}
+          file={comparing}
+          onClose={() => setComparing(null)}
+          onDone={() => {
+            files.reload();
+            onChanged();
+          }}
+        />
       )}
       {removing && (
         <UninstallDialog

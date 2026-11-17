@@ -99,6 +99,8 @@ fn opts<'a>(root: &Path, clock: &'a FixedClock) -> SyncOptions<'a> {
         settings: None,
         unattended: false,
         journal: None,
+        take: Vec::new(),
+        only: None,
     }
 }
 

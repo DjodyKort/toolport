@@ -72,6 +72,7 @@ impl From<OpError> for ToolError {
             ErrorKind::NotFound => "not_found",
             ErrorKind::Conflict => "conflict",
             ErrorKind::Usage => "invalid_arguments",
+            ErrorKind::Failed("refused") => "refused",
             _ => "backend_error",
         };
         Self::new(kind, error.message)

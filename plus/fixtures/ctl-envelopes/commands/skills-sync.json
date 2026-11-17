@@ -123,6 +123,28 @@
       "required": false,
       "sensitive": false,
       "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Replace this held file with the library copy, after a backup: <skill>/<path in the skill folder> (repeatable)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--take",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Sync only this skill or rule and leave the rest of the lock as it is (repeatable)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--only",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
     }
   ],
   "group": "skills",

@@ -492,7 +492,14 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&skills_checks::FIX])
         .args(&[req("fix"), many("skill")])
         .skip("sets the execute bit on a hook script; its --dry-run and apply are golden steps"),
-    row("skills diff", R).spec(&[&skills::DIFF]),
+    row("skills diff", R)
+        .spec(&[&skills::DIFF])
+        .args(&[opt("skill")]),
+    row("skills keep", W)
+        .dry()
+        .spec(&[&skills::KEEP])
+        .args(&[req("skill"), some("file")])
+        .skip("records a decision in the data dir; its --dry-run is a golden step"),
     row("skills init", W)
         .dry()
         .spec(&[&skills_repo::INIT])
@@ -918,6 +925,7 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("skills_fix", W, "skills fix").on(),
     maps("skills_status", R, "skills status"),
     maps("skills_diff", R, "skills diff"),
+    maps("skills_keep", W, "skills keep").on(),
     maps("skills_sync", W, "skills sync").on(),
     maps("skills_undo", W, "skills undo").on(),
     maps("skills_verify", R, "skills verify"),

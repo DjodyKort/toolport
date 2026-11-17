@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "file": "nope.md",
+    "name": "acceptance"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "acceptance has no file nope.md to compare"
+    }
+  },
+  "text": "not_found: acceptance has no file nope.md to compare",
+  "tool": "skills_diff"
+}

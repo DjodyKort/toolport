@@ -395,7 +395,7 @@ function linksOf(name: string): SkillLink[] {
   return [
     {
       line: 31,
-      state: "outside",
+      state: "outside-folder",
       target: "../shared/rubric.md",
       reason: "outside the skill folder",
     },
@@ -597,6 +597,29 @@ function src(
   };
 }
 
+/** What the two copies of a held file hold, as the Compare dialog reads them. */
+const COMPARE_TEXT: Record<string, { library: string; installed: string; diff: string }> =
+  {
+    "changelog/SKILL.md": {
+      library:
+        "---\nname: changelog\n---\n\nWrite one line per change.\nGroup by area.\n",
+      installed:
+        "---\nname: changelog\n---\n\nWrite one line per change.\nGroup by area.\nMention the ticket id.\n",
+      diff: "--- library\n+++ installed\n@@ -3,3 +3,4 @@\n \n Write one line per change.\n Group by area.\n+Mention the ticket id.\n",
+    },
+    "log-reader/references/notes.md": {
+      library: "# Notes\nRead the newest log first.\n",
+      installed: "# Notes\nRead the newest log first, then the one before.\n",
+      diff: "--- library\n+++ installed\n@@ -1,2 +1,2 @@\n # Notes\n-Read the newest log first.\n+Read the newest log first, then the one before.\n",
+    },
+  };
+
+/** The part of a change path below the skill folder, as the files list names it. */
+const inSkill = (c: PlanChange) => {
+  const prefix = `.claude/skills/${c.skill}/`;
+  return c.path.startsWith(prefix) ? c.path.slice(prefix.length) : c.path;
+};
+
 const ok = (data: unknown): CtlReply => ({ ok: true, data });
 const fail = (code: string, message: string, data?: unknown): CtlReply => ({
   ok: false,
@@ -680,6 +703,7 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
     hasRemote: scenario !== "empty",
   };
   let clients = ["claude-code"];
+  const kept = new Set<string>();
   let taps: TapRow[] = [
     tap("acme-skills", "acme-co/agent-skills"),
     tap("community-tools", "community/toolbox"),
@@ -779,7 +803,7 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
     const extra = clients.includes("agents-md")
       ? [change("code-style", "AGENTS.md", "add", false, "agents-md")]
       : [];
-    return [...changes, ...extra];
+    return [...changes, ...extra].filter((c) => !kept.has(`${c.skill}/${inSkill(c)}`));
   }
 
   const counts = (list: PlanChange[]) => {
@@ -792,6 +816,7 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
       edited: n("edited"),
       remove: n("remove"),
       hook: n("hook"),
+      kept: kept.size,
       unchanged: Math.max(0, items.length - new Set(list.map((c) => c.skill)).size),
     };
   };
@@ -841,7 +866,11 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
     const unattended = argv.includes("--unattended");
     const applyHeld = argv.includes("--apply-held");
     const allowTap = argv.includes("--allow-tap-hooks");
-    const asked = argv.flatMap((a, i) => (a === "--client" ? [argv[i + 1]] : []));
+    const values = (name: string) =>
+      argv.flatMap((a, i) => (a === name ? [argv[i + 1]] : []));
+    const only = values("--only");
+    const take = values("--take");
+    const asked = values("--client");
     if (asked.length) clients = asked;
     if (unattended && pause)
       return ok({
@@ -868,10 +897,12 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
     const list = visibleChanges();
     const apply = list.filter(
       (c) =>
-        !c.held ||
-        (!unattended &&
-          applyHeld &&
-          (c.op !== "hook" || !TAP_SKILLS.includes(c.skill) || allowTap)),
+        (only.length === 0 || only.includes(c.skill)) &&
+        (!c.held ||
+          take.includes(`${c.skill}/${inSkill(c)}`) ||
+          (!unattended &&
+            applyHeld &&
+            (c.op !== "hook" || !TAP_SKILLS.includes(c.skill) || allowTap))),
     );
     const files = apply.filter((c) => c.op !== "hook").length;
     const hooks = apply.filter((c) => c.op === "hook").length;
@@ -1180,7 +1211,19 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
     const name = operand(argv, 2);
     const found = items.find((i) => i.name === name);
     if (!found) return fail("not_found", `skill not found: ${name ?? ""}`);
-    const list = filesOf(found.name, visibleChanges());
+    const list = [
+      ...filesOf(found.name, visibleChanges()),
+      ...[...kept]
+        .filter((k) => k.startsWith(`${found.name}/`))
+        .map((k) => ({
+          client: "claude-code",
+          op: "kept",
+          path: k.slice(found.name.length + 1),
+          reason: null,
+          size: 1200,
+          status: "kept",
+        })),
+    ];
     const tally: Record<string, number> = {};
     for (const file of list) tally[file.status] = (tally[file.status] ?? 0) + 1;
     return ok({
@@ -1205,6 +1248,73 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
       links: linksOf(found.name),
       lockfilePresent: lockfile,
       targetedClients: clients,
+    });
+  }
+
+  function heldFiles(name: string): PlanChange[] {
+    return visibleChanges().filter(
+      (c) => c.skill === name && (c.op === "edited" || c.op === "differs"),
+    );
+  }
+
+  function diff(argv: string[]): CtlReply {
+    const name = operand(argv, 2);
+    if (!name) return fail("unhealthy", "one or more checks failed", { clean: false });
+    if (!items.some((i) => i.name === name))
+      return fail("not_found", `skill not found: ${name}`);
+    const only = flag(argv, "--file");
+    const rows = visibleChanges().filter(
+      (c) =>
+        c.skill === name && (only ? inSkill(c) === only : heldFiles(name).includes(c)),
+    );
+    if (only && rows.length === 0)
+      return fail("not_found", `${name} has no file ${only} to compare`);
+    return ok({
+      repo: LIBRARY_REPO,
+      skill: name,
+      type: "skill",
+      lockfilePresent: lockfile,
+      differing: rows.length,
+      files: rows.map((c) => {
+        const file = inSkill(c);
+        const text = COMPARE_TEXT[`${name}/${file}`] ?? {
+          library: "library text\n",
+          installed: "installed text\n",
+          diff: "--- library\n+++ installed\n@@ -1,1 +1,1 @@\n-library text\n+installed text\n",
+        };
+        return {
+          path: file,
+          client: c.client,
+          status: c.op === "edited" ? "hand-edited" : c.op,
+          installedPath: `${folder(name)}/${file}`,
+          binary: false,
+          truncated: false,
+          identical: false,
+          library: { present: true, size: text.library.length, text: text.library },
+          installed: { present: true, size: text.installed.length, text: text.installed },
+          diff: text.diff,
+          added: 1,
+          removed: text.diff.includes("\n-") ? 1 : 0,
+        };
+      }),
+    });
+  }
+
+  function keep(argv: string[]): CtlReply {
+    const name = operand(argv, 2);
+    const asked = argv.slice(3).filter((a) => !a.startsWith("--"));
+    if (!name || asked.length === 0)
+      return fail("usage", "usage: skills keep <skill> <file>...");
+    const held = heldFiles(name).map(inSkill);
+    const missing = asked.find((file) => !held.includes(file));
+    if (missing) return fail("refused", `${missing} is not held back for ${name}`);
+    const dryRun = argv.includes("--dry-run");
+    if (!dryRun) for (const file of asked) kept.add(`${name}/${file}`);
+    return ok({
+      skill: name,
+      dryRun,
+      count: asked.length,
+      kept: asked.map((path) => ({ client: "claude-code", path, status: "differs" })),
     });
   }
 
@@ -1723,6 +1833,10 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
           return lint();
         case "audit":
           return audit();
+        case "diff":
+          return diff(argv);
+        case "keep":
+          return keep(argv);
         case "fix":
           return fix(argv);
         case "files":

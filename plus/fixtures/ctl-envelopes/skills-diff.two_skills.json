@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "diff", "one", "two"],
+  "envelope": {
+    "command": "skills diff",
+    "error": {
+      "code": "usage",
+      "message": "usage: skills diff [<skill> [--file <path>]] [--repo <dir>] [--home <dir>] [--project]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

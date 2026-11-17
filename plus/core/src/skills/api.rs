@@ -61,6 +61,13 @@ pub struct Args {
     pub unattended: bool,
     /// `list`: only the items of this source (`library`, `repo:odh`, `plugin:ecc@ecc`).
     pub source: Option<String>,
+    /// `sync`: files to replace with the library copy although they are held, as
+    /// `<skill>/<path in the skill folder>`.
+    pub take: Vec<String>,
+    /// `diff`: the file of the skill to compare, relative to the skill folder.
+    pub file: Option<String>,
+    /// `sync`: only these skills and rules; the rest of the lock stays as it is.
+    pub only: Option<Vec<String>>,
 }
 
 impl Default for Args {
@@ -77,6 +84,9 @@ impl Default for Args {
             allow_tap_hooks: false,
             unattended: false,
             source: None,
+            take: Vec::new(),
+            file: None,
+            only: None,
         }
     }
 }
@@ -102,6 +112,9 @@ impl Args {
             allow_tap_hooks: crate::args::flag(args, "allow_tap_hooks"),
             unattended: crate::args::flag(args, "unattended"),
             source: str_arg(args, "source").map(String::from),
+            take: nonempty_strings(args, "take").unwrap_or_default(),
+            file: str_arg(args, "file").map(String::from),
+            only: nonempty_strings(args, "only"),
         }
     }
 }
@@ -488,9 +501,9 @@ pub fn check_unattended(args: &Args) -> Result<(), OpError> {
     if !args.unattended {
         return Ok(());
     }
-    if args.apply_held || args.allow_tap_hooks {
+    if args.apply_held || args.allow_tap_hooks || !args.take.is_empty() {
         return Err(OpError::usage(
-            "an unattended sync never applies held changes: drop apply_held and allow_tap_hooks",
+            "an unattended sync never applies held changes: drop apply_held, allow_tap_hooks and take",
         ));
     }
     if args.migrate == Some(true) {
@@ -607,6 +620,8 @@ fn run_sync(args: &Args, settings: Option<&dyn SettingsStore>) -> Result<Value, 
             },
             unattended: args.unattended,
             journal: journal.as_ref(),
+            take: args.take.clone(),
+            only: args.only.clone(),
         };
         let outcome = sync_skills(&skills, &registry, &opts);
         let saved = match &outcome {

@@ -4,7 +4,7 @@
     "command": "skills sync",
     "error": {
       "code": "usage",
-      "message": "an unattended sync never applies held changes: drop apply_held and allow_tap_hooks"
+      "message": "an unattended sync never applies held changes: drop apply_held, allow_tap_hooks and take"
     },
     "ok": false,
     "schemaVersion": 1

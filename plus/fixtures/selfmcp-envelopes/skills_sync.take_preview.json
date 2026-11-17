@@ -1,0 +1,118 @@
+{
+  "arguments": {
+    "client_keys": ["claude-code"],
+    "only": ["acceptance"],
+    "take": ["acceptance/SETUP.md"]
+  },
+  "isError": false,
+  "result": {
+    "backupRoot": "<WORLD>/home/.mcpm-backups",
+    "cleaned": [],
+    "clientCount": 1,
+    "clientSource": "requested",
+    "collisions": [],
+    "dryRun": true,
+    "entries": [
+      {
+        "clientsSynced": ["claude-code"],
+        "name": "acceptance",
+        "type": "skill",
+        "warnings": []
+      },
+      {
+        "clientsSynced": ["claude-code"],
+        "name": "demo",
+        "type": "skill",
+        "warnings": []
+      }
+    ],
+    "globalMode": true,
+    "held": [
+      {
+        "client": "claude-code",
+        "op": "hook",
+        "path": "<WORLD>/home/.claude/skills/acceptance/scripts/stop.sh",
+        "reason": "new-hook",
+        "skill": "acceptance"
+      }
+    ],
+    "kept": 0,
+    "outputRoot": "<WORLD>/home",
+    "paused": false,
+    "plan": {
+      "changes": [
+        {
+          "client": "claude-code",
+          "held": false,
+          "op": "add",
+          "path": ".claude/skills/acceptance/SKILL.md",
+          "skill": "acceptance"
+        },
+        {
+          "client": "claude-code",
+          "held": false,
+          "op": "differs",
+          "path": ".claude/skills/acceptance/SETUP.md",
+          "skill": "acceptance"
+        },
+        {
+          "client": "claude-code",
+          "held": false,
+          "op": "add",
+          "path": ".claude/skills/acceptance/references/guide.md",
+          "skill": "acceptance"
+        },
+        {
+          "client": "claude-code",
+          "held": false,
+          "op": "add",
+          "path": ".claude/skills/acceptance/scripts/stop.sh",
+          "skill": "acceptance"
+        },
+        {
+          "client": "claude-code",
+          "held": false,
+          "op": "add",
+          "path": ".claude/skills/acceptance/templates/x/.gitignore",
+          "skill": "acceptance"
+        },
+        {
+          "client": "claude-code",
+          "held": true,
+          "op": "hook",
+          "path": "<WORLD>/home/.claude/skills/acceptance/scripts/stop.sh",
+          "skill": "acceptance"
+        }
+      ],
+      "counts": {
+        "add": 4,
+        "adopt": 0,
+        "differs": 1,
+        "edited": 0,
+        "hook": 1,
+        "kept": 0,
+        "remove": 0,
+        "unchanged": 0,
+        "update": 0
+      },
+      "held": 1,
+      "skipped": [
+        {
+          "path": ".DS_Store",
+          "reason": "on the deny-list (.DS_Store)",
+          "skill": "acceptance"
+        }
+      ]
+    },
+    "replaced": 0,
+    "repo": "<WORLD>/skills-repo",
+    "ruleCount": 0,
+    "skillCount": 2,
+    "snapshot": null,
+    "syncedAt": "<TIME>",
+    "targetedClients": ["claude-code"],
+    "unattended": false,
+    "verify": null
+  },
+  "tool": "skills_sync"
+}

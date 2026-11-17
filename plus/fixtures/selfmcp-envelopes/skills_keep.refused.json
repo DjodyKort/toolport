@@ -1,0 +1,16 @@
+{
+  "arguments": {
+    "dry_run": false,
+    "files": ["SETUP.md"],
+    "name": "acceptance"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: skills_keep (tier 2). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: skills_keep (tier 2). Pass confirm=true to proceed.",
+  "tool": "skills_keep"
+}

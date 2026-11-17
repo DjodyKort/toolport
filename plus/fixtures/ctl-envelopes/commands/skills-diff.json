@@ -27,6 +27,17 @@
     },
     {
       "aliases": [],
+      "effect": "With a skill: only this file, relative to the skill folder, whatever its status",
+      "escalates": false,
+      "hidden": false,
+      "name": "--file",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
       "effect": "Compare with the project lock",
       "escalates": false,
       "hidden": false,
@@ -51,11 +62,17 @@
   "group": "skills",
   "id": "skills diff",
   "kind": "command",
-  "maxOperands": 0,
+  "maxOperands": 1,
   "needs": [],
   "oneOf": [],
   "operandEscalates": false,
-  "operands": [],
+  "operands": [
+    {
+      "name": "skill",
+      "required": false,
+      "variadic": false
+    }
+  ],
   "parent": null,
   "path": ["skills", "diff"],
   "planned": false,
@@ -63,7 +80,7 @@
     "flag": null,
     "mode": "none"
   },
-  "summary": "Compare skills with the lockfile; exits 1 on changes (--repo, --home)",
+  "summary": "Compare skills with the lockfile and exit 1 on changes, or with a skill name show its held files as library against installed, in unified diff (<skill> --file <path>, --repo, --home)",
   "surface": "screen",
   "tier": "read",
   "tools": ["skills_diff"]

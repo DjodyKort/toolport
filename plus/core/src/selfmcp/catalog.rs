@@ -248,6 +248,18 @@ pub const TOOLS: &[ToolDef] = &[
                 "With apply_held, also install the hooks of skills that came from a tap"
             ),
             p(
+                "only",
+                Ty::StrList,
+                false,
+                "Sync only these skills and rules and leave the rest of the lock as it is"
+            ),
+            p(
+                "take",
+                Ty::StrList,
+                false,
+                "Replace these held files with the library copy after a backup, each as <skill>/<path in the skill folder>"
+            ),
+            p(
                 "unattended",
                 Ty::Bool,
                 false,
@@ -316,9 +328,27 @@ pub const TOOLS: &[ToolDef] = &[
         "skills_diff",
         1,
         None,
-        "Compare the skills with the lockfile: new, modified, removed and unchanged",
-        [REPO],
+        "Compare the skills with the lockfile: new, modified, removed and unchanged. With name, show that skill's held files instead (they differ from the library copy or were edited after the last sync): library against installed with a unified diff, binary files flagged; file narrows it to one path of the skill folder",
+        [
+            REPO,
+            p("name", Ty::Str, false, "A skill: show its held files, not the lockfile comparison"),
+            p("file", Ty::Str, false, "With name: only this file, relative to the skill folder, whatever its status")
+        ],
         skills::diff
+    ),
+    tool!(
+        "skills_keep",
+        2,
+        UnlessDryRun,
+        "Keep files of a skill that differ from the library copy as they are: the next sync stops holding them while their content stays the same; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            SKILL_NAME,
+            p("files", Ty::StrList, true, "Files relative to the skill folder, held by the sync"),
+            REPO,
+            GLOBAL,
+            DRY_ON
+        ],
+        skills::keep
     ),
     tool!(
         "skills_audit",

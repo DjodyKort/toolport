@@ -166,6 +166,12 @@ fn checks_files(world: &World) {
     world.checks_files();
 }
 
+fn differing_setup(world: &World) {
+    let path = world.home.join(".claude/skills/acceptance/SETUP.md");
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(path, "# my setup\nstep one\n").unwrap();
+}
+
 fn sources_home(world: &World) {
     common::sources_world::build_in(&world.base);
 }
@@ -1404,7 +1410,101 @@ const CASES: &[Case] = &[
     ),
     case(
         "skills diff",
-        &[read("", &["skills", "diff", "--repo", "{repo}"]).exit(1)],
+        &[
+            read("", &["skills", "diff", "--repo", "{repo}"]).exit(1),
+            hook("files", checks_files),
+            hook("differs", differing_setup),
+            read(
+                "skill",
+                &["skills", "diff", "acceptance", "--repo", "{repo}"],
+            ),
+            read(
+                "file",
+                &[
+                    "skills",
+                    "diff",
+                    "acceptance",
+                    "--file",
+                    "SETUP.md",
+                    "--repo",
+                    "{repo}",
+                ],
+            ),
+            read(
+                "unknown_file",
+                &[
+                    "skills",
+                    "diff",
+                    "acceptance",
+                    "--file",
+                    "nope.md",
+                    "--repo",
+                    "{repo}",
+                ],
+            )
+            .exit(1),
+            read(
+                "unknown_skill",
+                &["skills", "diff", "nope", "--repo", "{repo}"],
+            )
+            .exit(1),
+            usage(
+                "file_alone",
+                &["skills", "diff", "--file", "SETUP.md", "--repo", "{repo}"],
+            ),
+            usage("two_skills", &["skills", "diff", "one", "two"]),
+        ],
+    ),
+    case(
+        "skills keep",
+        &[
+            hook("files", checks_files),
+            hook("differs", differing_setup),
+            read(
+                "preview",
+                &[
+                    "skills",
+                    "keep",
+                    "acceptance",
+                    "SETUP.md",
+                    "--repo",
+                    "{repo}",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &[
+                    "skills",
+                    "keep",
+                    "acceptance",
+                    "SETUP.md",
+                    "--repo",
+                    "{repo}",
+                ],
+            ),
+            read(
+                "kept",
+                &["skills", "diff", "acceptance", "--repo", "{repo}"],
+            ),
+            read(
+                "not_held",
+                &[
+                    "skills",
+                    "keep",
+                    "acceptance",
+                    "references/guide.md",
+                    "--repo",
+                    "{repo}",
+                ],
+            )
+            .exit(1),
+            usage(
+                "no_file",
+                &["skills", "keep", "acceptance", "--repo", "{repo}"],
+            ),
+            usage("no_skill", &["skills", "keep"]),
+        ],
     ),
     case(
         "skills audit",
@@ -1473,6 +1573,39 @@ const CASES: &[Case] = &[
                 ],
             )
             .exit(1),
+            hook("files", checks_files),
+            hook("differs", differing_setup),
+            read(
+                "take_preview",
+                &[
+                    "skills",
+                    "sync",
+                    "--repo",
+                    "{repo}",
+                    "--client",
+                    "claude-code",
+                    "--dry-run",
+                    "--only",
+                    "acceptance",
+                    "--take",
+                    "acceptance/SETUP.md",
+                ],
+            ),
+            apply(
+                "take",
+                &[
+                    "skills",
+                    "sync",
+                    "--repo",
+                    "{repo}",
+                    "--client",
+                    "claude-code",
+                    "--only",
+                    "acceptance",
+                    "--take",
+                    "acceptance/SETUP.md",
+                ],
+            ),
         ],
     ),
     case(

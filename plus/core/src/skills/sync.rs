@@ -14,7 +14,8 @@
 //! - a hook a skill declares that no earlier sync installed: held until confirmed.
 //!
 //! Held changes are applied only with `apply_held`; a differing, edited or removed edited file is
-//! moved to the backup folder first.
+//! moved to the backup folder first. `take` applies that to single files, and a file the person
+//! chose to keep (`skills keep`) stops being held for as long as its content stays as it was.
 
 use super::assets::{compute_skill_hash, inventory, is_plain_relative, rel_string, SkillFile};
 use super::client_scope::carry_retired_clients;
@@ -23,6 +24,7 @@ use super::collisions::{
     backup_path_aside, detect_collisions, resolve_collisions, resolve_mode, CollisionSummary,
     ResolutionMode,
 };
+use super::keep::{self, Kept};
 use super::lock::{get_entry, get_entry_mut, load_lockfile, set_entry, LockEntry, LockFile};
 use super::origin::{is_tap, read_origins};
 use super::parser::{Skill, SkillType};
@@ -55,6 +57,11 @@ pub struct SyncOptions<'a> {
     pub unattended: bool,
     /// Told about every file before the run writes or removes it; `None` keeps no snapshot.
     pub journal: Option<&'a Journal>,
+    /// Files to replace with the library copy although they are held: `<skill>/<path in the
+    /// skill folder>`, backed up first.
+    pub take: Vec<String>,
+    /// Only these skills and rules are synced; every other entry of the lock stays as it is.
+    pub only: Option<Vec<String>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -67,6 +74,8 @@ pub enum Op {
     Edited,
     Remove,
     Hook,
+    /// A file that differs and that the person chose to keep as it is.
+    Kept,
 }
 
 impl Op {
@@ -80,6 +89,7 @@ impl Op {
             Self::Edited => "edited",
             Self::Remove => "remove",
             Self::Hook => "hook",
+            Self::Kept => "kept",
         }
     }
 
@@ -377,6 +387,14 @@ fn previous_hooks(previous: Option<&LockFile>, skill: &Skill, client: &str) -> V
         .unwrap_or_default()
 }
 
+/// The path of an installed file inside the skill's folder, the way the screen and `--take` name
+/// it: the files of a skill sit next to its first output.
+pub(crate) fn rel_in_skill(abs: &Path, desired: &[Desired]) -> String {
+    let dir = desired.first().and_then(|d| d.abs.parent());
+    dir.and_then(|dir| abs.strip_prefix(dir).ok())
+        .map_or_else(|| rel_string(abs), rel_string)
+}
+
 fn sync_one(
     t: &dyn Transpiler,
     skill: &Skill,
@@ -400,7 +418,7 @@ fn sync_one(
         let edited_since_install = is_tracked
             && recorded.is_some_and(|hash| installed_hash(&d.abs).as_deref() != Some(hash));
         let unverifiable = ctx.unattended && is_tracked && recorded.is_none();
-        let op = match (found, is_tracked) {
+        let mut op = match (found, is_tracked) {
             (Found::Missing, _) => Op::Add,
             (Found::Same, true) => Op::Unchanged,
             (Found::Same, false) | (Found::Mode, false) => Op::Adopt,
@@ -409,6 +427,15 @@ fn sync_one(
             (Found::Different, true) => Op::Update,
             (Found::Different, false) => Op::Differs,
         };
+        let in_skill = rel_in_skill(&d.abs, &desired);
+        let taken = ctx.take.contains(&format!("{}/{in_skill}", skill.name()));
+        let replace_held = ctx.apply_held || taken;
+        if matches!(op, Op::Differs | Op::Edited)
+            && !replace_held
+            && ctx.is_kept(&key, skill.name(), &in_skill, &d.abs)
+        {
+            op = Op::Kept;
+        }
         let mut held = false;
         let mut owned = true;
         let mut hash = d.content_hash();
@@ -417,7 +444,7 @@ fn sync_one(
                 ctx.touch(&d.abs)?;
                 install(d)?;
             }
-            Op::Differs | Op::Edited if ctx.apply_held => {
+            Op::Differs | Op::Edited if replace_held => {
                 if !ctx.dry_run {
                     ctx.touch(&d.abs)?;
                     backup_path_aside(&d.abs, ctx.output_root, ctx.clock)?;
@@ -439,6 +466,10 @@ fn sync_one(
                     "{key}: {} was edited after the last sync, held",
                     d.rel
                 ));
+            }
+            Op::Kept => {
+                owned = is_tracked;
+                hash = recorded.unwrap_or_default().to_string();
             }
             _ => {}
         }
@@ -544,6 +575,9 @@ fn sync_hooks(
 }
 
 struct Ctx<'a> {
+    only: Option<&'a [String]>,
+    take: &'a [String],
+    kept: Kept,
     output_root: &'a Path,
     previous: Option<&'a LockFile>,
     dry_run: bool,
@@ -558,6 +592,18 @@ struct Ctx<'a> {
 }
 
 impl Ctx<'_> {
+    /// A skill the run was not asked to sync.
+    fn frozen(&self, name: &str) -> bool {
+        self.only
+            .is_some_and(|only| !only.iter().any(|n| n == name))
+    }
+
+    fn is_kept(&self, client: &str, skill: &str, in_skill: &str, abs: &Path) -> bool {
+        self.kept
+            .get(&keep::key(client, skill, in_skill))
+            .is_some_and(|hash| installed_hash(abs).as_deref() == Some(hash))
+    }
+
     fn touch(&self, path: &Path) -> Result<(), String> {
         match self.journal {
             Some(journal) if !self.dry_run => journal.before_change(path),
@@ -590,6 +636,9 @@ fn removals(
         (&previous.rules, &new_lock.rules),
     ] {
         for (name, entry) in prev {
+            if ctx.frozen(name) {
+                continue;
+            }
             let now = get_entry(new, name);
             for (client, rels) in &entry.output_files {
                 if !synced_clients.contains(client) {
@@ -681,6 +730,11 @@ pub fn sync_skills(
         .collect();
 
     let mut ctx = Ctx {
+        only: opts.only.as_deref(),
+        take: &opts.take,
+        kept: crate::fsx::data_dir()
+            .map(|base| keep::load(&base))
+            .unwrap_or_default(),
         output_root,
         previous: previous.as_ref(),
         dry_run: opts.dry_run,
@@ -695,6 +749,12 @@ pub fn sync_skills(
     };
 
     for skill in skills {
+        if ctx.frozen(skill.name()) {
+            if let Some(entry) = previous_entry(ctx.previous, skill) {
+                set_entry(bucket(&mut lock, skill), skill.name(), entry.clone());
+            }
+            continue;
+        }
         let mut entry = LockEntry::new(skill.version(), compute_skill_hash(skill)?);
         if let Some(source) = library_origin(skill) {
             entry.source = source;
@@ -720,7 +780,20 @@ pub fn sync_skills(
         set_entry(bucket(&mut lock, skill), &name, entry);
     }
 
-    for t in &append {
+    if let Some(prev) = ctx.previous.filter(|_| ctx.only.is_some()) {
+        for (old, new) in [
+            (&prev.skills, &mut lock.skills),
+            (&prev.rules, &mut lock.rules),
+        ] {
+            for (name, entry) in old {
+                if ctx.frozen(name) && get_entry(new, name).is_none() {
+                    set_entry(new, name, entry.clone());
+                }
+            }
+        }
+    }
+
+    for t in append.iter().filter(|_| opts.only.is_none()) {
         let Some(result) = t.transpile_all(skills, output_root) else {
             continue;
         };
@@ -796,7 +869,14 @@ pub fn sync_skills(
         };
         carry_held_removals(prev, &mut lock, &carried, &synced);
         if !opts.dry_run {
-            revoke_stale_hooks(prev, &mut lock, &selected, output_root, opts.settings);
+            revoke_stale_hooks(
+                prev,
+                &mut lock,
+                &selected,
+                output_root,
+                opts.settings,
+                |name| ctx.frozen(name),
+            );
         }
     }
 
@@ -804,7 +884,17 @@ pub fn sync_skills(
         carry_retired_clients(prev, &mut lock, registry);
     }
 
-    let found = detect_collisions(skills, &per_file, output_root);
+    let found = match &opts.only {
+        None => detect_collisions(skills, &per_file, output_root),
+        Some(_) => {
+            let active: Vec<Skill> = skills
+                .iter()
+                .filter(|s| !ctx.frozen(s.name()))
+                .cloned()
+                .collect();
+            detect_collisions(&active, &per_file, output_root)
+        }
+    };
     if resolve_mode(opts.migrate) == ResolutionMode::AutoReplace {
         for collision in &found {
             ctx.touch(&collision.collision_path)?;
@@ -892,6 +982,7 @@ fn revoke_stale_hooks(
     transpilers: &[&dyn Transpiler],
     output_root: &Path,
     settings: Option<&dyn SettingsStore>,
+    frozen: impl Fn(&str) -> bool,
 ) {
     let Some(store) = settings else {
         return;
@@ -901,6 +992,9 @@ fn revoke_stale_hooks(
         (&previous.rules, &mut new_lock.rules),
     ] {
         for (name, prev_entry) in prev {
+            if frozen(name) {
+                continue;
+            }
             for (client, prev_ids) in &prev_entry.hooks_installed {
                 let kept: Vec<String> = get_entry(new, name)
                     .and_then(|e| e.hooks_installed.iter().find(|(k, _)| k == client))
