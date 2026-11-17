@@ -4634,6 +4634,7 @@ impl Router {
             }
             expose_task_result(result, server_id).map_err(Into::into)
         } else {
+            crate::seam::links_seen(server_id, &result);
             Ok(result)
         }
     }
@@ -4723,6 +4724,7 @@ impl Router {
             return Some(owner.as_str());
         }
         self.template_owner_for_uri(uri)
+            .or_else(|| crate::seam::linked_owner(&self.server_order, uri))
     }
 
     /// The server that owns resource template `uri_template`, if any.

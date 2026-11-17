@@ -417,3 +417,113 @@ mod plus_instructions {
         assert!(text.contains("then go"), "{text}");
     }
 }
+
+mod plus_links {
+    use super::*;
+
+    struct Linker;
+
+    impl conduit_lib::downstream::Transport for Linker {
+        fn request(
+            &mut self,
+            method: &str,
+            params: Value,
+        ) -> Result<Value, conduit_lib::downstream::TransportError> {
+            Ok(match method {
+                "initialize" => json!({ "protocolVersion": "2025-06-18" }),
+                "tools/list" => json!({ "tools": [{
+                    "name": "link",
+                    "description": "Links a resource",
+                    "inputSchema": { "type": "object" }
+                }]}),
+                "tools/call" => json!({ "content": [
+                    { "type": "resource_link", "uri": "gw://dyn/1", "name": "dynamic" }
+                ]}),
+                "resources/read" => json!({ "contents": [{
+                    "uri": params["uri"], "text": "FAKE-linked-body"
+                }]}),
+                _ => json!({}),
+            })
+        }
+
+        fn notify(
+            &mut self,
+            _method: &str,
+            _params: Value,
+        ) -> Result<(), conduit_lib::downstream::TransportError> {
+            Ok(())
+        }
+    }
+
+    fn ask(
+        state: &GatewayState,
+        method: &str,
+        params: Value,
+        scope: Option<&HashSet<String>>,
+    ) -> Value {
+        process_request(
+            state,
+            &json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}),
+            &SearchGuard::default(),
+            scope,
+            None,
+            None,
+            None,
+            None,
+            None,
+            DiscoveryMode::Full,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn test01_a_linked_uri_is_readable_through_the_gateway_only_within_the_clients_scope() {
+        let _data = DataDirTestEnv::new("plus-links");
+        let state = http_state(false);
+        let mut router = Router::new();
+        router.add(DownstreamServer::connect("odh".to_string(), Box::new(Linker)).unwrap());
+        let mut reg = Registry::default();
+        let mut entry = stub_server("odh", "odh");
+        entry.enabled = true;
+        reg.servers.push(entry);
+        *state.registry.lock().unwrap() = reg;
+        swap_router(&state, router);
+
+        let read = || json!({ "uri": "gw://dyn/1" });
+        let refused = ask(&state, "resources/read", read(), None);
+        assert!(
+            refused["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("no server owns resource"),
+            "{refused}"
+        );
+
+        let called = ask(
+            &state,
+            "tools/call",
+            json!({ "name": "odh__link", "arguments": {} }),
+            None,
+        );
+        assert_eq!(
+            called["result"]["content"][0]["uri"], "gw://dyn/1",
+            "{called}"
+        );
+
+        let body = ask(&state, "resources/read", read(), None);
+        assert_eq!(
+            body["result"]["contents"][0]["text"], "FAKE-linked-body",
+            "{body}"
+        );
+
+        let elsewhere: HashSet<String> = ["git".to_string()].into();
+        let scoped = ask(&state, "resources/read", read(), Some(&elsewhere));
+        assert!(
+            scoped["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("no server owns resource"),
+            "{scoped}"
+        );
+    }
+}

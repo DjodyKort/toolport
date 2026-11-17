@@ -71,7 +71,11 @@
 # module that reaches the private slots: holds_server, calls in flight (the one confirmation before a
 # restart) and the restart itself (a fresh connection swapped in under the lifecycle lock). Upstream
 # has no restart verb and no accessor for calls in flight.
-4	src-tauri/src/router.rs
+# +2 lines for resource links: `route_call_typed` hands a successful result to seam::links_seen, and
+# `resource_server` falls back to seam::linked_owner (a connected server that returned a link to the uri,
+# looked up in the router's own server_order so the answer stays a borrowed &str) after listed uris and
+# templates.
+6	src-tauri/src/router.rs
 # secrets.rs, 20 changed lines for the login-keychain mode and the vault backup, all forwarding to seam.rs:
 #   2: `mod platform` becomes pub(crate), so the adapter reaches read/ensure_master_key
 #   2: `add_with_shared_access` becomes pub(crate), so the adapter can rewrite the ACL

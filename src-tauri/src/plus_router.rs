@@ -616,4 +616,110 @@ mod tests {
         );
         toolport_plus::handshake::DECLARATIONS.reset();
     }
+
+    struct Linking {
+        id: &'static str,
+        listed: Option<&'static str>,
+    }
+
+    impl Transport for Linking {
+        fn request(&mut self, method: &str, params: Value) -> Result<Value, TransportError> {
+            Ok(match method {
+                "initialize" => json!({
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": { "tools": {}, "resources": {} }
+                }),
+                "tools/list" => json!({"tools": [{
+                    "name": "link",
+                    "description": "Links a resource",
+                    "inputSchema": {"type": "object"}
+                }]}),
+                "resources/list" => json!({"resources": self.listed.iter()
+                    .map(|uri| json!({"uri": uri, "name": "listed"})).collect::<Vec<_>>()}),
+                "tools/call" => json!({"content": [
+                    {"type": "text", "text": "see links"},
+                    {"type": "resource_link", "uri": params["arguments"]["uri"], "name": "link"}
+                ]}),
+                "resources/read" => json!({"contents": [{
+                    "uri": params["uri"],
+                    "text": format!("{} read {}", self.id, params["uri"].as_str().unwrap())
+                }]}),
+                _ => json!({}),
+            })
+        }
+
+        fn notify(&mut self, _method: &str, _params: Value) -> Result<(), TransportError> {
+            Ok(())
+        }
+    }
+
+    fn linking_router() -> Router {
+        let mut router = Router::new();
+        for (id, listed) in [("odh", None), ("git", Some("s8://listed/by-git"))] {
+            let mut server =
+                DownstreamServer::connect(id.to_string(), Box::new(Linking { id, listed }))
+                    .unwrap();
+            server.load_resources_prompts();
+            router.add(server);
+        }
+        router
+    }
+
+    #[test]
+    fn test02_a_resource_link_in_a_tool_result_makes_its_uri_readable_from_that_server() {
+        let router = linking_router();
+        let uri = "s8://dyn/test02";
+        assert_eq!(router.resource_server(uri), None);
+        assert!(router.read_resource(uri).is_err());
+
+        let reply = router
+            .route_call("odh__link", json!({ "uri": uri }))
+            .unwrap();
+        assert_eq!(
+            reply["content"][1]["uri"], uri,
+            "the result is passed on whole"
+        );
+        assert_eq!(router.resource_server(uri), Some("odh"));
+        let read = router.read_resource(uri).unwrap();
+        assert_eq!(read["contents"][0]["text"], format!("odh read {uri}"));
+        assert_eq!(router.resource_server("s8://dyn/never-linked"), None);
+    }
+
+    #[test]
+    fn test03_a_listed_uri_keeps_its_owner_whatever_a_link_says_and_the_first_link_wins() {
+        let router = linking_router();
+        router
+            .route_call("odh__link", json!({ "uri": "s8://listed/by-git" }))
+            .unwrap();
+        assert_eq!(router.resource_server("s8://listed/by-git"), Some("git"));
+
+        router
+            .route_call("git__link", json!({ "uri": "s8://dyn/test03" }))
+            .unwrap();
+        router
+            .route_call("odh__link", json!({ "uri": "s8://dyn/test03" }))
+            .unwrap();
+        assert_eq!(router.resource_server("s8://dyn/test03"), Some("git"));
+    }
+
+    #[test]
+    fn test04_a_link_of_a_server_this_router_no_longer_holds_is_refused() {
+        let router = linking_router();
+        router
+            .route_call("odh__link", json!({ "uri": "s8://dyn/test04" }))
+            .unwrap();
+        let mut other = Router::new();
+        let mut git = DownstreamServer::connect(
+            "git".to_string(),
+            Box::new(Linking {
+                id: "git",
+                listed: None,
+            }),
+        )
+        .unwrap();
+        git.load_resources_prompts();
+        other.add(git);
+        assert_eq!(other.resource_server("s8://dyn/test04"), None);
+        assert!(other.read_resource("s8://dyn/test04").is_err());
+    }
 }

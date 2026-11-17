@@ -289,6 +289,29 @@ pub fn client_handshake(
     let _ = (req, allowed, registry, router, ready);
 }
 
+/// A tool call to `server_id` returned `result`: remembers the `resource_link` URIs in it so a
+/// client's read of one reaches the server that returned it.
+pub fn links_seen(server_id: &str, result: &serde_json::Value) {
+    #[cfg(feature = "plus")]
+    toolport_plus::resource_links::remember_result(server_id, result);
+    #[cfg(not(feature = "plus"))]
+    let _ = (server_id, result);
+}
+
+/// The connected server, among `servers`, that returned a link to `uri`.
+pub fn linked_owner<'a>(servers: &'a [String], uri: &str) -> Option<&'a str> {
+    #[cfg(feature = "plus")]
+    {
+        let owner = toolport_plus::resource_links::owner_of(uri)?;
+        servers.iter().find(|id| **id == owner).map(String::as_str)
+    }
+    #[cfg(not(feature = "plus"))]
+    {
+        let _ = (servers, uri);
+        None
+    }
+}
+
 /// The secrets host the hooks below use. Unit tests never reach the real keychain
 /// code: they get an inert host unless a test installs its own with `secrets_host_override`.
 #[cfg(all(feature = "plus", not(test)))]
