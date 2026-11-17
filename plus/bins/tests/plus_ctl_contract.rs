@@ -2710,6 +2710,31 @@ fn exit_codes_and_the_version_envelope_follow_the_documented_contract() {
 }
 
 #[test]
+fn the_doctor_counts_the_tools_the_catalog_lists() {
+    let world = World::new("doctor-count");
+    let json = |argv: &[&str]| {
+        let argv: Vec<String> = argv.iter().map(|w| w.to_string()).collect();
+        let run = run_ctl(&world, &argv, None);
+        serde_json::from_str::<Value>(run.stdout.trim()).unwrap()
+    };
+    json(&["mcp", "install"]);
+    let doctor = json(&["mcp", "doctor"]);
+    let detail = doctor["data"]["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|check| check["name"] == "catalog")
+        .and_then(|check| check["detail"].as_str())
+        .unwrap()
+        .to_string();
+    let listed = json(&["mcp", "tools"])["data"]["tools"]
+        .as_array()
+        .unwrap()
+        .len();
+    assert_eq!(detail, format!("{listed} tools, 4 resources"));
+}
+
+#[test]
 fn data_dir_flag_points_the_command_at_another_data_dir() {
     let world = World::new("data-dir");
     let elsewhere = world.base.join("elsewhere");

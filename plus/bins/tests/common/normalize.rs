@@ -2,7 +2,7 @@
 
 //! What a golden keeps of an output: paths, times and backup stamps that differ per run become
 //! placeholders (`<WORLD>`, `<MOCK>`, `<BIN>`, `<TIME>`, `<STAMP>`; `<PORT>`, `<PKCE>` and `<STATE>` for the loopback port and random parts of
-//! a consent URL), and values that change between
+//! a consent URL; `<TOOLS>` for the tool count the doctor reports, which every new tool changes), and values that change between
 //! machines or releases are masked to a value of the same JSON type.
 
 use regex::Regex;
@@ -84,6 +84,7 @@ pub fn normalize(world: &World, envelope: &Value) -> Value {
     let loopback_port = Regex::new(r"(?i)(127\.0\.0\.1(?::|%3A))\d+").unwrap();
     let pkce_challenge = Regex::new(r"code_challenge=[^&\x22]+").unwrap();
     let oauth_state = Regex::new(r"\bstate=[^&\x22]+").unwrap();
+    let tool_count = Regex::new(r"\b\d+ tools, (\d+) resources").unwrap();
     let mut text = serde_json::to_string(envelope).unwrap();
     for root in world_roots(world) {
         let name = std::path::Path::new(&world.mock).file_name().unwrap();
@@ -108,6 +109,9 @@ pub fn normalize(world: &World, envelope: &Value) -> Value {
         .replace_all(&text, "code_challenge=<PKCE>")
         .into_owned();
     let text = oauth_state.replace_all(&text, "state=<STATE>").into_owned();
+    let text = tool_count
+        .replace_all(&text, "<TOOLS> tools, ${1} resources")
+        .into_owned();
     let mut value: Value = serde_json::from_str(&text).unwrap();
     mask(&mut value);
     value
