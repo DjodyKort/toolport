@@ -1238,6 +1238,191 @@ impl toolport_plus_api::AuthAccess for HostAdapter {
     }
 }
 
+fn is_launch_secret(server: &str, key: &str) -> bool {
+    crate::registry::load().ok().is_some_and(|registry| {
+        registry
+            .servers
+            .iter()
+            .find(|entry| entry.id == server)
+            .and_then(|entry| entry.launch.as_ref())
+            .is_some_and(|launch| launch.inputs.iter().any(|i| i.key == key && i.secret))
+    })
+}
+
+/// Runs an inline script whose `toolport.call`s may only reach `servers`; the first call to
+/// another server fails the step with a message, whatever the script does with the error.
+fn run_guarded_script(source: &str, args: Value, servers: &[String]) -> Result<Value, String> {
+    use std::sync::{Arc, Mutex};
+    let allowed = servers.to_vec();
+    let denied: Arc<Mutex<Option<String>>> = Arc::default();
+    let note = Arc::clone(&denied);
+    let call: crate::codemode::CallBinding = Arc::new(move |name: &str, args: Value| {
+        let Some((server, tool)) = crate::codemode::split_exposed_name(name) else {
+            return serde_json::json!({"error": format!("{name:?} is not server__tool")});
+        };
+        {
+            let mut slot = note
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if slot.is_none() && !allowed.iter().any(|s| s == server) {
+                let list = if allowed.is_empty() {
+                    "none".to_string()
+                } else {
+                    allowed.join(", ")
+                };
+                *slot = Some(format!(
+                    "the script called the server {server:?}, which is not in requires.servers ({list}); the call was not made"
+                ));
+            }
+            if let Some(why) = slot.as_ref() {
+                return serde_json::json!({"isError": true, "error": why});
+            }
+        }
+        crate::playground::call_tool(server, tool, args)
+            .unwrap_or_else(|e| serde_json::json!({"isError": true, "error": e}))
+    });
+    let outcome = crate::codemode::run_script(
+        source,
+        args,
+        call,
+        None,
+        crate::codemode::Limits::default(),
+        &[],
+    );
+    let refused = denied
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .take();
+    if let Some(why) = refused {
+        return Err(why);
+    }
+    match outcome.error {
+        Some(error) => Err(error),
+        None => Ok(outcome.value),
+    }
+}
+
+impl TaskHost for HostAdapter {
+    fn tasks_base(&self) -> Option<PathBuf> {
+        crate::registry::conduit_dir()
+    }
+
+    fn now(&self) -> i64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0)
+    }
+
+    fn task_call_tool(&self, server: &str, tool: &str, args: Value) -> Result<Value, String> {
+        crate::playground::call_tool(server, tool, args)
+    }
+
+    fn task_run_script(
+        &self,
+        source: &str,
+        args: Value,
+        servers: &[String],
+    ) -> Result<Value, String> {
+        run_guarded_script(source, args, servers)
+    }
+
+    fn task_set_secret(&self, server: &str, key: &str, value: &str) -> Result<(), String> {
+        if is_launch_secret(server, key) {
+            crate::registry_controller::set_launch_secret(server, key, value)
+        } else {
+            crate::registry_controller::set_server_secret(server, key, value)
+        }
+        .map(|_| ())
+    }
+
+    fn task_secret_is_set(&self, server: &str, key: &str) -> bool {
+        crate::secrets::get_secret_result(server, key)
+            .ok()
+            .flatten()
+            .is_some()
+    }
+
+    fn task_restart_server(&self, server: &str) -> Result<String, String> {
+        use toolport_plus::servers::restart::{self, Status};
+        let mut ask = restart::RestartArgs::new(server);
+        ask.wait = std::time::Duration::from_secs(5);
+        let done = restart::restart(self, &ask).map_err(|error| error.message)?;
+        match done.status {
+            Status::Failed => Err(format!("a gateway could not restart {server}")),
+            other => Ok(format!("restart {server}: {}", other.as_str())),
+        }
+    }
+
+    fn task_server_installed(&self, server: &str) -> bool {
+        match self.read_view().and_then(|view| match view {
+            Some(view) => view.servers().map(Some),
+            None => Ok(None),
+        }) {
+            Ok(Some(servers)) => servers.iter().any(|s| s.id == server),
+            _ => true,
+        }
+    }
+
+    fn task_run_process(
+        &self,
+        spec: &ProcessSpec,
+        cancelled: &dyn Fn() -> bool,
+        started: &dyn Fn(u32),
+    ) -> ProcessOutcome {
+        toolport_plus::tasks::proc::run_process(spec, cancelled, started)
+    }
+
+    fn task_claude_program(&self) -> String {
+        std::env::var("TOOLPORT_CLAUDE_BIN").unwrap_or_else(|_| "claude".into())
+    }
+
+    fn task_spawn_runner(&self, run_id: &str) -> Result<(), String> {
+        toolport_plus::tasks::proc::spawn_runner(run_id)
+    }
+
+    fn task_process_alive(&self, pid: u32) -> bool {
+        toolport_plus::tasks::proc::alive(pid)
+    }
+
+    fn task_kill_group(&self, pid: u32) {
+        toolport_plus::tasks::proc::kill_group(pid);
+    }
+
+    fn task_approve_run(&self, ask: &RunApproval) -> RunDecision {
+        use crate::approval::{new_correlation_id, ApprovalDecision, ApprovalReason};
+        let request = crate::approval::ApprovalRequest {
+            token: String::new(),
+            id: new_correlation_id(),
+            client: Some("self-mcp".into()),
+            client_name: None,
+            client_label: None,
+            host: None,
+            host_thread: None,
+            server: "toolport".into(),
+            tool: "tasks_run".into(),
+            reason: ApprovalReason::Destructive,
+            arguments: serde_json::json!({
+                "task": ask.task,
+                "steps": ask.steps,
+                "writesSecrets": ask.writes_secrets,
+                "requires": ask.requires,
+            }),
+            tool_fingerprint: None,
+            url_elicitation: None,
+            pii_release: None,
+        };
+        match crate::approval::request_human_decision(request) {
+            ApprovalDecision::Approved => RunDecision::Approved,
+            ApprovalDecision::Denied => RunDecision::Denied,
+            ApprovalDecision::Timeout => RunDecision::Timeout,
+            ApprovalDecision::Unreachable => RunDecision::Unreachable,
+            ApprovalDecision::StaleState => RunDecision::Stale,
+            _ => RunDecision::Denied,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2586,188 +2771,3 @@ mod tests {
 #[cfg(test)]
 #[path = "plus_adapter_oauth_tests.rs"]
 mod oauth_tests;
-
-fn is_launch_secret(server: &str, key: &str) -> bool {
-    crate::registry::load().ok().is_some_and(|registry| {
-        registry
-            .servers
-            .iter()
-            .find(|entry| entry.id == server)
-            .and_then(|entry| entry.launch.as_ref())
-            .is_some_and(|launch| launch.inputs.iter().any(|i| i.key == key && i.secret))
-    })
-}
-
-/// Runs an inline script whose `toolport.call`s may only reach `servers`; the first call to
-/// another server fails the step with a message, whatever the script does with the error.
-fn run_guarded_script(source: &str, args: Value, servers: &[String]) -> Result<Value, String> {
-    use std::sync::{Arc, Mutex};
-    let allowed = servers.to_vec();
-    let denied: Arc<Mutex<Option<String>>> = Arc::default();
-    let note = Arc::clone(&denied);
-    let call: crate::codemode::CallBinding = Arc::new(move |name: &str, args: Value| {
-        let Some((server, tool)) = crate::codemode::split_exposed_name(name) else {
-            return serde_json::json!({"error": format!("{name:?} is not server__tool")});
-        };
-        {
-            let mut slot = note
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            if slot.is_none() && !allowed.iter().any(|s| s == server) {
-                let list = if allowed.is_empty() {
-                    "none".to_string()
-                } else {
-                    allowed.join(", ")
-                };
-                *slot = Some(format!(
-                    "the script called the server {server:?}, which is not in requires.servers ({list}); the call was not made"
-                ));
-            }
-            if let Some(why) = slot.as_ref() {
-                return serde_json::json!({"isError": true, "error": why});
-            }
-        }
-        crate::playground::call_tool(server, tool, args)
-            .unwrap_or_else(|e| serde_json::json!({"isError": true, "error": e}))
-    });
-    let outcome = crate::codemode::run_script(
-        source,
-        args,
-        call,
-        None,
-        crate::codemode::Limits::default(),
-        &[],
-    );
-    let refused = denied
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .take();
-    if let Some(why) = refused {
-        return Err(why);
-    }
-    match outcome.error {
-        Some(error) => Err(error),
-        None => Ok(outcome.value),
-    }
-}
-
-impl TaskHost for HostAdapter {
-    fn tasks_base(&self) -> Option<PathBuf> {
-        crate::registry::conduit_dir()
-    }
-
-    fn now(&self) -> i64 {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs() as i64)
-            .unwrap_or(0)
-    }
-
-    fn task_call_tool(&self, server: &str, tool: &str, args: Value) -> Result<Value, String> {
-        crate::playground::call_tool(server, tool, args)
-    }
-
-    fn task_run_script(
-        &self,
-        source: &str,
-        args: Value,
-        servers: &[String],
-    ) -> Result<Value, String> {
-        run_guarded_script(source, args, servers)
-    }
-
-    fn task_set_secret(&self, server: &str, key: &str, value: &str) -> Result<(), String> {
-        if is_launch_secret(server, key) {
-            crate::registry_controller::set_launch_secret(server, key, value)
-        } else {
-            crate::registry_controller::set_server_secret(server, key, value)
-        }
-        .map(|_| ())
-    }
-
-    fn task_secret_is_set(&self, server: &str, key: &str) -> bool {
-        crate::secrets::get_secret_result(server, key)
-            .ok()
-            .flatten()
-            .is_some()
-    }
-
-    fn task_restart_server(&self, server: &str) -> Result<String, String> {
-        use toolport_plus::servers::restart::{self, Status};
-        let mut ask = restart::RestartArgs::new(server);
-        ask.wait = std::time::Duration::from_secs(5);
-        let done = restart::restart(self, &ask).map_err(|error| error.message)?;
-        match done.status {
-            Status::Failed => Err(format!("a gateway could not restart {server}")),
-            other => Ok(format!("restart {server}: {}", other.as_str())),
-        }
-    }
-
-    fn task_server_installed(&self, server: &str) -> bool {
-        match self.read_view().and_then(|view| match view {
-            Some(view) => view.servers().map(Some),
-            None => Ok(None),
-        }) {
-            Ok(Some(servers)) => servers.iter().any(|s| s.id == server),
-            _ => true,
-        }
-    }
-
-    fn task_run_process(
-        &self,
-        spec: &ProcessSpec,
-        cancelled: &dyn Fn() -> bool,
-        started: &dyn Fn(u32),
-    ) -> ProcessOutcome {
-        toolport_plus::tasks::proc::run_process(spec, cancelled, started)
-    }
-
-    fn task_claude_program(&self) -> String {
-        std::env::var("TOOLPORT_CLAUDE_BIN").unwrap_or_else(|_| "claude".into())
-    }
-
-    fn task_spawn_runner(&self, run_id: &str) -> Result<(), String> {
-        toolport_plus::tasks::proc::spawn_runner(run_id)
-    }
-
-    fn task_process_alive(&self, pid: u32) -> bool {
-        toolport_plus::tasks::proc::alive(pid)
-    }
-
-    fn task_kill_group(&self, pid: u32) {
-        toolport_plus::tasks::proc::kill_group(pid);
-    }
-
-    fn task_approve_run(&self, ask: &RunApproval) -> RunDecision {
-        use crate::approval::{new_correlation_id, ApprovalDecision, ApprovalReason};
-        let request = crate::approval::ApprovalRequest {
-            token: String::new(),
-            id: new_correlation_id(),
-            client: Some("self-mcp".into()),
-            client_name: None,
-            client_label: None,
-            host: None,
-            host_thread: None,
-            server: "toolport".into(),
-            tool: "tasks_run".into(),
-            reason: ApprovalReason::Destructive,
-            arguments: serde_json::json!({
-                "task": ask.task,
-                "steps": ask.steps,
-                "writesSecrets": ask.writes_secrets,
-                "requires": ask.requires,
-            }),
-            tool_fingerprint: None,
-            url_elicitation: None,
-            pii_release: None,
-        };
-        match crate::approval::request_human_decision(request) {
-            ApprovalDecision::Approved => RunDecision::Approved,
-            ApprovalDecision::Denied => RunDecision::Denied,
-            ApprovalDecision::Timeout => RunDecision::Timeout,
-            ApprovalDecision::Unreachable => RunDecision::Unreachable,
-            ApprovalDecision::StaleState => RunDecision::Stale,
-            _ => RunDecision::Denied,
-        }
-    }
-}
