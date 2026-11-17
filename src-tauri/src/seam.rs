@@ -124,6 +124,18 @@ pub fn search_only_surface(
     let _ = (full_list, reg, owner_of, surface, helpers);
 }
 
+/// Whether `uv` with these arguments syncs an environment before it can answer, so its first
+/// `initialize` gets the launcher budget. `args` are the arguments after the command.
+pub fn is_uv_download_launcher(args: &[String]) -> bool {
+    #[cfg(feature = "plus")]
+    return toolport_plus::launcher::is_uv_download_launcher(args);
+    #[cfg(not(feature = "plus"))]
+    {
+        let _ = args;
+        false
+    }
+}
+
 /// The secrets host the hooks below use. Unit tests never reach the real keychain
 /// code: they get an inert host unless a test installs its own with `secrets_host_override`.
 #[cfg(all(feature = "plus", not(test)))]
@@ -632,5 +644,45 @@ mod tests_without_plus {
             assert!(dir.join("secrets.enc").exists());
             assert!(!dir.join("secrets.enc.bak").exists());
         });
+    }
+}
+
+#[cfg(test)]
+mod uv_launcher_tests {
+    use crate::downstream::{is_download_launcher, stdio_connect_timeout, LEADER_OPEN_BUDGET};
+
+    fn args(list: &[&str]) -> Vec<String> {
+        list.iter().map(|arg| (*arg).to_string()).collect()
+    }
+
+    #[cfg(feature = "plus")]
+    #[test]
+    fn test01_uv_run_gets_the_launcher_connect_budget_in_every_spelling() {
+        let run = args(&["run", "--directory", "/srv/mcp-server", "server"]);
+        for command in ["uv", "/opt/homebrew/bin/uv", "UV.EXE", r"C:\tools\uv.exe"] {
+            assert!(is_download_launcher(command, &run), "{command}");
+            assert_eq!(stdio_connect_timeout(command, &run), LEADER_OPEN_BUDGET);
+        }
+        assert!(is_download_launcher("uv", &args(&["tool", "run", "x"])));
+        assert_eq!(
+            stdio_connect_timeout("uv run --directory /srv server", &[]),
+            LEADER_OPEN_BUDGET,
+            "a launch line packed into the command is split before it is matched"
+        );
+    }
+
+    #[cfg(feature = "plus")]
+    #[test]
+    fn test02_uv_subcommands_that_start_no_server_keep_the_tight_budget() {
+        for line in [&["sync"][..], &["pip", "list"], &["tool", "install", "x"]] {
+            assert!(!is_download_launcher("uv", &args(line)), "{line:?}");
+            assert_ne!(stdio_connect_timeout("uv", &args(line)), LEADER_OPEN_BUDGET);
+        }
+    }
+
+    #[cfg(not(feature = "plus"))]
+    #[test]
+    fn test03_without_the_fork_uv_run_is_not_a_launcher() {
+        assert!(!is_download_launcher("uv", &args(&["run", "server"])));
     }
 }

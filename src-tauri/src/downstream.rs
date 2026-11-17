@@ -5148,6 +5148,7 @@ pub fn is_download_launcher(command: &str, args: &[String]) -> bool {
         "pnpm" | "yarn" => first == Some("dlx"),
         "npm" => matches!(first, Some("exec") | Some("x")),
         "pipx" => first == Some("run"),
+        "uv" => crate::seam::is_uv_download_launcher(&args),
         _ => false,
     }
 }

@@ -28,6 +28,9 @@
 # desktop.rs, 4 changed lines: the invoke handler is wrapped in seam::ipc, which answers the
 # plus_ctl commands (D-060) and hands every other command on.
 4	src-tauri/src/desktop.rs
+# downstream.rs, 1 changed line: `is_download_launcher` asks seam::is_uv_download_launcher for the `uv` arm, so
+# `uv run` and `uv tool run` get the launcher connect budget and the desktop's background pre-warm.
+1	src-tauri/src/downstream.rs
 2	src-tauri/src/http_client.rs
 # lib.rs, 3 lines: the two fork modules, and seam is pub (was pub(crate)) so the gateway binary can call
 # seam::gateway_tick.
