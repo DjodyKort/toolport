@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronRight, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { useChordKey } from "./shortcuts";
 import {
   CLAUDE_LABEL,
   filterItems,
@@ -100,6 +101,8 @@ export default function ItemsList({
     state: "any",
   });
   const [shown, setShown] = useState(PAGE);
+  const search = useRef<HTMLInputElement>(null);
+  useChordKey("f", () => search.current?.focus());
   const list = filterItems(items, filter);
   const visible = list.slice(0, shown);
   return (
@@ -117,6 +120,7 @@ export default function ItemsList({
             className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted-foreground"
           />
           <Input
+            ref={search}
             aria-label="Search library"
             placeholder="Search library"
             className="pl-8"

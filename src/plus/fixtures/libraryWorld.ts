@@ -34,6 +34,8 @@ export interface LibraryWorldOptions {
   chmod?: boolean;
   /** The verification after Apply finds this many files that differ. */
   drift?: number;
+  /** The first Apply leaves one agent step failed; an Apply limited with --only runs it again. */
+  failedStep?: boolean;
   /** The push is refused by the secret scan. */
   secret?: boolean;
   /** The remote has uncommitted work as well as new commits. */
@@ -720,6 +722,8 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
   let autoOn = autoState !== "off";
   let lastRun: AutoLastRun | null = null;
   let taskRun: AutoSchedule["lastRun"] = null;
+  let connected = scenario !== "empty";
+  let published = true;
   let remote = {
     ahead: 0,
     behind: scenario === "behind" ? 3 : 0,
@@ -890,7 +894,7 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
   }
 
   function sync(argv: string[]): CtlReply {
-    if (scenario === "empty") return fail("not_found", "no skills repository found");
+    if (!connected) return fail("not_found", "no skills repository found");
     if (scenario === "busy")
       return fail("conflict", "another sync holds the lock (started 07:00:12)");
     if (scenario === "blocked")
@@ -1005,6 +1009,17 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
       counts: counts(apply),
     };
     done.held = rowsHeld(visibleChanges());
+    if (options.failedStep && only.length === 0)
+      done.plan.failed = [
+        {
+          id: "agent:code-scout",
+          kind: "agent",
+          name: "code-scout",
+          client: "claude-code",
+          step: "files",
+          message: "the agents folder is not writable",
+        },
+      ];
     return ok(done);
   }
 
@@ -1403,13 +1418,141 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
       remote: remote.hasRemote ? "github.com/acme-co/skills-library" : null,
       repo: LIBRARY_REPO,
       uncommitted: remote.uncommitted,
-      upstream: remote.hasRemote ? "origin/main" : null,
+      upstream: remote.hasRemote && published ? "origin/main" : null,
     };
+  }
+
+  const pushChecks = () => ({
+    audit: { findings: [] as AuditFinding[], high: 0, ran: true, skills: items.length },
+    blocked: options.secret === true,
+    builtinScan: {
+      count: options.secret ? 1 : 0,
+      findings: options.secret
+        ? [
+            {
+              commit: "13e1696",
+              file: "skills/deploy-notes/scripts/publish.sh",
+              line: 14,
+              rule: "github-token",
+            },
+          ]
+        : [],
+    },
+    gitleaks: { available: false, count: 0, error: "not installed", ran: false },
+  });
+
+  function connect(argv: string[]): CtlReply {
+    const url = operand(argv, 2) ?? "";
+    const dryRun = argv.includes("--dry-run");
+    if (url.includes("@") && url.includes("://") && url.split("//")[1].includes(":"))
+      return fail("usage", "repository urls must not embed credentials");
+    if (connected)
+      return fail("refused", `a library is already connected at ${LIBRARY_REPO}`);
+    const target = flag(argv, "--clone-to") ?? `${LIBRARY_HOME}/.config/mcpm/skills_repo`;
+    if (dryRun)
+      return ok({
+        dryRun,
+        repo: target,
+        remote: url,
+        plan: plan(
+          `Clone ${url} into ${target}`,
+          [
+            { op: "exec", detail: "git clone (network)", path: target },
+            { op: "note", detail: `point the library at ${target}` },
+          ],
+          `remove the folder ${target} and the local_path entry of skills_sync.json`,
+        ),
+      });
+    connected = true;
+    remote = { ...remote, hasRemote: true, behind: 0, ahead: 0, uncommitted: 0 };
+    return ok({ dryRun, repo: target, remote: url, connected: true, empty: false });
+  }
+
+  function remoteAdd(argv: string[]): CtlReply {
+    const url = operand(argv, 3) ?? "";
+    const dryRun = argv.includes("--dry-run");
+    if (remote.hasRemote)
+      return fail(
+        "refused",
+        "the library already has a remote: github.com/acme-co/skills-library",
+      );
+    if (dryRun)
+      return ok({
+        dryRun,
+        repo: LIBRARY_REPO,
+        remote: url,
+        plan: plan(
+          `Add ${url} as origin`,
+          [
+            {
+              op: "exec",
+              detail: "git remote add origin (nothing is fetched or pushed)",
+              path: LIBRARY_REPO,
+            },
+          ],
+          `git -C '${LIBRARY_REPO}' remote remove origin`,
+        ),
+      });
+    remote = { ...remote, hasRemote: true };
+    published = false;
+    return ok({ dryRun, repo: LIBRARY_REPO, remote: url });
+  }
+
+  function commit(argv: string[]): CtlReply {
+    const message = flag(argv, "-m") ?? "";
+    const dryRun = argv.includes("--dry-run");
+    if (!message.trim()) return fail("usage", "the commit needs a message");
+    const files = ["skills/api-review/SKILL.md", "skills/build-triage/SKILL.md"].slice(
+      0,
+      remote.uncommitted,
+    );
+    if (remote.uncommitted === 0)
+      return ok({
+        dryRun,
+        repo: LIBRARY_REPO,
+        committed: false,
+        message: "working tree clean; nothing to commit",
+        files: [],
+      });
+    const checks = pushChecks();
+    if (dryRun)
+      return ok({
+        dryRun,
+        repo: LIBRARY_REPO,
+        committed: false,
+        files,
+        checks,
+        plan: plan(
+          `Commit ${files.length} changed file(s)`,
+          [
+            { op: "exec", detail: "git add -A", path: LIBRARY_REPO },
+            { op: "exec", detail: `git commit -m "${message}"`, path: LIBRARY_REPO },
+          ],
+          `git -C '${LIBRARY_REPO}' reset --soft HEAD~1`,
+        ),
+      });
+    if (checks.blocked)
+      return fail(
+        "refused",
+        "secret scan blocked the commit: github-token in skills/deploy-notes/scripts/publish.sh:14 (nothing was committed)",
+      );
+    remote = { ...remote, uncommitted: 0, ahead: remote.ahead + 1 };
+    return ok({
+      dryRun,
+      repo: LIBRARY_REPO,
+      committed: true,
+      commitSha: "f00d1e5",
+      files,
+      checks,
+    });
   }
 
   function library(argv: string[]): CtlReply {
     const dryRun = argv.includes("--dry-run");
     if (argv[1] === "status") return ok(remoteData(argv.includes("--fetch")));
+    if (argv[1] === "connect") return connect(argv);
+    if (argv[1] === "commit") return commit(argv);
+    if (argv[1] === "remote" && argv[2] === "add") return remoteAdd(argv);
     if (argv[1] === "pull") {
       if (remote.uncommitted > 0)
         return fail(
@@ -1450,24 +1593,7 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
       ];
       return ok({ dryRun, repo: LIBRARY_REPO, pulled: true, commits });
     }
-    const checks = {
-      audit: { findings: [] as AuditFinding[], high: 0, ran: true, skills: items.length },
-      blocked: options.secret === true,
-      builtinScan: {
-        count: options.secret ? 1 : 0,
-        findings: options.secret
-          ? [
-              {
-                commit: "13e1696",
-                file: "skills/deploy-notes/scripts/publish.sh",
-                line: 14,
-                rule: "github-token",
-              },
-            ]
-          : [],
-      },
-      gitleaks: { available: false, count: 0, error: "not installed", ran: false },
-    };
+    const checks = pushChecks();
     const commits = [
       ...(remote.uncommitted > 0
         ? [{ sha: "new", subject: "commit 2 changed files: api-review, build-triage" }]
@@ -1512,6 +1638,7 @@ export function createLibraryWorld(options: LibraryWorldOptions = {}) {
         repo: LIBRARY_REPO,
       });
     remote = { ...remote, ahead: 0, uncommitted: 0 };
+    published = true;
     return ok({ checks, commitSha: "a1b2c3d", dryRun, pushed: true, repo: LIBRARY_REPO });
   }
 

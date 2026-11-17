@@ -19,9 +19,16 @@ import {
 import PlanPanel from "./PlanPanel";
 import StatusArea from "./StatusArea";
 import { useLibraryData } from "./useLibrary";
-import { InitDialog, PullDialog, PushDialog, UndoDialog } from "./writes";
+import {
+  AddRemoteDialog,
+  ConnectDialog,
+  InitDialog,
+  PullDialog,
+  PushDialog,
+  UndoDialog,
+} from "./writes";
 
-type Dialog = "undo" | "pull" | "push" | "init" | null;
+type Dialog = "undo" | "pull" | "push" | "init" | "remote" | "connect" | null;
 
 const AUTO_DONE: Record<AutoAction["id"], string> = {
   on: "Auto-sync is on",
@@ -69,6 +76,27 @@ export default function SyncTab({
     } finally {
       setApplying(null);
       setTicked(false);
+      lib.reload();
+    }
+  }
+
+  async function retryStep(id: string) {
+    setApplying(1);
+    setFailed(null);
+    try {
+      setDone(
+        await syncRun([
+          "skills",
+          "sync",
+          "--only",
+          id,
+          ...(clients ?? []).flatMap((client) => ["--client", client]),
+        ]),
+      );
+    } catch (error) {
+      setFailed(errorText(error));
+    } finally {
+      setApplying(null);
       lib.reload();
     }
   }
@@ -132,9 +160,12 @@ export default function SyncTab({
         onApply={() => void apply()}
         onPull={() => setDialog("pull")}
         onPush={() => setDialog("push")}
+        onAddRemote={() => setDialog("remote")}
+        onConnect={() => setDialog("connect")}
         onFetch={() => lib.reloadRemote(true)}
         onUndo={() => setDialog("undo")}
         onRetry={fresh}
+        onRetryStep={(id) => void retryStep(id)}
         onReload={() => void check()}
         verified={checked}
         onAuto={(action) => void auto(action)}
@@ -188,7 +219,17 @@ export default function SyncTab({
       {dialog === "undo" && <UndoDialog onClose={() => setDialog(null)} onDone={fresh} />}
       {dialog === "pull" && <PullDialog onClose={() => setDialog(null)} onDone={fresh} />}
       {dialog === "push" && (
-        <PushDialog onClose={() => setDialog(null)} onDone={() => lib.reloadRemote()} />
+        <PushDialog
+          uncommitted={lib.remote?.uncommitted ?? 0}
+          onClose={() => setDialog(null)}
+          onDone={() => lib.reloadRemote()}
+        />
+      )}
+      {dialog === "remote" && (
+        <AddRemoteDialog onClose={() => setDialog(null)} onDone={fresh} />
+      )}
+      {dialog === "connect" && (
+        <ConnectDialog onClose={() => setDialog(null)} onDone={fresh} />
       )}
       {dialog === "init" && <InitDialog onClose={() => setDialog(null)} onDone={fresh} />}
     </div>

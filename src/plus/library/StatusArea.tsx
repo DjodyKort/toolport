@@ -58,9 +58,12 @@ export interface StatusAreaProps {
   onApply: () => void;
   onPull: () => void;
   onPush: () => void;
+  onAddRemote: () => void;
+  onConnect: () => void;
   onFetch: () => void;
   onUndo: () => void;
   onRetry: () => void;
+  onRetryStep: (id: string) => void;
   onReload: () => void;
   onAuto: (action: AutoAction["id"]) => void;
   onInit: () => void;
@@ -74,11 +77,13 @@ function RemoteLine({
   home,
   onFetch,
   onPush,
+  onAddRemote,
 }: {
   remote: RemoteStatus;
   home: string | null;
   onFetch: () => void;
   onPush: () => void;
+  onAddRemote: () => void;
 }) {
   const state = remoteState(remote);
   const reason = pullBlockedReason(state);
@@ -107,10 +112,16 @@ function RemoteLine({
         {state.kind === "no-remote" && (
           <Badge variant="off">Local library, no remote</Badge>
         )}
+        {state.kind === "unpublished" && <Badge variant="info">Not pushed yet</Badge>}
         {state.kind === "offline" && (
           <Badge variant="warning">Could not reach origin</Badge>
         )}
         <span className="ml-auto flex gap-2">
+          {state.kind === "no-remote" && (
+            <Button variant="outline" size="sm" onClick={onAddRemote}>
+              Add remote…
+            </Button>
+          )}
           {state.kind !== "no-remote" && (
             <Button variant="outline" size="sm" onClick={onFetch}>
               <RefreshCw /> Fetch
@@ -118,7 +129,7 @@ function RemoteLine({
           )}
           {state.kind !== "no-remote" && (
             <Button variant="outline" size="sm" onClick={onPush}>
-              <Upload /> Push…
+              <Upload /> {remote.uncommitted > 0 ? "Commit and push…" : "Push…"}
             </Button>
           )}
         </span>
@@ -224,7 +235,14 @@ export default function StatusArea(props: StatusAreaProps) {
           icon={<BookOpen />}
           title="No skills library yet"
           detail="A library is a folder of skills, rules and agents that Toolport copies into Claude Code for you. Skills Claude Code already has stay where they are and still show up in Skills. To use a repository you already have, clone it with git and Toolport finds it."
-          actions={<Button onClick={props.onInit}>Start a local library</Button>}
+          actions={
+            <>
+              <Button onClick={props.onInit}>Start a local library</Button>
+              <Button variant="outline" onClick={props.onConnect}>
+                Connect a repository…
+              </Button>
+            </>
+          }
         />
       );
     }
@@ -362,6 +380,44 @@ export default function StatusArea(props: StatusAreaProps) {
             )
           }
         />
+        {done.plan.failed && done.plan.failed.length > 0 && (
+          <StatusCard
+            variant="danger"
+            role="alert"
+            icon={<XCircle />}
+            title={`${plural(done.plan.failed.length, "step")} did not finish; the rest was applied`}
+            detail={
+              <ul className="mt-1 flex flex-col gap-2">
+                {done.plan.failed.map((step) => (
+                  <li
+                    key={`${step.id}:${step.client}:${step.step}`}
+                    className="flex flex-wrap items-center gap-2"
+                  >
+                    <span>
+                      <span className="font-medium">{step.name}</span> ({step.client},{" "}
+                      {step.step}): {step.message}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      aria-label={`Retry ${step.name} ${step.step}`}
+                      onClick={() => props.onRetryStep(step.id)}
+                    >
+                      <RefreshCw /> Retry
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            }
+            actions={
+              canUndo && (
+                <Button variant="outline" size="sm" onClick={props.onUndo}>
+                  <Undo2 /> Undo the others
+                </Button>
+              )
+            }
+          />
+        )}
       </div>
     );
   }
@@ -458,6 +514,7 @@ export default function StatusArea(props: StatusAreaProps) {
               home={outcome.kind === "ok" ? outcome.data.outputRoot : null}
               onFetch={props.onFetch}
               onPush={props.onPush}
+              onAddRemote={props.onAddRemote}
             />
           )}
           <AutoRow auto={auto} onAuto={props.onAuto} onReview={props.onReview} />

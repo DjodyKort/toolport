@@ -7,6 +7,7 @@ import { useLoad } from "../servers/useLoad";
 import { auditSkills } from "./commands";
 import type { LintData, LintRow, SyncData } from "./data";
 import { count, lintGroups, meter, plural } from "./model";
+import { useChordKey } from "./shortcuts";
 import { ChmodDialog, MoveLinkDialog, ResolveDialog } from "./writes";
 
 type Tab = "lint" | "audit" | "collisions" | "drift";
@@ -176,6 +177,11 @@ export default function ChecksPanel({
   const collisions = sync.collisions;
   const groups = lintGroups(lint);
   const findings = audit.data?.findings.length ?? 0;
+  const runNow = () => {
+    onReload();
+    audit.reload();
+  };
+  useChordKey("r", runNow);
 
   return (
     <section aria-label="Checks" className="flex flex-col gap-3">
@@ -183,14 +189,7 @@ export default function ChecksPanel({
         <h2 className="text-meta font-semibold tracking-wide text-muted-foreground uppercase">
           Checks
         </h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            onReload();
-            audit.reload();
-          }}
-        >
+        <Button variant="ghost" size="sm" onClick={runNow}>
           <RefreshCw /> Run now
         </Button>
       </div>

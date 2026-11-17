@@ -552,6 +552,7 @@ export type RemoteState =
   | { kind: "diverged"; ahead: number; behind: number }
   | { kind: "ahead"; ahead: number }
   | { kind: "offline"; error: string }
+  | { kind: "unpublished" }
   | { kind: "current" };
 
 export function remoteState(status: RemoteStatus | null): RemoteState {
@@ -559,6 +560,7 @@ export function remoteState(status: RemoteStatus | null): RemoteState {
   if (!status.remote) return { kind: "no-remote" };
   if (status.fetch.requested && status.fetch.ok === false)
     return { kind: "offline", error: status.fetch.error ?? "the remote did not answer" };
+  if (!status.upstream) return { kind: "unpublished" };
   if (status.ahead > 0 && status.behind > 0)
     return { kind: "diverged", ahead: status.ahead, behind: status.behind };
   if (status.behind > 0 && status.uncommitted > 0)
@@ -581,12 +583,31 @@ export function pullBlockedReason(state: RemoteState): string | null {
       return "Pull and Push are off: this library has no remote.";
     case "offline":
       return `Pull is off: the remote could not be reached (${state.error}).`;
+    case "unpublished":
+      return "Pull is off: the remote has no branch of this library yet. Push sends it and sets the upstream.";
     case "current":
     case "ahead":
       return "Pull is off: nothing to pull.";
     default:
       return null;
   }
+}
+
+/** The same facts `toolportctl library status` prints, for a bug report or a chat message. */
+export function gitStatusText(status: RemoteStatus, home: string | null): string {
+  const lines = [
+    `library: ${tilde(status.repo, home)}`,
+    `remote: ${status.remote ?? "none"}`,
+    `branch: ${status.branch} (upstream ${status.upstream ?? "none"})`,
+    `ahead ${status.ahead}, behind ${status.behind}, uncommitted ${status.uncommitted}`,
+    `last fetch: ${status.lastFetch ?? "never"}`,
+    `auth: ${status.auth.method} (${status.auth.checked ? (status.auth.ok ? "works" : "does not work") : status.auth.ok ? "configured, not checked" : "not configured"})`,
+  ];
+  for (const twin of status.duplicateClones)
+    lines.push(
+      `duplicate clone: ${tilde(twin.path, home)} (${plural(twin.skills, "skill")}, ahead ${twin.ahead}, behind ${twin.behind})`,
+    );
+  return lines.join("\n");
 }
 
 export interface AutoAction {

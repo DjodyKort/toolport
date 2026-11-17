@@ -87,25 +87,33 @@ describe("Library screen, Sources tab", () => {
 
   it("test04_push_shows_the_commits_and_the_scans_before_it_runs", async () => {
     setup({ scenario: "plan" });
-    await userEvent.click(await screen.findByRole("button", { name: /Push…/ }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Commit and push…/ }),
+    );
     const dialog = await screen.findByRole("dialog");
     expect(await within(dialog).findByText(/commit 2 changed files/)).toBeVisible();
     expect(within(dialog).getByLabelText("Checks")).toHaveTextContent(
       "Secret scan: no findings",
     );
     expect(ranExactly("library", "push", "--dry-run")).toBe(true);
-    await userEvent.click(within(dialog).getByRole("button", { name: "Push" }));
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Commit and push" }),
+    );
     await waitFor(() => expect(ranExactly("library", "push")).toBe(true));
   });
 
   it("test05_a_push_refused_by_the_secret_scan_names_rule_file_and_line_never_the_value", async () => {
     setup({ scenario: "plan", secret: true });
-    await userEvent.click(await screen.findByRole("button", { name: /Push…/ }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Commit and push…/ }),
+    );
     const dialog = await screen.findByRole("dialog");
     expect(await within(dialog).findByText("github-token")).toBeVisible();
     expect(dialog).toHaveTextContent("skills/deploy-notes/scripts/publish.sh:14");
     expect(dialog).toHaveTextContent("the value is never shown");
-    expect(within(dialog).getByRole("button", { name: "Push" })).toBeDisabled();
+    expect(
+      within(dialog).getByRole("button", { name: "Commit and push" }),
+    ).toBeDisabled();
     expect(within(dialog).getByRole("button", { name: "Check again" })).toBeVisible();
   });
 

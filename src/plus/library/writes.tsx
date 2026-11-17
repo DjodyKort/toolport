@@ -1,11 +1,15 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
+  addRemote,
   addSkill,
   bundleExport,
   bundleImport,
   cleanSynced,
+  commitLibrary,
+  connectLibrary,
   fixChmod,
   initLibrary,
   moveLink,
@@ -78,20 +82,36 @@ export function PullDialog({ onClose, onDone }: Done) {
   );
 }
 
-export function PushDialog({ onClose, onDone }: Done) {
+const DEFAULT_MESSAGE = "Update skills library";
+
+/** Push, and with uncommitted work first the commit it makes: the message is yours to write. */
+export function PushDialog({
+  onClose,
+  onDone,
+  uncommitted = 0,
+}: Done & { uncommitted?: number }) {
+  const [message, setMessage] = useState(DEFAULT_MESSAGE);
+  const id = useId();
   return (
     <WriteDialog
-      title="Push to origin"
+      title={uncommitted > 0 ? "Commit and push to origin" : "Push to origin"}
       description="Shows the commit it will make, the commits it sends and the checks before anything leaves this machine."
-      confirmLabel="Push"
+      confirmLabel={uncommitted > 0 ? "Commit and push" : "Push"}
       preview={() => pushLibrary(true)}
-      blocked={(data) =>
-        data.checks.blocked
-          ? "Refused by the secret scan. Removing the line is not enough for a commit already in history; amend or rebase yourself, then check again."
-          : null
-      }
       render={(data, reload) => (
         <div className="flex flex-col gap-3 text-meta">
+          {uncommitted > 0 && (
+            <div className="flex flex-col gap-1">
+              <label htmlFor={id} className="font-medium">
+                Commit message for the {plural(uncommitted, "changed file")}
+              </label>
+              <Input
+                id={id}
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+              />
+            </div>
+          )}
           <div className="flex flex-wrap gap-1.5">
             <Badge variant="outline">
               {plural(data.commits?.length ?? 0, "commit")} to send
@@ -148,9 +168,169 @@ export function PushDialog({ onClose, onDone }: Done) {
           )}
         </div>
       )}
-      confirm={() => pushLibrary(false)}
+      blocked={(data) =>
+        data.checks.blocked
+          ? "Refused by the secret scan. Removing the line is not enough for a commit already in history; amend or rebase yourself, then check again."
+          : uncommitted > 0 && message.trim() === ""
+            ? "Write a commit message."
+            : null
+      }
+      confirm={async () => {
+        if (uncommitted > 0) await commitLibrary(message.trim(), false);
+        return pushLibrary(false);
+      }}
       onClose={onClose}
       onDone={onDone}
+    />
+  );
+}
+
+export function CommitDialog({ onClose, onDone }: Done) {
+  const [message, setMessage] = useState(DEFAULT_MESSAGE);
+  const id = useId();
+  return (
+    <WriteDialog
+      title="Commit the changes"
+      description="Commits everything that changed in the library and sends nothing. The secret scan runs first; a finding stops the commit."
+      confirmLabel="Commit"
+      preview={() => commitLibrary(message.trim() || DEFAULT_MESSAGE, true)}
+      blocked={(data) =>
+        data.checks?.blocked
+          ? "Refused by the secret scan: fix the line, then check again."
+          : message.trim() === ""
+            ? "Write a commit message."
+            : null
+      }
+      render={(data, reload) => (
+        <div className="flex flex-col gap-3 text-meta">
+          <div className="flex flex-col gap-1">
+            <label htmlFor={id} className="font-medium">
+              Commit message
+            </label>
+            <Input
+              id={id}
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+            />
+          </div>
+          {data.files.length === 0 ? (
+            <p>Nothing changed since the last commit.</p>
+          ) : (
+            <FileLines
+              title={plural(data.files.length, "changed file")}
+              files={data.files}
+            />
+          )}
+          {data.checks && (
+            <div
+              className="flex flex-col gap-1 rounded-md border p-2"
+              aria-label="Checks"
+            >
+              <p>
+                <span className="font-medium">Secret scan: </span>
+                {data.checks.builtinScan.count === 0
+                  ? "no findings (built-in rules)"
+                  : plural(data.checks.builtinScan.count, "possible secret")}
+              </p>
+              {data.checks.builtinScan.findings.map((f) => (
+                <p key={`${f.file}-${f.line}-${f.rule}`}>
+                  <span className="font-medium">{f.rule}</span>{" "}
+                  <Mono>
+                    {f.file}:{f.line}
+                  </Mono>{" "}
+                  <span className="text-muted-foreground">
+                    (the value is never shown)
+                  </span>
+                </p>
+              ))}
+            </div>
+          )}
+          {data.checks?.blocked && (
+            <Button variant="outline" size="sm" className="self-start" onClick={reload}>
+              Check again
+            </Button>
+          )}
+        </div>
+      )}
+      confirm={() => commitLibrary(message.trim(), false)}
+      onClose={onClose}
+      onDone={onDone}
+    />
+  );
+}
+
+export function AddRemoteDialog({ onClose, onDone }: Done) {
+  return (
+    <AskDialog
+      title="Add a remote"
+      description="Gives the library its origin so Push has somewhere to go. Nothing is fetched or pushed now, and Toolport never stores a credential: git and gh sign in."
+      label="Repository url"
+      placeholder="git@github.com:you/skills-library.git"
+      onClose={onClose}
+      next={(url, back) => (
+        <WriteDialog
+          title="Add a remote"
+          confirmLabel="Add remote"
+          preview={() => addRemote(url, true)}
+          render={(data) => (
+            <div className="flex flex-col gap-2">
+              {data.plan && <PlanSteps plan={data.plan} />}
+              <Button variant="ghost" size="sm" className="self-start" onClick={back}>
+                Change the url
+              </Button>
+            </div>
+          )}
+          confirm={() => addRemote(url, false)}
+          onClose={onClose}
+          onDone={onDone}
+        />
+      )}
+    />
+  );
+}
+
+export function ConnectDialog({ onClose, onDone }: Done) {
+  const [folder, setFolder] = useState("");
+  const id = useId();
+  return (
+    <AskDialog
+      title="Connect a repository"
+      description="Clones a repository you already have as your skills library. Toolport never stores a credential: git and gh sign in. Skills Claude Code already has stay where they are."
+      label="Repository url"
+      placeholder="https://github.com/you/skills-library.git"
+      onClose={onClose}
+      next={(url, back) => (
+        <WriteDialog
+          title="Connect a repository"
+          confirmLabel="Clone and connect"
+          preview={() => connectLibrary(url, folder.trim(), true)}
+          render={(data) => (
+            <div className="flex flex-col gap-3">
+              {data.plan && <PlanSteps plan={data.plan} />}
+              <div className="flex flex-col gap-1 text-meta">
+                <label htmlFor={id} className="font-medium">
+                  Clone into (optional)
+                </label>
+                <Input
+                  id={id}
+                  value={folder}
+                  placeholder="~/work/skills-library"
+                  onChange={(event) => setFolder(event.target.value)}
+                />
+                <p className="text-muted-foreground">
+                  Default: ~/.config/mcpm/skills_repo. The folder must not hold files yet.
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" className="self-start" onClick={back}>
+                Change the url
+              </Button>
+            </div>
+          )}
+          confirm={() => connectLibrary(url, folder.trim(), false)}
+          onClose={onClose}
+          onDone={onDone}
+        />
+      )}
     />
   );
 }

@@ -10,6 +10,8 @@ import type {
   AutoSwitchData,
   BundleData,
   CleanData,
+  CommitData,
+  ConnectData,
   CompareData,
   ContentAddData,
   ContentCleanData,
@@ -24,6 +26,7 @@ import type {
   MoveLinkData,
   PullData,
   PushData,
+  RemoteAddData,
   RemoteStatus,
   RemoveData,
   RootChangeData,
@@ -137,6 +140,19 @@ export const pullLibrary = (dryRun: boolean) =>
   ctlData<PullData>(["library", "pull", ...dry(dryRun)]);
 export const pushLibrary = (dryRun: boolean) =>
   dataOrFailure<PushData>(["library", "push", ...dry(dryRun)]);
+
+export const commitLibrary = (message: string, dryRun: boolean) =>
+  dataOrFailure<CommitData>(["library", "commit", "-m", message, ...dry(dryRun)]);
+export const connectLibrary = (url: string, cloneTo: string, dryRun: boolean) =>
+  ctlData<ConnectData>([
+    "library",
+    "connect",
+    url,
+    ...(cloneTo ? ["--clone-to", cloneTo] : []),
+    ...dry(dryRun),
+  ]);
+export const addRemote = (url: string, dryRun: boolean) =>
+  ctlData<RemoteAddData>(["library", "remote", "add", url, ...dry(dryRun)]);
 
 export const listTaps = () => ctlData<TapListData>(["skills", "tap", "ls"]);
 export const addTap = (repo: string, dryRun: boolean) =>

@@ -362,7 +362,7 @@ export interface RemoteStatus {
   lastFetch: string | null;
   auth: { checked: boolean; method: string; ok: boolean };
   fetch: { requested: boolean; ok: boolean | null; error: string | null };
-  duplicateClones: string[];
+  duplicateClones: Array<{ path: string; skills: number; ahead: number; behind: number }>;
 }
 
 export interface PlanStep {
@@ -405,6 +405,33 @@ export interface PushData {
   commits?: Array<{ sha: string; subject: string }>;
   plan?: WritePlan;
   pushed: boolean;
+}
+
+export interface CommitData {
+  dryRun: boolean;
+  repo: string;
+  committed: boolean;
+  message?: string;
+  commitSha?: string;
+  files: string[];
+  checks?: PushCheck;
+  plan?: WritePlan;
+}
+
+export interface ConnectData {
+  dryRun: boolean;
+  repo: string;
+  remote: string;
+  connected?: boolean;
+  empty?: boolean;
+  plan?: WritePlan;
+}
+
+export interface RemoteAddData {
+  dryRun: boolean;
+  repo: string;
+  remote: string;
+  plan?: WritePlan;
 }
 
 export interface TapRow {

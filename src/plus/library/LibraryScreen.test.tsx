@@ -136,6 +136,30 @@ describe("Library screen, Sync tab", () => {
     expect(screen.getByRole("button", { name: "Retry those 2" })).toBeVisible();
   });
 
+  it("test04b_a_failed_step_is_named_and_retried_on_its_own", async () => {
+    setup({ failedStep: true });
+    await planReady();
+    await userEvent.click(screen.getByRole("button", { name: "Apply 8 changes" }));
+    expect(await screen.findByText(/1 step did not finish/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Undo the others" })).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Retry code-scout files" }));
+    await waitFor(() =>
+      expect(ranExactly("skills", "sync", "--only", "agent:code-scout")).toBe(true),
+    );
+    await waitFor(() => expect(screen.queryByText(/did not finish/)).toBeNull());
+  });
+
+  it("test04c_ctrl_f_focuses_the_search_and_ctrl_r_runs_the_checks", async () => {
+    setup();
+    await planReady();
+    await userEvent.keyboard("{Control>}f{/Control}");
+    expect(screen.getByRole("textbox", { name: "Search library" })).toHaveFocus();
+    const lints = () => ranArgv().filter((a) => a.join(" ") === "skills lint").length;
+    const before = lints();
+    await userEvent.keyboard("{Control>}r{/Control}");
+    await waitFor(() => expect(lints()).toBeGreaterThan(before));
+  });
+
   it("test05_auto_sync_shows_its_state_pauses_and_reports_what_it_would_hold", async () => {
     setup({ scenario: "held", auto: "on" });
     expect(

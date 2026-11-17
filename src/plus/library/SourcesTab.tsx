@@ -1,7 +1,9 @@
 import { useState } from "react";
 import {
+  ClipboardCopy,
   Download,
   FolderPlus,
+  GitCommitHorizontal,
   MoreHorizontal,
   Plus,
   RefreshCw,
@@ -19,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { SkeletonRows } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 import { toastError } from "@/lib/toast";
 import { useLoad, type Loaded } from "../servers/useLoad";
 import { errorText } from "../settings/useCtl";
@@ -38,8 +41,15 @@ import {
 } from "./commands";
 import type { SearchHit, SourceRow, SourcesData, TapUpdateData } from "./data";
 import { AskDialog, FileLines, Mono, WriteDialog } from "./dialogs";
-import { canPull, plural, pullBlockedReason, remoteState, when } from "./model";
-import { PullDialog, PushDialog } from "./writes";
+import {
+  canPull,
+  gitStatusText,
+  plural,
+  pullBlockedReason,
+  remoteState,
+  when,
+} from "./model";
+import { AddRemoteDialog, CommitDialog, PullDialog, PushDialog } from "./writes";
 
 const SELECT =
   "h-8 rounded-md border bg-background px-2 text-sm text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none";
@@ -74,10 +84,23 @@ function Heading({
 function RemoteCard() {
   const [fetchTick, setFetchTick] = useState(0);
   const status = useLoad(() => remoteStatus(fetchTick > 0), fetchTick);
-  const [dialog, setDialog] = useState<"pull" | "push" | null>(null);
+  const [dialog, setDialog] = useState<"pull" | "push" | "commit" | "remote" | null>(
+    null,
+  );
   const data = status.data;
   const state = remoteState(data);
   const reason = pullBlockedReason(state);
+
+  async function copyStatus() {
+    if (!data) return;
+    try {
+      await navigator.clipboard.writeText(gitStatusText(data, null));
+      toast.message("Git status copied");
+    } catch (error) {
+      toastError("Could not copy", { description: errorText(error) });
+    }
+  }
+
   const label =
     state.kind === "dirty"
       ? "Behind and edited"
@@ -89,9 +112,11 @@ function RemoteCard() {
             ? "Could not reach origin"
             : state.kind === "no-remote"
               ? "Local library"
-              : state.kind === "ahead"
-                ? "Ahead"
-                : "Up to date";
+              : state.kind === "unpublished"
+                ? "Not pushed yet"
+                : state.kind === "ahead"
+                  ? "Ahead"
+                  : "Up to date";
   return (
     <section aria-label="Library remote" className="rounded-xl border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -103,26 +128,45 @@ function RemoteCard() {
             </Badge>
           )}
         </div>
-        {data && state.kind !== "no-remote" && (
+        {data && (
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setFetchTick((n) => n + 1)}
-            >
-              <RefreshCw /> Fetch
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!canPull(state)}
-              onClick={() => setDialog("pull")}
-            >
-              <Download /> Pull
-              {data.behind > 0 ? ` ${plural(data.behind, "commit")}` : ""}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setDialog("push")}>
-              <Upload /> Push…
+            {state.kind === "no-remote" && (
+              <Button variant="outline" size="sm" onClick={() => setDialog("remote")}>
+                <Plus /> Add remote…
+              </Button>
+            )}
+            {state.kind !== "no-remote" && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFetchTick((n) => n + 1)}
+                >
+                  <RefreshCw /> Fetch
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!canPull(state)}
+                  onClick={() => setDialog("pull")}
+                >
+                  <Download /> Pull
+                  {data.behind > 0 ? ` ${plural(data.behind, "commit")}` : ""}
+                </Button>
+              </>
+            )}
+            {data.uncommitted > 0 && (
+              <Button variant="outline" size="sm" onClick={() => setDialog("commit")}>
+                <GitCommitHorizontal /> Commit…
+              </Button>
+            )}
+            {state.kind !== "no-remote" && (
+              <Button variant="outline" size="sm" onClick={() => setDialog("push")}>
+                <Upload /> {data.uncommitted > 0 ? "Commit and push…" : "Push…"}
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => void copyStatus()}>
+              <ClipboardCopy /> Copy git status
             </Button>
           </div>
         )}
@@ -167,6 +211,19 @@ function RemoteCard() {
       )}
       {dialog === "push" && (
         <PushDialog
+          uncommitted={data?.uncommitted ?? 0}
+          onClose={() => setDialog(null)}
+          onDone={() => setFetchTick((n) => n + 1)}
+        />
+      )}
+      {dialog === "commit" && (
+        <CommitDialog
+          onClose={() => setDialog(null)}
+          onDone={() => setFetchTick((n) => n + 1)}
+        />
+      )}
+      {dialog === "remote" && (
+        <AddRemoteDialog
           onClose={() => setDialog(null)}
           onDone={() => setFetchTick((n) => n + 1)}
         />
