@@ -1,0 +1,7 @@
+{
+  "command": "server mode",
+  "dryRun": "none",
+  "name": "servers_set_mode",
+  "tier": "write",
+  "toolTier": 3
+}

@@ -1,0 +1,7 @@
+{
+  "command": "context leave-out",
+  "dryRun": "default-on",
+  "name": "context_leave_out",
+  "tier": "write",
+  "toolTier": 2
+}

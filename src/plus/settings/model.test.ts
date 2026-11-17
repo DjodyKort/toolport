@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import commandsGolden from "../../../plus/fixtures/ctl-envelopes/commands.json";
+import { commandsGolden } from "../fixtures/commandsGolden";
 import type {
   CommandRow,
   CommandsData,

@@ -1,0 +1,7 @@
+{
+  "command": "compression disable",
+  "dryRun": "default-on",
+  "name": "compression_disable",
+  "tier": "destructive",
+  "toolTier": 4
+}

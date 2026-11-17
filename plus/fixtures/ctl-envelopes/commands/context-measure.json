@@ -1,0 +1,92 @@
+{
+  "baseTier": "read",
+  "cost": true,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Folder where Claude Code starts (default: the current folder)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--cwd",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Model to ask (default haiku)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--model",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Also measure without plugin:<id> or skill:<name> (a glob is allowed); repeat for more",
+      "escalates": false,
+      "hidden": false,
+      "name": "--without",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Also measure what the named bundle would leave: one request per variant",
+      "escalates": false,
+      "hidden": false,
+      "name": "--bundle",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Measure again instead of answering from the cache",
+      "escalates": false,
+      "hidden": false,
+      "name": "--force",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Start the requests: they spend model tokens, so nothing starts without it",
+      "escalates": false,
+      "hidden": false,
+      "name": "--yes",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "context",
+  "id": "context measure",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": ["long-running"],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["context", "measure"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Measure what a folder really loads, in tokens, with Claude Code, as is and per variant (--cwd, --without plugin:<id>|skill:<name>, --bundle, --model, --force, --yes)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["context_measure"]
+}

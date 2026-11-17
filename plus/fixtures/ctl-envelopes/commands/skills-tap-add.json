@@ -1,0 +1,54 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Alias for the tap (default: derived from the source)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--name",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Report what would be cloned",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "skills",
+  "id": "skills tap add",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": ["network"],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "repo",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["skills", "tap", "add"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Register and clone a tap (<user/repo|url>, --name <alias>, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["skills_tap_add"]
+}

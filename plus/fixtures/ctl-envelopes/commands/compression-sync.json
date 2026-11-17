@@ -1,0 +1,48 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "mcpm configuration root to adopt the compression policy from; it is only read",
+      "escalates": false,
+      "hidden": false,
+      "name": "--mcpm-root",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Show the plan and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "compression",
+  "id": "compression sync",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": "compression",
+  "path": ["compression", "sync"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Re-apply the policy: shims, env snippet, MCP entry (--mcpm-root, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["compression_sync"]
+}

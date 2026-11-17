@@ -1,0 +1,7 @@
+{
+  "command": "styles clean",
+  "dryRun": "default-on",
+  "name": "styles_clean",
+  "tier": "destructive",
+  "toolTier": 4
+}

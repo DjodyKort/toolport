@@ -1,0 +1,7 @@
+{
+  "command": "task run",
+  "dryRun": "param",
+  "name": "tasks_run",
+  "tier": "write",
+  "toolTier": 2
+}

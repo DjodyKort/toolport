@@ -1,0 +1,65 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Say what would be restarted and ask no gateway",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Seconds to wait for the gateways to answer (default 20; 0 asks and does not wait)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--wait",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    },
+    {
+      "aliases": [],
+      "effect": "Ask first how many calls are in flight and restart only when there are none, because a restart ends them",
+      "escalates": false,
+      "hidden": false,
+      "name": "--if-idle",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "server",
+  "id": "server restart",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "server",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["server", "restart"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Restart a server's process in every running gateway [--dry-run] [--wait <s>] [--if-idle]",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["servers_restart"]
+}

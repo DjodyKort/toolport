@@ -1,0 +1,54 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Show the plan and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Name the provider to accept that its closed engine sends code off this machine; asked for parsec only",
+      "escalates": false,
+      "hidden": false,
+      "name": "--accept-egress",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    }
+  ],
+  "group": "compression",
+  "id": "compression set-provider",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "provider",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": "compression",
+  "path": ["compression", "set-provider"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Swap the active provider and re-apply (--dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["compression_set_provider"]
+}

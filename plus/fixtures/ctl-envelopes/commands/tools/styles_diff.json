@@ -1,0 +1,7 @@
+{
+  "command": "styles diff",
+  "dryRun": "none",
+  "name": "styles_diff",
+  "tier": "read",
+  "toolTier": 1
+}

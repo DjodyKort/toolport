@@ -1,0 +1,25 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "compression",
+  "id": "compression hooks pause",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": "compression hooks",
+  "path": ["compression", "hooks", "pause"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Make the wrapped entries answer nothing until resumed",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

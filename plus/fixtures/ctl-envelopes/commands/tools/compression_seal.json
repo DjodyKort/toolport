@@ -1,0 +1,7 @@
+{
+  "command": "compression seal",
+  "dryRun": "default-on",
+  "name": "compression_seal",
+  "tier": "write",
+  "toolTier": 3
+}

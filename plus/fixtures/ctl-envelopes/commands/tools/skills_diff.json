@@ -1,0 +1,7 @@
+{
+  "command": "skills diff",
+  "dryRun": "none",
+  "name": "skills_diff",
+  "tier": "read",
+  "toolTier": 1
+}

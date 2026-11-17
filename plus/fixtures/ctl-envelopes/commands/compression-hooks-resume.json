@@ -1,0 +1,25 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "compression",
+  "id": "compression hooks resume",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": "compression hooks",
+  "path": ["compression", "hooks", "resume"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Let the wrapped entries answer again",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

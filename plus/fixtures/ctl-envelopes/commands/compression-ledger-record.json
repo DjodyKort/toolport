@@ -1,0 +1,81 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Compression provider: headroom, rtk-only, parsec or none",
+      "escalates": false,
+      "hidden": false,
+      "name": "--provider",
+      "repeatable": false,
+      "required": true,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Tokens before compression",
+      "escalates": false,
+      "hidden": false,
+      "name": "--before",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    },
+    {
+      "aliases": [],
+      "effect": "Tokens after compression",
+      "escalates": false,
+      "hidden": false,
+      "name": "--after",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    },
+    {
+      "aliases": [],
+      "effect": "Where the record came from",
+      "escalates": false,
+      "hidden": false,
+      "name": "--source",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Session the record belongs to",
+      "escalates": false,
+      "hidden": false,
+      "name": "--session",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    }
+  ],
+  "group": "compression",
+  "id": "compression ledger record",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": "compression ledger",
+  "path": ["compression", "ledger", "record"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Append a savings record to the ledger (--provider, --before, --after, --source, --session)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

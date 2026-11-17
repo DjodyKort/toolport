@@ -1,4 +1,4 @@
-import commandsGolden from "../../../plus/fixtures/ctl-envelopes/commands.json";
+import { commandsGolden } from "./commandsGolden";
 import toolsGolden from "../../../plus/fixtures/ctl-envelopes/mcp-tools.json";
 import { createContextWorld, type ContextWorldOptions } from "./contextWorld";
 import { createServerWorld, type ServerWorldOptions } from "./serverWorld";

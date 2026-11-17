@@ -1,0 +1,7 @@
+{
+  "command": "auth login",
+  "dryRun": "none",
+  "name": "servers_auth",
+  "tier": "write",
+  "toolTier": 3
+}

@@ -1,0 +1,22 @@
+{
+  "baseTier": null,
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "mcp",
+  "id": "mcp",
+  "kind": "group",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["mcp"],
+  "planned": false,
+  "preview": null,
+  "summary": "Self-management server: install [--access-set <id>] uninstall doctor tools call <tool> [--args <json> | --args-stdin]",
+  "surface": null,
+  "tier": null,
+  "tools": []
+}

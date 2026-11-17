@@ -1,0 +1,168 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "New name for the server",
+      "escalates": false,
+      "hidden": false,
+      "name": "--name",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "New program; makes the server a local (stdio) one",
+      "escalates": false,
+      "hidden": false,
+      "name": "--command",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Replace the arguments; give it once per argument",
+      "escalates": false,
+      "hidden": false,
+      "name": "--arg",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Set a plain KEY=VALUE (repeatable); a credential or an existing secret entry is refused",
+      "escalates": false,
+      "hidden": false,
+      "name": "--env",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Remove a plain env entry by name (repeatable)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--unset-env",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "New endpoint of a remote server",
+      "escalates": false,
+      "hidden": false,
+      "name": "--url",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "choices": ["stdio", "http", "sse"],
+      "effect": "Move the server to this transport",
+      "escalates": false,
+      "hidden": false,
+      "name": "--transport",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    },
+    {
+      "aliases": [],
+      "effect": "New working directory of the process",
+      "escalates": false,
+      "hidden": false,
+      "name": "--cwd",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "choices": ["on", "off"],
+      "effect": "Give the process the whole shell environment, or only the fixed set plus its own entries",
+      "escalates": false,
+      "hidden": false,
+      "name": "--inherit-env",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    },
+    {
+      "aliases": [],
+      "choices": ["on", "off"],
+      "effect": "Tell this server what the connected client can do (sampling, roots)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--declare-client-capabilities",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    },
+    {
+      "aliases": [],
+      "choices": ["on", "off"],
+      "effect": "Pass this server's instructions on to the client",
+      "escalates": false,
+      "hidden": false,
+      "name": "--forward-instructions",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    },
+    {
+      "aliases": [],
+      "effect": "Longest a call to a local server may run while it keeps reporting progress, in milliseconds (1 to 86400000), or default",
+      "escalates": false,
+      "hidden": false,
+      "name": "--max-request-timeout-ms",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    }
+  ],
+  "group": "server",
+  "id": "server edit",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "server",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["server", "edit"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Change a server's command, args, url, cwd, plain env or --inherit-env",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["servers_update_config"]
+}

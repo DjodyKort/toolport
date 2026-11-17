@@ -1,0 +1,7 @@
+{
+  "command": "skills audit",
+  "dryRun": "none",
+  "name": "skills_audit",
+  "tier": "read",
+  "toolTier": 1
+}

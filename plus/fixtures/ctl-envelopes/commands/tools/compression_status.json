@@ -1,0 +1,7 @@
+{
+  "command": "compression status",
+  "dryRun": "none",
+  "name": "compression_status",
+  "tier": "read",
+  "toolTier": 1
+}

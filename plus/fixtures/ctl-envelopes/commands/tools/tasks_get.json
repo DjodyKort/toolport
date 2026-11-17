@@ -1,0 +1,7 @@
+{
+  "command": "task show",
+  "dryRun": "none",
+  "name": "tasks_get",
+  "tier": "read",
+  "toolTier": 1
+}

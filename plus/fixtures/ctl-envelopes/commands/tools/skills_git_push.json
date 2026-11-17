@@ -1,0 +1,7 @@
+{
+  "command": null,
+  "dryRun": "none",
+  "name": "skills_git_push",
+  "tier": "destructive",
+  "toolTier": 4
+}

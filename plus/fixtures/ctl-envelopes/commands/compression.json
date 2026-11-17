@@ -1,0 +1,22 @@
+{
+  "baseTier": null,
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "compression",
+  "id": "compression",
+  "kind": "group",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["compression"],
+  "planned": false,
+  "preview": null,
+  "summary": "Compression: status presets enable disable set-provider use sync pin seal env doctor run verify ledger proxy update",
+  "surface": null,
+  "tier": null,
+  "tools": []
+}

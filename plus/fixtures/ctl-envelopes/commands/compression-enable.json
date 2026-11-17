@@ -1,0 +1,105 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Compression provider: headroom, rtk-only, parsec or none",
+      "escalates": false,
+      "hidden": false,
+      "name": "--provider",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Proxy port of the active preset",
+      "escalates": false,
+      "hidden": false,
+      "name": "--port",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    },
+    {
+      "aliases": [],
+      "choices": ["on", "off"],
+      "effect": "Send compression telemetry",
+      "escalates": false,
+      "hidden": false,
+      "name": "--telemetry",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    },
+    {
+      "aliases": [],
+      "effect": "Preset name",
+      "escalates": false,
+      "hidden": false,
+      "name": "--preset",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "choices": ["cache", "token"],
+      "effect": "Compression mode of the preset",
+      "escalates": false,
+      "hidden": false,
+      "name": "--mode",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    },
+    {
+      "aliases": [],
+      "effect": "Name the provider to accept that its closed engine sends code off this machine; asked for parsec only",
+      "escalates": false,
+      "hidden": false,
+      "name": "--accept-egress",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Show the plan and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "compression",
+  "id": "compression enable",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": "compression",
+  "path": ["compression", "enable"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Enable a provider (--provider, --port, --telemetry, --preset, --mode, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["compression_enable"]
+}

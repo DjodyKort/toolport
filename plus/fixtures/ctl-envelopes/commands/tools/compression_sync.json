@@ -1,0 +1,7 @@
+{
+  "command": "compression sync",
+  "dryRun": "default-on",
+  "name": "compression_sync",
+  "tier": "write",
+  "toolTier": 3
+}

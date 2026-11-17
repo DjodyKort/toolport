@@ -1,0 +1,7 @@
+{
+  "command": "compression set-provider",
+  "dryRun": "default-on",
+  "name": "compression_set_provider",
+  "tier": "write",
+  "toolTier": 3
+}

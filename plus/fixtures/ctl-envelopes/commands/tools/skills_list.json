@@ -1,0 +1,7 @@
+{
+  "command": "skills ls",
+  "dryRun": "none",
+  "name": "skills_list",
+  "tier": "read",
+  "toolTier": 1
+}

@@ -1,0 +1,7 @@
+{
+  "command": "doctor",
+  "dryRun": "none",
+  "name": "doctor",
+  "tier": "read",
+  "toolTier": 1
+}

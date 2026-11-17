@@ -1,0 +1,59 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": ["--repo"],
+      "effect": "Repository folder (default: the configured one)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--path",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Home directory override (test seam; the GUI never passes it)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--home",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Exit 1 when synced outputs drifted",
+      "escalates": false,
+      "hidden": false,
+      "name": "--strict",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "agents",
+  "id": "agents status",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["agents", "status"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Show whether synced agent outputs still exist; --strict exits 1 on drift (--path, --home)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["agents_status"]
+}

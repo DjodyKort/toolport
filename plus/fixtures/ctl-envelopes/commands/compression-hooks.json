@@ -1,0 +1,22 @@
+{
+  "baseTier": null,
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "compression",
+  "id": "compression hooks",
+  "kind": "group",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": "compression",
+  "path": ["compression", "hooks"],
+  "planned": false,
+  "preview": null,
+  "summary": "Own the rtk and read-once hook entries: status apply undo pause resume (--dry-run, --provider)",
+  "surface": null,
+  "tier": null,
+  "tools": []
+}

@@ -1,0 +1,43 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Folder the command is meant for; the settings file is the same everywhere",
+      "escalates": false,
+      "hidden": false,
+      "name": "--cwd",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    }
+  ],
+  "group": "context",
+  "id": "context bundle launch",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "name",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["context", "bundle", "launch"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Write the --settings file of a bundle and print the claude command (<name>, --cwd)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

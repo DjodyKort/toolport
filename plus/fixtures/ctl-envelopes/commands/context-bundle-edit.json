@@ -1,0 +1,153 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "One line about the bundle",
+      "escalates": false,
+      "hidden": false,
+      "name": "--description",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Comma list of skills (globs allowed) the bundle turns off",
+      "escalates": false,
+      "hidden": false,
+      "name": "--skills-off",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Comma list of skills the bundle keeps as a name without the description",
+      "escalates": false,
+      "hidden": false,
+      "name": "--skills-name-only",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Comma list of skills to keep; every other library skill is turned off",
+      "escalates": false,
+      "hidden": false,
+      "name": "--skills-allow",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Comma list of plugin ids (name@marketplace) the bundle turns off",
+      "escalates": false,
+      "hidden": false,
+      "name": "--plugins-off",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Comma list of rule layers added to the folder's CLAUDE.local.md",
+      "escalates": false,
+      "hidden": false,
+      "name": "--layers-add",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Comma list of CLAUDE.md globs added to claudeMdExcludes",
+      "escalates": false,
+      "hidden": false,
+      "name": "--layers-exclude",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Comma list of agents the bundle denies",
+      "escalates": false,
+      "hidden": false,
+      "name": "--agents-off",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Access set paired with the bundle (empty removes the pairing)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--servers",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Comma list of folder patterns the bundle is meant for (used by auto-apply)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--bind",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Show the plan and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "context",
+  "id": "context bundle edit",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "name",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["context", "bundle", "edit"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Change a bundle; each given list replaces that list (<name>, same flags as add, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

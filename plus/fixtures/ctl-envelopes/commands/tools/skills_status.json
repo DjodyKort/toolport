@@ -1,0 +1,7 @@
+{
+  "command": "skills status",
+  "dryRun": "none",
+  "name": "skills_status",
+  "tier": "read",
+  "toolTier": 1
+}

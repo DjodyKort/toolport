@@ -1,0 +1,7 @@
+{
+  "command": "library pull",
+  "dryRun": "default-on",
+  "name": "library_pull",
+  "tier": "write",
+  "toolTier": 2
+}

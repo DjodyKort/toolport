@@ -1,0 +1,7 @@
+{
+  "command": "context measure",
+  "dryRun": "none",
+  "name": "context_measure",
+  "tier": "write",
+  "toolTier": 2
+}

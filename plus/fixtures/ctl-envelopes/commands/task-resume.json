@@ -1,0 +1,31 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "task",
+  "id": "task resume",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "runId",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["task", "resume"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Continue a run that waits for you (<run-id>)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

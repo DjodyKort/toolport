@@ -1,0 +1,31 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "context",
+  "id": "context bundle show",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "name",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["context", "bundle", "show"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Show one bundle's definition and lint (<name>)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": []
+}

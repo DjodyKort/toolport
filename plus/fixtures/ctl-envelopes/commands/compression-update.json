@@ -1,0 +1,59 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Move the pin to the newest engine release",
+      "escalates": false,
+      "hidden": false,
+      "name": "--latest",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Apply the pin change",
+      "escalates": true,
+      "hidden": false,
+      "name": "--accept",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Engine version to pin",
+      "escalates": false,
+      "hidden": false,
+      "name": "--to",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    }
+  ],
+  "group": "compression",
+  "id": "compression update",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": ["network", "long-running"],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": "compression",
+  "path": ["compression", "update"],
+  "planned": false,
+  "preview": {
+    "flag": "--accept",
+    "mode": "unless-applied"
+  },
+  "summary": "Move the engine pin (--to V | --latest, --accept to apply)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

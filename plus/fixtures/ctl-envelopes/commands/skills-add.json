@@ -1,0 +1,77 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": ["--repo"],
+      "effect": "Skills repository (default: the configured one)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--path",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "choices": ["skill", "rule"],
+      "effect": "Create a skill or a rule",
+      "escalates": false,
+      "hidden": false,
+      "name": "--type",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    },
+    {
+      "aliases": [],
+      "effect": "Also create modules, reference, templates and examples folders",
+      "escalates": false,
+      "hidden": false,
+      "name": "--with-progressive",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Report what would be created",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "skills",
+  "id": "skills add",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "name",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["skills", "add"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Create a skill or rule from a template (<name>, --type, --path, --with-progressive, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["skills_scaffold"]
+}

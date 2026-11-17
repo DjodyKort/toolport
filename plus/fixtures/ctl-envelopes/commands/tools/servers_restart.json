@@ -1,0 +1,7 @@
+{
+  "command": "server restart",
+  "dryRun": "default-on",
+  "name": "servers_restart",
+  "tier": "write",
+  "toolTier": 3
+}

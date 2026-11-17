@@ -1,0 +1,92 @@
+{
+  "baseTier": "destructive",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": ["--repo"],
+      "effect": "Skills repository (default: the configured one)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--path",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Home folder the outputs live under",
+      "escalates": false,
+      "hidden": false,
+      "name": "--home",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Only this client key",
+      "escalates": false,
+      "hidden": false,
+      "name": "--client",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Clean the project outputs",
+      "escalates": false,
+      "hidden": false,
+      "name": "--project",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Clean the user outputs (the default)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--global",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Report what would be removed",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "skills",
+  "id": "skills clean",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["skills", "clean"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Remove synced outputs and the lockfile (--repo, --home, --client <key>, --project, --dry-run)",
+  "surface": "screen",
+  "tier": "destructive",
+  "tools": ["skills_clean"]
+}

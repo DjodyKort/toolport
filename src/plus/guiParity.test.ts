@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { SETTINGS_PAGES } from "@/lib/settingsPages";
+import { commandsGolden } from "./fixtures/commandsGolden";
 import { guiParity, type GuiParityManifest } from "./guiParity";
 import {
   checkParity,
@@ -19,10 +20,7 @@ const files = {
 };
 
 function snapshot(): RegistrySnapshot {
-  const envelope = JSON.parse(
-    readFileSync(join(repo, "plus/fixtures/ctl-envelopes/commands.json"), "utf8"),
-  );
-  return envelope.envelope.data;
+  return commandsGolden.envelope.data;
 }
 
 /** The slices whose screen is built; their rows must all be on a built action. */

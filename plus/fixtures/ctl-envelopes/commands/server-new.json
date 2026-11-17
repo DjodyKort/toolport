@@ -1,0 +1,111 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Program to run; makes the server a local (stdio) one",
+      "escalates": false,
+      "hidden": false,
+      "name": "--command",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "One argument for the program (repeatable, in order)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--arg",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "A plain KEY=VALUE for the process (repeatable); a credential is refused, use secret set",
+      "escalates": false,
+      "hidden": false,
+      "name": "--env",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Endpoint of a remote server (http or https)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--url",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "choices": ["http", "sse"],
+      "effect": "Transport of a remote server; http unless the URL is an SSE one",
+      "escalates": false,
+      "hidden": false,
+      "name": "--transport",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    },
+    {
+      "aliases": [],
+      "effect": "Working directory of the process",
+      "escalates": false,
+      "hidden": false,
+      "name": "--cwd",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "choices": ["on", "off"],
+      "effect": "Give the process the whole shell environment; off keeps the fixed set (PATH, HOME, locale, certificates) plus its own entries",
+      "escalates": false,
+      "hidden": false,
+      "name": "--inherit-env",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    }
+  ],
+  "group": "server",
+  "id": "server new",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [["--command", "--url"]],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "name",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["server", "new"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Add a server <name> from a command or a URL, with plain env and --inherit-env",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["servers_install"]
+}

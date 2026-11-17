@@ -1,0 +1,7 @@
+{
+  "command": "task history",
+  "dryRun": "none",
+  "name": "tasks_history",
+  "tier": "read",
+  "toolTier": 1
+}

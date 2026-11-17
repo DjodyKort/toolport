@@ -1,0 +1,7 @@
+{
+  "command": "agents sync",
+  "dryRun": "default-on",
+  "name": "agents_sync",
+  "tier": "write",
+  "toolTier": 2
+}

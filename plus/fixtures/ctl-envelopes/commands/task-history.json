@@ -1,0 +1,54 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Show this one run with its step logs",
+      "escalates": false,
+      "hidden": false,
+      "name": "--run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Show at most this many results",
+      "escalates": false,
+      "hidden": false,
+      "name": "--limit",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    }
+  ],
+  "group": "task",
+  "id": "task history",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "id",
+      "required": false,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["task", "history"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "List the runs of a task, or one run with its step logs ([<id>], --run, --limit)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["tasks_history"]
+}

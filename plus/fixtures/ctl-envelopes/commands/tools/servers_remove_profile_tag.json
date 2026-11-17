@@ -1,0 +1,7 @@
+{
+  "command": null,
+  "dryRun": "none",
+  "name": "servers_remove_profile_tag",
+  "tier": "write",
+  "toolTier": 2
+}

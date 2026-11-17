@@ -1,0 +1,7 @@
+{
+  "command": "skills uninstall",
+  "dryRun": "default-on",
+  "name": "skills_uninstall",
+  "tier": "destructive",
+  "toolTier": 4
+}

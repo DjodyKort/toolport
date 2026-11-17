@@ -1,0 +1,7 @@
+{
+  "command": "skills tap ls",
+  "dryRun": "none",
+  "name": "skills_tap_list",
+  "tier": "read",
+  "toolTier": 1
+}

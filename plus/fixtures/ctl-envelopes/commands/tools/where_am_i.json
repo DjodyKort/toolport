@@ -1,0 +1,7 @@
+{
+  "command": null,
+  "dryRun": "none",
+  "name": "where_am_i",
+  "tier": "read",
+  "toolTier": 1
+}

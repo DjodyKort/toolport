@@ -1,0 +1,48 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Server id",
+      "escalates": false,
+      "hidden": false,
+      "name": "--server",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Probe every server, not only the ones that are due",
+      "escalates": false,
+      "hidden": false,
+      "name": "--force",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "auth",
+  "id": "auth probe",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": ["network"],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["auth", "probe"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Probe login health now (--server <id>, --force)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": []
+}

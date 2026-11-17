@@ -1,0 +1,54 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "The complete new task definition (JSON), or - to read it from stdin; the id inside must equal <id>",
+      "escalates": false,
+      "hidden": false,
+      "name": "--file",
+      "repeatable": false,
+      "required": true,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Preview the change and write nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "task",
+  "id": "task edit",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "id",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["task", "edit"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Replace a task's definition (<id>, --file, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

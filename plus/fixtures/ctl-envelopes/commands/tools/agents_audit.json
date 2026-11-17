@@ -1,0 +1,7 @@
+{
+  "command": "agents audit",
+  "dryRun": "none",
+  "name": "agents_audit",
+  "tier": "read",
+  "toolTier": 1
+}

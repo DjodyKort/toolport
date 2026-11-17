@@ -1,0 +1,7 @@
+{
+  "command": "compression use",
+  "dryRun": "default-on",
+  "name": "compression_use",
+  "tier": "write",
+  "toolTier": 3
+}

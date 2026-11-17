@@ -1,0 +1,59 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Skills repository (default: the configured one)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--repo",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Home folder used to judge what Claude Code can read",
+      "escalates": false,
+      "hidden": false,
+      "name": "--home",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Only the items of this source (library, repo:odh, plugin:ecc@ecc)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--source",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    }
+  ],
+  "group": "skills",
+  "id": "skills ls",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["skills", "ls"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "List skills and rules (--repo <dir>, --home <dir>, --source <id>)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["skills_list"]
+}

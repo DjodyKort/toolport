@@ -1,0 +1,7 @@
+{
+  "command": "context status",
+  "dryRun": "none",
+  "name": "context_status",
+  "tier": "read",
+  "toolTier": 1
+}

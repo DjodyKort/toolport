@@ -1,0 +1,7 @@
+{
+  "command": "server ls",
+  "dryRun": "none",
+  "name": "servers_list",
+  "tier": "read",
+  "toolTier": 1
+}

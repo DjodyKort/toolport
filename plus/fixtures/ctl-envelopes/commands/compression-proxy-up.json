@@ -1,0 +1,25 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "compression",
+  "id": "compression proxy up",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": ["long-running"],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": "compression proxy",
+  "path": ["compression", "proxy", "up"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Start the local compression proxy",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

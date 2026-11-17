@@ -1,0 +1,49 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Show what would be wrapped and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "choices": ["rtk", "read-once"],
+      "effect": "Wrap only this provider's entry",
+      "escalates": false,
+      "hidden": false,
+      "name": "--provider",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "choice"
+    }
+  ],
+  "group": "compression",
+  "id": "compression hooks apply",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": "compression hooks",
+  "path": ["compression", "hooks", "apply"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Wrap the existing rtk and read-once entries (--provider, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

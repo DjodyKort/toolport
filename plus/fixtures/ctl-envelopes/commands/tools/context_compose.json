@@ -1,0 +1,7 @@
+{
+  "command": "context compose",
+  "dryRun": "none",
+  "name": "context_compose",
+  "tier": "read",
+  "toolTier": 1
+}

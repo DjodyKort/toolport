@@ -1,0 +1,7 @@
+{
+  "command": "agents add",
+  "dryRun": "none",
+  "name": "agents_scaffold",
+  "tier": "write",
+  "toolTier": 2
+}

@@ -1,0 +1,25 @@
+{
+  "baseTier": "destructive",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "mcp",
+  "id": "mcp uninstall",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": "mcp",
+  "path": ["mcp", "uninstall"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Remove the self-management server and keep it removed",
+  "surface": "screen",
+  "tier": "destructive",
+  "tools": []
+}

@@ -1,0 +1,31 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "compression",
+  "id": "compression hook",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": ["terminal-only"],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "command",
+      "required": false,
+      "variadic": true
+    }
+  ],
+  "parent": "compression",
+  "path": ["compression", "hook"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "The wrapper a hook entry runs: <provider> -- <command...> (counts the call, passes the answer through)",
+  "surface": "terminal",
+  "tier": "write",
+  "tools": []
+}

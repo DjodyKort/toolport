@@ -15,6 +15,7 @@ use std::process::{Command, Stdio};
 
 use serde_json::{json, Value};
 use toolport_plus::ctl::{registry, rows, Smoke, Tier, COMMANDS, SCHEMA_VERSION};
+use toolport_plus::selfmcp::TOOLS;
 
 mod common;
 use common::compression::{fake_proxy, rtk_home, transcripts};
@@ -2212,14 +2213,16 @@ fn run_case(case: &Case) {
         }
         let stem = stem(case, step);
         if step.golden {
-            golden::assert_golden(
-                &stem,
-                &json!({
-                    "argv": step.argv,
-                    "exitCode": step.exit,
-                    "envelope": scrub(&normalize::normalize(&world, &envelope)),
-                }),
-            );
+            let value = json!({
+                "argv": step.argv,
+                "exitCode": step.exit,
+                "envelope": scrub(&normalize::normalize(&world, &envelope)),
+            });
+            if stem == "commands" {
+                golden::assert_commands_golden(&value);
+            } else {
+                golden::assert_golden(&stem, &value);
+            }
         }
     }
 }
@@ -2289,6 +2292,36 @@ fn every_case_names_a_command_and_every_golden_belongs_to_a_case() {
         let stem = name.strip_suffix(".json").unwrap_or(&name);
         assert!(owned.contains(stem), "golden {name} belongs to no case");
     }
+}
+
+#[test]
+fn the_registry_lists_tools_and_commands_in_table_order() {
+    let data = registry();
+    let tools: Vec<&str> = data["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| row["name"].as_str().unwrap())
+        .collect();
+    let table: Vec<&str> = TOOLS.iter().map(|tool| tool.name).collect();
+    assert_eq!(tools, table);
+
+    let heads: Vec<String> = COMMANDS.iter().map(|c| c.path.join(" ")).collect();
+    let mut next = 0;
+    let mut head = "";
+    for row in data["commands"].as_array().unwrap() {
+        let id = row["id"].as_str().unwrap();
+        if heads.get(next).is_some_and(|h| h == id) {
+            head = id;
+            next += 1;
+        } else {
+            assert!(
+                !heads.iter().any(|h| h == id) && id.starts_with(&format!("{head} ")),
+                "`{id}` does not follow its command `{head}` in table order"
+            );
+        }
+    }
+    assert_eq!(next, heads.len(), "every command row is listed once");
 }
 
 #[test]
@@ -2459,13 +2492,13 @@ fn data_dir_flag_points_the_command_at_another_data_dir() {
 
 #[test]
 fn a_secret_key_never_shows_in_any_golden() {
-    for entry in std::fs::read_dir(golden::root()).unwrap().flatten() {
-        let text = std::fs::read_to_string(entry.path()).unwrap();
+    for path in golden::json_files(&golden::root()) {
+        let text = std::fs::read_to_string(&path).unwrap();
         for secret in [FAKE_SECRET, SECRET_KEY, VAULTED] {
             assert!(
                 !text.contains(secret),
                 "golden {} contains a secret value",
-                entry.path().display()
+                path.display()
             );
         }
     }

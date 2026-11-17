@@ -1,0 +1,7 @@
+{
+  "command": "server new",
+  "dryRun": "none",
+  "name": "servers_install",
+  "tier": "write",
+  "toolTier": 3
+}

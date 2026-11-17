@@ -1,0 +1,70 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Group the measured sessions by engine pin",
+      "escalates": false,
+      "hidden": false,
+      "name": "--by-pin",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Newest transcripts to read",
+      "escalates": false,
+      "hidden": false,
+      "name": "--limit",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    },
+    {
+      "aliases": [],
+      "effect": "Sessions with fewer turns are left out",
+      "escalates": false,
+      "hidden": false,
+      "name": "--min-turns",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "integer"
+    },
+    {
+      "aliases": [],
+      "effect": "Directory of Claude Code transcripts to measure",
+      "escalates": false,
+      "hidden": false,
+      "name": "--transcripts",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    }
+  ],
+  "group": "compression",
+  "id": "compression verify",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": ["long-running"],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": "compression",
+  "path": ["compression", "verify"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Check provider health, pin, shims and measure cache behaviour",
+  "surface": "screen",
+  "tier": "read",
+  "tools": []
+}

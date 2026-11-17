@@ -1,0 +1,22 @@
+{
+  "baseTier": null,
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "compression",
+  "id": "compression proxy",
+  "kind": "group",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": "compression",
+  "path": ["compression", "proxy"],
+  "planned": false,
+  "preview": null,
+  "summary": "Proxy lifecycle: up, down, restart",
+  "surface": null,
+  "tier": null,
+  "tools": []
+}

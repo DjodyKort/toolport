@@ -1,0 +1,7 @@
+{
+  "command": "skills search",
+  "dryRun": "none",
+  "name": "skills_search",
+  "tier": "read",
+  "toolTier": 1
+}

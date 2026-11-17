@@ -1,0 +1,7 @@
+{
+  "command": "skills bundle",
+  "dryRun": "default-on",
+  "name": "skills_bundle",
+  "tier": "write",
+  "toolTier": 2
+}

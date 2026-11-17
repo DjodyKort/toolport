@@ -1,0 +1,65 @@
+{
+  "baseTier": "destructive",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Show what would be removed and change nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Leave client entries alone; none exist per server on the gateway, direct entries are handled with them",
+      "escalates": false,
+      "hidden": false,
+      "name": "--keep-clients",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Leave the server's vault entries in place",
+      "escalates": false,
+      "hidden": false,
+      "name": "--keep-secrets",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "server",
+  "id": "server uninstall",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "server",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["server", "uninstall"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Remove a server and its vault entries [--dry-run] [--keep-secrets]",
+  "surface": "screen",
+  "tier": "destructive",
+  "tools": ["servers_uninstall"]
+}

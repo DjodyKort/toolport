@@ -1,0 +1,7 @@
+{
+  "command": "skills resolve",
+  "dryRun": "default-on",
+  "name": "skills_resolve",
+  "tier": "write",
+  "toolTier": 3
+}

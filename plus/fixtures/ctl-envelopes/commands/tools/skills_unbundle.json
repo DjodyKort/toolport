@@ -1,0 +1,7 @@
+{
+  "command": "skills unbundle",
+  "dryRun": "default-on",
+  "name": "skills_unbundle",
+  "tier": "write",
+  "toolTier": 3
+}

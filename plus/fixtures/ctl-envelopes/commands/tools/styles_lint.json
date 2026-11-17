@@ -1,0 +1,7 @@
+{
+  "command": "styles lint",
+  "dryRun": "none",
+  "name": "styles_lint",
+  "tier": "read",
+  "toolTier": 1
+}

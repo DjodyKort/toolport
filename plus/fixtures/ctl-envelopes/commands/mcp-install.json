@@ -1,0 +1,37 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": ["--profile"],
+      "effect": "Access set to list the self-management server in, whatever was decided before (--profile is the old spelling)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--access-set",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    }
+  ],
+  "group": "mcp",
+  "id": "mcp install",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": "mcp",
+  "path": ["mcp", "install"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Register the self-management server and list it in the access sets clients use (--access-set)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

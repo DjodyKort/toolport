@@ -1,0 +1,48 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Compression provider: headroom, rtk-only, parsec or none",
+      "escalates": false,
+      "hidden": false,
+      "name": "--provider",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Only records from this date on",
+      "escalates": false,
+      "hidden": false,
+      "name": "--since",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    }
+  ],
+  "group": "compression",
+  "id": "compression ledger summary",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": "compression ledger",
+  "path": ["compression", "ledger", "summary"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Summarise the token-savings ledger (--provider, --since)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": []
+}

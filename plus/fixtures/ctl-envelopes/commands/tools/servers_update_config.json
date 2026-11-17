@@ -1,0 +1,7 @@
+{
+  "command": "server edit",
+  "dryRun": "none",
+  "name": "servers_update_config",
+  "tier": "write",
+  "toolTier": 3
+}

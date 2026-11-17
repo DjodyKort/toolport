@@ -1,0 +1,7 @@
+{
+  "command": "agents diff",
+  "dryRun": "none",
+  "name": "agents_diff",
+  "tier": "read",
+  "toolTier": 1
+}

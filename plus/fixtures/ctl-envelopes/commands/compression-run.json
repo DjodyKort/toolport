@@ -1,0 +1,65 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Print what would run instead of launching",
+      "escalates": false,
+      "hidden": false,
+      "name": "--plan",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Launch even when the installed engine does not match the pin",
+      "escalates": false,
+      "hidden": false,
+      "name": "--force",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Directory whose policy applies",
+      "escalates": false,
+      "hidden": false,
+      "name": "--cwd",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    }
+  ],
+  "group": "compression",
+  "id": "compression run",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": ["terminal-only", "long-running"],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "claude-args",
+      "required": false,
+      "variadic": true
+    }
+  ],
+  "parent": "compression",
+  "path": ["compression", "run"],
+  "planned": false,
+  "preview": {
+    "flag": "--plan",
+    "mode": "flag"
+  },
+  "summary": "Launch claude under the directory's policy (--plan to preview)",
+  "surface": "terminal",
+  "tier": "write",
+  "tools": []
+}

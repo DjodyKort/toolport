@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { resetPlusFixture } from "../fixtures/ipc";
 import { guiParity } from "../guiParity";
-import commandsGolden from "../../../plus/fixtures/ctl-envelopes/commands.json";
+import { commandsGolden } from "../fixtures/commandsGolden";
 import toolsGolden from "../../../plus/fixtures/ctl-envelopes/mcp-tools.json";
 import ToolportPlusPage from "./ToolportPlusPage";
 import { getRegistryMock, registryWithSets } from "./testkit";

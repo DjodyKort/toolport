@@ -1,0 +1,7 @@
+{
+  "command": "skills tap update",
+  "dryRun": "default-on",
+  "name": "skills_tap_update",
+  "tier": "write",
+  "toolTier": 2
+}

@@ -1,0 +1,136 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "Skills repository (default: the configured one)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--repo",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Home folder the outputs go under (default: the user home)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--home",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Client key to sync to (repeatable); default: the clients of the lock, else claude-code",
+      "escalates": false,
+      "hidden": false,
+      "name": "--client",
+      "repeatable": true,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    },
+    {
+      "aliases": [],
+      "effect": "Write inside the repository instead of the user folder",
+      "escalates": false,
+      "hidden": false,
+      "name": "--project",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Write to the user folder (the default)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--global",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Report the plan and write nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Back up and replace files that shadow a synced skill",
+      "escalates": false,
+      "hidden": false,
+      "name": "--migrate",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Only report files that shadow a synced skill",
+      "escalates": false,
+      "hidden": false,
+      "name": "--no-migrate",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Also remove files that left the library, install new hooks and replace files that differ (after a backup); without it they wait",
+      "escalates": false,
+      "hidden": false,
+      "name": "--apply-held",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "Also install hooks of skills that came from a tap (with --apply-held)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--allow-tap-hooks",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "skills",
+  "id": "skills sync",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["skills", "sync"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run, --apply-held)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["skills_sync"]
+}

@@ -1,0 +1,31 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "task",
+  "id": "task cancel",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "runId",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["task", "cancel"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Stop a run and its child process (<run-id>)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["tasks_cancel"]
+}

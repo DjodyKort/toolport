@@ -1,0 +1,7 @@
+{
+  "command": "skills clean",
+  "dryRun": "default-on",
+  "name": "skills_clean",
+  "tier": "destructive",
+  "toolTier": 4
+}

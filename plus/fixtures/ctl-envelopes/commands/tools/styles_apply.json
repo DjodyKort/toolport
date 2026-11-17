@@ -1,0 +1,7 @@
+{
+  "command": "styles apply",
+  "dryRun": "default-on",
+  "name": "styles_apply",
+  "tier": "write",
+  "toolTier": 3
+}

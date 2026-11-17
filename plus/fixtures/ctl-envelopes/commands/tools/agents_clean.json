@@ -1,0 +1,7 @@
+{
+  "command": "agents clean",
+  "dryRun": "default-on",
+  "name": "agents_clean",
+  "tier": "destructive",
+  "toolTier": 4
+}

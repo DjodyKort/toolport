@@ -1,0 +1,7 @@
+{
+  "command": "agents status",
+  "dryRun": "none",
+  "name": "agents_status",
+  "tier": "read",
+  "toolTier": 1
+}

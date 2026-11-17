@@ -1,0 +1,7 @@
+{
+  "command": "server info",
+  "dryRun": "none",
+  "name": "servers_get",
+  "tier": "read",
+  "toolTier": 1
+}

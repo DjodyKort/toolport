@@ -1,0 +1,7 @@
+{
+  "command": "styles status",
+  "dryRun": "none",
+  "name": "styles_status",
+  "tier": "read",
+  "toolTier": 1
+}

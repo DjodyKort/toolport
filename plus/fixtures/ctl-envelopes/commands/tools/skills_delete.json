@@ -1,0 +1,7 @@
+{
+  "command": null,
+  "dryRun": "none",
+  "name": "skills_delete",
+  "tier": "write",
+  "toolTier": 3
+}

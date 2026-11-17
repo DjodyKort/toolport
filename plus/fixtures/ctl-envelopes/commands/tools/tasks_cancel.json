@@ -1,0 +1,7 @@
+{
+  "command": "task cancel",
+  "dryRun": "none",
+  "name": "tasks_cancel",
+  "tier": "write",
+  "toolTier": 2
+}

@@ -1,0 +1,65 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": true,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "A task definition (JSON), or - to read it from stdin; the id inside must equal <id>",
+      "escalates": false,
+      "hidden": false,
+      "name": "--file",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "A Claude command file to turn into a disabled draft (a prompt step plus needs-you markers)",
+      "escalates": false,
+      "hidden": false,
+      "name": "--from-command",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "path"
+    },
+    {
+      "aliases": [],
+      "effect": "Preview the change and write nothing",
+      "escalates": false,
+      "hidden": false,
+      "name": "--dry-run",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
+    }
+  ],
+  "group": "task",
+  "id": "task add",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [["--file", "--from-command"]],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "id",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["task", "add"],
+  "planned": false,
+  "preview": {
+    "flag": "--dry-run",
+    "mode": "flag"
+  },
+  "summary": "Add a task from a definition file or a Claude command file (<id>, --file, --from-command, --dry-run)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

@@ -1,0 +1,7 @@
+{
+  "command": "agents ls",
+  "dryRun": "none",
+  "name": "agents_list",
+  "tier": "read",
+  "toolTier": 1
+}

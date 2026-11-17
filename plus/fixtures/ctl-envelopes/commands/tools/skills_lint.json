@@ -1,0 +1,7 @@
+{
+  "command": "skills lint",
+  "dryRun": "none",
+  "name": "skills_lint",
+  "tier": "read",
+  "toolTier": 1
+}

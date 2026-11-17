@@ -1,0 +1,7 @@
+{
+  "command": "skills install",
+  "dryRun": "default-on",
+  "name": "skills_install",
+  "tier": "write",
+  "toolTier": 2
+}

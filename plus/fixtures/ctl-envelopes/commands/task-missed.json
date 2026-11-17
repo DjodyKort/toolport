@@ -1,0 +1,31 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "task",
+  "id": "task missed",
+  "kind": "command",
+  "maxOperands": 1,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "id",
+      "required": false,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["task", "missed"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "List the scheduled slots that did not start a run on time, newest first ([<id>])",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["tasks_missed"]
+}

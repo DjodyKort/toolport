@@ -1,0 +1,7 @@
+{
+  "command": "agents lint",
+  "dryRun": "none",
+  "name": "agents_lint",
+  "tier": "read",
+  "toolTier": 1
+}

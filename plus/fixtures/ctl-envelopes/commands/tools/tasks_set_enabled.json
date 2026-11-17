@@ -1,0 +1,7 @@
+{
+  "command": "task enable",
+  "dryRun": "param",
+  "name": "tasks_set_enabled",
+  "tier": "write",
+  "toolTier": 2
+}

@@ -1,0 +1,7 @@
+{
+  "command": "context bundle undo",
+  "dryRun": "param",
+  "name": "context_bundle_undo",
+  "tier": "write",
+  "toolTier": 2
+}

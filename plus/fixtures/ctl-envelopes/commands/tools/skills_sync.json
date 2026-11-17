@@ -1,0 +1,7 @@
+{
+  "command": "skills sync",
+  "dryRun": "default-on",
+  "name": "skills_sync",
+  "tier": "write",
+  "toolTier": 2
+}

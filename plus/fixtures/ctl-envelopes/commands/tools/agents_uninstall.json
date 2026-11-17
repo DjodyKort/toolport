@@ -1,0 +1,7 @@
+{
+  "command": "agents uninstall",
+  "dryRun": "default-on",
+  "name": "agents_uninstall",
+  "tier": "destructive",
+  "toolTier": 4
+}

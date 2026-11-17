@@ -1,0 +1,7 @@
+{
+  "command": "context bundle ls",
+  "dryRun": "none",
+  "name": "context_bundle_ls",
+  "tier": "read",
+  "toolTier": 1
+}

@@ -1,0 +1,7 @@
+{
+  "command": "task ls",
+  "dryRun": "none",
+  "name": "tasks_list",
+  "tier": "read",
+  "toolTier": 1
+}

@@ -1,0 +1,7 @@
+{
+  "command": "library status",
+  "dryRun": "none",
+  "name": "library_status",
+  "tier": "read",
+  "toolTier": 1
+}

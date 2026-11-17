@@ -1,0 +1,37 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [
+    {
+      "aliases": [],
+      "effect": "on or off: whether context sync applies bound bundles",
+      "escalates": true,
+      "hidden": false,
+      "name": "--auto-apply",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "string"
+    }
+  ],
+  "group": "context",
+  "id": "context bundle config",
+  "kind": "command",
+  "maxOperands": 0,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["context", "bundle", "config"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Show or set whether context sync applies bound bundles (--auto-apply on|off)",
+  "surface": "screen",
+  "tier": "write",
+  "tools": []
+}

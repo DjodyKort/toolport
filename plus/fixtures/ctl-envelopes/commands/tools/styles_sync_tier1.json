@@ -1,0 +1,7 @@
+{
+  "command": "styles sync",
+  "dryRun": "default-on",
+  "name": "styles_sync_tier1",
+  "tier": "write",
+  "toolTier": 2
+}

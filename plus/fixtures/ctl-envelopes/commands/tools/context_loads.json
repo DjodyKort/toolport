@@ -1,0 +1,7 @@
+{
+  "command": "context loads",
+  "dryRun": "none",
+  "name": "context_loads",
+  "tier": "read",
+  "toolTier": 1
+}

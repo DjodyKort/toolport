@@ -1,0 +1,7 @@
+{
+  "command": "skills tap remove",
+  "dryRun": "default-on",
+  "name": "skills_tap_remove",
+  "tier": "write",
+  "toolTier": 2
+}

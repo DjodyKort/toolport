@@ -9,6 +9,7 @@ import type {
   McpToolsData,
   StatusData,
 } from "./data";
+import { commandsGolden } from "../fixtures/commandsGolden";
 
 const dir = join(__dirname, "../../../plus/fixtures/ctl-envelopes");
 
@@ -19,9 +20,10 @@ interface Golden {
 }
 
 function goldens(): Golden[] {
-  return readdirSync(dir)
+  const files = readdirSync(dir)
     .filter((file) => file.endsWith(".json"))
     .map((file) => JSON.parse(readFileSync(join(dir, file), "utf8")) as Golden);
+  return [...files, commandsGolden];
 }
 
 const keys = (value: unknown) => Object.keys(value as object).sort();
@@ -116,7 +118,9 @@ describe("the envelope types match the Rust goldens", () => {
     );
     const tools = goldens().find((g) => g.argv.join(" ") === "mcp tools")!.envelope
       .data as McpToolsData;
-    expect(tools.tools.map((t) => t.name)).toEqual(registry.tools.map((t) => t.name));
+    expect(tools.tools.map((t) => t.name).sort()).toEqual(
+      registry.tools.map((t) => t.name).sort(),
+    );
     for (const tool of tools.tools) {
       expect(keys(tool)).toEqual(
         ["description", "dryRunDefault", "gate", "name", "params", "tier"].sort(),

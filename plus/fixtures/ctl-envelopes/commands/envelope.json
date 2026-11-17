@@ -1,0 +1,13 @@
+{
+  "argv": ["commands"],
+  "envelope": {
+    "command": "commands",
+    "data": {
+      "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
+      "tiers": ["read", "write", "destructive"]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

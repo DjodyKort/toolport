@@ -1,0 +1,31 @@
+{
+  "baseTier": "read",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "skills",
+  "id": "skills search",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "query",
+      "required": true,
+      "variadic": true
+    }
+  ],
+  "parent": null,
+  "path": ["skills", "search"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Search the taps for skills by name, description or tags (<query>)",
+  "surface": "screen",
+  "tier": "read",
+  "tools": ["skills_search"]
+}

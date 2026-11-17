@@ -1,0 +1,36 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "server",
+  "id": "server mode",
+  "kind": "command",
+  "maxOperands": 2,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [
+    {
+      "name": "server",
+      "required": true,
+      "variadic": false
+    },
+    {
+      "name": "mode",
+      "required": true,
+      "variadic": false
+    }
+  ],
+  "parent": null,
+  "path": ["server", "mode"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Choose whether a server's tools are listed (auto) or only searched (search): <server> auto|search",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["servers_set_mode"]
+}

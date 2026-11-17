@@ -1,0 +1,7 @@
+{
+  "command": "styles ls",
+  "dryRun": "none",
+  "name": "styles_list",
+  "tier": "read",
+  "toolTier": 1
+}

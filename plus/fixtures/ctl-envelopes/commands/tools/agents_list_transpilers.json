@@ -1,0 +1,7 @@
+{
+  "command": null,
+  "dryRun": "none",
+  "name": "agents_list_transpilers",
+  "tier": "read",
+  "toolTier": 1
+}
