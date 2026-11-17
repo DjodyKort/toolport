@@ -107,3 +107,5 @@
 # keeps the fixture registry's access sets and the fork's world one state: a toolportctl write shows on
 # upstream's Access page, and upstream's set_access_server shows in the compare table.
 8	src/test/browser-fixture.tsx
+# Fork test fixtures are verbatim inputs: prettier would rewrite the YAML quoting the skills tests check.
+3	.prettierignore

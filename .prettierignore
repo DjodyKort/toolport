@@ -15,3 +15,6 @@ src-tauri/gen/
 src-tauri/assets/search/tokenizer.json
 # Vendored model config whose bytes are documented by SHA256 in src-tauri/assets/search/README.md
 src-tauri/assets/search/config.json
+
+# Fork test fixtures are verbatim inputs (quoting and escapes are what the tests check).
+plus/core/tests/fixtures/
