@@ -167,6 +167,8 @@ pub fn skill_files(args: &Args) -> Result<Value, OpError> {
         allow_tap_hooks: false,
         clock: &SystemClock,
         settings: None,
+        unattended: false,
+        journal: None,
     };
     let plan = sync_skills(&skills, &registry, &opts)
         .map_err(|message| OpError::failed("skills", message))?
