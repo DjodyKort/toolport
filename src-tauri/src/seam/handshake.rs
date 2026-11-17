@@ -43,9 +43,18 @@ pub fn downstream_capabilities(server_id: &str) -> Value {
             .any(|server| server.id == server_id && opted_in(server))
     });
     if opted {
-        handshake::declaration_for_connect(server_id)
+        let declared = handshake::declaration_for_connect(server_id);
+        publish_declarations();
+        declared
     } else {
         json!({})
+    }
+}
+
+/// Lets `toolportctl server info` see what this process told its servers; it runs in another process.
+fn publish_declarations() {
+    if let Some(dir) = registry::conduit_dir() {
+        let _ = handshake::publish_state(&dir, &DECLARATIONS);
     }
 }
 
@@ -99,6 +108,9 @@ pub fn client_handshake(
             .and_then(|meta| meta.get(CLIENT_CAPABILITIES_META))
     };
     let changed = DECLARATIONS.note_client(declared);
+    if changed || is_initialize {
+        publish_declarations();
+    }
 
     let (opted, forwarding) = {
         let reg = registry.lock().unwrap_or_else(PoisonError::into_inner);
