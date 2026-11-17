@@ -6,6 +6,7 @@ import type {
   DoctorCheck,
   McpDoctorData,
 } from "../bridge/data";
+import { NO_LOGINS } from "../bridge/data";
 import {
   accessSetsLine,
   canRunCommand,
@@ -36,6 +37,7 @@ function overview(parts: {
         defaultAccess: "local",
         secretsBackend: "encrypted-file",
         gateway: { path: "/data/bin/gw", present: true },
+        auth: NO_LOGINS,
         registry: {
           path: "/data/registry.json",
           exists: true,

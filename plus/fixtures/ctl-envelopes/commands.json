@@ -613,6 +613,279 @@
           "tools": ["servers_restart"]
         },
         {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "auth",
+          "id": "auth statusline",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["auth", "statusline"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Compact login-health JSON for a Claude Code statusline",
+          "surface": "screen",
+          "tier": "read",
+          "tools": []
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "auth",
+          "id": "auth hook",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["auth", "hook"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Login-health JSON for a Claude Code SessionStart hook",
+          "surface": "screen",
+          "tier": "read",
+          "tools": []
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Server id",
+              "escalates": false,
+              "hidden": false,
+              "name": "--server",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "string"
+            },
+            {
+              "aliases": [],
+              "effect": "Probe every server, not only the ones that are due",
+              "escalates": false,
+              "hidden": false,
+              "name": "--force",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "auth",
+          "id": "auth probe",
+          "kind": "command",
+          "maxOperands": 0,
+          "needs": ["network"],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [],
+          "parent": null,
+          "path": ["auth", "probe"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Probe login health now (--server <id>, --force)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": []
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Do not open the browser; print the sign-in link",
+              "escalates": false,
+              "hidden": false,
+              "name": "--no-open",
+              "repeatable": false,
+              "required": false,
+              "sensitive": false,
+              "valueType": "bool"
+            }
+          ],
+          "group": "auth",
+          "id": "auth login",
+          "kind": "command",
+          "maxOperands": 1,
+          "needs": ["browser", "long-running", "network"],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "server",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["auth", "login"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Sign in to a server again (<server>, --no-open)",
+          "surface": "screen",
+          "tier": "write",
+          "tools": ["servers_auth"]
+        },
+        {
+          "baseTier": "write",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Name of an environment variable holding the value (the GUI sends it on stdin)",
+              "escalates": false,
+              "hidden": true,
+              "name": "--value-env",
+              "repeatable": false,
+              "required": false,
+              "sensitive": true,
+              "valueType": "string"
+            }
+          ],
+          "group": "secret",
+          "id": "secret set",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": ["stdin"],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "server",
+              "required": true,
+              "variadic": false
+            },
+            {
+              "name": "key",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["secret", "set"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Store a secret read from stdin or --value-env",
+          "surface": "screen",
+          "tier": "write",
+          "tools": []
+        },
+        {
+          "baseTier": "read",
+          "cost": false,
+          "dryRun": false,
+          "flags": [
+            {
+              "aliases": [],
+              "effect": "Print the secret value",
+              "escalates": false,
+              "hidden": false,
+              "name": "--reveal",
+              "repeatable": false,
+              "required": false,
+              "sensitive": true,
+              "valueType": "bool"
+            }
+          ],
+          "group": "secret",
+          "id": "secret get",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "server",
+              "required": true,
+              "variadic": false
+            },
+            {
+              "name": "key",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["secret", "get"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Check a secret (--reveal prints the value)",
+          "surface": "screen",
+          "tier": "read",
+          "tools": []
+        },
+        {
+          "baseTier": "destructive",
+          "cost": false,
+          "dryRun": false,
+          "flags": [],
+          "group": "secret",
+          "id": "secret rm",
+          "kind": "command",
+          "maxOperands": null,
+          "needs": [],
+          "oneOf": [],
+          "operandEscalates": false,
+          "operands": [
+            {
+              "name": "server",
+              "required": true,
+              "variadic": false
+            },
+            {
+              "name": "key",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "parent": null,
+          "path": ["secret", "rm"],
+          "planned": false,
+          "preview": {
+            "flag": null,
+            "mode": "none"
+          },
+          "summary": "Remove a secret",
+          "surface": "screen",
+          "tier": "destructive",
+          "tools": []
+        },
+        {
           "baseTier": null,
           "cost": false,
           "dryRun": false,
@@ -802,10 +1075,10 @@
         }
       ],
       "counts": {
-        "commands": 16,
+        "commands": 23,
         "groups": 1,
-        "rows": 17,
-        "tools": 13
+        "rows": 24,
+        "tools": 14
       },
       "needs": ["stdin", "browser", "long-running", "network", "terminal-only"],
       "tiers": ["read", "write", "destructive"],
@@ -898,6 +1171,13 @@
           "command": "server restart",
           "dryRun": "default-on",
           "name": "servers_restart",
+          "tier": "write",
+          "toolTier": 3
+        },
+        {
+          "command": "auth login",
+          "dryRun": "none",
+          "name": "servers_auth",
           "tier": "write",
           "toolTier": 3
         }

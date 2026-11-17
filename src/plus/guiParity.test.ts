@@ -28,8 +28,12 @@ function snapshot(): RegistrySnapshot {
 /** The slices whose screen is built; their rows must all be on a built action. */
 const BUILT_OWNERS = ["MIG-2X-S1", "MIG-2X-S2"];
 
-/** Rows of a built screen whose own screen row comes later: the per-server mode (D-138). */
-const PLANNED_ON_BUILT = { commands: ["server mode"], tools: ["servers_set_mode"] };
+/** Rows on a built route whose own screen row comes later: the per-server mode (D-138) and the
+ * Login row, which arrives with the S3 screen. */
+const PLANNED_ON_BUILT = {
+  commands: ["server mode"],
+  tools: ["servers_auth", "servers_set_mode"],
+};
 
 describe("gui parity manifest", () => {
   it("has an entry for every registry command and tool and nothing stale", () => {

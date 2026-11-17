@@ -35,6 +35,7 @@ describe("the envelope types match the Rust goldens", () => {
       expect(keys(data)).toEqual(
         [
           "accessSetCount",
+          "auth",
           "dataDir",
           "defaultAccess",
           "gateway",

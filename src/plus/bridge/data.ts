@@ -14,6 +14,44 @@ export interface StatusData {
   secretsBackend: string;
   gateway: { path: string; present: boolean };
   registry: { path: string; exists: boolean; readable: boolean; error: string | null };
+  auth: AuthSection;
+}
+
+export type LoginState =
+  | "ok"
+  | "expiring"
+  | "needs_reauth"
+  | "revoked"
+  | "misconfigured"
+  | "unreachable"
+  | "unknown";
+
+/** Login state of the stdio and Google servers that carry a probe; remotes sign in in upstream. */
+export const NO_LOGINS: AuthSection = {
+  counts: {
+    ok: 0,
+    expiring: 0,
+    needs_reauth: 0,
+    revoked: 0,
+    misconfigured: 0,
+    unreachable: 0,
+    unknown: 0,
+  },
+  servers: [],
+};
+
+export interface AuthSection {
+  counts: Record<LoginState, number>;
+  servers: Array<{
+    server: string;
+    state: LoginState;
+    reason: string;
+    since: number;
+    lastProbe: number;
+    expiresAt: number | null;
+    ttlSecs: number | null;
+    fix: string | null;
+  }>;
 }
 
 export type CheckStatus = "ok" | "warn" | "fail";

@@ -14,6 +14,7 @@ import type {
   SelfMcpState,
   StatusData,
 } from "../bridge/data";
+import { NO_LOGINS } from "../bridge/data";
 
 export const SELF_ID = "toolport-plus-self";
 const DATA_DIR = "/Users/example/Library/Application Support/Toolport";
@@ -178,6 +179,7 @@ export function createCtlWorld(options: WorldOptions = {}) {
       defaultAccess: broken ? null : defaultAccess,
       secretsBackend: "encrypted-file",
       gateway: { path: `${DATA_DIR}/bin/toolport-gateway`, present: true },
+      auth: NO_LOGINS,
       registry: {
         path: `${DATA_DIR}/registry.json`,
         exists: true,
