@@ -164,7 +164,7 @@ impl TaskHost for FakeTaskHost {
         self.tool_results
             .borrow_mut()
             .pop_front()
-            .unwrap_or_else(|| Ok(Value::Null))
+            .unwrap_or(Ok(Value::Null))
     }
 
     fn task_run_script(
@@ -176,7 +176,7 @@ impl TaskHost for FakeTaskHost {
         self.script_results
             .borrow_mut()
             .pop_front()
-            .unwrap_or_else(|| Ok(Value::Null))
+            .unwrap_or(Ok(Value::Null))
     }
 
     fn task_set_secret(&self, server: &str, key: &str, value: &str) -> Result<(), String> {

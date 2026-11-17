@@ -50,9 +50,10 @@ fn last_run(runs: &[Run], task: &str) -> Value {
 
 fn next_run(task: &Task, now: i64) -> Value {
     let next = task
-        .enabled
-        .then(|| task.triggers.schedule.as_ref())
-        .flatten()
+        .triggers
+        .schedule
+        .as_ref()
+        .filter(|_| task.enabled)
         .and_then(|s| Cron::parse(&s.cron).ok())
         .and_then(|c| c.next_after(now));
     next.map_or(Value::Null, |t| json!(rfc3339(t)))

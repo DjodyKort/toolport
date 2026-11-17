@@ -125,7 +125,7 @@ fn test03_a_run_missed_while_nothing_ticked_is_caught_up_once_and_recorded() {
     );
     schedule::tick(&host);
 
-    host.clock.set(at(17, 20, 30, 0) + 0);
+    host.clock.set(at(17, 20, 30, 0));
     let report = schedule::tick(&host);
     assert!(
         matches!(report.raised.as_slice(), [Raised::Started(_)]),
