@@ -181,9 +181,9 @@ impl CallClock {
         #[cfg(feature = "plus")]
         {
             let server_id = self.server_id.clone();
-            return self.clock.next_wait(move || {
+            self.clock.next_wait(move || {
                 toolport_plus::progress::cap_from(max_request_timeout_ms(server_id))
-            });
+            })
         }
         #[cfg(not(feature = "plus"))]
         self.deadline
@@ -861,7 +861,9 @@ mod tests_without_plus {
 
 #[cfg(test)]
 mod uv_launcher_tests {
-    use crate::downstream::{is_download_launcher, stdio_connect_timeout, LEADER_OPEN_BUDGET};
+    use crate::downstream::is_download_launcher;
+    #[cfg(feature = "plus")]
+    use crate::downstream::{stdio_connect_timeout, LEADER_OPEN_BUDGET};
 
     fn args(list: &[&str]) -> Vec<String> {
         list.iter().map(|arg| (*arg).to_string()).collect()

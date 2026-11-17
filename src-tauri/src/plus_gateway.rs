@@ -275,8 +275,10 @@ mod plus_instructions {
         let data = DataDirTestEnv::new(&format!("plus-instructions-{tag}"));
         let state = http_state(false);
         let mut router = Router::new();
-        let mut reg = Registry::default();
-        reg.gateway_instructions = own.map(str::to_string);
+        let mut reg = Registry {
+            gateway_instructions: own.map(str::to_string),
+            ..Registry::default()
+        };
         for (id, instructions, forward) in servers {
             router.add(
                 DownstreamServer::connect(

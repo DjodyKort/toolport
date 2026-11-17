@@ -116,9 +116,11 @@ fn test03_max_request_timeout_ends_a_call_that_keeps_reporting_progress() {
     );
 }
 
+type Replies = Arc<Mutex<Vec<(String, Value)>>>;
+
 struct Tee {
     inner: StdioTransport,
-    replies: Arc<Mutex<Vec<(String, Value)>>>,
+    replies: Replies,
 }
 
 impl Transport for Tee {
@@ -136,10 +138,7 @@ impl Transport for Tee {
     }
 }
 
-fn connect_through_tee(
-    id: &str,
-    env: &[(&str, &str)],
-) -> (DownstreamServer, Arc<Mutex<Vec<(String, Value)>>>) {
+fn connect_through_tee(id: &str, env: &[(&str, &str)]) -> (DownstreamServer, Replies) {
     let replies = Arc::new(Mutex::new(Vec::new()));
     let transport = Tee {
         inner: spawn(env),
