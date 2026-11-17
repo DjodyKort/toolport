@@ -312,6 +312,42 @@ pub fn linked_owner<'a>(servers: &'a [String], uri: &str) -> Option<&'a str> {
     }
 }
 
+/// How long the stdio adapter keeps one request open: `base`, or for a request that reaches a
+/// server the longest deadline a configured server can hold (see `toolport_plus::progress`).
+pub fn adapter_ceiling(base: std::time::Duration, body: &str) -> std::time::Duration {
+    #[cfg(feature = "plus")]
+    {
+        use toolport_plus::progress::{adapter_ceiling, ServerTimeouts};
+        let call = ["tools/call", "resources/read", "prompts/get"]
+            .into_iter()
+            .find(|method| body.contains(method));
+        let Some(method) = call else {
+            return base;
+        };
+        let Ok(reg) = crate::registry::load() else {
+            return base;
+        };
+        let servers = reg
+            .servers
+            .iter()
+            .filter(|s| s.enabled)
+            .map(|s| ServerTimeouts {
+                request_timeout_ms: s.request_timeout_ms,
+                max_request_timeout_ms: s
+                    .unknown_fields
+                    .get("maxRequestTimeoutMs")
+                    .and_then(serde_json::Value::as_u64),
+                stdio: s.command.is_some(),
+            });
+        adapter_ceiling(base, method, servers)
+    }
+    #[cfg(not(feature = "plus"))]
+    {
+        let _ = body;
+        base
+    }
+}
+
 /// The secrets host the hooks below use. Unit tests never reach the real keychain
 /// code: they get an inert host unless a test installs its own with `secrets_host_override`.
 #[cfg(all(feature = "plus", not(test)))]

@@ -37,6 +37,50 @@ pub fn request_token(params: &Value) -> Option<String> {
         .map(token_key)
 }
 
+/// Default `requestTimeoutMs` of a server without one.
+const DEFAULT_WINDOW: Duration = Duration::from_secs(30);
+/// Slack between a server's deadline and the adapter's, so the server's own timeout text arrives.
+const ADAPTER_GRACE: Duration = Duration::from_secs(60);
+/// A caller-set timeout below this is a deliberate short one (tests, probes) and is kept.
+const EXTENDABLE_FROM: Duration = Duration::from_secs(600);
+const ADAPTER_METHODS: [&str; 3] = ["tools/call", "resources/read", "prompts/get"];
+
+/// What one server allows a call: its `requestTimeoutMs`, and for a stdio server also the cap that
+/// progress can stretch it to. Only a stdio server's deadline is re-armed by progress.
+pub struct ServerTimeouts {
+    pub request_timeout_ms: Option<u64>,
+    pub max_request_timeout_ms: Option<u64>,
+    pub stdio: bool,
+}
+
+impl ServerTimeouts {
+    fn ceiling(&self) -> Duration {
+        let window = self
+            .request_timeout_ms
+            .map_or(DEFAULT_WINDOW, |ms| Duration::from_millis(ms.max(1)));
+        if self.stdio {
+            cap_from(self.max_request_timeout_ms).max(window)
+        } else {
+            window
+        }
+    }
+}
+
+/// The longest the stdio adapter lets a request stay open. A request that reaches a server
+/// (`tools/call`, `resources/read`, `prompts/get`) gets the longest ceiling any configured server
+/// can hold plus a minute, never less than `base`; every other request keeps `base`.
+pub fn adapter_ceiling(
+    base: Duration,
+    method: &str,
+    servers: impl IntoIterator<Item = ServerTimeouts>,
+) -> Duration {
+    if base < EXTENDABLE_FROM || !ADAPTER_METHODS.contains(&method) {
+        return base;
+    }
+    let longest = servers.into_iter().map(|s| s.ceiling()).max();
+    longest.map_or(base, |longest| base.max(longest + ADAPTER_GRACE))
+}
+
 static LEDGER: Mutex<Option<HashMap<String, Watched>>> = Mutex::new(None);
 
 struct Watched {
@@ -282,5 +326,91 @@ mod tests {
             None
         );
         assert_eq!(request_token(&json!({})), None);
+    }
+
+    fn stdio(window: Option<u64>, cap: Option<u64>) -> ServerTimeouts {
+        ServerTimeouts {
+            request_timeout_ms: window,
+            max_request_timeout_ms: cap,
+            stdio: true,
+        }
+    }
+
+    const TEN_MINUTES: Duration = Duration::from_secs(600);
+
+    #[test]
+    fn test10_a_progress_extended_call_outlives_ten_minutes_without_waiting_for_them() {
+        let mut clock = Clock::start(Duration::from_secs(30), Some(token_key(&json!("t-10"))));
+        for minute in 1..=12u64 {
+            let at = after(&clock, Duration::from_secs(minute * 60 - 5));
+            note_at(&progress("t-10"), at);
+            clock.next_wait(|| Duration::from_secs(3600));
+            assert_eq!(
+                clock.deadline,
+                at + Duration::from_secs(30),
+                "minute {minute}"
+            );
+        }
+        assert!(clock.deadline > clock.started + TEN_MINUTES);
+    }
+
+    #[test]
+    fn test11_the_adapter_ceiling_follows_the_longest_stdio_cap_plus_a_minute() {
+        let ceiling = |servers| adapter_ceiling(TEN_MINUTES, "tools/call", servers);
+        assert_eq!(
+            ceiling(vec![stdio(None, None)]),
+            Duration::from_secs(3660),
+            "the default cap is one hour"
+        );
+        assert_eq!(
+            ceiling(vec![
+                stdio(None, Some(5_400_000)),
+                stdio(None, Some(120_000))
+            ]),
+            Duration::from_secs(5460)
+        );
+        assert_eq!(
+            ceiling(vec![stdio(Some(7_200_000), None)]),
+            Duration::from_secs(7260)
+        );
+        assert_eq!(
+            ceiling(vec![stdio(None, Some(120_000))]),
+            TEN_MINUTES,
+            "never below the base"
+        );
+        assert_eq!(ceiling(vec![]), TEN_MINUTES);
+    }
+
+    #[test]
+    fn test12_a_remote_servers_deadline_is_not_stretched_by_a_cap() {
+        let remote = ServerTimeouts {
+            request_timeout_ms: Some(900_000),
+            max_request_timeout_ms: Some(10_800_000),
+            stdio: false,
+        };
+        assert_eq!(
+            adapter_ceiling(TEN_MINUTES, "tools/call", vec![remote]),
+            Duration::from_secs(960)
+        );
+    }
+
+    #[test]
+    fn test13_only_requests_that_reach_a_server_and_default_base_timeouts_are_extended() {
+        let servers = || vec![stdio(None, None)];
+        for method in ["tools/call", "resources/read", "prompts/get"] {
+            assert!(
+                adapter_ceiling(TEN_MINUTES, method, servers()) > TEN_MINUTES,
+                "{method}"
+            );
+        }
+        for method in ["tools/list", "initialize", "ping"] {
+            assert_eq!(
+                adapter_ceiling(TEN_MINUTES, method, servers()),
+                TEN_MINUTES,
+                "{method}"
+            );
+        }
+        let short = Duration::from_millis(300);
+        assert_eq!(adapter_ceiling(short, "tools/call", servers()), short);
     }
 }

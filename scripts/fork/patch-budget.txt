@@ -87,6 +87,11 @@
 #   1: `file::save` calls seam::keep_vault_backup before the replace (rolling secrets.enc.bak,
 #      D-044/D-133); an error aborts the replace, so a failed backup never costs the vault
 20	src-tauri/src/secrets.rs
+# stdio_adapter.rs, 3 changed lines: `post` takes the request's deadline from seam::adapter_ceiling instead of the
+# fixed 600 s, so a call that progress keeps alive up to `maxRequestTimeoutMs` is not cut by the adapter. The
+# derivation (longest stdio cap or request timeout of the enabled servers, plus a minute, only for tools/call,
+# resources/read and prompts/get, never below the base) is toolport_plus::progress::adapter_ceiling.
+3	src-tauri/src/stdio_adapter.rs
 # App.tsx, 15 changed lines for the Claude group and the Toolport+ page of Settings:
 #   2: the isPlusRoute/plusPageHeader import and the lazy PlusViews chunk
 #   2: `plusHeader`, computed beside upstream's title and subtitle

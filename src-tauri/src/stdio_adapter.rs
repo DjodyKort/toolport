@@ -1105,7 +1105,8 @@ impl Session {
         descriptor: DaemonDescriptor,
         sent_session: Option<String>,
     ) -> Result<(), ExchangeError> {
-        self.post_with_timeout(body, true, self.request_timeout, descriptor, sent_session)
+        let timeout = crate::seam::adapter_ceiling(self.request_timeout, body);
+        self.post_with_timeout(body, true, timeout, descriptor, sent_session)
     }
 
     // Old-gate calls still return their own reply, but cannot mutate a recovered session.

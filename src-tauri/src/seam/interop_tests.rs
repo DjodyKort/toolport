@@ -226,3 +226,27 @@ fn test05_a_servers_instructions_are_kept_from_its_handshake() {
         "a reconnect that sends none clears the old text"
     );
 }
+
+#[test]
+fn test06_the_adapter_ceiling_follows_the_registry_and_only_for_calls_that_reach_a_server() {
+    let _env = DataDirTestEnv::new("s8-adapter-ceiling");
+    let base = Duration::from_secs(600);
+    let call = r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"odh__build"}}"#;
+    let list = r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#;
+    assert_eq!(crate::seam::adapter_ceiling(base, call), base, "no servers");
+
+    write_registry(Some(7_200_000));
+    assert_eq!(
+        crate::seam::adapter_ceiling(base, call),
+        Duration::from_secs(7260)
+    );
+    assert_eq!(crate::seam::adapter_ceiling(base, list), base);
+    assert_eq!(
+        crate::seam::adapter_ceiling(Duration::from_millis(300), call),
+        Duration::from_millis(300),
+        "a short caller-set timeout is kept"
+    );
+
+    write_registry(Some(120_000));
+    assert_eq!(crate::seam::adapter_ceiling(base, call), base);
+}
