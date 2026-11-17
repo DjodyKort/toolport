@@ -172,9 +172,9 @@ pub fn pending_redeclare(dir: &Path, server: &str) -> bool {
     };
     entries.flatten().any(|entry| {
         let path = entry.path();
-        let Some(pid) = state_pid(&path).filter(|pid| crate::tasks::proc::alive(*pid)) else {
+        if !state_pid(&path).is_some_and(crate::tasks::proc::alive) {
             return false;
-        };
+        }
         let Some(state) = std::fs::read_to_string(&path)
             .ok()
             .and_then(|text| serde_json::from_str::<Value>(&text).ok())
