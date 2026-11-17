@@ -1,0 +1,37 @@
+{
+  "argv": ["task", "cancel", "run-fixture-stale"],
+  "envelope": {
+    "command": "task cancel",
+    "data": {
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["<WORLD>/data/plus/task-runs/run-fixture-stale.json"],
+        "undo": "toolportctl task run draft-cleanup"
+      },
+      "run": {
+        "durationMs": 0,
+        "endedAt": "<TIME>",
+        "error": "cancelled",
+        "id": "run-fixture-stale",
+        "startedAt": "<TIME>",
+        "status": "cancelled",
+        "steps": [
+          {
+            "endedAt": "<TIME>",
+            "id": "ask",
+            "startedAt": null,
+            "status": "cancelled",
+            "title": "Ask Claude",
+            "type": "prompt"
+          }
+        ],
+        "task": "draft-cleanup",
+        "trigger": "manual"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

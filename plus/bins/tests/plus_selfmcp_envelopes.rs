@@ -18,6 +18,7 @@ mod common;
 use common::client::Client;
 use common::compression;
 use common::library_world::{self, library_home};
+use common::tasks_world::tasks_home;
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
 
@@ -107,6 +108,7 @@ const GAMMA_APPLY: &str =
 
 struct Case {
     tool: &'static str,
+    prepare: Option<fn(&World)>,
     calls: &'static [Call],
     prepare: Option<fn(&World)>,
 }
@@ -151,6 +153,88 @@ const AIDER_REMOVE_UNCONFIRMED: &str = r#"{"client_keys":["aider"],"dry_run":fal
 const AIDER_REMOVE: &str = r#"{"client_keys":["aider"],"dry_run":false,"confirm":true}"#;
 
 const CASES: &[Case] = &[
+    prepared(
+        "tasks_list",
+        tasks_home,
+        &[
+            read("enabled", "tasks_list", "{}"),
+            read("all", "tasks_list", r#"{"all":true}"#),
+        ],
+    ),
+    prepared(
+        "tasks_get",
+        tasks_home,
+        &[
+            read("waiting", "tasks_get", r#"{"id":"portal-token"}"#),
+            fails("unknown", "not_found", "tasks_get", r#"{"id":"nothing"}"#),
+            fails("no_id", "invalid_arguments", "tasks_get", "{}"),
+        ],
+    ),
+    prepared(
+        "tasks_history",
+        tasks_home,
+        &[
+            read("all", "tasks_history", "{}"),
+            read("one_run", "tasks_history", r#"{"run":"run-fixture-ok"}"#),
+            fails(
+                "unknown_run",
+                "not_found",
+                "tasks_history",
+                r#"{"run":"run-nothing"}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "tasks_run",
+        tasks_home,
+        &[
+            read(
+                "preview",
+                "tasks_run",
+                r#"{"id":"portal-token","dry_run":true}"#,
+            ),
+            Call {
+                writes: true,
+                ..fails(
+                    "no_broker",
+                    "approval_unavailable",
+                    "tasks_run",
+                    r#"{"id":"portal-token"}"#,
+                )
+            },
+            fails(
+                "not_allowed",
+                "conflict",
+                "tasks_run",
+                r#"{"id":"nightly-report"}"#,
+            ),
+            fails(
+                "unknown",
+                "not_found",
+                "tasks_run",
+                r#"{"id":"nothing","dry_run":true}"#,
+            ),
+        ],
+    ),
+    prepared(
+        "tasks_cancel",
+        tasks_home,
+        &[
+            write("stale", "tasks_cancel", r#"{"run":"run-fixture-stale"}"#),
+            fails(
+                "ended",
+                "conflict",
+                "tasks_cancel",
+                r#"{"run":"run-fixture-ok"}"#,
+            ),
+            fails(
+                "unknown",
+                "not_found",
+                "tasks_cancel",
+                r#"{"run":"run-nothing"}"#,
+            ),
+        ],
+    ),
     case(
         "where_am_i",
         &[
@@ -1258,6 +1342,9 @@ fn run_case(case: &Case) {
     let world = World::new(case.tool);
     if case.tool == "skills_tap_remove" {
         tap_source(&world);
+    }
+    if let Some(prepare) = case.prepare {
+        prepare(&world);
     }
     if let Some(prepare) = case.prepare {
         prepare(&world);

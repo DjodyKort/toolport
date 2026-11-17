@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "task",
+    "add",
+    "portal-token",
+    "--file",
+    "{home}/defs/undeclared.json",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "task add",
+    "error": {
+      "code": "invalid_task",
+      "message": "task \"portal-token\" is not valid:\n  - steps[2] (secret-set \"store-token\"): srv-alpha/OTHER_KEY is not listed in writesSecrets"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

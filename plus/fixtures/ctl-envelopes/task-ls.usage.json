@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "ls", "extra"],
+  "envelope": {
+    "command": "task ls",
+    "error": {
+      "code": "usage",
+      "message": "unexpected argument: extra"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

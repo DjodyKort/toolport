@@ -20,6 +20,7 @@ mod common;
 use common::compression::{fake_proxy, rtk_home, transcripts};
 use common::library_world::{self, library_home};
 use common::oauth_mock::{self, OauthMock};
+use common::tasks_world::tasks_home;
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
 
@@ -37,6 +38,7 @@ struct Step {
     /// The step signs in through the loopback authorization server: the run plays the user's
     /// browser, and nothing is allowed to find a real one on `PATH`.
     browser: bool,
+    env: &'static [(&'static str, &'static str)],
 }
 
 /// A step that must leave the world as it was: a read or a `--dry-run`.
@@ -51,6 +53,7 @@ const fn read(label: &'static str, argv: &'static [&'static str]) -> Step {
         reveals: false,
         hook: None,
         browser: false,
+        env: &[],
     }
 }
 
@@ -104,6 +107,10 @@ impl Step {
             reveals: true,
             ..self
         }
+    }
+
+    const fn env(self, env: &'static [(&'static str, &'static str)]) -> Self {
+        Self { env, ..self }
     }
 
     const fn stdin(self, stdin: &'static str) -> Self {
@@ -191,7 +198,265 @@ const OFF_PORT_PROXY: &[&str] = &[
     "29213",
 ];
 
+const PIPED_TASK: &str = r#"{"id":"piped-cleanup","title":"Cleanup from stdin","description":"","enabled":true,"requires":{"servers":[],"commands":["echo"]},"writesSecrets":[],"steps":[{"id":"say","title":"Say hello","type":"exec","program":"echo","args":["clean"]}],"triggers":{"manual":true,"cli":true,"selfMcp":{"enabled":false,"approval":"every-run"},"schedule":null,"onAuthFailure":[]},"createdFrom":{"kind":"manual"}}"#;
+const PIPED_EDIT: &str = r#"{"id":"nightly-report","title":"Nightly report (from stdin)","description":"","enabled":true,"requires":{"servers":[],"commands":["echo"]},"writesSecrets":[],"steps":[{"id":"say","title":"Say hello","type":"exec","program":"echo","args":["report"]}],"triggers":{"manual":true,"cli":false,"selfMcp":{"enabled":false,"approval":"every-run"},"schedule":{"cron":"0 3 * * *","autoRun":true},"onAuthFailure":[]},"createdFrom":null}"#;
+
 const CASES: &[Case] = &[
+    case(
+        "task ls",
+        &[
+            hook("tasks", tasks_home),
+            read("default", &["task", "ls"]),
+            read("all", &["task", "ls", "--all"]),
+            usage("usage", &["task", "ls", "extra"]),
+        ],
+    ),
+    case(
+        "task show",
+        &[
+            hook("tasks", tasks_home),
+            read("waiting", &["task", "show", "portal-token"]),
+            read("scheduled", &["task", "show", "nightly-report"]),
+            read("missing", &["task", "show", "no-such-task"]).exit(1),
+            usage("usage", &["task", "show"]),
+        ],
+    ),
+    case(
+        "task run",
+        &[
+            hook("tasks", tasks_home),
+            read("preview", &["task", "run", "portal-token", "--dry-run"]),
+            read("disabled", &["task", "run", "draft-cleanup", "--dry-run"]),
+            apply("busy", &["task", "run", "portal-token"]).exit(1),
+            apply("refused", &["task", "run", "draft-cleanup"]).exit(1),
+            apply("missing", &["task", "run", "no-such-task"]).exit(1),
+            apply("apply", &["task", "run", "nightly-report"])
+                .env(&[("TOOLPORT_CTL_BIN", "/usr/bin/true")]),
+            usage("usage", &["task", "run"]),
+        ],
+    ),
+    case(
+        "task resume",
+        &[
+            hook("tasks", tasks_home),
+            apply("apply", &["task", "resume", "run-fixture-waiting"]),
+            apply("finished", &["task", "resume", "run-fixture-ok"]).exit(1),
+            apply("not-waiting", &["task", "resume", "run-fixture-stale"]).exit(1),
+            apply("missing", &["task", "resume", "run-no-such"]).exit(1),
+            usage("usage", &["task", "resume"]),
+        ],
+    ),
+    case(
+        "task cancel",
+        &[
+            hook("tasks", tasks_home),
+            apply("apply", &["task", "cancel", "run-fixture-stale"]),
+            apply("again", &["task", "cancel", "run-fixture-stale"]).exit(1),
+            apply("finished", &["task", "cancel", "run-fixture-ok"]).exit(1),
+            apply("missing", &["task", "cancel", "run-no-such"]).exit(1),
+            usage("usage", &["task", "cancel"]),
+        ],
+    ),
+    case(
+        "task add",
+        &[
+            hook("tasks", tasks_home),
+            read(
+                "preview",
+                &[
+                    "task",
+                    "add",
+                    "weekly-cleanup",
+                    "--file",
+                    "{home}/defs/weekly-cleanup.json",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &[
+                    "task",
+                    "add",
+                    "weekly-cleanup",
+                    "--file",
+                    "{home}/defs/weekly-cleanup.json",
+                ],
+            ),
+            read(
+                "exists",
+                &[
+                    "task",
+                    "add",
+                    "weekly-cleanup",
+                    "--file",
+                    "{home}/defs/weekly-cleanup.json",
+                    "--dry-run",
+                ],
+            )
+            .exit(1),
+            read(
+                "command-preview",
+                &[
+                    "task",
+                    "add",
+                    "refresh-login",
+                    "--from-command",
+                    "{home}/defs/refresh-login.md",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "command",
+                &[
+                    "task",
+                    "add",
+                    "refresh-login",
+                    "--from-command",
+                    "{home}/defs/refresh-login.md",
+                ],
+            ),
+            read(
+                "stdin-preview",
+                &["task", "add", "piped-cleanup", "--file", "-", "--dry-run"],
+            )
+            .stdin(PIPED_TASK),
+            apply("stdin", &["task", "add", "piped-cleanup", "--file", "-"]).stdin(PIPED_TASK),
+            usage(
+                "stdin-mismatch",
+                &["task", "add", "other-name", "--file", "-", "--dry-run"],
+            )
+            .stdin(PIPED_TASK),
+            read(
+                "invalid",
+                &[
+                    "task",
+                    "add",
+                    "portal-token",
+                    "--file",
+                    "{home}/defs/undeclared.json",
+                    "--dry-run",
+                ],
+            )
+            .exit(1),
+            read(
+                "unreadable",
+                &[
+                    "task",
+                    "add",
+                    "x",
+                    "--file",
+                    "{home}/defs/none.json",
+                    "--dry-run",
+                ],
+            )
+            .exit(1),
+            usage(
+                "mismatch",
+                &[
+                    "task",
+                    "add",
+                    "other-name",
+                    "--file",
+                    "{home}/defs/weekly-cleanup.json",
+                    "--dry-run",
+                ],
+            ),
+            usage("usage", &["task", "add", "x"]),
+        ],
+    ),
+    case(
+        "task edit",
+        &[
+            hook("tasks", tasks_home),
+            read(
+                "preview",
+                &[
+                    "task",
+                    "edit",
+                    "nightly-report",
+                    "--file",
+                    "{home}/defs/nightly-report.json",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &[
+                    "task",
+                    "edit",
+                    "nightly-report",
+                    "--file",
+                    "{home}/defs/nightly-report.json",
+                ],
+            ),
+            read(
+                "stdin-preview",
+                &["task", "edit", "nightly-report", "--file", "-", "--dry-run"],
+            )
+            .stdin(PIPED_EDIT),
+            apply("stdin", &["task", "edit", "nightly-report", "--file", "-"]).stdin(PIPED_EDIT),
+            read(
+                "stdin-empty",
+                &["task", "edit", "nightly-report", "--file", "-", "--dry-run"],
+            )
+            .stdin("")
+            .exit(1),
+            read(
+                "invalid",
+                &[
+                    "task",
+                    "edit",
+                    "portal-token",
+                    "--file",
+                    "{home}/defs/undeclared.json",
+                    "--dry-run",
+                ],
+            )
+            .exit(1),
+            read(
+                "missing",
+                &[
+                    "task",
+                    "edit",
+                    "weekly-cleanup",
+                    "--file",
+                    "{home}/defs/weekly-cleanup.json",
+                    "--dry-run",
+                ],
+            )
+            .exit(1),
+            usage("usage", &["task", "edit", "nightly-report"]),
+        ],
+    ),
+    case(
+        "task rm",
+        &[
+            hook("tasks", tasks_home),
+            read("preview", &["task", "rm", "nightly-report", "--dry-run"]),
+            apply("apply", &["task", "rm", "nightly-report"]),
+            read("busy", &["task", "rm", "portal-token", "--dry-run"]).exit(1),
+            read("missing", &["task", "rm", "no-such-task", "--dry-run"]).exit(1),
+            usage("usage", &["task", "rm"]),
+        ],
+    ),
+    case(
+        "task history",
+        &[
+            hook("tasks", tasks_home),
+            read("all", &["task", "history"]),
+            read("task", &["task", "history", "portal-token"]),
+            read("limit", &["task", "history", "--limit", "1"]),
+            read("run", &["task", "history", "--run", "run-fixture-ok"]),
+            read(
+                "other-task",
+                &["task", "history", "portal-token", "--run", "run-fixture-ok"],
+            )
+            .exit(1),
+            read("missing-run", &["task", "history", "--run", "run-no-such"]).exit(1),
+            read("missing-task", &["task", "history", "no-such-task"]).exit(1),
+            usage("bad-limit", &["task", "history", "--limit", "many"]),
+        ],
+    ),
     case("commands", &[read("", &["commands"])]),
     case(
         "status",
@@ -1656,10 +1921,16 @@ fn expand(world: &World, word: &str) -> String {
 }
 
 fn run_ctl(world: &World, argv: &[String], stdin: Option<&str>) -> Run {
-    run_ctl_as(world, argv, stdin, false)
+    run_ctl_as(world, argv, stdin, false, &[])
 }
 
-fn run_ctl_as(world: &World, argv: &[String], stdin: Option<&str>, browser: bool) -> Run {
+fn run_ctl_as(
+    world: &World,
+    argv: &[String],
+    stdin: Option<&str>,
+    browser: bool,
+    env: &[(&str, &str)],
+) -> Run {
     let mut command = Command::new(env!("CARGO_BIN_EXE_toolportctl"));
     command
         .arg("--json")
@@ -1680,6 +1951,9 @@ fn run_ctl_as(world: &World, argv: &[String], stdin: Option<&str>, browser: bool
         let empty = world.base.join("no-browser-on-path");
         std::fs::create_dir_all(&empty).unwrap();
         command.env("PATH", &empty);
+    }
+    for (key, value) in env {
+        command.env(key, value);
     }
     let mut child = command.spawn().expect("spawn toolportctl");
     if let Some(text) = stdin {
@@ -1769,7 +2043,7 @@ fn run_case(case: &Case) {
         }
         let argv: Vec<String> = step.argv.iter().map(|w| expand(&world, w)).collect();
         let before = world.snapshot();
-        let run = run_ctl_as(&world, &argv, step.stdin, step.browser);
+        let run = run_ctl_as(&world, &argv, step.stdin, step.browser, step.env);
         let name = format!("{} {}", case.id, step.label);
 
         assert_eq!(

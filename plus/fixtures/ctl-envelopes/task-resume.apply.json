@@ -1,0 +1,62 @@
+{
+  "argv": ["task", "resume", "run-fixture-waiting"],
+  "envelope": {
+    "command": "task resume",
+    "data": {
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["<WORLD>/data/plus/task-runs/run-fixture-waiting.json"],
+        "undo": "toolportctl task cancel run-fixture-waiting"
+      },
+      "run": {
+        "durationMs": null,
+        "endedAt": null,
+        "error": null,
+        "id": "run-fixture-waiting",
+        "startedAt": "<TIME>",
+        "status": "waiting",
+        "steps": [
+          {
+            "endedAt": null,
+            "id": "sign-in",
+            "instructions": "Sign in to the portal in the browser window",
+            "startedAt": "<TIME>",
+            "status": "waiting",
+            "title": "Sign in",
+            "type": "needs-you"
+          },
+          {
+            "endedAt": null,
+            "id": "read-token",
+            "startedAt": null,
+            "status": "pending",
+            "title": "Read the token",
+            "type": "mcp"
+          },
+          {
+            "endedAt": null,
+            "id": "store-token",
+            "startedAt": null,
+            "status": "pending",
+            "title": "Store the token",
+            "type": "secret-set"
+          },
+          {
+            "endedAt": null,
+            "id": "restart",
+            "startedAt": null,
+            "status": "pending",
+            "title": "Restart the server",
+            "type": "restart-server"
+          }
+        ],
+        "task": "portal-token",
+        "trigger": "manual"
+      }
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

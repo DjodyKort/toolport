@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "cancel"],
+  "envelope": {
+    "command": "task cancel",
+    "error": {
+      "code": "usage",
+      "message": "usage: task cancel <run-id>"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

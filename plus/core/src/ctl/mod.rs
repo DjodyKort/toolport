@@ -27,6 +27,7 @@ mod skills_repo;
 mod skills_state;
 mod skills_taps;
 mod styles;
+mod task;
 
 use toolport_plus_api::Host;
 
@@ -555,6 +556,51 @@ pub const COMMANDS: &[Command] = &[
         compression_cfg::group,
     ),
     cmd(
+        &["task", "ls"],
+        "List the tasks with their last run and next scheduled run (--all includes disabled ones)",
+        task::ls,
+    ),
+    cmd(
+        &["task", "show"],
+        "Show a task's definition and its last runs (<id>)",
+        task::show,
+    ),
+    cmd(
+        &["task", "run"],
+        "Start a task; --dry-run lists the steps, secrets and servers (<id>, --dry-run, --wait, --yes)",
+        task::run,
+    ),
+    cmd(
+        &["task", "resume"],
+        "Continue a run that waits for you (<run-id>)",
+        task::resume,
+    ),
+    cmd(
+        &["task", "cancel"],
+        "Stop a run and its child process (<run-id>)",
+        task::cancel,
+    ),
+    cmd(
+        &["task", "add"],
+        "Add a task from a definition file or a Claude command file (<id>, --file, --from-command, --dry-run)",
+        task::add,
+    ),
+    cmd(
+        &["task", "edit"],
+        "Replace a task's definition (<id>, --file, --dry-run)",
+        task::edit,
+    ),
+    cmd(
+        &["task", "rm"],
+        "Remove a task; its run history stays (<id>, --dry-run)",
+        task::rm,
+    ),
+    cmd(
+        &["task", "history"],
+        "List the runs of a task, or one run with its step logs ([<id>], --run, --limit)",
+        task::history,
+    ),
+    cmd(
         &["mcp"],
         "Self-management server: install [--access-set <id>] uninstall doctor tools call <tool> [--args <json> | --args-stdin]",
         mcp::run,
@@ -686,6 +732,12 @@ pub fn run_with(
             err,
         );
     };
+    if task::is_runner(&parsed.positional) {
+        if let Some(dir) = &parsed.data_dir {
+            host.use_data_dir(std::path::Path::new(dir));
+        }
+        return task::runner_main(host, &parsed.positional);
+    }
     let command_name = command.path.join(" ");
     if let Some(dir) = &parsed.data_dir {
         host.use_data_dir(std::path::Path::new(dir));

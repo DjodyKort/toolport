@@ -1,0 +1,31 @@
+{
+  "argv": ["task", "rm", "nightly-report", "--dry-run"],
+  "envelope": {
+    "command": "task rm",
+    "data": {
+      "dryRun": true,
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "remove the task nightly-report (its run history stays)",
+            "diff": {
+              "after": "",
+              "before": "{\n  \"createdFrom\": null,\n  \"description\": \"\",\n  \"enabled\": true,\n  \"id\": \"nightly-report\",\n  \"requires\": {\n    \"commands\": [\n      \"echo\"\n    ],\n    \"servers\": []\n  },\n  \"steps\": [\n    {\n      \"args\": [\n        \"report\"\n      ],\n      \"id\": \"say\",\n      \"program\": \"echo\",\n      \"title\": \"Say hello\",\n      \"type\": \"exec\"\n    }\n  ],\n  \"title\": \"Nightly report\",\n  \"triggers\": {\n    \"cli\": false,\n    \"manual\": true,\n    \"onAuthFailure\": [],\n    \"schedule\": {\n      \"autoRun\": true,\n      \"cron\": \"0 3 * * *\"\n    },\n    \"selfMcp\": {\n      \"approval\": \"every-run\",\n      \"enabled\": false\n    }\n  },\n  \"writesSecrets\": []\n}"
+            },
+            "op": "delete",
+            "path": "<WORLD>/data/plus/tasks/nightly-report.json"
+          }
+        ],
+        "summary": "Remove task nightly-report",
+        "undo": "restore the task file from the backup the apply prints",
+        "warnings": []
+      },
+      "result": null,
+      "task": "nightly-report"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

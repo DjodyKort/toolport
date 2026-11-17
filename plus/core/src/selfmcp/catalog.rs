@@ -1,7 +1,7 @@
 use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
 
-use super::{backend, compression, content, context, library, servers, skills, ToolError};
+use super::{backend, compression, content, context, library, servers, skills, tasks, ToolError};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Gate {
@@ -863,6 +863,53 @@ pub const TOOLS: &[ToolDef] = &[
         "Everything Toolport knows about a folder's context, read only: the applied bundle, what is left out, which plugins are switched off, the estimate of the instruction rows and the last measurement with its calibration factor. Starts nothing and costs no tokens",
         [CWD],
         context::context_status
+    ),
+    tool!(
+        "tasks_list",
+        1,
+        None,
+        "List the tasks (named, repeatable jobs of steps) with their triggers, last run, next scheduled run and whether a run waits for the person. Disabled drafts only with all",
+        [p("all", Ty::Bool, false, "Include disabled tasks")],
+        tasks::list
+    ),
+    tool!(
+        "tasks_get",
+        1,
+        None,
+        "Show one task's definition (steps, the secrets it may write, the servers and commands it needs, triggers) and its last five runs. Secret values are never part of it",
+        [p("id", Ty::Str, true, "The task id")],
+        tasks::get
+    ),
+    tool!(
+        "tasks_history",
+        1,
+        None,
+        "List the runs of a task, newest first, or one run with its step logs (already redacted) when run is given",
+        [
+            p("id", Ty::Str, false, "Only the runs of this task"),
+            p("run", Ty::Str, false, "One run id: returns that run with the log of every step"),
+            p("limit", Ty::Int, false, "At most this many runs (default 20)")
+        ],
+        tasks::history
+    ),
+    tool!(
+        "tasks_run",
+        2,
+        None,
+        "Start a task. The person is asked to approve every run through the approval broker; a denial, a timeout or a missing broker starts nothing. The result is the run record (steps and statuses); a task with a step that needs the person pauses as waiting until they resume it. Pass dry_run to see the steps, the secrets it may write and the servers it needs, without asking and without starting",
+        [
+            p("id", Ty::Str, true, "The task id"),
+            p("dry_run", Ty::Bool, false, "Report the plan only; nothing is asked and nothing starts")
+        ],
+        tasks::run
+    ),
+    tool!(
+        "tasks_cancel",
+        2,
+        None,
+        "Cancel a running or waiting task run and stop its child process",
+        [p("run", Ty::Str, true, "The run id (from tasks_list, tasks_get or tasks_history)")],
+        tasks::cancel
     ),
 ];
 

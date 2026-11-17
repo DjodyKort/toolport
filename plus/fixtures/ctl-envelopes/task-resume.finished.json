@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "resume", "run-fixture-ok"],
+  "envelope": {
+    "command": "task resume",
+    "error": {
+      "code": "conflict",
+      "message": "run run-fixture-ok is ok, not waiting for you"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

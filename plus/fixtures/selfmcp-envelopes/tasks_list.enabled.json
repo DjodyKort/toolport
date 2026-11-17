@@ -1,0 +1,68 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "invalid": [
+      {
+        "error": "<WORLD>/data/plus/tasks/broken.json: not a valid task definition: key must be a string at line 1 column 3",
+        "id": "broken"
+      }
+    ],
+    "tasks": [
+      {
+        "enabled": true,
+        "id": "nightly-report",
+        "kind": "script",
+        "lastRun": {
+          "durationMs": 0,
+          "runId": "run-fixture-ok",
+          "startedAt": "<TIME>",
+          "status": "ok"
+        },
+        "nextRun": "<TIME>",
+        "refreshes": [],
+        "title": "Nightly report",
+        "triggers": {
+          "cli": false,
+          "manual": true,
+          "onAuthFailure": [],
+          "schedule": {
+            "autoRun": true,
+            "cron": "0 3 * * *"
+          },
+          "selfMcp": {
+            "approval": "every-run",
+            "enabled": false
+          }
+        },
+        "waiting": false
+      },
+      {
+        "enabled": true,
+        "id": "portal-token",
+        "kind": "login",
+        "lastRun": {
+          "durationMs": null,
+          "runId": "run-fixture-waiting",
+          "startedAt": "<TIME>",
+          "status": "waiting"
+        },
+        "nextRun": null,
+        "refreshes": ["srv-alpha"],
+        "title": "Refresh the portal token",
+        "triggers": {
+          "cli": true,
+          "manual": true,
+          "onAuthFailure": ["srv-alpha"],
+          "schedule": null,
+          "selfMcp": {
+            "approval": "every-run",
+            "enabled": true
+          }
+        },
+        "waiting": true
+      }
+    ]
+  },
+  "tool": "tasks_list"
+}

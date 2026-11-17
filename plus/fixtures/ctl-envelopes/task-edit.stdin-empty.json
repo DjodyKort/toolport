@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "edit", "nightly-report", "--file", "-", "--dry-run"],
+  "envelope": {
+    "command": "task edit",
+    "error": {
+      "code": "invalid_task",
+      "message": "nothing on stdin: pipe the task definition in (--file - < task.json)"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

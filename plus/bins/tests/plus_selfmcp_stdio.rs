@@ -141,6 +141,7 @@ fn arguments_are_validated_before_a_tool_runs() {
 fn the_self_mcp_server_and_toolportctl_mcp_call_give_the_same_result() {
     let world = World::new("stdio-parity");
     common::library_world::library_home(&world);
+    common::tasks_world::tasks_home(&world);
     let mut client = Client::spawn(&world, &[]);
     client.handshake();
     for name in TOOLS.iter().filter(|t| t.tier == 1).map(|t| t.name) {
@@ -151,6 +152,7 @@ fn the_self_mcp_server_and_toolportctl_mcp_call_give_the_same_result() {
             "agents_get" => json!({"name": "helper"}),
             "styles_get" => json!({"name": "plain"}),
             "skills_search" => json!({"query": "demo"}),
+            "tasks_get" => json!({"id": "portal-token"}),
             "context_bundle_status" | "context_loads" | "context_compose" | "context_status" => {
                 json!({"cwd": world.home.display().to_string()})
             }

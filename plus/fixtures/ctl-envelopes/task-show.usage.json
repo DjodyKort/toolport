@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "show"],
+  "envelope": {
+    "command": "task show",
+    "error": {
+      "code": "usage",
+      "message": "usage: task show <id>"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

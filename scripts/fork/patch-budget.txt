@@ -6,6 +6,7 @@
 # (the status file of the login probes) and on libc (its cross-process lock).
 # +2 lines: toolport-plus depends on serde_yaml and regex (bundle files are YAML, globs are regular
 # expressions).
+# serde and libc also serve the task scheduler (task records, process groups of task runs); the lines above count them.
 23	src-tauri/Cargo.lock
 7	src-tauri/Cargo.toml
 # check-locales.mjs, 2 changed lines: `plus` joins the directories the scan skips; the fork's own screens
@@ -32,9 +33,10 @@
 #   with stays whole. The gateway tests of the mode are included from plus_gateway.rs (2 lines in the test
 #   module).
 38	src-tauri/src/bin/toolport-gateway.rs
-# desktop.rs, 4 changed lines: the invoke handler is wrapped in seam::ipc, which answers the
-# plus_ctl commands (D-060) and hands every other command on.
-4	src-tauri/src/desktop.rs
+# desktop.rs, 6 changed lines: the invoke handler is wrapped in seam::ipc, which answers the
+# plus_ctl commands (D-060) and hands every other command on (4); seam::app_started() at the start of
+# run() starts the task scheduler thread of the desktop app, the always-on tick of D-128 (2).
+6	src-tauri/src/desktop.rs
 # downstream.rs, 29 changed lines:
 #   1: `is_download_launcher` asks seam::is_uv_download_launcher for the `uv` arm, so `uv run` and
 #      `uv tool run` get the launcher connect budget and the desktop's background pre-warm.

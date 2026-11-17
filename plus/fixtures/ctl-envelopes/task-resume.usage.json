@@ -1,0 +1,13 @@
+{
+  "argv": ["task", "resume"],
+  "envelope": {
+    "command": "task resume",
+    "error": {
+      "code": "usage",
+      "message": "usage: task resume <run-id>"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

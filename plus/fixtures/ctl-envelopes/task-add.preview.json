@@ -1,0 +1,40 @@
+{
+  "argv": [
+    "task",
+    "add",
+    "weekly-cleanup",
+    "--file",
+    "{home}/defs/weekly-cleanup.json",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "task add",
+    "data": {
+      "created": true,
+      "dryRun": true,
+      "path": "<WORLD>/data/plus/tasks/weekly-cleanup.json",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "write the new task weekly-cleanup",
+            "diff": {
+              "after": "{\n  \"id\": \"weekly-cleanup\",\n  \"title\": \"Weekly cleanup\",\n  \"description\": \"\",\n  \"enabled\": true,\n  \"requires\": {\n    \"servers\": [],\n    \"commands\": [\n      \"echo\"\n    ]\n  },\n  \"writesSecrets\": [],\n  \"steps\": [\n    {\n      \"type\": \"exec\",\n      \"id\": \"say\",\n      \"title\": \"Say hello\",\n      \"program\": \"echo\",\n      \"args\": [\n        \"clean\"\n      ]\n    }\n  ],\n  \"triggers\": {\n    \"manual\": true,\n    \"cli\": true,\n    \"selfMcp\": {\n      \"enabled\": false,\n      \"approval\": \"every-run\"\n    },\n    \"schedule\": null,\n    \"onAuthFailure\": []\n  },\n  \"createdFrom\": {\n    \"kind\": \"manual\"\n  }\n}\n",
+              "before": ""
+            },
+            "op": "create",
+            "path": "<WORLD>/data/plus/tasks/weekly-cleanup.json"
+          }
+        ],
+        "summary": "Add task weekly-cleanup",
+        "undo": "toolportctl task rm weekly-cleanup",
+        "warnings": []
+      },
+      "result": null,
+      "task": "weekly-cleanup"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

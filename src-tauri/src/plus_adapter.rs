@@ -2686,9 +2686,13 @@ impl TaskHost for HostAdapter {
     }
 
     fn task_server_installed(&self, server: &str) -> bool {
-        crate::registry::load()
-            .map(|registry| registry.servers.iter().any(|s| s.id == server))
-            .unwrap_or(true)
+        match self.read_view().and_then(|view| match view {
+            Some(view) => view.servers().map(Some),
+            None => Ok(None),
+        }) {
+            Ok(Some(servers)) => servers.iter().any(|s| s.id == server),
+            _ => true,
+        }
     }
 
     fn task_run_process(

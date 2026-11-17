@@ -1,0 +1,38 @@
+{
+  "argv": ["task", "add", "piped-cleanup", "--file", "-"],
+  "envelope": {
+    "command": "task add",
+    "data": {
+      "created": true,
+      "dryRun": false,
+      "path": "<WORLD>/data/plus/tasks/piped-cleanup.json",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "write the new task piped-cleanup",
+            "diff": {
+              "after": "{\n  \"id\": \"piped-cleanup\",\n  \"title\": \"Cleanup from stdin\",\n  \"description\": \"\",\n  \"enabled\": true,\n  \"requires\": {\n    \"servers\": [],\n    \"commands\": [\n      \"echo\"\n    ]\n  },\n  \"writesSecrets\": [],\n  \"steps\": [\n    {\n      \"type\": \"exec\",\n      \"id\": \"say\",\n      \"title\": \"Say hello\",\n      \"program\": \"echo\",\n      \"args\": [\n        \"clean\"\n      ]\n    }\n  ],\n  \"triggers\": {\n    \"manual\": true,\n    \"cli\": true,\n    \"selfMcp\": {\n      \"enabled\": false,\n      \"approval\": \"every-run\"\n    },\n    \"schedule\": null,\n    \"onAuthFailure\": []\n  },\n  \"createdFrom\": {\n    \"kind\": \"manual\"\n  }\n}\n",
+              "before": ""
+            },
+            "op": "create",
+            "path": "<WORLD>/data/plus/tasks/piped-cleanup.json"
+          }
+        ],
+        "summary": "Add task piped-cleanup",
+        "undo": "toolportctl task rm piped-cleanup",
+        "warnings": []
+      },
+      "result": {
+        "applied": true,
+        "backups": [],
+        "changed": ["<WORLD>/data/plus/tasks/piped-cleanup.json"],
+        "undo": "toolportctl task rm piped-cleanup"
+      },
+      "task": "piped-cleanup"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

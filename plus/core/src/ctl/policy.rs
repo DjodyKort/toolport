@@ -25,6 +25,7 @@ use super::skills_repo;
 use super::skills_state;
 use super::skills_taps;
 use super::styles;
+use super::task;
 use super::{compression, compression_cfg, compression_hooks};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -121,6 +122,14 @@ const fn some(name: &'static str) -> Operand {
         name,
         required: true,
         variadic: true,
+    }
+}
+
+const fn opt(name: &'static str) -> Operand {
+    Operand {
+        name,
+        required: false,
+        variadic: false,
     }
 }
 
@@ -248,6 +257,13 @@ impl Row {
     const fn smoke(self, argv: &'static [&'static str]) -> Self {
         Self {
             smoke: Smoke::Read(argv),
+            ..self
+        }
+    }
+
+    const fn requires(self, flags: &'static [&'static str]) -> Self {
+        Self {
+            requires: flags,
             ..self
         }
     }
@@ -661,6 +677,45 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&compression::LEDGER_RECORD])
         .requires(&["--provider"])
         .skip("appends to the ledger; its golden step runs in a scratch data dir"),
+    row("task ls", R).spec(&[&task::LS]),
+    row("task show", R)
+        .spec(&[&task::SHOW])
+        .args(&[req("id")])
+        .smoke(&["no-such-task"]),
+    row("task run", W)
+        .dry()
+        .needs(&[Needs::LongRunning])
+        .spec(&[&task::RUN])
+        .args(&[req("id")])
+        .skip("starts a run; its --dry-run is a golden step and plus_tasks.rs runs real ones"),
+    row("task resume", W)
+        .spec(&[&task::RESUME])
+        .args(&[req("runId")])
+        .skip("marks a run as resumed; plus_ctl_contract round trip"),
+    row("task cancel", W)
+        .spec(&[&task::CANCEL])
+        .args(&[req("runId")])
+        .skip("stops a run; plus_ctl_contract round trip"),
+    row("task add", W)
+        .dry()
+        .spec(&[&task::ADD])
+        .args(&[req("id")])
+        .one_of(&[&["--file", "--from-command"]])
+        .skip("writes a task file; plus_ctl_contract round trip"),
+    row("task edit", W)
+        .dry()
+        .spec(&[&task::EDIT])
+        .args(&[req("id")])
+        .requires(&["--file"])
+        .skip("rewrites a task file after a backup; plus_ctl_contract round trip"),
+    row("task rm", D)
+        .dry()
+        .spec(&[&task::RM])
+        .args(&[req("id")])
+        .skip("removes a task file after a backup; plus_ctl_contract round trip"),
+    row("task history", R)
+        .spec(&[&task::HISTORY])
+        .args(&[opt("id")]),
     row("mcp install", W)
         .spec(&[&mcp::INSTALL])
         .skip("registers the server and lists it in access sets; plus_mcp.rs round trip"),
@@ -844,6 +899,11 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("skills_clean", D, "skills clean").on(),
     maps("skills_uninstall", D, "skills uninstall").on(),
     maps("skills_resolve", W, "skills resolve").on(),
+    maps("tasks_list", R, "task ls"),
+    maps("tasks_get", R, "task show"),
+    maps("tasks_history", R, "task history"),
+    maps("tasks_run", W, "task run").param(),
+    maps("tasks_cancel", W, "task cancel"),
 ];
 
 #[derive(Clone, Copy, Debug)]

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "id": "portal-token"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "approval_unavailable",
+      "message": "no approval broker is running (open the Toolport app); nothing was started"
+    }
+  },
+  "text": "approval_unavailable: no approval broker is running (open the Toolport app); nothing was started",
+  "tool": "tasks_run"
+}

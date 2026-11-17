@@ -1,0 +1,40 @@
+{
+  "argv": [
+    "task",
+    "add",
+    "refresh-login",
+    "--from-command",
+    "{home}/defs/refresh-login.md",
+    "--dry-run"
+  ],
+  "envelope": {
+    "command": "task add",
+    "data": {
+      "created": true,
+      "dryRun": true,
+      "path": "<WORLD>/data/plus/tasks/refresh-login.json",
+      "plan": {
+        "effects": {},
+        "steps": [
+          {
+            "detail": "write the new task refresh-login",
+            "diff": {
+              "after": "{\n  \"id\": \"refresh-login\",\n  \"title\": \"Refresh the portal token\",\n  \"description\": \"Refresh the portal token\",\n  \"enabled\": false,\n  \"requires\": {\n    \"servers\": [\n      \"srv-alpha\"\n    ],\n    \"commands\": []\n  },\n  \"writesSecrets\": [],\n  \"steps\": [\n    {\n      \"type\": \"needs-you\",\n      \"id\": \"sign-in\",\n      \"title\": \"Sign in\",\n      \"instructions\": \"Sign in to the portal in the browser\"\n    },\n    {\n      \"type\": \"prompt\",\n      \"id\": \"run-command\",\n      \"title\": \"Run Refresh the portal token\",\n      \"prompt\": \"# Refresh the portal token\\n- Sign in to the portal in the browser\\nCall mcp__toolport__srv-alpha__get_token and keep the value.\",\n      \"allowedTools\": []\n    }\n  ],\n  \"triggers\": {\n    \"manual\": true,\n    \"cli\": false,\n    \"selfMcp\": {\n      \"enabled\": false,\n      \"approval\": \"every-run\"\n    },\n    \"schedule\": null,\n    \"onAuthFailure\": []\n  },\n  \"createdFrom\": {\n    \"kind\": \"command\",\n    \"path\": \"<WORLD>/home/defs/refresh-login.md\"\n  }\n}\n",
+              "before": ""
+            },
+            "op": "create",
+            "path": "<WORLD>/data/plus/tasks/refresh-login.json"
+          }
+        ],
+        "summary": "Add task refresh-login",
+        "undo": "toolportctl task rm refresh-login",
+        "warnings": ["the task is disabled: enable it (enabled: true) before it runs"]
+      },
+      "result": null,
+      "task": "refresh-login"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "id": "nothing"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no task \"nothing\" (looked in <WORLD>/data/plus/tasks/nothing.json)"
+    }
+  },
+  "text": "not_found: no task \"nothing\" (looked in <WORLD>/data/plus/tasks/nothing.json)",
+  "tool": "tasks_get"
+}

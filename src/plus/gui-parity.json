@@ -30,6 +30,10 @@
     "compression": {
       "title": "Hooks & compression",
       "status": "planned"
+    },
+    "tasks": {
+      "title": "Tasks",
+      "status": "planned"
     }
   },
   "actions": {
@@ -339,6 +343,41 @@
       "route": "compression",
       "status": "planned",
       "summary": "The wrapper a hook entry runs; terminal only, never started from the screen (hook)"
+    },
+    "tasks.list": {
+      "route": "tasks",
+      "status": "planned",
+      "summary": "Task list with trigger chips, last run, next run, the waiting-for-you state and the missed-run notes; invalid task files named (task ls, tasks_list)"
+    },
+    "tasks.detail": {
+      "route": "tasks",
+      "status": "planned",
+      "summary": "Task detail: the steps with the needs-you ones marked, the secrets it may write by name, what it needs, triggers and the recent runs with their redacted logs (task show, tasks_get)"
+    },
+    "tasks.run": {
+      "route": "tasks",
+      "status": "planned",
+      "summary": "Run a task: dry-run plan first, then the run with live steps, a wait at a needs-you step, a result or a failure with the redacted log (task run, tasks_run)"
+    },
+    "tasks.continue": {
+      "route": "tasks",
+      "status": "planned",
+      "summary": "Continue on a step that waits for you (task resume)"
+    },
+    "tasks.cancel": {
+      "route": "tasks",
+      "status": "planned",
+      "summary": "Cancel a running or waiting run (task cancel, tasks_cancel)"
+    },
+    "tasks.history": {
+      "route": "tasks",
+      "status": "planned",
+      "summary": "History tab: every run with result and trigger, catch-up runs marked, the redacted step log of one run (task history, tasks_history)"
+    },
+    "tasks.manage": {
+      "route": "tasks",
+      "status": "planned",
+      "summary": "Add, edit and remove a task from a definition, with a diff preview and a backup (task add, task edit, task rm)"
     }
   },
   "owners": {
@@ -355,7 +394,8 @@
     "library": "MIG-2X-S4",
     "agents": "MIG-2X-S4",
     "styles": "MIG-2X-S4",
-    "compression": "MIG-2X-S7"
+    "compression": "MIG-2X-S7",
+    "task": "MIG-2X-S6"
   },
   "commands": {
     "status": {
@@ -892,6 +932,51 @@
       "route": "compression",
       "action": "compression.hook-wrapper",
       "surface": "terminal"
+    },
+    "task ls": {
+      "route": "tasks",
+      "action": "tasks.list",
+      "surface": "screen"
+    },
+    "task show": {
+      "route": "tasks",
+      "action": "tasks.detail",
+      "surface": "screen"
+    },
+    "task run": {
+      "route": "tasks",
+      "action": "tasks.run",
+      "surface": "screen"
+    },
+    "task resume": {
+      "route": "tasks",
+      "action": "tasks.continue",
+      "surface": "screen"
+    },
+    "task cancel": {
+      "route": "tasks",
+      "action": "tasks.cancel",
+      "surface": "screen"
+    },
+    "task history": {
+      "route": "tasks",
+      "action": "tasks.history",
+      "surface": "screen"
+    },
+    "task add": {
+      "route": "tasks",
+      "action": "tasks.manage",
+      "surface": "screen"
+    },
+    "task edit": {
+      "route": "tasks",
+      "action": "tasks.manage",
+      "surface": "screen"
+    },
+    "task rm": {
+      "route": "tasks",
+      "action": "tasks.manage",
+      "surface": "screen"
     }
   },
   "tools": {
@@ -1298,6 +1383,31 @@
     "compression_seal": {
       "route": "compression",
       "action": "compression.seal",
+      "surface": "screen"
+    },
+    "tasks_list": {
+      "route": "tasks",
+      "action": "tasks.list",
+      "surface": "screen"
+    },
+    "tasks_get": {
+      "route": "tasks",
+      "action": "tasks.detail",
+      "surface": "screen"
+    },
+    "tasks_history": {
+      "route": "tasks",
+      "action": "tasks.history",
+      "surface": "screen"
+    },
+    "tasks_run": {
+      "route": "tasks",
+      "action": "tasks.run",
+      "surface": "screen"
+    },
+    "tasks_cancel": {
+      "route": "tasks",
+      "action": "tasks.cancel",
       "surface": "screen"
     }
   }

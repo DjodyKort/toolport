@@ -1,0 +1,14 @@
+{
+  "arguments": {
+    "run": "run-fixture-ok"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "conflict",
+      "message": "run run-fixture-ok already ended"
+    }
+  },
+  "text": "conflict: run run-fixture-ok already ended",
+  "tool": "tasks_cancel"
+}

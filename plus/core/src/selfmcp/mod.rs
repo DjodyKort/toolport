@@ -13,6 +13,7 @@ mod library;
 pub mod register;
 mod servers;
 mod skills;
+mod tasks;
 
 pub use catalog::{find_resource, find_tool, Gate, ToolDef, RESOURCES, TOOLS};
 
