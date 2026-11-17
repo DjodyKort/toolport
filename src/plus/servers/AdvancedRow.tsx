@@ -287,7 +287,6 @@ function CallLimit({
               inputMode="decimal"
               className="w-24"
               value={text}
-              placeholder={minutesText(interop.defaultLimitMs)}
               aria-invalid={parsed.kind === "error"}
               aria-describedby={`${id}-message`}
               onChange={(event) => {
