@@ -4377,7 +4377,10 @@ impl StdioCore {
                     }
                     return Err(TransportError::Classified(
                         crate::call_failure::CallFailureKind::Timeout { after_send: true },
-                        format!("timed out waiting for '{method}' response{}", clock.cap_note()),
+                        format!(
+                            "timed out waiting for '{method}' response{}",
+                            clock.cap_note()
+                        ),
                     ));
                 }
                 Err(RecvTimeoutError::Disconnected) => {
