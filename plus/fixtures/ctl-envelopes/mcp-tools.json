@@ -375,6 +375,676 @@
           "tier": 2
         },
         {
+          "description": "Replace a skill body in the canonical repository",
+          "dryRunDefault": false,
+          "gate": "always",
+          "name": "skills_edit_body",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Replacement body",
+              "name": "new_body",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Patch a skill's frontmatter",
+          "dryRunDefault": false,
+          "gate": "always",
+          "name": "skills_edit_frontmatter",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Frontmatter fields to set",
+              "name": "patch",
+              "required": true,
+              "type": "object"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Delete a skill from the canonical repository",
+          "dryRunDefault": false,
+          "gate": "always",
+          "name": "skills_delete",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "List agents",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "agents_list",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Read one agent including its body",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "agents_get",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Lint agents",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "agents_lint",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "List agent transpilers",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "agents_list_transpilers",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "Create a new agent skeleton",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "agents_scaffold",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Model, default inherit",
+              "name": "model",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Transpile agents to client outputs; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "agents_sync",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Client keys to target",
+              "name": "client_keys",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Write to user-level locations",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Compare the agents with the lockfile: new, modified, removed and unchanged",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "agents_diff",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Scan agents for prompt injection and risky commands",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "agents_audit",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Show which synced agent outputs are present for each client",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "agents_status",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Remove the synced agent outputs; the lockfile stays; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "agents_clean",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Limit to one client key",
+              "name": "client",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "User-level locations, the default; false works inside the repository",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 4
+        },
+        {
+          "description": "Delete one agent from the repository with its synced outputs and lock entry; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "agents_uninstall",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "User-level locations, the default; false works inside the repository",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 4
+        },
+        {
+          "description": "Replace an agent body in the canonical repository",
+          "dryRunDefault": false,
+          "gate": "always",
+          "name": "agents_edit_body",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Replacement body",
+              "name": "new_body",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "List styles",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "styles_list",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Read one style including its body",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "styles_get",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Lint styles",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "styles_lint",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Show the applied style per client",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "styles_active",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "List style transpilers",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "styles_list_transpilers",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "Create a new style skeleton",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "styles_scaffold",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Sync tier-1 style outputs; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "styles_sync_tier1",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Client keys to target",
+              "name": "client_keys",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Apply a style to tier-2 clients; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "styles_apply",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Client keys to target",
+              "name": "client_keys",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Compare the styles with the lockfile: new, modified, removed and unchanged",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "styles_diff",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Show the styles synced to native clients and the applied style per client",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "styles_status",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Remove the synced style outputs and clear the applied styles; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "styles_clean",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "User-level locations, the default; false works inside the repository",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 4
+        },
+        {
+          "description": "Replace a style body in the canonical repository",
+          "dryRunDefault": false,
+          "gate": "always",
+          "name": "styles_edit_body",
+          "params": [
+            {
+              "description": "Entity or server name",
+              "name": "name",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Replacement body",
+              "name": "new_body",
+              "required": true,
+              "type": "string"
+            },
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 3
+        },
+        {
+          "description": "Remove the applied style from tier-2 clients; dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "styles_remove",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Client keys to target",
+              "name": "client_keys",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 4
+        },
+        {
           "description": "Show the skills library against its remote: branch, commits ahead and behind, uncommitted files, how git authenticates (gh, a credential helper or ssh) and any other clone of the same remote with its own counts. Pass fetch to contact the remote and test the credentials; without it nothing touches the network. Read only",
           "dryRunDefault": false,
           "gate": "none",

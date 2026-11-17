@@ -17,9 +17,10 @@ use serde_json::{json, Value};
 use toolport_plus::ctl::{registry, rows, Smoke, Tier, COMMANDS, SCHEMA_VERSION};
 
 mod common;
+use common::library_world::{self, library_home};
 use common::oauth_mock::{self, OauthMock};
 use common::world::{World, FAKE_SECRET, SECRET_KEY};
-use common::library_world::{self, library_home};
+use common::world::{World, FAKE_SECRET, SECRET_KEY};
 use common::{golden, normalize};
 
 #[derive(Clone, Copy)]
@@ -1049,6 +1050,152 @@ const CASES: &[Case] = &[
             ),
             usage("usage", &["skills", "install"]),
         ],
+    ),
+    case(
+        "agents add",
+        &[
+            read(
+                "preview",
+                &["agents", "add", "scout", "--repo", "{repo}", "--dry-run"],
+            ),
+            apply("apply", &["agents", "add", "scout", "--repo", "{repo}"]),
+            usage("usage", &["agents", "add"]),
+        ],
+    ),
+    case(
+        "agents audit",
+        &[read("", &["agents", "audit", "--repo", "{repo}"])],
+    ),
+    case(
+        "agents sync",
+        &[
+            read(
+                "preview",
+                &["agents", "sync", "--repo", "{repo}", "--dry-run"],
+            ),
+            apply("apply", &["agents", "sync", "--repo", "{repo}"]),
+        ],
+    ),
+    case(
+        "agents clean",
+        &[
+            setup("setup", &["agents", "sync", "--repo", "{repo}"]),
+            read(
+                "preview",
+                &["agents", "clean", "--repo", "{repo}", "--dry-run"],
+            ),
+            apply("apply", &["agents", "clean", "--repo", "{repo}"]),
+        ],
+    ),
+    case(
+        "agents uninstall",
+        &[
+            setup("setup", &["agents", "sync", "--repo", "{repo}"]),
+            read(
+                "preview",
+                &[
+                    "agents",
+                    "uninstall",
+                    "helper",
+                    "--repo",
+                    "{repo}",
+                    "--dry-run",
+                ],
+            ),
+            apply(
+                "apply",
+                &["agents", "uninstall", "helper", "--repo", "{repo}"],
+            ),
+            usage("usage", &["agents", "uninstall"]),
+        ],
+    ),
+    // styles
+    case(
+        "styles add",
+        &[
+            read(
+                "preview",
+                &["styles", "add", "terse", "--repo", "{repo}", "--dry-run"],
+            ),
+            apply("apply", &["styles", "add", "terse", "--repo", "{repo}"]),
+            usage("usage", &["styles", "add"]),
+        ],
+    ),
+    case(
+        "styles sync",
+        &[
+            read(
+                "preview",
+                &["styles", "sync", "--repo", "{repo}", "--dry-run"],
+            ),
+            apply("apply", &["styles", "sync", "--repo", "{repo}"]),
+        ],
+    ),
+    case(
+        "styles apply",
+        &[
+            read(
+                "preview",
+                &["styles", "apply", "plain", "--repo", "{repo}", "--dry-run"],
+            ),
+            apply("apply", &["styles", "apply", "plain", "--repo", "{repo}"]),
+            usage("usage", &["styles", "apply"]),
+        ],
+    ),
+    case(
+        "styles remove",
+        &[
+            setup("setup", &["styles", "apply", "plain", "--repo", "{repo}"]),
+            read(
+                "preview",
+                &["styles", "remove", "--repo", "{repo}", "--dry-run"],
+            ),
+            apply("apply", &["styles", "remove", "--repo", "{repo}"]),
+        ],
+    ),
+    case(
+        "styles clean",
+        &[
+            setup("setup", &["styles", "sync", "--repo", "{repo}"]),
+            read(
+                "preview",
+                &["styles", "clean", "--repo", "{repo}", "--dry-run"],
+            ),
+            apply("apply", &["styles", "clean", "--repo", "{repo}"]),
+        ],
+    ),
+    // sync: the remote is a local bare repository
+    case(
+        "agents ls",
+        &[read("", &["agents", "ls", "--repo", "{repo}"])],
+    ),
+    case(
+        "agents lint",
+        &[read("", &["agents", "lint", "--repo", "{repo}"])],
+    ),
+    case(
+        "agents diff",
+        &[read("", &["agents", "diff", "--repo", "{repo}"])],
+    ),
+    case(
+        "agents status",
+        &[read("", &["agents", "status", "--repo", "{repo}"])],
+    ),
+    case(
+        "styles ls",
+        &[read("", &["styles", "ls", "--repo", "{repo}"])],
+    ),
+    case(
+        "styles lint",
+        &[read("", &["styles", "lint", "--repo", "{repo}"])],
+    ),
+    case(
+        "styles diff",
+        &[read("", &["styles", "diff", "--repo", "{repo}"])],
+    ),
+    case(
+        "styles status",
+        &[read("", &["styles", "status", "--repo", "{repo}"])],
     ),
     case(
         "library status",

@@ -1,0 +1,11 @@
+{
+  "arguments": {
+    "name": "terse"
+  },
+  "isError": false,
+  "result": {
+    "created_path": "<WORLD>/skills-repo/styles/terse/STYLE.md",
+    "kind": "style"
+  },
+  "tool": "styles_scaffold"
+}

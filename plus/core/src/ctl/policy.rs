@@ -11,6 +11,7 @@
 //! writes either names an argv that only reads or gives the reason it is not run. The test walks
 //! the rows, so a new command is classified by adding its row and nothing else.
 
+use super::agents;
 use super::auth;
 use super::context;
 use super::flags::{Flag, Spec};
@@ -23,6 +24,7 @@ use super::skills;
 use super::skills_repo;
 use super::skills_state;
 use super::skills_taps;
+use super::styles;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tier {
@@ -450,6 +452,55 @@ pub(super) const ROWS: &[Row] = &[
         .spec(&[&skills_taps::INSTALL])
         .args(&[req("spec")])
         .skip("copies skills out of a tap; its --dry-run is a golden step"),
+    row("agents add", W)
+        .dry()
+        .spec(&[&agents::ADD])
+        .args(&[req("name")])
+        .skip("creates an agent folder; its --dry-run is a golden step"),
+    row("agents ls", R).spec(&[&agents::LS]),
+    row("agents lint", R).spec(&[&agents::LINT]),
+    row("agents audit", R).spec(&[&agents::AUDIT]),
+    row("agents diff", R).spec(&[&agents::DIFF]),
+    row("agents status", R).spec(&[&agents::STATUS]),
+    row("agents clean", D)
+        .dry()
+        .spec(&[&agents::CLEAN])
+        .skip("removes synced outputs; its --dry-run is a golden step"),
+    row("agents uninstall", D)
+        .dry()
+        .spec(&[&agents::UNINSTALL])
+        .args(&[req("name")])
+        .skip("deletes an agent; its --dry-run is a golden step"),
+    row("agents sync", W)
+        .dry()
+        .spec(&[&agents::SYNC])
+        .skip("writes client outputs; its --dry-run is a golden step"),
+    row("styles add", W)
+        .dry()
+        .spec(&[&styles::ADD])
+        .args(&[req("name")])
+        .skip("creates a style folder; its --dry-run is a golden step"),
+    row("styles ls", R).spec(&[&styles::LS]),
+    row("styles lint", R).spec(&[&styles::LINT]),
+    row("styles diff", R).spec(&[&styles::DIFF]),
+    row("styles status", R).spec(&[&styles::STATUS]),
+    row("styles sync", W)
+        .dry()
+        .spec(&[&styles::SYNC])
+        .skip("writes client outputs; its --dry-run is a golden step"),
+    row("styles apply", W)
+        .dry()
+        .spec(&[&styles::APPLY])
+        .args(&[req("name")])
+        .skip("writes client outputs; its --dry-run is a golden step"),
+    row("styles remove", D)
+        .dry()
+        .spec(&[&styles::REMOVE])
+        .skip("removes an applied style; its --dry-run is a golden step"),
+    row("styles clean", D)
+        .dry()
+        .spec(&[&styles::CLEAN])
+        .skip("removes synced outputs; its --dry-run is a golden step"),
     row("library status", R).spec(&[&library::STATUS]),
     row("library pull", W)
         .dry()
@@ -624,9 +675,37 @@ pub(super) const TOOL_ROWS: &[ToolRow] = &[
     maps("skills_tap_remove", W, "skills tap remove").on(),
     maps("skills_tap_update", W, "skills tap update").on(),
     maps("skills_install", W, "skills install").on(),
+    maps("agents_list", R, "agents ls"),
+    own("agents_get", R),
+    maps("agents_lint", R, "agents lint"),
+    own("agents_list_transpilers", R),
+    maps("agents_scaffold", W, "agents add"),
+    maps("agents_sync", W, "agents sync").on(),
+    maps("agents_diff", R, "agents diff"),
+    maps("agents_audit", R, "agents audit"),
+    maps("agents_status", R, "agents status"),
+    maps("agents_clean", D, "agents clean").on(),
+    maps("agents_uninstall", D, "agents uninstall").on(),
+    own("agents_edit_body", W),
+    maps("styles_list", R, "styles ls"),
+    own("styles_get", R),
+    maps("styles_lint", R, "styles lint"),
+    own("styles_active", R),
+    own("styles_list_transpilers", R),
+    maps("styles_scaffold", W, "styles add"),
+    maps("styles_sync_tier1", W, "styles sync").on(),
+    maps("styles_apply", W, "styles apply").on(),
+    maps("styles_diff", R, "styles diff"),
+    maps("styles_status", R, "styles status"),
+    maps("styles_clean", D, "styles clean").on(),
+    own("styles_edit_body", W),
+    maps("styles_remove", D, "styles remove").on(),
     maps("library_status", R, "library status"),
     maps("library_pull", W, "library pull").on(),
     own("skills_git_push", D),
+    own("skills_edit_body", W),
+    own("skills_edit_frontmatter", W),
+    own("skills_delete", W),
     maps("skills_bundle", W, "skills bundle").on(),
     maps("skills_unbundle", W, "skills unbundle").on(),
     maps("skills_clean", D, "skills clean").on(),

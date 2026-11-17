@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "name": "helper",
+    "new_body": "Changed prompt\n"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: agents_edit_body (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: agents_edit_body (tier 3). Pass confirm=true to proceed.",
+  "tool": "agents_edit_body"
+}

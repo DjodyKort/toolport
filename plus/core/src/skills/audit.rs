@@ -1,6 +1,7 @@
 //! Security audit for skill bodies. The pattern table is copied verbatim from mcpm, including
 //! the two upper-case patterns that can never match because lines are lower-cased first.
 
+use super::agents::Agent;
 use super::parser::Skill;
 use regex::Regex;
 use std::sync::OnceLock;
@@ -161,6 +162,19 @@ pub fn audit_skills(skills: &[Skill]) -> AuditResult {
     let mut result = AuditResult::default();
     for skill in skills {
         result.findings.extend(audit_skill(skill).findings);
+    }
+    result
+}
+
+/// `mcpm agents audit` hands agents to `audit_skills`, which reads `allowed_tools` from a
+/// frontmatter that has none and raises on every agent. The body patterns are what it was
+/// meant to scan; agents carry no `allowed_tools` string to check.
+pub fn audit_agents(agents: &[Agent]) -> AuditResult {
+    let mut result = AuditResult::default();
+    for agent in agents {
+        result
+            .findings
+            .extend(scan_body(agent.name(), &agent.body).findings);
     }
     result
 }

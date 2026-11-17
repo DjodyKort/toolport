@@ -1,0 +1,20 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false
+  },
+  "isError": false,
+  "result": {
+    "cleanRoot": "<WORLD>/home",
+    "dryRun": false,
+    "ignored": [],
+    "lockDir": "<WORLD>/data",
+    "lockUpdated": true,
+    "lockfilePresent": true,
+    "managed": ["plain"],
+    "removed": ["<WORLD>/home/.claude/output-styles/plain.md"],
+    "scope": "global",
+    "skipped": []
+  },
+  "tool": "styles_clean"
+}

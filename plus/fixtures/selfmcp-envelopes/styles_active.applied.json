@@ -1,0 +1,12 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "activeStyles": {
+      "aider": "plain"
+    },
+    "lockfilePresent": true,
+    "repo": "<WORLD>/skills-repo"
+  },
+  "tool": "styles_active"
+}

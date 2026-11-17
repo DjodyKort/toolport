@@ -1,0 +1,13 @@
+{
+  "argv": ["agents", "add"],
+  "envelope": {
+    "command": "agents add",
+    "error": {
+      "code": "usage",
+      "message": "missing agent name\nusage: agents add <name> [--path <dir>] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

@@ -4,6 +4,7 @@
 
 mod backend;
 mod catalog;
+mod content;
 mod context;
 mod library;
 pub mod register;

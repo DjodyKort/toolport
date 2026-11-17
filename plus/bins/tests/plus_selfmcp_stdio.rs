@@ -148,6 +148,8 @@ fn the_self_mcp_server_and_toolportctl_mcp_call_give_the_same_result() {
         let arguments = match name {
             "servers_get" => json!({"name": "alpha"}),
             "skills_get" => json!({"name": "demo"}),
+            "agents_get" => json!({"name": "helper"}),
+            "styles_get" => json!({"name": "plain"}),
             "skills_search" => json!({"query": "demo"}),
             "context_bundle_status" | "context_loads" | "context_compose" | "context_status" => {
                 json!({"cwd": world.home.display().to_string()})

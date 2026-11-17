@@ -1,0 +1,19 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false
+  },
+  "isError": false,
+  "result": {
+    "cleanRoot": "<WORLD>/home",
+    "dryRun": false,
+    "ignored": [],
+    "lockDir": "<WORLD>/data",
+    "lockfilePresent": true,
+    "managed": ["helper"],
+    "removed": ["<WORLD>/home/.claude/agents/helper.md"],
+    "scope": "global",
+    "skipped": []
+  },
+  "tool": "agents_clean"
+}

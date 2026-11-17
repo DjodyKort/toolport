@@ -78,6 +78,20 @@ impl World {
             "---\nname: demo\ndescription: A synthetic demo skill\n---\nBody text\n",
         )
         .unwrap();
+        for (rel, text) in [
+            (
+                "agents/helper/AGENT.md",
+                "---\nname: helper\ndescription: A synthetic helper agent\nmodel: inherit\n---\nAgent prompt\n",
+            ),
+            (
+                "styles/plain/STYLE.md",
+                "---\nname: plain\ndescription: A synthetic plain style\nkeep-coding-instructions: true\n---\nStyle text\n",
+            ),
+        ] {
+            let path = world.repo.join(rel);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, text).unwrap();
+        }
         world.stub_gateway(SEAM_MARKER.as_bytes());
         world
     }

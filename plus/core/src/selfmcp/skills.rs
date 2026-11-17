@@ -8,8 +8,10 @@ use toolport_plus_api::Host;
 
 use super::ToolError;
 use crate::args::{flag_or, str_arg, str_nonempty};
+use crate::skills::agents::handlers as agents;
 use crate::skills::api::{self, Args};
 use crate::skills::repo::{skill_bucket, skill_template};
+use crate::skills::styles::handlers as styles;
 use crate::skills::{repo_handlers, state, tap_handlers as taps};
 
 type Outcome = Result<Value, ToolError>;
@@ -43,7 +45,7 @@ fn with_paths<R>(host: &dyn Host, run: impl FnOnce() -> R) -> R {
     run()
 }
 
-fn repo_of(args: &Value) -> Result<PathBuf, ToolError> {
+pub(super) fn repo_of(args: &Value) -> Result<PathBuf, ToolError> {
     let start = str_arg(args, "repo_path").map(PathBuf::from);
     Ok(api::resolve_repo(start.as_deref())?)
 }
@@ -54,7 +56,7 @@ fn request(args: &Value) -> Result<Map<String, Value>, ToolError> {
     Ok(map)
 }
 
-fn path_safe(name: &str) -> Result<&str, ToolError> {
+pub(super) fn path_safe(name: &str) -> Result<&str, ToolError> {
     let ok = !name.is_empty()
         && name.len() <= 128
         && !name.starts_with('.')
@@ -71,7 +73,7 @@ fn path_safe(name: &str) -> Result<&str, ToolError> {
     }
 }
 
-fn kebab(name: &str) -> Result<&str, ToolError> {
+pub(super) fn kebab(name: &str) -> Result<&str, ToolError> {
     let ok = !name.is_empty()
         && name.len() <= 64
         && !name.starts_with('-')
@@ -349,4 +351,43 @@ pub(super) fn install(host: &dyn Host, args: &Value) -> Outcome {
             "no_audit": false,
         })))
     })
+}
+
+pub(super) fn agents_audit(host: &dyn Host, args: &Value) -> Outcome {
+    with_paths(host, || read(args, agents::audit_handler))
+}
+
+pub(super) fn agents_diff(host: &dyn Host, args: &Value) -> Outcome {
+    with_paths(host, || read(args, agents::diff_handler))
+}
+
+pub(super) fn agents_status(host: &dyn Host, args: &Value) -> Outcome {
+    with_paths(host, || read(args, agents::status_handler))
+}
+
+pub(super) fn styles_diff(host: &dyn Host, args: &Value) -> Outcome {
+    with_paths(host, || read(args, styles::diff_handler))
+}
+
+pub(super) fn styles_status(host: &dyn Host, args: &Value) -> Outcome {
+    with_paths(host, || read(args, styles::status_handler))
+}
+
+pub(super) fn agents_clean(host: &dyn Host, args: &Value) -> Outcome {
+    with_paths(host, || scoped(args, agents::clean_handler, &[]))
+}
+
+pub(super) fn agents_uninstall(host: &dyn Host, args: &Value) -> Outcome {
+    let name = path_safe(str_arg(args, "name").unwrap_or_default())?;
+    with_paths(host, || {
+        scoped(args, agents::uninstall_handler, &[("name", json!(name))])
+    })
+}
+
+pub(super) fn styles_clean(host: &dyn Host, args: &Value) -> Outcome {
+    with_paths(host, || scoped(args, styles::clean_handler, &[]))
+}
+
+fn read(args: &Value, handler: Handler) -> Outcome {
+    handler(Value::Object(request(args)?)).map_err(failed)
 }

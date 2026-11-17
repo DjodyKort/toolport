@@ -1,0 +1,25 @@
+{
+  "argv": ["agents", "uninstall", "helper", "--repo", "{repo}", "--dry-run"],
+  "envelope": {
+    "command": "agents uninstall",
+    "data": {
+      "dryRun": true,
+      "lockDir": "<WORLD>/data",
+      "lockUpdated": true,
+      "name": "helper",
+      "outputRoot": "<WORLD>/home",
+      "outputs": [
+        "<WORLD>/home/.claude/agents/helper.md",
+        "<WORLD>/home/.codex/agents/helper.toml",
+        "<WORLD>/home/.cursor/agents/helper.md",
+        "<WORLD>/home/.gemini/agents/helper.md"
+      ],
+      "repo": "<WORLD>/skills-repo",
+      "scope": "global",
+      "sourcePath": "<WORLD>/skills-repo/agents/helper"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

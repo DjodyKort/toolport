@@ -1,0 +1,13 @@
+{
+  "argv": ["styles", "apply"],
+  "envelope": {
+    "command": "styles apply",
+    "error": {
+      "code": "usage",
+      "message": "missing style name\nusage: styles apply <name> [--path <dir>] [--home <dir>] [--client <key>]... [--project] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

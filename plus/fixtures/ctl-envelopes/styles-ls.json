@@ -1,0 +1,25 @@
+{
+  "argv": ["styles", "ls", "--repo", "{repo}"],
+  "envelope": {
+    "command": "styles ls",
+    "data": {
+      "active": [],
+      "discoveryWarnings": [],
+      "lockfilePresent": false,
+      "repo": "<WORLD>/skills-repo",
+      "styles": [
+        {
+          "clientsSynced": [],
+          "description": "A synthetic plain style",
+          "keepCodingInstructions": true,
+          "name": "plain",
+          "path": "<WORLD>/skills-repo/styles/plain/STYLE.md",
+          "synced": false
+        }
+      ]
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

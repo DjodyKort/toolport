@@ -1,0 +1,15 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "transpilers": [
+      "claude-code",
+      "codex-cli",
+      "cursor",
+      "gemini-cli",
+      "roomodes",
+      "vscode"
+    ]
+  },
+  "tool": "agents_list_transpilers"
+}

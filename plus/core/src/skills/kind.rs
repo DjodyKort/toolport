@@ -2,7 +2,25 @@
 //! repository, each with YAML frontmatter. Discovery, lookup and the one-line inventory are
 //! written once over [`ContentKind`].
 
+use super::parser::parse_frontmatter;
+use super::pyfs::read_text;
+use serde_yaml::Value;
 use std::path::{Path, PathBuf};
+
+/// The frontmatter and body of an agent or style file.
+pub(super) fn read_document(
+    noun: &str,
+    path: &Path,
+) -> Result<(Vec<(String, Value)>, String), String> {
+    if !path.exists() {
+        return Err(format!("{noun} file not found: {}", path.display()));
+    }
+    let (fm, body) = parse_frontmatter(&read_text(path)?)?;
+    if fm.is_empty() {
+        return Err(format!("No YAML frontmatter found in {}", path.display()));
+    }
+    Ok((fm, body))
+}
 
 pub trait ContentKind {
     type Item;

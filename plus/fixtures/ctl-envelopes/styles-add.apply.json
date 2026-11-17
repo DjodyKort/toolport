@@ -1,0 +1,15 @@
+{
+  "argv": ["styles", "add", "terse", "--repo", "{repo}"],
+  "envelope": {
+    "command": "styles add",
+    "data": {
+      "dryRun": false,
+      "name": "terse",
+      "path": "<WORLD>/skills-repo/styles/terse/STYLE.md",
+      "repo": "<WORLD>/skills-repo"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

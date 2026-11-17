@@ -135,6 +135,13 @@ const CLAUDE: &str = r#"{"client_keys":["claude-code"]}"#;
 const CLAUDE_UNCONFIRMED: &str = r#"{"client_keys":["claude-code"],"dry_run":false}"#;
 const CLAUDE_APPLY: &str = r#"{"client_keys":["claude-code"],"dry_run":false,"confirm":true}"#;
 
+const AIDER: &str = r#"{"name":"plain","client_keys":["aider"],"dry_run":false,"confirm":true}"#;
+const AIDER_STYLE: &str = r#"{"name":"plain","client_keys":["aider"]}"#;
+const AIDER_STYLE_UNCONFIRMED: &str = r#"{"name":"plain","client_keys":["aider"],"dry_run":false}"#;
+const AIDER_REMOVE_PREVIEW: &str = r#"{"client_keys":["aider"]}"#;
+const AIDER_REMOVE_UNCONFIRMED: &str = r#"{"client_keys":["aider"],"dry_run":false}"#;
+const AIDER_REMOVE: &str = r#"{"client_keys":["aider"],"dry_run":false,"confirm":true}"#;
+
 const CASES: &[Case] = &[
     case(
         "where_am_i",
@@ -150,6 +157,278 @@ const CASES: &[Case] = &[
         ],
     ),
     case("doctor", &[read("", "doctor", "{}")]),
+    case(
+        "skills_edit_body",
+        &[
+            refused(
+                "refused",
+                "skills_edit_body",
+                r#"{"name":"demo","new_body":"Changed body\n"}"#,
+            ),
+            write(
+                "apply",
+                "skills_edit_body",
+                r#"{"name":"demo","new_body":"Changed body\n","confirm":true}"#,
+            ),
+            fails(
+                "missing",
+                "not_found",
+                "skills_edit_body",
+                r#"{"name":"nope","new_body":"x","confirm":true}"#,
+            ),
+        ],
+    ),
+    case(
+        "skills_edit_frontmatter",
+        &[
+            refused(
+                "refused",
+                "skills_edit_frontmatter",
+                r#"{"name":"demo","patch":{"description":"Edited description"}}"#,
+            ),
+            write(
+                "apply",
+                "skills_edit_frontmatter",
+                r#"{"name":"demo","patch":{"description":"Edited description"},"confirm":true}"#,
+            ),
+            fails(
+                "missing",
+                "not_found",
+                "skills_edit_frontmatter",
+                r#"{"name":"nope","patch":{"description":"x"},"confirm":true}"#,
+            ),
+        ],
+    ),
+    case(
+        "skills_delete",
+        &[
+            refused("refused", "skills_delete", r#"{"name":"demo"}"#),
+            write(
+                "apply",
+                "skills_delete",
+                r#"{"name":"demo","confirm":true}"#,
+            ),
+            fails(
+                "gone",
+                "not_found",
+                "skills_delete",
+                r#"{"name":"demo","confirm":true}"#,
+            ),
+        ],
+    ),
+    case("agents_list", &[read("", "agents_list", "{}")]),
+    case(
+        "agents_get",
+        &[
+            read("found", "agents_get", r#"{"name":"helper"}"#),
+            fails("missing", "not_found", "agents_get", r#"{"name":"nope"}"#),
+        ],
+    ),
+    case("agents_lint", &[read("", "agents_lint", "{}")]),
+    case(
+        "agents_list_transpilers",
+        &[read("", "agents_list_transpilers", "{}")],
+    ),
+    case(
+        "agents_scaffold",
+        &[
+            write(
+                "apply",
+                "agents_scaffold",
+                r#"{"name":"scout","model":"sonnet"}"#,
+            ),
+            fails(
+                "exists",
+                "conflict",
+                "agents_scaffold",
+                r#"{"name":"scout"}"#,
+            ),
+            fails(
+                "escaping_name",
+                "invalid_arguments",
+                "agents_scaffold",
+                r#"{"name":"../escape"}"#,
+            ),
+        ],
+    ),
+    case(
+        "agents_sync",
+        &[
+            read("preview", "agents_sync", CLAUDE),
+            refused("refused", "agents_sync", CLAUDE_UNCONFIRMED),
+            write("apply", "agents_sync", CLAUDE_APPLY),
+        ],
+    ),
+    case(
+        "agents_diff",
+        &[
+            read("fresh", "agents_diff", "{}"),
+            setup("agents_sync", CLAUDE_APPLY),
+            read("synced", "agents_diff", "{}"),
+        ],
+    ),
+    case("agents_audit", &[read("", "agents_audit", "{}")]),
+    case(
+        "agents_status",
+        &[
+            read("fresh", "agents_status", "{}"),
+            setup("agents_sync", CLAUDE_APPLY),
+            read("synced", "agents_status", "{}"),
+        ],
+    ),
+    case(
+        "agents_clean",
+        &[
+            setup("agents_sync", CLAUDE_APPLY),
+            read("preview", "agents_clean", "{}"),
+            refused("refused", "agents_clean", UNCONFIRMED),
+            write("apply", "agents_clean", APPLY),
+        ],
+    ),
+    case(
+        "agents_uninstall",
+        &[
+            setup("agents_sync", CLAUDE_APPLY),
+            read("preview", "agents_uninstall", r#"{"name":"helper"}"#),
+            refused(
+                "refused",
+                "agents_uninstall",
+                r#"{"name":"helper","dry_run":false}"#,
+            ),
+            fails(
+                "escaping_name",
+                "invalid_arguments",
+                "agents_uninstall",
+                r#"{"name":"../skills/demo","dry_run":false,"confirm":true}"#,
+            ),
+            write(
+                "apply",
+                "agents_uninstall",
+                r#"{"name":"helper","dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
+    case(
+        "agents_edit_body",
+        &[
+            refused(
+                "refused",
+                "agents_edit_body",
+                r#"{"name":"helper","new_body":"Changed prompt\n"}"#,
+            ),
+            write(
+                "apply",
+                "agents_edit_body",
+                r#"{"name":"helper","new_body":"Changed prompt\n","confirm":true}"#,
+            ),
+        ],
+    ),
+    // styles
+    case("styles_list", &[read("", "styles_list", "{}")]),
+    case(
+        "styles_get",
+        &[
+            read("found", "styles_get", r#"{"name":"plain"}"#),
+            fails("missing", "not_found", "styles_get", r#"{"name":"nope"}"#),
+        ],
+    ),
+    case("styles_lint", &[read("", "styles_lint", "{}")]),
+    case(
+        "styles_active",
+        &[
+            read("none", "styles_active", "{}"),
+            setup("styles_apply", AIDER),
+            read("applied", "styles_active", "{}"),
+        ],
+    ),
+    case(
+        "styles_list_transpilers",
+        &[read("", "styles_list_transpilers", "{}")],
+    ),
+    case(
+        "styles_scaffold",
+        &[
+            write("apply", "styles_scaffold", r#"{"name":"terse"}"#),
+            fails(
+                "exists",
+                "conflict",
+                "styles_scaffold",
+                r#"{"name":"terse"}"#,
+            ),
+        ],
+    ),
+    case(
+        "styles_sync_tier1",
+        &[
+            read("preview", "styles_sync_tier1", CLAUDE),
+            refused("refused", "styles_sync_tier1", CLAUDE_UNCONFIRMED),
+            write("apply", "styles_sync_tier1", CLAUDE_APPLY),
+        ],
+    ),
+    case(
+        "styles_apply",
+        &[
+            read("preview", "styles_apply", AIDER_STYLE),
+            refused("refused", "styles_apply", AIDER_STYLE_UNCONFIRMED),
+            write("apply", "styles_apply", AIDER),
+            fails(
+                "missing",
+                "not_found",
+                "styles_apply",
+                r#"{"name":"nope","client_keys":["aider"],"dry_run":false,"confirm":true}"#,
+            ),
+        ],
+    ),
+    case(
+        "styles_diff",
+        &[
+            read("fresh", "styles_diff", "{}"),
+            setup("styles_sync_tier1", CLAUDE_APPLY),
+            read("synced", "styles_diff", "{}"),
+        ],
+    ),
+    case(
+        "styles_status",
+        &[
+            read("fresh", "styles_status", "{}"),
+            setup("styles_sync_tier1", CLAUDE_APPLY),
+            read("synced", "styles_status", "{}"),
+        ],
+    ),
+    case(
+        "styles_clean",
+        &[
+            setup("styles_sync_tier1", CLAUDE_APPLY),
+            read("preview", "styles_clean", "{}"),
+            refused("refused", "styles_clean", UNCONFIRMED),
+            write("apply", "styles_clean", APPLY),
+        ],
+    ),
+    case(
+        "styles_edit_body",
+        &[
+            refused(
+                "refused",
+                "styles_edit_body",
+                r#"{"name":"plain","new_body":"Short\n"}"#,
+            ),
+            write(
+                "apply",
+                "styles_edit_body",
+                r#"{"name":"plain","new_body":"Short\n","confirm":true}"#,
+            ),
+        ],
+    ),
+    case(
+        "styles_remove",
+        &[
+            setup("styles_apply", AIDER),
+            read("preview", "styles_remove", AIDER_REMOVE_PREVIEW),
+            refused("refused", "styles_remove", AIDER_REMOVE_UNCONFIRMED),
+            write("apply", "styles_remove", AIDER_REMOVE),
+        ],
+    ),
+    // compression
     prepared(
         "library_status",
         library_home,

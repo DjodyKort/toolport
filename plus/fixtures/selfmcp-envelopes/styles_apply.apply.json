@@ -1,0 +1,17 @@
+{
+  "arguments": {
+    "client_keys": ["aider"],
+    "confirm": true,
+    "dry_run": false,
+    "name": "plain"
+  },
+  "isError": false,
+  "result": {
+    "activeStyles": {
+      "aider": "plain"
+    },
+    "applied": "plain",
+    "dryRun": false
+  },
+  "tool": "styles_apply"
+}

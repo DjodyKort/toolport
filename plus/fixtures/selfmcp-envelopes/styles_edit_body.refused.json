@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "name": "plain",
+    "new_body": "Short\n"
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "refused",
+      "message": "Refused: styles_edit_body (tier 3). Pass confirm=true to proceed."
+    }
+  },
+  "text": "refused: Refused: styles_edit_body (tier 3). Pass confirm=true to proceed.",
+  "tool": "styles_edit_body"
+}

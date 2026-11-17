@@ -255,6 +255,21 @@
       "route": "library",
       "status": "planned",
       "summary": "The library against its remote: status, pull and review the plan, push after the audit and the secret scan (library status|pull|push; library_status, library_pull, skills_git_push)"
+    },
+    "library.agents": {
+      "route": "library",
+      "status": "planned",
+      "summary": "Agents: list, lint, audit, diff, status, scaffold, sync, clean, uninstall and edit the body (agents add|ls|lint|audit|diff|status|sync|clean|uninstall; agents_* tools)"
+    },
+    "library.styles": {
+      "route": "library",
+      "status": "planned",
+      "summary": "Styles: list, lint, diff, status, scaffold, sync, apply, remove, clean and edit the body (styles add|ls|lint|diff|status|sync|apply|remove|clean; styles_* tools)"
+    },
+    "library.edit": {
+      "route": "library",
+      "status": "planned",
+      "summary": "Edit a skill's body or frontmatter in the library, or delete it (skills_edit_body, skills_edit_frontmatter, skills_delete)"
     }
   },
   "owners": {
@@ -268,7 +283,9 @@
     "context": "MIG-2X-S5",
     "plugins": "MIG-2X-S5",
     "skills": "MIG-2X-S4",
-    "library": "MIG-2X-S4"
+    "library": "MIG-2X-S4",
+    "agents": "MIG-2X-S4",
+    "styles": "MIG-2X-S4"
   },
   "commands": {
     "status": {
@@ -590,6 +607,96 @@
       "route": "library",
       "action": "library.remote",
       "surface": "screen"
+    },
+    "agents add": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "agents ls": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "agents lint": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "agents audit": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "agents diff": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "agents status": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "agents clean": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "agents uninstall": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "agents sync": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "styles add": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles ls": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles lint": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles diff": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles status": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles sync": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles apply": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles remove": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles clean": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
     }
   },
   "tools": {
@@ -821,6 +928,146 @@
     "skills_git_push": {
       "route": "library",
       "action": "library.remote",
+      "surface": "screen"
+    },
+    "agents_list": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "agents_get": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "agents_lint": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "agents_list_transpilers": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "agents_scaffold": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "agents_sync": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "agents_diff": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "agents_audit": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "agents_status": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "agents_clean": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "agents_uninstall": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "agents_edit_body": {
+      "route": "library",
+      "action": "library.agents",
+      "surface": "screen"
+    },
+    "styles_list": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles_get": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles_lint": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles_active": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles_list_transpilers": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles_scaffold": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles_sync_tier1": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles_apply": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles_diff": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles_status": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles_clean": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles_edit_body": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "styles_remove": {
+      "route": "library",
+      "action": "library.styles",
+      "surface": "screen"
+    },
+    "skills_edit_body": {
+      "route": "library",
+      "action": "library.edit",
+      "surface": "screen"
+    },
+    "skills_edit_frontmatter": {
+      "route": "library",
+      "action": "library.edit",
+      "surface": "screen"
+    },
+    "skills_delete": {
+      "route": "library",
+      "action": "library.edit",
       "surface": "screen"
     }
   }

@@ -1,0 +1,11 @@
+{
+  "arguments": {
+    "client_keys": ["aider"]
+  },
+  "isError": false,
+  "result": {
+    "activeStyles": {},
+    "dryRun": true
+  },
+  "tool": "styles_remove"
+}

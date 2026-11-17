@@ -1,0 +1,23 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "tier1": ["claude-code", "roomodes-style"],
+    "tier2": [
+      "aider",
+      "amazon-q",
+      "cline",
+      "codex-cli",
+      "continue",
+      "cursor",
+      "gemini-cli",
+      "goose",
+      "jetbrains",
+      "trae",
+      "vscode-copilot",
+      "windsurf",
+      "zed"
+    ]
+  },
+  "tool": "styles_list_transpilers"
+}

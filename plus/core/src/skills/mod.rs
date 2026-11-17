@@ -1,6 +1,7 @@
 //! Skills core: SKILL.md parser, content hash, lockfile, sync with a file plan, collision backups
 //! and the transpilers.
 
+pub mod agents;
 pub mod api;
 pub mod assets;
 pub mod audit;
@@ -22,7 +23,9 @@ pub mod pyfs;
 pub mod repo;
 pub mod repo_handlers;
 pub(crate) mod scalar;
+pub(crate) mod schema;
 pub mod state;
+pub mod styles;
 pub mod sync;
 pub mod sync_report;
 pub mod tap_handlers;
@@ -48,6 +51,8 @@ mod tap_fixtures;
 mod tap_ops_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_features;
 
 #[cfg(test)]
 pub use {assets::compute_skill_hash, transpiler::TranspileResult};

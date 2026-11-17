@@ -2,6 +2,7 @@
 //! clean and collision triage. Mirrors the data side of mcpm's `skills|agents|styles` commands;
 //! rendering and prompting stay with the caller.
 
+use super::agents::{Agent, AgentTranspiler};
 use super::assets::compute_skill_hash;
 use super::clock::Clock;
 use super::collisions::{
@@ -9,8 +10,11 @@ use super::collisions::{
 };
 use super::frontmatter::{output_accepted, Reason};
 use super::json;
+use super::lock::OrderedMap;
 use super::lock::{get_entry, load_lockfile, lockfile_path, save_lockfile, LockFile};
 use super::parser::{valid_name, Skill, SkillType};
+use super::pyfs::text_hash;
+use super::styles::{all_style_transpilers, Style, Tier};
 use super::transpiler::{Transpiler, TranspilerRegistry};
 use std::collections::BTreeSet;
 use std::fs;
@@ -529,4 +533,256 @@ pub fn resolve_skill_collisions(
         req.clock,
     )?;
     Ok((found, summary))
+}
+
+/// `mcpm agents diff`: the agents' names and file hashes against the lock's agents section. Without
+/// a lock every agent is new, listed in discovery order.
+pub fn diff_agents(agents: &[Agent], lock: Option<&LockFile>) -> Result<DiffReport, String> {
+    let Some(lock) = lock else {
+        return Ok(DiffReport {
+            no_lockfile: true,
+            new: agents.iter().map(|a| a.name().to_string()).collect(),
+            ..DiffReport::default()
+        });
+    };
+    let current: BTreeSet<&str> = agents.iter().map(Agent::name).collect();
+    let locked: BTreeSet<&str> = lock.agents.iter().map(|(k, _)| k.as_str()).collect();
+    let mut report = DiffReport {
+        new: current.difference(&locked).map(|s| s.to_string()).collect(),
+        removed: locked.difference(&current).map(|s| s.to_string()).collect(),
+        ..DiffReport::default()
+    };
+    let mut modified = BTreeSet::new();
+    for agent in agents {
+        if let Some(entry) = get_entry(&lock.agents, agent.name()) {
+            if text_hash(&agent.source_path)? != entry.hash {
+                modified.insert(agent.name().to_string());
+            }
+        }
+    }
+    report.unchanged = current.intersection(&locked).count() - modified.len();
+    report.modified = modified.into_iter().collect();
+    Ok(report)
+}
+
+/// `mcpm styles diff`: the styles' names and file hashes against the lock's styles section. Without
+/// a lock every style is new, listed in discovery order.
+pub fn diff_styles(styles: &[Style], lock: Option<&LockFile>) -> Result<DiffReport, String> {
+    let Some(lock) = lock else {
+        return Ok(DiffReport {
+            no_lockfile: true,
+            new: styles.iter().map(|s| s.name().to_string()).collect(),
+            ..DiffReport::default()
+        });
+    };
+    let current: BTreeSet<&str> = styles.iter().map(Style::name).collect();
+    let locked: BTreeSet<&str> = lock.styles.iter().map(|(k, _)| k.as_str()).collect();
+    let mut report = DiffReport {
+        new: current.difference(&locked).map(|s| s.to_string()).collect(),
+        removed: locked.difference(&current).map(|s| s.to_string()).collect(),
+        ..DiffReport::default()
+    };
+    let mut modified = BTreeSet::new();
+    for style in styles {
+        if let Some(entry) = get_entry(&lock.styles, style.name()) {
+            if text_hash(&style.source_path)? != entry.hash {
+                modified.insert(style.name().to_string());
+            }
+        }
+    }
+    report.unchanged = current.intersection(&locked).count() - modified.len();
+    report.modified = modified.into_iter().collect();
+    Ok(report)
+}
+
+pub fn agents_status(
+    lock: &LockFile,
+    transpilers: &[Box<dyn AgentTranspiler>],
+    root: &Path,
+) -> Vec<StatusRow> {
+    let mut rows = Vec::new();
+    for (name, entry) in lock
+        .agents
+        .iter()
+        .filter(|(name, _)| valid_name(name).is_ok())
+    {
+        for client in &entry.clients_synced {
+            let Some(t) = transpilers.iter().find(|t| t.client_key() == client) else {
+                continue;
+            };
+            let path = t.get_output_path(&super::agents::Agent::placeholder(name), root);
+            rows.push(StatusRow {
+                name: name.clone(),
+                client: client.clone(),
+                present: path.exists(),
+            });
+        }
+    }
+    rows
+}
+
+/// A tier-1 client and the styles the lock says were synced to it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NativeStyleRow {
+    pub client: String,
+    pub display_name: String,
+    pub styles: Vec<String>,
+}
+
+/// A tier-2 client and its active style, if any.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ActiveStyleRow {
+    pub client: String,
+    pub display_name: String,
+    pub active: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StyleStatus {
+    pub native: Vec<NativeStyleRow>,
+    pub active: Vec<ActiveStyleRow>,
+}
+
+pub fn styles_status(lock: &LockFile) -> StyleStatus {
+    let mut status = StyleStatus {
+        native: Vec::new(),
+        active: Vec::new(),
+    };
+    for t in all_style_transpilers() {
+        let client = t.client_key().to_string();
+        let display_name = t.display_name().to_string();
+        match t.tier() {
+            Tier::Native => {
+                let styles = lock
+                    .styles
+                    .iter()
+                    .filter(|(_, e)| e.clients_synced.contains(&client))
+                    .map(|(n, _)| n.clone())
+                    .collect();
+                status.native.push(NativeStyleRow {
+                    client,
+                    display_name,
+                    styles,
+                });
+            }
+            Tier::ApplyRemove => {
+                let active = lock
+                    .active_styles
+                    .iter()
+                    .find(|(k, _)| *k == client)
+                    .map(|(_, v)| v.clone());
+                status.active.push(ActiveStyleRow {
+                    client,
+                    display_name,
+                    active,
+                });
+            }
+        }
+    }
+    status
+}
+
+/// `mcpm agents clean`: removes agent outputs but, unlike skills, leaves the lockfile alone. A
+/// dry run reports the same paths and leaves the disk alone.
+pub fn clean_agents(
+    clean_root: &Path,
+    transpilers: &[Box<dyn AgentTranspiler>],
+    client: Option<&str>,
+    lock: Option<&LockFile>,
+    dry_run: bool,
+) -> CleanOutcome {
+    let mut out = CleanOutcome::default();
+    let Some(lock) = lock else {
+        return out;
+    };
+    let (managed, ignored) = managed_names(lock.agents.iter().map(|(k, _)| k));
+    out.ignored = ignored;
+    out.managed = managed.clone();
+    if managed.is_empty() {
+        return out;
+    }
+    for t in transpilers
+        .iter()
+        .filter(|t| client.is_none_or(|c| c == t.client_key()))
+    {
+        if dry_run {
+            out.removed.extend(t.clean_targets(clean_root, &managed));
+            continue;
+        }
+        match t.clean(clean_root, &managed) {
+            Ok(removed) => out.removed.extend(removed),
+            Err(e) => out.skipped.push((t.client_key().to_string(), e)),
+        }
+    }
+    out
+}
+
+/// `mcpm styles clean`: every style transpiler cleans, then the lock forgets styles entirely. A
+/// dry run reports the same paths and leaves the disk and the lock alone.
+pub fn clean_styles(root: &Path, lock: Option<&mut LockFile>, dry_run: bool) -> CleanOutcome {
+    let mut out = CleanOutcome::default();
+    let (managed, ignored) = managed_names(
+        lock.as_ref()
+            .into_iter()
+            .flat_map(|l| l.styles.iter().map(|(k, _)| k)),
+    );
+    out.ignored = ignored;
+    out.managed = managed.clone();
+    for t in all_style_transpilers() {
+        if dry_run {
+            out.removed.extend(t.clean_targets(root, &managed));
+            continue;
+        }
+        match t.clean(root, &managed) {
+            Ok(removed) => out.removed.extend(removed),
+            Err(e) => out.skipped.push((t.client_key().to_string(), e)),
+        }
+    }
+    if let Some(lock) = lock.filter(|_| !dry_run) {
+        lock.styles = OrderedMap::new();
+        lock.active_styles = OrderedMap::new();
+    }
+    out
+}
+
+/// `mcpm agents uninstall`: the agent's outputs for every client, its source directory and its
+/// lock entry. mcpm passes a keyword the transpilers do not take, so the command raises a
+/// TypeError on every call; this is what it was written to do.
+pub fn uninstall_agent(
+    repo: &Path,
+    name: &str,
+    scope: &Scope,
+    transpilers: &[Box<dyn AgentTranspiler>],
+    dry_run: bool,
+) -> Result<UninstallOutcome, String> {
+    let source = source_dir(repo, name, &["agents"], "agent")?;
+    let managed = [name.to_string()];
+    let mut outputs = Vec::new();
+    for t in transpilers {
+        if dry_run {
+            outputs.extend(t.clean_targets(&scope.output_root, &managed));
+        } else {
+            let removed = t
+                .clean(&scope.output_root, &managed)
+                .map_err(|e| format!("{}: {e}", t.client_key()))?;
+            outputs.extend(removed);
+        }
+    }
+    if !dry_run {
+        fs::remove_dir_all(&source).map_err(|e| format!("{}: {e}", source.display()))?;
+    }
+    let mut lock_updated = false;
+    if let Some(mut lock) = load_lockfile(&scope.lock_dir) {
+        let before = lock.agents.len();
+        lock.agents.retain(|(k, _)| k != name);
+        lock_updated = lock.agents.len() != before;
+        if lock_updated && !dry_run {
+            save_lockfile(&scope.lock_dir, &lock)?;
+        }
+    }
+    Ok(UninstallOutcome {
+        source,
+        outputs,
+        lock_updated,
+    })
 }

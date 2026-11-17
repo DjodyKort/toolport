@@ -1,0 +1,15 @@
+{
+  "argv": ["agents", "add", "scout", "--repo", "{repo}", "--dry-run"],
+  "envelope": {
+    "command": "agents add",
+    "data": {
+      "dryRun": true,
+      "name": "scout",
+      "path": "<WORLD>/skills-repo/agents/scout/AGENT.md",
+      "repo": "<WORLD>/skills-repo"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

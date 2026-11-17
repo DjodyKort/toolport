@@ -1,7 +1,7 @@
 use serde_json::{json, Map, Value};
 use toolport_plus_api::Host;
 
-use super::{backend, context, library, servers, skills, ToolError};
+use super::{backend, content, context, library, servers, skills, ToolError};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Gate {
@@ -72,6 +72,8 @@ const DRY: Param = p(
     "Report the plan and write nothing",
 );
 const CWD: Param = p("cwd", Ty::Str, true, "The folder where Claude Code starts");
+const ENTITY: Param = p("name", Ty::Str, true, "Entity or server name");
+const BODY: Param = p("new_body", Ty::Str, true, "Replacement body");
 const SKILL_NAME: Param = p("name", Ty::Str, true, "Skill or rule name");
 const REPO: Param = p("repo_path", Ty::Str, false, "Skills repository root");
 const CLIENTS: Param = p("client_keys", Ty::StrList, false, "Client keys to target");
@@ -281,6 +283,220 @@ pub const TOOLS: &[ToolDef] = &[
             DRY_ON
         ],
         skills::install
+    ),
+    tool!(
+        "skills_edit_body",
+        3,
+        Always,
+        "Replace a skill body in the canonical repository",
+        [ENTITY, BODY, REPO],
+        content::skills_edit_body
+    ),
+    tool!(
+        "skills_edit_frontmatter",
+        3,
+        Always,
+        "Patch a skill's frontmatter",
+        [
+            ENTITY,
+            p("patch", Ty::Obj, true, "Frontmatter fields to set"),
+            REPO
+        ],
+        content::skills_edit_frontmatter
+    ),
+    tool!(
+        "skills_delete",
+        3,
+        Always,
+        "Delete a skill from the canonical repository",
+        [ENTITY, REPO],
+        content::skills_delete
+    ),
+    tool!("agents_list", 1, None, "List agents", [REPO], content::agents_list),
+    tool!(
+        "agents_get",
+        1,
+        None,
+        "Read one agent including its body",
+        [ENTITY, REPO],
+        content::agents_get
+    ),
+    tool!("agents_lint", 1, None, "Lint agents", [REPO], content::agents_lint),
+    tool!(
+        "agents_list_transpilers",
+        1,
+        None,
+        "List agent transpilers",
+        [],
+        content::agents_list_transpilers
+    ),
+    tool!(
+        "agents_scaffold",
+        2,
+        None,
+        "Create a new agent skeleton",
+        [
+            ENTITY,
+            p("model", Ty::Str, false, "Model, default inherit"),
+            REPO
+        ],
+        content::agents_scaffold
+    ),
+    tool!(
+        "agents_sync",
+        2,
+        UnlessDryRun,
+        "Transpile agents to client outputs; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [
+            REPO,
+            CLIENTS,
+            DRY_ON,
+            p(
+                "global_mode",
+                Ty::Bool,
+                false,
+                "Write to user-level locations"
+            )
+        ],
+        content::agents_sync
+    ),
+    tool!(
+        "agents_diff",
+        1,
+        None,
+        "Compare the agents with the lockfile: new, modified, removed and unchanged",
+        [REPO],
+        skills::agents_diff
+    ),
+    tool!(
+        "agents_audit",
+        1,
+        None,
+        "Scan agents for prompt injection and risky commands",
+        [REPO],
+        skills::agents_audit
+    ),
+    tool!(
+        "agents_status",
+        1,
+        None,
+        "Show which synced agent outputs are present for each client",
+        [REPO],
+        skills::agents_status
+    ),
+    tool!(
+        "agents_clean",
+        4,
+        UnlessDryRun,
+        "Remove the synced agent outputs; the lockfile stays; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [REPO, CLIENT, GLOBAL, DRY_ON],
+        skills::agents_clean
+    ),
+    tool!(
+        "agents_uninstall",
+        4,
+        UnlessDryRun,
+        "Delete one agent from the repository with its synced outputs and lock entry; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [ENTITY, REPO, GLOBAL, DRY_ON],
+        skills::agents_uninstall
+    ),
+    tool!(
+        "agents_edit_body",
+        3,
+        Always,
+        "Replace an agent body in the canonical repository",
+        [ENTITY, BODY, REPO],
+        content::agents_edit_body
+    ),
+    tool!("styles_list", 1, None, "List styles", [REPO], content::styles_list),
+    tool!(
+        "styles_get",
+        1,
+        None,
+        "Read one style including its body",
+        [ENTITY, REPO],
+        content::styles_get
+    ),
+    tool!("styles_lint", 1, None, "Lint styles", [REPO], content::styles_lint),
+    tool!(
+        "styles_active",
+        1,
+        None,
+        "Show the applied style per client",
+        [REPO],
+        content::styles_active
+    ),
+    tool!(
+        "styles_list_transpilers",
+        1,
+        None,
+        "List style transpilers",
+        [],
+        content::styles_list_transpilers
+    ),
+    tool!(
+        "styles_scaffold",
+        2,
+        None,
+        "Create a new style skeleton",
+        [ENTITY, REPO],
+        content::styles_scaffold
+    ),
+    tool!(
+        "styles_sync_tier1",
+        2,
+        UnlessDryRun,
+        "Sync tier-1 style outputs; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [REPO, CLIENTS, DRY_ON],
+        content::styles_sync_tier1
+    ),
+    tool!(
+        "styles_apply",
+        3,
+        UnlessDryRun,
+        "Apply a style to tier-2 clients; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [ENTITY, REPO, CLIENTS, DRY_ON],
+        content::styles_apply
+    ),
+    tool!(
+        "styles_diff",
+        1,
+        None,
+        "Compare the styles with the lockfile: new, modified, removed and unchanged",
+        [REPO],
+        skills::styles_diff
+    ),
+    tool!(
+        "styles_status",
+        1,
+        None,
+        "Show the styles synced to native clients and the applied style per client",
+        [REPO],
+        skills::styles_status
+    ),
+    tool!(
+        "styles_clean",
+        4,
+        UnlessDryRun,
+        "Remove the synced style outputs and clear the applied styles; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [REPO, GLOBAL, DRY_ON],
+        skills::styles_clean
+    ),
+    tool!(
+        "styles_edit_body",
+        3,
+        Always,
+        "Replace a style body in the canonical repository",
+        [ENTITY, BODY, REPO],
+        content::styles_edit_body
+    ),
+    tool!(
+        "styles_remove",
+        4,
+        UnlessDryRun,
+        "Remove the applied style from tier-2 clients; dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [REPO, CLIENTS, DRY_ON],
+        content::styles_remove
     ),
     tool!(
         "library_status",

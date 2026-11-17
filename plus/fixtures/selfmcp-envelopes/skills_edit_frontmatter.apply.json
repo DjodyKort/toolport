@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "confirm": true,
+    "name": "demo",
+    "patch": {
+      "description": "Edited description"
+    }
+  },
+  "isError": false,
+  "result": {
+    "newHash": "sha256:289d18bb256d1a50",
+    "sourcePath": "<WORLD>/skills-repo/skills/demo/SKILL.md"
+  },
+  "tool": "skills_edit_frontmatter"
+}

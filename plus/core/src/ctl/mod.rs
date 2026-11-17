@@ -6,6 +6,7 @@
 //! [`policy`], and `toolportctl commands` prints both, so the registry cannot drift from what a
 //! handler accepts.
 
+mod agents;
 mod auth;
 mod commands;
 mod commands_json;
@@ -22,6 +23,7 @@ mod skills;
 mod skills_repo;
 mod skills_state;
 mod skills_taps;
+mod styles;
 
 use toolport_plus_api::Host;
 
@@ -322,6 +324,92 @@ pub const COMMANDS: &[Command] = &[
         &["skills", "install"],
         "Install skills from a tap; a high-severity audit finding blocks it (<@user/repo[/skill]>, --path, --no-audit, --dry-run)",
         skills_taps::install,
+    ),
+    cmd(
+        &["agents", "add"],
+        "Create an agent from a template (<name>, --path, --dry-run)",
+        agents::add,
+    ),
+    cmd(&["agents", "ls"], "List agents (--path <dir>)", agents::ls),
+    cmd(
+        &["agents", "lint"],
+        "Lint agents; exits 1 on errors (--path <dir>)",
+        agents::lint,
+    ),
+    cmd(
+        &["agents", "audit"],
+        "Scan agents for prompt injection and risky commands; exits 1 on high findings (--path <dir>)",
+        agents::audit,
+    ),
+    cmd(
+        &["agents", "diff"],
+        "Show new, modified and removed agents since the last sync (--path <dir>)",
+        agents::diff,
+    ),
+    cmd(
+        &["agents", "status"],
+        "Show whether synced agent outputs still exist; --strict exits 1 on drift (--path, --home)",
+        agents::status,
+    ),
+    cmd(
+        &["agents", "clean"],
+        "Remove synced agent outputs, keeping the lockfile (--path, --home, --client <key>, --project, --dry-run)",
+        agents::clean,
+    ),
+    cmd(
+        &["agents", "uninstall"],
+        "Remove an agent, its outputs and its lock entry (<name>, --path, --home, --project, --dry-run)",
+        agents::uninstall,
+    ),
+    cmd(
+        &["agents", "sync"],
+        "Transpile agents to client outputs (--path, --home, --client <key>, --project, --dry-run)",
+        agents::sync,
+    ),
+    cmd(
+        &["styles", "add"],
+        "Create an output style from a template (<name>, --path, --dry-run)",
+        styles::add,
+    ),
+    cmd(
+        &["styles", "ls"],
+        "List output styles and where they are synced (--path <dir>)",
+        styles::ls,
+    ),
+    cmd(
+        &["styles", "lint"],
+        "Lint output styles; exits 1 on errors (--path <dir>)",
+        styles::lint,
+    ),
+    cmd(
+        &["styles", "diff"],
+        "Show new, modified and removed styles since the last sync (--path <dir>)",
+        styles::diff,
+    ),
+    cmd(
+        &["styles", "status"],
+        "Show the synced and the active styles per client (--path <dir>)",
+        styles::status,
+    ),
+    cmd(
+        &["styles", "sync"],
+        "Write every style to the native-toggle clients (--path, --home, --client <key>, --project, --dry-run)",
+        styles::sync,
+    ),
+    cmd(
+        &["styles", "apply"],
+        "Apply one style as an always-on rule to the other clients (<name>, --path, --home, --client <key>, --project, --dry-run)",
+        styles::apply,
+    ),
+    cmd(
+        &["styles", "remove"],
+        "Remove the active style from the other clients (--path, --home, --client <key>, --project, --dry-run)",
+        styles::remove,
+    ),
+    cmd(
+        &["styles", "clean"],
+        "Remove every synced and applied style file (--path, --home, --project, --dry-run)",
+        styles::clean,
     ),
     cmd(
         &["library", "status"],

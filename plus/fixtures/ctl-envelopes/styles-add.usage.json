@@ -1,0 +1,13 @@
+{
+  "argv": ["styles", "add"],
+  "envelope": {
+    "command": "styles add",
+    "error": {
+      "code": "usage",
+      "message": "missing style name\nusage: styles add <name> [--path <dir>] [--dry-run]"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}
