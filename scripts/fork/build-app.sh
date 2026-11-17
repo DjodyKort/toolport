@@ -5,7 +5,8 @@
 #
 # The bundle lands in src-tauri/target/release/bundle/macos/. Nothing is
 # installed, signed with a real identity or uploaded. src-tauri/target is the
-# default because upstream's prepare-sidecar.mjs looks for the gateway there; the plus
+# default because upstream's prepare-sidecar.mjs looks for the gateway there; its release/
+# links to the shared $FORK_TAURI_TARGET_DIR so worktrees do not each keep a release build; the plus
 # sidecars build into the plus target dir under ~/.cache.
 #
 # Upstream's prepare-sidecar.mjs builds the gateway with --no-default-features, so the staged
@@ -17,6 +18,10 @@ source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 cd "$FORK_ROOT"
 
 unset CARGO_TARGET_DIR
+if [ ! -e src-tauri/target/release ]; then
+  mkdir -p src-tauri/target "$FORK_TAURI_TARGET_DIR/release"
+  ln -s "$FORK_TAURI_TARGET_DIR/release" src-tauri/target/release
+fi
 export PLUS_SIDECAR_TARGET_DIR="$FORK_PLUS_TARGET_DIR"
 export RUSTUP_TOOLCHAIN="$FORK_TOOLCHAIN"
 
