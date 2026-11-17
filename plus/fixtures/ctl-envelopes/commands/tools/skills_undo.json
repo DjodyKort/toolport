@@ -1,0 +1,7 @@
+{
+  "command": "skills undo",
+  "dryRun": "default-on",
+  "name": "skills_undo",
+  "tier": "write",
+  "toolTier": 2
+}

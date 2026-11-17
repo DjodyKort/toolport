@@ -33,6 +33,7 @@ pub(super) const SYNC: Spec = Spec {
         switch("--no-migrate"),
         switch("--apply-held"),
         switch("--allow-tap-hooks"),
+        switch("--unattended"),
     ],
     ..BASE
 };
@@ -97,8 +98,10 @@ pub fn sync(host: &dyn Host, rest: &[String]) -> Result<Output, CtlError> {
         clients: (!clients.is_empty()).then_some(clients),
         apply_held: flags.on("--apply-held"),
         allow_tap_hooks: flags.on("--allow-tap-hooks"),
+        unattended: flags.on("--unattended"),
         ..repo_args(&flags)
     };
+    api::check_unattended(&args)?;
     let data = served(api::sync(&args, Some(host)))?;
     let human = sync_text(&data);
     Ok(Output::new(data, human))
@@ -142,6 +145,63 @@ fn client_line(data: &Value) -> Option<String> {
 /// mcpm's `skills sync` report: the collisions as they are resolved, the entries with their
 /// warnings, the append-mode notes, the stale files and the collision summary.
 fn sync_text(data: &Value) -> String {
+    if data["paused"] == json!(true) {
+        return str_of(data, "message").to_string();
+    }
+    let mut text = sync_report_text(data);
+    let lines = outcome_lines(data);
+    if !lines.is_empty() {
+        text.push_str("\n\n");
+        text.push_str(&lines.join("\n"));
+    }
+    text
+}
+
+/// What a run that wrote tells beyond the files: what waits, the snapshot to undo it with and
+/// whether the library and the installed copies match.
+fn outcome_lines(data: &Value) -> Vec<String> {
+    let mut lines = Vec::new();
+    let held: &[Value] = data["held"].as_array().map_or(&[], Vec::as_slice);
+    if !held.is_empty() {
+        lines.push(format!(
+            "Held back ({}), applied by --apply-held:",
+            held.len()
+        ));
+        for row in held {
+            lines.push(format!(
+                "  {:<8} {} ({})",
+                str_of(row, "reason"),
+                str_of(row, "path"),
+                str_of(row, "skill")
+            ));
+        }
+    }
+    let snapshot = &data["snapshot"];
+    if snapshot.is_object() {
+        lines.push(format!(
+            "Snapshot {} kept; `toolportctl skills undo` restores it.",
+            str_of(snapshot, "id")
+        ));
+    }
+    let verify = &data["verify"];
+    if verify.is_object() {
+        lines.push(format!(
+            "{} of {} files match.",
+            verify["matched"], verify["total"]
+        ));
+        for row in verify["mismatched"].as_array().into_iter().flatten() {
+            lines.push(format!(
+                "  {:<8} {} ({})",
+                str_of(row, "reason"),
+                str_of(row, "path"),
+                str_of(row, "skill")
+            ));
+        }
+    }
+    lines
+}
+
+fn sync_report_text(data: &Value) -> String {
     let prefix = if data["dryRun"] == json!(true) {
         "(dry run) "
     } else {

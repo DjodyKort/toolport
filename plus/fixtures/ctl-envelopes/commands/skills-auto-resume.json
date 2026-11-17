@@ -1,0 +1,25 @@
+{
+  "baseTier": "write",
+  "cost": false,
+  "dryRun": false,
+  "flags": [],
+  "group": "skills",
+  "id": "skills auto resume",
+  "kind": "command",
+  "maxOperands": null,
+  "needs": [],
+  "oneOf": [],
+  "operandEscalates": false,
+  "operands": [],
+  "parent": null,
+  "path": ["skills", "auto", "resume"],
+  "planned": false,
+  "preview": {
+    "flag": null,
+    "mode": "none"
+  },
+  "summary": "Let the unattended sync run again",
+  "surface": "screen",
+  "tier": "write",
+  "tools": ["skills_auto_resume"]
+}

@@ -1,0 +1,37 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false
+  },
+  "isError": false,
+  "result": {
+    "autoSync": {
+      "paused": true,
+      "reason": "undo",
+      "since": "<masked>"
+    },
+    "conflicts": 0,
+    "dryRun": false,
+    "files": [
+      {
+        "action": "remove",
+        "path": ".claude/skills/demo/SKILL.md",
+        "reason": null
+      }
+    ],
+    "hooks": [],
+    "lock": {
+      "action": "remove",
+      "path": "<WORLD>/data/mcpm-skills.lock"
+    },
+    "removed": 1,
+    "restored": 0,
+    "snapshot": {
+      "createdAt": "<TIME>",
+      "files": 1,
+      "hooks": 0,
+      "id": "<STAMP>"
+    }
+  },
+  "tool": "skills_undo"
+}

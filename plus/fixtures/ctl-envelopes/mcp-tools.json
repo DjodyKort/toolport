@@ -217,12 +217,102 @@
               "type": "boolean"
             },
             {
+              "description": "The run a schedule makes: does nothing while auto-sync is paused and holds removals, new hooks and files that differ; not with apply_held or migrate",
+              "name": "unattended",
+              "required": false,
+              "type": "boolean"
+            },
+            {
               "description": "Must be true to run this tool",
               "name": "confirm",
               "required": false,
               "type": "boolean"
             }
           ],
+          "tier": 2
+        },
+        {
+          "description": "Put back what the last skills_sync changed from its snapshot (the files it wrote or removed, the hooks it installed, the lock) and pause auto-sync; a file changed after the sync is skipped and listed as a conflict, and changed hooks refuse the whole undo. dry_run is on by default (apply with dry_run=false and confirm=true)",
+          "dryRunDefault": true,
+          "gate": "unless-dry-run",
+          "name": "skills_undo",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "User-level locations, the default; false works inside the repository",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Report without writing; true unless you pass false to apply",
+              "name": "dry_run",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "description": "Must be true to run this tool",
+              "name": "confirm",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 2
+        },
+        {
+          "description": "Compare every file the lock records with the library copy: matched, total and each mismatch with its reason (missing, differs, mode)",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "skills_verify",
+          "params": [
+            {
+              "description": "Skills repository root",
+              "name": "repo_path",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "description": "Client keys to target",
+              "name": "client_keys",
+              "required": false,
+              "type": "string[]"
+            },
+            {
+              "description": "User-level locations, the default; false works inside the repository",
+              "name": "global_mode",
+              "required": false,
+              "type": "boolean"
+            }
+          ],
+          "tier": 1
+        },
+        {
+          "description": "Whether the unattended sync is paused, since when and why (undo or manual)",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "skills_auto_status",
+          "params": [],
+          "tier": 1
+        },
+        {
+          "description": "Pause the unattended sync until skills_auto_resume",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "skills_auto_pause",
+          "params": [],
+          "tier": 2
+        },
+        {
+          "description": "Let the unattended sync run again",
+          "dryRunDefault": false,
+          "gate": "none",
+          "name": "skills_auto_resume",
+          "params": [],
           "tier": 2
         },
         {

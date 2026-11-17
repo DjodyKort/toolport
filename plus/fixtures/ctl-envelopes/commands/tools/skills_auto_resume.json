@@ -1,0 +1,7 @@
+{
+  "command": "skills auto resume",
+  "dryRun": "none",
+  "name": "skills_auto_resume",
+  "tier": "write",
+  "toolTier": 2
+}

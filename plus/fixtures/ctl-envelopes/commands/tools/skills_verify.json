@@ -1,0 +1,7 @@
+{
+  "command": "skills verify",
+  "dryRun": "none",
+  "name": "skills_verify",
+  "tier": "read",
+  "toolTier": 1
+}

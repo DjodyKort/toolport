@@ -95,6 +95,31 @@ fn plan_json(plan: &Plan) -> Value {
     })
 }
 
+/// Why a change waits for a decision: the word the screen and the bell show beside it.
+fn held_reason(op: Op) -> &'static str {
+    match op {
+        Op::Remove => "removal",
+        Op::Hook => "new-hook",
+        Op::Differs => "differs",
+        Op::Edited => "edited",
+        _ => "held",
+    }
+}
+
+fn held_rows(plan: &Plan) -> Vec<Value> {
+    plan.held()
+        .map(|c| {
+            json!({
+                "skill": c.skill,
+                "client": c.client,
+                "path": c.path,
+                "op": c.op.as_str(),
+                "reason": held_reason(c.op),
+            })
+        })
+        .collect()
+}
+
 pub fn sync_report(result: &SyncResult) -> Map<String, Value> {
     let rows = merged(&result.lockfile);
     let clients: BTreeSet<&String> = rows
@@ -125,6 +150,7 @@ pub fn sync_report(result: &SyncResult) -> Map<String, Value> {
     report.insert("kept".into(), json!(summary.kept().count()));
     report.insert("collisions".into(), Value::Array(collision_rows(summary)));
     report.insert("plan".into(), plan_json(&result.plan));
+    report.insert("held".into(), Value::Array(held_rows(&result.plan)));
     report
 }
 

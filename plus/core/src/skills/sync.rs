@@ -21,11 +21,13 @@ use super::client_scope::carry_retired_clients;
 use super::clock::Clock;
 use super::collisions::{
     backup_path_aside, detect_collisions, resolve_collisions, resolve_mode, CollisionSummary,
+    ResolutionMode,
 };
 use super::lock::{get_entry, get_entry_mut, load_lockfile, set_entry, LockEntry, LockFile};
 use super::origin::{is_tap, read_origins};
 use super::parser::{Skill, SkillType};
 use super::pyfs::write_text;
+use super::snapshot::Journal;
 use super::transpiler::{Transpiler, TranspilerRegistry};
 use crate::hashing::lock_hash;
 use std::collections::{BTreeMap, BTreeSet};
@@ -48,6 +50,11 @@ pub struct SyncOptions<'a> {
     pub clock: &'a dyn Clock,
     /// Where hooks are installed and revoked; `None` for a run that never writes settings.
     pub settings: Option<&'a dyn SettingsStore>,
+    /// A run nobody watches: a file the lock tracks but holds no hash for is held when it differs,
+    /// as it may have been edited by hand.
+    pub unattended: bool,
+    /// Told about every file before the run writes or removes it; `None` keeps no snapshot.
+    pub journal: Option<&'a Journal>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -186,6 +193,8 @@ pub(crate) struct Desired {
 pub(crate) enum Found {
     Missing,
     Same,
+    /// The content matches and the executable bits of the library copy do not.
+    Mode,
     Different,
 }
 
@@ -227,11 +236,23 @@ pub(crate) fn compare(desired: &Desired) -> Found {
             meta.file_type().is_symlink() && fs::read_link(&desired.abs).is_ok_and(|t| &t == text)
         }
     };
-    if same {
-        Found::Same
-    } else {
-        Found::Different
+    match (same, &desired.source) {
+        (false, _) => Found::Different,
+        (true, Source::File(src)) if executable_differs(src, &meta) => Found::Mode,
+        (true, _) => Found::Same,
     }
+}
+
+#[cfg(unix)]
+fn executable_differs(source: &Path, installed: &fs::Metadata) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    fs::metadata(source)
+        .is_ok_and(|m| m.permissions().mode() & 0o111 != installed.permissions().mode() & 0o111)
+}
+
+#[cfg(not(unix))]
+fn executable_differs(_source: &Path, _installed: &fs::Metadata) -> bool {
+    false
 }
 
 fn install(desired: &Desired) -> Result<(), String> {
@@ -378,11 +399,13 @@ fn sync_one(
         let recorded = previous.and_then(|e| e.file_hash(&key, &d.rel));
         let edited_since_install = is_tracked
             && recorded.is_some_and(|hash| installed_hash(&d.abs).as_deref() != Some(hash));
+        let unverifiable = ctx.unattended && is_tracked && recorded.is_none();
         let op = match (found, is_tracked) {
             (Found::Missing, _) => Op::Add,
             (Found::Same, true) => Op::Unchanged,
-            (Found::Same, false) => Op::Adopt,
-            (Found::Different, true) if edited_since_install => Op::Edited,
+            (Found::Same, false) | (Found::Mode, false) => Op::Adopt,
+            (Found::Mode, true) => Op::Update,
+            (Found::Different, true) if edited_since_install || unverifiable => Op::Edited,
             (Found::Different, true) => Op::Update,
             (Found::Different, false) => Op::Differs,
         };
@@ -390,9 +413,13 @@ fn sync_one(
         let mut owned = true;
         let mut hash = d.content_hash();
         match op {
-            Op::Add | Op::Update if !ctx.dry_run => install(d)?,
+            Op::Add | Op::Update if !ctx.dry_run => {
+                ctx.touch(&d.abs)?;
+                install(d)?;
+            }
             Op::Differs | Op::Edited if ctx.apply_held => {
                 if !ctx.dry_run {
+                    ctx.touch(&d.abs)?;
                     backup_path_aside(&d.abs, ctx.output_root, ctx.clock)?;
                     install(d)?;
                 }
@@ -423,7 +450,9 @@ fn sync_one(
             held,
         });
         if owned {
-            entry.set_file_hash(&key, &d.rel, hash);
+            if !hash.is_empty() {
+                entry.set_file_hash(&key, &d.rel, hash);
+            }
             kept.push(d.rel.clone());
         }
     }
@@ -496,6 +525,9 @@ fn sync_hooks(
             .push(format!("{key}: hook install failed: no settings store"));
         return Ok(());
     };
+    for id in &wanted {
+        ctx.touch(Path::new(id))?;
+    }
     match t.install_hooks(skill, ctx.output_root, store) {
         Ok(ids) if !ids.is_empty() => entry.set_hooks(key, ids),
         Ok(_) => {}
@@ -519,8 +551,19 @@ struct Ctx<'a> {
     allow_tap_hooks: bool,
     clock: &'a dyn Clock,
     settings: Option<&'a dyn SettingsStore>,
+    journal: Option<&'a Journal>,
+    unattended: bool,
     plan: Plan,
     desired_abs: BTreeSet<PathBuf>,
+}
+
+impl Ctx<'_> {
+    fn touch(&self, path: &Path) -> Result<(), String> {
+        match self.journal {
+            Some(journal) if !self.dry_run => journal.before_change(path),
+            _ => Ok(()),
+        }
+    }
 }
 
 struct Removal {
@@ -645,6 +688,8 @@ pub fn sync_skills(
         allow_tap_hooks: opts.allow_tap_hooks,
         clock: opts.clock,
         settings: opts.settings,
+        journal: opts.journal,
+        unattended: opts.unattended,
         plan: Plan::default(),
         desired_abs: BTreeSet::new(),
     };
@@ -696,6 +741,7 @@ pub fn sync_skills(
             }
         }
         if !opts.dry_run && !result.content.is_empty() {
+            ctx.touch(&result.output_path)?;
             write_text(&result.output_path, &result.content)?;
         }
     }
@@ -732,10 +778,12 @@ pub fn sync_skills(
             if !opts.apply_held {
                 carried.entry(name).or_default().push((client, rel));
             } else if edited && !opts.dry_run {
+                ctx.touch(&abs)?;
                 backup_path_aside(&abs, output_root, opts.clock)?;
                 prune_empty_parents(&abs, output_root);
                 backed_up.push(abs);
             } else {
+                ctx.touch(&abs)?;
                 doomed.push(abs);
             }
         }
@@ -757,6 +805,11 @@ pub fn sync_skills(
     }
 
     let found = detect_collisions(skills, &per_file, output_root);
+    if resolve_mode(opts.migrate) == ResolutionMode::AutoReplace {
+        for collision in &found {
+            ctx.touch(&collision.collision_path)?;
+        }
+    }
     let summary = resolve_collisions(
         found,
         output_root,

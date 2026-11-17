@@ -1,0 +1,10 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "paused": true,
+    "reason": "manual",
+    "since": "<masked>"
+  },
+  "tool": "skills_auto_status"
+}

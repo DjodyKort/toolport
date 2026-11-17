@@ -5,6 +5,7 @@ pub mod agents;
 pub mod api;
 pub mod assets;
 pub mod audit;
+pub mod auto;
 pub mod bundle;
 pub mod client_scope;
 pub mod clock;
@@ -24,6 +25,7 @@ pub mod repo;
 pub mod repo_handlers;
 pub(crate) mod scalar;
 pub(crate) mod schema;
+pub mod snapshot;
 pub mod state;
 pub mod styles;
 pub mod sync;
@@ -53,6 +55,8 @@ mod tap_ops_tests;
 mod tests;
 #[cfg(test)]
 mod tests_features;
+#[cfg(test)]
+mod undo_tests;
 
 #[cfg(test)]
 pub use {assets::compute_skill_hash, transpiler::TranspileResult};

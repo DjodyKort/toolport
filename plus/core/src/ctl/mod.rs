@@ -26,6 +26,7 @@ mod skills;
 mod skills_repo;
 mod skills_state;
 mod skills_taps;
+mod skills_undo;
 mod styles;
 mod task;
 
@@ -272,6 +273,31 @@ pub const COMMANDS: &[Command] = &[
         &["skills", "sync"],
         "Transpile skills to client outputs (--repo, --home, --client, --project, --dry-run, --apply-held)",
         skills::sync,
+    ),
+    cmd(
+        &["skills", "undo"],
+        "Put back what the last sync changed from its snapshot and pause auto-sync (--repo, --home, --project, --dry-run)",
+        skills_undo::undo,
+    ),
+    cmd(
+        &["skills", "verify"],
+        "Compare every file the lock records with the library; exits 1 on a mismatch (--repo, --home, --client, --project)",
+        skills_undo::verify,
+    ),
+    cmd(
+        &["skills", "auto", "status"],
+        "Say whether the unattended sync is paused, since when and why",
+        skills_undo::auto_status,
+    ),
+    cmd(
+        &["skills", "auto", "pause"],
+        "Pause the unattended sync until it is resumed",
+        skills_undo::auto_pause,
+    ),
+    cmd(
+        &["skills", "auto", "resume"],
+        "Let the unattended sync run again",
+        skills_undo::auto_resume,
     ),
     cmd(
         &["skills", "ls"],

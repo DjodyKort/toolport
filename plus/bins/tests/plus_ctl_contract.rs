@@ -1313,6 +1313,37 @@ const CASES: &[Case] = &[
             ),
             apply("apply", &["skills", "sync", "--repo", "{repo}"]),
             read(
+                "unattended_preview",
+                &[
+                    "skills",
+                    "sync",
+                    "--repo",
+                    "{repo}",
+                    "--dry-run",
+                    "--unattended",
+                ],
+            ),
+            apply(
+                "unattended",
+                &["skills", "sync", "--repo", "{repo}", "--unattended"],
+            ),
+            setup("pause", &["skills", "auto", "pause"]),
+            read(
+                "unattended_paused",
+                &["skills", "sync", "--repo", "{repo}", "--unattended"],
+            ),
+            usage(
+                "unattended_apply_held",
+                &[
+                    "skills",
+                    "sync",
+                    "--repo",
+                    "{repo}",
+                    "--unattended",
+                    "--apply-held",
+                ],
+            ),
+            read(
                 "unknown_client",
                 &[
                     "skills",
@@ -1325,6 +1356,55 @@ const CASES: &[Case] = &[
                 ],
             )
             .exit(1),
+        ],
+    ),
+    case(
+        "skills undo",
+        &[
+            read("none", &["skills", "undo", "--dry-run"]).exit(1),
+            setup("sync", &["skills", "sync", "--repo", "{repo}"]),
+            read("preview", &["skills", "undo", "--dry-run"]),
+            apply("apply", &["skills", "undo"]),
+            read("again", &["skills", "undo", "--dry-run"]).exit(1),
+        ],
+    ),
+    case(
+        "skills verify",
+        &[
+            read("none", &["skills", "verify", "--repo", "{repo}"]).exit(1),
+            setup("sync", &["skills", "sync", "--repo", "{repo}"]),
+            read("clean", &["skills", "verify", "--repo", "{repo}"]),
+            hook("tamper", tamper_with_installed_skill),
+            read("mismatch", &["skills", "verify", "--repo", "{repo}"]).exit(1),
+            read(
+                "unknown_client",
+                &["skills", "verify", "--repo", "{repo}", "--client", "cursor"],
+            )
+            .exit(1),
+        ],
+    ),
+    case(
+        "skills auto status",
+        &[
+            read("running", &["skills", "auto", "status"]),
+            setup("pause", &["skills", "auto", "pause"]),
+            read("paused", &["skills", "auto", "status"]),
+            usage("usage", &["skills", "auto", "status", "extra"]),
+        ],
+    ),
+    case(
+        "skills auto pause",
+        &[
+            apply("pause", &["skills", "auto", "pause"]),
+            apply("again", &["skills", "auto", "pause"]),
+        ],
+    ),
+    case(
+        "skills auto resume",
+        &[
+            apply("not_paused", &["skills", "auto", "resume"]),
+            setup("pause", &["skills", "auto", "pause"]),
+            apply("resume", &["skills", "auto", "resume"]),
         ],
     ),
     case(
@@ -2011,6 +2091,11 @@ struct Run {
     code: i32,
     stdout: String,
     stderr: String,
+}
+
+fn tamper_with_installed_skill(world: &World) {
+    let skill = world.home.join(".claude/skills/demo/SKILL.md");
+    std::fs::write(skill, "edited by hand\n").unwrap();
 }
 
 fn expand(world: &World, word: &str) -> String {

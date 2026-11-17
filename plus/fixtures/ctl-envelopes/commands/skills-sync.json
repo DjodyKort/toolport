@@ -112,6 +112,17 @@
       "required": false,
       "sensitive": false,
       "valueType": "bool"
+    },
+    {
+      "aliases": [],
+      "effect": "The run a schedule makes: does nothing while auto-sync is paused, applies new and changed files the lock tracks, and holds removals, new hooks and files that differ; not with --apply-held or --migrate",
+      "escalates": false,
+      "hidden": false,
+      "name": "--unattended",
+      "repeatable": false,
+      "required": false,
+      "sensitive": false,
+      "valueType": "bool"
     }
   ],
   "group": "skills",

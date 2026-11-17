@@ -1,0 +1,16 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "clean": true,
+    "lockfile": "<WORLD>/data/mcpm-skills.lock",
+    "lockfilePresent": true,
+    "matched": 1,
+    "mismatched": [],
+    "outputRoot": "<WORLD>/home",
+    "repo": "<WORLD>/skills-repo",
+    "total": 1,
+    "warnings": []
+  },
+  "tool": "skills_verify"
+}

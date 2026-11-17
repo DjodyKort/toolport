@@ -1,0 +1,7 @@
+{
+  "command": "skills auto pause",
+  "dryRun": "none",
+  "name": "skills_auto_pause",
+  "tier": "write",
+  "toolTier": 2
+}

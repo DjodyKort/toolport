@@ -15,11 +15,18 @@ pub enum Mode {
     Private,
     /// A file that exists keeps its mode; a new one gets the umask default.
     KeepOrDefault,
+    /// The file ends up with exactly these permission bits, the umask notwithstanding.
+    Exact(u32),
 }
 
 /// Writes through a symlink to its target and replaces the file in one rename, so a reader never
 /// sees half a file and two writers never share a temp file.
 pub fn atomic_write(path: &Path, contents: &str, mode: Mode) -> io::Result<()> {
+    atomic_write_bytes(path, contents.as_bytes(), mode)
+}
+
+/// [`atomic_write`] for content that is not text.
+pub fn atomic_write_bytes(path: &Path, contents: &[u8], mode: Mode) -> io::Result<()> {
     let dest = resolve_dest(path)?;
     if let Some(parent) = dest.parent() {
         std::fs::create_dir_all(parent)?;
@@ -37,11 +44,12 @@ pub fn atomic_write(path: &Path, contents: &str, mode: Mode) -> io::Result<()> {
     };
     let written = create_new(&tmp, open_mode)
         .and_then(|mut file| {
-            file.write_all(contents.as_bytes())?;
+            file.write_all(contents)?;
             file.sync_all()
         })
         .and_then(|()| match (mode, &existing) {
             (Mode::KeepOrDefault, Some(meta)) => std::fs::set_permissions(&tmp, meta.permissions()),
+            (Mode::Exact(bits), _) => set_mode(&tmp, bits),
             _ => Ok(()),
         })
         .and_then(|()| std::fs::rename(&tmp, &dest));
@@ -54,6 +62,17 @@ pub fn atomic_write(path: &Path, contents: &str, mode: Mode) -> io::Result<()> {
 /// [`atomic_write`] as [`Mode::Private`] with the destination named in the error.
 pub fn write_private(path: &Path, contents: &str) -> Result<(), String> {
     atomic_write(path, contents, Mode::Private).map_err(|e| format!("{}: {e}", path.display()))
+}
+
+#[cfg(unix)]
+fn set_mode(path: &Path, bits: u32) -> io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(bits))
+}
+
+#[cfg(not(unix))]
+fn set_mode(_path: &Path, _bits: u32) -> io::Result<()> {
+    Ok(())
 }
 
 const PRIVATE_MODE: u32 = 0o600;
@@ -218,6 +237,20 @@ mod tests {
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
         atomic_write(&path, "new", Mode::Private).unwrap();
         assert_eq!(mode_of(&path), 0o600);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn exact_sets_the_mode_whatever_the_file_had_and_bytes_survive() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("tool.bin");
+        std::fs::write(&path, "old").unwrap();
+        atomic_write_bytes(&path, &[0, 159, 146, 150], Mode::Exact(0o755)).unwrap();
+        assert_eq!(mode_of(&path), 0o755);
+        assert_eq!(std::fs::read(&path).unwrap(), [0, 159, 146, 150]);
+        let fresh = dir.path().join("fresh.txt");
+        atomic_write_bytes(&fresh, b"x", Mode::Exact(0o640)).unwrap();
+        assert_eq!(mode_of(&fresh), 0o640);
     }
 
     #[test]

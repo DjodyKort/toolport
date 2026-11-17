@@ -1,0 +1,31 @@
+{
+  "argv": ["skills", "verify", "--repo", "{repo}"],
+  "envelope": {
+    "command": "skills verify",
+    "data": {
+      "clean": false,
+      "lockfile": "<WORLD>/data/mcpm-skills.lock",
+      "lockfilePresent": true,
+      "matched": 0,
+      "mismatched": [
+        {
+          "client": "claude-code",
+          "path": ".claude/skills/demo/SKILL.md",
+          "reason": "differs",
+          "skill": "demo"
+        }
+      ],
+      "outputRoot": "<WORLD>/home",
+      "repo": "<WORLD>/skills-repo",
+      "total": 1,
+      "warnings": []
+    },
+    "error": {
+      "code": "unhealthy",
+      "message": "one or more checks failed"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

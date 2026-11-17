@@ -4,13 +4,14 @@
 //! [`Args`] and render or wrap the result; they share nothing else.
 
 use super::assets::compute_skill_hash;
+use super::auto;
 use super::client_scope::{self, default_clients, ClientSource};
 use super::frontmatter::frontmatter_accepted;
 use super::lint::{
     lint_description_lengths, lint_files, lint_outputs, lint_parse_failures, lint_skills,
     LintResult,
 };
-use super::lock::{get_entry, load_lockfile, save_lockfile};
+use super::lock::{get_entry, load_lockfile, lockfile_path, save_lockfile};
 use super::ops::{
     check_outputs, diff_skills, find_skills_repo, has_drift, lock_dir, lock_output_root,
     read_lock_in, skills_status as output_rows, LockRead,
@@ -18,9 +19,11 @@ use super::ops::{
 use super::parser::{
     discover_skills, discover_skills_report, find_skill, Discovery, Skill, SkillType,
 };
+use super::snapshot::{self, Journal, Recording};
 use super::sync_report::sync_report;
 use super::transpiler::TranspilerRegistry;
 use super::transpilers::registry;
+use super::verify::{verify_clients, verify_installed};
 use super::{sync_skills, SyncOptions, SystemClock};
 use crate::args::{list, nonempty_strings, str_arg};
 use crate::op::OpError;
@@ -50,6 +53,9 @@ pub struct Args {
     pub apply_held: bool,
     /// `sync`: also install the hooks of skills that came from a tap.
     pub allow_tap_hooks: bool,
+    /// `sync`: the run a schedule makes. It does nothing while auto-sync is paused and never
+    /// applies what waits for a decision.
+    pub unattended: bool,
     /// `list`: only the items of this source (`library`, `repo:odh`, `plugin:ecc@ecc`).
     pub source: Option<String>,
 }
@@ -66,6 +72,7 @@ impl Default for Args {
             migrate: None,
             apply_held: false,
             allow_tap_hooks: false,
+            unattended: false,
             source: None,
         }
     }
@@ -90,6 +97,7 @@ impl Args {
             migrate: args.get("migrate").and_then(Value::as_bool),
             apply_held: crate::args::flag(args, "apply_held"),
             allow_tap_hooks: crate::args::flag(args, "allow_tap_hooks"),
+            unattended: crate::args::flag(args, "unattended"),
             source: str_arg(args, "source").map(String::from),
         }
     }
@@ -299,6 +307,7 @@ pub fn status(args: &Args) -> Result<Value, OpError> {
         verify = super::verify::verify_installed(&skills, &read.lock, &transpilers, &root);
         verify.missing.retain(|f| targeted.contains(&f.client));
         verify.differing.retain(|f| targeted.contains(&f.client));
+        verify.mode.retain(|f| targeted.contains(&f.client));
         verify.edited.retain(|f| targeted.contains(&f.client));
         output_root = json!(root.to_string_lossy());
     }
@@ -318,6 +327,7 @@ pub fn status(args: &Args) -> Result<Value, OpError> {
             "clean": verify.clean(),
             "missing": finding_rows(&verify.missing),
             "differing": finding_rows(&verify.differing),
+            "mode": finding_rows(&verify.mode),
             "edited": finding_rows(&verify.edited),
         },
         "outputs": outputs
@@ -342,38 +352,129 @@ fn check_clients(args: &Args, registry: &TranspilerRegistry) -> Result<(), OpErr
     client_scope::ensure_supported(keys, registry).map_err(OpError::usage)
 }
 
+fn paused_report(args: &Args, state: &auto::State) -> Value {
+    json!({
+        "dryRun": args.dry_run,
+        "unattended": true,
+        "paused": true,
+        "skipped": true,
+        "since": state.since,
+        "reason": state.reason,
+        "held": [],
+        "snapshot": null,
+        "verify": null,
+        "message": state.describe(),
+    })
+}
+
+/// An unattended run applies what is safe and leaves the rest held: it refuses the flags that
+/// apply held changes and never replaces a file that shadows a synced skill.
+pub fn check_unattended(args: &Args) -> Result<(), OpError> {
+    if !args.unattended {
+        return Ok(());
+    }
+    if args.apply_held || args.allow_tap_hooks {
+        return Err(OpError::usage(
+            "an unattended sync never applies held changes: drop apply_held and allow_tap_hooks",
+        ));
+    }
+    if args.migrate == Some(true) {
+        return Err(OpError::usage(
+            "an unattended sync never replaces files that shadow a synced skill: drop migrate",
+        ));
+    }
+    Ok(())
+}
+
+fn paused_by_policy(args: &Args) -> Result<Option<Value>, OpError> {
+    let Some(base) = crate::fsx::data_dir() else {
+        return Ok(None);
+    };
+    let state = auto::read(&base)?;
+    Ok(state.paused.then(|| paused_report(args, &state)))
+}
+
 /// `settings` is where hooks are installed; `None` only for a dry run, which never writes them.
+/// A run that writes first keeps a snapshot of what it is about to change (`skills undo`).
 pub fn sync(args: &Args, settings: Option<&dyn SettingsStore>) -> Result<Value, OpError> {
+    let mut args = args.clone();
+    if args.unattended {
+        check_unattended(&args)?;
+        if let Some(paused) = paused_by_policy(&args)? {
+            return Ok(paused);
+        }
+        args.migrate = Some(false);
+    }
     let repo = resolve_repo(args.repo.as_deref())?;
     let skills = discover_skills(&repo);
     let global = args.global;
     let output_root = if global { home()? } else { repo.clone() };
     let dir = lock_dir(global, &repo);
     let registry = registry();
-    check_clients(args, &registry)?;
+    check_clients(&args, &registry)?;
     let (targeted, source) = match &args.clients {
         Some(keys) => (keys.clone(), ClientSource::Requested),
         None => default_clients(load_lockfile(&dir).as_ref(), &registry),
     };
-    let opts = SyncOptions {
-        output_root,
-        lock_dir: dir.clone(),
-        global_mode: global,
-        dry_run: args.dry_run,
-        migrate: args.migrate,
-        client_keys: Some(targeted.clone()),
-        apply_held: args.apply_held,
-        allow_tap_hooks: args.allow_tap_hooks,
-        clock: &SystemClock,
-        settings,
+    let journal = (!args.dry_run)
+        .then(crate::fsx::data_dir)
+        .flatten()
+        .map(|base| Journal::begin(&base, &SystemClock));
+    let lock_before = std::fs::read(lockfile_path(&dir)).ok();
+    let recording = settings
+        .zip(journal.as_ref())
+        .map(|(inner, journal)| Recording { inner, journal });
+    let (outcome, saved) = {
+        let opts = SyncOptions {
+            output_root: output_root.clone(),
+            lock_dir: dir.clone(),
+            global_mode: global,
+            dry_run: args.dry_run,
+            migrate: args.migrate,
+            client_keys: Some(targeted.clone()),
+            apply_held: args.apply_held,
+            allow_tap_hooks: args.allow_tap_hooks,
+            clock: &SystemClock,
+            settings: match &recording {
+                Some(recording) => Some(recording as &dyn SettingsStore),
+                None => settings,
+            },
+            unattended: args.unattended,
+            journal: journal.as_ref(),
+        };
+        let outcome = sync_skills(&skills, &registry, &opts);
+        let saved = match &outcome {
+            Ok(result) if !args.dry_run => save_lockfile(&dir, &result.lockfile).map_err(backend),
+            _ => Ok(()),
+        };
+        (outcome, saved)
     };
-    let result = sync_skills(&skills, &registry, &opts).map_err(backend)?;
-    if !opts.dry_run {
-        save_lockfile(&dir, &result.lockfile).map_err(backend)?;
-    }
+    let snapshot = match journal {
+        Some(journal) => journal
+            .finish(
+                settings,
+                snapshot::Context {
+                    global,
+                    lock_dir: &dir,
+                    output_root: &output_root,
+                    lock_before,
+                },
+            )
+            .map_err(backend)?,
+        None => None,
+    };
+    let result = outcome.map_err(backend)?;
+    saved?;
+    let verify = if args.dry_run {
+        Value::Null
+    } else {
+        verify_installed(&skills, &result.lockfile, &registry, &result.output_root).summary()
+    };
     let mut data = json!({
         "repo": repo.to_string_lossy(),
-        "dryRun": opts.dry_run,
+        "dryRun": args.dry_run,
+        "unattended": args.unattended,
+        "paused": false,
         "globalMode": global,
         "outputRoot": result.output_root.to_string_lossy(),
         "syncedAt": result.lockfile.synced_at,
@@ -382,11 +483,60 @@ pub fn sync(args: &Args, settings: Option<&dyn SettingsStore>) -> Result<Value, 
         "cleaned": result.cleaned.iter().map(|p| p.to_string_lossy().into_owned()).collect::<Vec<_>>(),
         "targetedClients": targeted,
         "clientSource": source.as_str(),
+        "snapshot": snapshot.map(|info| info.to_json()),
+        "verify": verify,
     });
     if let Some(fields) = data.as_object_mut() {
         fields.extend(sync_report(&result));
     }
     Ok(data)
+}
+
+/// Every file the lock records against its library copy, with the same findings `status` lists.
+/// Without a lock nothing is checked, which is not a clean result.
+pub fn verify(args: &Args) -> Result<Value, OpError> {
+    let repo = resolve_repo(args.repo.as_deref())?;
+    let registry = registry();
+    check_clients(args, &registry)?;
+    let Some(read) = read_lock_in(&repo, args.global) else {
+        return Ok(json!({
+            "repo": repo.to_string_lossy(),
+            "lockfilePresent": false,
+            "matched": 0,
+            "total": 0,
+            "clean": false,
+            "mismatched": [],
+            "warnings": [],
+        }));
+    };
+    let root = lock_output_root(read.source, &repo).map_err(OpError::not_found)?;
+    let skills = discover_skills(&repo);
+    let found = verify_clients(
+        &skills,
+        &read.lock,
+        &registry,
+        &root,
+        args.clients.as_deref(),
+    );
+    let mut data = found.summary();
+    data["repo"] = json!(repo.to_string_lossy());
+    data["lockfilePresent"] = json!(true);
+    data["lockfile"] = json!(read.path.to_string_lossy());
+    data["outputRoot"] = json!(root.to_string_lossy());
+    data["warnings"] = json!(lock_warnings(Some(&read)));
+    Ok(data)
+}
+
+/// Puts the newest snapshot back (`dry_run` only reports) and pauses auto-sync.
+pub fn undo(args: &Args, settings: Option<&dyn SettingsStore>) -> Result<Value, OpError> {
+    let base =
+        crate::fsx::data_dir().ok_or_else(|| OpError::not_found("data directory unknown"))?;
+    let lock_dir = if args.global {
+        base.clone()
+    } else {
+        resolve_repo(args.repo.as_deref())?
+    };
+    snapshot::undo(&base, &lock_dir, args.dry_run, settings, &SystemClock)
 }
 
 /// Why Claude Code would not list `skill`: what Toolport emits for it, or the copy already

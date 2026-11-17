@@ -208,9 +208,55 @@ pub const TOOLS: &[ToolDef] = &[
                 Ty::Bool,
                 false,
                 "With apply_held, also install the hooks of skills that came from a tap"
+            ),
+            p(
+                "unattended",
+                Ty::Bool,
+                false,
+                "The run a schedule makes: does nothing while auto-sync is paused and holds removals, new hooks and files that differ; not with apply_held or migrate"
             )
         ],
         skills::sync
+    ),
+    tool!(
+        "skills_undo",
+        2,
+        UnlessDryRun,
+        "Put back what the last skills_sync changed from its snapshot (the files it wrote or removed, the hooks it installed, the lock) and pause auto-sync; a file changed after the sync is skipped and listed as a conflict, and changed hooks refuse the whole undo. dry_run is on by default (apply with dry_run=false and confirm=true)",
+        [REPO, GLOBAL, DRY_ON],
+        skills::undo
+    ),
+    tool!(
+        "skills_verify",
+        1,
+        None,
+        "Compare every file the lock records with the library copy: matched, total and each mismatch with its reason (missing, differs, mode)",
+        [REPO, CLIENTS, GLOBAL],
+        skills::verify
+    ),
+    tool!(
+        "skills_auto_status",
+        1,
+        None,
+        "Whether the unattended sync is paused, since when and why (undo or manual)",
+        [],
+        skills::auto_status
+    ),
+    tool!(
+        "skills_auto_pause",
+        2,
+        None,
+        "Pause the unattended sync until skills_auto_resume",
+        [],
+        skills::auto_pause
+    ),
+    tool!(
+        "skills_auto_resume",
+        2,
+        None,
+        "Let the unattended sync run again",
+        [],
+        skills::auto_resume
     ),
     tool!(
         "skills_diff",

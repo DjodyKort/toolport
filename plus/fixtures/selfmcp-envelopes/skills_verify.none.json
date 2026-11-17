@@ -1,0 +1,14 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "clean": false,
+    "lockfilePresent": false,
+    "matched": 0,
+    "mismatched": [],
+    "repo": "<WORLD>/skills-repo",
+    "total": 0,
+    "warnings": []
+  },
+  "tool": "skills_verify"
+}

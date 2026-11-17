@@ -1,0 +1,20 @@
+{
+  "arguments": {
+    "client_keys": ["claude-code"],
+    "unattended": true
+  },
+  "isError": false,
+  "result": {
+    "dryRun": true,
+    "held": [],
+    "message": "auto-sync is paused since <TIME> (reason: manual); resume it with `skills auto resume`",
+    "paused": true,
+    "reason": "manual",
+    "since": "<masked>",
+    "skipped": true,
+    "snapshot": null,
+    "unattended": true,
+    "verify": null
+  },
+  "tool": "skills_sync"
+}

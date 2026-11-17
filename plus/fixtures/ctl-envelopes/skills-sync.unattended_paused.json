@@ -1,0 +1,21 @@
+{
+  "argv": ["skills", "sync", "--repo", "{repo}", "--unattended"],
+  "envelope": {
+    "command": "skills sync",
+    "data": {
+      "dryRun": false,
+      "held": [],
+      "message": "auto-sync is paused since <TIME> (reason: manual); resume it with `skills auto resume`",
+      "paused": true,
+      "reason": "manual",
+      "since": "<masked>",
+      "skipped": true,
+      "snapshot": null,
+      "unattended": true,
+      "verify": null
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

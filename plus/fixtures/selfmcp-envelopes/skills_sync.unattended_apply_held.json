@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "apply_held": true,
+    "unattended": true
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "invalid_arguments",
+      "message": "an unattended sync never applies held changes: drop apply_held and allow_tap_hooks"
+    }
+  },
+  "text": "invalid_arguments: an unattended sync never applies held changes: drop apply_held and allow_tap_hooks",
+  "tool": "skills_sync"
+}

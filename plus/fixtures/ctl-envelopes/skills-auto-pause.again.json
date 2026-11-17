@@ -1,0 +1,15 @@
+{
+  "argv": ["skills", "auto", "pause"],
+  "envelope": {
+    "command": "skills auto pause",
+    "data": {
+      "changed": false,
+      "paused": true,
+      "reason": "manual",
+      "since": "<masked>"
+    },
+    "ok": true,
+    "schemaVersion": 1
+  },
+  "exitCode": 0
+}

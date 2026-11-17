@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "confirm": true,
+    "dry_run": false
+  },
+  "isError": true,
+  "result": {
+    "error": {
+      "kind": "not_found",
+      "message": "no snapshot to undo: run skills sync first"
+    }
+  },
+  "text": "not_found: no snapshot to undo: run skills sync first",
+  "tool": "skills_undo"
+}

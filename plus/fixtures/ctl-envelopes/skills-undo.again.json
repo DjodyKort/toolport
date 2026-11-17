@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "undo", "--dry-run"],
+  "envelope": {
+    "command": "skills undo",
+    "error": {
+      "code": "not_found",
+      "message": "no snapshot to undo: run skills sync first"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

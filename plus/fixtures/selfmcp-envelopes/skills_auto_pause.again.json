@@ -1,0 +1,11 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "changed": false,
+    "paused": true,
+    "reason": "manual",
+    "since": "<masked>"
+  },
+  "tool": "skills_auto_pause"
+}

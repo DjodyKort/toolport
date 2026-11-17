@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "sync", "--repo", "{repo}", "--unattended", "--apply-held"],
+  "envelope": {
+    "command": "skills sync",
+    "error": {
+      "code": "usage",
+      "message": "an unattended sync never applies held changes: drop apply_held and allow_tap_hooks"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 2
+}

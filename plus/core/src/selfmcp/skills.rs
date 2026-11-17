@@ -11,9 +11,10 @@ use crate::args::{flag_or, str_arg, str_nonempty};
 use crate::op::ErrorKind;
 use crate::skills::agents::handlers as agents;
 use crate::skills::api::{self, Args};
+use crate::skills::auto;
 use crate::skills::repo::{skill_bucket, skill_template};
 use crate::skills::styles::handlers as styles;
-use crate::skills::{repo_handlers, state, tap_handlers as taps};
+use crate::skills::{repo_handlers, state, tap_handlers as taps, SystemClock};
 
 type Outcome = Result<Value, ToolError>;
 type Handler = fn(Value) -> Result<Value, String>;
@@ -130,6 +131,28 @@ pub(super) fn status(host: &dyn Host, args: &Value) -> Outcome {
 
 pub(super) fn diff(host: &dyn Host, args: &Value) -> Outcome {
     with_paths(host, || Ok(api::diff(&Args::from_json(args))?))
+}
+
+pub(super) fn verify(host: &dyn Host, args: &Value) -> Outcome {
+    with_paths(host, || Ok(api::verify(&Args::from_json(args))?))
+}
+
+pub(super) fn undo(host: &dyn Host, args: &Value) -> Outcome {
+    let mut undo = Args::from_json(args);
+    undo.dry_run = flag_or(args, "dry_run", true);
+    with_paths(host, || Ok(api::undo(&undo, Some(host))?))
+}
+
+pub(super) fn auto_status(host: &dyn Host, _args: &Value) -> Outcome {
+    with_paths(host, || Ok(auto::status_op()?))
+}
+
+pub(super) fn auto_pause(host: &dyn Host, _args: &Value) -> Outcome {
+    with_paths(host, || Ok(auto::pause_op(&SystemClock)?))
+}
+
+pub(super) fn auto_resume(host: &dyn Host, _args: &Value) -> Outcome {
+    with_paths(host, || Ok(auto::resume_op()?))
 }
 
 pub(super) fn sync(host: &dyn Host, args: &Value) -> Outcome {

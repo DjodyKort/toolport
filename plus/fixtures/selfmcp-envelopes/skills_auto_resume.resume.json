@@ -1,0 +1,11 @@
+{
+  "arguments": {},
+  "isError": false,
+  "result": {
+    "changed": true,
+    "paused": false,
+    "reason": null,
+    "since": null
+  },
+  "tool": "skills_auto_resume"
+}

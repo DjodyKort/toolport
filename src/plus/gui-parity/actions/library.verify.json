@@ -1,0 +1,5 @@
+{
+  "route": "library",
+  "status": "planned",
+  "summary": "The verification line after Apply and on demand: N of N files match, each mismatch with its reason (skills verify; skills_verify)"
+}

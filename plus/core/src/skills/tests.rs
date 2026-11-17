@@ -97,6 +97,8 @@ fn opts<'a>(root: &Path, clock: &'a FixedClock) -> SyncOptions<'a> {
         allow_tap_hooks: false,
         clock,
         settings: None,
+        unattended: false,
+        journal: None,
     }
 }
 

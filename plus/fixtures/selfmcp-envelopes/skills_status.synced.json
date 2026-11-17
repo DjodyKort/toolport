@@ -36,7 +36,8 @@
       "clean": true,
       "differing": [],
       "edited": [],
-      "missing": []
+      "missing": [],
+      "mode": []
     },
     "warnings": []
   },

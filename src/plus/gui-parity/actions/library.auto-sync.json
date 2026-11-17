@@ -1,0 +1,5 @@
+{
+  "route": "library",
+  "status": "planned",
+  "summary": "Auto-sync status, Pause and Resume, and the held items a run reports for the bell (skills auto status|pause|resume, skills sync --unattended; skills_auto_status, skills_auto_pause, skills_auto_resume)"
+}

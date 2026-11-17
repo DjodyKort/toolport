@@ -77,6 +77,8 @@ impl World {
             allow_tap_hooks,
             clock: &clock,
             settings: Some(&store),
+            unattended: false,
+            journal: None,
         };
         let result = sync_skills(&discover_skills(&self.repo.0), &registry, &opts).unwrap();
         if !dry_run {

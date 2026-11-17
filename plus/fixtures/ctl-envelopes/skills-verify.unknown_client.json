@@ -1,0 +1,13 @@
+{
+  "argv": ["skills", "verify", "--repo", "{repo}", "--client", "cursor"],
+  "envelope": {
+    "command": "skills verify",
+    "error": {
+      "code": "skills",
+      "message": "skills are not synced to cursor; supported clients: agents-md, claude-code"
+    },
+    "ok": false,
+    "schemaVersion": 1
+  },
+  "exitCode": 1
+}

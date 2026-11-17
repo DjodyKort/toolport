@@ -18,8 +18,10 @@
         }
       ],
       "globalMode": true,
+      "held": [],
       "kept": 0,
       "outputRoot": "<WORLD>/home",
+      "paused": false,
       "plan": {
         "changes": [
           {
@@ -47,8 +49,20 @@
       "repo": "<WORLD>/skills-repo",
       "ruleCount": 0,
       "skillCount": 1,
+      "snapshot": {
+        "files": 1,
+        "hooks": 0,
+        "id": "<STAMP>"
+      },
       "syncedAt": "<TIME>",
-      "targetedClients": ["claude-code"]
+      "targetedClients": ["claude-code"],
+      "unattended": false,
+      "verify": {
+        "clean": true,
+        "matched": 1,
+        "mismatched": [],
+        "total": 1
+      }
     },
     "ok": true,
     "schemaVersion": 1

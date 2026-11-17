@@ -142,6 +142,7 @@ const APPLY: &str = r#"{"dry_run":false,"confirm":true}"#;
 const UNCONFIRMED: &str = r#"{"dry_run":false}"#;
 const CLAUDE: &str = r#"{"client_keys":["claude-code"]}"#;
 const CLAUDE_UNCONFIRMED: &str = r#"{"client_keys":["claude-code"],"dry_run":false}"#;
+const CLAUDE_UNATTENDED: &str = r#"{"client_keys":["claude-code"],"unattended":true}"#;
 const CLAUDE_APPLY: &str = r#"{"client_keys":["claude-code"],"dry_run":false,"confirm":true}"#;
 
 const AIDER: &str = r#"{"name":"plain","client_keys":["aider"],"dry_run":false,"confirm":true}"#;
@@ -997,12 +998,69 @@ const CASES: &[Case] = &[
             read("preview", "skills_sync", CLAUDE),
             refused("refused", "skills_sync", CLAUDE_UNCONFIRMED),
             write("apply", "skills_sync", CLAUDE_APPLY),
+            read("unattended", "skills_sync", CLAUDE_UNATTENDED),
+            setup("skills_auto_pause", "{}"),
+            read("unattended_paused", "skills_sync", CLAUDE_UNATTENDED),
+            fails(
+                "unattended_apply_held",
+                "invalid_arguments",
+                "skills_sync",
+                r#"{"unattended":true,"apply_held":true}"#,
+            ),
             fails(
                 "unknown_client",
                 "invalid_arguments",
                 "skills_sync",
                 r#"{"client_keys":["cursor"],"dry_run":false,"confirm":true}"#,
             ),
+        ],
+    ),
+    case(
+        "skills_undo",
+        &[
+            fails("none", "not_found", "skills_undo", "{}"),
+            setup("skills_sync", CLAUDE_APPLY),
+            read("preview", "skills_undo", "{}"),
+            refused("refused", "skills_undo", UNCONFIRMED),
+            write("apply", "skills_undo", APPLY),
+            fails("again", "not_found", "skills_undo", APPLY),
+        ],
+    ),
+    case(
+        "skills_verify",
+        &[
+            read("none", "skills_verify", "{}"),
+            setup("skills_sync", CLAUDE_APPLY),
+            read("synced", "skills_verify", "{}"),
+            fails(
+                "unknown_client",
+                "invalid_arguments",
+                "skills_verify",
+                r#"{"client_keys":["cursor"]}"#,
+            ),
+        ],
+    ),
+    case(
+        "skills_auto_status",
+        &[
+            read("running", "skills_auto_status", "{}"),
+            setup("skills_auto_pause", "{}"),
+            read("paused", "skills_auto_status", "{}"),
+        ],
+    ),
+    case(
+        "skills_auto_pause",
+        &[
+            write("pause", "skills_auto_pause", "{}"),
+            write("again", "skills_auto_pause", "{}"),
+        ],
+    ),
+    case(
+        "skills_auto_resume",
+        &[
+            write("not_paused", "skills_auto_resume", "{}"),
+            setup("skills_auto_pause", "{}"),
+            write("resume", "skills_auto_resume", "{}"),
         ],
     ),
     case(
